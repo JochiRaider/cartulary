@@ -9,6 +9,13 @@ export const bodyStyle = {
   color: "var(--ct-colors-ink-muted)",
 };
 
+export const timelineGridBodyStyle = {
+  margin: 0,
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
+};
+
 export const timelineGridShellStyle = {
   ...workbookSurfaceGridShellStyle,
 } satisfies CSSProperties;

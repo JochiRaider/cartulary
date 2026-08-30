@@ -96,7 +96,16 @@ export type InspectorConfig = {
   readonly featureGroups: readonly InspectorFeatureGroup[];
 };
 
+export type ViewCreateInputContract = {
+  readonly inputKey: string;
+  readonly nullable: boolean;
+  readonly required: boolean;
+  readonly valueContractId: string;
+};
+
 export type ViewContract = {
+  readonly createCapable: boolean;
+  readonly createInputs: readonly ViewCreateInputContract[];
   readonly viewSchemaId: string;
   readonly title: string;
   readonly surfaceKind: string;

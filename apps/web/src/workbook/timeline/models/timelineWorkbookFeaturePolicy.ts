@@ -8,6 +8,7 @@ import {
   type IndicatorInspectorHandler,
   resolveIndicatorInspectorHandler,
 } from "../../features/indicators/indicatorInspectorHandlers";
+import { resolveSemanticInspectorFeature } from "../../inspector/semanticInspectorDispatcher";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 
 type TimelineWorkbookFeatureResolution =
@@ -17,6 +18,10 @@ type TimelineWorkbookFeatureResolution =
     }
   | {
       readonly kind: "create_related";
+      readonly featureGroup: InspectorFeatureGroup;
+    }
+  | {
+      readonly kind: "panel_owned";
       readonly featureGroup: InspectorFeatureGroup;
     }
   | { readonly kind: "unsupported" };
@@ -56,16 +61,14 @@ export function resolveTimelineWorkbookFeature(
   if (viewSchemaId !== timelineViewSchemaId) {
     return unsupportedTimelineWorkbookFeature;
   }
-  const canonicalFeatureGroup =
-    timelineContract.inspectorConfig.featureGroups.find(
-      (candidate) => candidate.featureGroupKey === featureGroup.featureGroupKey,
-    );
-  if (
-    canonicalFeatureGroup === undefined ||
-    !hasSameSemanticBinding(featureGroup, canonicalFeatureGroup)
-  ) {
+  const semanticResolution = resolveSemanticInspectorFeature(
+    timelineContract.inspectorConfig,
+    featureGroup,
+  );
+  if (semanticResolution.kind === "unsupported") {
     return unsupportedTimelineWorkbookFeature;
   }
+  const canonicalFeatureGroup = semanticResolution.featureGroup;
 
   const indicatorHandler = resolveIndicatorInspectorHandler(
     timelineViewSchemaId,
@@ -83,31 +86,13 @@ export function resolveTimelineWorkbookFeature(
       canonicalFeatureGroup.routeBinding.targetViewSchemaId,
     )
   ) {
-    return unsupportedTimelineWorkbookFeature;
+    return {
+      kind: "panel_owned",
+      featureGroup: canonicalFeatureGroup,
+    };
   }
   return {
     kind: "create_related",
     featureGroup: canonicalFeatureGroup,
   };
-}
-
-function hasSameSemanticBinding(
-  actual: InspectorFeatureGroup,
-  canonical: InspectorFeatureGroup,
-): boolean {
-  return (
-    actual.featureGroupKey === canonical.featureGroupKey &&
-    actual.panelId === canonical.panelId &&
-    actual.minimumIncidentRole === canonical.minimumIncidentRole &&
-    actual.mutates === canonical.mutates &&
-    actual.requiresConfirmation === canonical.requiresConfirmation &&
-    actual.successResultBehavior === canonical.successResultBehavior &&
-    actual.failureResultBehavior === canonical.failureResultBehavior &&
-    JSON.stringify(actual.routeBinding) ===
-      JSON.stringify(canonical.routeBinding) &&
-    JSON.stringify(actual.seedBindings) ===
-      JSON.stringify(canonical.seedBindings) &&
-    JSON.stringify(actual.disabledWhen) ===
-      JSON.stringify(canonical.disabledWhen)
-  );
 }

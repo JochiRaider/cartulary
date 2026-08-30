@@ -17839,6 +17839,9 @@
               "null"
             ]
           },
+          "create_writable": {
+            "type": "boolean"
+          },
           "default_hidden": {
             "type": "boolean"
           },
@@ -17934,6 +17937,7 @@
           "read_kind",
           "write_kind",
           "grid_editable",
+          "create_writable",
           "conflict_resolution_class",
           "entity_binding_mode",
           "string_contract_id",
@@ -18106,6 +18110,9 @@
       "ViewSchemaResource": {
         "additionalProperties": false,
         "properties": {
+          "create_capable": {
+            "type": "boolean"
+          },
           "create_inputs": {
             "items": {
               "$ref": "#/components/schemas/CreateInputDescriptor"
@@ -18224,6 +18231,7 @@
           "filter_fields",
           "synthetic_filter_predicates",
           "grouping_fields",
+          "create_capable",
           "create_inputs",
           "inline_create",
           "inspector_config",

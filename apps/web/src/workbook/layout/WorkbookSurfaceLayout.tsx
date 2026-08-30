@@ -1,3 +1,4 @@
+import { workbookLayoutMetrics } from "@cartulary/ui-contracts";
 import type {
   CSSProperties,
   KeyboardEvent,
@@ -11,9 +12,6 @@ import { WorkbookShellSlotRegion } from "../components/WorkbookShellSlots";
 import { statusStripStyle } from "../utils/workbookStyles";
 import type { WorkbookChromeMode } from "./workbookResponsiveLayout";
 
-const inspectorDefaultWidthCssPx = 420;
-const inspectorMinWidthCssPx = 360;
-const inspectorMaxWidthCssPx = 560;
 const inspectorKeyboardStepCssPx = 16;
 
 export function WorkbookSurfaceLayout({
@@ -46,8 +44,11 @@ export function WorkbookSurfaceLayout({
   const inspectorOpen = inspector !== undefined;
   const inspectorIsAdjacent = chromeMode === "base";
   const backgroundIsInert = inspectorOpen && !inspectorIsAdjacent;
+  const layoutMetrics = workbookLayoutMetrics(
+    window.visualViewport?.width ?? window.innerWidth,
+  );
   const [inspectorWidth, setInspectorWidth] = useState(
-    inspectorDefaultWidthCssPx,
+    layoutMetrics.inspectorDefaultWidthCssPx,
   );
   const pointerResizeRef = useRef<{
     readonly startClientX: number;
@@ -76,17 +77,26 @@ export function WorkbookSurfaceLayout({
   }, [inspectorOpen]);
 
   const clampInspectorWidth = (width: number) =>
-    Math.min(inspectorMaxWidthCssPx, Math.max(inspectorMinWidthCssPx, width));
+    Math.min(
+      layoutMetrics.inspectorEffectiveMaxWidthCssPx,
+      Math.max(layoutMetrics.inspectorMinWidthCssPx, width),
+    );
+  const effectiveInspectorWidth = clampInspectorWidth(inspectorWidth);
+  useLayoutEffect(() => {
+    if (inspectorWidth !== effectiveInspectorWidth) {
+      setInspectorWidth(effectiveInspectorWidth);
+    }
+  }, [effectiveInspectorWidth, inspectorWidth]);
   const resizeInspectorFromKeyboard = (event: KeyboardEvent<HTMLElement>) => {
     let nextWidth: number | null = null;
     if (event.key === "ArrowLeft") {
-      nextWidth = inspectorWidth + inspectorKeyboardStepCssPx;
+      nextWidth = effectiveInspectorWidth + inspectorKeyboardStepCssPx;
     } else if (event.key === "ArrowRight") {
-      nextWidth = inspectorWidth - inspectorKeyboardStepCssPx;
+      nextWidth = effectiveInspectorWidth - inspectorKeyboardStepCssPx;
     } else if (event.key === "Home") {
-      nextWidth = inspectorMinWidthCssPx;
+      nextWidth = layoutMetrics.inspectorMinWidthCssPx;
     } else if (event.key === "End") {
-      nextWidth = inspectorMaxWidthCssPx;
+      nextWidth = layoutMetrics.inspectorEffectiveMaxWidthCssPx;
     }
     if (nextWidth === null) return;
     event.preventDefault();
@@ -95,7 +105,7 @@ export function WorkbookSurfaceLayout({
   const beginPointerResize: PointerEventHandler<HTMLElement> = (event) => {
     pointerResizeRef.current = {
       startClientX: event.clientX,
-      startWidth: inspectorWidth,
+      startWidth: effectiveInspectorWidth,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -132,7 +142,7 @@ export function WorkbookSurfaceLayout({
     ...workbookSurfaceWorkAreaStyle,
     gridTemplateColumns:
       inspectorOpen && inspectorIsAdjacent
-        ? `minmax(0, 1fr) ${inspectorWidth}px`
+        ? `minmax(0, 1fr) ${effectiveInspectorWidth}px`
         : "minmax(0, 1fr)",
   } satisfies CSSProperties;
   const inspectorSlotStyle = {
@@ -141,9 +151,9 @@ export function WorkbookSurfaceLayout({
       ? {
           position: "relative" as const,
           gridArea: "1 / 2",
-          inlineSize: `${inspectorWidth}px`,
-          minInlineSize: `${inspectorMinWidthCssPx}px`,
-          maxInlineSize: `${inspectorMaxWidthCssPx}px`,
+          inlineSize: `${effectiveInspectorWidth}px`,
+          minInlineSize: `${layoutMetrics.inspectorMinWidthCssPx}px`,
+          maxInlineSize: `${layoutMetrics.inspectorEffectiveMaxWidthCssPx}px`,
           boxShadow: "none",
         }
       : chromeMode === "narrow_desktop"
@@ -206,10 +216,10 @@ export function WorkbookSurfaceLayout({
               <hr
                 aria-label="Resize inspector"
                 aria-orientation="vertical"
-                aria-valuemax={inspectorMaxWidthCssPx}
-                aria-valuemin={inspectorMinWidthCssPx}
-                aria-valuenow={inspectorWidth}
-                aria-valuetext={`${inspectorWidth} pixels`}
+                aria-valuemax={layoutMetrics.inspectorEffectiveMaxWidthCssPx}
+                aria-valuemin={layoutMetrics.inspectorMinWidthCssPx}
+                aria-valuenow={effectiveInspectorWidth}
+                aria-valuetext={`${effectiveInspectorWidth} pixels`}
                 style={workbookSurfaceInspectorSeparatorStyle}
                 tabIndex={0}
                 onKeyDown={resizeInspectorFromKeyboard}

@@ -6,7 +6,8 @@
   color: var(--ct-colors-ink);
   flex: 1 1 auto;
   font-family: var(--ct-typography-grid-fontFamily);
-  font-size: var(--ct-density-default-fontSize);
+  font-size: var(--cartulary-grid-font-size);
+  line-height: var(--cartulary-grid-line-height);
   min-block-size: 176px;
   min-inline-size: 0;
 }
@@ -31,19 +32,49 @@
 
 .cartulary-grid-cell-content {
   block-size: 100%;
+  box-sizing: border-box;
   display: block;
+  font-size: var(--cartulary-grid-font-size);
   inline-size: 100%;
+  line-height: var(--cartulary-grid-line-height);
   min-block-size: 0;
   min-inline-size: 0;
+  padding: var(--cartulary-grid-cell-padding);
   position: relative;
 }
 
 .cartulary-grid-cell-content[data-grid-editing="true"] {
   background: var(--ct-colors-surface-1);
+  padding: 0;
 }
 
-.cartulary-grid-data-cell {
+.cartulary-grid-cell-content[data-grid-editing="true"]
+  > [data-grid-editor-kind] {
+  block-size: 100%;
+  border: 0;
+  box-sizing: border-box;
+  inline-size: 100%;
+  margin: 0;
+  min-block-size: 0;
+  min-inline-size: 0;
   padding: 0;
+}
+
+.cartulary-grid-data-cell,
+.cartulary-grid-draft-cell,
+.cartulary-grid-actions-cell {
+  padding: 0;
+}
+
+.cartulary-grid .cartulary-grid-header-cell,
+.cartulary-grid .cartulary-grid-selection-cell,
+.cartulary-grid .cartulary-grid-gutter-cell {
+  font-size: var(--cartulary-grid-font-size);
+  line-height: var(--cartulary-grid-line-height);
+  padding-block-end: var(--cartulary-grid-cell-padding-block) !important;
+  padding-block-start: var(--cartulary-grid-cell-padding-block) !important;
+  padding-inline-end: var(--cartulary-grid-cell-padding-inline) !important;
+  padding-inline-start: var(--cartulary-grid-cell-padding-inline) !important;
 }
 
 .cartulary-grid-cell-center {

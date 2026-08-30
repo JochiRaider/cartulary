@@ -68,7 +68,11 @@ export {
   cartularyDefaultThemeId,
   cartularyDesignThemeCssText,
   cartularyDesignTokenVars,
+  type WorkbookGridDensityMetrics,
+  type WorkbookLayoutMetrics,
+  workbookGridDensityMetrics,
   workbookGridRowHeightPx,
+  workbookLayoutMetrics,
 } from "./designTokens";
 export {
   assessmentCreateControlTestId,

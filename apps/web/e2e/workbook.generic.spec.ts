@@ -44,7 +44,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   });
 
   await openGenericSurface(page, incidentId, partiesViewSchemaId, "Parties");
-  await expectGenericCreateMinimum(page, partiesViewSchemaId, "Display name");
+  await expectGenericCreateMinimum(page, partiesViewSchemaId, "Display Name");
   await setGenericCreateField(page, "party.display_name", "Browser Party");
   await setGenericCreateField(page, "party.party_kind", "organization");
   await page
@@ -72,7 +72,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await expect(
     page.getByTestId(gridShellTestId(notesViewSchemaId)),
   ).toBeVisible();
-  await expectGenericCreateMinimum(page, notesViewSchemaId, "Title or body");
+  await expectGenericCreateMinimum(page, notesViewSchemaId, "Title or Body");
   await setGenericCreateField(page, "note.title", "Browser note");
   await setGenericCreateField(
     page,
@@ -114,7 +114,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await expectGenericCreateMinimum(
     page,
     decisionsViewSchemaId,
-    "Summary, decision type",
+    "Summary and Decision Type",
   );
   await setGenericCreateField(page, "decision.summary", "Browser decision");
   await setGenericCreateField(page, "decision.decision_type", "containment");
@@ -302,7 +302,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   ).toHaveText("Updated browser comm log");
 
   await openGenericSurface(page, incidentId, handoffViewSchemaId, "Handoff");
-  await expectGenericCreateMinimum(page, handoffViewSchemaId, "current state");
+  await expectGenericCreateMinimum(page, handoffViewSchemaId, "Current State");
   await setGenericCreateField(
     page,
     "handoff.current_state_summary",
@@ -355,7 +355,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await expectGenericCreateMinimum(
     page,
     statusReviewViewSchemaId,
-    "Current state",
+    "Current State",
   );
   await setGenericCreateField(
     page,

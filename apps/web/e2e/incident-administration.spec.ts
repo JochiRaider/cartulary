@@ -30,6 +30,7 @@ import {
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineScalarEditorTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
@@ -262,8 +263,15 @@ async function readTimelineSummaryGeometry(page: Page, recordId: string) {
       const controlElement = control as HTMLElement;
       const cellElement =
         controlElement.closest<HTMLElement>('[role="gridcell"]');
+      const contentElement = controlElement.closest<HTMLElement>(
+        ".cartulary-grid-cell-content",
+      );
       const gridElement = controlElement.closest<HTMLElement>('[role="grid"]');
-      if (cellElement === null || gridElement === null) {
+      if (
+        cellElement === null ||
+        contentElement === null ||
+        gridElement === null
+      ) {
         throw new Error("Timeline summary editor is not inside a gridcell");
       }
       const rectFor = (element: HTMLElement) => {
@@ -277,16 +285,64 @@ async function readTimelineSummaryGeometry(page: Page, recordId: string) {
       };
       const gridStyle = window.getComputedStyle(gridElement);
       const controlStyle = window.getComputedStyle(controlElement);
+      const contentStyle = window.getComputedStyle(contentElement);
+      const headerStyle = window.getComputedStyle(
+        gridElement.querySelector<HTMLElement>('[role="columnheader"]') ??
+          contentElement,
+      );
+      const gutterStyle = window.getComputedStyle(
+        gridElement.querySelector<HTMLElement>('[role="rowheader"]') ??
+          contentElement,
+      );
       return {
         cell: rectFor(cellElement),
+        content: rectFor(contentElement),
         control: rectFor(controlElement),
         density: gridStyle.getPropertyValue("--cartulary-grid-density").trim(),
         fontSize: controlStyle.fontSize,
+        gutterFontSize: gutterStyle.fontSize,
+        gutterLineHeight: gutterStyle.lineHeight,
+        gutterPadding: gutterStyle.padding,
         hasEditableControl:
           cellElement.querySelector(
             "input, textarea, select, [contenteditable='true']",
           ) !== null,
+        headerFontSize: headerStyle.fontSize,
+        headerLineHeight: headerStyle.lineHeight,
+        headerPadding: headerStyle.padding,
         lineHeight: controlStyle.lineHeight,
+        padding: contentStyle.padding,
+      };
+    });
+}
+
+async function readTimelineEditorGeometry(page: Page, recordId: string) {
+  return page
+    .getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId,
+        surface: "grid",
+      }),
+    )
+    .evaluate((control) => {
+      const controlElement = control as HTMLElement;
+      const cellElement =
+        controlElement.closest<HTMLElement>('[role="gridcell"]');
+      if (cellElement === null) {
+        throw new Error("Timeline editor is not inside a gridcell");
+      }
+      const controlRect = controlElement.getBoundingClientRect();
+      const cellRect = cellElement.getBoundingClientRect();
+      const style = window.getComputedStyle(controlElement);
+      return {
+        cellBlockSize: cellRect.height,
+        cellInlineSize: cellRect.width,
+        controlBlockSize: controlRect.height,
+        controlInlineSize: controlRect.width,
+        fontSize: style.fontSize,
+        lineHeight: style.lineHeight,
+        padding: style.padding,
       };
     });
 }
@@ -412,10 +468,36 @@ test("updates workbook density from Account Settings while the workbook remains 
     );
     expect(compactGeometry.cell.blockSize).toBeGreaterThanOrEqual(23);
     expect(compactGeometry.cell.blockSize).toBeLessThanOrEqual(26);
-    expect(compactGeometry.fontSize).toBe("13px");
-    expectNear(Number.parseFloat(compactGeometry.lineHeight), 19.5);
+    expect(comfortableGeometry.fontSize).toBe("14px");
+    expectNear(Number.parseFloat(comfortableGeometry.lineHeight), 18.9);
+    expect(comfortableGeometry.padding).toBe("5px 9px");
+    expect(compactGeometry.fontSize).toBe("12px");
+    expectNear(Number.parseFloat(compactGeometry.lineHeight), 14.4);
+    expect(compactGeometry.padding).toBe("2px 5px");
+    expect(compactGeometry.headerFontSize).toBe("12px");
+    expectNear(Number.parseFloat(compactGeometry.headerLineHeight), 14.4);
+    expect(compactGeometry.headerPadding).toBe("2px 5px");
+    expect(compactGeometry.gutterFontSize).toBe("12px");
+    expectNear(Number.parseFloat(compactGeometry.gutterLineHeight), 14.4);
+    expect(compactGeometry.gutterPadding).toBe("2px 5px");
     expect(comfortableGeometry.hasEditableControl).toBe(false);
     expect(compactGeometry.hasEditableControl).toBe(false);
+
+    await page
+      .getByTestId(
+        rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+      )
+      .dblclick();
+    const editorGeometry = await readTimelineEditorGeometry(
+      page,
+      row.record_id,
+    );
+    expectNear(editorGeometry.controlBlockSize, editorGeometry.cellBlockSize);
+    expectNear(editorGeometry.controlInlineSize, editorGeometry.cellInlineSize);
+    expect(editorGeometry.fontSize).toBe("12px");
+    expectNear(Number.parseFloat(editorGeometry.lineHeight), 14.4);
+    expect(editorGeometry.padding).toBe("2px 5px");
+    await page.keyboard.press("Escape");
   } finally {
     await putAccountDensityPreference(page, originalPreferences.density_mode);
   }

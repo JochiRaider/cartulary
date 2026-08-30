@@ -42,6 +42,7 @@ import {
   useState,
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
+import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import {
@@ -62,7 +63,10 @@ import {
 import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericPartyLinkWorkflow";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
+import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -82,6 +86,7 @@ import {
   initialGenericCreateDraft,
   partyLinkPairsForContract,
   selectWorkbookEditTarget,
+  workbookCreationAvailable,
 } from "../models/genericWorkbookModel";
 import {
   workbookContractColumns,
@@ -118,6 +123,7 @@ export type ContractWorkbookSurfaceProps = {
   readonly contract: ViewContract;
   readonly continuityResetKey: string;
   readonly currentUserId: string | null;
+  readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentPort: WorkbookIncidentPort;
   readonly inspectorResetKey: string;
   readonly queryControls?: ReactNode | undefined;
@@ -140,6 +146,7 @@ export type ContractWorkbookSurfaceProps = {
 export function ContractWorkbookSurface({
   contract,
   continuityResetKey,
+  currentIncidentRole,
   currentUserId,
   incidentPort,
   inspectorResetKey,
@@ -189,10 +196,16 @@ export function ContractWorkbookSurface({
     null,
   );
   const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
-  const writableFields = useMemo(
+  const editableFields = useMemo(
     () => contract.fields.filter((field) => field.writeKind !== "read_only"),
     [contract],
   );
+  const createFields = useMemo(
+    () => contract.fields.filter((field) => field.createWritable),
+    [contract],
+  );
+  const canCreateRows =
+    interactionMode.kind === "editable" && workbookCreationAvailable(contract);
   const [createDraft, setCreateDraft] = useState<Record<string, string>>(() =>
     initialGenericCreateDraft(contract, currentUserId),
   );
@@ -298,14 +311,14 @@ export function ContractWorkbookSurface({
   });
 
   const submitCreate = useCallback(async () => {
-    if (interactionMode.kind === "read_only") return;
+    if (!canCreateRows) return;
     if (
       !mutationCommands.generic.canCreateRecord({
         contract,
         draft: createDraft,
       })
     ) {
-      setValidationError(genericCreateMinimumMessage(contract.viewSchemaId));
+      setValidationError(genericCreateMinimumMessage(contract));
       return;
     }
     beginMutation();
@@ -328,10 +341,10 @@ export function ContractWorkbookSurface({
     beginMutation,
     completeGenericMutation,
     contract,
+    canCreateRows,
     createDraft,
     currentUserId,
     isNotesSurface,
-    interactionMode.kind,
     linkedNoteSourceRecordId,
     mutationCommands,
     rejectMutationFailure,
@@ -447,8 +460,8 @@ export function ContractWorkbookSurface({
     const gridFieldKeys = new Set(
       visibleAnchorColumns.map((column) => column.fieldKey),
     );
-    return writableFields.filter((field) => !gridFieldKeys.has(field.fieldKey));
-  }, [visibleAnchorColumns, writableFields]);
+    return createFields.filter((field) => !gridFieldKeys.has(field.fieldKey));
+  }, [createFields, visibleAnchorColumns]);
   const draftApiRow = useMemo<WorkbookQueryRow>(
     () => ({
       record_id: draftRowRecordId,
@@ -474,7 +487,7 @@ export function ContractWorkbookSurface({
   );
   const gridDraftRow = useMemo<GridDraftRow<WorkbookQueryRow> | undefined>(
     () =>
-      writableFields.length === 0
+      !canCreateRows
         ? undefined
         : {
             kind: "draft",
@@ -483,7 +496,7 @@ export function ContractWorkbookSurface({
             gutterLabel: "Draft row",
             testId: workbookInlineDraftRowTestId(surface),
           },
-    [draftApiRow, surface, writableFields.length],
+    [canCreateRows, draftApiRow, surface],
   );
   const grouping =
     useMemo<GridGroupingDescriptor<WorkbookQueryRow> | null>(() => {
@@ -603,7 +616,7 @@ export function ContractWorkbookSurface({
             : undefined,
         renderDraftCell: () => {
           const writableField =
-            writableFields.find(
+            createFields.find(
               (candidate) => candidate.fieldKey === column.fieldKey,
             ) ?? null;
           if (writableField === null) {
@@ -660,7 +673,7 @@ export function ContractWorkbookSurface({
   const rowActionsColumn = useMemo<
     GridActionsColumn<WorkbookQueryRow> | undefined
   >(() => {
-    if (!ownerRecordActions.hasRecordActions && writableFields.length === 0) {
+    if (!ownerRecordActions.hasRecordActions && !canCreateRows) {
       return undefined;
     }
     return {
@@ -695,12 +708,12 @@ export function ContractWorkbookSurface({
     ownerRecordActions,
     surface,
     submitCreate,
-    writableFields.length,
+    canCreateRows,
   ]);
   const { row: selectedEditRow, field: selectedEditField } =
     selectWorkbookEditTarget({
       fieldKey: editFieldKey,
-      fields: writableFields,
+      fields: editableFields,
       getRecordId: (row: WorkbookQueryRow) => row.record_id,
       recordId: editRecordId,
       rows,
@@ -709,18 +722,117 @@ export function ContractWorkbookSurface({
     selectedEditRow !== null && selectedEditField !== null
       ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
       : [];
-  const genericInspectorDisabledTokens = useMemo(
-    () =>
-      new Set<InspectorDisabledToken>(
-        selectedEditRow === null ? ["no_row_selected"] : [],
-      ),
-    [selectedEditRow],
+  const createRelatedWorkflow = useInspectorCreateRelatedWorkflow({
+    currentUserId,
+    mutationCommands: mutationCommands.timeline.related,
+    onCreated: refreshReferenceOptions,
+    onMessage: (message) => {
+      if (message === null) clearMutationError();
+      else setValidationError(message);
+    },
+    selectedSubject:
+      inspectorSubjectRow === null
+        ? null
+        : {
+            cells: inspectorSubjectRow.cells,
+            recordId: inspectorSubjectRow.record_id,
+            rowVersion: inspectorSubjectRow.row_version,
+          },
+  });
+  const genericInspectorDisabledTokens = useMemo(() => {
+    const tokens = new Set<InspectorDisabledToken>();
+    if (selectedEditRow === null) tokens.add("no_row_selected");
+    else tokens.add("record_not_deleted");
+    tokens.add("rollback_target_unavailable");
+    tokens.add("pivot_target_unavailable");
+    if (interactionMode.kind === "read_only") tokens.add("incident_closed");
+    return tokens;
+  }, [interactionMode.kind, selectedEditRow]);
+  const executeInspectorRecordLifecycle = useCallback(
+    async (featureGroup: InspectorFeatureGroup): Promise<boolean> => {
+      if (
+        featureGroup.routeBinding.kind !== "record_action" ||
+        featureGroup.routeBinding.owner !== "record_delete_route"
+      ) {
+        return false;
+      }
+      if (inspectorSubjectRow === null) {
+        setValidationError("Select a saved row before running this action.");
+        return true;
+      }
+      beginMutation();
+      const outcome = await mutationCommands.records.execute({
+        action: "delete",
+        baseRowVersion: inspectorSubjectRow.row_version,
+        reason: `Deleted from the ${contract.title} inspector`,
+        recordId: inspectorSubjectRow.record_id,
+      });
+      if (outcome.kind === "rejected") {
+        rejectMutationFailure(outcome.failure);
+        return true;
+      }
+      setEditRecordId("");
+      inspector.commands.completeAction();
+      await completeGenericMutation();
+      return true;
+    },
+    [
+      beginMutation,
+      completeGenericMutation,
+      contract.title,
+      inspector.commands,
+      inspectorSubjectRow,
+      mutationCommands.records,
+      rejectMutationFailure,
+      setValidationError,
+    ],
   );
-  const supportsIndicatorFeature = useCallback(
-    (featureGroup: InspectorFeatureGroup) =>
-      resolveIndicatorInspectorHandler(contract.viewSchemaId, featureGroup) !==
-      null,
-    [contract.viewSchemaId],
+  const handleInspectorFeatureAction = useCallback(
+    (featureGroup: InspectorFeatureGroup) => {
+      const indicatorHandler = resolveIndicatorInspectorHandler(
+        contract.viewSchemaId,
+        featureGroup,
+      );
+      setIndicatorInspectorHandler(indicatorHandler);
+      if (indicatorHandler !== null) return;
+      if (createRelatedWorkflow.commands.begin(featureGroup)) return;
+      if (featureGroup.routeBinding.kind === "record_action") {
+        void executeInspectorRecordLifecycle(featureGroup).then((handled) => {
+          if (!handled) {
+            setValidationError(
+              `${featureGroup.label}: use the owner controls in this inspector section.`,
+            );
+          }
+        });
+        return;
+      }
+      if (featureGroup.routeBinding.kind === "record_patch") {
+        if (inspectorSubjectRow !== null) {
+          setEditRecordId(inspectorSubjectRow.record_id);
+        }
+        const actionField = contract.fields.find(
+          (field) => field.writeAction === featureGroup.routeBinding.actionKey,
+        );
+        if (actionField !== undefined) {
+          setEditFieldKey(actionField.fieldKey);
+        }
+        setValidationError(
+          `${featureGroup.label}: the selected row edit controls are ready below.`,
+        );
+        return;
+      }
+      setValidationError(
+        `${featureGroup.label}: use the owner controls in this inspector section.`,
+      );
+    },
+    [
+      contract.viewSchemaId,
+      contract.fields,
+      createRelatedWorkflow.commands,
+      executeInspectorRecordLifecycle,
+      inspectorSubjectRow,
+      setValidationError,
+    ],
   );
 
   useEffect(() => {
@@ -822,8 +934,8 @@ export function ContractWorkbookSurface({
   });
 
   const focusDraftRow = useCallback(() => {
-    const firstWritableField = writableFields[0];
-    if (!firstWritableField || interactionMode.kind === "read_only") {
+    const firstWritableField = createFields[0];
+    if (!firstWritableField || !canCreateRows) {
       return;
     }
     window.setTimeout(() => {
@@ -835,12 +947,11 @@ export function ContractWorkbookSurface({
         )
         ?.focus({ preventScroll: true });
     }, 0);
-  }, [interactionMode.kind, writableFields]);
+  }, [canCreateRows, createFields]);
   const dataState = workbookGridDataState({
-    emptyAction:
-      writableFields.length > 0 && interactionMode.kind === "editable"
-        ? { label: "Add row", onInvoke: focusDraftRow }
-        : undefined,
+    emptyAction: canCreateRows
+      ? { label: "Add row", onInvoke: focusDraftRow }
+      : undefined,
     emptyMessage: `No ${contract.title.toLocaleLowerCase()} records are available.`,
     loadState,
     onClearFilters,
@@ -876,18 +987,13 @@ export function ContractWorkbookSurface({
             {inspectorConfig.panels.map((panel) => (
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
+                currentIncidentRole={currentIncidentRole}
                 disabledTokens={genericInspectorDisabledTokens}
-                isFeatureActionSupported={supportsIndicatorFeature}
                 key={panel.panelId}
                 panelId={panel.panelId}
-                onFeatureAction={(featureGroup) => {
-                  setIndicatorInspectorHandler(
-                    resolveIndicatorInspectorHandler(
-                      contract.viewSchemaId,
-                      featureGroup,
-                    ),
-                  );
-                }}
+                subjectRecordId={selectedEditRow?.record_id ?? null}
+                subjectRowVersion={selectedEditRow?.row_version ?? null}
+                onFeatureAction={handleInspectorFeatureAction}
               >
                 {indicatorInspectorHandler?.panelId === panel.panelId &&
                 selectedEditRow !== null ? (
@@ -899,6 +1005,41 @@ export function ContractWorkbookSurface({
                     onMutationCommitted={onRefresh}
                   />
                 ) : null}
+                {createRelatedWorkflow.snapshot.workflow?.featureGroup
+                  .panelId === panel.panelId ? (
+                  <InspectorCreateRelatedWorkflow
+                    referenceOptions={referenceOptions}
+                    state={createRelatedWorkflow.snapshot.workflow}
+                    onCancel={createRelatedWorkflow.commands.cancel}
+                    onSubmit={() => {
+                      void createRelatedWorkflow.commands.submit();
+                    }}
+                    onUpdateDraft={createRelatedWorkflow.commands.updateDraft}
+                  />
+                ) : null}
+                {panel.panelId === "history" ? (
+                  <WorkbookInspectorRecordHistory
+                    canMutate={
+                      interactionMode.kind === "editable" &&
+                      currentIncidentRole !== null &&
+                      currentIncidentRole !== "viewer"
+                    }
+                    commands={mutationCommands.records}
+                    subject={
+                      inspectorSubjectRow === null
+                        ? null
+                        : {
+                            recordId: inspectorSubjectRow.record_id,
+                            rowVersion: inspectorSubjectRow.row_version,
+                          }
+                    }
+                    onMessage={setValidationError}
+                    onRefresh={onRefresh}
+                  />
+                ) : null}
+                {panel.panelId === "evidence" && inspectorSubjectRow !== null
+                  ? ownerRecordActions.renderRecordActions(inspectorSubjectRow)
+                  : null}
               </WorkbookInspectorPanelSection>
             ))}
             {isNotesSurface ? (
@@ -926,7 +1067,9 @@ export function ContractWorkbookSurface({
               </label>
             ) : null}
 
-            {showWorkflowPanel && draftInspectorFields.length > 0 ? (
+            {showWorkflowPanel &&
+            canCreateRows &&
+            draftInspectorFields.length > 0 ? (
               <div style={genericDraftInspectorFieldsStyle}>
                 {draftInspectorFields.map((field) => {
                   const controlId = `generic-create-inspector-${field.fieldKey}`;
@@ -957,7 +1100,7 @@ export function ContractWorkbookSurface({
               </div>
             ) : null}
 
-            {showWorkflowPanel ? (
+            {showWorkflowPanel && canCreateRows ? (
               <button
                 data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
                 disabled={mutationState === "Syncing"}
@@ -1003,7 +1146,7 @@ export function ContractWorkbookSurface({
                   }}
                 >
                   <option value="">Field</option>
-                  {writableFields.map((field) => (
+                  {editableFields.map((field) => (
                     <option key={field.fieldKey} value={field.fieldKey}>
                       {field.label}
                     </option>
@@ -1267,9 +1410,7 @@ export function ContractWorkbookSurface({
       }
       viewBar={
         <WorkbookViewBar
-          addRowDisabled={
-            writableFields.length === 0 || interactionMode.kind === "read_only"
-          }
+          addRowDisabled={!canCreateRows}
           queryControls={queryControls}
           savedViewControls={savedViewSelector}
           onAddRow={focusDraftRow}

@@ -2428,6 +2428,7 @@ export interface ViewSchemaEnvelope {
  * via the `definition` "ViewSchemaResource".
  */
 export interface ViewSchemaResource {
+  create_capable: boolean;
   create_inputs: CreateInputDescriptor[];
   default_sort: SortEntry[];
   fields: ViewFieldEntry[];
@@ -2465,6 +2466,7 @@ export interface CreateInputDescriptor {
 export interface ViewFieldEntry {
   clearable: boolean;
   conflict_resolution_class: string | null;
+  create_writable: boolean;
   default_hidden: boolean;
   direct_reference_contract_id: string | null;
   direct_scalar_contract_id: string | null;

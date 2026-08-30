@@ -2034,7 +2034,7 @@ test("coordination workbook workflows stay native", async ({
     .click();
   await expect(
     page.getByTestId(genericWorkbookTestId("mutation-error")),
-  ).toContainText("Incoming owner");
+  ).toContainText("Incoming Owner");
   await setGenericCreateField(
     page,
     "handoff.incoming_owner_user_id",

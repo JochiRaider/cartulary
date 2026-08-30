@@ -10,6 +10,8 @@ function deepFreeze<Value>(value: Value): Value {
 
 const value = [
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -54,7 +56,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -75,7 +77,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -96,7 +98,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -117,7 +119,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -138,7 +140,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -159,7 +161,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -180,7 +182,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -201,7 +203,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -222,7 +224,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -243,7 +245,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -264,7 +266,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -285,7 +287,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -306,7 +308,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -330,7 +332,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1256,6 +1258,8 @@ const value = [
     "viewSchemaId": "cartulary.view.timeline.v2"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -1291,7 +1295,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1312,7 +1316,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1375,7 +1379,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1483,7 +1487,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1507,7 +1511,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1531,7 +1535,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1555,7 +1559,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -1579,7 +1583,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2086,6 +2090,8 @@ const value = [
     "viewSchemaId": "cartulary.view.hosts.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -2121,7 +2127,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2184,7 +2190,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2205,7 +2211,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2226,7 +2232,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2247,7 +2253,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2355,7 +2361,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2379,7 +2385,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2403,7 +2409,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2915,6 +2921,15 @@ const value = [
     "viewSchemaId": "cartulary.view.identities.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [
+      {
+        "inputKey": "evidence.initial_object_blob_id",
+        "nullable": false,
+        "required": false,
+        "valueContractId": "object_blob_id_v1"
+      }
+    ],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -2948,7 +2963,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -2969,7 +2984,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -3000,7 +3015,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -3024,7 +3039,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -3048,7 +3063,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -3096,7 +3111,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -3120,7 +3135,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": "same_incident_party_ref_v1",
         "directScalarContractId": null,
@@ -3141,7 +3156,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -3165,7 +3180,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": "same_incident_party_ref_v1",
         "directScalarContractId": null,
@@ -3765,6 +3780,8 @@ const value = [
     "viewSchemaId": "cartulary.view.evidence.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -3791,7 +3808,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -3812,7 +3829,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -3833,7 +3850,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -4283,7 +4300,14 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.notes.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "note.title"
+      ],
+      [
+        "note.body"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -4332,6 +4356,8 @@ const value = [
     "viewSchemaId": "cartulary.view.notes.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version"
@@ -5006,6 +5032,8 @@ const value = [
     "viewSchemaId": "cartulary.view.indicators.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -5563,7 +5591,14 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.assessments.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "assessment.subject_ref",
+        "assessment.subject_type",
+        "assessment.assessment_state",
+        "assessment.rationale"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -5592,6 +5627,8 @@ const value = [
     "viewSchemaId": "cartulary.view.assessments.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -5630,7 +5667,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5651,7 +5688,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5681,7 +5718,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": "incident_member_user_ref_v1",
         "directScalarContractId": null,
@@ -5705,7 +5742,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5734,7 +5771,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5764,7 +5801,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5788,7 +5825,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -5812,7 +5849,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5836,7 +5873,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": "same_incident_party_ref_v1",
         "directScalarContractId": null,
@@ -5857,7 +5894,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5881,7 +5918,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -5905,7 +5942,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5929,7 +5966,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5950,7 +5987,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -5971,7 +6008,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": "same_incident_decision_ref_v1",
         "directScalarContractId": null,
@@ -6445,7 +6482,12 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.task_requests.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "task.title",
+        "task.task_kind"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -6479,6 +6521,8 @@ const value = [
     "viewSchemaId": "cartulary.view.task_requests.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -6511,7 +6555,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -6532,7 +6576,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -6562,7 +6606,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": "incident_member_user_ref_v1",
         "directScalarContractId": null,
@@ -6586,7 +6630,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -6616,7 +6660,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -6640,7 +6684,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -6661,7 +6705,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -6682,7 +6726,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7133,7 +7177,13 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.decisions.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "decision.summary",
+        "decision.decision_type",
+        "decision.rationale"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -7163,6 +7213,8 @@ const value = [
     "viewSchemaId": "cartulary.view.decisions.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -7192,7 +7244,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7216,7 +7268,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7246,7 +7298,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7270,7 +7322,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7291,7 +7343,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7315,7 +7367,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7336,7 +7388,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7360,7 +7412,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7702,7 +7754,12 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.parties.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "party.display_name",
+        "party.party_kind"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -7730,6 +7787,8 @@ const value = [
     "viewSchemaId": "cartulary.view.parties.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -7765,7 +7824,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -7786,7 +7845,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7816,7 +7875,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7840,7 +7899,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7864,7 +7923,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7885,7 +7944,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -7906,7 +7965,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7930,7 +7989,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7951,7 +8010,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7972,7 +8031,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -7993,7 +8052,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -8431,7 +8490,14 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.comm_log.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "comm_log.comm_type",
+        "comm_log.audience",
+        "comm_log.channel_or_meeting",
+        "comm_log.summary"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -8461,6 +8527,8 @@ const value = [
     "viewSchemaId": "cartulary.view.comm_log.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -8494,7 +8562,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -8515,7 +8583,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": "incident_member_user_ref_v1",
         "directScalarContractId": null,
@@ -8539,7 +8607,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": "incident_member_user_ref_v1",
         "directScalarContractId": null,
@@ -8563,7 +8631,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -8584,7 +8652,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -8605,7 +8673,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -8626,7 +8694,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -8647,7 +8715,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -8668,7 +8736,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -9096,7 +9164,12 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.handoff.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "handoff.incoming_owner_user_id",
+        "handoff.current_state_summary"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -9125,6 +9198,8 @@ const value = [
     "viewSchemaId": "cartulary.view.handoff.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -9157,7 +9232,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -9178,7 +9253,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": "incident_member_user_ref_v1",
         "directScalarContractId": null,
@@ -9202,7 +9277,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9223,7 +9298,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9244,7 +9319,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9265,7 +9340,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9286,7 +9361,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9307,7 +9382,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -9748,7 +9823,11 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.status_review.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "status_review.current_state_summary"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -9776,6 +9855,8 @@ const value = [
     "viewSchemaId": "cartulary.view.status_review.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -9805,7 +9886,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": "timestamp_instant_v1",
@@ -9826,7 +9907,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9847,7 +9928,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": "incident_member_user_ref_v1",
         "directScalarContractId": null,
@@ -9871,7 +9952,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9898,7 +9979,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -9919,7 +10000,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -10308,7 +10389,11 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.lesson.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "lesson.summary"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -10334,6 +10419,8 @@ const value = [
     "viewSchemaId": "cartulary.view.lesson.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -10364,7 +10451,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -10385,7 +10472,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -10412,7 +10499,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -10439,7 +10526,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": "incident_member_user_ref_v1",
         "directScalarContractId": null,
@@ -10463,7 +10550,7 @@ const value = [
       {
         "clearable": true,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -10529,7 +10616,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -10550,7 +10637,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "collection_review",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": true,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -10956,7 +11043,11 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.findings.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "finding.statement"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -10984,6 +11075,8 @@ const value = [
     "viewSchemaId": "cartulary.view.findings.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -11011,7 +11104,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -11035,7 +11128,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -11059,7 +11152,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -11473,7 +11566,13 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.investigative_queries.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "investigative_query.platform",
+        "investigative_query.purpose",
+        "investigative_query.query_text"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [
@@ -11499,6 +11598,8 @@ const value = [
     "viewSchemaId": "cartulary.view.investigative_queries.v1"
   },
   {
+    "createCapable": true,
+    "createInputs": [],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -11526,7 +11627,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -11547,7 +11648,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "text_compare_merge",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -11568,7 +11669,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -11595,7 +11696,7 @@ const value = [
       {
         "clearable": false,
         "conflictResolutionClass": "atomic_replace",
-        "createWritable": false,
+        "createWritable": true,
         "defaultHidden": false,
         "directReferenceContractId": null,
         "directScalarContractId": null,
@@ -11964,7 +12065,12 @@ const value = [
       "unsupportedFeatureBehavior": "omit_feature",
       "viewSchemaId": "cartulary.view.forensic_keywords.v1"
     },
-    "minimumCreateFieldSets": [],
+    "minimumCreateFieldSets": [
+      [
+        "forensic_keyword.pattern",
+        "forensic_keyword.reason"
+      ]
+    ],
     "permitsZeroFieldCreate": false,
     "requiredReferencePackKeys": [],
     "sortFields": [

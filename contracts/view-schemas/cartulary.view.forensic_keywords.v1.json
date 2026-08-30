@@ -64,7 +64,12 @@
   "create_capable": true,
   "create_inputs": [],
   "inline_create": {
-    "minimum_create_field_sets": [],
+    "minimum_create_field_sets": [
+      [
+        "forensic_keyword.pattern",
+        "forensic_keyword.reason"
+      ]
+    ],
     "permits_zero_field_create": false
   },
   "inspector_config": {

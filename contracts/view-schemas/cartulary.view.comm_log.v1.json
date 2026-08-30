@@ -79,7 +79,14 @@
   "create_capable": true,
   "create_inputs": [],
   "inline_create": {
-    "minimum_create_field_sets": [],
+    "minimum_create_field_sets": [
+      [
+        "comm_log.comm_type",
+        "comm_log.audience",
+        "comm_log.channel_or_meeting",
+        "comm_log.summary"
+      ]
+    ],
     "permits_zero_field_create": false
   },
   "inspector_config": {

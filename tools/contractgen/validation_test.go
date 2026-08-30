@@ -384,6 +384,39 @@ func TestValidateViewSchemaRejectsMissingRequiredFields(t *testing.T) {
 	requireErrorContains(t, err, "inline_create must be an object")
 }
 
+func TestValidateViewSchemaRejectsInvalidCreateOnlyOverride(t *testing.T) {
+	t.Run("false override", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		field := schema["fields"].([]any)[0].(map[string]any)
+		field["create_writable"] = false
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "create-only override and may only be declared as true")
+	})
+
+	t.Run("ordinary writable field", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		field := schema["fields"].([]any)[0].(map[string]any)
+		field["create_writable"] = true
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "requires a create-only non-read-only field")
+	})
+
+	t.Run("read-only field", func(t *testing.T) {
+		schema := validViewSchema("cartulary.view.test.v1")
+		field := schema["fields"].([]any)[0].(map[string]any)
+		field["writable"] = false
+		field["write_kind"] = "read_only"
+		field["grid_editable"] = false
+		field["create_writable"] = true
+		delete(field, "write_target")
+
+		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+		requireErrorContains(t, err, "requires a create-only non-read-only field")
+	})
+}
+
 func TestValidateErrorRegistryRejectsDuplicateCodes(t *testing.T) {
 	registry := validErrorRegistry()
 	registry["errors"] = []any{

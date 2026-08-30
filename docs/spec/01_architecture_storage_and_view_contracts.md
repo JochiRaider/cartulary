@@ -4606,7 +4606,9 @@ For public discovery, `view_schema_resource_v2` MUST expose the semantic workboo
 - `filter_fields`,
 - `synthetic_filter_predicates`,
 - `grouping_fields`,
+- `create_capable`,
 - `create_inputs`,
+- `inline_create`,
 - `inspector_config`,
 - `fields`.
 
@@ -4622,8 +4624,14 @@ For `view_schema_resource_v2`:
 - `filter_fields` MUST contain only keys also present in `fields[].field_key`,
 - filter-only synthetic predicate keys MUST appear only in `synthetic_filter_predicates[]`,
 - `synthetic_filter_predicates[]` MUST use canonical ascending `field_key` order,
+- `create_capable` MUST be a boolean and is the authoritative surface-level
+  capability for row creation; clients MUST NOT infer it from writable fields,
+  create inputs, labels, or surface identity,
 - `create_inputs[]` MUST preserve declared order, MUST be `[]` when a view
   declares no create-only inputs, and MUST contain no duplicate `input_key`,
+- `inline_create` MUST expose the exact declared
+  `minimum_create_field_sets[]` and `permits_zero_field_create` policy for the
+  same `view_schema_id`,
 - `inspector_config` MUST be `inspector_config_v1` and MUST describe only semantic row-context inspector behavior for the same `view_schema_id`,
 - clients MUST ignore unknown additive response members they do not use.
 
@@ -4678,6 +4686,7 @@ Each `fields[]` entry MUST be `view_field_entry_v2` and MUST contain these requi
 - `read_kind`,
 - `write_kind`,
 - `grid_editable`,
+- `create_writable`,
 - `conflict_resolution_class`,
 - `entity_binding_mode`,
 - `string_contract_id`,
@@ -4696,9 +4705,23 @@ For `view_field_entry_v2`:
 - `read_kind` MUST use the closed vocabulary `text`, `number`, `boolean`, `timestamp`, `date`, `enum`, and `collection`,
 - `write_kind` MUST use the closed vocabulary `read_only`, `direct_value`, and `action_payload`,
 - `grid_editable` MUST be a boolean and MUST be `true` only when the field is an owner-permitted existing-row direct write; it MUST be `false` for read-only fields, action-payload fields, create-only direct values, append-only record fields, and any direct value whose owner has not adopted grid editing,
+- `create_writable` MUST be a boolean and MUST be `true` exactly when the field
+  is accepted as a field-keyed member of row creation. It is independent of
+  existing-row `grid_editable`: ordinary writable fields and create-only fields
+  may both be create-writable, while read-only and server-managed fields are
+  not. Clients MUST NOT infer create writeability from `write_kind`,
+  `grid_editable`, labels, or surface identity,
 - `conflict_resolution_class` MUST be `null` when `write_kind='read_only'` and otherwise MUST use the closed vocabulary defined by Core 03 §3.3.3,
 - `entity_binding_mode`, `string_contract_id`, `direct_scalar_contract_id`, and `direct_reference_contract_id` MUST be explicit `null` when not applicable,
 - `enum_values` MUST be an explicit ordered array of tokens when the field is governed by a closed vocabulary and `null` otherwise.
+
+In an authored view-schema source document, optional `create_writable` is a
+create-only override rather than the public total above. When present it MUST
+have the exact value `true`, the field MUST have `writable=false`, and its
+`write_kind` MUST NOT be `read_only`. Generation derives the required public
+boolean as `writable || create_writable`; authors MUST NOT repeat the override
+on ordinary writable fields or use `false` as a redundant declaration.
+
 Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-119, AC-120, AC-124, AC-125, AC-127, AC-231
 

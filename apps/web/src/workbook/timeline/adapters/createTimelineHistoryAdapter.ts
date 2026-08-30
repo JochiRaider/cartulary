@@ -4,11 +4,7 @@ import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../../mutations/workbookOperationOutcome";
-import type {
-  RecordHistoryData,
-  RecordHistoryItem,
-  RecordHistoryRollbackAction,
-} from "../models/timelineHistoryModel";
+import { normalizeRecordHistoryData } from "../models/timelineHistoryModel";
 import type {
   TimelineHistoryMutationAccepted,
   TimelineHistoryPort,
@@ -33,47 +29,6 @@ function retryable<T>(): WorkbookOperationOutcome<T> {
   };
 }
 
-const rollbackActionOrder = [
-  "history_entry",
-  "change_set",
-  "row_restore",
-] as const satisfies readonly RecordHistoryRollbackAction[];
-
-function validItemSelector(
-  item: RecordHistoryItem,
-  action: RecordHistoryRollbackAction,
-): boolean {
-  if (action === "history_entry") {
-    return (
-      typeof item.history_entry_ref === "string" &&
-      item.history_entry_ref !== ""
-    );
-  }
-  if (action === "change_set") return item.change_set_id !== "";
-  return Number.isInteger(item.revision_no) && (item.revision_no ?? 0) > 0;
-}
-
-function normalizeHistory(data: RecordHistoryData): RecordHistoryData | null {
-  const seen = new Set<string>();
-  for (const item of data.items) {
-    if (
-      item.history_item_ref.trim() === "" ||
-      item.change_set_id.trim() === "" ||
-      seen.has(item.history_item_ref)
-    ) {
-      return null;
-    }
-    seen.add(item.history_item_ref);
-    let previous = -1;
-    for (const action of item.available_rollback_actions) {
-      const index = rollbackActionOrder.indexOf(action);
-      if (index <= previous || !validItemSelector(item, action)) return null;
-      previous = index;
-    }
-  }
-  return data;
-}
-
 export function createTimelineHistoryAdapter(options: {
   readonly apiBase: string | undefined;
 }): TimelineHistoryPort {
@@ -92,7 +47,7 @@ export function createTimelineHistoryAdapter(options: {
             ? invalidContract()
             : outcome;
         }
-        const data = normalizeHistory(outcome.value.data);
+        const data = normalizeRecordHistoryData(outcome.value.data);
         return data === null || data.record_id !== recordId
           ? invalidContract()
           : { kind: "accepted", value: data };

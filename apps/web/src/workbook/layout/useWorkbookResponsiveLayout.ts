@@ -11,13 +11,13 @@ type WorkbookResponsiveLayout = {
   readonly chromeMode: WorkbookChromeMode;
 };
 
-function currentViewportSize(): {
+export function currentWorkbookViewportSize(): {
   readonly height: number;
   readonly width: number;
 } {
   const viewport = window.visualViewport;
   if (!viewport) {
-    return { height: 720, width: 1280 };
+    return { height: window.innerHeight, width: window.innerWidth };
   }
   return {
     height: viewport.height,
@@ -37,13 +37,13 @@ function selectWorkbookResponsiveLayout(
 
 export function useWorkbookResponsiveLayout(): WorkbookResponsiveLayout {
   const [layout, setLayout] = useState<WorkbookResponsiveLayout>(() => {
-    const viewport = currentViewportSize();
+    const viewport = currentWorkbookViewportSize();
     return selectWorkbookResponsiveLayout(viewport.width, viewport.height);
   });
 
   useEffect(() => {
     const updateLayout = () => {
-      const viewport = currentViewportSize();
+      const viewport = currentWorkbookViewportSize();
       setLayout(
         selectWorkbookResponsiveLayout(viewport.width, viewport.height),
       );

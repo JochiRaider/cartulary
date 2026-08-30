@@ -23,6 +23,7 @@ import {
   partyLinkPairsForContract,
   selectWorkbookEditTarget,
   workbookCreateMinimumSatisfied,
+  workbookCreationAvailable,
 } from "./genericWorkbookModel";
 import { workbookGridRows } from "./workbookContractRows";
 import {
@@ -33,6 +34,7 @@ import {
   forensicKeywordsViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
+  indicatorsViewSchemaId,
   notesViewSchemaId,
   partiesViewSchemaId,
 } from "./workbookSurfaceRegistry";
@@ -102,6 +104,13 @@ describe("genericWorkbookModel", () => {
     expect(
       buildGenericCreatePayload(evidence, {}, "txn-evidence-missing"),
     ).toBeNull();
+    expect(
+      buildGenericCreatePayload(
+        evidence,
+        { "evidence.collector_party_id": "party-1" },
+        "txn-evidence-reference-only",
+      ),
+    ).toBeNull();
     expect(normalizeGenericTextValue(" Endpoint package ")).toBe(
       "Endpoint package",
     );
@@ -121,6 +130,54 @@ describe("genericWorkbookModel", () => {
       "evidence.requested_at": "2026-04-24T12:00:00Z",
       "evidence.collector_party_id": null,
     });
+    expect(
+      buildGenericCreatePayload(
+        evidence,
+        {
+          "evidence.title": "Endpoint package",
+          "evidence.initial_object_blob_id":
+            "00000000-0000-4000-8000-000000003001",
+        },
+        "txn-evidence-finalized-blob",
+      ),
+    ).toMatchObject({
+      client_txn_id: "txn-evidence-finalized-blob",
+      "evidence.title": "Endpoint package",
+      "evidence.initial_object_blob_id": "00000000-0000-4000-8000-000000003001",
+    });
+  });
+
+  it("keeps indicator identity readiness in the owner-specific validator", () => {
+    const indicators = requireViewContract(indicatorsViewSchemaId);
+
+    expect(
+      buildGenericCreatePayload(
+        indicators,
+        {
+          "indicator.indicator_type": "ipv4_addr",
+          "indicator.value_kind": "atomic",
+          "indicator.display_value": "203.0.113.7",
+        },
+        "txn-indicator-create",
+      ),
+    ).toEqual({
+      client_txn_id: "txn-indicator-create",
+      "indicator.indicator_type": "ipv4_addr",
+      "indicator.value_kind": "atomic",
+      "indicator.display_value": "203.0.113.7",
+    });
+    expect(
+      buildGenericCreatePayload(
+        indicators,
+        {
+          "indicator.indicator_type": "file_hash",
+          "indicator.value_kind": "hash",
+          "indicator.display_value": "digest",
+          "indicator.hash_algorithm": "sha256",
+        },
+        "txn-indicator-incomplete-hash",
+      ),
+    ).toBeNull();
   });
 
   it("builds typed direct and collection patch changes", () => {
@@ -298,20 +355,21 @@ describe("genericWorkbookModel", () => {
       "forensic_keyword.match_mode": "literal",
     });
     expect(
-      workbookCreateMinimumSatisfied(notesViewSchemaId, {
+      workbookCreateMinimumSatisfied(requireViewContract(notesViewSchemaId), {
         "note.body": "body",
       }),
     ).toBe(true);
     expect(
-      workbookCreateMinimumSatisfied(notesViewSchemaId, {
+      workbookCreateMinimumSatisfied(requireViewContract(notesViewSchemaId), {
         "note.body": "",
       }),
     ).toBe(false);
-    expect(() =>
-      workbookCreateMinimumSatisfied("cartulary.view.unknown.v1", {
-        "unknown.field": "value",
+    expect(
+      workbookCreationAvailable({
+        ...requireViewContract(notesViewSchemaId),
+        createCapable: false,
       }),
-    ).toThrow("Unknown workbook surface registration");
+    ).toBe(false);
   });
 
   it("keeps display labels, widths, and minimum messages contract-driven", () => {
@@ -343,12 +401,12 @@ describe("genericWorkbookModel", () => {
         { item_ref: "item-1" },
       ]),
     ).toEqual(["raw", "record-1", "item-1"]);
-    expect(genericCreateMinimumMessage(evidenceViewSchemaId)).toBe(
-      "Evidence needs a title, storage ref, collector, or source.",
+    expect(genericCreateMinimumMessage(evidence)).toBe(
+      "Evidence needs at least one user-entered evidence value or a finalized attachment.",
     );
-    expect(() =>
-      genericCreateMinimumMessage("cartulary.view.unknown.v1"),
-    ).toThrow("Unknown workbook surface registration");
+    expect(genericCreateMinimumMessage(notes)).toBe(
+      "One of Title or Body is required.",
+    );
     expect(genericContractColumnWidth(requireField(notes, "note.body"))).toBe(
       320,
     );

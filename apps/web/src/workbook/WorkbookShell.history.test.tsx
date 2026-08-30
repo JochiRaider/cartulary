@@ -45,8 +45,8 @@ import {
   workbookAsyncTimeoutMs,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { buildRecordRollbackTargetFromHistoryAction } from "./timeline/hooks/useTimelineHistoryActions";
 import type { RecordHistoryItem } from "./timeline/models/timelineHistoryModel";
+import { buildRecordRollbackTargetFromHistoryAction } from "./timeline/models/timelineHistoryModel";
 
 vi.mock(
   "@cartulary/grid-adapter",

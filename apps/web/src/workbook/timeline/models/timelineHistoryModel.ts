@@ -29,6 +29,49 @@ export type RecordHistoryData = {
   items: RecordHistoryItem[];
 };
 
+const rollbackActionOrder = [
+  "history_entry",
+  "change_set",
+  "row_restore",
+] as const satisfies readonly RecordHistoryRollbackAction[];
+
+export function normalizeRecordHistoryData(
+  data: RecordHistoryData,
+): RecordHistoryData | null {
+  const seen = new Set<string>();
+  for (const item of data.items) {
+    if (
+      item.history_item_ref.trim() === "" ||
+      item.change_set_id.trim() === "" ||
+      seen.has(item.history_item_ref)
+    ) {
+      return null;
+    }
+    seen.add(item.history_item_ref);
+    let previous = -1;
+    for (const action of item.available_rollback_actions) {
+      const index = rollbackActionOrder.indexOf(action);
+      if (index <= previous || !validItemSelector(item, action)) return null;
+      previous = index;
+    }
+  }
+  return data;
+}
+
+function validItemSelector(
+  item: RecordHistoryItem,
+  action: RecordHistoryRollbackAction,
+): boolean {
+  if (action === "history_entry") {
+    return (
+      typeof item.history_entry_ref === "string" &&
+      item.history_entry_ref !== ""
+    );
+  }
+  if (action === "change_set") return item.change_set_id !== "";
+  return Number.isInteger(item.revision_no) && (item.revision_no ?? 0) > 0;
+}
+
 export type RecordHistoryState = {
   recordId: string | null;
   status: "idle" | "loading" | "ready" | "error";
@@ -51,6 +94,34 @@ export type RowHistoryPendingAction =
       recordId: string;
       rowVersion: number | null;
     };
+
+export function buildRecordRollbackTargetFromHistoryAction(
+  item: RecordHistoryItem,
+  action: RecordHistoryRollbackAction,
+): Record<string, unknown> | null {
+  if (!item.available_rollback_actions.includes(action)) {
+    return null;
+  }
+  if (action === "history_entry") {
+    return typeof item.history_entry_ref === "string" &&
+      item.history_entry_ref.trim() !== ""
+      ? { kind: "history_entry", history_entry_ref: item.history_entry_ref }
+      : null;
+  }
+  if (action === "change_set") {
+    return typeof item.change_set_id === "string" &&
+      item.change_set_id.trim() !== ""
+      ? { kind: "change_set", change_set_id: item.change_set_id }
+      : null;
+  }
+  return isPositiveInteger(item.revision_no)
+    ? { kind: "row_restore", restore_to_revision_no: item.revision_no }
+    : null;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
 
 export type TimelineInspectorHistorySubject =
   | {

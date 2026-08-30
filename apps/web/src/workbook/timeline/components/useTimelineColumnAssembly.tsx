@@ -220,7 +220,7 @@ const timelineTimestampCellStyle = {
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
   wordBreak: "normal" as const,
-  lineHeight: "var(--ct-typography-grid-cell-lineHeight)",
+  lineHeight: "inherit",
   color: "var(--ct-colors-ink-muted)",
 };
 

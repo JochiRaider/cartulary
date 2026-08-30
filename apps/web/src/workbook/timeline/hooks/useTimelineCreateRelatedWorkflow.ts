@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   genericCreateMinimumMessage,
   initialGenericCreateDraft,
+  workbookCreationAvailable,
 } from "../../models/genericWorkbookModel";
 import { evidenceViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type {
@@ -124,6 +125,10 @@ export function useTimelineCreateRelatedWorkflow({
         setInspectorMessage("Inspector action is unavailable.");
         return;
       }
+      if (!workbookCreationAvailable(targetContract)) {
+        setInspectorMessage("The target view does not allow row creation.");
+        return;
+      }
       if (
         selectedRow?.recordId === null ||
         selectedRow?.recordId === undefined
@@ -199,9 +204,7 @@ export function useTimelineCreateRelatedWorkflow({
         isSubmitting: false,
         message:
           createResult.failure.kind === "validation"
-            ? genericCreateMinimumMessage(
-                activeWorkflow.targetContract.viewSchemaId,
-              )
+            ? genericCreateMinimumMessage(activeWorkflow.targetContract)
             : createResult.failure.message,
       });
       return;

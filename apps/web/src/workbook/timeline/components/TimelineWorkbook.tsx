@@ -17,6 +17,7 @@ function TimelineWorkbookContent({
   const presentation = useTimelineWorkbookPresentation({
     composition: composition.presentation,
     runtime: {
+      currentIncidentRole: runtime.incident.currentRole,
       entities: {
         hosts: runtime.entities.hosts,
         identities: runtime.entities.identities,

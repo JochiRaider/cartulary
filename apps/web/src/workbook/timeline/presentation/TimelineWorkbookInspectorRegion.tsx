@@ -15,6 +15,8 @@ export function TimelineWorkbookInspectorRegion({
     <TimelineWorkbookInspector
       canManageMentions={model.canManageMentions}
       currentHistoryDeleted={model.currentHistoryDeleted}
+      currentIncidentRole={model.currentIncidentRole}
+      incidentClosed={model.incidentClosed}
       entityIndex={model.entityIndex}
       getRelationshipLabel={model.getRelationshipLabel}
       hostEntities={model.hostEntities}
@@ -22,7 +24,6 @@ export function TimelineWorkbookInspectorRegion({
       inspectorConfig={model.inspectorConfig}
       inspectorMessage={model.inspectorMessage}
       inspectorMentions={model.inspectorMentions}
-      isFeatureActionSupported={model.supportsFeature}
       onClose={model.onClose}
       onCreateEntityFromMention={model.onCreateEntityFromMention}
       onFeatureAction={model.onFeatureAction}
@@ -50,6 +51,7 @@ export function TimelineWorkbookInspectorRegion({
       renderRowHistorySection={model.renderRowHistorySection}
       renderWorkflowSection={() => model.renderWorkflowSection()}
       rowHistoryRecordId={model.rowHistoryRecordId}
+      rowHistoryRowVersion={model.rowHistoryRowVersion}
       selectedMention={model.selectedMention}
       selectedResolveTargetId={model.selectedResolveTargetId}
       selectedRow={model.selectedRow}

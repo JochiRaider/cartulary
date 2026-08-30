@@ -33,7 +33,10 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
-import { requireViewContract } from "@cartulary/view-contracts";
+import {
+  type InspectorFeatureGroup,
+  requireViewContract,
+} from "@cartulary/view-contracts";
 import { MoreHorizontal, X } from "lucide-react";
 import {
   type ReactNode,
@@ -56,7 +59,10 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { useEntityMergeController } from "../features/entities/useEntityMergeController";
 import { useEntityTimelinePreview } from "../hooks/useEntityTimelinePreview";
+import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -77,6 +83,7 @@ import {
   genericRowLabel,
   initialGenericCreateDraft,
   selectWorkbookEditTarget,
+  workbookCreationAvailable,
 } from "../models/genericWorkbookModel";
 import {
   workbookContractColumns,
@@ -97,7 +104,11 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import type { EntityMutationCommandPort } from "../mutations/workbookMutationCommandPorts";
+import type {
+  EntityMutationCommandPort,
+  RecordRouteCommandPort,
+  TimelineRelatedRecordPort,
+} from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
@@ -131,11 +142,14 @@ export type EntityWorkbookSurfaceProps = {
   queryState: WorkbookQueryState;
   rows: EntityRow[];
   currentIncidentRole: WorkbookIncidentRole | null;
+  currentUserId: string | null;
   entityIndex: Record<string, EntityRow>;
   onRefreshEntities: () => Promise<void>;
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   mutationCommands: EntityMutationCommandPort;
+  recordMutationCommands: RecordRouteCommandPort;
+  relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
   viewQuery: WorkbookViewQueryPort;
@@ -192,11 +206,14 @@ export function EntityWorkbookSurface({
   queryState,
   onSortChange,
   currentIncidentRole,
+  currentUserId,
   entityIndex,
   onRefreshEntities,
   loadState,
   mutationRuntime,
   mutationCommands,
+  recordMutationCommands,
+  relatedMutationCommands,
   collaborationProjection,
   onClearFilters,
   viewQuery,
@@ -253,13 +270,16 @@ export function EntityWorkbookSurface({
 
   const selectedEntity =
     rows.find((row) => row.recordId === selectedRecordId) ?? null;
-  const entityInspectorDisabledTokens = useMemo(
-    () =>
-      new Set<InspectorDisabledToken>(
-        selectedEntity === null ? ["no_row_selected"] : [],
-      ),
-    [selectedEntity],
-  );
+  const entityInspectorDisabledTokens = useMemo(() => {
+    const tokens = new Set<InspectorDisabledToken>();
+    if (selectedEntity === null) tokens.add("no_row_selected");
+    else tokens.add("record_not_deleted");
+    tokens.add("rollback_target_unavailable");
+    tokens.add("pivot_target_unavailable");
+    if (rows.length < 2) tokens.add("merge_target_unavailable");
+    if (interactionMode.kind === "read_only") tokens.add("incident_closed");
+    return tokens;
+  }, [interactionMode.kind, rows.length, selectedEntity]);
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const survivorLabel = selectedEntity?.label ?? "Select a record";
@@ -312,10 +332,12 @@ export function EntityWorkbookSurface({
   );
   const surface: string = contract.viewSchemaId;
   const draftRowRecordId = `${surface}:draft-row`;
-  const writableFields = useMemo(
-    () => contract.fields.filter((field) => field.writeKind !== "read_only"),
+  const createFields = useMemo(
+    () => contract.fields.filter((field) => field.createWritable),
     [contract],
   );
+  const canCreateRows =
+    interactionMode.kind === "editable" && workbookCreationAvailable(contract);
   const editableEntityFields = useMemo(
     () => contract.fields.filter((field) => field.writeKind === "direct_value"),
     [contract],
@@ -324,6 +346,20 @@ export function EntityWorkbookSurface({
     () => emptyGenericReferenceOptions(),
     [],
   );
+  const createRelatedWorkflow = useInspectorCreateRelatedWorkflow({
+    currentUserId,
+    mutationCommands: relatedMutationCommands,
+    onCreated: onRefreshEntities,
+    onMessage: setEntityActionMessage,
+    selectedSubject:
+      selectedEntity === null
+        ? null
+        : {
+            cells: selectedEntity.rawRow.cells,
+            recordId: selectedEntity.recordId,
+            rowVersion: selectedEntity.rowVersion,
+          },
+  });
   const clearEntityMergeDrafts = useCallback(() => {
     setEditRecordId("");
     setEditFieldKey("");
@@ -399,7 +435,7 @@ export function EntityWorkbookSurface({
   );
   const entityDraftRow = useMemo<GridDraftRow<EntityRow> | undefined>(
     () =>
-      writableFields.length === 0
+      !canCreateRows
         ? undefined
         : {
             kind: "draft",
@@ -408,7 +444,7 @@ export function EntityWorkbookSurface({
             gutterLabel: "Draft row",
             testId: workbookInlineDraftRowTestId(surface),
           },
-    [draftEntityRow, surface, writableFields.length],
+    [canCreateRows, draftEntityRow, surface],
   );
   const grouping = useMemo<GridGroupingDescriptor<EntityRow> | null>(() => {
     const fieldKey = queryState.groupBy;
@@ -435,8 +471,8 @@ export function EntityWorkbookSurface({
   });
   continuityPortRef.current = entityFocus.port;
   const focusEntityDraft = useCallback(() => {
-    const firstWritableField = writableFields[0];
-    if (!firstWritableField || interactionMode.kind === "read_only") return;
+    const firstWritableField = createFields[0];
+    if (!firstWritableField || !canCreateRows) return;
     window.setTimeout(() => {
       document
         .querySelector<HTMLElement>(
@@ -446,12 +482,11 @@ export function EntityWorkbookSurface({
         )
         ?.focus({ preventScroll: true });
     }, 0);
-  }, [interactionMode.kind, writableFields]);
+  }, [canCreateRows, createFields]);
   const dataState = workbookGridDataState({
-    emptyAction:
-      writableFields.length > 0 && interactionMode.kind === "editable"
-        ? { label: "Add row", onInvoke: focusEntityDraft }
-        : undefined,
+    emptyAction: canCreateRows
+      ? { label: "Add row", onInvoke: focusEntityDraft }
+      : undefined,
     emptyMessage: `No ${entityType === "host" ? "hosts" : "identities"} have been added.`,
     loadState,
     onClearFilters,
@@ -603,6 +638,12 @@ export function EntityWorkbookSurface({
         );
         return;
       }
+      if (!canCreateRows) {
+        setMutationError(
+          "Row creation is unavailable in the current view mode.",
+        );
+        return;
+      }
       setEntityActionMessage(null);
       const result = await mutationCommands.pasteCreate({
         clipboardText,
@@ -625,6 +666,7 @@ export function EntityWorkbookSurface({
     },
     [
       commitGridEdit,
+      canCreateRows,
       contract.viewSchemaId,
       entityType,
       grouping,
@@ -679,7 +721,7 @@ export function EntityWorkbookSurface({
             : undefined,
         renderDraftCell: () => {
           const writableField =
-            writableFields.find(
+            createFields.find(
               (candidate) => candidate.fieldKey === column.fieldKey,
             ) ?? null;
           if (writableField === null) {
@@ -927,9 +969,9 @@ export function EntityWorkbookSurface({
   }
 
   async function submitEntityCreate() {
-    if (interactionMode.kind === "read_only") return;
+    if (!canCreateRows) return;
     if (!mutationCommands.canCreateRecord({ contract, draft: createDraft })) {
-      setMutationError(genericCreateMinimumMessage(contract.viewSchemaId));
+      setMutationError(genericCreateMinimumMessage(contract));
       return;
     }
     setMutationState("Syncing");
@@ -949,6 +991,44 @@ export function EntityWorkbookSurface({
       await onRefreshEntities();
       setSelectedRecordId(result.value.row.record_id);
       setMutationState("Saved");
+    } finally {
+      finishMutation();
+    }
+  }
+
+  async function executeEntityRecordLifecycle(
+    featureGroup: InspectorFeatureGroup,
+  ): Promise<boolean> {
+    if (
+      featureGroup.routeBinding.kind !== "record_action" ||
+      featureGroup.routeBinding.owner !== "record_delete_route"
+    ) {
+      return false;
+    }
+    if (selectedEntity === null) {
+      setEntityActionMessage("Select a saved row before running this action.");
+      return true;
+    }
+    const finishMutation = mutationRuntime.beginExplicitMutation();
+    try {
+      setMutationState("Syncing");
+      setMutationError(null);
+      const outcome = await recordMutationCommands.execute({
+        action: "delete",
+        baseRowVersion: selectedEntity.rowVersion,
+        reason: `Deleted from the ${contract.title} inspector`,
+        recordId: selectedEntity.recordId,
+      });
+      if (outcome.kind === "rejected") {
+        setMutationState("Conflict");
+        setMutationError(outcome.failure.message);
+        return true;
+      }
+      setSelectedRecordId(null);
+      inspector.commands.completeAction();
+      await onRefreshEntities();
+      setMutationState("Saved");
+      return true;
     } finally {
       finishMutation();
     }
@@ -994,10 +1074,85 @@ export function EntityWorkbookSurface({
             {inspectorConfig.panels.map((panel) => (
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
+                currentIncidentRole={currentIncidentRole}
                 disabledTokens={entityInspectorDisabledTokens}
                 key={panel.panelId}
                 panelId={panel.panelId}
-              />
+                subjectRecordId={selectedEntity?.recordId ?? null}
+                subjectRowVersion={selectedEntity?.rowVersion ?? null}
+                onFeatureAction={(featureGroup) => {
+                  if (createRelatedWorkflow.commands.begin(featureGroup)) {
+                    return;
+                  }
+                  if (featureGroup.routeBinding.kind === "record_action") {
+                    void executeEntityRecordLifecycle(featureGroup).then(
+                      (handled) => {
+                        if (!handled) {
+                          setEntityActionMessage(
+                            `${featureGroup.label}: use the owner controls in this inspector section.`,
+                          );
+                        }
+                      },
+                    );
+                    return;
+                  }
+                  if (featureGroup.routeBinding.kind === "record_patch") {
+                    if (selectedEntity !== null) {
+                      setEditRecordId(selectedEntity.recordId);
+                    }
+                    const actionField = contract.fields.find(
+                      (field) =>
+                        field.writeAction ===
+                        featureGroup.routeBinding.actionKey,
+                    );
+                    if (actionField !== undefined) {
+                      setEditFieldKey(actionField.fieldKey);
+                    }
+                    setEntityActionMessage(
+                      `${featureGroup.label}: the selected row edit controls are ready below.`,
+                    );
+                    return;
+                  }
+                  setEntityActionMessage(
+                    featureGroup.featureGroupKey === "entity.merge"
+                      ? "Use the merge review controls below."
+                      : `${featureGroup.label}: use the owner controls in this inspector section.`,
+                  );
+                }}
+              >
+                {createRelatedWorkflow.snapshot.workflow?.featureGroup
+                  .panelId === panel.panelId ? (
+                  <InspectorCreateRelatedWorkflow
+                    referenceOptions={entityReferenceOptions}
+                    state={createRelatedWorkflow.snapshot.workflow}
+                    onCancel={createRelatedWorkflow.commands.cancel}
+                    onSubmit={() => {
+                      void createRelatedWorkflow.commands.submit();
+                    }}
+                    onUpdateDraft={createRelatedWorkflow.commands.updateDraft}
+                  />
+                ) : null}
+                {panel.panelId === "history" ? (
+                  <WorkbookInspectorRecordHistory
+                    canMutate={
+                      interactionMode.kind === "editable" &&
+                      currentIncidentRole !== null &&
+                      currentIncidentRole !== "viewer"
+                    }
+                    commands={recordMutationCommands}
+                    subject={
+                      selectedEntity === null
+                        ? null
+                        : {
+                            recordId: selectedEntity.recordId,
+                            rowVersion: selectedEntity.rowVersion,
+                          }
+                    }
+                    onMessage={setEntityActionMessage}
+                    onRefresh={onRefreshEntities}
+                  />
+                ) : null}
+              </WorkbookInspectorPanelSection>
             ))}
             {selectedEntity ? (
               <span
@@ -1423,9 +1578,7 @@ export function EntityWorkbookSurface({
       }
       viewBar={
         <WorkbookViewBar
-          addRowDisabled={
-            writableFields.length === 0 || interactionMode.kind === "read_only"
-          }
+          addRowDisabled={!canCreateRows}
           queryControls={queryControls}
           savedViewControls={savedViewSelector}
           onAddRow={focusEntityDraft}

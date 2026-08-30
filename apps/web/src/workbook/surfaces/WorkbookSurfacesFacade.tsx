@@ -223,12 +223,15 @@ export function WorkbookSurfacesFacade({
       <EntityWorkbookSurface
         continuityResetKey={continuityResetKey}
         currentIncidentRole={currentIncidentRole}
+        currentUserId={currentUserId}
         entityIndex={entityIndex}
         entityType={isHosts ? "host" : "identity"}
         inspectorResetKey={inspectorResetKey}
         layout={layout}
         mutationRuntime={mutationRuntime}
         mutationCommands={mutationCommands.entity}
+        recordMutationCommands={mutationCommands.records}
+        relatedMutationCommands={mutationCommands.timeline.related}
         collaborationProjection={collaborationProjection}
         loadState={entityLoadState}
         onRefreshEntities={loadEntities}
@@ -261,6 +264,7 @@ export function WorkbookSurfacesFacade({
       <AssessmentWorkbookSurface
         assessmentRows={assessmentRows}
         currentIncidentRole={currentIncidentRole}
+        currentUserId={currentUserId}
         continuityResetKey={continuityResetKey}
         hostRows={hostRows}
         identityRows={identityRows}
@@ -268,6 +272,8 @@ export function WorkbookSurfacesFacade({
         layout={layout}
         mutationRuntime={mutationRuntime}
         mutationCommands={mutationCommands.assessment}
+        recordMutationCommands={mutationCommands.records}
+        relatedMutationCommands={mutationCommands.timeline.related}
         collaborationProjection={collaborationProjection}
         loadState={assessmentLoadState}
         onRefreshAssessmentRows={loadAssessmentSurface}
@@ -292,6 +298,7 @@ export function WorkbookSurfacesFacade({
       key={activeContract.viewSchemaId}
       contract={activeContract}
       continuityResetKey={continuityResetKey}
+      currentIncidentRole={currentIncidentRole}
       currentUserId={currentUserId}
       incidentPort={incidentPort}
       inspectorResetKey={inspectorResetKey}

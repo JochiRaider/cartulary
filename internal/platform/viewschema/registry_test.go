@@ -385,6 +385,13 @@ func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 	if len(resource.Fields) == 0 {
 		t.Fatalf("%s must expose fields", resource.ViewSchemaID)
 	}
+	internalSchema, ok := Lookup(resource.ViewSchemaID)
+	if !ok {
+		t.Fatalf("%s missing internal schema", resource.ViewSchemaID)
+	}
+	if resource.CreateCapable != internalSchema.CreateCapable {
+		t.Fatalf("%s create_capable: got %v want %v", resource.ViewSchemaID, resource.CreateCapable, internalSchema.CreateCapable)
+	}
 	requireInspectorConfigShape(t, resource)
 
 	fieldKeys := make(map[string]struct{}, len(resource.Fields))
@@ -396,9 +403,16 @@ func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 			t.Fatalf("%s exposes duplicate field key %s", resource.ViewSchemaID, field.FieldKey)
 		}
 		fieldKeys[field.FieldKey] = struct{}{}
+		internalField, ok := LookupField(resource.ViewSchemaID, field.FieldKey)
+		if !ok {
+			t.Fatalf("%s missing internal field %s", resource.ViewSchemaID, field.FieldKey)
+		}
+		wantCreateWritable := internalField.Writable || internalField.CreateWritable
+		if field.CreateWritable != wantCreateWritable {
+			t.Fatalf("%s field %s create_writable: got %v want %v", resource.ViewSchemaID, field.FieldKey, field.CreateWritable, wantCreateWritable)
+		}
 		if field.GridEditable {
-			internalField, ok := LookupField(resource.ViewSchemaID, field.FieldKey)
-			if !ok || internalField.WriteKind != "direct_value" || !internalField.Writable {
+			if internalField.WriteKind != "direct_value" || !internalField.Writable {
 				t.Fatalf("%s exposes invalid grid-editable field %s", resource.ViewSchemaID, field.FieldKey)
 			}
 		}
@@ -713,7 +727,7 @@ func requireNoInternalMembers(t testing.TB, resource ViewSchemaResource) {
 	if err != nil {
 		t.Fatalf("marshal resource: %v", err)
 	}
-	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "create_capable", "create_writable", "writable"} {
+	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "writable"} {
 		if strings.Contains(string(payload), `"`+forbidden+`"`) {
 			t.Fatalf("%s public resource leaked %s: %s", resource.ViewSchemaID, forbidden, payload)
 		}

@@ -143,6 +143,9 @@
           "grid_editable": {
             "type": "boolean"
           },
+          "create_writable": {
+            "type": "boolean"
+          },
           "conflict_resolution_class": {
             "type": [
               "string",
@@ -197,6 +200,7 @@
           "read_kind",
           "write_kind",
           "grid_editable",
+          "create_writable",
           "conflict_resolution_class",
           "entity_binding_mode",
           "string_contract_id",
@@ -581,6 +585,9 @@
               "type": "string"
             }
           },
+          "create_capable": {
+            "type": "boolean"
+          },
           "create_inputs": {
             "type": "array",
             "items": {
@@ -632,6 +639,7 @@
           "filter_fields",
           "synthetic_filter_predicates",
           "grouping_fields",
+          "create_capable",
           "create_inputs",
           "inline_create",
           "inspector_config",

@@ -36,6 +36,10 @@ if (globalThis.IntersectionObserver === undefined) {
 }
 
 if (typeof window !== "undefined") {
+  Object.defineProperties(window, {
+    innerHeight: { configurable: true, value: 720, writable: true },
+    innerWidth: { configurable: true, value: 1280, writable: true },
+  });
   Object.defineProperty(window, "focus", {
     configurable: true,
     value: () => {},

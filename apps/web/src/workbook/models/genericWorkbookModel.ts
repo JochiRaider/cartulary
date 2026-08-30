@@ -1,4 +1,6 @@
 import {
+  evidenceViewSchemaId,
+  indicatorsViewSchemaId,
   requireViewContract,
   type ViewContract,
   type ViewFieldContract,
@@ -60,13 +62,14 @@ export function buildGenericCreatePayload(
   draft: Record<string, string>,
   clientTxnId: string,
 ): GenericCreatePayload | null {
-  if (!workbookCreateMinimumSatisfied(contract, draft)) {
+  if (
+    !workbookCreationAvailable(contract) ||
+    !workbookCreateMinimumSatisfied(contract, draft)
+  ) {
     return null;
   }
   const payload: GenericCreatePayload = { client_txn_id: clientTxnId };
-  const fields = contract.fields.filter(
-    (field) => field.writeKind !== "read_only",
-  );
+  const fields = contract.fields.filter((field) => field.createWritable);
   for (const field of fields) {
     const value = normalizeValue(draft[field.fieldKey] ?? "");
     if (field.writeKind === "action_payload") {
@@ -97,7 +100,17 @@ export function buildGenericCreatePayload(
     }
     payload[field.fieldKey] = payloadValue;
   }
-  return Object.keys(payload).length > 1 ? payload : null;
+  for (const input of contract.createInputs) {
+    const value = normalizeValue(draft[input.inputKey] ?? "");
+    if (value === "") {
+      if (input.required) return null;
+      continue;
+    }
+    payload[input.inputKey] = value;
+  }
+  return Object.keys(payload).length > 1 || contract.permitsZeroFieldCreate
+    ? payload
+    : null;
 }
 
 export function buildGenericPatchChange(
@@ -236,30 +249,56 @@ export function splitDraftValues(rawValue: string): string[] {
 }
 
 export function workbookCreateMinimumSatisfied(
-  contractOrViewSchemaId: ViewContract | string,
+  contract: ViewContract,
   draft: Record<string, string>,
 ): boolean {
   const has = (fieldKey: string) =>
     normalizeValue(draft[fieldKey] ?? "") !== "";
-  const contract =
-    typeof contractOrViewSchemaId === "string" ? null : contractOrViewSchemaId;
-  if (contract && contract.minimumCreateFieldSets.length > 0) {
+  if (!workbookCreationAvailable(contract)) {
+    return false;
+  }
+  if (
+    contract.createInputs.some(
+      (input) => input.required && !has(input.inputKey),
+    )
+  ) {
+    return false;
+  }
+  if (contract.minimumCreateFieldSets.length > 0) {
     return contract.minimumCreateFieldSets.some((fieldSet) =>
       fieldSet.every((fieldKey) => has(fieldKey)),
     );
   }
-  const viewSchemaId =
-    typeof contractOrViewSchemaId === "string"
-      ? contractOrViewSchemaId
-      : contractOrViewSchemaId.viewSchemaId;
-  const fieldSets =
-    requireWorkbookSurfaceRegistration(viewSchemaId).policy
-      .createMinimumFieldSets;
-  if (fieldSets.length === 0) {
-    return Object.values(draft).some((value) => normalizeValue(value) !== "");
+  if (contract.permitsZeroFieldCreate) {
+    return true;
   }
-  return fieldSets.some((fieldSet) =>
-    fieldSet.every((fieldKey) => has(fieldKey)),
+  if (contract.viewSchemaId === evidenceViewSchemaId) {
+    return contract.fields.some(
+      (field) =>
+        field.createWritable &&
+        field.fieldKey !== "evidence.collector_party_id" &&
+        field.fieldKey !== "evidence.source_party_id" &&
+        has(field.fieldKey),
+    );
+  }
+  if (contract.viewSchemaId === indicatorsViewSchemaId) {
+    const hasHashAlgorithm = has("indicator.hash_algorithm");
+    const hasHashValue = has("indicator.hash_value");
+    return (
+      has("indicator.indicator_type") &&
+      has("indicator.value_kind") &&
+      has("indicator.display_value") &&
+      hasHashAlgorithm === hasHashValue
+    );
+  }
+  return contract.createInputs.some((input) => has(input.inputKey));
+}
+
+export function workbookCreationAvailable(contract: ViewContract): boolean {
+  return (
+    contract.createCapable &&
+    (contract.fields.some((field) => field.createWritable) ||
+      contract.createInputs.length > 0)
   );
 }
 
@@ -272,8 +311,11 @@ export function initialGenericCreateDraft(
     contract.viewSchemaId,
   ).policy;
   Object.assign(draft, policy.createDefaults);
+  for (const input of contract.createInputs) {
+    draft[input.inputKey] ??= "";
+  }
   for (const field of contract.fields) {
-    if (field.writeKind === "read_only") {
+    if (!field.createWritable) {
       continue;
     }
     if (
@@ -373,9 +415,39 @@ export function collectionItemLabels(items: readonly unknown[]): string[] {
   });
 }
 
-export function genericCreateMinimumMessage(viewSchemaId: string): string {
-  return requireWorkbookSurfaceRegistration(viewSchemaId).policy
-    .createMinimumMessage;
+export function genericCreateMinimumMessage(contract: ViewContract): string {
+  if (contract.viewSchemaId === evidenceViewSchemaId) {
+    return "Evidence needs at least one user-entered evidence value or a finalized attachment.";
+  }
+  if (contract.viewSchemaId === indicatorsViewSchemaId) {
+    return "Indicator Type, Value Kind, and Display Value are required; Hash Algorithm and Hash Value must be supplied together.";
+  }
+  const alternatives = contract.minimumCreateFieldSets.map((fieldSet) =>
+    fieldSet
+      .map((fieldKey) => contract.fieldMap[fieldKey]?.label ?? fieldKey)
+      .join(" and "),
+  );
+  if (alternatives.length === 0) {
+    const requiredInputs = contract.createInputs
+      .filter((input) => input.required)
+      .map((input) => humanizeCreateInputKey(input.inputKey));
+    if (requiredInputs.length > 0) {
+      return `${requiredInputs.join(" and ")} is required.`;
+    }
+    return "Creation is not available for this view.";
+  }
+  return alternatives.length === 1
+    ? `${alternatives[0]} is required.`
+    : `One of ${alternatives.join(" or ")} is required.`;
+}
+
+function humanizeCreateInputKey(inputKey: string): string {
+  const localName = inputKey.split(".").at(-1) ?? inputKey;
+  return localName
+    .split("_")
+    .filter((part) => part !== "")
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
 }
 
 export function genericReferenceOptionsFromRows(

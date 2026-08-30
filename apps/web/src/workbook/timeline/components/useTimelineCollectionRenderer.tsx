@@ -345,7 +345,8 @@ const emptyRelationshipStyle = {
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
   color: "var(--ct-colors-ink-tertiary)",
-  fontSize: "0.78rem",
+  fontSize: "var(--cartulary-grid-font-size)",
+  lineHeight: "var(--cartulary-grid-line-height)",
 };
 
 const collectionCellStyle = {

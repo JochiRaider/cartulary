@@ -844,16 +844,34 @@
       "rationale": "Publish the closed descriptor for source-owner create-only inputs adopted by Core 01."
     },
     {
+      "fingerprint": "42e7d1891916b5ae40fd60b6c657653de5174a93e2184ad9f91d59857eb3864b",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Publish explicit field-level row-create capability so clients do not infer it from patch or grid-edit metadata."
+    },
+    {
+      "fingerprint": "e895e4d0f73855db9f2a2737bdecf0ec01f9778ceaa321fe192af0122d818c6a",
+      "classification": "breaking",
+      "owner_id": "platform.viewschema",
+      "rationale": "Require every public view field to declare its exact row-create capability; this intentionally closes the prior ambiguous response shape."
+    },
+    {
+      "fingerprint": "8b09434d0fca4a3eec143664cb8e3fcb7c4d6b62a7083b1d075dfa9277c95b15",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Publish the authoritative surface-level row-create capability adopted by Core 01."
+    },
+    {
       "fingerprint": "1fac88355a9251c301f6004ab4341592b5c5196603a8d5f8c91942b948c9e2f1",
       "classification": "additive",
       "owner_id": "platform.viewschema",
       "rationale": "Add the discoverable create-input collection to every view-schema resource."
     },
     {
-      "fingerprint": "c4a8a58076ebe1c4d818afc6a138211271af0e8c6af1e224d5bef49087eb6275",
+      "fingerprint": "002262d30fe25b76a577f7294f2e26f0921599c53bbc972466b5fef45ad489a6",
       "classification": "breaking",
       "owner_id": "platform.viewschema",
-      "rationale": "Require every view-schema resource to declare create_inputs so omission cannot create an ambiguous discovery contract."
+      "rationale": "Require every view-schema resource to declare create inputs and authoritative create capability so omission cannot create an ambiguous discovery contract."
     },
     {
       "fingerprint": "cf618eb5b98611a8790b65085b74926fd44520b25e1d577582aea01cdf61cfd6",

@@ -401,6 +401,56 @@ describe("semantic mutation command ports", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("executes record lifecycle actions through the declared existing route", async () => {
+    const recordId = "20000000-0000-4000-8000-000000000001";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            change_set_id: "30000000-0000-4000-8000-000000000001",
+            deleted: true,
+            deleted_at: "2026-08-30T20:00:00Z",
+            deleted_by_user_id: "40000000-0000-4000-8000-000000000001",
+            incident_id: "10000000-0000-4000-8000-000000000001",
+            record_id: recordId,
+            row_version: 6,
+          },
+          meta: { request_id: "request-record-delete" },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const commands = createWorkbookMutationCommandPorts({
+      apiBase: undefined,
+      incidentId: "10000000-0000-4000-8000-000000000001",
+      transactionIds: { create: (prefix) => `${prefix}-id` },
+    });
+
+    await expect(
+      commands.records.execute({
+        action: "delete",
+        baseRowVersion: 5,
+        reason: "Deleted from the inspector",
+        recordId,
+      }),
+    ).resolves.toEqual({
+      kind: "accepted",
+      value: { recordId, rowVersion: 6 },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/records/${recordId}`,
+      expect.objectContaining({
+        body: JSON.stringify({
+          base_row_version: 5,
+          client_txn_id: "record-delete-id",
+          reason: "Deleted from the inspector",
+        }),
+        method: "DELETE",
+      }),
+    );
+  });
+
   it("normalizes generic same-field conflicts before they reach controllers", async () => {
     const fetchMock = vi.fn(
       async () =>

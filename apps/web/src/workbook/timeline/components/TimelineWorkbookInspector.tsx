@@ -9,6 +9,7 @@ import type {
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import {
   type InspectorDisabledToken,
@@ -27,6 +28,8 @@ import { bodyStyle } from "./TimelineWorkbookStyles";
 export function TimelineWorkbookInspector({
   canManageMentions,
   currentHistoryDeleted,
+  currentIncidentRole,
+  incidentClosed,
   entityIndex,
   getRelationshipLabel,
   hostEntities,
@@ -39,7 +42,6 @@ export function TimelineWorkbookInspector({
   onSetInspectorMessage,
   onClose,
   onFeatureAction,
-  isFeatureActionSupported,
   onCreateEntityFromMention,
   onSubmitMentionAction,
   renderEvidenceAttachSection,
@@ -49,12 +51,15 @@ export function TimelineWorkbookInspector({
   renderWorkflowSection,
   renderRowHistorySection,
   rowHistoryRecordId,
+  rowHistoryRowVersion,
   selectedMention,
   selectedResolveTargetId,
   selectedRow,
 }: {
   readonly canManageMentions: boolean;
   readonly currentHistoryDeleted: boolean;
+  readonly currentIncidentRole: WorkbookIncidentRole | null;
+  readonly incidentClosed: boolean;
   readonly entityIndex: Record<string, { label: string }>;
   readonly getRelationshipLabel: (
     fieldKey: InspectorMention["fieldKey"],
@@ -69,9 +74,6 @@ export function TimelineWorkbookInspector({
   readonly onSetInspectorMessage: (message: string) => void;
   readonly onClose: () => void;
   readonly onFeatureAction: (featureGroup: InspectorFeatureGroup) => void;
-  readonly isFeatureActionSupported: (
-    featureGroup: InspectorFeatureGroup,
-  ) => boolean;
   readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
@@ -87,6 +89,7 @@ export function TimelineWorkbookInspector({
   readonly renderWorkflowSection: () => ReactNode;
   readonly renderRowHistorySection: () => ReactNode;
   readonly rowHistoryRecordId: string | null;
+  readonly rowHistoryRowVersion: number | null;
   readonly selectedMention: InspectorMention | null;
   readonly selectedResolveTargetId: string;
   readonly selectedRow: WorkbookRow | null;
@@ -97,6 +100,12 @@ export function TimelineWorkbookInspector({
   }
   if (currentHistoryDeleted) {
     disabledTokens.add("record_deleted");
+  } else if (selectedRow?.recordId) {
+    disabledTokens.add("record_not_deleted");
+  }
+  disabledTokens.add("rollback_target_unavailable");
+  if (incidentClosed) {
+    disabledTokens.add("incident_closed");
   }
   const renderPanel = (
     panelId: (typeof inspectorConfig.panels)[number]["panelId"],
@@ -148,11 +157,13 @@ export function TimelineWorkbookInspector({
     return (
       <WorkbookInspectorPanelSection
         config={inspectorConfig}
+        currentIncidentRole={currentIncidentRole}
         disabledTokens={disabledTokens}
         key={panelId}
         panelId={panelId}
+        subjectRecordId={selectedRow?.recordId ?? rowHistoryRecordId}
+        subjectRowVersion={selectedRow?.rowVersion ?? rowHistoryRowVersion}
         onFeatureAction={onFeatureAction}
-        isFeatureActionSupported={isFeatureActionSupported}
       >
         {content}
         {supplement}

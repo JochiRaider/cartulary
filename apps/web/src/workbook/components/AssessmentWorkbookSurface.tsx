@@ -41,7 +41,10 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { useAssessmentCreationController } from "../features/assessments/useAssessmentCreationController";
 import { useAssessmentSupportCandidates } from "../hooks/useAssessmentSupportCandidates";
+import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -68,8 +71,13 @@ import {
   selectInspectorConfig,
 } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
-import type { AssessmentMutationCommandPort } from "../mutations/workbookMutationCommandPorts";
+import type {
+  AssessmentMutationCommandPort,
+  RecordRouteCommandPort,
+  TimelineRelatedRecordPort,
+} from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
@@ -89,6 +97,7 @@ export type AssessmentWorkbookSurfaceProps = {
   assessmentRows: WorkbookQueryRow[];
   continuityResetKey: string;
   currentIncidentRole: WorkbookIncidentRole | null;
+  currentUserId: string | null;
   inspectorResetKey: string;
   queryControls?: ReactNode | undefined;
   savedViewSelector?: ReactNode | undefined;
@@ -98,6 +107,8 @@ export type AssessmentWorkbookSurfaceProps = {
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   mutationCommands: AssessmentMutationCommandPort;
+  recordMutationCommands: RecordRouteCommandPort;
+  relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
   onRefreshAssessmentRows: () => Promise<void>;
@@ -110,6 +121,7 @@ export function AssessmentWorkbookSurface({
   assessmentRows,
   continuityResetKey,
   currentIncidentRole,
+  currentUserId,
   inspectorResetKey,
   queryControls,
   savedViewSelector,
@@ -119,6 +131,8 @@ export function AssessmentWorkbookSurface({
   loadState,
   mutationRuntime,
   mutationCommands,
+  recordMutationCommands,
+  relatedMutationCommands,
   collaborationProjection,
   onClearFilters,
   onRefreshAssessmentRows,
@@ -172,6 +186,10 @@ export function AssessmentWorkbookSurface({
     (selectedAssessmentSnapshot?.record_id === selectedAssessmentRecordId
       ? selectedAssessmentSnapshot
       : null);
+  const createRelatedReferenceOptions = useMemo(
+    () => emptyGenericReferenceOptions(),
+    [],
+  );
   const beginAssessmentMutation = useCallback(
     () => mutationRuntime.beginExplicitMutation(),
     [mutationRuntime],
@@ -189,6 +207,22 @@ export function AssessmentWorkbookSurface({
     mutationCommands,
     onRefreshAssessmentRows,
     subjectRecordIds,
+  });
+  const createRelatedWorkflow = useInspectorCreateRelatedWorkflow({
+    currentUserId,
+    mutationCommands: relatedMutationCommands,
+    onCreated: onRefreshAssessmentRows,
+    onMessage: (message) => {
+      if (message !== null) assessmentCreation.commands.rejectStart(message);
+    },
+    selectedSubject:
+      selectedAssessment === null
+        ? null
+        : {
+            cells: selectedAssessment.cells,
+            recordId: selectedAssessment.record_id,
+            rowVersion: selectedAssessment.row_version,
+          },
   });
   const { draft, draftMode, isSubmitting, message } =
     assessmentCreation.snapshot;
@@ -229,7 +263,10 @@ export function AssessmentWorkbookSurface({
     const tokens = new Set<InspectorDisabledToken>();
     if (selectedAssessment === null) {
       tokens.add("no_row_selected");
+    } else {
+      tokens.add("record_not_deleted");
     }
+    tokens.add("rollback_target_unavailable");
     if (!roleCanCreate) {
       tokens.add("authorization_lost");
     } else if (interactionMode.kind === "read_only") {
@@ -375,8 +412,64 @@ export function AssessmentWorkbookSurface({
     }
   }
 
+  async function executeAssessmentRecordLifecycle(
+    featureGroup: InspectorFeatureGroup,
+  ): Promise<boolean> {
+    if (
+      featureGroup.routeBinding.kind !== "record_action" ||
+      featureGroup.routeBinding.owner !== "record_delete_route"
+    ) {
+      return false;
+    }
+    if (selectedAssessment === null) {
+      assessmentCreation.commands.rejectStart(
+        "Select a saved row before running this action.",
+      );
+      return true;
+    }
+    const finishMutation = mutationRuntime.beginExplicitMutation();
+    try {
+      const outcome = await recordMutationCommands.execute({
+        action: "delete",
+        baseRowVersion: selectedAssessment.row_version,
+        reason: "Deleted from the Assessments inspector",
+        recordId: selectedAssessment.record_id,
+      });
+      if (outcome.kind === "rejected") {
+        assessmentCreation.commands.rejectStart(outcome.failure.message);
+        return true;
+      }
+      setSelectedAssessmentRecordId(null);
+      setSelectedAssessmentSnapshot(null);
+      inspector.commands.completeAction();
+      await onRefreshAssessmentRows();
+      return true;
+    } finally {
+      finishMutation();
+    }
+  }
+
   function beginAssessmentFeatureAction(featureGroup: InspectorFeatureGroup) {
+    if (
+      featureGroup.featureGroupKey !== "create_related.assessment" &&
+      createRelatedWorkflow.commands.begin(featureGroup)
+    ) {
+      return;
+    }
+    if (featureGroup.routeBinding.kind === "record_action") {
+      void executeAssessmentRecordLifecycle(featureGroup).then((handled) => {
+        if (!handled) {
+          assessmentCreation.commands.rejectStart(
+            `${featureGroup.label}: use the owner controls in this inspector section.`,
+          );
+        }
+      });
+      return;
+    }
     if (featureGroup.featureGroupKey !== "create_related.assessment") {
+      assessmentCreation.commands.rejectStart(
+        `${featureGroup.label}: use the owner controls in this inspector section.`,
+      );
       return;
     }
     if (
@@ -458,17 +551,12 @@ export function AssessmentWorkbookSurface({
             {inspectorConfig.panels.map((panel) => (
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
+                currentIncidentRole={currentIncidentRole}
                 disabledTokens={assessmentInspectorDisabledTokens}
-                isFeatureActionSupported={(featureGroup) =>
-                  featureGroup.featureGroupKey ===
-                    "create_related.assessment" &&
-                  featureGroup.routeBinding.kind === "view_row_create" &&
-                  featureGroup.routeBinding.owner === "view_row_create_route" &&
-                  featureGroup.routeBinding.targetViewSchemaId ===
-                    assessmentsViewSchemaId
-                }
                 key={panel.panelId}
                 panelId={panel.panelId}
+                subjectRecordId={selectedAssessment?.record_id ?? null}
+                subjectRowVersion={selectedAssessment?.row_version ?? null}
                 onFeatureAction={beginAssessmentFeatureAction}
               >
                 {panel.panelId === "relationships" &&
@@ -480,6 +568,34 @@ export function AssessmentWorkbookSurface({
                         ?.value,
                     )}
                   </p>
+                ) : null}
+                {createRelatedWorkflow.snapshot.workflow?.featureGroup
+                  .panelId === panel.panelId ? (
+                  <InspectorCreateRelatedWorkflow
+                    referenceOptions={createRelatedReferenceOptions}
+                    state={createRelatedWorkflow.snapshot.workflow}
+                    onCancel={createRelatedWorkflow.commands.cancel}
+                    onSubmit={() => {
+                      void createRelatedWorkflow.commands.submit();
+                    }}
+                    onUpdateDraft={createRelatedWorkflow.commands.updateDraft}
+                  />
+                ) : null}
+                {panel.panelId === "history" ? (
+                  <WorkbookInspectorRecordHistory
+                    canMutate={canCreate}
+                    commands={recordMutationCommands}
+                    subject={
+                      selectedAssessment === null
+                        ? null
+                        : {
+                            recordId: selectedAssessment.record_id,
+                            rowVersion: selectedAssessment.row_version,
+                          }
+                    }
+                    onMessage={assessmentCreation.commands.rejectStart}
+                    onRefresh={onRefreshAssessmentRows}
+                  />
                 ) : null}
               </WorkbookInspectorPanelSection>
             ))}

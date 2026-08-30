@@ -921,13 +921,20 @@ func validateViewSchemaField(field map[string]any, label string) (string, error)
 		return "", fmt.Errorf("%s read_kind=enum requires enum_values", label)
 	}
 	if field["create_writable"] != nil {
-		if _, err := requiredBool(field, "create_writable", label); err != nil {
+		createWritable, err := requiredBool(field, "create_writable", label)
+		if err != nil {
 			return "", err
+		}
+		if !createWritable {
+			return "", fmt.Errorf("%s.create_writable is a create-only override and may only be declared as true", label)
 		}
 	}
 	writeKind, _ := field["write_kind"].(string)
 	gridEditable, _ := field["grid_editable"].(bool)
 	writable, _ := field["writable"].(bool)
+	if field["create_writable"] == true && (writable || writeKind == "read_only") {
+		return "", fmt.Errorf("%s.create_writable=true requires a create-only non-read-only field", label)
+	}
 	if gridEditable && (writeKind != "direct_value" || !writable) {
 		return "", fmt.Errorf("%s.grid_editable=true requires an existing-row writable direct_value field", label)
 	}

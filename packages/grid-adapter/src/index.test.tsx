@@ -1783,6 +1783,12 @@ describe("grid-adapter", () => {
     expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
       "var(--ct-density-default-cellPadding)",
     );
+    expect(
+      grid.style.getPropertyValue("--cartulary-grid-cell-padding-block"),
+    ).toBe("3px");
+    expect(
+      grid.style.getPropertyValue("--cartulary-grid-cell-padding-inline"),
+    ).toBe("7px");
     expect(grid.style.getPropertyValue("--cartulary-grid-font-size")).toBe(
       "var(--ct-density-default-fontSize)",
     );
@@ -1810,6 +1816,12 @@ describe("grid-adapter", () => {
     expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
       "var(--ct-density-compact-cellPadding)",
     );
+    expect(
+      grid.style.getPropertyValue("--cartulary-grid-cell-padding-block"),
+    ).toBe("2px");
+    expect(
+      grid.style.getPropertyValue("--cartulary-grid-cell-padding-inline"),
+    ).toBe("5px");
     expect(grid.style.getPropertyValue("--cartulary-grid-font-size")).toBe(
       "var(--ct-density-compact-fontSize)",
     );
@@ -1837,6 +1849,12 @@ describe("grid-adapter", () => {
     expect(grid.style.getPropertyValue("--cartulary-grid-cell-padding")).toBe(
       "var(--ct-density-comfortable-cellPadding)",
     );
+    expect(
+      grid.style.getPropertyValue("--cartulary-grid-cell-padding-block"),
+    ).toBe("5px");
+    expect(
+      grid.style.getPropertyValue("--cartulary-grid-cell-padding-inline"),
+    ).toBe("9px");
     expect(grid.style.getPropertyValue("--cartulary-grid-font-size")).toBe(
       "var(--ct-density-comfortable-fontSize)",
     );

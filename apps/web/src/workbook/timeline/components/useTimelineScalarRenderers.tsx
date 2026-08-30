@@ -25,9 +25,9 @@ import type {
   TimelineScalarPasteCommit,
 } from "./TimelineWorkbookRendererTypes";
 import {
-  bodyStyle,
   labelStyle,
   secondaryActionButtonStyle,
+  timelineGridBodyStyle,
 } from "./TimelineWorkbookStyles";
 
 export function useTimelineScalarRenderers({
@@ -236,7 +236,7 @@ export function useTimelineScalarRenderers({
                 ? undefined
                 : rowCellTestId(row.recordId, binding.fieldKey)
             }
-            style={bodyStyle}
+            style={timelineGridBodyStyle}
           >
             {text === "" ? "—" : text}
           </span>

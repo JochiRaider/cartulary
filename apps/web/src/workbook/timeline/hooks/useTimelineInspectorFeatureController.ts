@@ -67,6 +67,13 @@ export function useTimelineInspectorFeatureController({
         beginCreateRelatedWorkflow(resolution.featureGroup);
         return;
       }
+      if (resolution.kind === "panel_owned") {
+        cancelCreateRelatedWorkflow();
+        setInspectorMessage(
+          `${resolution.featureGroup.label}: use the controls in this inspector section.`,
+        );
+        return;
+      }
       cancelCreateRelatedWorkflow();
       setInspectorMessage("Inspector action is unavailable.");
     },
@@ -77,18 +84,10 @@ export function useTimelineInspectorFeatureController({
     ],
   );
 
-  const isFeatureActionSupported = useCallback(
-    (featureGroup: InspectorFeatureGroup) =>
-      resolveTimelineWorkbookFeature(timelineViewSchemaId, featureGroup)
-        .kind !== "unsupported",
-    [],
-  );
-
   return {
     commands: {
       cancelFeatureAction,
       handleFeatureAction,
-      isFeatureActionSupported,
     },
     snapshot: {
       indicatorHandler,

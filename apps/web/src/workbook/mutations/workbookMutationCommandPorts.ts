@@ -2,6 +2,7 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookOperationResponse } from "../adapters/workbookOperationExecutor";
 import type { AssessmentCreateDraft } from "../models/assessmentWorkbookModel";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type { RecordHistoryData } from "../timeline/models/timelineHistoryModel";
 import type {
   TimelineApiRow,
   WorkbookRow,
@@ -16,6 +17,29 @@ export type GenericViewMutationAccepted = {
 
 export type GenericMutationOutcome =
   WorkbookOperationOutcome<GenericViewMutationAccepted>;
+
+export type RecordLifecycleAccepted = {
+  readonly recordId: string;
+  readonly rowVersion: number;
+};
+
+export interface RecordRouteCommandPort {
+  execute(input: {
+    readonly action: "delete" | "restore";
+    readonly baseRowVersion: number;
+    readonly reason: string;
+    readonly recordId: string;
+  }): Promise<WorkbookOperationOutcome<RecordLifecycleAccepted>>;
+  loadHistory(input: {
+    readonly recordId: string;
+  }): Promise<WorkbookOperationOutcome<RecordHistoryData>>;
+  rollback(input: {
+    readonly baseRowVersion: number;
+    readonly reason: string;
+    readonly recordId: string;
+    readonly target: Record<string, unknown>;
+  }): Promise<WorkbookOperationOutcome<RecordLifecycleAccepted>>;
+}
 
 export type EntityCreateAccepted = {
   readonly changeSetId: string;
@@ -342,6 +366,7 @@ export interface IndicatorWorkflowPort {
 }
 
 export type WorkbookMutationCommandPorts = {
+  readonly records: RecordRouteCommandPort;
   readonly timeline: TimelineMutationCommandPorts;
   readonly generic: GenericMutationCommandPort;
   readonly entity: EntityMutationCommandPort;

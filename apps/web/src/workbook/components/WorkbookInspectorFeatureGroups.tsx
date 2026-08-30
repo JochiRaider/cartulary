@@ -8,50 +8,62 @@ import type {
   InspectorFeatureGroup,
   InspectorPanelId,
 } from "@cartulary/view-contracts";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
+import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
+import {
+  type InspectorDisabledToken,
+  inspectorFeatureDisabledTokens,
+  resolveSemanticInspectorFeature,
+} from "../inspector/semanticInspectorDispatcher";
 import { inspectorFeatureGroupsForPanel } from "../models/workbookInspectorModel";
 
-export type InspectorDisabledToken =
-  | "no_row_selected"
-  | "incident_closed"
-  | "authorization_lost"
-  | "row_version_changed"
-  | "record_deleted"
-  | "record_merged"
-  | "evidence_preview_unavailable"
-  | "merge_target_unavailable"
-  | "record_not_deleted"
-  | "rollback_target_unavailable"
-  | "party_text_unavailable"
-  | "pivot_target_unavailable";
+export type { InspectorDisabledToken } from "../inspector/semanticInspectorDispatcher";
 
 export function WorkbookInspectorPanelSection({
   children,
   config,
+  currentIncidentRole,
   disabledTokens,
-  isFeatureActionSupported,
   panelId,
+  subjectRecordId,
+  subjectRowVersion,
   onFeatureAction,
 }: {
   readonly children?: ReactNode;
   readonly config: InspectorConfig;
+  readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledToken>;
-  readonly isFeatureActionSupported?:
-    | ((featureGroup: InspectorFeatureGroup) => boolean)
-    | undefined;
   readonly panelId: InspectorPanelId;
+  readonly subjectRecordId: string | null;
+  readonly subjectRowVersion: number | null;
   readonly onFeatureAction?: (featureGroup: InspectorFeatureGroup) => void;
 }) {
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    readonly featureGroup: InspectorFeatureGroup;
+    readonly subjectRecordId: string | null;
+    readonly subjectRowVersion: number | null;
+    readonly viewSchemaId: string;
+  } | null>(null);
+  useEffect(() => {
+    setPendingConfirmation((current) =>
+      current?.subjectRecordId === subjectRecordId &&
+      current.subjectRowVersion === subjectRowVersion &&
+      current.viewSchemaId === config.viewSchemaId
+        ? current
+        : null,
+    );
+  }, [config.viewSchemaId, subjectRecordId, subjectRowVersion]);
   const panel = config.panels.find(
     (candidate) => candidate.panelId === panelId,
   );
   if (!panel) {
     return null;
   }
-  const featureGroups = inspectorFeatureGroupsForPanel(config, panelId).filter(
-    (featureGroup) =>
-      onFeatureAction !== undefined &&
-      (isFeatureActionSupported?.(featureGroup) ?? true),
+  const featureGroups = inspectorFeatureGroupsForPanel(config, panelId).flatMap(
+    (featureGroup) => {
+      const resolution = resolveSemanticInspectorFeature(config, featureGroup);
+      return resolution.kind === "unsupported" ? [] : [resolution];
+    },
   );
   return (
     <section
@@ -61,10 +73,36 @@ export function WorkbookInspectorPanelSection({
       <div style={panelHeaderStyle}>
         <h3 style={panelTitleStyle}>{panel.label}</h3>
         <div style={featureGroupListStyle}>
-          {featureGroups.map((featureGroup) => {
-            const disabled = featureGroup.disabledWhen.some((token) =>
-              disabledTokens.has(token),
-            );
+          {featureGroups.map((resolution) => {
+            const featureGroup = resolution.featureGroup;
+            if (resolution.kind === "panel_read") {
+              return (
+                <span
+                  data-feature-group-key={featureGroup.featureGroupKey}
+                  data-route-kind={featureGroup.routeBinding.kind}
+                  data-route-owner={featureGroup.routeBinding.owner}
+                  data-testid={workbookInspectorFeatureGroupTestId(
+                    config.viewSchemaId,
+                    featureGroup.featureGroupKey,
+                  )}
+                  key={resolution.semanticKey}
+                  style={readFeatureStyle}
+                >
+                  {featureGroup.label}
+                </span>
+              );
+            }
+            const activeDisabledTokens = inspectorFeatureDisabledTokens({
+              currentIncidentRole,
+              featureGroup,
+              stateTokens: disabledTokens,
+            });
+            const disabled =
+              onFeatureAction === undefined ||
+              activeDisabledTokens.has("authorization_lost") ||
+              featureGroup.disabledWhen.some((token) =>
+                activeDisabledTokens.has(token),
+              );
             return (
               <button
                 aria-disabled={disabled}
@@ -76,10 +114,19 @@ export function WorkbookInspectorPanelSection({
                   featureGroup.featureGroupKey,
                 )}
                 disabled={disabled}
-                key={featureGroup.featureGroupKey}
+                key={resolution.semanticKey}
                 style={featureButtonStyle}
                 type="button"
                 onClick={() => {
+                  if (featureGroup.requiresConfirmation) {
+                    setPendingConfirmation({
+                      featureGroup,
+                      subjectRecordId,
+                      subjectRowVersion,
+                      viewSchemaId: config.viewSchemaId,
+                    });
+                    return;
+                  }
                   onFeatureAction?.(featureGroup);
                 }}
               >
@@ -96,6 +143,45 @@ export function WorkbookInspectorPanelSection({
           })}
         </div>
       </div>
+      {pendingConfirmation !== null ? (
+        <div
+          aria-label={`Confirm ${pendingConfirmation.featureGroup.featureGroupKey}`}
+          aria-modal="true"
+          data-feature-group-key={
+            pendingConfirmation.featureGroup.featureGroupKey
+          }
+          role="alertdialog"
+          style={confirmationStyle}
+        >
+          <p style={confirmationTextStyle}>
+            Confirm {pendingConfirmation.featureGroup.label} for record{" "}
+            <code>
+              {pendingConfirmation.subjectRecordId ?? "(no selected record)"}
+            </code>{" "}
+            at row version {pendingConfirmation.subjectRowVersion ?? "unknown"}.
+          </p>
+          <div style={confirmationActionsStyle}>
+            <button
+              style={featureButtonStyle}
+              type="button"
+              onClick={() => {
+                const confirmed = pendingConfirmation.featureGroup;
+                setPendingConfirmation(null);
+                onFeatureAction?.(confirmed);
+              }}
+            >
+              Confirm
+            </button>
+            <button
+              style={featureButtonStyle}
+              type="button"
+              onClick={() => setPendingConfirmation(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
       {children}
     </section>
   );
@@ -134,4 +220,26 @@ const featureButtonStyle = {
   fontSize: "0.75rem",
   lineHeight: 1.2,
   padding: "0.3rem 0.45rem",
+} satisfies CSSProperties;
+
+const readFeatureStyle = {
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.75rem",
+  lineHeight: 1.2,
+  padding: "0.3rem 0",
+} satisfies CSSProperties;
+
+const confirmationStyle = {
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  display: "grid",
+  gap: "0.5rem",
+  padding: "0.65rem",
+} satisfies CSSProperties;
+
+const confirmationTextStyle = { margin: 0 } satisfies CSSProperties;
+
+const confirmationActionsStyle = {
+  display: "flex",
+  gap: "0.4rem",
 } satisfies CSSProperties;

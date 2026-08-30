@@ -44,6 +44,7 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 const timelineInspectorConfig = selectInspectorConfig(timelineContract);
 
 export type TimelineWorkbookPresentationRuntime = {
+  readonly currentIncidentRole: TimelineWorkbookSurfaceRuntime["incident"]["currentRole"];
   readonly indicatorWorkflow: TimelineWorkbookSurfaceRuntime["indicatorWorkflow"];
   readonly entities: Pick<
     TimelineWorkbookSurfaceRuntime["entities"],
@@ -65,7 +66,13 @@ export function useTimelineWorkbookPresentation({
 }) {
   const { foundation, grid, inspector, interaction, mutation, workflow } =
     composition;
-  const { indicatorWorkflow, entities, layout, queryControls } = runtime;
+  const {
+    currentIncidentRole,
+    indicatorWorkflow,
+    entities,
+    layout,
+    queryControls,
+  } = runtime;
   const {
     renderInlineControls: renderInlineQueryControls,
     savedViewSelector,
@@ -188,7 +195,6 @@ export function useTimelineWorkbookPresentation({
   const {
     cancelFeatureAction: cancelInspectorFeatureAction,
     handleFeatureAction: handleInspectorFeatureAction,
-    isFeatureActionSupported: supportsTimelineInspectorFeature,
   } = workflow.commands.feature;
   const {
     submit: submitCreateRelatedWorkflow,
@@ -436,6 +442,8 @@ export function useTimelineWorkbookPresentation({
       ? {
           canManageMentions,
           currentHistoryDeleted,
+          currentIncidentRole,
+          incidentClosed: interactionMode.kind === "read_only",
           currentHistoryRecordId,
           entityIndex,
           getRelationshipLabel: timelineRelationshipLabel,
@@ -462,11 +470,15 @@ export function useTimelineWorkbookPresentation({
           rowHistoryRecordId: currentHistoryDeleted
             ? currentHistoryRecordId
             : null,
+          rowHistoryRowVersion:
+            currentHistoryDeleted &&
+            rowHistory.data?.record_id === currentHistoryRecordId
+              ? rowHistory.data.row_version
+              : null,
           selectedMention,
           selectedResolveTargetId,
           selectedRow,
           sourceFields: timelineObservationSourceFields,
-          supportsFeature: supportsTimelineInspectorFeature,
         }
       : null,
     layout: {

@@ -9,6 +9,7 @@ import type {
   MergeEntityRecordRequest,
   PasteWorkbookClipboardRequest,
   PatchRecordRequest,
+  RollbackRecordRequest,
   SupersedeRecordRequest,
   SupersedeRecordResponse,
 } from "@cartulary/protocol-ts/http";
@@ -32,6 +33,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import { normalizeRecordHistoryData } from "../timeline/models/timelineHistoryModel";
 import {
   buildAttachedEvidencePatchPayload,
   normalizeTimelineFullRow,
@@ -47,6 +49,7 @@ import type {
   EntityPatchOutcome,
   GenericMutationOutcome,
   GenericViewMutationAccepted,
+  RecordLifecycleAccepted,
   TaskLifecycleOutcome,
   TimelineBulkMutationOutcome,
   TimelineRelatedEvidenceLinked,
@@ -441,6 +444,64 @@ export function createWorkbookMutationCommandPorts(
     apiBase: context.apiBase,
   });
   return {
+    records: {
+      async execute(input) {
+        const clientTxnId = createId(
+          context.transactionIds,
+          `record-${input.action}`,
+        );
+        if (clientTxnId === null) return operationIdentityFailure();
+        try {
+          const outcome = await operations.execute({
+            operationID:
+              input.action === "delete" ? "deleteRecord" : "restoreRecord",
+            pathParameters: { record_id: input.recordId },
+            request: {
+              base_row_version: input.baseRowVersion,
+              client_txn_id: clientTxnId,
+              reason: input.reason,
+            },
+          });
+          return normalizeRecordLifecycleOutcome(outcome, input.recordId);
+        } catch {
+          return retryableOperationFailure();
+        }
+      },
+      async loadHistory(input) {
+        try {
+          const outcome = await operations.execute({
+            operationID: "getRecordHistory",
+            pathParameters: { record_id: input.recordId },
+          });
+          if (outcome.kind === "rejected") return outcome;
+          const data = normalizeRecordHistoryData(outcome.value.data);
+          return data !== null && data.record_id === input.recordId
+            ? { kind: "accepted", value: data }
+            : invalidOperationContract();
+        } catch {
+          return retryableOperationFailure();
+        }
+      },
+      async rollback(input) {
+        const clientTxnId = createId(context.transactionIds, "record-rollback");
+        if (clientTxnId === null) return operationIdentityFailure();
+        try {
+          const outcome = await operations.execute({
+            operationID: "rollbackRecord",
+            pathParameters: { record_id: input.recordId },
+            request: {
+              base_row_version: input.baseRowVersion,
+              client_txn_id: clientTxnId,
+              reason: input.reason,
+              target: input.target,
+            } as unknown as RollbackRecordRequest,
+          });
+          return normalizeRecordLifecycleOutcome(outcome, input.recordId);
+        } catch {
+          return retryableOperationFailure();
+        }
+      },
+    },
     indicators: createIndicatorWorkflowPort({
       createMutationID: (prefix) => createId(context.transactionIds, prefix),
       operations,
@@ -1028,4 +1089,25 @@ export function createWorkbookMutationCommandPorts(
       },
     },
   };
+}
+
+function normalizeRecordLifecycleOutcome(
+  outcome: WorkbookOperationOutcome<{
+    readonly data: {
+      readonly record_id: string;
+      readonly row_version: number;
+    };
+  }>,
+  recordId: string,
+): WorkbookOperationOutcome<RecordLifecycleAccepted> {
+  if (outcome.kind === "rejected") return outcome;
+  return outcome.value.data.record_id === recordId
+    ? {
+        kind: "accepted",
+        value: {
+          recordId: outcome.value.data.record_id,
+          rowVersion: outcome.value.data.row_version,
+        },
+      }
+    : invalidOperationContract();
 }

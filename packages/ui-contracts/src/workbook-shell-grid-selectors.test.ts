@@ -28,6 +28,7 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   workbookAddRowButtonTestId,
+  workbookGridDensityMetrics,
   workbookGridRowHeightPx,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
@@ -35,6 +36,7 @@ import {
   workbookInspectorFeatureGroupTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookLayoutMetrics,
   workbookRowActionMenuButtonTestId,
   workbookRowContextMenuTestId,
   workbookShellSlotLabel,
@@ -322,6 +324,13 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
   });
 
   it("parses every density row height and fails closed for a malformed token", () => {
+    expect(workbookGridDensityMetrics("compact")).toEqual({
+      cellPaddingBlockCssPx: 2,
+      cellPaddingInlineCssPx: 5,
+      fontSizeCssPx: 12,
+      lineHeight: 1.2,
+      rowHeightCssPx: 24,
+    });
     expect([
       workbookGridRowHeightPx("compact"),
       workbookGridRowHeightPx("default"),
@@ -338,7 +347,54 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
     try {
       mutableTokenVars[tokenName] = "calc(28px)";
       expect(() => workbookGridRowHeightPx("compact")).toThrow(
-        "Invalid fixed grid row-height token --ct-density-compact-rowHeight: calc(28px)",
+        "Invalid fixed grid density token --ct-density-compact-rowHeight: calc(28px)",
+      );
+    } finally {
+      if (originalValue !== undefined)
+        mutableTokenVars[tokenName] = originalValue;
+    }
+
+    const paddingTokenName = "--ct-density-compact-cellPadding";
+    const originalPadding = mutableTokenVars[paddingTokenName];
+    try {
+      mutableTokenVars[paddingTokenName] = "2px calc(5px)";
+      expect(() => workbookGridDensityMetrics("compact")).toThrow(
+        "Invalid grid density cell-padding token --ct-density-compact-cellPadding: 2px calc(5px)",
+      );
+    } finally {
+      if (originalPadding !== undefined)
+        mutableTokenVars[paddingTokenName] = originalPadding;
+    }
+  });
+
+  it("parses fixed and viewport-relative layout metrics from generated tokens", () => {
+    expect(workbookLayoutMetrics(1280)).toEqual({
+      baseMinHeightCssPx: 720,
+      baseMinWidthCssPx: 1280,
+      compactMinHeightCssPx: 640,
+      compactMinWidthCssPx: 768,
+      inspectorDefaultWidthCssPx: 420,
+      inspectorEffectiveMaxWidthCssPx: 560,
+      inspectorMinWidthCssPx: 360,
+      narrowMinWidthCssPx: 1024,
+    });
+    expect(workbookLayoutMetrics(1024).inspectorEffectiveMaxWidthCssPx).toBe(
+      460.8,
+    );
+    expect(workbookLayoutMetrics(768).inspectorEffectiveMaxWidthCssPx).toBe(
+      360,
+    );
+
+    const mutableTokenVars = cartularyDesignTokenVars as unknown as Record<
+      string,
+      string
+    >;
+    const tokenName = "--ct-layout-inspectorMaxWidth";
+    const originalValue = mutableTokenVars[tokenName];
+    try {
+      mutableTokenVars[tokenName] = "min(560px,45vw)";
+      expect(() => workbookLayoutMetrics(1280)).toThrow(
+        "Invalid css_min_px_vw_v1 token --ct-layout-inspectorMaxWidth: min(560px,45vw)",
       );
     } finally {
       if (originalValue !== undefined)

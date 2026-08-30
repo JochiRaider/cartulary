@@ -39,8 +39,6 @@ export const artifactSurfacePolicies = [
     policy: defineWorkbookSurfacePolicy({
       ownerBindings: ["linked_note_create"],
       collectionActions: { "note.tags": "tag" },
-      createMinimumFieldSets: [["note.title"], ["note.body"]],
-      createMinimumMessage: "Title or body is required.",
       referenceRequirements: [
         referenceRequirement(timelineViewSchemaId),
         referenceRequirement(hostsViewSchemaId),
@@ -56,8 +54,6 @@ export const artifactSurfacePolicies = [
     policy: defineWorkbookSurfacePolicy({
       createDefaults: { "finding.kind": "finding", "finding.state": "open" },
       currentUserDefaultFields: ["finding.owner_user_id"],
-      createMinimumFieldSets: [["finding.statement"]],
-      createMinimumMessage: "Statement is required.",
       referenceRequirements: allRecordRequirements,
     }),
   },
@@ -65,16 +61,7 @@ export const artifactSurfacePolicies = [
     viewSchemaId: investigativeQueriesViewSchemaId,
     ownerId: "artifacts",
     renderer: "contract",
-    policy: defineWorkbookSurfacePolicy({
-      createMinimumFieldSets: [
-        [
-          "investigative_query.platform",
-          "investigative_query.purpose",
-          "investigative_query.query_text",
-        ],
-      ],
-      createMinimumMessage: "Platform, purpose, and query text are required.",
-    }),
+    policy: defineWorkbookSurfacePolicy({}),
   },
   {
     viewSchemaId: forensicKeywordsViewSchemaId,
@@ -85,10 +72,6 @@ export const artifactSurfacePolicies = [
         "forensic_keyword.match_mode": "literal",
         "forensic_keyword.case_sensitive": "false",
       },
-      createMinimumFieldSets: [
-        ["forensic_keyword.pattern", "forensic_keyword.reason"],
-      ],
-      createMinimumMessage: "Pattern and reason are required.",
     }),
   },
 ] as const satisfies readonly WorkbookSurfacePolicyDefinition[];

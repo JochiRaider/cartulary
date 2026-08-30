@@ -30,6 +30,8 @@ const projectedContracts: readonly ViewContract[] = Object.freeze(
         ) as Record<string, ViewFieldContract>,
       );
       return Object.freeze({
+        createCapable: entry.createCapable,
+        createInputs: entry.createInputs,
         defaultHiddenFields: entry.defaultHiddenFields,
         defaultSort: entry.defaultSort,
         defaultVisibleFields: entry.defaultVisibleFields,

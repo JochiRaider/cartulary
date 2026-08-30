@@ -1,6 +1,7 @@
 import {
   cartularyDesignPresentation,
   gridScrollportClassName,
+  workbookGridDensityMetrics,
   workbookGridRowHeightPx,
 } from "@cartulary/ui-contracts";
 import type {
@@ -800,7 +801,7 @@ function useSemanticDataGrid<Row>(
     // result-size threshold would create two interaction runtimes and let
     // small fixtures miss focus, range, editor, and scrolling defects.
     enableVirtualization,
-    headerRowHeight: 32,
+    headerRowHeight: workbookGridRowHeightPx(density),
     headerRowClass: "cartulary-grid-header-row",
     onCellMouseDown: (args, event) => {
       const session = activeEditorSessionRef.current;
@@ -1210,6 +1211,8 @@ function useSemanticDataGrid<Row>(
     selectedRows,
     sortColumns,
     style: {
+      "--cartulary-grid-cell-padding-block": `${workbookGridDensityMetrics(density).cellPaddingBlockCssPx}px`,
+      "--cartulary-grid-cell-padding-inline": `${workbookGridDensityMetrics(density).cellPaddingInlineCssPx}px`,
       "--cartulary-grid-cell-padding": `var(--ct-density-${density}-cellPadding)`,
       "--cartulary-grid-density": density,
       "--cartulary-grid-font-size": `var(--ct-density-${density}-fontSize)`,

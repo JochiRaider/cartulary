@@ -33,8 +33,6 @@ export type WorkbookSurfacePolicy = {
   >;
   readonly createDefaults: Readonly<Record<string, string>>;
   readonly currentUserDefaultFields: readonly string[];
-  readonly createMinimumFieldSets: readonly (readonly string[])[];
-  readonly createMinimumMessage: string;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
   readonly publicErrorPresentation: "owner_public_message";
   readonly referenceRequirements: readonly ReferenceRequirement[];
@@ -70,11 +68,6 @@ export const defineWorkbookSurfacePolicy = (
     currentUserDefaultFields: Object.freeze(
       overrides.currentUserDefaultFields ?? [],
     ),
-    createMinimumFieldSets: Object.freeze(
-      overrides.createMinimumFieldSets ?? [],
-    ),
-    createMinimumMessage:
-      overrides.createMinimumMessage ?? "At least one value is required.",
     ownerBindings: Object.freeze(overrides.ownerBindings ?? []),
     publicErrorPresentation: "owner_public_message",
     referenceRequirements: Object.freeze(overrides.referenceRequirements ?? []),

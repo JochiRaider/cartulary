@@ -152,13 +152,13 @@ export function useTimelineWorkbookInspectorSections({
       );
     }
     const workflow = createRelatedWorkflow;
-    const writableFields = workflow.targetContract.fields.filter(
-      (field) => field.writeKind !== "read_only",
+    const createFields = workflow.targetContract.fields.filter(
+      (field) => field.createWritable,
     );
     return (
       <div style={inspectorActionStackStyle}>
         <p style={bodyStyle}>{workflow.targetContract.viewSchemaId}</p>
-        {writableFields.map((field) => {
+        {createFields.map((field) => {
           const controlId = `timeline-create-related-${workflow.featureGroup.featureGroupKey}-${field.fieldKey}`;
           return (
             <label htmlFor={controlId} key={field.fieldKey} style={labelStyle}>

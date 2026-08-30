@@ -13,6 +13,7 @@ import type {
   RecordHistoryState,
   RowHistoryPendingAction,
 } from "../models/timelineHistoryModel";
+import { buildRecordRollbackTargetFromHistoryAction } from "../models/timelineHistoryModel";
 import type {
   TimelineHistoryMutationAccepted,
   TimelineHistoryPort,
@@ -28,34 +29,6 @@ type TimelineHistoryLoadRowsOptions = {
   freshnessRetryDepth?: number;
   viewportContinuityToken?: number;
 };
-
-export function buildRecordRollbackTargetFromHistoryAction(
-  item: RecordHistoryItem,
-  action: RecordHistoryRollbackAction,
-): Record<string, unknown> | null {
-  if (!item.available_rollback_actions.includes(action)) {
-    return null;
-  }
-  if (action === "history_entry") {
-    return typeof item.history_entry_ref === "string" &&
-      item.history_entry_ref.trim() !== ""
-      ? { kind: "history_entry", history_entry_ref: item.history_entry_ref }
-      : null;
-  }
-  if (action === "change_set") {
-    return typeof item.change_set_id === "string" &&
-      item.change_set_id.trim() !== ""
-      ? { kind: "change_set", change_set_id: item.change_set_id }
-      : null;
-  }
-  return isPositiveInteger(item.revision_no)
-    ? { kind: "row_restore", restore_to_revision_no: item.revision_no }
-    : null;
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
 
 export function useTimelineHistoryActions({
   acceptTimelineRecordVersion,

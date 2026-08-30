@@ -135,9 +135,25 @@ func TestOpenAPIViewSchemaPublicProjectionContract_Unit(t *testing.T) {
 	if gridEditable["type"] != "boolean" {
 		t.Fatalf("grid_editable must have type boolean, got %#v", gridEditable["type"])
 	}
+	createWritable := requireObject(t, properties["create_writable"], "ViewFieldEntry.properties.create_writable")
+	if createWritable["type"] != "boolean" {
+		t.Fatalf("create_writable must have type boolean, got %#v", createWritable["type"])
+	}
 	required := requireArray(t, viewFieldEntry["required"], "ViewFieldEntry.required")
 	if !slices.Contains(required, "grid_editable") {
 		t.Fatalf("ViewFieldEntry.required omits grid_editable: %#v", required)
+	}
+	if !slices.Contains(required, "create_writable") {
+		t.Fatalf("ViewFieldEntry.required omits create_writable: %#v", required)
+	}
+	viewSchemaResource := requireObject(t, schemas["ViewSchemaResource"], "ViewSchemaResource")
+	resourceProperties := requireObject(t, viewSchemaResource["properties"], "ViewSchemaResource.properties")
+	createCapable := requireObject(t, resourceProperties["create_capable"], "ViewSchemaResource.properties.create_capable")
+	if createCapable["type"] != "boolean" {
+		t.Fatalf("create_capable must have type boolean, got %#v", createCapable["type"])
+	}
+	if !slices.Contains(requireArray(t, viewSchemaResource["required"], "ViewSchemaResource.required"), "create_capable") {
+		t.Fatal("ViewSchemaResource.required omits create_capable")
 	}
 
 	for _, resource := range ListPublicResources() {
@@ -149,8 +165,8 @@ func TestOpenAPIViewSchemaPublicProjectionContract_Unit(t *testing.T) {
 		if err := json.Unmarshal(content, &public); err != nil {
 			t.Fatalf("decode %s: %v", resource.ViewSchemaID, err)
 		}
-		if _, leaked := public["create_capable"]; leaked {
-			t.Fatalf("%s leaked internal create_capable in public resource", resource.ViewSchemaID)
+		if _, ok := public["create_capable"].(bool); !ok {
+			t.Fatalf("%s create_capable must be present and boolean, got %#v", resource.ViewSchemaID, public["create_capable"])
 		}
 		fields, ok := public["fields"].([]any)
 		if !ok {
@@ -160,6 +176,9 @@ func TestOpenAPIViewSchemaPublicProjectionContract_Unit(t *testing.T) {
 			field := requireObject(t, rawField, resource.ViewSchemaID+" field")
 			if _, ok := field["grid_editable"].(bool); !ok {
 				t.Fatalf("%s fields[%d].grid_editable must be present and boolean, got %#v", resource.ViewSchemaID, index, field["grid_editable"])
+			}
+			if _, ok := field["create_writable"].(bool); !ok {
+				t.Fatalf("%s fields[%d].create_writable must be present and boolean, got %#v", resource.ViewSchemaID, index, field["create_writable"])
 			}
 		}
 	}

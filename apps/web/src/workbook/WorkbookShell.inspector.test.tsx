@@ -25,6 +25,7 @@ import {
   workbookInspectorFeatureGroupTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookLayoutMetrics,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -200,13 +201,21 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     const resizeSeparator = screen.getByRole("separator", {
       name: "Resize inspector",
     });
+    const inspectorEffectiveMaximum = workbookLayoutMetrics(
+      window.visualViewport?.width ?? window.innerWidth,
+    ).inspectorEffectiveMaxWidthCssPx;
+    expect(resizeSeparator.getAttribute("aria-valuemax")).toBe(
+      String(inspectorEffectiveMaximum),
+    );
     expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("420");
     fireEvent.keyDown(resizeSeparator, { key: "ArrowLeft" });
     expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("436");
     fireEvent.keyDown(resizeSeparator, { key: "Home" });
     expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("360");
     fireEvent.keyDown(resizeSeparator, { key: "End" });
-    expect(resizeSeparator.getAttribute("aria-valuenow")).toBe("560");
+    expect(resizeSeparator.getAttribute("aria-valuenow")).toBe(
+      String(inspectorEffectiveMaximum),
+    );
 
     rerender(
       <TimelineWorkbookRuntimeFixture
@@ -272,6 +281,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
     const { container, rerender } = render(
       <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="editor"
         incidentId="10000000-0000-4000-8000-000000000001"
         inspectorResetKey="cartulary.view.timeline.v2:base"
       />,
@@ -540,6 +550,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
     const { container, rerender } = render(
       <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="editor"
         incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={0}
       />,
@@ -601,13 +612,15 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ),
     ).toBeTruthy();
     expect(
-      screen.queryByTestId(
-        workbookInspectorFeatureActionTestId(
-          timelineViewSchemaId,
-          "timeline.mark_reviewed",
-        ),
-      ),
-    ).toBeNull();
+      screen
+        .getByTestId(
+          workbookInspectorFeatureActionTestId(
+            timelineViewSchemaId,
+            "timeline.mark_reviewed",
+          ),
+        )
+        .getAttribute("data-route-owner"),
+    ).toBe("record_mark_reviewed_route");
     expect(
       screen
         .getByTestId(
@@ -634,6 +647,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
     rerender(
       <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="editor"
         incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={1}
       />,
@@ -736,7 +750,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="editor"
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await waitForVisibleGridRowRecordIds(container, [
       "20000000-0000-4000-8000-000000000001",
@@ -863,7 +880,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="editor"
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await waitForVisibleGridRowRecordIds(container, [
       "20000000-0000-4000-8000-000000000001",

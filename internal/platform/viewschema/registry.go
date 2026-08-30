@@ -56,6 +56,7 @@ type ViewFieldEntry struct {
 	ReadKind                  string   `json:"read_kind"`
 	WriteKind                 string   `json:"write_kind"`
 	GridEditable              bool     `json:"grid_editable"`
+	CreateWritable            bool     `json:"create_writable"`
 	ConflictResolutionClass   *string  `json:"conflict_resolution_class"`
 	EntityBindingMode         *string  `json:"entity_binding_mode"`
 	StringContractID          *string  `json:"string_contract_id"`
@@ -78,6 +79,7 @@ type ViewSchemaResource struct {
 	FilterFields              []string                   `json:"filter_fields"`
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
+	CreateCapable             bool                       `json:"create_capable"`
 	CreateInputs              []CreateInputDescriptor    `json:"create_inputs"`
 	InlineCreate              inlineCreate               `json:"inline_create"`
 	InspectorConfig           InspectorConfig            `json:"inspector_config"`
@@ -263,6 +265,7 @@ func buildPublicResource(document schemaDocument) ViewSchemaResource {
 			ReadKind:                  field.ReadKind,
 			WriteKind:                 field.WriteKind,
 			GridEditable:              field.GridEditable,
+			CreateWritable:            field.Writable || field.CreateWritable,
 			ConflictResolutionClass:   nullableString(field.ConflictResolutionClass),
 			EntityBindingMode:         cloneStringPointer(field.EntityBindingMode),
 			StringContractID:          cloneStringPointer(field.StringContractID),
@@ -285,6 +288,7 @@ func buildPublicResource(document schemaDocument) ViewSchemaResource {
 		FilterFields:              cloneStrings(document.FilterFields),
 		SyntheticFilterPredicates: cloneSyntheticFilterPredicates(document.SyntheticFilterPredicates),
 		GroupingFields:            cloneStrings(document.GroupingFields),
+		CreateCapable:             document.CreateCapable,
 		CreateInputs:              cloneCreateInputs(document.CreateInputs),
 		InlineCreate: inlineCreate{
 			MinimumCreateFieldSets: cloneStringMatrix(document.InlineCreate.MinimumCreateFieldSets),

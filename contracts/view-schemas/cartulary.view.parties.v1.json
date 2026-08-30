@@ -61,7 +61,12 @@
   "create_capable": true,
   "create_inputs": [],
   "inline_create": {
-    "minimum_create_field_sets": [],
+    "minimum_create_field_sets": [
+      [
+        "party.display_name",
+        "party.party_kind"
+      ]
+    ],
     "permits_zero_field_create": false
   },
   "inspector_config": {

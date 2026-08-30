@@ -53,11 +53,7 @@ describe("useTimelineInspectorFeatureController", () => {
           .kind !== "unsupported",
     );
 
-    for (const featureGroup of timelineFeatures) {
-      expect(
-        result.current.commands.isFeatureActionSupported(featureGroup),
-      ).toBe(supportedFeatures.includes(featureGroup));
-    }
+    expect(supportedFeatures).toHaveLength(timelineFeatures.length);
     const createRelatedFeatures = supportedFeatures.filter(
       (featureGroup) => featureGroup.routeBinding.kind === "view_row_create",
     );
@@ -85,10 +81,6 @@ describe("useTimelineInspectorFeatureController", () => {
       authorizationKey: "viewer:authorized",
       subjectKey: "",
     });
-    expect(
-      result.current.commands.isFeatureActionSupported(createRelatedFeature),
-    ).toBe(true);
-
     act(() => result.current.commands.handleFeatureAction(indicatorFeature));
     expect(result.current.snapshot.indicatorHandler).not.toBeNull();
     act(() =>
@@ -108,8 +100,8 @@ describe("useTimelineInspectorFeatureController", () => {
     } satisfies InspectorFeatureGroup;
     act(() => result.current.commands.handleFeatureAction(unsupportedFeature));
     expect(
-      result.current.commands.isFeatureActionSupported(unsupportedFeature),
-    ).toBe(false);
+      resolveTimelineWorkbookFeature(timelineViewSchemaId, unsupportedFeature),
+    ).toEqual({ kind: "unsupported" });
     expect(mocks.beginCreateRelatedWorkflow).toHaveBeenCalledTimes(1);
     expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledTimes(2);
     expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith(

@@ -1,3 +1,5 @@
+import { workbookLayoutMetrics } from "@cartulary/ui-contracts";
+
 export type WorkbookChromeMode =
   | "base"
   | "below_supported_minimum"
@@ -9,12 +11,6 @@ export type WorkbookBlockMode =
   | "compact_height"
   | "short_height";
 
-const baseChromeMinWidthCssPx = 1280;
-const narrowChromeMinWidthCssPx = 1024;
-const compactChromeMinWidthCssPx = 768;
-const baseBlockMinHeightCssPx = 720;
-const compactBlockMinHeightCssPx = 640;
-
 function finiteCssPx(value: number): number {
   return Number.isFinite(value) ? value : 0;
 }
@@ -23,13 +19,14 @@ export function selectWorkbookChromeMode(
   widthCssPx: number,
 ): WorkbookChromeMode {
   const width = finiteCssPx(widthCssPx);
-  if (width >= baseChromeMinWidthCssPx) {
+  const metrics = workbookLayoutMetrics(width);
+  if (width >= metrics.baseMinWidthCssPx) {
     return "base";
   }
-  if (width >= narrowChromeMinWidthCssPx) {
+  if (width >= metrics.narrowMinWidthCssPx) {
     return "narrow_desktop";
   }
-  if (width >= compactChromeMinWidthCssPx) {
+  if (width >= metrics.compactMinWidthCssPx) {
     return "compact_desktop";
   }
   return "below_supported_minimum";
@@ -39,10 +36,11 @@ export function selectWorkbookBlockMode(
   heightCssPx: number,
 ): WorkbookBlockMode {
   const height = finiteCssPx(heightCssPx);
-  if (height >= baseBlockMinHeightCssPx) {
+  const metrics = workbookLayoutMetrics(0);
+  if (height >= metrics.baseMinHeightCssPx) {
     return "base_height";
   }
-  if (height >= compactBlockMinHeightCssPx) {
+  if (height >= metrics.compactMinHeightCssPx) {
     return "compact_height";
   }
   return "short_height";

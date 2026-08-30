@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  evidenceViewSchemaId,
   getViewContract,
   indicatorsViewSchemaId,
   listViewContracts,
@@ -82,16 +83,42 @@ describe("view contracts", () => {
 
   it("requires explicit boolean grid_editable inputs", () => {
     for (const contract of listViewContracts()) {
+      expect(typeof contract.createCapable).toBe("boolean");
+      expect(Array.isArray(contract.createInputs)).toBe(true);
+      for (const input of contract.createInputs) {
+        expect(input.inputKey).not.toBe("");
+        expect(input.valueContractId).not.toBe("");
+        expect(typeof input.required).toBe("boolean");
+        expect(typeof input.nullable).toBe("boolean");
+      }
       for (const field of contract.fields) {
         expect(typeof field.gridEditable).toBe("boolean");
+        expect(typeof field.createWritable).toBe("boolean");
+        if (field.gridEditable) {
+          expect(field.createWritable).toBe(true);
+        }
       }
     }
   });
 
   it("requires an exact inline_create policy", () => {
+    const semanticCreateExceptions = new Set([
+      evidenceViewSchemaId,
+      indicatorsViewSchemaId,
+      timelineViewSchemaId,
+    ]);
     for (const contract of listViewContracts()) {
       expect(typeof contract.permitsZeroFieldCreate).toBe("boolean");
       expect(Array.isArray(contract.minimumCreateFieldSets)).toBe(true);
+      if (!semanticCreateExceptions.has(contract.viewSchemaId)) {
+        expect(contract.minimumCreateFieldSets.length).toBeGreaterThan(0);
+      }
+      for (const fieldSet of contract.minimumCreateFieldSets) {
+        expect(fieldSet.length).toBeGreaterThan(0);
+        for (const fieldKey of fieldSet) {
+          expect(contract.fieldMap[fieldKey]?.createWritable).toBe(true);
+        }
+      }
     }
   });
 

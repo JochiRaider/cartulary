@@ -129,6 +129,10 @@ func normalizeViewContractProjectionEntry(schema, registry map[string]any, sourc
 	if err != nil {
 		return nil, err
 	}
+	createInputs, err := normalizeProjectionCreateInputs(schema["create_inputs"], source)
+	if err != nil {
+		return nil, err
+	}
 
 	fields, err := normalizeProjectionFields(schema["fields"], source)
 	if err != nil {
@@ -165,6 +169,8 @@ func normalizeViewContractProjectionEntry(schema, registry map[string]any, sourc
 	}
 
 	return map[string]any{
+		"createCapable":             schema["create_capable"],
+		"createInputs":              createInputs,
 		"defaultHiddenFields":       defaultHiddenFields,
 		"defaultSort":               defaultSort,
 		"defaultVisibleFields":      defaultVisibleFields,
@@ -185,6 +191,32 @@ func normalizeViewContractProjectionEntry(schema, registry map[string]any, sourc
 		"title":                     title,
 		"viewSchemaId":              viewSchemaID,
 	}, nil
+}
+
+func normalizeProjectionCreateInputs(value any, source string) ([]any, error) {
+	inputs, err := objectArrayAllowEmpty(value, source+" create_inputs")
+	if err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(inputs))
+	for index, input := range inputs {
+		label := fmt.Sprintf("%s create_inputs[%d]", source, index+1)
+		inputKey, err := requiredString(input, "input_key", label)
+		if err != nil {
+			return nil, err
+		}
+		valueContractID, err := requiredString(input, "value_contract_id", label)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, map[string]any{
+			"inputKey":        inputKey,
+			"nullable":        input["nullable"],
+			"required":        input["required"],
+			"valueContractId": valueContractID,
+		})
+	}
+	return result, nil
 }
 
 func normalizeProjectionFields(value any, source string) ([]any, error) {
@@ -210,7 +242,7 @@ func normalizeProjectionFields(value any, source string) ([]any, error) {
 		entry := map[string]any{
 			"clearable":                 field["clearable"],
 			"conflictResolutionClass":   field["conflict_resolution_class"],
-			"createWritable":            field["create_writable"] == true,
+			"createWritable":            field["writable"] == true || field["create_writable"] == true,
 			"defaultHidden":             field["default_hidden"],
 			"directReferenceContractId": field["direct_reference_contract_id"],
 			"directScalarContractId":    field["direct_scalar_contract_id"],
