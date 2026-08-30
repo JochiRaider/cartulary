@@ -3,7 +3,6 @@ package conflicts_test
 import (
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,6 +14,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 )
 
+const conflictTokenMaximumWireLength = 4096
+
 func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 	now := time.Date(2026, 8, 3, 12, 0, 0, 123000000, time.UTC)
 	codec := testCodec(t, now, "active.key", "active-key", "active", "", "", nil)
@@ -23,7 +24,7 @@ func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue conflict token: %v", err)
 	}
-	if !strings.HasPrefix(token, "cft3.active.key.") || len(token) > conflicts.ConflictTokenMaximumLen {
+	if !strings.HasPrefix(token, "cft3.active.key.") || len(token) > conflictTokenMaximumWireLength {
 		t.Fatalf("unexpected v3 wire token: %q", token)
 	}
 	for _, plaintext := range []string{claims.RouteKey, claims.RecordID, claims.ViewSchemaID, claims.FieldKey, claims.RequestHash} {
@@ -32,52 +33,15 @@ func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 		}
 	}
 	parsed, ok := codec.Parse(token)
-	if !ok || parsed.Version != conflicts.ConflictTokenVersion || !parsed.IssuedAt.Equal(now) || !parsed.ExpiresAt.Equal(now.Add(conflicts.ConflictTokenTTL)) {
+	if !ok || parsed.Version != 3 || !parsed.IssuedAt.Equal(now) || !parsed.ExpiresAt.Equal(now.Add(30*time.Minute)) {
 		t.Fatalf("unexpected parsed claims: ok=%v claims=%#v", ok, parsed)
 	}
-	binding := bindingFor(parsed)
-	if !parsed.ValidFor(binding) {
-		t.Fatal("issued token did not satisfy its exact binding")
-	}
-	for name, mutate := range map[string]func(conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding{
-		"route": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.RouteKey += ".other"
-			return value
-		},
-		"record": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.RecordID = uuid.NewString()
-			return value
-		},
-		"view": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.ViewSchemaID += ".other"
-			return value
-		},
-		"field": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.FieldKey += ".other"
-			return value
-		},
-		"class": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.ConflictResolutionClass = "atomic_replace"
-			return value
-		},
-		"base_version": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.BaseRowVersion++
-			return value
-		},
-		"current_version": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.CurrentRowVersion++
-			return value
-		},
-		"request": func(value conflicts.ConflictTokenBinding) conflicts.ConflictTokenBinding {
-			value.RequestHash += "x"
-			return value
-		},
-	} {
-		t.Run("wrong_binding_"+name, func(t *testing.T) {
-			if parsed.ValidFor(mutate(binding)) {
-				t.Fatalf("token accepted wrong %s binding", name)
-			}
-		})
+	if parsed.RouteKey != claims.RouteKey || parsed.RecordID != claims.RecordID ||
+		parsed.ViewSchemaID != claims.ViewSchemaID || parsed.FieldKey != claims.FieldKey ||
+		parsed.ConflictResolutionClass != claims.ConflictResolutionClass ||
+		parsed.BaseRowVersion != claims.BaseRowVersion || parsed.CurrentRowVersion != claims.CurrentRowVersion ||
+		parsed.RequestHash != claims.RequestHash {
+		t.Fatalf("parsed claim binding differs from issued claims: got %#v want %#v", parsed, claims)
 	}
 	second, err := codec.Issue(claims)
 	if err != nil || second == token {
@@ -89,7 +53,7 @@ func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 		"tampered":    tampered,
 		"truncated":   token[:len(token)-1],
 		"v2":          base64.RawURLEncoding.EncodeToString([]byte(`{"cartulary_conflict_token_v":2}`)),
-		"too_long":    strings.Repeat("x", conflicts.ConflictTokenMaximumLen+1),
+		"too_long":    strings.Repeat("x", conflictTokenMaximumWireLength+1),
 		"unknown_key": strings.Replace(token, "active.key", "unknown", 1),
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -117,7 +81,7 @@ func TestConflictTokenV3ExpiryRotationAndClockSkew(t *testing.T) {
 	if _, ok := rotated.Parse(token); !ok {
 		t.Fatal("decrypt-only key rejected token issued before deactivation")
 	}
-	clock = issuedAt.Add(conflicts.ConflictTokenTTL)
+	clock = issuedAt.Add(30 * time.Minute)
 	if _, ok := rotated.Parse(token); ok {
 		t.Fatal("expired token parsed")
 	}
@@ -132,7 +96,7 @@ func TestConflictTokenV3ExpiryRotationAndClockSkew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("issue future token: %v", err)
 	}
-	verifyClock := issuedAt.Add(-conflicts.ConflictTokenClockSkew)
+	verifyClock := issuedAt.Add(-time.Minute)
 	verifier := testCodecWithManifest(t, &verifyClock, []manifestKey{{id: "future", ref: "future-secret", state: "active"}})
 	if _, ok := verifier.Parse(futureToken); !ok {
 		t.Fatal("maximum positive clock skew was not admitted")
@@ -140,18 +104,6 @@ func TestConflictTokenV3ExpiryRotationAndClockSkew(t *testing.T) {
 	verifyClock = verifyClock.Add(-time.Nanosecond)
 	if _, ok := verifier.Parse(futureToken); ok {
 		t.Fatal("excessive positive clock skew was admitted")
-	}
-}
-
-func TestConflictTokenV3PropagatesEntropyFailure(t *testing.T) {
-	now := time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
-	ring := testRing(t, now, []manifestKey{{id: "active", ref: "active", state: "active"}}, nil, conflicts.KeyRingParseOptions{})
-	codec, err := conflicts.NewConflictTokenCodec(ring, conflicts.WithClock(func() time.Time { return now }), conflicts.WithEntropySource(errorReader{}))
-	if err != nil {
-		t.Fatalf("construct codec: %v", err)
-	}
-	if _, err := codec.Issue(validClaims()); !errors.Is(err, conflicts.ErrConflictTokenUnavailable) {
-		t.Fatalf("entropy failure = %v, want closed unavailable error", err)
 	}
 }
 
@@ -311,14 +263,6 @@ func validClaims() conflicts.ConflictTokenClaims {
 	}
 }
 
-func bindingFor(claims conflicts.ConflictTokenClaims) conflicts.ConflictTokenBinding {
-	return conflicts.ConflictTokenBinding{
-		RouteKey: claims.RouteKey, RecordID: claims.RecordID, ViewSchemaID: claims.ViewSchemaID,
-		FieldKey: claims.FieldKey, ConflictResolutionClass: claims.ConflictResolutionClass,
-		BaseRowVersion: claims.BaseRowVersion, CurrentRowVersion: claims.CurrentRowVersion, RequestHash: claims.RequestHash,
-	}
-}
-
 func keyFor(value string) []byte {
 	key := sha256.Sum256([]byte("revisions-conflict-token-test:" + value))
 	return key[:]
@@ -334,7 +278,3 @@ func alternateTokenByte(value byte) string {
 	}
 	return "A"
 }
-
-type errorReader struct{}
-
-func (errorReader) Read([]byte) (int, error) { return 0, errors.New("entropy source failed") }

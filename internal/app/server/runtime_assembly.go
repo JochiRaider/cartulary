@@ -47,7 +47,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	revisionshttpapi "github.com/JochiRaider/cartulary/internal/modules/revisions/httpapi"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/sourceboundary"
@@ -812,15 +811,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	cursorCodec := pagination.NewCodec(cursorKey[:])
-	attributionResolvers := revisions.NewAttributionResolverRegistry()
-	if err := attributionResolvers.RegisterImportedAttributionResolver(incidentbundles.ProfileID, incidentbundles.ImportedAttributionResolver()); err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("register incident portability attribution resolver: %w", err)
-	}
-	if err := attributionResolvers.ValidateAttributionResolvers(revisionPublicationClaims(extensionPlan.Claims())); err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("validate attribution resolvers: %w", err)
-	}
 	workbookPreferenceBootstrap := workbookstartuppostgres.NewWriter()
 	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            postgresHandle,
@@ -936,7 +926,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	revisionCommands, err := revisionRuntime.NewCommandService(
 		postgresHandle,
-		attributionResolvers.ImportedAttributionResolver(incidentbundles.ProfileID),
+		incidentbundles.ImportedAttributionResolver(),
 		projectionRuntime.RevisionRebuilder(),
 		projectionRuntime.RevisionLiveRecords(),
 		now,
@@ -997,7 +987,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability: %w", err)
 	}
-	incidentSourceCatalog, err := incidentportabilityassembly.NewCatalog()
+	incidentSourceCatalog, err := incidentportabilityassembly.NewCatalog(
+		revisionRuntime.IncidentBundleSourcePort(),
+	)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
@@ -1667,17 +1659,6 @@ func (provider publicationHTTPProjections) ExtensionWorkspaces() []httpapi.Exten
 		})
 	}
 	return workspaces
-}
-
-func revisionPublicationClaims(publication []extensions.ClaimPublication) []revisions.ExtensionClaim {
-	claims := make([]revisions.ExtensionClaim, 0, len(publication))
-	for _, profile := range publication {
-		claims = append(claims, revisions.ExtensionClaim{
-			ProfileID: profile.ProfileID,
-			Claimed:   profile.Claimed,
-		})
-	}
-	return claims
 }
 
 func inactiveExtensionProfileIDs(publication []extensions.ClaimPublication) []string {

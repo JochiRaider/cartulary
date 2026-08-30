@@ -16,7 +16,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
-	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
@@ -548,10 +547,7 @@ func newCatalogBackedWorkbookCatalog(
 ) (*workbook.WorkbookContributionCatalog, *artifacts.MutationFacade) {
 	t.Helper()
 	conflictTokens := workbookTestConflictTokens()
-	conflictFields, err := revisionassembly.CurrentConflictFieldResolver()
-	if err != nil {
-		t.Fatalf("compose conflict field resolver: %v", err)
-	}
+	conflictFields := revisionsupport.MustConflictFieldResolver(t)
 	evidenceOwner := appsupport.NewEvidenceOwnerRuntime(
 		pool,
 		conflictTokens,

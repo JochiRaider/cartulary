@@ -87,20 +87,21 @@ operation. Temporary old and candidate Go surfaces may coexist only inside
 that active cutover workstream and are deleted before it completes. There is no
 internal deprecation window or runtime fallback.
 
-Existing databases containing Revisions mutation rows from before the
-canonical snapshot boundary are pre-production disposable state and must be
-reset. The boundary migration fails with an explicit reset-required diagnostic
-when such rows exist. It does not backfill or infer history facts.
+Databases outside the current Production DDL Rebaseline v2 lineage are
+pre-production disposable state and must follow the Core 01 reset path. The
+migration preflight rejects historical or unmarked lineages before current-line
+DDL executes. It does not backfill, translate, or infer history facts.
 
 Schema-less snapshots have no reader, translator, alias, dual-write path, or
-shape inference. Incident Bundles containing them are rejected. Bundle
-versions 1 and 2 remain supported for canonical snapshots, with their existing
-outer row members and ordering; deterministic association facts are recomputed
-from the admitted target-semantics version during import.
+shape inference. Incident Bundles containing them are rejected. Incident
+Bundle version 3 is the sole admitted version. Retired numeric versions 1 and
+2 have no reader, translator, converter, runtime flag, fallback, or active
+compatibility registry. Version 3 import recomputes deterministic association
+facts from the admitted target-semantics version.
 
 No public HTTP or WebSocket operation, authorization precedence, opaque
-selector, conflict-token v3 wire format, Incident Bundle version, OpenAPI
-operation, UI selector, or frontend port changes under this decision.
+selector, conflict-token v3 wire format, Incident Bundle version 3 behavior,
+OpenAPI operation, UI selector, or frontend port changes under this decision.
 
 ## Acceptance
 

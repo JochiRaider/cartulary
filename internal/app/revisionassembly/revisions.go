@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -34,6 +35,7 @@ type Runtime struct {
 	targetSemantics *revisions.TargetSemanticsCatalog
 	deleteRestore   *revisions.DeleteRestoreSourceCatalog
 	fieldResolver   *conflicts.FieldResolverCatalog
+	incidentBundles sourceport.Port
 }
 
 func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
@@ -58,31 +60,12 @@ func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
 	}, nil
 }
 
-func CurrentConflictFieldResolver() (conflicts.FieldResolver, error) {
-	contributions, err := CurrentProviderContributions()
-	if err != nil {
-		return nil, err
-	}
-	return buildConflictFieldResolver(contributions)
-}
-
-func CurrentTargetSemanticsCatalog() (*revisions.TargetSemanticsCatalog, error) {
-	contributions, err := CurrentProviderContributions()
-	if err != nil {
-		return nil, err
-	}
-	return buildTargetSemanticsCatalog(contributions)
-}
-
 func NewRecordEnvelopeReader(db postgres.DB) revisions.RecordEnvelopeReader {
 	return recordEnvelopeAdapter{store: records.NewStore(db)}
 }
 
 func Build(contributions ...revisions.ProviderContribution) (*Runtime, error) {
 	copied := cloneProviderContributions(contributions)
-	if err := revisions.ValidateProviderContributions(copied); err != nil {
-		return nil, fmt.Errorf("revision assembly: validate provider contributions: %w", err)
-	}
 	if _, err := buildRecordViewCatalog(copied); err != nil {
 		return nil, fmt.Errorf("revision assembly: build record/view catalog: %w", err)
 	}
@@ -97,6 +80,14 @@ func Build(contributions ...revisions.ProviderContribution) (*Runtime, error) {
 	targetSemantics, err := buildTargetSemanticsCatalog(copied)
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build target semantics catalog: %w", err)
+	}
+	incidentBundles, err := revisions.NewIncidentBundleSourcePort(
+		recordEnvelopeAdapter{store: records.NewStore()},
+		snapshotCaptures,
+		targetSemantics,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("revision assembly: build Incident Bundle source port: %w", err)
 	}
 	deleteRestore, err := revisions.NewDeleteRestoreSourceCatalogFromContributions(copied)
 	if err != nil {
@@ -115,6 +106,7 @@ func Build(contributions ...revisions.ProviderContribution) (*Runtime, error) {
 		targetSemantics: targetSemantics,
 		deleteRestore:   deleteRestore,
 		fieldResolver:   fieldResolver,
+		incidentBundles: incidentBundles,
 	}, nil
 }
 
@@ -130,6 +122,13 @@ func (r *Runtime) Appender() *revisions.Appender {
 		return nil
 	}
 	return r.appender
+}
+
+func (r *Runtime) IncidentBundleSourcePort() sourceport.Port {
+	if r == nil {
+		return nil
+	}
+	return r.incidentBundles
 }
 
 func (r *Runtime) NewCommandService(

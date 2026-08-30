@@ -103,25 +103,11 @@
       "public_target": "test"
     },
     {
-      "verification_id": "module.revisions.verification.portability_attribution_registry",
-      "behavior_class": "architecture",
-      "profile": "extension.incident_portability",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
-    },
-    {
       "verification_id": "module.revisions.verification.portability_contract_and_attribution",
       "behavior_class": "product",
       "profile": "extension.incident_portability",
       "evidence_kinds": ["go_test"],
       "public_target": "service-backed-test"
-    },
-    {
-      "verification_id": "module.revisions.verification.production_readiness_cleanup",
-      "behavior_class": "architecture",
-      "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
     },
     {
       "verification_id": "module.revisions.verification.provider_catalog_closure",

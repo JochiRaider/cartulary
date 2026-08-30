@@ -664,31 +664,6 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.revisions.portability.attribution_registry",
-      "owner_id": "module.revisions",
-      "family_id": "module.revisions.portability",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.revisions.verification.portability_attribution_registry"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/revisions",
-        "tests": [
-          "TestAttributionResolverRegistryRejectsDuplicateProfile",
-          "TestAttributionResolverRegistryRequiresIncidentPortabilityResolver"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "standard",
-      "service_dependencies": []
-    },
-    {
       "row_id": "module.revisions.portability.contract_and_attribution",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.portability",
@@ -734,7 +709,7 @@
           "TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope",
           "TestCatalogAdmissionSnapshotCaptureRejectsInvalidShapeAndMissingRegistration",
           "TestCurrentTargetKindHistoryAddressability_Unit",
-          "TestIncidentBundleValidationCatalogFailsClosed",
+          "TestIncidentBundleSourcePortFailsClosed",
           "TestTargetSemanticsCatalogCompilesGenericRowAndOwnerNonRowEntries",
           "TestTargetSemanticsCatalogFailsClosed",
           "TestTargetSemanticsCatalogRejectsDuplicateAndMissingRowProviders",
@@ -1255,31 +1230,6 @@
         ]
       },
       "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "module.revisions.support_unit.production_readiness_cleanup_4f6a8c2d10",
-      "owner_id": "module.revisions",
-      "family_id": "module.revisions.support_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.revisions.verification.production_readiness_cleanup"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/revisions",
-        "tests": [
-          "TestProductionReadinessComponentsRemainDecomposed_Unit",
-          "TestProductionReadinessRetiredIdentifiersRemainAbsent_Unit"
-        ]
-      },
-      "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

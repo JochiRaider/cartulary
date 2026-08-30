@@ -18,3 +18,16 @@ func TestIncidentsSourcePortConstructionFailureHasOwnerContext_Unit(t *testing.T
 		t.Fatalf("contextual source-port failure = port %#v, error %v", port, err)
 	}
 }
+
+func TestCatalogRequiresTheComposedRevisionsSourcePort_Unit(t *testing.T) {
+	if catalog, err := NewCatalog(nil); catalog != nil || !errors.Is(err, sourceport.ErrInvalidCatalog) {
+		t.Fatalf("nil Revisions source port = catalog %#v, error %v", catalog, err)
+	}
+	wrongOwner := sourceport.NewAdapter(sourceport.AdapterOptions{Descriptor: sourceport.Descriptor{
+		FamilyID: "revisions",
+		OwnerID:  "module.fixture",
+	}})
+	if catalog, err := NewCatalog(wrongOwner); catalog != nil || !errors.Is(err, sourceport.ErrInvalidCatalog) {
+		t.Fatalf("wrong-owner Revisions source port = catalog %#v, error %v", catalog, err)
+	}
+}

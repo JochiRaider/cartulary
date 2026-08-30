@@ -16,15 +16,15 @@ import (
 )
 
 const (
-	ConflictTokenVersion    = 3
-	ConflictTokenTTL        = 30 * time.Minute
-	ConflictTokenClockSkew  = 60 * time.Second
-	ConflictTokenMaximumLen = 4096
+	conflictTokenVersion    = 3
+	conflictTokenTTL        = 30 * time.Minute
+	conflictTokenClockSkew  = 60 * time.Second
+	conflictTokenMaximumLen = 4096
 	conflictTokenPrefix     = "cft3."
 	conflictTokenPurpose    = "cartulary.conflict-token.v3"
 )
 
-var ErrConflictTokenUnavailable = errors.New("conflict token unavailable")
+var errConflictTokenUnavailable = errors.New("conflict token unavailable")
 
 type ConflictTokenClaims struct {
 	Version                 int64     `json:"version"`
@@ -38,28 +38,6 @@ type ConflictTokenClaims struct {
 	RequestHash             string    `json:"request_hash"`
 	IssuedAt                time.Time `json:"issued_at"`
 	ExpiresAt               time.Time `json:"expires_at"`
-}
-
-type ConflictTokenBinding struct {
-	RouteKey                string
-	RecordID                string
-	ViewSchemaID            string
-	FieldKey                string
-	ConflictResolutionClass string
-	BaseRowVersion          int64
-	CurrentRowVersion       int64
-	RequestHash             string
-}
-
-func (claims ConflictTokenClaims) ValidFor(binding ConflictTokenBinding) bool {
-	return claims.RouteKey == binding.RouteKey &&
-		claims.RecordID == binding.RecordID &&
-		claims.ViewSchemaID == binding.ViewSchemaID &&
-		claims.FieldKey == binding.FieldKey &&
-		claims.ConflictResolutionClass == binding.ConflictResolutionClass &&
-		claims.BaseRowVersion == binding.BaseRowVersion &&
-		claims.CurrentRowVersion == binding.CurrentRowVersion &&
-		claims.RequestHash == binding.RequestHash
 }
 
 type conflictTokenCipher struct {
@@ -84,7 +62,7 @@ func WithClock(now func() time.Time) CodecOption {
 	}
 }
 
-func WithEntropySource(entropy io.Reader) CodecOption {
+func withEntropySource(entropy io.Reader) CodecOption {
 	return func(codec *ConflictTokenCodec) {
 		codec.entropy = entropy
 	}
@@ -92,7 +70,7 @@ func WithEntropySource(entropy io.Reader) CodecOption {
 
 func NewConflictTokenCodec(ring *ConflictTokenKeyRing, options ...CodecOption) (ConflictTokenCodec, error) {
 	if ring == nil || ring.activeKeyID == "" || len(ring.keys) == 0 {
-		return ConflictTokenCodec{}, ErrConflictTokenUnavailable
+		return ConflictTokenCodec{}, errConflictTokenUnavailable
 	}
 	codec := ConflictTokenCodec{
 		activeKeyID: ring.activeKeyID,
@@ -106,16 +84,16 @@ func NewConflictTokenCodec(ring *ConflictTokenKeyRing, options ...CodecOption) (
 		}
 	}
 	if codec.now == nil || codec.entropy == nil {
-		return ConflictTokenCodec{}, ErrConflictTokenUnavailable
+		return ConflictTokenCodec{}, errConflictTokenUnavailable
 	}
 	for keyID, material := range ring.keys {
 		block, err := aes.NewCipher(material.key)
 		if err != nil {
-			return ConflictTokenCodec{}, ErrConflictTokenUnavailable
+			return ConflictTokenCodec{}, errConflictTokenUnavailable
 		}
 		aead, err := cipher.NewGCM(block)
 		if err != nil || aead.NonceSize() != 12 {
-			return ConflictTokenCodec{}, ErrConflictTokenUnavailable
+			return ConflictTokenCodec{}, errConflictTokenUnavailable
 		}
 		codec.keys[keyID] = conflictTokenCipher{
 			aead:          aead,
@@ -134,33 +112,33 @@ func RequestHashTokenValue(requestHash []byte) string {
 func (c ConflictTokenCodec) Issue(claims ConflictTokenClaims) (string, error) {
 	key, ok := c.keys[c.activeKeyID]
 	if !ok || key.state != conflictTokenKeyStateActive || c.now == nil || c.entropy == nil {
-		return "", ErrConflictTokenUnavailable
+		return "", errConflictTokenUnavailable
 	}
 	now := c.now().UTC()
-	claims.Version = ConflictTokenVersion
+	claims.Version = conflictTokenVersion
 	claims.IssuedAt = now
-	claims.ExpiresAt = now.Add(ConflictTokenTTL)
+	claims.ExpiresAt = now.Add(conflictTokenTTL)
 	if !validConflictTokenClaims(claims) {
-		return "", ErrConflictTokenUnavailable
+		return "", errConflictTokenUnavailable
 	}
 	payload, err := json.Marshal(claims)
 	if err != nil {
-		return "", ErrConflictTokenUnavailable
+		return "", errConflictTokenUnavailable
 	}
 	nonce := make([]byte, key.aead.NonceSize())
 	if _, err := io.ReadFull(c.entropy, nonce); err != nil {
-		return "", ErrConflictTokenUnavailable
+		return "", errConflictTokenUnavailable
 	}
 	sealed := key.aead.Seal(nonce, nonce, payload, conflictTokenAAD(c.activeKeyID))
 	token := conflictTokenPrefix + c.activeKeyID + "." + base64.RawURLEncoding.EncodeToString(sealed)
-	if len(token) > ConflictTokenMaximumLen {
-		return "", ErrConflictTokenUnavailable
+	if len(token) > conflictTokenMaximumLen {
+		return "", errConflictTokenUnavailable
 	}
 	return token, nil
 }
 
 func (c ConflictTokenCodec) Parse(token string) (ConflictTokenClaims, bool) {
-	if len(token) == 0 || len(token) > ConflictTokenMaximumLen || !strings.HasPrefix(token, conflictTokenPrefix) || c.now == nil {
+	if len(token) == 0 || len(token) > conflictTokenMaximumLen || !strings.HasPrefix(token, conflictTokenPrefix) || c.now == nil {
 		return ConflictTokenClaims{}, false
 	}
 	remainder := strings.TrimPrefix(token, conflictTokenPrefix)
@@ -197,7 +175,7 @@ func (c ConflictTokenCodec) Parse(token string) (ConflictTokenClaims, bool) {
 	if token, err := decoder.Token(); err != io.EOF || token != nil {
 		return ConflictTokenClaims{}, false
 	}
-	if !validConflictTokenClaims(claims) || claims.IssuedAt.After(now.Add(ConflictTokenClockSkew)) || !now.Before(claims.ExpiresAt) {
+	if !validConflictTokenClaims(claims) || claims.IssuedAt.After(now.Add(conflictTokenClockSkew)) || !now.Before(claims.ExpiresAt) {
 		return ConflictTokenClaims{}, false
 	}
 	if key.state == conflictTokenKeyStateDecryptOnly && (key.deactivatedAt == nil || !claims.IssuedAt.Before(*key.deactivatedAt)) {
@@ -214,7 +192,7 @@ func validConflictTokenClaims(claims ConflictTokenClaims) bool {
 	recordID, err := uuid.Parse(claims.RecordID)
 	requestHash, hashErr := base64.RawURLEncoding.DecodeString(claims.RequestHash)
 	return err == nil && recordID != uuid.Nil && hashErr == nil && len(requestHash) > 0 && len(requestHash) <= 128 &&
-		claims.Version == ConflictTokenVersion &&
+		claims.Version == conflictTokenVersion &&
 		claims.RouteKey != "" && len(claims.RouteKey) <= 256 &&
 		claims.ViewSchemaID != "" && len(claims.ViewSchemaID) <= 256 &&
 		claims.FieldKey != "" && len(claims.FieldKey) <= 256 &&
@@ -223,7 +201,7 @@ func validConflictTokenClaims(claims ConflictTokenClaims) bool {
 		claims.CurrentRowVersion >= claims.BaseRowVersion &&
 		!claims.IssuedAt.IsZero() && claims.IssuedAt.Location() == time.UTC &&
 		!claims.ExpiresAt.IsZero() && claims.ExpiresAt.Location() == time.UTC &&
-		claims.ExpiresAt.Equal(claims.IssuedAt.Add(ConflictTokenTTL))
+		claims.ExpiresAt.Equal(claims.IssuedAt.Add(conflictTokenTTL))
 }
 
 func cloneTime(value *time.Time) *time.Time {

@@ -337,6 +337,7 @@
         "internal/app/incidentportabilityassembly/**",
         "internal/app/projectionassembly/**",
         "internal/app/recoveryassembly/state_catalog.go",
+        "internal/app/revisionassembly/revisions.go",
         "internal/app/server/extensions_publication_characterization_test.go",
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
@@ -1551,6 +1552,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/entities",
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
@@ -2364,9 +2366,7 @@
       "scan_paths": [
         "internal/**"
       ],
-      "allowed_paths": [
-        "internal/modules/revisions/production_readiness_cleanup_test.go"
-      ],
+      "allowed_paths": [],
       "production_only": false
     },
     {

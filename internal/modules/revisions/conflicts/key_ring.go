@@ -147,7 +147,7 @@ func ParseConflictTokenKeyRingWithRegistry(raw []byte, env map[string]string, no
 				return nil, conflictTokenConfigError(path+".deactivated_at", "revisions_conflict_token_rotation_invalid", err.Error())
 			}
 			retireAt, err := parseConflictTokenTimestamp(entry.RetireAt)
-			if err != nil || retireAt.Before(deactivatedAt.Add(ConflictTokenTTL+ConflictTokenClockSkew)) || !now.Before(retireAt) {
+			if err != nil || retireAt.Before(deactivatedAt.Add(conflictTokenTTL+conflictTokenClockSkew)) || !now.Before(retireAt) {
 				return nil, conflictTokenConfigError(path+".retire_at", "revisions_conflict_token_rotation_invalid", "retire_at must be at least 31 minutes after deactivated_at and later than startup time")
 			}
 			material.deactivatedAt = &deactivatedAt

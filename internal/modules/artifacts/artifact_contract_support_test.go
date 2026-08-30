@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
@@ -363,9 +362,5 @@ func mustArtifactMutationFacade(
 
 func mustConflictFieldResolver(t testing.TB) conflicts.FieldResolver {
 	t.Helper()
-	resolver, err := revisionassembly.CurrentConflictFieldResolver()
-	if err != nil {
-		t.Fatalf("compose conflict field resolver: %v", err)
-	}
-	return resolver
+	return revisionsupport.MustConflictFieldResolver(t)
 }

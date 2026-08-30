@@ -9,15 +9,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func NewIncidentBundleSourcePort(validation *IncidentBundleValidationCatalog) sourceport.Port {
+func NewIncidentBundleSourcePort(
+	envelopes IncidentBundleRecordEnvelopeReader,
+	snapshots *RecordSnapshotCaptureCatalog,
+	targets *TargetSemanticsCatalog,
+) (sourceport.Port, error) {
+	validation, err := newIncidentBundleValidationCatalog(envelopes, snapshots, targets)
+	if err != nil {
+		return nil, err
+	}
 	descriptor := revisionsIncidentBundleDescriptor()
-	return sourceport.NewAdapter(sourceport.AdapterOptions{
+	port := sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor,
 		ValidateContract: func() error {
-			if validation == nil {
-				return ErrMissingHistoryTargetProvider
-			}
-			return nil
+			return validation.validateContract()
 		},
 		Export: func(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
 			return exportIncidentBundleFiles(ctx, exportContext)
@@ -40,6 +45,10 @@ func NewIncidentBundleSourcePort(validation *IncidentBundleValidationCatalog) so
 			return validatePreparedRevisionsImportTx(ctx, tx, prepared, validation)
 		},
 	})
+	if err := port.ValidateSourcePortContract(); err != nil {
+		return nil, err
+	}
+	return port, nil
 }
 
 func revisionsIncidentBundleDescriptor() sourceport.Descriptor {

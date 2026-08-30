@@ -29,6 +29,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 var errUnavailableEvidenceObjectStore = errors.New("test Evidence object store is unavailable")
@@ -86,7 +87,7 @@ func NewEvidenceOwnerRuntimeForTimeline(
 	intents collaboration.RecordChangedAppender,
 	projectionRuntime *projectionassembly.Runtime,
 ) *evidence.OwnerRuntime {
-	conflictFields, err := revisionassembly.CurrentConflictFieldResolver()
+	conflictFields, err := revisionsupport.NewConflictFieldResolver()
 	if err != nil {
 		panic(err)
 	}

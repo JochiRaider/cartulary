@@ -91,6 +91,19 @@ func (commandServiceTestEnvelopes) LockDestructiveRecordsNowaitTx(context.Contex
 
 type incidentBundleEnvelopeReaderStub struct{}
 
+type commandServiceTestAttributionResolver struct{}
+
+func (commandServiceTestAttributionResolver) ResolveImportedSourceActorsTx(
+	context.Context,
+	pgx.Tx,
+	uuid.UUID,
+	string,
+	string,
+	[]string,
+) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
 func (incidentBundleEnvelopeReaderStub) RecordTypeTx(
 	context.Context,
 	pgx.Tx,
@@ -129,7 +142,7 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 			t.Parallel()
 			invalid := dependencies
 			test.mutate(&invalid)
-			if _, err := NewCommandService(invalid); !errors.Is(err, ErrInvalidCommandServiceDependency) {
+			if _, err := NewCommandService(invalid); !errors.Is(err, errInvalidCommandServiceDependency) {
 				t.Fatalf("dependency error = %v", err)
 			}
 		})
@@ -149,7 +162,7 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 		Transactions:                database,
 		Authorization:               commandServiceTestAuthorizer{},
 		Idempotency:                 commandServiceTestIdempotency{},
-		ImportedAttributionResolver: fakeImportedAttributionResolver{},
+		ImportedAttributionResolver: commandServiceTestAttributionResolver{},
 		Projections:                 commandServiceTestProjection{},
 		LiveRecords:                 commandServiceTestProjection{},
 		DeleteRestoreSources:        deleteRestoreSources,
@@ -278,20 +291,34 @@ func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			contributions := test.mutate(validProviderContributions())
-			if err := ValidateProviderContributions(contributions); !errors.Is(err, test.want) {
+			var err error
+			if errors.Is(test.want, ErrInvalidTargetSemantics) {
+				_, err = NewTargetSemanticsCatalog(contributions)
+			} else {
+				_, err = NewDeleteRestoreSourceCatalogFromContributions(contributions)
+			}
+			if !errors.Is(err, test.want) {
 				t.Fatalf("provider contribution error = %v, want %v", err, test.want)
 			}
 		})
 	}
 }
 
-func TestIncidentBundleValidationCatalogFailsClosed(t *testing.T) {
+func TestIncidentBundleSourcePortFailsClosed(t *testing.T) {
 	t.Parallel()
 	contributions := validProviderContributions()
+	snapshots, err := NewRecordSnapshotCaptureCatalog(contributions)
+	if err != nil {
+		t.Fatalf("build valid snapshot catalog: %v", err)
+	}
 	targets := validTargetSemanticsCatalog(t, contributions)
-	catalog, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, targets, contributions)
+	catalog, err := newIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, snapshots, targets)
 	if err != nil {
 		t.Fatalf("build valid incident-bundle validation catalog: %v", err)
+	}
+	port, err := NewIncidentBundleSourcePort(incidentBundleEnvelopeReaderStub{}, snapshots, targets)
+	if err != nil || port == nil {
+		t.Fatalf("build valid incident-bundle source port: port %v, error %v", port, err)
 	}
 	if !catalog.resolvesTargetKind("record") ||
 		!catalog.resolvesTargetKind("host") ||
@@ -303,7 +330,22 @@ func TestIncidentBundleValidationCatalogFailsClosed(t *testing.T) {
 		t.Fatal("caller mutation escaped the immutable validation catalog")
 	}
 
-	if _, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, nil, contributions); !errors.Is(err, ErrMissingHistoryTargetProvider) {
-		t.Fatalf("missing target semantics error = %v", err)
+	for name, build := range map[string]func() error{
+		"envelopes": func() error {
+			_, err := NewIncidentBundleSourcePort(nil, snapshots, targets)
+			return err
+		},
+		"snapshots": func() error {
+			_, err := NewIncidentBundleSourcePort(incidentBundleEnvelopeReaderStub{}, nil, targets)
+			return err
+		},
+		"targets": func() error {
+			_, err := NewIncidentBundleSourcePort(incidentBundleEnvelopeReaderStub{}, snapshots, nil)
+			return err
+		},
+	} {
+		if err := build(); !errors.Is(err, ErrMissingHistoryTargetProvider) {
+			t.Fatalf("missing %s error = %v", name, err)
+		}
 	}
 }

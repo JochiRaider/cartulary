@@ -19,7 +19,7 @@ func validatePreparedRevisionsBeforeWriteTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	prepared preparedRevisionsImport,
-	validation *IncidentBundleValidationCatalog,
+	validation *incidentBundleValidationCatalog,
 ) error {
 	for _, mutation := range prepared.mutations {
 		if !validation.resolvesTargetKind(mutation.TargetKind) ||
@@ -112,7 +112,7 @@ func validatePreparedRevisionsImportTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	prepared preparedRevisionsImport,
-	validation *IncidentBundleValidationCatalog,
+	validation *incidentBundleValidationCatalog,
 ) error {
 	terminal := map[uuid.UUID]portableRecordRevision{}
 	for _, revision := range prepared.revisions {

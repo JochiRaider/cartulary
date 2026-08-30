@@ -1,14 +1,8 @@
 package incidentportabilityassembly
 
 import (
-	"context"
-	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/tasksdecisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
@@ -21,13 +15,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
-func NewCatalog() (*sourceport.Catalog, error) {
+func NewCatalog(revisionsPort sourceport.Port) (*sourceport.Catalog, error) {
+	if revisionsPort == nil {
+		return nil, fmt.Errorf("%w: Revisions source port is required", sourceport.ErrInvalidCatalog)
+	}
+	revisionsDescriptor := revisionsPort.Descriptor()
+	if revisionsDescriptor.FamilyID != "revisions" || revisionsDescriptor.OwnerID != "module.revisions" {
+		return nil, fmt.Errorf("%w: invalid Revisions source port", sourceport.ErrInvalidCatalog)
+	}
 	indicatorContribution, err := indicators.NewIncidentBundleContribution()
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Indicators contribution: %w", err)
@@ -44,22 +44,6 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	})
 	if err != nil {
 		return nil, err
-	}
-	targetSemantics, err := revisionassembly.CurrentTargetSemanticsCatalog()
-	if err != nil {
-		return nil, fmt.Errorf("incident portability assembly: Revisions target semantics catalog: %w", err)
-	}
-	providerContributions, err := revisionassembly.CurrentProviderContributions()
-	if err != nil {
-		return nil, fmt.Errorf("incident portability assembly: Revisions provider contributions: %w", err)
-	}
-	revisionsValidation, err := revisions.NewIncidentBundleValidationCatalog(
-		incidentBundleRecordEnvelopeReader{store: records.NewStore()},
-		targetSemantics,
-		providerContributions,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("incident portability assembly: revisions validation catalog: %w", err)
 	}
 	artifactsSourcePort, err := artifacts.NewIncidentBundleSourcePort()
 	if err != nil {
@@ -112,7 +96,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			evidence.NewIncidentBundleSourcePort(),
 			assessments.NewIncidentBundleSourcePort(),
 			linksSourcePort,
-			revisions.NewIncidentBundleSourcePort(revisionsValidation),
+			revisionsPort,
 			savedviews.NewIncidentBundleSourcePort(),
 		},
 		RequiredPathsByVersion: map[int][]string{3: v3},
@@ -136,30 +120,4 @@ func constructIncidentsSourcePort(
 		return nil, fmt.Errorf("incident portability assembly: Incidents source port: %w", err)
 	}
 	return port, nil
-}
-
-type incidentBundleRecordEnvelopeReader struct {
-	store *records.Store
-}
-
-func (reader incidentBundleRecordEnvelopeReader) RecordTypeTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	recordID uuid.UUID,
-) (string, error) {
-	if reader.store == nil {
-		return "", pgx.ErrNoRows
-	}
-	envelope, err := reader.store.LoadEnvelopeTx(ctx, tx, recordID, false)
-	if err != nil {
-		if errors.Is(err, records.ErrEnvelopeNotFound) {
-			return "", pgx.ErrNoRows
-		}
-		return "", err
-	}
-	if envelope.IncidentID != incidentID {
-		return "", pgx.ErrNoRows
-	}
-	return envelope.RecordType, nil
 }

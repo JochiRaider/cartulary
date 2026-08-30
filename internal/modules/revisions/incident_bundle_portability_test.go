@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
@@ -518,19 +517,22 @@ INSERT INTO hosts (
 		t.Fatalf("seed portable host source: %v", err)
 	}
 	contributions := mustRevisionProviderContributions(t)
-	targetSemantics, err := revisionassembly.CurrentTargetSemanticsCatalog()
+	snapshotCaptures, err := revisions.NewRecordSnapshotCaptureCatalog(contributions)
+	if err != nil {
+		t.Fatalf("build Revisions snapshot catalog: %v", err)
+	}
+	targetSemantics, err := revisions.NewTargetSemanticsCatalog(contributions)
 	if err != nil {
 		t.Fatalf("build Revisions target-semantics catalog: %v", err)
 	}
-	validation, err := revisions.NewIncidentBundleValidationCatalog(
+	port, err := revisions.NewIncidentBundleSourcePort(
 		revisionsPortabilityEnvelopeReader{},
+		snapshotCaptures,
 		targetSemantics,
-		contributions,
 	)
 	if err != nil {
-		t.Fatalf("build Revisions portability validation catalog: %v", err)
+		t.Fatalf("build Revisions portability source port: %v", err)
 	}
-	port := revisions.NewIncidentBundleSourcePort(validation)
 	var hostSource revisions.RecordProviderContribution
 	for _, contribution := range contributions {
 		for _, record := range contribution.Records {

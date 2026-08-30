@@ -15,7 +15,7 @@ var (
 	ErrUnexpectedDeleteRestoreSource = errors.New("revisions: unexpected delete/restore source")
 )
 
-type DeleteRestoreSourceRegistration struct {
+type deleteRestoreSourceRegistration struct {
 	RecordType string
 	Source     deleterestorecontract.DeleteRestoreSource
 }
@@ -24,7 +24,7 @@ type DeleteRestoreSourceCatalog struct {
 	sources map[string]deleterestorecontract.DeleteRestoreSource
 }
 
-func NewDeleteRestoreSourceCatalog(requiredRecordTypes []string, registrations ...DeleteRestoreSourceRegistration) (*DeleteRestoreSourceCatalog, error) {
+func newDeleteRestoreSourceCatalog(requiredRecordTypes []string, registrations ...deleteRestoreSourceRegistration) (*DeleteRestoreSourceCatalog, error) {
 	required := make(map[string]struct{}, len(requiredRecordTypes))
 	for _, recordType := range requiredRecordTypes {
 		if recordType == "" {

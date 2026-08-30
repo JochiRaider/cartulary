@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Service struct {
@@ -24,13 +25,17 @@ type Service struct {
 	now       func() time.Time
 }
 
+type SourceBoundaryResolver interface {
+	ResolveCurrentTx(context.Context, pgx.Tx, sourceboundary.ResolveInput) (sourceboundary.Boundary, error)
+}
+
 type RouteOptions struct {
 	JobSuccessFinalizer  JobSuccessFinalizer
 	RenderExportInvoker  RenderExportInvoker
 	ExportFieldProviders []exportprovider.FieldProvider
 	SupportRefProvider   exportprovider.SupportReferenceProvider
 	GraphSourceProviders []GraphSourceProvider
-	SourceBoundary       sourceboundary.Resolver
+	SourceBoundary       SourceBoundaryResolver
 	jobAdmission         reportingJobAdmission
 	jobOperations        reportingJobManager
 	jobRunner            reportingJobRunner

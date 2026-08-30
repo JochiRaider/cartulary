@@ -33,25 +33,25 @@ func (testDeleteRestoreSource) PrepareStateTransitionTx(context.Context, pgx.Tx,
 func TestDeleteRestoreSourceCatalogFailsClosed(t *testing.T) {
 	t.Parallel()
 	source := testDeleteRestoreSource{}
-	if _, err := NewDeleteRestoreSourceCatalog([]string{"host", "party"},
-		DeleteRestoreSourceRegistration{RecordType: "host", Source: source},
+	if _, err := newDeleteRestoreSourceCatalog([]string{"host", "party"},
+		deleteRestoreSourceRegistration{RecordType: "host", Source: source},
 	); !errors.Is(err, ErrMissingDeleteRestoreSource) {
 		t.Fatalf("missing source error = %v", err)
 	}
-	if _, err := NewDeleteRestoreSourceCatalog([]string{"host"},
-		DeleteRestoreSourceRegistration{RecordType: "host", Source: source},
-		DeleteRestoreSourceRegistration{RecordType: "host", Source: source},
+	if _, err := newDeleteRestoreSourceCatalog([]string{"host"},
+		deleteRestoreSourceRegistration{RecordType: "host", Source: source},
+		deleteRestoreSourceRegistration{RecordType: "host", Source: source},
 	); !errors.Is(err, ErrDuplicateDeleteRestoreSource) {
 		t.Fatalf("duplicate source error = %v", err)
 	}
-	if _, err := NewDeleteRestoreSourceCatalog([]string{"host"},
-		DeleteRestoreSourceRegistration{RecordType: "party", Source: source},
+	if _, err := newDeleteRestoreSourceCatalog([]string{"host"},
+		deleteRestoreSourceRegistration{RecordType: "party", Source: source},
 	); !errors.Is(err, ErrUnexpectedDeleteRestoreSource) {
 		t.Fatalf("unexpected source error = %v", err)
 	}
 	var typedNil *testDeleteRestoreSource
-	if _, err := NewDeleteRestoreSourceCatalog([]string{"host"},
-		DeleteRestoreSourceRegistration{RecordType: "host", Source: typedNil},
+	if _, err := newDeleteRestoreSourceCatalog([]string{"host"},
+		deleteRestoreSourceRegistration{RecordType: "host", Source: typedNil},
 	); !errors.Is(err, ErrMissingDeleteRestoreSource) {
 		t.Fatalf("typed nil source error = %v", err)
 	}

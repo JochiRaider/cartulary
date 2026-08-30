@@ -14,7 +14,7 @@ func applyPreparedRevisionsImportTx(
 	tx pgx.Tx,
 	prepared preparedRevisionsImport,
 	importContext sourceport.ImportContext,
-	validation *IncidentBundleValidationCatalog,
+	validation *incidentBundleValidationCatalog,
 ) error {
 	if importContext.Attributions == nil || importContext.ActorUserID == uuid.Nil ||
 		importContext.IncidentID != prepared.incidentID || validation == nil {

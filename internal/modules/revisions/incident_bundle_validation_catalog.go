@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,60 +15,50 @@ var (
 	ErrUnexpectedHistoryTargetProvider = errors.New("revisions: unexpected history target provider")
 )
 
-// IncidentBundleValidationCatalog is the immutable owner-composed boundary
-// used by the Revisions portability validator. Source semantics stay
-// owner-defined; generated projections are never treated as truth.
-type IncidentBundleValidationCatalog struct {
-	currentRows *DeleteRestoreSourceCatalog
-	envelopes   IncidentBundleRecordEnvelopeReader
-	targets     *TargetSemanticsCatalog
-	schemas     map[string]string
+// incidentBundleValidationCatalog reuses the immutable catalogs built for the
+// rest of the Revisions runtime. Source semantics stay owner-defined;
+// generated projections are never treated as truth.
+type incidentBundleValidationCatalog struct {
+	envelopes IncidentBundleRecordEnvelopeReader
+	snapshots *RecordSnapshotCaptureCatalog
+	targets   *TargetSemanticsCatalog
 }
 
 type IncidentBundleRecordEnvelopeReader interface {
 	RecordTypeTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, error)
 }
 
-// NewIncidentBundleValidationCatalog validates the complete current source
-// contribution set and projects only the generic capabilities required by
-// portable history validation.
-func NewIncidentBundleValidationCatalog(
+func newIncidentBundleValidationCatalog(
 	envelopes IncidentBundleRecordEnvelopeReader,
+	snapshots *RecordSnapshotCaptureCatalog,
 	targets *TargetSemanticsCatalog,
-	contributions []ProviderContribution,
-) (*IncidentBundleValidationCatalog, error) {
-	if envelopes == nil || targets == nil {
+) (*incidentBundleValidationCatalog, error) {
+	if envelopes == nil || snapshots == nil || targets == nil {
 		return nil, ErrMissingHistoryTargetProvider
 	}
-	currentRows, err := buildDeleteRestoreSourceCatalog(contributions)
-	if err != nil {
-		return nil, fmt.Errorf("build incident-bundle validation catalog: %w", err)
-	}
-	schemas := make(map[string]string)
-	for _, contribution := range contributions {
-		for _, record := range contribution.Records {
-			if strings.TrimSpace(record.SnapshotSchemaID) == "" {
-				return nil, fmt.Errorf("%w: record type %q snapshot schema", ErrMissingHistoryTargetProvider, record.RecordType)
-			}
-			schemas[record.RecordType] = record.SnapshotSchemaID
-		}
-	}
-	return &IncidentBundleValidationCatalog{
-		currentRows: currentRows,
-		envelopes:   envelopes,
-		targets:     targets,
-		schemas:     schemas,
+	return &incidentBundleValidationCatalog{
+		envelopes: envelopes,
+		snapshots: snapshots,
+		targets:   targets,
 	}, nil
 }
 
-func (c *IncidentBundleValidationCatalog) resolvesTargetKind(targetKind string) bool {
+func (c *incidentBundleValidationCatalog) validateContract() error {
+	if c == nil || c.envelopes == nil || c.snapshots == nil || c.targets == nil ||
+		len(c.snapshots.byRecordType) == 0 || len(c.targets.byTargetKind) == 0 {
+		return ErrMissingHistoryTargetProvider
+	}
+	return nil
+}
+
+func (c *incidentBundleValidationCatalog) resolvesTargetKind(targetKind string) bool {
 	if c == nil {
 		return false
 	}
 	return c.targets.hasTargetKind(targetKind)
 }
 
-func (c *IncidentBundleValidationCatalog) validateSnapshot(recordID uuid.UUID, recordType string, value any) error {
+func (c *incidentBundleValidationCatalog) validateSnapshot(recordID uuid.UUID, recordType string, value any) error {
 	if c == nil {
 		return ErrMissingHistoryTargetProvider
 	}
@@ -80,43 +69,39 @@ func (c *IncidentBundleValidationCatalog) validateSnapshot(recordID uuid.UUID, r
 	if !ok {
 		return ErrInvalidRecordSnapshot
 	}
-	schemaID, ok := c.schemas[recordType]
-	if !ok {
-		return ErrMissingHistoryTargetProvider
-	}
-	return validatePersistedSnapshotValue(schemaID, recordID, recordType, snapshot)
+	return c.snapshots.validatePersisted(recordID, recordType, snapshot)
 }
 
-func (c *IncidentBundleValidationCatalog) targetKinds() []string {
+func (c *incidentBundleValidationCatalog) targetKinds() []string {
 	if c == nil {
 		return nil
 	}
 	return c.targets.targetKinds()
 }
 
-func (c *IncidentBundleValidationCatalog) currentRowTx(
+func (c *incidentBundleValidationCatalog) currentRowTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	recordID uuid.UUID,
 ) (map[string]any, error) {
-	if c == nil || c.currentRows == nil {
+	if c == nil || c.snapshots == nil {
 		return nil, ErrMissingHistoryTargetProvider
 	}
 	recordType, err := c.envelopes.RecordTypeTx(ctx, tx, incidentID, recordID)
 	if err != nil {
 		return nil, err
 	}
-	source, ok := c.currentRows.Source(recordType)
+	capture, ok := c.snapshots.byRecordType[recordType]
 	if !ok {
 		return nil, fmt.Errorf("%w: current row provider", ErrUnexpectedHistoryTargetProvider)
 	}
-	return source.SnapshotTx(ctx, tx, recordID)
+	return capture.source.SnapshotTx(ctx, tx, recordID)
 }
 
 // currentHistoryRowMatchesTx compares a canonical retained history envelope
 // with the source owner's canonical current-row snapshot.
-func (c *IncidentBundleValidationCatalog) currentHistoryRowMatchesTx(
+func (c *incidentBundleValidationCatalog) currentHistoryRowMatchesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,

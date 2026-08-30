@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -1372,10 +1371,7 @@ func seedRollbackMutationWithRef(t testing.TB, db *sql.DB, incidentID uuid.UUID,
 
 func insertMutation(t testing.TB, db *sql.DB, changeSetID uuid.UUID, sequenceNo int, targetKind string, targetID string, operation string, before any, after any) {
 	t.Helper()
-	catalog, err := revisionassembly.CurrentTargetSemanticsCatalog()
-	if err != nil {
-		t.Fatalf("build seeded target-semantics catalog: %v", err)
-	}
+	catalog := revisionsupport.MustTargetSemanticsCatalog(t)
 	history, err := catalog.DescribeValues(targetKind, targetID, operation, before, after)
 	if err != nil {
 		t.Fatalf("describe seeded mutation history: %v", err)

@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var ErrInvalidRevisionWindow = errors.New("revisions conflicts: invalid revision window")
+var errInvalidRevisionWindow = errors.New("revisions conflicts: invalid revision window")
 
 type RevisionWindowRow struct {
 	ChangeSetID   uuid.UUID
@@ -44,7 +44,7 @@ func (RevisionWindowReader) LoadRevisionWindowTx(
 	currentRowVersion int64,
 ) ([]RevisionWindowRow, error) {
 	if tx == nil || recordID == uuid.Nil || baseRowVersion < 1 || currentRowVersion < baseRowVersion {
-		return nil, ErrInvalidRevisionWindow
+		return nil, errInvalidRevisionWindow
 	}
 	rows, err := tx.Query(ctx, `
 SELECT rr.revision_id, cs.change_set_id, rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.created_at
@@ -99,7 +99,7 @@ SELECT fact.revision_id, fact.field_key,
 		}
 		index, ok := byRevisionID[revisionID]
 		if !ok {
-			return nil, ErrInvalidRevisionWindow
+			return nil, errInvalidRevisionWindow
 		}
 		result[index].ConflictFacts = append(result[index].ConflictFacts, fact)
 	}

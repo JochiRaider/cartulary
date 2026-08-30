@@ -3,7 +3,6 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
@@ -54,7 +53,7 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 		t.Fatalf("build Revisions runtime: %v", err)
 	}
 	_, err = runtime.NewCommandService(nil, nil, nil, nil, nil, nil)
-	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
+	if err == nil {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}
 }

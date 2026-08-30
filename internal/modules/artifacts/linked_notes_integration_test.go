@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
@@ -43,10 +42,7 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 		"IR-ARTIFACTS-LINKED-NOTE",
 		"Artifact linked note contract",
 	)
-	conflictFields, err := revisionassembly.CurrentConflictFieldResolver()
-	if err != nil {
-		t.Fatalf("compose conflict field resolver: %v", err)
-	}
+	conflictFields := revisionsupport.MustConflictFieldResolver(t)
 	facade, err := workbookassembly.NewArtifactMutationContribution(
 		harness.DB,
 		conflicttest.NewCodec("artifacts-linked-notes"),

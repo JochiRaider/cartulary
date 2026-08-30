@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const TokenPrefix = "cartulary.source_boundary.v1:"
+const tokenPrefix = "cartulary.source_boundary.v1:"
 
 type ResolveInput struct {
 	IncidentID      uuid.UUID
@@ -25,17 +25,13 @@ type Boundary struct {
 	CanonicalJSON []byte
 }
 
-type Resolver interface {
-	ResolveCurrentTx(context.Context, pgx.Tx, ResolveInput) (Boundary, error)
-}
-
-type CurrentResolver struct{}
+type Resolver struct{}
 
 func NewResolver() Resolver {
-	return CurrentResolver{}
+	return Resolver{}
 }
 
-func (CurrentResolver) ResolveCurrentTx(
+func (Resolver) ResolveCurrentTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	input ResolveInput,
@@ -102,7 +98,7 @@ func buildBoundary(
 	}
 	sum := sha256.Sum256(encoded)
 	return Boundary{
-		Token:         TokenPrefix + hex.EncodeToString(sum[:]),
+		Token:         tokenPrefix + hex.EncodeToString(sum[:]),
 		CanonicalJSON: append([]byte(nil), encoded...),
 	}, nil
 }

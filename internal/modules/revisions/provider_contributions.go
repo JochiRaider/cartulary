@@ -122,7 +122,7 @@ func buildDeleteRestoreSourceCatalogForRequirements(
 	seenOwners := map[SourceOwnerModule]struct{}{}
 	seenRecords := map[string]struct{}{}
 	seenNonRows := map[string]struct{}{}
-	deleteRestore := make([]DeleteRestoreSourceRegistration, 0, len(requiredRecords))
+	deleteRestore := make([]deleteRestoreSourceRegistration, 0, len(requiredRecords))
 	for _, contribution := range contributions {
 		owner := contribution.SourceOwnerModule
 		if _, required := requiredOwners[owner]; !required || owner == "" {
@@ -155,7 +155,7 @@ func buildDeleteRestoreSourceCatalogForRequirements(
 				}
 				seenTargetKinds[targetKind] = struct{}{}
 			}
-			deleteRestore = append(deleteRestore, DeleteRestoreSourceRegistration{RecordType: record.RecordType, Source: record.DeleteRestoreSource})
+			deleteRestore = append(deleteRestore, deleteRestoreSourceRegistration{RecordType: record.RecordType, Source: record.DeleteRestoreSource})
 		}
 		for _, target := range contribution.NonRowTargets {
 			if target.SourceOwnerModule != owner {
@@ -198,19 +198,11 @@ func buildDeleteRestoreSourceCatalogForRequirements(
 		recordTypes = append(recordTypes, recordType)
 	}
 	sort.Strings(recordTypes)
-	deleteRestoreCatalog, err := NewDeleteRestoreSourceCatalog(recordTypes, deleteRestore...)
+	deleteRestoreCatalog, err := newDeleteRestoreSourceCatalog(recordTypes, deleteRestore...)
 	if err != nil {
 		return nil, fmt.Errorf("build delete/restore provider catalog: %w", err)
 	}
 	return deleteRestoreCatalog, nil
-}
-
-func ValidateProviderContributions(contributions []ProviderContribution) error {
-	if _, err := buildDeleteRestoreSourceCatalog(contributions); err != nil {
-		return err
-	}
-	_, err := NewTargetSemanticsCatalog(contributions)
-	return err
 }
 
 // NewDeleteRestoreSourceCatalogFromContributions projects the source-owner

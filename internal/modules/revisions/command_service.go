@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var ErrInvalidCommandServiceDependency = errors.New("revisions: invalid command service dependency")
+var errInvalidCommandServiceDependency = errors.New("revisions: invalid command service dependency")
 
 type CommandServiceDependencies struct {
 	Transactions                TransactionRunner
@@ -51,7 +51,7 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 	}
 	for _, check := range checks {
 		if nilDependency(check.value) {
-			return nil, fmt.Errorf("%w: %s", ErrInvalidCommandServiceDependency, check.name)
+			return nil, fmt.Errorf("%w: %s", errInvalidCommandServiceDependency, check.name)
 		}
 	}
 	store := &commandStore{

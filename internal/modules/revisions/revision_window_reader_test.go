@@ -2,7 +2,6 @@ package revisions_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -94,13 +93,13 @@ VALUES
 		}
 	}
 
-	if _, err := conflicts.NewRevisionWindowReader().LoadRevisionWindowTx(context.Background(), nil, recordID, 1, 2); !errors.Is(err, conflicts.ErrInvalidRevisionWindow) {
+	if _, err := conflicts.NewRevisionWindowReader().LoadRevisionWindowTx(context.Background(), nil, recordID, 1, 2); err == nil {
 		t.Fatalf("nil transaction error = %v", err)
 	}
-	if _, err := conflicts.NewRevisionWindowReader().LoadRevisionWindowTx(context.Background(), tx, uuid.Nil, 1, 2); !errors.Is(err, conflicts.ErrInvalidRevisionWindow) {
+	if _, err := conflicts.NewRevisionWindowReader().LoadRevisionWindowTx(context.Background(), tx, uuid.Nil, 1, 2); err == nil {
 		t.Fatalf("nil record error = %v", err)
 	}
-	if _, err := conflicts.NewRevisionWindowReader().LoadRevisionWindowTx(context.Background(), tx, recordID, 2, 1); !errors.Is(err, conflicts.ErrInvalidRevisionWindow) {
+	if _, err := conflicts.NewRevisionWindowReader().LoadRevisionWindowTx(context.Background(), tx, recordID, 2, 1); err == nil {
 		t.Fatalf("inverted range error = %v", err)
 	}
 }

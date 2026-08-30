@@ -98,6 +98,28 @@ type recordEnvelopeAdapter struct {
 	store *records.Store
 }
 
+func (adapter recordEnvelopeAdapter) RecordTypeTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	recordID uuid.UUID,
+) (string, error) {
+	if adapter.store == nil {
+		return "", pgx.ErrNoRows
+	}
+	envelope, err := adapter.store.LoadEnvelopeTx(ctx, tx, recordID, false)
+	if err != nil {
+		if errors.Is(err, records.ErrEnvelopeNotFound) {
+			return "", pgx.ErrNoRows
+		}
+		return "", err
+	}
+	if envelope.IncidentID != incidentID {
+		return "", pgx.ErrNoRows
+	}
+	return envelope.RecordType, nil
+}
+
 func (adapter recordEnvelopeAdapter) LoadEnvelope(ctx context.Context, recordID uuid.UUID) (revisions.RecordEnvelope, error) {
 	envelope, err := adapter.store.LoadEnvelope(ctx, recordID)
 	return adaptRecordEnvelope(envelope, err)

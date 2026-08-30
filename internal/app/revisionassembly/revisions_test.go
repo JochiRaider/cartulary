@@ -311,8 +311,49 @@ func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compose Revisions command service: %v", err)
 	}
-	if service == nil || runtime.Appender() == nil {
-		t.Fatal("composition returned a nil service or appender")
+	if service == nil || runtime.Appender() == nil || runtime.IncidentBundleSourcePort() == nil {
+		t.Fatal("composition returned a nil service, appender, or Incident Bundle source port")
+	}
+	var nilRuntime *Runtime
+	if nilRuntime.IncidentBundleSourcePort() != nil {
+		t.Fatal("nil runtime returned an Incident Bundle source port")
+	}
+}
+
+func TestRevisionsRuntimeBuildsCapabilitiesFromOneClonedContributionSet(t *testing.T) {
+	t.Parallel()
+	contributions := mustCurrentProviderContributions(t)
+	runtime, err := Build(contributions...)
+	if err != nil {
+		t.Fatalf("build Revisions runtime: %v", err)
+	}
+	for contributionIndex := range contributions {
+		for recordIndex := range contributions[contributionIndex].Records {
+			record := &contributions[contributionIndex].Records[recordIndex]
+			record.RecordType = "mutated-after-build"
+			record.SnapshotSchemaID = "mutated-after-build"
+			record.HistoryTargetKinds = []string{"mutated-after-build"}
+			record.DeleteRestoreSource = nil
+			for routeIndex := range record.RecordViewRoutes {
+				record.RecordViewRoutes[routeIndex].ViewSchemaIDs = []string{"mutated-after-build"}
+			}
+		}
+		contributions[contributionIndex].NonRowTargets = nil
+	}
+
+	if _, ok := runtime.deleteRestore.Source("host"); !ok {
+		t.Fatal("caller mutation escaped the retained delete/restore catalog")
+	}
+	recordID := uuid.MustParse("00000000-0000-4000-8000-000000000001")
+	if _, err := runtime.targetSemantics.DescribeValues("host", recordID.String(), "create", nil, nil); err != nil {
+		t.Fatalf("caller mutation escaped the retained target-semantics catalog: %v", err)
+	}
+	if _, err := runtime.fieldResolver.ResolveViewSchema("cartulary.view.hosts.v1"); err != nil {
+		t.Fatalf("caller mutation escaped the retained conflict-field catalog: %v", err)
+	}
+	validator, ok := runtime.IncidentBundleSourcePort().(interface{ ValidateSourcePortContract() error })
+	if !ok || validator.ValidateSourcePortContract() != nil {
+		t.Fatal("caller mutation escaped the retained Incident Bundle source port")
 	}
 }
 

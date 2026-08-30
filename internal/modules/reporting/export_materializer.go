@@ -24,7 +24,7 @@ type reportingIncidentProvider interface {
 
 type reportingExportMaterializer struct {
 	incidentProvider   reportingIncidentProvider
-	sourceBoundary     sourceboundary.Resolver
+	sourceBoundary     SourceBoundaryResolver
 	supportRefProvider exportprovider.SupportReferenceProvider
 	fieldProviders     []exportprovider.FieldProvider
 }
@@ -49,7 +49,7 @@ func (p reportingExportFieldProviderFunc) CollectFactsTx(ctx context.Context, tx
 }
 
 func newReportingExportMaterializer(
-	sourceBoundary sourceboundary.Resolver,
+	sourceBoundary SourceBoundaryResolver,
 	supportRefProvider exportprovider.SupportReferenceProvider,
 	contributions ...exportprovider.FieldProvider,
 ) (reportingExportMaterializer, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit(t *testing.T) {
@@ -36,13 +37,13 @@ func TestIncidentsSourcePortRejectsWrongPreparedTypeWithoutPanic_Unit(t *testing
 }
 
 func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) {
-	catalog, err := incidentportabilityassembly.NewCatalog()
-	if err != nil {
-		t.Fatalf("NewCatalog: %v", err)
-	}
+	catalog, revisionsPort := newSourcePortCatalog(t)
 	var families []string
-	for _, descriptor := range catalog.Descriptors() {
+	for index, descriptor := range catalog.Descriptors() {
 		families = append(families, descriptor.FamilyID)
+		if descriptor.FamilyID == "revisions" && catalog.Ports()[index] != revisionsPort {
+			t.Fatal("source catalog did not retain the supplied Revisions source port")
+		}
 		stableIdentityInvariantID := descriptor.FamilyID + ".source_identity_admitted"
 		if !slices.Contains(descriptor.InvariantIDs, stableIdentityInvariantID) {
 			t.Fatalf("family %q does not declare %q", descriptor.FamilyID, stableIdentityInvariantID)
@@ -140,10 +141,7 @@ func TestSourcePortCatalogRejectsInvalidDescriptors_Unit(t *testing.T) {
 }
 
 func TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit(t *testing.T) {
-	catalog, err := incidentportabilityassembly.NewCatalog()
-	if err != nil {
-		t.Fatalf("NewCatalog: %v", err)
-	}
+	catalog, _ := newSourcePortCatalog(t)
 	descriptors := catalog.Descriptors()
 	descriptors[0].InvariantIDs[len(descriptors[0].InvariantIDs)-1] = "mutated"
 	descriptors[0].Paths[0].StableIdentity[len(descriptors[0].Paths[0].StableIdentity)-1] = "mutated"
@@ -188,6 +186,16 @@ func TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Uni
 	if !errors.Is(err, sourceport.ErrPreparedBinding) {
 		t.Fatalf("cross-operation validation error = %v; want ErrPreparedBinding", err)
 	}
+}
+
+func newSourcePortCatalog(t testing.TB) (*sourceport.Catalog, sourceport.Port) {
+	t.Helper()
+	revisionsPort := revisionsupport.MustRuntime(t).IncidentBundleSourcePort()
+	catalog, err := incidentportabilityassembly.NewCatalog(revisionsPort)
+	if err != nil {
+		t.Fatalf("NewCatalog: %v", err)
+	}
+	return catalog, revisionsPort
 }
 
 func assertSourcePathIdentityFailuresAreOrderIndependentAndUnknownPathsFailClosed(t *testing.T) {
