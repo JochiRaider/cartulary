@@ -457,13 +457,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		stateRuntime, stateRuntimeErr := extensions.NewStateRuntime(extensions.StateRuntimeOptions{
 			Store: logicalStateStore,
 			Migrations: map[string]extensions.StateMigration{
-				"network_flow_activity.migrate_state_1_to_2_v1": func(context.Context, extensions.MigrationContext, extensions.StateWriteCapability) (extensions.MigrationApplyResult, error) {
-					return extensions.MigrationApplyResult{
-						SchemaID: "cartulary.extension_migration_apply_result.v1",
-						Status:   "ready_to_validate",
-					}, nil
-				},
-				"network_flow_activity.migrate_state_2_to_3_v1": func(context.Context, extensions.MigrationContext, extensions.StateWriteCapability) (extensions.MigrationApplyResult, error) {
+				"network_flow_activity.migrate_state_3_to_4_v1": func(ctx context.Context, _ extensions.MigrationContext, writer extensions.StateWriteCapability) (extensions.MigrationApplyResult, error) {
+					if err := networkflow.ValidateExtensionState(ctx, writer); err != nil {
+						return extensions.MigrationApplyResult{}, err
+					}
 					return extensions.MigrationApplyResult{
 						SchemaID: "cartulary.extension_migration_apply_result.v1",
 						Status:   "ready_to_validate",
@@ -471,17 +468,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 				},
 			},
 			PendingValidators: map[string]extensions.PendingStateValidator{
-				"network_flow_activity.validate_state_v2": func(ctx context.Context, _ extensions.MigrationValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
-					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
-						return extensions.StateValidationResult{
-							SchemaID: "cartulary.extension_migration_validation_result.v1",
-							Status:   "invalid",
-							Findings: []extensions.StateFinding{{Code: "network_flow_activity_state_invalid", Path: "/"}},
-						}, nil
-					}
-					return extensions.ValidMigrationValidationResult(), nil
-				},
-				"network_flow_activity.validate_state_v3": func(ctx context.Context, _ extensions.MigrationValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+				"network_flow_activity.validate_state_v4": func(ctx context.Context, _ extensions.MigrationValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_migration_validation_result.v1",
@@ -493,20 +480,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 				},
 			},
 			FinalValidators: map[string]extensions.FinalStateValidator{
-				"network_flow_activity.validate_state_v2": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
-					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
-						return extensions.StateValidationResult{
-							SchemaID: "cartulary.extension_final_state_validation_result.v1",
-							Status:   "invalid",
-							Findings: []extensions.StateFinding{{
-								Code: "network_flow_activity_state_invalid",
-								Path: "/",
-							}},
-						}, nil
-					}
-					return extensions.ValidFinalStateValidationResult(), nil
-				},
-				"network_flow_activity.validate_state_v3": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
+				"network_flow_activity.validate_state_v4": func(ctx context.Context, _ extensions.FinalStateValidationContext, reader extensions.StateReadCapability) (extensions.StateValidationResult, error) {
 					if err := networkflow.ValidateExtensionState(ctx, reader); err != nil {
 						return extensions.StateValidationResult{
 							SchemaID: "cartulary.extension_final_state_validation_result.v1",

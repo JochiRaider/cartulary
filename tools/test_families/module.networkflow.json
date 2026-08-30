@@ -575,7 +575,7 @@
       ]
     },
     {
-      "row_id": "module.networkflow.integration.extension_state_v3_mixed_graph_admission",
+      "row_id": "module.networkflow.integration.extension_state_v4_v1_rejection",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
       "collaborator_ids": [
@@ -589,7 +589,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowExtensionStateV3AdmitsMixedGraphQueriesWithoutRewritingBytes_Integration"
+          "TestNetworkFlowExtensionStateV4RejectsV1WithoutRewritingBytes_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1824,7 +1824,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowV4GraphContractProjection_Unit",
+          "TestNetworkFlowV5GraphContractProjection_Unit",
           "TestNetworkFlow_CrossTableGraphEvidence_Integration"
         ]
       },

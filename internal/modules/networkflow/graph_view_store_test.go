@@ -3,6 +3,7 @@ package networkflow_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -199,7 +200,7 @@ INSERT INTO jobs (
 }
 
 func graphViewDeclarationFixture(graphViewID string, incidentID, actorID uuid.UUID, now time.Time) GraphViewDeclaration {
-	semanticQuery := []byte(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"cartulary.network_flow.graph_semantic_query.v1","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"time_range":{"end_utc":null,"start_utc":null}}`)
+	semanticQuery := []byte(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"time_range":{"end_utc":null,"start_utc":null}}`)
 	return GraphViewDeclaration{
 		GraphViewID:               graphViewID,
 		IncidentID:                incidentID,
@@ -215,4 +216,12 @@ func graphViewDeclarationFixture(graphViewID string, incidentID, actorID uuid.UU
 		CreatedAt:                 now,
 		UpdatedAt:                 now,
 	}
+}
+
+func unsupportedGraphSemanticQuerySchemaID() string {
+	return strings.Join([]string{"cartulary.network_flow.graph_semantic_query", "v1"}, ".")
+}
+
+func unsupportedDefaultGraphSemanticQuery(tableID string) []byte {
+	return []byte(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"` + unsupportedGraphSemanticQuerySchemaID() + `","selected_table_ids":["` + tableID + `"],"time_range":{"end_utc":null,"start_utc":null}}`)
 }

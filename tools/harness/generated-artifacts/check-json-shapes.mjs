@@ -1147,7 +1147,7 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   assertRequiredKeys(contractIndex, networkFlowContractIndexKeys, file);
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(contractIndex.contract_major, 4, `${file}.contract_major`);
+  requireExact(contractIndex.contract_major, 5, `${file}.contract_major`);
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
 
@@ -1439,7 +1439,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertRequiredKeys(routeContracts, networkFlowRouteContractKeys, file);
   requireSchemaID(routeContracts, "cartulary.network_flow_route_contracts.v1", file);
   requireExact(routeContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(routeContracts.contract_major, 4, `${file}.contract_major`);
+  requireExact(routeContracts.contract_major, 5, `${file}.contract_major`);
   requireExact(
     routeContracts.route_root,
     "/api/v1/incidents/{incident_id}/network-flow",
@@ -1681,7 +1681,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_list.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_list.v3",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_invalid_request"],
@@ -1694,7 +1694,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.graph_view_create_request.v2",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_accepted.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v3",
       success_http_statuses: [202],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1715,7 +1715,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_get.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_get.v3",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_graph_view_not_found"],
@@ -1728,7 +1728,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.graph_view_rename_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
       success_http_statuses: [200],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1746,7 +1746,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "reviewer",
       request_schema_id: "cartulary.network_flow.graph_view_retire_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
       success_http_statuses: [200],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1763,7 +1763,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.graph_view_refresh_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_accepted.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v3",
       success_http_statuses: [202],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1781,7 +1781,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_result.v2",
+      success_schema_id: "cartulary.network_flow.graph_view_result.v3",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
@@ -1904,7 +1904,7 @@ function validateNetworkFlowErrorContractsShape(file) {
   assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
   requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
   requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(errorContracts.contract_major, 4, `${file}.contract_major`);
+  requireExact(errorContracts.contract_major, 5, `${file}.contract_major`);
   assertExactIDSet(
     new Set(requireStringArray(errorContracts.retry_actions, `${file}.retry_actions`, { nonEmpty: true })),
     new Set([
@@ -2064,10 +2064,10 @@ function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
   assertObjectKeys(bundle, bundleKeys, file);
   assertRequiredKeys(bundle, bundleKeys, file);
   requireExact(bundle.$schema, "https://json-schema.org/draft/2020-12/schema", `${file}.$schema`);
-  requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v2", `${file}.$id`);
-  requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v2", file);
+  requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v3", `${file}.$id`);
+  requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v3", file);
   requireExact(bundle.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(bundle.contract_major, 4, `${file}.contract_major`);
+  requireExact(bundle.contract_major, 5, `${file}.contract_major`);
   const defs = requireObject(bundle.$defs, `${file}.$defs`);
   const actualSchemaIDs = new Set();
   for (const [defName, def] of Object.entries(defs)) {

@@ -5,22 +5,17 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"unicode/utf8"
 )
 
 func validateAdmittedRequest(run projectionWork) []ValidationIssue {
 	request := run.Request
 	issues := []ValidationIssue{}
-	identifierValid := validIdentifier
-	if request.ProjectionSchemaID == ProjectionSchemaIDV2 {
-		identifierValid = validIdentifierV2
-	}
+	identifierValid := validIdentifierV2
 	scalar := func(valid bool, field string) {
 		if !valid {
 			issues = append(issues, run.issue("fatal", "invalid_input_shape", "projection_input", "projection_input", field, map[string]any{"field": field, "reason_code": "scalar_contract_violation"}))
 		}
 	}
-	scalar(identifierValid(request.projectionConfig.GraphViewKey), "$.projection_config.graph_view_key")
 	scalar(identifierValid(request.SourceSnapshotID), "$.source_snapshot_id")
 	for index, entity := range request.SourceEntities {
 		base := fmt.Sprintf("$.source_entities[%d]", index)
@@ -65,7 +60,7 @@ func validateAdmittedRequest(run projectionWork) []ValidationIssue {
 	issues = append(issues, validateLabels(run)...)
 	issues = append(issues, validateFilters(run)...)
 	issues = append(issues, validateMappingsAndDefinitions(run)...)
-	for _, mapping := range request.RelationshipMappings {
+	for _, mapping := range request.projectionConfig.RelationshipMappings {
 		if mapping.EmitReverseEdge && mapping.DirectionPolicy != "normalize_forward" && mapping.DirectionPolicy != "normalize_reverse" {
 			issues = append(issues, run.issue("fatal", "invalid_reverse_edge_policy", "mapping_rule", mapping.MappingRuleID, nil, map[string]any{"mapping_rule_id": mapping.MappingRuleID, "projected_direction": nil}))
 		}
@@ -101,7 +96,7 @@ func validateFilters(run projectionWork) []ValidationIssue {
 					issues = append(issues, run.issue("fatal", "invalid_filter", "filter", base, base+".value", map[string]any{"field": base + ".value", "reason_code": "invalid_value_shape"}))
 				}
 			default:
-				issues = append(issues, run.issue("fatal", "invalid_filter", "filter", base, base+".op", map[string]any{"field": base + ".op", "reason_code": "invalid_operator"}))
+				issues = append(issues, run.issue("fatal", "invalid_filter", "filter", base, base+".operator", map[string]any{"field": base + ".operator", "reason_code": "invalid_operator"}))
 			}
 		}
 	}
@@ -162,7 +157,7 @@ func validateMappingsAndDefinitions(run projectionWork) []ValidationIssue {
 	relationshipRuleIDs := map[string]bool{}
 	relationshipKinds := map[string]string{}
 	edgeKinds := map[string]bool{}
-	for _, mapping := range request.RelationshipMappings {
+	for _, mapping := range request.projectionConfig.RelationshipMappings {
 		if entityRuleIDs[mapping.MappingRuleID] || relationshipRuleIDs[mapping.MappingRuleID] {
 			issues = append(issues, invalidMappingIssue(run, mapping.MappingRuleID, "duplicate_mapping_rule_id"))
 		}
@@ -208,7 +203,7 @@ func validateMappingsAndDefinitions(run projectionWork) []ValidationIssue {
 	}
 	propertyExpansions := map[string]string{}
 	for _, definition := range request.PropertyDefinitions {
-		if !validPropertyKey(definition.ProjectedKey) || !validIdentifier(definition.PropertyDefinitionID) {
+		if !validPropertyKey(definition.ProjectedKey) || !validIdentifierV2(definition.PropertyDefinitionID) {
 			issues = append(issues, run.issue("fatal", "invalid_property_definition", "property_definition", definition.PropertyDefinitionID, nil, map[string]any{"property_definition_id": definition.PropertyDefinitionID, "reason_code": "invalid_projected_type"}))
 		}
 		if !validProjectedType(definition.ProjectedType) {
@@ -223,7 +218,7 @@ func validateMappingsAndDefinitions(run projectionWork) []ValidationIssue {
 		if definition.SourceNullBehavior == "emit_null" && definition.NullOutputPolicy != "emit_null" {
 			issues = append(issues, invalidPropertyDefinitionIssue(run, definition, "invalid_null_policy"))
 		}
-		if !validMergeBehavior(definition.MergeBehavior) || definition.MergeBehavior == "count" && definition.ProjectedType != "integer" {
+		if !validProjectedMergeV2(definition.ProjectedType, definition.MergeBehavior) {
 			issues = append(issues, invalidPropertyDefinitionIssue(run, definition, "invalid_merge_behavior_type"))
 		}
 		if !validDefinitionFieldPath(definition.SourceFieldPath, definition.TargetScope) {
@@ -254,7 +249,7 @@ func validateMappingsAndDefinitions(run projectionWork) []ValidationIssue {
 		if (mapping.MissingBehavior == "default" || mapping.SourceNullBehavior == "default") && !mapping.HasDefaultValue {
 			issues = append(issues, invalidMetadataMappingIssue(run, mapping, "invalid_default_value"))
 		}
-		if !validMergeBehavior(mapping.MergeBehavior) || mapping.MergeBehavior == "count" && mapping.ProjectedType != "integer" {
+		if !validProjectedMergeV2(mapping.ProjectedType, mapping.MergeBehavior) {
 			issues = append(issues, invalidMetadataMappingIssue(run, mapping, "invalid_merge_behavior_type"))
 		}
 		for _, kind := range expansionKinds(mapping.TargetScope, mapping.TargetKind, vertexKinds, edgeKinds) {
@@ -295,6 +290,20 @@ func validateAggregationRules(run projectionWork) []ValidationIssue {
 		}
 		if rule.MissingGroupingKeyBehavior != "error" && rule.MissingGroupingKeyBehavior != "exclude" && rule.MissingGroupingKeyBehavior != "use_null" {
 			issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "grouping_key_invalid"))
+		}
+		for projectedKey, mergeBehavior := range rule.PropertyMergeBehavior {
+			matched := false
+			for _, definition := range run.Request.PropertyDefinitions {
+				if definition.ProjectedKey == projectedKey && propertyApplies(definition, rule.TargetScope, rule.ProjectedKind) {
+					matched = true
+					if !validProjectedMergeV2(definition.ProjectedType, mergeBehavior) {
+						issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "invalid_merge_behavior_type"))
+					}
+				}
+			}
+			if !matched {
+				issues = append(issues, invalidAggregationIssue(run, rule.AggregationRuleID, "invalid_merge_behavior_type"))
+			}
 		}
 		if rule.TargetScope == "vertex" {
 			if rule.endpointGrouping != nil || rule.EdgeDirection != "directed" {
@@ -379,24 +388,6 @@ func invalidMetadataMappingIssue(run projectionWork, mapping metadataMapping, re
 	return run.issue("fatal", "invalid_metadata_mapping", "mapping_rule", mapping.MetadataMappingID, nil, map[string]any{"metadata_mapping_id": mapping.MetadataMappingID, "reason_code": reason})
 }
 
-func validProjectedType(value string) bool {
-	switch value {
-	case "string", "integer", "boolean", "timestamp", "identifier", "string_array", "identifier_array":
-		return true
-	default:
-		return false
-	}
-}
-
-func validMergeBehavior(value string) bool {
-	switch value {
-	case "single_value", "first_by_sort", "last_by_sort", "distinct_sorted_array", "count", "omit":
-		return true
-	default:
-		return false
-	}
-}
-
 func invalidMappingIssue(run projectionWork, mappingRuleID, reason string) ValidationIssue {
 	return run.issue("fatal", "invalid_mapping_rule", "mapping_rule", mappingRuleID, nil, map[string]any{"mapping_rule_id": mappingRuleID, "reason_code": reason})
 }
@@ -441,29 +432,29 @@ func admittedResourceLimitIssues(run projectionWork) []ValidationIssue {
 			issues = append(issues, run.issue("fatal", "resource_limit_exceeded", "projection_input", "projection_input", nil, map[string]any{"limit_key": key, "limit": limit, "observed": observed}))
 		}
 	}
-	whole("max_source_entities", len(request.SourceEntities), graphProjectionLimits.MaxSourceEntities)
-	whole("max_source_relationships", len(request.SourceRelationships), graphProjectionLimits.MaxSourceRelationships)
-	whole("max_entity_filters", len(request.filters.EntityFilters), graphProjectionLimits.MaxEntityFilters)
-	whole("max_relationship_filters", len(request.filters.RelationshipFilters), graphProjectionLimits.MaxRelationshipFilters)
-	whole("max_declared_source_entity_kinds", len(request.projectionConfig.DeclaredSourceEntityKinds), graphProjectionLimits.MaxDeclaredSourceEntityKinds)
-	whole("max_declared_source_relationship_kinds", len(request.projectionConfig.DeclaredSourceRelationshipKinds), graphProjectionLimits.MaxDeclaredSourceRelationshipKinds)
-	whole("max_entity_mappings", len(request.projectionConfig.EntityMappings), graphProjectionLimits.MaxEntityMappings)
-	whole("max_relationship_mappings", len(request.RelationshipMappings), graphProjectionLimits.MaxRelationshipMappings)
-	whole("max_property_definitions", len(request.PropertyDefinitions), graphProjectionLimits.MaxPropertyDefinitions)
-	whole("max_metadata_mappings", len(request.projectionConfig.MetadataMappings), graphProjectionLimits.MaxMetadataMappings)
-	whole("max_aggregation_rules", len(request.projectionConfig.AggregationRules), graphProjectionLimits.MaxAggregationRules)
-	whole("max_default_vertex_labels", len(request.projectionConfig.DefaultVertexLabels), graphProjectionLimits.MaxDefaultVertexLabels)
-	whole("max_default_edge_labels", len(request.projectionConfig.DefaultEdgeLabels), graphProjectionLimits.MaxDefaultEdgeLabels)
-	whole("max_metadata_keys_per_object", len(request.SourceMetadata), graphProjectionLimits.MaxMetadataKeysPerObject)
+	whole("maximum_source_vertices", len(request.SourceEntities), graphProjectionLimits.MaxSourceEntities)
+	whole("maximum_source_edges", len(request.SourceRelationships), graphProjectionLimits.MaxSourceRelationships)
+	whole("maximum_entity_filters", len(request.filters.EntityFilters), graphProjectionLimits.MaxEntityFilters)
+	whole("maximum_relationship_filters", len(request.filters.RelationshipFilters), graphProjectionLimits.MaxRelationshipFilters)
+	whole("maximum_entity_mappings", len(request.projectionConfig.DeclaredSourceEntityKinds), graphProjectionLimits.MaxEntityMappings)
+	whole("maximum_relationship_mappings", len(request.projectionConfig.DeclaredSourceRelationshipKinds), graphProjectionLimits.MaxRelationshipMappings)
+	whole("maximum_entity_mappings", len(request.projectionConfig.EntityMappings), graphProjectionLimits.MaxEntityMappings)
+	whole("maximum_relationship_mappings", len(request.projectionConfig.RelationshipMappings), graphProjectionLimits.MaxRelationshipMappings)
+	whole("maximum_property_definitions", len(request.PropertyDefinitions), graphProjectionLimits.MaxPropertyDefinitions)
+	whole("maximum_metadata_mappings", len(request.projectionConfig.MetadataMappings), graphProjectionLimits.MaxMetadataMappings)
+	whole("maximum_aggregation_definitions", len(request.projectionConfig.AggregationRules), graphProjectionLimits.MaxAggregationRules)
+	whole("maximum_labels_per_object", len(request.projectionConfig.DefaultVertexLabels), graphProjectionLimits.MaxLabelsPerObject)
+	whole("maximum_labels_per_object", len(request.projectionConfig.DefaultEdgeLabels), graphProjectionLimits.MaxLabelsPerObject)
+	whole("maximum_property_keys", len(request.SourceMetadata), graphProjectionLimits.MaxPropertyKeys)
 	for _, mapping := range request.projectionConfig.EntityMappings {
-		whole("max_mapping_labels_per_rule", len(mapping.MappingLabels), graphProjectionLimits.MaxMappingLabelsPerRule)
-		whole("max_mapping_property_key_refs", len(mapping.RequiredPropertyKeys), graphProjectionLimits.MaxMappingPropertyKeyRefs)
-		whole("max_mapping_property_key_refs", len(mapping.OptionalPropertyKeys), graphProjectionLimits.MaxMappingPropertyKeyRefs)
+		whole("maximum_labels_per_object", len(mapping.MappingLabels), graphProjectionLimits.MaxLabelsPerObject)
+		whole("maximum_property_keys", len(mapping.RequiredPropertyKeys), graphProjectionLimits.MaxPropertyKeys)
+		whole("maximum_property_keys", len(mapping.OptionalPropertyKeys), graphProjectionLimits.MaxPropertyKeys)
 	}
-	for _, mapping := range request.RelationshipMappings {
-		whole("max_mapping_labels_per_rule", len(mapping.MappingLabels), graphProjectionLimits.MaxMappingLabelsPerRule)
-		whole("max_mapping_property_key_refs", len(mapping.RequiredPropertyKeys), graphProjectionLimits.MaxMappingPropertyKeyRefs)
-		whole("max_mapping_property_key_refs", len(mapping.OptionalPropertyKeys), graphProjectionLimits.MaxMappingPropertyKeyRefs)
+	for _, mapping := range request.projectionConfig.RelationshipMappings {
+		whole("maximum_labels_per_object", len(mapping.MappingLabels), graphProjectionLimits.MaxLabelsPerObject)
+		whole("maximum_property_keys", len(mapping.RequiredPropertyKeys), graphProjectionLimits.MaxPropertyKeys)
+		whole("maximum_property_keys", len(mapping.OptionalPropertyKeys), graphProjectionLimits.MaxPropertyKeys)
 	}
 	for _, entity := range request.SourceEntities {
 		issues = append(issues, sourceItemResourceLimitIssues(run, entity.SourceEntityID, len(entity.Labels), len(entity.Properties), len(entity.Metadata))...)
@@ -485,16 +476,16 @@ func sourceItemStringLimitIssues(run projectionWork, itemID string, objects ...m
 			}
 		}
 	}
-	if observed <= graphProjectionLimits.MaxStringPropertyValueLength {
+	if observed <= graphProjectionLimits.MaxStringBytes {
 		return nil
 	}
-	return []ValidationIssue{run.issue("error", "source_item_resource_limit_exceeded", "source_item", itemID, nil, map[string]any{"source_item_id": itemID, "limit_key": "max_string_property_value_length", "limit": graphProjectionLimits.MaxStringPropertyValueLength, "observed": observed})}
+	return []ValidationIssue{run.issue("error", "source_item_resource_limit_exceeded", "source_item", itemID, nil, map[string]any{"source_item_id": itemID, "limit_key": "maximum_string_bytes", "limit": graphProjectionLimits.MaxStringBytes, "observed": observed})}
 }
 
 func longestPropertyString(value any) int {
 	switch typed := value.(type) {
 	case string:
-		return utf8.RuneCountInString(typed)
+		return len(typed)
 	case []any:
 		longest := 0
 		for _, item := range typed {
@@ -512,7 +503,7 @@ func validateLabels(run projectionWork) []ValidationIssue {
 	issues := []ValidationIssue{}
 	check := func(values []string, field string) {
 		for _, value := range values {
-			if value == "" || utf8.RuneCountInString(value) > graphProjectionLimits.MaxLabelLength {
+			if value == "" || len(value) > graphProjectionLimits.MaxLabelBytes {
 				issues = append(issues, run.issue("fatal", "invalid_input_shape", "projection_input", "projection_input", field, map[string]any{"field": field, "reason_code": "invalid_label"}))
 			}
 		}
@@ -522,7 +513,7 @@ func validateLabels(run projectionWork) []ValidationIssue {
 	for index, mapping := range run.Request.projectionConfig.EntityMappings {
 		check(mapping.MappingLabels, fmt.Sprintf("$.projection_config.entity_mappings[%d].mapping_labels", index))
 	}
-	for index, mapping := range run.Request.RelationshipMappings {
+	for index, mapping := range run.Request.projectionConfig.RelationshipMappings {
 		check(mapping.MappingLabels, fmt.Sprintf("$.projection_config.relationship_mappings[%d].mapping_labels", index))
 	}
 	for index, entity := range run.Request.SourceEntities {
@@ -541,22 +532,22 @@ func sourceItemResourceLimitIssues(run projectionWork, itemID string, labelCount
 			issues = append(issues, run.issue("error", "source_item_resource_limit_exceeded", "source_item", itemID, nil, map[string]any{"source_item_id": itemID, "limit_key": key, "limit": limit, "observed": observed}))
 		}
 	}
-	add("max_labels_per_source_item", labelCount, graphProjectionLimits.MaxLabelsPerSourceItem)
-	add("max_properties_per_object", propertyCount, graphProjectionLimits.MaxPropertiesPerObject)
-	add("max_metadata_keys_per_object", metadataCount, graphProjectionLimits.MaxMetadataKeysPerObject)
+	add("maximum_labels_per_object", labelCount, graphProjectionLimits.MaxLabelsPerObject)
+	add("maximum_property_keys", propertyCount, graphProjectionLimits.MaxPropertyKeys)
+	add("maximum_property_keys", metadataCount, graphProjectionLimits.MaxPropertyKeys)
 	return issues
 }
 
 func sourceItemWithinLimits(labelCount, propertyCount, metadataCount int) bool {
-	return labelCount <= graphProjectionLimits.MaxLabelsPerSourceItem &&
-		propertyCount <= graphProjectionLimits.MaxPropertiesPerObject &&
-		metadataCount <= graphProjectionLimits.MaxMetadataKeysPerObject
+	return labelCount <= graphProjectionLimits.MaxLabelsPerObject &&
+		propertyCount <= graphProjectionLimits.MaxPropertyKeys &&
+		metadataCount <= graphProjectionLimits.MaxPropertyKeys
 }
 
 func sourceItemValuesWithinLimits(objects ...map[string]any) bool {
 	for _, object := range objects {
 		for _, value := range object {
-			if longestPropertyString(value) > graphProjectionLimits.MaxStringPropertyValueLength {
+			if longestPropertyString(value) > graphProjectionLimits.MaxStringBytes {
 				return false
 			}
 		}
@@ -571,15 +562,15 @@ func projectedOutputLimitIssues(run projectionWork, vertices []Vertex, edges []E
 			issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": key, "limit": limit, "observed": observed}))
 		}
 	}
-	add("max_projected_vertices", len(vertices), graphProjectionLimits.MaxProjectedVertices)
-	add("max_projected_edges", len(edges), graphProjectionLimits.MaxProjectedEdges)
+	add("maximum_projected_vertices", len(vertices), graphProjectionLimits.MaxProjectedVertices)
+	add("maximum_projected_edges", len(edges), graphProjectionLimits.MaxProjectedEdges)
 	for _, vertex := range vertices {
-		add("max_properties_per_object", len(vertex.Properties), graphProjectionLimits.MaxPropertiesPerObject)
-		add("max_metadata_keys_per_object", len(vertex.Metadata.MappedMetadata), graphProjectionLimits.MaxMetadataKeysPerObject)
+		add("maximum_property_keys", len(vertex.Properties), graphProjectionLimits.MaxPropertyKeys)
+		add("maximum_property_keys", len(vertex.Metadata.MappedMetadata), graphProjectionLimits.MaxPropertyKeys)
 	}
 	for _, edge := range edges {
-		add("max_properties_per_object", len(edge.Properties), graphProjectionLimits.MaxPropertiesPerObject)
-		add("max_metadata_keys_per_object", len(edge.Metadata.MappedMetadata), graphProjectionLimits.MaxMetadataKeysPerObject)
+		add("maximum_property_keys", len(edge.Properties), graphProjectionLimits.MaxPropertyKeys)
+		add("maximum_property_keys", len(edge.Metadata.MappedMetadata), graphProjectionLimits.MaxPropertyKeys)
 	}
 	return issues
 }

@@ -114,6 +114,11 @@
       "owner_id": "extensions"
     },
     {
+      "schema_id": "cartulary.extension_migration_ledger_definition.v1",
+      "artifact_class": "owner_input",
+      "owner_id": "extensions"
+    },
+    {
       "schema_id": "cartulary.extension_migration_ledger.v1",
       "artifact_class": "durable_contract",
       "owner_id": "extensions"

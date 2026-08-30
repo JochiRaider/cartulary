@@ -2,31 +2,50 @@ package networkflow
 
 import (
 	"encoding/json"
+	"slices"
+	"strings"
 	"testing"
 
+	contractgraphprojection "github.com/JochiRaider/cartulary/internal/gen/contractgraphprojection"
 	contractnetworkflow "github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow"
 )
 
-func TestNetworkFlowV4GraphContractProjection_Unit(t *testing.T) {
+func TestNetworkFlowV5GraphContractProjection_Unit(t *testing.T) {
 	t.Parallel()
 
 	index := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/index.json")
-	if index["contract_major"] != float64(4) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
-		t.Fatalf("Network Flow contract identity = %#v; want major 4/index v3", index)
+	if index["contract_major"] != float64(5) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
+		t.Fatalf("Network Flow contract identity = %#v; want major 5/index v3", index)
 	}
-	publicSchemas := anyStringBoolSet(index["public_schema_ids"].([]any))
-	for _, schemaID := range []string{
-		"cartulary.network_flow.graph_semantic_query.v1",
-		"cartulary.network_flow.graph_semantic_query.v2",
-		"cartulary.network_flow.graph_view_list.v2",
-		"cartulary.network_flow.graph_view_create_request.v2",
-		"cartulary.network_flow.graph_view_accepted.v2",
-		"cartulary.network_flow.graph_view_result.v2",
-		"cartulary.network_flow.graph_view_contributor_query_result.v2",
-	} {
-		if !publicSchemas[schemaID] {
-			t.Fatalf("Network Flow v4 public schema registry omits %q", schemaID)
+	graphSchemas := make([]string, 0)
+	for _, rawSchemaID := range index["public_schema_ids"].([]any) {
+		schemaID := rawSchemaID.(string)
+		if strings.HasPrefix(schemaID, "cartulary.network_flow.graph_") {
+			graphSchemas = append(graphSchemas, schemaID)
 		}
+	}
+	wantGraphSchemas := []string{
+		"cartulary.network_flow.graph_view_rename_request.v1",
+		"cartulary.network_flow.graph_view_refresh_request.v1",
+		"cartulary.network_flow.graph_view_retire_request.v1",
+		"cartulary.network_flow.graph_query_request.v2",
+		"cartulary.network_flow.graph_query_result.v2",
+		"cartulary.network_flow.graph_semantic_query.v2",
+		"cartulary.network_flow.graph_contributor_query_request.v2",
+		"cartulary.network_flow.graph_contributor_query_continuation.v1",
+		"cartulary.network_flow.graph_contributor_query_result.v2",
+		"cartulary.network_flow.graph_view_create_request.v2",
+		"cartulary.network_flow.graph_view_contributor_query_request.v2",
+		"cartulary.network_flow.graph_view_contributor_query_result.v2",
+		"cartulary.network_flow.graph_view.v3",
+		"cartulary.network_flow.graph_view_list.v3",
+		"cartulary.network_flow.graph_view_get.v3",
+		"cartulary.network_flow.graph_view_accepted.v3",
+		"cartulary.network_flow.graph_view_mutation_result.v3",
+		"cartulary.network_flow.graph_view_result.v3",
+	}
+	if !slices.Equal(graphSchemas, wantGraphSchemas) {
+		t.Fatalf("Network Flow v5 Graph schema allowlist = %#v; want %#v", graphSchemas, wantGraphSchemas)
 	}
 
 	routesDocument := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/routes.v1.json")
@@ -51,7 +70,7 @@ func TestNetworkFlowV4GraphContractProjection_Unit(t *testing.T) {
 		assertNetworkFlowGraphRoute(t, graphRoutes, routeID, "viewer", "read_route", 200)
 	}
 
-	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v2.json")
+	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v3.json")
 	definitions := schemas["$defs"].(map[string]any)
 	graphResult := definitions["GraphProjectionResultV2"].(map[string]any)
 	if graphResult["additionalProperties"] != false {
@@ -96,6 +115,18 @@ func TestNetworkFlowV4GraphContractProjection_Unit(t *testing.T) {
 	resourceLimits := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/resource-limits.v2.json")
 	if len(resourceLimits["limits"].([]any)) != 23 {
 		t.Fatalf("effective-limit registry count = %d; want 23", len(resourceLimits["limits"].([]any)))
+	}
+	storageArtifact := contractgraphprojection.Index["contracts/graph-projection/storage-maintenance.v1.json"]
+	var storage map[string]any
+	if err := json.Unmarshal([]byte(storageArtifact.JSON), &storage); err != nil {
+		t.Fatalf("decode Graph storage-maintenance projection: %v", err)
+	}
+	sweep := storage["sweep_bounds"].(map[string]any)
+	if sweep["maximum_results"] != float64(graphResultCleanupMaximumResults) ||
+		sweep["maximum_duration_seconds"] != graphResultCleanupMaximumDuration.Seconds() ||
+		sweep["continuation_delay_seconds"] != graphResultCleanupContinuationDelay.Seconds() ||
+		sweep["base_cadence_seconds"] != graphResultCleanupBaseCadence.Seconds() {
+		t.Fatalf("Network Flow cleanup runtime/Graph storage contract drifted: %#v", sweep)
 	}
 }
 

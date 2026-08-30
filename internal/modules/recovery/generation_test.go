@@ -10,16 +10,12 @@ import (
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
 )
 
-func TestRecoveryGenerationRegistryOwnsThreeExactClosedGenerations_Unit(t *testing.T) {
+func TestRecoveryGenerationRegistryOwnsOneExactCurrentGeneration_Unit(t *testing.T) {
 	registry, err := loadVNextRecoveryGenerationRegistry()
 	if err != nil {
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
-	wantIDs := []string{
-		"recovery.current.workbook_owned.graph_v3",
-		"recovery.historical.incidents_owned.graph_v3",
-		"recovery.historical.graph_v2",
-	}
+	wantIDs := []string{"recovery.current.workbook_owned.graph_v4"}
 	gotIDs := make([]string, 0, len(contractrecovery.RecoveryGenerations))
 	for _, generation := range contractrecovery.RecoveryGenerations {
 		gotIDs = append(gotIDs, generation.GenerationID)
@@ -31,12 +27,6 @@ func TestRecoveryGenerationRegistryOwnsThreeExactClosedGenerations_Unit(t *testi
 	}
 	if !slices.Equal(gotIDs, wantIDs) || registry.current.id != wantIDs[0] {
 		t.Fatalf("Recovery generation order/current selection = %#v current=%s", gotIDs, registry.current.id)
-	}
-	if _, admitted := registry.lookup(
-		contractrecovery.RecoveryGenerations[0].CatalogDigestSHA256,
-		contractrecovery.RecoveryGenerations[2].CodecRegistrySHA256,
-	); admitted {
-		t.Fatal("cross-generation catalog/codec pair was admitted")
 	}
 	if _, admitted := registry.lookup("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"); admitted {
 		t.Fatal("unknown Recovery generation pair was admitted")
@@ -125,11 +115,11 @@ func TestRecoveryGenerationSelectionDrivesCatalogCodecAndGraphValidation_Unit(t 
 		})
 	}
 	if registry.current.identity().AdmitsGraphCompletion(
-		contractrecovery.RecoveryGenerations[1].CatalogDigestSHA256,
-		contractrecovery.RecoveryGenerations[1].GraphSourceRegistrySHA256,
+		strings.Repeat("f", 64),
+		contractrecovery.RecoveryGenerations[0].GraphSourceRegistrySHA256,
 		contractrecovery.RecoveryGenerations[0].GraphImplementationBindingSHA256,
 	) {
-		t.Fatal("cross-generation replay identity was admitted")
+		t.Fatal("unknown-generation replay identity was admitted")
 	}
 }
 
@@ -166,14 +156,6 @@ func TestRecoveryGenerationSelectionDrivesVerificationBasisAndCadence_Unit(t *te
 			if backupDueForRestoreVerification(backupSet, asOf, basisSHA256) {
 				t.Fatal("recent exact-generation verification was incorrectly due")
 			}
-			currentBasisSHA256, err := base.SHA256()
-			if err != nil {
-				t.Fatalf("current verification basis: %v", err)
-			}
-			if projected.GenerationID != registry.current.id &&
-				!backupDueForRestoreVerification(backupSet, asOf, currentBasisSHA256) {
-				t.Fatal("historical generation did not distinguish the current basis")
-			}
 			staleVerifiedAt := asOf.Add(-restoreVerificationMaximumAge)
 			backupSet.LastVerifiedRestoreAt = &staleVerifiedAt
 			if !backupDueForRestoreVerification(backupSet, asOf, basisSHA256) {
@@ -183,63 +165,67 @@ func TestRecoveryGenerationSelectionDrivesVerificationBasisAndCadence_Unit(t *te
 	}
 }
 
-func TestRecoveryGenerationRegistryRejectsMalformedDuplicateAndMixedEntries_Unit(t *testing.T) {
+func TestRecoveryGenerationRegistryRejectsMalformedAndNonCurrentEntries_Unit(t *testing.T) {
 	tests := []struct {
-		name   string
-		mutate func([]contractrecovery.RecoveryGeneration)
+		name  string
+		build func() []contractrecovery.RecoveryGeneration
 	}{
 		{
-			name: "duplicate generation ID",
-			mutate: func(values []contractrecovery.RecoveryGeneration) {
-				values[1].GenerationID = values[0].GenerationID
+			name: "multiple entries",
+			build: func() []contractrecovery.RecoveryGeneration {
+				values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
+				duplicate := cloneRecoveryGeneration(values[0])
+				duplicate.GenerationID = "recovery.historical.unsupported"
+				duplicate.CaptureCurrent = false
+				return append(values, duplicate)
 			},
 		},
 		{
-			name: "duplicate lookup pair",
-			mutate: func(values []contractrecovery.RecoveryGeneration) {
-				values[1] = cloneRecoveryGeneration(values[0])
-				values[1].GenerationID = "recovery.historical.duplicate_pair"
-				values[1].CaptureCurrent = false
-			},
-		},
-		{
-			name: "multiple current entries",
-			mutate: func(values []contractrecovery.RecoveryGeneration) {
-				values[1].CaptureCurrent = true
+			name: "no entries",
+			build: func() []contractrecovery.RecoveryGeneration {
+				return nil
 			},
 		},
 		{
 			name: "no current entry",
-			mutate: func(values []contractrecovery.RecoveryGeneration) {
+			build: func() []contractrecovery.RecoveryGeneration {
+				values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
 				values[0].CaptureCurrent = false
+				return values
 			},
 		},
 		{
 			name: "malformed frozen catalog",
-			mutate: func(values []contractrecovery.RecoveryGeneration) {
-				values[2].CatalogJSON = `{"schema_id":"cartulary.recovery_state_catalog.v1"}`
-				values[2].CatalogCanonicalSHA256 = digestBytes([]byte(values[2].CatalogJSON))
+			build: func() []contractrecovery.RecoveryGeneration {
+				values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
+				values[0].CatalogJSON = `{"schema_id":"cartulary.recovery_state_catalog.v1"}`
+				values[0].CatalogCanonicalSHA256 = digestBytes([]byte(values[0].CatalogJSON))
+				return values
 			},
 		},
 		{
 			name: "unsorted codec IDs",
-			mutate: func(values []contractrecovery.RecoveryGeneration) {
+			build: func() []contractrecovery.RecoveryGeneration {
+				values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
 				values[0].CodecSchemaIDs[0], values[0].CodecSchemaIDs[1] = values[0].CodecSchemaIDs[1], values[0].CodecSchemaIDs[0]
+				return values
 			},
 		},
 		{
-			name: "mixed Graph binding",
-			mutate: func(values []contractrecovery.RecoveryGeneration) {
-				values[1].GraphImplementationBindingJSON = values[0].GraphImplementationBindingJSON
-				values[1].GraphImplementationBindingSHA256 = values[0].GraphImplementationBindingSHA256
-				values[1].GraphImplementationBindingSchemaID = values[0].GraphImplementationBindingSchemaID
+			name: "wrong Graph binding schema",
+			build: func() []contractrecovery.RecoveryGeneration {
+				values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
+				values[0].GraphImplementationBindingSchemaID = strings.TrimSuffix(
+					values[0].GraphImplementationBindingSchemaID,
+					"v4",
+				) + "v3"
+				return values
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			values := cloneRecoveryGenerations(contractrecovery.RecoveryGenerations)
-			test.mutate(values)
+			values := test.build()
 			if _, err := loadVNextRecoveryGenerationRegistryFrom(values); !errors.Is(err, ErrVNextBackup) {
 				t.Fatalf("load malformed Recovery generation registry error = %v, want ErrVNextBackup", err)
 			}

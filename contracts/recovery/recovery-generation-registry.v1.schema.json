@@ -8,8 +8,8 @@
     "schema_id": { "const": "cartulary.recovery_generation_registry.v1" },
     "generations": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 1,
+      "maxItems": 1,
       "items": { "$ref": "#/$defs/generation" }
     }
   },

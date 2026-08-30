@@ -1,16 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.graph_projection_restore_implementation_binding.v3",
+  "$id": "cartulary.graph_projection_restore_implementation_binding.v4",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "algorithm_id", "binding_id", "graph_projection_contract_id", "semantic_query_schema_ids", "historical_dispatch_algorithm_ids", "recovery_state_catalog_sha256", "source_registry_sha256", "graph_table_ids", "graph_engine_algorithm_ids", "graph_engine_algorithm_digests", "database_schema_lineage", "database_schema_head", "packaged_subject_sha256", "build_provenance_sha256"],
+  "required": ["schema_id", "algorithm_id", "binding_id", "graph_projection_contract_id", "semantic_query_schema_ids", "recovery_state_catalog_sha256", "source_registry_sha256", "graph_table_ids", "graph_engine_algorithm_ids", "graph_engine_algorithm_digests", "database_schema_lineage", "database_schema_head", "packaged_subject_sha256", "build_provenance_sha256"],
   "properties": {
-    "schema_id": { "const": "cartulary.graph_projection_restore_implementation_binding.v3" },
-    "algorithm_id": { "const": "graphprojection.restore_rebuild.v3" },
-    "binding_id": { "const": "graphprojection.restore_rebuild.network_flow_graph_views.v3" },
-    "graph_projection_contract_id": { "const": "cartulary.graph_projection_nlspec.v2.1.0" },
-    "semantic_query_schema_ids": { "const": ["cartulary.network_flow.graph_semantic_query.v1", "cartulary.network_flow.graph_semantic_query.v2"] },
-    "historical_dispatch_algorithm_ids": { "const": ["graphprojection.restore_rebuild.v2"] },
+    "schema_id": { "const": "cartulary.graph_projection_restore_implementation_binding.v4" },
+    "algorithm_id": { "const": "graphprojection.restore_rebuild.v4" },
+    "binding_id": { "const": "graphprojection.restore_rebuild.network_flow_graph_views.v4" },
+    "graph_projection_contract_id": { "const": "cartulary.graph_projection_nlspec.v2.2.0" },
+    "semantic_query_schema_ids": { "const": ["cartulary.network_flow.graph_semantic_query.v2"] },
     "recovery_state_catalog_sha256": { "$ref": "common.v1.schema.json#/$defs/sha256" },
     "source_registry_sha256": { "$ref": "common.v1.schema.json#/$defs/sha256" },
     "graph_table_ids": {

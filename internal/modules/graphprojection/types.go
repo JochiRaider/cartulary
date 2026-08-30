@@ -1,19 +1,16 @@
 package graphprojection
 
 type projectionRequest struct {
-	ProjectionSchemaID   string
-	SourceSnapshotID     string
-	projectionConfig     projectionConfig
-	SourceEntities       []sourceEntity
-	SourceRelationships  []sourceRelationship
-	SourceMetadata       map[string]any
-	filters              filters
-	RelationshipMappings []relationshipMapping
-	PropertyDefinitions  []propertyDefinition
+	SourceSnapshotID    string
+	projectionConfig    projectionConfig
+	SourceEntities      []sourceEntity
+	SourceRelationships []sourceRelationship
+	SourceMetadata      map[string]any
+	filters             filters
+	PropertyDefinitions []propertyDefinition
 }
 
 type projectionConfig struct {
-	GraphViewKey                    string
 	ProjectionVersion               string
 	DeclaredSourceEntityKinds       []string
 	DeclaredSourceRelationshipKinds []string

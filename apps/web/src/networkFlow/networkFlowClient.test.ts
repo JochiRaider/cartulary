@@ -81,7 +81,7 @@ describe("Network Flow client transport boundary", () => {
       {
         profile_id: "network_flow_activity",
         claimed: false,
-        contract_major: 4,
+        contract_major: 5,
         route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
         workspace_keys: ["network_analysis"],
         capabilities: [],

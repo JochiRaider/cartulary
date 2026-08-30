@@ -57,12 +57,10 @@
         "cartulary.network_flow_resource_limits_configuration.v2"
       ],
       "imported_algorithm_ids": [
-        "network_flow_activity.migrate_state_1_to_2_v1",
-        "network_flow_activity.migrate_state_2_to_3_v1",
+        "network_flow_activity.migrate_state_3_to_4_v1",
         "network_flow_activity.reporting_graph_order_v1",
         "network_flow_activity.reporting_graph_source_v1",
-        "network_flow_activity.validate_state_v2",
-        "network_flow_activity.validate_state_v3"
+        "network_flow_activity.validate_state_v4"
       ],
       "imported_artifacts": []
     },

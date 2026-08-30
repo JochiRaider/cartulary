@@ -360,7 +360,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     },
   };
   const graph = {
-    schema_id: "cartulary.network_flow.graph_view.v2",
+    schema_id: "cartulary.network_flow.graph_view.v3",
     graph_view_id: "nfgv_load_fixture_0000000000000001",
     incident_id: "00000000-0000-0000-0000-000000000000",
     display_name: "Supported-load saved graph",
@@ -424,7 +424,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     },
   };
   return {
-    schema_id: "cartulary.network_flow.graph_view_result.v2",
+    schema_id: "cartulary.network_flow.graph_view_result.v3",
     graph_view: graph,
     result: {
       schema_id: "cartulary.network_flow.graph_query_result.v2",

@@ -673,7 +673,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "web.networkflow.regression.saved_graph_major4_decoder_and_lifecycle",
+      "row_id": "web.networkflow.regression.saved_graph_major5_decoder_and_lifecycle",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",
       "collaborator_ids": [
@@ -687,7 +687,7 @@
       "selector": {
         "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "titles": [
-          "networkFlowContractAdapter decodes saved graphs only through the generated major-4 contract"
+          "networkFlowContractAdapter decodes saved graphs only through the generated major-5 contract"
         ]
       },
       "evidence_class": "unit",

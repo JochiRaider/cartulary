@@ -14,7 +14,7 @@ import (
 	contractgraphprojection "github.com/JochiRaider/cartulary/internal/gen/contractgraphprojection"
 )
 
-func TestEngineV2GoldenDeterminismAndCompletedResult_Unit(t *testing.T) {
+func TestProjectV2GoldenDeterminismAndCompletedResult_Unit(t *testing.T) {
 	fixture := graphProjectionV2GoldenFixture(t)
 	trusted := fixture["trusted_context"].(map[string]any)
 	input := fixture["input"].(map[string]any)
@@ -26,12 +26,11 @@ func TestEngineV2GoldenDeterminismAndCompletedResult_Unit(t *testing.T) {
 		GraphViewID:   trusted["graph_view_id"].(string),
 		SourceOwnerID: trusted["source_owner_id"].(string),
 	}
-	engine := NewEngineV2()
-	first, err := engine.Project(context.Background(), invocation, semanticInput)
+	first, err := ProjectV2(context.Background(), invocation, semanticInput)
 	if err != nil {
 		t.Fatalf("project golden input: %v", err)
 	}
-	second, err := engine.Project(context.Background(), invocation, semanticInput)
+	second, err := ProjectV2(context.Background(), invocation, semanticInput)
 	if err != nil {
 		t.Fatalf("repeat golden input: %v", err)
 	}
@@ -70,7 +69,7 @@ func TestEngineV2GoldenDeterminismAndCompletedResult_Unit(t *testing.T) {
 	}
 }
 
-func TestEngineV2RejectsRemovedUnknownAndUnsafeMembers_Unit(t *testing.T) {
+func TestProjectV2RejectsRemovedUnknownAndUnsafeMembers_Unit(t *testing.T) {
 	fixture := graphProjectionV2GoldenFixture(t)
 	trusted := fixture["trusted_context"].(map[string]any)
 	invocation := InvocationContextV2{GraphViewID: trusted["graph_view_id"].(string), SourceOwnerID: trusted["source_owner_id"].(string)}
@@ -83,6 +82,14 @@ func TestEngineV2RejectsRemovedUnknownAndUnsafeMembers_Unit(t *testing.T) {
 		{name: "requested_by", mutate: func(value map[string]any) { value["requested_by"] = "spoofed-actor" }},
 		{name: "graph_view_id", mutate: func(value map[string]any) { value["graph_view_id"] = "spoofed-view" }},
 		{name: "source_owner_id", mutate: func(value map[string]any) { value["source_owner_id"] = "spoofed-owner" }},
+		{name: "graph_view_key", mutate: func(value map[string]any) {
+			value["projection_config"].(map[string]any)["graph_view_key"] = "spoofed-view"
+		}},
+		{name: "op", mutate: func(value map[string]any) {
+			value["filters"].(map[string]any)["entity_filters"] = []any{map[string]any{
+				"field_path": "source_entity_id", "op": "exists", "include_if_missing": false,
+			}}
+		}},
 		{name: "retention_policy", mutate: func(value map[string]any) {
 			value["projection_config"].(map[string]any)["retention_policy"] = map[string]any{}
 		}},
@@ -103,7 +110,7 @@ func TestEngineV2RejectsRemovedUnknownAndUnsafeMembers_Unit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("marshal mutated input: %v", err)
 			}
-			_, err = NewEngineV2().Project(context.Background(), invocation, encoded)
+			_, err = ProjectV2(context.Background(), invocation, encoded)
 			var projectionErr *ProjectionErrorV2
 			if !errors.As(err, &projectionErr) || projectionErr.Code != "invalid_projection_request" || projectionErr.RetryAction != "do_not_retry" {
 				t.Fatalf("error = %#v, want closed invalid_projection_request", err)
@@ -119,17 +126,40 @@ func TestEngineV2RejectsRemovedUnknownAndUnsafeMembers_Unit(t *testing.T) {
 	}
 }
 
-func TestEngineV2SemanticOrderingAndNumericNormalization_Unit(t *testing.T) {
+func TestProjectV2TrustedInvocationDoesNotEnterConfigurationDigest_Unit(t *testing.T) {
+	fixture := graphProjectionV2GoldenFixture(t)
+	semanticInput, err := json.Marshal(fixture["input"])
+	if err != nil {
+		t.Fatalf("marshal semantic input: %v", err)
+	}
+	first, err := ProjectV2(context.Background(), InvocationContextV2{GraphViewID: "graph-view-a", SourceOwnerID: "network_flow_activity"}, semanticInput)
+	if err != nil {
+		t.Fatalf("project first trusted context: %v", err)
+	}
+	second, err := ProjectV2(context.Background(), InvocationContextV2{GraphViewID: "graph-view-b", SourceOwnerID: "other_owner"}, semanticInput)
+	if err != nil {
+		t.Fatalf("project second trusted context: %v", err)
+	}
+	if first.NormalizedConfigurationSHA256 != second.NormalizedConfigurationSHA256 ||
+		first.NormalizedSourceSHA256 != second.NormalizedSourceSHA256 {
+		t.Fatalf("trusted invocation changed semantic digests: first=%#v second=%#v", first.ResultBindingV2(), second.ResultBindingV2())
+	}
+	if first.ProjectionResultID == second.ProjectionResultID {
+		t.Fatal("trusted result identity fields did not distinguish separate invocations")
+	}
+}
+
+func TestProjectV2SemanticOrderingAndNumericNormalization_Unit(t *testing.T) {
 	left := twoEntityProjectionInputV2(false)
 	right := twoEntityProjectionInputV2(true)
 	leftBytes, _ := json.Marshal(left)
 	rightBytes, _ := json.Marshal(right)
 	invocation := InvocationContextV2{GraphViewID: "graph-view-ordering", SourceOwnerID: "network_flow_activity"}
-	first, err := NewEngineV2().Project(context.Background(), invocation, leftBytes)
+	first, err := ProjectV2(context.Background(), invocation, leftBytes)
 	if err != nil {
 		t.Fatalf("project first ordering: %v", err)
 	}
-	second, err := NewEngineV2().Project(context.Background(), invocation, rightBytes)
+	second, err := ProjectV2(context.Background(), invocation, rightBytes)
 	if err != nil {
 		t.Fatalf("project second ordering: %v", err)
 	}
@@ -143,23 +173,23 @@ func TestEngineV2SemanticOrderingAndNumericNormalization_Unit(t *testing.T) {
 	}
 }
 
-func TestEngineV2CancellationAndIdentityFraming_Unit(t *testing.T) {
+func TestProjectV2CancellationAndIdentityFraming_Unit(t *testing.T) {
 	fixture := graphProjectionV2GoldenFixture(t)
 	input, _ := json.Marshal(fixture["input"])
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := NewEngineV2().Project(ctx, InvocationContextV2{GraphViewID: "graph-view-cancel", SourceOwnerID: "network_flow_activity"}, input)
+	_, err := ProjectV2(ctx, InvocationContextV2{GraphViewID: "graph-view-cancel", SourceOwnerID: "network_flow_activity"}, input)
 	var projectionErr *ProjectionErrorV2
 	if !errors.As(err, &projectionErr) || projectionErr.Code != "projection_cancelled" || !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation error = %#v", err)
 	}
 
 	digests := strings.Repeat("a", 64)
-	first, err := DeriveProjectionResultIDV2(ResultBindingV2{GraphViewID: "ab", SourceOwnerID: "c", SourceSnapshotID: "snapshot", ProjectionVersion: "v", NormalizedConfigurationSHA256: digests, NormalizedSourceSHA256: digests, CanonicalOutputSHA256: digests})
+	first, err := deriveProjectionResultIDV2(ResultBindingV2{GraphViewID: "ab", SourceOwnerID: "c", SourceSnapshotID: "snapshot", ProjectionVersion: "v", NormalizedConfigurationSHA256: digests, NormalizedSourceSHA256: digests, CanonicalOutputSHA256: digests})
 	if err != nil {
 		t.Fatalf("derive first identity: %v", err)
 	}
-	second, err := DeriveProjectionResultIDV2(ResultBindingV2{GraphViewID: "a", SourceOwnerID: "bc", SourceSnapshotID: "snapshot", ProjectionVersion: "v", NormalizedConfigurationSHA256: digests, NormalizedSourceSHA256: digests, CanonicalOutputSHA256: digests})
+	second, err := deriveProjectionResultIDV2(ResultBindingV2{GraphViewID: "a", SourceOwnerID: "bc", SourceSnapshotID: "snapshot", ProjectionVersion: "v", NormalizedConfigurationSHA256: digests, NormalizedSourceSHA256: digests, CanonicalOutputSHA256: digests})
 	if err != nil {
 		t.Fatalf("derive second identity: %v", err)
 	}
@@ -188,12 +218,12 @@ func TestEngineV2CancellationAndIdentityFraming_Unit(t *testing.T) {
 	}
 }
 
-func TestEngineV2MaximumSemanticBounds_Unit(t *testing.T) {
+func TestProjectV2MaximumSemanticBounds_Unit(t *testing.T) {
 	semanticInput := maximumProjectionInputV2(t, MaximumResultVerticesV2, MaximumResultEdgesV2)
 	if len(semanticInput) > graphProjectionLimits.MaxInputBytes {
 		t.Fatalf("maximum semantic fixture uses %d bytes; limit is %d", len(semanticInput), graphProjectionLimits.MaxInputBytes)
 	}
-	result, err := NewEngineV2().Project(context.Background(), InvocationContextV2{
+	result, err := ProjectV2(context.Background(), InvocationContextV2{
 		GraphViewID: "graph-view-maximum-bounds", SourceOwnerID: "network_flow_activity",
 	}, semanticInput)
 	if err != nil {

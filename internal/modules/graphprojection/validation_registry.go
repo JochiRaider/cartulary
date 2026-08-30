@@ -3,7 +3,6 @@ package graphprojection
 import (
 	"fmt"
 	"sort"
-	"unicode/utf8"
 )
 
 type validationIssueContract struct {
@@ -73,16 +72,16 @@ func (run projectionWork) issue(severity, code, targetKind, targetID string, fie
 	for _, key := range contract.required {
 		identityDetails[key] = details[key]
 	}
-	issueID, err := generatedID("gpi_", "GPISSUE2\n", run.Request.ProjectionSchemaID, run.GraphViewID, run.IdentityDigest, severity, code, targetKind, targetID, identityDetails)
+	issueID, err := generatedID("gpi_", "GPISSUE2\n", ProjectionSchemaIDV2, run.GraphViewID, run.IdentityDigest, severity, code, targetKind, targetID, identityDetails)
 	if err != nil {
 		return run.computationFailureIssue("implementation_invariant_failed")
 	}
-	return ValidationIssue{IssueID: issueID, Severity: severity, Code: code, TargetKind: targetKind, TargetID: targetID, Field: fieldPtr, Message: truncateScalars(code, graphProjectionLimits.MaxValidationMessageLength), Details: details}
+	return ValidationIssue{IssueID: issueID, Severity: severity, Code: code, TargetKind: targetKind, TargetID: targetID, Field: fieldPtr, Message: truncateScalars(code, graphProjectionLimits.MaxValidationMessageBytes), Details: details}
 }
 
 func (run projectionWork) computationFailureIssue(reason string) ValidationIssue {
 	details := map[string]any{"reason_code": reason}
-	issueID, _ := generatedID("gpi_", "GPISSUE2\n", run.Request.ProjectionSchemaID, run.GraphViewID, run.IdentityDigest, "fatal", "projection_computation_failed", "graph_view", run.GraphViewID, details)
+	issueID, _ := generatedID("gpi_", "GPISSUE2\n", ProjectionSchemaIDV2, run.GraphViewID, run.IdentityDigest, "fatal", "projection_computation_failed", "graph_view", run.GraphViewID, details)
 	return ValidationIssue{IssueID: issueID, Severity: "fatal", Code: "projection_computation_failed", TargetKind: "graph_view", TargetID: run.GraphViewID, Message: "projection_computation_failed", Details: details}
 }
 
@@ -167,9 +166,11 @@ func hasFatalIssue(issues []ValidationIssue) bool {
 }
 
 func truncateScalars(value string, limit int) string {
-	if limit < 0 || utf8.RuneCountInString(value) <= limit {
+	if limit < 0 || len(value) <= limit {
 		return value
 	}
-	runes := []rune(value)
-	return string(runes[:limit])
+	for limit > 0 && value[limit]&0xc0 == 0x80 {
+		limit--
+	}
+	return value[:limit]
 }

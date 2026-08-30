@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.network_flow_public_schemas.v2",
-  "schema_id": "cartulary.network_flow_public_schemas.v2",
+  "$id": "cartulary.network_flow_public_schemas.v3",
+  "schema_id": "cartulary.network_flow_public_schemas.v3",
   "profile_id": "network_flow_activity",
-  "contract_major": 4,
+  "contract_major": 5,
   "$defs": {
     "TimestampProfile": {
       "x_schema_id": "cartulary.network_flow.timestamp_profile.v1",
@@ -426,85 +426,6 @@
         "meta": { "$ref": "#/$defs/RejectedRowQueryMeta" }
       }
     },
-    "GraphQueryRequest": {
-      "x_schema_id": "cartulary.network_flow.graph_query_request.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "table_scope"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_query_request.v1" },
-        "table_scope": { "$ref": "#/$defs/TableScope" },
-        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
-        "time_range": { "$ref": "#/$defs/TimeRange" },
-        "aggregation": { "$ref": "#/$defs/Aggregation" },
-        "limit_overrides": { "$ref": "#/$defs/LimitOverrides" }
-      }
-    },
-    "GraphQueryResult": {
-      "x_schema_id": "cartulary.network_flow.graph_query_result.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_query_digest", "semantic_query", "graph_projection_result", "edge_annotations", "source_table_refs", "result_limits"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_query_result.v1" },
-        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-        "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" },
-        "graph_projection_result": { "$ref": "#/$defs/GraphProjectionResultV2" },
-        "edge_annotations": { "type": "array", "items": { "$ref": "#/$defs/EdgeAnnotation" } },
-        "source_table_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphSourceTableRef" } },
-        "result_limits": { "$ref": "#/$defs/GraphResultLimits" }
-      }
-    },
-    "GraphSemanticQuery": {
-      "x_schema_id": "cartulary.network_flow.graph_semantic_query.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "selected_table_ids", "filters", "time_range", "aggregation", "result_limits"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_semantic_query.v1" },
-        "selected_table_ids": { "type": "array", "items": { "$ref": "#/$defs/TableID" } },
-        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
-        "time_range": { "$ref": "#/$defs/TimeRange" },
-        "aggregation": { "$ref": "#/$defs/Aggregation" },
-        "result_limits": { "$ref": "#/$defs/GraphResultLimits" }
-      }
-    },
-    "GraphContributorQueryRequest": {
-      "x_schema_id": "cartulary.network_flow.graph_contributor_query_request.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_query", "graph_query_digest", "selector"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_request.v1" },
-        "graph_query": { "$ref": "#/$defs/GraphSemanticQuery" },
-        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-        "selector": { "$ref": "#/$defs/GraphSelector" },
-        "limit": { "$ref": "#/$defs/PositiveInt" }
-      }
-    },
-    "GraphContributorQueryContinuation": {
-      "x_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "cursor_token"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_continuation.v1" },
-        "cursor_token": { "$ref": "#/$defs/CursorToken" }
-      }
-    },
-    "GraphContributorQueryResult": {
-      "x_schema_id": "cartulary.network_flow.graph_contributor_query_result.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_query_digest", "selector", "contributors", "meta"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_result.v1" },
-        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
-        "selector": { "$ref": "#/$defs/GraphSelector" },
-        "contributors": { "type": "array", "items": { "$ref": "#/$defs/Contributor" } },
-        "meta": { "$ref": "#/$defs/ContributorMeta" }
-      }
-    },
     "IndicatorLinkRequest": {
       "x_schema_id": "cartulary.network_flow.indicator_link_request.v1",
       "type": "object",
@@ -913,61 +834,6 @@
         "canonical_output_sha256": { "$ref": "#/$defs/SHA256" }
       }
     },
-    "GraphView": {
-      "x_schema_id": "cartulary.network_flow.graph_view.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_view_id", "incident_id", "display_name", "normalized_display_name", "graph_view_version", "materialization_generation", "state", "semantic_query", "selected_result", "last_materialization_job_id", "last_materialization_status", "last_failure_code", "created_at", "updated_at"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view.v1" },
-        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
-        "incident_id": { "$ref": "#/$defs/UUID" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "normalized_display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "graph_view_version": { "$ref": "#/$defs/PositiveInt" },
-        "materialization_generation": { "$ref": "#/$defs/PositiveInt" },
-        "state": { "enum": ["active", "retired"] },
-        "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" },
-        "selected_result": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/GraphViewSelectedResult" }] },
-        "last_materialization_job_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 160 },
-        "last_materialization_status": { "enum": ["not_started", "queued", "running", "succeeded", "failed", "cancelled"] },
-        "last_failure_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
-        "created_at": { "$ref": "#/$defs/TimestampUTC" },
-        "updated_at": { "$ref": "#/$defs/TimestampUTC" }
-      }
-    },
-    "GraphViewList": {
-      "x_schema_id": "cartulary.network_flow.graph_view_list.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_views"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v1" },
-        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphView" } }
-      }
-    },
-    "GraphViewGet": {
-      "x_schema_id": "cartulary.network_flow.graph_view_get.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_view"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v1" },
-        "graph_view": { "$ref": "#/$defs/GraphView" }
-      }
-    },
-    "GraphViewCreateRequest": {
-      "x_schema_id": "cartulary.network_flow.graph_view_create_request.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "client_txn_id", "display_name", "semantic_query"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_create_request.v1" },
-        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" }
-      }
-    },
     "GraphViewRenameRequest": {
       "x_schema_id": "cartulary.network_flow.graph_view_rename_request.v1",
       "type": "object",
@@ -1000,63 +866,6 @@
         "schema_id": { "const": "cartulary.network_flow.graph_view_retire_request.v1" },
         "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
         "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
-      }
-    },
-    "GraphViewAccepted": {
-      "x_schema_id": "cartulary.network_flow.graph_view_accepted.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_view", "job_id", "job_kind"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v1" },
-        "graph_view": { "$ref": "#/$defs/GraphView" },
-        "job_id": { "type": "string", "minLength": 1, "maxLength": 160 },
-        "job_kind": { "const": "network_flow_activity.graph_view_materialize_v1" }
-      }
-    },
-    "GraphViewMutationResult": {
-      "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_view"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v1" },
-        "graph_view": { "$ref": "#/$defs/GraphView" }
-      }
-    },
-    "GraphViewResult": {
-      "x_schema_id": "cartulary.network_flow.graph_view_result.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_view", "projection_result"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v1" },
-        "graph_view": { "$ref": "#/$defs/GraphView" },
-        "projection_result": { "$ref": "#/$defs/GraphProjectionResultV2" }
-      }
-    },
-    "GraphViewContributorQueryRequest": {
-      "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_request.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "projection_result_id", "selector", "limit"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_request.v1" },
-        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
-        "selector": { "$ref": "#/$defs/GraphSelector" },
-        "limit": { "type": "integer", "minimum": 1, "maximum": 1000 }
-      }
-    },
-    "GraphViewContributorQueryResult": {
-      "x_schema_id": "cartulary.network_flow.graph_view_contributor_query_result.v1",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_id", "graph_view_id", "projection_result_id", "contributors"],
-      "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_contributor_query_result.v1" },
-        "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
-        "projection_result_id": { "$ref": "#/$defs/ProjectionResultID" },
-        "contributors": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/Contributor" } }
       }
     },
     "GraphProjectionValidationSummary": {
@@ -1468,6 +1277,16 @@
         "meta": { "$ref": "#/$defs/ContributorMeta" }
       }
     },
+    "GraphContributorQueryContinuation": {
+      "x_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "cursor_token"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_continuation.v1" },
+        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+      }
+    },
     "SourceProfileListV2": {
       "x_schema_id": "cartulary.network_flow.source_profile_list.v2",
       "type": "object",
@@ -1480,13 +1299,13 @@
         "meta": { "$ref": "#/$defs/CountMeta" }
       }
     },
-    "GraphViewV2": {
-      "x_schema_id": "cartulary.network_flow.graph_view.v2",
+    "GraphViewV3": {
+      "x_schema_id": "cartulary.network_flow.graph_view.v3",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view_id", "incident_id", "display_name", "normalized_display_name", "graph_view_version", "materialization_generation", "state", "semantic_query", "selected_result", "last_materialization_job_id", "last_materialization_status", "last_failure_code", "created_at", "updated_at"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view.v2" },
+        "schema_id": { "const": "cartulary.network_flow.graph_view.v3" },
         "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
         "incident_id": { "$ref": "#/$defs/UUID" },
         "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
@@ -1494,7 +1313,7 @@
         "graph_view_version": { "$ref": "#/$defs/PositiveInt" },
         "materialization_generation": { "$ref": "#/$defs/PositiveInt" },
         "state": { "enum": ["active", "retired"] },
-        "semantic_query": { "oneOf": [{ "$ref": "#/$defs/GraphSemanticQuery" }, { "$ref": "#/$defs/GraphSemanticQueryV2" }] },
+        "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
         "selected_result": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/GraphViewSelectedResult" }] },
         "last_materialization_job_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 160 },
         "last_materialization_status": { "enum": ["not_started", "queued", "running", "succeeded", "failed", "cancelled"] },
@@ -1503,24 +1322,24 @@
         "updated_at": { "$ref": "#/$defs/TimestampUTC" }
       }
     },
-    "GraphViewListV2": {
-      "x_schema_id": "cartulary.network_flow.graph_view_list.v2",
+    "GraphViewListV3": {
+      "x_schema_id": "cartulary.network_flow.graph_view_list.v3",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_views"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v2" },
-        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphViewV2" } }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v3" },
+        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphViewV3" } }
       }
     },
-    "GraphViewGetV2": {
-      "x_schema_id": "cartulary.network_flow.graph_view_get.v2",
+    "GraphViewGetV3": {
+      "x_schema_id": "cartulary.network_flow.graph_view_get.v3",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v2" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV2" }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v3" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV3" }
       }
     },
     "GraphViewCreateRequestV2": {
@@ -1535,37 +1354,37 @@
         "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" }
       }
     },
-    "GraphViewAcceptedV2": {
-      "x_schema_id": "cartulary.network_flow.graph_view_accepted.v2",
+    "GraphViewAcceptedV3": {
+      "x_schema_id": "cartulary.network_flow.graph_view_accepted.v3",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view", "job_id", "job_kind"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v2" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV2" },
+        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v3" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV3" },
         "job_id": { "type": "string", "minLength": 1, "maxLength": 160 },
         "job_kind": { "const": "network_flow_activity.graph_view_materialize_v1" }
       }
     },
-    "GraphViewMutationResultV2": {
-      "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v2",
+    "GraphViewMutationResultV3": {
+      "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v3",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v2" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV2" }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v3" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV3" }
       }
     },
-    "GraphViewResultV2": {
-      "x_schema_id": "cartulary.network_flow.graph_view_result.v2",
+    "GraphViewResultV3": {
+      "x_schema_id": "cartulary.network_flow.graph_view_result.v3",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view", "result"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v2" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV2" },
-        "result": { "oneOf": [{ "$ref": "#/$defs/GraphQueryResult" }, { "$ref": "#/$defs/GraphQueryResultV2" }] }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v3" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV3" },
+        "result": { "$ref": "#/$defs/GraphQueryResultV2" }
       }
     },
     "GraphViewContributorQueryRequestV2": {

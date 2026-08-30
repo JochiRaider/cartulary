@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.graph_projection_restore_rebuild_result.v2",
+  "$id": "cartulary.graph_projection_restore_rebuild_result.v4",
   "$defs": {
     "safe_message": {
       "type": "object",
@@ -8,18 +8,19 @@
       "required": ["code"],
       "properties": {
         "code": {
-          "enum": ["implementation_binding_unavailable", "invalid_restore_candidate", "invalid_restore_request", "recovery_catalog_mismatch", "restore_outcome_indeterminate", "restore_postcondition_failed", "restore_publication_failed", "restore_resource_overflow", "source_enumeration_failed", "source_registry_mismatch"]
+          "enum": ["implementation_binding_unavailable", "invalid_restore_candidate", "invalid_restore_request", "recovery_catalog_mismatch", "restore_outcome_indeterminate", "restore_postcondition_failed", "restore_publication_failed", "restore_resource_overflow", "source_enumeration_failed", "source_registry_mismatch", "unsupported_graph_restore_generation", "unsupported_semantic_query"]
         }
       }
     },
     "rebuilt_view": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_registration_id", "candidate_id", "graph_view_id", "projection_result_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "vertex_count", "edge_count", "canonical_output_sha256"],
+      "required": ["source_registration_id", "candidate_id", "graph_view_id", "semantic_query_schema_id", "projection_result_id", "source_snapshot_id", "projection_version", "normalized_configuration_sha256", "normalized_source_sha256", "vertex_count", "edge_count", "canonical_output_sha256"],
       "properties": {
         "source_registration_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
         "candidate_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
         "graph_view_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
+        "semantic_query_schema_id": { "const": "cartulary.network_flow.graph_semantic_query.v2" },
         "projection_result_id": { "type": "string", "pattern": "^gpres_[0-9a-f]{64}$" },
         "source_snapshot_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
         "projection_version": { "$ref": "common.v1.schema.json#/$defs/identifier" },
@@ -35,12 +36,12 @@
   "additionalProperties": false,
   "required": ["schema_id", "restore_operation_id", "target_generation_id", "status", "readiness_outcome", "algorithm_id", "implementation_binding_sha256", "source_registry_sha256", "cleared_table_ids", "rebuilt_views", "reconciled_nonterminal_job_count", "reconciled_lease_count", "postcondition_sha256", "warnings", "errors"],
   "properties": {
-    "schema_id": { "const": "cartulary.graph_projection_restore_rebuild_result.v2" },
+    "schema_id": { "const": "cartulary.graph_projection_restore_rebuild_result.v4" },
     "restore_operation_id": { "$ref": "common.v1.schema.json#/$defs/identifier" },
     "target_generation_id": { "$ref": "common.v1.schema.json#/$defs/uuid" },
     "status": { "enum": ["succeeded", "failed"] },
     "readiness_outcome": { "enum": ["ready", "incomplete"] },
-    "algorithm_id": { "const": "graphprojection.restore_rebuild.v2" },
+    "algorithm_id": { "const": "graphprojection.restore_rebuild.v4" },
     "implementation_binding_sha256": { "$ref": "common.v1.schema.json#/$defs/sha256" },
     "source_registry_sha256": { "$ref": "common.v1.schema.json#/$defs/sha256" },
     "cleared_table_ids": { "type": "array", "maxItems": 4, "uniqueItems": true, "items": { "$ref": "common.v1.schema.json#/$defs/identifier" } },

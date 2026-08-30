@@ -25,6 +25,7 @@ type StatePlan struct {
 	StatePresenceManifestSHA256             string
 	ImplementationBindingSHA256             string
 	MigrationDefinitions                    []MigrationDefinition
+	MigrationLedgerDefinitions              []MigrationLedgerDefinition
 }
 
 type MigrationDefinition struct {
@@ -39,10 +40,21 @@ type MigrationDefinition struct {
 	ImplementationBindingSHA256    string
 }
 
+// MigrationLedgerDefinition authenticates a committed ledger row without
+// making the historical migration executable.
+type MigrationLedgerDefinition struct {
+	MigrationLineageID string
+	MigrationID        string
+	FromVersion        int
+	ToVersion          int
+	DefinitionSHA256   string
+}
+
 func cloneStatePlan(plan StatePlan) StatePlan {
 	plan.DatabaseFamilyIDs = append([]string(nil), plan.DatabaseFamilyIDs...)
 	plan.ObjectReferenceFamilyIDs = append([]string(nil), plan.ObjectReferenceFamilyIDs...)
 	plan.MigrationDefinitions = append([]MigrationDefinition(nil), plan.MigrationDefinitions...)
+	plan.MigrationLedgerDefinitions = append([]MigrationLedgerDefinition(nil), plan.MigrationLedgerDefinitions...)
 	return plan
 }
 
@@ -432,6 +444,19 @@ func parseStatePlan(row map[string]any) (StatePlan, error) {
 			ValidationAlgorithmID:          stringValue(migration["validation_algorithm_id"]),
 			ImplementationBindingProfileID: stringValue(migration["implementation_binding_profile_id"]),
 			ImplementationBindingSHA256:    stringValue(migration["implementation_binding_sha256"]),
+		})
+	}
+	ledgerDefinitions, ok := objectSlice(row["migration_ledger_definitions"])
+	if !ok {
+		return StatePlan{}, fmt.Errorf("migration ledger definitions are not an array for %s", plan.ProfileID)
+	}
+	for _, definition := range ledgerDefinitions {
+		plan.MigrationLedgerDefinitions = append(plan.MigrationLedgerDefinitions, MigrationLedgerDefinition{
+			MigrationLineageID: stringValue(definition["migration_lineage_id"]),
+			MigrationID:        stringValue(definition["migration_id"]),
+			FromVersion:        intValue(definition["from_state_version"]),
+			ToVersion:          intValue(definition["to_state_version"]),
+			DefinitionSHA256:   stringValue(definition["migration_definition_sha256"]),
 		})
 	}
 	return plan, nil

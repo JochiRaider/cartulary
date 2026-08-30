@@ -464,8 +464,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.network_flow_frontend_entrypoints.v4",
-      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v4.schema.json",
+      "schema_id": "cartulary.network_flow_frontend_entrypoints.v5",
+      "path": "tools/schemas/cartulary.network_flow_frontend_entrypoints.v5.schema.json",
       "classification": "owner_input",
       "producer": "Network Flow frontend contract owner",
       "validation": "json-shape-check"

@@ -3,7 +3,7 @@
   "owner_id": "module.graphprojection",
   "rows": [
     {
-      "row_id": "module.graphprojection.engine.v2_deterministic_restore_rebuild_and_exact_histo_9f9153a50a",
+      "row_id": "module.graphprojection.engine.v2_deterministic_current_restore_rebuild",
       "owner_id": "module.graphprojection",
       "family_id": "module.graphprojection.engine",
       "collaborator_ids": [
@@ -15,17 +15,21 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/graphprojection",
+        "package": "./internal/modules/graphprojection/restore",
         "tests": [
+          "TestGraphProjectionCurrentRecoveryContributionIsV4Only_Unit",
           "TestGraphRestoreAcceptanceGPRA02Through05ExactCandidateSemantics",
           "TestGraphRestoreAcceptanceGPRA06And10SourceFailuresBeforeMutation",
           "TestGraphRestoreAcceptanceGPRA06Through11PreflightFailsBeforeMutation",
           "TestGraphRestoreAcceptanceGPRA11OperationWideResourceLimits",
-        "TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed",
-        "TestGraphRestoreAcceptanceGPRA15RetryPreservesDeterministicOutput",
-        "TestGraphRestoreCurrentRegistryAndBindingsAreExact",
-        "TestGraphRestoreResultContractClosesStatesAndSafeErrors",
-        "TestGraphRestoreV3MixedDeclarationsAndHistoricalV2DispatchRemainExact"
+          "TestGraphRestoreAcceptanceGPRA13And17IndeterminateFailureIsClosed",
+          "TestGraphRestoreAcceptanceGPRA15RetryPreservesDeterministicOutput",
+          "TestGraphRestoreCurrentRegistryAndBindingsAreExact",
+          "TestGraphRestoreExportedFunctionAllowlist_Unit",
+          "TestGraphRestorePackageProductionBoundaryAllowlist_Unit",
+		  "TestGraphRestoreReadinessRequiresExactReconciliationProof_Unit",
+		  "TestGraphRestoreResultContractClosesStatesAndSafeErrors",
+		  "TestGraphRestoreServiceRequiresPublisherAndRegistry_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -51,7 +55,7 @@
       "selector": {
         "package": "./internal/modules/graphprojection",
         "tests": [
-          "TestEngineV2MaximumSemanticBounds_Unit"
+		  "TestProjectV2MaximumSemanticBounds_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -77,13 +81,46 @@
       "selector": {
         "package": "./internal/modules/graphprojection",
         "tests": [
-          "TestEngineV2CancellationAndIdentityFraming_Unit",
-          "TestEngineV2GoldenDeterminismAndCompletedResult_Unit",
-          "TestEngineV2RejectsRemovedUnknownAndUnsafeMembers_Unit",
-          "TestEngineV2SemanticOrderingAndNumericNormalization_Unit",
-          "TestGraphProjectionCurrentRecoveryContributionIsV2Only_Unit",
-          "TestGraphProjectionV1RuntimePackagesAndImportsAreRemoved_Unit",
-          "TestGraphProjectionV2RootProductionBoundary_Unit"
+          "TestGraphProjectionPackageTopologyAllowlist_Unit",
+          "TestGraphProjectionRootExportedFunctionAllowlist_Unit",
+		  "TestGraphProjectionV2RootProductionBoundary_Unit",
+		  "TestProjectV2CancellationAndIdentityFraming_Unit",
+		  "TestProjectV2GoldenDeterminismAndCompletedResult_Unit",
+		  "TestProjectV2RejectsRemovedUnknownAndUnsafeMembers_Unit",
+		  "TestProjectV2SemanticOrderingAndNumericNormalization_Unit",
+		  "TestProjectV2TrustedInvocationDoesNotEnterConfigurationDigest_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.graphprojection.engine.v2_semantic_matrix",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.engine",
+      "collaborator_ids": [
+        "module.networkflow",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection",
+        "tests": [
+          "TestProjectV2NonEmptySemanticGolden_Unit",
+		  "TestProjectV2NullDefaultWildcardOrderingAndFailureAtomicity_Unit",
+          "TestProjectV2ProjectedValueAdmissionCoversEveryTypeAndBoundary_Unit",
+          "TestProjectV2SemanticMatrixMatchesContractAndExecutesEveryPair_Unit",
+          "TestProjectV2SemanticMergeRulesAreExact_Unit",
+          "TestProjectV2UTF8ByteAndNumericBoundariesAreUniform_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -144,7 +181,11 @@
         "tests": [
           "TestGraphRestoreAcceptanceGPRA01And16ClearsAllDerivedHistory_Integration",
           "TestGraphRestoreAcceptanceGPRA02PublishesOneFreshAvailableRun_Integration",
-          "TestGraphRestoreAcceptanceGPRA12PublicationFailureRollsBackClear_Integration"
+		  "TestGraphRestoreAcceptanceGPRA12PublicationFailureRollsBackClear_Integration",
+		  "TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integration",
+		  "TestGraphRestoreWriterReconcilesBeforeCommitAndReturnsExactCounts_Integration",
+		  "TestGraphRestoreWriterRequiresDatabaseAndReconciler_Unit",
+		  "TestGraphRestoreWriterRollsBackEveryPrecommitPhase_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -172,7 +213,8 @@
       "selector": {
         "package": "./internal/modules/graphprojection/postgresresult",
         "tests": [
-          "TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration"
+		  "TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration",
+		  "TestStorageMaintenanceProjectionMatchesRuntime_Unit"
         ]
       },
       "evidence_class": "integration",

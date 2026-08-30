@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.recovery_state_catalog.v1",
-  "catalog_digest_sha256": "0151062c203e5330933273c0baef9834d76d4be88c9f8253180c89e4b0156f72",
+  "catalog_digest_sha256": "0cdb9b6a4f7299764085d5fde6263696314becd1be8f0947699d384dbeaef482",
   "contribution_digests": [
     {
       "owner_id": "module.artifacts",
@@ -44,7 +44,7 @@
     },
     {
       "owner_id": "module.graphprojection",
-      "sha256": "ea724412be039139ceea8801ba8d574e305be68eb33167cc50f8c61b64cf79e3"
+      "sha256": "ba7fdd9f9c090fa0308c2ee5b3b7a955459324d34fd0d1bbd7e0cb8a6356c5f3"
     },
     {
       "owner_id": "module.imports",
@@ -491,7 +491,7 @@
       "backup_inclusion": "excluded_rebuildable",
       "restore_action": "rebuild",
       "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v3"
+      "algorithm_id": "graphprojection.restore_rebuild.v4"
     },
     {
       "owner_id": "module.graphprojection",
@@ -500,7 +500,7 @@
       "backup_inclusion": "excluded_rebuildable",
       "restore_action": "rebuild",
       "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v3"
+      "algorithm_id": "graphprojection.restore_rebuild.v4"
     },
     {
       "owner_id": "module.graphprojection",
@@ -509,7 +509,7 @@
       "backup_inclusion": "excluded_rebuildable",
       "restore_action": "rebuild",
       "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v3"
+      "algorithm_id": "graphprojection.restore_rebuild.v4"
     },
     {
       "owner_id": "module.graphprojection",
@@ -518,7 +518,7 @@
       "backup_inclusion": "excluded_rebuildable",
       "restore_action": "rebuild",
       "codec_id": null,
-      "algorithm_id": "graphprojection.restore_rebuild.v3"
+      "algorithm_id": "graphprojection.restore_rebuild.v4"
     },
     {
       "owner_id": "module.artifacts",

@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 )
 
 var (
@@ -17,8 +16,6 @@ var (
 	generatedIDPattern   = regexp.MustCompile(`^(gv|gpr|vx|ed|gpi)_[0-9a-f]{64}$`)
 	timestampPattern     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$`)
 )
-
-const maxFiniteInteger = int64(9007199254740991)
 
 type duplicateMemberError struct{ path string }
 
@@ -84,7 +81,6 @@ func rejectDuplicateObjectMembers(data []byte) error {
 
 func parseProjectionConfig(raw map[string]any) projectionConfig {
 	config := projectionConfig{
-		GraphViewKey:                    mustString(raw["graph_view_key"], "$.projection_config.graph_view_key"),
 		ProjectionVersion:               stringDefault(raw["projection_version"], "1"),
 		DeclaredSourceEntityKinds:       stringArray(raw["declared_source_entity_kinds"]),
 		DeclaredSourceRelationshipKinds: stringArray(raw["declared_source_relationship_kinds"]),
@@ -297,7 +293,7 @@ func parseFilterPredicates(raw []any) []filterPredicate {
 		object := mustObject(entry, "filter")
 		value, hasValue := object["value"]
 		predicates = append(predicates, filterPredicate{
-			FieldPath: mustString(object["field_path"], "field_path"), Operator: mustString(object["op"], "op"),
+			FieldPath: mustString(object["field_path"], "field_path"), Operator: mustString(object["operator"], "operator"),
 			Value: value, HasValue: hasValue, IncludeIfMissing: boolDefault(object["include_if_missing"], false),
 		})
 	}
@@ -321,9 +317,6 @@ func normalizeProjectionRequest(request *projectionRequest) {
 	request.projectionConfig.DeclaredSourceRelationshipKinds = sortedStrings(request.projectionConfig.DeclaredSourceRelationshipKinds)
 	request.projectionConfig.DefaultVertexLabels = uniqueSortedStrings(request.projectionConfig.DefaultVertexLabels)
 	request.projectionConfig.DefaultEdgeLabels = uniqueSortedStrings(request.projectionConfig.DefaultEdgeLabels)
-	if len(request.projectionConfig.RelationshipMappings) > 0 {
-		request.RelationshipMappings = request.projectionConfig.RelationshipMappings
-	}
 }
 
 func sortedStrings(values []string) []string {
@@ -339,25 +332,8 @@ func defaultMissingBehavior(required bool) string {
 	return "omit"
 }
 
-func validIdentifier(value string) bool {
-	if value == "" || len([]rune(value)) > 128 || strings.ContainsAny(value, `/\#`) {
-		return false
-	}
-	var first, last rune
-	for index, r := range value {
-		if r == 0 || unicode.IsControl(r) || (r >= 0x80 && r <= 0x9f) || (r >= 0xd800 && r <= 0xdfff) {
-			return false
-		}
-		if index == 0 {
-			first = r
-		}
-		last = r
-	}
-	return !isSpecWhitespace(first) && !isSpecWhitespace(last)
-}
-
 func validPropertyKey(value string) bool {
-	if !validIdentifier(value) || strings.Contains(value, ".") {
+	if !validIdentifierV2(value) || len(value) > graphProjectionLimits.MaxPropertyKeyBytes || strings.Contains(value, ".") {
 		return false
 	}
 	switch value {
@@ -366,17 +342,6 @@ func validPropertyKey(value string) bool {
 	default:
 		return true
 	}
-}
-
-func isSpecWhitespace(r rune) bool {
-	if r >= 0x09 && r <= 0x0d {
-		return true
-	}
-	switch r {
-	case 0x20, 0x85, 0xa0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000:
-		return true
-	}
-	return r >= 0x2000 && r <= 0x200a
 }
 
 func parseTimestamp(value string) (time.Time, error) {
@@ -474,8 +439,8 @@ func validFiniteInteger(value string) bool {
 	if !finiteIntegerPattern.MatchString(value) {
 		return false
 	}
-	parsed, err := strconv.ParseInt(value, 10, 64)
-	return err == nil && parsed >= -maxFiniteInteger && parsed <= maxFiniteInteger
+	_, err := strconv.ParseInt(value, 10, 64)
+	return err == nil
 }
 
 func uniqueSortedStrings(values []string) []string {

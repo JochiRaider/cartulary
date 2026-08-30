@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "schema_id": "cartulary.protocol_ts_frontend_entrypoints.v2",
   "owner_id": "package.protocol_ts",
-  "network_flow_entrypoints_path": "contracts/network-flow/frontend-entrypoints.v4.json",
+  "network_flow_entrypoints_path": "contracts/network-flow/frontend-entrypoints.v5.json",
   "http_operation_selection_path": "contracts/protocol-ts/http-operations.v2.json",
   "core_http": {
     "openapi_path": "contracts/openapi/cartulary.openapi.yaml",

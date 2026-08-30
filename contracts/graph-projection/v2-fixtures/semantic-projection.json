@@ -1,0 +1,133 @@
+{
+  "schema_id": "cartulary.graph_projection_golden_fixture.v2",
+  "fixture_id": "GP2-FIX-002",
+  "trusted_context": {
+    "graph_view_id": "graph-view-semantic",
+    "source_owner_id": "network_flow_activity"
+  },
+  "input": {
+    "projection_schema_id": "graph_projection.v2",
+    "source_snapshot_id": "snapshot-semantic",
+    "projection_config": {
+      "projection_version": "semantic-v2",
+      "declared_source_entity_kinds": ["event"],
+      "declared_source_relationship_kinds": [],
+      "entity_mappings": [
+        {
+          "mapping_rule_id": "map-event",
+          "source_entity_kind": "event",
+          "projected_vertex_kind": "event",
+          "inclusion_predicate": "always",
+          "label_policy": "mapping_only",
+          "mapping_labels": ["event"],
+          "required_property_keys": ["group", "name", "score", "tags"],
+          "optional_property_keys": []
+        }
+      ],
+      "relationship_mappings": [],
+      "metadata_mappings": [],
+      "aggregation_rules": [
+        {
+          "aggregation_rule_id": "aggregate-events",
+          "target_scope": "vertex",
+          "input_scope": "source_entity",
+          "input_kind": "event",
+          "projected_kind": "summary",
+          "grouping_keys": ["properties.group"],
+          "missing_grouping_key_behavior": "error",
+          "property_merge_behavior": {}
+        }
+      ],
+      "default_vertex_labels": ["projected"],
+      "default_edge_labels": [],
+      "allow_empty_kind_registry": false
+    },
+    "source_entities": [
+      {
+        "source_entity_id": "event-a",
+        "source_entity_kind": "event",
+        "properties": {
+          "group": "all",
+          "name": "alpha",
+          "score": 2,
+          "tags": ["blue", "red"]
+        },
+        "metadata": {},
+        "labels": []
+      },
+      {
+        "source_entity_id": "event-b",
+        "source_entity_kind": "event",
+        "properties": {
+          "group": "all",
+          "name": "beta",
+          "score": 3,
+          "tags": ["blue", "green"]
+        },
+        "metadata": {},
+        "labels": []
+      }
+    ],
+    "source_relationships": [],
+    "source_metadata": {},
+    "filters": {
+      "entity_filters": [],
+      "relationship_filters": [],
+      "logic": "and"
+    },
+    "property_definitions": [
+      {
+        "property_definition_id": "summary-name",
+        "target_scope": "vertex",
+        "target_kind": "summary",
+        "source_field_path": "properties.name",
+        "projected_key": "first_name",
+        "projected_type": "string",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "first"
+      },
+      {
+        "property_definition_id": "summary-score",
+        "target_scope": "vertex",
+        "target_kind": "summary",
+        "source_field_path": "properties.score",
+        "projected_key": "total_score",
+        "projected_type": "integer",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "sum"
+      },
+      {
+        "property_definition_id": "summary-tags",
+        "target_scope": "vertex",
+        "target_kind": "summary",
+        "source_field_path": "properties.tags",
+        "projected_key": "tags",
+        "projected_type": "string_array",
+        "required": true,
+        "missing_behavior": "error",
+        "source_null_behavior": "error",
+        "null_output_policy": "omit",
+        "merge_behavior": "set"
+      }
+    ]
+  },
+  "expected": {
+    "vertex_count": 3,
+    "edge_count": 0,
+    "projection_result_id": "gpres_e99525e35de30e1d3d242fdacfd48c3050d0010eb9a30cdb6a8ea74d92df28a0",
+    "normalized_configuration_sha256": "35665a2aee33cf8ddcb40ea77b7c4ced47f9aadbf168eea8a6ec5cec1ed0e9dc",
+    "normalized_source_sha256": "2d2158e69a583a28196236cf22dbe110e4e17e1967cd12a07314269beec18c3b",
+    "canonical_output_sha256": "13d199a637f5959fe8f30d9231cba299785f54f6b219a2a2a29c726cd76ec43a",
+    "aggregated_properties": {
+      "first_name": "alpha",
+      "tags": ["blue", "green", "red"],
+      "total_score": 5
+    }
+  }
+}

@@ -1,6 +1,7 @@
 package postgresrestore
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
+	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -34,77 +36,78 @@ type Writer struct {
 	reconciler DerivedStateReconciler
 }
 
-var _ graphprojection.RestorePublisher = (*Writer)(nil)
+var _ graphrestore.RestorePublisher = (*Writer)(nil)
 
-func New(db postgres.DB) (*Writer, error) { return NewWithReconciler(db, nil) }
-
-func NewWithReconciler(db postgres.DB, reconciler DerivedStateReconciler) (*Writer, error) {
-	if db == nil {
-		return nil, graphprojection.NewRestoreError(graphprojection.RestoreErrorInvalidRequest)
+func New(db postgres.DB, reconciler DerivedStateReconciler) (*Writer, error) {
+	if db == nil || reconciler == nil {
+		return nil, graphrestore.NewRestoreError(graphrestore.RestoreErrorInvalidRequest)
 	}
 	return &Writer{db: db, reconciler: reconciler}, nil
 }
 
-func (writer *Writer) ReplaceAll(ctx context.Context, plan graphprojection.RestorePublicationPlan) (graphprojection.RestorePublicationProof, error) {
-	if writer == nil || writer.db == nil || ctx == nil || ctx.Err() != nil || !validPlan(plan) {
-		return graphprojection.RestorePublicationProof{}, &graphprojection.RestorePublicationError{Cause: context.Canceled}
+func (writer *Writer) ReplaceAll(ctx context.Context, plan graphrestore.RestorePublicationPlan) (graphrestore.RestorePublicationProof, error) {
+	if writer == nil || writer.db == nil || writer.reconciler == nil || ctx == nil || !validPlan(plan) {
+		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Cause: graphprojection.ErrResultV2Invalid}
+	}
+	if err := ctx.Err(); err != nil {
+		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Cause: err}
 	}
 	tx, err := writer.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return graphprojection.RestorePublicationProof{}, &graphprojection.RestorePublicationError{Cause: err}
+		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Cause: err}
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	if _, err := tx.Exec(ctx, truncateGraphProjectionTablesSQL); err != nil {
-		return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
+		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
 	}
 	publisher, err := postgresresult.NewPublisher(tx)
 	if err != nil {
-		return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
+		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
 	}
 	bindings := make([]graphprojection.ResultBindingV2, 0, len(plan.Projections))
 	for _, staged := range plan.Projections {
 		if err := publisher.PublishResult(ctx, staged.Result); err != nil {
-			return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
+			return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
 		}
 		bindings = append(bindings, staged.Result.Binding)
 	}
-	jobs, leases := 0, 0
-	if writer.reconciler != nil {
-		jobs, leases, err = writer.reconciler.ReconcileGraphProjectionDerivedState(ctx, tx, bindings)
-		if err != nil || jobs < 0 || leases < 0 {
-			return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
-		}
+	jobs, leases, err := writer.reconciler.ReconcileGraphProjectionDerivedState(ctx, tx, bindings)
+	if err != nil {
+		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
+	}
+	if jobs < 0 || leases < 0 {
+		return graphrestore.RestorePublicationProof{}, publicationError(ctx, graphprojection.ErrResultV2Invalid)
 	}
 	if err := verifyPublishedState(ctx, tx, plan, leases); err != nil {
-		return graphprojection.RestorePublicationProof{}, publicationError(ctx, err)
+		return graphrestore.RestorePublicationProof{}, publicationError(ctx, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return graphprojection.RestorePublicationProof{}, &graphprojection.RestorePublicationError{Indeterminate: true, Cause: err}
+		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Indeterminate: true, Cause: err}
 	}
 	proofContext, cancelProof := context.WithTimeout(context.WithoutCancel(ctx), committedProofTimeout)
 	defer cancelProof()
 	if err := verifyPublishedState(proofContext, writer.db, plan, leases); err != nil {
-		return graphprojection.RestorePublicationProof{}, &graphprojection.RestorePublicationError{Indeterminate: true, Cause: err}
+		return graphrestore.RestorePublicationProof{}, &graphrestore.RestorePublicationError{Indeterminate: true, Cause: err}
 	}
-	return graphprojection.RestorePublicationProof{
-		RebuiltViews:                  append([]graphprojection.RestoreRebuiltView{}, plan.RebuiltViews...),
+	return graphrestore.RestorePublicationProof{
+		RebuiltViews:                  append([]graphrestore.RestoreRebuiltView{}, plan.RebuiltViews...),
 		ReconciledNonterminalJobCount: jobs, ReconciledLeaseCount: leases,
 		PostconditionSHA256: plan.PostconditionSHA256,
 	}, nil
 }
 
 func publicationError(ctx context.Context, cause error) error {
-	return &graphprojection.RestorePublicationError{Indeterminate: ctx != nil && ctx.Err() != nil, Cause: cause}
+	return &graphrestore.RestorePublicationError{Indeterminate: ctx != nil && ctx.Err() != nil, Cause: cause}
 }
 
-func validPlan(plan graphprojection.RestorePublicationPlan) bool {
+func validPlan(plan graphrestore.RestorePublicationPlan) bool {
 	if plan.RestoreOperationID.String() == "00000000-0000-0000-0000-000000000000" ||
 		plan.TargetGenerationID.String() == "00000000-0000-0000-0000-000000000000" ||
-		len(plan.ClearedTableIDs) != len(graphprojection.RestoreGraphTableIDs()) ||
+		len(plan.ClearedTableIDs) != len(graphrestore.RestoreGraphTableIDs()) ||
 		len(plan.Projections) != len(plan.RebuiltViews) || len(plan.PostconditionSHA256) != 64 {
 		return false
 	}
-	for index, tableID := range graphprojection.RestoreGraphTableIDs() {
+	for index, tableID := range graphrestore.RestoreGraphTableIDs() {
 		if plan.ClearedTableIDs[index] != tableID {
 			return false
 		}
@@ -125,7 +128,7 @@ type restoreQueryer interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func verifyPublishedState(ctx context.Context, queryer restoreQueryer, plan graphprojection.RestorePublicationPlan, wantLeases int) error {
+func verifyPublishedState(ctx context.Context, queryer restoreQueryer, plan graphrestore.RestorePublicationPlan, wantLeases int) error {
 	var results, vertices, edges, leases int
 	if err := queryer.QueryRow(ctx, `
 SELECT
@@ -150,9 +153,36 @@ SELECT
 	}
 	for _, staged := range plan.Projections {
 		loaded, err := reader.ReadExactResult(ctx, staged.Result.Binding)
-		if err != nil || len(loaded.Vertices) != len(staged.Result.Vertices) || len(loaded.Edges) != len(staged.Result.Edges) {
+		if err != nil {
 			return fmt.Errorf("verify Graph restore exact result: %w", err)
+		}
+		if !sameCompletedResultBytes(loaded, staged.Result) {
+			return fmt.Errorf("verify Graph restore exact result: byte mismatch")
 		}
 	}
 	return nil
+}
+
+func sameCompletedResultBytes(left, right graphprojection.CompletedResultV2) bool {
+	if left.Binding != right.Binding || !bytes.Equal(left.ResultJSON, right.ResultJSON) ||
+		len(left.Vertices) != len(right.Vertices) || len(left.Edges) != len(right.Edges) {
+		return false
+	}
+	for index := range left.Vertices {
+		leftVertex, rightVertex := left.Vertices[index], right.Vertices[index]
+		if leftVertex.VertexID != rightVertex.VertexID || leftVertex.VertexKind != rightVertex.VertexKind ||
+			leftVertex.SortKey != rightVertex.SortKey || !bytes.Equal(leftVertex.JSON, rightVertex.JSON) {
+			return false
+		}
+	}
+	for index := range left.Edges {
+		leftEdge, rightEdge := left.Edges[index], right.Edges[index]
+		if leftEdge.EdgeID != rightEdge.EdgeID || leftEdge.EdgeKind != rightEdge.EdgeKind ||
+			leftEdge.SrcVertexID != rightEdge.SrcVertexID || leftEdge.DstVertexID != rightEdge.DstVertexID ||
+			leftEdge.Direction != rightEdge.Direction || leftEdge.SortKey != rightEdge.SortKey ||
+			!bytes.Equal(leftEdge.JSON, rightEdge.JSON) {
+			return false
+		}
+	}
+	return true
 }

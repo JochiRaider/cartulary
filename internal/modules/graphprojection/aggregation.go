@@ -30,7 +30,7 @@ func emitAggregations(ctx context.Context, run projectionWork, directVertices []
 				return nil, nil, nil, err
 			}
 			contributors := groups[digest]
-			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "aggregated_vertex", run.Request.ProjectionSchemaID, run.GraphViewID, rule.AggregationIdentityDigest, digest)
+			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "aggregated_vertex", ProjectionSchemaIDV2, run.GraphViewID, rule.AggregationIdentityDigest, digest)
 			props := mergeAggregateProperties(run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID, &issues)
 			mappedMetadata := mergeAggregateMetadata(run, rule, digest, contributors, "vertex", rule.ProjectedKind, vertexID, &issues)
 			ruleID := rule.AggregationRuleID
@@ -85,7 +85,7 @@ func emitAggregations(ctx context.Context, run projectionWork, directVertices []
 				}
 				continue
 			}
-			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "aggregated_edge", run.Request.ProjectionSchemaID, run.GraphViewID, rule.AggregationIdentityDigest, src.VertexID, dst.VertexID, rule.EdgeDirection, digest)
+			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "aggregated_edge", ProjectionSchemaIDV2, run.GraphViewID, rule.AggregationIdentityDigest, src.VertexID, dst.VertexID, rule.EdgeDirection, digest)
 			props := mergeAggregateProperties(run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID, &issues)
 			mappedMetadata := mergeAggregateMetadata(run, rule, digest, contributors, "edge", rule.ProjectedKind, edgeID, &issues)
 			ruleID := rule.AggregationRuleID
@@ -196,7 +196,7 @@ func contributorsForRule(run projectionWork, rule aggregationRule, vertices []Ve
 	case "source_entity":
 		for i := range run.Request.SourceEntities {
 			entity := &run.Request.SourceEntities[i]
-			if entity.SourceEntityKind != rule.InputKind || !validIdentifier(entity.SourceEntityID) || !validIdentifier(entity.SourceEntityKind) ||
+			if entity.SourceEntityKind != rule.InputKind || !validIdentifierV2(entity.SourceEntityID) || !validIdentifierV2(entity.SourceEntityKind) ||
 				!sourceItemWithinLimits(len(entity.Labels), len(entity.Properties), len(entity.Metadata)) ||
 				!sourceItemValuesWithinLimits(entity.Properties, entity.Metadata) ||
 				!declaredEntityKinds[entity.SourceEntityKind] ||
@@ -208,7 +208,7 @@ func contributorsForRule(run projectionWork, rule aggregationRule, vertices []Ve
 	case "source_relationship":
 		for i := range run.Request.SourceRelationships {
 			relationship := &run.Request.SourceRelationships[i]
-			if relationship.SourceRelationshipKind != rule.InputKind || !validIdentifier(relationship.SourceRelationshipID) || !validIdentifier(relationship.SourceRelationshipKind) ||
+			if relationship.SourceRelationshipKind != rule.InputKind || !validIdentifierV2(relationship.SourceRelationshipID) || !validIdentifierV2(relationship.SourceRelationshipKind) ||
 				!sourceItemWithinLimits(len(relationship.Labels), len(relationship.Properties), len(relationship.Metadata)) ||
 				!sourceItemValuesWithinLimits(relationship.Properties, relationship.Metadata) ||
 				!declaredRelationshipKinds[relationship.SourceRelationshipKind] ||
@@ -248,13 +248,6 @@ func mergeAggregateProperties(run projectionWork, rule aggregationRule, grouping
 		if override := rule.PropertyMergeBehavior[definition.ProjectedKey]; override != "" {
 			mergeBehavior = override
 		}
-		if mergeBehavior == "omit" {
-			continue
-		}
-		if mergeBehavior == "count" {
-			properties[definition.ProjectedKey] = len(contributors)
-			continue
-		}
 		candidates := []any{}
 		for _, contributor := range contributors {
 			value, found := contributorField(contributor, definition.SourceFieldPath)
@@ -271,7 +264,7 @@ func mergeAggregateProperties(run projectionWork, rule aggregationRule, grouping
 				candidates = append(candidates, normalized)
 			}
 		}
-		merged, ok, conflict := mergeValues(mergeBehavior, candidates)
+		merged, ok, conflict := mergeProjectedValuesV2(definition.ProjectedType, mergeBehavior, candidates)
 		if conflict {
 			*issues = append(*issues, run.issue("error", "aggregation_merge_conflict", "mapping_rule", rule.AggregationRuleID, nil, map[string]any{"aggregation_rule_id": rule.AggregationRuleID, "canonical_grouping_key_digest": groupingDigest, "projected_key": definition.ProjectedKey}))
 			continue
@@ -287,13 +280,6 @@ func mergeAggregateMetadata(run projectionWork, rule aggregationRule, groupingDi
 	metadata := map[string]any{}
 	for _, mapping := range run.Request.projectionConfig.MetadataMappings {
 		if mapping.TargetScope != targetScope || (mapping.TargetKind != "*" && mapping.TargetKind != targetKind) {
-			continue
-		}
-		if mapping.MergeBehavior == "omit" {
-			continue
-		}
-		if mapping.MergeBehavior == "count" {
-			metadata[mapping.ProjectedMetadataKey] = len(contributors)
 			continue
 		}
 		candidates := []any{}
@@ -312,7 +298,7 @@ func mergeAggregateMetadata(run projectionWork, rule aggregationRule, groupingDi
 				candidates = append(candidates, normalized)
 			}
 		}
-		merged, ok, conflict := mergeValues(mapping.MergeBehavior, candidates)
+		merged, ok, conflict := mergeProjectedValuesV2(mapping.ProjectedType, mapping.MergeBehavior, candidates)
 		if conflict {
 			*issues = append(*issues, run.issue("error", "aggregation_merge_conflict", "mapping_rule", rule.AggregationRuleID, nil, map[string]any{"aggregation_rule_id": rule.AggregationRuleID, "canonical_grouping_key_digest": groupingDigest, "projected_key": mapping.ProjectedMetadataKey}))
 			continue
@@ -430,10 +416,11 @@ func evaluateCandidate(definition candidateDefinition, value any, found bool) (a
 	if value == nil {
 		return nil, definition.NullOutputPolicy == "emit_null", ""
 	}
-	if !valueMatchesType(definition.ProjectedType, value) {
+	normalized, valid := normalizeProjectedValueV2(definition.ProjectedType, value)
+	if !valid {
 		return nil, false, "invalid_property_type"
 	}
-	return value, true, ""
+	return normalized, true, ""
 }
 
 func propertyValueIssue(run projectionWork, code, projectedKey, expectedType, sourceFieldPath, outputID string, value any, aggregationRuleID, groupingDigest, contributorID string) ValidationIssue {
@@ -471,51 +458,6 @@ func jsonValueType(value any) string {
 	default:
 		return "number"
 	}
-}
-
-func mergeValues(behavior string, values []any) (any, bool, bool) {
-	if len(values) == 0 {
-		return nil, false, false
-	}
-	switch behavior {
-	case "first_by_sort":
-		return values[0], true, false
-	case "last_by_sort":
-		return values[len(values)-1], true, false
-	case "distinct_sorted_array":
-		seen := map[string]any{}
-		for _, value := range values {
-			if array, ok := value.([]any); ok {
-				for _, entry := range array {
-					seen[canonicalValueKey(entry)] = entry
-				}
-				continue
-			}
-			seen[canonicalValueKey(value)] = value
-		}
-		keys := make([]string, 0, len(seen))
-		for key := range seen {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		out := make([]any, 0, len(keys))
-		for _, key := range keys {
-			out = append(out, seen[key])
-		}
-		return out, true, false
-	default:
-		seen := map[string]any{}
-		for _, value := range values {
-			seen[canonicalValueKey(value)] = value
-		}
-		if len(seen) > 1 {
-			return nil, false, true
-		}
-		for _, value := range seen {
-			return value, true, false
-		}
-	}
-	return nil, false, false
 }
 
 func sourceField(entity sourceEntity, relationship *sourceRelationship, graphSource map[string]any, fieldPath string) (any, bool) {

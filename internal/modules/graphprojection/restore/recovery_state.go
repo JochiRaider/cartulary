@@ -1,4 +1,4 @@
-package graphprojection
+package restore
 
 import recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 

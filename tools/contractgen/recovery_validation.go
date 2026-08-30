@@ -32,17 +32,12 @@ var (
 		"backup-artifact-envelope.v2.schema.json":                        "cartulary.backup_artifact_envelope.v2",
 		"backup-integrity-manifest.v3.schema.json":                       "cartulary.backup_integrity_manifest.v3",
 		"common.v1.schema.json":                                          "cartulary.recovery_common.v1",
-		"graph-projection-restore-implementation-binding.v2.schema.json": "cartulary.graph_projection_restore_implementation_binding.v2",
-		"graph-projection-restore-implementation-binding.v3.schema.json": "cartulary.graph_projection_restore_implementation_binding.v3",
-		"graph-projection-restore-rebuild-result.v2.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v2",
-		"graph-projection-restore-rebuild-result.v3.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v3",
-		"graph-projection-restore-source-registry.v2.schema.json":        "cartulary.graph_projection_restore_source_registry.v2",
-		"graph-projection-restore-source-registry.v3.schema.json":        "cartulary.graph_projection_restore_source_registry.v3",
+		"graph-projection-restore-implementation-binding.v4.schema.json": "cartulary.graph_projection_restore_implementation_binding.v4",
+		"graph-projection-restore-rebuild-result.v4.schema.json":         "cartulary.graph_projection_restore_rebuild_result.v4",
+		"graph-projection-restore-source-registry.v4.schema.json":        "cartulary.graph_projection_restore_source_registry.v4",
 		"object-store-backup-manifest.v2.schema.json":                    "cartulary.object_store_backup_manifest.v2",
 		"object-store-backup-summary.v2.schema.json":                     "cartulary.object_store_backup_summary.v2",
 		"operator-recovery-audit-summary.v2.schema.json":                 "cartulary.operator_recovery_audit_summary.v2",
-		"operator-recovery-journal-payload.v2.schema.json":               "cartulary.operator_recovery_journal_payload.v2",
-		"operator-recovery-journal-payload.v3.schema.json":               "cartulary.operator_recovery_journal_payload.v3",
 		"operator-recovery-journal-payload.v4.schema.json":               "cartulary.operator_recovery_journal_payload.v4",
 		"postgres-snapshot-artifact.v2.schema.json":                      "cartulary.postgres_snapshot_artifact.v2",
 		"postgres-snapshot-unit.v1.schema.json":                          "cartulary.postgres_snapshot_unit.v1",
@@ -54,31 +49,23 @@ var (
 		"restore-workbook-probe-registration.v1.schema.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	recoveryFixtureIDsByPath = map[string]string{
-		"fixtures/backup-artifact-envelope.v2.json":                                               "cartulary.backup_artifact_envelope.v2",
-		"fixtures/backup-integrity-manifest.v3.json":                                              "cartulary.backup_integrity_manifest.v3",
-		"fixtures/graph-projection-restore-implementation-binding.v2.json":                        "cartulary.graph_projection_restore_implementation_binding.v2",
-		"fixtures/graph-projection-restore-implementation-binding.v3.json":                        "cartulary.graph_projection_restore_implementation_binding.v3",
-		"fixtures/graph-projection-restore-implementation-binding.v3.pre-workbook-ownership.json": "cartulary.graph_projection_restore_implementation_binding.v3",
-		"fixtures/graph-projection-restore-rebuild-result.v2.json":                                "cartulary.graph_projection_restore_rebuild_result.v2",
-		"fixtures/graph-projection-restore-rebuild-result.v3.json":                                "cartulary.graph_projection_restore_rebuild_result.v3",
-		"fixtures/graph-projection-restore-source-registry.v2.json":                               "cartulary.graph_projection_restore_source_registry.v2",
-		"fixtures/graph-projection-restore-source-registry.v3.json":                               "cartulary.graph_projection_restore_source_registry.v3",
-		"fixtures/object-store-backup-manifest.v2.json":                                           "cartulary.object_store_backup_manifest.v2",
-		"fixtures/object-store-backup-summary.v2.json":                                            "cartulary.object_store_backup_summary.v2",
-		"fixtures/operator-recovery-audit-summary.v2.json":                                        "cartulary.operator_recovery_audit_summary.v2",
-		"fixtures/operator-recovery-journal-payload.v2.json":                                      "cartulary.operator_recovery_journal_payload.v2",
-		"fixtures/operator-recovery-journal-payload.v3.json":                                      "cartulary.operator_recovery_journal_payload.v3",
-		"fixtures/operator-recovery-journal-payload.v4.json":                                      "cartulary.operator_recovery_journal_payload.v4",
-		"fixtures/postgres-snapshot-artifact.v2.json":                                             "cartulary.postgres_snapshot_artifact.v2",
-		"fixtures/postgres-snapshot-unit.v1.json":                                                 "cartulary.postgres_snapshot_unit.v1",
-		"fixtures/recovery-generation-registry.v1.json":                                           recoveryGenerationRegistrySchemaID,
-		"fixtures/recovery-state-catalog.v1.graph-v2.json":                                        recoveryCatalogSchemaID,
-		"fixtures/recovery-state-catalog.v1.json":                                                 recoveryCatalogSchemaID,
-		"fixtures/recovery-state-catalog.v1.pre-workbook-ownership.json":                          recoveryCatalogSchemaID,
-		"fixtures/recovery-state-contribution.v1.json":                                            "cartulary.recovery_state_contribution.v1",
-		"fixtures/restore-target-marker.v2.json":                                                  "cartulary.restore_target_marker.v2",
-		"fixtures/restore-verification.v2.json":                                                   "cartulary.restore_verification.v2",
-		"fixtures/restore-workbook-probe-registration.v1.json":                                    "cartulary.restore_workbook_probe_registration.v1",
+		"fixtures/backup-artifact-envelope.v2.json":                        "cartulary.backup_artifact_envelope.v2",
+		"fixtures/backup-integrity-manifest.v3.json":                       "cartulary.backup_integrity_manifest.v3",
+		"fixtures/graph-projection-restore-implementation-binding.v4.json": "cartulary.graph_projection_restore_implementation_binding.v4",
+		"fixtures/graph-projection-restore-rebuild-result.v4.json":         "cartulary.graph_projection_restore_rebuild_result.v4",
+		"fixtures/graph-projection-restore-source-registry.v4.json":        "cartulary.graph_projection_restore_source_registry.v4",
+		"fixtures/object-store-backup-manifest.v2.json":                    "cartulary.object_store_backup_manifest.v2",
+		"fixtures/object-store-backup-summary.v2.json":                     "cartulary.object_store_backup_summary.v2",
+		"fixtures/operator-recovery-audit-summary.v2.json":                 "cartulary.operator_recovery_audit_summary.v2",
+		"fixtures/operator-recovery-journal-payload.v4.json":               "cartulary.operator_recovery_journal_payload.v4",
+		"fixtures/postgres-snapshot-artifact.v2.json":                      "cartulary.postgres_snapshot_artifact.v2",
+		"fixtures/postgres-snapshot-unit.v1.json":                          "cartulary.postgres_snapshot_unit.v1",
+		"fixtures/recovery-generation-registry.v1.json":                    recoveryGenerationRegistrySchemaID,
+		"fixtures/recovery-state-catalog.v1.json":                          recoveryCatalogSchemaID,
+		"fixtures/recovery-state-contribution.v1.json":                     "cartulary.recovery_state_contribution.v1",
+		"fixtures/restore-target-marker.v2.json":                           "cartulary.restore_target_marker.v2",
+		"fixtures/restore-verification.v2.json":                            "cartulary.restore_verification.v2",
+		"fixtures/restore-workbook-probe-registration.v1.json":             "cartulary.restore_workbook_probe_registration.v1",
 	}
 	createTablePattern = regexp.MustCompile(`(?i)\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
 	dropTablePattern   = regexp.MustCompile(`(?i)\bDROP\s+TABLE(?:\s+IF\s+EXISTS)?\s+(?:public\.)?([a-z][a-z0-9_]*)`)
@@ -196,10 +183,7 @@ func validateRecoveryContractFamily(root string) error {
 	if err := validateRecoveryRegistryPaths(base, registry); err != nil {
 		return err
 	}
-	if err := validateGraphProjectionRestoreV2Contracts(base); err != nil {
-		return err
-	}
-	if err := validateGraphProjectionRestoreV3Contracts(base); err != nil {
+	if err := validateGraphProjectionRestoreV4Contracts(base); err != nil {
 		return err
 	}
 	if err := validateRecoveryGenerationRegistry(base); err != nil {
@@ -235,69 +219,57 @@ func validateRecoveryGenerationRegistry(base string) error {
 	if err != nil {
 		return err
 	}
-	wantIDs := []string{
-		"recovery.current.workbook_owned.graph_v3",
-		"recovery.historical.incidents_owned.graph_v3",
-		"recovery.historical.graph_v2",
+	if len(generations) != 1 {
+		return fmt.Errorf("recovery generation registry must contain exactly one current generation")
 	}
-	wantCatalogPaths := []string{
+	generation := generations[0]
+	label := "Recovery generation registry generations[1]"
+	if err := requireAllowedKeys(generation, stringSet("generation_id", "capture_current", "catalog", "codec_registry", "graph"), label); err != nil {
+		return err
+	}
+	generationID, err := requiredString(generation, "generation_id", label)
+	if err != nil {
+		return err
+	}
+	captureCurrent, err := requiredBool(generation, "capture_current", label)
+	if err != nil {
+		return err
+	}
+	if generationID != "recovery.current.workbook_owned.graph_v4" || !captureCurrent {
+		return fmt.Errorf("%s is not the exact current generation", generationID)
+	}
+	catalog, err := asObject(generation["catalog"], label+".catalog")
+	if err != nil {
+		return err
+	}
+	catalogDigest, err := validateRecoveryGenerationCatalogBinding(
+		base,
+		catalog,
 		"fixtures/recovery-state-catalog.v1.json",
-		"fixtures/recovery-state-catalog.v1.pre-workbook-ownership.json",
-		"fixtures/recovery-state-catalog.v1.graph-v2.json",
+		label+".catalog",
+	)
+	if err != nil {
+		return err
 	}
-	wantBindingPaths := []string{
-		"fixtures/graph-projection-restore-implementation-binding.v3.json",
-		"fixtures/graph-projection-restore-implementation-binding.v3.pre-workbook-ownership.json",
-		"fixtures/graph-projection-restore-implementation-binding.v2.json",
+	codecs, err := asObject(generation["codec_registry"], label+".codec_registry")
+	if err != nil {
+		return err
 	}
-	if len(generations) != len(wantIDs) {
-		return fmt.Errorf("recovery generation registry must contain exactly three generations")
+	if _, err := validateRecoveryGenerationCodecBinding(codecs, label+".codec_registry"); err != nil {
+		return err
 	}
-	seenPairs := map[string]struct{}{}
-	for index, generation := range generations {
-		label := fmt.Sprintf("Recovery generation registry generations[%d]", index+1)
-		if err := requireAllowedKeys(generation, stringSet("generation_id", "capture_current", "catalog", "codec_registry", "graph"), label); err != nil {
-			return err
-		}
-		generationID, err := requiredString(generation, "generation_id", label)
-		if err != nil {
-			return err
-		}
-		captureCurrent, err := requiredBool(generation, "capture_current", label)
-		if err != nil {
-			return err
-		}
-		if generationID != wantIDs[index] || captureCurrent != (index == 0) {
-			return fmt.Errorf("%s is not the exact generation at position %d", generationID, index+1)
-		}
-		catalog, err := asObject(generation["catalog"], label+".catalog")
-		if err != nil {
-			return err
-		}
-		catalogDigest, err := validateRecoveryGenerationCatalogBinding(base, catalog, wantCatalogPaths[index], label+".catalog")
-		if err != nil {
-			return err
-		}
-		codecs, err := asObject(generation["codec_registry"], label+".codec_registry")
-		if err != nil {
-			return err
-		}
-		codecDigest, err := validateRecoveryGenerationCodecBinding(codecs, label+".codec_registry")
-		if err != nil {
-			return err
-		}
-		pair := catalogDigest + "\x00" + codecDigest
-		if _, duplicate := seenPairs[pair]; duplicate {
-			return fmt.Errorf("recovery generation registry duplicates a catalog/codec lookup pair")
-		}
-		seenPairs[pair] = struct{}{}
-		graph, err := asObject(generation["graph"], label+".graph")
-		if err != nil {
-			return err
-		}
-		if err := validateRecoveryGenerationGraphBinding(base, graph, wantBindingPaths[index], catalogDigest, label+".graph"); err != nil {
-			return err
-		}
+	graph, err := asObject(generation["graph"], label+".graph")
+	if err != nil {
+		return err
+	}
+	if err := validateRecoveryGenerationGraphBinding(
+		base,
+		graph,
+		"fixtures/graph-projection-restore-implementation-binding.v4.json",
+		catalogDigest,
+		label+".graph",
+	); err != nil {
+		return err
 	}
 	return nil
 }
@@ -327,7 +299,7 @@ func validateRecoveryGenerationCatalogBinding(
 		return "", err
 	}
 	if binding["canonical_sha256"] != canonicalSHA256 || catalog["schema_id"] != recoveryCatalogSchemaID {
-		return "", fmt.Errorf("%s catalog canonical bytes or schema mismatch", label)
+		return "", fmt.Errorf("%s catalog canonical bytes or schema mismatch: want %s", label, canonicalSHA256)
 	}
 	catalogDigest, err := requiredString(catalog, "catalog_digest_sha256", "contracts/recovery/"+path)
 	if err != nil {
@@ -442,10 +414,7 @@ func validateRecoveryGenerationGraphBinding(
 }
 
 func pathForGraphGeneration(bindingPath string) string {
-	if strings.Contains(bindingPath, ".v2.") {
-		return "fixtures/graph-projection-restore-source-registry.v2.json"
-	}
-	return "fixtures/graph-projection-restore-source-registry.v3.json"
+	return "fixtures/graph-projection-restore-source-registry.v4.json"
 }
 
 func readRecoveryCanonicalArtifact(base string, relativePath string) (map[string]any, string, error) {
@@ -461,139 +430,37 @@ func readRecoveryCanonicalArtifact(base string, relativePath string) (map[string
 	return artifact, hex.EncodeToString(sum[:]), nil
 }
 
-func validateGraphProjectionRestoreV2Contracts(base string) error {
-	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v2.json")
+func validateGraphProjectionRestoreV4Contracts(base string) error {
+	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v4.json")
 	if err != nil {
 		return err
 	}
-	if err := requireAllowedKeys(registry, stringSet("schema_id", "entries"), "Graph Projection v2 restore source registry"); err != nil {
+	if err := requireAllowedKeys(registry, stringSet("schema_id", "entries"), "Graph Projection v4 restore source registry"); err != nil {
 		return err
 	}
-	entries, err := objectArray(registry["entries"], "Graph Projection v2 restore source registry entries")
-	if err != nil {
-		return err
-	}
-	if len(entries) != 1 ||
-		entries[0]["source_registration_id"] != "network_flow_activity.graph_views.v1" ||
-		entries[0]["source_owner_id"] != "network_flow_activity" ||
-		entries[0]["authoritative_family_id"] != "network_flow_activity.graph_views" ||
-		entries[0]["projection_input_contract_id"] != "graph_projection.v2" ||
-		entries[0]["projection_result_contract_id"] != "graph_projection_result.v2" ||
-		entries[0]["status"] != "active" {
-		return fmt.Errorf("current Graph Projection v2 restore registry must contain the exact Network Flow owner binding")
-	}
-	registryJSON, err := canonicalizeDecoded(registry)
-	if err != nil {
-		return err
-	}
-	registrySum := sha256.Sum256([]byte(registryJSON))
-	registrySHA256 := hex.EncodeToString(registrySum[:])
-
-	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v2.json")
-	if err != nil {
-		return err
-	}
-	bindingKeys := stringSet(
-		"schema_id", "algorithm_id", "binding_id", "graph_projection_contract_id",
-		"recovery_state_catalog_sha256", "source_registry_sha256", "graph_table_ids",
-		"graph_engine_algorithm_ids", "graph_engine_algorithm_digests", "database_schema_lineage",
-		"database_schema_head", "packaged_subject_sha256", "build_provenance_sha256",
-	)
-	if err := requireAllowedKeys(binding, bindingKeys, "Graph Projection v2 restore implementation binding"); err != nil {
-		return err
-	}
-	if len(binding) != len(bindingKeys) ||
-		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v2" ||
-		binding["algorithm_id"] != "graphprojection.restore_rebuild.v2" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v2" ||
-		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v2.0.0" ||
-		binding["source_registry_sha256"] != registrySHA256 ||
-		binding["database_schema_lineage"] != "cartulary.prod_ddl_rebaseline.v2" {
-		return fmt.Errorf("current Graph Projection v2 restore implementation binding has drifted from its authored source set")
-	}
-	wantGraphTables := []string{
-		"graph_projection_result_edges",
-		"graph_projection_result_leases",
-		"graph_projection_result_vertices",
-		"graph_projection_results",
-	}
-	graphTables, err := stringArray(binding["graph_table_ids"], "Graph Projection v2 restore graph_table_ids", true)
-	if err != nil {
-		return err
-	}
-	if err := compareStringSlices(wantGraphTables, graphTables, "Graph Projection v2 restore graph tables"); err != nil {
-		return err
-	}
-	algorithmIDs, err := stringArray(binding["graph_engine_algorithm_ids"], "Graph Projection v2 restore algorithm IDs", true)
-	if err != nil {
-		return err
-	}
-	if err := requireSortedUniqueStrings(algorithmIDs, "Graph Projection v2 restore algorithm IDs"); err != nil {
-		return err
-	}
-	algorithmDigests, err := stringArray(binding["graph_engine_algorithm_digests"], "Graph Projection v2 restore algorithm digests", true)
-	if err != nil {
-		return err
-	}
-	if len(algorithmIDs) != len(algorithmDigests) {
-		return fmt.Errorf("graph projection v2 restore algorithm identities and digests must align one-to-one")
-	}
-
-	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v2.json")
-	if err != nil {
-		return err
-	}
-	resultKeys := stringSet(
-		"schema_id", "restore_operation_id", "target_generation_id", "status", "readiness_outcome",
-		"algorithm_id", "implementation_binding_sha256", "source_registry_sha256", "cleared_table_ids",
-		"rebuilt_views", "reconciled_nonterminal_job_count", "reconciled_lease_count", "postcondition_sha256",
-		"warnings", "errors",
-	)
-	if err := requireAllowedKeys(result, resultKeys, "Graph Projection v2 restore result"); err != nil {
-		return err
-	}
-	if len(result) != len(resultKeys) || result["status"] != "succeeded" || result["readiness_outcome"] != "ready" || result["source_registry_sha256"] != registrySHA256 {
-		return fmt.Errorf("graph projection v2 restore result fixture must be the exact successful current result shape")
-	}
-	cleared, err := stringArray(result["cleared_table_ids"], "Graph Projection v2 restore cleared tables", true)
-	if err != nil {
-		return err
-	}
-	return compareStringSlices(wantGraphTables, cleared, "Graph Projection v2 restore cleared tables")
-}
-
-func validateGraphProjectionRestoreV3Contracts(base string) error {
-	registry, err := readRecoveryObject(base, "fixtures/graph-projection-restore-source-registry.v3.json")
-	if err != nil {
-		return err
-	}
-	if err := requireAllowedKeys(registry, stringSet("schema_id", "entries"), "Graph Projection v3 restore source registry"); err != nil {
-		return err
-	}
-	entries, err := objectArray(registry["entries"], "Graph Projection v3 restore source registry entries")
+	entries, err := objectArray(registry["entries"], "Graph Projection v4 restore source registry entries")
 	if err != nil {
 		return err
 	}
 	if len(entries) != 1 {
-		return fmt.Errorf("current Graph Projection v3 restore registry must contain one Network Flow owner binding")
+		return fmt.Errorf("current Graph Projection v4 restore registry must contain one Network Flow owner binding")
 	}
 	entry := entries[0]
 	entryKeys := stringSet(
 		"source_registration_id", "source_owner_id", "authoritative_family_id", "enumerator_binding_id",
-		"validity_binding_id", "semantic_query_schema_ids", "projection_input_contract_id",
+		"semantic_query_schema_ids", "projection_input_contract_id",
 		"projection_result_contract_id", "status",
 	)
-	if err := requireAllowedKeys(entry, entryKeys, "Graph Projection v3 restore source registry entry"); err != nil {
+	if err := requireAllowedKeys(entry, entryKeys, "Graph Projection v4 restore source registry entry"); err != nil {
 		return err
 	}
-	semanticQuerySchemaIDs, err := stringArray(entry["semantic_query_schema_ids"], "Graph Projection v3 semantic query schemas", true)
+	semanticQuerySchemaIDs, err := stringArray(entry["semantic_query_schema_ids"], "Graph Projection v4 semantic query schemas", true)
 	if err != nil {
 		return err
 	}
 	if err := compareStringSlices([]string{
-		"cartulary.network_flow.graph_semantic_query.v1",
 		"cartulary.network_flow.graph_semantic_query.v2",
-	}, semanticQuerySchemaIDs, "Graph Projection v3 semantic query schemas"); err != nil {
+	}, semanticQuerySchemaIDs, "Graph Projection v4 semantic query schemas"); err != nil {
 		return err
 	}
 	if entry["source_registration_id"] != "network_flow_activity.graph_views.v1" ||
@@ -602,7 +469,7 @@ func validateGraphProjectionRestoreV3Contracts(base string) error {
 		entry["projection_input_contract_id"] != "graph_projection.v2" ||
 		entry["projection_result_contract_id"] != "graph_projection_result.v2" ||
 		entry["status"] != "active" {
-		return fmt.Errorf("current Graph Projection v3 restore registry has drifted from its mixed-generation owner binding")
+		return fmt.Errorf("current Graph Projection v4 restore registry has drifted from its v2-only owner binding")
 	}
 	registryJSON, err := canonicalizeDecoded(registry)
 	if err != nil {
@@ -611,40 +478,33 @@ func validateGraphProjectionRestoreV3Contracts(base string) error {
 	registrySum := sha256.Sum256([]byte(registryJSON))
 	registrySHA256 := hex.EncodeToString(registrySum[:])
 
-	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v3.json")
+	binding, err := readRecoveryObject(base, "fixtures/graph-projection-restore-implementation-binding.v4.json")
 	if err != nil {
 		return err
 	}
 	bindingKeys := stringSet(
 		"schema_id", "algorithm_id", "binding_id", "graph_projection_contract_id", "semantic_query_schema_ids",
-		"historical_dispatch_algorithm_ids", "recovery_state_catalog_sha256", "source_registry_sha256",
+		"recovery_state_catalog_sha256", "source_registry_sha256",
 		"graph_table_ids", "graph_engine_algorithm_ids", "graph_engine_algorithm_digests", "database_schema_lineage",
 		"database_schema_head", "packaged_subject_sha256", "build_provenance_sha256",
 	)
-	if err := requireAllowedKeys(binding, bindingKeys, "Graph Projection v3 restore implementation binding"); err != nil {
+	if err := requireAllowedKeys(binding, bindingKeys, "Graph Projection v4 restore implementation binding"); err != nil {
 		return err
 	}
 	if len(binding) != len(bindingKeys) ||
-		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v3" ||
-		binding["algorithm_id"] != "graphprojection.restore_rebuild.v3" ||
-		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v3" ||
-		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v2.1.0" ||
+		binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v4" ||
+		binding["algorithm_id"] != "graphprojection.restore_rebuild.v4" ||
+		binding["binding_id"] != "graphprojection.restore_rebuild.network_flow_graph_views.v4" ||
+		binding["graph_projection_contract_id"] != "cartulary.graph_projection_nlspec.v2.2.0" ||
 		binding["source_registry_sha256"] != registrySHA256 ||
 		binding["database_schema_lineage"] != "cartulary.prod_ddl_rebaseline.v2" {
-		return fmt.Errorf("current Graph Projection v3 restore implementation binding has drifted from its authored source set")
+		return fmt.Errorf("current Graph Projection v4 restore implementation binding has drifted from its authored source set")
 	}
-	bindingSemanticSchemas, err := stringArray(binding["semantic_query_schema_ids"], "Graph Projection v3 binding semantic query schemas", true)
+	bindingSemanticSchemas, err := stringArray(binding["semantic_query_schema_ids"], "Graph Projection v4 binding semantic query schemas", true)
 	if err != nil {
 		return err
 	}
-	if err := compareStringSlices(semanticQuerySchemaIDs, bindingSemanticSchemas, "Graph Projection v3 registry/binding semantic query schemas"); err != nil {
-		return err
-	}
-	historicalDispatch, err := stringArray(binding["historical_dispatch_algorithm_ids"], "Graph Projection v3 historical dispatch", true)
-	if err != nil {
-		return err
-	}
-	if err := compareStringSlices([]string{"graphprojection.restore_rebuild.v2"}, historicalDispatch, "Graph Projection v3 historical dispatch"); err != nil {
+	if err := compareStringSlices(semanticQuerySchemaIDs, bindingSemanticSchemas, "Graph Projection v4 registry/binding semantic query schemas"); err != nil {
 		return err
 	}
 	wantGraphTables := []string{
@@ -653,26 +513,26 @@ func validateGraphProjectionRestoreV3Contracts(base string) error {
 		"graph_projection_result_vertices",
 		"graph_projection_results",
 	}
-	graphTables, err := stringArray(binding["graph_table_ids"], "Graph Projection v3 restore graph_table_ids", true)
+	graphTables, err := stringArray(binding["graph_table_ids"], "Graph Projection v4 restore graph_table_ids", true)
 	if err != nil {
 		return err
 	}
-	if err := compareStringSlices(wantGraphTables, graphTables, "Graph Projection v3 restore graph tables"); err != nil {
+	if err := compareStringSlices(wantGraphTables, graphTables, "Graph Projection v4 restore graph tables"); err != nil {
 		return err
 	}
-	algorithmIDs, err := stringArray(binding["graph_engine_algorithm_ids"], "Graph Projection v3 restore algorithm IDs", true)
+	algorithmIDs, err := stringArray(binding["graph_engine_algorithm_ids"], "Graph Projection v4 restore algorithm IDs", true)
 	if err != nil {
 		return err
 	}
-	if err := requireSortedUniqueStrings(algorithmIDs, "Graph Projection v3 restore algorithm IDs"); err != nil {
+	if err := requireSortedUniqueStrings(algorithmIDs, "Graph Projection v4 restore algorithm IDs"); err != nil {
 		return err
 	}
-	algorithmDigests, err := stringArray(binding["graph_engine_algorithm_digests"], "Graph Projection v3 restore algorithm digests", true)
+	algorithmDigests, err := stringArray(binding["graph_engine_algorithm_digests"], "Graph Projection v4 restore algorithm digests", true)
 	if err != nil {
 		return err
 	}
 	if len(algorithmIDs) != len(algorithmDigests) {
-		return fmt.Errorf("graph projection v3 restore algorithm identities and digests must align one-to-one")
+		return fmt.Errorf("graph projection v4 restore algorithm identities and digests must align one-to-one")
 	}
 	bindingJSON, err := canonicalizeDecoded(binding)
 	if err != nil {
@@ -681,7 +541,7 @@ func validateGraphProjectionRestoreV3Contracts(base string) error {
 	bindingSum := sha256.Sum256([]byte(bindingJSON))
 	bindingSHA256 := hex.EncodeToString(bindingSum[:])
 
-	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v3.json")
+	result, err := readRecoveryObject(base, "fixtures/graph-projection-restore-rebuild-result.v4.json")
 	if err != nil {
 		return err
 	}
@@ -691,31 +551,33 @@ func validateGraphProjectionRestoreV3Contracts(base string) error {
 		"rebuilt_views", "reconciled_nonterminal_job_count", "reconciled_lease_count", "postcondition_sha256",
 		"warnings", "errors",
 	)
-	if err := requireAllowedKeys(result, resultKeys, "Graph Projection v3 restore result"); err != nil {
+	if err := requireAllowedKeys(result, resultKeys, "Graph Projection v4 restore result"); err != nil {
 		return err
 	}
-	if len(result) != len(resultKeys) || result["schema_id"] != "cartulary.graph_projection_restore_rebuild_result.v3" ||
-		result["algorithm_id"] != "graphprojection.restore_rebuild.v3" || result["status"] != "succeeded" ||
+	if len(result) != len(resultKeys) || result["schema_id"] != "cartulary.graph_projection_restore_rebuild_result.v4" ||
+		result["algorithm_id"] != "graphprojection.restore_rebuild.v4" || result["status"] != "succeeded" ||
 		result["readiness_outcome"] != "ready" || result["source_registry_sha256"] != registrySHA256 ||
 		result["implementation_binding_sha256"] != bindingSHA256 {
-		return fmt.Errorf("graph projection v3 restore result fixture must bind the current source registry and implementation")
+		return fmt.Errorf(
+			"graph projection v4 restore result fixture must bind source registry %s and implementation %s",
+			registrySHA256,
+			bindingSHA256,
+		)
 	}
-	views, err := objectArray(result["rebuilt_views"], "Graph Projection v3 rebuilt views")
+	views, err := objectArray(result["rebuilt_views"], "Graph Projection v4 rebuilt views")
 	if err != nil {
 		return err
 	}
-	seenSemanticSchemas := map[string]struct{}{}
 	for _, view := range views {
-		seenSemanticSchemas[stringValue(view["semantic_query_schema_id"])] = struct{}{}
+		if view["semantic_query_schema_id"] != "cartulary.network_flow.graph_semantic_query.v2" {
+			return fmt.Errorf("graph projection v4 result fixture must contain semantic-query v2 only")
+		}
 	}
-	if len(seenSemanticSchemas) != 2 {
-		return fmt.Errorf("graph projection v3 result fixture must cover both persisted semantic query generations")
-	}
-	cleared, err := stringArray(result["cleared_table_ids"], "Graph Projection v3 restore cleared tables", true)
+	cleared, err := stringArray(result["cleared_table_ids"], "Graph Projection v4 restore cleared tables", true)
 	if err != nil {
 		return err
 	}
-	return compareStringSlices(wantGraphTables, cleared, "Graph Projection v3 restore cleared tables")
+	return compareStringSlices(wantGraphTables, cleared, "Graph Projection v4 restore cleared tables")
 }
 
 func readRecoveryObject(base, relativePath string) (map[string]any, error) {

@@ -88,6 +88,17 @@
       }
     },
     {
+      "target_schema_id": "cartulary.extension_migration_ledger_definition.v1",
+      "members": {
+        "schema_id": "string",
+        "migration_lineage_id": "string",
+        "migration_id": "string",
+        "from_state_version": "integer",
+        "to_state_version": "integer",
+        "migration_definition_sha256": "string"
+      }
+    },
+    {
       "target_schema_id": "cartulary.extension_migration_ledger_entry.v1",
       "members": {
         "schema_id": "string",

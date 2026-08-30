@@ -18,7 +18,7 @@
     "schema_id": { "const": "cartulary.protocol_ts_frontend_entrypoints.v2" },
     "owner_id": { "const": "package.protocol_ts" },
     "network_flow_entrypoints_path": {
-      "const": "contracts/network-flow/frontend-entrypoints.v4.json"
+      "const": "contracts/network-flow/frontend-entrypoints.v5.json"
     },
     "http_operation_selection_path": {
       "const": "contracts/protocol-ts/http-operations.v2.json"

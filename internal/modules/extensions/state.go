@@ -423,6 +423,34 @@ func (r *StateRuntime) preflightPackagedPlan(plan StatePlan) error {
 		}
 		seenIDs[definition.MigrationID] = struct{}{}
 	}
+	previousFrom = 0
+	seenLedgerIDs := map[string]struct{}{}
+	ledgerByID := make(map[string]MigrationLedgerDefinition, len(plan.MigrationLedgerDefinitions))
+	for index, definition := range plan.MigrationLedgerDefinitions {
+		if definition.MigrationLineageID != plan.MigrationLineageID ||
+			definition.ToVersion != definition.FromVersion+1 ||
+			definition.FromVersion < 1 || definition.ToVersion > plan.CurrentStateVersion ||
+			!validSHA256(definition.DefinitionSHA256) {
+			return ErrStateMigrationUnavailable
+		}
+		if index > 0 && definition.FromVersion <= previousFrom {
+			return ErrStateMigrationUnavailable
+		}
+		previousFrom = definition.FromVersion
+		if _, duplicate := seenLedgerIDs[definition.MigrationID]; definition.MigrationID == "" || duplicate {
+			return ErrStateMigrationUnavailable
+		}
+		seenLedgerIDs[definition.MigrationID] = struct{}{}
+		ledgerByID[definition.MigrationID] = definition
+	}
+	for _, definition := range plan.MigrationDefinitions {
+		ledger, ok := ledgerByID[definition.MigrationID]
+		if !ok || ledger.MigrationLineageID != definition.MigrationLineageID ||
+			ledger.FromVersion != definition.FromVersion || ledger.ToVersion != definition.ToVersion ||
+			ledger.DefinitionSHA256 != definition.DefinitionSHA256 {
+			return ErrStateMigrationUnavailable
+		}
+	}
 	return nil
 }
 
@@ -766,8 +794,8 @@ func preflightStoredState(plan StatePlan, snapshot StateSnapshot) error {
 	if metadata.StateVersion > plan.CurrentStateVersion || metadata.StateVersion < plan.MinimumMigratableStateVersion {
 		return ErrStateVersionUnsupported
 	}
-	definitionsByID := make(map[string]MigrationDefinition, len(plan.MigrationDefinitions))
-	for _, definition := range plan.MigrationDefinitions {
+	definitionsByID := make(map[string]MigrationLedgerDefinition, len(plan.MigrationLedgerDefinitions))
+	for _, definition := range plan.MigrationLedgerDefinitions {
 		definitionsByID[definition.MigrationID] = definition
 	}
 	var latest *MigrationLedgerEntry

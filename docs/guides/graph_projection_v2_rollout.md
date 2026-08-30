@@ -1,48 +1,74 @@
 # Graph Projection v2 Rollout and Recovery Guide
 
-This guide supports the adopted Graph Projection, Network Flow, Reporting, and
-Recovery owners. It does not define product behavior.
+This operator guide supports the adopted Graph Projection 2.2.0, Network Flow
+5.0.0, Reporting, Extensions, and Recovery owners. It does not define product
+behavior. Graph protocol and persisted result shape remain v2; Network Flow is
+contract major 5 and extension state 4; the only supported Graph restore
+generation is v4.
 
-For the additive GP3/state-3 rollout that follows this v2 cutover, use
-`docs/guides/network_flow_gp3_rollout_and_rollback.md`.
+## Preconditions
+
+- Use one release containing the matching server, operator, worker, browser,
+  generated contract, and migration artifacts. Do not mix major-4 and major-5
+  Network Flow binaries or clients.
+- Quiesce Network Flow materialization, Reporting rendering, and cleanup before
+  backup or state advancement.
+- Capture and verify an exact database and object-store backup. Retain its
+  backup-set ID, consistency point, manifest and source-registry digests,
+  Recovery catalog and implementation-binding digests, binary commit, schema
+  head, and object-store generation.
+- Verify migrations `00032`, `00033`, and `00034` and their recorded hashes are
+  unchanged. This rollout adds no DDL or data-rewrite migration.
+- Test the backup in an isolated replacement target with the current Recovery
+  v4 Graph registry and binding before changing the production target.
 
 ## Rollout order
 
-1. Deploy code that understands additive migration `00032` while retaining the
-   five v1 tables.
-2. Verify Network Flow major 3 discovery, state migration `1 -> 2`, Graph v2
-   materialization, Reporting exact-result leases, and Recovery v2 in a
-   disposable environment.
-3. Capture and durably verify an exact pre-cutover backup. Record its backup set
-   ID, manifest digest, binary commit, schema head, object-store generation, and
-   Recovery artifact digests.
-4. Stop saved-graph materialization and Reporting render workers.
-5. Run the `00033` preflight. Any legacy Graph row or persisted Reporting v1
-   projection reference blocks the deployment; do not translate or delete it
-   manually.
-6. Apply `00033`, restart the v2 binary, and verify readiness before workers
-   resume.
-7. Produce a fresh v2 backup, pass isolated restore, and verify the resulting
-   binary accepts only the current Graph v2 registry and binding inventory.
+1. Stop the prior binary and all Graph-mutating workers.
+2. Install the complete Network Flow major-5 release.
+3. Run extension admission. Fresh claims initialize at state 4. A state-3
+   profile advances only when its historical ledger is either empty or the
+   exact verified 1→2 plus 2→3 lineage, and every saved declaration is
+   semantic-query v2.
+4. Treat state 1 or 2, a malformed historical ledger, or any semantic-query v1
+   declaration as a closed stop. Do not delete, translate, or rewrite stored
+   bytes to force admission.
+5. Verify configuration, current generated contracts, Graph root boundaries,
+   Recovery v4 selection, and application readiness before resuming workers.
+6. Exercise default and temporal saved-graph creation, refresh, exact-result
+   read, contributor query, Reporting lease lifecycle, and bounded cleanup.
+7. Produce a fresh state-4 backup and prove isolated Recovery v4 rebuild,
+   Network Flow and Reporting job reconciliation, lease reconciliation, exact
+   Graph identity, postcondition verification, and readiness.
+
+## Compatibility boundary
+
+This is a hard current-only cut. There is no inventory gate, feature flag,
+translator, dual reader or writer, compatibility view, fallback dispatcher, or
+old Graph backup path. Saved semantic-query v1 declarations remain stored but
+make the profile unavailable pending separately adopted remediation. Graph
+Recovery v2 and v3 artifacts are unsupported and must fail selection before a
+Graph mutation transaction opens.
 
 ## Rollback boundary
 
-Before `00033`, an old binary may be restarted only against a schema it supports
-and only after v2 workers are stopped. Migration `00032` may remain when the old
-binary demonstrably ignores the additive tables.
+Once state 4 commits, a major-4 binary is not a downgrade candidate for that
+target. Preserve the failed target for diagnosis. If rollback is required,
+restore the exact pre-rollout database and object-store backup into a fresh
+replacement target, start the exact recorded prior release there, verify its
+own Recovery and serving readiness, and switch traffic. Never downgrade state
+in place, edit migration history, recreate removed tables, reverse-map Graph
+identities, or point an older binary at the state-4 target.
 
-After `00033`, old binaries are not in-place rollback candidates. Restore the
-exact pre-cutover database and object-store backup into a replacement target,
-start the exact recorded old binary there, verify Recovery/readiness, and then
-switch traffic. Never recreate legacy tables by hand, reverse-map v2 result
-identity, or point an old binary at the destructively migrated target.
+## Required retained evidence
 
-## Required evidence
-
-- zero-state preflight result for all five legacy tables and Reporting v1 refs;
-- stopped-worker proof and target-generation identity;
-- pre-cutover and fresh-v2 backup identities and integrity results;
-- isolated restore run roots and exact Graph result/object identity comparison;
-- current supported backup/journal inventory;
-- final confirmation that no supported artifact or runtime path retains the
-  historical bridge.
+- quiescence and target-generation identity;
+- pre-rollout and state-4 backup identities and integrity results;
+- exact state and migration-ledger preflight outcome;
+- major-5 server/browser contract and generated-artifact drift results;
+- Recovery v4 registry, binding, isolated restore, rollback-injection,
+  reconciliation-count, postcondition, and readiness results;
+- default and temporal Graph IDs and digests before and after rollout;
+- Reporting lease and Network Flow cleanup/race evidence; and
+- final confirmation that active code, generated artifacts, browser assets,
+  fixtures, and guides expose only current contracts.

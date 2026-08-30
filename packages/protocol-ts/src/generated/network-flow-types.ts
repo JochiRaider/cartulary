@@ -253,34 +253,6 @@ export type SortFieldKey =
 export type CursorToken = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "ProjectionResultID".
- */
-export type ProjectionResultID = string;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "FlowEdgeID".
- */
-export type FlowEdgeID = string;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphSelector".
- */
-export type GraphSelector =
-  | {
-      kind: "vertex";
-      vertex_id: EndpointID;
-    }
-  | {
-      kind: "edge";
-      edge_id: FlowEdgeID;
-    };
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "EndpointID".
- */
-export type EndpointID = string;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IndicatorSelector".
  */
 export type IndicatorSelector =
@@ -318,6 +290,16 @@ export type IndicatorSelector =
 export type GraphSemanticQueryV2 = DefaultGraphSemanticQueryV2 | TimeBucketGraphSemanticQueryV2;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "EndpointID".
+ */
+export type EndpointID = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "FlowEdgeID".
+ */
+export type FlowEdgeID = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "BucketEdgeID".
  */
 export type BucketEdgeID = string;
@@ -339,6 +321,24 @@ export type IndicatorTarget =
  * via the `definition` "BindingID".
  */
 export type BindingID = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphSelector".
+ */
+export type GraphSelector =
+  | {
+      kind: "vertex";
+      vertex_id: EndpointID;
+    }
+  | {
+      kind: "edge";
+      edge_id: FlowEdgeID;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "ProjectionResultID".
+ */
+export type ProjectionResultID = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "GraphViewID".
@@ -879,356 +879,6 @@ export interface DiagnosticSort {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphQueryRequest".
- */
-export interface GraphQueryRequest {
-  schema_id: "cartulary.network_flow.graph_query_request.v1";
-  table_scope: TableScope;
-  filters?: Filter[];
-  time_range?: TimeRange;
-  aggregation?: Aggregation;
-  limit_overrides?: LimitOverrides;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "TimeRange".
- */
-export interface TimeRange {
-  start_utc: TimestampUTC | null;
-  end_utc: TimestampUTC | null;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "Aggregation".
- */
-export interface Aggregation {
-  mode?: "default_flow_edge_v1";
-  include_example_row_refs?: boolean;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "LimitOverrides".
- */
-export interface LimitOverrides {
-  max_vertices?: PositiveInt;
-  max_edges?: NonNegativeInt;
-  max_example_row_refs_per_edge?: NonNegativeInt;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphQueryResult".
- */
-export interface GraphQueryResult {
-  schema_id: "cartulary.network_flow.graph_query_result.v1";
-  graph_query_digest: SHA256;
-  semantic_query: GraphSemanticQuery;
-  graph_projection_result: GraphProjectionResultV2;
-  edge_annotations: EdgeAnnotation[];
-  source_table_refs: GraphSourceTableRef[];
-  result_limits: GraphResultLimits;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphSemanticQuery".
- */
-export interface GraphSemanticQuery {
-  schema_id: "cartulary.network_flow.graph_semantic_query.v1";
-  selected_table_ids: TableID[];
-  filters: Filter[];
-  time_range: TimeRange;
-  aggregation: Aggregation;
-  result_limits: GraphResultLimits;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphResultLimits".
- */
-export interface GraphResultLimits {
-  max_vertices: PositiveInt;
-  max_edges: PositiveInt;
-  max_example_row_refs_per_edge: NonNegativeInt;
-  max_aggregate_counter_digits: PositiveInt;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionResultV2".
- */
-export interface GraphProjectionResultV2 {
-  projection_schema_id: "graph_projection.v2";
-  projection_result_id: ProjectionResultID;
-  graph_view_id: string;
-  source_owner_id: "network_flow_activity";
-  source_snapshot_id: string;
-  projection_version: string;
-  normalized_configuration_sha256: SHA256;
-  normalized_source_sha256: SHA256;
-  canonical_output_sha256: SHA256;
-  properties: GraphProjectionDynamicMap;
-  mapped_metadata: GraphProjectionDynamicMap;
-  schema_registry: GraphProjectionSchemaRegistry;
-  vertices: GraphProjectionVertex[];
-  edges: GraphProjectionEdge[];
-  validation_summary: GraphProjectionValidationSummary;
-  consumer_capabilities: GraphProjectionConsumerCapabilities;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionDynamicMap".
- */
-export interface GraphProjectionDynamicMap {
-  /**
-   * This interface was referenced by `GraphProjectionDynamicMap`'s JSON-Schema definition
-   * via the `patternProperty` "^.{1,256}$".
-   */
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionSchemaRegistry".
- */
-export interface GraphProjectionSchemaRegistry {
-  vertex_kinds: GraphProjectionVertexKind[];
-  edge_kinds: GraphProjectionEdgeKind[];
-  property_keys: GraphProjectionPropertySchema[];
-  metadata_keys: GraphProjectionMetadataSchema[];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionVertexKind".
- */
-export interface GraphProjectionVertexKind {
-  additionalProperties?: never;
-  vertex_kind: string;
-  source_entity_kinds: string[];
-  aggregation_rule_ids: string[];
-  labels: string[];
-  source_labels_preserved: boolean;
-  properties: GraphProjectionPropertyReference[];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionPropertyReference".
- */
-export interface GraphProjectionPropertyReference {
-  additionalProperties?: never;
-  projected_key: string;
-  projected_type: string;
-  required: boolean;
-  nullable_output: boolean;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionEdgeKind".
- */
-export interface GraphProjectionEdgeKind {
-  additionalProperties?: never;
-  edge_kind: string;
-  source_relationship_kinds: string[];
-  aggregation_rule_ids: string[];
-  directions: string[];
-  labels: string[];
-  source_labels_preserved: boolean;
-  properties: GraphProjectionPropertyReference[];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionPropertySchema".
- */
-export interface GraphProjectionPropertySchema {
-  additionalProperties?: never;
-  target_scope: string;
-  target_kind: string;
-  projected_key: string;
-  projected_type: string;
-  required: boolean;
-  nullable_output: boolean;
-  missing_behavior: string;
-  source_null_behavior: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionMetadataSchema".
- */
-export interface GraphProjectionMetadataSchema {
-  additionalProperties?: never;
-  target_scope: string;
-  target_kind: string;
-  projected_metadata_key: string;
-  projected_type: string;
-  required: boolean;
-  nullable_output: boolean;
-  missing_behavior: string;
-  source_null_behavior: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionVertex".
- */
-export interface GraphProjectionVertex {
-  additionalProperties?: never;
-  vertex_id: string;
-  vertex_kind: string;
-  vertex_family: string;
-  labels: string[];
-  properties: GraphProjectionDynamicMap;
-  metadata: GraphProjectionVertexMetadata;
-  source_entity_ref: {
-    source_entity_id: string;
-    source_entity_kind: string;
-    mapping_rule_id: string;
-  } | null;
-  sort_key: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionVertexMetadata".
- */
-export interface GraphProjectionVertexMetadata {
-  mapping_rule_id: string | null;
-  aggregation_rule_id: string | null;
-  aggregation_source_refs: GraphProjectionSourceRef[];
-  mapped_metadata: GraphProjectionDynamicMap;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionSourceRef".
- */
-export interface GraphProjectionSourceRef {
-  ref_kind: string;
-  ref_id: string;
-  contributor_sort_key: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionEdge".
- */
-export interface GraphProjectionEdge {
-  additionalProperties?: never;
-  edge_id: string;
-  edge_kind: string;
-  edge_family: string;
-  src_vertex_id: string;
-  dst_vertex_id: string;
-  direction: string;
-  labels: string[];
-  properties: GraphProjectionDynamicMap;
-  metadata: GraphProjectionEdgeMetadata;
-  source_relationship_ref: {
-    source_relationship_id: string;
-    source_relationship_kind: string;
-    mapping_rule_id: string;
-  } | null;
-  sort_key: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionEdgeMetadata".
- */
-export interface GraphProjectionEdgeMetadata {
-  mapping_rule_id: string | null;
-  aggregation_rule_id: string | null;
-  is_reverse_edge: boolean;
-  reverse_of_edge_id: string | null;
-  aggregation_source_refs: GraphProjectionSourceRef[];
-  mapped_metadata: GraphProjectionDynamicMap;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionValidationSummary".
- */
-export interface GraphProjectionValidationSummary {
-  status: "passed";
-  fatal_count: 0;
-  error_count: 0;
-  warning_count: 0;
-  info_count: 0;
-  /**
-   * @maxItems 0
-   */
-  issues: [];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphProjectionConsumerCapabilities".
- */
-export interface GraphProjectionConsumerCapabilities {
-  query_shapes: string[];
-  supports_direct_vertex_lookup: boolean;
-  supports_direct_edge_lookup: boolean;
-  supports_breadth_first_traversal: boolean;
-  supports_alternate_traversal_order: string[];
-  max_traversal_depth: number;
-  max_traversal_seed_vertices: number;
-  max_kind_filters: number;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "EdgeAnnotation".
- */
-export interface EdgeAnnotation {
-  edge_id: FlowEdgeID;
-  example_row_refs: NetworkFlowRowRef[];
-  example_refs_truncated: boolean;
-  example_refs_total_count: NonNegativeInt;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphSourceTableRef".
- */
-export interface GraphSourceTableRef {
-  network_flow_table_id: TableID;
-  table_version: PositiveInt;
-  mapping_fingerprint: SHA256;
-  row_count_accepted: NonNegativeInt;
-  row_count_rejected: NonNegativeInt;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphContributorQueryRequest".
- */
-export interface GraphContributorQueryRequest {
-  schema_id: "cartulary.network_flow.graph_contributor_query_request.v1";
-  graph_query: GraphSemanticQuery;
-  graph_query_digest: SHA256;
-  selector: GraphSelector;
-  limit?: PositiveInt;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphContributorQueryContinuation".
- */
-export interface GraphContributorQueryContinuation {
-  schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1";
-  cursor_token: CursorToken;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphContributorQueryResult".
- */
-export interface GraphContributorQueryResult {
-  schema_id: "cartulary.network_flow.graph_contributor_query_result.v1";
-  graph_query_digest: SHA256;
-  selector: GraphSelector;
-  contributors: Contributor[];
-  meta: ContributorMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "Contributor".
- */
-export interface Contributor {
-  row_ref: NetworkFlowRowRef;
-  row: NetworkFlowRow;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "ContributorMeta".
- */
-export interface ContributorMeta {
-  paging: PagingMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IndicatorLinkRequest".
  */
 export interface IndicatorLinkRequest {
@@ -1551,6 +1201,243 @@ export interface TableSoftDeleteRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimeRange".
+ */
+export interface TimeRange {
+  start_utc: TimestampUTC | null;
+  end_utc: TimestampUTC | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "Aggregation".
+ */
+export interface Aggregation {
+  mode?: "default_flow_edge_v1";
+  include_example_row_refs?: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "LimitOverrides".
+ */
+export interface LimitOverrides {
+  max_vertices?: PositiveInt;
+  max_edges?: NonNegativeInt;
+  max_example_row_refs_per_edge?: NonNegativeInt;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionDynamicMap".
+ */
+export interface GraphProjectionDynamicMap {
+  /**
+   * This interface was referenced by `GraphProjectionDynamicMap`'s JSON-Schema definition
+   * via the `patternProperty` "^.{1,256}$".
+   */
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionPropertyReference".
+ */
+export interface GraphProjectionPropertyReference {
+  additionalProperties?: never;
+  projected_key: string;
+  projected_type: string;
+  required: boolean;
+  nullable_output: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionSchemaRegistry".
+ */
+export interface GraphProjectionSchemaRegistry {
+  vertex_kinds: GraphProjectionVertexKind[];
+  edge_kinds: GraphProjectionEdgeKind[];
+  property_keys: GraphProjectionPropertySchema[];
+  metadata_keys: GraphProjectionMetadataSchema[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionVertexKind".
+ */
+export interface GraphProjectionVertexKind {
+  additionalProperties?: never;
+  vertex_kind: string;
+  source_entity_kinds: string[];
+  aggregation_rule_ids: string[];
+  labels: string[];
+  source_labels_preserved: boolean;
+  properties: GraphProjectionPropertyReference[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionEdgeKind".
+ */
+export interface GraphProjectionEdgeKind {
+  additionalProperties?: never;
+  edge_kind: string;
+  source_relationship_kinds: string[];
+  aggregation_rule_ids: string[];
+  directions: string[];
+  labels: string[];
+  source_labels_preserved: boolean;
+  properties: GraphProjectionPropertyReference[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionPropertySchema".
+ */
+export interface GraphProjectionPropertySchema {
+  additionalProperties?: never;
+  target_scope: string;
+  target_kind: string;
+  projected_key: string;
+  projected_type: string;
+  required: boolean;
+  nullable_output: boolean;
+  missing_behavior: string;
+  source_null_behavior: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionMetadataSchema".
+ */
+export interface GraphProjectionMetadataSchema {
+  additionalProperties?: never;
+  target_scope: string;
+  target_kind: string;
+  projected_metadata_key: string;
+  projected_type: string;
+  required: boolean;
+  nullable_output: boolean;
+  missing_behavior: string;
+  source_null_behavior: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionSourceRef".
+ */
+export interface GraphProjectionSourceRef {
+  ref_kind: string;
+  ref_id: string;
+  contributor_sort_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionVertex".
+ */
+export interface GraphProjectionVertex {
+  additionalProperties?: never;
+  vertex_id: string;
+  vertex_kind: string;
+  vertex_family: string;
+  labels: string[];
+  properties: GraphProjectionDynamicMap;
+  metadata: GraphProjectionVertexMetadata;
+  source_entity_ref: {
+    source_entity_id: string;
+    source_entity_kind: string;
+    mapping_rule_id: string;
+  } | null;
+  sort_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionVertexMetadata".
+ */
+export interface GraphProjectionVertexMetadata {
+  mapping_rule_id: string | null;
+  aggregation_rule_id: string | null;
+  aggregation_source_refs: GraphProjectionSourceRef[];
+  mapped_metadata: GraphProjectionDynamicMap;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionEdge".
+ */
+export interface GraphProjectionEdge {
+  additionalProperties?: never;
+  edge_id: string;
+  edge_kind: string;
+  edge_family: string;
+  src_vertex_id: string;
+  dst_vertex_id: string;
+  direction: string;
+  labels: string[];
+  properties: GraphProjectionDynamicMap;
+  metadata: GraphProjectionEdgeMetadata;
+  source_relationship_ref: {
+    source_relationship_id: string;
+    source_relationship_kind: string;
+    mapping_rule_id: string;
+  } | null;
+  sort_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionEdgeMetadata".
+ */
+export interface GraphProjectionEdgeMetadata {
+  mapping_rule_id: string | null;
+  aggregation_rule_id: string | null;
+  is_reverse_edge: boolean;
+  reverse_of_edge_id: string | null;
+  aggregation_source_refs: GraphProjectionSourceRef[];
+  mapped_metadata: GraphProjectionDynamicMap;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionConsumerCapabilities".
+ */
+export interface GraphProjectionConsumerCapabilities {
+  query_shapes: string[];
+  supports_direct_vertex_lookup: boolean;
+  supports_direct_edge_lookup: boolean;
+  supports_breadth_first_traversal: boolean;
+  supports_alternate_traversal_order: string[];
+  max_traversal_depth: number;
+  max_traversal_seed_vertices: number;
+  max_kind_filters: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionResultV2".
+ */
+export interface GraphProjectionResultV2 {
+  projection_schema_id: "graph_projection.v2";
+  projection_result_id: ProjectionResultID;
+  graph_view_id: string;
+  source_owner_id: "network_flow_activity";
+  source_snapshot_id: string;
+  projection_version: string;
+  normalized_configuration_sha256: SHA256;
+  normalized_source_sha256: SHA256;
+  canonical_output_sha256: SHA256;
+  properties: GraphProjectionDynamicMap;
+  mapped_metadata: GraphProjectionDynamicMap;
+  schema_registry: GraphProjectionSchemaRegistry;
+  vertices: GraphProjectionVertex[];
+  edges: GraphProjectionEdge[];
+  validation_summary: GraphProjectionValidationSummary;
+  consumer_capabilities: GraphProjectionConsumerCapabilities;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphProjectionValidationSummary".
+ */
+export interface GraphProjectionValidationSummary {
+  status: "passed";
+  fatal_count: 0;
+  error_count: 0;
+  warning_count: 0;
+  info_count: 0;
+  /**
+   * @maxItems 0
+   */
+  issues: [];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "GraphViewSelectedResult".
  */
 export interface GraphViewSelectedResult {
@@ -1561,56 +1448,6 @@ export interface GraphViewSelectedResult {
   normalized_configuration_sha256: SHA256;
   normalized_source_sha256: SHA256;
   canonical_output_sha256: SHA256;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphView".
- */
-export interface GraphView {
-  schema_id: "cartulary.network_flow.graph_view.v1";
-  graph_view_id: GraphViewID;
-  incident_id: UUID;
-  display_name: string;
-  normalized_display_name: string;
-  graph_view_version: PositiveInt;
-  materialization_generation: PositiveInt;
-  state: "active" | "retired";
-  semantic_query: GraphSemanticQuery;
-  selected_result: null | GraphViewSelectedResult;
-  last_materialization_job_id: string | null;
-  last_materialization_status: "not_started" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
-  last_failure_code: string | null;
-  created_at: TimestampUTC;
-  updated_at: TimestampUTC;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewList".
- */
-export interface GraphViewList {
-  schema_id: "cartulary.network_flow.graph_view_list.v1";
-  /**
-   * @maxItems 128
-   */
-  graph_views: GraphView[];
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewGet".
- */
-export interface GraphViewGet {
-  schema_id: "cartulary.network_flow.graph_view_get.v1";
-  graph_view: GraphView;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewCreateRequest".
- */
-export interface GraphViewCreateRequest {
-  schema_id: "cartulary.network_flow.graph_view_create_request.v1";
-  client_txn_id: OpaqueID;
-  display_name: string;
-  semantic_query: GraphSemanticQuery;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -1642,53 +1479,49 @@ export interface GraphViewRetireRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewAccepted".
+ * via the `definition` "Contributor".
  */
-export interface GraphViewAccepted {
-  schema_id: "cartulary.network_flow.graph_view_accepted.v1";
-  graph_view: GraphView;
-  job_id: string;
-  job_kind: "network_flow_activity.graph_view_materialize_v1";
+export interface Contributor {
+  row_ref: NetworkFlowRowRef;
+  row: NetworkFlowRow;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewMutationResult".
+ * via the `definition` "EdgeAnnotation".
  */
-export interface GraphViewMutationResult {
-  schema_id: "cartulary.network_flow.graph_view_mutation_result.v1";
-  graph_view: GraphView;
+export interface EdgeAnnotation {
+  edge_id: FlowEdgeID;
+  example_row_refs: NetworkFlowRowRef[];
+  example_refs_truncated: boolean;
+  example_refs_total_count: NonNegativeInt;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewResult".
+ * via the `definition` "GraphSourceTableRef".
  */
-export interface GraphViewResult {
-  schema_id: "cartulary.network_flow.graph_view_result.v1";
-  graph_view: GraphView;
-  projection_result: GraphProjectionResultV2;
+export interface GraphSourceTableRef {
+  network_flow_table_id: TableID;
+  table_version: PositiveInt;
+  mapping_fingerprint: SHA256;
+  row_count_accepted: NonNegativeInt;
+  row_count_rejected: NonNegativeInt;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewContributorQueryRequest".
+ * via the `definition` "GraphResultLimits".
  */
-export interface GraphViewContributorQueryRequest {
-  schema_id: "cartulary.network_flow.graph_view_contributor_query_request.v1";
-  projection_result_id: ProjectionResultID;
-  selector: GraphSelector;
-  limit: number;
+export interface GraphResultLimits {
+  max_vertices: PositiveInt;
+  max_edges: PositiveInt;
+  max_example_row_refs_per_edge: NonNegativeInt;
+  max_aggregate_counter_digits: PositiveInt;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewContributorQueryResult".
+ * via the `definition` "ContributorMeta".
  */
-export interface GraphViewContributorQueryResult {
-  schema_id: "cartulary.network_flow.graph_view_contributor_query_result.v1";
-  graph_view_id: GraphViewID;
-  projection_result_id: ProjectionResultID;
-  /**
-   * @maxItems 1000
-   */
-  contributors: Contributor[];
+export interface ContributorMeta {
+  paging: PagingMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -1927,6 +1760,14 @@ export interface GraphContributorQueryResultV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphContributorQueryContinuation".
+ */
+export interface GraphContributorQueryContinuation {
+  schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1";
+  cursor_token: CursorToken;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "SourceProfileListV2".
  */
 export interface SourceProfileListV2 {
@@ -1966,10 +1807,10 @@ export interface EffectiveLimitsV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewV2".
+ * via the `definition` "GraphViewV3".
  */
-export interface GraphViewV2 {
-  schema_id: "cartulary.network_flow.graph_view.v2";
+export interface GraphViewV3 {
+  schema_id: "cartulary.network_flow.graph_view.v3";
   graph_view_id: GraphViewID;
   incident_id: UUID;
   display_name: string;
@@ -1977,7 +1818,7 @@ export interface GraphViewV2 {
   graph_view_version: PositiveInt;
   materialization_generation: PositiveInt;
   state: "active" | "retired";
-  semantic_query: GraphSemanticQuery | GraphSemanticQueryV2;
+  semantic_query: GraphSemanticQueryV2;
   selected_result: null | GraphViewSelectedResult;
   last_materialization_job_id: string | null;
   last_materialization_status: "not_started" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
@@ -1987,22 +1828,22 @@ export interface GraphViewV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewListV2".
+ * via the `definition` "GraphViewListV3".
  */
-export interface GraphViewListV2 {
-  schema_id: "cartulary.network_flow.graph_view_list.v2";
+export interface GraphViewListV3 {
+  schema_id: "cartulary.network_flow.graph_view_list.v3";
   /**
    * @maxItems 128
    */
-  graph_views: GraphViewV2[];
+  graph_views: GraphViewV3[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewGetV2".
+ * via the `definition` "GraphViewGetV3".
  */
-export interface GraphViewGetV2 {
-  schema_id: "cartulary.network_flow.graph_view_get.v2";
-  graph_view: GraphViewV2;
+export interface GraphViewGetV3 {
+  schema_id: "cartulary.network_flow.graph_view_get.v3";
+  graph_view: GraphViewV3;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
@@ -2016,30 +1857,30 @@ export interface GraphViewCreateRequestV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewAcceptedV2".
+ * via the `definition` "GraphViewAcceptedV3".
  */
-export interface GraphViewAcceptedV2 {
-  schema_id: "cartulary.network_flow.graph_view_accepted.v2";
-  graph_view: GraphViewV2;
+export interface GraphViewAcceptedV3 {
+  schema_id: "cartulary.network_flow.graph_view_accepted.v3";
+  graph_view: GraphViewV3;
   job_id: string;
   job_kind: "network_flow_activity.graph_view_materialize_v1";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewMutationResultV2".
+ * via the `definition` "GraphViewMutationResultV3".
  */
-export interface GraphViewMutationResultV2 {
-  schema_id: "cartulary.network_flow.graph_view_mutation_result.v2";
-  graph_view: GraphViewV2;
+export interface GraphViewMutationResultV3 {
+  schema_id: "cartulary.network_flow.graph_view_mutation_result.v3";
+  graph_view: GraphViewV3;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewResultV2".
+ * via the `definition` "GraphViewResultV3".
  */
-export interface GraphViewResultV2 {
-  schema_id: "cartulary.network_flow.graph_view_result.v2";
-  graph_view: GraphViewV2;
-  result: GraphQueryResult | GraphQueryResultV2;
+export interface GraphViewResultV3 {
+  schema_id: "cartulary.network_flow.graph_view_result.v3";
+  graph_view: GraphViewV3;
+  result: GraphQueryResultV2;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema

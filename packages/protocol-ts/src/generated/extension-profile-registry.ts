@@ -138,14 +138,14 @@ const value = {
     {
       "admission_validation": {
         "dependency_probes": [],
-        "post_migration_algorithmid": "network_flow_activity.validate_state_v3",
+        "post_migration_algorithmid": "network_flow_activity.validate_state_v4",
         "preflight_algorithmid": null,
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "capability_ids": [],
       "claim_config_key": "network_flow_activity.claimed",
       "claimable": true,
-      "contract_major": 4,
+      "contract_major": 5,
       "contributions": [
         {
           "contribution_id": "network_flow_activity.backup_restore",
@@ -156,7 +156,7 @@ const value = {
         {
           "contribution_id": "network_flow_activity.graph_projection_rebuild",
           "kind": "derived_state_rebuild",
-          "rebuild_algorithm_id": "graphprojection.restore_rebuild.v3",
+          "rebuild_algorithm_id": "graphprojection.restore_rebuild.v4",
           "state_family_ids": [
             "graph_projection_result_edges",
             "graph_projection_result_leases",
@@ -241,15 +241,15 @@ const value = {
       "schema_id": "cartulary.extension_profile_descriptor.v3",
       "snapshot_reporting_mode": "participant",
       "state_ownership": {
-        "current_state_version": 3,
+        "current_state_version": 4,
         "empty_state_policy": "allowed",
-        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v3",
-        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v3",
-        "initialization_definition_sha256": "b962240fa32fb6ad3a78acc400f839b3bcf573b75df22c90d9ff2f96c1d9c784",
+        "final_state_validation_algorithm_id": "network_flow_activity.validate_state_v4",
+        "final_state_validation_algorithmid": "network_flow_activity.validate_state_v4",
+        "initialization_definition_sha256": "acaf93c333b4b821428e1e3e8491352fea758c7db37da7157856129c6ae729c8",
         "initialization_schema_id": "cartulary.extension_state_initialization_definition.v1",
         "kind": "extension_versioned",
         "migration_lineage_id": "network_flow_activity.state_v1",
-        "minimum_migratable_state_version": 1,
+        "minimum_migratable_state_version": 3,
         "state_presence_schema_id": "cartulary.extension_state_presence_manifest.v1"
       },
       "workspace_keys": [

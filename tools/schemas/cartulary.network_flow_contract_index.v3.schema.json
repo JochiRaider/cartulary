@@ -25,7 +25,7 @@
       "const": "network_flow_activity"
     },
     "contract_major": {
-      "const": 4
+      "const": 5
     },
     "family_id": {
       "const": "network-flow"
@@ -96,7 +96,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^cartulary\\.network_flow[.a-z0-9_]+\\.v[12]$"
+        "pattern": "^cartulary\\.network_flow[.a-z0-9_]+\\.v[123]$"
       }
     },
     "closure_policy": {

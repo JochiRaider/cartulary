@@ -165,6 +165,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-00-059 | Core 00 §5.1 Contract-owner matrix | reference_pack | AC-443 |
 | REQ-00-062 | Core 00 §1 Status | base | AC-469 |
 | REQ-00-063 | Core 00 §5.1 Contract-owner matrix | base | AC-469..AC-473 |
+| REQ-00-076 | Core 00 §5.1 Contract-owner matrix | base, network_flow_activity, snapshot_reporting | AC-568 |
 | REQ-01-001 | Core 01 §1 Architecture pattern | base | AC-231, AC-404 |
 | REQ-01-002 | Core 01 §1 Architecture pattern | base | AC-231, AC-404, AC-405 |
 | REQ-01-003 | Core 01 §1 Architecture pattern | base | AC-231, AC-404 |
@@ -2032,6 +2033,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-565 | REQ-01-336..REQ-01-341, REQ-01-671 |
 | AC-566 | REQ-01-639..REQ-01-642, REQ-01-673 |
 | AC-567 | REQ-04-161 |
+| AC-568 | REQ-00-076, Graph Projection NLSpec 2.2.0, Network Flow Activity NLSpec 5.0.0, EXT-REQ-237 |
 | PC-001 | REQ-05-003, REQ-05-006, REQ-05-009 |
 | PC-002 | REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-013 |
 | PC-003 | REQ-05-004..REQ-05-005, REQ-05-011..REQ-05-012 |

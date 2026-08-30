@@ -46,6 +46,19 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 	if len(loaded.Vertices) != 2 || len(loaded.Edges) != 1 || loaded.Vertices[0].VertexID != vertexIDA || loaded.Edges[0].EdgeID != edgeIDA {
 		t.Fatalf("exact ordered result drifted: %#v", loaded)
 	}
+	mismatchedBinding := result.Binding
+	mismatchedBinding.CanonicalOutputSHA256 = digestA
+	if _, err := reader.ReadExactResult(ctx, mismatchedBinding); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
+		t.Fatalf("exact read binding mismatch = %v", err)
+	}
+	missingBinding := result.Binding
+	missingBinding.ProjectionResultID = resultIDB
+	if _, err := reader.ReadExactResult(ctx, missingBinding); !errors.Is(err, graphprojection.ErrResultV2NotFound) {
+		t.Fatalf("exact read missing result = %v", err)
+	}
+	if _, err := reader.ReadVertices(ctx, resultIDA, 1); !errors.Is(err, graphprojection.ErrResultV2Invalid) {
+		t.Fatalf("bounded vertex read = %v", err)
+	}
 
 	// Retried publication of byte-identical semantic output is idempotent even
 	// when the operational publication time differs.
@@ -101,6 +114,40 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 	})
 	if err != nil || len(traversal.Vertices) != 2 || len(traversal.Edges) != 1 {
 		t.Fatalf("bounded traversal got %#v err=%v", traversal, err)
+	}
+	incoming, err := reader.Traverse(ctx, graphprojection.TraversalRequestV2{
+		ProjectionResultID: resultIDA,
+		SeedVertexIDs:      []string{vertexIDB},
+		Direction:          graphprojection.TraversalIncomingV2,
+		MaximumDepth:       1,
+		MaximumVertices:    2,
+		MaximumEdges:       1,
+	})
+	if err != nil || len(incoming.Vertices) != 2 || len(incoming.Edges) != 1 {
+		t.Fatalf("incoming traversal got %#v err=%v", incoming, err)
+	}
+	seedOnly, err := reader.Traverse(ctx, graphprojection.TraversalRequestV2{
+		ProjectionResultID: resultIDA,
+		SeedVertexIDs:      []string{vertexIDA},
+		Direction:          graphprojection.TraversalBothV2,
+		MaximumDepth:       0,
+		MaximumVertices:    1,
+		MaximumEdges:       0,
+		VertexKinds:        []string{"endpoint"},
+		EdgeKinds:          []string{"flow"},
+	})
+	if err != nil || len(seedOnly.Vertices) != 1 || len(seedOnly.Edges) != 0 {
+		t.Fatalf("zero-depth filtered traversal got %#v err=%v", seedOnly, err)
+	}
+	if _, err := reader.Traverse(ctx, graphprojection.TraversalRequestV2{
+		ProjectionResultID: resultIDA,
+		SeedVertexIDs:      []string{vertexIDA},
+		Direction:          graphprojection.TraversalOutgoingV2,
+		MaximumDepth:       1,
+		MaximumVertices:    1,
+		MaximumEdges:       1,
+	}); !errors.Is(err, graphprojection.ErrResultV2Invalid) {
+		t.Fatalf("one-over traversal result = %v", err)
 	}
 
 	leaseID := uuid.NewString()
@@ -175,6 +222,43 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit expired cleanup: %v", err)
+	}
+
+	leaseResult := completedResult(resultIDB, now.Add(2*time.Hour))
+	publishInNestedTransaction(t, ctx, db, leaseResult)
+	leaseTx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin lease lifecycle transaction: %v", err)
+	}
+	leaseWriter, err = postgresresult.NewLeaseWriter(leaseTx)
+	if err != nil {
+		t.Fatalf("construct lifecycle lease writer: %v", err)
+	}
+	lifecycleLeaseID := uuid.NewString()
+	lifecycleLease, err := leaseWriter.AcquireLease(ctx, graphprojection.ResultLeaseV2{
+		LeaseID: lifecycleLeaseID, ProjectionResultID: resultIDB,
+		LeaseOwnerID: "snapshot_reporting", LeaseOwnerResourceID: "release-lifecycle", LeasePurpose: "render",
+		CreatedAt: now, RenewedAt: now, LeasedUntil: now.Add(time.Hour),
+	})
+	if err != nil || lifecycleLease.LeaseID != lifecycleLeaseID {
+		t.Fatalf("acquire lifecycle lease = %#v err=%v", lifecycleLease, err)
+	}
+	renewed, err := leaseWriter.RenewLease(ctx, lifecycleLeaseID, now.Add(30*time.Minute), now.Add(2*time.Hour))
+	if err != nil || renewed.LeaseID != lifecycleLeaseID || !renewed.LeasedUntil.Equal(now.Add(2*time.Hour)) {
+		t.Fatalf("renew lifecycle lease = %#v err=%v", renewed, err)
+	}
+	if err := leaseWriter.ReleaseLease(ctx, lifecycleLeaseID); err != nil {
+		t.Fatalf("release lifecycle lease: %v", err)
+	}
+	if _, err := leaseWriter.RenewLease(ctx, lifecycleLeaseID, now.Add(time.Hour), now.Add(3*time.Hour)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
+		t.Fatalf("renew released lease = %v", err)
+	}
+	if err := leaseTx.Commit(ctx); err != nil {
+		t.Fatalf("commit lease lifecycle: %v", err)
+	}
+	var retainedLeases int
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM graph_projection_result_leases WHERE projection_result_id = $1`, resultIDB).Scan(&retainedLeases); err != nil || retainedLeases != 0 {
+		t.Fatalf("released lease retained rows=%d err=%v", retainedLeases, err)
 	}
 }
 

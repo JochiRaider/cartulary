@@ -1,19 +1,22 @@
-# GP3 — Production Readiness and Time-Bucketed Graphs
+# GP4 — Legacy Retirement and Production Simplification
 
 ## 1. Controlling Posture
 
 - **Target subsystem:** `internal/modules/graphprojection`
 - **Controlling artifact:** `docs/handoffs/graphprojection-module-refactor-tracker.md`
-- **Current posture:** GP3 — Production Readiness and Time-Bucketed Graphs
-- **Status:** `GP3-S00` through `GP3-S12` are `DONE`; GP3 is complete and there
-  is no active workstream
+- **Current posture:** GP4 — Legacy Retirement and Production Simplification
+- **Status:** GP2 and GP3 are frozen and complete; `GP4-S00` through
+  `GP4-S08` are `DONE`, `GP4-S09` is `READY`, and `GP4-S10` is blocked
+  on their declared predecessors
+- **GP4 planning baseline:** clean commit
+  `4d519e21f05d9df69f4c08c1d9a9ef4054e0fb8c`
 - **GP3 planning baseline:** clean commit
   `d5b5d4fd3d4e8d046fb375e1b9225e4d496e519d`
 - **Completed iteration:** GP2-S00 through GP2-S11 completed at `d5b5d4fd`
 - **Earlier completed iteration:** GP-S00 through GP-S08 completed at
   `df30974f`
-- **Planned GP3 order:**
-  `GP3-S00 → GP3-S01 → GP3-S02 → GP3-S03 → GP3-S04 → GP3-S05 → GP3-S06 → GP3-S07 → GP3-S08 → GP3-S09 → GP3-S10 → GP3-S11 → GP3-S12`
+- **Planned GP4 order:**
+  `GP4-S00 → GP4-S01 → GP4-S02 → GP4-S03 → GP4-S04 → GP4-S05 → GP4-S06 → GP4-S07 → GP4-S08 → GP4-S09 → GP4-S10`
 
 This tracker controls the user-authorized implementation. Planned behavior does
 not become conformance authority until its applicable owner is adopted. Every
@@ -46,10 +49,13 @@ or runtime authority.
 | Adopted requirement | Text later accepted in a named owner | Governs implementation and machine projections after its adoption slice |
 | Completion evidence | Terminal command result, run root, artifact, or operational proof | Permits a slice to move from `IN PROGRESS` to `DONE` |
 
-Sections 2 through 9 are the frozen GP2 completion record. They retain GP2's
-commands, run roots, compatibility decisions, risks, and handoff evidence and
-must not be reinterpreted as active GP3 requirements. Section 10 is the active
-GP3 plan.
+Sections 2 through 9 are the frozen GP2 completion record. Section 10 is the
+frozen GP3 completion record. They retain their commands, run roots,
+compatibility decisions, risks, and handoff evidence and must not be
+reinterpreted as active GP4 requirements. Section 11 is the active GP4 plan.
+Where the frozen record describes inventory-gated v1 or historical Recovery
+compatibility, the GP4 planned decision supersedes that posture prospectively;
+it does not rewrite what GP2 or GP3 implemented or proved.
 
 ## 2. Frozen GP2 — Prior Iteration Baseline
 
@@ -4300,3 +4306,1514 @@ Final checkpoint `git diff --check` and `git diff --cached --check` passed.
 `.cartulary/test-results/20260816T215251Z-p721352`. The next action is none.
 Preserve this tracker as the final GP3 handoff; any later temporal mode or
 compatibility removal begins with a new owner decision and plan.
+
+## 11. GP4 — Legacy Retirement and Production Simplification
+
+### 11.1 Iteration purpose and control boundary
+
+GP4 removes compatibility and abstraction weight that no longer improves the
+future Graph Projection product. It makes the retained projection engine,
+result capabilities, and Recovery integration small enough to understand and
+strict enough to operate as production infrastructure. Clean ownership and
+closed current contracts take precedence over retaining historical runtime
+paths.
+
+This section is the active implementation plan. Its decisions are
+user-authorized planning decisions until GP4-S01 adopts them in the applicable
+owners. The adopted owners then govern implementation and their machine
+projections. This tracker controls sequence, checkpoints, evidence, and
+handoff; it does not independently define product conformance.
+
+GP4-S00 is a document-only slice. It changes this tracker and no product code,
+contract projection, generated artifact, database object, or owner document.
+Implementation begins only after GP4-S01 adopts the owner changes.
+
+### 11.2 Planning baseline and inspected evidence
+
+The GP4 planning baseline is clean commit
+`4d519e21f05d9df69f4c08c1d9a9ef4054e0fb8c`. The worktree was clean before
+this tracker edit. `make test-slice OWNER=module.graphprojection` passed all
+8 routed rows at
+`.cartulary/test-results/20260829T212324Z-p2764224`.
+
+The planning inspection covered:
+
+| Evidence | Planning use |
+| --- | --- |
+| `docs/graph_projection_nlspec.md` | Current Graph Projection 2.1.0 ownership, pure-v2 engine, result identity, traversal, persistence, and Recovery obligations |
+| `docs/network-flow-activity-nlspec.md` | Current contract-major-4/state-3 declaration ownership, semantic-query compatibility, materialization, and Graph restore source behavior |
+| Adopted Recovery, Extensions, Core 00, and Core 04 sections | Recovery selection, extension state admission, owner recognition, module-boundary adoption, and acceptance routing |
+| `docs/domain.md` | Graph Projection, saved graph, result, job, Network Flow, and Reporting vocabulary and owner navigation |
+| `docs/research/nlspec-spec.md` | NLSpec drafting quality guidance only; it is not a Graph Projection instruction source or behavioral authority |
+| `contracts/graph-projection/**`, `contracts/network-flow/**`, `contracts/recovery/**`, and `contracts/extensions/**` | Current typed versions, fixtures, compatibility generations, and generator inputs downstream of adopted owners |
+| `internal/modules/graphprojection/**` and its PostgreSQL adapters | Engine, semantic, result, restore, export, option, limit, and package-topology evidence |
+| Network Flow, Recovery, Reporting, and application assembly consumers | Actual callers, compatibility dispatch, source ownership, result consumption, and composition seams |
+
+Tests, generators, and generated artifacts remain evidence and projections.
+They do not supersede the adopted owner documents. No production or
+verification code may begin depending on this tracker or another Markdown
+file.
+
+### 11.3 Controlling compatibility and identity decisions
+
+GP4 makes a deliberate hard support cut:
+
+- Removal does not wait for an installed-declaration inventory, retained-backup
+  inventory, feature flag, staged translator, or dual-reader period.
+- Semantic-query v1 declarations and Graph Recovery v2/v3 artifacts become
+  unsupported. The runtime, generated client, source registry, dispatcher,
+  fixtures, and active generator branches that exist only for them are
+  removed.
+- Unsupported persisted state fails closed before mutation. GP4 does not
+  silently delete, reinterpret, translate, or rewrite a v1 declaration, and it
+  does not partially advance the extension state version.
+- Unsupported backup bindings fail selection or binding admission before any
+  Graph result table is cleared, rebuilt, reconciled, or published. There is no
+  fallback to an older dispatcher.
+- Git history is the historical source. Active contracts and tests do not keep
+  executable fossils merely to prove that an old package or identifier once
+  existed.
+
+The hard cut does not authorize unrelated identity churn. GP4 preserves:
+
+- `graph_projection.v2` as the sole Graph engine and result contract identity;
+- exact normalized configuration, normalized source, canonical output, vertex,
+  edge, source snapshot, and projection-result identity algorithms for inputs
+  that are already valid v2 inputs;
+- `cartulary.reporting.source_projection_ref.v2` and exact-result Reporting
+  consumption;
+- bounded traversal and its identity-bearing consumer capability;
+- Graph result publication, exact reads, leases, and source-owner cleanup;
+- tables and authored migrations `00032`, `00033`, and `00034` without DDL or
+  stored-shape changes; and
+- the existing Network Flow route-family root where only the versioned graph
+  resource payload changes.
+
+GP4 introduces no Graph Projection v3 protocol, in-place data rewrite, public
+Graph route family, Graph-owned authorization, generic job facade, or backup
+translation service.
+
+### 11.4 Production gap register
+
+| ID | Final status | Baseline evidence | Risk | Required GP4 closure |
+| --- | --- | --- | --- | --- |
+| GP4-G01 | `CLOSED` | Network Flow current resources accept semantic-query v1 or v2, and state 3 can contain either | Every engine and recovery revision carries an open-ended union | Advance to contract major 5/state 4, admit v2 only, and remove the v1 runtime |
+| GP4-G02 | `CLOSED` | Recovery v3 composes mixed-v1/v2 rebuilding and an exact historical v2 dispatcher | Backup compatibility controls current assembly and generator topology | Publish current-only Recovery v4 and reject all old Graph bindings before mutation |
+| GP4-G03 | `CLOSED` | Restore contracts, orchestration, and state contribution live in the pure engine root package | Package exports and imports obscure ownership and invite future coupling | Move restore concerns to a dedicated Graph-owned `restore` subpackage |
+| GP4-G04 | `CLOSED` | `EngineV2` is an empty type with a constructor and method facade | A state-free abstraction creates lifecycle and extension expectations it cannot satisfy | Replace it with one package function and keep private helpers private |
+| GP4-G05 | `CLOSED` | V2 input is adapted through old `graph_view_key`, `op`, relationship-mapping, identifier, and field-name shapes | Compatibility-shaped internals make every new phase harder to add safely | Use one native-v2 internal model with trusted invocation context outside configuration |
+| GP4-G06 | `CLOSED` | Runtime merge tokens and projected-type checks are narrower and differently named than the adopted Graph owner | Valid owner-defined configurations can fail or receive unintended semantics | Implement the complete closed v2 type and merge matrices |
+| GP4-G07 | `CLOSED` | Integer, string, label, and identifier checks mix IEEE-safe-number and rune ceilings with owner byte/int64 rules | Boundary behavior can disagree across admission, normalization, and execution | Centralize signed-int64, finite-number, and UTF-8 byte rules |
+| GP4-G08 | `CLOSED` | Limits contain stale fields and duplicate hard-coded output ceilings | Operators and maintainers cannot identify the actual semantic boundary | Keep one private semantic limit registry projected from the Graph owner |
+| GP4-G09 | `CLOSED` | Unused provider interfaces, options, eligibility hooks, clock injection, derivation exports, and optional constructors remain | Dead seams enlarge the supported API and allow invalid production composition | Delete unused seams and make required dependencies constructor-mandatory |
+| GP4-G10 | `CLOSED` | A nil restore reconciler can report success without reconciling jobs and leases | Recovery can return ready with incomplete postconditions | Require reconciliation and keep clearing, rebuild, reconciliation, and publication transactional |
+| GP4-G11 | `CLOSED` | Broad engine tests and one empty golden do not cover the owner semantic matrix | Refactors can preserve test green while violating typed behavior | Add exhaustive generated or table-driven owner-routed semantic evidence |
+| GP4-G12 | `CLOSED` | Negative tests retain lists of removed v1 packages and symbols forever | Deletion leaves permanent maintenance code | Replace fossils with positive import, export, contract, and composition allowlists |
+
+### 11.5 Target owner and contract state
+
+GP4-S01 adopts the following owner state before any projection or runtime edit:
+
+- Graph Projection advances from 2.1.0 to 2.2.0. The result protocol remains
+  v2; the revision closes native-v2 internal semantics, merge/type behavior,
+  package ownership, required restore dependencies, and the current-only
+  Recovery contribution.
+- Network Flow advances from 4.0.1 to 5.0.0, public contract major 5, and
+  extension state 4. Semantic query remains
+  `cartulary.network_flow.graph_semantic_query.v2`.
+- Recovery publishes `graphprojection.restore_rebuild.v4`, its corresponding
+  source-registry, implementation-binding, and rebuild-result v4 schemas, and
+  no historical Graph dispatcher list.
+- The Network Flow extension fragment advances to contract major 5, current
+  state 4, minimum migratable state 3, v4 Graph rebuild contribution, and the
+  state-4 validation algorithm.
+- A new adopted `docs/decisions/graphprojection-module-boundary.md` owns only
+  internal package, import, constructor, lifecycle, port, and compatibility
+  topology. Core 00 reserves the next unclaimed owner-recognition requirement
+  (`REQ-00-076` at this baseline), and Core 04 reserves the next unclaimed
+  acceptance criterion (`AC-568` at this baseline). If either identifier is no
+  longer free when S01 starts, S01 must stop and reconcile the owner catalog
+  rather than silently choose a conflicting identifier.
+- Core recognition, traceability, Recovery, Extensions, and Network Flow owner
+  text are revised in the same adoption slice so no adopted document points to
+  the removed compatibility posture.
+
+Network Flow state transition is exact:
+
+1. Fresh claims initialize directly at state 4.
+2. State versions 1 and 2 are outside the new minimum migratable range and are
+   rejected without running their historical migration algorithms.
+3. State 3 may have no migration ledger because it was freshly initialized, or
+   it may have the exact complete 1→2 and 2→3 ledger because it was migrated
+   under the prior owner. Extensions validates the latter through inert
+   `MigrationLedgerDefinition` facts containing only profile/lineage identity,
+   migration identity, from/to versions, and the frozen definition digest.
+   These facts have no apply or validation algorithm and never become runnable
+   migration registrations. A partial or otherwise invalid historical ledger
+   fails preflight.
+4. `network_flow_activity.state_3_to_4_v1` locks the claimed profile state and
+   validates every saved Graph declaration in the same transaction.
+5. A declaration whose semantic-query schema is not v2 causes the transition
+   to fail atomically. No declaration byte, digest, result reference, or state
+   version changes, and the claimed profile remains unavailable at state 3.
+6. When all declarations are v2-compatible, the transition performs no row
+   rewrite and advances only the extension state metadata to 4.
+7. The state-4 validator admits only v2 declarations. The v1 decoder is not
+   retained as a migration helper.
+
+Versioned Network Flow resource schemas that directly or transitively expose
+the former v1/v2 query union advance from graph-resource v2 to v3. This includes
+the saved Graph view and each request, response, accepted summary, mutation
+result, list item, or job terminal payload that embeds that view shape.
+Unchanged route paths, request identifiers, semantic-query v2, and schemas that
+do not reference the changed resource remain byte-identical and retain their
+current identifiers. Generated TypeScript entrypoints advance to contract
+major 5; no major-4 compatibility client remains in the active workspace.
+
+Recovery v4 is current-only:
+
+- its source registry admits only the Network Flow v2 semantic-query schema;
+- its implementation binding names only
+  `graphprojection.restore_rebuild.v4` and has no historical dispatch field or
+  admits that field only as an exact empty list if the generic Recovery schema
+  requires it;
+- selection rejects Graph v2/v3 bindings as unsupported before opening the
+  Graph participant transaction;
+- the old v2/v3 schemas, fixtures, generated codec registrations, recovery
+  generations, source constructors, frozen aliases, and validation branches
+  are removed from the active build; and
+- current v4 restore always reconciles nonterminal jobs and result leases
+  before returning ready.
+
+### 11.6 Target module and runtime design
+
+#### Package ownership
+
+`internal/modules/graphprojection` becomes the pure deterministic engine and
+completed-result model. It may depend only on the standard library and its own
+private files. It must not import Recovery, PostgreSQL, HTTP, authentication,
+jobs, Network Flow, Reporting, or another module.
+
+`internal/modules/graphprojection/restore` owns Graph restore contracts, source
+registry construction, rebuild orchestration, and the Graph recovery-state
+contribution. `postgresrestore` implements its database transaction and writer
+ports. Recovery's public compatibility package may alias the new restore
+contract only where an actual cross-owner port remains necessary; it must not
+re-export dead historical types. Application recovery assembly composes the
+current Network Flow source registration, current v4 binding, mandatory
+reconciler, and database writer.
+
+The boundary test becomes a positive allowlist of root imports, root exports,
+restore exports, adapter interfaces, and application composition. It does not
+scan for an ever-growing list of v1 directory or symbol names.
+
+#### Engine entrypoint and identity
+
+The public pure entrypoint becomes:
+
+```go
+func ProjectV2(
+    ctx context.Context,
+    invocation InvocationContextV2,
+    rawInput []byte,
+) (ProjectionResultV2, error)
+```
+
+`EngineV2`, `NewEngineV2`, and the method facade are removed. Invocation holds
+trusted graph-view and source-owner context. User configuration does not gain
+or receive an injected `graph_view_key`. Relationship mappings have one
+internal home. Filter operators remain `operator` throughout parsing,
+validation, normalization, and evaluation; no `op` adapter or old field-name
+alias remains. Graph-view ID derivation is caller-owned and moves to Network
+Flow with exact byte-for-byte identity fixtures.
+
+Numbers are normalized once before validation and execution. Integer accepts
+the complete signed-int64 domain. Number accepts finite JSON numeric values and
+rejects overflow, NaN, and infinities. Textual ceilings use UTF-8 byte length,
+not rune count. Identifier, timestamp, scalar, array, and field-path checks are
+shared by admission and execution so they cannot drift.
+
+#### Closed semantic matrix
+
+The engine implements only the owner vocabulary:
+
+- exact field paths use `source_entity_kind`, `source_relationship_kind`, and
+  the adopted property and temporal paths; old `kind` aliases are rejected;
+- projected types are boolean, integer, number, string, timestamp, identifier,
+  and every adopted array counterpart;
+- `single_value` requires all admitted canonical values to be equal;
+- `first` and `last` select by canonical contributor order;
+- `min` and `max` accept only mutually comparable scalar types, compare
+  numeric values numerically, and compare string, timestamp, and identifier
+  values by their adopted canonical order;
+- `sum` accepts integer or number values, checks signed-int64 overflow, and
+  rejects a non-finite numeric result;
+- `count` returns the integer count of admitted values;
+- `set` accepts array-valued projections, flattens one level, removes values
+  equal by canonical bytes, and emits canonical order;
+- `ordered_list` accepts array-valued projections, concatenates in canonical
+  contributor order, and preserves duplicates; and
+- invalid type/merge combinations fail validation before derivation and never
+  publish a partial result.
+
+Null, omitted, wildcard/default mapping, contributor ordering, cancellation,
+and temporal behavior continue to follow the adopted Graph 2.2.0 algorithms.
+The implementation does not preserve an old token as an undocumented synonym.
+
+#### Ports and adapters
+
+Remove `ResultPublisherV2`, `ExactResultReaderV2`, `ResultLeaseWriterV2`, and
+`ResultMaintenanceV2` when their only users are compile-time assertions.
+Consumers depend on the smallest concrete capability or a consumer-owned port.
+Unexport `DeriveProjectionResultIDV2`, `ResourceLimits`, restore registry
+builders, and other helpers without a cross-package production consumer.
+
+Remove unused `RestoreServiceOptions.Now`, unconditional candidate-validity
+hooks, and optional restore constructors. `postgresrestore.New` requires both
+the database and reconciler; no constructor can produce a writer that skips
+reconciliation. The source enumerator returns only eligible current candidates,
+and restore validates them rather than accepting a caller-supplied always-true
+eligibility result.
+
+Keep publication, exact read, traversal, lease, cleanup, and restore adapter
+capabilities. Split the PostgreSQL result adapter into capability-focused files
+only when this reduces file-level coupling; do not introduce new interfaces or
+change transaction boundaries merely to obtain smaller files. One private
+Graph semantic-limit registry replaces stale fields and duplicated literals.
+
+### 11.7 Slice ledger
+
+| Slice | Current status | Depends on | Required terminal outcome |
+| --- | --- | --- | --- |
+| GP4-S00 — Baseline and plan | `DONE` | GP3 complete | Tracker contains the verified baseline, hard-cut decision, target topology, ordered slices, gates, and binary completion criteria |
+| GP4-S01 — Adopt owner decisions | `DONE` | S00 | Graph 2.2.0, Network Flow 5.0.0/state 4, Recovery v4, boundary ADR, Core recognition, and traceability are adopted together |
+| GP4-S02 — Project contracts | `DONE` | S01 | Machine projections and generated outputs encode only the adopted current contracts; drift and shape checks pass |
+| GP4-S03 — Retire Network Flow v1 | `DONE` | S02 | State 3→4 is fail-closed and byte-preserving for v2; all active v1 runtime/client paths are absent |
+| GP4-S04 — Cut Recovery to v4 | `DONE` | S03 | Current v4 rebuild passes; v2/v3 Graph backup paths fail before mutation and have no active dispatcher |
+| GP4-S05 — Correct package ownership | `DONE` | S04 | Pure engine root and Graph-owned restore subpackage satisfy the adopted positive boundary |
+| GP4-S06 — Remove dead engine seams | `DONE` | S05 | Native-v2 entrypoint, model, limits, constructors, and minimal exports replace compatibility-shaped scaffolding |
+| GP4-S07 — Complete v2 semantics | `DONE` | S06 | Full field/type/merge/numeric/byte matrix passes with stable valid-v2 identities |
+| GP4-S08 — Harden persistence | `DONE` | S07 | Publication, traversal, leases, cleanup, and mandatory-reconciler restore pass transaction and failure evidence |
+| GP4-S09 — Integrate and clean up | `DONE` | S08 | All consumers use current APIs; orphaned compatibility code, contracts, fixtures, guides, and fossil tests are absent |
+| GP4-S10 — Final verification and handoff | `DONE` | S09 | Every affected owner and broad required gate passes; all gaps close and the tracker records terminal evidence |
+
+Every slice is independently reviewable. A slice changes from `BLOCKED` only
+after its predecessor records terminal evidence here. A failing gate is fixed
+structurally within the current slice; it is not waived, converted into a
+permanent exception, or deferred behind a compatibility shim.
+
+### 11.8 Slice implementation and checkpoints
+
+#### GP4-S01 — Adopt owner decisions
+
+- Draft and adopt the Graph, Network Flow, Recovery, Extensions, Core, and
+  traceability changes described in section 11.5.
+- Adopt the module-boundary ADR without assigning Graph Projection a new domain
+  context or public transport surface.
+- Reconcile all owner references to v1 declarations, mixed restore, historical
+  dispatch, minimum state 1, contract major 4, and the former package topology.
+- Run Markdown lint and owner/reference consistency checks. No runtime or
+  machine projection changes belong in this slice.
+
+##### GP4-S01 checkpoint — DONE (2026-08-29)
+
+Owner adoption is complete. Graph Projection is adopted at 2.2.0 with the
+native-v2 semantic matrix, pure-root/restore-subpackage boundary, single
+`ProjectV2` entrypoint, one semantic limit registry, and current-only mandatory-
+reconciliation Recovery v4. Network Flow is adopted at 5.0.0, contract major
+5, state 4, minimum migratable state 3, semantic-query v2 only, graph-resource
+v3, and a forward-only rollout. Extensions 0.10.0 now separates executable
+migration definitions from inert committed-ledger verification facts. Core 00
+REQ-00-076 adopts the Graph module-boundary decision, Core 01 selects only the
+v4 participant, Core 04 AC-568 owns terminal evidence, and Appendix F traces
+the new owner boundary. `docs/domain.md` was inspected and requires no edit:
+its saved graph, projection result, materialization job, Reporting diagram, and
+workbook projection vocabulary already matches the adopted state.
+
+The required S01 correction is adopted explicitly. Valid state-3 Network Flow
+installations may have no historical ledger or the exact complete 1→2 and 2→3
+ledger. Those transition identities and digests remain only in
+`MigrationLedgerDefinition` projections used to authenticate stored history;
+their former apply and validator algorithms are not packaged or executable.
+State 1/2 remains unsupported, and only 3→4 can execute.
+
+Files changed in this checkpoint are
+`docs/graph_projection_nlspec.md`,
+`docs/network-flow-activity-nlspec.md`,
+`docs/extension-subsystem-nlspec.md`,
+`docs/decisions/graphprojection-module-boundary.md`, Core 00, Core 01, Core 04,
+Appendix F, Appendix I, and this tracker. The active contract paths in §11.2
+were corrected to `contracts/graph-projection` and `contracts/network-flow`.
+No product code, authored machine contract, generated artifact, SQL, migration,
+database shape, public route, Graph protocol/result identity, Reporting
+reference, or domain vocabulary changed in S01.
+
+Gap disposition at this checkpoint: GP4-G01 through GP4-G12 are owner-adopted
+and remain implementation-open for S02 through S09. S01 closes the decision
+ambiguity for every gap; it does not claim machine projection or runtime
+closure. Public compatibility impact is the adopted Network Flow major-5 hard
+cut and graph-resource-v3 response family. Internal compatibility impact is the
+future package/API cut and mandatory restore dependency. State-4 commit will be
+the forward-only runtime rollback boundary; S01 itself is documentation-only
+and can be reverted without data impact.
+
+Validation passed:
+
+- uniqueness searches found exactly one `REQ-00-076`, `AC-568`, and
+  `EXT-REQ-237`, with `EXT-AC-160` linked from the owner and acceptance table;
+- reviewed current-owner searches found no v3 Graph Recovery promise, Graph
+  2.1.0 current claim, Network Flow `contract_major=4`, or
+  `network_flow_activity@4` outside frozen earlier tracker history;
+- `git diff --check` and `git diff --cached --check` passed; and
+- `make lint-markdown` passed at
+  `.cartulary/test-results/20260829T223104Z-p2805174`, superseding the
+  pre-checkpoint pass at
+  `.cartulary/test-results/20260829T222915Z-p2803661`.
+
+No failure occurred. Residual risk is deliberate sequencing risk: authored
+machine projections and runtime still encode the prior contracts until S02 and
+later slices. S02 is now `READY`; all later slices remain `BLOCKED`.
+
+#### GP4-S02 — Project contracts
+
+- Update authored Graph, Network Flow, Recovery, Extensions, verification, and
+  generator inputs; regenerate generated roots instead of hand-editing them.
+- Add graph-resource v3 schemas only for wire shapes affected by removal of the
+  query union. Preserve unchanged schema IDs and exact route identifiers.
+- Make Recovery v4 the sole current Graph generation and delete authored v2/v3
+  compatibility inputs only after generator references have moved.
+- Update contract indices, fixtures, digest registries, schema allowlists,
+  verification rows, and generated clients atomically. Generation, drift,
+  generated-artifact policy, and JSON-shape checks must all pass.
+
+##### GP4-S02 checkpoint — DONE (2026-08-29)
+
+The adopted owner decisions are now executable machine facts. Graph Projection
+projects owner version 2.2.0 and one authored semantic registry containing the
+closed twelve-type merge matrix, signed-int64/finite-number/UTF-8 boundaries,
+semantic and traversal ceilings, and cancellation cadence. The former duplicate
+index limits are gone. Network Flow projects contract major 5 from
+`schemas.v3.json`, retains semantic-query v2 and unchanged request schemas where
+their shape did not change, advances every saved-view-bearing response to v3,
+and generates only the major-5 browser entrypoint. Route paths and identifiers
+are unchanged.
+
+Extensions now projects exactly one executable Network Flow migration, 3→4,
+and a distinct `migration_ledger_definitions` collection containing inert 1→2,
+2→3, and 3→4 identity/from/to/digest facts. The old apply and validation
+algorithms are absent from implementation bindings and dependency imports.
+The generated state registry says current state 4 and minimum migratable state
+3. Recovery projects one capture-current generation,
+`recovery.current.workbook_owned.graph_v4`, with only v4 source registry,
+implementation binding, rebuild result, journal payload, and semantic-query-v2
+facts. Authored Graph v2/v3 bindings, registries, results, catalogs, journal
+fixtures, generator inputs, and generated constants were removed. The current
+catalog's four Graph rebuild rows now select
+`graphprojection.restore_rebuild.v4`.
+
+Authored files changed in this slice comprise the Graph, Network Flow,
+Extensions, Imports, Protocol TypeScript, and Recovery contract families;
+their schemas and fixtures; `tools/contractgen` Extensions/Recovery generation
+and validation; JSON-shape and schema-attachment inputs; the two focused
+contract-projection tests and their Network Flow test-family selector; and the
+minimum current-only restore contract consumers required for those projection
+tests to compile. `make generate` updated the declared generated Go,
+TypeScript, extension, import-target, task-surface, and topology outputs. No
+generated root was hand-edited.
+
+The minimum consumer refresh removes production use of historical generated
+Graph bindings from the Graph contract, Recovery compatibility port,
+Recovery runner dispatch, and recovery assembly. The full Recovery selection
+and pre-mutation behavior remains S04 work. A pre-S04 mixed-generation test is
+temporarily compile-isolated with test-only aliases; those aliases and the
+obsolete test are explicitly scheduled for deletion in S04 and are not
+production registrations, generated facts, or callable product compatibility.
+
+Gap disposition at this checkpoint: GP4-G01, G02, G06, G07, G08, G11, and G12
+have their required machine-contract direction projected but remain open until
+their runtime and exhaustive evidence slices. GP4-G03 through G05 and G09/G10
+remain implementation-open. No gap is claimed closed from contract generation
+alone.
+
+Compatibility impact is intentional and breaking: current Network Flow is
+major 5, saved-view-bearing resources are v3, and Graph Recovery artifacts are
+v4 only. Route paths, Graph Projection v2/result v2 identities, database
+shapes, migrations 00032–00034, Reporting references, and unrelated Recovery
+schema history are unchanged. S02 writes no database state, so its rollback
+boundary is source/build artifact rollback; the forward-only operational
+boundary begins only after S03 commits state 4.
+
+Terminal validation passed:
+
+- `make format` at
+  `.cartulary/test-results/20260829T225839Z-p2861598`;
+- `make generate` at
+  `.cartulary/test-results/20260829T225906Z-p2866225`;
+- `make generate-drift` at
+  `.cartulary/test-results/20260829T225923Z-p2869119`;
+- `make generated-artifact-policy-check` at
+  `.cartulary/test-results/20260829T225923Z-p2869148`;
+- `make json-shape-check` at
+  `.cartulary/test-results/20260829T225923Z-p2869155`;
+- `make toolchain-drift` at
+  `.cartulary/test-results/20260829T225923Z-p2869180`;
+- `make frontend-import-boundary-check` at
+  `.cartulary/test-results/20260829T225923Z-p2869482`;
+- the focused Graph contract row at
+  `.cartulary/test-results/20260829T225937Z-p2873679`; and
+- the focused Network Flow contract row at
+  `.cartulary/test-results/20260829T225937Z-p2873685`; and
+- `git diff --check`, `git diff --cached --check`, and
+  `make lint-markdown` at
+  `.cartulary/test-results/20260829T230036Z-p2874571`.
+
+Related failures were fixed rather than waived. Initial `make generate` runs
+at `20260829T224747Z-p2815956`, `20260829T224848Z-p2819403`, and
+`20260829T224911Z-p2821081` exposed, respectively, schema-source ordering, an
+old schema path, and an old owner-contract reference. Initial JSON-shape runs
+at `20260829T225049Z-p2828869` and `20260829T225220Z-p2836416` exposed a stale
+major assertion and the still-current contributor-continuation schema omitted
+from the public registry. Initial focused rows at
+`20260829T225341Z-p2843870`, `20260829T225710Z-p2850019`,
+`20260829T225743Z-p2855448`, and `20260829T225809Z-p2860202` exposed stale
+current-consumer references to deleted generated historical constants. Every
+failure was change-related and is superseded by the passes above.
+
+Residual risk is confined to the planned sequencing boundary: the runtime has
+not yet implemented state 3→4, removed semantic-query-v1 behavior, or completed
+the S04 pre-mutation old-artifact rejection proof. S03 is now `READY`; S04 and
+later slices remain `BLOCKED`.
+
+#### GP4-S03 — Retire Network Flow v1
+
+- Implement the exact state 3→4 algorithm in section 11.5 and set the profile's
+  minimum migratable version to 3.
+- Remove semantic-query v1 decode, normalization, digest, list/get, refresh,
+  mutation, import/export, backup, frontend, and test-helper branches.
+- Move graph-view ID derivation into Network Flow and retain exact default and
+  temporal identity fixtures.
+- Prove v2 rows advance without byte changes and a single v1 row blocks the
+  entire transition without deletion, rewrite, or version advance.
+
+##### GP4-S03 checkpoint — DONE (2026-08-29)
+
+Network Flow now has one executable state step,
+`network_flow_activity.migrate_state_3_to_4_v1`, and one current validator,
+`network_flow_activity.validate_state_v4`. Fresh profiles initialize directly
+at state 4. Stored states 1 and 2 fail preflight before an apply or validator
+can execute. State-3 profiles admit both owner-valid history shapes: no prior
+ledger, or the exact inert 1→2 and 2→3 ledger prefix. Generic Extensions state
+coordination authenticates those stored rows through
+`MigrationLedgerDefinition` while executable lookup remains limited to the
+3→4 `MigrationDefinition`; a ledger fact cannot become runnable by presence in
+the history registry.
+
+The 3→4 step validates every active declaration through Network Flow's current
+semantic-query-v2 validator before state metadata or ledger mutation. Valid v2
+declaration bytes and digests are not rewritten. Any semantic-query-v1
+declaration rejects the whole transaction with declaration bytes, declaration
+digests, result bindings, migration ledger, and state metadata unchanged. The
+backend parser, response composer, temporal/digest selection, restore-source
+enumerator, public resource schemas, browser adapter, generated-client
+consumers, and active test helpers now accept or emit only semantic-query v2
+and graph-resource v3. The browser admits contract major 5 only.
+
+Graph-view identity derivation moved out of the Graph adapter capability and
+into a private Network Flow helper that preserves the existing length-framed
+SHA-256 algorithm. Existing default, temporal, projection-result, and semantic
+digest fixtures remain exact. The Graph root's obsolete exported identity
+helper is intentionally left for S06, where all dead engine exports are
+removed together; it no longer has a production Network Flow caller.
+
+Files changed in this checkpoint are
+`internal/modules/extensions/catalogs.go`,
+`internal/modules/extensions/state.go`,
+`internal/modules/extensions/state_service_test.go`,
+`internal/app/server/runtime_assembly.go`, the Network Flow graph runtime,
+response, temporal, restore-source, extension-state, route, adapter, and
+contract-projection files under `internal/modules/networkflow`,
+`apps/web/src/services/networkFlowContractAdapter.ts` and its tests,
+`apps/web/src/extensions`, `apps/web/src/testing`, the Network Flow browser and
+E2E fixtures, `packages/protocol-ts/src/entrypoints/network-flow.ts`,
+`packages/protocol-ts/src/index.test.ts`, the Extensions, Network Flow, and web
+Network Flow test-family catalogs, and generated projections refreshed by
+`make generate`. Recovery state-catalog, v4 binding/result/journal, generation,
+and backup-integrity fixtures were corrected together after the full owner
+slice exposed a stale S02 v3 digest beneath the already-v4 table algorithms;
+the generated Recovery projections were regenerated from those authored
+facts.
+
+Gap disposition at this checkpoint: GP4-G01 is runtime-closed except for final
+cross-owner cleanup evidence in S09/S10. GP4-G05 closes Network Flow's v1 union
+and Graph-view-ID adapter coupling, while its native-v2 Graph model remains S06
+work. GP4-G11 gains state-transition, byte-preservation, identity, backend,
+service-backed, and browser unit evidence; the exhaustive Graph semantic rows
+remain S07. GP4-G02's machine facts are v4-only, but old-artifact selection and
+test-fossil removal remain S04. All other gaps retain their declared later
+slice.
+
+Compatibility impact is the adopted hard cut: runtime and generated clients
+accept Network Flow contract major 5, graph-resource v3, and semantic-query v2
+only. No translator, dual reader/writer, fallback, flag, or inventory gate was
+added. Valid state-3/v2 data advances without declaration or identity changes;
+v1 data remains stored and blocks availability pending separate owner-approved
+remediation. Routes, Graph v2 result bytes and IDs, Reporting references,
+tables, migrations 00032–00034, and migration hashes are unchanged. State-4
+commit is the forward-only rollback boundary; after it commits, a major-4
+binary is not a supported downgrade.
+
+Terminal validation passed:
+
+- `make format` at
+  `.cartulary/test-results/20260829T233941Z-p3429765`;
+- `make generate` at
+  `.cartulary/test-results/20260829T233948Z-p3433888`;
+- `make test-slice OWNER=module.extensions` at
+  `.cartulary/test-results/20260829T232041Z-p3108153`;
+- `make test-slice OWNER=module.networkflow` at
+  `.cartulary/test-results/20260829T233102Z-p3225605` (34/34);
+- `make service-backed-test-slice OWNER=module.extensions` at
+  `.cartulary/test-results/20260829T233316Z-p3286143` (22/22), plus the final
+  state-v4 row at
+  `.cartulary/test-results/20260829T234001Z-p3436756` (3/3);
+- `make service-backed-test-slice OWNER=module.networkflow` at
+  `.cartulary/test-results/20260829T233407Z-p3327993` (28/28);
+- the focused browser major-5 row at
+  `.cartulary/test-results/20260829T233835Z-p3428119` (2/2);
+- `make frontend-typecheck` at
+  `.cartulary/test-results/20260829T231827Z-p3073002`;
+- `make frontend-unit` at
+  `.cartulary/test-results/20260829T234001Z-p3436830` (390/390); and
+- `make frontend-import-boundary-check` at
+  `.cartulary/test-results/20260829T233618Z-p3385766`; and
+- `git diff --check`, `git diff --cached --check`, and
+  `make lint-markdown` at
+  `.cartulary/test-results/20260829T234346Z-p3491309`.
+
+Related failures were fixed rather than waived. The first full Network Flow
+slice at `20260829T232130Z-p3150365` exposed one stale contract assertion and
+the S02 Recovery catalog/binding digest mismatch. Generate failures at
+`20260829T232601Z-p3209611`, `20260829T232901Z-p3212160`,
+`20260829T233001Z-p3215309`, and `20260829T233022Z-p3216950` traced the complete
+catalog, binding, result, generation, and backup-integrity digest cascade; the
+pass at `20260829T233948Z-p3433888` supersedes them. The frontend-unit run at
+`20260829T233618Z-p3385759` found the one remaining major-4 browser allowlist;
+the 390/390 pass supersedes it. An ASCII-order preflight failure after adding
+the state-1/2 test-family selector was change-related and corrected before the
+terminal runs.
+
+Residual risk is the planned Recovery execution boundary: test-only obsolete
+Graph restore generations and old-artifact cases still exist until S04 proves
+pre-mutation rejection and deletes them. No active production v1 Network Flow
+path remains. S04 is now `READY`; S05 and later slices remain `BLOCKED`.
+
+#### GP4-S04 — Cut Recovery to v4
+
+- Compose only current Network Flow v2 source registration and v4 Graph
+  binding; remove historical v2 and pre-workbook v3 constructors and catalogs.
+- Delete old Graph codec registrations, generated artifacts, dispatcher
+  branches, frozen-selection aliases, and generator validation.
+- Validate selection and binding before the participant transaction mutates a
+  target. Unsupported old artifacts return the adopted closed error.
+- Prove exact v4 rebuild, rollback on failure, mandatory job/lease
+  reconciliation, and unchanged target state for old bindings.
+
+##### GP4-S04 checkpoint — DONE (2026-08-29)
+
+Recovery now loads exactly one generated recovery generation,
+`recovery.current.workbook_owned.graph_v4`. The generation registry requires
+one capture-current entry and rejects empty, multiple, non-current, malformed,
+or mixed Graph bindings. Graph source and implementation proofs are classified
+only by their current artifact kinds and must then match the selected v4
+schema IDs, canonical digests, and bytes. The former v2/v3 schema constants,
+historical generation indexing, fallback dispatch tests, codecs, test-only
+Graph aliases, and v2 contract-generator validator are removed.
+
+The Restore runner now resolves and validates the complete verification
+evidence, including the selected Graph registry and implementation binding,
+before recording or entering PostgreSQL/object restore mutation. The vNext
+restore service independently repeats artifact admission before its atomic
+target callback. Tests inject both v2 and v3 Graph schema bindings and prove
+the closed `ErrVNextBackup` result, zero old-artifact body reads at direct
+selection, and zero target atomic-mutation calls. At the Graph participant
+boundary, unknown binding digests return
+`unsupported_graph_restore_generation` before source enumeration,
+reconciliation, or publication.
+
+The v4 positive path remains deterministic and transaction-scoped: the exact
+current registry admits only Network Flow semantic-query v2, the exact binding
+selects `graphprojection.restore_rebuild.v4`, failures retain the existing
+rollback behavior, and successful service-backed reconstruction preserves its
+ready result, reconciliation counts, and postcondition. No compatibility
+translator or fallback was introduced for old artifacts.
+
+Files changed in this checkpoint are
+`internal/modules/recovery/generation.go` and its tests,
+`internal/modules/recovery/vnext_codec.go`,
+`internal/modules/recovery/vnext_codec_test.go`,
+`internal/modules/recovery/vnext_graph_restore_artifacts_test.go`,
+`internal/modules/recovery/restore.go`,
+`internal/modules/graphprojection/restore_service.go` and its tests,
+`tools/contractgen/recovery_validation.go`, the Graph and Recovery test-family
+manifests, `tools/backend_module_boundaries.json`, generated task/topology
+projections, and this tracker. Authored Recovery v4 schemas and fixtures did
+not change in S04.
+
+Gap disposition at this checkpoint: GP4-G02 is closed for active contracts,
+generation selection, binding admission, runtime dispatch, rollback, and
+pre-mutation old-artifact rejection; S09/S10 retain only final residue and
+broad verification. GP4-G10 has current reconciliation/rollback evidence but
+remains open until S08 makes the dependency unconstructably mandatory and
+completes injected-phase/postcondition coverage. GP4-G12 removes the obsolete
+historical-generation guard and dispatch tests; positive package/API
+allowlists remain S05/S06. Other gaps retain their declared later slice.
+
+Compatibility impact is the intentional Recovery hard cut: Graph v2 and v3
+backup bindings are unsupported, are not read through a translator, and fail
+before target mutation. Unrelated owner codecs and historical schema identities
+inside the one current Recovery generation are unchanged. Current v4 backup
+bytes, Graph v2 result identities, Network Flow rows, Reporting references,
+routes, database shapes, migrations, and migration hashes are unchanged. S04
+writes no deployment state; rollback is a source/binary rollback before a v4
+restore is attempted. An old artifact requires separate owner-authorized
+remediation, not downgrade dispatch.
+
+Terminal validation passed:
+
+- `make format` at
+  `.cartulary/test-results/20260829T235527Z-p3587453`;
+- `make generate` at
+  `.cartulary/test-results/20260829T235531Z-p3591529`;
+- `make generate-drift` at
+  `.cartulary/test-results/20260829T235955Z-p3722280`;
+- `make json-shape-check` at
+  `.cartulary/test-results/20260829T235955Z-p3722290`;
+- `make test-slice OWNER=module.graphprojection` at
+  `.cartulary/test-results/20260829T235553Z-p3595612` (8/8);
+- `make service-backed-test-slice OWNER=module.graphprojection` at
+  `.cartulary/test-results/20260829T235649Z-p3613175` (6/6);
+- `make test-slice OWNER=module.recovery` at
+  `.cartulary/test-results/20260829T235229Z-p3512354` (24/24), with the final
+  current-only artifact/target-mutation row at
+  `.cartulary/test-results/20260829T235543Z-p3594349`;
+- `make service-backed-test-slice OWNER=module.recovery` at
+  `.cartulary/test-results/20260829T235744Z-p3630326` (19/19); and
+- `make test-slice OWNER=app.operator` at
+  `.cartulary/test-results/20260829T235905Z-p3684628` (12/12); and
+- `git diff --check`, `git diff --cached --check`, and
+  `make lint-markdown` at
+  `.cartulary/test-results/20260830T000110Z-p3726113`.
+
+Related failures were fixed or classified with exact evidence. The first
+focused Graph row at `20260829T235128Z-p3503255` expected the obsolete generic
+binding-unavailable code; it now expects the adopted unsupported-generation
+code and is superseded by the 8/8 pass. The parallel Graph/Recovery invocation
+at `20260829T235229Z-p3512353` lost a shared
+`tmp/test-service-images/warm.stamp.tmp` rename while Recovery passed; this was
+a harness concurrency race unrelated to product behavior, and the standalone
+Graph rerun passed 8/8 at `20260829T235553Z-p3595612`.
+
+Residual risk is now package ownership and API shape rather than Recovery
+compatibility: restore behavior still resides in the Graph root, Recovery
+aliases that root's restore types, and the service retains options scheduled
+for removal. S05 is now `READY`; S06 and later slices remain `BLOCKED`.
+
+#### GP4-S05 — Correct package ownership
+
+- Move restore service, restore contract, recovery-state contribution, and
+  their tests into `internal/modules/graphprojection/restore` without changing
+  v4 wire bytes.
+- Update PostgreSQL restore, Recovery compatibility ports, Network Flow source
+  registration, revision assembly, and application recovery assembly.
+- Enforce the pure root and restore topology with positive import/export tests.
+- Remove transitional aliases within this slice; do not retain both old and new
+  package paths.
+
+##### GP4-S05 checkpoint — DONE (2026-08-29)
+
+Restore ownership now resides exclusively in
+`internal/modules/graphprojection/restore`. Its contract, service,
+recovery-state contribution, and tests moved atomically; the former root files
+were deleted rather than retained as forwarding aliases. The Graph root now
+contains deterministic projection behavior only. Its positive boundary test
+admits only standard-library imports or a future owner-private
+`graphprojection/internal` path, and its package-topology allowlist names the
+three owned subpackages. The restore package has an exact positive allowlist
+for its production files and non-standard dependencies, plus v4-only
+recovery-state contribution evidence.
+
+PostgreSQL restore realization, Network Flow source registration, Recovery
+selection/orchestration, recovery-state catalog assembly, and application
+recovery assembly now import the Graph-owned restore package. Recovery retains
+exactly one minimal cross-owner alias,
+`restorecontract.GraphProjectionParticipant`; registry, request, result,
+binding, source-state, error, algorithm, and table facts are no longer
+re-exported through Recovery. Callers that need those facts depend on their
+Graph owner directly. Application server/operator composition builds through
+the single new path, and no production or test reference remains to the
+deleted root restore surface.
+
+Files changed in this checkpoint are the moved files under
+`internal/modules/graphprojection/restore`, deleted root restore files,
+`internal/modules/graphprojection/boundary_guard_test.go`, PostgreSQL restore,
+Network Flow restore source and integration evidence, Recovery orchestration
+and its minimal compatibility port, recovery application evidence,
+`internal/app/recoveryassembly`, the Graph test-family manifest, and this
+tracker. Generated product contracts and v4 wire fixtures did not change in
+S05; the generated task surface was refreshed only because verification
+routing now points at the new package.
+
+Gap disposition at this checkpoint: GP4-G03 is closed for production
+ownership, imports, package paths, positive boundaries, assembly, and removal
+of transitional aliases. GP4-G12 now positively enforces the root package
+topology and restore dependency surface; the remaining export/constructor
+allowlists belong to S06. GP4-G04, GP4-G05, GP4-G08, and GP4-G09 remain open
+for the engine/API cleanup in S06. Other gaps retain their declared later
+slice.
+
+Compatibility impact is internal package-path churn only. Recovery v4 schema
+bytes, registry and binding digests, result identities, Network Flow default
+and temporal identities, routes, persisted rows, SQL, migrations, and database
+shapes are unchanged. The move writes no deployment state and can be rolled
+back as one source/binary change before S06; no old package alias is available
+for an incremental internal rollout.
+
+Terminal validation passed:
+
+- focused pure-root and restore boundary rows at
+  `.cartulary/test-results/20260830T000817Z-p3737994` and
+  `.cartulary/test-results/20260830T000854Z-p3743116`;
+- `make format` at
+  `.cartulary/test-results/20260830T001430Z-p3808747`;
+- `make generate` at
+  `.cartulary/test-results/20260830T001055Z-p3748589`;
+- `make generate-drift` at
+  `.cartulary/test-results/20260830T002508Z-p4100375`;
+- `make test-slice OWNER=module.graphprojection` at
+  `.cartulary/test-results/20260830T001622Z-p3868294` (9/9);
+- `make test-slice OWNER=module.recovery` at
+  `.cartulary/test-results/20260830T001721Z-p3885847` (24/24);
+- `make test-slice OWNER=module.networkflow` at
+  `.cartulary/test-results/20260830T002222Z-p4016669` (34/34); and
+- `make build-server` and `make build-operator` at
+  `.cartulary/test-results/20260830T002430Z-p4075047` and
+  `.cartulary/test-results/20260830T002430Z-p4075053`.
+
+Related failures were fixed without restoring aliases. The first restore row
+failed on three private root test helpers after the move and is superseded by
+`20260830T000854Z-p3743116`. Recovery runs
+`20260830T001108Z-p3751379` and `20260830T001439Z-p3812920` found stale
+assembly test calls and an incorrectly inferred new API name; the exact catalog
+row passed at `20260830T001612Z-p3867832` and the full owner passed 24/24.
+Network Flow run `20260830T001904Z-p3940579` found the same stale test alias
+surface; the focused restore lifecycle passed at
+`20260830T002127Z-p3999241` and the full owner then passed 34/34. All failures
+were change-related compile failures and are superseded by the listed passing
+runs.
+
+Residual risk is now API shape, not ownership: the new restore service still
+uses the stateless `EngineV2` facade and an options struct, the root exports
+compatibility-shaped v2 structures and duplicated limits, and constructors
+still permit seams scheduled for removal. S06 is now `READY`; S07 and later
+slices remain `BLOCKED`.
+
+#### GP4-S06 — Remove dead engine seams
+
+- Replace all callers with `ProjectV2`, remove `EngineV2`, and make the internal
+  request/config/filter model native v2.
+- Remove duplicate mappings, adapters, stale limits, unused provider
+  interfaces, clock and eligibility hooks, optional constructors, and exports
+  without production consumers.
+- Centralize exact owner limits and replace duplicated output-ceiling literals.
+- Run compile, boundary, Graph, Network Flow, Recovery, and application assembly
+  slices before deleting the last compatibility symbol.
+
+##### GP4-S06 checkpoint — DONE (2026-08-29)
+
+`ProjectV2(ctx, invocation, semanticInput)` is now the sole exported root
+function and engine entrypoint. `EngineV2`, `NewEngineV2`, the method facade,
+and exported result identity and graph-view identity helpers are gone. Network
+Flow and restore call the pure function directly; Network Flow retains the
+private graph-view identity derivation it already owned. A positive root
+function/method allowlist now fails on an extra engine entrypoint or missing
+required result capability.
+
+The private admission model is current-v2-shaped. Trusted `graph_view_id` is no
+longer injected into semantic configuration, the request has one relationship-
+mapping collection, filter predicates use `operator` without `op` conversion,
+and the redundant per-request projection-schema member and v1 identifier
+branching are gone. Closed-schema tests reject `graph_view_key` and `op`, while
+a two-invocation test proves trusted values do not affect normalized
+configuration or source digests and still participate in result identity.
+Existing empty, reordered, maximum-bound, Network Flow default, and temporal
+identities remain exact.
+
+The Graph runtime now has one private semantic-limit registry. Stale cursor and
+list limits, widened 500,000/1,000,000 output ceilings, duplicated declaration,
+label, and property-key ceilings, and the exported `ResourceLimits` accessor
+are gone. Contract-projection evidence compares every owner-projected semantic
+limit to its runtime member and checks the projected label/string byte limits.
+Effective projected output ceilings are consistently 100,000 vertices and
+250,000 edges, and cancellation cadence comes from the same registry.
+
+Compile-assertion-only publication/read/lease/maintenance interfaces were
+removed. Restore service options, clock/engine/supported-generation seams,
+candidate-validity hooks, historical-shaped registry/binding maps, and the
+unconsumed generic registry constructor were removed. Restore construction is
+current-only. `postgresrestore.New` now requires both a database and derived-
+state reconciler, rejects either nil dependency, and `ReplaceAll` also fails
+closed if an invalid in-package value bypasses construction. The previous
+optional constructor and conditional reconciliation branch no longer exist.
+Positive restore API and constructor tests describe the supported surface.
+
+Files changed in this checkpoint are the Graph engine/input/type/object/
+validation/aggregation/limit/result-port sources and tests; Network Flow's
+Graph adapter; the Graph restore contract, service, boundary and semantic
+tests; PostgreSQL restore/result adapters and constructor tests; application
+recovery assembly; the Graph verification-family manifest and generated task
+surface; and this tracker. No owner contract, schema, fixture, generated client,
+SQL, migration, route, or persisted shape changed in S06.
+
+Gap disposition at this checkpoint: GP4-G04 and GP4-G05 are closed. GP4-G08
+is closed for runtime registry structure, exact machine-projection equality,
+stale-limit removal, output ceilings, and cancellation cadence; S07 retains
+the boundary behavior matrix. GP4-G09 is closed for the identified dead
+interfaces, options, hooks, generation seams, constructors, and mandatory
+constructor dependencies. GP4-G12 is closed for positive root/restore function
+and constructor boundaries; final residue review remains S09/S10. GP4-G10 now
+has an unconstructably mandatory reconciler but remains open until S08 proves
+every reconciliation phase, rollback, postcondition, and readiness invariant.
+Other gaps retain their declared later slice.
+
+Compatibility impact is an intentional atomic internal Go API break. All
+callers moved to `ProjectV2`, the current restore constructor, and the required
+reconciler in this slice. There is no compatibility facade. Graph protocol and
+Recovery v4 bytes, result/graph-view identities, current Network Flow behavior,
+Reporting references, routes, storage, migrations, and migration hashes are
+unchanged. S06 writes no deployment state; rollback requires one source/binary
+rollback before S07 and cannot mix old and new internal package APIs.
+
+Terminal validation passed:
+
+- `make format` at
+  `.cartulary/test-results/20260830T004846Z-p174171`;
+- `make generate` at
+  `.cartulary/test-results/20260830T004056Z-p4163371`;
+- `make generate-drift` at
+  `.cartulary/test-results/20260830T004850Z-p178270`;
+- `make test-slice OWNER=module.graphprojection` at
+  `.cartulary/test-results/20260830T004247Z-p4193519` (9/9);
+- `make test-slice OWNER=module.networkflow` at
+  `.cartulary/test-results/20260830T004354Z-p17208` (34/34);
+- `make test-slice OWNER=module.recovery` at
+  `.cartulary/test-results/20260830T004607Z-p76326` (24/24);
+- `make test-slice OWNER=module.reporting` at
+  `.cartulary/test-results/20260830T004736Z-p131525` (6/6); and
+- `make build-server` and `make build-operator` at
+  `.cartulary/test-results/20260830T004816Z-p148896` and
+  `.cartulary/test-results/20260830T004816Z-p148902`.
+
+Related failures were fixed structurally. Focused run
+`20260830T003256Z-p4121107` found one private constructor call after the dead
+export was removed and is superseded by `20260830T003315Z-p4121763`.
+Runs `20260830T003712Z-p4130870` and `20260830T004104Z-p4166121` found imports
+made unused by the native-v2 cleanup. Run `20260830T004127Z-p4174976` found an
+overstrict new test expectation that trusted context must change canonical
+semantic output; the adopted invariant requires only stable semantic digests
+and distinct result identity. The corrected full Graph run passed 9/9. All
+these failures were change-related and are superseded by the listed terminal
+evidence.
+
+Residual risk is semantic completeness rather than API structure: the runtime
+still has the former safe-integer ceiling, incomplete projected-type and merge
+behavior, and remaining rune-count paths. S07 is now `READY`; S08 and later
+slices remain `BLOCKED`.
+
+#### GP4-S07 — Complete v2 semantics
+
+- Implement the closed field, type, merge, numeric, byte, null/default, and
+  wildcard matrices from section 11.6.
+- Generate or table-drive exhaustive cases from authored contract facts; tests
+  must not read Markdown.
+- Add signed-int64 limits, numeric overflow/non-finite, multibyte boundary,
+  invalid pairing, reorder, cancellation, and no-partial-result evidence.
+- Re-run exact existing Network Flow default and temporal identity fixtures;
+  any valid-v2 identity change blocks the slice unless an owner decision is
+  reopened.
+
+##### GP4-S07 checkpoint — DONE (2026-08-29)
+
+The Graph runtime now implements the owner-projected twelve-type matrix
+exactly. Boolean, integer, number, string, timestamp, identifier, and all six
+array types admit only their declared merge behaviors. `single_value` uses
+canonical equality; `first` and `last` consume canonical contributor order;
+scalar extrema use exact numeric, timestamp, or canonical text ordering;
+integer sum detects signed-int64 overflow; number sum rejects non-finite
+results; integer `count` counts admitted values; and array `set` and
+`ordered_list` implement their distinct flattening, ordering, and duplicate
+rules. Invalid pairs are fatal before derivation, and merge conflicts return no
+partial projection result.
+
+Numeric and text admission now uses one path throughout schema admission,
+defaults, filters, direct mappings, aggregation, canonicalization, and
+execution. Integer lexemes admit the full signed-int64 range and reject either
+overflow; number lexemes and sums must remain finite. Identifiers, labels,
+strings, property keys, and field paths use UTF-8 byte ceilings from the
+private runtime registry, invalid UTF-8 is rejected before parsing, and flat
+array cardinality is an owner-projected semantic limit. Property and metadata
+object keys are validated consistently rather than only when a later mapping
+references them.
+
+The authored semantic registry now contains the array-item ceiling in addition
+to the complete field/type/merge, text, traversal, output, validation, and
+cancellation facts. A generated non-empty semantic golden projects direct and
+aggregated vertices and fixes the result ID, all three semantic/output digests,
+canonical contributor ordering, integer sum, first-value, and array-set output.
+The new positive semantic verification row reads generated contract artifacts,
+not Markdown, and exhaustively proves every valid and invalid matrix pair,
+empty/single/multiple inputs, repeated values, overflow, non-finite results,
+flat arrays, null/default/omit behavior, wildcard application, source reorder,
+multibyte boundaries, invalid UTF-8, and absence of partial output. Existing
+cancellation evidence remains routed in the pure-engine row.
+
+Files changed in this checkpoint are the authored Graph semantic registry,
+contract index, and non-empty golden fixture; generated Graph contract
+artifacts; Graph aggregation, engine admission, input, limit, projection,
+semantic, validation, contract-projection, and engine/semantic tests; the Graph
+verification-family manifest and generated task surface; and this tracker. No
+Network Flow resource bytes, public route, Recovery v4 contract, Reporting
+reference, SQL, DDL, migration, migration hash, persistence transaction, or
+deployment state changed in S07.
+
+Gap disposition at this checkpoint: GP4-G06 and GP4-G07 are closed. GP4-G08
+is closed for the owner-projected semantic and text registries, runtime
+equality, array ceiling, cancellation cadence, and removal of duplicate engine
+admission literals. GP4-G11 is closed for deterministic non-empty golden,
+matrix, identity, boundary, cancellation, and failure evidence routed to
+`module.graphprojection`; final harness ownership review remains S10. The
+semantic portions of GP4-G05 are closed with native-v2 values from admission
+through output. GP4-G10 remains open for S08 transaction-phase reconciliation
+evidence; all other residual work retains its declared slice.
+
+Compatibility impact is intentionally asymmetric. Previously rejected
+signed-int64 values are now owner-valid. Multibyte text that exceeded the
+adopted byte ceiling while passing a rune-count check is now rejected, as are
+undocumented type/merge combinations. Currently valid Network Flow default and
+temporal graph-view IDs, projection result IDs, and digests remain exact. No
+translator, legacy token synonym, compatibility switch, data rewrite, or
+rollback migration was introduced. S07 writes no persisted state and may be
+rolled back only with the matching source/binary set before a later state-4
+deployment writes owner-current data.
+
+Terminal validation passed:
+
+- `make format` at
+  `.cartulary/test-results/20260830T010427Z-p199766`;
+- `make generate` at
+  `.cartulary/test-results/20260830T010431Z-p203866`;
+- the new semantic row at
+  `.cartulary/test-results/20260830T010446Z-p206696`;
+- `make test-slice OWNER=module.graphprojection` at
+  `.cartulary/test-results/20260830T010500Z-p207212` (9/9);
+- the Network Flow default and temporal identity rows at
+  `.cartulary/test-results/20260830T010617Z-p225753`;
+- `make generate-drift` at
+  `.cartulary/test-results/20260830T010748Z-p227731`;
+- `make generated-artifact-policy-check` at
+  `.cartulary/test-results/20260830T010759Z-p230738`; and
+- `make json-shape-check` at
+  `.cartulary/test-results/20260830T010803Z-p231207`; and
+- tracker-scoped `git diff --check`, `git diff --cached --check`, and
+  `make lint-markdown` at
+  `.cartulary/test-results/20260830T010908Z-p232066`.
+
+The initial semantic-row run
+`.cartulary/test-results/20260830T010307Z-p198544` failed only because the new
+golden intentionally contained `PENDING` identity placeholders. The observed
+identities were copied into the authored fixture, regenerated, and superseded
+by the passing semantic and full-owner runs above. This was a change-related
+test-fixture completion failure, not an environment failure or product waiver.
+
+Residual risk is now concentrated in persistence: required reconciliation is
+constructable only with both dependencies, but S08 must still prove every
+clear, rebuild, publication, job, lease, postcondition, readiness, collision,
+traversal, cleanup, retry, lock-order, and multi-instance invariant. S08 is now
+`READY`; S09 and S10 remain `BLOCKED`.
+
+#### GP4-S08 — Harden persistence
+
+- Make reconciliation a required restore dependency and preserve atomic clear,
+  rebuild, publish, job, lease, and readiness postconditions.
+- Retain and test result publication collision handling, exact read, bounded
+  traversal, lease acquisition/release, cleanup ordering, batching,
+  cancellation, and retry behavior.
+- Decompose the result store by capability if the review confirms it reduces
+  coupling, while preserving SQL, lock order, transaction scope, and public
+  behavior.
+- Prove no DDL or migration hash changed.
+
+##### GP4-S08 checkpoint — DONE (2026-08-29)
+
+Restore publication now fails with an exact invalid-result cause for malformed
+plans or invalid reconciliation counts instead of misclassifying them as
+cancellation. The required reconciler runs after immutable results are staged
+and before postcondition verification or commit. The writer verifies aggregate
+result, vertex, edge, and lease counts, reloads every exact binding, and compares
+the complete stored result, ordered vertex, and ordered edge bytes both inside
+the mutation transaction and again after commit. Only after the post-commit
+proof succeeds can the restore service publish `ready`.
+
+New phase-injection evidence proves rollback with byte-identical prior target
+state when clear, immutable publication, derived-state reconciliation,
+reconciliation count validation, or transaction postconditions fail. Separate
+tests prove that a commit failure is classified as indeterminate whether the
+write did or did not become visible, and that post-commit verification failure
+is also indeterminate. Invalid proof digests, rebuilt bindings, job counts, or
+lease counts cannot produce readiness. The assembled Network Flow lifecycle
+continues to prove in one transaction that Network Flow and Reporting
+nonterminal jobs become reclaimable, Reporting leases are recreated for exact
+rebuilt bindings, and the resulting Graph object identities remain unchanged.
+
+Result persistence evidence now covers idempotent byte-identical publication,
+identity collision rejection, rollback without partial child rows, exact read,
+binding mismatch, not-found behavior, bounded ordered vertex reads, outgoing,
+incoming, both-direction, zero-depth, kind-filtered, and one-over traversal,
+lease acquisition, renewal, release, expired-lease batching, owner-scoped
+cleanup, selected/leased-result preservation, cascade cleanup, cancellation,
+continuation, rollback, skip-locked multi-transaction behavior, and concurrent
+publication and lease-admission races. The result store remains one file: its
+capabilities are already separate concrete types with one shared validation
+and identity layer, so a mechanical file split would not reduce runtime
+coupling or transaction complexity.
+
+The executable semantic/traversal registry moved into Graph's Go-internal
+`semanticlimits` package. The root and PostgreSQL adapter now consume the same
+facts without adding a public root accessor, and public output constants alias
+the one private literal source. The positive root boundary admits exactly this
+private dependency and the topology test admits exactly this private package.
+Storage-maintenance tests compare the expired-lease batch and Network Flow
+sweep/cadence values with the generated Graph storage contract.
+
+Files changed in this checkpoint are Graph's private semantic-limit package,
+root limit aliases and positive boundaries, result port and PostgreSQL result
+adapter/tests, PostgreSQL restore writer/tests, restore service proof tests,
+Network Flow storage-contract projection test, the Graph verification-family
+manifest and generated task surface, and this tracker. No SQL, query, DDL,
+migration, migration hash, table/index shape, Recovery v4 artifact, Graph result
+identity algorithm, Network Flow route, Reporting reference, or browser
+resource changed in S08.
+
+Gap disposition at this checkpoint: GP4-G10 is closed. Reconciliation is
+mandatory at construction and execution, every precommit phase rolls back,
+every postcommit uncertainty is indeterminate, exact postconditions gate
+readiness, and the real source-owner jobs and Reporting leases are reconciled
+atomically. GP4-G08 is closed end to end for shared engine and traversal facts
+and contract-checked storage-maintenance bounds. The persistence portions of
+GP4-G02, GP4-G09, and GP4-G11 are closed with current-only publication,
+required dependencies, and routed transaction/race evidence. S09 retains only
+consumer cleanup, active-guide cleanup, generated/browser integration, and the
+reviewed historical search; S10 retains terminal verification and handoff.
+
+Compatibility impact is internal hardening only. Invalid internal plans now
+receive a more accurate cause, and restore never reports ready without an exact
+committed proof. Valid current v4 restores, Graph result bytes and identities,
+Network Flow selected bindings, Reporting leases, table shapes, lock order, and
+transaction boundaries are unchanged. S08 creates no migration or deploy-time
+state transition. Rollback requires the matching source/binary set; an
+indeterminate production commit must be resolved by the existing closed
+Recovery retry/evidence workflow rather than assumed successful or failed.
+
+Terminal validation passed:
+
+- `make task-guide ROLE=module-author OWNER=module.graphprojection` selected
+  the focused and service-backed Graph slices;
+- restore phase/publication evidence at
+  `.cartulary/test-results/20260830T011524Z-p240822` (3/3);
+- result, lease, traversal, and cleanup evidence at
+  `.cartulary/test-results/20260830T011807Z-p263807` (4/4);
+- Network Flow cleanup, race, and full saved-graph restore lifecycle evidence
+  at `.cartulary/test-results/20260830T011913Z-p281580` (5/5);
+- Reporting exact-result lease lifecycle evidence at
+  `.cartulary/test-results/20260830T012006Z-p299555` (3/3);
+- `make migration-drift` at
+  `.cartulary/test-results/20260830T012048Z-p316616` (5/5), with no authored
+  migration or query diff and migrations `00032`, `00033`, and `00034`
+  unchanged;
+- `make test-slice OWNER=module.graphprojection` at
+  `.cartulary/test-results/20260830T012157Z-p324130` (9/9);
+- `make service-backed-test-slice OWNER=module.graphprojection` at
+  `.cartulary/test-results/20260830T012251Z-p341752` (6/6);
+- the Network Flow runtime/storage-maintenance projection row at
+  `.cartulary/test-results/20260830T012352Z-p359215`;
+- `make generate` and `make generate-drift` at
+  `.cartulary/test-results/20260830T012401Z-p359723` and
+  `.cartulary/test-results/20260830T012413Z-p362533`; and
+- final `make format` and the positive root-boundary row at
+  `.cartulary/test-results/20260830T012444Z-p365764` and
+  `.cartulary/test-results/20260830T012448Z-p369892`; and
+- tracker-scoped diff checks and `make lint-markdown` at
+  `.cartulary/test-results/20260830T012619Z-p370949`.
+
+The first S08 `make format` invocation found the newly extended verification
+test list was not ASCII-sorted and stopped before emitting a retained run root.
+The manifest was sorted and the failure was superseded by all listed format,
+generation, focused, and service-backed passing evidence. It was a
+change-related authored-artifact error, not an environment limitation or
+waiver.
+
+Residual risk is now integration residue: current code and storage behavior
+are proven, but active generated/browser references, guides, comments,
+fixtures, and historical identifiers must be reviewed and either removed or
+listed as declared immutable/frozen exceptions. S09 is now `READY`; S10 remains
+`BLOCKED`.
+
+#### GP4-S09 — Integrate and clean up
+
+- Update Network Flow, Recovery, Reporting regressions, Extensions, server and
+  recovery assembly, generated clients, browser surfaces, and operator guides
+  to current contracts only.
+- Delete orphaned schemas, fixtures, constructors, adapters, aliases, tests,
+  comments, and rollout guidance that promise v1 or old-backup support.
+- Search authored and generated active roots for old graph query, state,
+  recovery, engine, adapter, and package identifiers. Allow matches only in
+  immutable SQL history and frozen tracker history, with each exception listed
+  at the checkpoint.
+- Run all affected owner and browser slices and record failures, fixes, and
+  superseding roots.
+
+##### GP4-S09 checkpoint — DONE (2026-08-29)
+
+Every production consumer now resolves the current Graph API and the dedicated
+Graph restore package directly. Network Flow and the generated TypeScript
+client expose contract major 5, graph resources v3, and semantic-query v2 only.
+Recovery and operator assembly expose the single v4 Graph registry, binding,
+result, and journal. Reporting continues to consume exact Graph v2 result
+references, and Extensions exposes state 4 plus inert migration-ledger proof
+facts without a historical execution algorithm. Server, operator, browser,
+stateful, measurement, accessibility, and visual composition all pass with
+these exact surfaces.
+
+The active operator guide now describes Graph 2.2.0, Network Flow major 5/state
+4, Recovery v4, the hard current-only cut, isolated restore, and forward-only
+rollback. The obsolete GP3 rollout guide was deleted. One Reporting owner
+sentence was made phase-neutral, and the superseded Network Flow table no
+longer preserves the retired semantic-query schema identifier; §27 remains the
+sole current conflict authority. Graph restore test helpers were renamed for
+the current protocol. Network Flow contract evidence now asserts the complete
+positive Graph schema allowlist, while unsupported declaration and old-artifact
+tests construct their inputs without turning deleted identifiers into a
+permanent static fossil.
+
+The exact removal scan covers old engine constructors, test helpers, semantic-
+query schema IDs, Graph restore v2/v3 algorithms and schema IDs, major-4
+frontend entrypoints, the former Network Flow schema bundle, and the deleted
+GP3 guide. It returns no match in active owners, guides, decisions, production,
+tests, contracts, generators, generated clients, or immutable SQL. The only
+permitted matches are frozen entries in this controlling tracker: GP2's v2
+restore and `EngineV2` history; GP3's v3 restore, v2 schema/major-4 client, and
+rollout-guide history; and the GP4 baseline/gap/removal record that explains
+their deletion. Git remains the source of deleted artifact history.
+
+Files changed in this checkpoint are the current Graph rollout guide, deleted
+GP3 rollout guide, Network Flow and Reporting owners, Network Flow Graph
+contract/state/route/store test support, Recovery generation validation test,
+Graph restore service test, Extensions verification-accounting test, and this
+tracker. All broader production, contract, generated, frontend, and assembly
+changes were introduced by their owning earlier slices and were reviewed here
+as one current-only integration. No SQL, DDL, migration, migration hash, public
+route, Graph protocol/result identity, Reporting reference, authorization
+surface, domain vocabulary, or persisted table shape changed in S09.
+
+Gap disposition at this checkpoint: GP4-G01 and GP4-G02 are closed across
+active clients, generated artifacts, browser composition, operator guidance,
+and old-name residue. GP4-G03 through GP4-G10 remain closed under their earlier
+owner/runtime/persistence evidence. GP4-G11 is closed for active verification
+routing and browser integration. GP4-G12 is closed with positive Graph root,
+restore, schema, constructor, and composition allowlists plus the one terminal
+search inventory above. S10 retains only the complete repository verification
+and handoff closure; it does not retain an implementation remediation.
+
+Compatibility impact remains the adopted hard cut. The removed GP3 guide and
+historical identifiers provide no runtime compatibility loss beyond the owner-
+adopted major-5/state-4 and Recovery-v4 boundary. A target that commits state 4
+cannot run a major-4 binary; saved v1 declarations and old Graph backups remain
+untouched and require separately authorized remediation. S09 writes no
+deployment state. Source rollback must restore the complete matching binary,
+contract, generated-client, and guide set; state 4 is not downgraded in place.
+
+Terminal validation passed:
+
+- generation, drift, generated-policy, JSON-shape, and toolchain gates at
+  `.cartulary/test-results/20260830T013301Z-p379650`,
+  `.cartulary/test-results/20260830T013310Z-p382364`,
+  `.cartulary/test-results/20260830T013318Z-p385309`,
+  `.cartulary/test-results/20260830T013319Z-p385720`, and
+  `.cartulary/test-results/20260830T013322Z-p386132`;
+- focused Graph, Network Flow, Recovery, Extensions, Reporting, server,
+  operator, and web Network Flow slices at
+  `.cartulary/test-results/20260830T013330Z-p386574` (9/9),
+  `.cartulary/test-results/20260830T013421Z-p404056` (34/34),
+  `.cartulary/test-results/20260830T013626Z-p462642` (24/24),
+  `.cartulary/test-results/20260830T013923Z-p564484` (24/24),
+  `.cartulary/test-results/20260830T014017Z-p606657` (6/6),
+  `.cartulary/test-results/20260830T014058Z-p623929` (24/24),
+  `.cartulary/test-results/20260830T014154Z-p666311` (12/12), and
+  `.cartulary/test-results/20260830T014230Z-p704031` (37/37);
+- service-backed Graph, Network Flow, Recovery, Extensions, Reporting, server,
+  and operator slices at
+  `.cartulary/test-results/20260830T014251Z-p705705` (6/6),
+  `.cartulary/test-results/20260830T014346Z-p722872` (28/28),
+  `.cartulary/test-results/20260830T014552Z-p780621` (19/19),
+  `.cartulary/test-results/20260830T014711Z-p834860` (22/22),
+  `.cartulary/test-results/20260830T014759Z-p876505` (4/4),
+  `.cartulary/test-results/20260830T014841Z-p893533` (17/17), and
+  `.cartulary/test-results/20260830T014938Z-p935206` (9/9);
+- frontend typecheck, 390/390 unit tests, import boundary, and Biome at
+  `.cartulary/test-results/20260830T015019Z-p972618`,
+  `.cartulary/test-results/20260830T015029Z-p973104`,
+  `.cartulary/test-results/20260830T015032Z-p973470`, and
+  `.cartulary/test-results/20260830T015035Z-p973879`;
+- browser E2E, webserver-backed, stateful, measurement, accessibility, and
+  visual targets at `.cartulary/test-results/20260830T015042Z-p974379`
+  (51/51), `.cartulary/test-results/20260830T015558Z-p1048844` (60/60),
+  `.cartulary/test-results/20260830T020144Z-p1105285` (34/34),
+  `.cartulary/test-results/20260830T020412Z-p1153965` (22/22),
+  `.cartulary/test-results/20260830T020836Z-p1210524` (12/12), and
+  `.cartulary/test-results/20260830T020959Z-p1254415` (12/12); and
+- final formatting, backend boundary, migration drift, exact-name scans, and
+  tracker-scoped diff checks at
+  `.cartulary/test-results/20260830T013919Z-p560373`,
+  `.cartulary/test-results/20260830T021158Z-p1299153`, and
+  `.cartulary/test-results/20260830T021200Z-p1299491`; and
+- checkpoint Markdown lint at
+  `.cartulary/test-results/20260830T021417Z-p1303333`.
+
+Focused Extensions run
+`.cartulary/test-results/20260830T013810Z-p517969` passed 23/24 and exposed a
+stale static selector count after the state-1/2 preflight test was added to the
+owner row. The positive verification-accounting expectation was corrected from
+two to three selectors and is superseded by the 24/24 root above. This was a
+change-related test-accounting failure, not a product behavior or environment
+waiver.
+
+Residual risk is limited to terminal repository-wide regression, static,
+security, finalizer, check, and release evidence. S10 is now `READY`; no
+implementation or compatibility cleanup remains blocked behind it.
+
+#### GP4-S10 — Final verification and handoff
+
+- Run the final verification matrix in section 11.9 from a clean generated
+  state and reconcile every failure rather than carrying a waiver.
+- Run `make agent-finalize` with the successful full warm-check `RESULTS_DIR`;
+  if no qualifying run exists, record the prescribed skipped-maintenance
+  reason and obtain a qualifying run before final completion.
+- Close every GP4 gap, record the final compatibility search exceptions,
+  document any environment-only limitation, and mark all slices `DONE` only
+  after `make check` and `make release-check` pass.
+
+##### GP4-S10 checkpoint and terminal handoff — DONE (2026-08-29)
+
+GP4 is complete. All twelve gaps in section 11.4 are `CLOSED`, every slice from
+S00 through S10 is `DONE`, every binary completion criterion is satisfied, and
+there is no successor implementation action. The final tree has one current
+Graph Projection subsystem: Graph owner 2.2.0 and protocol v2, Network Flow
+owner 5.0.0/contract major 5/state 4 with semantic-query v2 only, Recovery v4
+only, a pure root with `ProjectV2`, a dedicated Graph restore subpackage,
+native-v2 internal semantics, one private semantic-limit registry, mandatory
+restore reconciliation, and positive architectural allowlists.
+
+Final gap disposition is exact:
+
+- GP4-G01 is closed by the atomic state 3→4 hard cut, v2-only runtime/client,
+  and inert earlier ledger-proof facts;
+- GP4-G02 is closed by the single v4 Recovery generation and pre-mutation old-
+  artifact rejection;
+- GP4-G03 is closed by Graph-owned restore and the dependency-pure engine root;
+- GP4-G04 is closed by the sole `ProjectV2` engine entrypoint;
+- GP4-G05 is closed by native-v2 names, shapes, trusted context, and private
+  Network Flow graph-view identity;
+- GP4-G06 and GP4-G07 are closed by the exhaustive type/merge, int64, finite-
+  number, UTF-8 byte, array, null/default, wildcard, order, and cancellation
+  implementation and evidence;
+- GP4-G08 is closed by the owner-projected registry and shared private runtime
+  facts;
+- GP4-G09 is closed by removal of dead interfaces, options, hooks,
+  constructors, adapters, and the final three unused private helpers;
+- GP4-G10 is closed by mandatory transactional job/lease reconciliation,
+  exact postconditions, and readiness gating;
+- GP4-G11 is closed by the non-empty golden and routed semantic, identity,
+  persistence, failure, browser, broad-check, and release evidence; and
+- GP4-G12 is closed by positive root, package, export, schema, constructor, and
+  composition allowlists plus the terminal reviewed search.
+
+The complete change set spans adopted owner/Core/ADR/traceability documents;
+Graph, Network Flow, Extensions, and Recovery contracts and generated Go/
+TypeScript projections; Graph engine, restore, PostgreSQL result/restore, and
+tests; Network Flow state, graph, restore-source, routes, frontend adapter, and
+browser tests; Recovery selection/codec and application assembly; Reporting,
+server, and operator integration evidence; verification routing, schemas,
+generator validation, and operator guidance. The former major-4 client, old
+Graph Recovery schemas/fixtures/generations, root restore implementation, and
+obsolete GP3 guide are deleted. Generated roots were changed only through
+`make generate`.
+
+Explicitly unchanged surfaces are the Graph v2 wire/result and object identity
+algorithms for current valid inputs; default and temporal Network Flow graph-
+view, projection, and digest fixtures; `/api/v1/.../network-flow` route paths;
+Reporting exact-result references; public authorization and domain vocabulary;
+all Graph/Network Flow persisted table shapes; authored SQL; migrations 00032,
+00033, and 00034 and their hashes; and the next legal migration boundary. The
+terminal diff contains no authored migration or query change.
+
+Public compatibility is the adopted intentional hard cut. Graph resources use
+the major-5 generated client and saved-view resource v3; semantic-query v1 and
+Graph Recovery v2/v3 have no current reader, writer, translator, dispatcher,
+fallback, or compatibility view. Internal Go callers moved atomically to
+`ProjectV2`, `graphprojection/restore`, native-v2 structures, and mandatory
+constructors. Stored unsupported declarations remain byte-identical and make
+the profile unavailable; unsupported backups fail before mutation. Once state
+4 commits, a major-4 binary is not a downgrade candidate. Rollback requires an
+exact pre-rollout database/object-store backup and matching former binary in a
+fresh replacement target, never an in-place state or migration-history edit.
+
+The terminal exact-name scan returns no match in active owners, guides,
+decisions, production, tests, contracts, generators, generated clients, or
+immutable SQL. Permitted matches remain only in this frozen tracker: GP2's v2
+restore and engine-facade history; GP3's v3 restore, schema/client, and guide
+history; and GP4's baseline and removal rationale. No environment-only
+limitation, skipped required target, waiver, unexplained generated diff, or
+unresolved product failure remains.
+
+Terminal verification passed:
+
+- final formatting, generation, drift, generated-artifact policy, JSON shape,
+  toolchain, migration, backend boundary, frontend type/unit/import, and first
+  static floor at `.cartulary/test-results/20260830T021509Z-p1305515`,
+  `.cartulary/test-results/20260830T021513Z-p1309603`,
+  `.cartulary/test-results/20260830T021522Z-p1312323`,
+  `.cartulary/test-results/20260830T021530Z-p1315259`,
+  `.cartulary/test-results/20260830T021531Z-p1315670`,
+  `.cartulary/test-results/20260830T021534Z-p1316082`,
+  `.cartulary/test-results/20260830T021535Z-p1316456`,
+  `.cartulary/test-results/20260830T021543Z-p1319401`,
+  `.cartulary/test-results/20260830T021545Z-p1319790`,
+  `.cartulary/test-results/20260830T021555Z-p1320273`, and
+  `.cartulary/test-results/20260830T021558Z-p1320645`;
+- terminal lint, Biome, scripts, Markdown, shell, and vulnerability gates at
+  `.cartulary/test-results/20260830T021737Z-p1359535`,
+  `.cartulary/test-results/20260830T021747Z-p1365006`,
+  `.cartulary/test-results/20260830T021749Z-p1365449`,
+  `.cartulary/test-results/20260830T021750Z-p1365827`,
+  `.cartulary/test-results/20260830T021751Z-p1366701`, and
+  `.cartulary/test-results/20260830T021753Z-p1367598`;
+- corrected final format, generation/drift, targeted gosec, audit gosec, and
+  lint at `.cartulary/test-results/20260830T021906Z-p1388002`,
+  `.cartulary/test-results/20260830T021910Z-p1392091`,
+  `.cartulary/test-results/20260830T021919Z-p1394847`,
+  `.cartulary/test-results/20260830T021928Z-p1397883`,
+  `.cartulary/test-results/20260830T021938Z-p1428264`, and
+  `.cartulary/test-results/20260830T021944Z-p1445751`;
+- `make test-fast` at
+  `.cartulary/test-results/20260830T022000Z-p1451420` (442/442);
+- the qualifying warm `make check` at
+  `.cartulary/test-results/20260830T022115Z-p1464493` (672/672);
+- `make agent-finalize
+  RESULTS_DIR=.cartulary/test-results/20260830T022115Z-p1464493` at
+  `.cartulary/test-results/20260830T022629Z-p1581402` (1/1);
+- the terminal `make check` at
+  `.cartulary/test-results/20260830T022651Z-p1584427` (672/672); and
+- `make release-check` at
+  `.cartulary/test-results/20260830T023202Z-p1698980` (838/838); and
+- post-handoff tracker diff checks and Markdown lint at
+  `.cartulary/test-results/20260830T024650Z-p1915746`.
+
+Two terminal failures were change-related and fully superseded. Lint root
+`.cartulary/test-results/20260830T021601Z-p1321085` found three unused private
+helpers left after native-v2 admission replaced their compatibility-era call
+paths; the functions were deleted and the final lint roots pass. Targeted
+gosec root `.cartulary/test-results/20260830T021813Z-p1368434` found fragile
+indexed access through three parallel one-entry Recovery expectation slices;
+the generator now validates one exact current generation directly, and both
+targeted and audit scans pass. Neither correction restores compatibility,
+widens input, changes generated bytes, or changes persisted behavior.
+
+Residual risk is only the intentional operational incompatibility already
+adopted: installed v1 declarations and old Graph backups need separately
+authorized remediation, and state 4 is forward-only. There is no remaining GP4
+implementation, specification, validation, documentation, or handoff risk.
+
+### 11.9 Verification matrix
+
+Each implementation slice starts with the current task guide and the narrowest
+owner rows. Expected final coverage is:
+
+| Concern | Required public Make evidence |
+| --- | --- |
+| Direct owners | `make task-guide ROLE=module-author OWNER=<owner>` followed by unit and service-backed slices for `module.graphprojection`, `module.networkflow`, `module.recovery`, and `module.extensions` |
+| Consumers and assembly | Routed slices for `module.reporting`, `app.server`, `app.operator`, `web.networkflow`, and database migrations when selected by the owner guides |
+| Generation and authored shapes | `make generate`, `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, `make toolchain-drift`, and `make migration-drift` |
+| Static and security | `make format`, `make lint`, `make lint-biome`, `make lint-scripts`, `make lint-markdown`, `make lint-shell`, `make go-vulncheck`, `make go-gosec-targeted`, and `make go-gosec-audit` |
+| Frontend and browser | `make frontend-typecheck`, `make frontend-unit`, `make frontend-import-boundary-check`, and all applicable browser E2E, webserver, stateful, measurement, accessibility, and visual targets |
+| Boundaries and release | Backend module-boundary checks selected by the task surface, `make agent-finalize`, `make check`, and `make release-check` |
+
+GP4-S00 itself requires only `git diff --check`, `git diff --cached --check`,
+and `make lint-markdown`, because it is a tracker-only change. Later slices
+must record the exact command, result, run root, relatedness of any failure,
+and superseding evidence.
+
+The semantic and compatibility acceptance suite must include:
+
+- every adopted field path, scalar and array projected type, and merge mode;
+- valid and invalid type/merge pairs, nulls, defaults, wildcard mappings,
+  canonical contributor order, repeated values, and empty inputs;
+- signed-int64 minimum/maximum and overflow, finite-number boundaries, and
+  multibyte UTF-8 values immediately below, at, and above every byte ceiling;
+- deterministic output under source and mapping reorderings, prompt context
+  cancellation, and absence of partial publication on error;
+- exact current Network Flow default and temporal projection IDs and digests;
+- state 3→4 compatible success and incompatible atomic failure;
+- current Recovery v4 success, injected rollback, mandatory reconciliation,
+  and pre-mutation rejection of v2/v3 Graph artifacts; and
+- result collision, read, traversal, lease, cleanup, transaction, lock-order,
+  retry, and multi-instance persistence behavior.
+
+### 11.10 Binary completion criteria
+
+GP4 is complete only when all of the following are true:
+
+1. Adopted owners and machine projections agree on Graph 2.2.0, Network Flow
+   major 5/state 4, semantic-query v2 only, and Recovery v4 only.
+2. No active runtime, generated client, generator branch, source registry,
+   dispatcher, fixture, or test helper accepts semantic-query v1 or Graph
+   Recovery v2/v3.
+3. State 3 v2-only profiles advance byte-for-byte; a v1 declaration blocks the
+   transition without data or state-version mutation.
+4. Unsupported old Graph backups fail before any target mutation and cannot
+   resolve through a historical fallback.
+5. The Graph root is a pure deterministic package; restore ownership resides
+   in its dedicated subpackage and application assembly supplies all required
+   dependencies explicitly.
+6. `ProjectV2` is the only engine entrypoint, and the old constructor, method
+   facade, config/filter adapters, duplicate fields, dead interfaces, optional
+   reconciler, hooks, and stale limit surface are absent.
+7. The complete adopted v2 semantic matrix passes, including signed-int64,
+   finite-number, UTF-8 byte, array, merge, ordering, and cancellation cases.
+8. Existing valid-v2 Network Flow projection and graph-view identities remain
+   exact, as do Reporting result references and traversal capability.
+9. Result publication, read, traversal, lease, cleanup, and v4 restore behavior
+   pass owner-routed unit and service-backed evidence without a DDL or migration
+   change.
+10. Positive boundary tests pass, old-name searches contain only reviewed
+    immutable SQL or frozen tracker history, generated outputs are clean, and
+    no active guide promises removed support.
+11. Every required final owner, generation, drift, security, frontend, browser,
+    boundary, finalizer, broad check, and release target has terminal passing
+    evidence recorded in this tracker.
+
+### 11.11 GP4 current next action
+
+GP4-S00 through GP4-S10 are `DONE`. All twelve gaps are `CLOSED`; focused,
+service-backed, semantic, persistence, frontend, browser, static, security,
+finalizer, repository-wide, and release evidence is terminal and passing.
+
+Current next action: none.

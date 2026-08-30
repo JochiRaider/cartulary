@@ -28,19 +28,24 @@ func relationshipMappingsObject(mappings []relationshipMapping) []any {
 		if mapping.InclusionFilter != nil {
 			inclusion = filterPredicatesObject([]filterPredicate{*mapping.InclusionFilter})[0]
 		}
-		out = append(out, canonicalFields(
+		entry := canonicalFields(
 			canonicalMember{Name: "mapping_rule_id", Value: mapping.MappingRuleID},
 			canonicalMember{Name: "source_relationship_kind", Value: mapping.SourceRelationshipKind},
 			canonicalMember{Name: "projected_edge_kind", Value: mapping.ProjectedEdgeKind},
 			canonicalMember{Name: "inclusion_predicate", Value: inclusion},
 			canonicalMember{Name: "direction_policy", Value: mapping.DirectionPolicy},
 			canonicalMember{Name: "emit_reverse_edge", Value: mapping.EmitReverseEdge},
-			canonicalMember{Name: "reverse_edge_kind", Value: mapping.ReverseEdgeKind},
+		)
+		if mapping.ReverseEdgeKindSupplied {
+			entry = append(entry, canonicalMember{Name: "reverse_edge_kind", Value: mapping.ReverseEdgeKind})
+		}
+		entry = append(entry,
 			canonicalMember{Name: "label_policy", Value: mapping.LabelPolicy},
 			canonicalMember{Name: "mapping_labels", Value: mapping.MappingLabels},
 			canonicalMember{Name: "required_property_keys", Value: mapping.RequiredPropertyKeys},
 			canonicalMember{Name: "optional_property_keys", Value: mapping.OptionalPropertyKeys},
-		))
+		)
+		out = append(out, entry)
 	}
 	return out
 }
@@ -171,7 +176,7 @@ func filterPredicatesObject(predicates []filterPredicate) []any {
 	for _, predicate := range predicates {
 		entry := canonicalFields(
 			canonicalMember{Name: "field_path", Value: predicate.FieldPath},
-			canonicalMember{Name: "op", Value: predicate.Operator},
+			canonicalMember{Name: "operator", Value: predicate.Operator},
 		)
 		if predicate.HasValue {
 			entry = append(entry, canonicalMember{Name: "value", Value: predicate.Value})

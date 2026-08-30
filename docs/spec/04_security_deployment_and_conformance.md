@@ -1899,6 +1899,41 @@ These criteria provide direct runtime-family verification for substantive base-p
   audit clock.
   - Verifies: REQ-04-161
 
+- **AC-568**: Graph Projection boundary and current-contract evidence proves
+  that the root imports only the standard library and its private engine,
+  exposes `ProjectV2` as the sole engine entrypoint, and contains no restore,
+  PostgreSQL, HTTP, auth, job, sibling-module, Recovery, or application
+  dependency. Positive allowlists reject every extra or missing root export,
+  restore export, adapter capability, constructor dependency, and composition
+  edge. Restore contracts, registry construction, orchestration, and recovery
+  state live only in the Graph-owned restore subpackage; PostgreSQL restore
+  construction requires a database and reconciler; and no forwarding alias,
+  optional reconciler, empty engine facade, dead option, or compile-assertion-
+  only aggregate interface remains.
+
+  Deterministic contract evidence covers every valid and invalid v2
+  projected-type/merge pair, null/default/wildcard branch, contributor
+  permutation, signed-int64 boundary and overflow, finite-number failure,
+  UTF-8 byte ceiling, cancellation point, and failure-atomicity branch. Exact
+  current Network Flow default and temporal identities remain unchanged.
+  Network Flow major 5/state 4 admits v2 only; fresh state 4, both valid state-3
+  ledger histories, state-1/2 preflight rejection, byte-preserving 3→4, and
+  atomic v1-declaration rejection are direct evidence. Historical 1→2 and 2→3
+  facts authenticate ledgers but expose no executable algorithm.
+
+  Recovery selects only Graph v4 and rejects every v2/v3 binding before
+  mutation. Failure injection proves clear, rebuild, immutable publication,
+  Network Flow nonterminal-job reconciliation, Reporting job/lease
+  reconciliation, postcondition verification, and readiness are one atomic
+  transaction; nil reconciliation is unconstructable; indeterminate commit
+  keeps the target unavailable. Persistence evidence covers collision
+  detection, exact reads, bounded traversal, lease lifecycle, cleanup ordering,
+  batching, cancellation, retry, lock order, and multi-instance behavior.
+  Final cleanup scans retain old names only in immutable SQL, frozen handoff
+  history, and the required inert ledger facts.
+  - Verifies: REQ-00-076, Graph Projection NLSpec 2.2.0, Network Flow Activity
+    NLSpec 5.0.0, EXT-REQ-237
+
 ### 9.1B Network Flow Activity Extension Profile criteria
 
 - **AC-475**: When the Network Flow Activity Extension Profile is claimed, deployment startup rejects missing safe-digest key-ring configuration, duplicate safe-digest key IDs, no active safe-digest key, multiple active safe-digest keys, malformed key IDs, unresolved safe-digest `secret_ref_v1` values, unsupported key material, safe-digest key material reused for cursor tokens, invalid rotation state, or fixture-only safe-digest key material outside a harness-owned runtime before any HTTP listener, WebSocket listener, or background-job runner starts. Representative Network Flow redaction fixtures prove that every safe digest emitted to logs, telemetry, administrative audit summaries, route error details, table-name collision details, graph-query audit details, and indicator-link non-disclosure details carries the same enclosing `safe_digest_key_id`; that comparison is performed only when key IDs and value classes match; that rotation emits new digests only under the active key without rewriting old persisted digests; that no safe digest participates in authorization, deduplication, concurrency control, table identity, row identity, or cursor validation; and that raw CSV cells, source filenames, indicator candidates, graph-query scalars, fixture secrets, production secret references, and raw key material never appear in logs, telemetry, administrative audit summaries, readiness output, or public error details.
@@ -2711,7 +2746,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-336, REQ-01-517..REQ-01-520, REQ-02-233, REQ-03-273
 
 
-- **AC-370**: `GET /api/v1/extensions` succeeds for an authenticated current session, including one with `is_deployment_admin=false` and zero current incident memberships. The route returns the common success envelope with `data.extensions[]` ordered by `profile_id asc`; the exact current-profile set is `enterprise_authentication`, `import`, `incident_portability`, `network_flow_activity`, `reference_pack`, and `snapshot_reporting`; each item contains exactly `profile_id`, `claimable`, `claimed`, `contract_major`, `route_families[]`, `workspace_keys[]`, and `capabilities[]`; `network_flow_activity` uses major `4`, workspace `network_analysis`, its validated published claim state, and an empty capability array; every other capability array is empty; each route family matches Core 01 and is ordered ascending; compatible decoders ignore unknown additive members but never execute them; pagination members fail with `400 error.code='invalid_pagination_request'` and `error.details.reason_code='pagination_not_supported'`; and the route discloses no provider secrets, provider claim maps, implementation/document versions, registry digests, or live extension-family payload.
+- **AC-370**: `GET /api/v1/extensions` succeeds for an authenticated current session, including one with `is_deployment_admin=false` and zero current incident memberships. The route returns the common success envelope with `data.extensions[]` ordered by `profile_id asc`; the exact current-profile set is `enterprise_authentication`, `import`, `incident_portability`, `network_flow_activity`, `reference_pack`, and `snapshot_reporting`; each item contains exactly `profile_id`, `claimable`, `claimed`, `contract_major`, `route_families[]`, `workspace_keys[]`, and `capabilities[]`; `network_flow_activity` uses major `5`, workspace `network_analysis`, its validated published claim state, and an empty capability array; every other capability array is empty; each route family matches Core 01 and is ordered ascending; compatible decoders ignore unknown additive members but never execute them; pagination members fail with `400 error.code='invalid_pagination_request'` and `error.details.reason_code='pagination_not_supported'`; and the route discloses no provider secrets, provider claim maps, implementation/document versions, registry digests, or live extension-family payload.
   - Verifies: REQ-00-022, REQ-01-032..REQ-01-033, REQ-01-542..REQ-01-546, REQ-04-105
 - **AC-371**: When `GET /api/v1/extensions` reports one or more items with `claimed=false`, probing each such profile's declared `route_families[]` root and one descendant route under that same family returns `404 error.code='extension_profile_not_claimed'`, `error.retryable=false`, and `error.details` containing the matching `profile_id` and canonical matched `route_family`. That result is returned before family-specific authorization or policy evaluation for the unclaimed family; a path outside all reserved base and extension families does not use `extension_profile_not_claimed`; and a valid path inside a claimed extension family does not use `extension_profile_not_claimed` solely because the family currently has zero resources or because ordinary family authorization later denies access.
   - Verifies: REQ-00-022, REQ-01-033, REQ-01-234, REQ-01-544, REQ-01-546..REQ-01-548, REQ-04-105

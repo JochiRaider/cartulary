@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
-func TestNetworkFlowExtensionStateV3AdmitsMixedGraphQueriesWithoutRewritingBytes_Integration(t *testing.T) {
+func TestNetworkFlowExtensionStateV4RejectsV1WithoutRewritingBytes_Integration(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-state-v3-mixed-graphs")
 	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 	ctx := context.Background()
@@ -33,7 +33,7 @@ func TestNetworkFlowExtensionStateV3AdmitsMixedGraphQueriesWithoutRewritingBytes
 		t.Fatalf("create state-v3 source table: %v", err)
 	}
 	queries := [][]byte{
-		[]byte(fmt.Sprintf(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"cartulary.network_flow.graph_semantic_query.v1","selected_table_ids":[%q],"time_range":{"end_utc":null,"start_utc":null}}`, table.TableID)),
+		unsupportedDefaultGraphSemanticQuery(table.TableID),
 		[]byte(fmt.Sprintf(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":[%q],"time_range":{"end_utc":null,"start_utc":null}}`, table.TableID)),
 	}
 	for index, query := range queries {
@@ -58,25 +58,25 @@ func TestNetworkFlowExtensionStateV3AdmitsMixedGraphQueriesWithoutRewritingBytes
 	}
 	before := persistedGraphSemanticBytes(t, harness.DB, incidentID)
 	reader := newExtensionStateV3Reader(harness.DB)
-	if err := ValidateExtensionState(ctx, reader); err != nil {
-		t.Fatalf("validate mixed state-3 graph declarations: %v", err)
+	if err := ValidateExtensionState(ctx, reader); err == nil {
+		t.Fatal("state-4 validation admitted a semantic-query-v1 declaration")
 	}
 	after := persistedGraphSemanticBytes(t, harness.DB, incidentID)
 	if !reflect.DeepEqual(before, after) {
-		t.Fatalf("state-3 validation rewrote authoritative graph bytes: before=%q after=%q", before, after)
+		t.Fatalf("state-4 rejection rewrote authoritative graph bytes: before=%q after=%q", before, after)
 	}
 
-	invalid := []byte(`{"schema_id":"cartulary.network_flow.graph_semantic_query.v9"}`)
+	current := queries[1]
 	if _, err := harness.DB.Exec(ctx, `
 UPDATE network_flow_graph_views
    SET semantic_query_json = $2::jsonb,
        semantic_query_sha256 = $3
  WHERE graph_view_id = $1
-`, "nfgv_00000000000000000000000000000002", invalid, GraphViewSemanticQuerySHA256(invalid)); err != nil {
+`, "nfgv_00000000000000000000000000000001", current, GraphViewSemanticQuerySHA256(current)); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateExtensionState(ctx, reader); err == nil {
-		t.Fatal("state-3 validation admitted an unknown graph semantic generation")
+	if err := ValidateExtensionState(ctx, reader); err != nil {
+		t.Fatalf("state-4 validation rejected semantic-query-v2-only state: %v", err)
 	}
 }
 

@@ -1,20 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "schema_id": "cartulary.graph_projection_contract_index.v2",
-  "contract_id": "cartulary.graph_projection_nlspec.v2.1.0",
+  "contract_id": "cartulary.graph_projection_nlspec.v2.2.0",
   "projection_schema_id": "graph_projection.v2",
   "schemas": [
-    "contracts/graph-projection/schemas.v2.json"
+    "contracts/graph-projection/schemas.v2.json",
+    "contracts/graph-projection/semantic-registry.v1.json"
   ],
   "storage_contracts": [
     "contracts/graph-projection/storage-maintenance.v1.json"
   ],
   "golden_fixtures": [
-    "contracts/graph-projection/v2-fixtures/empty-projection.json"
-  ],
-  "limits": {
-    "maximum_vertices": 100000,
-    "maximum_edges": 250000,
-    "cancellation_check_interval_items": 1024
-  }
+	"contracts/graph-projection/v2-fixtures/empty-projection.json",
+	"contracts/graph-projection/v2-fixtures/semantic-projection.json"
+  ]
 }

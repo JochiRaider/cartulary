@@ -8,6 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresrestore"
+	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
@@ -45,32 +46,13 @@ func NewGraphProjectionRestoreParticipant(db postgres.DB) (restorecontract.Graph
 	if err != nil {
 		return nil, err
 	}
-	registry, err := graphprojection.NewCurrentRestoreSourceRegistry(registration)
+	registry, err := graphrestore.NewCurrentRestoreSourceRegistry(registration)
 	if err != nil {
 		return nil, err
 	}
-	historicalRegistration, err := networkflow.NewHistoricalGraphRestoreSourceRegistrationV2(db)
+	writer, err := postgresrestore.New(db, graphProjectionDerivedStateReconciler{})
 	if err != nil {
 		return nil, err
 	}
-	historicalRegistry, err := graphprojection.NewHistoricalRestoreSourceRegistryV2(historicalRegistration)
-	if err != nil {
-		return nil, err
-	}
-	writer, err := postgresrestore.NewWithReconciler(db, graphProjectionDerivedStateReconciler{})
-	if err != nil {
-		return nil, err
-	}
-	return graphprojection.NewRestoreService(
-		writer,
-		registry,
-		graphprojection.RestoreServiceOptions{
-			SupportedBindings: []graphprojection.RestoreImplementationBindingRef{
-				graphprojection.CurrentRestoreImplementationBinding(),
-				graphprojection.PreWorkbookOwnershipRestoreImplementationBinding(),
-				graphprojection.HistoricalRestoreImplementationBindingV2(),
-			},
-			SupportedRegistries: []*graphprojection.RestoreSourceRegistry{registry, historicalRegistry},
-		},
-	)
+	return graphrestore.NewRestoreService(writer, registry)
 }

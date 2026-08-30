@@ -245,7 +245,7 @@
       ]
     },
     {
-      "row_id": "module.extensions.integration.network_flow_state_v3",
+      "row_id": "module.extensions.integration.network_flow_state_v4",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
       "collaborator_ids": [
@@ -260,7 +260,8 @@
         "package": "./internal/modules/extensions",
         "tests": [
           "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator",
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateTwoToThreeIsBytePreserving"
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateThreeToFourPreservesLedgerHistory",
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStatesOneAndTwoFailBeforeExecution"
         ]
       },
       "evidence_class": "integration",
@@ -795,7 +796,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.extensions.unit.network_flow_v4_state_jobs_reporting_projection",
+      "row_id": "module.extensions.unit.network_flow_v5_state_jobs_reporting_projection",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
       "collaborator_ids": [
@@ -809,7 +810,7 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestNetworkFlowV4StateJobsAndReportingProjection_Unit"
+          "TestNetworkFlowV5StateJobsAndReportingProjection_Unit"
         ]
       },
       "evidence_class": "unit",

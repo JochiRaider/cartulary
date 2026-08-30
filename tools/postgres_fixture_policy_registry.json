@@ -58,7 +58,7 @@
     "module.indicators.target_resolution.role_failures_are_atomic",
     "module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d",
     "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
-    "module.networkflow.integration.extension_state_v3_mixed_graph_admission",
+    "module.networkflow.integration.extension_state_v4_v1_rejection",
     "module.networkflow.integration.graph_result_cleanup",
     "module.networkflow.integration.resource_intent_failure_rolls_back_source_mutation_8a4c3d2e1f",
     "module.networkflow.store.graph_view_declaration_persistence",

@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -101,15 +101,15 @@ func TestRecoveryJournalPayloadV3RetainsGraphCompletionAndV2Decoder_Unit(t *test
 	targetGenerationID := uuid.MustParse("00000000-0000-0000-0000-000000005001")
 	consistencyPoint := time.Date(2026, 7, 29, 17, 0, 0, 0, time.UTC)
 	postcondition := strings.Repeat("a", 64)
-	participant := graphprojection.RestoreRebuildResult{
-		SchemaID:           graphprojection.RestoreRebuildResultSchemaID,
+	participant := graphrestore.RestoreRebuildResult{
+		SchemaID:           graphrestore.RestoreRebuildResultSchemaID,
 		RestoreOperationID: operationID.String(), TargetGenerationID: targetGenerationID.String(),
-		Status: graphprojection.RestoreStatusSucceeded, ReadinessOutcome: graphprojection.RestoreReadinessReady,
-		AlgorithmID:                 graphprojection.RestoreAlgorithmID,
+		Status: graphrestore.RestoreStatusSucceeded, ReadinessOutcome: graphrestore.RestoreReadinessReady,
+		AlgorithmID:                 graphrestore.RestoreAlgorithmID,
 		ImplementationBindingSHA256: strings.Repeat("b", 64), SourceRegistrySHA256: strings.Repeat("c", 64),
-		ClearedTableIDs:     graphprojection.RestoreGraphTableIDs(),
-		RebuiltViews:        []graphprojection.RestoreRebuiltView{},
-		PostconditionSHA256: &postcondition, Warnings: []graphprojection.RestoreSafeMessage{}, Errors: []graphprojection.RestoreSafeMessage{},
+		ClearedTableIDs:     graphrestore.RestoreGraphTableIDs(),
+		RebuiltViews:        []graphrestore.RestoreRebuiltView{},
+		PostconditionSHA256: &postcondition, Warnings: []graphrestore.RestoreSafeMessage{}, Errors: []graphrestore.RestoreSafeMessage{},
 	}
 	completion := &GraphProjectionCompletionEvidence{
 		TargetGenerationID: targetGenerationID, RestoreOperationID: operationID, BackupSetID: backupSetID,

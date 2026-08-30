@@ -1,4 +1,4 @@
-package graphprojection
+package restore_test
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
+	. "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 )
 
 func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
@@ -15,7 +16,7 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 	if registry.DigestSHA256() != contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256 ||
 		registry.DigestSHA256() != CurrentRestoreSourceRegistry().DigestSHA256() ||
 		len(registry.Document().Entries) != 1 {
-		t.Fatalf("current v3 restore source registry drifted: %#v", registry.Document())
+		t.Fatalf("current v4 restore source registry drifted: %#v", registry.Document())
 	}
 	current := CurrentRestoreImplementationBinding()
 	if current.Binding.SchemaID != RestoreImplementationBindingSchemaID ||
@@ -26,28 +27,32 @@ func TestGraphRestoreCurrentRegistryAndBindingsAreExact(t *testing.T) {
 		t.Fatalf("current restore implementation binding drifted: %#v", current)
 	}
 	var canonical map[string]any
-	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &canonical); err != nil || len(canonical) != 15 {
+	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &canonical); err != nil || len(canonical) != 14 {
 		t.Fatalf("generated implementation binding is not a closed canonical object: fields=%d err=%v", len(canonical), err)
 	}
-	historicalRegistry := HistoricalRestoreSourceRegistryV2()
-	historicalBinding := HistoricalRestoreImplementationBindingV2()
-	preWorkbookBinding := PreWorkbookOwnershipRestoreImplementationBinding()
-	if preWorkbookBinding.Binding.AlgorithmID != RestoreAlgorithmID ||
-		preWorkbookBinding.Binding.RecoveryStateCatalogSHA256 != contractrecovery.RecoveryGenerations[1].CatalogDigestSHA256 ||
-		preWorkbookBinding.SHA256 != contractrecovery.RecoveryGenerations[1].GraphImplementationBindingSHA256 {
-		t.Fatalf("pre-Workbook-ownership v3 restore binding drifted: %#v", preWorkbookBinding)
-	}
-	if historicalRegistry == nil || historicalRegistry.Document().SchemaID != HistoricalRestoreSourceRegistrySchemaIDV2 ||
-		historicalRegistry.DigestSHA256() != contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256 ||
-		historicalBinding.Binding.AlgorithmID != HistoricalRestoreAlgorithmIDV2 ||
-		historicalBinding.SHA256 != contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256 {
-		t.Fatalf("historical v2 restore dispatch drifted: registry=%#v binding=%#v", historicalRegistry, historicalBinding)
+	if len(contractrecovery.RecoveryGenerations) != 1 ||
+		contractrecovery.RecoveryGenerations[0].GenerationID != "recovery.current.workbook_owned.graph_v4" ||
+		!contractrecovery.RecoveryGenerations[0].CaptureCurrent {
+		t.Fatalf("recovery must project exactly one current Graph v4 generation: %#v", contractrecovery.RecoveryGenerations)
 	}
 	for path := range contractrecovery.Index {
-		if strings.Contains(path, "graph-projection-restore-") && strings.Contains(path, ".v1") {
-			t.Fatalf("retired Graph restore v1 artifact remains packaged: %s", path)
+		if strings.Contains(path, "graph-projection-restore-") &&
+			(strings.Contains(path, ".v1") || strings.Contains(path, ".v2") || strings.Contains(path, ".v3")) {
+			t.Fatalf("retired Graph restore artifact remains packaged: %s", path)
 		}
 	}
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestGraphRestoreResultContractClosesStatesAndSafeErrors(t *testing.T) {

@@ -93,7 +93,7 @@ func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow.graph_view_list.v2", "graph_views": resources,
+			"schema_id": "cartulary.network_flow.graph_view_list.v3", "graph_views": resources,
 		})
 	case http.MethodPost:
 		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
@@ -162,7 +162,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id":  "cartulary.network_flow.graph_view_get.v2",
+			"schema_id":  "cartulary.network_flow.graph_view_get.v3",
 			"graph_view": graphViewResource(declaration, status),
 		})
 	case http.MethodPatch:
@@ -331,7 +331,7 @@ func (s *Service) handleGraphViewResult(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_result.v2",
+		"schema_id":  "cartulary.network_flow.graph_view_result.v3",
 		"graph_view": graphViewResource(declaration, status), "result": graphQueryResultResource(composition),
 	})
 }
@@ -993,7 +993,7 @@ func graphViewResource(declaration GraphViewDeclaration, status string) map[stri
 		failure = *declaration.LastFailureCode
 	}
 	return map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view.v2", "graph_view_id": declaration.GraphViewID,
+		"schema_id": "cartulary.network_flow.graph_view.v3", "graph_view_id": declaration.GraphViewID,
 		"incident_id": declaration.IncidentID.String(), "display_name": declaration.DisplayName,
 		"normalized_display_name": declaration.NormalizedDisplayName,
 		"graph_view_version":      declaration.GraphViewVersion, "materialization_generation": declaration.MaterializationGeneration,
@@ -1011,14 +1011,14 @@ func graphViewAcceptedPayload(declaration GraphViewDeclaration, status string, j
 		materializationStatus = graphViewStatusFromJobStatus(status)
 	}
 	return map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_accepted.v2",
+		"schema_id":  "cartulary.network_flow.graph_view_accepted.v3",
 		"graph_view": graphViewResource(declaration, materializationStatus),
 		"job_id":     jobID.String(), "job_kind": GraphViewMaterializationJobKind,
 	}
 }
 
 func graphViewMutationPayload(declaration GraphViewDeclaration, status string) map[string]any {
-	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v2", "graph_view": graphViewResource(declaration, status)}
+	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v3", "graph_view": graphViewResource(declaration, status)}
 }
 
 func graphViewResultBinding(declaration GraphViewDeclaration) graphprojection.ResultBindingV2 {

@@ -8,10 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -86,18 +83,16 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if err != nil {
 		t.Fatalf("require streaming storage: %v", err)
 	}
-	legacySemantic := json.RawMessage(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"cartulary.network_flow.graph_semantic_query.v1","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"time_range":{"end_utc":null,"start_utc":null}}`)
 	currentSemantic := json.RawMessage(`{"aggregation":{"bucket_width_seconds":60,"include_example_row_refs":true,"mode":"time_bucket_v1"},"filters":[],"schema_id":"cartulary.network_flow.graph_semantic_query.v2","selected_table_ids":["nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"time_range":{"end_utc":"2026-08-16T00:02:00Z","start_utc":"2026-08-16T00:00:00Z"}}`)
-	mixedGraphRows := []json.RawMessage{
-		json.RawMessage(`{"graph_view_id":"nfgv_00000000000000000000000000000001","semantic_query_json":` + string(legacySemantic) + `}`),
-		json.RawMessage(`{"graph_view_id":"nfgv_00000000000000000000000000000002","semantic_query_json":` + string(currentSemantic) + `}`),
+	currentGraphRows := []json.RawMessage{
+		json.RawMessage(`{"graph_view_id":"nfgv_00000000000000000000000000000001","semantic_query_json":` + string(currentSemantic) + `}`),
 	}
 	snapshots := &vNextSnapshotRepositoryFake{
 		rows: map[string][]json.RawMessage{
 			stateCatalog.RequiredTableNames()[0]: {
 				json.RawMessage(`{"z":"last","a":"first"}`),
 			},
-			"network_flow_graph_views": mixedGraphRows,
+			"network_flow_graph_views": currentGraphRows,
 		},
 	}
 	capture, err := recovery.NewVNextCaptureService(
@@ -134,10 +129,10 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	for _, proof := range captured.IntegrityManifest.Artifacts {
 		if proof.Kind == "graph_projection_restore_implementation_binding" || proof.Kind == "graph_projection_restore_source_registry" {
 			graphArtifactCounts[proof.Kind]++
-			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != recovery.GraphProjectionRestoreImplementationBindingV3SchemaID {
+			if proof.Kind == "graph_projection_restore_implementation_binding" && proof.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v4" {
 				t.Fatalf("fresh backup used non-current Graph implementation binding schema %q", proof.SchemaID)
 			}
-			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != recovery.GraphProjectionRestoreSourceRegistryV3SchemaID {
+			if proof.Kind == "graph_projection_restore_source_registry" && proof.SchemaID != "cartulary.graph_projection_restore_source_registry.v4" {
 				t.Fatalf("fresh backup used non-current Graph source registry schema %q", proof.SchemaID)
 			}
 		}
@@ -182,62 +177,13 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if got := target.objects["owners/fixture-object"]; !bytes.Equal(got, body) {
 		t.Fatalf("restored object differs")
 	}
-	if got := target.rows["network_flow_graph_views"]; len(got) != len(mixedGraphRows) ||
-		string(got[0]) != string(mixedGraphRows[0]) || string(got[1]) != string(mixedGraphRows[1]) {
-		t.Fatalf("fresh state-3 backup did not restore mixed Network Flow semantic generations exactly: %#v", got)
+	if got := target.rows["network_flow_graph_views"]; len(got) != len(currentGraphRows) ||
+		string(got[0]) != string(currentGraphRows[0]) {
+		t.Fatalf("fresh state-4 backup did not restore current Network Flow semantics exactly: %#v", got)
 	}
 	sort.Strings(target.algorithms)
 	if got, want := target.algorithms, algorithmIDs; !equalStrings(got, want) {
 		t.Fatalf("restore algorithms = %v, want %v", got, want)
-	}
-	writeVNextMixedGraphDrillEvidence(t, captured, legacySemantic, currentSemantic)
-}
-
-func writeVNextMixedGraphDrillEvidence(
-	t testing.TB,
-	captured recovery.VNextCapturedBackup,
-	legacySemantic json.RawMessage,
-	currentSemantic json.RawMessage,
-) {
-	t.Helper()
-	artifactDir := strings.TrimSpace(os.Getenv("CARTULARY_STEP_ARTIFACT_DIR"))
-	if artifactDir == "" {
-		return
-	}
-	digest := func(value []byte) string {
-		sum := sha256.Sum256(value)
-		return hex.EncodeToString(sum[:])
-	}
-	evidence := map[string]any{
-		"artifact_kind":                                  "cartulary.gp3_mixed_graph_backup_restore_drill.v1",
-		"run_id":                                         strings.TrimSpace(os.Getenv("CARTULARY_TEST_RUN_ID")),
-		"backup_set_id":                                  captured.BackupSetID.String(),
-		"backup_integrity_manifest_schema_id":            captured.IntegrityManifest.SchemaID,
-		"backup_integrity_manifest_sha256":               captured.IntegrityProof.PlaintextSHA256,
-		"recovery_state_catalog_sha256":                  captured.IntegrityManifest.RecoveryStateCatalogSHA256,
-		"codec_registry_sha256":                          captured.IntegrityManifest.CodecRegistrySHA256,
-		"graph_restore_source_registry_schema_id":        recovery.GraphProjectionRestoreSourceRegistryV3SchemaID,
-		"graph_restore_implementation_binding_schema_id": recovery.GraphProjectionRestoreImplementationBindingV3SchemaID,
-		"semantic_query_sha256": map[string]string{
-			"persisted_v1": digest(legacySemantic), "current_v2": digest(currentSemantic),
-		},
-		"restore_target":          "fresh_isolated_atomic_target",
-		"authoritative_row_bytes": "exact",
-		"outcome":                 "passed",
-	}
-	body, err := json.MarshalIndent(evidence, "", "  ")
-	if err != nil {
-		t.Fatalf("encode mixed Graph backup/restore drill evidence: %v", err)
-	}
-	if err := os.MkdirAll(artifactDir, 0o700); err != nil {
-		t.Fatalf("create mixed Graph backup/restore drill evidence directory: %v", err)
-	}
-	path := filepath.Join(artifactDir, "gp3-mixed-graph-backup-restore-drill.json")
-	if err := os.WriteFile(path, append(body, '\n'), 0o600); err != nil {
-		t.Fatalf("write mixed Graph backup/restore drill evidence: %v", err)
-	}
-	if err := os.Chmod(path, 0o600); err != nil {
-		t.Fatalf("secure mixed Graph backup/restore drill evidence: %v", err)
 	}
 }
 

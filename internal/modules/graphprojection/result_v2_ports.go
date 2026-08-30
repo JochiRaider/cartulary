@@ -1,17 +1,18 @@
 package graphprojection
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/internal/semanticlimits"
 )
 
 const ProjectionSchemaIDV2 = "graph_projection.v2"
 
 const (
-	MaximumResultVerticesV2 = 100000
-	MaximumResultEdgesV2    = 250000
+	MaximumResultVerticesV2 = semanticlimits.MaximumResultVerticesV2
+	MaximumResultEdgesV2    = semanticlimits.MaximumResultEdgesV2
 )
 
 var (
@@ -100,36 +101,7 @@ type TraversalResultV2 struct {
 	Edges    []ResultEdgeV2
 }
 
-// ResultPublisherV2 is intentionally transaction-agnostic. A PostgreSQL
-// adapter is constructed with the caller's borrowed transaction.
-type ResultPublisherV2 interface {
-	PublishResult(context.Context, CompletedResultV2) error
-}
-
-type ExactResultReaderV2 interface {
-	ReadExactResult(context.Context, ResultBindingV2) (CompletedResultV2, error)
-	ReadVertices(context.Context, string, int) ([]ResultVertexV2, error)
-	ReadEdges(context.Context, string, int) ([]ResultEdgeV2, error)
-	Traverse(context.Context, TraversalRequestV2) (TraversalResultV2, error)
-}
-
-type ResultLeaseWriterV2 interface {
-	AcquireLease(context.Context, ResultLeaseV2) (ResultLeaseV2, error)
-	RenewLease(context.Context, string, time.Time, time.Time) (ResultLeaseV2, error)
-	ReleaseLease(context.Context, string) error
-}
-
 type ResultCleanupCandidateV2 struct {
 	ProjectionResultID string
 	PublishedAt        time.Time
-}
-
-// ResultMaintenanceV2 exposes only borrowed-transaction maintenance
-// primitives. Source owners remain responsible for checking their own
-// authoritative declarations between candidate locking and deletion.
-type ResultMaintenanceV2 interface {
-	DeleteExpiredLeases(context.Context, time.Time, int) (int, bool, error)
-	LockCleanupCandidate(context.Context, string, *ResultCleanupCandidateV2) (*ResultCleanupCandidateV2, error)
-	HasUnexpiredLease(context.Context, string, time.Time) (bool, error)
-	DeleteLockedResult(context.Context, string) (bool, error)
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
@@ -69,10 +69,10 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
 	}
-	if got, want := catalog.DigestSHA256(), "0151062c203e5330933273c0baef9834d76d4be88c9f8253180c89e4b0156f72"; got != want {
+	if got, want := catalog.DigestSHA256(), "0cdb9b6a4f7299764085d5fde6263696314becd1be8f0947699d384dbeaef482"; got != want {
 		t.Fatalf("current catalog digest = %s, want compatibility identity %s", got, want)
 	}
-	if want := restorecontract.CurrentGraphProjectionImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {
+	if want := graphrestore.CurrentRestoreImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {
 		t.Fatalf("current Graph restore binding recovery catalog digest = %s, want %s", want, catalog.DigestSHA256())
 	}
 

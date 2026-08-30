@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"unicode/utf8"
 )
 
 type projectionWork struct {
@@ -62,11 +61,11 @@ func projectSemanticGraph(ctx context.Context, run projectionWork) (projectedGra
 	properties := deriveGraphProperties(run, &issues)
 	mappedMetadata, metadataIssues := deriveMetadata(run, "graph_view", "*", sourceEntity{}, nil, run.GraphViewID)
 	issues = append(issues, metadataIssues...)
-	if len(properties) > graphProjectionLimits.MaxPropertiesPerObject {
-		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "max_properties_per_object", "limit": graphProjectionLimits.MaxPropertiesPerObject, "observed": len(properties)}))
+	if len(properties) > graphProjectionLimits.MaxPropertyKeys {
+		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(properties)}))
 	}
-	if len(mappedMetadata) > graphProjectionLimits.MaxMetadataKeysPerObject {
-		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "max_metadata_keys_per_object", "limit": graphProjectionLimits.MaxMetadataKeysPerObject, "observed": len(mappedMetadata)}))
+	if len(mappedMetadata) > graphProjectionLimits.MaxPropertyKeys {
+		issues = append(issues, run.issue("fatal", "projected_output_limit_exceeded", "graph_view", run.GraphViewID, nil, map[string]any{"limit_key": "maximum_property_keys", "limit": graphProjectionLimits.MaxPropertyKeys, "observed": len(mappedMetadata)}))
 	}
 	summary := validationSummary(run, issues)
 	if hasFatalIssue(issues) || len(issues) > graphProjectionLimits.MaxValidationIssues {
@@ -174,7 +173,7 @@ func buildSchemaRegistry(run projectionWork, vertices []Vertex, edges []Edge) Sc
 		}
 	}
 	edgeKinds := map[string]*EdgeKindSchema{}
-	for _, mapping := range run.Request.RelationshipMappings {
+	for _, mapping := range run.Request.projectionConfig.RelationshipMappings {
 		item := ensureEdgeKind(edgeKinds, mapping.ProjectedEdgeKind)
 		item.SourceRelationshipKinds = append(item.SourceRelationshipKinds, mapping.SourceRelationshipKind)
 		item.Directions = append(item.Directions, projectedDirectionsForPolicy(mapping.DirectionPolicy)...)
@@ -356,7 +355,7 @@ func stringSet(values []string) map[string]bool {
 }
 
 func validFieldPath(path string) bool {
-	if path == "" {
+	if path == "" || len(path) > graphProjectionLimits.MaxFieldPathBytes {
 		return false
 	}
 	parts := strings.Split(path, ".")
@@ -438,50 +437,8 @@ func deriveLabels(defaults, mappingLabels, sourceLabels []string, policy string)
 }
 
 func valueMatchesType(projectedType string, value any) bool {
-	switch projectedType {
-	case "string", "timestamp", "identifier":
-		stringValue, ok := value.(string)
-		if !ok || utf8.RuneCountInString(stringValue) > graphProjectionLimits.MaxStringPropertyValueLength {
-			return false
-		}
-		if projectedType == "identifier" && ok {
-			return validIdentifier(stringValue)
-		}
-		if projectedType == "timestamp" {
-			_, err := parseTimestamp(stringValue)
-			return err == nil
-		}
-		return true
-	case "integer":
-		switch typed := value.(type) {
-		case int, int64:
-			return true
-		case fmt.Stringer:
-			return validFiniteInteger(typed.String())
-		default:
-			return validFiniteInteger(fmt.Sprint(value))
-		}
-	case "boolean":
-		_, ok := value.(bool)
-		return ok
-	case "string_array", "identifier_array":
-		array, ok := value.([]any)
-		if !ok {
-			return false
-		}
-		for _, entry := range array {
-			stringValue, ok := entry.(string)
-			if !ok || utf8.RuneCountInString(stringValue) > graphProjectionLimits.MaxStringPropertyValueLength {
-				return false
-			}
-			if projectedType == "identifier_array" && !validIdentifier(stringValue) {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
+	_, ok := normalizeProjectedValueV2(projectedType, value)
+	return ok
 }
 
 func propertyApplies(definition propertyDefinition, targetScope, targetKind string) bool {

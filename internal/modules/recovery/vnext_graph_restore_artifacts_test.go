@@ -1,31 +1,28 @@
 package recovery
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"slices"
-	"sort"
-	"strings"
 	"testing"
+	"time"
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
-func TestVNextGraphRestoreV3ProjectionContract_Unit(t *testing.T) {
+func TestVNextGraphRestoreV4ProjectionContract_Unit(t *testing.T) {
 	t.Parallel()
-	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "f14dde266c452350ac5eda9d4630f230a901b01e24f162e913a80e6370805657"; got != want {
-		t.Fatalf("current Workbook-owned Graph v3 binding digest = %s, want %s", got, want)
+	if len(contractrecovery.RecoveryGenerations) != 1 {
+		t.Fatalf("Recovery generations = %d, want one current generation", len(contractrecovery.RecoveryGenerations))
 	}
-	if got, want := contractrecovery.RecoveryGenerations[1].GraphImplementationBindingSHA256, "6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5"; got != want {
-		t.Fatalf("pre-Workbook-ownership Graph v3 binding digest = %s, want %s", got, want)
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "2a04b36c624970358a52fda65efd9b0f1ab1398cbb0a049b06e77ac9b7f84ac7"; got != want {
+		t.Fatalf("current Graph v4 binding digest = %s, want %s", got, want)
 	}
-	if got, want := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256, "61c3f7348c4df2bee3e969c905c91c9857082cf2839a0b57104e40339e3e16d3"; got != want {
-		t.Fatalf("Graph v3 source registry digest = %s, want %s", got, want)
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256, "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634"; got != want {
+		t.Fatalf("current Graph v4 source registry digest = %s, want %s", got, want)
 	}
 
 	var registry struct {
@@ -39,176 +36,188 @@ func TestVNextGraphRestoreV3ProjectionContract_Unit(t *testing.T) {
 		} `json:"entries"`
 	}
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON), &registry); err != nil {
-		t.Fatalf("decode generated Graph restore v3 registry: %v", err)
+		t.Fatalf("decode generated Graph restore v4 registry: %v", err)
 	}
-	if registry.SchemaID != "cartulary.graph_projection_restore_source_registry.v3" || len(registry.Entries) != 1 {
-		t.Fatalf("current Graph restore registry is not the exact v3 registry: %#v", registry)
+	if registry.SchemaID != "cartulary.graph_projection_restore_source_registry.v4" || len(registry.Entries) != 1 {
+		t.Fatalf("current Graph restore registry is not exact v4: %#v", registry)
 	}
 	entry := registry.Entries[0]
 	if entry.SourceOwnerID != "network_flow_activity" ||
 		entry.AuthoritativeFamilyID != "network_flow_activity.graph_views" ||
 		entry.ProjectionInputContractID != "graph_projection.v2" ||
 		entry.ProjectionResultContractID != "graph_projection_result.v2" ||
-		!slices.Equal(entry.SemanticQuerySchemaIDs, []string{
-			"cartulary.network_flow.graph_semantic_query.v1",
-			"cartulary.network_flow.graph_semantic_query.v2",
-		}) {
+		!slices.Equal(entry.SemanticQuerySchemaIDs, []string{"cartulary.network_flow.graph_semantic_query.v2"}) {
 		t.Fatalf("current Graph restore registry entry drifted: %#v", entry)
 	}
 
-	var binding struct {
-		SchemaID                       string   `json:"schema_id"`
-		AlgorithmID                    string   `json:"algorithm_id"`
-		GraphTableIDs                  []string `json:"graph_table_ids"`
-		HistoricalDispatchAlgorithmIDs []string `json:"historical_dispatch_algorithm_ids"`
-	}
+	var binding map[string]any
 	if err := json.Unmarshal([]byte(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON), &binding); err != nil {
-		t.Fatalf("decode generated Graph restore v3 binding: %v", err)
+		t.Fatalf("decode generated Graph restore v4 binding: %v", err)
 	}
-	wantTables := []string{
-		"graph_projection_result_edges",
-		"graph_projection_result_leases",
-		"graph_projection_result_vertices",
-		"graph_projection_results",
-	}
-	if binding.SchemaID != "cartulary.graph_projection_restore_implementation_binding.v3" ||
-		binding.AlgorithmID != "graphprojection.restore_rebuild.v3" ||
-		!slices.Equal(binding.HistoricalDispatchAlgorithmIDs, []string{"graphprojection.restore_rebuild.v2"}) ||
-		!slices.Equal(binding.GraphTableIDs, wantTables) {
+	if binding["schema_id"] != "cartulary.graph_projection_restore_implementation_binding.v4" ||
+		binding["algorithm_id"] != "graphprojection.restore_rebuild.v4" ||
+		binding["historical_dispatch_algorithm_ids"] != nil {
 		t.Fatalf("current Graph restore implementation binding drifted: %#v", binding)
 	}
 }
 
-func TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit(t *testing.T) {
+func TestVNextGraphRestoreArtifactsResolveOnlyCurrentV4_Unit(t *testing.T) {
+	registry, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		t.Fatalf("load Recovery generation registry: %v", err)
+	}
+	projected := contractrecovery.RecoveryGenerations[0]
+	storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{
+		"graph-registry-v4": []byte(projected.GraphSourceRegistryJSON),
+		"graph-binding-v4":  []byte(projected.GraphImplementationBindingJSON),
+	}}
+	service := &VNextRestoreService{storage: storage, generations: registry}
+	proofs := currentGraphRestoreProofs(projected)
+	resolved, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), registry.current, proofs)
+	if err != nil || resolved.AlgorithmID != "graphprojection.restore_rebuild.v4" ||
+		resolved.RecoveryStateCatalogSHA256 != projected.CatalogDigestSHA256 ||
+		resolved.SourceRegistrySHA256 != projected.GraphSourceRegistrySHA256 ||
+		resolved.ImplementationBindingSHA256 != projected.GraphImplementationBindingSHA256 {
+		t.Fatalf("resolve exact current Graph restore artifacts: result=%#v err=%v", resolved, err)
+	}
+	if storage.readCalls != 2 {
+		t.Fatalf("current Graph artifact reads = %d, want 2", storage.readCalls)
+	}
+}
+
+func TestVNextGraphRestoreArtifactsRejectV2AndV3BeforeArtifactRead_Unit(t *testing.T) {
+	registry, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		t.Fatalf("load Recovery generation registry: %v", err)
+	}
+	projected := contractrecovery.RecoveryGenerations[0]
+	for _, version := range []string{"v2", "v3"} {
+		t.Run(version, func(t *testing.T) {
+			storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{}}
+			service := &VNextRestoreService{storage: storage, generations: registry}
+			proofs := currentGraphRestoreProofs(projected)
+			registryProof := proofs["graph-registry-v4"]
+			registryProof.SchemaID = "cartulary.graph_projection_restore_source_registry." + version
+			proofs["graph-registry-v4"] = registryProof
+			bindingProof := proofs["graph-binding-v4"]
+			bindingProof.SchemaID = "cartulary.graph_projection_restore_implementation_binding." + version
+			proofs["graph-binding-v4"] = bindingProof
+			if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), registry.current, proofs); !errors.Is(err, ErrVNextBackup) {
+				t.Fatalf("old Graph %s artifacts were admitted: %v", version, err)
+			}
+			if storage.readCalls != 0 {
+				t.Fatalf("old Graph %s artifacts caused %d reads before rejection", version, storage.readCalls)
+			}
+		})
+	}
+}
+
+func TestVNextRestoreRejectsV2AndV3GraphBindingsBeforeTargetMutation_Unit(t *testing.T) {
+	registry, err := loadVNextRecoveryGenerationRegistry()
+	if err != nil {
+		t.Fatalf("load Recovery generation registry: %v", err)
+	}
+	projected := contractrecovery.RecoveryGenerations[0]
+	for _, version := range []string{"v2", "v3"} {
+		t.Run(version, func(t *testing.T) {
+			proofs := currentGraphRestoreProofs(projected)
+			registryProof := proofs["graph-registry-v4"]
+			registryProof.SchemaID = "cartulary.graph_projection_restore_source_registry." + version
+			proofs["graph-registry-v4"] = registryProof
+			bindingProof := proofs["graph-binding-v4"]
+			bindingProof.SchemaID = "cartulary.graph_projection_restore_implementation_binding." + version
+			proofs["graph-binding-v4"] = bindingProof
+			otherProof := VNextArtifactProof{
+				Kind: "postgres_snapshot", SchemaID: PostgresSnapshotArtifactV2SchemaID,
+				LogicalRef: "postgres", ContentType: "application/json", PlaintextBytes: 2,
+			}
+			at := time.Date(2026, 8, 29, 20, 0, 0, 0, time.UTC)
+			manifest := VNextBackupIntegrityManifest{
+				SchemaID: BackupIntegrityManifestV3SchemaID, BackupSetID: "00000000-0000-0000-0000-000000009401",
+				ConsistencyPointAt: at, CreatedAt: at.Add(time.Minute), RetainedUntil: at.Add(30 * 24 * time.Hour),
+				RecoveryStateCatalogSHA256: projected.CatalogDigestSHA256,
+				CodecRegistrySHA256:        projected.CodecRegistrySHA256,
+				PostgresSnapshotRef:        "postgres", ObjectStoreManifestRef: "postgres",
+				Artifacts: []VNextArtifactProof{proofs["graph-registry-v4"], proofs["graph-binding-v4"], otherProof},
+			}
+			if err := assignSelfDigest(vNextIntegrityManifestDigestDomain, &manifest.ManifestSHA256, manifest); err != nil {
+				t.Fatalf("digest old-Graph manifest: %v", err)
+			}
+			manifestBody, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatalf("encode old-Graph manifest: %v", err)
+			}
+			storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{
+				"integrity":         manifestBody,
+				"graph-registry-v4": []byte(projected.GraphSourceRegistryJSON),
+				"graph-binding-v4":  []byte(projected.GraphImplementationBindingJSON),
+				"postgres":          []byte(`{}`),
+			}}
+			service := &VNextRestoreService{storage: storage, generations: registry}
+			target := &recordingAtomicRestoreTarget{}
+			if err := service.Restore(context.Background(), target, BackupArtifactStreamProof{
+				LogicalRef: "integrity", ContentType: "application/json", PlaintextBytes: int64(len(manifestBody)),
+			}); !errors.Is(err, ErrVNextBackup) {
+				t.Fatalf("old Graph %s restore error = %v, want ErrVNextBackup", version, err)
+			}
+			if target.atomicCalls != 0 {
+				t.Fatalf("old Graph %s restore entered target mutation %d times", version, target.atomicCalls)
+			}
+		})
+	}
+}
+
+func TestVNextGraphRestoreArtifactsFailClosedWhenMissingOrUnselected_Unit(t *testing.T) {
 	registry, err := loadVNextRecoveryGenerationRegistry()
 	if err != nil {
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
 	service := &VNextRestoreService{generations: registry}
-	_, err = service.resolveGraphProjectionRestoreArtifacts(context.Background(), registry.current, map[string]VNextArtifactProof{
-		"registry": {
-			Kind: "graph_projection_restore_source_registry", SchemaID: GraphProjectionRestoreSourceRegistryV2SchemaID,
-			LogicalRef: "registry", PlaintextSHA256: contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256,
-		},
-	})
-	if err == nil || !errors.Is(err, ErrVNextBackup) {
-		t.Fatalf("current backup without implementation binding did not fail closed: %v", err)
+	if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), registry.current, map[string]VNextArtifactProof{}); !errors.Is(err, ErrVNextBackup) {
+		t.Fatalf("missing Graph restore artifacts were admitted: %v", err)
 	}
-
-	retired := VNextBackupIntegrityManifest{CodecRegistrySHA256: retiredEmptyRegistryCodecSHA256ForTest()}
-	if retired.CodecRegistrySHA256 == VNextCodecRegistrySHA256() {
-		t.Fatal("retired empty-registry codec digest unexpectedly equals the current inventory")
-	}
-	if _, err = service.resolveGraphProjectionRestoreArtifacts(context.Background(), nil, map[string]VNextArtifactProof{}); err == nil || !errors.Is(err, ErrVNextBackup) {
-		t.Fatalf("retired empty-registry backup remained admitted: %v", err)
+	if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), nil, currentGraphRestoreProofs(contractrecovery.RecoveryGenerations[0])); !errors.Is(err, ErrVNextBackup) {
+		t.Fatalf("unselected Graph restore generation was admitted: %v", err)
 	}
 }
 
-func TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit(t *testing.T) {
-	if got, want := contractrecovery.RecoveryGenerations[2].CatalogDigestSHA256, "ce0a1f4053a9ce156273e4adf40c8b4185fa616170eadd6a860500d0b24fd22f"; got != want {
-		t.Fatalf("historical Graph v2 catalog digest = %s, want %s", got, want)
-	}
-	if got, want := contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256, "235c69bbc0e5d4f25f3fab7b1f2b8c30ba6370bfc65abcba75822007802621b9"; got != want {
-		t.Fatalf("historical Graph v2 binding digest = %s, want %s", got, want)
-	}
-	if got, want := contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256, "e75697ef1f6b5a197d299746fd42d2bf07afcd2e1c9d187a6fe695bca3096730"; got != want {
-		t.Fatalf("historical Graph v2 source registry digest = %s, want %s", got, want)
-	}
-	registryBody := []byte(contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2JSON)
-	bindingBody := []byte(contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2JSON)
-	storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{
-		"graph-registry-v2": registryBody,
-		"graph-binding-v2":  bindingBody,
-	}}
-	registry, err := loadVNextRecoveryGenerationRegistry()
-	if err != nil {
-		t.Fatalf("load Recovery generation registry: %v", err)
-	}
-	generation, admitted := registry.lookup(
-		contractrecovery.RecoveryGenerations[2].CatalogDigestSHA256,
-		contractrecovery.RecoveryGenerations[2].CodecRegistrySHA256,
-	)
-	if !admitted {
-		t.Fatal("historical Graph v2 generation is not admitted")
-	}
-	service := &VNextRestoreService{storage: storage, generations: registry}
-	proofs := map[string]VNextArtifactProof{
-		"graph-registry-v2": {
-			Kind: "graph_projection_restore_source_registry", SchemaID: GraphProjectionRestoreSourceRegistryV2SchemaID,
-			LogicalRef: "graph-registry-v2", PlaintextBytes: int64(len(registryBody)),
-			PlaintextSHA256: contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256,
-		},
-		"graph-binding-v2": {
-			Kind: "graph_projection_restore_implementation_binding", SchemaID: GraphProjectionRestoreImplementationBindingV2SchemaID,
-			LogicalRef: "graph-binding-v2", PlaintextBytes: int64(len(bindingBody)),
-			PlaintextSHA256: contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256,
-		},
-	}
-	resolved, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, proofs)
-	if err != nil || resolved.AlgorithmID != "graphprojection.restore_rebuild.v2" ||
-		!bytes.Equal(resolved.SourceRegistryJSON, registryBody) || !bytes.Equal(resolved.ImplementationBindingJSON, bindingBody) {
-		t.Fatalf("resolve exact historical Graph restore artifacts: result=%#v err=%v", resolved, err)
-	}
-
-	mixed := mapsCloneGraphRestoreProofs(proofs)
-	bindingProof := mixed["graph-binding-v2"]
-	bindingProof.SchemaID = GraphProjectionRestoreImplementationBindingV3SchemaID
-	bindingProof.PlaintextSHA256 = contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256
-	mixed["graph-binding-v2"] = bindingProof
-	if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, mixed); !errors.Is(err, ErrVNextBackup) {
-		t.Fatalf("mixed historical/current Graph restore artifacts were admitted: %v", err)
-	}
-}
-
-func TestVNextGraphRestoreArtifactsRetainExactPreWorkbookV3Dispatch_Unit(t *testing.T) {
-	registry, err := loadVNextRecoveryGenerationRegistry()
-	if err != nil {
-		t.Fatalf("load Recovery generation registry: %v", err)
-	}
-	projected := contractrecovery.RecoveryGenerations[1]
-	generation, admitted := registry.lookup(projected.CatalogDigestSHA256, projected.CodecRegistrySHA256)
-	if !admitted {
-		t.Fatal("pre-Workbook-ownership Graph v3 generation is not admitted")
-	}
-	storage := &graphRestoreArtifactStorage{bodies: map[string][]byte{
-		"graph-registry-v3": []byte(projected.GraphSourceRegistryJSON),
-		"graph-binding-v3":  []byte(projected.GraphImplementationBindingJSON),
-	}}
-	service := &VNextRestoreService{storage: storage, generations: registry}
-	proofs := map[string]VNextArtifactProof{
-		"graph-registry-v3": {
+func currentGraphRestoreProofs(projected contractrecovery.RecoveryGeneration) map[string]VNextArtifactProof {
+	return map[string]VNextArtifactProof{
+		"graph-registry-v4": {
 			Kind: "graph_projection_restore_source_registry", SchemaID: projected.GraphSourceRegistrySchemaID,
-			LogicalRef: "graph-registry-v3", PlaintextBytes: int64(len(projected.GraphSourceRegistryJSON)),
+			LogicalRef: "graph-registry-v4", PlaintextBytes: int64(len(projected.GraphSourceRegistryJSON)),
 			PlaintextSHA256: projected.GraphSourceRegistrySHA256,
 		},
-		"graph-binding-v3": {
+		"graph-binding-v4": {
 			Kind: "graph_projection_restore_implementation_binding", SchemaID: projected.GraphImplementationBindingSchemaID,
-			LogicalRef: "graph-binding-v3", PlaintextBytes: int64(len(projected.GraphImplementationBindingJSON)),
+			LogicalRef: "graph-binding-v4", PlaintextBytes: int64(len(projected.GraphImplementationBindingJSON)),
 			PlaintextSHA256: projected.GraphImplementationBindingSHA256,
 		},
 	}
-	resolved, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, proofs)
-	if err != nil || resolved.AlgorithmID != "graphprojection.restore_rebuild.v3" ||
-		resolved.RecoveryStateCatalogSHA256 != projected.CatalogDigestSHA256 ||
-		resolved.ImplementationBindingSHA256 != "6ec244d0b82466a18adbdb82554be29f5e4baac384175538acbc92e56f14b8d5" {
-		t.Fatalf("resolve exact pre-Workbook Graph v3 artifacts: result=%#v err=%v", resolved, err)
-	}
-	mixed := mapsCloneGraphRestoreProofs(proofs)
-	bindingProof := mixed["graph-binding-v3"]
-	bindingProof.PlaintextSHA256 = contractrecovery.RecoveryGenerations[0].GraphImplementationBindingSHA256
-	mixed["graph-binding-v3"] = bindingProof
-	if _, err := service.resolveGraphProjectionRestoreArtifacts(context.Background(), generation, mixed); !errors.Is(err, ErrVNextBackup) {
-		t.Fatalf("mixed pre-Workbook/current Graph v3 artifacts were admitted: %v", err)
-	}
 }
 
-type graphRestoreArtifactStorage struct{ bodies map[string][]byte }
+type graphRestoreArtifactStorage struct {
+	bodies    map[string][]byte
+	readCalls int
+}
+
+type recordingAtomicRestoreTarget struct{ atomicCalls int }
+
+func (target *recordingAtomicRestoreTarget) WithAtomicRestore(
+	context.Context,
+	*recoverystate.Catalog,
+	func(VNextRestoreMutation) error,
+) error {
+	target.atomicCalls++
+	return errors.New("unexpected target mutation")
+}
 
 func (*graphRestoreArtifactStorage) WriteArtifact(context.Context, string, []byte, string) (BackupArtifactProof, error) {
 	return BackupArtifactProof{}, errors.New("unexpected artifact write")
 }
 
 func (storage *graphRestoreArtifactStorage) ReadArtifact(_ context.Context, key string, _ int64) ([]byte, error) {
+	storage.readCalls++
 	body, ok := storage.bodies[key]
 	if !ok {
 		return nil, errors.New("artifact unavailable")
@@ -221,32 +230,11 @@ func (*graphRestoreArtifactStorage) WriteArtifactStream(context.Context, BackupA
 }
 
 func (storage *graphRestoreArtifactStorage) ReadArtifactStream(_ context.Context, proof BackupArtifactStreamProof, destination io.Writer) error {
+	storage.readCalls++
 	body, ok := storage.bodies[proof.LogicalRef]
 	if !ok {
 		return errors.New("artifact unavailable")
 	}
 	_, err := destination.Write(body)
 	return err
-}
-
-func mapsCloneGraphRestoreProofs(source map[string]VNextArtifactProof) map[string]VNextArtifactProof {
-	cloned := make(map[string]VNextArtifactProof, len(source))
-	for key, value := range source {
-		cloned[key] = value
-	}
-	return cloned
-}
-
-func retiredEmptyRegistryCodecSHA256ForTest() string {
-	codecs := []string{
-		BackupArtifactEnvelopeV2SchemaID,
-		BackupIntegrityManifestV3SchemaID,
-		ObjectStoreBackupManifestV2SchemaID,
-		ObjectStoreBackupSummaryV2SchemaID,
-		PostgresSnapshotArtifactV2SchemaID,
-		PostgresSnapshotUnitV1SchemaID,
-	}
-	sort.Strings(codecs)
-	sum := sha256.Sum256([]byte(vNextCodecRegistryDomain + strings.Join(codecs, "\n") + "\n"))
-	return hex.EncodeToString(sum[:])
 }

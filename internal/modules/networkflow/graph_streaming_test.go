@@ -173,9 +173,6 @@ func TestDefaultGraphV2IdentityFixture_Unit(t *testing.T) {
 	if reversed := graphQueryDigestV2(incidentID, []string{tables[1], tables[0]}, []Filter{}, timeRange, aggregation); reversed != digest {
 		t.Fatalf("v2 table order changed digest: %s != %s", reversed, digest)
 	}
-	if legacy := graphQueryDigest(incidentID, tables, nil, timeRange, aggregation); legacy == digest {
-		t.Fatalf("v1 and v2 graph digest identities unexpectedly match: %s", digest)
-	}
 }
 
 func TestStreamingGraphDatabaseErrorsRemainVisible_Unit(t *testing.T) {

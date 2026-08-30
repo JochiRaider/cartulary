@@ -7065,16 +7065,14 @@ a workbook provider and MUST NOT receive an unrestricted workbook source
 reference through those contracts.
 
 When the frozen Recovery catalog contains
-`graphprojection.restore_rebuild.v3`, Recovery MUST resolve it to the distinct
-Graph-owned restore participant defined by Graph Projection NLSpec §9. The v3
-participant MUST admit the exact mixed persisted Network Flow graph-declaration
-union selected by the restored state-3 catalog and MUST preserve every admitted
-declaration's authoritative bytes. Recovery MUST retain the exact
-`graphprojection.restore_rebuild.v2` dispatcher only as a read-only historical
-path for a supported retained backup set whose frozen catalog names v2. A live
-state-3 restore, new backup, or ordinary startup MUST NOT select v2. Removal of
-that historical dispatcher requires a separately adopted owner decision after
-the supported retained-backup inventory reaches zero.
+`graphprojection.restore_rebuild.v4`, Recovery MUST resolve it to the distinct
+Graph-owned restore participant defined by Graph Projection NLSpec §9. The v4
+participant admits only persisted Network Flow semantic-query v2 declarations
+selected by the restored state-4 catalog and preserves every admitted
+declaration's authoritative bytes. A Graph v2 or v3 binding is unsupported and
+MUST fail Recovery selection or binding admission before opening the Graph
+mutation transaction. No historical dispatcher, backup inventory gate,
+translator, digest heuristic, or fallback is current.
 Recovery MUST propagate the admitted Recovery operation identity and validated
 Core 04 target-generation identity into that participant rather than minting a
 second identity. After authoritative Postgres and object data are restored,
@@ -7085,10 +7083,13 @@ results whose readiness is aggregated by Recovery.
 Catalog, source-registry, or implementation-binding admission failure occurs
 before Graph mutation and produces no Graph participant result. An admitted
 Graph failure maps through the existing `projection_rebuild_failed` family by
-typed classification, never error-message inspection. Recovery MUST persist
-the Graph completion tuple and durable participant result before overall
-readiness and MUST replay matching terminal evidence without invoking Graph a
-second time.
+typed classification, never error-message inspection. Clear, deterministic
+rebuild, immutable result publication, Network Flow nonterminal-job
+reconciliation, Reporting job and lease reconciliation, and postcondition
+verification MUST share the Graph participant transaction; readiness cannot be
+published until all complete. Recovery MUST persist the Graph completion tuple
+and durable participant result before overall readiness and MUST replay matching
+terminal evidence without invoking Graph a second time.
 Profiles: base
 Verified by: AC-472
 

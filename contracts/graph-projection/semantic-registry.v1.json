@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.graph_projection_semantic_registry.v1",
+  "projection_schema_id": "graph_projection.v2",
+  "field_types": [
+    "boolean",
+    "integer",
+    "number",
+    "string",
+    "timestamp",
+    "identifier",
+    "boolean_array",
+    "integer_array",
+    "number_array",
+    "string_array",
+    "timestamp_array",
+    "identifier_array"
+  ],
+  "merge_matrix": {
+    "boolean": ["single_value", "first", "last"],
+    "integer": ["single_value", "first", "last", "min", "max", "sum", "count"],
+    "number": ["single_value", "first", "last", "min", "max", "sum"],
+    "string": ["single_value", "first", "last", "min", "max"],
+    "timestamp": ["single_value", "first", "last", "min", "max"],
+    "identifier": ["single_value", "first", "last", "min", "max"],
+    "boolean_array": ["single_value", "first", "last", "set", "ordered_list"],
+    "integer_array": ["single_value", "first", "last", "set", "ordered_list"],
+    "number_array": ["single_value", "first", "last", "set", "ordered_list"],
+    "string_array": ["single_value", "first", "last", "set", "ordered_list"],
+    "timestamp_array": ["single_value", "first", "last", "set", "ordered_list"],
+    "identifier_array": ["single_value", "first", "last", "set", "ordered_list"]
+  },
+  "value_boundaries": {
+    "integer": "signed_int64",
+    "number": "finite_representable_json_number",
+    "text_measurement": "utf8_bytes",
+    "arrays": "flat"
+  },
+  "text_limits_bytes": {
+    "identifier": 255,
+    "label": 256,
+    "string": 16384,
+    "property_key": 255,
+    "field_path": 511
+  },
+  "semantic_limits": {
+	"maximum_array_items": 100000,
+    "maximum_input_bytes": 268435456,
+    "maximum_source_vertices": 100000,
+    "maximum_source_edges": 250000,
+    "maximum_projected_vertices": 100000,
+    "maximum_projected_edges": 250000,
+    "maximum_entity_filters": 1000,
+    "maximum_relationship_filters": 1000,
+    "maximum_entity_mappings": 10000,
+    "maximum_relationship_mappings": 10000,
+    "maximum_property_definitions": 10000,
+    "maximum_metadata_mappings": 10000,
+    "maximum_aggregation_definitions": 1000,
+    "maximum_property_keys": 1024,
+    "maximum_labels_per_object": 256,
+    "maximum_validation_issues": 100000,
+    "maximum_traversal_seeds": 1024,
+    "maximum_traversal_kind_filters": 1024,
+    "maximum_traversal_depth": 16,
+    "cancellation_check_interval_items": 1024
+  },
+  "owner_id": "module.graphprojection"
+}

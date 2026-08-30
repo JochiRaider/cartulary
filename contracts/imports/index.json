@@ -33,7 +33,7 @@
     "module.parties@1",
     "module.tasksdecisions@1",
     "module.timeline@2",
-    "network_flow_activity@4"
+    "network_flow_activity@5"
   ],
   "facade_contracts": [
     {
@@ -74,7 +74,7 @@
     {
       "facade_id": "network_flow_import_facade_v1",
       "facade_kind": "owner_preview_apply",
-      "owner_contract_ref": "network_flow_activity@4"
+      "owner_contract_ref": "network_flow_activity@5"
     },
     {
       "facade_id": "parties.import_create",
@@ -102,7 +102,7 @@
       "binding_path": "contracts/network-flow/import-facade-binding.v1.json",
       "owner_schema_paths": [
         "contracts/network-flow/import-owner-error.v1.schema.json",
-        "contracts/network-flow/schemas.v2.json"
+        "contracts/network-flow/schemas.v3.json"
       ],
       "extension_contribution_path": "contracts/extensions/fragments/network_flow_activity.profile.json",
       "availability_kind": "claim_gated",

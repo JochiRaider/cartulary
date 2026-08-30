@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.graph_projection_restore_implementation_binding.v4",
+  "algorithm_id": "graphprojection.restore_rebuild.v4",
+  "binding_id": "graphprojection.restore_rebuild.network_flow_graph_views.v4",
+  "graph_projection_contract_id": "cartulary.graph_projection_nlspec.v2.2.0",
+  "semantic_query_schema_ids": ["cartulary.network_flow.graph_semantic_query.v2"],
+  "recovery_state_catalog_sha256": "0cdb9b6a4f7299764085d5fde6263696314becd1be8f0947699d384dbeaef482",
+  "source_registry_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634",
+  "graph_table_ids": ["graph_projection_result_edges", "graph_projection_result_leases", "graph_projection_result_vertices", "graph_projection_results"],
+  "graph_engine_algorithm_ids": ["graphprojection.deterministic_projection.v2", "graphprojection.input_admission.v2", "graphprojection.restore_publication.v4", "graphprojection.result_identity.v2"],
+  "graph_engine_algorithm_digests": ["617737e782ac5cb310e2039ac9cc1985021242f2137ec6d5b631b4d6cd99ec7e", "de914d247eba75b55da0acbb2da9756d254f3cb211208deb3b7140e4492db1e5", "31a77589b79133f78886c293d9e134e512467207e4c33f3e3e83537c0f7f43f8", "0e5c9912a7b29389da18edbb2e8aa1e8eb454ca9464b16a1acf3e37248d5033"],
+  "database_schema_lineage": "cartulary.prod_ddl_rebaseline.v2",
+  "database_schema_head": 34,
+  "packaged_subject_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+  "build_provenance_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+}

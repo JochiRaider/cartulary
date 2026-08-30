@@ -3,7 +3,7 @@ title: Graph Projection NLSpec
 status: adopted/current
 document_class: nlspec
 created_at: 2026-05-30
-document_version: 2.1.0
+document_version: 2.2.0
 ---
 
 ## 1. Status, scope, and authority
@@ -11,11 +11,15 @@ document_version: 2.1.0
 Status: `adopted/current` (`Adopted`).
 
 This NLSpec defines Graph Projection 2.x: deterministic, side-effect-free
-derivation of a graph representation from an explicit immutable source. It
-replaces Graph Projection 1.2.0 in full. Version 1 lifecycle, query, retention,
-cursor, idempotency, invalidation, run-history, and five-table Recovery behavior
-is not current behavior and MUST NOT be implemented through a compatibility
-alias, translator, dual writer, or hidden feature flag.
+derivation of a graph representation from an explicit immutable source.
+Version 2.2.0 adopts one native-v2 engine entrypoint, the complete closed v2
+semantic matrix, a pure root package, a Graph-owned restore subpackage, and a
+current-only Recovery v4 contribution. It replaces Graph Projection 1.2.0 and
+the operational compatibility posture of 2.1.0 in full. Version 1 lifecycle,
+query, retention, cursor, idempotency, invalidation, run-history, historical
+Recovery dispatch, and five-table Recovery behavior are not current behavior
+and MUST NOT be implemented through a compatibility alias, translator, dual
+reader, dual writer, fallback dispatcher, or hidden feature flag.
 
 Graph Projection owns semantic input admission, normalization, mapping,
 aggregation, validation, canonical output, stable object identity, immutable
@@ -71,7 +75,8 @@ deadline signals; those signals never enter canonical bytes or identity.
 | `property_key` | Identifier with 1..255 bytes; `*` is reserved for explicit wildcard positions. |
 | `sha256_hex` | Exactly 64 lowercase hexadecimal characters. |
 | `finite_integer` | JSON integer with no fraction or exponent and within signed 64-bit range. |
-| `property_value` | Null, boolean, finite integer, finite JSON number, string, or a flat array of those scalar values; nested objects/arrays are invalid. |
+| `finite_number` | JSON number representable by the adopted runtime numeric representation whose decoded and computed value is finite; NaN, infinity, and overflow are invalid. |
+| `property_value` | Null, boolean, finite integer, finite number, string, or a flat array of those scalar values; nested objects/arrays are invalid. |
 
 ### 3.3 `graph_projection.v2`
 
@@ -179,6 +184,30 @@ or `graph_view`), `target_kind` (kind or `*`), `source_field_path`,
 `ordered_list`. Default modes require a type-compatible default. Wildcard
 expansion MUST NOT create duplicate `(scope, kind, projected_key)` tuples.
 
+The valid projected-type and merge-behavior pairs are closed:
+
+| Projected type | Valid merge behaviors |
+| --- | --- |
+| `boolean` | `single_value`, `first`, `last` |
+| `integer` | `single_value`, `first`, `last`, `min`, `max`, `sum`, `count` |
+| `number` | `single_value`, `first`, `last`, `min`, `max`, `sum` |
+| `string`, `timestamp`, `identifier` | `single_value`, `first`, `last`, `min`, `max` |
+| `boolean_array`, `integer_array`, `number_array`, `string_array`, `timestamp_array`, `identifier_array` | `single_value`, `first`, `last`, `set`, `ordered_list` |
+
+Every other pair is invalid and MUST fail admission before derivation.
+`single_value` requires canonical equality across all admitted contributors.
+`first` and `last` select in the canonical contributor order from §5. `min`
+and `max` compare integers and numbers numerically and compare strings,
+timestamps, and identifiers by their adopted canonical byte order. `sum`
+detects signed-int64 overflow for integer output and rejects a non-finite
+number result. `count` emits the integer count of admitted integer values.
+`set` flattens exactly one array level, deduplicates elements by canonical
+bytes, and emits canonical byte order. `ordered_list` concatenates arrays in
+canonical contributor order and preserves duplicates. Empty, singleton, null,
+missing, and defaulted contributor sets follow the declared
+missing/null/default policies before merge selection; a failure emits no
+partial object or result.
+
 **Table 3-I. Metadata mapping**
 
 Metadata mappings use the Table 3-H behavior members with
@@ -204,6 +233,16 @@ Admission performs decoding, closed-shape validation, default materialization,
 scalar validation, duplicate detection, resource admission, mapping validation,
 and source-reference validation in that order. Failure returns a closed
 `ProjectionError` and no partial result.
+
+One shared semantic validator owns signed-int64 integers, finite numbers,
+identifiers, timestamps, flat arrays, field paths, labels, strings, defaults,
+filters, and merge operands. Admission, default validation, filters,
+canonicalization, merge evaluation, and execution MUST use the same rules.
+Every owner-bounded textual ceiling is measured in UTF-8 bytes after decoding,
+never Unicode scalar count, code-unit count, or locale-dependent width. Exact
+field paths use `source_entity_kind`, `source_relationship_kind`, the other
+Table 3-C and Table 3-D names, and declared `properties.` or `metadata.` paths;
+the aliases `kind`, `op`, and `graph_view_key` are invalid.
 
 Objects are serialized as UTF-8 canonical JSON: keys in Unicode code-point
 order, no insignificant whitespace, shortest valid JSON escapes, exact JSON
@@ -236,6 +275,13 @@ scalar tuple encoding. Contributors sort by source kind, source ID, mapping or
 aggregation rule ID, then prior projected object ID. Merge operations consume
 that order. Aggregated edges may be emitted only when both endpoints resolve;
 an `exclude` rule omits the edge, while `error` fails projection.
+
+Projected values are decoded once into their native v2 type before validation,
+comparison, merge, or canonicalization. Integer operations use the complete
+signed-int64 domain. Number operations reject overflow and any non-finite
+intermediate or result. Array operations accept only flat arrays of the exact
+declared element type. Canonical equality and ordering are applied identically
+in ordinary execution and Recovery.
 
 Vertex and edge IDs retain prefixes `vx_` and `ed_` and are SHA-256-derived from
 length-framed tuples of their semantic family, graph view, kind, mapping or
@@ -318,7 +364,11 @@ safe `details`. Codes are `invalid_projection_request`,
 `retry_with_backoff`. Source property values, metadata values, stack text, SQL,
 paths, and secrets MUST NOT appear in errors, logs, metrics, or traces.
 
-The first producer uses these non-configurable semantic limits:
+The owner-authored semantic registry contains exactly these non-configurable
+limits and the cancellation cadence in §5. Machine contracts project the
+registry as one object; the engine keeps one private runtime representation
+whose exact equality with that projection is tested. Cursor, list, history,
+job, retry, and deployment-capacity limits are not Graph semantic limits.
 
 | Limit | Value |
 | --- | ---: |
@@ -366,6 +416,40 @@ Leases are operational rows and do not enter result identity. Adapters accept
 borrowed database/transaction handles, start no hidden worker, and close no
 borrowed resource.
 
+### 8.1 Implementation and construction boundary
+
+The production root package `internal/modules/graphprojection` owns only the
+pure deterministic engine and completed-result model. It imports only the Go
+standard library and its own private implementation. Its sole engine
+entrypoint is:
+
+```go
+func ProjectV2(
+    ctx context.Context,
+    invocation InvocationContextV2,
+    rawInput []byte,
+) (ProjectionResultV2, error)
+```
+
+The root exposes no engine type, engine constructor, mutable option, graph-view
+identity helper, restore contract, database capability, job capability, or
+cross-owner alias. Parsing, normalization, validation, derivation, limits,
+canonicalization, and projection-result identity helpers remain private unless
+an independently adopted cross-package production consumer requires a narrower
+capability.
+
+`internal/modules/graphprojection/restore` owns Graph restore contracts,
+current source-registry construction, rebuild orchestration, and the pure
+Graph recovery-state contribution. PostgreSQL realization remains in
+`internal/modules/graphprojection/postgresrestore` and depends on the narrow
+restore-owned ports. Recovery may expose or alias only the minimal cross-owner
+port required to invoke the participant. Constructors are closed and fallible:
+the PostgreSQL restore writer requires both its database and its reconciler,
+and no valid composition can omit reconciliation. Positive import, export,
+adapter-capability, constructor, and application-composition allowlists define
+the supported topology; permanent tests MUST NOT enumerate every historical
+deleted symbol or package.
+
 Cleanup capabilities MUST NOT accept a deployment-wide reachable-ID list or
 query a source owner's declaration table. The caller supplies one exact source
 owner and performs its selected-binding check through that owner's adapter in
@@ -378,15 +462,18 @@ same-transaction selected-binding and lease rechecks is mandatory.
 
 ## 9. Recovery
 
-Graph Projection publishes current algorithm
-`graphprojection.restore_rebuild.v3` and result schema
-`cartulary.graph_projection_restore_rebuild_result.v3`. It rebuilds admitted
-Network Flow semantic-query v1 and v2 declarations into Graph Projection v2
-results. The exact v2 algorithm and result schema remain read-only only while a
-supported retained pre-GP3 backup references them; they MUST NOT accept v2
-semantic queries, translate artifacts, or act as the current catalog entry.
-Their later removal requires a proven zero supported-backup inventory. The
-current Recovery catalog contains exactly these derived tables in ASCII order:
+Graph Projection publishes only current algorithm
+`graphprojection.restore_rebuild.v4` and result schema
+`cartulary.graph_projection_restore_rebuild_result.v4`. Its matching v4 source
+registry and implementation binding admit only Network Flow semantic-query v2
+declarations and rebuild Graph Projection v2 results. Graph v2/v3 Recovery
+algorithms, results, bindings, registries, codecs, aliases, fixtures, and
+dispatchers are unsupported and absent from the active build. Recovery rejects
+an old Graph binding during selection or binding admission before opening the
+Graph mutation transaction or invoking Graph clear, rebuild, reconciliation,
+or publication. No inventory gate, translator, digest heuristic, fallback, or
+historical dispatcher is permitted. The current Recovery catalog contains
+exactly these derived tables in ASCII order:
 
 ```text
 graph_projection_result_edges
@@ -397,22 +484,25 @@ graph_projection_results
 
 Recovery restores source-owner authoritative declarations before invoking the
 Graph participant. Workers are quiescent. The participant validates the frozen
-catalog, typed source registry, implementation binding, and target generation
-before persistent changes; clears the four tables in one caller-controlled
-publication transaction; enumerates active declarations with selected results;
-reconstructs each result from the restored immutable source boundary; and
-requires exact result, digest, vertex, and edge identity before readiness.
-Leases are reconciled from durable Reporting outcomes and are never copied as
-authoritative backup rows.
+catalog, typed v4 source registry, v4 implementation binding, and target
+generation before persistent changes; then, in one caller-controlled
+transaction, clears the four tables, enumerates active v2 declarations with
+selected results, reconstructs each result from the restored immutable source
+boundary, publishes immutable results, reconciles Network Flow nonterminal
+jobs plus Reporting jobs and leases, and verifies exact result, digest, vertex,
+edge, job, lease, and readiness postconditions. Leases are reconciled from
+durable Reporting outcomes and are never copied as authoritative backup rows.
+Reconciliation is mandatory and cannot be disabled or omitted by construction.
 
 The result status is `succeeded/ready` or `failed/incomplete`. Failure claims no
 committed cleared/rebuilt facts and returns only closed safe errors. An
 indeterminate commit requires target reinitialization under Core 04.
 
-The current source registry and implementation binding are v3. The retired
-empty-registry v1 binding remains absent. Current dispatch accepts v3 and the
-exact evidence-gated historical v2 artifact pair only; no digest heuristic,
-version translation, or fallback registry is permitted.
+The current source registry and implementation binding are v4. No earlier
+Graph generation is selectable or executable. Failure or cancellation in any
+clear, rebuild, publication, reconciliation, or postcondition phase rolls back
+the complete Graph mutation. An indeterminate commit keeps the target
+unavailable and requires target reinitialization under Core 04.
 
 ## 10. Security and operational invariants
 
@@ -441,16 +531,21 @@ Graph Projection v2 is conformant only when all criteria pass:
    wildcard expansion, schema registry, ordering, and limits have owner-routed
    tests.
 5. Cancellation is observed at every required checkpoint.
-6. The pure engine imports no PostgreSQL, HTTP, auth, Common Jobs, Recovery, or
-   application-composition package.
+6. The pure root imports only the standard library and its own private engine
+   implementation; restore ownership and every PostgreSQL, HTTP, auth, Common
+   Jobs, Recovery, sibling-module, and application dependency remain outside it.
 7. Atomic publication, exact reads, traversal, leases, cleanup, same-ID byte
    conflict, rollback, and cancellation have service-backed evidence.
 8. Current runtime contains no v1 parser, run state, retention, cursor,
    idempotency, invalidation, broad repository, public Graph route, or hidden
    worker.
-9. Recovery v3 reconstructs exact mixed-v1/v2 selected results before readiness;
-   exact v2 dispatch is reachable only for supported retained backups, and the
-   retired v1 rollout bridge remains absent.
+9. Recovery v4 reconstructs exact v2 selected results, requires reconciliation
+   and postcondition verification before readiness, and rejects every Graph
+   v2/v3 artifact before mutation.
+10. Every projected-type/merge pair, signed-int64 and finite-number boundary,
+    UTF-8 byte ceiling, null/default/wildcard branch, contributor permutation,
+    cancellation checkpoint, and failure-atomicity branch has deterministic
+    owner-routed evidence sourced from machine contracts rather than Markdown.
 
 ## Appendix A. Design rationale
 

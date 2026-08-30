@@ -141,14 +141,14 @@ func AssertGraphProjectionSemanticInputExcludesOperationalFields(t *testing.T) {
 
 func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	t.Helper()
-	semanticQuery := graphSemanticQueryResource(schemaGraphSemanticQueryV1, []string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}, graphResultLimits{})
+	semanticQuery := graphSemanticQueryResource(schemaGraphSemanticQueryV2, []string{"nft_" + strings.Repeat("a", 64)}, nil, graphTimeRange{}, graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}, graphResultLimits{})
 	if encoded := string(canonicalJSON(semanticQuery)); !strings.Contains(encoded, `"filters":[]`) {
 		t.Fatalf("default-materialized semantic graph filters = %s, want empty array", encoded)
 	}
 	digestIncidentID := IncidentID()
 	digestAggregation := graphAggregation{Mode: "default_flow_edge_v1", IncludeExampleRowRefs: true}
 	digestTimeRange := graphTimeRange{Omitted: true}
-	if omittedDigest, emptyDigest := graphQueryDigest(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, nil, digestTimeRange, digestAggregation), graphQueryDigest(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, []Filter{}, digestTimeRange, digestAggregation); omittedDigest != emptyDigest {
+	if omittedDigest, emptyDigest := graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, nil, digestTimeRange, digestAggregation), graphQueryDigestV2(digestIncidentID, []string{"nft_" + strings.Repeat("a", 64)}, []Filter{}, digestTimeRange, digestAggregation); omittedDigest != emptyDigest {
 		t.Fatalf("omitted and empty graph filters produced different digests: %s != %s", omittedDigest, emptyDigest)
 	}
 	fixture := ReadFile(t, "fixtures/network-flow/NF-FIX-001-cisco-sna-minimal/source/cisco-sna-minimal.csv")
@@ -196,7 +196,7 @@ func AssertGraphProjectionAdapterAcceptsCanonicalImportFixture(t *testing.T) {
 	}
 	adapter := newGraphProjectionAdapter()
 	graphViewKey := "network_flow_activity:" + incidentID.String() + ":" + strings.Repeat("b", 64)
-	graphViewID, err := adapter.GraphViewID(graphViewKey)
+	graphViewID, err := deriveNetworkFlowGraphViewID(graphViewKey)
 	if err != nil {
 		t.Fatalf("derive graph view ID: %v", err)
 	}

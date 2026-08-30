@@ -7,10 +7,7 @@ func emitDirectVertices(ctx context.Context, run projectionWork) ([]Vertex, map[
 	issues := []ValidationIssue{}
 	bySource := map[string][]Vertex{}
 	declaredKinds := stringSet(run.Request.projectionConfig.DeclaredSourceEntityKinds)
-	identifierValid := validIdentifier
-	if run.Request.ProjectionSchemaID == ProjectionSchemaIDV2 {
-		identifierValid = validIdentifierV2
-	}
+	identifierValid := validIdentifierV2
 	for _, entity := range run.Request.SourceEntities {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, nil, err
@@ -34,7 +31,7 @@ func emitDirectVertices(ctx context.Context, run projectionWork) ([]Vertex, map[
 			if mapping.SourceEntityKind != entity.SourceEntityKind || !entityMappingIncludes(mapping, entity) {
 				continue
 			}
-			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "direct_vertex", run.Request.ProjectionSchemaID, run.GraphViewID, entity.SourceEntityKind, entity.SourceEntityID, mapping.MappingIdentityDigest)
+			vertexID, _ := generatedID("vx_", "GPVERTEX1\n", "direct_vertex", ProjectionSchemaIDV2, run.GraphViewID, entity.SourceEntityKind, entity.SourceEntityID, mapping.MappingIdentityDigest)
 			properties, propertyIssues := deriveProperties(run, "vertex", mapping.ProjectedVertexKind, entity, nil, nil, vertexID)
 			issues = append(issues, propertyIssues...)
 			mappedMetadata, metadataIssues := deriveMetadata(run, "vertex", mapping.ProjectedVertexKind, entity, nil, vertexID)
@@ -64,10 +61,7 @@ func emitDirectEdges(ctx context.Context, run projectionWork, vertexBySource map
 	edges := []Edge{}
 	issues := []ValidationIssue{}
 	declaredKinds := stringSet(run.Request.projectionConfig.DeclaredSourceRelationshipKinds)
-	identifierValid := validIdentifier
-	if run.Request.ProjectionSchemaID == ProjectionSchemaIDV2 {
-		identifierValid = validIdentifierV2
-	}
+	identifierValid := validIdentifierV2
 	for _, relationship := range run.Request.SourceRelationships {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
@@ -100,7 +94,7 @@ func emitDirectEdges(ctx context.Context, run projectionWork, vertexBySource map
 		if !filtersMatchRelationship(run.Request.filters.RelationshipFilters, relationship) {
 			continue
 		}
-		for _, mapping := range run.Request.RelationshipMappings {
+		for _, mapping := range run.Request.projectionConfig.RelationshipMappings {
 			if mapping.SourceRelationshipKind != relationship.SourceRelationshipKind || !relationshipMappingIncludes(mapping, relationship) {
 				continue
 			}
@@ -116,7 +110,7 @@ func emitDirectEdges(ctx context.Context, run projectionWork, vertexBySource map
 				continue
 			}
 			srcVertex, dstVertex, direction := projectDirection(mapping.DirectionPolicy, relationship.Direction, srcVertices[0], dstVertices[0])
-			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "direct_edge", run.Request.ProjectionSchemaID, run.GraphViewID, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, mapping.ProjectedEdgeKind, srcVertex.VertexID, dstVertex.VertexID, direction, mapping.MappingIdentityDigest)
+			edgeID, _ := generatedID("ed_", "GPEDGE1\n", "direct_edge", ProjectionSchemaIDV2, run.GraphViewID, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, mapping.ProjectedEdgeKind, srcVertex.VertexID, dstVertex.VertexID, direction, mapping.MappingIdentityDigest)
 			properties, propertyIssues := deriveProperties(run, "edge", mapping.ProjectedEdgeKind, sourceEntity{}, &relationship, nil, edgeID)
 			issues = append(issues, propertyIssues...)
 			mappedMetadata, metadataIssues := deriveMetadata(run, "edge", mapping.ProjectedEdgeKind, sourceEntity{}, &relationship, edgeID)
@@ -141,7 +135,7 @@ func emitDirectEdges(ctx context.Context, run projectionWork, vertexBySource map
 			edge.SortKey = sortKey("edge", "direct", edge.EdgeKind, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, edge.SrcVertexID, edge.DstVertexID, edge.Direction, mapping.MappingIdentityDigest, false, edge.EdgeID)
 			edges = append(edges, edge)
 			if mapping.EmitReverseEdge {
-				reverseID, _ := generatedID("ed_", "GPEDGE1\n", "reverse_edge", run.Request.ProjectionSchemaID, run.GraphViewID, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, mapping.ReverseEdgeKind, edge.DstVertexID, edge.SrcVertexID, "directed", mapping.MappingIdentityDigest)
+				reverseID, _ := generatedID("ed_", "GPEDGE1\n", "reverse_edge", ProjectionSchemaIDV2, run.GraphViewID, relationship.SourceRelationshipKind, relationship.SourceRelationshipID, mapping.ReverseEdgeKind, edge.DstVertexID, edge.SrcVertexID, "directed", mapping.MappingIdentityDigest)
 				reverseOf := edge.EdgeID
 				reverse := edge
 				reverse.EdgeID = reverseID

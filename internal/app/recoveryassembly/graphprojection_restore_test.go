@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -23,19 +24,20 @@ func TestGraphRestoreAcceptanceGPRA18RecoveryAssemblyUsesNarrowParticipant_Integ
 	if err != nil {
 		t.Fatalf("construct Recovery state catalog: %v", err)
 	}
-	registry := restorecontract.CurrentGraphProjectionSourceRegistryRef()
-	binding := restorecontract.CurrentGraphProjectionImplementationBinding()
+	currentRegistry := graphrestore.CurrentRestoreSourceRegistry()
+	registry := graphrestore.RestoreSourceRegistryRef{Registry: currentRegistry, SHA256: currentRegistry.DigestSHA256()}
+	binding := graphrestore.CurrentRestoreImplementationBinding()
 	ctx := context.Background()
-	result, err := participant.Rebuild(ctx, restorecontract.GraphProjectionRebuildRequest{
+	result, err := participant.Rebuild(ctx, graphrestore.RestoreRebuildRequest{
 		Context:             ctx,
 		RestoreOperationID:  uuid.MustParse("00000000-0000-0000-0000-000000009001"),
 		RestoredSourceState: restorecontract.RestoredGraphProjectionSourceState{},
 		BackupSetID:         uuid.MustParse("00000000-0000-0000-0000-000000009002"),
 		ConsistencyPointAt:  time.Date(2026, 5, 30, 0, 0, 0, 0, time.UTC),
 		TargetGenerationID:  uuid.MustParse("00000000-0000-0000-0000-000000009003"),
-		RecoveryStateCatalog: restorecontract.GraphProjectionRecoveryCatalogRef{
-			DigestSHA256: catalog.DigestSHA256(), AlgorithmID: restorecontract.GraphProjectionRestoreAlgorithmID,
-			GraphTableIDs: restorecontract.GraphProjectionTableIDs(),
+		RecoveryStateCatalog: graphrestore.RestoreRecoveryCatalogRef{
+			DigestSHA256: catalog.DigestSHA256(), AlgorithmID: graphrestore.RestoreAlgorithmID,
+			GraphTableIDs: graphrestore.RestoreGraphTableIDs(),
 		},
 		SourceRegistry: registry, ImplementationBinding: binding,
 	})

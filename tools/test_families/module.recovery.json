@@ -603,7 +603,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.recovery.unit.graph_restore_v3_contract_projection",
+      "row_id": "module.recovery.unit.graph_restore_v4_contract_projection",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.unit",
       "collaborator_ids": [
@@ -617,7 +617,7 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-          "TestVNextGraphRestoreV3ProjectionContract_Unit"
+          "TestVNextGraphRestoreV4ProjectionContract_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -757,13 +757,14 @@
       "selector": {
         "package": "./internal/modules/recovery",
         "tests": [
-          "TestRecoveryGenerationRegistryOwnsThreeExactClosedGenerations_Unit",
-          "TestRecoveryGenerationRegistryRejectsMalformedDuplicateAndMixedEntries_Unit",
+          "TestRecoveryGenerationRegistryOwnsOneExactCurrentGeneration_Unit",
+          "TestRecoveryGenerationRegistryRejectsMalformedAndNonCurrentEntries_Unit",
           "TestRecoveryGenerationSelectionDrivesCatalogCodecAndGraphValidation_Unit",
           "TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit",
-          "TestVNextGraphRestoreArtifactsFailClosedAndRejectRetiredRegistry_Unit",
-          "TestVNextGraphRestoreArtifactsRetainExactHistoricalV2Dispatch_Unit",
-          "TestVNextGraphRestoreArtifactsRetainExactPreWorkbookV3Dispatch_Unit"
+          "TestVNextGraphRestoreArtifactsFailClosedWhenMissingOrUnselected_Unit",
+          "TestVNextGraphRestoreArtifactsRejectV2AndV3BeforeArtifactRead_Unit",
+          "TestVNextGraphRestoreArtifactsResolveOnlyCurrentV4_Unit",
+          "TestVNextRestoreRejectsV2AndV3GraphBindingsBeforeTargetMutation_Unit"
         ]
       },
       "evidence_class": "unit",

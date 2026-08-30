@@ -286,6 +286,23 @@ func extensionMigrationFacts(indexed map[string]map[string]any, profileID string
 	return result
 }
 
+func extensionMigrationLedgerFacts(indexed map[string]map[string]any, profileID string) []map[string]any {
+	result := []map[string]any{}
+	for _, object := range indexed {
+		if object["schema_id"] != "cartulary.extension_owner_fragment.v3" {
+			continue
+		}
+		facts, _ := object["facts"].([]any)
+		for _, rawFact := range facts {
+			fact, _ := rawFact.(map[string]any)
+			if fact["fact_kind"] == "migration_ledger_definition" && fact["profile_id"] == profileID {
+				result = append(result, fact)
+			}
+		}
+	}
+	return result
+}
+
 func extensionFactSortKey(fact map[string]any) string {
 	profileID, _ := fact["profile_id"].(string)
 	factKind, _ := fact["fact_kind"].(string)
@@ -304,6 +321,9 @@ func extensionFactSortKey(fact map[string]any) string {
 		identity = stringValue(contribution["contribution_id"])
 	case "migration_definition":
 		definition, _ := fact["migration_definition"].(map[string]any)
+		identity = stringValue(definition["migration_id"])
+	case "migration_ledger_definition":
+		definition, _ := fact["migration_ledger_definition"].(map[string]any)
 		identity = stringValue(definition["migration_id"])
 	case "worker_kind":
 		identity = stringValue(fact["worker_kind"])
@@ -849,6 +869,7 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 			return nil, nil, nil, err
 		}
 		runtimeMigrations := []map[string]any{}
+		ledgerDefinitions := []map[string]any{}
 		rawMigrations, _ := objectArray(binding["migration_definitions"], profileID+" migration bindings")
 		for _, rawMigration := range rawMigrations {
 			migration := cloneObject(rawMigration)
@@ -856,7 +877,27 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 			migration["implementation_binding_profile_id"] = profileID
 			migration["implementation_binding_sha256"] = bindingDigest
 			runtimeMigrations = append(runtimeMigrations, migration)
+			ledgerDefinitions = append(ledgerDefinitions, map[string]any{
+				"schema_id":                   "cartulary.extension_migration_ledger_definition.v1",
+				"migration_lineage_id":        state["migration_lineage_id"],
+				"migration_id":                migration["migration_id"],
+				"from_state_version":          migration["from_state_version"],
+				"to_state_version":            migration["to_state_version"],
+				"migration_definition_sha256": migration["migration_definition_sha256"],
+			})
 		}
+		for _, fact := range extensionMigrationLedgerFacts(indexed, profileID) {
+			definition, _ := fact["migration_ledger_definition"].(map[string]any)
+			ledgerDefinitions = append(ledgerDefinitions, cloneObject(definition))
+		}
+		sort.Slice(ledgerDefinitions, func(i, j int) bool {
+			leftFrom, _ := positiveJSONInt(ledgerDefinitions[i]["from_state_version"], "ledger definition from version")
+			rightFrom, _ := positiveJSONInt(ledgerDefinitions[j]["from_state_version"], "ledger definition from version")
+			if leftFrom != rightFrom {
+				return leftFrom < rightFrom
+			}
+			return stringValue(ledgerDefinitions[i]["migration_id"]) < stringValue(ledgerDefinitions[j]["migration_id"])
+		})
 		stateRows = append(stateRows, map[string]any{
 			"profile_id":                                 profileID,
 			"contract_major":                             descriptor["contract_major"],
@@ -872,6 +913,7 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 			"initialization_algorithm_id":                initializationVariant["algorithm_id"],
 			"initialization_algorithm_definition_sha256": initializationVariant["algorithm_definition_sha256"],
 			"migration_definitions":                      objectsToAny(runtimeMigrations),
+			"migration_ledger_definitions":               objectsToAny(ledgerDefinitions),
 			"final_state_validation_algorithm_id":        binding["final_state_validation_algorithm_id"],
 			"physical_state_binding_sha256":              physicalDigest,
 			"implementation_binding_sha256":              bindingDigest,

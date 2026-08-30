@@ -227,9 +227,6 @@ func graphLimitExceededAt(reason string, limitKey string, limit int, actual int,
 }
 
 func graphQueryDigestForSemantic(incidentID uuid.UUID, tableIDs []string, semantic graphSemanticRequest) string {
-	if semantic.SchemaID == schemaGraphSemanticQueryV1 {
-		return graphQueryDigest(incidentID, tableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
-	}
 	return graphQueryDigestV2(incidentID, tableIDs, semantic.Filters, semantic.TimeRange, semantic.Aggregation)
 }
 

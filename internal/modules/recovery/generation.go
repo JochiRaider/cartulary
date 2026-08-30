@@ -66,7 +66,7 @@ func (identity RecoveryGenerationIdentity) AdmitsGraphCompletion(
 
 func loadVNextRecoveryGenerationRegistry() (*vNextRecoveryGenerationRegistry, error) {
 	if contractrecovery.RecoveryGenerationRegistrySchemaID != "cartulary.recovery_generation_registry.v1" ||
-		len(contractrecovery.RecoveryGenerations) != 3 {
+		len(contractrecovery.RecoveryGenerations) != 1 {
 		return nil, fmt.Errorf("%w: generated Recovery generation registry is malformed", ErrVNextBackup)
 	}
 	return loadVNextRecoveryGenerationRegistryFrom(contractrecovery.RecoveryGenerations)
@@ -75,8 +75,8 @@ func loadVNextRecoveryGenerationRegistry() (*vNextRecoveryGenerationRegistry, er
 func loadVNextRecoveryGenerationRegistryFrom(
 	projections []contractrecovery.RecoveryGeneration,
 ) (*vNextRecoveryGenerationRegistry, error) {
-	if len(projections) != 3 {
-		return nil, fmt.Errorf("%w: Recovery generation registry must contain exactly three entries", ErrVNextBackup)
+	if len(projections) != 1 {
+		return nil, fmt.Errorf("%w: Recovery generation registry must contain exactly one current entry", ErrVNextBackup)
 	}
 	registry := &vNextRecoveryGenerationRegistry{
 		byPair: make(map[string]*vNextRecoveryGeneration, len(projections)),

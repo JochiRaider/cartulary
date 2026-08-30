@@ -11,21 +11,21 @@
   "artifacts": [
     {
       "kind": "graph_projection_restore_implementation_binding",
-      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v2",
+      "schema_id": "cartulary.graph_projection_restore_implementation_binding.v4",
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/implementation-binding",
       "content_type": "application/json",
-      "plaintext_bytes": 1383,
-      "plaintext_sha256": "235c69bbc0e5d4f25f3fab7b1f2b8c30ba6370bfc65abcba75822007802621b9",
+      "plaintext_bytes": 1461,
+      "plaintext_sha256": "2a04b36c624970358a52fda65efd9b0f1ab1398cbb0a049b06e77ac9b7f84ac7",
       "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-implementation-binding",
       "envelope_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
     },
     {
       "kind": "graph_projection_restore_source_registry",
-      "schema_id": "cartulary.graph_projection_restore_source_registry.v2",
+      "schema_id": "cartulary.graph_projection_restore_source_registry.v4",
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/source-registry",
       "content_type": "application/json",
-      "plaintext_bytes": 541,
-      "plaintext_sha256": "e75697ef1f6b5a197d299746fd42d2bf07afcd2e1c9d187a6fe695bca3096730",
+      "plaintext_bytes": 543,
+      "plaintext_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634",
       "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-source-registry",
       "envelope_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
     },

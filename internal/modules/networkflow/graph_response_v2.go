@@ -9,15 +9,6 @@ import (
 )
 
 func graphQueryResultResource(composition graphComposition) map[string]any {
-	if composition.SemanticSchemaID == schemaGraphSemanticQueryV1 {
-		return map[string]any{
-			"schema_id":          "cartulary.network_flow.graph_query_result.v1",
-			"graph_query_digest": composition.Digest, "semantic_query": composition.SemanticQuery,
-			"graph_projection_result": composition.GraphProjection,
-			"edge_annotations":        composition.EdgeAnnotations, "source_table_refs": composition.SourceTableRefs,
-			"result_limits": graphResultLimitsResourceV1(composition.ResultLimits),
-		}
-	}
 	variant := map[string]any{"kind": composition.Aggregation.Mode}
 	if composition.Aggregation.Mode == "time_bucket_v1" {
 		variant["time_buckets"] = timeBucketSummariesResource(composition.TimeBuckets)

@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	extensionsrecovery "github.com/JochiRaider/cartulary/internal/modules/extensions/recoverycontribution"
-	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -63,7 +63,7 @@ func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
 		entities.RecoveryStateContribution(),
 		evidence.RecoveryStateContribution(),
 		extensionsrecovery.RecoveryStateContribution(),
-		graphprojection.RecoveryStateContribution(),
+		graphrestore.RecoveryStateContribution(),
 		imports.RecoveryStateContribution(),
 		incidentbundles.RecoveryStateContribution(),
 		incidentsContribution,

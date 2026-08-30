@@ -2617,19 +2617,6 @@
       "production_only": false
     },
     {
-      "id": "retired-recovery-generation-heuristics",
-      "tokens": [
-        "admitsRecoveryGeneration(",
-        "historicalV2CodecRegistrySHA256(",
-        "historicalGraphProjectionRecoveryCatalogSHA256V2("
-      ],
-      "scan_paths": [
-        "internal/modules/recovery/**"
-      ],
-      "allowed_paths": [],
-      "production_only": false
-    },
-    {
       "id": "retired-recovery-current-basis-due-selector",
       "tokens": [
         "-- name: ListBackupSetsDueForRestoreVerification ",

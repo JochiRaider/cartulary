@@ -45,9 +45,9 @@ Verified by: AC-231
 **REQ-00-062**
 Projection behavior is governed by Core 00 through Core 04 and by adopted ADR, SPEC, or NLSpec artifacts only when those artifacts are explicitly adopted for their named scope. A projections-specific subsystem NLSpec is authoritative only when it is explicitly marked `Adopted` and listed as adopted by the project document taxonomy. `docs/graph_projection_nlspec.md` is `status: adopted/current` and authoritative for the graph-projection subsystem only. Draft, research, exploratory, or evidence documents, including research reports R01 through R09, are informative unless promoted through the adopted-document process.
 
-When a projections-specific NLSpec is adopted or substantively revised, projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests MUST be re-audited before accepting new projection changes. Graph Projection NLSpec 2.1.0 has completed that owner-level re-audit against Core 01's workbook projection provider and restore adapter contracts, Core 04's generation, serving-lease, journal, and reinitialization rules, the Graph implementation tracker, Network Flow producer, Reporting consumer, Recovery contribution, and boundary guards. GP3 machine projections and behavioral evidence remain downstream work and cannot be inferred from this owner adoption.
+When a projections-specific NLSpec is adopted or substantively revised, projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests MUST be re-audited before accepting new projection changes. Graph Projection NLSpec 2.2.0 has completed that owner-level re-audit against Core 01's workbook projection provider and restore adapter contracts, Core 04's generation, serving-lease, journal, and reinitialization rules, the Graph implementation tracker, Network Flow producer, Reporting consumer, Recovery contribution, and positive boundary guards. GP4 machine projections and behavioral evidence remain downstream work and cannot be inferred from this owner adoption.
 
-Graph Projection NLSpec 2.1.0 owns the distinct catalog-resolved Graph restore participant and pure deterministic graph derivation. Network Flow owns saved graph declarations and public routes; Reporting owns exact-result release consumption. Graph Projection does not redefine workbook-grid projection tables, `view_row_v1`, workbook query routes, Core saved views, import owner facades, the workbook `RestoreProjectionRebuilder`, workbook provider descriptors, public HTTP routes, WebSocket messages, or deployment-configuration keys. The phrase "workbook restore rebuild" names the Core 01 provider path; the phrase "Graph restore participant" names current `graphprojection.restore_rebuild.v3` plus the exact read-only v2 dispatcher only for supported retained pre-GP3 backup catalogs. Neither is an alias for the other.
+Graph Projection NLSpec 2.2.0 owns the distinct catalog-resolved Graph restore participant and pure deterministic graph derivation. Network Flow owns saved graph declarations and public routes; Reporting owns exact-result release consumption. Graph Projection does not redefine workbook-grid projection tables, `view_row_v1`, workbook query routes, Core saved views, import owner facades, the workbook `RestoreProjectionRebuilder`, workbook provider descriptors, public HTTP routes, WebSocket messages, or deployment-configuration keys. The phrase "workbook restore rebuild" names the Core 01 provider path; the phrase "Graph restore participant" names only current `graphprojection.restore_rebuild.v4`. Graph v2/v3 bindings are unsupported and rejected before mutation. Neither path is an alias for the other.
 Profiles: base
 Verified by: AC-469
 
@@ -136,7 +136,7 @@ With `docs/extension-subsystem-nlspec.md` and every companion named by its coord
 | `enterprise_authentication` | `true` | `1` | Enterprise Authentication owner sections in Core 01/Core 04 | `[]` |
 | `import` | `true` | `1` | Import owner sections in Core 01 | `[]` |
 | `incident_portability` | `true` | `1` | Incident Portability owner sections in Core 01 | `[]` |
-| `network_flow_activity` | `true` | `4` | `docs/network-flow-activity-nlspec.md` version `4.0.0` | exactly `import@1` |
+| `network_flow_activity` | `true` | `5` | `docs/network-flow-activity-nlspec.md` version `5.0.0` | exactly `import@1` |
 | `reference_pack` | `true` | `1` | Reference Pack owner sections in Core 01 | `[]` |
 | `snapshot_reporting` | `true` | `1` | adopted Reporting and Report Composition owner documents | `[]` |
 
@@ -386,8 +386,33 @@ MUST NOT settle such a conflict.
 Profiles: base, incident_portability
 Verified by: AC-564
 
+**REQ-00-076**
+`docs/decisions/graphprojection-module-boundary.md` is an adopted
+implementation architecture decision for Graph Projection only. It owns the
+pure root package, Graph-owned restore subpackage, positive import/export and
+construction allowlists, consumer-owned port posture, mandatory restore
+reconciliation dependency, application-composition path, and
+repository-internal compatibility removal named in that decision. It MUST NOT
+redefine Graph Projection v2 protocol or result identity, Network Flow saved
+graph or public behavior, Reporting consumption, Recovery selection and target
+lifecycle, database schemas, authorization, jobs, public routes, or domain
+vocabulary.
+
+The Graph Projection NLSpec remains authoritative for deterministic engine and
+Graph restore behavior. Network Flow remains authoritative for declarations,
+graph-view identity, materialization, and public resources. Recovery remains
+authoritative for selection, binding admission, orchestration, and target
+lifecycle. Reporting remains authoritative for release jobs and exact leased
+consumption. Core 04 remains authoritative for security and conformance. The
+decision MUST be revised or withdrawn when it conflicts with a later adopted
+behavioral owner; an implementation, tracker, test, contract projection, or
+generated artifact MUST NOT settle such a conflict.
+Profiles: base, network_flow_activity, snapshot_reporting
+Verified by: AC-568
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Graph Projection implementation topology, pure root, restore placement, narrow ports, mandatory construction, positive boundary, and repository-internal compatibility removal | `docs/decisions/graphprojection-module-boundary.md` for implementation structure; Graph Projection NLSpec for engine and restore behavior | Network Flow for saved graphs and graph-view identity; Recovery for orchestration; Reporting for consumption; Core 04 for security/conformance; `docs/domain.md` vocabulary; implementation tracker | The adopted decision owns internal package, constructor, import, port, and compatibility topology only. It cannot redefine Graph protocol/result identity, saved-graph/public behavior, Recovery target lifecycle, Reporting meaning, storage schema, authorization, jobs, routes, or vocabulary. | REQ-00-076 | base, network_flow_activity, snapshot_reporting | AC-568 |
 | Collaboration implementation topology, runtime lifecycle, private stream/recovery placement, independent source-owner fact ports, test-support placement, and repository-internal compatibility removal | `docs/decisions/collaboration-module-boundary.md` for implementation structure; Core 01 and Core 03 for public and interaction behavior | Core 02 history/conflict meaning; Core 04 security/conformance; `docs/domain.md` vocabulary; Revisions decision for the separate private-fact consumer; implementation trackers | The adopted decision owns internal package, constructor, lifecycle, import, port, and compatibility topology only. It cannot create a domain context or redefine public WebSocket, view-row, stream, recovery, history, portability, authorization, schema, or telemetry behavior. | REQ-00-075 | base, incident_portability | AC-564 |
 | Indicators implementation topology, bounded source-owner responsibilities, Records capability boundary, immutable vocabulary and source-state placement, caller-transaction borrowing, and repository-internal compatibility contraction | `docs/decisions/indicators-module-boundary.md` for implementation structure; Core 01 and Core 02 for application and source behavior | Core 03 Workbook/Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary navigation; implementation trackers | The adopted decision owns internal package, constructor, import, and port topology only. It cannot redefine public Indicator behavior, identity, observation or lifecycle meaning, history, projections, portability, recovery, Network Flow behavior, or security. | REQ-00-074 | base | AC-560 |
 | Entities implementation topology, bounded-root responsibilities, direct-consumer and import boundaries, typed cross-owner ports, caller-transaction borrowing, and repository-internal compatibility posture | `docs/decisions/entities-module-boundary.md` for implementation structure; Core 01 for application and source behavior | Core 02 record/history meaning; Core 03 Timeline and Collaboration consequences; Core 04 security/conformance; `docs/domain.md` vocabulary; implementation trackers | The adopted decision owns internal package, constructor, and port topology only. It cannot redefine public entity behavior, source meaning, Timeline policy, history, projections, portability, recovery, or security. | REQ-00-073 | base | AC-558 |

@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	graphrestore "github.com/JochiRaider/cartulary/internal/modules/graphprojection/restore"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -811,12 +812,12 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	}
-	legacyCreate := map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_create_request.v1", "client_txn_id": "txn-temporal-legacy-rejected", "display_name": "Legacy graph",
-		"semantic_query": map[string]any{"schema_id": "cartulary.network_flow.graph_semantic_query.v1"},
+	unsupportedCreate := map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v1", "client_txn_id": "txn-temporal-unsupported-rejected", "display_name": "Unsupported graph",
+		"semantic_query": map[string]any{"schema_id": unsupportedGraphSemanticQuerySchemaID()},
 	}
-	legacyResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, legacyCreate, mutationOptions...)
-	httptestx.RequireErrorEnvelope(t, legacyResp, http.StatusBadRequest, "network_flow_invalid_request")
+	unsupportedResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, unsupportedCreate, mutationOptions...)
+	httptestx.RequireErrorEnvelope(t, unsupportedResp, http.StatusBadRequest, "network_flow_invalid_request")
 
 	createBody := map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_create_request.v2", "client_txn_id": "txn-temporal-saved-create", "display_name": "Temporal graph",
@@ -836,7 +837,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	resource := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
 	result := resource["result"].(map[string]any)
 	projection := result["graph_projection_result"].(map[string]any)
-	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v2" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || projection["projection_version"] != "network_flow_activity.time_bucket.v1" {
+	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v3" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || projection["projection_version"] != "network_flow_activity.time_bucket.v1" {
 		t.Fatalf("temporal saved result contract = %#v", resource)
 	}
 	buckets := result["result_variant"].(map[string]any)["time_buckets"].([]any)
@@ -961,36 +962,37 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 		t.Fatalf("saved graph result omitted vertices: %#v", projection)
 	}
 	beforeVertexIDs, beforeEdgeIDs := projectionObjectIDs(t, projection)
-	legacyGraphViewID := "nfgv_00000000000000000000000000000090"
-	legacySemanticQuery := []byte(`{"aggregation":{"include_example_row_refs":true,"mode":"default_flow_edge_v1"},"filters":[],"result_limits":{"max_aggregate_counter_digits":39,"max_edges":10000,"max_example_row_refs_per_edge":10,"max_vertices":5000},"schema_id":"cartulary.network_flow.graph_semantic_query.v1","selected_table_ids":["` + table.TableID + `"],"time_range":{"end_utc":null,"start_utc":null}}`)
-	legacyDeclaration := graphViewDeclarationFixture(legacyGraphViewID, incidentID, adminID, time.Date(2026, 7, 10, 12, 31, 0, 0, time.UTC))
-	legacyDeclaration.DisplayName = "Installed v1 flow graph"
-	legacyDeclaration.NormalizedDisplayName = "installed v1 flow graph"
-	legacyDeclaration.SemanticQueryJSON = legacySemanticQuery
-	legacyDeclaration.SemanticQuerySHA256 = GraphViewSemanticQuerySHA256(legacySemanticQuery)
-	legacyDeclaration.DesiredSourceSnapshotID = "pre-refresh-v1-placeholder"
-	legacyTx, err := harness.Pool.Begin(context.Background())
+	unsupportedGraphViewID := "nfgv_00000000000000000000000000000090"
+	unsupportedSemanticQuery := unsupportedDefaultGraphSemanticQuery(table.TableID)
+	unsupportedDeclaration := graphViewDeclarationFixture(unsupportedGraphViewID, incidentID, adminID, time.Date(2026, 7, 10, 12, 31, 0, 0, time.UTC))
+	unsupportedDeclaration.DisplayName = "Installed unsupported flow graph"
+	unsupportedDeclaration.NormalizedDisplayName = "installed unsupported flow graph"
+	unsupportedDeclaration.SemanticQueryJSON = unsupportedSemanticQuery
+	unsupportedDeclaration.SemanticQuerySHA256 = GraphViewSemanticQuerySHA256(unsupportedSemanticQuery)
+	unsupportedDeclaration.DesiredSourceSnapshotID = "pre-refresh-unsupported-placeholder"
+	unsupportedTx, err := harness.Pool.Begin(context.Background())
 	if err != nil {
-		t.Fatalf("begin installed-v1 declaration transaction: %v", err)
+		t.Fatalf("begin unsupported declaration transaction: %v", err)
 	}
-	if err := store.InsertGraphViewDeclarationTx(context.Background(), legacyTx, legacyDeclaration); err != nil {
-		_ = legacyTx.Rollback(context.Background())
-		t.Fatalf("insert installed-v1 declaration: %v", err)
+	if err := store.InsertGraphViewDeclarationTx(context.Background(), unsupportedTx, unsupportedDeclaration); err != nil {
+		_ = unsupportedTx.Rollback(context.Background())
+		t.Fatalf("insert unsupported declaration: %v", err)
 	}
-	if err := legacyTx.Commit(context.Background()); err != nil {
-		t.Fatalf("commit installed-v1 declaration: %v", err)
+	if err := unsupportedTx.Commit(context.Background()); err != nil {
+		t.Fatalf("commit unsupported declaration: %v", err)
 	}
-	legacyResourcePath := collectionPath + "/" + legacyGraphViewID
-	legacyRefreshResp := httptestx.DoJSON(t, http.MethodPost, legacyResourcePath+"/refresh", map[string]any{
+	unsupportedBytesBefore := persistedGraphSemanticBytes(t, harness.Pool, incidentID)
+	unsupportedResourcePath := collectionPath + "/" + unsupportedGraphViewID
+	unsupportedRefreshResp := httptestx.DoJSON(t, http.MethodPost, unsupportedResourcePath+"/refresh", map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-installed-v1-refresh", "base_graph_view_version": 1,
 	}, mutationOptions...)
-	legacyRefresh := httptestx.RequireSuccessEnvelope(t, legacyRefreshResp, http.StatusAccepted)["data"].(map[string]any)
-	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, legacyRefresh["job_id"].(string), "succeeded")
-	legacyResultResp := httptestx.DoJSON(t, http.MethodGet, legacyResourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	legacyProjection := httptestx.RequireSuccessEnvelope(t, legacyResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
-	legacyVertexIDs, legacyEdgeIDs := projectionObjectIDs(t, legacyProjection)
-	if legacyProjection["projection_result_id"] == projection["projection_result_id"] {
-		t.Fatalf("installed v1 and new v2 declarations shared an identity: %v", projection["projection_result_id"])
+	httptestx.RequireErrorEnvelope(t, unsupportedRefreshResp, http.StatusInternalServerError, "internal_error")
+	unsupportedBytesAfter := persistedGraphSemanticBytes(t, harness.Pool, incidentID)
+	if !slices.Equal(unsupportedBytesBefore, unsupportedBytesAfter) {
+		t.Fatalf("unsupported refresh rejection changed saved declaration bytes: before=%q after=%q", unsupportedBytesBefore, unsupportedBytesAfter)
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `DELETE FROM network_flow_graph_views WHERE graph_view_id = $1`, unsupportedGraphViewID); err != nil {
+		t.Fatalf("remove intentionally unsupported declaration before current restore proof: %v", err)
 	}
 	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminID, projection)
 	networkFlowJobID := seedRestoredNetworkFlowGraphJob(t, harness, incidentID, adminID, projection)
@@ -1002,30 +1004,30 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct active saved-graph recovery catalog: %v", err)
 	}
-	registryRef := restorecontract.CurrentGraphProjectionSourceRegistryRef()
-	bindingRef := restorecontract.CurrentGraphProjectionImplementationBinding()
+	currentRegistry := graphrestore.CurrentRestoreSourceRegistry()
+	registryRef := graphrestore.RestoreSourceRegistryRef{Registry: currentRegistry, SHA256: currentRegistry.DigestSHA256()}
+	bindingRef := graphrestore.CurrentRestoreImplementationBinding()
 	if recoveryCatalog.DigestSHA256() != bindingRef.Binding.RecoveryStateCatalogSHA256 ||
-		bindingRef.Binding.AlgorithmID != restorecontract.GraphProjectionRestoreAlgorithmID ||
-		!slices.Equal(bindingRef.Binding.GraphTableIDs, restorecontract.GraphProjectionTableIDs()) {
+		bindingRef.Binding.AlgorithmID != graphrestore.RestoreAlgorithmID ||
+		!slices.Equal(bindingRef.Binding.GraphTableIDs, graphrestore.RestoreGraphTableIDs()) {
 		t.Fatalf("current Graph restore catalog/binding tuple drifted: catalog=%s binding=%#v", recoveryCatalog.DigestSHA256(), bindingRef.Binding)
 	}
-	restoreResult, err := restoreParticipant.Rebuild(context.Background(), restorecontract.GraphProjectionRebuildRequest{
+	restoreResult, err := restoreParticipant.Rebuild(context.Background(), graphrestore.RestoreRebuildRequest{
 		Context:             context.Background(),
 		RestoreOperationID:  uuid.MustParse("00000000-0000-0000-0000-000000009101"),
 		RestoredSourceState: restorecontract.RestoredGraphProjectionSourceState{},
 		BackupSetID:         uuid.MustParse("00000000-0000-0000-0000-000000009102"),
 		ConsistencyPointAt:  time.Date(2026, 7, 10, 12, 45, 0, 0, time.UTC),
 		TargetGenerationID:  uuid.MustParse("00000000-0000-0000-0000-000000009103"),
-		RecoveryStateCatalog: restorecontract.GraphProjectionRecoveryCatalogRef{
-			DigestSHA256: recoveryCatalog.DigestSHA256(), AlgorithmID: restorecontract.GraphProjectionRestoreAlgorithmID,
-			GraphTableIDs: restorecontract.GraphProjectionTableIDs(),
+		RecoveryStateCatalog: graphrestore.RestoreRecoveryCatalogRef{
+			DigestSHA256: recoveryCatalog.DigestSHA256(), AlgorithmID: graphrestore.RestoreAlgorithmID,
+			GraphTableIDs: graphrestore.RestoreGraphTableIDs(),
 		},
 		SourceRegistry: registryRef, ImplementationBinding: bindingRef,
 	})
-	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 2 ||
+	if err != nil || !restoreResult.ReadinessSatisfied() || len(restoreResult.RebuiltViews) != 1 ||
 		restoreResult.ReconciledNonterminalJobCount != 2 || restoreResult.ReconciledLeaseCount != 1 ||
-		!restoreContainsExactGraphBinding(restoreResult.RebuiltViews, graphViewID, projection["projection_result_id"].(string)) ||
-		!restoreContainsExactGraphBinding(restoreResult.RebuiltViews, legacyGraphViewID, legacyProjection["projection_result_id"].(string)) {
+		!restoreContainsExactGraphBinding(restoreResult.RebuiltViews, graphViewID, projection["projection_result_id"].(string)) {
 		t.Fatalf("active saved-graph restore did not reproduce exact identity: result=%#v err=%v", restoreResult, err)
 	}
 	var restoredLeaseCount int
@@ -1050,13 +1052,6 @@ SELECT
 	if restoredProjection["projection_result_id"] != projection["projection_result_id"] ||
 		strings.Join(afterVertexIDs, ",") != strings.Join(beforeVertexIDs, ",") || strings.Join(afterEdgeIDs, ",") != strings.Join(beforeEdgeIDs, ",") {
 		t.Fatalf("restored saved graph object identity drifted: before=%v/%v after=%v/%v", beforeVertexIDs, beforeEdgeIDs, afterVertexIDs, afterEdgeIDs)
-	}
-	restoredLegacyResp := httptestx.DoJSON(t, http.MethodGet, legacyResourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	restoredLegacyProjection := httptestx.RequireSuccessEnvelope(t, restoredLegacyResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
-	restoredLegacyVertexIDs, restoredLegacyEdgeIDs := projectionObjectIDs(t, restoredLegacyProjection)
-	if restoredLegacyProjection["projection_result_id"] != legacyProjection["projection_result_id"] ||
-		strings.Join(restoredLegacyVertexIDs, ",") != strings.Join(legacyVertexIDs, ",") || strings.Join(restoredLegacyEdgeIDs, ",") != strings.Join(legacyEdgeIDs, ",") {
-		t.Fatalf("restored installed-v1 saved graph identity drifted: before=%v/%v after=%v/%v", legacyVertexIDs, legacyEdgeIDs, restoredLegacyVertexIDs, restoredLegacyEdgeIDs)
 	}
 	selectedVertex := vertices[0].(map[string]any)
 	sourceEndpointID := selectedVertex["source_entity_ref"].(map[string]any)["source_entity_id"].(string)
@@ -1152,7 +1147,7 @@ func projectionObjectIDs(t testing.TB, projection map[string]any) ([]string, []s
 	return vertexIDs, edgeIDs
 }
 
-func restoreContainsExactGraphBinding(views []graphprojection.RestoreRebuiltView, graphViewID string, projectionResultID string) bool {
+func restoreContainsExactGraphBinding(views []graphrestore.RestoreRebuiltView, graphViewID string, projectionResultID string) bool {
 	for _, view := range views {
 		if view.GraphViewID == graphViewID && view.ProjectionResultID == projectionResultID {
 			return true

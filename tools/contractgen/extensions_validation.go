@@ -614,6 +614,36 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 			if err != nil || maximum > 8 {
 				return fmt.Errorf("%s.max_active_attempts_per_process must be in 1..8", label)
 			}
+		case "migration_ledger_definition":
+			if err := requireExtensionExactKeys(fact, stringSet("fact_kind", "profile_id", "migration_ledger_definition"), label); err != nil {
+				return err
+			}
+			definition, ok := fact["migration_ledger_definition"].(map[string]any)
+			if !ok {
+				return fmt.Errorf("%s.migration_ledger_definition must be an object", label)
+			}
+			if err := requireExtensionExactKeys(definition, stringSet("schema_id", "migration_lineage_id", "migration_id", "from_state_version", "to_state_version", "migration_definition_sha256"), label+".migration_ledger_definition"); err != nil {
+				return err
+			}
+			if definition["schema_id"] != "cartulary.extension_migration_ledger_definition.v1" {
+				return fmt.Errorf("%s.migration_ledger_definition.schema_id is invalid", label)
+			}
+			for _, key := range []string{"migration_lineage_id", "migration_id", "migration_definition_sha256"} {
+				if _, err := requiredString(definition, key, label+".migration_ledger_definition"); err != nil {
+					return err
+				}
+			}
+			from, err := positiveJSONInt(definition["from_state_version"], label+".migration_ledger_definition.from_state_version")
+			if err != nil {
+				return err
+			}
+			to, err := positiveJSONInt(definition["to_state_version"], label+".migration_ledger_definition.to_state_version")
+			if err != nil || to != from+1 {
+				return fmt.Errorf("%s migration ledger transition must advance exactly one state", label)
+			}
+			if !isLowerSHA256(stringValue(definition["migration_definition_sha256"])) {
+				return fmt.Errorf("%s migration definition digest must be lowercase SHA-256", label)
+			}
 		}
 	}
 	return nil

@@ -1532,7 +1532,7 @@ function installNetworkFlowFetchMock(
         url.endsWith("/api/v1/incidents/incident-1/network-flow/graph-views")
       ) {
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_list.v2",
+          schema_id: "cartulary.network_flow.graph_view_list.v3",
           graph_views: savedGraphs,
         });
       }
@@ -1554,7 +1554,7 @@ function installNetworkFlowFetchMock(
         savedGraphs = [...savedGraphs, created];
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v2",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v3",
             graph_view: created,
             job_id: "graph-job-create",
             job_kind: "network_flow_activity.graph_view_materialize_v1",
@@ -1577,7 +1577,7 @@ function installNetworkFlowFetchMock(
           graph_view_id: graphViewId,
         };
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_result.v2",
+          schema_id: "cartulary.network_flow.graph_view_result.v3",
           graph_view: graphView,
           result: graphResultForProjection(projection),
         });
@@ -1629,7 +1629,7 @@ function installNetworkFlowFetchMock(
           candidate.graph_view_id === graphViewId ? renamed : candidate,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v2",
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
           graph_view: renamed,
         });
       }
@@ -1655,7 +1655,7 @@ function installNetworkFlowFetchMock(
         );
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v2",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v3",
             graph_view: refreshing,
             job_id: "graph-job-refresh",
             job_kind: "network_flow_activity.graph_view_materialize_v1",
@@ -1684,7 +1684,7 @@ function installNetworkFlowFetchMock(
           (candidate) => candidate.graph_view_id !== graphViewId,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v2",
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
           graph_view: retired,
         });
       }
@@ -2283,7 +2283,7 @@ function savedGraphResource(
 ) {
   const selected = options.selected ?? true;
   return {
-    schema_id: "cartulary.network_flow.graph_view.v2",
+    schema_id: "cartulary.network_flow.graph_view.v3",
     graph_view_id: options.graphViewID ?? graphViewId,
     incident_id: incidentResourceId,
     display_name: options.displayName ?? "Investigation graph",

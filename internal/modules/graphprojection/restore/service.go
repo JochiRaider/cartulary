@@ -1,4 +1,4 @@
-package graphprojection
+package restore
 
 import (
 	"bytes"
@@ -9,17 +9,17 @@ import (
 	"errors"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
 type RestoreStagedProjection struct {
 	SourceRegistrationID string
 	CandidateID          string
-	Result               CompletedResultV2
+	Result               graphprojection.CompletedResultV2
 }
 
 type RestorePublicationPlan struct {
@@ -64,75 +64,34 @@ func (err *RestorePublicationError) Unwrap() error {
 	return err.Cause
 }
 
-type RestoreServiceOptions struct {
-	Now                 func() time.Time
-	SupportedBindings   []RestoreImplementationBindingRef
-	SupportedRegistries []*RestoreSourceRegistry
-	Engine              *EngineV2
-}
-
 type RestoreService struct {
-	publisher  RestorePublisher
-	now        func() time.Time
-	engine     *EngineV2
-	bindings   map[string]RestoreImplementationBindingRef
-	registries map[string]*RestoreSourceRegistry
+	publisher RestorePublisher
+	binding   RestoreImplementationBindingRef
+	registry  *RestoreSourceRegistry
 }
 
 var _ RestoreParticipant = (*RestoreService)(nil)
 
-func NewRestoreService(publisher RestorePublisher, registry *RestoreSourceRegistry, options RestoreServiceOptions) (*RestoreService, error) {
+func NewRestoreService(publisher RestorePublisher, registry *RestoreSourceRegistry) (*RestoreService, error) {
 	if publisher == nil || registry == nil {
 		return nil, NewRestoreError(RestoreErrorInvalidRequest)
 	}
-	now := options.Now
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
+	currentBinding := CurrentRestoreImplementationBinding()
+	if !wellFormedRestoreImplementationBinding(currentBinding) {
+		return nil, NewRestoreError(RestoreErrorBindingUnavailable)
 	}
-	engine := options.Engine
-	if engine == nil {
-		engine = NewEngineV2()
-	}
-	supported := options.SupportedBindings
-	if len(supported) == 0 {
-		supported = []RestoreImplementationBindingRef{CurrentRestoreImplementationBinding()}
-	}
-	bindings := make(map[string]RestoreImplementationBindingRef, len(supported))
-	for _, binding := range supported {
-		if !wellFormedRestoreImplementationBinding(binding) {
-			return nil, NewRestoreError(RestoreErrorBindingUnavailable)
-		}
-		if _, duplicate := bindings[binding.SHA256]; duplicate {
-			return nil, NewRestoreError(RestoreErrorBindingUnavailable)
-		}
-		bindings[binding.SHA256] = binding
-	}
-	registries := options.SupportedRegistries
-	if len(registries) == 0 {
-		registries = []*RestoreSourceRegistry{registry}
-	}
-	registryByDigest := make(map[string]*RestoreSourceRegistry, len(registries))
-	for _, admitted := range registries {
-		if admitted == nil || admitted.DigestSHA256() == "" || len(admitted.Registrations()) == 0 {
-			return nil, NewRestoreError(RestoreErrorSourceRegistryMismatch)
-		}
-		if _, duplicate := registryByDigest[admitted.DigestSHA256()]; duplicate {
-			return nil, NewRestoreError(RestoreErrorSourceRegistryMismatch)
-		}
-		registryByDigest[admitted.DigestSHA256()] = admitted
-	}
-	if registryByDigest[registry.DigestSHA256()] == nil {
+	if registry.DigestSHA256() == "" || len(registry.Registrations()) == 0 ||
+		registry.DigestSHA256() != currentBinding.Binding.SourceRegistrySHA256 {
 		return nil, NewRestoreError(RestoreErrorSourceRegistryMismatch)
 	}
-	return &RestoreService{publisher: publisher, now: now, engine: engine, bindings: bindings, registries: registryByDigest}, nil
+	return &RestoreService{publisher: publisher, binding: currentBinding, registry: registry}, nil
 }
 
 func (service *RestoreService) Rebuild(ctx context.Context, request RestoreRebuildRequest) (RestoreRebuildResult, error) {
-	resultSchemaID, algorithmID := restoreResultContract(service, request)
 	base := RestoreRebuildResult{
-		SchemaID: resultSchemaID, RestoreOperationID: request.RestoreOperationID.String(),
+		SchemaID: RestoreRebuildResultSchemaID, RestoreOperationID: request.RestoreOperationID.String(),
 		TargetGenerationID: request.TargetGenerationID.String(), Status: RestoreStatusFailed,
-		ReadinessOutcome: RestoreReadinessIncomplete, AlgorithmID: algorithmID,
+		ReadinessOutcome: RestoreReadinessIncomplete, AlgorithmID: RestoreAlgorithmID,
 		ImplementationBindingSHA256: request.ImplementationBinding.SHA256,
 		SourceRegistrySHA256:        request.SourceRegistry.SHA256,
 		ClearedTableIDs:             []string{}, RebuiltViews: []RestoreRebuiltView{}, Warnings: []RestoreSafeMessage{}, Errors: []RestoreSafeMessage{},
@@ -140,10 +99,6 @@ func (service *RestoreService) Rebuild(ctx context.Context, request RestoreRebui
 	registry, binding, err := service.validateRequest(ctx, request)
 	if err != nil {
 		code := restoreCodeOr(err, RestoreErrorInvalidRequest)
-		if algorithmID == HistoricalRestoreAlgorithmIDV2 &&
-			(code == RestoreErrorHistoricalUnavailable || code == RestoreErrorUnsupportedSemantic) {
-			code = RestoreErrorBindingUnavailable
-		}
 		return restoreFailedResult(base, code), err
 	}
 
@@ -190,29 +145,15 @@ func (service *RestoreService) Rebuild(ctx context.Context, request RestoreRebui
 	return result, nil
 }
 
-func restoreResultContract(service *RestoreService, request RestoreRebuildRequest) (string, string) {
-	if service != nil {
-		if binding, admitted := service.bindings[request.ImplementationBinding.SHA256]; admitted &&
-			sameRestoreBinding(binding, request.ImplementationBinding) && binding.Binding.AlgorithmID == HistoricalRestoreAlgorithmIDV2 {
-			return HistoricalRestoreRebuildResultSchemaIDV2, HistoricalRestoreAlgorithmIDV2
-		}
-	}
-	return RestoreRebuildResultSchemaID, RestoreAlgorithmID
-}
-
 func (service *RestoreService) validateRequest(ctx context.Context, request RestoreRebuildRequest) (*RestoreSourceRegistry, RestoreImplementationBindingRef, error) {
-	if service == nil || service.publisher == nil || len(service.registries) == 0 || ctx == nil || request.Context == nil ||
+	if service == nil || service.publisher == nil || service.registry == nil || ctx == nil || request.Context == nil ||
 		request.RestoreOperationID == uuid.Nil || request.RestoredSourceState == nil || request.BackupSetID == uuid.Nil ||
 		request.ConsistencyPointAt.IsZero() || request.TargetGenerationID == uuid.Nil || ctx.Err() != nil || request.Context.Err() != nil {
 		return nil, RestoreImplementationBindingRef{}, NewRestoreError(RestoreErrorInvalidRequest)
 	}
-	binding, admitted := service.bindings[request.ImplementationBinding.SHA256]
-	if !admitted || !sameRestoreBinding(binding, request.ImplementationBinding) {
-		historical := HistoricalRestoreImplementationBindingV2()
-		if sameRestoreBinding(historical, request.ImplementationBinding) {
-			return nil, RestoreImplementationBindingRef{}, NewRestoreError(RestoreErrorHistoricalUnavailable)
-		}
-		return nil, RestoreImplementationBindingRef{}, NewRestoreError(RestoreErrorBindingUnavailable)
+	binding := service.binding
+	if !sameRestoreBinding(binding, request.ImplementationBinding) {
+		return nil, RestoreImplementationBindingRef{}, NewRestoreError(RestoreErrorUnsupportedGeneration)
 	}
 	if request.RecoveryStateCatalog.AlgorithmID != binding.Binding.AlgorithmID ||
 		!equalStrings(request.RecoveryStateCatalog.GraphTableIDs, restoreGraphTableIDs) {
@@ -222,7 +163,7 @@ func (service *RestoreService) validateRequest(ctx context.Context, request Rest
 		!equalStrings(binding.Binding.GraphTableIDs, restoreGraphTableIDs) {
 		return nil, RestoreImplementationBindingRef{}, NewRestoreError(RestoreErrorRecoveryCatalogMismatch)
 	}
-	registry := service.registries[request.SourceRegistry.SHA256]
+	registry := service.registry
 	if request.SourceRegistry.Registry == nil ||
 		registry == nil ||
 		request.SourceRegistry.Registry.DigestSHA256() != registry.DigestSHA256() ||
@@ -233,14 +174,8 @@ func (service *RestoreService) validateRequest(ctx context.Context, request Rest
 }
 
 func restoreSemanticQueryAdmitted(registrySchemaID string, entry RestoreSourceRegistryEntry, schemaID string) bool {
-	switch registrySchemaID {
-	case RestoreSourceRegistrySchemaID:
-		return containsString(entry.SemanticQuerySchemaIDs, schemaID)
-	case HistoricalRestoreSourceRegistrySchemaIDV2:
-		return schemaID == "cartulary.network_flow.graph_semantic_query.v1"
-	default:
-		return false
-	}
+	return registrySchemaID == RestoreSourceRegistrySchemaID && schemaID == "cartulary.network_flow.graph_semantic_query.v2" &&
+		containsString(entry.SemanticQuerySchemaIDs, schemaID)
 }
 
 func containsString(values []string, value string) bool {
@@ -253,7 +188,7 @@ func wellFormedRestoreImplementationBinding(ref RestoreImplementationBindingRef)
 		return false
 	}
 	body, err := restoreCanonicalJSON(ref.Binding)
-	if err != nil || sha256Hex(body) != ref.SHA256 {
+	if err != nil || restoreSHA256Hex(body) != ref.SHA256 {
 		return false
 	}
 	for _, generation := range contractrecovery.RecoveryGenerations {
@@ -309,10 +244,7 @@ func (service *RestoreService) preflight(ctx context.Context, request RestoreReb
 				return nil, nil, NewRestoreError(RestoreErrorInvalidCandidate)
 			}
 			if !restoreSemanticQueryAdmitted(registry.document.SchemaID, registration.Entry, candidate.SemanticQuerySchemaID) {
-				if binding.Binding.AlgorithmID == RestoreAlgorithmID {
-					return nil, nil, NewRestoreError(RestoreErrorUnsupportedSemantic)
-				}
-				return nil, nil, NewRestoreError(RestoreErrorInvalidCandidate)
+				return nil, nil, NewRestoreError(RestoreErrorUnsupportedSemantic)
 			}
 			candidateKey := registration.Entry.SourceRegistrationID + "\x00" + candidate.CandidateID
 			if _, duplicate := seenCandidates[candidateKey]; duplicate {
@@ -326,16 +258,7 @@ func (service *RestoreService) preflight(ctx context.Context, request RestoreReb
 			if !usage.addNormalizedInputBytes(int64(len(semanticInput))) {
 				return nil, nil, NewRestoreError(RestoreErrorResourceOverflow)
 			}
-			if registration.EvaluateValidity != nil {
-				validity, validityErr := registration.EvaluateValidity(ctx, candidate, request.ConsistencyPointAt.UTC())
-				if validityErr != nil {
-					return nil, nil, NewRestoreError(RestoreErrorSourceEnumeration)
-				}
-				if !validity.Eligible {
-					return nil, nil, NewRestoreError(RestoreErrorInvalidCandidate)
-				}
-			}
-			projection, err := service.engine.Project(ctx, InvocationContextV2{
+			projection, err := graphprojection.ProjectV2(ctx, graphprojection.InvocationContextV2{
 				GraphViewID: candidate.GraphViewID, SourceOwnerID: registration.Entry.SourceOwnerID,
 				CancellationCheck: func(context.Context) error { return restoreContextsErr(ctx, request.Context) },
 			}, semanticInput)
@@ -358,9 +281,6 @@ func (service *RestoreService) preflight(ctx context.Context, request RestoreReb
 				NormalizedSourceSHA256:        binding.NormalizedSourceSHA256,
 				VertexCount:                   len(completed.Vertices), EdgeCount: len(completed.Edges), CanonicalOutputSHA256: binding.CanonicalOutputSHA256,
 			})
-			if registry.document.SchemaID == HistoricalRestoreSourceRegistrySchemaIDV2 {
-				rebuilt[len(rebuilt)-1].SemanticQuerySchemaID = ""
-			}
 		}
 	}
 	sort.Slice(rebuilt, func(i, j int) bool {
@@ -470,5 +390,10 @@ func restoreCanonicalJSON(value any) ([]byte, error) {
 	if err := decoder.Decode(&generic); err != nil {
 		return nil, err
 	}
-	return canonicalJSON(generic)
+	return json.Marshal(generic)
+}
+
+func restoreSHA256Hex(body []byte) string {
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
 }

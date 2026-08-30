@@ -16,7 +16,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/internal/semanticlimits"
 )
+
+var graphProjectionLimits = semanticlimits.CurrentV2()
+
+const maximumExpiredLeaseBatch = 1000
 
 var (
 	resultIDPattern   = regexp.MustCompile(`^gpres_[a-f0-9]{64}$`)
@@ -485,7 +490,7 @@ func NewCleaner(tx pgx.Tx) (*Cleaner, error) {
 }
 
 func (cleaner *Cleaner) DeleteExpiredLeases(ctx context.Context, observedAt time.Time, maximum int) (int, bool, error) {
-	if cleaner == nil || cleaner.tx == nil || observedAt.IsZero() || maximum < 1 || maximum > 1000 {
+	if cleaner == nil || cleaner.tx == nil || observedAt.IsZero() || maximum < 1 || maximum > maximumExpiredLeaseBatch {
 		return 0, false, graphprojection.ErrResultV2Invalid
 	}
 	var deleted int
@@ -655,10 +660,10 @@ func validateLease(lease graphprojection.ResultLeaseV2) error {
 }
 
 func validateTraversalRequest(request graphprojection.TraversalRequestV2) error {
-	if !resultIDPattern.MatchString(request.ProjectionResultID) || len(request.SeedVertexIDs) < 1 || len(request.SeedVertexIDs) > 1024 ||
-		request.MaximumDepth < 0 || request.MaximumDepth > 16 || request.MaximumVertices < 1 ||
+	if !resultIDPattern.MatchString(request.ProjectionResultID) || len(request.SeedVertexIDs) < 1 || len(request.SeedVertexIDs) > graphProjectionLimits.MaxTraversalSeedVertices ||
+		request.MaximumDepth < 0 || request.MaximumDepth > graphProjectionLimits.MaxTraversalDepth || request.MaximumVertices < 1 ||
 		request.MaximumVertices > graphprojection.MaximumResultVerticesV2 || request.MaximumEdges < 0 ||
-		request.MaximumEdges > graphprojection.MaximumResultEdgesV2 || len(request.VertexKinds) > 1024 || len(request.EdgeKinds) > 1024 ||
+		request.MaximumEdges > graphprojection.MaximumResultEdgesV2 || len(request.VertexKinds) > graphProjectionLimits.MaxTraversalKindFilters || len(request.EdgeKinds) > graphProjectionLimits.MaxTraversalKindFilters ||
 		(request.Direction != graphprojection.TraversalOutgoingV2 && request.Direction != graphprojection.TraversalIncomingV2 && request.Direction != graphprojection.TraversalBothV2) {
 		return graphprojection.ErrResultV2Invalid
 	}
@@ -738,8 +743,3 @@ func kindAllowed(value string, allowed map[string]struct{}) bool {
 	_, ok := allowed[value]
 	return ok
 }
-
-var _ graphprojection.ResultPublisherV2 = (*Publisher)(nil)
-var _ graphprojection.ExactResultReaderV2 = (*Reader)(nil)
-var _ graphprojection.ResultLeaseWriterV2 = (*LeaseWriter)(nil)
-var _ graphprojection.ResultMaintenanceV2 = (*Cleaner)(nil)

@@ -21,23 +21,19 @@ import (
 )
 
 const (
-	PostgresSnapshotArtifactV2SchemaID                    = "cartulary.postgres_snapshot_artifact.v2"
-	PostgresSnapshotUnitV1SchemaID                        = "cartulary.postgres_snapshot_unit.v1"
-	ObjectStoreBackupManifestV2SchemaID                   = "cartulary.object_store_backup_manifest.v2"
-	ObjectStoreBackupSummaryV2SchemaID                    = "cartulary.object_store_backup_summary.v2"
-	BackupIntegrityManifestV3SchemaID                     = "cartulary.backup_integrity_manifest.v3"
-	GraphProjectionRestoreSourceRegistryV2SchemaID        = "cartulary.graph_projection_restore_source_registry.v2"
-	GraphProjectionRestoreImplementationBindingV2SchemaID = "cartulary.graph_projection_restore_implementation_binding.v2"
-	GraphProjectionRestoreSourceRegistryV3SchemaID        = "cartulary.graph_projection_restore_source_registry.v3"
-	GraphProjectionRestoreImplementationBindingV3SchemaID = "cartulary.graph_projection_restore_implementation_binding.v3"
-	VNextTransactionIsolation                             = "repeatable_read_read_only"
-	vNextCodecRegistryDomain                              = "CARTULARY-RECOVERY-CODEC-REGISTRY-VNEXT\n"
-	vNextPostgresSnapshotDigestDomain                     = "CARTULARY-POSTGRES-SNAPSHOT-ARTIFACT-V2\n"
-	vNextObjectManifestDigestDomain                       = "CARTULARY-OBJECT-STORE-BACKUP-MANIFEST-V2\n"
-	vNextIntegrityManifestDigestDomain                    = "CARTULARY-BACKUP-INTEGRITY-MANIFEST-V3\n"
-	vNextNDJSONContentType                                = "application/x-ndjson"
-	vNextJSONContentType                                  = "application/json"
-	VNextMetadataArtifactScheme                           = "backup-stream-v2://"
+	PostgresSnapshotArtifactV2SchemaID  = "cartulary.postgres_snapshot_artifact.v2"
+	PostgresSnapshotUnitV1SchemaID      = "cartulary.postgres_snapshot_unit.v1"
+	ObjectStoreBackupManifestV2SchemaID = "cartulary.object_store_backup_manifest.v2"
+	ObjectStoreBackupSummaryV2SchemaID  = "cartulary.object_store_backup_summary.v2"
+	BackupIntegrityManifestV3SchemaID   = "cartulary.backup_integrity_manifest.v3"
+	VNextTransactionIsolation           = "repeatable_read_read_only"
+	vNextCodecRegistryDomain            = "CARTULARY-RECOVERY-CODEC-REGISTRY-VNEXT\n"
+	vNextPostgresSnapshotDigestDomain   = "CARTULARY-POSTGRES-SNAPSHOT-ARTIFACT-V2\n"
+	vNextObjectManifestDigestDomain     = "CARTULARY-OBJECT-STORE-BACKUP-MANIFEST-V2\n"
+	vNextIntegrityManifestDigestDomain  = "CARTULARY-BACKUP-INTEGRITY-MANIFEST-V3\n"
+	vNextNDJSONContentType              = "application/x-ndjson"
+	vNextJSONContentType                = "application/json"
+	VNextMetadataArtifactScheme         = "backup-stream-v2://"
 )
 
 var ErrVNextBackup = errors.New("recovery: invalid vNext backup")
@@ -1329,14 +1325,10 @@ func (service *VNextRestoreService) resolveGraphProjectionRestoreArtifacts(
 	var registryProofs []VNextArtifactProof
 	var bindingProofs []VNextArtifactProof
 	for _, proof := range proofs {
-		switch {
-		case proof.Kind == "graph_projection_restore_source_registry" ||
-			proof.SchemaID == GraphProjectionRestoreSourceRegistryV2SchemaID ||
-			proof.SchemaID == GraphProjectionRestoreSourceRegistryV3SchemaID:
+		switch proof.Kind {
+		case "graph_projection_restore_source_registry":
 			registryProofs = append(registryProofs, proof)
-		case proof.Kind == "graph_projection_restore_implementation_binding" ||
-			proof.SchemaID == GraphProjectionRestoreImplementationBindingV2SchemaID ||
-			proof.SchemaID == GraphProjectionRestoreImplementationBindingV3SchemaID:
+		case "graph_projection_restore_implementation_binding":
 			bindingProofs = append(bindingProofs, proof)
 		}
 	}

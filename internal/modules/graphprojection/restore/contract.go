@@ -1,4 +1,4 @@
-package graphprojection
+package restore
 
 import (
 	"bytes"
@@ -17,22 +17,19 @@ import (
 	"github.com/google/uuid"
 
 	contractrecovery "github.com/JochiRaider/cartulary/internal/gen/contractrecovery"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 )
 
 const (
-	RestoreAlgorithmID                              = "graphprojection.restore_rebuild.v3"
-	RestoreSourceRegistrySchemaID                   = "cartulary.graph_projection_restore_source_registry.v3"
-	RestoreImplementationBindingSchemaID            = "cartulary.graph_projection_restore_implementation_binding.v3"
-	RestoreRebuildResultSchemaID                    = "cartulary.graph_projection_restore_rebuild_result.v3"
-	HistoricalRestoreAlgorithmIDV2                  = "graphprojection.restore_rebuild.v2"
-	HistoricalRestoreSourceRegistrySchemaIDV2       = "cartulary.graph_projection_restore_source_registry.v2"
-	HistoricalRestoreBindingSchemaIDV2              = "cartulary.graph_projection_restore_implementation_binding.v2"
-	HistoricalRestoreRebuildResultSchemaIDV2        = "cartulary.graph_projection_restore_rebuild_result.v2"
-	RestoreMaximumSourceRegistrations               = 128
-	RestoreMaximumCandidates                        = 128
-	RestoreMaximumNormalizedInputBytes        int64 = 268435456
-	RestoreMaximumVertices                          = MaximumResultVerticesV2
-	RestoreMaximumEdges                             = MaximumResultEdgesV2
+	RestoreAlgorithmID                         = "graphprojection.restore_rebuild.v4"
+	RestoreSourceRegistrySchemaID              = "cartulary.graph_projection_restore_source_registry.v4"
+	RestoreImplementationBindingSchemaID       = "cartulary.graph_projection_restore_implementation_binding.v4"
+	RestoreRebuildResultSchemaID               = "cartulary.graph_projection_restore_rebuild_result.v4"
+	RestoreMaximumSourceRegistrations          = 128
+	RestoreMaximumCandidates                   = 128
+	RestoreMaximumNormalizedInputBytes   int64 = 268435456
+	RestoreMaximumVertices                     = graphprojection.MaximumResultVerticesV2
+	RestoreMaximumEdges                        = graphprojection.MaximumResultEdgesV2
 )
 
 var restoreGraphTableIDs = []string{
@@ -57,7 +54,7 @@ const (
 	RestoreErrorPublicationFailed       RestoreErrorCode = "restore_publication_failed"
 	RestoreErrorPostconditionFailed     RestoreErrorCode = "restore_postcondition_failed"
 	RestoreErrorOutcomeIndeterminate    RestoreErrorCode = "restore_outcome_indeterminate"
-	RestoreErrorHistoricalUnavailable   RestoreErrorCode = "historical_dispatch_unavailable"
+	RestoreErrorUnsupportedGeneration   RestoreErrorCode = "unsupported_graph_restore_generation"
 	RestoreErrorUnsupportedSemantic     RestoreErrorCode = "unsupported_semantic_query"
 )
 
@@ -90,22 +87,20 @@ func validRestoreErrorCode(code RestoreErrorCode) bool {
 	case RestoreErrorInvalidRequest, RestoreErrorRecoveryCatalogMismatch, RestoreErrorSourceRegistryMismatch,
 		RestoreErrorBindingUnavailable, RestoreErrorSourceEnumeration, RestoreErrorInvalidCandidate,
 		RestoreErrorResourceOverflow, RestoreErrorPublicationFailed, RestoreErrorPostconditionFailed,
-		RestoreErrorOutcomeIndeterminate, RestoreErrorHistoricalUnavailable, RestoreErrorUnsupportedSemantic:
+		RestoreErrorOutcomeIndeterminate, RestoreErrorUnsupportedGeneration, RestoreErrorUnsupportedSemantic:
 		return true
 	default:
 		return false
 	}
 }
 
-// RestoreSourceRegistryEntry is one versioned source-owner registration. The
-// semantic query set is required by current v3 and absent from historical v2.
+// RestoreSourceRegistryEntry is one current source-owner registration.
 type RestoreSourceRegistryEntry struct {
 	SourceRegistrationID       string   `json:"source_registration_id"`
 	SourceOwnerID              string   `json:"source_owner_id"`
 	AuthoritativeFamilyID      string   `json:"authoritative_family_id"`
 	EnumeratorBindingID        string   `json:"enumerator_binding_id"`
-	ValidityBindingID          string   `json:"validity_binding_id"`
-	SemanticQuerySchemaIDs     []string `json:"semantic_query_schema_ids,omitempty"`
+	SemanticQuerySchemaIDs     []string `json:"semantic_query_schema_ids"`
 	ProjectionInputContractID  string   `json:"projection_input_contract_id"`
 	ProjectionResultContractID string   `json:"projection_result_contract_id"`
 	Status                     string   `json:"status"`
@@ -126,20 +121,14 @@ type RestoreCandidate struct {
 	GraphViewID           string
 	SemanticQuerySchemaID string
 	SemanticInput         []byte
-	ExpectedBinding       ResultBindingV2
-}
-
-type RestoreCandidateValidity struct {
-	Eligible bool
+	ExpectedBinding       graphprojection.ResultBindingV2
 }
 
 type RestoreCandidateEnumerator func(context.Context, RestoreSourceState, time.Time) ([]RestoreCandidate, error)
-type RestoreCandidateValidityEvaluator func(context.Context, RestoreCandidate, time.Time) (RestoreCandidateValidity, error)
 
 type RestoreSourceRegistration struct {
-	Entry            RestoreSourceRegistryEntry
-	Enumerate        RestoreCandidateEnumerator
-	EvaluateValidity RestoreCandidateValidityEvaluator
+	Entry     RestoreSourceRegistryEntry
+	Enumerate RestoreCandidateEnumerator
 }
 
 type RestoreSourceRegistry struct {
@@ -148,15 +137,11 @@ type RestoreSourceRegistry struct {
 	digestSHA256  string
 }
 
-func NewRestoreSourceRegistry(registrations ...RestoreSourceRegistration) (*RestoreSourceRegistry, error) {
-	return newRestoreSourceRegistry(RestoreSourceRegistrySchemaID, registrations...)
-}
-
 func newRestoreSourceRegistry(schemaID string, registrations ...RestoreSourceRegistration) (*RestoreSourceRegistry, error) {
 	if len(registrations) == 0 || len(registrations) > RestoreMaximumSourceRegistrations {
 		return nil, NewRestoreError(RestoreErrorInvalidRequest)
 	}
-	if schemaID != RestoreSourceRegistrySchemaID && schemaID != HistoricalRestoreSourceRegistrySchemaIDV2 {
+	if schemaID != RestoreSourceRegistrySchemaID {
 		return nil, NewRestoreError(RestoreErrorInvalidRequest)
 	}
 	document := RestoreSourceRegistryDocument{SchemaID: schemaID, Entries: make([]RestoreSourceRegistryEntry, len(registrations))}
@@ -178,19 +163,8 @@ func newRestoreSourceRegistry(schemaID string, registrations ...RestoreSourceReg
 	return &RestoreSourceRegistry{document: document, registrations: copyRegistrations, digestSHA256: hex.EncodeToString(digest[:])}, nil
 }
 
-// NewHistoricalRestoreSourceRegistryV2 creates the immutable compatibility
-// dispatcher registry used only for retained pre-GP3 backup artifacts.
-func NewHistoricalRestoreSourceRegistryV2(registrations ...RestoreSourceRegistration) (*RestoreSourceRegistry, error) {
-	registry, err := newRestoreSourceRegistry(HistoricalRestoreSourceRegistrySchemaIDV2, registrations...)
-	if err != nil || registry.DigestSHA256() != contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256 ||
-		string(mustRestoreCanonicalJSON(registry.document)) != contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2JSON {
-		return nil, NewRestoreError(RestoreErrorSourceRegistryMismatch)
-	}
-	return registry, nil
-}
-
 func NewCurrentRestoreSourceRegistry(registrations ...RestoreSourceRegistration) (*RestoreSourceRegistry, error) {
-	registry, err := NewRestoreSourceRegistry(registrations...)
+	registry, err := newRestoreSourceRegistry(RestoreSourceRegistrySchemaID, registrations...)
 	if err != nil || registry.DigestSHA256() != contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256 ||
 		string(mustRestoreCanonicalJSON(registry.document)) != contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON {
 		return nil, NewRestoreError(RestoreErrorSourceRegistryMismatch)
@@ -201,11 +175,6 @@ func NewCurrentRestoreSourceRegistry(registrations ...RestoreSourceRegistration)
 func CurrentRestoreSourceRegistry() *RestoreSourceRegistry {
 	return decodePackagedRestoreRegistry(contractrecovery.CurrentGraphProjectionRestoreSourceRegistryJSON,
 		contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256)
-}
-
-func HistoricalRestoreSourceRegistryV2() *RestoreSourceRegistry {
-	return decodePackagedRestoreRegistry(contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2JSON,
-		contractrecovery.HistoricalGraphProjectionRestoreSourceRegistryV2SHA256)
 }
 
 func decodePackagedRestoreRegistry(body, digest string) *RestoreSourceRegistry {
@@ -219,21 +188,13 @@ func decodePackagedRestoreRegistry(body, digest string) *RestoreSourceRegistry {
 func validRestoreRegistryEntry(schemaID string, entry RestoreSourceRegistryEntry) bool {
 	if strings.TrimSpace(entry.SourceRegistrationID) == "" || strings.TrimSpace(entry.SourceOwnerID) == "" ||
 		strings.TrimSpace(entry.AuthoritativeFamilyID) == "" || strings.TrimSpace(entry.EnumeratorBindingID) == "" ||
-		strings.TrimSpace(entry.ValidityBindingID) == "" || entry.ProjectionInputContractID != ProjectionSchemaIDV2 ||
+		entry.ProjectionInputContractID != graphprojection.ProjectionSchemaIDV2 ||
 		entry.ProjectionResultContractID != "graph_projection_result.v2" || entry.Status != "active" {
 		return false
 	}
-	switch schemaID {
-	case RestoreSourceRegistrySchemaID:
-		return equalStrings(entry.SemanticQuerySchemaIDs, []string{
-			"cartulary.network_flow.graph_semantic_query.v1",
-			"cartulary.network_flow.graph_semantic_query.v2",
-		})
-	case HistoricalRestoreSourceRegistrySchemaIDV2:
-		return len(entry.SemanticQuerySchemaIDs) == 0
-	default:
-		return false
-	}
+	return schemaID == RestoreSourceRegistrySchemaID && equalStrings(entry.SemanticQuerySchemaIDs, []string{
+		"cartulary.network_flow.graph_semantic_query.v2",
+	})
 }
 
 func (registry *RestoreSourceRegistry) Document() RestoreSourceRegistryDocument {
@@ -260,21 +221,20 @@ func (registry *RestoreSourceRegistry) DigestSHA256() string {
 }
 
 type RestoreImplementationBinding struct {
-	SchemaID                       string   `json:"schema_id"`
-	AlgorithmID                    string   `json:"algorithm_id"`
-	BindingID                      string   `json:"binding_id"`
-	GraphProjectionContractID      string   `json:"graph_projection_contract_id"`
-	SemanticQuerySchemaIDs         []string `json:"semantic_query_schema_ids,omitempty"`
-	HistoricalDispatchAlgorithmIDs []string `json:"historical_dispatch_algorithm_ids,omitempty"`
-	RecoveryStateCatalogSHA256     string   `json:"recovery_state_catalog_sha256"`
-	SourceRegistrySHA256           string   `json:"source_registry_sha256"`
-	GraphTableIDs                  []string `json:"graph_table_ids"`
-	GraphEngineAlgorithmIDs        []string `json:"graph_engine_algorithm_ids"`
-	GraphEngineAlgorithmDigests    []string `json:"graph_engine_algorithm_digests"`
-	DatabaseSchemaLineage          string   `json:"database_schema_lineage"`
-	DatabaseSchemaHead             int64    `json:"database_schema_head"`
-	PackagedSubjectSHA256          string   `json:"packaged_subject_sha256"`
-	BuildProvenanceSHA256          string   `json:"build_provenance_sha256"`
+	SchemaID                    string   `json:"schema_id"`
+	AlgorithmID                 string   `json:"algorithm_id"`
+	BindingID                   string   `json:"binding_id"`
+	GraphProjectionContractID   string   `json:"graph_projection_contract_id"`
+	SemanticQuerySchemaIDs      []string `json:"semantic_query_schema_ids"`
+	RecoveryStateCatalogSHA256  string   `json:"recovery_state_catalog_sha256"`
+	SourceRegistrySHA256        string   `json:"source_registry_sha256"`
+	GraphTableIDs               []string `json:"graph_table_ids"`
+	GraphEngineAlgorithmIDs     []string `json:"graph_engine_algorithm_ids"`
+	GraphEngineAlgorithmDigests []string `json:"graph_engine_algorithm_digests"`
+	DatabaseSchemaLineage       string   `json:"database_schema_lineage"`
+	DatabaseSchemaHead          int64    `json:"database_schema_head"`
+	PackagedSubjectSHA256       string   `json:"packaged_subject_sha256"`
+	BuildProvenanceSHA256       string   `json:"build_provenance_sha256"`
 }
 
 type RestoreImplementationBindingRef struct {
@@ -285,23 +245,6 @@ type RestoreImplementationBindingRef struct {
 func CurrentRestoreImplementationBinding() RestoreImplementationBindingRef {
 	return decodePackagedRestoreBinding(contractrecovery.CurrentGraphProjectionRestoreImplementationBindingJSON,
 		contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256)
-}
-
-func HistoricalRestoreImplementationBindingV2() RestoreImplementationBindingRef {
-	return decodePackagedRestoreBinding(contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2JSON,
-		contractrecovery.HistoricalGraphProjectionRestoreImplementationBindingV2SHA256)
-}
-
-func PreWorkbookOwnershipRestoreImplementationBinding() RestoreImplementationBindingRef {
-	for _, generation := range contractrecovery.RecoveryGenerations {
-		if generation.GenerationID == "recovery.historical.incidents_owned.graph_v3" {
-			return decodePackagedRestoreBinding(
-				generation.GraphImplementationBindingJSON,
-				generation.GraphImplementationBindingSHA256,
-			)
-		}
-	}
-	return RestoreImplementationBindingRef{}
 }
 
 func FrozenRestoreImplementationBinding(body []byte, digest string) RestoreImplementationBindingRef {
@@ -395,9 +338,7 @@ func (result RestoreRebuildResult) ReadinessSatisfied() bool {
 }
 
 func (result RestoreRebuildResult) Validate() error {
-	current := result.SchemaID == RestoreRebuildResultSchemaID && result.AlgorithmID == RestoreAlgorithmID
-	historical := result.SchemaID == HistoricalRestoreRebuildResultSchemaIDV2 && result.AlgorithmID == HistoricalRestoreAlgorithmIDV2
-	if !current && !historical ||
+	if result.SchemaID != RestoreRebuildResultSchemaID || result.AlgorithmID != RestoreAlgorithmID ||
 		strings.TrimSpace(result.RestoreOperationID) == "" || uuid.Validate(result.TargetGenerationID) != nil ||
 		!validSHA256String(result.ImplementationBindingSHA256) || !validSHA256String(result.SourceRegistrySHA256) ||
 		result.ClearedTableIDs == nil || result.RebuiltViews == nil || result.Warnings == nil || result.Errors == nil ||
@@ -418,17 +359,12 @@ func (result RestoreRebuildResult) Validate() error {
 		return NewRestoreError(RestoreErrorPostconditionFailed)
 	}
 	for _, message := range append(append([]RestoreSafeMessage{}, result.Warnings...), result.Errors...) {
-		if !validRestoreErrorCode(message.Code) || historical &&
-			(message.Code == RestoreErrorHistoricalUnavailable || message.Code == RestoreErrorUnsupportedSemantic) {
+		if !validRestoreErrorCode(message.Code) {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	}
 	for _, rebuilt := range result.RebuiltViews {
-		if current && rebuilt.SemanticQuerySchemaID != "cartulary.network_flow.graph_semantic_query.v1" &&
-			rebuilt.SemanticQuerySchemaID != "cartulary.network_flow.graph_semantic_query.v2" {
-			return NewRestoreError(RestoreErrorPostconditionFailed)
-		}
-		if historical && rebuilt.SemanticQuerySchemaID != "" {
+		if rebuilt.SemanticQuerySchemaID != "cartulary.network_flow.graph_semantic_query.v2" {
 			return NewRestoreError(RestoreErrorPostconditionFailed)
 		}
 	}

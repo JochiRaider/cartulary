@@ -13,17 +13,17 @@ import {
   type GraphQueryResultV2,
   type GraphSelectorV2,
   type GraphSemanticQueryV2,
-  type GraphViewAcceptedV2,
+  type GraphViewAcceptedV3,
   type GraphViewContributorQueryRequestV2,
   type GraphViewContributorQueryResultV2,
   type GraphViewCreateRequestV2,
-  type GraphViewListV2,
-  type GraphViewMutationResultV2,
+  type GraphViewListV3,
+  type GraphViewMutationResultV3,
   type GraphViewRefreshRequest,
   type GraphViewRenameRequest,
-  type GraphViewResultV2,
+  type GraphViewResultV3,
   type GraphViewRetireRequest,
-  type GraphViewV2,
+  type GraphViewV3,
   type ImportPreviewResult,
   type IndicatorLinkRequest,
   type IndicatorLinkResult,
@@ -67,18 +67,18 @@ export type NetworkFlowGraphVertex = GraphProjectionVertex;
 export type NetworkFlowGraphSelector = GraphSelectorV2;
 export type NetworkFlowGraphSemanticQuery = GraphSemanticQueryV2;
 export type NetworkFlowGraphQueryRequest = GraphQueryRequestV2;
-export type NetworkFlowSavedGraph = GraphViewV2;
-export type NetworkFlowSavedGraphAccepted = GraphViewAcceptedV2;
+export type NetworkFlowSavedGraph = GraphViewV3;
+export type NetworkFlowSavedGraphAccepted = GraphViewAcceptedV3;
 export type NetworkFlowSavedGraphContributorQueryRequest =
   GraphViewContributorQueryRequestV2;
 export type NetworkFlowSavedGraphContributorResult =
   GraphViewContributorQueryResultV2;
 export type NetworkFlowSavedGraphCreateRequest = GraphViewCreateRequestV2;
-export type NetworkFlowSavedGraphList = GraphViewListV2;
-export type NetworkFlowSavedGraphMutationResult = GraphViewMutationResultV2;
+export type NetworkFlowSavedGraphList = GraphViewListV3;
+export type NetworkFlowSavedGraphMutationResult = GraphViewMutationResultV3;
 export type NetworkFlowSavedGraphRefreshRequest = GraphViewRefreshRequest;
 export type NetworkFlowSavedGraphRenameRequest = GraphViewRenameRequest;
-export type NetworkFlowSavedGraphResult = GraphViewResultV2;
+export type NetworkFlowSavedGraphResult = GraphViewResultV3;
 export type NetworkFlowSavedGraphRetireRequest = GraphViewRetireRequest;
 export type NetworkFlowContributorQueryRequest = GraphContributorQueryRequestV2;
 export type NetworkFlowContributorQueryContinuation =
@@ -113,7 +113,7 @@ export const networkFlowMappingCandidateSchemaId =
 export const networkFlowErrorMetadata = networkFlowErrorRegistry;
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 
-const supportedNetworkFlowContractMajors = new Set([4]);
+const supportedNetworkFlowContractMajors = new Set([5]);
 
 export function isSupportedNetworkFlowContract(
   descriptor: {
@@ -197,25 +197,25 @@ export function decodeNetworkFlowContributorResult(
 
 export function decodeNetworkFlowSavedGraphList(
   value: unknown,
-): GraphViewListV2 {
+): GraphViewListV3 {
   return decodeOrThrow(networkFlowDecoders.graphViewList, value);
 }
 
 export function decodeNetworkFlowSavedGraphAccepted(
   value: unknown,
-): GraphViewAcceptedV2 {
+): GraphViewAcceptedV3 {
   return decodeOrThrow(networkFlowDecoders.graphViewAccepted, value);
 }
 
 export function decodeNetworkFlowSavedGraphMutationResult(
   value: unknown,
-): GraphViewMutationResultV2 {
+): GraphViewMutationResultV3 {
   return decodeOrThrow(networkFlowDecoders.graphViewMutationResult, value);
 }
 
 export function decodeNetworkFlowSavedGraphResult(
   value: unknown,
-): GraphViewResultV2 {
+): GraphViewResultV3 {
   return decodeOrThrow(networkFlowDecoders.graphViewResult, value);
 }
 

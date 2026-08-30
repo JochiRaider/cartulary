@@ -1807,7 +1807,7 @@ deterministic ordinal fallback from Table 15-C4. It MUST NOT fall back to an
 unredacted source value, Graph property, selector field, digest, or raw Graph
 label.
 
-GP3 adds no external Network Flow graph allow rule. An external release that
+The current contract adds no external Network Flow graph allow rule. An external release that
 selects any Network Flow graph field MUST fail closed through the existing
 unresolved-redaction failure unless a separately adopted Reporting policy
 classifies and resolves every selected field. Internal-policy success MUST NOT
