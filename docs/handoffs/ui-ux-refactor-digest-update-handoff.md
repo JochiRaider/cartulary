@@ -1,6 +1,6 @@
 # UI/UX Refactor Digest Update Handoff
 
-**Status:** Planning complete; digest execution not started  
+**Status:** Digest execution complete
 **Planning date:** 2026-08-30 EDT  
 **Planning baseline branch:** `main`  
 **Planning baseline commit:** `7fe28d1b0b1b6c3831cfe6a14dc96ee259b38b56`  
@@ -9,22 +9,19 @@
 
 ## 1. Purpose and completion boundary
 
-This handoff is the decision-complete plan for a later documentation-only
-refresh of the repository-local UI/UX advisory package. Creating this handoff
-does not authorize or perform that refresh. Every digest-execution work item in
-§8 remains `TODO` until a separately authorized implementation session changes
-the package and records evidence here.
+This handoff governed the completed documentation-only refresh of the
+repository-local UI/UX advisory package. The execution evidence, tracker, and
+terminal disposition are recorded below.
 
-The later update has two inseparable outcomes:
+The update delivered two inseparable outcomes:
 
 1. replace the pinned upstream advisory source with an exact release snapshot;
 2. re-localize the Cartulary overlay against the repository state that exists
    when execution begins.
 
-The update is complete only when source provenance, the upstream tree, the
-localized overlay, package metadata, advisory classifications, acceptance rows,
-and the package manifest describe one coherent snapshot. A partial source or
-overlay update is not an acceptable intermediate handoff.
+Source provenance, the upstream tree, the localized overlay, package metadata,
+advisory classifications, acceptance rows, and the package manifest now
+describe one coherent snapshot.
 
 ## 2. Request, source, and authority classification
 
@@ -55,6 +52,12 @@ digest still records its 2026-07-28 Cartulary localization at repository commit
 `b3fe76c69390456910c14d69e98ef59656b6fcf1` and pins upstream commit
 `4857a2c5ef989794751a0f66b8545a4a49566286`.
 
+Execution began from clean tracked branch `main` at commit
+`2356949f7ec3c8e27ff83ae695d60e06a387d0e5`. The only permitted changed paths
+after that checkpoint are the digest subtree and this handoff. Execution uses
+Git 2.53.0, Python 3.14.4, and the temporary full upstream checkout rooted at
+`/tmp/cartulary-uiux-exec.Pa9xPP/upstream`.
+
 The later source refresh MUST use this immutable release:
 
 | Property | Required value |
@@ -75,11 +78,15 @@ At planning time, upstream default-branch HEAD was
 The release commit remains the required pin. A later default-branch movement
 does not change it.
 
-The current bundle contains 43 files. The `v2.15.0` source subtree contains 73
-regular files and no symlinks. Relative to the current pin, 70 source files are
-changed: 40 existing files differ and 30 files are added. Source replacement
-MUST therefore replace the complete directory rather than copying a selected
-subset or manually merging changed CSV and Python files.
+The current bundle contains 43 files. The `v2.15.0` Git source subtree contains
+70 tracked regular files and no symlinks. Relative to the current pin, every
+source file changes: all 43 existing files differ and 27 files are added.
+Source replacement MUST therefore replace the complete directory rather than
+copying a selected subset or manually merging changed CSV and Python files.
+
+Earlier planning counts of 73 source files and 85 manifest entries included
+three generated Python bytecode files from a validation checkout. Bytecode and
+Python caches are not source and are excluded from the bundle and manifest.
 
 The upstream license bytes are unchanged from the existing pin. They MUST still
 be verified and accounted for as part of the refreshed provenance boundary.
@@ -263,7 +270,7 @@ scope; contradictions are either absent or explicitly blocking.
 1. Fetch the exact release commit into a temporary directory outside the
    repository.
 2. Verify tag `v2.15.0` resolves to the required SHA and the copied path contains
-   73 regular files and no symlinks.
+   70 tracked regular files and no symlinks.
 3. Replace the destination subtree as one source snapshot; do not overlay files
    onto the old 43-file tree.
 4. Copy and hash the root license.
@@ -301,7 +308,7 @@ After every other package file is stable, regenerate `MANIFEST.sha256` from the
 lexically sorted repository-relative path set of regular files below the digest,
 excluding `MANIFEST.sha256` itself and ignored Python caches. Use the standard
 two-space `sha256sum` record format. If no new localized file is introduced
-inside the digest, the expected manifest contains 85 entries.
+inside the digest, the expected manifest contains 82 entries.
 
 Run this validation matrix:
 
@@ -310,7 +317,7 @@ Run this validation matrix:
 | Exact upstream tree comparison | No difference from `.claude/skills/ui-ux-pro-max` at `a38d04c3…` | Restore and repeat the complete source replacement; do not patch the difference locally. |
 | License hash | Exact expected SHA-256 from §3 | Stop as a provenance mismatch. |
 | `python3 -B .../scripts/validate_data.py` | `OK`, 12 domain files, 22 stack files, and `ui-reasoning.csv` | Treat as an invalid source snapshot or copy defect. |
-| `python3 -B -m unittest discover -s .../scripts/tests -p "test_*.py"` | 153 tests pass for the pinned release | Investigate source/copy/runtime mismatch; do not weaken or skip the suite. |
+| Full release checkout: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s .claude/skills/ui-ux-pro-max/scripts/tests -p "test_*.py"` | 153 tests pass for the pinned release | Investigate source/copy/runtime mismatch; do not weaken or skip the suite. |
 | UX sample query | Three JSON results for `keyboard focus color only error feedback` | Check exact pin, domain argument, and source integrity. |
 | React sample query | Eight JSON results for `virtualized grid rerender focus async state` | Check exact pin, `--stack react`, and source integrity. |
 | JSON and TSV shape checks | All metadata parses; every TSV row has its header's column count | Correct the localized artifact before manifest generation. |
@@ -318,6 +325,13 @@ Run this validation matrix:
 | `make lint-markdown` | Pass | Repair Markdown only; do not broaden into product formatting. |
 | `git diff --check` | Pass | Repair whitespace defects. |
 | Final scope audit | Only the digest subtree and this handoff changed | Revert or separately authorize unrelated changes. |
+
+The complete upstream suite must run from the full release checkout because
+`test_catalog_refresh.py` and `test_relevance_evaluator.py` depend on maintenance
+scripts at the upstream repository root that are intentionally outside the
+copied subtree. The bundled subtree remains independently usable for data
+validation and offline search. `PYTHONDONTWRITEBYTECODE=1` is required in
+addition to `python3 -B` because the suite spawns Python subprocesses.
 
 The upstream validation suite may exercise its own persistence behavior inside
 temporary test directories. The implementation session itself must never invoke
@@ -335,17 +349,17 @@ Status values are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, and
 
 | ID | Work item | Status | Depends on | Evidence required | Exit condition |
 | --- | --- | --- | --- | --- | --- |
-| DU-001 | Capture clean execution baseline and allowed paths | TODO | none | Branch, commit, status, scope record | One non-self-referential localization snapshot is frozen. |
-| DU-002 | Revalidate full repository and owner map | TODO | DU-001 | Reviewed `REPO_MAP.tsv`, owner/status checks | Every row is current or explicitly corrected. |
-| DU-003 | Export and replace exact `v2.15.0` source tree | TODO | DU-001 | Tag/SHA proof, file count, recursive comparison | Bundle is an exact 73-file source snapshot. |
-| DU-004 | Refresh license and source provenance | TODO | DU-003 | License hash and `meta/source.json` review | License, source metadata, and bundle agree. |
-| DU-005 | Re-localize README, prompts, and maps | TODO | DU-002, DU-004 | Overlay diff and source/authority review | All current paths, owners, and boundaries are accurate. |
-| DU-006 | Reclassify material upstream advice | TODO | DU-003, DU-005 | Query outputs and R001+ ledger review | Every material result is ADOPT, ADAPT, or REJECT. |
-| DU-007 | Refresh A001-A027 regression criteria | TODO | DU-002, DU-005 | Acceptance diff and owner map | Criteria reflect current baselines without new authority. |
-| DU-008 | Refresh localization metadata | TODO | DU-002, DU-005, DU-006, DU-007 | Parsed metadata and snapshot review | Metadata describes the actual execution state. |
-| DU-009 | Regenerate and reconcile package manifest | TODO | DU-003, DU-004, DU-005, DU-006, DU-007, DU-008 | Exact path-set and checksum comparison | Expected package files are accounted for exactly once. |
-| DU-010 | Run final validation and scope audit | TODO | DU-009 | Complete validation matrix with outputs | Every required check passes and no product path changed. |
-| DU-011 | Complete execution handoff | TODO | DU-010 | Filled log in §10 | Compatibility, rollback, results, and next step are recorded. |
+| DU-001 | Capture clean execution baseline and allowed paths | DONE | none | Branch, commit, status, scope record | One non-self-referential localization snapshot is frozen. |
+| DU-002 | Revalidate full repository and owner map | DONE | DU-001 | Reviewed `REPO_MAP.tsv`, owner/status checks | Every row is current or explicitly corrected. |
+| DU-003 | Export and replace exact `v2.15.0` source tree | DONE | DU-001 | Tag/SHA proof, file count, recursive comparison | Bundle is an exact 70-file source snapshot. |
+| DU-004 | Refresh license and source provenance | DONE | DU-003 | License hash and `meta/source.json` review | License, source metadata, and bundle agree. |
+| DU-005 | Re-localize README, prompts, and maps | DONE | DU-002, DU-004 | Overlay diff and source/authority review | All current paths, owners, and boundaries are accurate. |
+| DU-006 | Reclassify material upstream advice | DONE | DU-003, DU-005 | Query outputs and R001+ ledger review | Every material result is ADOPT, ADAPT, or REJECT. |
+| DU-007 | Refresh A001-A027 regression criteria | DONE | DU-002, DU-005 | Acceptance diff and owner map | Criteria reflect current baselines without new authority. |
+| DU-008 | Refresh localization metadata | DONE | DU-002, DU-005, DU-006, DU-007 | Parsed metadata and snapshot review | Metadata describes the actual execution state. |
+| DU-009 | Regenerate and reconcile package manifest | DONE | DU-003, DU-004, DU-005, DU-006, DU-007, DU-008 | Exact path-set and checksum comparison | Expected package files are accounted for exactly once. |
+| DU-010 | Run final validation and scope audit | DONE | DU-009 | Complete validation matrix with outputs | Every required check passes and no product path changed. |
+| DU-011 | Complete execution handoff | DONE | DU-010 | Filled log in §10 | Compatibility, rollback, results, and next step are recorded. |
 
 At most one work item is `IN_PROGRESS`. A blocked prerequisite blocks its
 dependents; it is not permission to skip validation or weaken source integrity.
@@ -362,7 +376,7 @@ dependents; it is not permission to skip validation or weaken source integrity.
 | Design guidance creates Core behavior | Apply `design.md` only within its observable design scope. |
 | Remediation handoff is mistaken for authority | Cite it only as current-state and verification evidence. |
 | Manifest conceals stale or extra files | Compare both checksums and the exact manifest/package path sets. |
-| Python caches contaminate the package | Use `python3 -B` and reject unexpected cache paths before manifest generation. |
+| Python caches contaminate the package | Use `PYTHONDONTWRITEBYTECODE=1` with `python3 -B` and reject unexpected cache paths before manifest generation. |
 | Repository moves before execution | Re-run the full localization scan and record the actual baseline. |
 | Docs-only scope expands into product changes | Stop and request a separately authorized product slice. |
 
@@ -377,7 +391,17 @@ it were execution evidence.
 
 | Date/time | Actor | Work items | Baseline/source snapshot | Paths changed | Commands and results | Advisory disposition | Blockers/deferrals | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TODO | TODO | TODO | TODO | TODO | TODO | TODO | TODO | TODO |
+| 2026-08-30 18:13 EDT | Codex | DU-001 | `main` at `2356949f7ec3c8e27ff83ae695d60e06a387d0e5`; source `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | This handoff | Clean tracked baseline; Git 2.53.0; Python 3.14.4; immutable tag and source delta verified in `/tmp/cartulary-uiux-exec.Pa9xPP` | Corrected source, cache, manifest, and full-checkout test facts; no advice classified | None | DU-002 |
+| 2026-08-30 18:16 EDT | Codex | DU-002 | Execution baseline above | This handoff only; overlay correction ledger recorded | Revalidated all 74 repository-map data rows, owner status, generated roots, public targets, package presence, and direct vendor boundary | No advice classified; found no owner contradiction | Corrections required: absent `packages/ui`, generated view-contract root, Report Composition 1.2.0, and current remediation baselines | DU-003 |
+| 2026-08-30 18:16 EDT | Codex | DU-003 | `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | Complete `upstream/ui-ux-pro-max` subtree | Clean archive replacement; 70 files; zero symlinks/caches; no-index path, byte, and mode comparison passed | Source only; no Cartulary advice classified | None | DU-004 |
+| 2026-08-30 18:18 EDT | Codex | DU-004 | Release and execution baseline above | License verified; `meta/source.json`, README upstream section, and `UPSTREAM_MAP.md` | Source JSON assertion passed; license SHA-256 `738f69dfa83db5c347c678fb9d90e560877059f0de93a327c39001bff92dc014`; upstream tree remained exact | Expanded provenance/test-topology descriptions remain advisory | None | DU-005 |
+| 2026-08-30 18:20 EDT | Codex | DU-005 | Execution baseline plus current owners and implementation evidence | README, `START_HERE.md`, `LOCAL_AGENT_PROMPT.md`, `REPO_MAP.tsv`, `OWNER_MAP.tsv`, `QUERY_RECIPES.md`, `UPSTREAM_MAP.md` | Both TSV shapes passed; all 76 repository-map rows resolve or are explicit `NOT PRESENT`; stale assertion scan passed | Completed create, inspector, density, responsive, and visual work is now a regression baseline | None | DU-006 |
+| 2026-08-30 18:21 EDT | Codex | DU-006 | Refreshed `v2.15.0` search/data | `rules.tsv` | Eight narrow UX/icon/React queries reviewed; 35 rule rows have valid shape and unique IDs; R001-R034 retained | Amended R002/R006/R023; added R035 `ADAPT` for text-layout resilience; all other results mapped to existing rows; cybersecurity defaults remain R026-R028 `REJECT` | None | DU-007 |
+| 2026-08-30 18:22 EDT | Codex | DU-007 | Current adopted owners and completed remediation evidence | `acceptance.tsv` | 27 rows have valid shape and unique stable A001-A027 IDs | Strengthened A006/A007/A008/A010/A024/A025 without creating product authority; retained remaining regression gates | None | DU-008 |
+| 2026-08-30 18:24 EDT | Codex | DU-008 | `main` at `2356949f7ec3c8e27ff83ae695d60e06a387d0e5`; `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | `meta/localization.json` | JSON parse and cross-metadata snapshot assertions passed; current stack/workspace facts revalidated | Added refresh scope, four current qualifications, resolved mappings, and exact upstream pin; records no product changes/tests | None | DU-009 |
+| 2026-08-30 18:26 EDT | Codex | DU-009 | Stable localized package above | `MANIFEST.sha256` | 82/82 checksums passed; manifest and package path sets match with zero differences; caches/bytecode excluded | No advisory change | None | DU-010 |
+| 2026-08-30 18:28 EDT | Codex | DU-010 | Final package candidate on execution baseline | Digest subtree and this handoff only | Exact tree/license passed; data validation passed; upstream 153/153; queries 3/3 and 8/8; JSON/TSV/IDs/manifest/path set passed; `agent-finalize` 1/1 at `20260830T222748Z-p3671118`; Markdown lint passed at `20260830T222802Z-p3674035`; whitespace and scope passed | All classifications retained; no product tests or generation run | `RESULTS_DIR` unset because no full warm `make check` run applies to this docs-only slice | DU-011 |
+| 2026-08-30 18:29 EDT | Codex | DU-011 | `main` at clean baseline `2356949f7ec3c8e27ff83ae695d60e06a387d0e5`; final dirty scope is the digest subtree and this handoff; source `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | `MANIFEST.sha256`; `README.md`; `cartulary/{LOCAL_AGENT_PROMPT.md,OWNER_MAP.tsv,QUERY_RECIPES.md,REPO_MAP.tsv,START_HERE.md,UPSTREAM_MAP.md,acceptance.tsv,rules.tsv}`; `meta/{localization.json,source.json}`; `upstream/ui-ux-pro-max/**`; this handoff | Exact 70-file source tree and license `738f69dfa83db5c347c678fb9d90e560877059f0de93a327c39001bff92dc014`; all DU-010 checks passed; post-handoff Markdown lint passed at `20260830T222955Z-p3675647`; final whitespace, integrity, tracker, acceptance, and scope checks passed | R001-R034 retained; R002/R006/R023 amended; R035 added as `ADAPT`; R026-R028 remain `REJECT`; A001-A027 refreshed as a future regression contract, not a new product claim | No runtime/data migration; rollback source/provenance and the complete overlay as coherent checkpoints; product tests/generation skipped by docs-only scope; retained-run maintenance skipped because `RESULTS_DIR` was unset | none |
 
 The terminal log row must include:
 
@@ -393,27 +417,26 @@ The terminal log row must include:
 
 ## 11. Binary acceptance criteria
 
-- [ ] The actual execution baseline is clean, current, and recorded.
-- [ ] Release `v2.15.0` resolves to the required immutable commit.
-- [ ] The 73-file upstream destination tree exactly matches the release source.
-- [ ] The MIT license hash matches the expected value.
-- [ ] Source and localization metadata describe the same upstream and Cartulary
+- [x] The actual execution baseline is clean, current, and recorded.
+- [x] Release `v2.15.0` resolves to the required immutable commit.
+- [x] The 70-file upstream destination tree exactly matches the release source.
+- [x] The MIT license hash matches the expected value.
+- [x] Source and localization metadata describe the same upstream and Cartulary
       snapshots as the package contents.
-- [ ] Every `REPO_MAP.tsv` row is revalidated against the current repository.
-- [ ] The known drift in §5 is resolved without inventing a package, owner, or
+- [x] Every `REPO_MAP.tsv` row is revalidated against the current repository.
+- [x] The known drift in §5 is resolved without inventing a package, owner, or
       product behavior.
-- [ ] Resolved remediation gaps are represented as regression baselines.
-- [ ] R001-R034 retain stable IDs and every materially new recommendation has a
+- [x] Resolved remediation gaps are represented as regression baselines.
+- [x] R001-R034 retain stable IDs and every materially new recommendation has a
       classified appended row or an explicit existing-row mapping.
-- [ ] A001-A027 retain stable IDs and reflect current create, inspector,
+- [x] A001-A027 retain stable IDs and reflect current create, inspector,
       density, responsive, generated-root, and test-authority behavior.
-- [ ] No upstream generation/persistence option was invoked against Cartulary.
-- [ ] Upstream validation, 153 tests, and both sample queries pass.
-- [ ] JSON, TSV, Markdown, whitespace, manifest, and path-set checks pass.
-- [ ] No product, owner-specification, generated-product, dependency, or
+- [x] No upstream generation/persistence option was invoked against Cartulary.
+- [x] Upstream validation, 153 tests, and both sample queries pass.
+- [x] JSON, TSV, Markdown, whitespace, manifest, and path-set checks pass.
+- [x] No product, owner-specification, generated-product, dependency, or
       lockfile path changed.
-- [ ] The execution log contains results, compatibility, rollback, deferrals,
+- [x] The execution log contains results, compatibility, rollback, deferrals,
       and the next action.
 
-Until every applicable criterion is checked and DU-001 through DU-011 are
-`DONE`, the digest refresh remains incomplete.
+Every applicable criterion is checked and DU-001 through DU-011 are `DONE`.

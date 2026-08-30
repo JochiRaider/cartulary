@@ -4,11 +4,11 @@ A002	Scope	One coherent seam is changed; behavior corrections are separated from
 A003	Repository state	Actual stack, owners, generated paths, direct grid imports, tests, and dirty state were inspected and any localization drift was recorded.	docs/cartulary-ui-ux-refactor-digest/cartulary/REPO_MAP.tsv plus git status
 A004	Tokens	No component-local design literal or second token/theme/density registry was introduced.	Token audit
 A005	Theme	Only current owner-supported dark_graphite behavior is exposed; no generated cybersecurity palette appears.	Theme fixture and diff
-A006	Density	Selector changes row height, cell padding, typography, editor geometry, and gutters through shared tokens.	Density fixtures
-A007	Creation	Hosts/Identities creation appears only when active view-schema capability permits it and stays workbook-adjacent.	Capability and browser tests
-A008	Responsive	Chrome selection depends on inline size only; vertical-only resize preserves top navigation and controls.	1024x720, 768x640, and vertical-resize fixtures
+A006	Density	One shared density selection controls row/header height, block/inline padding, typography, gutters, saved/draft/read-only content, and full-cell editor geometry.	Computed density geometry, grid-owner, measurement, and visual fixtures
+A007	Creation	Every current create entry point requires create_capable, interaction authority, inline_create, and declared create-writable fields/inputs; payloads enforce projected ordinary minima and explicit Evidence/Indicator exceptions.	View-schema completeness, payload filtering, owner-validation, unit, service-backed, and browser tests
+A008	Responsive	Validated CSS-length accessors and token-backed inline-size thresholds select chrome; innerWidth/innerHeight replace absent visualViewport; inspector clamp geometry and ARIA state agree; vertical-only resize preserves required controls.	Boundary, fallback, 1024x720, 768x640, below-minimum, vertical-resize, clamp, and ARIA fixtures
 A009	Overflow	Grid/inspector scroll inside shell ownership; status strip and safe account/application navigation remain reachable.	Overflow/navigation fixture
-A010	Inspector	Sections/actions derive from active view_schema_id and inspector_config_v1; stale state invalidates safely.	Inspector state tests
+A010	Inspector	Every current inspector_config_v1 feature group resolves exactly once by stable semantic route identity; role/state restrictions remain rendered disabled, confirmation and stale state invalidate safely, and unknown additive groups are omitted.	Dispatcher completeness, route, role/state, confirmation, invalidation, browser, and service-backed tests
 A011	Continuity	Row, scroll, selection, and focus continuity survive inspector/view/background-refresh transitions where specified.	Browser continuity test
 A012	Transactions	New client_txn_id uses Web Crypto randomness; uncertain replay alone reuses an ID.	Unit and mutation replay tests
 A013	Queue recovery	Blocked edits offer Retry with a new request ID and Discard blocked edit without silent loss/duplication.	Recovery browser test
@@ -22,7 +22,7 @@ A020	Components	Every declared component variant and compound-state precedence r
 A021	Virtualization	All result sizes use stable virtualized workbook rows without focus, identity, or scroll corruption.	Performance/continuity evidence
 A022	Visual fixtures	Applicable D-VFIX cases run at exact viewport, theme, density, scroll, mask, and crop settings.	tools/frontend_visual_fixture_registry.json; make browser-e2e-visual
 A023	Selectors	Tests use fixture ID, view_schema_id, record_id, field_key, semantic icon ID, or owner state/capability.	packages/ui-contracts/src/index.ts and make test-slice OWNER=package.ui
-A024	Test authority	No test binds conformance to literal spec prose, paths, line numbers, hashes, formatting, or documentation structure.	Test audit
-A025	Generated artifacts	Generated files are changed only through authored owner inputs and the repository generator; policy and drift checks pass.	make generate; make generate-drift; make generated-artifact-policy-check
+A024	Test authority	No executable test, generator, conformance check, release artifact, or runtime dependency reads, stats, or hashes digest/Markdown content or binds behavior to prose, paths, line numbers, hashes, formatting, or documentation structure.	Test/dependency audit and owner-routed verification
+A025	Generated artifacts	Generated backend, protocol-ts, view-contracts, and ui-contracts roots change only through authored owner inputs and the repository generator; policy and drift checks pass.	tools/generated_artifact_policy.json; make generate; make generate-drift; make generated-artifact-policy-check
 A026	Boundary	No route, schema, field, write, auth, lifecycle, storage, evidence, or compatibility behavior was invented.	Owner boundary review
 A027	Handoff	Changed behavior, owner, paths, commands, results, evidence, deferrals, and next slice are recorded.	Handoff record

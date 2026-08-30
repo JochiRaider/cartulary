@@ -2,9 +2,10 @@
 
 All files under
 `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/` are exact copies
-from pinned upstream commit
-`4857a2c5ef989794751a0f66b8545a4a49566286`. They are offline advisory
-material, not Cartulary authority.
+from release `v2.15.0` at pinned upstream commit
+`a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5`. The copied Git subtree contains
+70 tracked regular files and no symlinks. It is offline advisory material, not
+Cartulary authority.
 
 The original upstream `SKILL.md` contains commands for its native plugin
 location and includes design-system generation/persistence examples. Those
@@ -20,6 +21,7 @@ commands. Use the repository-root commands in
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/references/quick-reference.md` | Accessibility, interaction, performance, layout, forms, and navigation index. | Translate mobile/general rules through Cartulary's desktop workbook owners. |
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/ux-guidelines.csv` | Searchable general UX rows. | Tailwind examples are illustrative only. |
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/stacks/react.csv` | React-specific advisory rows for the verified stack. | React advice does not override Cartulary package or state ownership. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/catalog-summary.json` and `data-provenance.json` | Upstream catalog counts and source provenance. | These describe upstream data maintenance, not Cartulary contracts. |
 
 ## On-demand files
 
@@ -30,8 +32,21 @@ commands. Use the repository-root commands in
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/react-performance.csv` | React performance review questions. | Treat as advisory measurement prompts. |
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/app-interface.csv` | Native/mobile concerns. | Only generally transferable semantic and accessibility concerns apply. |
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/icons.csv` | Candidate icon concepts. | `docs/design.md` §3.11 owns semantic icon IDs; no standalone implementation registry exists. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/data/google-font-licenses.json` and `phosphor-icons-upstream.json` | Font and icon source provenance. | Provenance does not authorize new dependencies, fonts, or icon identities. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/reasoning_contract.py` | Upstream reasoning and relevance contract helpers. | Search ranking remains advisory and cannot resolve Cartulary owner conflicts. |
+| `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/tests/**` | Upstream data-quality, relevance, taxonomy, freshness, and layout tests plus fixtures. | The complete suite requires upstream repository-root maintenance scripts that are intentionally not bundled. |
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/references/pro-rules.md` | Native/mobile polish checklist. | Touch, safe-area, and mobile viewport assumptions do not apply directly. |
 | Other bundled data | Source completeness and optional comparison. | Product, style, color, and landing recommendations remain advisory. |
+
+## Validation topology
+
+The bundled `validate_data.py` and search entry point operate offline from the
+Cartulary repository root. Refresh-time validation runs the complete 153-test
+suite from a temporary full checkout of the exact release because
+`test_catalog_refresh.py` and `test_relevance_evaluator.py` depend on upstream
+repository-root maintenance scripts outside the copied skill subtree. Those
+scripts are not copied into Cartulary. Use `PYTHONDONTWRITEBYTECODE=1` together
+with `python3 -B` so spawned Python processes cannot add caches to the snapshot.
 
 ## Known contradictory defaults
 

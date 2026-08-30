@@ -59,6 +59,8 @@ Use `REPO_MAP.tsv` as the detailed map. The verified headline boundaries are:
   `react-data-grid` integration;
 - `contracts/view-schemas`: authored view-schema projections;
 - `packages/protocol-ts/src/generated`: generated protocol/view-schema output;
+- `packages/view-contracts/src/generated`: generated projection of authored
+  view-schema inputs;
 - `packages/view-contracts` / `package.view_contracts`: authored view adapter;
 - `packages/ui-contracts` / `package.ui`: authored stable selectors and token
   facade;
@@ -69,15 +71,15 @@ Use `REPO_MAP.tsv` as the detailed map. The verified headline boundaries are:
 - `packages/ui-contracts/src/generated/design-tokens.ts`: generated token
   output.
 
-Do not infer a functional package from owner ID `package.ui`;
-`packages/ui` currently contains only `.gitkeep`. `docs/design.md` §3.11 owns
-semantic icon IDs, but a standalone implementation icon registry is not
+Do not infer a functional package from owner ID `package.ui`; `packages/ui` is
+absent and the owner routes to `packages/ui-contracts`. `docs/design.md` §3.11
+owns semantic icon IDs, but a standalone implementation icon registry is not
 present. Preserve that conditional boundary rather than inventing one.
 
 Before editing, inspect `tools/generated_artifact_policy.json`. Do not hand-edit
 `internal/gen`, `packages/protocol-ts/src/generated`,
-`packages/ui-contracts/src/generated`, or generated harness/task files. Update
-authored owner inputs and use:
+`packages/view-contracts/src/generated`, `packages/ui-contracts/src/generated`,
+or generated harness/task files. Update authored owner inputs and use:
 
 ```bash
 make generate
@@ -99,8 +101,10 @@ tokens/density, active view and inspector contracts, creation capability,
 focus/keyboard/paste/edit/conflict behavior, transaction/pending recovery,
 tests, and authored/generated boundaries.
 
-Treat the six concerns in `START_HERE.md` as review hypotheses. Verify current
-behavior and exact owner clauses before calling any concern a defect.
+Treat the six concerns in `START_HERE.md` as current regression baselines.
+Verify current behavior and exact owner clauses before calling any concern a
+defect. The remediation handoff is implementation evidence only; it is not an
+owner or an authorization for another product slice.
 
 ## Work one coherent slice
 
@@ -116,10 +120,10 @@ Classify every material upstream recommendation `ADOPT`, `ADAPT`, or `REJECT`.
 Query only a targeted concern:
 
 ```bash
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "keyboard focus color only error feedback" --domain ux --json
 
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "virtualized grid rerender focus async state" --stack react -n 8 --json
 ```
 

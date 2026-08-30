@@ -5,11 +5,11 @@ refactor. This localization is preparation only: it maps the portable digest to
 the current repository without authorizing product behavior or interface
 changes.
 
-The package pins `nextlevelbuilder/ui-ux-pro-max-skill` to upstream commit
-`4857a2c5ef989794751a0f66b8545a4a49566286` (2026-07-28). The files under
-`docs/cartulary-ui-ux-refactor-digest/upstream/`, the upstream license, and
-`docs/cartulary-ui-ux-refactor-digest/meta/source.json` are preserved source
-material and provenance.
+The package pins `nextlevelbuilder/ui-ux-pro-max-skill` release `v2.15.0` to
+upstream commit `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5`
+(2026-08-14). The 70 tracked files below the copied upstream skill path, the
+upstream license, and `meta/source.json` are preserved source material and
+provenance.
 
 All operational commands documented by the localized overlay run from the
 Cartulary repository root. No localized command requires changing into the
@@ -61,7 +61,7 @@ are not repository dependencies.
 Run from the repository root:
 
 ```bash
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "keyboard focus color only error feedback" --domain ux --json
 ```
 
@@ -85,8 +85,9 @@ records the repository state used for this localization.
 ## Safe usage
 
 - Read `AGENTS.md` and the exact owner documents before planning a later slice.
-- Treat the future refactor concerns in this package as hypotheses until the
-  current code and owner clauses verify them.
+- Treat completed create, inspector, density, responsive, and visual
+  remediation as regression baselines, and verify any future concern against
+  current code and owner clauses before proposing product work.
 - Query upstream material for review questions, not product decisions.
 - Use stable semantic identifiers and owner-governed machine projections.
 - Never bind tests or generators to specification prose, Markdown paths, line

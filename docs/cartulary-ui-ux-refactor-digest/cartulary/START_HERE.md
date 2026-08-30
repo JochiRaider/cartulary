@@ -2,11 +2,11 @@
 
 ## Purpose
 
-This repository-local overlay prepares a future Cartulary UI/UX refactor. It
-does not authorize implementation, behavior changes, a re-theme, or a product
-redesign. The bundled upstream material is useful as an offline audit workflow,
-searchable checklist, and source of review questions. It is not Cartulary
-authority.
+This repository-local overlay preserves the reviewed UI/UX remediation baseline
+and prepares later, separately authorized slices. It does not authorize
+implementation, behavior changes, a re-theme, or a product redesign. The
+bundled upstream material is useful as an offline audit workflow, searchable
+checklist, and source of review questions. It is not Cartulary authority.
 
 All paths and commands in this overlay are relative to the Cartulary repository
 root. Use
@@ -58,7 +58,8 @@ and React application:
 - `contracts/view-schemas` contains authored machine projections of adopted
   view owners. `packages/protocol-ts/src/generated` is generated from contract
   inputs. `packages/view-contracts` is an authored TypeScript adapter over the
-  generated contract facade.
+  generated contract facade, and `packages/view-contracts/src/generated` is the
+  managed generated projection of authored view-schema inputs.
 - `packages/ui-contracts` contains authored stable selector/test-ID builders and
   consumes generated design tokens.
 - `packages/test-utils` contains reusable semantic test helpers. Product-specific
@@ -69,15 +70,18 @@ and React application:
   generated through `make generate`.
 
 The owner ID `package.ui` does not imply that `packages/ui` is a functional
-package; that directory currently contains only `.gitkeep`. `docs/design.md`
-§3.11 contains the design-owned semantic icon registry, but no standalone
-implementation icon registry is present. Current components import
+package; that directory is absent. The owner routes to `packages/ui-contracts`.
+`docs/design.md` §3.11 contains the design-owned semantic icon registry, but no
+standalone implementation icon registry is present. Current components import
 `lucide-react` directly where needed.
 
 `harness.visual` owns the visual-fixture registry contract but is not an active
 owner accepted by `make task-guide`. Use `make browser-e2e-visual` for the
 public visual entry point and select product/package owners through
-`REPO_MAP.tsv`.
+`REPO_MAP.tsv`. Visual reconciliation and maintained goldens are active
+implementation support; they do not become Core authority. The completed
+remediation record is implementation evidence at
+`docs/handoffs/cartulary-ui-ux-remediation-handoff.md`.
 
 ## Product constraints
 
@@ -115,44 +119,45 @@ Do not weaken or bypass this classification. Record it in later change notes
 when it materially affects a decision. The baseline matrix is
 `docs/cartulary-ui-ux-refactor-digest/cartulary/rules.tsv`.
 
-## Candidate concerns for later verification
+## Regression baseline for later verification
 
-The portable digest identified the following review hypotheses. Their presence,
-priority, and desired correction must be verified against current code and
-owner clauses before any implementation. This list is not a defect report or
-authorization to edit product behavior.
+The completed remediation established the following current baselines. Future
+slices must preserve them unless separately authorized owner changes require a
+different result. This list is neither new product authority nor authorization
+to edit product behavior.
 
 1. **Density propagation**
-   - Check whether compact/default/comfortable selection reaches row height,
-     cell padding, typography, editor geometry, and gutter rhythm through
-     shared tokens.
-   - Preserve the owner-defined clear/null surface-default state.
+   - Compact/default/comfortable selection reaches row and header height,
+     block/inline padding, typography, gutters, saved/draft/read-only content,
+     and full-cell editor geometry through shared tokens.
+   - Preserve this complete box and the owner-defined clear/null
+     surface-default state.
 
 2. **Row creation**
-   - Check Hosts and Identities creation against the active immutable
-     view-schema capabilities.
-   - If an owner-backed defect exists, keep creation workbook-adjacent rather
-     than introducing a form-first flow.
+   - Every current create entry point derives from `create_capable`, interaction
+     authority, `inline_create`, and total `fields[].create_writable` discovery.
+   - Payloads contain only declared create-writable fields/inputs and projected
+     ordinary minima. Evidence and Indicators retain owner-specific validation.
 
 3. **Responsive shell**
-   - Check that chrome selection derives only from inline size and block-size
-     state remains independent.
-   - Verify vertical-only resizing does not hide or relocate required shell and
-     query controls.
+   - Chrome selection uses validated CSS-length accessors and token-backed
+     inline-size thresholds; block-size state remains independent.
+   - `innerWidth` and `innerHeight` are the fallback when `visualViewport` is
+     absent. Inspector clamp geometry and ARIA state agree.
 
 4. **Inspector configuration**
-   - Check that sections and actions derive from active `view_schema_id` and
-     `inspector_config_v1`.
-   - Verify default-open behavior, grid visibility, continuity, and stale-state
-     invalidation against the active owner contract.
+   - Current sections/actions use stable semantic dispatch from the active
+     `view_schema_id`, group, route kind/owner, and action.
+   - Every current declared group resolves exactly once. Role/state restrictions
+     render disabled, confirmation invalidates stably, and unknown additive
+     groups follow `unsupported_feature_behavior=omit_feature`.
 
 5. **Client transaction recovery**
-   - Check new `client_txn_id` generation, uncertain replay reuse, and the
-     shell-lifetime pending recovery surface.
-   - Verify blocked-edit retry/discard behavior without assuming a defect.
+   - Preserve Web Crypto `client_txn_id` generation, uncertain replay reuse,
+     shell-lifetime pending recovery, and blocked-edit retry/discard behavior.
 
 6. **Editing and conflict behavior**
-   - Check single-click committed-cell editing, keyboard operation, paste,
+   - Preserve single-click committed-cell editing, keyboard operation, paste,
      draft retention, Escape handling, and field-local validation/conflict
      feedback.
    - Keep saved values and retained local drafts distinct where the owner

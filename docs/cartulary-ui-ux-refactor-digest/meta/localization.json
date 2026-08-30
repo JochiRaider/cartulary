@@ -1,11 +1,11 @@
 {
-  "localization_date": "2026-07-28",
+  "localization_date": "2026-08-30",
   "repository_relative_digest_location": "docs/cartulary-ui-ux-refactor-digest",
-  "repository_commit": "b3fe76c69390456910c14d69e98ef59656b6fcf1",
+  "repository_commit": "2356949f7ec3c8e27ff83ae695d60e06a387d0e5",
   "branch": "main",
   "dirty_state_summary": {
     "before_localization": "clean",
-    "after_localization": "Exactly the 12 paths in files_changed_during_localization are modified or untracked; there are no product, generated-product, dependency, lockfile, upstream, provenance, or unrelated changes.",
+    "after_localization": "Only the digest subtree and docs/handoffs/ui-ux-refactor-digest-update-handoff.md are modified; there are no product, owner-specification, generated-product, dependency, lockfile, or unrelated changes.",
     "unrelated_user_changes_preserved": true
   },
   "frontend_stack": {
@@ -70,7 +70,7 @@
     "public_command_surface": "Makefile"
   },
   "files_changed_during_localization": [
-    ".gitignore",
+    "docs/handoffs/ui-ux-refactor-digest-update-handoff.md",
     "docs/cartulary-ui-ux-refactor-digest/MANIFEST.sha256",
     "docs/cartulary-ui-ux-refactor-digest/README.md",
     "docs/cartulary-ui-ux-refactor-digest/cartulary/LOCAL_AGENT_PROMPT.md",
@@ -81,7 +81,9 @@
     "docs/cartulary-ui-ux-refactor-digest/cartulary/UPSTREAM_MAP.md",
     "docs/cartulary-ui-ux-refactor-digest/cartulary/acceptance.tsv",
     "docs/cartulary-ui-ux-refactor-digest/cartulary/rules.tsv",
-    "docs/cartulary-ui-ux-refactor-digest/meta/localization.json"
+    "docs/cartulary-ui-ux-refactor-digest/meta/localization.json",
+    "docs/cartulary-ui-ux-refactor-digest/meta/source.json",
+    "docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max"
   ],
   "unresolved_mappings": [
     {
@@ -97,21 +99,50 @@
     {
       "concept": "functional packages/ui implementation",
       "status": "NOT PRESENT",
-      "qualification": "packages/ui contains only .gitkeep; the active owner ID package.ui routes packages/ui-contracts tests for selectors and the generated design-token projection and must not be treated as this directory."
+      "qualification": "packages/ui is absent; the active owner ID package.ui routes packages/ui-contracts tests for selectors and the generated design-token projection and must not be treated as a package path."
     }
   ],
   "contradictions_and_qualifications": [
-    {
-      "artifact": "docs/report-composition-nlspec.md",
-      "issue": "The front matter contains duplicate document_version keys with values 1.1.0 and 1.1.1.",
-      "localization_treatment": "Record the adopted document path and status without guessing a version."
-    },
     {
       "artifact": "docs/reference-pack-subsystem-nlspec.md",
       "issue": "The document is present but its front matter status is Draft.",
       "localization_treatment": "Do not list it among adopted subsystem authorities."
     }
   ],
+  "refresh_scope": {
+    "kind": "documentation_and_vendored_advisory_refresh",
+    "authorized_paths": [
+      "docs/cartulary-ui-ux-refactor-digest",
+      "docs/handoffs/ui-ux-refactor-digest-update-handoff.md"
+    ],
+    "product_changes": false,
+    "product_tests_executed": false
+  },
+  "current_qualifications": [
+    {
+      "subject": "completed UI/UX remediation",
+      "treatment": "Create, inspector, density, responsive, and visual behavior is a regression baseline. The remediation handoff is implementation evidence only."
+    },
+    {
+      "subject": "visual evidence",
+      "treatment": "Visual reconciliation and maintained goldens are active implementation support and do not become Core authority without a separate Core 05 claim-publication boundary."
+    },
+    {
+      "subject": "upstream release tests",
+      "treatment": "The complete 153-test suite runs from a full release checkout because two modules require upstream repository-root maintenance scripts intentionally excluded from the copied subtree."
+    },
+    {
+      "subject": "Report Composition",
+      "treatment": "The adopted/current owner version is 1.2.0; the earlier duplicate-version qualification is resolved."
+    }
+  ],
+  "upstream_pin": {
+    "release": "v2.15.0",
+    "commit": "a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5",
+    "copied_path": ".claude/skills/ui-ux-pro-max",
+    "tracked_regular_file_count": 70,
+    "symlink_count": 0
+  },
   "original_upstream_commit": "4857a2c5ef989794751a0f66b8545a4a49566286",
   "bundled_upstream_modified": false,
   "source_provenance_modified": false

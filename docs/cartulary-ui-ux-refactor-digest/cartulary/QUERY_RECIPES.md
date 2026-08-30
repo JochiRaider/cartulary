@@ -2,7 +2,8 @@
 
 Run every command in this file from the Cartulary repository root. The search
 engine uses Python's standard library and bundled CSV files; it performs no
-network access. `-B` prevents Python bytecode caches.
+network access. Use `PYTHONDONTWRITEBYTECODE=1` with `-B` so Python and any
+spawned processes cannot create bytecode caches.
 
 ## Rules
 
@@ -19,37 +20,37 @@ network access. `-B` prevents Python bytecode caches.
 
 ```bash
 # Accessibility and interaction
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "keyboard focus color only error messages" --domain ux -n 8 --json
 
 # Async, empty, and recovery states
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "loading empty error recovery async feedback" --domain ux -n 8 --json
 
 # Grid/list performance
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "virtualize list input latency reflow debounce" --domain ux -n 8 --json
 
 # Responsive and layout stability
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "breakpoint layout shift fixed element overflow" --domain ux -n 8 --json
 
 # Reduced motion
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "reduced motion interruptible layout shift" --domain ux -n 8 --json
 
 # Candidate icon concepts; translate through docs/design.md §3.11
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "conflict evidence history warning retry discard" --domain icons -n 10 --json
 ```
 
 ## Verified React stack query
 
 ```bash
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "virtualized grid rerender focus async state" --stack react -n 8 --json
 
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
+PYTHONDONTWRITEBYTECODE=1 python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/search.py \
   "rerender memo async waterfall bundle event handler" --domain react -n 10 --json
 ```
 
@@ -73,12 +74,15 @@ as semantic controls, icon consistency, contrast, and reduced motion.
 ## Bundled validation
 
 ```bash
-python3 -B docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/validate_data.py
-
-python3 -B -m unittest discover \
-  -s docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/tests \
-  -p "test_*.py"
+PYTHONDONTWRITEBYTECODE=1 python3 -B \
+  docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/scripts/validate_data.py
 ```
+
+The complete 153-test release suite is a refresh-time provenance check. Run it
+from a temporary full checkout of the exact upstream release, not from this
+copied subtree: two test modules depend on upstream repository-root maintenance
+scripts that are intentionally outside the bundle. The bundle remains offline
+and independently usable for data validation and targeted queries.
 
 ## Forbidden upstream operations
 

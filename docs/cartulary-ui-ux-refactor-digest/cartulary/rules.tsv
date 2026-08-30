@@ -1,10 +1,10 @@
 id	class	upstream_basis	Cartulary_instruction	evidence
 R001	ADOPT	Accessibility: keyboard navigation	Every user action has keyboard operation; preserve logical order and no traps.	Keyboard matrix and browser test
-R002	ADOPT	Accessibility: visible focus	Use Cartulary focus tokens; never remove focus without an accessible replacement.	Focus fixture and contrast result
+R002	ADOPT	Accessibility: visible and unobscured focus	Use Cartulary focus tokens; never remove focus without an accessible replacement, and keep focus from being fully obscured by owned chrome.	Focus, responsive-overlap, and contrast fixtures
 R003	ADOPT	Accessibility: color not only	Pair every semantic color with text, shape, marker, icon, or accessible name.	State matrix and a11y report
 R004	ADOPT	Accessibility: accessible names	Icon-only controls require stable semantic icon ID, accessible name, and visible focus.	Component audit
 R005	ADOPT	Accessibility: reduced motion	State remains understandable with motion disabled; motion never blocks input.	Reduced-motion fixture
-R006	ADOPT	Forms/feedback: local errors	Show validation and recovery at the affected cell/editor/inspector section.	Field-state test
+R006	ADOPT	Forms/feedback: local errors and complementary summary	Show validation and recovery at the affected cell/editor/inspector section; when an owner-backed multi-field action needs a summary, complement rather than replace local errors and focus it deterministically.	Field-state and failed-action focus tests
 R007	ADOPT	Feedback: explicit loading/error/empty	Distinguish loading, refresh, successful empty, filtered empty, unavailable, unauthorized, stale, and failure.	State fixture matrix
 R008	ADOPT	Feedback: recovery path	Every actionable failure exposes an owner-permitted retry, edit, discard, or help path.	Recovery test
 R009	ADOPT	Performance: virtualize long lists	Keep workbook rows virtualized at all result sizes; preserve stable row identity and focus.	Performance and continuity test
@@ -21,7 +21,7 @@ R019	ADAPT	Minimum 16px body text	Apply to supported mobile/touch profiles; curr
 R020	ADAPT	Skeleton loading	Use neutral non-record loading structure only where unambiguous; never render fake authoritative workbook rows.	Loading-state fixture
 R021	ADAPT	150-300ms transitions	Use Cartulary motion tokens only when motion conveys meaning; preserve reduced-motion and interruptibility.	Motion fixture
 R022	ADAPT	One primary CTA	Apply at a local decision locus; do not distort workbook hot paths into screen-level conversion flows.	Component hierarchy review
-R023	ADAPT	Consistent icon family	Use docs/design.md §3.11 semantic icon IDs; no standalone implementation registry currently exists, so do not invent one or promote lucide-react names into product/test concepts.	Design-owner and implementation-import audit
+R023	ADAPT	Consistent icon family and curated icon provenance	Use docs/design.md §3.11 semantic icon IDs; upstream Phosphor identities are candidates only, and no standalone implementation registry or new icon dependency may be inferred from them.	Design-owner, provenance, and current lucide-react import audit
 R024	ADAPT	Errors below fields	In grid/editor contexts place feedback at the affected locus without forcing form layout.	Cell/editor fixture
 R025	ADAPT	Confirm destructive action	Follow Core-owned rollback/destructive semantics and inspector workflow; avoid generic modal ceremony.	Destructive action fixture
 R026	REJECT	Cybersecurity Platform: Cyberpunk UI	Preserve dense graphite forensic workspace; no cyberpunk visual identity.	Visual review
@@ -33,3 +33,4 @@ R031	REJECT	Dashboard-card dominance	Keep active workbook grid above administrat
 R032	REJECT	Decorative animation/parallax/glow	No cinematic gradients, glow, parallax, or decorative motion in the live workbook shell.	Reduced-motion and visual review
 R033	REJECT	Generic UI advice as behavior authority	Do not redefine routes, schemas, fields, writes, concurrency, authorization, evidence, or lifecycle.	Owner traceability audit
 R034	REJECT	Incidental selectors	Do not test DOM hierarchy, classes, component names, row numbers, vendor coordinates, SQL/projection names, or literal docs.	Selector/test audit
+R035	ADAPT	Text-layout and compact-collection resilience	Preserve labels under supported zoom, text spacing, narrow width, and long tokens through owner-compatible shrink, wrap, or operable disclosure; do not corrupt fixed workbook-row geometry or hide values.	Accessibility, measurement, density, overflow, and compact-collection fixtures
