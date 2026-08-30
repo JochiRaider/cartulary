@@ -71,6 +71,7 @@ func assertIndicatorsProductionImportBoundaries(t testing.TB) {
 		indicatorsRepoImportPrefix + "internal/modules/revisions": {
 			"child_coordination.go":             true,
 			"create_service.go":                 true,
+			"import_create.go":                  true,
 			"lifecycle_service.go":              true,
 			"observation_repository.go":         true,
 			"observation_service.go":            true,

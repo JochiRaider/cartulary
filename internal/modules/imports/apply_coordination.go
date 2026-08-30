@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -142,37 +141,4 @@ func sourceRowCellsByOrdinal(sourceRow map[string]any) map[int]map[string]any {
 		}
 	}
 	return cellsByOrdinal
-}
-
-func transformImportValue(value string, column SourceColumnMapping) (string, error) {
-	result := value
-	if column.TransformID == nil {
-		return result, nil
-	}
-	switch *column.TransformID {
-	case "trim_v1":
-		return strings.TrimSpace(result), nil
-	case "collapse_whitespace_v1":
-		return strings.Join(strings.Fields(result), " "), nil
-	case "lowercase_v1":
-		return strings.ToLower(result), nil
-	case "split_delimited_v1":
-		delimiter, _ := column.TransformOptions["delimiter"].(string)
-		trimItems, _ := column.TransformOptions["trim_items"].(bool)
-		dropEmpty, _ := column.TransformOptions["drop_empty_items"].(bool)
-		parts := strings.Split(result, delimiter)
-		out := make([]string, 0, len(parts))
-		for _, part := range parts {
-			if trimItems {
-				part = strings.TrimSpace(part)
-			}
-			if dropEmpty && part == "" {
-				continue
-			}
-			out = append(out, part)
-		}
-		return strings.Join(out, delimiter), nil
-	default:
-		return "", fmt.Errorf("unsupported transform %q", *column.TransformID)
-	}
 }

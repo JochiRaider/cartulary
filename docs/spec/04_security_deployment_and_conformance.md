@@ -1945,9 +1945,66 @@ These criteria provide direct runtime-family verification for substantive base-p
 
 ### 9.2 Import Extension Profile criteria
 
+The following Imports security classification is exhaustive. The effective
+cookie-or-bearer authentication mode is derived by the Platform authentication
+owner; Imports MUST NOT select or reinterpret it locally.
+
+| Operation ID | Semantic class | Cookie authentication | Bearer authentication | Existing behavioral criterion |
+| --- | --- | --- | --- | --- |
+| `createImportSession` | State-changing | CSRF required | No CSRF token required | AC-262 |
+| `getImportSession` | Read-only | No CSRF required | No CSRF required | AC-263 |
+| `listImportUnits` | Read-only | No CSRF required | No CSRF required | AC-263 |
+| `getImportUnit` | Read-only | No CSRF required | No CSRF required | AC-263 |
+| `getImportUnitPreview` | Read-only | No CSRF required | No CSRF required | AC-263 |
+| `previewImportUnitExtensionMapping` | Read-only owner preview | No CSRF required | No CSRF required | AC-264A |
+| `putImportUnitMapping` | State-changing | CSRF required | No CSRF token required | AC-264 |
+| `selectImportUnit` | State-changing | CSRF required | No CSRF token required | AC-264 |
+| `skipImportUnit` | State-changing | CSRF required | No CSRF token required | AC-264 |
+| `createImportUnitRegion` | State-changing | CSRF required | No CSRF token required | AC-264B |
+| `applyImportSession` | State-changing | CSRF required | No CSRF token required | AC-264 |
+
+Every Imports route MUST stop at the first failed gate in this order:
+
+1. validate the method and only the basic framing needed to select the route;
+2. authenticate through the Platform owner;
+3. consume the Platform-derived effective credential mode;
+4. for cookie authentication on one of the six state-changing operations,
+   validate CSRF before path-specific, incident-specific, role-specific, or
+   body-specific diagnostics;
+5. decode only the bounded scope required to identify the incident and
+   addressed resource;
+6. apply visibility and concealment for absent, foreign, or hidden resources;
+7. apply the route's existing minimum role;
+8. decode and validate the complete JSON or multipart request;
+9. validate lifecycle and current state;
+10. resolve idempotency or exact replay; and
+11. perform the mutation, job admission, or target-owner dispatch.
+
+An unauthenticated request MUST return the existing `session_required` result
+before CSRF evaluation. Missing or invalid cookie CSRF on a state-changing
+Imports operation MUST return HTTP `403` with
+`error.code='csrf_verification_failed'`. For session creation, CSRF MUST
+precede malformed metadata, duplicate parts, unsupported media types, and
+other upload-envelope diagnostics. After CSRF succeeds, that route MAY decode
+only bounded metadata needed to establish `incident_id`, visibility, and role
+before full multipart validation.
+
+A visible caller below the route's minimum role who supplies valid CSRF MUST
+receive the existing authorization denial before malformed-body detail. An
+authorized caller with valid CSRF MAY receive the route-owned malformed-body
+error. Valid-cookie and bearer requests MUST preserve every later
+authorization, replay, response, and error rule.
+
+Every CSRF rejection MUST create no session, unit, approved mapping,
+selection, operator region, apply job, idempotency result, owner mutation,
+revision, projection effect, Collaboration intent, or domain audit occurrence.
+Safe security telemetry MAY record the rejection without the token or incident
+content. Mapping preview remains authenticated and authorized but read-only;
+it MUST create none of those effects even though it uses `POST`.
+
 - **AC-027**: One uploaded CSV file or XLSX workbook import session starts without blocking grid editing, the UI shows progress and cancellation within 1 second of job start, and the operator can review per-unit discovery, preview, mapping, select, and skip before any apply step.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-153..REQ-03-186
-- **AC-028**: File-based import uses the same mapping engine and `entity_binding_mode` semantics as clipboard-driven structured ingest. Importing through an `entity_origin` mapping upserts an existing active entity on a unique exact-match key and otherwise creates a stub; importing through `mention_origin` preserves mentions as mentions and never auto-creates stubs or auto-merges pre-existing entities.
+- **AC-028**: File-based import and clipboard structured ingest both invoke `cartulary.tabular_mapping_kernel.v1` for the same exhaustive target-field facts, source-column plan, scalar-cell classifications, transforms, empty-value dispositions, unknown-value policy, ordering, and common provenance. Cross-path golden matrices produce identical common row plans and owner requests while retaining source-specific provenance envelopes. Importing through an `entity_origin` mapping upserts an existing active entity on a unique exact-match key and otherwise creates a stub; importing through `mention_origin` preserves mentions as mentions and never auto-creates stubs or auto-merges pre-existing entities. Static dependency evidence proves that the kernel imports no file/clipboard lifecycle, parser, actor, HTTP, transaction, Revisions, Projections, Collaboration, grid, or analytical-target concern and that neither adapter retains a second implementation of a current-profile transform or unknown-value policy.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-030..REQ-02-038, REQ-02-045..REQ-02-053, REQ-02-058..REQ-02-063,
     REQ-03-153..REQ-03-161, REQ-03-169..REQ-03-178
 - **AC-029**: File-based import preserves unknown columns in raw-capture or custom-attribute storage, records `import_session_id`, `import_unit_id`, `mapping_fingerprint`, file kind, content hash, parser profile, parser version, and selected sheet or region locator as provenance, leaves imported host or account tokens unresolved unless an analyst explicitly resolves them later, and never executes workbook formulas, macros or VBA, workbook automation, or external links during import.
@@ -1957,7 +2014,7 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-153..REQ-03-178, REQ-03-193..REQ-03-204
 - **AC-064**: One uploaded XLSX workbook creates one `import_session` that discovers explicit candidate `import_unit` objects for parser-resolved used ranges, Excel tables, eligible named ranges, and operator-selected regions. Each discovered unit exposes a deterministic `locator_kind`, canonical locator, inferred rectangular extent, and any nonblocking `warning_code[]` values before apply.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-162..REQ-03-186
-- **AC-065**: Re-applying the same `(import_unit_id, mapping_fingerprint, incident_id)` tuple outside exact committed idempotency replay fails with `import_apply_blocked` and `reason_code='duplicate_apply_blocked'`; exact replay returns the immutable original result, and intentional re-import succeeds only through a new import session. A one-field change to `unknown_column_policy`, `source_column_ordinal`, `source_header_text`, `field_key`, `entity_binding_mode`, `transform_id`, `transform_options`, or `empty_value_policy` changes `mapping_fingerprint`, while non-semantic JSON key order does not.
+- **AC-065**: Re-applying the same `(import_unit_id, mapping_fingerprint, incident_id)` tuple outside exact committed idempotency replay fails with `import_apply_blocked` and `reason_code='duplicate_apply_blocked'`; exact replay returns the immutable original result, and intentional re-import succeeds only through a new import session. A one-field change to `unknown_column_policy`, `source_column_ordinal`, `source_header_text`, `field_key`, `entity_binding_mode`, `transform_id`, `transform_options`, or `empty_value_policy` changes `mapping_fingerprint`, while non-semantic JSON key order does not. File approved-mapping canonical bytes, file fingerprints, clipboard `tabular_row_plan_v1` canonical bytes, and clipboard fingerprints remain byte-identical to the pre-kernel version-1 golden vectors; omitted `split_delimited_v1.trim_items` and `drop_empty_items` remain absent in file canonical bytes and evaluate as `false` in both paths.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-169..REQ-03-192
 - **AC-066**: Selecting overlapping `import_unit` rectangles in one batch is blocked before apply with an explicit overlap diagnostic. Non-overlapping selected units apply in deterministic order, one atomic `change_set` per unit, and the session can finish in `partially_applied`.
   - Verifies: REQ-01-004..REQ-01-014, REQ-02-045..REQ-02-053, REQ-03-169..REQ-03-186
@@ -1974,6 +2031,8 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-01-467..REQ-01-470, REQ-01-472, REQ-01-474
 - **AC-264B**: `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` accepts exactly `client_txn_id` and one-based inclusive `source_rect={start_row,start_column,end_row,end_column}`; the base unit is an XLSX used-range unit in the addressed session; the rectangle is non-empty, contained, and within configured limits; success creates or exactly replays one durable unselected `operator_region` unit using the ordinary import-unit response; malformed, wrong-base, non-contained, or over-limit requests fail with `invalid_import_request` and `reason_code='invalid_source_rect'`; and no mapping, selection, owner mutation, or job is created.
   - Verifies: REQ-01-472, REQ-01-474, REQ-01-620e, REQ-03-181a
+- **AC-264C**: The pure tabular mapping kernel accepts only immutable parser-neutral values and returns no partial applicable plan on cancellation or any invalid target fact, source ordinal, row width, cell classification, registry token, transform option, unknown-value policy, writeability combination, or clearability combination. Golden coverage includes every closed transform and delimiter, omitted and explicit split booleans, both empty-value dispositions, all three unknown-column policies, Unicode, JSON-sensitive scalar text, empty values, non-entity and both entity-binding modes, hostile CSV/TSV and XLSX adapter inputs, and deterministic row, field, unknown-value, warning, and common-provenance ordering. Analytical extension mappings bypass this kernel and remain Network Flow target-owned.
+  - Verifies: REQ-01-474, REQ-03-156, REQ-03-188..REQ-03-190
 - **AC-265**: Import-family routes use only `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict`, `import_source_unsupported`, `import_source_rejected`, `import_apply_blocked`, and `incident_closed`; `invalid_import_request` uses the exact REQ-01-475 registry, including analytical target/preview reasons and `invalid_source_rect`; multipart part-related failures populate the required safe part details; `import_state_conflict`, source-unsupported, and source-rejected failures use only their exact Core registries; blocked apply uses only `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `target_kind_not_importable`, `owner_create_contract_unavailable`, `owner_apply_contract_unavailable`, `owner_create_validation_failed`, `owner_apply_validation_failed`, or `source_changed`; registered owner errors appear only as schema-validated safe nested detail; and unknown owner tokens, capabilities, paths, raw source values, package names, and stack text are never echoed.
   - Verifies: REQ-01-471, REQ-01-475, REQ-01-553
 - **AC-463**: Import parser isolation is binary: no package outside `internal/modules/imports` imports XLSX/OpenXML parser packages, workbook-shape parser DTOs, or parser-specific source heuristics; owner modules may consume only stable tabular-ingest value types and owner facade requests.

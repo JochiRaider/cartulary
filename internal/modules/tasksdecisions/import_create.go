@@ -32,7 +32,9 @@ type ImportLinkCapability interface {
 }
 
 type ImportRevisionCapability interface {
-	ownerfacade.LiveRecordRevisionAppender
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
 	AppendNonRowMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error
 }
 
@@ -191,18 +193,40 @@ func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, comman
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	response, err := ownerfacade.FinalizeLiveRecordTx(ctx, tx, o.dependencies.Revisions, o.dependencies.Collaboration, ownerfacade.FinalizeCommand{
-		Request:         command.Request,
-		ChangeSetID:     command.ChangeSetID,
-		SequenceNo:      firstSequence,
-		RecordID:        recordID,
-		Operation:       "create",
-		CreatedOrReused: "created",
-		OwnerResultCode: "created",
-		Row:             row,
-		CreatedAt:       command.Now,
-	})
+	afterSnapshot, err := o.dependencies.Revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	const rowVersion int64 = 1
+	afterVersionID := supersedeVersionID(recordID, rowVersion)
+	if err := o.dependencies.Revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+		ChangeSetID:    command.ChangeSetID,
+		SequenceNo:     firstSequence,
+		TargetKind:     "record",
+		RecordID:       recordID,
+		OperationKind:  "create",
+		AfterVersionID: &afterVersionID,
+		AfterSnapshot:  &afterSnapshot,
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	changedFields := changedFieldKeys(nil, row)
+	if err := o.dependencies.Revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+		ChangeSetID:   command.ChangeSetID,
+		RecordID:      recordID,
+		RowVersion:    rowVersion,
+		AfterSnapshot: &afterSnapshot,
+		ConflictFacts: taskDecisionRevisionFacts(nil, row, changedFields),
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	request := command.Request
+	if err := appendTaskDecisionRecordChangedTx(
+		ctx, tx, o.dependencies.Collaboration, request.IncidentID,
+		request.ActorUserID, request.ClientTxnID, command.ChangeSetID,
+		recordID, rowVersion, max(firstSequence-1, 0), command.Now,
+		request.TargetViewSchemaID, row, changedFields,
+	); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	for index, mutation := range linkMutations {
@@ -214,7 +238,14 @@ func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, comman
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 	}
-	return response, nil
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             recordID,
+		RowVersion:           rowVersion,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, firstSequence),
+		CreatedOrReused:      "created",
+		OwnerResultCode:      "created",
+		RowRefresh:           row,
+	}, nil
 }
 
 func (o *importOwner) refreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {

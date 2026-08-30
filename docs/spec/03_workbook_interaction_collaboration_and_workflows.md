@@ -90,7 +90,7 @@ Claimed extension profiles MAY contribute an extension workspace to the top-leve
 
 The stable `sheet_ref` identity for an extension workspace MUST use `kind='extension_workspace'` with exact `extension_profile_id` and `workspace_key` members as defined by Core 01 §3.3.10.1. Visible labels, icons, route segments, React component names, and inner workspace tab labels MUST NOT define identity. For Network Flow Activity, after that profile is adopted and claimed, the only current-profile extension workspace key is `workspace_key='network_analysis'` under `extension_profile_id='network_flow_activity'`; its user-facing label MAY be `Network Analysis`.
 
-The workbook shell MUST render an extension workspace entry only when its exact `(extension_profile_id, workspace_key)` is in the intersection of: current discovery with `claimed=true`; the packaged `client_build_class='standard'` support row whose one major equals discovery; the current no-store workbook-startup `extension_workspace_availability`; and the client's current local availability epoch/generation. The support registry MUST contain a row for every claimable profile with workspaces; its Network Flow row is exactly major `4` and `network_analysis`; capability arrays are empty. Discovery does not authorize, packaged code does not claim support by itself, and a stale availability response never renders. Unclaimed, unsupported, mismatched-major, undeclared, stale, or unauthorized extension workspaces MUST be omitted from available workbook navigation and MUST fail closed when supplied as an explicit launch, home, default, presence, or deep-link target. Omission behavior MUST be indistinguishable from ordinary unavailability except for owner-approved errors on explicit route requests.
+The workbook shell MUST render an extension workspace entry only when its exact `(extension_profile_id, workspace_key)` is in the intersection of: current discovery with `claimed=true`; the packaged `client_build_class='standard'` support row whose one major equals discovery; the current no-store workbook-startup `extension_workspace_availability`; and the client's current local availability epoch/generation. The support registry MUST contain a row for every claimable profile with workspaces; its Network Flow row is exactly major `5` and `network_analysis`; capability arrays are empty. Discovery does not authorize, packaged code does not claim support by itself, and a stale availability response never renders. Unclaimed, unsupported, mismatched-major, undeclared, stale, or unauthorized extension workspaces MUST be omitted from available workbook navigation and MUST fail closed when supplied as an explicit launch, home, default, presence, or deep-link target. Omission behavior MUST be indistinguishable from ordinary unavailability except for owner-approved errors on explicit route requests.
 Profiles: base, network_flow_activity
 Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-122, AC-231, EXT-AC-156, EXT-AC-157
 
@@ -1524,6 +1524,26 @@ Verified by: AC-027, AC-028, AC-029, AC-063, AC-067, AC-232
 
 **REQ-03-156**
 The file-based import path MUST use the same stable tabular-ingest contract and shared mapping engine as clipboard-driven structured ingest, including the same `entity_binding_mode` contract.
+
+The shared engine is `cartulary.tabular_mapping_kernel.v1`, the pure
+view-target planning contract defined by Core 01 REQ-01-474. File import and
+clipboard paste MUST each adapt parser-neutral source columns and scalar cells
+into that kernel and MUST consume the same deterministic column-plan,
+transform, empty-value, unknown-value, ordering, and common-provenance result.
+`tabular_row_plan_v1` remains the clipboard lifecycle envelope and delegates
+its shared mapping work to the kernel; Imports retains its session, unit,
+approved-mapping, apply, and owner-create envelopes. Neither adapter may
+reimplement a current-profile transform or unknown-value policy beside the
+kernel.
+
+CSV and TSV parsing, including delimiter selection, quote handling, embedded
+line breaks, raw header extraction, row width, and cell classification, MUST
+complete before kernel invocation. XLSX discovery and scalar extraction MUST
+also complete inside Imports before invocation. Parser libraries, parser DTOs,
+formula objects, cached-value mechanics, workbook locators, and source paths
+MUST NOT cross the kernel boundary. Hostile or malformed parser input fails in
+the owning adapter; a well-formed parser-neutral plan that violates the kernel
+contract fails in the kernel before any owner request is produced.
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-067, AC-232
 
@@ -1814,6 +1834,9 @@ For the current profile:
 - transform execution order is parser extraction, then optional mapping transform, then target-field normalization;
 - `split_delimited_v1` is the only transform that MAY use non-empty options, and those options are limited to `delimiter`, `trim_items`, and `drop_empty_items`;
 - `delimiter` for `split_delimited_v1` MUST be one of `,`, `;`, `|`, `\n`, or `\t`;
+- omitted `trim_items` and omitted `drop_empty_items` for
+  `split_delimited_v1` each mean `false`; version 1 MUST NOT treat omission as
+  `true` or make the default context-dependent;
 - all current-profile transforms other than `split_delimited_v1` MUST use `transform_options = {}`;
 - `preserve_raw_capture` is the compatibility name for targets whose
   authoritative record model supports normalized source provenance;
@@ -1841,6 +1864,13 @@ Verified by: AC-065, AC-232
 
 **REQ-03-190**
 The implementation MUST serialize that fully closed mapping plan canonically, with lexicographically sorted object keys, normalized option objects, and source columns ordered by `source_column_ordinal`, then hash the result as lower-hex SHA-256. The persisted approved mapping plan or equivalent structured realization MUST be sufficient to reconstruct the exact Core 01 §17.2 `approved_mapping` object and recompute the same `mapping_fingerprint` deterministically, without lossy normalization, inference from display labels, or dependence on non-authoritative UI state.
+
+Kernel extraction MUST preserve these version-1 canonical bytes. In
+particular, an omitted optional split boolean remains omitted in the persisted
+file approved-mapping object even though kernel evaluation supplies its
+normative `false` meaning. Clipboard canonicalization remains independently
+defined by `tabular_row_plan_v1`; common kernel results MUST NOT cause either
+envelope to serialize fields owned only by the other lifecycle.
 Profiles: import
 Verified by: AC-065, AC-232
 

@@ -13,16 +13,23 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties/internal/policy"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 type ImportRecordEnvelopeCapability interface {
 	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
 }
 
+type importRevisionAppender interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
+}
+
 type ImportDependencies struct {
 	RecordEnvelopes ImportRecordEnvelopeCapability
 	Projections     partyprojection.Rows
-	Revisions       ownerfacade.LiveRecordRevisionAppender
+	Revisions       importRevisionAppender
 	Collaboration   collaboration.RecordChangedAppender
 }
 
@@ -115,11 +122,67 @@ func (o *importOwner) CreateImportRowTx(
 		operation = "create"
 		createdOrReused = "created"
 	}
-	return ownerfacade.FinalizeLiveRecordTx(ctx, tx, o.dependencies.Revisions, o.dependencies.Collaboration, ownerfacade.FinalizeCommand{
-		Request: request, ChangeSetID: command.ChangeSetID, SequenceNo: command.SequenceNo,
-		RecordID: created.recordID, Operation: operation, CreatedOrReused: createdOrReused,
-		OwnerResultCode: createdOrReused, Row: row, CreatedAt: command.Now,
-	})
+	return o.finalizeImportRowTx(ctx, tx, command, created.recordID, operation, createdOrReused, row)
+}
+
+func (o *importOwner) finalizeImportRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	command ownerfacade.ImportOwnerCreateCommand,
+	recordID uuid.UUID,
+	operation string,
+	createdOrReused string,
+	row map[string]any,
+) (ownerfacade.ImportOwnerCreateResponse, error) {
+	rowVersion, err := rowVersionFromGenericRow(row)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	afterSnapshot, err := o.dependencies.Revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	afterVersionID := workbookVersionID(recordID, rowVersion)
+	if err := o.dependencies.Revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+		ChangeSetID:    command.ChangeSetID,
+		SequenceNo:     command.SequenceNo,
+		TargetKind:     "record",
+		RecordID:       recordID,
+		OperationKind:  operation,
+		AfterVersionID: &afterVersionID,
+		AfterSnapshot:  &afterSnapshot,
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	if operation == "create" {
+		changedFields := changedFieldKeys(nil, row)
+		if err := o.dependencies.Revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+			ChangeSetID:   command.ChangeSetID,
+			RecordID:      recordID,
+			RowVersion:    rowVersion,
+			AfterSnapshot: &afterSnapshot,
+			ConflictFacts: partyRevisionFacts(nil, row, changedFields),
+		}); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+		request := command.Request
+		if err := appendPartyRecordChangedTx(
+			ctx, tx, o.dependencies.Collaboration, request.IncidentID,
+			request.ActorUserID, request.ClientTxnID, command.ChangeSetID,
+			recordID, rowVersion, max(command.SequenceNo-1, 0), command.Now,
+			row, changedFields,
+		); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+	}
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             recordID,
+		RowVersion:           rowVersion,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),
+		CreatedOrReused:      createdOrReused,
+		OwnerResultCode:      createdOrReused,
+		RowRefresh:           row,
+	}, nil
 }
 
 func (o *importOwner) refreshImportRowTx(

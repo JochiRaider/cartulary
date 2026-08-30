@@ -16,8 +16,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.backend_module_boundaries.v2",
-      "path": "tools/schemas/cartulary.backend_module_boundaries.v2.schema.json",
+      "schema_id": "cartulary.backend_module_boundaries.v3",
+      "path": "tools/schemas/cartulary.backend_module_boundaries.v3.schema.json",
       "classification": "owner_input",
       "producer": "backend module boundary owner",
       "validation": "json-shape-check"

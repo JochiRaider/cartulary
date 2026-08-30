@@ -7,10 +7,14 @@ import {
   backendRuntimeExcludePatterns,
   readSupportInventory,
 } from "./support-inventory-profiles.mjs";
+import {
+  normalizeExactFileSets,
+  resolveExactFileSets,
+} from "./exact-file-sets.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
-const manifestSchemaID = "cartulary.backend_module_boundaries.v2";
+const manifestSchemaID = "cartulary.backend_module_boundaries.v3";
 const summarySchemaID = "cartulary.backend_module_boundary_summary.v1";
 const sourceExtensions = new Set([".go", ".mjs", ".js", ".sh", ".sql"]);
 const ignoredDirectoryNames = new Set([
@@ -137,9 +141,10 @@ function normalizeManifest(raw) {
   if (raw.schema_id !== manifestSchemaID) {
     throw new Error(`manifest must declare schema_id=${manifestSchemaID}`);
   }
-  return {
+  const manifest = {
     scanRoots: requireStringArray(raw.scan_roots, "scan_roots").map(normalizePath),
     scanExcludes: requireStringArray(raw.scan_excludes ?? [], "scan_excludes").map(normalizePath),
+    exactFileSets: normalizeExactFileSets(raw.exact_file_sets),
     migrationSourceBoundary: {
       scanRoots: requireStringArray(
         raw.migration_source_boundary?.scan_roots ?? [],
@@ -417,25 +422,28 @@ function normalizeManifest(raw) {
     forbiddenSourceTokens: requireArray(
       raw.forbidden_source_tokens ?? [],
       "forbidden_source_tokens",
-    ).map((rule, index) => ({
-      id: requireString(rule?.id, `forbidden_source_tokens[${index + 1}].id`),
-      tokens: requireStringArray(
-        rule?.tokens ?? [],
-        `forbidden_source_tokens[${index + 1}].tokens`,
-      ),
-      scanPaths: requireStringArray(
-        rule?.scan_paths ?? [],
-        `forbidden_source_tokens[${index + 1}].scan_paths`,
-      ).map(normalizePath),
-      allowedPaths: requireStringArray(
-        rule?.allowed_paths ?? [],
-        `forbidden_source_tokens[${index + 1}].allowed_paths`,
-      ).map(normalizePath),
-      productionOnly: requireBoolean(
-        rule?.production_only,
-        `forbidden_source_tokens[${index + 1}].production_only`,
-      ),
-    })),
+    ).map((rule, index) => {
+      const label = `forbidden_source_tokens[${index + 1}]`;
+      const hasScanPaths = rule?.scan_paths !== undefined;
+      const hasExactFileSet = rule?.exact_file_set_id !== undefined;
+      if (hasScanPaths === hasExactFileSet) {
+        throw new Error(`${label} must declare exactly one of scan_paths or exact_file_set_id`);
+      }
+      return {
+        id: requireString(rule?.id, `${label}.id`),
+        tokens: requireStringArray(rule?.tokens ?? [], `${label}.tokens`),
+        scanPaths: hasScanPaths
+          ? requireStringArray(rule.scan_paths, `${label}.scan_paths`).map(normalizePath)
+          : [],
+        exactFileSetID: hasExactFileSet
+          ? requireString(rule.exact_file_set_id, `${label}.exact_file_set_id`)
+          : null,
+        allowedPaths: requireStringArray(rule?.allowed_paths ?? [], `${label}.allowed_paths`).map(
+          normalizePath,
+        ),
+        productionOnly: requireBoolean(rule?.production_only, `${label}.production_only`),
+      };
+    }),
     forbiddenTestBuildTokens: requireStringArray(
       raw.forbidden_test_build_tokens ?? [],
       "forbidden_test_build_tokens",
@@ -459,6 +467,15 @@ function normalizeManifest(raw) {
       ).map(normalizePath),
     },
   };
+  const exactFileSetIDs = new Set(manifest.exactFileSets.map((entry) => entry.id));
+  for (const rule of manifest.forbiddenSourceTokens) {
+    if (rule.exactFileSetID !== null && !exactFileSetIDs.has(rule.exactFileSetID)) {
+      throw new Error(
+        `forbidden_source_tokens.${rule.id}.exact_file_set_id references unknown set ${rule.exactFileSetID}`,
+      );
+    }
+  }
+  return manifest;
 }
 
 function collectFiles(root, roots, excludes) {
@@ -848,6 +865,7 @@ function sqlTableReferences(content) {
 
 function assertBoundaryFixtures(manifest) {
   assertArtifactBoundaryFixtures(manifest);
+  assertExactFileSetBoundaryFixtures(manifest);
 
   const recordsRule = manifest.sqlTableAccess.find(
     (rule) => rule.id === "records-current-envelope-access",
@@ -1411,6 +1429,35 @@ function assertBoundaryFixtures(manifest) {
   }
 }
 
+function assertExactFileSetBoundaryFixtures(manifest) {
+  const rule = manifest.forbiddenSourceTokens.find(
+    (candidate) => candidate.id === "retired-timeline-facade-calls",
+  );
+  if (!rule || rule.exactFileSetID !== "imports-transport-bindings") {
+    throw new Error("retired-timeline-facade-calls must use the Imports transport exact file set");
+  }
+  const relative = "internal/modules/imports/http_handlers.go";
+  const conforming = new Map([[rule.exactFileSetID, [{
+    relative,
+    content: "package imports\nfunc bind() { httpapi.BindOwnerRoutes(nil, nil, \"module.imports\", nil) }",
+  }]]]);
+  if (checkForbiddenSourceTokens([], [rule], conforming).length !== 0) {
+    throw new Error("conforming Imports transport exact-file fixture must pass");
+  }
+  const forbidden = new Map([[rule.exactFileSetID, [{
+    relative,
+    content: "package imports\nfunc bind() { timeline.CreateTimelineRow(ctx) }",
+  }]]]);
+  const violations = checkForbiddenSourceTokens([], [rule], forbidden);
+  if (
+    violations.length !== 1 ||
+    violations[0].code !== "forbidden_source_token" ||
+    violations[0].path !== relative
+  ) {
+    throw new Error("forbidden Imports transport call exact-file fixture must fail closed");
+  }
+}
+
 function assertArtifactBoundaryFixtures(manifest) {
   const httpRule = manifest.forbiddenGoImports.find(
     (rule) => rule.id === "artifact-subtree-no-http-or-auth-transport",
@@ -1753,14 +1800,17 @@ function checkCommandRootShape(files, rule) {
     .map((file) => violation("command_root_shape", file, "unexpected_go_file"));
 }
 
-function checkForbiddenSourceTokens(files, rules) {
+function checkForbiddenSourceTokens(files, rules, exactFilesByID = new Map()) {
   const violations = [];
-  for (const file of files) {
-    for (const rule of rules) {
+  for (const rule of rules) {
+    const candidates = rule.exactFileSetID === null
+      ? files
+      : (exactFilesByID.get(rule.exactFileSetID) ?? []);
+    for (const file of candidates) {
       if (!isProductionGo(file, rule.productionOnly)) {
         continue;
       }
-      if (rule.scanPaths.length > 0 && !pathMatchesAny(file.relative, rule.scanPaths)) {
+      if (rule.exactFileSetID === null && !pathMatchesAny(file.relative, rule.scanPaths)) {
         continue;
       }
       if (pathMatchesAny(file.relative, rule.allowedPaths)) {
@@ -1809,6 +1859,7 @@ function main() {
   const inventoryScanExcludes = backendRuntimeExcludePatterns(supportInventory);
   const scanExcludes = appendUnique(manifest.scanExcludes, inventoryScanExcludes);
   const files = collectFiles(options.root, manifest.scanRoots, scanExcludes);
+  const exactFilesByID = resolveExactFileSets(options.root, manifest.exactFileSets);
   const migrationBoundaryFiles = collectFiles(
     options.root,
     manifest.migrationSourceBoundary.scanRoots,
@@ -1836,7 +1887,7 @@ function main() {
     ...checkSQLTableAccess(testSupportFiles, projectionStorageRules, "test_fixture"),
     ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
     ...checkCommandRootShape(files, manifest.commandRootShape),
-    ...checkForbiddenSourceTokens(files, manifest.forbiddenSourceTokens),
+    ...checkForbiddenSourceTokens(files, manifest.forbiddenSourceTokens, exactFilesByID),
     ...checkForbiddenTestBuildTokens(files, manifest.forbiddenTestBuildTokens),
     ...checkGeneratedRootWrites(files, manifest.generatedRootWrites),
     ...checkForbiddenGoImports(

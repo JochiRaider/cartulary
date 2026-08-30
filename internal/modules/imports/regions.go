@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,8 +14,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 var ErrInvalidSourceRect = errors.New("imports: invalid source rectangle")
@@ -41,128 +38,6 @@ type CreateOperatorRegionParams struct {
 type CreateOperatorRegionResult struct {
 	Unit     map[string]any
 	Replayed bool
-}
-
-func (s *Service) handleRegion(
-	w http.ResponseWriter,
-	r *http.Request,
-	principal httpauth.Principal,
-	route importSessionRoute,
-) {
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	_, incidentID, err := s.store.GetSession(r.Context(), route.SessionID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{
-			Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{},
-		})
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(
-		r.Context(),
-		incidentID,
-		principal.User.ID,
-		admission.RolesEditorReviewerAdmin,
-		"editor|reviewer|admin",
-	); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	request, apiErr := DecodeRegionRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	base, err := s.store.GetRegionBase(r.Context(), route.SessionID, route.UnitID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{
-			Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{},
-		})
-		return
-	}
-	if errors.Is(err, ErrInvalidSourceRect) {
-		writeAPIError(w, r, invalidImportRequest("source_rect", "invalid_source_rect"))
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	requested := request.SourceRect.sourceRectangle()
-	baseRect, rectErr := parseSourceRectangle(base.Unit["source_rect_a1"].(string))
-	if rectErr != nil || !sourceRectangleContains(baseRect, requested) ||
-		!operatorRegionWithinLimits(requested, s.limits) {
-		writeAPIError(w, r, invalidImportRequest("source_rect", "invalid_source_rect"))
-		return
-	}
-	locator, ok := base.Unit["locator"].(map[string]any)
-	if !ok {
-		writeAPIError(w, r, invalidImportRequest("source_rect", "invalid_source_rect"))
-		return
-	}
-	sheetName, ok := locator["sheet_name"].(string)
-	if !ok || strings.TrimSpace(sheetName) == "" {
-		writeAPIError(w, r, invalidImportRequest("source_rect", "invalid_source_rect"))
-		return
-	}
-	workbook, apiErr := indexXLSXWorkbook(base.SourceBytes, s.limits, s.archiveLimits)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	sheet := workbook.sheetsByName[sheetName]
-	decoded, apiErr := workbook.decodeRectangle(sheet, requested, s.limits)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	locatorJSON, err := json.Marshal(map[string]any{
-		"sheet_name": sheetName,
-		"rect_a1":    sourceRectangleA1(requested),
-	})
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	unit, apiErr := s.discoveredImportUnitAt(
-		decoded.rows,
-		"operator_region",
-		string(locatorJSON),
-		requested,
-		decoded.warningCodes,
-		decoded.blockingColumnOrdinals,
-	)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	result, err := s.store.CreateOperatorRegion(r.Context(), CreateOperatorRegionParams{
-		ActorUserID:                 principal.User.ID,
-		SessionID:                   route.SessionID,
-		BaseUnitID:                  route.UnitID,
-		Request:                     request,
-		Unit:                        unit,
-		ExpectedSourceContentSHA256: base.SourceContentSHA256,
-		Now:                         s.now(),
-	})
-	if errors.Is(err, ErrInvalidSourceRect) {
-		writeAPIError(w, r, invalidImportRequest("source_rect", "invalid_source_rect"))
-		return
-	}
-	if !writeImportStoreError(w, r, err, request.ClientTxnID) {
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, result.Unit)
 }
 
 func sourceRectangleContains(outer sourceRectangle, inner sourceRectangle) bool {

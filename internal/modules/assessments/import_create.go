@@ -4,24 +4,34 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
+
+type assessmentImportRevisionAppender interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
+}
 
 type ImportCreateDependencies struct {
 	Subjects      SubjectValidator
 	Assessors     AssessorValidator
 	Records       RecordEnvelopeCreator
-	Revisions     ownerfacade.LiveRecordRevisionAppender
+	Revisions     assessmentImportRevisionAppender
 	Projections   AssessmentProjectionPort
 	Collaboration collaboration.RecordChangedAppender
 }
 
 type importCreateFacade struct {
-	revisions    ownerfacade.LiveRecordRevisionAppender
+	revisions    assessmentImportRevisionAppender
 	publications collaboration.RecordChangedAppender
 	creator      assessmentCreateService
 }
@@ -109,21 +119,66 @@ func (f *importCreateFacade) createImportRowTx(
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	response, err := ownerfacade.FinalizeLiveRecordTx(ctx, tx, f.revisions, f.publications, ownerfacade.FinalizeCommand{
-		Request:         request,
-		ChangeSetID:     command.ChangeSetID,
-		SequenceNo:      command.SequenceNo,
-		RecordID:        recordID,
-		Operation:       "create",
-		CreatedOrReused: "created",
-		OwnerResultCode: "created",
-		Row:             row,
-		CreatedAt:       command.Now,
-	})
+	response, err := f.finalizeImportCreateTx(ctx, tx, command, recordID, row)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("finalize imported assessment: %w", err)
 	}
 	return response, nil
+}
+
+func (f *importCreateFacade) finalizeImportCreateTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	command ownerfacade.ImportOwnerCreateCommand,
+	recordID uuid.UUID,
+	row map[string]any,
+) (ownerfacade.ImportOwnerCreateResponse, error) {
+	rowVersion, err := canonicalRowVersion(row)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	afterSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	afterVersionID := fmt.Sprintf("assessment:%s:%d", recordID, rowVersion)
+	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+		ChangeSetID:    command.ChangeSetID,
+		SequenceNo:     command.SequenceNo,
+		TargetKind:     "assessment",
+		RecordID:       recordID,
+		OperationKind:  "create",
+		AfterVersionID: &afterVersionID,
+		AfterSnapshot:  &afterSnapshot,
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	privateFieldKeys := assessmentCreateRevisionFieldKeys()
+	if err := f.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+		ChangeSetID:   command.ChangeSetID,
+		RecordID:      recordID,
+		RowVersion:    rowVersion,
+		AfterSnapshot: &afterSnapshot,
+		ConflictFacts: assessmentCreateRevisionFacts(row, privateFieldKeys),
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	request := command.Request
+	if err := appendAssessmentCreatePublicationTx(
+		ctx, tx, f.publications, request.IncidentID, request.ActorUserID,
+		request.ClientTxnID, command.ChangeSetID, recordID, rowVersion,
+		max(command.SequenceNo-1, 0), command.Now, row,
+	); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             recordID,
+		RowVersion:           rowVersion,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),
+		CreatedOrReused:      "created",
+		OwnerResultCode:      "created",
+		RowRefresh:           row,
+	}, nil
 }
 
 func assessmentCreateInputFromImport(
@@ -223,4 +278,66 @@ var assessmentImportFieldKinds = map[string]assessmentImportFieldKind{
 	"assessment.assessed_at": {
 		kind: ownerfacade.ImportScalarTimestamp, reasonCode: "invalid_timestamp", guard: "timestamp_instant_v1",
 	},
+}
+
+var assessmentCreateFields = [...]string{
+	"assessment.assessed_at",
+	"assessment.assessment_state",
+	"assessment.assessor",
+	"assessment.confidence_score",
+	"assessment.rationale",
+	"assessment.subject_ref",
+	"assessment.subject_type",
+	"assessment.support_refs",
+}
+
+func assessmentCreateRevisionFieldKeys() []string {
+	return append([]string(nil), assessmentCreateFields[:]...)
+}
+
+func assessmentCreatePublicationFieldKeys() []string {
+	return append([]string(nil), assessmentCreateFields[:]...)
+}
+
+func assessmentCreateRevisionFacts(row map[string]any, fieldKeys []string) []revisions.RevisionConflictFact {
+	cells, _ := row["cells"].(map[string]any)
+	facts := make([]revisions.RevisionConflictFact, 0, len(fieldKeys))
+	for _, key := range fieldKeys {
+		value, present := cells[key]
+		facts = append(facts, revisions.RevisionConflictFact{
+			FieldKey: key, AfterPresent: present, AfterValue: value,
+		})
+	}
+	return facts
+}
+
+func appendAssessmentCreatePublicationTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	publications collaboration.RecordChangedAppender,
+	incidentID uuid.UUID,
+	actorUserID uuid.UUID,
+	clientTxnID string,
+	changeSetID uuid.UUID,
+	recordID uuid.UUID,
+	rowVersion int64,
+	mutationOrdinal int,
+	createdAt time.Time,
+	row map[string]any,
+) error {
+	fieldKeys := assessmentCreatePublicationFieldKeys()
+	patch := collabprotocol.BuildViewRowPatch(row, fieldKeys)
+	changeKind := "invalidate"
+	if patch != nil {
+		changeKind = "patch"
+	}
+	return publications.AppendRecordChangedTx(ctx, tx, collaboration.RecordChangeIntentInput{
+		IncidentID: incidentID, RecordID: recordID, ChangeSetID: changeSetID,
+		ActorUserID: actorUserID, RowVersion: rowVersion, ClientTxnID: clientTxnID,
+		MutationOrdinal: mutationOrdinal, CreatedAt: createdAt.UTC(), PublicFieldKeys: fieldKeys,
+		AffectedViews: []collaboration.AffectedViewChange{{
+			ViewSchemaID: AssessmentsViewSchemaID, RecordID: recordID,
+			RowVersion: rowVersion, ChangeKind: changeKind, PatchCells: patch,
+		}},
+	})
 }

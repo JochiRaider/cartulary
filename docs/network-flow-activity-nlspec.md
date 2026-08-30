@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
 status: adopted/current
-document_version: 5.0.0
+document_version: 5.0.1
 contract_major: 5
 profile_id: network_flow_activity
 document_class: nlspec
@@ -12,14 +12,17 @@ document_class: nlspec
 Status: `adopted/current`.
 
 This NLSpec defines the implementation-conformance contract for the
-`network_flow_activity` extension profile. Version `5.0.0` makes semantic-query
-v2 the only current Graph query, advances public contract major to `5` and
-durable state to `4`, and publishes only the Graph Recovery v4 contribution.
+`network_flow_activity` extension profile. Version `5.0.1` corrects the
+normative Extensions dependency and the coordinated Core 03 client-support
+major without changing any public or durable bytes. Version `5.0.0` made
+semantic-query v2 the only current Graph query, advanced public contract major
+to `5` and durable state to `4`, and published only the Graph Recovery v4
+contribution.
 It preserves the temporal, streaming, cleanup, telemetry, route, and Graph
 Projection v2 behavior adopted in 4.0.x. It replaces public contract major `4`;
 no dual browser decoder or profile compatibility surface is current.
 
-Document version: `5.0.0`. Contract major: `5`. Durable state version is `4`
+Document version: `5.0.1`. Contract major: `5`. Durable state version is `4`
 with minimum migratable version `3` and one executable `3 -> 4` migration.
 Valid state-3 ledgers may contain inert verified facts for the former `1 -> 2`
 and `2 -> 3` transitions, but their algorithms and validators are not current
@@ -90,9 +93,9 @@ Table 1-B MUST contain an adopted document version and exact imported section or
 | Core 00 | Extension recognition plus the Core/analytical-target import ownership split. | `cartulary.core00.current.v1`, version `extensions-adoption-1`, SHA-256 `b4a75e94d431504e8790cc20786f3e0f82d3afd2333db90161bae2b7346b9890`; `REQ-00-065..066`. |
 | Core 01 | Generic discovery, import routes/registry/binding, opaque contexts, unit/finalizer commit, staged objects, backup/restore, and public envelopes. | `cartulary.core01.current.v1`, version `extensions-adoption-1`, SHA-256 `4dc1f5ad213850c29aad5025417345b646aa5ef9361ca22a8e05638a75b5602c`; `REQ-01-151.1`, `REQ-01-542`, `REQ-01-618..620e`, `REQ-01-629..633`. |
 | Core 02 | Authoritative-state presence, canonical IP-literal indicator type, indicator transaction participation, and explicit no-private-purge boundary. | `cartulary.core02.current.v1`, version `extensions-adoption-1`, SHA-256 `30a0f144dcc045b3874b517ce2a1c420da463ec77c51bf10fac98e84e32813b2`; `REQ-02-074A..074C`, `REQ-02-210`, `REQ-02-261`. |
-| Core 03 | Import workflow, unit atomicity, operator regions, extension-contributed workspace, availability generation, stable Base identity, and resource invalidation. | `cartulary.core03.current.v1`, version `extensions-adoption-1`, SHA-256 `943e3c39ca22e8f3dba216430ac5ffe0ef9e3f012b8b3f5ec92d9ac64b04bd8e`; `REQ-03-011A`, `REQ-03-179..204`, `REQ-03-293`, `REQ-03-303`. |
+| Core 03 | Import workflow, unit atomicity, operator regions, extension-contributed workspace, availability generation, stable Base identity, and resource invalidation. | `cartulary.core03.current.v1`, version `extensions-adoption-1`, SHA-256 `311e30f1a8bd055ee66fd3e77654810a23e29b3c8e7db924e997519dcd744231`; `REQ-03-011A`, `REQ-03-179..204`, `REQ-03-293`, `REQ-03-303`. |
 | Core 04 | Import authorization/error/atomicity conformance, closed inactive configuration, validation precedence, lease/publication lifecycle, cursor protection, audit, secrets, and retention. | `cartulary.core04.current.v1`, version `extensions-adoption-1`, SHA-256 `68c58197f11f0d66c33fd97cf60e3545133adca954e95edb2638ff1946b46e2e`; `AC-064..067`, `AC-264..265`, `AC-463..467A`, `REQ-04-123..146`. |
-| Extensions Subsystem NLSpec | Typed import-target binding admission, owner fragments, generated registry, state coordination, bindings/codecs, and participants. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.7.1`, SHA-256 `44a6df59c22cd81aeee6179e2616b800044cb3e6fd3eebfb7d183628a1450c4f`; `EXT-REQ-087..092`, `EXT-REQ-001..236`, `EXT-AC-001..158`. This dependency closed in the same atomic companion revision. |
+| Extensions Subsystem NLSpec | Typed import-target binding admission, owner fragments, generated registry, state coordination, bindings/codecs, and participants. | Adopted/current `docs/extension-subsystem-nlspec.md` version `0.10.0`, SHA-256 `f7a78f364bf6f9f5f55d29010527b0658d4fbd681e077e7e81b67222046e42d3`. Exact imported interfaces: `cartulary.extension_admission_validation.v1`, `cartulary.extension_authored_input_catalog.v3`, `cartulary.extension_owner_fragment.v3`, `cartulary.extension_profile_descriptor.v3`, `cartulary.extension_registry_integrity.v2`, `cartulary.extension_implementation_binding.v2`, `cartulary.client_extension_support_registry.v1`, `cartulary.client_asset_set_manifest.v1`, `cartulary.extension_profile_configuration_contract.v3`, `cartulary.extension_transaction_participant_contract.v3`, `cartulary.extension_participant_contract.v1`, `cartulary.extension_participant_specialization.v3`, `cartulary.extension_state_presence_manifest.v1`, `cartulary.extension_state_initialization_definition.v1`, `cartulary.extension_migration_ledger_definition.v1`, `cartulary.extension_migration_definition.v1`, `cartulary.extension_state_blocking_predicate.v1`, `cartulary.extension_backup_binding_codec.v3`, and `cartulary.recovery_state_contribution.v1`; locators `EXT-REQ-176`, `EXT-REQ-178..182`, `EXT-REQ-187..188`, `EXT-REQ-196..197`, `EXT-REQ-207`, `EXT-REQ-211`, `EXT-REQ-216`, `EXT-REQ-219..223`, and `EXT-REQ-231..236`. |
 | Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | Adopted/current Graph Projection NLSpec `docs/graph_projection_nlspec.md`; owner artifacts `4e446354`, `f177fb6b`, `81941bba`; locator: front matter `status: adopted/current`, §§4, 5.1.1, 10.0, 10.9, 12, 13, 14; `GP-AC-033`, `GP-AC-053`, `GP-AC-069`. |
 | Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v2`, `cartulary.network_flow_fixture_scenario.v2`, and `cartulary.network_flow_timezone_ruleset_provenance.v2`. |
 
@@ -3390,7 +3393,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 
 **NF-REQ-181**
 The primary owner document identity is
-`cartulary.network_flow_activity.current.v5`, version `5.0.0`. Its runtime
+`cartulary.network_flow_activity.current.v5`, version `5.0.1`. Its runtime
 dependency is `profile_id='import'`, `required_contract_major=1`, bound to the
 exact Import owner manifest version and digest selected by the Extensions
 dependency declaration set. The recognized profile is claimable at contract
@@ -3492,7 +3495,7 @@ order groups are `100` for `tables`, `200` for `rows`, `300` for
 `rejected_row_diagnostics`, `400` for `indicator_bindings`, and `500` for
 `graph_views`; bindings within
 a group execute sequentially by binding ID. Historical authoritative codecs are
-empty in version `5.0.0`. Backup/restore operates on a stopped empty target,
+empty in version `5.0.1`. Backup/restore operates on a stopped empty target,
 validates each binding before advancing, never invokes Network Flow code while
 inactive, and never serves a failed target. The Graph v4 derived binding is
 excluded/rebuildable and executes only after authoritative restore.
@@ -3815,7 +3818,7 @@ inventory gate, translator, fallback, silent deletion, or rewrite.
 
 ## 27. GP4 current-only Graph contract
 
-This section is normative for version 5.0.0 and governs every conflict with an
+This section is normative for version 5.0.1 and governs every conflict with an
 earlier contract-major, semantic-query compatibility, state, Recovery, schema,
 client, fixture, or rollout clause.
 

@@ -25,14 +25,19 @@ func partyRevisionFacts(beforeRow map[string]any, afterRow map[string]any, field
 }
 
 func (f *MutationFacade) appendPartyRecordChangedTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, clientTxnID string, changeSetID uuid.UUID, recordID uuid.UUID, rowVersion int64, createdAt time.Time, row map[string]any, fieldKeys []string) error {
+	return appendPartyRecordChangedTx(ctx, tx, f.publications, incidentID, actorUserID, clientTxnID, changeSetID, recordID, rowVersion, 0, createdAt, row, fieldKeys)
+}
+
+func appendPartyRecordChangedTx(ctx context.Context, tx pgx.Tx, publications collaboration.RecordChangedAppender, incidentID uuid.UUID, actorUserID uuid.UUID, clientTxnID string, changeSetID uuid.UUID, recordID uuid.UUID, rowVersion int64, mutationOrdinal int, createdAt time.Time, row map[string]any, fieldKeys []string) error {
 	patch := collabprotocol.BuildViewRowPatch(row, fieldKeys)
 	changeKind := "invalidate"
 	if patch != nil {
 		changeKind = "patch"
 	}
-	return f.publications.AppendRecordChangedTx(ctx, tx, collaboration.RecordChangeIntentInput{
+	return publications.AppendRecordChangedTx(ctx, tx, collaboration.RecordChangeIntentInput{
 		IncidentID: incidentID, RecordID: recordID, ChangeSetID: changeSetID, ActorUserID: actorUserID,
-		RowVersion: rowVersion, ClientTxnID: clientTxnID, CreatedAt: createdAt.UTC(), PublicFieldKeys: fieldKeys,
+		RowVersion: rowVersion, ClientTxnID: clientTxnID, MutationOrdinal: mutationOrdinal,
+		CreatedAt: createdAt.UTC(), PublicFieldKeys: fieldKeys,
 		AffectedViews: []collaboration.AffectedViewChange{{ViewSchemaID: ViewSchemaID, RecordID: recordID, RowVersion: rowVersion, ChangeKind: changeKind, PatchCells: patch}},
 	})
 }

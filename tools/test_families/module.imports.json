@@ -533,7 +533,8 @@
         "package": "./internal/modules/imports",
         "tests": [
           "TestExtensionImportUploadEarlyFailCreatesNoDurableRows",
-          "TestExtensionImportUploadExactReplayAndReadResources"
+          "TestExtensionImportUploadExactReplayAndReadResources",
+          "TestImportsRouteCSRFSecurityMatrix_Integration"
         ]
       },
       "evidence_class": "integration",

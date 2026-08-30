@@ -8995,19 +8995,26 @@ Verified by: AC-262, AC-263, AC-264, AC-264B
 
 **Table 17.2-A. Import route inventory**
 
-| Route | Request contract summary | Success resource or body | Long-running | Primary family errors |
-| --- | --- | --- | --- | --- |
-| `POST /api/v1/import-sessions` | Shared upload envelope with metadata `incident_id`, `client_txn_id`, and optional `assistant_profile` defaulting to `phase2_workbook_import_v1` | Common job resource; terminal success emits one `import_session` ref | Yes | `invalid_import_request`, `import_source_unsupported`, `import_source_rejected` |
-| `GET /api/v1/import-sessions/{import_session_id}` | Singleton read | `import_session` resource | No | `import_session_not_found`, `invalid_pagination_request` |
-| `GET /api/v1/import-sessions/{import_session_id}/units` | List read under common paging | `{ import_units[] }` plus `meta.paging` | No | `import_session_not_found` |
-| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | Singleton read | `import_unit` resource | No | `import_session_not_found`, `import_unit_not_found` |
-| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | Singleton read | `import_preview` resource | No | `import_session_not_found`, `import_unit_not_found` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` | Closed analytical-extension target and owner-mapping candidate; server derives source capabilities and descriptors | `extension_mapping_preview` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found` |
-| `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` | Closed object with required `client_txn_id` and one-based inclusive `source_rect={start_row,start_column,end_row,end_column}` | Created or exactly replayed `import_unit` with `locator_kind='operator_region'` | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/apply` | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref plus owner-produced analytical extension resource refs when applicable | Yes | `invalid_import_request`, `import_apply_blocked`, `import_state_conflict` |
+| Route | OpenAPI operation ID | Semantic class | Request contract summary | Success resource or body | Long-running | Primary family errors |
+| --- | --- | --- | --- | --- | --- | --- |
+| `POST /api/v1/import-sessions` | `createImportSession` | State-changing | Shared upload envelope with metadata `incident_id`, `client_txn_id`, and optional `assistant_profile` defaulting to `phase2_workbook_import_v1` | Common job resource; terminal success emits one `import_session` ref | Yes | `invalid_import_request`, `import_source_unsupported`, `import_source_rejected` |
+| `GET /api/v1/import-sessions/{import_session_id}` | `getImportSession` | Read-only | Singleton read | `import_session` resource | No | `import_session_not_found`, `invalid_pagination_request` |
+| `GET /api/v1/import-sessions/{import_session_id}/units` | `listImportUnits` | Read-only | List read under common paging | `{ import_units[] }` plus `meta.paging` | No | `import_session_not_found` |
+| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}` | `getImportUnit` | Read-only | Singleton read | `import_unit` resource | No | `import_session_not_found`, `import_unit_not_found` |
+| `GET /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/preview` | `getImportUnitPreview` | Read-only | Singleton read | `import_preview` resource | No | `import_session_not_found`, `import_unit_not_found` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping-preview` | `previewImportUnitExtensionMapping` | Read-only owner preview | Closed analytical-extension target and owner-mapping candidate; server derives source capabilities and descriptors | `extension_mapping_preview` wrapper containing a schema-validated owner result | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found` |
+| `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | `putImportUnitMapping` | State-changing | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | `selectImportUnit` | State-changing | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | `skipImportUnit` | State-changing | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/units/{base_unit_id}/regions` | `createImportUnitRegion` | State-changing | Closed object with required `client_txn_id` and one-based inclusive `source_rect={start_row,start_column,end_row,end_column}` | Created or exactly replayed `import_unit` with `locator_kind='operator_region'` | No | `invalid_import_request`, `import_session_not_found`, `import_unit_not_found`, `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/apply` | `applyImportSession` | State-changing | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref plus owner-produced analytical extension resource refs when applicable | Yes | `invalid_import_request`, `import_apply_blocked`, `import_state_conflict` |
+
+Table 17.2-A is exhaustive for Imports route mutation classification. The six
+state-changing operations require CSRF when the effective authentication mode
+is cookie. The four `GET` operations and mapping preview are read-only and do
+not require CSRF. Bearer-authenticated requests do not require a CSRF token.
+Implementations MUST classify a route from this closed inventory and MUST NOT
+infer mutation status from the HTTP method, path spelling, or handler branch.
 
 **Table 17.2-B. Import durable resources**
 
@@ -9399,6 +9406,64 @@ For the current profile:
   `field_key`, `transform_id`, `transform_options`, and `empty_value_policy`
   combinations are legal for that extension target. The Core import route MUST
   reject cross-variant members before calling the target owner.
+
+For `view_schema` targets, the shared implementation contract is
+`cartulary.tabular_mapping_kernel.v1`. The contract MUST be a pure,
+parser-neutral planner over immutable values. Its input MUST contain exactly
+the target-view facts needed to decide mapping legality, the exhaustive source
+column plan, the ordered scalar source cells, the unknown-column policy, and a
+cancellation signal:
+
+- target-field facts contain stable `field_key`, schema order, create/write
+  eligibility, clearability, and `entity_binding_mode`;
+- each source-column entry retains `source_column_ordinal`, raw
+  `source_header_text`, optional destination `field_key`, optional
+  `entity_binding_mode`, optional `transform_id`, normalized
+  `transform_options`, and `empty_value_policy`;
+- each scalar cell retains its raw value and parser-assigned cell
+  classification; and
+- source rows and columns are exhaustive and ordered by their one-based source
+  ordinals.
+
+The kernel output MUST be immutable and MUST contain, for each source row,
+ordered transformed destination values with an explicit value, omit, or null
+disposition; ordered intentionally unmapped values; and common source
+  provenance sufficient for either lifecycle adapter to produce its owned
+  provenance envelope. Output destination values MUST follow source-column
+  order so existing owner-request and clipboard-plan ordering remains stable;
+  target schema order remains an immutable validation fact and MUST NOT be used
+  to reorder an approved source plan. Unmapped values and warnings MUST follow
+  source row then source column order. The kernel MUST NOT
+infer a target from display labels, parser types, sessions, or source paths.
+
+The kernel MUST accept no import session or unit, file path, source stream,
+parser object, actor, HTTP request or response DTO, database transaction,
+Revisions, Projections, Collaboration, workbook-grid object, or analytical
+target payload. It MUST perform no I/O, persistence, authorization,
+idempotency, publication, source-owner normalization, or fingerprinting.
+Spreadsheet parsing and formula/cache classification remain adapter-owned;
+source-owner normalization and durable mutation remain source-owner-owned.
+Analytical extension mapping remains target-owner-owned and MUST NOT be routed
+through this view-target kernel.
+
+The current kernel registries are closed to the exact
+`unknown_column_policy`, `transform_id`, `empty_value_policy`, and split
+delimiter values declared above. When `split_delimited_v1` omits
+`trim_items` or `drop_empty_items`, each omitted option MUST normalize to
+`false`; omission MUST NOT acquire a new default in a later implementation of
+version 1. Kernel evaluation order is raw scalar extraction, optional mapping
+transform, empty-value disposition, then source-owner normalization after the
+kernel returns. Invalid registries, options, ordinals, target-field facts,
+write or clearability combinations, row widths, or cell classifications MUST
+fail before any row output becomes applicable. Cancellation MUST return no
+partial applicable plan.
+
+File-import approved-mapping canonical JSON and `mapping_fingerprint` remain
+the separate version-1 Imports lifecycle envelope defined by Core 03
+REQ-03-187 through REQ-03-192. Clipboard `tabular_row_plan_v1` and its mapping
+fingerprint remain a separate version-1 clipboard lifecycle envelope. The
+kernel MUST NOT define a cross-lifecycle fingerprint, and adopting it MUST NOT
+change the canonical bytes or SHA-256 values of either existing envelope.
 
 `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` and `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` MUST each accept only a JSON object request body. Both routes MUST require `client_txn_id`. `POST /skip` MAY accept optional `reason`, bound to `string_contract_id=reason_note_v1`. Both routes are singleton action routes and MUST reject pagination members. Both routes MUST be route-scoped idempotent under §17.1. A no-op `select` against an already selected unit and a no-op `skip` against an already skipped unit MUST return the current durable state rather than fail.
 

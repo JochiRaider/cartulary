@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/google/uuid"
 )
 
@@ -20,20 +21,32 @@ func TestCharacterizationCurrentImportSessionMemberRoutes(t *testing.T) {
 	unitID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 	base := "/api/v1/import-sessions/" + sessionID.String()
 	cases := []struct {
-		path   string
-		kind   string
-		unitID uuid.UUID
+		path          string
+		kind          string
+		method        string
+		operationID   string
+		stateChanging bool
+		unitID        uuid.UUID
 	}{
-		{path: base, kind: "session"},
-		{path: base + "/units", kind: "units"},
-		{path: base + "/units/" + unitID.String(), kind: "unit", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/preview", kind: "preview", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/mapping-preview", kind: "mapping_preview", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/mapping", kind: "mapping", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/select", kind: "select", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/skip", kind: "skip", unitID: unitID},
-		{path: base + "/units/" + unitID.String() + "/regions", kind: "regions", unitID: unitID},
-		{path: base + "/apply", kind: "apply"},
+		{path: base, kind: "session", method: http.MethodGet, operationID: "getImportSession"},
+		{path: base + "/units", kind: "units", method: http.MethodGet, operationID: "listImportUnits"},
+		{path: base + "/units/" + unitID.String(), kind: "unit", method: http.MethodGet, operationID: "getImportUnit", unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/preview", kind: "preview", method: http.MethodGet, operationID: "getImportUnitPreview", unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/mapping-preview", kind: "mapping_preview", method: http.MethodPost, operationID: "previewImportUnitExtensionMapping", unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/mapping", kind: "mapping", method: http.MethodPut, operationID: "putImportUnitMapping", stateChanging: true, unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/select", kind: "select", method: http.MethodPost, operationID: "selectImportUnit", stateChanging: true, unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/skip", kind: "skip", method: http.MethodPost, operationID: "skipImportUnit", stateChanging: true, unitID: unitID},
+		{path: base + "/units/" + unitID.String() + "/regions", kind: "regions", method: http.MethodPost, operationID: "createImportUnitRegion", stateChanging: true, unitID: unitID},
+		{path: base + "/apply", kind: "apply", method: http.MethodPost, operationID: "applyImportSession", stateChanging: true},
+	}
+	expectedByOperationID := map[string]importRouteDescriptor{
+		"createImportSession": {
+			Kind:          "create_session",
+			Method:        http.MethodPost,
+			OperationID:   "createImportSession",
+			StateChanging: true,
+			Collection:    true,
+		},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.kind, func(t *testing.T) {
@@ -44,7 +57,50 @@ func TestCharacterizationCurrentImportSessionMemberRoutes(t *testing.T) {
 			if route.Kind != testCase.kind || route.SessionID != sessionID || route.UnitID != testCase.unitID {
 				t.Fatalf("unexpected route: got %#v", route)
 			}
+			descriptor, ok := importRouteByKind(route.Kind)
+			if !ok {
+				t.Fatalf("route kind %q is absent from the closed catalog", route.Kind)
+			}
+			if descriptor.Method != testCase.method ||
+				descriptor.OperationID != testCase.operationID ||
+				descriptor.StateChanging != testCase.stateChanging ||
+				descriptor.Collection {
+				t.Fatalf("unexpected route descriptor: got %#v", descriptor)
+			}
 		})
+		expectedByOperationID[testCase.operationID] = importRouteDescriptor{
+			Kind:          testCase.kind,
+			Method:        testCase.method,
+			OperationID:   testCase.operationID,
+			StateChanging: testCase.stateChanging,
+		}
+	}
+
+	if len(importRouteCatalog) != 11 || len(expectedByOperationID) != 11 {
+		t.Fatalf("Imports route catalog count changed: catalog=%d expected=%d", len(importRouteCatalog), len(expectedByOperationID))
+	}
+	boundHandlers := (&Service{}).importOperationHandlers()
+	contractOperations := httpapi.ContractOperationsForOwner("module.imports")
+	if len(boundHandlers) != 11 || len(contractOperations) != 11 {
+		t.Fatalf("Imports bound operation count changed: handlers=%d contracts=%d", len(boundHandlers), len(contractOperations))
+	}
+	for _, descriptor := range importRouteCatalog {
+		expected, ok := expectedByOperationID[descriptor.OperationID]
+		if !ok || descriptor != expected {
+			t.Fatalf("unexpected catalog descriptor %q: got %#v want %#v", descriptor.OperationID, descriptor, expected)
+		}
+		if boundHandlers[descriptor.OperationID] == nil {
+			t.Fatalf("catalog operation %q has no bound handler", descriptor.OperationID)
+		}
+	}
+	for _, operation := range contractOperations {
+		descriptor, ok := expectedByOperationID[operation.OperationID]
+		if !ok {
+			t.Fatalf("generated Imports operation %q is absent from the route catalog", operation.OperationID)
+		}
+		if descriptor.Method != operation.Method || descriptor.StateChanging != operationRequiresCookieCSRF(operation.Security) {
+			t.Fatalf("catalog/generated operation mismatch for %q: descriptor=%#v generated=%#v", operation.OperationID, descriptor, operation)
+		}
 	}
 
 	for _, path := range []string{
@@ -56,6 +112,28 @@ func TestCharacterizationCurrentImportSessionMemberRoutes(t *testing.T) {
 			t.Fatalf("expected current unsupported path %q to fail, got %#v", path, route)
 		}
 	}
+}
+
+func operationRequiresCookieCSRF(security [][]string) bool {
+	for _, alternative := range security {
+		hasCookie := false
+		hasCSRFCookie := false
+		hasCSRFHeader := false
+		for _, scheme := range alternative {
+			switch scheme {
+			case "sessionCookie":
+				hasCookie = true
+			case "csrfCookie":
+				hasCSRFCookie = true
+			case "csrfHeader":
+				hasCSRFHeader = true
+			}
+		}
+		if hasCookie && hasCSRFCookie && hasCSRFHeader {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
@@ -122,6 +200,7 @@ func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
 		}) {
 		t.Fatalf("unexpected current analytical target: %#v", analytical)
 	}
+	assertFileMappingCompatibilityCharacterization(t)
 }
 
 func TestInternalImportErrorDoesNotEchoRawMessage(t *testing.T) {

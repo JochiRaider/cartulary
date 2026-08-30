@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 const indicatorImportContributionID = "indicators.import_create"
@@ -50,35 +51,68 @@ func (s *Application) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 	resultCode := "created"
 	operation := operationKind
 	var beforeVersionID *string
-	var beforeValue map[string]any
 	if beforeRow != nil {
 		createdOrReused = "reused"
 		resultCode = "reused"
+		beforeVersion := record.RowVersion
 		if jsonEqual(beforeRow, row) {
 			operation = "reuse"
 		} else {
 			resultCode = "updated"
-			beforeValue = beforeRow
 			if record.RowVersion > 1 {
-				value := ownerfacade.VersionID(record.RecordID, record.RowVersion-1)
-				beforeVersionID = &value
+				beforeVersion = record.RowVersion - 1
 			}
 		}
+		value := entityVersionID("indicator", record.RecordID, beforeVersion)
+		beforeVersionID = &value
 	}
-	return ownerfacade.FinalizeLiveRecordTx(ctx, tx, s.revisions, s.publications, ownerfacade.FinalizeCommand{
-		Request:         request,
+	afterSnapshot, err := s.revisions.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	afterVersionID := entityVersionID("indicator", record.RecordID, record.RowVersion)
+	if err := s.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
+		TargetKind:      "indicator",
 		RecordID:        record.RecordID,
-		Operation:       operation,
-		CreatedOrReused: createdOrReused,
-		OwnerResultCode: resultCode,
+		OperationKind:   operation,
 		BeforeVersionID: beforeVersionID,
-		BeforeValue:     beforeValue,
+		AfterVersionID:  &afterVersionID,
 		BeforeSnapshot:  beforeSnapshot,
-		Row:             row,
-		CreatedAt:       command.Now,
-	})
+		AfterSnapshot:   &afterSnapshot,
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	if beforeRow == nil || !jsonEqual(beforeRow, row) {
+		changedFieldKeys := indicatorChangedFieldKeys(beforeRow, row)
+		if err := s.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+			ChangeSetID:    command.ChangeSetID,
+			RecordID:       record.RecordID,
+			RowVersion:     record.RowVersion,
+			BeforeSnapshot: beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			ConflictFacts:  indicatorRevisionFacts(beforeRow, row, changedFieldKeys),
+		}); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+		if err := appendIndicatorPublicationTx(
+			ctx, tx, s.publications, request.IncidentID, request.ActorUserID,
+			request.ClientTxnID, command.ChangeSetID, record.RecordID,
+			record.RowVersion, max(command.SequenceNo-1, 0), command.Now,
+			row, changedFieldKeys,
+		); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+	}
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             record.RecordID,
+		RowVersion:           record.RowVersion,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),
+		CreatedOrReused:      createdOrReused,
+		OwnerResultCode:      resultCode,
+		RowRefresh:           row,
+	}, nil
 }
 
 func indicatorImportCreateCommand(clientTxnID string, fields []ownerfacade.ImportFieldValue) CreateCommand {

@@ -45,6 +45,10 @@ func TestClipboardPasteParsingMappingProvenanceAndBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build clipboard paste plan: %v", err)
 	}
+	const clipboardFingerprintGolden = "8fa416b5e811bd27905d89565aa2b24e941655f3fce9cbe8b0702ef694084c48"
+	if plan.MappingFingerprint != clipboardFingerprintGolden {
+		t.Fatalf("Timeline clipboard mapping fingerprint changed: %s", plan.MappingFingerprint)
+	}
 	rows, err := buildClipboardOwnerRows(plan)
 	if err != nil {
 		t.Fatalf("build Timeline owner rows: %v", err)

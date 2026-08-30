@@ -11,17 +11,24 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 type activeUserLookup interface {
 	IsActiveUserTx(context.Context, pgx.Tx, uuid.UUID) (bool, error)
 }
 
+type artifactImportRevisionAppender interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendLiveRevisionTx(context.Context, pgx.Tx, revisions.LiveRevisionInput) error
+}
+
 type ImportDependencies struct {
 	RecordEnvelopes recordEnvelopeInserter
 	ActiveUsers     activeUserLookup
 	Projections     artifactProjectionRows
-	Revisions       ownerfacade.LiveRecordRevisionAppender
+	Revisions       artifactImportRevisionAppender
 	Collaboration   collaboration.RecordChangedAppender
 }
 
@@ -47,7 +54,7 @@ func (d ImportDependencies) validate() error {
 type artifactImportCreateAdapter struct {
 	source           artifactSourceKernel
 	activeUsers      activeUserLookup
-	revisionAppender ownerfacade.LiveRecordRevisionAppender
+	revisionAppender artifactImportRevisionAppender
 	publications     collaboration.RecordChangedAppender
 }
 
@@ -130,17 +137,60 @@ func (a *artifactImportCreateAdapter) createImportRowTx(
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeLiveRecordTx(ctx, tx, a.revisionAppender, a.publications, ownerfacade.FinalizeCommand{
-		Request:         request,
-		ChangeSetID:     command.ChangeSetID,
-		SequenceNo:      command.SequenceNo,
-		RecordID:        recordID,
-		Operation:       "create",
-		CreatedOrReused: "created",
-		OwnerResultCode: "created",
-		Row:             row,
-		CreatedAt:       command.Now,
-	})
+	return a.finalizeImportCreateTx(ctx, tx, command, recordID, row)
+}
+
+func (a *artifactImportCreateAdapter) finalizeImportCreateTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	command ownerfacade.ImportOwnerCreateCommand,
+	recordID uuid.UUID,
+	row map[string]any,
+) (ownerfacade.ImportOwnerCreateResponse, error) {
+	const rowVersion int64 = 1
+	afterSnapshot, err := a.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	afterVersionID := workbookVersionID(recordID, rowVersion)
+	if err := a.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+		ChangeSetID:    command.ChangeSetID,
+		SequenceNo:     command.SequenceNo,
+		TargetKind:     "record",
+		RecordID:       recordID,
+		OperationKind:  "create",
+		AfterVersionID: &afterVersionID,
+		AfterSnapshot:  &afterSnapshot,
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	changedFields := changedFieldKeys(nil, row)
+	if err := a.revisionAppender.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+		ChangeSetID:   command.ChangeSetID,
+		RecordID:      recordID,
+		RowVersion:    rowVersion,
+		AfterSnapshot: &afterSnapshot,
+		ConflictFacts: artifactRevisionFacts(nil, row, changedFields),
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	request := command.Request
+	if err := appendArtifactRecordChangedTx(
+		ctx, tx, a.publications, request.IncidentID, request.ActorUserID,
+		request.ClientTxnID, command.ChangeSetID, recordID, rowVersion,
+		max(command.SequenceNo-1, 0), command.Now, request.TargetViewSchemaID,
+		row, changedFields,
+	); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             recordID,
+		RowVersion:           rowVersion,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),
+		CreatedOrReused:      "created",
+		OwnerResultCode:      "created",
+		RowRefresh:           row,
+	}, nil
 }
 
 func artifactValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]fieldValue {

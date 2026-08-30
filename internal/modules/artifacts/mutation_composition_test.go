@@ -6,7 +6,6 @@ import (
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -28,7 +27,7 @@ type artifactImportRecordStub struct{ recordEnvelopeInserter }
 type artifactImportActiveUserStub struct{ activeUserLookup }
 type artifactImportProjectionStub struct{ artifactProjectionRows }
 type artifactImportRevisionStub struct {
-	ownerfacade.LiveRecordRevisionAppender
+	artifactImportRevisionAppender
 }
 
 func completeArtifactMutationDependencies() MutationDependencies {

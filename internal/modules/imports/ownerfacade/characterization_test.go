@@ -36,6 +36,7 @@ func TestNormalizeImportScalarUsesCanonicalEmptyValuePolicy(t *testing.T) {
 	); err == nil {
 		t.Fatal("legacy use_null token unexpectedly accepted")
 	}
+
 }
 
 func TestNormalizeImportScalarRejectsNullForNonNullableCreateField(t *testing.T) {

@@ -1399,14 +1399,37 @@ Harness implementation code MUST import declared owner facades rather than arbit
 Tests MAY import private implementation fixtures only from declared test-support paths. Generated files MAY mirror declared owner paths but MUST NOT independently widen import allowances. Non-owner harness code MUST NOT import private browser implementation helpers directly once a browser owner facade exists; scheduler code MUST use the scheduler browser adapter instead of direct browser helper imports. Import-boundary failures are harness failures, not product failures.
 
 `tools/backend_module_boundaries.json` MUST validate as
-`cartulary.backend_module_boundaries.v2`. Every forbidden-import rule MUST
-declare `match_kind` as exactly `exact` or `subtree`. `exact` matches only the
-named import path. `subtree` matches the named import path and paths below it
-on a package-segment boundary. The checker MUST NOT infer prefix semantics
-from the spelling of a path. Diagnostics MUST identify the rule, match kind,
-importer, and candidate import. Non-current boundary schemas and rules without
-`match_kind` are unsupported. Source-table access policy remains file-exact;
-directory expansion is not an accepted migration.
+`cartulary.backend_module_boundaries.v3`; the v2 schema and reader are
+unsupported. Every forbidden-import rule MUST declare `match_kind` as exactly
+`exact` or `subtree`. `exact` matches only the named import path. `subtree`
+matches the named import path and paths below it on a package-segment boundary.
+The checker MUST NOT infer prefix semantics from the spelling of a path.
+Diagnostics MUST identify the rule, match kind, importer, and candidate import.
+
+The v3 input MAY declare reusable `exact_file_sets[]`. Each set MUST have a
+unique non-empty `id`, one non-empty unique `paths[]` list, and one token-based
+`discovery` with non-empty unique `scan_roots[]`, non-empty unique `tokens[]`,
+and explicit `production_only`. Declared paths and discovery roots MUST be
+normalized repository-relative forward-slash paths without absolute syntax,
+backslashes, glob syntax, empty segments, `.` segments, or `..` segments. Each
+declared path MUST remain contained by the repository, resolve exactly once,
+contain no symlink component, and name a regular file. Each discovery root
+MUST satisfy the same containment and symlink rules and name a directory.
+
+Discovery MUST recursively inspect only regular source files below its bounded
+roots, reject symlink or non-regular ambiguity, and select a file when its
+source bytes contain at least one declared token. `production_only=true` MUST
+exclude Go test files. Both the declared and discovered sets MUST be non-empty
+and exactly equal; a missing, stale, duplicated, omitted-discovered, escaping,
+or non-regular path is a harness failure. A rule that uses an exact set MUST
+name it through `exact_file_set_id`, MUST NOT also declare `scan_paths`, and
+MUST fail on an unknown set ID. Rules that do not use an exact set retain their
+required non-empty `scan_paths` behavior. Source-table access policy remains
+file-exact; directory expansion is not an accepted migration.
+
+This input revision does not change the public
+`backend-module-boundary-check` target, its command ID, summary schema, output
+shape, artifact contract, or failure mapping.
 
 Verified by: TH-HARNESS-AC-038, TH-HARNESS-AC-039
 

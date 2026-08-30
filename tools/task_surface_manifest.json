@@ -9401,7 +9401,8 @@
       "backing_scripts": [
         "tools/backend_module_boundaries.json",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"
+        "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs",
+        "tools/harness/static-analysis/exact-file-sets.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9863,6 +9864,7 @@
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
         "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harness/static-analysis/exact-file-sets.mjs",
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
       ],
@@ -9907,7 +9909,8 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harness/static-analysis/exact-file-sets.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",

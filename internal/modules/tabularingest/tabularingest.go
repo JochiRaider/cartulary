@@ -2,6 +2,7 @@ package tabularingest
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/hex"
@@ -231,33 +232,38 @@ func BuildTabularRowPlanV1(request MappingRequest) (TabularRowPlanV1, error) {
 		plan.FieldMappings = append(plan.FieldMappings, mapping)
 	}
 
-	for rowIndex, values := range rows {
-		rowPlan := RowPlanV1{RowOrdinal: rowIndex + 1}
-		seenFields := make(map[string]struct{})
-		for sourceColumnIndex, rawValue := range values {
-			sourceColumnOrdinal := sourceColumnIndex + 1
-			mapping, mapped := mappings[sourceColumnOrdinal]
-			if !mapped {
-				rowPlan.Unmapped = append(rowPlan.Unmapped, unmappedRawValue(request, sourceHeaders, rowIndex+1, sourceColumnOrdinal, rawValue))
-				plan.Warnings = append(plan.Warnings, WarningV1{
-					Code:                WarningUnmappedValueV1,
-					SourceRowOrdinal:    rowIndex + 1,
-					SourceColumnOrdinal: sourceColumnOrdinal,
-				})
-				continue
-			}
-			if _, duplicate := seenFields[mapping.FieldKey]; duplicate {
-				return TabularRowPlanV1{}, fmt.Errorf("duplicate field key %s", mapping.FieldKey)
-			}
-			seenFields[mapping.FieldKey] = struct{}{}
+	kernelRequest, err := clipboardMappingKernelRequest(schema, plan.SourceColumns, mappings, rows)
+	if err != nil {
+		return TabularRowPlanV1{}, err
+	}
+	kernelPlan, err := BuildMappingKernelPlanV1(context.Background(), kernelRequest)
+	if err != nil {
+		return TabularRowPlanV1{}, err
+	}
+	for _, kernelRow := range kernelPlan.Rows {
+		rowPlan := RowPlanV1{RowOrdinal: kernelRow.SourceRowOrdinal}
+		for _, value := range kernelRow.Values {
 			rowPlan.Cells = append(rowPlan.Cells, CellPlanV1{
-				FieldKey:            mapping.FieldKey,
-				RawValue:            rawValue,
-				SourceColumnOrdinal: sourceColumnOrdinal,
-				EntityBindingMode:   mapping.EntityBindingMode,
+				FieldKey:            value.FieldKey,
+				RawValue:            value.RawValue,
+				SourceColumnOrdinal: value.SourceColumnOrdinal,
+				EntityBindingMode:   value.EntityBindingMode,
+			})
+		}
+		for _, unknown := range kernelRow.UnknownValues {
+			rowPlan.Unmapped = append(rowPlan.Unmapped, UnmappedRawValueV1{
+				SourceKind:          request.SourceKind,
+				SourceClientTxnID:   request.ClientTxnID,
+				SourceRowOrdinal:    kernelRow.SourceRowOrdinal,
+				SourceColumnOrdinal: unknown.SourceColumnOrdinal,
+				SourceHeaderText:    unknown.SourceHeaderText,
+				RawValue:            unknown.RawValue,
 			})
 		}
 		plan.Rows = append(plan.Rows, rowPlan)
+	}
+	for _, warning := range kernelPlan.Warnings {
+		plan.Warnings = append(plan.Warnings, WarningV1(warning))
 	}
 	plan.MappingFingerprint, err = mappingFingerprint(plan)
 	if err != nil {
@@ -267,6 +273,73 @@ func BuildTabularRowPlanV1(request MappingRequest) (TabularRowPlanV1, error) {
 		return TabularRowPlanV1{}, err
 	}
 	return plan, nil
+}
+
+func clipboardMappingKernelRequest(
+	schema viewschema.Schema,
+	sourceColumns []SourceColumnV1,
+	mappings map[int]FieldMappingV1,
+	rows [][]string,
+) (MappingKernelRequestV1, error) {
+	public, ok := viewschema.LookupPublicResource(schema.ViewSchemaID)
+	if !ok {
+		return MappingKernelRequestV1{}, fmt.Errorf("unknown view schema")
+	}
+	fields := schema.Fields()
+	targetFields := make([]MappingKernelTargetFieldV1, 0, len(public.Fields))
+	for index, publicField := range public.Fields {
+		field, exists := fields[publicField.FieldKey]
+		if !exists {
+			return MappingKernelRequestV1{}, fmt.Errorf("view schema field %q is unavailable", publicField.FieldKey)
+		}
+		targetFields = append(targetFields, MappingKernelTargetFieldV1{
+			FieldKey:          field.FieldKey,
+			Order:             index + 1,
+			Writable:          field.Writable,
+			CreateWritable:    field.CreateWritable,
+			Clearable:         field.Clearable,
+			EntityBindingMode: field.EntityBindingMode,
+		})
+	}
+	kernelColumns := make([]MappingKernelSourceColumnV1, 0, len(sourceColumns))
+	for _, source := range sourceColumns {
+		column := MappingKernelSourceColumnV1{
+			SourceColumnOrdinal: source.Ordinal,
+			SourceHeaderText:    source.HeaderText,
+			TransformOptions:    map[string]any{},
+			EmptyValuePolicy:    EmptyValueOmitFieldV1,
+		}
+		if mapping, mapped := mappings[source.Ordinal]; mapped {
+			fieldKey := mapping.FieldKey
+			column.FieldKey = &fieldKey
+			column.EntityBindingMode = mapping.EntityBindingMode
+		}
+		kernelColumns = append(kernelColumns, column)
+	}
+	kernelRows := make([]MappingKernelSourceRowV1, 0, len(rows))
+	for rowIndex, values := range rows {
+		cells := make([]MappingKernelScalarCellV1, 0, len(sourceColumns))
+		for sourceIndex := range sourceColumns {
+			cell := MappingKernelScalarCellV1{SourceColumnOrdinal: sourceIndex + 1}
+			if sourceIndex < len(values) {
+				cell.Present = true
+				cell.RawValue = values[sourceIndex]
+				cell.CellKind = "clipboard_scalar"
+				cell.Classification = MappingKernelCellScalarV1
+			}
+			cells = append(cells, cell)
+		}
+		kernelRows = append(kernelRows, MappingKernelSourceRowV1{
+			SourceRowOrdinal: rowIndex + 1,
+			Cells:            cells,
+		})
+	}
+	return MappingKernelRequestV1{
+		TargetFields:        targetFields,
+		SourceColumns:       kernelColumns,
+		Rows:                kernelRows,
+		UnknownColumnPolicy: UnknownColumnPreserveRawCaptureV1,
+	}, nil
 }
 
 func (plan TabularRowPlanV1) Validate() error {
@@ -381,21 +454,6 @@ func ReadAll(reader io.Reader, format string) ([][]string, error) {
 		return nil, err
 	}
 	return ParseTable(string(data), format)
-}
-
-func unmappedRawValue(request MappingRequest, headers []any, rowOrdinal int, columnOrdinal int, value string) UnmappedRawValueV1 {
-	var headerValue any
-	if columnOrdinal > 0 && columnOrdinal <= len(headers) {
-		headerValue = headers[columnOrdinal-1]
-	}
-	return UnmappedRawValueV1{
-		SourceKind:          request.SourceKind,
-		SourceClientTxnID:   request.ClientTxnID,
-		SourceRowOrdinal:    rowOrdinal,
-		SourceColumnOrdinal: columnOrdinal,
-		SourceHeaderText:    headerValue,
-		RawValue:            value,
-	}
 }
 
 func normalizedSourceFormat(text string, format string) (string, error) {

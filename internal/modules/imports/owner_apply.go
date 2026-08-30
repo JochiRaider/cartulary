@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -9,8 +10,10 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const importApplyChangeSetSource = "imports.apply"
@@ -54,6 +57,7 @@ func (s *Service) applyGenericOwnerUnitTx(
 		}
 		rowClientTxnID := fmt.Sprintf("%s:%d", clientTxnID, rowRef)
 		request, err := importOwnerCreateRequest(
+			ctx,
 			start,
 			unit,
 			actor.ID,
@@ -63,6 +67,9 @@ func (s *Service) applyGenericOwnerUnitTx(
 			owner,
 		)
 		if err != nil {
+			if errors.Is(err, tabularingest.ErrMappingKernelCanceled) {
+				return appliedUnitCommit{}, errImportUnitCanceled
+			}
 			return appliedUnitCommit{}, &translatedImportUnitError{
 				failure: importOwnerCreateFailure(err),
 				cause:   err,
@@ -129,6 +136,7 @@ func (s *Service) applyGenericOwnerUnitTx(
 }
 
 func importOwnerCreateRequest(
+	ctx context.Context,
 	start ApplyStartResult,
 	unit ApplyUnitData,
 	actorID uuid.UUID,
@@ -137,7 +145,6 @@ func importOwnerCreateRequest(
 	clientTxnID string,
 	owner ownerfacade.ImportOwnerCreateFacade,
 ) (ownerfacade.ImportOwnerCreateRequest, error) {
-	cells := sourceRowCellsByOrdinal(sourceRow)
 	request := ownerfacade.ImportOwnerCreateRequest{
 		IncidentID:          start.IncidentID,
 		ActorUserID:         actorID,
@@ -156,27 +163,25 @@ func importOwnerCreateRequest(
 		ClientTxnID:         clientTxnID,
 		SourceRowProvenance: ownerfacade.ImportSourceRowProvenance{SourceRowRef: rowRef},
 	}
-	for _, column := range unit.ApprovedMapping.SourceColumns {
-		cell := cells[column.SourceColumnOrdinal]
-		rawValue, _ := cell["display_text"].(string)
-		cellKind, _ := cell["cell_kind"].(string)
-		if column.FieldKey == nil {
-			request.UnknownValues = append(request.UnknownValues, ownerfacade.ImportUnknownValue{
-				SourceColumnOrdinal: column.SourceColumnOrdinal,
-				SourceHeaderText:    column.SourceHeaderText,
-				RawValue:            rawValue,
-				CellKind:            cellKind,
-			})
+	kernelRequest, err := importMappingKernelRequest(unit, sourceRow, rowRef)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateRequest{}, err
+	}
+	kernelPlan, err := tabularingest.BuildMappingKernelPlanV1(ctx, kernelRequest)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateRequest{}, err
+	}
+	if len(kernelPlan.Rows) != 1 {
+		return ownerfacade.ImportOwnerCreateRequest{}, fmt.Errorf("import mapping kernel returned %d rows", len(kernelPlan.Rows))
+	}
+	for _, planned := range kernelPlan.Rows[0].Values {
+		if planned.Disposition == tabularingest.MappingKernelOmitV1 {
 			continue
 		}
-		transformed, err := transformImportValue(rawValue, column)
-		if err != nil {
-			return ownerfacade.ImportOwnerCreateRequest{}, err
-		}
 		value, include, err := owner.NormalizeImportField(
-			*column.FieldKey,
-			transformed,
-			column.EmptyValuePolicy,
+			planned.FieldKey,
+			planned.TransformedValue,
+			planned.EmptyValuePolicy,
 		)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateRequest{}, err
@@ -184,25 +189,98 @@ func importOwnerCreateRequest(
 		if !include {
 			continue
 		}
-		var transformID *string
-		if column.TransformID != nil {
-			transformID = column.TransformID
-		}
-		var entityBinding *string
-		if column.EntityBindingMode != nil {
-			entityBinding = column.EntityBindingMode
-		}
 		request.FieldValues = append(request.FieldValues, ownerfacade.ImportFieldValue{
-			FieldKey:            *column.FieldKey,
+			FieldKey:            planned.FieldKey,
 			NormalizedValue:     value,
-			SourceColumnOrdinal: column.SourceColumnOrdinal,
-			SourceHeaderText:    column.SourceHeaderText,
-			RawValue:            rawValue,
-			CellKind:            cellKind,
-			TransformID:         transformID,
-			EmptyValuePolicy:    column.EmptyValuePolicy,
-			EntityBindingMode:   entityBinding,
+			SourceColumnOrdinal: planned.SourceColumnOrdinal,
+			SourceHeaderText:    planned.SourceHeaderText,
+			RawValue:            planned.RawValue,
+			CellKind:            planned.CellKind,
+			TransformID:         planned.TransformID,
+			EmptyValuePolicy:    planned.EmptyValuePolicy,
+			EntityBindingMode:   planned.EntityBindingMode,
+		})
+	}
+	for _, unknown := range kernelPlan.Rows[0].UnknownValues {
+		request.UnknownValues = append(request.UnknownValues, ownerfacade.ImportUnknownValue{
+			SourceColumnOrdinal: unknown.SourceColumnOrdinal,
+			SourceHeaderText:    unknown.SourceHeaderText,
+			RawValue:            unknown.RawValue,
+			CellKind:            unknown.CellKind,
 		})
 	}
 	return request, nil
+}
+
+func importMappingKernelRequest(
+	unit ApplyUnitData,
+	sourceRow map[string]any,
+	rowRef int,
+) (tabularingest.MappingKernelRequestV1, error) {
+	schema, ok := viewschema.Lookup(unit.ApprovedMapping.TargetViewSchemaID)
+	if !ok {
+		return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import mapping kernel target view is unavailable")
+	}
+	public, ok := viewschema.LookupPublicResource(unit.ApprovedMapping.TargetViewSchemaID)
+	if !ok {
+		return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import mapping kernel target view resource is unavailable")
+	}
+	fields := schema.Fields()
+	targetFields := make([]tabularingest.MappingKernelTargetFieldV1, 0, len(public.Fields))
+	for index, publicField := range public.Fields {
+		field, exists := fields[publicField.FieldKey]
+		if !exists {
+			return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import mapping kernel field %q is unavailable", publicField.FieldKey)
+		}
+		targetFields = append(targetFields, tabularingest.MappingKernelTargetFieldV1{
+			FieldKey:          field.FieldKey,
+			Order:             index + 1,
+			Writable:          field.Writable,
+			CreateWritable:    field.CreateWritable,
+			Clearable:         field.Clearable,
+			EntityBindingMode: field.EntityBindingMode,
+		})
+	}
+	columns := make([]tabularingest.MappingKernelSourceColumnV1, 0, len(unit.ApprovedMapping.SourceColumns))
+	for _, column := range unit.ApprovedMapping.SourceColumns {
+		columns = append(columns, tabularingest.MappingKernelSourceColumnV1{
+			SourceColumnOrdinal: column.SourceColumnOrdinal,
+			SourceHeaderText:    column.SourceHeaderText,
+			FieldKey:            column.FieldKey,
+			EntityBindingMode:   column.EntityBindingMode,
+			TransformID:         column.TransformID,
+			TransformOptions:    column.TransformOptions,
+			EmptyValuePolicy:    column.EmptyValuePolicy,
+		})
+	}
+	cellsByOrdinal := sourceRowCellsByOrdinal(sourceRow)
+	cells := make([]tabularingest.MappingKernelScalarCellV1, 0, len(columns))
+	for _, column := range columns {
+		cell, exists := cellsByOrdinal[column.SourceColumnOrdinal]
+		if !exists {
+			return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import source row %d is missing column %d", rowRef, column.SourceColumnOrdinal)
+		}
+		rawValue, rawOK := cell["display_text"].(string)
+		cellKind, kindOK := cell["cell_kind"].(string)
+		if !rawOK || !kindOK || cellKind == "" {
+			return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import source row %d column %d is not a scalar cell", rowRef, column.SourceColumnOrdinal)
+		}
+		classification := tabularingest.MappingKernelCellScalarV1
+		if cellKind == "blank" || rawValue == "" {
+			classification = tabularingest.MappingKernelCellEmptyV1
+		}
+		cells = append(cells, tabularingest.MappingKernelScalarCellV1{
+			SourceColumnOrdinal: column.SourceColumnOrdinal,
+			RawValue:            rawValue,
+			CellKind:            cellKind,
+			Classification:      classification,
+			Present:             true,
+		})
+	}
+	return tabularingest.MappingKernelRequestV1{
+		TargetFields:        targetFields,
+		SourceColumns:       columns,
+		Rows:                []tabularingest.MappingKernelSourceRowV1{{SourceRowOrdinal: rowRef, Cells: cells}},
+		UnknownColumnPolicy: unit.ApprovedMapping.UnknownColumnPolicy,
+	}, nil
 }

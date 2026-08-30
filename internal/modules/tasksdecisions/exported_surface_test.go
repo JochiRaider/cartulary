@@ -49,7 +49,9 @@ var tasksDecisionsRootInventory = groupedInventory(map[string]string{
 	"interface-method": `
 		IdempotencyCapability.Get IdempotencyCapability.PutTx
 		ImportLinkCapability.SyncFieldReferenceWithMutationValuesTx
-		ImportRecordEnvelopeCapability.InsertTx ImportRevisionCapability.AppendNonRowMutationTx
+		ImportRecordEnvelopeCapability.InsertTx ImportRevisionCapability.AppendLiveRevisionTx
+		ImportRevisionCapability.AppendNonRowMutationTx ImportRevisionCapability.AppendRecordMutationTx
+		ImportRevisionCapability.CaptureRecordSnapshotTx
 		IncidentStateCapability.RequireOpenTx LinkCapability.ApplyRecordRefCollectionWithMutationValuesTx
 		LinkCapability.InsertSupersedesCommandTx LinkCapability.SyncFieldReferenceWithMutationValuesTx
 		LinkCapability.ValidateRecordRefCollectionTx RecordEnvelopeCapability.AdvanceVersionTx
@@ -58,7 +60,6 @@ var tasksDecisionsRootInventory = groupedInventory(map[string]string{
 		RevisionCapability.AppendMutationTx RevisionCapability.AppendRecordMutationTx
 		RevisionCapability.CaptureRecordSnapshotTx RevisionCapability.LoadRevisionWindowTx
 	`,
-	"interface-embed": `ImportRevisionCapability.ownerfacade.LiveRecordRevisionAppender`,
 })
 
 var tasksDecisionsProjectionContractInventory = groupedInventory(map[string]string{

@@ -2,7 +2,6 @@ package imports
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -15,32 +14,68 @@ import (
 	"github.com/google/uuid"
 )
 
+type importRouteDescriptor struct {
+	Kind          string
+	Method        string
+	OperationID   string
+	StateChanging bool
+	Collection    bool
+}
+
+var importRouteCatalog = [...]importRouteDescriptor{
+	{Kind: "create_session", Method: http.MethodPost, OperationID: "createImportSession", StateChanging: true, Collection: true},
+	{Kind: "session", Method: http.MethodGet, OperationID: "getImportSession"},
+	{Kind: "units", Method: http.MethodGet, OperationID: "listImportUnits"},
+	{Kind: "unit", Method: http.MethodGet, OperationID: "getImportUnit"},
+	{Kind: "preview", Method: http.MethodGet, OperationID: "getImportUnitPreview"},
+	{Kind: "mapping_preview", Method: http.MethodPost, OperationID: "previewImportUnitExtensionMapping"},
+	{Kind: "mapping", Method: http.MethodPut, OperationID: "putImportUnitMapping", StateChanging: true},
+	{Kind: "select", Method: http.MethodPost, OperationID: "selectImportUnit", StateChanging: true},
+	{Kind: "skip", Method: http.MethodPost, OperationID: "skipImportUnit", StateChanging: true},
+	{Kind: "regions", Method: http.MethodPost, OperationID: "createImportUnitRegion", StateChanging: true},
+	{Kind: "apply", Method: http.MethodPost, OperationID: "applyImportSession", StateChanging: true},
+}
+
+func importRouteByKind(kind string) (importRouteDescriptor, bool) {
+	for _, route := range importRouteCatalog {
+		if route.Kind == kind {
+			return route, true
+		}
+	}
+	return importRouteDescriptor{}, false
+}
+
+func (s *Service) importOperationHandlers() map[string]http.HandlerFunc {
+	handlers := make(map[string]http.HandlerFunc, len(importRouteCatalog))
+	for _, route := range importRouteCatalog {
+		handler := s.handleImportSessionsMember
+		if route.Collection {
+			handler = s.handleImportSessionsCollection
+		}
+		handlers[route.OperationID] = handler
+	}
+	return handlers
+}
+
 func bindOwnerRoutes(
 	mux *http.ServeMux,
 	deps httpapi.DependencySet,
 	service *Service,
 ) error {
-	return httpapi.BindOwnerRoutes(mux, deps, "module.imports", map[string]http.HandlerFunc{
-		"applyImportSession":                service.handleImportSessionsMember,
-		"createImportUnitRegion":            service.handleImportSessionsMember,
-		"createImportSession":               service.handleImportSessionsCollection,
-		"getImportSession":                  service.handleImportSessionsMember,
-		"getImportUnit":                     service.handleImportSessionsMember,
-		"getImportUnitPreview":              service.handleImportSessionsMember,
-		"listImportUnits":                   service.handleImportSessionsMember,
-		"previewImportUnitExtensionMapping": service.handleImportSessionsMember,
-		"putImportUnitMapping":              service.handleImportSessionsMember,
-		"selectImportUnit":                  service.handleImportSessionsMember,
-		"skipImportUnit":                    service.handleImportSessionsMember,
-	})
+	return httpapi.BindOwnerRoutes(mux, deps, "module.imports", service.importOperationHandlers())
 }
 
 func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	route, ok := importRouteByKind("create_session")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != route.Method {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: route.StateChanging})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -59,35 +94,11 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	sourceFileKind := detectSourceFileKind(envelope)
-	units, apiErr := s.discoverImportUnits(envelope, sourceFileKind)
+	result, err, apiErr := s.applicationCreateSession(r.Context(), principal.User.ID, envelope, request)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	normalized, err := json.Marshal(map[string]any{
-		"incident_id":           request.IncidentID.String(),
-		"client_txn_id":         request.ClientTxnID,
-		"assistant_profile":     request.AssistantProfile,
-		"source_content_sha256": envelope.FileSHA256Hex,
-	})
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	result, err := s.store.CreateAcceptedSession(r.Context(), CreateAcceptedSessionParams{
-		ActorUserID:         principal.User.ID,
-		Request:             request,
-		SourceFileKind:      sourceFileKind,
-		OriginalFilename:    envelope.FileName,
-		SourceContentSHA256: envelope.FileSHA256Hex,
-		SourceMediaType:     envelope.FileContentType,
-		SourceByteSize:      int64(len(envelope.File)),
-		SourceBytes:         envelope.File,
-		Units:               units,
-		NormalizedRequest:   normalized,
-		Now:                 s.now(),
-	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
@@ -95,9 +106,6 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
-	}
-	if !result.Replayed {
-		s.jobRunner.Notify(uuid.MustParse(result.Job.JobID))
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -112,11 +120,20 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 		http.NotFound(w, r)
 		return
 	}
+	descriptor, ok := importRouteByKind(route.Kind)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != descriptor.Method {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{
 		Store:         s.authStore,
 		Keys:          s.keys,
 		Now:           s.now,
-		StateChanging: route.Kind == "regions",
+		StateChanging: descriptor.StateChanging,
 	})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -124,15 +141,11 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 	}
 	switch route.Kind {
 	case "session":
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		resource, incidentID, err := s.store.GetSession(r.Context(), route.SessionID)
+		result, err := s.applicationGetSession(r.Context(), route.SessionID)
 		if errors.Is(err, ErrNotFound) {
 			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
 			return
@@ -141,7 +154,7 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		if _, apiErr := s.requireIncidentMembership(r.Context(), result.IncidentID, principal.User.ID); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -149,12 +162,8 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Value)
 	case "units":
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		binding, cursor, reasonCode := s.cursorCodec.ResolveRequest(
 			r.URL.Query(),
 			"imports.units.list",
@@ -165,7 +174,7 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, invalidPaginationRequest(reasonCode))
 			return
 		}
-		units, incidentID, err := s.store.ListUnits(r.Context(), route.SessionID)
+		result, err := s.applicationListUnits(r.Context(), route.SessionID)
 		if errors.Is(err, ErrNotFound) {
 			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
 			return
@@ -174,11 +183,11 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		if _, apiErr := s.requireIncidentMembership(r.Context(), result.IncidentID, principal.User.ID); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		rows, nextCursor, err := pagination.PageResources(binding, cursor, units)
+		rows, nextCursor, err := pagination.PageResources(binding, cursor, result.Value)
 		if errors.Is(err, pagination.ErrInvalidCursorToken) {
 			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
 			return
@@ -206,15 +215,11 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			NextCursor: nextToken,
 		})
 	case "unit":
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		unit, incidentID, err := s.store.GetUnit(r.Context(), route.SessionID, route.UnitID)
+		result, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
 		if errors.Is(err, ErrNotFound) {
 			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 			return
@@ -223,7 +228,7 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		if _, apiErr := s.requireIncidentMembership(r.Context(), result.IncidentID, principal.User.ID); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -231,17 +236,13 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, unit)
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Value)
 	case "preview":
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		preview, incidentID, err := s.store.GetPreview(r.Context(), route.SessionID, route.UnitID)
+		result, err := s.applicationGetPreview(r.Context(), route.SessionID, route.UnitID)
 		if errors.Is(err, ErrNotFound) {
 			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 			return
@@ -250,7 +251,7 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		if _, apiErr := s.requireIncidentMembership(r.Context(), result.IncidentID, principal.User.ID); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -258,42 +259,18 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, preview)
+		_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Value)
 	case "mapping_preview":
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		s.handleMappingPreview(w, r, principal, route)
 	case "mapping":
-		if r.Method != http.MethodPut {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		s.handleMapping(w, r, principal, route)
 	case "select":
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		s.handleSelect(w, r, principal, route)
 	case "skip":
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		s.handleSkip(w, r, principal, route)
 	case "regions":
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		s.handleRegion(w, r, principal, route)
 	case "apply":
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		s.handleApply(w, r, principal, route)
 	default:
 		http.NotFound(w, r)
@@ -305,7 +282,7 @@ func (s *Service) handleMappingPreview(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	_, incidentID, err := s.store.GetUnit(r.Context(), route.SessionID, route.UnitID)
+	scope, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 		return
@@ -314,7 +291,7 @@ func (s *Service) handleMappingPreview(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), scope.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -323,70 +300,16 @@ func (s *Service) handleMappingPreview(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	mapping := ApprovedMapping{
-		TargetKind:           request.TargetKind,
-		ExtensionProfileID:   request.ExtensionProfileID,
-		OwnerMappingSchemaID: request.OwnerMappingSchemaID,
-		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
-	}
-	if apiErr := s.validateApprovedMapping(mapping); apiErr != nil {
+	resource, apiErr := s.applicationPrepareMappingPreview(
+		r.Context(),
+		principal.User.ID,
+		scope.IncidentID,
+		route,
+		request,
+	)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
-	}
-	target, ok := lookupApprovedImportTarget(mapping)
-	if !ok {
-		writeAPIError(w, r, invalidImportRequest("target_kind", "target_kind_not_importable"))
-		return
-	}
-	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
-	if facade == nil {
-		writeAPIError(
-			w,
-			r,
-			invalidImportRequest("target_kind", "owner_preview_contract_unavailable"),
-		)
-		return
-	}
-	sourceCapability, err := s.store.SourceCapabilityForUnit(r.Context(), route.SessionID, route.UnitID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	result, err := facade.PrepareImportUnitMapping(r.Context(), ExtensionImportMappingRequest{
-		IncidentID:           incidentID,
-		ActorUserID:          principal.User.ID,
-		TargetKind:           request.TargetKind,
-		ExtensionProfileID:   request.ExtensionProfileID,
-		ImportSessionID:      route.SessionID,
-		ImportUnitID:         route.UnitID,
-		SourceCapability:     sourceCapability,
-		OwnerMappingSchemaID: request.OwnerMappingSchemaID,
-		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
-	})
-	if err != nil {
-		writeAPIError(w, r, extensionFacadeAPIError(target, facade, err))
-		return
-	}
-	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
-		writeAPIError(
-			w,
-			r,
-			invalidImportRequest("owner_result", "owner_preview_validation_failed"),
-		)
-		return
-	}
-	resource := ExtensionMappingPreviewResource{
-		SchemaID:            ExtensionMappingPreviewResultSchemaID,
-		ImportSessionID:     route.SessionID.String(),
-		ImportUnitID:        route.UnitID.String(),
-		TargetKind:          request.TargetKind,
-		ExtensionProfileID:  request.ExtensionProfileID,
-		OwnerResultSchemaID: result.OwnerResultSchemaID,
-		OwnerResult:         result.OwnerResult,
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -400,7 +323,7 @@ func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	columns, incidentID, err := s.store.GetUnitColumns(r.Context(), route.SessionID, route.UnitID)
+	scope, err := s.applicationGetMappingContext(r.Context(), route.SessionID, route.UnitID)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 		return
@@ -409,19 +332,19 @@ func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), scope.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := DecodeMappingRequest(r.Body, columns)
+	request, apiErr := DecodeMappingRequest(r.Body, scope.Value)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	unit, err, apiErr := s.approveAndSaveMapping(
+	unit, err, apiErr := s.applicationApproveMapping(
 		r.Context(),
 		principal.User.ID,
-		incidentID,
+		scope.IncidentID,
 		route,
 		request,
 	)
@@ -440,11 +363,11 @@ func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 }
 
 func (s *Service) handleSelect(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
-	s.handleUnitAction(w, r, principal, route, "imports.units.select", false, s.store.SelectUnit)
+	s.handleUnitAction(w, r, principal, route, "imports.units.select", false)
 }
 
 func (s *Service) handleSkip(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
-	s.handleUnitAction(w, r, principal, route, "imports.units.skip", true, s.store.SkipUnit)
+	s.handleUnitAction(w, r, principal, route, "imports.units.skip", true)
 }
 
 func (s *Service) handleUnitAction(
@@ -454,13 +377,12 @@ func (s *Service) handleUnitAction(
 	route importSessionRoute,
 	routeKey string,
 	allowReason bool,
-	action func(context.Context, UnitActionParams) (UnitActionResult, error),
 ) {
 	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	_, incidentID, err := s.store.GetUnit(r.Context(), route.SessionID, route.UnitID)
+	scope, err := s.applicationGetUnit(r.Context(), route.SessionID, route.UnitID)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 		return
@@ -469,7 +391,7 @@ func (s *Service) handleUnitAction(
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), scope.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -478,15 +400,7 @@ func (s *Service) handleUnitAction(
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := action(r.Context(), UnitActionParams{
-		ActorUserID:       principal.User.ID,
-		SessionID:         route.SessionID,
-		UnitID:            route.UnitID,
-		RouteKey:          routeKey,
-		Request:           request,
-		NormalizedRequest: request.Normalized,
-		Now:               s.now(),
-	})
+	result, err := s.applicationExecuteUnitAction(r.Context(), principal.User.ID, route, request, routeKey)
 	if !writeImportStoreError(w, r, err, request.ClientTxnID) {
 		return
 	}
@@ -502,7 +416,7 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	session, incidentID, err := s.store.GetSession(r.Context(), route.SessionID)
+	scope, err := s.applicationGetSession(r.Context(), route.SessionID)
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
 		return
@@ -511,7 +425,7 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(r.Context(), scope.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -520,25 +434,53 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	_ = session
-	result, err := s.store.StartApply(r.Context(), ApplyStartParams{
-		ActorUserID:       principal.User.ID,
-		SessionID:         route.SessionID,
-		Request:           request,
-		NormalizedRequest: request.Normalized,
-		Now:               s.now(),
-	})
+	result, err := s.applicationStartApply(r.Context(), principal.User.ID, route.SessionID, request)
 	if !writeImportStoreError(w, r, err, request.ClientTxnID) {
 		return
-	}
-	if !result.Replayed {
-		s.jobRunner.Notify(uuid.MustParse(result.Job.JobID))
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
+}
+
+func (s *Service) handleRegion(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	scope, err := s.applicationGetSession(r.Context(), route.SessionID)
+	if errors.Is(err, ErrNotFound) {
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
+		return
+	}
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), scope.IncidentID, principal.User.ID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeRegionRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	result, err, apiErr := s.applicationCreateOperatorRegion(r.Context(), principal.User.ID, route, request)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if !writeImportStoreError(w, r, err, request.ClientTxnID) {
+		return
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, http.StatusCreated, result.Unit)
 }
 
 func writeImportStoreError(w http.ResponseWriter, r *http.Request, err error, clientTxnID string) bool {

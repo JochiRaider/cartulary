@@ -75,7 +75,7 @@ func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.U
 	return request, nil
 }
 
-func (s *Service) approveAndSaveMapping(
+func (s *Service) applicationApproveMapping(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	incidentID uuid.UUID,
@@ -142,6 +142,9 @@ func (s *Service) validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIE
 		field, ok := fields[*column.FieldKey]
 		if !ok || (!field.Writable && !field.CreateWritable) {
 			return invalidImportRequest("source_columns", "field_not_import_writable")
+		}
+		if column.EmptyValuePolicy == "write_null" && !field.Clearable {
+			return invalidImportRequest("empty_value_policy", "invalid_empty_value_policy")
 		}
 		if field.EntityBindingMode == nil {
 			if column.EntityBindingMode != nil {

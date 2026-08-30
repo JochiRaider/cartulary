@@ -6,7 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -314,7 +314,7 @@ func validAssessmentImportDependencies() assessments.ImportCreateDependencies {
 
 type assessmentConstructorDB struct{ postgres.DB }
 type assessmentConstructorLiveRevisions struct {
-	ownerfacade.LiveRecordRevisionAppender
+	*revisions.Appender
 }
 type assessmentConstructorPublications struct {
 	collaboration.RecordChangedAppender
@@ -342,7 +342,7 @@ type typedNilAssessmentProjection struct {
 	assessments.AssessmentProjectionPort
 }
 type typedNilLiveRevisionAppender struct {
-	ownerfacade.LiveRecordRevisionAppender
+	*revisions.Appender
 }
 type typedNilRecordChangedAppender struct {
 	collaboration.RecordChangedAppender

@@ -62,15 +62,6 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 	now := command.Now.UTC()
 	actor := authn.UserRecord{ID: request.ActorUserID}
 
-	var (
-		recordID       uuid.UUID
-		rowVersion     int64
-		beforeRow      map[string]any
-		afterRow       map[string]any
-		operationKind  string
-		entityType     string
-		beforeSnapshot *revisions.RecordSnapshot
-	)
 	switch request.TargetViewSchemaID {
 	case entitycontract.HostsViewSchemaID:
 		record, before, operation, _, snapshot, err := s.upsertHostTx(ctx, tx, actor, request.IncidentID, createRequest, now)
@@ -80,13 +71,10 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		if err := s.ports.projections.RefreshHostTx(ctx, tx, record.RecordID); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		recordID = record.RecordID
-		rowVersion = record.RowVersion
-		beforeRow = before
-		beforeSnapshot = snapshot
-		afterRow = buildHostRow(record)
-		operationKind = operation
-		entityType = "host"
+		return s.finalizeHostImportRowTx(
+			ctx, tx, command, record.RecordID, record.RowVersion,
+			before, snapshot, buildHostRow(record), operation,
+		)
 	case entitycontract.IdentitiesViewSchemaID:
 		record, before, operation, _, snapshot, err := s.upsertIdentityTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
@@ -95,53 +83,179 @@ func (s *importOwner) createImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		if err := s.ports.projections.RefreshIdentityTx(ctx, tx, record.RecordID); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		recordID = record.RecordID
-		rowVersion = record.RowVersion
-		beforeRow = before
-		beforeSnapshot = snapshot
-		afterRow = buildIdentityRow(record)
-		operationKind = operation
-		entityType = "identity"
+		return s.finalizeIdentityImportRowTx(
+			ctx, tx, command, record.RecordID, record.RowVersion,
+			before, snapshot, buildIdentityRow(record), operation,
+		)
 	default:
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("entity import surface %q not mapped", request.TargetViewSchemaID)
 	}
+}
 
+func (s *importOwner) finalizeHostImportRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	command ownerfacade.ImportOwnerCreateCommand,
+	recordID uuid.UUID,
+	rowVersion int64,
+	beforeRow map[string]any,
+	beforeSnapshot *revisions.RecordSnapshot,
+	afterRow map[string]any,
+	operationKind string,
+) (ownerfacade.ImportOwnerCreateResponse, error) {
+	afterSnapshot, err := s.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	operation := operationKind
 	createdOrReused := "created"
 	resultCode := "created"
-	operation := operationKind
 	var beforeVersionID *string
-	var beforeValue map[string]any
 	if beforeRow != nil {
 		createdOrReused = "reused"
 		resultCode = "reused"
+		beforeVersion := rowVersion
 		if reflect.DeepEqual(beforeRow, afterRow) {
 			operation = "reuse"
 		} else {
 			resultCode = "updated"
-			beforeValue = beforeRow
 			if rowVersion > 1 {
-				value := ownerfacade.VersionID(recordID, rowVersion-1)
-				beforeVersionID = &value
+				beforeVersion = rowVersion - 1
 			}
 		}
+		value := entityVersionID("host", recordID, beforeVersion)
+		beforeVersionID = &value
 	}
 	if operation == "" {
-		operation = entityType + "_import_create"
+		operation = "host_import_create"
 	}
-	return ownerfacade.FinalizeLiveRecordTx(ctx, tx, s.revisionAppender, s.publications, ownerfacade.FinalizeCommand{
-		Request:         request,
+	afterVersionID := entityVersionID("host", recordID, rowVersion)
+	if err := s.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
+		TargetKind:      "host",
 		RecordID:        recordID,
-		Operation:       operation,
-		CreatedOrReused: createdOrReused,
-		OwnerResultCode: resultCode,
+		OperationKind:   operation,
 		BeforeVersionID: beforeVersionID,
-		BeforeValue:     beforeValue,
+		AfterVersionID:  &afterVersionID,
 		BeforeSnapshot:  beforeSnapshot,
-		Row:             afterRow,
-		CreatedAt:       now,
-	})
+		AfterSnapshot:   &afterSnapshot,
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
+		changedFields := entityChangedFieldKeys(beforeRow, afterRow)
+		if err := s.revisionAppender.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+			ChangeSetID:    command.ChangeSetID,
+			RecordID:       recordID,
+			RowVersion:     rowVersion,
+			BeforeSnapshot: beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			ConflictFacts:  entityRevisionFacts(beforeRow, afterRow, changedFields),
+		}); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+		request := command.Request
+		if err := s.appendRecordChangedTx(
+			ctx, tx, request.IncidentID, request.ActorUserID,
+			request.ClientTxnID, command.ChangeSetID, recordID, rowVersion,
+			max(command.SequenceNo-1, 0), command.Now,
+			entitycontract.HostsViewSchemaID, afterRow, changedFields,
+		); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+	}
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             recordID,
+		RowVersion:           rowVersion,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),
+		CreatedOrReused:      createdOrReused,
+		OwnerResultCode:      resultCode,
+		RowRefresh:           afterRow,
+	}, nil
+}
+
+func (s *importOwner) finalizeIdentityImportRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	command ownerfacade.ImportOwnerCreateCommand,
+	recordID uuid.UUID,
+	rowVersion int64,
+	beforeRow map[string]any,
+	beforeSnapshot *revisions.RecordSnapshot,
+	afterRow map[string]any,
+	operationKind string,
+) (ownerfacade.ImportOwnerCreateResponse, error) {
+	afterSnapshot, err := s.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	operation := operationKind
+	createdOrReused := "created"
+	resultCode := "created"
+	var beforeVersionID *string
+	if beforeRow != nil {
+		createdOrReused = "reused"
+		resultCode = "reused"
+		beforeVersion := rowVersion
+		if reflect.DeepEqual(beforeRow, afterRow) {
+			operation = "reuse"
+		} else {
+			resultCode = "updated"
+			if rowVersion > 1 {
+				beforeVersion = rowVersion - 1
+			}
+		}
+		value := entityVersionID("identity", recordID, beforeVersion)
+		beforeVersionID = &value
+	}
+	if operation == "" {
+		operation = "identity_import_create"
+	}
+	afterVersionID := entityVersionID("identity", recordID, rowVersion)
+	if err := s.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+		ChangeSetID:     command.ChangeSetID,
+		SequenceNo:      command.SequenceNo,
+		TargetKind:      "identity",
+		RecordID:        recordID,
+		OperationKind:   operation,
+		BeforeVersionID: beforeVersionID,
+		AfterVersionID:  &afterVersionID,
+		BeforeSnapshot:  beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
+	}); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
+		changedFields := entityChangedFieldKeys(beforeRow, afterRow)
+		if err := s.revisionAppender.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
+			ChangeSetID:    command.ChangeSetID,
+			RecordID:       recordID,
+			RowVersion:     rowVersion,
+			BeforeSnapshot: beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			ConflictFacts:  entityRevisionFacts(beforeRow, afterRow, changedFields),
+		}); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+		request := command.Request
+		if err := s.appendRecordChangedTx(
+			ctx, tx, request.IncidentID, request.ActorUserID,
+			request.ClientTxnID, command.ChangeSetID, recordID, rowVersion,
+			max(command.SequenceNo-1, 0), command.Now,
+			entitycontract.IdentitiesViewSchemaID, afterRow, changedFields,
+		); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+	}
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             recordID,
+		RowVersion:           rowVersion,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),
+		CreatedOrReused:      createdOrReused,
+		OwnerResultCode:      resultCode,
+		RowRefresh:           afterRow,
+	}, nil
 }
 
 func entityCreateRequestFromImport(clientTxnID string, fields []ownerfacade.ImportFieldValue) CreateRequest {
