@@ -26,6 +26,17 @@ import {
 import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import { useExtensionAvailabilityController } from "../extensions/ExtensionAvailabilityContext";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
+import {
+  NetworkFlowActionGroup,
+  NetworkFlowButton,
+  NetworkFlowChoice,
+  NetworkFlowChromeStyles,
+  NetworkFlowField,
+  NetworkFlowIconButton,
+  NetworkFlowSelect,
+  NetworkFlowTextInput,
+  networkFlowChromeRootClassName,
+} from "./NetworkFlowControls";
 import { NetworkFlowMappingModal } from "./NetworkFlowMappingModal";
 import {
   NetworkFlowAcceptedQueryControls,
@@ -348,12 +359,14 @@ function NetworkAnalysisWorkspaceContent({
   return (
     <section
       aria-label="Network Analysis"
+      className={networkFlowChromeRootClassName}
       data-extension-profile-id={activeTableScopeLabel.extension_profile_id}
       data-testid={networkAnalysisTestId("workspace")}
       data-workspace-key={activeTableScopeLabel.workspace_key}
       style={workspaceStyle}
       tabIndex={-1}
     >
+      <NetworkFlowChromeStyles />
       <header
         data-testid={networkAnalysisTestId("workspace-header")}
         style={workspaceHeaderStyle}
@@ -401,17 +414,16 @@ function NetworkAnalysisWorkspaceContent({
               return renamed;
             }}
           />
-          <button
+          <NetworkFlowIconButton
+            aria-label="Refresh tables"
             data-testid={networkAnalysisTestId("refresh")}
-            style={iconButtonStyle}
             title="Refresh"
-            type="button"
             onClick={() => {
               void tableController.loadTables();
             }}
           >
             <RefreshCw aria-hidden="true" size={16} />
-          </button>
+          </NetworkFlowIconButton>
           <input
             ref={fileInputRef}
             accept=".csv,text/csv"
@@ -421,16 +433,15 @@ function NetworkAnalysisWorkspaceContent({
             onChange={importController.handleImportChange}
           />
           {canImport ? (
-            <button
+            <NetworkFlowButton
               data-testid={networkAnalysisTestId("import-trigger")}
-              disabled={importController.importing}
-              style={commandButtonStyle}
-              type="button"
+              pending={importController.importing}
+              variant="primary"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload aria-hidden="true" size={16} />
               Import NetFlow CSV
-            </button>
+            </NetworkFlowButton>
           ) : null}
         </div>
       </header>
@@ -440,7 +451,7 @@ function NetworkAnalysisWorkspaceContent({
             const selected =
               table.network_flow_table_id === tableController.activeTableId;
             return (
-              <button
+              <NetworkFlowButton
                 key={table.network_flow_table_id}
                 aria-controls="network-flow-work-area"
                 aria-selected={selected}
@@ -448,12 +459,9 @@ function NetworkAnalysisWorkspaceContent({
                   table.network_flow_table_id,
                 )}
                 role="tab"
-                style={{
-                  ...innerTabStyle,
-                  ...(selected ? innerTabActiveStyle : null),
-                }}
+                selected={selected}
                 tabIndex={selected ? 0 : -1}
-                type="button"
+                variant="mode"
                 onKeyDown={(event) => {
                   if (
                     event.key !== "ArrowLeft" &&
@@ -492,56 +500,49 @@ function NetworkAnalysisWorkspaceContent({
                   setMode("rows");
                 }}
               >
-                <span>{table.display_name}</span>
+                <span className="network-flow-truncate">
+                  {table.display_name}
+                </span>
                 <small style={tabCountStyle}>{index + 1}</small>
-              </button>
+              </NetworkFlowButton>
             );
           })}
         </div>
       </div>
 
       <div style={modeBarStyle}>
-        <button
+        <NetworkFlowButton
           aria-pressed={mode === "rows"}
           data-testid={networkAnalysisTestId("mode-rows")}
           disabled={tableController.activeTable === null}
-          style={{
-            ...modeButtonStyle,
-            ...(mode === "rows" ? modeButtonActiveStyle : null),
-          }}
-          type="button"
+          selected={mode === "rows"}
+          variant="mode"
           onClick={() => setMode("rows")}
         >
           <Table2 aria-hidden="true" size={15} />
           Rows
-        </button>
-        <button
+        </NetworkFlowButton>
+        <NetworkFlowButton
           aria-pressed={mode === "rejected"}
           data-testid={networkAnalysisTestId("mode-rejected")}
           disabled={tableController.activeTable === null}
-          style={{
-            ...modeButtonStyle,
-            ...(mode === "rejected" ? modeButtonActiveStyle : null),
-          }}
-          type="button"
+          selected={mode === "rejected"}
+          variant="mode"
           onClick={() => setMode("rejected")}
         >
           Rejected
-        </button>
-        <button
+        </NetworkFlowButton>
+        <NetworkFlowButton
           aria-pressed={mode === "graph"}
           data-testid={networkAnalysisTestId("mode-graph")}
           disabled={tableController.tables.length === 0}
-          style={{
-            ...modeButtonStyle,
-            ...(mode === "graph" ? modeButtonActiveStyle : null),
-          }}
-          type="button"
+          selected={mode === "graph"}
+          variant="mode"
           onClick={() => setMode("graph")}
         >
           <Network aria-hidden="true" size={15} />
           Graph
-        </button>
+        </NetworkFlowButton>
       </div>
 
       <div style={queryBandsStyle}>
@@ -585,20 +586,24 @@ function NetworkAnalysisWorkspaceContent({
           >
             <fieldset style={graphSurfaceFieldsetStyle}>
               <legend style={visuallyHiddenStyle}>Graph workspace mode</legend>
-              <button
+              <NetworkFlowButton
                 aria-pressed={graphSurface === "explore"}
-                type="button"
+                data-testid={networkAnalysisTestId("graph-surface-explore")}
+                selected={graphSurface === "explore"}
+                variant="mode"
                 onClick={() => setGraphSurface("explore")}
               >
                 Unsaved exploration
-              </button>
-              <button
+              </NetworkFlowButton>
+              <NetworkFlowButton
                 aria-pressed={graphSurface === "saved"}
-                type="button"
+                data-testid={networkAnalysisTestId("graph-surface-saved")}
+                selected={graphSurface === "saved"}
+                variant="mode"
                 onClick={() => setGraphSurface("saved")}
               >
                 Saved graphs
-              </button>
+              </NetworkFlowButton>
             </fieldset>
             {graphSurface === "saved" ? (
               <NetworkFlowSavedGraphPanel
@@ -851,12 +856,11 @@ function TableLifecycleControls({
   return (
     <>
       {canRename ? (
-        <button
+        <NetworkFlowButton
           data-testid={networkAnalysisTestId("rename-trigger")}
           disabled={busy}
-          style={iconButtonStyle}
           title="Rename active table"
-          type="button"
+          variant="secondary"
           onClick={() => {
             setRenameValue(table.display_name);
             setDialog("rename");
@@ -864,14 +868,13 @@ function TableLifecycleControls({
         >
           <Pencil aria-hidden="true" size={16} />
           Rename
-        </button>
+        </NetworkFlowButton>
       ) : null}
       {canDelete ? (
-        <button
+        <NetworkFlowButton
           data-testid={networkAnalysisTestId("delete-trigger")}
           disabled={busy}
-          style={dangerButtonStyle}
-          type="button"
+          variant="danger"
           onClick={() => {
             setDeleteConfirmation("");
             setDialog("delete");
@@ -879,7 +882,7 @@ function TableLifecycleControls({
         >
           <Trash2 aria-hidden="true" size={16} />
           Delete
-        </button>
+        </NetworkFlowButton>
       ) : null}
       {dialog === "rename" && canRename ? (
         <RenameTableDialog
@@ -935,14 +938,14 @@ function RenameTableDialog({
     onDismiss: onCancel,
   });
   return (
-    <div style={commandDialogBackdropStyle}>
+    <div className="network-flow-dialog-backdrop">
       <form
         ref={modalFocus.dialogRef}
         aria-labelledby="network-flow-rename-title"
         aria-modal="true"
         data-testid={networkAnalysisTestId("rename-dialog")}
         role="dialog"
-        style={commandDialogStyle}
+        className="network-flow-dialog"
         onKeyDown={modalFocus.onKeyDown}
         onSubmit={(event) => {
           event.preventDefault();
@@ -950,33 +953,38 @@ function RenameTableDialog({
         }}
       >
         <h3 id="network-flow-rename-title">Rename Network Flow table</h3>
-        <label style={fieldLabelStyle}>
-          Display name
-          <input
+        <NetworkFlowField
+          htmlFor="network-flow-rename-input"
+          label="Display name"
+        >
+          <NetworkFlowTextInput
             data-testid={networkAnalysisTestId("rename-input")}
+            id="network-flow-rename-input"
             maxLength={64}
             required
             value={renameValue}
             onChange={(event) => onRenameValueChange(event.currentTarget.value)}
           />
-        </label>
-        <div style={dialogActionsStyle}>
-          <button
+        </NetworkFlowField>
+        <NetworkFlowActionGroup>
+          <NetworkFlowButton
             data-testid={networkAnalysisTestId("rename-cancel")}
             disabled={busy}
-            type="button"
+            variant="secondary"
             onClick={onCancel}
           >
             Cancel
-          </button>
-          <button
+          </NetworkFlowButton>
+          <NetworkFlowButton
             data-testid={networkAnalysisTestId("rename-submit")}
             disabled={busy || renameValue.trim() === ""}
+            pending={renaming}
             type="submit"
+            variant="secondary"
           >
             {renaming ? "Renaming…" : "Rename"}
-          </button>
-        </div>
+          </NetworkFlowButton>
+        </NetworkFlowActionGroup>
       </form>
     </div>
   );
@@ -1005,7 +1013,7 @@ function DeleteTableDialog({
     onDismiss: onCancel,
   });
   return (
-    <div style={commandDialogBackdropStyle}>
+    <div className="network-flow-dialog-backdrop">
       <form
         ref={modalFocus.dialogRef}
         aria-describedby="network-flow-delete-description"
@@ -1013,7 +1021,7 @@ function DeleteTableDialog({
         aria-modal="true"
         data-testid={networkAnalysisTestId("delete-dialog")}
         role="alertdialog"
-        style={commandDialogStyle}
+        className="network-flow-dialog"
         onKeyDown={modalFocus.onKeyDown}
         onSubmit={(event) => {
           event.preventDefault();
@@ -1026,34 +1034,41 @@ function DeleteTableDialog({
           rows, diagnostics, graph results, and cursors unavailable. Type the
           exact table name to confirm.
         </p>
-        <label style={fieldLabelStyle}>
-          Confirm table name
-          <input
+        <NetworkFlowField
+          help={`Type ${table.display_name} exactly.`}
+          helpId="network-flow-delete-confirmation-help"
+          htmlFor="network-flow-delete-confirmation"
+          label="Confirm table name"
+        >
+          <NetworkFlowTextInput
+            aria-describedby="network-flow-delete-confirmation-help"
             data-testid={networkAnalysisTestId("delete-confirmation")}
+            id="network-flow-delete-confirmation"
             value={confirmation}
             onChange={(event) =>
               onConfirmationChange(event.currentTarget.value)
             }
           />
-        </label>
-        <div style={dialogActionsStyle}>
-          <button
+        </NetworkFlowField>
+        <NetworkFlowActionGroup>
+          <NetworkFlowButton
             data-testid={networkAnalysisTestId("delete-cancel")}
             disabled={busy}
-            type="button"
+            variant="secondary"
             onClick={onCancel}
           >
             Cancel
-          </button>
-          <button
+          </NetworkFlowButton>
+          <NetworkFlowButton
             data-testid={networkAnalysisTestId("delete-confirm")}
             disabled={busy || confirmation !== table.display_name}
-            style={dangerButtonStyle}
+            pending={deleting}
             type="submit"
+            variant="danger"
           >
             {deleting ? "Deleting…" : "Delete table"}
-          </button>
-        </div>
+          </NetworkFlowButton>
+        </NetworkFlowActionGroup>
       </form>
     </div>
   );
@@ -1127,9 +1142,9 @@ function NetworkFlowBlockingState({
       </strong>
       <span>{state.message}</span>
       {state.kind === "unavailable" ? (
-        <button type="button" onClick={onRetry}>
+        <NetworkFlowButton variant="secondary" onClick={onRetry}>
           Retry
-        </button>
+        </NetworkFlowButton>
       ) : null}
     </section>
   );
@@ -1150,15 +1165,14 @@ function EmptyNetworkAnalysisState({
       style={emptyStateStyle}
     >
       {canImport ? (
-        <button
-          disabled={importing}
-          style={commandButtonStyle}
-          type="button"
+        <NetworkFlowButton
+          pending={importing}
+          variant="primary"
           onClick={onImport}
         >
           <Upload aria-hidden="true" size={16} />
           Import NetFlow CSV
-        </button>
+        </NetworkFlowButton>
       ) : (
         <span style={mutedTextStyle}>No active Network Flow tables.</span>
       )}
@@ -1218,10 +1232,9 @@ function RowsPanel({
       <PanelHeader table={activeTable} />
       {canLink ? (
         <div style={linkActionsStyle}>
-          <button
+          <NetworkFlowButton
             disabled={rowLinkSelection === null}
-            style={commandButtonStyle}
-            type="button"
+            variant="secondary"
             onClick={onBeginLink}
           >
             <Link2 aria-hidden="true" size={15} />
@@ -1230,7 +1243,7 @@ function RowsPanel({
               : `Link ${rowLinkSelection.rows.length} selected row${
                   rowLinkSelection.rows.length === 1 ? "" : "s"
                 }`}
-          </button>
+          </NetworkFlowButton>
         </div>
       ) : null}
       <NetworkFlowAcceptedGrid
@@ -1339,29 +1352,33 @@ function QueryPagination({
   readonly pageNumber: number;
 }) {
   return (
-    <nav aria-label="Network Flow result pages" style={paginationStyle}>
-      <button
+    <nav
+      aria-label="Network Flow result pages"
+      className="network-flow-pagination"
+      style={paginationStyle}
+    >
+      <NetworkFlowButton
         data-testid={networkAnalysisTestId("page-previous")}
         disabled={!canPrevious || loading}
-        type="button"
+        variant="secondary"
         onClick={onPrevious}
       >
         Previous
-      </button>
+      </NetworkFlowButton>
       <span
         aria-live="polite"
         data-testid={networkAnalysisTestId("page-status")}
       >
         {loading ? "Loading page" : `Page ${pageNumber}`}
       </span>
-      <button
+      <NetworkFlowButton
         data-testid={networkAnalysisTestId("page-next")}
         disabled={!canNext || loading}
-        type="button"
+        variant="secondary"
         onClick={onNext}
       >
         Next
-      </button>
+      </NetworkFlowButton>
       {notice === null ? null : <span role="status">{notice}</span>}
     </nav>
   );
@@ -1558,9 +1575,14 @@ function GraphPanel({
               ["all_active_tables", "All active tables"],
             ] as const
           ).map(([value, label]) => (
-            <label key={value} style={inlineControlStyle}>
-              <input
+            <label
+              key={value}
+              htmlFor={`network-flow-graph-scope-${value}`}
+              style={inlineControlStyle}
+            >
+              <NetworkFlowChoice
                 checked={scopeMode === value}
+                id={`network-flow-graph-scope-${value}`}
                 name="network-flow-graph-scope"
                 type="radio"
                 value={value}
@@ -1578,11 +1600,13 @@ function GraphPanel({
                 return (
                   <label
                     key={table.network_flow_table_id}
+                    htmlFor={`network-flow-graph-table-${table.network_flow_table_id}`}
                     style={inlineControlStyle}
                   >
-                    <input
+                    <NetworkFlowChoice
                       checked={checked}
                       disabled={checked && selectedTableIds.length === 1}
+                      id={`network-flow-graph-table-${table.network_flow_table_id}`}
                       type="checkbox"
                       onChange={(event) =>
                         onSelectTable(
@@ -1600,18 +1624,26 @@ function GraphPanel({
         </fieldset>
         <fieldset style={graphScopeStyle}>
           <legend>Graph aggregation</legend>
-          <label style={inlineControlStyle}>
-            <input
+          <label
+            htmlFor="network-flow-graph-aggregation-default"
+            style={inlineControlStyle}
+          >
+            <NetworkFlowChoice
               checked={aggregationMode === "default_flow_edge_v1"}
+              id="network-flow-graph-aggregation-default"
               name="network-flow-graph-aggregation"
               type="radio"
               onChange={() => onAggregationModeChange("default_flow_edge_v1")}
             />
             Default flow edges
           </label>
-          <label style={inlineControlStyle}>
-            <input
+          <label
+            htmlFor="network-flow-graph-aggregation-time"
+            style={inlineControlStyle}
+          >
+            <NetworkFlowChoice
               checked={aggregationMode === "time_bucket_v1"}
+              id="network-flow-graph-aggregation-time"
               name="network-flow-graph-aggregation"
               type="radio"
               onChange={() => onAggregationModeChange("time_bucket_v1")}
@@ -1619,10 +1651,13 @@ function GraphPanel({
             Time buckets
           </label>
           {aggregationMode === "time_bucket_v1" ? (
-            <label style={fieldLabelStyle}>
-              Bucket width
-              <select
+            <NetworkFlowField
+              htmlFor="network-flow-graph-bucket-width"
+              label="Bucket width"
+            >
+              <NetworkFlowSelect
                 aria-label="Bucket width"
+                id="network-flow-graph-bucket-width"
                 value={bucketWidthSeconds}
                 onChange={(event) =>
                   onBucketWidthChange(
@@ -1638,11 +1673,11 @@ function GraphPanel({
                 <option value={3600}>1 hour</option>
                 <option value={21600}>6 hours</option>
                 <option value={86400}>1 day</option>
-              </select>
-            </label>
+              </NetworkFlowSelect>
+            </NetworkFlowField>
           ) : null}
           {validationMessage === null ? null : (
-            <p role="alert" style={errorTextStyle}>
+            <p className="network-flow-status" data-tone="error" role="alert">
               {validationMessage}
             </p>
           )}
@@ -1652,13 +1687,13 @@ function GraphPanel({
             aria-label="Time bucket navigation"
             style={boundedNavigationStyle}
           >
-            <button
+            <NetworkFlowButton
               disabled={bucketIndex === 0}
-              type="button"
+              variant="secondary"
               onClick={() => setBucketIndex((current) => current - 1)}
             >
               Previous bucket
-            </button>
+            </NetworkFlowButton>
             <strong>
               Bucket {bucketIndex + 1} of {timeBuckets.length}
             </strong>
@@ -1668,13 +1703,13 @@ function GraphPanel({
               {selectedBucket.edge_count} edges ·{" "}
               {selectedBucket.contributing_row_count} rows
             </span>
-            <button
+            <NetworkFlowButton
               disabled={bucketIndex + 1 >= timeBuckets.length}
-              type="button"
+              variant="secondary"
               onClick={() => setBucketIndex((current) => current + 1)}
             >
               Next bucket
-            </button>
+            </NetworkFlowButton>
           </nav>
         )}
         <div style={graphSummaryStyle}>
@@ -1717,9 +1752,9 @@ function GraphPanel({
             />
           ) : null}
           {graphLoadState === "error" ? (
-            <button type="button" onClick={onRefreshGraph}>
+            <NetworkFlowButton variant="secondary" onClick={onRefreshGraph}>
               <RefreshCw aria-hidden="true" size={14} /> Retry
-            </button>
+            </NetworkFlowButton>
           ) : null}
         </div>
         <div style={tableScrollStyle}>
@@ -1759,18 +1794,19 @@ function GraphPanel({
                       )}
                     </td>
                     <td style={tdStyle}>
-                      <button
+                      <NetworkFlowButton
                         ref={
                           selectedVertex === vertex
                             ? selectedGraphButtonRef
                             : undefined
                         }
                         aria-pressed={selectedVertex === vertex}
-                        type="button"
+                        selected={selectedVertex === vertex}
+                        variant="mode"
                         onClick={() => onSelectVertex(selector)}
                       >
                         Select vertex
-                      </button>
+                      </NetworkFlowButton>
                     </td>
                   </tr>
                 );
@@ -1820,18 +1856,19 @@ function GraphPanel({
                         graphScalar(edge.properties.flow_row_count)}
                     </td>
                     <td style={tdStyle}>
-                      <button
+                      <NetworkFlowButton
                         ref={
                           selectedEdge === edge
                             ? selectedGraphButtonRef
                             : undefined
                         }
                         aria-pressed={selectedEdge === edge}
-                        type="button"
+                        selected={selectedEdge === edge}
+                        variant="mode"
                         onClick={() => onSelectEdge(annotation.selector)}
                       >
                         Select edge
-                      </button>
+                      </NetworkFlowButton>
                     </td>
                   </tr>
                 );
@@ -1859,11 +1896,10 @@ function GraphPanel({
                 ? `Vertex ${graphVertexLabel(selectedVertex)}`
                 : `Edge ${graphEdgeLabel(selectedEdge as NetworkFlowGraphEdge, graphEndpointLabels)}`}
             </strong>
-            <button
+            <NetworkFlowIconButton
+              aria-label="Close graph contributors"
               data-testid={networkAnalysisTestId("contributor-close")}
-              style={iconButtonStyle}
               title="Close"
-              type="button"
               onClick={() => {
                 const returnTarget = selectedGraphButtonRef.current;
                 onCloseDrawer();
@@ -1871,37 +1907,31 @@ function GraphPanel({
               }}
             >
               <X aria-hidden="true" size={15} />
-            </button>
+            </NetworkFlowIconButton>
           </div>
           <div style={linkActionsStyle}>
             {canLink && selectedVertex ? (
-              <button
-                style={commandButtonStyle}
-                type="button"
-                onClick={onLinkVertex}
-              >
+              <NetworkFlowButton variant="secondary" onClick={onLinkVertex}>
                 <Link2 aria-hidden="true" size={15} />
                 Link vertex
-              </button>
+              </NetworkFlowButton>
             ) : null}
             {canLink && selectedEdge && firstContributor ? (
               <>
-                <button
-                  style={commandButtonStyle}
-                  type="button"
+                <NetworkFlowButton
+                  variant="secondary"
                   onClick={() => onLinkEdge("network_flow.src_ip")}
                 >
                   <Link2 aria-hidden="true" size={15} />
                   Link source
-                </button>
-                <button
-                  style={commandButtonStyle}
-                  type="button"
+                </NetworkFlowButton>
+                <NetworkFlowButton
+                  variant="secondary"
                   onClick={() => onLinkEdge("network_flow.dst_ip")}
                 >
                   <Link2 aria-hidden="true" size={15} />
                   Link destination
-                </button>
+                </NetworkFlowButton>
               </>
             ) : null}
           </div>
@@ -1964,20 +1994,20 @@ function BoundedGraphNavigation({
       <span>
         {itemLabel} {page + 1}/{pageCount}
       </span>
-      <button
+      <NetworkFlowButton
         disabled={page === 0}
-        type="button"
+        variant="secondary"
         onClick={() => onPageChange(page - 1)}
       >
         Previous
-      </button>
-      <button
+      </NetworkFlowButton>
+      <NetworkFlowButton
         disabled={page + 1 >= pageCount}
-        type="button"
+        variant="secondary"
         onClick={() => onPageChange(page + 1)}
       >
         Next
-      </button>
+      </NetworkFlowButton>
     </nav>
   );
 }
@@ -2166,14 +2196,14 @@ function IndicatorLinkDialog({
             indicator_id: existingIndicatorId.trim(),
           };
   return (
-    <div style={commandDialogBackdropStyle}>
+    <div className="network-flow-dialog-backdrop">
       <form
         ref={modalFocus.dialogRef}
         aria-labelledby="network-flow-indicator-link-title"
         aria-modal="true"
         data-testid={networkAnalysisTestId("indicator-link-dialog")}
         role="dialog"
-        style={commandDialogStyle}
+        className="network-flow-dialog"
         onKeyDown={modalFocus.onKeyDown}
         onSubmit={(event) => {
           event.preventDefault();
@@ -2187,21 +2217,31 @@ function IndicatorLinkDialog({
           Link <strong>{candidate.label}</strong>. Confirm the exact canonical
           IP value; display labels and positions are never used as targets.
         </p>
-        <output style={monoTextStyle}>{candidate.candidateValue}</output>
+        <output className="network-flow-mono" style={monoTextStyle}>
+          {candidate.candidateValue}
+        </output>
         <fieldset style={dialogFieldsetStyle}>
           <legend>Indicator target</legend>
-          <label style={inlineControlStyle}>
-            <input
+          <label
+            htmlFor="network-flow-indicator-target-create"
+            style={inlineControlStyle}
+          >
+            <NetworkFlowChoice
               checked={mode === "create"}
+              id="network-flow-indicator-target-create"
               name="network-flow-indicator-target"
               type="radio"
               onChange={() => setMode("create")}
             />
             Create Indicator
           </label>
-          <label style={inlineControlStyle}>
-            <input
+          <label
+            htmlFor="network-flow-indicator-target-existing"
+            style={inlineControlStyle}
+          >
+            <NetworkFlowChoice
               checked={mode === "existing"}
+              id="network-flow-indicator-target-existing"
               name="network-flow-indicator-target"
               type="radio"
               onChange={() => setMode("existing")}
@@ -2210,48 +2250,72 @@ function IndicatorLinkDialog({
           </label>
         </fieldset>
         {mode === "existing" ? (
-          <label style={fieldLabelStyle}>
-            Existing Indicator ID
-            <input
+          <NetworkFlowField
+            htmlFor="network-flow-existing-indicator-id"
+            label="Existing Indicator ID"
+          >
+            <NetworkFlowTextInput
               data-testid={networkAnalysisTestId("indicator-link-existing-id")}
+              id="network-flow-existing-indicator-id"
               required
               value={existingIndicatorId}
               onChange={(event) =>
                 setExistingIndicatorId(event.currentTarget.value)
               }
             />
-          </label>
+          </NetworkFlowField>
         ) : null}
-        <label style={fieldLabelStyle}>
-          Confirm exact canonical value
-          <input
+        <NetworkFlowField
+          error={
+            confirmation !== "" && confirmation !== candidate.candidateValue
+              ? "Enter the exact canonical value shown above."
+              : undefined
+          }
+          errorId="network-flow-indicator-confirmation-error"
+          help="This value must match exactly."
+          helpId="network-flow-indicator-confirmation-help"
+          htmlFor="network-flow-indicator-confirmation"
+          label="Confirm exact canonical value"
+        >
+          <NetworkFlowTextInput
+            aria-describedby={
+              confirmation !== "" && confirmation !== candidate.candidateValue
+                ? "network-flow-indicator-confirmation-help network-flow-indicator-confirmation-error"
+                : "network-flow-indicator-confirmation-help"
+            }
+            aria-invalid={
+              confirmation !== "" && confirmation !== candidate.candidateValue
+                ? "true"
+                : undefined
+            }
             data-testid={networkAnalysisTestId("indicator-link-confirmation")}
+            id="network-flow-indicator-confirmation"
             required
             value={confirmation}
             onChange={(event) => setConfirmation(event.currentTarget.value)}
           />
-        </label>
-        <div style={dialogActionsStyle}>
-          <button
+        </NetworkFlowField>
+        <NetworkFlowActionGroup>
+          <NetworkFlowButton
             data-testid={networkAnalysisTestId("indicator-link-cancel")}
             disabled={linking}
-            type="button"
+            variant="secondary"
             onClick={onCancel}
           >
             Cancel
-          </button>
-          <button
+          </NetworkFlowButton>
+          <NetworkFlowButton
             data-testid={networkAnalysisTestId("indicator-link-submit")}
             disabled={
-              linking ||
-              target === null ||
-              confirmation !== candidate.candidateValue
+              target === null || confirmation !== candidate.candidateValue
             }
+            pending={linking}
             type="submit"
+            variant="primary"
           >
             {linking ? "Linking…" : "Link Indicator"}
-          </button>
-        </div>
+          </NetworkFlowButton>
+        </NetworkFlowActionGroup>
       </form>
     </div>
   );
@@ -2315,7 +2379,7 @@ const workspaceStyle = {
   minBlockSize: 0,
   minWidth: 0,
   background: "var(--ct-colors-canvas)",
-  color: "var(--ct-colors-text-primary)",
+  color: "var(--ct-colors-ink)",
 } satisfies CSSProperties;
 
 const queryBandsStyle = {
@@ -2327,6 +2391,7 @@ const workspaceHeaderStyle = {
   background: "var(--ct-colors-surface-1)",
   borderBlockEnd: "var(--ct-border-hairline)",
   display: "flex",
+  flexWrap: "wrap",
   gap: "var(--ct-spacing-md)",
   justifyContent: "space-between",
   padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
@@ -2346,6 +2411,7 @@ const diagnosticsSummaryStyle = {
   fontSize: "0.75rem",
   gap: "var(--ct-spacing-md)",
   padding: "var(--ct-spacing-xs) var(--ct-spacing-md)",
+  overflowWrap: "anywhere",
 } satisfies CSSProperties;
 
 const viewBarStyle = {
@@ -2366,94 +2432,18 @@ const tabsStyle = {
   overflowX: "auto",
 } satisfies CSSProperties;
 
-const innerTabStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "var(--ct-spacing-xs)",
-  minBlockSize: "2rem",
-  maxInlineSize: "18rem",
-  paddingInline: "var(--ct-spacing-sm)",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-text-primary)",
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-} satisfies CSSProperties;
-
-const innerTabActiveStyle = {
-  borderColor: "var(--ct-colors-accent-strong)",
-  background: "var(--ct-colors-surface-2)",
-} satisfies CSSProperties;
-
 const tabCountStyle = {
   fontVariantNumeric: "tabular-nums",
-  color: "var(--ct-colors-text-muted)",
+  color: "var(--ct-colors-ink-muted)",
 } satisfies CSSProperties;
 
 const viewActionsStyle = {
   display: "flex",
   alignItems: "center",
+  flexWrap: "wrap",
   gap: "var(--ct-spacing-xs)",
-} satisfies CSSProperties;
-
-const commandButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "var(--ct-spacing-xs)",
-  minBlockSize: "2rem",
-  paddingInline: "var(--ct-spacing-sm)",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-text-primary)",
-  whiteSpace: "nowrap",
-} satisfies CSSProperties;
-
-const iconButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  inlineSize: "2rem",
-  blockSize: "2rem",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-text-primary)",
-} satisfies CSSProperties;
-
-const dangerButtonStyle = {
-  ...commandButtonStyle,
-  borderColor: "var(--ct-colors-danger-strong)",
-  color: "var(--ct-colors-danger-strong)",
-} satisfies CSSProperties;
-
-const commandDialogBackdropStyle = {
-  alignItems: "center",
-  background: "color-mix(in srgb, var(--ct-colors-canvas) 72%, transparent)",
-  display: "flex",
-  inset: 0,
-  justifyContent: "center",
-  position: "fixed",
-  zIndex: 20,
-} satisfies CSSProperties;
-
-const commandDialogStyle = {
-  background: "var(--ct-colors-surface-1)",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-md)",
-  boxShadow: "var(--ct-elevation-drawer)",
-  display: "grid",
-  gap: "var(--ct-spacing-md)",
-  inlineSize: "min(32rem, calc(100vw - 2rem))",
-  padding: "var(--ct-spacing-lg)",
-} satisfies CSSProperties;
-
-const fieldLabelStyle = {
-  display: "grid",
-  gap: "var(--ct-spacing-xs)",
+  justifyContent: "flex-end",
+  minWidth: 0,
 } satisfies CSSProperties;
 
 const dialogFieldsetStyle = {
@@ -2467,29 +2457,14 @@ const inlineControlStyle = {
   gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
 
-const dialogActionsStyle = {
-  display: "flex",
-  gap: "var(--ct-spacing-sm)",
-  justifyContent: "flex-end",
-} satisfies CSSProperties;
-
 const modeBarStyle = {
   display: "flex",
+  flexWrap: "wrap",
   alignItems: "center",
   gap: "var(--ct-spacing-xs)",
   padding: "var(--ct-spacing-xs) var(--ct-spacing-md)",
   borderBlockEnd: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
-} satisfies CSSProperties;
-
-const modeButtonStyle = {
-  ...commandButtonStyle,
-  minBlockSize: "1.75rem",
-} satisfies CSSProperties;
-
-const modeButtonActiveStyle = {
-  borderColor: "var(--ct-colors-accent-strong)",
-  background: "var(--ct-colors-surface-2)",
 } satisfies CSSProperties;
 
 const workAreaStyle = {
@@ -2580,7 +2555,7 @@ const thStyle = {
   padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
   borderBlockEnd: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-text-muted)",
+  color: "var(--ct-colors-ink-muted)",
   fontWeight: 600,
 } satisfies CSSProperties;
 
@@ -2592,7 +2567,7 @@ const tdStyle = {
 
 const tdMonoStyle = {
   ...tdStyle,
-  fontFamily: "var(--ct-font-family-mono)",
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
   fontVariantNumeric: "tabular-nums",
 } satisfies CSSProperties;
 
@@ -2634,6 +2609,7 @@ const graphTableSelectionStyle = {
 const graphSummaryStyle = {
   display: "flex",
   alignItems: "center",
+  flexWrap: "wrap",
   gap: "var(--ct-spacing-sm)",
   padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
   borderBlockEnd: "var(--ct-border-hairline)",
@@ -2643,6 +2619,7 @@ const graphSummaryStyle = {
 const boundedNavigationStyle = {
   alignItems: "center",
   display: "flex",
+  flexWrap: "wrap",
   gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
 
@@ -2695,16 +2672,18 @@ const statusStripStyle = {
   paddingInline: "var(--ct-spacing-md)",
   borderBlockStart: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-text-muted)",
+  color: "var(--ct-colors-ink-muted)",
   fontSize: "0.75rem",
+  overflowX: "auto",
+  whiteSpace: "nowrap",
 } satisfies CSSProperties;
 
 const mutedTextStyle = {
-  color: "var(--ct-colors-text-muted)",
+  color: "var(--ct-colors-ink-muted)",
 } satisfies CSSProperties;
 
 const errorTextStyle = {
-  color: "var(--ct-colors-danger-strong)",
+  color: "var(--ct-colors-semantic-destructive)",
 } satisfies CSSProperties;
 
 const visuallyHiddenStyle = {
@@ -2718,7 +2697,7 @@ const visuallyHiddenStyle = {
 } satisfies CSSProperties;
 
 const monoTextStyle = {
-  fontFamily: "var(--ct-font-family-mono)",
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
   fontVariantNumeric: "tabular-nums",
   overflow: "hidden",
   textOverflow: "ellipsis",

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { cartularyDesignTokenVars } from "@cartulary/ui-contracts";
 import { describe, expect, it } from "vitest";
 
 const networkFlowDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -77,5 +78,25 @@ describe("Network Flow frontend boundary policy", () => {
     );
     expect(evidence).not.toContain("page.setContent");
     expect(evidence).toContain("openClaimedNetworkAnalysis");
+  });
+
+  it("uses only authored Cartulary design-token variables in Network Flow source", () => {
+    const authored = new Set(Object.keys(cartularyDesignTokenVars));
+    const unknown = sourceFiles(networkFlowDirectory).flatMap((file) => {
+      const source = readFileSync(file, "utf8");
+      return [...source.matchAll(/--ct-[A-Za-z0-9-]+/gu)]
+        .map((match) => match[0])
+        .filter((token) => !authored.has(token))
+        .map((token) => `${path.basename(file)}: ${token}`);
+    });
+    expect([...new Set(unknown)].sort()).toEqual([]);
+  });
+
+  it("rejects legacy light-theme variable fallbacks in Network Flow source", () => {
+    for (const file of sourceFiles(networkFlowDirectory)) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/var\(--color-/u);
+      expect(source, file).not.toMatch(/#[fF]{3,6}\b/u);
+    }
   });
 });

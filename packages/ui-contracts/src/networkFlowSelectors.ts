@@ -20,9 +20,12 @@ export type NetworkAnalysisSelector =
   | "delete-dialog"
   | "delete-trigger"
   | "filters"
+  | "advanced-filters"
   | "graph-panel"
   | "graph-live-region"
   | "graph-scope"
+  | "graph-surface-explore"
+  | "graph-surface-saved"
   | "import-input"
   | "import-trigger"
   | "inspector"
@@ -109,6 +112,14 @@ export function networkAnalysisSavedGraphVertexTestId(
 ): StableTestId {
   return stableTestId(
     encodedTestId("network-flow-saved-graph-vertex", vertexId, "vertex_id"),
+  );
+}
+
+export function networkAnalysisSavedGraphTestId(
+  graphViewId: string,
+): StableTestId {
+  return stableTestId(
+    encodedTestId("network-flow-saved-graph", graphViewId, "graph_view_id"),
   );
 }
 

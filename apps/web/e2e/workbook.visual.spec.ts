@@ -133,7 +133,6 @@ import {
   type EvidenceUploadOptions,
 } from "./support/evidence/fixtures";
 import {
-  importNetworkFlowCSV,
   networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
@@ -200,6 +199,8 @@ type FrontendVisualFixtureRegistry = {
 
 const expectedFrontendVisualFixtureIds = [
   "visual.fixture.claimed_network_analysis_workspace_states",
+  "visual.fixture.claimed_network_analysis_narrow_workspace",
+  "visual.fixture.claimed_network_analysis_compact_workspace",
   "visual.fixture.base_inspector",
   "visual.fixture.default_timeline_workbook_shell",
   "visual.fixture.compact_desktop_workbook_shell",
@@ -6084,14 +6085,30 @@ if (
     const fixture = readFileSync(networkFlowMinimalCSV, "utf8");
     const lines = fixture.trimEnd().split("\n");
     const invalidRow = lines.at(-1)?.replace("192.0.2.10", "not-an-ip") ?? "";
-    await importNetworkFlowCSV(page, {
-      displayName: "visual-flow",
-      file: {
-        name: "visual-flow.csv",
+    await page
+      .getByTestId(networkAnalysisTestId("import-input"))
+      .setInputFiles({
+        name: "visual-flow-with-a-deliberately-long-source-name.csv",
         mimeType: "text/csv",
         buffer: Buffer.from(`${fixture.trimEnd()}\n${invalidRow}\n`),
-      },
-    });
+      });
+    const mappingDialog = page.getByTestId(
+      networkAnalysisTestId("mapping-dialog"),
+    );
+    await expect(mappingDialog).toBeVisible();
+    await page
+      .getByTestId(networkAnalysisTestId("mapping-display-name"))
+      .fill("visual-flow");
+    await assertViewportVisualRegression(
+      page,
+      "network-flow-analysis-mapping-dialog",
+    );
+    await page.getByTestId(networkAnalysisTestId("mapping-preview")).click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("mapping-preview-summary")),
+    ).toBeVisible();
+    await page.getByTestId(networkAnalysisTestId("mapping-apply")).click();
+    await expect(mappingDialog).toHaveCount(0);
     await page
       .getByRole("gridcell", { name: /Source IP:/u })
       .first()
@@ -6139,6 +6156,44 @@ if (
     await assertViewportVisualRegression(
       page,
       "network-flow-analysis-saved-graph-result",
+    );
+    await page.setViewportSize({ width: 1024, height: 720 });
+    await page
+      .getByTestId(networkAnalysisTestId("graph-surface-explore"))
+      .click();
+    await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
+    await page
+      .getByLabel("Endpoint IP value")
+      .fill(`2001:db8:${"longsegment".repeat(12)}`);
+    await page
+      .getByTestId(networkAnalysisTestId("advanced-filters"))
+      .locator("summary")
+      .click();
+    await assertViewportVisualRegression(
+      page,
+      "network-flow-analysis-narrow-query-controls",
+    );
+    await page
+      .getByTestId(networkAnalysisTestId("advanced-filters"))
+      .locator("summary")
+      .click();
+    await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+    await page
+      .getByTestId(networkAnalysisTestId("graph-surface-saved"))
+      .click();
+    await page.setViewportSize({ width: 768, height: 640 });
+    await assertViewportVisualRegression(
+      page,
+      "network-flow-analysis-compact-saved-graphs",
+    );
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByTestId(networkAnalysisTestId("delete-trigger")).click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("delete-dialog")),
+    ).toBeVisible();
+    await assertViewportVisualRegression(
+      page,
+      "network-flow-analysis-delete-dialog",
     );
   });
 }

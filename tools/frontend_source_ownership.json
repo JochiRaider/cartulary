@@ -78,6 +78,8 @@
       "paths": [
         "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "apps/web/src/networkFlow/NetworkAnalysisWorkspace.tsx",
+        "apps/web/src/networkFlow/NetworkFlowControls.test.tsx",
+        "apps/web/src/networkFlow/NetworkFlowControls.tsx",
         "apps/web/src/networkFlow/NetworkFlowGridLoadFixture.tsx",
         "apps/web/src/networkFlow/NetworkFlowMappingModal.tsx",
         "apps/web/src/networkFlow/NetworkFlowQueryControls.tsx",

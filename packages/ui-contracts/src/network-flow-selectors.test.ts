@@ -8,6 +8,9 @@ import {
   networkAnalysisMappingColumnTestId,
   networkAnalysisRowCellTestId,
   networkAnalysisRowTestId,
+  networkAnalysisSavedGraphEdgeTestId,
+  networkAnalysisSavedGraphTestId,
+  networkAnalysisSavedGraphVertexTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
   networkAnalysisVertexTestId,
@@ -17,6 +20,7 @@ const networkAnalysisSelectors = [
   "accepted-grid",
   "accepted-query-apply",
   "accepted-query-clear",
+  "advanced-filters",
   "column-menu",
   "contributor-close",
   "contributor-grid",
@@ -31,6 +35,8 @@ const networkAnalysisSelectors = [
   "graph-panel",
   "graph-live-region",
   "graph-scope",
+  "graph-surface-explore",
+  "graph-surface-saved",
   "import-input",
   "import-trigger",
   "inspector",
@@ -66,6 +72,13 @@ const networkAnalysisSelectors = [
   "rejected-grid",
   "rejected-query-apply",
   "rejected-query-clear",
+  "saved-graph-contributors",
+  "saved-graph-create",
+  "saved-graph-dialog",
+  "saved-graph-heading",
+  "saved-graph-name",
+  "saved-graph-result",
+  "saved-graphs",
   "stale-state",
   "status-strip",
   "table-panel",
@@ -92,6 +105,15 @@ describe("@cartulary/ui-contracts Network Flow selectors", () => {
     );
     expect(networkAnalysisVertexTestId("vertex 1")).toBe(
       "network-flow-vertex-vertex%201",
+    );
+    expect(networkAnalysisSavedGraphTestId("graph/1")).toBe(
+      "network-flow-saved-graph-graph%2F1",
+    );
+    expect(networkAnalysisSavedGraphVertexTestId("vertex 1")).toBe(
+      "network-flow-saved-graph-vertex-vertex%201",
+    );
+    expect(networkAnalysisSavedGraphEdgeTestId("edge:1")).toBe(
+      "network-flow-saved-graph-edge-edge%3A1",
     );
     expect(networkAnalysisRowTestId("row/1")).toBe("network-flow-row-row%2F1");
     expect(networkAnalysisRowCellTestId("row/1", "source.address")).toBe(
@@ -128,6 +150,9 @@ describe("@cartulary/ui-contracts Network Flow selectors", () => {
     );
     expect(() => networkAnalysisEdgeTestId(" ")).toThrow(
       "Invalid edge_id selector token:  ",
+    );
+    expect(() => networkAnalysisSavedGraphTestId("")).toThrow(
+      "Invalid graph_view_id selector token: ",
     );
     expect(networkAnalysisRowCellTestId("row-1", "Source address")).toBe(
       "network-flow-row-cell-row-1-Source%20address",

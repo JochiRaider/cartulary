@@ -64,9 +64,11 @@ export {
 } from "./designPresentation";
 export {
   type CartularyDefaultThemeId,
+  type CartularyDesignTokenReference,
   type CartularyDesignTokenVarName,
   cartularyDefaultThemeId,
   cartularyDesignThemeCssText,
+  cartularyDesignTokenReference,
   cartularyDesignTokenVars,
   type WorkbookGridDensityMetrics,
   type WorkbookLayoutMetrics,
@@ -136,6 +138,7 @@ export {
   networkAnalysisRowCellTestId,
   networkAnalysisRowTestId,
   networkAnalysisSavedGraphEdgeTestId,
+  networkAnalysisSavedGraphTestId,
   networkAnalysisSavedGraphVertexTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,

@@ -8,6 +8,11 @@ import type {
   NetworkFlowTable,
 } from "../services/networkFlowContractAdapter";
 import {
+  NetworkFlowButton,
+  NetworkFlowChromeStyles,
+  networkFlowChromeRootClassName,
+} from "./NetworkFlowControls";
+import {
   NetworkFlowSavedGraphPanel,
   type NetworkFlowSavedGraphPanelController,
 } from "./NetworkFlowSavedGraphPanel";
@@ -78,10 +83,12 @@ export function NetworkFlowGridLoadFixture() {
   return (
     <section
       aria-label="Network Flow supported-load fixture"
+      className={networkFlowChromeRootClassName}
       data-logical-row-count={logicalRowCount}
       data-testid={networkAnalysisTestId("load-fixture")}
       style={fixtureStyle}
     >
+      <NetworkFlowChromeStyles />
       <header style={headerStyle}>
         <div>
           <strong>Network Flow supported-load fixture</strong>
@@ -90,9 +97,12 @@ export function NetworkFlowGridLoadFixture() {
             refresh generation {refreshCount}
           </div>
         </div>
-        <button type="button" onClick={refreshEquivalentResources}>
+        <NetworkFlowButton
+          variant="secondary"
+          onClick={refreshEquivalentResources}
+        >
           Refresh equivalent resources
-        </button>
+        </NetworkFlowButton>
         <output aria-label="Fixture semantic selection">
           {selectionSummary}
         </output>
@@ -100,14 +110,15 @@ export function NetworkFlowGridLoadFixture() {
       <nav aria-label="Fixture grid surface" style={surfaceControlsStyle}>
         {(["accepted", "rejected", "contributors", "saved"] as const).map(
           (candidate) => (
-            <button
+            <NetworkFlowButton
               aria-pressed={surface === candidate}
               key={candidate}
-              type="button"
+              selected={surface === candidate}
+              variant="mode"
               onClick={() => setSurface(candidate)}
             >
               {fixtureSurfaceLabel(candidate)}
-            </button>
+            </NetworkFlowButton>
           ),
         )}
       </nav>
@@ -486,20 +497,24 @@ const fixtureStyle = {
   display: "grid",
   gap: "var(--ct-spacing-sm)",
   gridTemplateRows: "auto auto minmax(0, 1fr)",
-  inlineSize: "min(96rem, calc(100vw - 2rem))",
+  inlineSize: "min(100%, calc(100vw - 4rem))",
+  maxInlineSize: "96rem",
   minBlockSize: "36rem",
   minWidth: 0,
+  overflow: "hidden",
 } satisfies CSSProperties;
 
 const headerStyle = {
   alignItems: "center",
   display: "flex",
+  flexWrap: "wrap",
   gap: "var(--ct-spacing-md)",
   justifyContent: "space-between",
 } satisfies CSSProperties;
 
 const surfaceControlsStyle = {
   display: "flex",
+  flexWrap: "wrap",
   gap: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;
 

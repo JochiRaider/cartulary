@@ -77,13 +77,25 @@ test("measures bounded Network Flow production-grid virtualization without a tim
 
 test("Measure the 1000-resource all-column production Network Flow grid envelope as informative implementation evidence.", async ({
   page,
-}) => {
+}, testInfo) => {
   const supported = await measureFixture(page, 1_000);
   for (const surface of fixtureSurfaces) {
     const result = supported[surface.gridSelector];
     expect(result.mountedRows).toBeLessThan(1_000);
     expect(result.scrollHeight).toBeGreaterThan(result.clientHeight);
   }
+  const chromeEnvelope = [];
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 720 },
+    { width: 768, height: 640 },
+  ]) {
+    chromeEnvelope.push(await measureFixtureChrome(page, viewport));
+  }
+  await testInfo.attach("network-flow-control-containment.json", {
+    body: Buffer.from(JSON.stringify(chromeEnvelope, null, 2)),
+    contentType: "application/json",
+  });
 });
 
 test("measures the saved graph viewer 500-vertex and 1000-edge DOM ceiling", async ({
@@ -150,6 +162,52 @@ async function measureFixture(page: Page, logicalRows: 100 | 1_000) {
     results[surface.gridSelector] = await readGridDOMMeasurement(grid);
   }
   return results;
+}
+
+async function measureFixtureChrome(
+  page: Page,
+  viewport: { readonly height: number; readonly width: number },
+) {
+  await page.setViewportSize(viewport);
+  await page.goto(
+    "/?debug=harness&fixture=network-flow-grid-load&fixture_rows=1000",
+  );
+  const fixture = page.getByTestId(networkAnalysisTestId("load-fixture"));
+  await expect(fixture).toBeVisible();
+  const measurement = await fixture.evaluate((element) => {
+    const controls = Array.from(
+      element.querySelectorAll<HTMLElement>("[data-network-flow-control]"),
+    ).filter((control) => control.getClientRects().length > 0);
+    const fixtureRect = element.getBoundingClientRect();
+    return {
+      controlAppearances: controls.map((control) => {
+        const style = getComputedStyle(control);
+        return {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+        };
+      }),
+      documentClientWidth: document.documentElement.clientWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      fixtureClientWidth: element.clientWidth,
+      fixtureLeft: fixtureRect.left,
+      fixtureRight: fixtureRect.right,
+      fixtureScrollWidth: element.scrollWidth,
+    };
+  });
+  expect(measurement.controlAppearances.length).toBeGreaterThan(4);
+  expect(measurement.fixtureLeft).toBeGreaterThanOrEqual(0);
+  expect(measurement.fixtureRight).toBeLessThanOrEqual(
+    measurement.documentClientWidth + 1,
+  );
+  expect(measurement.fixtureScrollWidth).toBeLessThanOrEqual(
+    measurement.fixtureClientWidth + 1,
+  );
+  for (const appearance of measurement.controlAppearances) {
+    expect(appearance.backgroundColor).not.toBe("rgb(255, 255, 255)");
+    expect(appearance.color).not.toBe("rgb(0, 0, 0)");
+  }
+  return { ...measurement, viewport };
 }
 
 async function showEveryDeclaredColumn(page: Page, expectedColumns: number) {

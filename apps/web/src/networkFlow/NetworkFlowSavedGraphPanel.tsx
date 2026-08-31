@@ -1,9 +1,16 @@
 import {
   networkAnalysisSavedGraphEdgeTestId,
+  networkAnalysisSavedGraphTestId,
   networkAnalysisSavedGraphVertexTestId,
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  NetworkFlowActionGroup,
+  NetworkFlowButton,
+  NetworkFlowField,
+  NetworkFlowTextInput,
+} from "./NetworkFlowControls";
 import type {
   NetworkFlowGraphEdge,
   NetworkFlowGraphResult,
@@ -175,31 +182,32 @@ export function NetworkFlowSavedGraphPanel({
           </p>
         </div>
         {canCreate ? (
-          <button
+          <NetworkFlowButton
             data-testid={networkAnalysisTestId("saved-graph-create")}
-            disabled={currentGraph === null || controller.mutationPending}
-            type="button"
+            disabled={currentGraph === null}
+            pending={controller.mutationPending}
+            variant="primary"
             onClick={() => {
               setDisplayName("");
               setDialog("create");
             }}
           >
             Save current graph
-          </button>
+          </NetworkFlowButton>
         ) : null}
       </header>
 
-      <div style={workspaceStyle}>
-        <nav aria-label="Saved graphs" style={listStyle}>
+      <div className="network-flow-saved-workspace">
+        <nav aria-label="Saved graphs" className="network-flow-saved-list">
           <div style={listHeaderStyle}>
             <strong>{controller.graphs.length} saved</strong>
-            <button
+            <NetworkFlowButton
               disabled={controller.listState === "loading"}
-              type="button"
+              variant="secondary"
               onClick={() => void controller.loadGraphs()}
             >
               Reload
-            </button>
+            </NetworkFlowButton>
           </div>
           {controller.listState === "loading" ? (
             <p role="status">Loading saved graphs…</p>
@@ -211,34 +219,35 @@ export function NetworkFlowSavedGraphPanel({
             <ul style={plainListStyle}>
               {controller.graphs.map((graph) => (
                 <li key={graph.graph_view_id}>
-                  <button
+                  <NetworkFlowButton
                     aria-current={
                       controller.selectedGraphViewId === graph.graph_view_id
                         ? "true"
                         : undefined
                     }
-                    style={
-                      controller.selectedGraphViewId === graph.graph_view_id
-                        ? selectedListButtonStyle
-                        : listButtonStyle
-                    }
-                    type="button"
+                    className="network-flow-list-action"
+                    data-testid={networkAnalysisSavedGraphTestId(
+                      graph.graph_view_id,
+                    )}
+                    variant="ghost"
                     onClick={() =>
                       controller.selectGraphView(graph.graph_view_id)
                     }
                   >
-                    <span>{graph.display_name}</span>
+                    <span className="network-flow-truncate">
+                      {graph.display_name}
+                    </span>
                     <small>
                       {materializationLabel(graph.last_materialization_status)}
                     </small>
-                  </button>
+                  </NetworkFlowButton>
                 </li>
               ))}
             </ul>
           )}
         </nav>
 
-        <div style={resultStyle}>
+        <div className="network-flow-saved-result">
           {controller.selectedGraph === null ? (
             <div style={emptyStyle}>
               <strong>Select or create a saved graph.</strong>
@@ -260,12 +269,12 @@ export function NetworkFlowSavedGraphPanel({
                     {savedGraphStatusMessage(controller.selectedGraph)}
                   </p>
                 </div>
-                <div style={actionsStyle}>
+                <NetworkFlowActionGroup>
                   {canCreate ? (
                     <>
-                      <button
+                      <NetworkFlowButton
                         disabled={controller.mutationPending}
-                        type="button"
+                        variant="secondary"
                         onClick={() => {
                           setDisplayName(
                             controller.selectedGraph?.display_name ?? "",
@@ -274,30 +283,35 @@ export function NetworkFlowSavedGraphPanel({
                         }}
                       >
                         Rename
-                      </button>
-                      <button
+                      </NetworkFlowButton>
+                      <NetworkFlowButton
                         disabled={controller.mutationPending}
-                        type="button"
+                        variant="secondary"
                         onClick={() => void controller.refreshGraph()}
                       >
                         Refresh
-                      </button>
+                      </NetworkFlowButton>
                     </>
                   ) : null}
                   {canRetire ? (
-                    <button
+                    <NetworkFlowButton
                       disabled={controller.mutationPending}
-                      type="button"
+                      variant="danger"
                       onClick={() => setDialog("retire")}
                     >
                       Retire
-                    </button>
+                    </NetworkFlowButton>
                   ) : null}
-                </div>
+                </NetworkFlowActionGroup>
               </header>
 
               {controller.notice ? (
-                <p aria-live="polite" role="status" style={noticeStyle}>
+                <p
+                  aria-live="polite"
+                  className="network-flow-status"
+                  role="status"
+                  style={noticeStyle}
+                >
                   {controller.notice}
                 </p>
               ) : null}
@@ -306,7 +320,12 @@ export function NetworkFlowSavedGraphPanel({
                 "queued" ||
                 controller.selectedGraph.last_materialization_status ===
                   "running") ? (
-                <p role="status" style={noticeStyle}>
+                <p
+                  className="network-flow-status"
+                  data-tone="stale"
+                  role="status"
+                  style={noticeStyle}
+                >
                   Showing the last successful result while refresh continues.
                 </p>
               ) : null}
@@ -316,12 +335,12 @@ export function NetworkFlowSavedGraphPanel({
               ) : controller.resultState === "error" ? (
                 <div role="alert" style={emptyStyle}>
                   <span>The selected result could not be loaded.</span>
-                  <button
-                    type="button"
+                  <NetworkFlowButton
+                    variant="secondary"
                     onClick={() => void controller.loadResult()}
                   >
                     Retry result
-                  </button>
+                  </NetworkFlowButton>
                 </div>
               ) : result === null ? (
                 <div style={emptyStyle}>
@@ -351,13 +370,13 @@ export function NetworkFlowSavedGraphPanel({
                       aria-label="Saved graph time bucket navigation"
                       style={pagerStyle}
                     >
-                      <button
+                      <NetworkFlowButton
                         disabled={bucketIndex === 0}
-                        type="button"
+                        variant="secondary"
                         onClick={() => setBucketIndex((current) => current - 1)}
                       >
                         Previous bucket
-                      </button>
+                      </NetworkFlowButton>
                       <strong>
                         Bucket {bucketIndex + 1} of {timeBuckets.length}
                       </strong>
@@ -367,13 +386,13 @@ export function NetworkFlowSavedGraphPanel({
                         {selectedBucket.edge_count} edges ·{" "}
                         {selectedBucket.contributing_row_count} rows
                       </span>
-                      <button
+                      <NetworkFlowButton
                         disabled={bucketIndex + 1 >= timeBuckets.length}
-                        type="button"
+                        variant="secondary"
                         onClick={() => setBucketIndex((current) => current + 1)}
                       >
                         Next bucket
-                      </button>
+                      </NetworkFlowButton>
                     </nav>
                   )}
                   <BoundedPager
@@ -383,7 +402,11 @@ export function NetworkFlowSavedGraphPanel({
                     total={vertices.length}
                     onPageChange={setVertexPage}
                   />
-                  <ul aria-label="Saved graph vertices" style={objectListStyle}>
+                  <ul
+                    aria-label="Saved graph vertices"
+                    className="network-flow-object-list"
+                    style={objectListStyle}
+                  >
                     {visibleVertices.map((vertex) => {
                       const selector = savedVertexSelector(graphResult, vertex);
                       return (
@@ -393,9 +416,9 @@ export function NetworkFlowSavedGraphPanel({
                           )}
                           key={vertex.vertex_id}
                         >
-                          <button
+                          <NetworkFlowButton
                             disabled={selector === null}
-                            type="button"
+                            variant="secondary"
                             onClick={(event) => {
                               selectedObjectButtonRef.current =
                                 event.currentTarget;
@@ -403,7 +426,7 @@ export function NetworkFlowSavedGraphPanel({
                             }}
                           >
                             {savedVertexLabel(vertex)}
-                          </button>
+                          </NetworkFlowButton>
                         </li>
                       );
                     })}
@@ -415,7 +438,11 @@ export function NetworkFlowSavedGraphPanel({
                     total={edges.length}
                     onPageChange={setEdgePage}
                   />
-                  <ul aria-label="Saved graph edges" style={objectListStyle}>
+                  <ul
+                    aria-label="Saved graph edges"
+                    className="network-flow-object-list"
+                    style={objectListStyle}
+                  >
                     {visibleEdges.map((edge) => {
                       const selector = savedEdgeSelector(
                         graphResult,
@@ -429,9 +456,9 @@ export function NetworkFlowSavedGraphPanel({
                           )}
                           key={edge.edge_id}
                         >
-                          <button
+                          <NetworkFlowButton
                             disabled={selector === null}
-                            type="button"
+                            variant="secondary"
                             onClick={(event) => {
                               selectedObjectButtonRef.current =
                                 event.currentTarget;
@@ -439,7 +466,7 @@ export function NetworkFlowSavedGraphPanel({
                             }}
                           >
                             {savedEdgeLabel(edge, endpointLabels)}
-                          </button>
+                          </NetworkFlowButton>
                         </li>
                       );
                     })}
@@ -459,12 +486,12 @@ export function NetworkFlowSavedGraphPanel({
         >
           <header style={listHeaderStyle}>
             <strong>Contributors</strong>
-            <button
-              type="button"
+            <NetworkFlowButton
+              variant="secondary"
               onClick={() => void controller.selectObject(null)}
             >
               Close
-            </button>
+            </NetworkFlowButton>
           </header>
           {controller.contributorState === "loading" ? (
             <p role="status">Loading contributors…</p>
@@ -486,93 +513,98 @@ export function NetworkFlowSavedGraphPanel({
       ) : null}
 
       {dialog ? (
-        <div
-          ref={modalFocus.dialogRef}
-          aria-label={
-            dialog === "create"
-              ? "Save current graph"
-              : dialog === "rename"
-                ? "Rename saved graph"
-                : "Retire saved graph"
-          }
-          aria-modal="true"
-          data-testid={networkAnalysisTestId("saved-graph-dialog")}
-          role="dialog"
-          style={dialogStyle}
-          onKeyDown={modalFocus.onKeyDown}
-        >
-          {dialog === "retire" ? (
-            <>
-              <h3>Retire {controller.selectedGraph?.display_name}?</h3>
-              <p>
-                The graph leaves the active list. Leased immutable results
-                remain protected.
-              </p>
-              <div style={actionsStyle}>
-                <button type="button" onClick={closeDialog}>
-                  Cancel
-                </button>
-                <button
-                  disabled={controller.mutationPending}
-                  type="button"
-                  onClick={() => {
-                    void controller.retireGraph().then((succeeded) => {
-                      if (succeeded) closeDialog();
-                    });
-                  }}
+        <div className="network-flow-dialog-backdrop">
+          <div
+            ref={modalFocus.dialogRef}
+            aria-label={
+              dialog === "create"
+                ? "Save current graph"
+                : dialog === "rename"
+                  ? "Rename saved graph"
+                  : "Retire saved graph"
+            }
+            aria-modal="true"
+            className="network-flow-dialog"
+            data-testid={networkAnalysisTestId("saved-graph-dialog")}
+            role="dialog"
+            onKeyDown={modalFocus.onKeyDown}
+          >
+            {dialog === "retire" ? (
+              <>
+                <h3>Retire {controller.selectedGraph?.display_name}?</h3>
+                <p>
+                  The graph leaves the active list. Leased immutable results
+                  remain protected.
+                </p>
+                <NetworkFlowActionGroup>
+                  <NetworkFlowButton variant="secondary" onClick={closeDialog}>
+                    Cancel
+                  </NetworkFlowButton>
+                  <NetworkFlowButton
+                    pending={controller.mutationPending}
+                    variant="danger"
+                    onClick={() => {
+                      void controller.retireGraph().then((succeeded) => {
+                        if (succeeded) closeDialog();
+                      });
+                    }}
+                  >
+                    Retire graph
+                  </NetworkFlowButton>
+                </NetworkFlowActionGroup>
+              </>
+            ) : (
+              <form
+                className="network-flow-dialog-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const normalized = displayName.trim();
+                  if (normalized.length === 0) return;
+                  const operation =
+                    dialog === "create" && currentGraph !== null
+                      ? controller.createGraph(normalized, currentGraph)
+                      : controller.renameGraph(normalized);
+                  void operation.then((succeeded) => {
+                    if (succeeded) closeDialog();
+                  });
+                }}
+              >
+                <h3>
+                  {dialog === "create"
+                    ? "Save current graph"
+                    : "Rename saved graph"}
+                </h3>
+                <NetworkFlowField
+                  htmlFor="network-flow-saved-graph-name"
+                  label="Display name"
                 >
-                  Retire graph
-                </button>
-              </div>
-            </>
-          ) : (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                const normalized = displayName.trim();
-                if (normalized.length === 0) return;
-                const operation =
-                  dialog === "create" && currentGraph !== null
-                    ? controller.createGraph(normalized, currentGraph)
-                    : controller.renameGraph(normalized);
-                void operation.then((succeeded) => {
-                  if (succeeded) closeDialog();
-                });
-              }}
-            >
-              <h3>
-                {dialog === "create"
-                  ? "Save current graph"
-                  : "Rename saved graph"}
-              </h3>
-              <label style={fieldStyle}>
-                Display name
-                <input
-                  data-testid={networkAnalysisTestId("saved-graph-name")}
-                  maxLength={64}
-                  required
-                  value={displayName}
-                  onChange={(event) =>
-                    setDisplayName(event.currentTarget.value)
-                  }
-                />
-              </label>
-              <div style={actionsStyle}>
-                <button type="button" onClick={closeDialog}>
-                  Cancel
-                </button>
-                <button
-                  disabled={
-                    controller.mutationPending ||
-                    displayName.trim().length === 0
-                  }
-                  type="submit"
-                >
-                  {dialog === "create" ? "Save graph" : "Rename graph"}
-                </button>
-              </div>
-            </form>
-          )}
+                  <NetworkFlowTextInput
+                    data-testid={networkAnalysisTestId("saved-graph-name")}
+                    id="network-flow-saved-graph-name"
+                    maxLength={64}
+                    required
+                    value={displayName}
+                    onChange={(event) =>
+                      setDisplayName(event.currentTarget.value)
+                    }
+                  />
+                </NetworkFlowField>
+                <NetworkFlowActionGroup>
+                  <NetworkFlowButton variant="secondary" onClick={closeDialog}>
+                    Cancel
+                  </NetworkFlowButton>
+                  <NetworkFlowButton
+                    disabled={displayName.trim().length === 0}
+                    pending={controller.mutationPending}
+                    type="submit"
+                    variant={dialog === "create" ? "primary" : "secondary"}
+                  >
+                    {dialog === "create" ? "Save graph" : "Rename graph"}
+                  </NetworkFlowButton>
+                </NetworkFlowActionGroup>
+              </form>
+            )}
+          </div>
         </div>
       ) : null}
     </section>
@@ -599,20 +631,20 @@ function BoundedPager({
       <span>
         Page {page + 1} of {pageCount}
       </span>
-      <button
+      <NetworkFlowButton
         disabled={page === 0}
-        type="button"
+        variant="secondary"
         onClick={() => onPageChange(page - 1)}
       >
         Previous
-      </button>
-      <button
+      </NetworkFlowButton>
+      <NetworkFlowButton
         disabled={page + 1 >= pageCount}
-        type="button"
+        variant="secondary"
         onClick={() => onPageChange(page + 1)}
       >
         Next
-      </button>
+      </NetworkFlowButton>
     </nav>
   );
 }
@@ -742,95 +774,71 @@ function shortIdentity(value: string): string {
     : `${value.slice(0, 10)}…${value.slice(-6)}`;
 }
 
-const panelStyle = { display: "grid", gap: 12, minHeight: 320 } as const;
+const panelStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-md)",
+  minHeight: 320,
+  minWidth: 0,
+} as const;
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 16,
+  gap: "var(--ct-spacing-lg)",
   alignItems: "start",
+  flexWrap: "wrap",
 } as const;
 const titleStyle = { margin: 0 } as const;
 const mutedStyle = {
-  color: "var(--ct-colors-text-muted)",
-  margin: "4px 0 0",
-} as const;
-const workspaceStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(180px, 240px) minmax(0, 1fr)",
-  gap: 12,
-} as const;
-const listStyle = {
-  border: "var(--ct-border-hairline)",
-  borderRadius: 8,
-  padding: 10,
+  color: "var(--ct-colors-ink-muted)",
+  margin: "var(--ct-spacing-xs) 0 0",
 } as const;
 const listHeaderStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 8,
+  gap: "var(--ct-spacing-sm)",
 } as const;
 const plainListStyle = {
   listStyle: "none",
-  margin: "10px 0 0",
+  margin: "var(--ct-spacing-sm) 0 0",
   padding: 0,
   display: "grid",
-  gap: 6,
-} as const;
-const listButtonStyle = {
-  width: "100%",
-  display: "grid",
-  gap: 2,
-  textAlign: "left",
-} as const;
-const selectedListButtonStyle = {
-  ...listButtonStyle,
-  outline: "var(--ct-component-focus-ring-border)",
-} as const;
-const resultStyle = {
-  border: "var(--ct-border-hairline)",
-  borderRadius: 8,
-  padding: 12,
-  minWidth: 0,
+  gap: "var(--ct-spacing-xs)",
 } as const;
 const resultHeaderStyle = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 12,
+  gap: "var(--ct-spacing-md)",
   alignItems: "start",
-} as const;
-const actionsStyle = {
-  display: "flex",
   flexWrap: "wrap",
-  gap: 8,
-  justifyContent: "flex-end",
 } as const;
 const noticeStyle = {
-  padding: 8,
-  borderRadius: 6,
+  padding: "var(--ct-spacing-sm)",
+  borderRadius: "var(--ct-rounded-sm)",
   background: "var(--ct-colors-surface-2)",
 } as const;
 const emptyStyle = {
   minHeight: 120,
   display: "grid",
   placeContent: "center",
-  gap: 8,
+  gap: "var(--ct-spacing-sm)",
   textAlign: "center",
 } as const;
 const summaryStyle = {
-  fontFamily: "var(--ct-font-family-mono)",
-  color: "var(--ct-colors-text-muted)",
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
+  color: "var(--ct-colors-ink-muted)",
 } as const;
 const pagerStyle = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
-  margin: "12px 0 6px",
+  gap: "var(--ct-spacing-sm)",
+  margin: "var(--ct-spacing-md) 0 var(--ct-spacing-sm)",
+  flexWrap: "wrap",
 } as const;
 const objectListStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))",
-  gap: 6,
+  gap: "var(--ct-spacing-xs)",
   listStyle: "none",
   margin: 0,
   padding: 0,
@@ -839,19 +847,6 @@ const objectListStyle = {
 } as const;
 const drawerStyle = {
   border: "var(--ct-border-hairline)",
-  borderRadius: 8,
-  padding: 12,
+  borderRadius: "var(--ct-rounded-md)",
+  padding: "var(--ct-spacing-md)",
 } as const;
-const dialogStyle = {
-  position: "fixed",
-  inset: "50% auto auto 50%",
-  transform: "translate(-50%, -50%)",
-  width: "min(420px, calc(100vw - 32px))",
-  zIndex: 20,
-  padding: 18,
-  borderRadius: 10,
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "0 16px 48px rgb(0 0 0 / 0.3)",
-} as const;
-const fieldStyle = { display: "grid", gap: 6, margin: "14px 0" } as const;

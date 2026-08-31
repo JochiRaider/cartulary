@@ -10,9 +10,12 @@
       "playwright_scenario_title": "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png"
       ],
       "seed_id": "visual.seed.claimed_network_analysis_workspace_states",
       "viewport_css_px": "1440x900",
@@ -42,6 +45,98 @@
       "dynamic_masks": [
         "incident identifiers",
         "generated table, row, vertex, edge, cursor, and digest identifiers",
+        "timestamps"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6"
+      ]
+    },
+    {
+      "fixture_id": "visual.fixture.claimed_network_analysis_narrow_workspace",
+      "fixture_title": "Claimed Network Analysis narrow query workspace",
+      "status": "current",
+      "playwright_scenario_title": "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png"
+      ],
+      "seed_id": "visual.seed.claimed_network_analysis_workspace_states",
+      "viewport_css_px": "1024x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "network-analysis-workspace"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Advanced filters are open with a long endpoint value at the narrow desktop band."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Query values remain draft-only and have not been applied."
+      },
+      "inspector_state": {
+        "kind": "closed",
+        "description": "The semantic grid inspector is closed so query containment is observable."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated table, row, cursor, and digest identifiers",
+        "timestamps"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6"
+      ]
+    },
+    {
+      "fixture_id": "visual.fixture.claimed_network_analysis_compact_workspace",
+      "fixture_title": "Claimed Network Analysis compact saved-graph workspace",
+      "status": "current",
+      "playwright_scenario_title": "Capture claimed Network Analysis accepted inspector, rejected diagnostics, and graph contributor drawer at the deterministic desktop viewport.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png"
+      ],
+      "seed_id": "visual.seed.claimed_network_analysis_workspace_states",
+      "viewport_css_px": "768x640",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "network-analysis-workspace"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "The selected saved graph remains current at the compact desktop band."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No graph mutation dialog or draft is open."
+      },
+      "inspector_state": {
+        "kind": "closed",
+        "description": "The saved-graph contributor drawer is closed."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated table, graph, vertex, edge, cursor, and digest identifiers",
         "timestamps"
       ],
       "no_dynamic_regions": false,

@@ -1,9 +1,17 @@
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   NetworkFlowFilter,
   NetworkFlowRejectedRowsQueryRequest,
 } from "../services/networkFlowContractAdapter";
+import {
+  NetworkFlowActionGroup,
+  NetworkFlowButton,
+  NetworkFlowField,
+  NetworkFlowNumberInput,
+  NetworkFlowSelect,
+  NetworkFlowTextInput,
+} from "./NetworkFlowControls";
 import {
   networkFlowColumnLabel,
   networkFlowPresentationColumns,
@@ -140,37 +148,51 @@ export function NetworkFlowAcceptedQueryControls({
   return (
     <section
       aria-label="Network Flow filters"
+      className="network-flow-query-band"
       data-testid={networkAnalysisTestId("filters")}
-      style={filterBarStyle}
     >
-      <label style={fieldStyle}>
-        Table scope
-        <select defaultValue="active_table" disabled={!graphMode}>
+      <NetworkFlowField
+        htmlFor="network-flow-query-table-scope"
+        label="Table scope"
+      >
+        <NetworkFlowSelect
+          defaultValue="active_table"
+          disabled={!graphMode}
+          id="network-flow-query-table-scope"
+        >
           <option value="active_table">Active table</option>
           <option value="selected_tables">Selected tables</option>
           <option value="all_active_tables">All active tables</option>
-        </select>
-      </label>
-      <label style={fieldStyle}>
-        Flow overlap starts at
-        <input
+        </NetworkFlowSelect>
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-query-start"
+        label="Flow overlap starts at"
+      >
+        <NetworkFlowTextInput
+          id="network-flow-query-start"
           placeholder="2026-07-16T00:00:00Z"
           value={startUTC}
           onChange={(event) => setStartUTC(event.currentTarget.value)}
         />
-      </label>
-      <label style={fieldStyle}>
-        Flow overlap ends before
-        <input
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-query-end"
+        label="Flow overlap ends before"
+      >
+        <NetworkFlowTextInput
+          id="network-flow-query-end"
           placeholder="2026-07-17T00:00:00Z"
           value={endUTC}
           onChange={(event) => setEndUTC(event.currentTarget.value)}
         />
-      </label>
-      <label style={fieldStyle}>
-        Endpoint IP
-        <span style={inlineFieldsStyle}>
-          <select
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-query-endpoint"
+        label="Endpoint IP"
+      >
+        <span className="network-flow-inline-fields">
+          <NetworkFlowSelect
             aria-label="Endpoint IP operator"
             value={endpointOperator}
             onChange={(event) =>
@@ -181,47 +203,58 @@ export function NetworkFlowAcceptedQueryControls({
           >
             <option value="eq">equals</option>
             <option value="cidr_contains">in CIDR</option>
-          </select>
-          <input
+          </NetworkFlowSelect>
+          <NetworkFlowTextInput
             aria-label="Endpoint IP value"
+            id="network-flow-query-endpoint"
             value={endpoint}
             onChange={(event) => setEndpoint(event.currentTarget.value)}
           />
         </span>
-      </label>
-      <label style={fieldStyle}>
-        Protocol
-        <input
-          inputMode="numeric"
+      </NetworkFlowField>
+      <NetworkFlowField htmlFor="network-flow-query-protocol" label="Protocol">
+        <NetworkFlowNumberInput
+          id="network-flow-query-protocol"
           min={0}
           max={255}
-          type="number"
           value={protocol}
           onChange={(event) => setProtocol(event.currentTarget.value)}
         />
-      </label>
-      <label style={fieldStyle}>
-        Minimum bytes
-        <input
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-query-minimum-bytes"
+        label="Minimum bytes"
+      >
+        <NetworkFlowTextInput
+          id="network-flow-query-minimum-bytes"
           inputMode="numeric"
           value={bytesMinimum}
           onChange={(event) => setBytesMinimum(event.currentTarget.value)}
         />
-      </label>
-      <label style={fieldStyle}>
-        Minimum packets
-        <input
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-query-minimum-packets"
+        label="Minimum packets"
+      >
+        <NetworkFlowTextInput
+          id="network-flow-query-minimum-packets"
           inputMode="numeric"
           value={packetsMinimum}
           onChange={(event) => setPacketsMinimum(event.currentTarget.value)}
         />
-      </label>
-      <details style={advancedStyle}>
+      </NetworkFlowField>
+      <details
+        className="network-flow-advanced"
+        data-testid={networkAnalysisTestId("advanced-filters")}
+      >
         <summary>Advanced field filters ({advanced.length})</summary>
-        <div style={advancedEditorStyle}>
-          <label style={fieldStyle}>
-            Field
-            <select
+        <div className="network-flow-popover network-flow-advanced__editor">
+          <NetworkFlowField
+            htmlFor="network-flow-query-advanced-field"
+            label="Field"
+          >
+            <NetworkFlowSelect
+              id="network-flow-query-advanced-field"
               value={advancedField}
               onChange={(event) => {
                 setAdvancedField(event.currentTarget.value);
@@ -233,11 +266,14 @@ export function NetworkFlowAcceptedQueryControls({
                   {networkFlowColumnLabel(column.label_key)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label style={fieldStyle}>
-            Operator
-            <select
+            </NetworkFlowSelect>
+          </NetworkFlowField>
+          <NetworkFlowField
+            htmlFor="network-flow-query-advanced-operator"
+            label="Operator"
+          >
+            <NetworkFlowSelect
+              id="network-flow-query-advanced-operator"
               value={advancedOperator}
               onChange={(event) =>
                 setAdvancedOperator(event.currentTarget.value)
@@ -250,11 +286,14 @@ export function NetworkFlowAcceptedQueryControls({
                   </option>
                 ),
               )}
-            </select>
-          </label>
-          <label style={fieldStyle}>
-            Value
-            <input
+            </NetworkFlowSelect>
+          </NetworkFlowField>
+          <NetworkFlowField
+            htmlFor="network-flow-query-advanced-value"
+            label="Value"
+          >
+            <NetworkFlowTextInput
+              id="network-flow-query-advanced-value"
               disabled={
                 advancedOperator === "is_null" ||
                 advancedOperator === "not_null"
@@ -262,9 +301,9 @@ export function NetworkFlowAcceptedQueryControls({
               value={advancedValue}
               onChange={(event) => setAdvancedValue(event.currentTarget.value)}
             />
-          </label>
-          <button
-            type="button"
+          </NetworkFlowField>
+          <NetworkFlowButton
+            variant="secondary"
             onClick={() => {
               const filter = advancedFilter(
                 advancedField,
@@ -285,11 +324,12 @@ export function NetworkFlowAcceptedQueryControls({
             }}
           >
             Add filter
-          </button>
+          </NetworkFlowButton>
           {advanced.map((filter) => (
-            <button
+            <NetworkFlowButton
+              className="network-flow-filter-chip"
               key={JSON.stringify(filter)}
-              type="button"
+              variant="ghost"
               onClick={() =>
                 setAdvanced((current) =>
                   current.filter((candidate) => candidate !== filter),
@@ -297,26 +337,26 @@ export function NetworkFlowAcceptedQueryControls({
               }
             >
               Remove {filter.field_key} {filter.op}
-            </button>
+            </NetworkFlowButton>
           ))}
         </div>
       </details>
-      <div style={actionsStyle}>
-        <button
+      <NetworkFlowActionGroup>
+        <NetworkFlowButton
           data-testid={networkAnalysisTestId("accepted-query-apply")}
-          type="button"
+          variant="primary"
           onClick={apply}
         >
           Apply query
-        </button>
-        <button
+        </NetworkFlowButton>
+        <NetworkFlowButton
           data-testid={networkAnalysisTestId("accepted-query-clear")}
-          type="button"
+          variant="secondary"
           onClick={reset}
         >
           Clear query
-        </button>
-      </div>
+        </NetworkFlowButton>
+      </NetworkFlowActionGroup>
     </section>
   );
 }
@@ -367,18 +407,27 @@ export function NetworkFlowRejectedQueryControls({
     });
   };
   return (
-    <section aria-label="Diagnostic filters" style={filterBarStyle}>
-      <label style={fieldStyle}>
-        Error codes
-        <input
+    <section
+      aria-label="Diagnostic filters"
+      className="network-flow-query-band"
+    >
+      <NetworkFlowField
+        htmlFor="network-flow-diagnostic-error-codes"
+        label="Error codes"
+      >
+        <NetworkFlowTextInput
+          id="network-flow-diagnostic-error-codes"
           placeholder="Comma-separated codes"
           value={errorCodes}
           onChange={(event) => setErrorCodes(event.currentTarget.value)}
         />
-      </label>
-      <label style={fieldStyle}>
-        Field key
-        <input
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-diagnostic-field-key"
+        label="Field key"
+      >
+        <NetworkFlowTextInput
+          id="network-flow-diagnostic-field-key"
           list="network-flow-diagnostic-field-keys"
           value={fieldKey}
           onChange={(event) => setFieldKey(event.currentTarget.value)}
@@ -388,36 +437,40 @@ export function NetworkFlowRejectedQueryControls({
             <option key={column.field_key} value={column.field_key} />
           ))}
         </datalist>
-      </label>
-      <label style={fieldStyle}>
-        First source row
-        <input
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-diagnostic-row-start"
+        label="First source row"
+      >
+        <NetworkFlowNumberInput
+          id="network-flow-diagnostic-row-start"
           min={1}
-          type="number"
           value={rowStart}
           onChange={(event) => setRowStart(event.currentTarget.value)}
         />
-      </label>
-      <label style={fieldStyle}>
-        Last source row
-        <input
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor="network-flow-diagnostic-row-end"
+        label="Last source row"
+      >
+        <NetworkFlowNumberInput
+          id="network-flow-diagnostic-row-end"
           min={1}
-          type="number"
           value={rowEnd}
           onChange={(event) => setRowEnd(event.currentTarget.value)}
         />
-      </label>
-      <div style={actionsStyle}>
-        <button
+      </NetworkFlowField>
+      <NetworkFlowActionGroup>
+        <NetworkFlowButton
           data-testid={networkAnalysisTestId("rejected-query-apply")}
-          type="button"
+          variant="primary"
           onClick={apply}
         >
           Apply diagnostics query
-        </button>
-        <button
+        </NetworkFlowButton>
+        <NetworkFlowButton
           data-testid={networkAnalysisTestId("rejected-query-clear")}
-          type="button"
+          variant="secondary"
           onClick={() => {
             setErrorCodes("");
             setFieldKey("");
@@ -427,8 +480,8 @@ export function NetworkFlowRejectedQueryControls({
           }}
         >
           Clear diagnostics query
-        </button>
-      </div>
+        </NetworkFlowButton>
+      </NetworkFlowActionGroup>
     </section>
   );
 }
@@ -509,46 +562,3 @@ function filterRangeBoundText(
     ? String(candidate)
     : "";
 }
-
-const filterBarStyle = {
-  alignItems: "end",
-  background: "var(--ct-colors-surface-2)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-sm)",
-  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
-} satisfies CSSProperties;
-
-const fieldStyle = {
-  display: "grid",
-  fontSize: "0.75rem",
-  gap: "0.2rem",
-} satisfies CSSProperties;
-
-const inlineFieldsStyle = {
-  display: "flex",
-  gap: "var(--ct-spacing-xs)",
-} satisfies CSSProperties;
-
-const actionsStyle = {
-  display: "flex",
-  gap: "var(--ct-spacing-xs)",
-} satisfies CSSProperties;
-
-const advancedStyle = {
-  minWidth: "12rem",
-} satisfies CSSProperties;
-
-const advancedEditorStyle = {
-  alignItems: "end",
-  background: "var(--ct-colors-surface-1)",
-  border: "var(--ct-border-hairline)",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-sm)",
-  maxWidth: "50rem",
-  padding: "var(--ct-spacing-sm)",
-  position: "absolute",
-  zIndex: 4,
-} satisfies CSSProperties;

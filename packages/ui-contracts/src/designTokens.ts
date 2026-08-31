@@ -1,4 +1,7 @@
-import { cartularyDesignTokenVars } from "./generated/design-tokens";
+import {
+  type CartularyDesignTokenVarName,
+  cartularyDesignTokenVars,
+} from "./generated/design-tokens";
 
 export {
   type CartularyDefaultThemeId,
@@ -9,6 +12,15 @@ export {
 } from "./generated/design-tokens";
 
 export type WorkbookGridDensity = "compact" | "default" | "comfortable";
+
+export type CartularyDesignTokenReference =
+  `var(${CartularyDesignTokenVarName})`;
+
+export function cartularyDesignTokenReference(
+  name: CartularyDesignTokenVarName,
+): CartularyDesignTokenReference {
+  return `var(${name})`;
+}
 
 export type WorkbookGridDensityMetrics = {
   readonly cellPaddingBlockCssPx: number;

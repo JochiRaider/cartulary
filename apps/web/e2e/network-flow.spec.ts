@@ -38,7 +38,7 @@ test("Network Analysis claimed empty state exposes import entry", async ({
   ).toBeVisible();
   await expect(
     page.getByTestId(networkAnalysisTestId("import-trigger")),
-  ).toBeVisible();
+  ).toHaveAttribute("data-network-flow-variant", "primary");
 });
 
 test("Network Analysis import creates one inner table tab", async ({
@@ -426,10 +426,30 @@ test("Verify claimed Network Analysis discovery, import, mapping approval, seman
   await page.getByTestId(networkAnalysisTestId("contributor-close")).click();
   await expect(
     page.getByTestId(networkAnalysisTestId("rename-trigger")),
-  ).toBeVisible();
+  ).toHaveAttribute("data-network-flow-variant", "secondary");
   await expect(
     page.getByTestId(networkAnalysisTestId("delete-trigger")),
-  ).toBeVisible();
+  ).toHaveAttribute("data-network-flow-variant", "danger");
+  await expect(
+    page.getByTestId(networkAnalysisTestId("mode-graph")),
+  ).toHaveAttribute("aria-pressed", "true");
+  const appearances = await page
+    .getByTestId(networkAnalysisTestId("workspace"))
+    .locator("[data-network-flow-control]:visible")
+    .evaluateAll((controls) =>
+      controls.map((control) => {
+        const style = getComputedStyle(control);
+        return {
+          backgroundColor: style.backgroundColor,
+          color: style.color,
+        };
+      }),
+    );
+  expect(appearances.length).toBeGreaterThan(10);
+  for (const appearance of appearances) {
+    expect(appearance.backgroundColor).not.toBe("rgb(255, 255, 255)");
+    expect(appearance.color).not.toBe("rgb(0, 0, 0)");
+  }
 });
 
 function requestJSON(request: Request): Record<string, unknown> {

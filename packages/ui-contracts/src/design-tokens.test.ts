@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cartularyDefaultThemeId,
   cartularyDesignThemeCssText,
+  cartularyDesignTokenReference,
   cartularyDesignTokenVars,
 } from ".";
 
@@ -49,6 +50,17 @@ describe("Cartulary design token exports", () => {
       "--ct-component-button-primary-backgroundColor: #FACC15;",
     );
     expect(cartularyDesignThemeCssText).not.toContain("[object Object]");
+  });
+
+  it("builds typed references to authored design-token variables", () => {
+    expect(cartularyDesignTokenReference("--ct-colors-ink")).toBe(
+      "var(--ct-colors-ink)",
+    );
+    expect(
+      cartularyDesignTokenReference(
+        "--ct-component-text-input-backgroundColor",
+      ),
+    ).toBe("var(--ct-component-text-input-backgroundColor)");
   });
 
   it("exposes explicit font role tokens without changing the default UI or mono stacks", () => {

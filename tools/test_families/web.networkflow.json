@@ -18,7 +18,9 @@
           "Network Flow frontend boundary policy keeps Network Flow wire decoding behind the generated contract adapter",
           "Network Flow frontend boundary policy keeps runtime schema compilation and projection adapter input out of the browser",
           "Network Flow frontend boundary policy keeps the grid vendor and raw coordinate handles outside Network Flow consumers",
-          "Network Flow frontend boundary policy rejects synthetic markup in authoritative Network Flow browser evidence"
+          "Network Flow frontend boundary policy rejects legacy light-theme variable fallbacks in Network Flow source",
+          "Network Flow frontend boundary policy rejects synthetic markup in authoritative Network Flow browser evidence",
+          "Network Flow frontend boundary policy uses only authored Cartulary design-token variables in Network Flow source"
         ]
       },
       "evidence_class": "static",
@@ -45,6 +47,36 @@
           "Network Flow client transport boundary fails before transport when the discovered Network Flow route is no longer claimed",
           "Network Flow client transport boundary keeps malformed success responses behind the generated decoder",
           "Network Flow client transport boundary uses the owner-neutral browser transport for decoding, cancellation, and CSRF"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.network_flow_control_presentation_seam_suite_25e7be0a31",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [
+        "package.ui",
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowControls.test.tsx",
+        "titles": [
+          "Network Flow control presentation seam forwards refs and preserves field, invalid, and numeric semantics",
+          "Network Flow control presentation seam preserves native button behavior and exposes deterministic variants",
+          "Network Flow control presentation seam retains selected semantics and requires an accessible icon name",
+          "Network Flow control presentation seam ships scoped dark, focus, autofill, dialog, and responsive rules"
         ]
       },
       "evidence_class": "unit",

@@ -7,6 +7,13 @@ import type { ExtensionImportDiscovery } from "../imports/importCoordinator";
 import type { NetworkFlowImportPreviewResult } from "../services/networkFlowContractAdapter";
 import { networkFlowMappingMetadata } from "../services/networkFlowContractAdapter";
 import {
+  NetworkFlowActionGroup,
+  NetworkFlowButton,
+  NetworkFlowField,
+  NetworkFlowSelect,
+  NetworkFlowTextInput,
+} from "./NetworkFlowControls";
+import {
   ignoredColumnChoice,
   mappedRequiredFieldCount,
   type NetworkFlowMappingDraft,
@@ -56,7 +63,7 @@ export function NetworkFlowMappingModal({
   });
 
   return (
-    <div style={backdropStyle}>
+    <div className="network-flow-dialog-backdrop">
       <section
         ref={modalFocus.dialogRef}
         aria-describedby="network-flow-mapping-description"
@@ -64,7 +71,8 @@ export function NetworkFlowMappingModal({
         aria-modal="true"
         data-testid={networkAnalysisTestId("mapping-dialog")}
         role="dialog"
-        style={dialogStyle}
+        className="network-flow-dialog"
+        style={mappingDialogStyle}
         onKeyDown={modalFocus.onKeyDown}
       >
         <header style={headerStyle}>
@@ -77,17 +85,24 @@ export function NetworkFlowMappingModal({
               explicitly apply the matching fingerprint.
             </p>
           </div>
-          <button disabled={working} type="button" onClick={onCancel}>
+          <NetworkFlowButton
+            disabled={working}
+            variant="secondary"
+            onClick={onCancel}
+          >
             Cancel
-          </button>
+          </NetworkFlowButton>
         </header>
 
         <div style={settingsGridStyle}>
-          <label style={fieldStyle}>
-            Source profile
-            <select
+          <NetworkFlowField
+            htmlFor="network-flow-mapping-profile"
+            label="Source profile"
+          >
+            <NetworkFlowSelect
               data-testid={networkAnalysisTestId("mapping-profile")}
               disabled={working}
+              id="network-flow-mapping-profile"
               value={draft.sourceProfileId}
               onChange={(event) =>
                 onDraftChange({
@@ -104,13 +119,16 @@ export function NetworkFlowMappingModal({
                   {profile.display_name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label style={fieldStyle}>
-            Table display name (optional)
-            <input
+            </NetworkFlowSelect>
+          </NetworkFlowField>
+          <NetworkFlowField
+            htmlFor="network-flow-mapping-display-name"
+            label="Table display name (optional)"
+          >
+            <NetworkFlowTextInput
               data-testid={networkAnalysisTestId("mapping-display-name")}
               disabled={working}
+              id="network-flow-mapping-display-name"
               maxLength={64}
               value={draft.displayNameOverride}
               onChange={(event) =>
@@ -120,12 +138,15 @@ export function NetworkFlowMappingModal({
                 })
               }
             />
-          </label>
-          <label style={fieldStyle}>
-            Timestamp interpretation
-            <select
+          </NetworkFlowField>
+          <NetworkFlowField
+            htmlFor="network-flow-mapping-timestamp-mode"
+            label="Timestamp interpretation"
+          >
+            <NetworkFlowSelect
               data-testid={networkAnalysisTestId("mapping-timestamp-mode")}
               disabled={working}
+              id="network-flow-mapping-timestamp-mode"
               value={draft.timestampMode}
               onChange={(event) =>
                 onDraftChange({
@@ -140,13 +161,16 @@ export function NetworkFlowMappingModal({
                   {humanize(mode)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label style={fieldStyle}>
-            Unknown-column policy
-            <select
+            </NetworkFlowSelect>
+          </NetworkFlowField>
+          <NetworkFlowField
+            htmlFor="network-flow-mapping-unknown-policy"
+            label="Unknown-column policy"
+          >
+            <NetworkFlowSelect
               data-testid={networkAnalysisTestId("mapping-unknown-policy")}
               disabled={working}
+              id="network-flow-mapping-unknown-policy"
               value={draft.unknownColumnPolicy}
               onChange={(event) =>
                 onDraftChange({
@@ -163,14 +187,17 @@ export function NetworkFlowMappingModal({
                   </option>
                 ),
               )}
-            </select>
-          </label>
+            </NetworkFlowSelect>
+          </NetworkFlowField>
           {draft.timestampMode === "rfc3339" ? (
-            <label style={fieldStyle}>
-              Source timezone (blank for offset-bearing timestamps)
-              <input
+            <NetworkFlowField
+              htmlFor="network-flow-mapping-timezone"
+              label="Source timezone (blank for offset-bearing timestamps)"
+            >
+              <NetworkFlowTextInput
                 data-testid={networkAnalysisTestId("mapping-timezone")}
                 disabled={working}
+                id="network-flow-mapping-timezone"
                 placeholder="UTC"
                 value={draft.timezone}
                 onChange={(event) =>
@@ -180,7 +207,7 @@ export function NetworkFlowMappingModal({
                   })
                 }
               />
-            </label>
+            </NetworkFlowField>
           ) : null}
         </div>
 
@@ -206,7 +233,12 @@ export function NetworkFlowMappingModal({
 
         <section aria-label="Source-column mappings" style={mappingListStyle}>
           {draft.unresolvedAliasCollisionOrdinals.length === 0 ? null : (
-            <div aria-label="Alias collision" role="alert" style={alertStyle}>
+            <div
+              aria-label="Alias collision"
+              className="network-flow-status"
+              data-tone="error"
+              role="alert"
+            >
               Duplicate source aliases suggest the same target field. Explicitly
               map or ignore every highlighted column before previewing.
             </div>
@@ -229,6 +261,7 @@ export function NetworkFlowMappingModal({
                     ? "unresolved"
                     : undefined
                 }
+                className="network-flow-mapping-row"
                 style={mappingRowStyle}
               >
                 <div>
@@ -240,14 +273,17 @@ export function NetworkFlowMappingModal({
                     </div>
                   )}
                 </div>
-                <label style={fieldStyle}>
-                  Target field
-                  <select
+                <NetworkFlowField
+                  htmlFor={`network-flow-mapping-target-${column.source_column_ordinal}`}
+                  label="Target field"
+                >
+                  <NetworkFlowSelect
                     aria-label={`Target for ${sourceColumnLabel(column)}`}
                     data-testid={networkAnalysisMappingColumnTestId(
                       column.source_column_ordinal,
                     )}
                     disabled={working}
+                    id={`network-flow-mapping-target-${column.source_column_ordinal}`}
                     value={choice ?? unmappedColumnChoice}
                     onChange={(event) =>
                       onDraftChange(
@@ -271,8 +307,8 @@ export function NetworkFlowMappingModal({
                         {field.requirement === "required" ? " (required)" : ""}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </NetworkFlowSelect>
+                </NetworkFlowField>
               </div>
             );
           })}
@@ -281,32 +317,40 @@ export function NetworkFlowMappingModal({
         {preview === null ? null : <PreviewSummary preview={preview} />}
 
         {!timestampReady ? (
-          <p role="alert" style={alertStyle}>
+          <p className="network-flow-status" data-tone="error" role="alert">
             Choose distinct export-time and exporter-uptime columns before
             previewing this timestamp mode.
           </p>
         ) : null}
 
-        <footer style={footerStyle}>
-          <button disabled={working} type="button" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            data-testid={networkAnalysisTestId("mapping-preview")}
-            disabled={working || !timestampReady}
-            type="button"
-            onClick={onPreview}
-          >
-            {stage === "previewing" ? "Previewing…" : "Preview mapping"}
-          </button>
-          <button
-            data-testid={networkAnalysisTestId("mapping-apply")}
-            disabled={!canApply || working}
-            type="button"
-            onClick={onApply}
-          >
-            {stage === "applying" ? "Applying…" : "Approve and apply"}
-          </button>
+        <footer>
+          <NetworkFlowActionGroup>
+            <NetworkFlowButton
+              disabled={working}
+              variant="secondary"
+              onClick={onCancel}
+            >
+              Cancel
+            </NetworkFlowButton>
+            <NetworkFlowButton
+              data-testid={networkAnalysisTestId("mapping-preview")}
+              disabled={!timestampReady || stage === "applying"}
+              pending={stage === "previewing"}
+              variant="secondary"
+              onClick={onPreview}
+            >
+              {stage === "previewing" ? "Previewing…" : "Preview mapping"}
+            </NetworkFlowButton>
+            <NetworkFlowButton
+              data-testid={networkAnalysisTestId("mapping-apply")}
+              disabled={!canApply || stage === "previewing"}
+              pending={stage === "applying"}
+              variant="primary"
+              onClick={onApply}
+            >
+              {stage === "applying" ? "Applying…" : "Approve and apply"}
+            </NetworkFlowButton>
+          </NetworkFlowActionGroup>
         </footer>
       </section>
     </div>
@@ -335,10 +379,13 @@ function NetFlowUptimeSettings({
           onDraftChange({ ...draft, netflowExportTimeColumnOrdinal: ordinal })
         }
       />
-      <label style={fieldStyle}>
-        Export-time interpretation
-        <select
+      <NetworkFlowField
+        htmlFor="network-flow-export-time-mode"
+        label="Export-time interpretation"
+      >
+        <NetworkFlowSelect
           disabled={disabled}
+          id="network-flow-export-time-mode"
           value={draft.netflowExportTimeMode}
           onChange={(event) =>
             onDraftChange({
@@ -351,8 +398,8 @@ function NetFlowUptimeSettings({
           <option value="rfc3339">RFC 3339</option>
           <option value="epoch_seconds">Epoch seconds</option>
           <option value="epoch_milliseconds">Epoch milliseconds</option>
-        </select>
-      </label>
+        </NetworkFlowSelect>
+      </NetworkFlowField>
       <ColumnOrdinalSelect
         disabled={disabled}
         discovery={discovery}
@@ -382,11 +429,14 @@ function ColumnOrdinalSelect({
   readonly onChange: (ordinal: number | null) => void;
   readonly value: number | null;
 }) {
+  const controlId = `network-flow-column-${label
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/gu, "-")}`;
   return (
-    <label style={fieldStyle}>
-      {label}
-      <select
+    <NetworkFlowField htmlFor={controlId} label={label}>
+      <NetworkFlowSelect
         disabled={disabled}
+        id={controlId}
         value={value ?? ""}
         onChange={(event) =>
           onChange(
@@ -405,8 +455,8 @@ function ColumnOrdinalSelect({
             {sourceColumnLabel(column)}
           </option>
         ))}
-      </select>
-    </label>
+      </NetworkFlowSelect>
+    </NetworkFlowField>
   );
 }
 
@@ -463,88 +513,62 @@ function humanize(value: string): string {
   return value.replaceAll("_", " ");
 }
 
-const backdropStyle: CSSProperties = {
-  alignItems: "center",
-  background: "rgba(15, 23, 42, 0.65)",
-  display: "flex",
-  inset: 0,
-  justifyContent: "center",
-  padding: 24,
-  position: "fixed",
-  zIndex: 40,
-};
-const dialogStyle: CSSProperties = {
-  background: "var(--color-surface, #fff)",
-  borderRadius: 10,
-  boxShadow: "0 24px 64px rgba(15, 23, 42, 0.35)",
-  color: "var(--color-text, #172033)",
-  display: "grid",
-  gap: 16,
-  maxHeight: "calc(100vh - 48px)",
-  maxWidth: 1080,
-  overflow: "auto",
-  padding: 20,
-  width: "100%",
+const mappingDialogStyle: CSSProperties = {
+  inlineSize: "min(67.5rem, 100%)",
 };
 const headerStyle: CSSProperties = {
   alignItems: "start",
   display: "flex",
-  gap: 16,
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-lg)",
   justifyContent: "space-between",
 };
 const titleStyle: CSSProperties = { margin: 0 };
 const subtitleStyle: CSSProperties = { margin: 0 };
-const mutedStyle: CSSProperties = { margin: "6px 0 0", opacity: 0.75 };
+const mutedStyle: CSSProperties = {
+  color: "var(--ct-colors-ink-muted)",
+  margin: "var(--ct-spacing-sm) 0 0",
+};
 const settingsGridStyle: CSSProperties = {
   display: "grid",
-  gap: 12,
-  gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-};
-const fieldStyle: CSSProperties = {
-  display: "grid",
-  fontSize: 13,
-  gap: 5,
+  gap: "var(--ct-spacing-md)",
+  gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))",
 };
 const summaryStyle: CSSProperties = {
   alignItems: "center",
   display: "flex",
   flexWrap: "wrap",
-  gap: 16,
+  gap: "var(--ct-spacing-lg)",
   justifyContent: "space-between",
 };
 const mappingListStyle: CSSProperties = {
-  border: "1px solid var(--color-border, #cbd5e1)",
-  borderRadius: 6,
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
   display: "grid",
   maxHeight: 330,
   overflow: "auto",
 };
 const mappingRowStyle: CSSProperties = {
   alignItems: "center",
-  borderBottom: "1px solid var(--color-border, #e2e8f0)",
+  borderBottom: "var(--ct-border-hairline)",
   display: "grid",
-  gap: 16,
-  gridTemplateColumns: "minmax(260px, 1fr) minmax(240px, 0.8fr)",
-  padding: "10px 12px",
+  gap: "var(--ct-spacing-lg)",
+  gridTemplateColumns: "minmax(16rem, 1fr) minmax(15rem, 0.8fr)",
+  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
 };
 const sampleStyle: CSSProperties = {
-  fontSize: 12,
-  marginTop: 4,
-  opacity: 0.75,
-};
-const previewStyle: CSSProperties = {
-  background: "var(--color-surface-subtle, #f1f5f9)",
-  borderRadius: 6,
-  padding: 12,
-};
-const fingerprintStyle: CSSProperties = {
-  fontFamily: "ui-monospace, monospace",
-  fontSize: 11,
+  color: "var(--ct-colors-ink-subtle)",
+  fontSize: "var(--ct-typography-compact-metadata-fontSize)",
+  marginTop: "var(--ct-spacing-xs)",
   overflowWrap: "anywhere",
 };
-const alertStyle: CSSProperties = { color: "var(--color-danger, #b42318)" };
-const footerStyle: CSSProperties = {
-  display: "flex",
-  gap: 8,
-  justifyContent: "flex-end",
+const previewStyle: CSSProperties = {
+  background: "var(--ct-colors-surface-2)",
+  borderRadius: "var(--ct-rounded-sm)",
+  padding: "var(--ct-spacing-md)",
+};
+const fingerprintStyle: CSSProperties = {
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
+  fontSize: "var(--ct-typography-mono-fontSize)",
+  overflowWrap: "anywhere",
 };

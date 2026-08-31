@@ -28,6 +28,7 @@ import type {
   NetworkFlowSort,
   NetworkFlowTable,
 } from "../services/networkFlowContractAdapter";
+import { NetworkFlowButton, NetworkFlowChoice } from "./NetworkFlowControls";
 import {
   compileNetworkFlowColumns,
   localizedNetworkFlowDiagnosticMessage,
@@ -561,9 +562,12 @@ function ColumnLayoutControls({
   const [announcement, setAnnouncement] = useState("");
   return (
     <div style={layoutToolbarStyle}>
-      <details data-testid={networkAnalysisTestId("column-menu")}>
+      <details
+        className="network-flow-advanced"
+        data-testid={networkAnalysisTestId("column-menu")}
+      >
         <summary>Columns</summary>
-        <div style={columnMenuStyle}>
+        <div className="network-flow-popover" style={columnMenuStyle}>
           {control.allColumns.map((column) => {
             const checked = control.visibleFieldKeys.has(column.field_key);
             const visibleIndex = control.orderedVisibleFieldKeys.indexOf(
@@ -571,14 +575,18 @@ function ColumnLayoutControls({
             );
             return (
               <div key={column.field_key} style={columnControlRowStyle}>
-                <label style={columnToggleStyle}>
-                  <input
+                <label
+                  htmlFor={`network-flow-column-toggle-${column.field_key}`}
+                  style={columnToggleStyle}
+                >
+                  <NetworkFlowChoice
                     checked={checked}
                     data-testid={networkAnalysisColumnActionTestId(
                       column.field_key,
                       "toggle",
                     )}
                     disabled={checked && control.visibleFieldKeys.size === 1}
+                    id={`network-flow-column-toggle-${column.field_key}`}
                     type="checkbox"
                     onChange={(event) => {
                       control.setColumnVisible(
@@ -594,14 +602,14 @@ function ColumnLayoutControls({
                 </label>
                 {checked ? (
                   <span style={columnMoveActionsStyle}>
-                    <button
+                    <NetworkFlowButton
                       aria-label={`Move ${networkFlowColumnLabel(column.label_key)} earlier`}
                       data-testid={networkAnalysisColumnActionTestId(
                         column.field_key,
                         "move-earlier",
                       )}
                       disabled={visibleIndex <= 0}
-                      type="button"
+                      variant="ghost"
                       onClick={() => {
                         const target =
                           control.orderedVisibleFieldKeys[visibleIndex - 1];
@@ -613,8 +621,8 @@ function ColumnLayoutControls({
                       }}
                     >
                       Earlier
-                    </button>
-                    <button
+                    </NetworkFlowButton>
+                    <NetworkFlowButton
                       aria-label={`Move ${networkFlowColumnLabel(column.label_key)} later`}
                       data-testid={networkAnalysisColumnActionTestId(
                         column.field_key,
@@ -625,7 +633,7 @@ function ColumnLayoutControls({
                         visibleIndex ===
                           control.orderedVisibleFieldKeys.length - 1
                       }
-                      type="button"
+                      variant="ghost"
                       onClick={() => {
                         const target =
                           control.orderedVisibleFieldKeys[visibleIndex + 1];
@@ -637,7 +645,7 @@ function ColumnLayoutControls({
                       }}
                     >
                       Later
-                    </button>
+                    </NetworkFlowButton>
                   </span>
                 ) : null}
               </div>
@@ -645,16 +653,16 @@ function ColumnLayoutControls({
           })}
         </div>
       </details>
-      <button
+      <NetworkFlowButton
         data-testid={networkAnalysisTestId("layout-reset")}
-        type="button"
+        variant="secondary"
         onClick={() => {
           control.reset();
           setAnnouncement("Network Flow column layout reset to defaults.");
         }}
       >
         Reset layout
-      </button>
+      </NetworkFlowButton>
       <span aria-live="polite" style={visuallyHiddenStyle}>
         {announcement}
       </span>
@@ -698,14 +706,14 @@ function NetworkFlowInspector<Row extends object>({
             )}
           </div>
         </div>
-        <button
+        <NetworkFlowButton
           aria-label="Close cell inspector"
           data-testid={networkAnalysisTestId("inspector-close")}
-          type="button"
+          variant="secondary"
           onClick={onClose}
         >
           Close
-        </button>
+        </NetworkFlowButton>
       </div>
       <dl style={inspectorListStyle}>
         {metadata.map((column) => {
@@ -840,10 +848,13 @@ const layoutToolbarStyle = {
 const columnMenuStyle = {
   background: "var(--ct-colors-surface-1)",
   border: "var(--ct-border-hairline)",
-  boxShadow: "var(--ct-shadow-popover)",
+  boxShadow: "var(--ct-elevation-popover)",
   display: "grid",
   gap: "var(--ct-spacing-xs)",
+  insetInlineEnd: 0,
   maxBlockSize: "20rem",
+  maxInlineSize: "calc(100vw - 2 * var(--ct-spacing-sm))",
+  minInlineSize: "min(28rem, calc(100vw - 2 * var(--ct-spacing-sm)))",
   overflow: "auto",
   padding: "var(--ct-spacing-sm)",
   position: "absolute",
@@ -860,6 +871,7 @@ const columnToggleStyle = {
 const columnControlRowStyle = {
   alignItems: "center",
   display: "flex",
+  flexWrap: "wrap",
   gap: "var(--ct-spacing-sm)",
   justifyContent: "space-between",
 } satisfies CSSProperties;

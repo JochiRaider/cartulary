@@ -160,7 +160,7 @@ import {
   type EvidenceUploadOptions,
 } from "./support/evidence/fixtures";
 import {
-  importNetworkFlowCSV,
+  networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
 import { createIncident } from "./support/incidents/fixtures";
@@ -787,6 +787,124 @@ async function expectRecoverySurfaceGeometry(
   );
   if (options.enforceDocumentBlockExtent !== false) {
     expect(geometry.document.scrollHeight).toBeLessThanOrEqual(
+      geometry.document.clientHeight + 1,
+    );
+  }
+}
+
+async function expectNetworkAnalysisChromeGeometry(
+  page: Page,
+  options: { readonly enforceDocumentBlockExtent?: boolean } = {},
+) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const geometry = await page.evaluate(
+    ({ advancedSelector, workspaceSelector }) => {
+      const workspace = document.querySelector<HTMLElement>(workspaceSelector);
+      if (workspace === null) {
+        throw new Error("Expected Network Analysis workspace");
+      }
+      const controls = Array.from(
+        workspace.querySelectorAll<HTMLElement>(
+          "[data-network-flow-control]:not([hidden])",
+        ),
+      ).filter((control) => control.getClientRects().length > 0);
+      const popover = workspace.querySelector<HTMLElement>(
+        `${advancedSelector} .network-flow-popover`,
+      );
+      const rect = (element: Element) => {
+        const value = element.getBoundingClientRect();
+        return {
+          bottom: value.bottom,
+          height: value.height,
+          left: value.left,
+          right: value.right,
+          top: value.top,
+          width: value.width,
+        };
+      };
+      return {
+        controls: controls.map((control) => {
+          const style = getComputedStyle(control);
+          return {
+            backgroundColor: style.backgroundColor,
+            className: control.className,
+            color: style.color,
+            label:
+              control.getAttribute("aria-label") ??
+              control.textContent?.trim() ??
+              control.tagName,
+            ownedHorizontalOverflow: (() => {
+              let ancestor = control.parentElement;
+              while (ancestor !== null && ancestor !== workspace) {
+                const ancestorStyle = getComputedStyle(ancestor);
+                if (
+                  (ancestorStyle.overflowX === "auto" ||
+                    ancestorStyle.overflowX === "scroll") &&
+                  ancestor.scrollWidth > ancestor.clientWidth
+                ) {
+                  return true;
+                }
+                ancestor = ancestor.parentElement;
+              }
+              return false;
+            })(),
+            rect: rect(control),
+          };
+        }),
+        document: {
+          clientHeight: document.documentElement.clientHeight,
+          clientWidth: document.documentElement.clientWidth,
+          scrollHeight: document.documentElement.scrollHeight,
+          scrollWidth: document.documentElement.scrollWidth,
+        },
+        popover: popover === null ? null : rect(popover),
+        workspace: rect(workspace),
+        workspaceClientWidth: workspace.clientWidth,
+        workspaceScrollWidth: workspace.scrollWidth,
+      };
+    },
+    {
+      advancedSelector: dataTestIdSelector(
+        networkAnalysisTestId("advanced-filters"),
+      ),
+      workspaceSelector: dataTestIdSelector(networkAnalysisTestId("workspace")),
+    },
+  );
+
+  expect(geometry.controls.length).toBeGreaterThan(10);
+  expect(geometry.workspaceScrollWidth).toBeLessThanOrEqual(
+    geometry.workspaceClientWidth + 1,
+  );
+  expect(geometry.document.scrollWidth).toBeLessThanOrEqual(
+    geometry.document.clientWidth + 1,
+  );
+  if (options.enforceDocumentBlockExtent !== false) {
+    expect(geometry.document.scrollHeight).toBeLessThanOrEqual(
+      geometry.document.clientHeight + 1,
+    );
+  }
+  for (const control of geometry.controls) {
+    expect(control.backgroundColor).not.toBe("rgb(255, 255, 255)");
+    expect(control.backgroundColor).not.toBe("rgba(255, 255, 255, 1)");
+    expect(control.color).not.toBe("rgb(0, 0, 0)");
+    expect(control.rect.width).toBeGreaterThan(0);
+    expect(control.rect.height).toBeGreaterThan(0);
+    if (!control.ownedHorizontalOverflow) {
+      expect(control.rect.left, JSON.stringify(control)).toBeGreaterThanOrEqual(
+        geometry.workspace.left - 1,
+      );
+      expect(control.rect.right, JSON.stringify(control)).toBeLessThanOrEqual(
+        geometry.workspace.right + 1,
+      );
+    }
+  }
+  if (geometry.popover !== null) {
+    expect(geometry.popover.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.popover.right).toBeLessThanOrEqual(
+      geometry.document.clientWidth + 1,
+    );
+    expect(geometry.popover.top).toBeGreaterThanOrEqual(0);
+    expect(geometry.popover.bottom).toBeLessThanOrEqual(
       geometry.document.clientHeight + 1,
     );
   }
@@ -1850,7 +1968,32 @@ if (
     page,
   }) => {
     await openClaimedNetworkAnalysis(page, "NETWORKFLOWA11Y");
-    await importNetworkFlowCSV(page, { displayName: "accessible-flow" });
+    await page
+      .getByTestId(networkAnalysisTestId("import-input"))
+      .setInputFiles(networkFlowMinimalCSV);
+    const mappingDialog = page.getByTestId(
+      networkAnalysisTestId("mapping-dialog"),
+    );
+    await expect(mappingDialog).toBeVisible({ timeout: 30_000 });
+    const mappingProfile = page.getByTestId(
+      networkAnalysisTestId("mapping-profile"),
+    );
+    await expect(mappingProfile).toBeFocused();
+    await expectAllInteractiveControlsNamed(page);
+    await expectAndRecordContrast(page, [
+      networkAnalysisTestId("mapping-dialog"),
+      networkAnalysisTestId("mapping-profile"),
+      networkAnalysisTestId("mapping-preview"),
+    ]);
+    await page
+      .getByTestId(networkAnalysisTestId("mapping-display-name"))
+      .fill("accessible-flow");
+    await page.getByTestId(networkAnalysisTestId("mapping-preview")).click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("mapping-preview-summary")),
+    ).toBeVisible();
+    await page.getByTestId(networkAnalysisTestId("mapping-apply")).click();
+    await expect(mappingDialog).toHaveCount(0);
 
     const workspace = page.getByTestId(networkAnalysisTestId("workspace"));
     await expect(workspace).toHaveAttribute(
@@ -1949,6 +2092,54 @@ if (
     ]);
     await savedContributors.getByRole("button", { name: "Close" }).click();
     await expect(savedVertex).toBeFocused();
+
+    await page
+      .getByTestId(networkAnalysisTestId("graph-surface-explore"))
+      .click();
+    await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
+    await page
+      .getByLabel("Endpoint IP value")
+      .fill(`2001:db8:${"longsegment".repeat(12)}`);
+    await page
+      .getByTestId(networkAnalysisTestId("advanced-filters"))
+      .locator("summary")
+      .click();
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 720 },
+      { width: 768, height: 640 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expectNetworkAnalysisChromeGeometry(page);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    await expectNetworkAnalysisChromeGeometry(page, {
+      enforceDocumentBlockExtent: false,
+    });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "100%";
+    });
+    await page.setViewportSize({ width: 768, height: 640 });
+    await page.evaluate(() => {
+      const style = document.createElement("style");
+      style.id = "network-flow-text-spacing";
+      style.textContent = `
+        .network-flow-chrome * {
+          letter-spacing: 0.12em !important;
+          line-height: 1.5 !important;
+          word-spacing: 0.16em !important;
+        }
+      `;
+      document.head.append(style);
+    });
+    await expectNetworkAnalysisChromeGeometry(page);
+    await page.evaluate(() => {
+      document.getElementById("network-flow-text-spacing")?.remove();
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
   });
 }
 

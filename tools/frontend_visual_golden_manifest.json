@@ -152,19 +152,35 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
-      "sha256": "546589ef11409d8204ac294298685fd3e1f92460d47f11e7c1e52f81ff811466"
+      "sha256": "8f1c9ae4ee1d6f7d02c5f513cfdb87933617482f932ac43ffeab3533e6aeb2f4"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png",
+      "sha256": "503af6afe96f7071cfdc88023046c233551508335d129680948173ec647a242d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png",
+      "sha256": "ec9568705589360d4535683d3a024049c3b823b232aeef823ddbd2854dd5c8b1"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
-      "sha256": "8336533c57597847a6540765afe300fc4f2a85a0caf2a7571c64dd11ac99d58f"
+      "sha256": "0eb0f56cc3899038ed9c0a06f2832e15a1710fa2197c52626cc86d732eb2a0dc"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",
+      "sha256": "a0fcea88e0406c82898bc8c6dafdcf295a3a7a9539b0d01d462c05f3e61d9124"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png",
+      "sha256": "7a2700d3ab890a678527e853b4213ddb2f0776659a6cac308854011fdfb1bea6"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
-      "sha256": "4f9f3590b275c2f82c9418e8c36ee39c69e55e29ee4e0cb3a16c1a3a330806e8"
+      "sha256": "cb5ebc543c9063cd24f937029c87a2c8819340dfe2b0125da98cf915fd04dc29"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",
-      "sha256": "53deb4351a2eedf6b4bee571a90fd6186331d50655dffc00e18bb146f6fa7107"
+      "sha256": "f79fe48ad580be6860a593e023b97d10f0a67dc7ea65f18877c8f64f040ecf5f"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",
