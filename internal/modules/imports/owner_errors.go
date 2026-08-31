@@ -105,7 +105,7 @@ func translateExtensionOwnerFailure(
 }
 
 func commonImportApplyFailure(err error) (importUnitFailureDetail, bool) {
-	var applyBlocked *ApplyBlockedError
+	var applyBlocked *applyBlockedError
 	if !errors.As(err, &applyBlocked) || !validCommonImportApplyReason(applyBlocked.ReasonCode) {
 		return importUnitFailureDetail{}, false
 	}

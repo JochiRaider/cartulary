@@ -71,12 +71,12 @@ func unitCommitID(sessionID uuid.UUID, unitID uuid.UUID) string {
 	return "import-unit:" + sessionID.String() + ":" + unitID.String()
 }
 
-func (s *Store) getUnitOutcome(
+func (s *store) getUnitOutcome(
 	ctx context.Context,
 	sessionID uuid.UUID,
 	unitID uuid.UUID,
 ) (unitApplyOutcome, error) {
-	return findUnitOutcome(ctx, s.pool, sessionID, unitID)
+	return findUnitOutcome(ctx, s.db, sessionID, unitID)
 }
 
 func findUnitOutcome(
@@ -127,7 +127,7 @@ func scanUnitOutcome(row pgx.Row) (unitApplyOutcome, error) {
 		&outcome.CommittedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return unitApplyOutcome{}, ErrNotFound
+		return unitApplyOutcome{}, errNotFound
 	}
 	if err != nil {
 		return unitApplyOutcome{}, err
@@ -144,7 +144,7 @@ func scanUnitOutcome(row pgx.Row) (unitApplyOutcome, error) {
 	return outcome, nil
 }
 
-func (s *Store) insertApplyUnitPlansTx(
+func (s *store) insertApplyUnitPlansTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	sessionID uuid.UUID,
@@ -220,7 +220,7 @@ SELECT u.import_unit_id,
 			rows.Close()
 			return err
 		}
-		var mapping ApprovedMapping
+		var mapping approvedMapping
 		if err := json.Unmarshal(plan.mappingJSON, &mapping); err != nil {
 			rows.Close()
 			return err
@@ -288,13 +288,13 @@ func sha256Hex(value []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Store) lockApplyUnitTx(
+func (s *store) lockApplyUnitTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	start ApplyStartResult,
+	start applyStartResult,
 	unitID uuid.UUID,
-) (ApplyUnitData, error) {
-	var unit ApplyUnitData
+) (applyUnitData, error) {
+	var unit applyUnitData
 	var sourceRowsJSON []byte
 	var mappingJSON []byte
 	var admittedSourceFileKind string
@@ -311,7 +311,7 @@ func (s *Store) lockApplyUnitTx(
 	var admittedTargetRegistryDigest string
 	jobID, err := uuid.Parse(start.Job.JobID)
 	if err != nil {
-		return ApplyUnitData{}, err
+		return applyUnitData{}, err
 	}
 	err = tx.QueryRow(ctx, `
 SELECT u.import_unit_id,
@@ -382,10 +382,10 @@ SELECT u.import_unit_id,
 		&admittedTargetRegistryDigest,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ApplyUnitData{}, importApplyBlockedError("unit_not_ready")
+		return applyUnitData{}, importApplyBlockedError("unit_not_ready")
 	}
 	if err != nil {
-		return ApplyUnitData{}, err
+		return applyUnitData{}, err
 	}
 	if unit.SourceFileKind != admittedSourceFileKind ||
 		unit.SourceContentSHA256 != admittedSourceDigest ||
@@ -396,25 +396,25 @@ SELECT u.import_unit_id,
 		unit.LocatorKind != admittedLocatorKind ||
 		unit.Locator != admittedLocator ||
 		unit.SourceRectA1 != admittedSourceRectA1 {
-		return ApplyUnitData{}, importApplyBlockedError("source_changed")
+		return applyUnitData{}, importApplyBlockedError("source_changed")
 	}
 	if unit.MappingFingerprint != admittedMappingFingerprint ||
 		sha256Hex(mappingJSON) != admittedMappingDigest {
-		return ApplyUnitData{}, importApplyBlockedError("source_changed")
+		return applyUnitData{}, importApplyBlockedError("source_changed")
 	}
 	if admittedTargetRegistryDigest != importtargetregistry.RegistrySHA256 {
-		return ApplyUnitData{}, importApplyBlockedError("target_kind_not_importable")
+		return applyUnitData{}, importApplyBlockedError("target_kind_not_importable")
 	}
 	if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
-		return ApplyUnitData{}, err
+		return applyUnitData{}, err
 	}
-	if err := json.Unmarshal(mappingJSON, &unit.ApprovedMapping); err != nil {
-		return ApplyUnitData{}, err
+	if err := json.Unmarshal(mappingJSON, &unit.approvedMapping); err != nil {
+		return applyUnitData{}, err
 	}
 	return unit, nil
 }
 
-func (s *Store) ensureApplyJobRunnableTx(
+func (s *store) ensureApplyJobRunnableTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	execution jobs.Execution,
@@ -429,17 +429,17 @@ func (s *Store) ensureApplyJobRunnableTx(
 	return err
 }
 
-func (s *Store) lockUnitOutcomePlanTx(
+func (s *store) lockUnitOutcomePlanTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	start ApplyStartResult,
+	start applyStartResult,
 	unitID uuid.UUID,
-) (ApplyUnitData, importTarget, error) {
+) (applyUnitData, importTarget, error) {
 	jobID, err := uuid.Parse(start.Job.JobID)
 	if err != nil {
-		return ApplyUnitData{}, importTarget{}, err
+		return applyUnitData{}, importTarget{}, err
 	}
-	var unit ApplyUnitData
+	var unit applyUnitData
 	var mappingJSON []byte
 	var targetKind string
 	var targetViewSchemaID *string
@@ -496,30 +496,30 @@ SELECT p.import_unit_id,
 		&ownerBindingID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ApplyUnitData{}, importTarget{}, importApplyBlockedError("unit_not_ready")
+		return applyUnitData{}, importTarget{}, importApplyBlockedError("unit_not_ready")
 	}
 	if err != nil {
-		return ApplyUnitData{}, importTarget{}, err
+		return applyUnitData{}, importTarget{}, err
 	}
-	if err := json.Unmarshal(mappingJSON, &unit.ApprovedMapping); err != nil {
-		return ApplyUnitData{}, importTarget{}, err
+	if err := json.Unmarshal(mappingJSON, &unit.approvedMapping); err != nil {
+		return applyUnitData{}, importTarget{}, err
 	}
 	target := importTarget{TargetKind: targetKind}
 	switch targetKind {
 	case ImportTargetKindViewSchema:
 		if targetViewSchemaID == nil {
-			return ApplyUnitData{}, importTarget{}, fmt.Errorf("view import plan has no target schema")
+			return applyUnitData{}, importTarget{}, fmt.Errorf("view import plan has no target schema")
 		}
 		target.ViewSchemaID = *targetViewSchemaID
 		target.FacadeBindingID = ownerBindingID
-	case ImportTargetKindNetworkFlowTable:
+	case importTargetKindNetworkFlowTable:
 		if extensionProfileID == nil {
-			return ApplyUnitData{}, importTarget{}, fmt.Errorf("analytical import plan has no profile")
+			return applyUnitData{}, importTarget{}, fmt.Errorf("analytical import plan has no profile")
 		}
 		target.ExtensionProfileID = *extensionProfileID
 		target.FacadeBindingID = ownerBindingID
 	default:
-		return ApplyUnitData{}, importTarget{}, fmt.Errorf(
+		return applyUnitData{}, importTarget{}, fmt.Errorf(
 			"import plan has unsupported target kind %q",
 			targetKind,
 		)
@@ -527,11 +527,11 @@ SELECT p.import_unit_id,
 	return unit, target, nil
 }
 
-func (s *Store) insertAppliedUnitOutcomeTx(
+func (s *store) insertAppliedUnitOutcomeTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	start ApplyStartResult,
-	unit ApplyUnitData,
+	start applyStartResult,
+	unit applyUnitData,
 	target importTarget,
 	actorUserID uuid.UUID,
 	commit appliedUnitCommit,
@@ -570,10 +570,10 @@ UPDATE import_units
 	return outcome, nil
 }
 
-func (s *Store) recordTerminalUnitOutcome(
+func (s *store) recordTerminalUnitOutcome(
 	ctx context.Context,
 	execution jobs.Execution,
-	start ApplyStartResult,
+	start applyStartResult,
 	unitID uuid.UUID,
 	actorUserID uuid.UUID,
 	status string,
@@ -585,10 +585,10 @@ func (s *Store) recordTerminalUnitOutcome(
 	}
 	if existing, err := s.getUnitOutcome(ctx, start.ImportSessionID, unitID); err == nil {
 		return existing, nil
-	} else if !errors.Is(err, ErrNotFound) {
+	} else if !errors.Is(err, errNotFound) {
 		return unitApplyOutcome{}, err
 	}
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return unitApplyOutcome{}, err
 	}
@@ -607,7 +607,7 @@ func (s *Store) recordTerminalUnitOutcome(
 			return unitApplyOutcome{}, err
 		}
 		return existing, nil
-	} else if !errors.Is(findErr, ErrNotFound) {
+	} else if !errors.Is(findErr, errNotFound) {
 		return unitApplyOutcome{}, findErr
 	}
 	unit, target, err := s.lockUnitOutcomePlanTx(ctx, tx, start, unitID)
@@ -657,8 +657,8 @@ UPDATE import_units
 }
 
 func buildUnitOutcome(
-	start ApplyStartResult,
-	unit ApplyUnitData,
+	start applyStartResult,
+	unit applyUnitData,
 	target importTarget,
 	actorUserID uuid.UUID,
 	status string,
@@ -742,17 +742,17 @@ INSERT INTO import_unit_apply_outcomes (
 	return err
 }
 
-func (s *Store) prepareApplyFinalization(
+func (s *store) prepareApplyFinalization(
 	ctx context.Context,
-	start ApplyStartResult,
+	start applyStartResult,
 ) (applyFinalization, error) {
-	return deriveApplyFinalization(ctx, s.pool, start)
+	return deriveApplyFinalization(ctx, s.db, start)
 }
 
-func (s *Store) finalizeApplyFromOutcomesTx(
+func (s *store) finalizeApplyFromOutcomesTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	start ApplyStartResult,
+	start applyStartResult,
 	expected applyFinalization,
 	now time.Time,
 ) error {
@@ -793,7 +793,7 @@ SELECT session_status
 func deriveApplyFinalization(
 	ctx context.Context,
 	querier unitOutcomeQuerier,
-	start ApplyStartResult,
+	start applyStartResult,
 ) (applyFinalization, error) {
 	jobID, err := uuid.Parse(start.Job.JobID)
 	if err != nil {
@@ -808,7 +808,7 @@ SELECT session_status, apply_job_id, to_jsonb(selected_unit_ids)
  WHERE import_session_id = $1
 `, start.ImportSessionID).Scan(&sessionStatus, &applyJobID, &selectedJSON); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return applyFinalization{}, ErrNotFound
+			return applyFinalization{}, errNotFound
 		}
 		return applyFinalization{}, err
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestCharacterizationCurrentImportSessionMemberRoutes(t *testing.T) {
+func TestImportSessionMemberRouteContract(t *testing.T) {
 	t.Parallel()
 
 	sessionID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
@@ -79,7 +79,7 @@ func TestCharacterizationCurrentImportSessionMemberRoutes(t *testing.T) {
 	if len(importRouteCatalog) != 11 || len(expectedByOperationID) != 11 {
 		t.Fatalf("Imports route catalog count changed: catalog=%d expected=%d", len(importRouteCatalog), len(expectedByOperationID))
 	}
-	boundHandlers := (&Service{}).importOperationHandlers()
+	boundHandlers := (&service{}).importOperationHandlers()
 	contractOperations := httpapi.ContractOperationsForOwner("module.imports")
 	if len(boundHandlers) != 11 || len(contractOperations) != 11 {
 		t.Fatalf("Imports bound operation count changed: handlers=%d contracts=%d", len(boundHandlers), len(contractOperations))
@@ -136,7 +136,7 @@ func operationRequiresCookieCSRF(security [][]string) bool {
 	return false
 }
 
-func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
+func TestGeneratedImportTargetRegistryContract(t *testing.T) {
 	t.Parallel()
 
 	type expectedTarget struct {
@@ -185,8 +185,8 @@ func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
 	}
 
 	key := analyticalImportTargetKey{
-		TargetKind:         ImportTargetKindNetworkFlowTable,
-		ExtensionProfileID: NetworkFlowExtensionProfileID,
+		TargetKind:         importTargetKindNetworkFlowTable,
+		ExtensionProfileID: networkFlowExtensionProfileID,
 	}
 	if len(analyticalImportTargets) != 1 {
 		t.Fatalf("current analytical target count changed: got %d want 1", len(analyticalImportTargets))
@@ -196,11 +196,11 @@ func TestCharacterizationCurrentImportTargetInventory(t *testing.T) {
 		analytical.ApplyFacade != "network_flow_import_facade_v1" ||
 		analytical.importable(nil) ||
 		!analytical.importable(func(profileID string) bool {
-			return profileID == NetworkFlowExtensionProfileID
+			return profileID == networkFlowExtensionProfileID
 		}) {
 		t.Fatalf("unexpected current analytical target: %#v", analytical)
 	}
-	assertFileMappingCompatibilityCharacterization(t)
+	assertFileMappingCompatibilityContract(t)
 }
 
 func TestInternalImportErrorDoesNotEchoRawMessage(t *testing.T) {
@@ -219,7 +219,7 @@ func TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics(t *testing.T) 
 	t.Parallel()
 
 	workbook, apiErr := indexXLSXWorkbook(
-		characterizationWorkbook(t),
+		contractWorkbook(t),
 		Limits{MaxRows: 100, MaxColumns: 20, MaxCells: 2_000},
 		ArchiveLimits{
 			DefaultMaxExtractedBytes: 1 << 20,
@@ -228,7 +228,7 @@ func TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics(t *testing.T) 
 		},
 	)
 	if apiErr != nil {
-		t.Fatalf("index characterization workbook: %#v", apiErr)
+		t.Fatalf("index contract workbook: %#v", apiErr)
 	}
 	if len(workbook.ranges) != 2 ||
 		workbook.ranges[0].sheet.name != "Visible" ||
@@ -250,25 +250,25 @@ func TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics(t *testing.T) 
 	}
 }
 
-func characterizationWorkbook(t testing.TB) []byte {
+func contractWorkbook(t testing.TB) []byte {
 	t.Helper()
 
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
-	writeCharacterizationZipText(t, writer, "xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8"?>
+	writeContractZipText(t, writer, "xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheets>
     <sheet name="Visible" sheetId="1" r:id="rId1"/>
     <sheet name="Hidden" sheetId="2" state="hidden" r:id="rId2"/>
   </sheets>
 </workbook>`)
-	writeCharacterizationZipText(t, writer, "xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8"?>
+	writeContractZipText(t, writer, "xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
   <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
 </Relationships>`)
 	for index, value := range []string{"visible", "hidden"} {
-		writeCharacterizationZipText(t, writer, "xl/worksheets/sheet"+string(rune('1'+index))+".xml", `<?xml version="1.0" encoding="UTF-8"?>
+		writeContractZipText(t, writer, "xl/worksheets/sheet"+string(rune('1'+index))+".xml", `<?xml version="1.0" encoding="UTF-8"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <sheetData>
     <row r="1"><c r="A1" t="inlineStr"><is><t>header</t></is></c></row>
@@ -277,12 +277,12 @@ func characterizationWorkbook(t testing.TB) []byte {
 </worksheet>`)
 	}
 	if err := writer.Close(); err != nil {
-		t.Fatalf("close characterization workbook: %v", err)
+		t.Fatalf("close contract workbook: %v", err)
 	}
 	return buffer.Bytes()
 }
 
-func writeCharacterizationZipText(t testing.TB, writer *zip.Writer, name string, content string) {
+func writeContractZipText(t testing.TB, writer *zip.Writer, name string, content string) {
 	t.Helper()
 
 	entry, err := writer.Create(name)

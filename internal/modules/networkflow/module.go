@@ -22,10 +22,6 @@ import (
 // an Import store directly.
 type ImportSourcePort interface {
 	OpenSourceStream(context.Context, string) (imports.ImportSourceStream, error)
-	GetSession(context.Context, uuid.UUID) (map[string]any, uuid.UUID, error)
-}
-
-type importTransactionPort interface {
 	ValidateExtensionApplyPreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string) error
 }
 
@@ -53,7 +49,6 @@ type Module struct {
 	store           *Store
 	importOwner     imports.ExtensionImportFacade
 	importSources   ImportSourcePort
-	importTx        importTransactionPort
 	transactions    *crossownertransaction.Coordinator
 	cursorProtector CursorProtector
 	safeDigester    SafeDigester
@@ -70,6 +65,9 @@ type Module struct {
 func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if dependencies.Postgres == nil {
 		return nil, errors.New("network flow module requires PostgreSQL")
+	}
+	if dependencies.ImportSources == nil {
+		return nil, errors.New("network flow module requires Imports source capability")
 	}
 	limits := dependencies.EffectiveLimits
 	if err := ValidateEffectiveLimits(limits); err != nil {
@@ -110,9 +108,6 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		jobRunner: dependencies.JobRunner, jobFinalizer: dependencies.JobFinalizer,
 		graphTelemetry: dependencies.GraphTelemetry,
 	}
-	if physical, ok := dependencies.ImportSources.(importTransactionPort); ok {
-		module.importTx = physical
-	}
 	return module, nil
 }
 
@@ -130,7 +125,7 @@ func (m *Module) RegisterGraphViewWorker() error {
 // edge while every route and worker remains quiescent. It is deliberately
 // single-assignment so a serving process cannot switch transaction epochs.
 func (m *Module) InstallCrossOwnerCoordinator(coordinator *crossownertransaction.Coordinator) error {
-	if m == nil || coordinator == nil || m.importSources == nil || m.importTx == nil {
+	if m == nil || coordinator == nil || m.importSources == nil {
 		return errors.New("network flow cross-owner transaction composition unavailable")
 	}
 	if m.transactions != nil {
@@ -173,7 +168,7 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 	}
 	switch participantID {
 	case ImportApplyParticipantID:
-		if m.importTx == nil {
+		if m.importSources == nil {
 			return nil, nil, crossownertransaction.ErrUnavailable
 		}
 	case IndicatorLinkParticipantID:
@@ -184,7 +179,7 @@ func (m *Module) TransactionCapabilities(participantID string, tx pgx.Tx) (cross
 		participantID: participantID,
 		tx:            tx,
 		store:         m.store,
-		imports:       m.importTx,
+		imports:       m.importSources,
 	}
 	return capability, capability, nil
 }

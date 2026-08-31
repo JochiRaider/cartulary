@@ -2039,7 +2039,7 @@ it MUST create none of those effects even though it uses `POST`.
   - Verifies: REQ-01-618, REQ-02-259, REQ-03-293
 - **AC-464**: Dispatcher isolation is binary: `imports` owns the apply coordinator, import-owned state, apply journal, warnings, diagnostics, mapping/source integrity, durable unit outcomes, and finalization; it does not write owner source, analytical, projection, workbook, or grid state directly; every view target selects exactly one owner-create facade; every analytical target selects exactly one valid `cartulary.imports.analytical_facade_binding.v1`; and missing, duplicate, inactive, or unsupported targets fail closed without fallback.
   - Verifies: REQ-01-618, REQ-01-620, REQ-03-293
-- **AC-465**: Every registry row with `import_apply_status='supported'` has exactly one callable owner create facade and at least one characterization test proving that mapped rows create or reuse the correct owner record family without using workbook DTOs or workbook store rows.
+- **AC-465**: Every generated view target with `availability_kind='enabled'` has exactly one callable owner create facade and at least one owner contract test proving that mapped rows create or reuse the correct owner record family without using workbook DTOs or workbook store rows.
   - Verifies: REQ-01-619, REQ-02-259
 - **AC-466**: File-based import of Hosts, Identities, Evidence, Task Requests, Decisions, and coordination-artifact units creates or reuses records through the target owner facade, blocks unknown-column retention where the target cannot retain unmapped values, and keeps generated row refreshes bound to `view_row_v1`.
   - Verifies: REQ-01-619, REQ-01-620, REQ-03-293

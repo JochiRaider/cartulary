@@ -35,14 +35,14 @@ func TestMappingFingerprintUsesCanonicalWriteNullToken(t *testing.T) {
 			}]
 		}`
 	}
-	first, apiErr := DecodeMappingRequest(
+	first, apiErr := decodeMappingRequest(
 		strings.NewReader(body("txn-write-null-a", "write_null")),
 		discovered,
 	)
 	if apiErr != nil {
 		t.Fatalf("decode first write_null mapping: %#v", apiErr)
 	}
-	replay, apiErr := DecodeMappingRequest(
+	replay, apiErr := decodeMappingRequest(
 		strings.NewReader(body("txn-write-null-b", "write_null")),
 		discovered,
 	)
@@ -56,11 +56,11 @@ func TestMappingFingerprintUsesCanonicalWriteNullToken(t *testing.T) {
 			replay.Fingerprint,
 		)
 	}
-	if first.ApprovedMapping.SourceColumns[0].EmptyValuePolicy != "write_null" ||
+	if first.approvedMapping.SourceColumns[0].EmptyValuePolicy != "write_null" ||
 		strings.Contains(string(first.Normalized), "use_null") {
 		t.Fatalf("non-canonical mapping = %#v", first)
 	}
-	if _, apiErr := DecodeMappingRequest(
+	if _, apiErr := decodeMappingRequest(
 		strings.NewReader(body("txn-use-null", "use_null")),
 		discovered,
 	); apiErr == nil ||
@@ -78,6 +78,10 @@ type ownerErrorTestFacade struct {
 	translation ExtensionImportErrorTranslation
 	translated  bool
 	validateErr error
+}
+
+func (f ownerErrorTestFacade) Binding() ExtensionImportFacadeBinding {
+	return ExtensionImportFacadeBinding{}
 }
 
 func (f ownerErrorTestFacade) PrepareImportUnitMapping(

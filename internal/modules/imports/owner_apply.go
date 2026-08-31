@@ -18,17 +18,17 @@ import (
 
 const importApplyChangeSetSource = "imports.apply"
 
-func (s *Service) applyGenericOwnerUnitTx(
+func (s *service) applyGenericOwnerUnitTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	actor authn.UserRecord,
-	start ApplyStartResult,
-	unit ApplyUnitData,
+	start applyStartResult,
+	unit applyUnitData,
 	target importTarget,
 ) (appliedUnitCommit, error) {
 	now := s.now().UTC()
 	owner, ok := s.ownerCreateRegistry.Resolve(
-		unit.ApprovedMapping.TargetViewSchemaID,
+		unit.approvedMapping.TargetViewSchemaID,
 		target.CreateFacade,
 	)
 	if !ok {
@@ -104,7 +104,7 @@ func (s *Service) applyGenericOwnerUnitTx(
 			"mapping_fingerprint":     request.MappingFingerprint,
 			"source_row_ref":          request.SourceRowRef,
 		}
-		if err := s.store.InsertApplyJournalTx(ctx, tx, ApplyJournalParams{
+		if err := s.store.insertApplyJournalTx(ctx, tx, applyJournalParams{
 			ImportSessionID:      request.ImportSessionID,
 			ImportUnitID:         request.ImportUnitID,
 			MappingFingerprint:   request.MappingFingerprint,
@@ -137,8 +137,8 @@ func (s *Service) applyGenericOwnerUnitTx(
 
 func importOwnerCreateRequest(
 	ctx context.Context,
-	start ApplyStartResult,
-	unit ApplyUnitData,
+	start applyStartResult,
+	unit applyUnitData,
 	actorID uuid.UUID,
 	sourceRow map[string]any,
 	rowRef int,
@@ -148,7 +148,7 @@ func importOwnerCreateRequest(
 	request := ownerfacade.ImportOwnerCreateRequest{
 		IncidentID:          start.IncidentID,
 		ActorUserID:         actorID,
-		TargetViewSchemaID:  unit.ApprovedMapping.TargetViewSchemaID,
+		TargetViewSchemaID:  unit.approvedMapping.TargetViewSchemaID,
 		ImportSessionID:     start.ImportSessionID,
 		ImportUnitID:        unit.UnitID,
 		MappingFingerprint:  unit.MappingFingerprint,
@@ -213,15 +213,15 @@ func importOwnerCreateRequest(
 }
 
 func importMappingKernelRequest(
-	unit ApplyUnitData,
+	unit applyUnitData,
 	sourceRow map[string]any,
 	rowRef int,
 ) (tabularingest.MappingKernelRequestV1, error) {
-	schema, ok := viewschema.Lookup(unit.ApprovedMapping.TargetViewSchemaID)
+	schema, ok := viewschema.Lookup(unit.approvedMapping.TargetViewSchemaID)
 	if !ok {
 		return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import mapping kernel target view is unavailable")
 	}
-	public, ok := viewschema.LookupPublicResource(unit.ApprovedMapping.TargetViewSchemaID)
+	public, ok := viewschema.LookupPublicResource(unit.approvedMapping.TargetViewSchemaID)
 	if !ok {
 		return tabularingest.MappingKernelRequestV1{}, fmt.Errorf("import mapping kernel target view resource is unavailable")
 	}
@@ -241,8 +241,8 @@ func importMappingKernelRequest(
 			EntityBindingMode: field.EntityBindingMode,
 		})
 	}
-	columns := make([]tabularingest.MappingKernelSourceColumnV1, 0, len(unit.ApprovedMapping.SourceColumns))
-	for _, column := range unit.ApprovedMapping.SourceColumns {
+	columns := make([]tabularingest.MappingKernelSourceColumnV1, 0, len(unit.approvedMapping.SourceColumns))
+	for _, column := range unit.approvedMapping.SourceColumns {
 		columns = append(columns, tabularingest.MappingKernelSourceColumnV1{
 			SourceColumnOrdinal: column.SourceColumnOrdinal,
 			SourceHeaderText:    column.SourceHeaderText,
@@ -281,6 +281,6 @@ func importMappingKernelRequest(
 		TargetFields:        targetFields,
 		SourceColumns:       columns,
 		Rows:                []tabularingest.MappingKernelSourceRowV1{{SourceRowOrdinal: rowRef, Cells: cells}},
-		UnknownColumnPolicy: unit.ApprovedMapping.UnknownColumnPolicy,
+		UnknownColumnPolicy: unit.approvedMapping.UnknownColumnPolicy,
 	}, nil
 }

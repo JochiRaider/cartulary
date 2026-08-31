@@ -1149,6 +1149,25 @@
       "production_only": true
     },
     {
+      "id": "imports-use-owner-facades-not-peer-implementations",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/artifacts",
+        "github.com/JochiRaider/cartulary/internal/modules/assessments",
+        "github.com/JochiRaider/cartulary/internal/modules/entities",
+        "github.com/JochiRaider/cartulary/internal/modules/evidence",
+        "github.com/JochiRaider/cartulary/internal/modules/indicators",
+        "github.com/JochiRaider/cartulary/internal/modules/parties",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook"
+      ],
+      "scan_paths": ["internal/modules/imports/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "platform-adapter-construction-no-deployment-config",
       "match_kind": "subtree",
       "imports": [
@@ -3444,8 +3463,7 @@
       ],
       "allowed_paths": [
         "internal/app/server/evidence_composition_characterization_test.go",
-        "internal/modules/evidence/**",
-        "internal/modules/imports/boundary_guard_test.go"
+        "internal/modules/evidence/**"
       ],
       "production_only": true
     },

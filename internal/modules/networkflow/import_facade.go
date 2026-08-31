@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
@@ -25,10 +24,39 @@ type importFacade struct {
 	safeDigester SafeDigester
 }
 
-const importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
+const (
+	importFacadeBindingSchemaID = "cartulary.imports.analytical_facade_binding.v1"
+	importFacadeID              = "network_flow_import_facade_v1"
+	importOwnerContractRef      = "network_flow_activity@5"
+	importMappingSchemaID       = "cartulary.network_flow.approved_mapping.v1"
+	importPreviewRequestID      = "cartulary.network_flow.import_preview_request.v1"
+	importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
+	importApplyRequestID        = "cartulary.network_flow.import_apply_request.v1"
+	importApplyResultID         = "cartulary.network_flow.import_unit_result.v1"
+	importCommitProtocolID      = "cartulary.imports.unit_commit.v1"
+)
 
 func newImportFacade(store *Store, sourceStore ImportSourcePort, limits EffectiveLimits, now func() time.Time, safeDigester SafeDigester) *importFacade {
 	return &importFacade{store: store, sourceStore: sourceStore, limits: limits, now: now, safeDigester: safeDigester}
+}
+
+func (f *importFacade) Binding() imports.ExtensionImportFacadeBinding {
+	return imports.ExtensionImportFacadeBinding{
+		SchemaID:               importFacadeBindingSchemaID,
+		TargetKind:             TargetKindNetworkFlowTable,
+		ExtensionProfileID:     ProfileID,
+		OwnerContractRef:       importOwnerContractRef,
+		FacadeID:               importFacadeID,
+		ContractMajor:          5,
+		MappingSchemaID:        importMappingSchemaID,
+		PreviewRequestSchemaID: importPreviewRequestID,
+		PreviewResultSchemaID:  importPreviewResultSchemaID,
+		ApplyRequestSchemaID:   importApplyRequestID,
+		ApplyResultSchemaID:    importApplyResultID,
+		ErrorSchemaID:          networkFlowImportOwnerErrorSchemaID,
+		ErrorTranslationID:     networkFlowImportErrorTranslationID,
+		CommitProtocolID:       importCommitProtocolID,
+	}
 }
 
 func (f *importFacade) PrepareImportUnitMapping(ctx context.Context, request imports.ExtensionImportMappingRequest) (imports.ExtensionImportMappingResult, error) {
@@ -207,18 +235,11 @@ func (f *importFacade) ApplyImportUnitTx(
 	if err != nil {
 		return imports.ExtensionImportApplyResult{}, err
 	}
-	importStore, ok := f.sourceStore.(importTransactionPort)
-	if !ok {
-		return imports.ExtensionImportApplyResult{}, importOwnerError(
-			"network_flow_target_unavailable",
-			map[string]any{"reason_code": "owner_apply_contract_unavailable"},
-		)
-	}
 	capability := &transactionCapability{
 		participantID: ImportApplyParticipantID,
 		tx:            tx,
 		store:         f.store,
-		imports:       importStore,
+		imports:       f.sourceStore,
 	}
 	if err := capability.ValidateImportApply(ctx, request); err != nil {
 		return imports.ExtensionImportApplyResult{}, err
@@ -239,7 +260,7 @@ type preparedImportApply struct {
 
 func (p preparedImportApply) result(table TableRecord) imports.ExtensionImportApplyResult {
 	ownerResponse := map[string]any{
-		"schema_id":             "cartulary.network_flow.import_unit_result.v1",
+		"schema_id":             importApplyResultID,
 		"import_session_id":     p.request.ImportSessionID.String(),
 		"import_unit_id":        p.request.ImportUnitID.String(),
 		"source_content_sha256": p.parsed.SourceContentSHA256,
@@ -295,10 +316,7 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 			map[string]any{"reason_code": "network_flow_resource_limit_exceeded"},
 		)
 	}
-	originalFilename, err := f.originalFilename(ctx, request.ImportSessionID)
-	if err != nil {
-		return preparedImportApply{}, err
-	}
+	originalFilename := stream.OriginalFilename
 	filenameDisplay := SanitizeSourceFilenameDisplay(originalFilename)
 	filenameDigest, filenameDigestKeyID, err := f.safeDigester.Digest("source_filename", filenameDisplay)
 	if err != nil {
@@ -328,15 +346,6 @@ func (f *importFacade) prepareImportApply(ctx context.Context, request imports.E
 		Now:                       now,
 	}
 	return preparedImportApply{params: params, request: request, parsed: parsed, mapping: mapping}, nil
-}
-
-func (f *importFacade) originalFilename(ctx context.Context, sessionID uuid.UUID) (string, error) {
-	session, _, err := f.sourceStore.GetSession(ctx, sessionID)
-	if err != nil {
-		return "", err
-	}
-	value, _ := session["original_filename"].(string)
-	return value, nil
 }
 
 func sourceColumnsMatch(approved []SourceColumnDescriptor, actual []SourceColumnDescriptor) bool {

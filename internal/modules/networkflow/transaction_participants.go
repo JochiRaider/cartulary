@@ -36,7 +36,7 @@ type transactionCapability struct {
 	participantID string
 	tx            pgx.Tx
 	store         *Store
-	imports       importTransactionPort
+	imports       ImportSourcePort
 }
 
 func (c *transactionCapability) ParticipantScope() string {

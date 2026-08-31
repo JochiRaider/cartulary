@@ -103,7 +103,7 @@ func TestFormulaCacheBlockerClearsOnlyWhenAffectedColumnIsUnmapped(t *testing.T)
 	t.Parallel()
 
 	field := "summary"
-	mapped, err := json.Marshal(ApprovedMapping{SourceColumns: []SourceColumnMapping{
+	mapped, err := json.Marshal(approvedMapping{SourceColumns: []sourceColumnMapping{
 		{SourceColumnOrdinal: 3, FieldKey: &field},
 	}})
 	if err != nil {
@@ -118,7 +118,7 @@ func TestFormulaCacheBlockerClearsOnlyWhenAffectedColumnIsUnmapped(t *testing.T)
 	if state.statusAfterSelection() != "mapped" {
 		t.Fatalf("mapped formula without a cache entered ready")
 	}
-	unmapped, err := json.Marshal(ApprovedMapping{SourceColumns: []SourceColumnMapping{
+	unmapped, err := json.Marshal(approvedMapping{SourceColumns: []sourceColumnMapping{
 		{SourceColumnOrdinal: 3},
 	}})
 	if err != nil {

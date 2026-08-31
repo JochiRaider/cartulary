@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"sort"
 	"sync"
@@ -334,6 +335,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("project Reference Pack application plan: %w", err)
+	}
+	importWorkersAdmitted, err := publicationCatalog.ExactProfileWorkerJobSet(
+		imports.ProfileID,
+		[]string{imports.ApplyJobKind, imports.DiscoveryJobKind},
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("project Imports worker application plan: %w", err)
 	}
 	snapshotReportingRoutesAdmitted, err := publicationCatalog.ExactProfileContributionSet(
 		reporting.ProfileID,
@@ -940,11 +949,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		revisionCommands,
 		revisionassembly.NewRecordEnvelopeReader(postgresHandle),
 	)
-	importStore := imports.NewStore(
-		postgresPool,
-		revisionRuntime.Appender(),
-		jobTransactions,
-	)
+	importSourcePort, err := imports.NewExtensionSourcePort(postgresHandle)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Imports extension source port: %w", err)
+	}
 	timelineFacade := timelineBundle.Facade
 	var networkFlowTelemetry networkflow.GraphTelemetryObserver
 	if networkFlowRouteAdmitted {
@@ -953,7 +962,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	incidentTransactionParticipant := incidents.NewTransactionParticipant()
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
 		Postgres:        postgresHandle,
-		ImportSources:   importStore,
+		ImportSources:   importSourcePort,
 		KeyRings:        networkFlowKeyRings,
 		EffectiveLimits: networkFlowConfiguration.EffectiveResourceLimits(),
 		Now:             now,
@@ -1092,21 +1101,44 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose imports owner registry: %w", err)
 	}
-	importRoutes := imports.RegisterRoutes(
-		imports.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
-		imports.WithLimits(importOwnerLimits, importArchiveLimits),
-		imports.WithOwnerCreateRegistry(importOwnerRegistry),
-		imports.WithRevisionAppender(revisionRuntime.Appender()),
-		imports.WithExtensionProfileAdmission(func(profileID string) bool {
+	analyticalImportFacades := []imports.ExtensionImportFacade{}
+	if networkFlowRouteAdmitted {
+		analyticalImportFacades = append(analyticalImportFacades, networkFlowModule.ImportOwner())
+	}
+	importModule, err := imports.NewModule(imports.ModuleDependencies{
+		Postgres:            postgresHandle,
+		JobTransactions:     jobTransactions,
+		JobOperations:       jobManager,
+		JobRunner:           runtime.jobRunner,
+		Limits:              importOwnerLimits,
+		ArchiveLimits:       importArchiveLimits,
+		OwnerCreateRegistry: importOwnerRegistry,
+		RevisionAppender:    revisionRuntime.Appender(),
+		ExtensionProfileAdmission: func(profileID string) bool {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
-		}),
-		imports.WithJobSuccessFinalizer(extensionassembly.NewImportJobSuccessFinalizer(
+		},
+		JobSuccessFinalizer: extensionassembly.NewImportJobSuccessFinalizer(
 			extensionJobFinalizer,
 			postgresHandle,
 			jobTransactions,
 			now,
-		)),
-	)
+		),
+		ExtensionImportFacades: analyticalImportFacades,
+		Env:                    options.Env,
+		CursorCodec:            cursorCodec,
+		Now:                    now,
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Imports module: %w", err)
+	}
+	if importWorkersAdmitted {
+		if err := importModule.RegisterWorkers(); err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("register Imports workers: %w", err)
+		}
+	}
+	importRoutes := importModule.RegisterRoutes()
 	referencePackRoutes := reference_data.RegisterRoutes(
 		reference_data.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
 		reference_data.WithStorage(referencePackStorage),
@@ -1175,7 +1207,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	reportCompositionRoutes := reportcomposition.RegisterRoutes(reportcomposition.RouteOptions{
 		PreviewJobs: compositionPreviewJobs,
 	})
-	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkFlowModule.ImportOwner())
+	moduleOverrides := maps.Clone(testRuntimeDeps.ModuleOverrides)
 	delete(moduleOverrides, networkflow.KeyRingsOverrideKey)
 	authRouteOptions := []auth.RouteOption{}
 	authRouteOptions = append(
@@ -1537,28 +1569,6 @@ func deploymentRevisionsConflictTokenError(err error) error {
 		ReasonCode: finding.ReasonCode,
 		Message:    finding.Message,
 	})
-}
-
-func mergeNetworkFlowImportFacadeOverride(overrides map[string]any, facade imports.ExtensionImportFacade) map[string]any {
-	merged := map[string]any{}
-	for key, value := range overrides {
-		merged[key] = value
-	}
-	facades := map[string]imports.ExtensionImportFacade{}
-	if existing, ok := overrides[imports.ExtensionImportFacadesOverrideKey]; ok && existing != nil {
-		typed, ok := existing.(map[string]imports.ExtensionImportFacade)
-		if !ok {
-			return merged
-		}
-		for key, value := range typed {
-			facades[key] = value
-		}
-	}
-	if facade != nil {
-		facades[imports.ExtensionImportFacadeKey(imports.ImportTargetKindNetworkFlowTable, imports.NetworkFlowExtensionProfileID)] = facade
-	}
-	merged[imports.ExtensionImportFacadesOverrideKey] = facades
-	return merged
 }
 
 func instrumentedPostgres(enabled bool, serviceVersion string, pool *pgxpool.Pool) postgres.DB {

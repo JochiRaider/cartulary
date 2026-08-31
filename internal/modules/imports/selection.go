@@ -60,7 +60,7 @@ SELECT unit_status, mapping_fingerprint, approved_mapping_json, locator_kind, lo
 		&state.blockingColumns,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return unitSelectionState{}, ErrNotFound
+			return unitSelectionState{}, errNotFound
 		}
 		return unitSelectionState{}, err
 	}
@@ -77,12 +77,12 @@ func (state unitSelectionState) statusAfterSelection() string {
 	return "selected"
 }
 
-func mappingUsesBlockingColumn(approvedMapping []byte, blockingColumns []int32) bool {
-	if len(approvedMapping) == 0 || len(blockingColumns) == 0 {
+func mappingUsesBlockingColumn(approvedMappingJSON []byte, blockingColumns []int32) bool {
+	if len(approvedMappingJSON) == 0 || len(blockingColumns) == 0 {
 		return false
 	}
-	var mapping ApprovedMapping
-	if err := json.Unmarshal(approvedMapping, &mapping); err != nil {
+	var mapping approvedMapping
+	if err := json.Unmarshal(approvedMappingJSON, &mapping); err != nil {
 		return true
 	}
 	blocked := make(map[int]struct{}, len(blockingColumns))

@@ -104,10 +104,10 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 
 	sessionResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	session := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
-	if session["source_file_kind"] != imports.SourceFileKindCSV || session["original_filename"] != "first.csv" || session["session_status"] != "discovered" {
+	if session["source_file_kind"] != "csv" || session["original_filename"] != "first.csv" || session["session_status"] != "discovered" {
 		t.Fatalf("unexpected import session resource: %#v", session)
 	}
-	if session["parser_profile_id"] != imports.ParserProfileWorkbookImport || session["parser_version"] != imports.ParserVersionWorkbookImport {
+	if session["parser_profile_id"] != "cartulary.import.phase2_workbook_import.v1" || session["parser_version"] != "phase11_import_adapter_v1" {
 		t.Fatalf("unexpected parser provenance: %#v", session)
 	}
 
@@ -167,7 +167,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 	incidentID := incident["incident_id"].(string)
 	metadata := `{"client_txn_id":"txn-extension_profile-import-xlsx-upload","incident_id":"` + incidentID + `"}`
 
-	uploadResp := postImportUploadBytes(t, harness.Server.HTTP.URL, adminLogin, metadata, multipleSheetXLSX(t), "input.xlsx", imports.MediaTypeXLSX, false)
+	uploadResp := postImportUploadBytes(t, harness.Server.HTTP.URL, adminLogin, metadata, multipleSheetXLSX(t), "input.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
 	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	if job["status"] != "succeeded" || job["result_summary"].(map[string]any)["code"] != "import_session_discovered" {
@@ -177,7 +177,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 
 	sessionResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	session := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
-	if session["source_file_kind"] != imports.SourceFileKindXLSX {
+	if session["source_file_kind"] != "xlsx" {
 		t.Fatalf("unexpected XLSX session: %#v", session)
 	}
 
@@ -225,7 +225,7 @@ func TestXLSXOperatorRegionCreatesDurableExactReplay_Integration(t *testing.T) {
 		metadata,
 		multipleSheetXLSX(t),
 		"regions.xlsx",
-		imports.MediaTypeXLSX,
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		false,
 	)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
@@ -338,7 +338,7 @@ func TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration(t
 		metadata,
 		multipleSheetXLSX(t),
 		"selection.xlsx",
-		imports.MediaTypeXLSX,
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		false,
 	)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
@@ -1718,8 +1718,8 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 
 	networkFlowMapping := map[string]any{
 		"client_txn_id":           "txn-extension_profile-import-target-network-flow-mapping",
-		"target_kind":             imports.ImportTargetKindNetworkFlowTable,
-		"extension_profile_id":    imports.NetworkFlowExtensionProfileID,
+		"target_kind":             "network_flow_table",
+		"extension_profile_id":    "network_flow_activity",
 		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
 		"owner_mapping": map[string]any{
 			"source_profile": "cisco_sna_csv_v1",
@@ -1837,11 +1837,11 @@ UPDATE incident_memberships
 	}
 	previewResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping-preview", previewPayload)
 	previewResource := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
-	if previewResource["schema_id"] != imports.ExtensionMappingPreviewResultSchemaID ||
+	if previewResource["schema_id"] != "cartulary.imports.extension_mapping_preview_result.v1" ||
 		previewResource["import_session_id"] != sessionID ||
 		previewResource["import_unit_id"] != unitID ||
-		previewResource["target_kind"] != imports.ImportTargetKindNetworkFlowTable ||
-		previewResource["extension_profile_id"] != imports.NetworkFlowExtensionProfileID ||
+		previewResource["target_kind"] != "network_flow_table" ||
+		previewResource["extension_profile_id"] != "network_flow_activity" ||
 		previewResource["owner_result_schema_id"] != "cartulary.network_flow.import_preview_result.v1" {
 		t.Fatalf("unexpected Network Flow mapping preview wrapper: %#v", previewResource)
 	}
@@ -1877,7 +1877,7 @@ UPDATE incident_memberships
 		t.Fatalf("durable approval fingerprint %q does not match preview %q", mappingFingerprint, previewFingerprint)
 	}
 	approved := mappedUnit["approved_mapping"].(map[string]any)
-	if approved["target_kind"] != imports.ImportTargetKindNetworkFlowTable || approved["source_columns"] == nil {
+	if approved["target_kind"] != "network_flow_table" || approved["source_columns"] == nil {
 		t.Fatalf("expected materialized Network Flow owner mapping, got %#v", approved)
 	}
 
@@ -1890,7 +1890,7 @@ UPDATE incident_memberships
 		t.Fatalf("unexpected Network Flow apply job: %#v", appliedJob)
 	}
 	refs := appliedJob["result_summary"].(map[string]any)["resource_refs"].([]any)
-	if len(refs) != 2 || refs[1].(map[string]any)["kind"] != imports.ImportTargetKindNetworkFlowTable {
+	if len(refs) != 2 || refs[1].(map[string]any)["kind"] != "network_flow_table" {
 		t.Fatalf("expected import session and Network Flow table refs, got %#v", refs)
 	}
 	tableID := refs[1].(map[string]any)["id"].(string)
@@ -2083,7 +2083,7 @@ func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *
 		metadata,
 		multipleSheetXLSX(t),
 		"partial-cancel.xlsx",
-		imports.MediaTypeXLSX,
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		false,
 	)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
@@ -2897,9 +2897,9 @@ SELECT source_metadata, source_header_json, raw_value, cell_kind,
 		"source_kind":           "file_import",
 		"import_session_id":     sessionID,
 		"import_unit_id":        unitID,
-		"source_file_kind":      imports.SourceFileKindCSV,
-		"parser_profile_id":     imports.ParserProfileWorkbookImport,
-		"parser_version":        imports.ParserVersionWorkbookImport,
+		"source_file_kind":      "csv",
+		"parser_profile_id":     "cartulary.import.phase2_workbook_import.v1",
+		"parser_version":        "phase11_import_adapter_v1",
 		"locator_kind":          "csv_file",
 		"locator":               "file",
 		"source_rect_a1":        sourceRect,
@@ -2995,11 +2995,11 @@ func networkFlowMappingPayload(clientTxnID string) map[string]any {
 	}
 	return map[string]any{
 		"client_txn_id":           clientTxnID,
-		"target_kind":             imports.ImportTargetKindNetworkFlowTable,
-		"extension_profile_id":    imports.NetworkFlowExtensionProfileID,
+		"target_kind":             "network_flow_table",
+		"extension_profile_id":    "network_flow_activity",
 		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
 		"owner_mapping": map[string]any{
-			"target_kind":            imports.ImportTargetKindNetworkFlowTable,
+			"target_kind":            "network_flow_table",
 			"target_table_schema_id": "cartulary.network_flow_table.v1",
 			"source_profile_id":      "cisco_sna_netflow_csv_v1",
 			"parser_profile_id":      "rfc4180_headered_csv_v1",
@@ -3033,7 +3033,7 @@ func networkFlowMappingPreviewPayload() map[string]any {
 
 func postImportUpload(t testing.TB, serverURL string, login flowtest.LoginResult, metadata string, file string, filename string, fileFirst bool) *http.Response {
 	t.Helper()
-	return postImportUploadBytes(t, serverURL, login, metadata, []byte(file), filename, imports.MediaTypeCSV, fileFirst)
+	return postImportUploadBytes(t, serverURL, login, metadata, []byte(file), filename, "text/csv", fileFirst)
 }
 
 func postImportUploadBytes(t testing.TB, serverURL string, login flowtest.LoginResult, metadata string, file []byte, filename string, contentType string, fileFirst bool) *http.Response {

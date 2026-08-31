@@ -16,26 +16,26 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-var ErrInvalidSourceRect = errors.New("imports: invalid source rectangle")
+var errInvalidSourceRect = errors.New("imports: invalid source rectangle")
 
-type RegionBase struct {
+type regionBase struct {
 	Unit                map[string]any
 	IncidentID          uuid.UUID
 	SourceBytes         []byte
 	SourceContentSHA256 string
 }
 
-type CreateOperatorRegionParams struct {
+type createOperatorRegionParams struct {
 	ActorUserID                 uuid.UUID
 	SessionID                   uuid.UUID
 	BaseUnitID                  uuid.UUID
-	Request                     RegionRequest
-	Unit                        DiscoveredUnit
+	Request                     regionRequest
+	Unit                        discoveredUnit
 	ExpectedSourceContentSHA256 string
 	Now                         time.Time
 }
 
-type CreateOperatorRegionResult struct {
+type createOperatorRegionResult struct {
 	Unit     map[string]any
 	Replayed bool
 }
@@ -58,23 +58,23 @@ func operatorRegionWithinLimits(rect sourceRectangle, limits Limits) bool {
 		(dataRows == 0 || width <= limits.MaxCells/dataRows)
 }
 
-func (s *Store) GetRegionBase(ctx context.Context, sessionID uuid.UUID, baseUnitID uuid.UUID) (RegionBase, error) {
-	unit, incidentID, err := s.GetUnit(ctx, sessionID, baseUnitID)
+func (s *store) getRegionBase(ctx context.Context, sessionID uuid.UUID, baseUnitID uuid.UUID) (regionBase, error) {
+	unit, incidentID, err := s.getUnit(ctx, sessionID, baseUnitID)
 	if err != nil {
-		return RegionBase{}, err
+		return regionBase{}, err
 	}
 	if unit["locator_kind"] != "xlsx_used_range" {
-		return RegionBase{}, ErrInvalidSourceRect
+		return regionBase{}, errInvalidSourceRect
 	}
-	capability, err := s.SourceCapabilityForUnit(ctx, sessionID, baseUnitID)
+	capability, err := s.sourceCapabilityForUnit(ctx, sessionID, baseUnitID)
 	if err != nil {
-		return RegionBase{}, err
+		return regionBase{}, err
 	}
-	_, sourceBytes, err := s.loadSourceStream(ctx, s.pool, capability.SourceStreamRef)
+	_, sourceBytes, err := loadSourceStream(ctx, s.db, capability.SourceStreamRef)
 	if err != nil {
-		return RegionBase{}, err
+		return regionBase{}, err
 	}
-	return RegionBase{
+	return regionBase{
 		Unit:                unit,
 		IncidentID:          incidentID,
 		SourceBytes:         sourceBytes,
@@ -82,10 +82,10 @@ func (s *Store) GetRegionBase(ctx context.Context, sessionID uuid.UUID, baseUnit
 	}, nil
 }
 
-func (s *Store) CreateOperatorRegion(
+func (s *store) createOperatorRegion(
 	ctx context.Context,
-	params CreateOperatorRegionParams,
-) (CreateOperatorRegionResult, error) {
+	params createOperatorRegionParams,
+) (createOperatorRegionResult, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "imports.units.regions.create",
 		ActorUserID: params.ActorUserID,
@@ -94,37 +94,37 @@ func (s *Store) CreateOperatorRegion(
 	}
 	sum := sha256.Sum256(params.Request.Normalized)
 	requestHash := sum[:]
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
 	if err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return CreateOperatorRegionResult{}, authn.ErrClientTxnConflict
+			return createOperatorRegionResult{}, authn.ErrClientTxnConflict
 		}
 		var unit map[string]any
 		if err := json.Unmarshal(existing.ResponseJSON, &unit); err != nil {
-			return CreateOperatorRegionResult{}, err
+			return createOperatorRegionResult{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
-			return CreateOperatorRegionResult{}, err
+			return createOperatorRegionResult{}, err
 		}
-		return CreateOperatorRegionResult{Unit: unit, Replayed: true}, nil
+		return createOperatorRegionResult{Unit: unit, Replayed: true}, nil
 	}
 	if !errors.Is(err, authn.ErrNotFound) {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	sessionStatus, incidentID, err := sessionStatusTx(ctx, tx, params.SessionID)
 	if err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	switch sessionStatus {
 	case "applying":
-		return CreateOperatorRegionResult{}, importConflictError("session_applying")
+		return createOperatorRegionResult{}, importConflictError("session_applying")
 	case "applied", "partially_applied", "failed", "canceled":
-		return CreateOperatorRegionResult{}, importConflictError("session_terminal")
+		return createOperatorRegionResult{}, importConflictError("session_terminal")
 	}
 	if _, err := s.incidentAccess.CheckTx(
 		ctx,
@@ -136,7 +136,7 @@ func (s *Store) CreateOperatorRegion(
 			Lifecycle:    admission.LifecycleOpen,
 		},
 	); err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	var locatorKind string
 	var sourceStreamRef *string
@@ -151,13 +151,13 @@ SELECT u.locator_kind, u.source_stream_ref, streams.source_content_sha256
  FOR UPDATE OF u
 `, params.SessionID, params.BaseUnitID).Scan(&locatorKind, &sourceStreamRef, &currentSourceSHA); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return CreateOperatorRegionResult{}, ErrNotFound
+			return createOperatorRegionResult{}, errNotFound
 		}
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	if locatorKind != "xlsx_used_range" || sourceStreamRef == nil ||
 		currentSourceSHA != params.ExpectedSourceContentSHA256 {
-		return CreateOperatorRegionResult{}, ErrInvalidSourceRect
+		return createOperatorRegionResult{}, errInvalidSourceRect
 	}
 	if existingUnit, findErr := scanUnitResource(tx.QueryRow(
 		ctx,
@@ -172,27 +172,27 @@ SELECT u.locator_kind, u.source_stream_ref, streams.source_content_sha256
 		params.Unit.SourceRectA1,
 	)); findErr == nil {
 		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusCreated, existingUnit); err != nil {
-			return CreateOperatorRegionResult{}, err
+			return createOperatorRegionResult{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
-			return CreateOperatorRegionResult{}, err
+			return createOperatorRegionResult{}, err
 		}
-		return CreateOperatorRegionResult{Unit: existingUnit, Replayed: true}, nil
+		return createOperatorRegionResult{Unit: existingUnit, Replayed: true}, nil
 	} else if !errors.Is(findErr, pgx.ErrNoRows) {
-		return CreateOperatorRegionResult{}, findErr
+		return createOperatorRegionResult{}, findErr
 	}
 
 	previewRows, err := json.Marshal(params.Unit.PreviewRows)
 	if err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	sourceRows, err := json.Marshal(params.Unit.SourceRows)
 	if err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	columns, err := json.Marshal(params.Unit.Columns)
 	if err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	var regionSequence int
 	var discoverySequence int
@@ -202,7 +202,7 @@ SELECT COALESCE(MAX(operator_region_sequence), 0) + 1,
   FROM import_units
  WHERE import_session_id = $1
 `, params.SessionID).Scan(&regionSequence, &discoverySequence); err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	unitID := uuid.New()
 	regionStreamRef := newImportSourceStreamRef()
@@ -223,7 +223,7 @@ VALUES (
 		params.Unit.InferredColumnCount, params.Unit.WarningCodes, params.Unit.BlockingColumns,
 		columns, sourceRows, previewRows, regionStreamRef, discoverySequence, params.BaseUnitID,
 		regionSequence, params.Now.UTC()); err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	if _, err := tx.Exec(ctx, `
 INSERT INTO import_source_streams (
@@ -234,7 +234,7 @@ SELECT $1, $2, $3, source_content_sha256, source_media_type, source_byte_size, s
   FROM import_source_streams
  WHERE source_stream_ref = $5
 `, regionStreamRef, params.SessionID, unitID, params.Now.UTC(), *sourceStreamRef); err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	unit, err := scanUnitResource(tx.QueryRow(
 		ctx,
@@ -243,13 +243,13 @@ SELECT $1, $2, $3, source_content_sha256, source_media_type, source_byte_size, s
 		unitID,
 	))
 	if err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusCreated, unit); err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return CreateOperatorRegionResult{}, err
+		return createOperatorRegionResult{}, err
 	}
-	return CreateOperatorRegionResult{Unit: unit}, nil
+	return createOperatorRegionResult{Unit: unit}, nil
 }

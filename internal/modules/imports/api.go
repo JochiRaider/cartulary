@@ -19,16 +19,16 @@ import (
 const (
 	ProfileID = "import"
 
-	AssistantProfileWorkbookImport = "phase2_workbook_import_v1"
-	ParserProfileWorkbookImport    = "cartulary.import.phase2_workbook_import.v1"
-	ParserVersionWorkbookImport    = "phase11_import_adapter_v1"
+	assistantProfileWorkbookImport = "phase2_workbook_import_v1"
+	parserProfileWorkbookImport    = "cartulary.import.phase2_workbook_import.v1"
+	parserVersionWorkbookImport    = "phase11_import_adapter_v1"
 
-	SourceFileKindCSV  = "csv"
-	SourceFileKindXLSX = "xlsx"
+	sourceFileKindCSV  = "csv"
+	sourceFileKindXLSX = "xlsx"
 
-	MediaTypeCSV         = "text/csv"
-	MediaTypeXLSX        = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-	MediaTypeOctetStream = "application/octet-stream"
+	mediaTypeCSV         = "text/csv"
+	mediaTypeXLSX        = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	mediaTypeOctetStream = "application/octet-stream"
 
 	importDiscoveryJobHandlerName = "import.discovery_worker_v1"
 	importApplyJobHandlerName     = "import.apply_worker_v1"
@@ -36,25 +36,25 @@ const (
 	ApplyJobKind                  = "import.apply_v1"
 
 	ImportTargetKindViewSchema       = "view_schema"
-	ImportTargetKindNetworkFlowTable = "network_flow_table"
-	NetworkFlowExtensionProfileID    = "network_flow_activity"
+	importTargetKindNetworkFlowTable = "network_flow_table"
+	networkFlowExtensionProfileID    = "network_flow_activity"
 
-	ExtensionMappingPreviewResultSchemaID = "cartulary.imports.extension_mapping_preview_result.v1"
+	extensionMappingPreviewResultSchemaID = "cartulary.imports.extension_mapping_preview_result.v1"
 )
 
-var ImportSessionFileContentTypes = []string{
-	MediaTypeCSV,
-	MediaTypeXLSX,
-	MediaTypeOctetStream,
+var importSessionFileContentTypes = []string{
+	mediaTypeCSV,
+	mediaTypeXLSX,
+	mediaTypeOctetStream,
 }
 
-type CreateSessionRequest struct {
+type createSessionRequest struct {
 	IncidentID       uuid.UUID
 	ClientTxnID      string
 	AssistantProfile string
 }
 
-type SourceColumnMapping struct {
+type sourceColumnMapping struct {
 	SourceColumnOrdinal int            `json:"source_column_ordinal"`
 	SourceHeaderText    any            `json:"source_header_text"`
 	FieldKey            *string        `json:"field_key"`
@@ -64,40 +64,40 @@ type SourceColumnMapping struct {
 	EmptyValuePolicy    string         `json:"empty_value_policy"`
 }
 
-type ApprovedMapping struct {
+type approvedMapping struct {
 	TargetKind           string                `json:"target_kind,omitempty"`
 	TargetViewSchemaID   string                `json:"target_view_schema_id,omitempty"`
 	ExtensionProfileID   string                `json:"extension_profile_id,omitempty"`
 	OwnerMappingSchemaID string                `json:"owner_mapping_schema_id,omitempty"`
 	OwnerMapping         json.RawMessage       `json:"owner_mapping,omitempty"`
 	UnknownColumnPolicy  string                `json:"unknown_column_policy,omitempty"`
-	SourceColumns        []SourceColumnMapping `json:"source_columns"`
+	SourceColumns        []sourceColumnMapping `json:"source_columns"`
 }
 
-func (mapping ApprovedMapping) targetKindOrDefault() string {
+func (mapping approvedMapping) targetKindOrDefault() string {
 	if mapping.TargetKind == "" {
 		return ImportTargetKindViewSchema
 	}
 	return mapping.TargetKind
 }
 
-type MappingRequest struct {
+type mappingRequest struct {
 	ClientTxnID     string
 	HeaderRowRef    int
 	DataStartRowRef int
-	ApprovedMapping ApprovedMapping
+	approvedMapping approvedMapping
 	Fingerprint     string
 	Normalized      []byte
 }
 
-type MappingPreviewRequest struct {
+type mappingPreviewRequest struct {
 	TargetKind           string
 	ExtensionProfileID   string
 	OwnerMappingSchemaID string
 	OwnerMapping         json.RawMessage
 }
 
-type ExtensionMappingPreviewResource struct {
+type extensionMappingPreviewResource struct {
 	SchemaID            string         `json:"schema_id"`
 	ImportSessionID     string         `json:"import_session_id"`
 	ImportUnitID        string         `json:"import_unit_id"`
@@ -107,38 +107,38 @@ type ExtensionMappingPreviewResource struct {
 	OwnerResult         map[string]any `json:"owner_result"`
 }
 
-type ActionRequest struct {
+type actionRequest struct {
 	ClientTxnID string
 	Reason      *string
 	Normalized  []byte
 }
 
-type ApplyRequest struct {
+type applyRequest struct {
 	ClientTxnID     string
 	SelectedUnitIDs *[]uuid.UUID
 	Normalized      []byte
 }
 
-type RegionSourceRect struct {
+type regionSourceRect struct {
 	StartRow    int `json:"start_row"`
 	StartColumn int `json:"start_column"`
 	EndRow      int `json:"end_row"`
 	EndColumn   int `json:"end_column"`
 }
 
-func (rect RegionSourceRect) sourceRectangle() sourceRectangle {
+func (rect regionSourceRect) sourceRectangle() sourceRectangle {
 	return sourceRectangle{
 		left: rect.StartColumn, top: rect.StartRow, right: rect.EndColumn, bottom: rect.EndRow,
 	}
 }
 
-type RegionRequest struct {
+type regionRequest struct {
 	ClientTxnID string           `json:"client_txn_id"`
-	SourceRect  RegionSourceRect `json:"source_rect"`
+	SourceRect  regionSourceRect `json:"source_rect"`
 	Normalized  []byte           `json:"-"`
 }
 
-func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSessionRequest, *httpapi.APIError) {
+func decodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (createSessionRequest, *httpapi.APIError) {
 	allowed := map[string]struct{}{
 		"incident_id":       {},
 		"client_txn_id":     {},
@@ -146,49 +146,49 @@ func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSession
 	}
 	for key := range envelope.Metadata {
 		if _, ok := allowed[key]; !ok {
-			return CreateSessionRequest{}, invalidImportRequest(key, "unknown_field")
+			return createSessionRequest{}, invalidImportRequest(key, "unknown_field")
 		}
 	}
-	var request CreateSessionRequest
+	var request createSessionRequest
 	if value, ok := envelope.Metadata["incident_id"]; !ok {
-		return CreateSessionRequest{}, invalidImportRequest("incident_id", "missing_required_field")
+		return createSessionRequest{}, invalidImportRequest("incident_id", "missing_required_field")
 	} else {
 		var raw string
 		if err := json.Unmarshal(value, &raw); err != nil {
-			return CreateSessionRequest{}, invalidImportRequest("incident_id", "invalid_value")
+			return createSessionRequest{}, invalidImportRequest("incident_id", "invalid_value")
 		}
 		parsed, err := uuid.Parse(raw)
 		if err != nil {
-			return CreateSessionRequest{}, invalidImportRequest("incident_id", "invalid_value")
+			return createSessionRequest{}, invalidImportRequest("incident_id", "invalid_value")
 		}
 		request.IncidentID = parsed
 	}
 	if value, ok := envelope.Metadata["client_txn_id"]; !ok {
-		return CreateSessionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return createSessionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return CreateSessionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return createSessionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	}
-	request.AssistantProfile = AssistantProfileWorkbookImport
+	request.AssistantProfile = assistantProfileWorkbookImport
 	if value, ok := envelope.Metadata["assistant_profile"]; ok {
 		if bytesEqualJSONNull(value) {
-			return CreateSessionRequest{}, invalidImportRequest("assistant_profile", "field_not_nullable")
+			return createSessionRequest{}, invalidImportRequest("assistant_profile", "field_not_nullable")
 		}
 		var profile string
 		if err := json.Unmarshal(value, &profile); err != nil {
-			return CreateSessionRequest{}, invalidImportRequest("assistant_profile", "invalid_value")
+			return createSessionRequest{}, invalidImportRequest("assistant_profile", "invalid_value")
 		}
-		if profile != AssistantProfileWorkbookImport {
-			return CreateSessionRequest{}, invalidImportRequest("assistant_profile", "unsupported_assistant_profile")
+		if profile != assistantProfileWorkbookImport {
+			return createSessionRequest{}, invalidImportRequest("assistant_profile", "unsupported_assistant_profile")
 		}
 		request.AssistantProfile = profile
 	}
 	return request, nil
 }
 
-func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) (MappingRequest, *httpapi.APIError) {
+func decodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) (mappingRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
-		return MappingRequest{}, apiErr
+		return mappingRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"client_txn_id":           {},
@@ -204,130 +204,130 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return MappingRequest{}, invalidImportRequest(key, "unknown_field")
+			return mappingRequest{}, invalidImportRequest(key, "unknown_field")
 		}
 	}
-	request := MappingRequest{}
+	request := mappingRequest{}
 	if value, ok := raw["client_txn_id"]; !ok {
-		return MappingRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return mappingRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return MappingRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return mappingRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	}
-	mapping := ApprovedMapping{}
+	mapping := approvedMapping{}
 	if value, ok := raw["target_kind"]; ok {
 		if bytesEqualJSONNull(value) {
-			return MappingRequest{}, invalidImportRequest("target_kind", "field_not_nullable")
+			return mappingRequest{}, invalidImportRequest("target_kind", "field_not_nullable")
 		}
 		if err := json.Unmarshal(value, &mapping.TargetKind); err != nil || strings.TrimSpace(mapping.TargetKind) == "" {
-			return MappingRequest{}, invalidImportRequest("target_kind", "invalid_value")
+			return mappingRequest{}, invalidImportRequest("target_kind", "invalid_value")
 		}
 	}
 	extensionVariant := mapping.TargetKind != ""
 	if extensionVariant {
 		if _, ok := raw["target_view_schema_id"]; ok {
-			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_target_variant")
+			return mappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_target_variant")
 		}
 		if _, ok := raw["unknown_column_policy"]; ok {
-			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_target_variant")
+			return mappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_target_variant")
 		}
 		if value, ok := raw["extension_profile_id"]; !ok {
-			return MappingRequest{}, invalidImportRequest("extension_profile_id", "missing_required_field")
+			return mappingRequest{}, invalidImportRequest("extension_profile_id", "missing_required_field")
 		} else if err := json.Unmarshal(value, &mapping.ExtensionProfileID); err != nil || strings.TrimSpace(mapping.ExtensionProfileID) == "" {
-			return MappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_value")
+			return mappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_value")
 		}
 		if value, ok := raw["owner_mapping_schema_id"]; !ok {
-			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "missing_required_field")
+			return mappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "missing_required_field")
 		} else if err := json.Unmarshal(value, &mapping.OwnerMappingSchemaID); err != nil || strings.TrimSpace(mapping.OwnerMappingSchemaID) == "" {
-			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_value")
+			return mappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_value")
 		}
 		if value, ok := raw["owner_mapping"]; !ok {
-			return MappingRequest{}, invalidImportRequest("owner_mapping", "missing_required_field")
+			return mappingRequest{}, invalidImportRequest("owner_mapping", "missing_required_field")
 		} else if bytesEqualJSONNull(value) || !json.Valid(value) {
-			return MappingRequest{}, invalidImportRequest("owner_mapping", "invalid_value")
+			return mappingRequest{}, invalidImportRequest("owner_mapping", "invalid_value")
 		} else {
 			mapping.OwnerMapping = append(json.RawMessage(nil), value...)
 		}
 	} else {
 		if _, ok := raw["extension_profile_id"]; ok {
-			return MappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_target_variant")
+			return mappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_target_variant")
 		}
 		if _, ok := raw["owner_mapping_schema_id"]; ok {
-			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_target_variant")
+			return mappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_target_variant")
 		}
 		if _, ok := raw["owner_mapping"]; ok {
-			return MappingRequest{}, invalidImportRequest("owner_mapping", "invalid_target_variant")
+			return mappingRequest{}, invalidImportRequest("owner_mapping", "invalid_target_variant")
 		}
 		if value, ok := raw["target_view_schema_id"]; !ok {
-			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "missing_required_field")
+			return mappingRequest{}, invalidImportRequest("target_view_schema_id", "missing_required_field")
 		} else if err := json.Unmarshal(value, &mapping.TargetViewSchemaID); err != nil || strings.TrimSpace(mapping.TargetViewSchemaID) == "" {
-			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_value")
+			return mappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_value")
 		}
 		if value, ok := raw["unknown_column_policy"]; !ok {
-			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "missing_required_field")
+			return mappingRequest{}, invalidImportRequest("unknown_column_policy", "missing_required_field")
 		} else if err := json.Unmarshal(value, &mapping.UnknownColumnPolicy); err != nil || !validUnknownColumnPolicy(mapping.UnknownColumnPolicy) {
-			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_unknown_column_policy")
+			return mappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_unknown_column_policy")
 		}
 	}
 	if value, ok := raw["header_row_ref"]; !ok {
-		return MappingRequest{}, invalidImportRequest("header_row_ref", "missing_required_field")
+		return mappingRequest{}, invalidImportRequest("header_row_ref", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.HeaderRowRef); err != nil || request.HeaderRowRef < 1 {
-		return MappingRequest{}, invalidImportRequest("header_row_ref", "invalid_row_reference")
+		return mappingRequest{}, invalidImportRequest("header_row_ref", "invalid_row_reference")
 	}
 	if value, ok := raw["data_start_row_ref"]; !ok {
-		return MappingRequest{}, invalidImportRequest("data_start_row_ref", "missing_required_field")
+		return mappingRequest{}, invalidImportRequest("data_start_row_ref", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.DataStartRowRef); err != nil || request.DataStartRowRef < request.HeaderRowRef+1 {
-		return MappingRequest{}, invalidImportRequest("data_start_row_ref", "invalid_row_reference")
+		return mappingRequest{}, invalidImportRequest("data_start_row_ref", "invalid_row_reference")
 	}
 	var rawColumns []json.RawMessage
 	if value, ok := raw["source_columns"]; !ok {
-		return MappingRequest{}, invalidImportRequest("source_columns", "missing_required_field")
+		return mappingRequest{}, invalidImportRequest("source_columns", "missing_required_field")
 	} else if err := json.Unmarshal(value, &rawColumns); err != nil {
-		return MappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	}
 	if len(rawColumns) != len(discoveredColumns) {
-		return MappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	}
-	mapping.SourceColumns = make([]SourceColumnMapping, 0, len(rawColumns))
+	mapping.SourceColumns = make([]sourceColumnMapping, 0, len(rawColumns))
 	seenTargets := map[string]struct{}{}
 	for index, rawColumn := range rawColumns {
 		column, apiErr := decodeSourceColumnMapping(rawColumn, extensionVariant)
 		if apiErr != nil {
-			return MappingRequest{}, apiErr
+			return mappingRequest{}, apiErr
 		}
 		wantOrdinal := index + 1
 		if column.SourceColumnOrdinal != wantOrdinal {
-			return MappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
+			return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 		discovered := discoveredColumns[index]
 		if !sourceHeaderEqual(column.SourceHeaderText, discovered["source_header_text"]) {
-			return MappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
+			return mappingRequest{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 		if column.FieldKey != nil {
 			if _, ok := seenTargets[*column.FieldKey]; ok {
-				return MappingRequest{}, invalidImportRequest("source_columns", "duplicate_target_field")
+				return mappingRequest{}, invalidImportRequest("source_columns", "duplicate_target_field")
 			}
 			seenTargets[*column.FieldKey] = struct{}{}
 		}
 		mapping.SourceColumns = append(mapping.SourceColumns, column)
 	}
-	request.ApprovedMapping = mapping
+	request.approvedMapping = mapping
 	normalizedMapping := normalizedMappingPayload(request)
 	normalized, err := json.Marshal(normalizedMapping)
 	if err != nil {
-		return MappingRequest{}, internalAPIError(err)
+		return mappingRequest{}, internalAPIError(err)
 	}
 	sum := sha256.Sum256(normalized)
 	request.Fingerprint = hex.EncodeToString(sum[:])
-	if err := RebuildMappingRequestNormalized(&request); err != nil {
-		return MappingRequest{}, internalAPIError(err)
+	if err := rebuildMappingRequestNormalized(&request); err != nil {
+		return mappingRequest{}, internalAPIError(err)
 	}
 	return request, nil
 }
 
-func DecodeMappingPreviewRequest(reader io.Reader) (MappingPreviewRequest, *httpapi.APIError) {
+func decodeMappingPreviewRequest(reader io.Reader) (mappingPreviewRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
-		return MappingPreviewRequest{}, apiErr
+		return mappingPreviewRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"target_kind":             {},
@@ -337,28 +337,28 @@ func DecodeMappingPreviewRequest(reader io.Reader) (MappingPreviewRequest, *http
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return MappingPreviewRequest{}, invalidImportRequest(key, "unknown_field")
+			return mappingPreviewRequest{}, invalidImportRequest(key, "unknown_field")
 		}
 	}
-	request := MappingPreviewRequest{}
+	request := mappingPreviewRequest{}
 	if apiErr := decodeRequiredImportString(raw, "target_kind", &request.TargetKind); apiErr != nil {
-		return MappingPreviewRequest{}, apiErr
+		return mappingPreviewRequest{}, apiErr
 	}
 	if apiErr := decodeRequiredImportString(raw, "extension_profile_id", &request.ExtensionProfileID); apiErr != nil {
-		return MappingPreviewRequest{}, apiErr
+		return mappingPreviewRequest{}, apiErr
 	}
 	if apiErr := decodeRequiredImportString(raw, "owner_mapping_schema_id", &request.OwnerMappingSchemaID); apiErr != nil {
-		return MappingPreviewRequest{}, apiErr
+		return mappingPreviewRequest{}, apiErr
 	}
 	ownerMapping, ok := raw["owner_mapping"]
 	if !ok {
-		return MappingPreviewRequest{}, invalidImportRequest("owner_mapping", "missing_required_field")
+		return mappingPreviewRequest{}, invalidImportRequest("owner_mapping", "missing_required_field")
 	}
 	if bytesEqualJSONNull(ownerMapping) {
-		return MappingPreviewRequest{}, invalidImportRequest("owner_mapping", "field_not_nullable")
+		return mappingPreviewRequest{}, invalidImportRequest("owner_mapping", "field_not_nullable")
 	}
 	if _, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(ownerMapping)); err != nil {
-		return MappingPreviewRequest{}, invalidImportRequest("owner_mapping", "invalid_value")
+		return mappingPreviewRequest{}, invalidImportRequest("owner_mapping", "invalid_value")
 	}
 	request.OwnerMapping = append(json.RawMessage(nil), ownerMapping...)
 	return request, nil
@@ -378,8 +378,8 @@ func decodeRequiredImportString(raw map[string]json.RawMessage, field string, de
 	return nil
 }
 
-func normalizedMappingPayload(request MappingRequest) map[string]any {
-	mapping := request.ApprovedMapping
+func normalizedMappingPayload(request mappingRequest) map[string]any {
+	mapping := request.approvedMapping
 	extensionVariant := mapping.TargetKind != ""
 	normalizedMapping := map[string]any{
 		"header_row_ref":     request.HeaderRowRef,
@@ -398,7 +398,7 @@ func normalizedMappingPayload(request MappingRequest) map[string]any {
 	return normalizedMapping
 }
 
-func RebuildMappingRequestNormalized(request *MappingRequest) error {
+func rebuildMappingRequestNormalized(request *mappingRequest) error {
 	normalized, err := json.Marshal(normalizedMappingPayload(*request))
 	if err != nil {
 		return err
@@ -410,10 +410,10 @@ func RebuildMappingRequestNormalized(request *MappingRequest) error {
 	return err
 }
 
-func DecodeActionRequest(reader io.Reader, allowReason bool) (ActionRequest, *httpapi.APIError) {
+func decodeActionRequest(reader io.Reader, allowReason bool) (actionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
-		return ActionRequest{}, apiErr
+		return actionRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{"client_txn_id": {}}
 	if allowReason {
@@ -421,19 +421,19 @@ func DecodeActionRequest(reader io.Reader, allowReason bool) (ActionRequest, *ht
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return ActionRequest{}, invalidImportRequest(key, "unknown_field")
+			return actionRequest{}, invalidImportRequest(key, "unknown_field")
 		}
 	}
-	var request ActionRequest
+	var request actionRequest
 	if value, ok := raw["client_txn_id"]; !ok {
-		return ActionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return actionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return ActionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return actionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	}
 	if value, ok := raw["reason"]; ok && !bytesEqualJSONNull(value) {
 		var reason string
 		if err := json.Unmarshal(value, &reason); err != nil {
-			return ActionRequest{}, invalidImportRequest("reason", "invalid_value")
+			return actionRequest{}, invalidImportRequest("reason", "invalid_value")
 		}
 		request.Reason = &reason
 	}
@@ -448,46 +448,46 @@ func DecodeActionRequest(reader io.Reader, allowReason bool) (ActionRequest, *ht
 	var err error
 	request.Normalized, err = json.Marshal(normalized)
 	if err != nil {
-		return ActionRequest{}, internalAPIError(err)
+		return actionRequest{}, internalAPIError(err)
 	}
 	return request, nil
 }
 
-func DecodeApplyRequest(reader io.Reader) (ApplyRequest, *httpapi.APIError) {
+func decodeApplyRequest(reader io.Reader) (applyRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
-		return ApplyRequest{}, apiErr
+		return applyRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{"client_txn_id": {}, "selected_unit_ids": {}}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return ApplyRequest{}, invalidImportRequest(key, "unknown_field")
+			return applyRequest{}, invalidImportRequest(key, "unknown_field")
 		}
 	}
-	var request ApplyRequest
+	var request applyRequest
 	if value, ok := raw["client_txn_id"]; !ok {
-		return ApplyRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return applyRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return ApplyRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return applyRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	}
 	normalized := map[string]any{"client_txn_id": request.ClientTxnID}
 	if value, ok := raw["selected_unit_ids"]; ok {
 		if bytesEqualJSONNull(value) {
-			return ApplyRequest{}, invalidImportRequest("selected_unit_ids", "field_not_nullable")
+			return applyRequest{}, invalidImportRequest("selected_unit_ids", "field_not_nullable")
 		}
 		var ids []string
 		if err := json.Unmarshal(value, &ids); err != nil {
-			return ApplyRequest{}, invalidImportRequest("selected_unit_ids", "invalid_selected_unit_ids")
+			return applyRequest{}, invalidImportRequest("selected_unit_ids", "invalid_selected_unit_ids")
 		}
 		parsed := make([]uuid.UUID, 0, len(ids))
 		seen := map[uuid.UUID]struct{}{}
 		for _, rawID := range ids {
 			id, err := uuid.Parse(rawID)
 			if err != nil || id.String() != rawID {
-				return ApplyRequest{}, invalidImportRequest("selected_unit_ids", "invalid_selected_unit_ids")
+				return applyRequest{}, invalidImportRequest("selected_unit_ids", "invalid_selected_unit_ids")
 			}
 			if _, ok := seen[id]; ok {
-				return ApplyRequest{}, invalidImportRequest("selected_unit_ids", "invalid_selected_unit_ids")
+				return applyRequest{}, invalidImportRequest("selected_unit_ids", "invalid_selected_unit_ids")
 			}
 			seen[id] = struct{}{}
 			parsed = append(parsed, id)
@@ -500,42 +500,42 @@ func DecodeApplyRequest(reader io.Reader) (ApplyRequest, *httpapi.APIError) {
 	var err error
 	request.Normalized, err = json.Marshal(normalized)
 	if err != nil {
-		return ApplyRequest{}, internalAPIError(err)
+		return applyRequest{}, internalAPIError(err)
 	}
 	return request, nil
 }
 
-func DecodeRegionRequest(reader io.Reader) (RegionRequest, *httpapi.APIError) {
+func decodeRegionRequest(reader io.Reader) (regionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
-		return RegionRequest{}, apiErr
+		return regionRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{"client_txn_id": {}, "source_rect": {}}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return RegionRequest{}, invalidImportRequest(key, "unknown_field")
+			return regionRequest{}, invalidImportRequest(key, "unknown_field")
 		}
 	}
-	var request RegionRequest
+	var request regionRequest
 	if value, ok := raw["client_txn_id"]; !ok {
-		return RegionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return regionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return RegionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
+		return regionRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	}
 	value, ok := raw["source_rect"]
 	if !ok {
-		return RegionRequest{}, invalidImportRequest("source_rect", "missing_required_field")
+		return regionRequest{}, invalidImportRequest("source_rect", "missing_required_field")
 	}
 	var sourceRectRaw map[string]json.RawMessage
 	if err := json.Unmarshal(value, &sourceRectRaw); err != nil || sourceRectRaw == nil {
-		return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+		return regionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	rectAllowed := map[string]struct{}{
 		"start_row": {}, "start_column": {}, "end_row": {}, "end_column": {},
 	}
 	for key := range sourceRectRaw {
 		if _, ok := rectAllowed[key]; !ok {
-			return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+			return regionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
 		}
 	}
 	members := []struct {
@@ -550,12 +550,12 @@ func DecodeRegionRequest(reader io.Reader) (RegionRequest, *httpapi.APIError) {
 	for _, member := range members {
 		rawValue, exists := sourceRectRaw[member.name]
 		if !exists || json.Unmarshal(rawValue, member.target) != nil || *member.target <= 0 {
-			return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+			return regionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
 		}
 	}
 	if request.SourceRect.StartRow > request.SourceRect.EndRow ||
 		request.SourceRect.StartColumn > request.SourceRect.EndColumn {
-		return RegionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
+		return regionRequest{}, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	var err error
 	request.Normalized, err = json.Marshal(map[string]any{
@@ -563,7 +563,7 @@ func DecodeRegionRequest(reader io.Reader) (RegionRequest, *httpapi.APIError) {
 		"source_rect":   request.SourceRect,
 	})
 	if err != nil {
-		return RegionRequest{}, internalAPIError(err)
+		return regionRequest{}, internalAPIError(err)
 	}
 	return request, nil
 }
@@ -576,10 +576,10 @@ func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.AP
 	return raw, nil
 }
 
-func decodeSourceColumnMapping(raw json.RawMessage, extensionVariant bool) (SourceColumnMapping, *httpapi.APIError) {
+func decodeSourceColumnMapping(raw json.RawMessage, extensionVariant bool) (sourceColumnMapping, *httpapi.APIError) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	}
 	allowed := map[string]struct{}{
 		"source_column_ordinal": {},
@@ -592,70 +592,70 @@ func decodeSourceColumnMapping(raw json.RawMessage, extensionVariant bool) (Sour
 	}
 	for key := range object {
 		if _, ok := allowed[key]; !ok {
-			return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+			return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 	}
-	var column SourceColumnMapping
+	var column sourceColumnMapping
 	if value, ok := object["source_column_ordinal"]; !ok {
-		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	} else if err := json.Unmarshal(value, &column.SourceColumnOrdinal); err != nil || column.SourceColumnOrdinal < 1 {
-		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	}
 	if value, ok := object["source_header_text"]; ok && !bytesEqualJSONNull(value) {
 		var header string
 		if err := json.Unmarshal(value, &header); err != nil {
-			return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+			return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 		column.SourceHeaderText = header
 	}
 	if value, ok := object["field_key"]; !ok {
-		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	} else if !bytesEqualJSONNull(value) {
 		var fieldKey string
 		if err := json.Unmarshal(value, &fieldKey); err != nil || strings.TrimSpace(fieldKey) == "" {
-			return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+			return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 		column.FieldKey = &fieldKey
 	}
 	if value, ok := object["entity_binding_mode"]; !ok {
-		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	} else if !bytesEqualJSONNull(value) {
 		var mode string
 		if err := json.Unmarshal(value, &mode); err != nil || strings.TrimSpace(mode) == "" {
-			return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+			return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 		column.EntityBindingMode = &mode
 	}
 	if value, ok := object["transform_id"]; !ok {
-		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+		return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	} else if !bytesEqualJSONNull(value) {
 		var transformID string
 		if err := json.Unmarshal(value, &transformID); err != nil || (!extensionVariant && !validTransformID(transformID)) || strings.TrimSpace(transformID) == "" {
-			return SourceColumnMapping{}, invalidImportRequest("transform_id", "invalid_transform")
+			return sourceColumnMapping{}, invalidImportRequest("transform_id", "invalid_transform")
 		}
 		column.TransformID = &transformID
 	}
 	column.TransformOptions = map[string]any{}
 	if value, ok := object["transform_options"]; !ok {
-		return SourceColumnMapping{}, invalidImportRequest("transform_options", "missing_required_field")
+		return sourceColumnMapping{}, invalidImportRequest("transform_options", "missing_required_field")
 	} else if err := json.Unmarshal(value, &column.TransformOptions); err != nil || column.TransformOptions == nil {
-		return SourceColumnMapping{}, invalidImportRequest("transform_options", "invalid_transform")
+		return sourceColumnMapping{}, invalidImportRequest("transform_options", "invalid_transform")
 	}
 	if !extensionVariant {
 		if apiErr := validateTransformOptions(column.TransformID, column.TransformOptions); apiErr != nil {
-			return SourceColumnMapping{}, apiErr
+			return sourceColumnMapping{}, apiErr
 		}
 	} else if column.TransformOptions == nil {
 		column.TransformOptions = map[string]any{}
 	}
 	if value, ok := object["empty_value_policy"]; !ok {
-		return SourceColumnMapping{}, invalidImportRequest("empty_value_policy", "missing_required_field")
+		return sourceColumnMapping{}, invalidImportRequest("empty_value_policy", "missing_required_field")
 	} else if err := json.Unmarshal(value, &column.EmptyValuePolicy); err != nil || strings.TrimSpace(column.EmptyValuePolicy) == "" || (!extensionVariant && !validEmptyValuePolicy(column.EmptyValuePolicy)) {
-		return SourceColumnMapping{}, invalidImportRequest("empty_value_policy", "invalid_empty_value_policy")
+		return sourceColumnMapping{}, invalidImportRequest("empty_value_policy", "invalid_empty_value_policy")
 	}
 	if column.FieldKey == nil {
 		if column.EntityBindingMode != nil || column.EmptyValuePolicy != "omit_field" {
-			return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
+			return sourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 		}
 	}
 	return column, nil

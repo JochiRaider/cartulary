@@ -14,12 +14,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-type Service struct {
-	store                    *Store
+type service struct {
+	store                    *store
 	incidentAccess           *admission.Checker
 	authStore                *authn.Store
 	jobManager               importJobOperations
@@ -29,7 +30,7 @@ type Service struct {
 	limits                   Limits
 	archiveLimits            ArchiveLimits
 	ownerCreateRegistry      *ownerfacade.ImportOwnerCreateRegistry
-	extensionImportFacades   map[string]ExtensionImportFacade
+	extensionImportFacades   map[analyticalImportTargetKey]ExtensionImportFacade
 	extensionProfileAdmitted func(string) bool
 	jobSuccessFinalizer      JobSuccessFinalizer
 	now                      func() time.Time
@@ -53,133 +54,132 @@ type importJobRunner interface {
 	Notify(uuid.UUID)
 }
 
-type RouteOption func(*routeOptions)
-
-type routeOptions struct {
-	extensionProfileAdmitted func(string) bool
-	jobSuccessFinalizer      JobSuccessFinalizer
-	limits                   Limits
-	archiveLimits            ArchiveLimits
-	ownerCreateRegistry      *ownerfacade.ImportOwnerCreateRegistry
-	revisionAppender         *revisions.Appender
-	jobTransactions          importJobTransactions
-	jobOperations            importJobOperations
-	jobRunner                importJobRunner
+type ModuleDependencies struct {
+	Postgres                  postgres.DB
+	JobTransactions           importJobTransactions
+	JobOperations             importJobOperations
+	JobRunner                 importJobRunner
+	Limits                    Limits
+	ArchiveLimits             ArchiveLimits
+	OwnerCreateRegistry       *ownerfacade.ImportOwnerCreateRegistry
+	RevisionAppender          *revisions.Appender
+	ExtensionProfileAdmission func(string) bool
+	JobSuccessFinalizer       JobSuccessFinalizer
+	ExtensionImportFacades    []ExtensionImportFacade
+	Env                       map[string]string
+	CursorCodec               *pagination.Codec
+	Now                       func() time.Time
 }
 
-func WithJobs(transactions importJobTransactions, operations importJobOperations, runner importJobRunner) RouteOption {
-	return func(options *routeOptions) {
-		options.jobTransactions = transactions
-		options.jobOperations = operations
-		options.jobRunner = runner
+type Module struct {
+	service *service
+}
+
+func NewModule(dependencies ModuleDependencies) (*Module, error) {
+	if nilInterface(dependencies.Postgres) {
+		return nil, fmt.Errorf("imports module requires PostgreSQL")
 	}
-}
-
-func WithOwnerCreateRegistry(
-	registry *ownerfacade.ImportOwnerCreateRegistry,
-) RouteOption {
-	return func(options *routeOptions) {
-		options.ownerCreateRegistry = registry
+	if nilInterface(dependencies.JobTransactions) {
+		return nil, fmt.Errorf("imports module requires Jobs transactions")
 	}
-}
-
-func WithRevisionAppender(appender *revisions.Appender) RouteOption {
-	return func(options *routeOptions) {
-		options.revisionAppender = appender
+	if nilInterface(dependencies.JobOperations) {
+		return nil, fmt.Errorf("imports module requires Jobs operations")
 	}
-}
-
-func WithLimits(limits Limits, archiveLimits ArchiveLimits) RouteOption {
-	return func(options *routeOptions) {
-		options.limits = limits
-		options.archiveLimits = archiveLimits
+	if nilInterface(dependencies.JobRunner) {
+		return nil, fmt.Errorf("imports module requires a Jobs runner")
 	}
-}
-
-func WithExtensionProfileAdmission(admitted func(string) bool) RouteOption {
-	return func(options *routeOptions) {
-		options.extensionProfileAdmitted = admitted
+	if dependencies.OwnerCreateRegistry == nil {
+		return nil, fmt.Errorf("imports module requires an owner-create registry")
 	}
-}
-
-func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
-	return func(options *routeOptions) {
-		options.jobSuccessFinalizer = finalizer
+	if dependencies.RevisionAppender == nil {
+		return nil, fmt.Errorf("imports module requires a Revisions appender")
 	}
-}
-
-func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
-	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		settings := routeOptions{}
-		for _, option := range options {
-			if option != nil {
-				option(&settings)
-			}
-		}
-		service, err := newService(deps, settings)
-		if err != nil {
-			return err
-		}
-		return bindOwnerRoutes(mux, deps, service)
+	if dependencies.ExtensionProfileAdmission == nil {
+		return nil, fmt.Errorf("imports module requires extension profile admission")
 	}
-}
-
-func newService(deps httpapi.DependencySet, options routeOptions) (*Service, error) {
-	keys, err := authn.LoadMasterKeys(deps.Env)
+	if nilInterface(dependencies.JobSuccessFinalizer) {
+		return nil, fmt.Errorf("imports module requires a job finalizer")
+	}
+	if err := validateModuleLimits(dependencies.Limits, dependencies.ArchiveLimits); err != nil {
+		return nil, err
+	}
+	keys, err := authn.LoadMasterKeys(dependencies.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
 	}
-	now := deps.Now
+	now := dependencies.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	cursorCodec := deps.CursorCodec
+	cursorCodec := dependencies.CursorCodec
 	if cursorCodec == nil {
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	if options.ownerCreateRegistry == nil {
-		return nil, fmt.Errorf("import route composition requires an owner-create registry")
-	}
-	if options.revisionAppender == nil {
-		return nil, fmt.Errorf("import route composition requires a Revisions appender")
-	}
-	if options.jobOperations != nil && options.jobTransactions == nil {
-		return nil, fmt.Errorf("import admitted route requires the Jobs transaction service")
-	}
-	extensionImportFacades, err := extensionImportFacadesFromDependencies(deps)
+	extensionImportFacades, err := validateExtensionImportFacades(
+		dependencies.ExtensionImportFacades,
+		dependencies.ExtensionProfileAdmission,
+	)
 	if err != nil {
 		return nil, err
 	}
-	if options.jobOperations != nil && options.jobSuccessFinalizer == nil {
-		return nil, fmt.Errorf("import admitted route requires a job success finalizer")
-	}
-	extensionProfileAdmitted := options.extensionProfileAdmitted
-	if extensionProfileAdmitted == nil {
-		extensionProfileAdmitted = func(string) bool { return false }
-	}
-	service := &Service{
-		store: NewStore(
-			deps.Postgres,
-			options.revisionAppender,
-			options.jobTransactions,
+	service := &service{
+		store: newStore(
+			dependencies.Postgres,
+			dependencies.RevisionAppender,
+			dependencies.JobTransactions,
 		),
-		incidentAccess:           admission.NewChecker(deps.PostgresHandle()),
-		authStore:                authn.NewStore(deps.PostgresHandle()),
-		jobManager:               options.jobOperations,
-		jobRunner:                options.jobRunner,
+		incidentAccess:           admission.NewChecker(dependencies.Postgres),
+		authStore:                authn.NewStore(dependencies.Postgres),
+		jobManager:               dependencies.JobOperations,
+		jobRunner:                dependencies.JobRunner,
 		keys:                     keys,
 		cursorCodec:              cursorCodec,
-		limits:                   options.limits,
-		archiveLimits:            options.archiveLimits,
-		ownerCreateRegistry:      options.ownerCreateRegistry,
+		limits:                   dependencies.Limits,
+		archiveLimits:            dependencies.ArchiveLimits,
+		ownerCreateRegistry:      dependencies.OwnerCreateRegistry,
 		extensionImportFacades:   extensionImportFacades,
-		extensionProfileAdmitted: extensionProfileAdmitted,
-		jobSuccessFinalizer:      options.jobSuccessFinalizer,
+		extensionProfileAdmitted: dependencies.ExtensionProfileAdmission,
+		jobSuccessFinalizer:      dependencies.JobSuccessFinalizer,
 		now:                      now,
 	}
-	if err := service.registerJobHandlers(); err != nil {
-		return nil, err
+	return &Module{service: service}, nil
+}
+
+func (m *Module) RegisterRoutes() httpapi.RouteRegistrar {
+	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
+		if m == nil || m.service == nil {
+			return fmt.Errorf("imports module unavailable")
+		}
+		return bindOwnerRoutes(mux, deps, m.service)
 	}
-	return service, nil
+}
+
+func (m *Module) RegisterWorkers() error {
+	if m == nil || m.service == nil {
+		return fmt.Errorf("imports module unavailable")
+	}
+	return m.service.registerJobHandlers()
+}
+
+func validateModuleLimits(limits Limits, archiveLimits ArchiveLimits) error {
+	checks := []struct {
+		name  string
+		value int64
+	}{
+		{name: "MaxCSVSourceBytes", value: limits.MaxCSVSourceBytes},
+		{name: "MaxXLSXSourceBytes", value: limits.MaxXLSXSourceBytes},
+		{name: "MaxRows", value: limits.MaxRows},
+		{name: "MaxColumns", value: limits.MaxColumns},
+		{name: "MaxCells", value: limits.MaxCells},
+		{name: "DefaultMaxExtractedBytes", value: archiveLimits.DefaultMaxExtractedBytes},
+		{name: "MaxCompressionRatio", value: archiveLimits.MaxCompressionRatio},
+		{name: "MaxMembers", value: archiveLimits.MaxMembers},
+	}
+	for _, check := range checks {
+		if check.value <= 0 {
+			return fmt.Errorf("imports module limit %s must be positive", check.name)
+		}
+	}
+	return nil
 }

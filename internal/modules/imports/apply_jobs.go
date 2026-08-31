@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) executeApplyJob(ctx context.Context, execution jobs.Execution) error {
+func (s *service) executeApplyJob(ctx context.Context, execution jobs.Execution) error {
 	var payload applyJobHandlerPayload
 	if err := s.decodeJobPayload(ctx, execution, &payload); err != nil {
 		return err
@@ -42,7 +42,7 @@ func (s *Service) executeApplyJob(ctx context.Context, execution jobs.Execution)
 	if err != nil {
 		return err
 	}
-	return s.completeApplyJob(ctx, execution, actor, ApplyStartResult{
+	return s.completeApplyJob(ctx, execution, actor, applyStartResult{
 		Job:             job,
 		IncidentID:      incidentID,
 		ImportSessionID: sessionID,
@@ -51,14 +51,14 @@ func (s *Service) executeApplyJob(ctx context.Context, execution jobs.Execution)
 	})
 }
 
-func (s *Service) completeApplyJob(ctx context.Context, execution jobs.Execution, actor authn.UserRecord, start ApplyStartResult) error {
+func (s *service) completeApplyJob(ctx context.Context, execution jobs.Execution, actor authn.UserRecord, start applyStartResult) error {
 	total := len(start.SelectedUnitIDs)
 	job, getErr := s.jobManager.ObserveExecution(ctx, execution)
 	resumingCancellation := getErr == nil && job.Status == jobs.StatusCancelRequested
 	if !resumingCancellation && !s.prepareClaimedJob(ctx, execution, total) {
 		return nil
 	}
-	units, err := s.store.GetApplyUnits(ctx, start.ImportSessionID, start.SelectedUnitIDs)
+	units, err := s.store.getApplyUnits(ctx, start.ImportSessionID, start.SelectedUnitIDs)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (s *Service) completeApplyJob(ctx context.Context, execution jobs.Execution
 	return s.finalizeApplyJob(ctx, execution, start)
 }
 
-func (s *Service) finalizeApplyJob(ctx context.Context, execution jobs.Execution, start ApplyStartResult) error {
+func (s *service) finalizeApplyJob(ctx context.Context, execution jobs.Execution, start applyStartResult) error {
 	finalization, err := s.store.prepareApplyFinalization(ctx, start)
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ func (s *Service) finalizeApplyJob(ctx context.Context, execution jobs.Execution
 
 func importUnitFailure(err error) importUnitFailureDetail {
 	var translated *translatedImportUnitError
-	var applyBlocked *ApplyBlockedError
+	var applyBlocked *applyBlockedError
 	switch {
 	case errors.As(err, &translated):
 		return translated.failure
@@ -211,7 +211,7 @@ func importUnitFailure(err error) importUnitFailureDetail {
 	}
 }
 
-func (s *Service) jobCancelRequested(ctx context.Context, execution jobs.Execution) bool {
+func (s *service) jobCancelRequested(ctx context.Context, execution jobs.Execution) bool {
 	job, err := s.jobManager.ObserveExecution(ctx, execution)
 	return err == nil && job.Status == jobs.StatusCancelRequested
 }

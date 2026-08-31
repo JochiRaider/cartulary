@@ -11,76 +11,79 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) extensionProfileClaimed(profileID string) bool {
+func (s *service) extensionProfileClaimed(profileID string) bool {
 	return s.extensionProfileAdmitted(profileID)
 }
 
-func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.UUID, incidentID uuid.UUID, route importSessionRoute, request MappingRequest) (MappingRequest, *httpapi.APIError) {
-	if apiErr := s.validateApprovedMapping(request.ApprovedMapping); apiErr != nil {
-		return MappingRequest{}, apiErr
+func (s *service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.UUID, incidentID uuid.UUID, route importSessionRoute, request mappingRequest) (mappingRequest, *httpapi.APIError) {
+	if apiErr := s.validateApprovedMapping(request.approvedMapping); apiErr != nil {
+		return mappingRequest{}, apiErr
 	}
-	if request.ApprovedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
+	if request.approvedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
 		return request, nil
 	}
-	target, ok := lookupApprovedImportTarget(request.ApprovedMapping)
+	target, ok := lookupApprovedImportTarget(request.approvedMapping)
 	if !ok {
-		return MappingRequest{}, invalidImportRequest("target_kind", "target_kind_not_importable")
+		return mappingRequest{}, invalidImportRequest("target_kind", "target_kind_not_importable")
 	}
-	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
+	facade := s.extensionImportFacades[analyticalImportTargetKey{
+		TargetKind:         target.TargetKind,
+		ExtensionProfileID: target.ExtensionProfileID,
+	}]
 	if facade == nil {
-		return MappingRequest{}, invalidImportRequest(
+		return mappingRequest{}, invalidImportRequest(
 			"target_kind",
 			"owner_preview_contract_unavailable",
 		)
 	}
-	sourceCapability, err := s.store.SourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
+	sourceCapability, err := s.store.sourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return MappingRequest{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
+		if errors.Is(err, errNotFound) {
+			return mappingRequest{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
 		}
-		return MappingRequest{}, internalAPIError(err)
+		return mappingRequest{}, internalAPIError(err)
 	}
 	result, err := facade.PrepareImportUnitMapping(ctx, ExtensionImportMappingRequest{
 		IncidentID:           incidentID,
 		ActorUserID:          actorUserID,
-		TargetKind:           request.ApprovedMapping.TargetKind,
-		ExtensionProfileID:   request.ApprovedMapping.ExtensionProfileID,
+		TargetKind:           request.approvedMapping.TargetKind,
+		ExtensionProfileID:   request.approvedMapping.ExtensionProfileID,
 		ImportSessionID:      route.SessionID,
 		ImportUnitID:         route.UnitID,
 		SourceCapability:     sourceCapability,
-		OwnerMappingSchemaID: request.ApprovedMapping.OwnerMappingSchemaID,
-		OwnerMapping:         append(json.RawMessage(nil), request.ApprovedMapping.OwnerMapping...),
+		OwnerMappingSchemaID: request.approvedMapping.OwnerMappingSchemaID,
+		OwnerMapping:         append(json.RawMessage(nil), request.approvedMapping.OwnerMapping...),
 		ClientTxnID:          request.ClientTxnID,
 	})
 	if err != nil {
-		return MappingRequest{}, extensionFacadeAPIError(target, facade, err)
+		return mappingRequest{}, extensionFacadeAPIError(target, facade, err)
 	}
 	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
-		return MappingRequest{}, invalidImportRequest(
+		return mappingRequest{}, invalidImportRequest(
 			"owner_result",
 			"owner_preview_validation_failed",
 		)
 	}
 	if len(result.OwnerMapping) == 0 || result.MappingFingerprint == "" || result.OwnerResultSchemaID == "" || result.OwnerResult == nil {
-		return MappingRequest{}, invalidImportRequest(
+		return mappingRequest{}, invalidImportRequest(
 			"owner_result",
 			"owner_preview_validation_failed",
 		)
 	}
-	request.ApprovedMapping.OwnerMapping = append(json.RawMessage(nil), result.OwnerMapping...)
+	request.approvedMapping.OwnerMapping = append(json.RawMessage(nil), result.OwnerMapping...)
 	request.Fingerprint = result.MappingFingerprint
-	if err := RebuildMappingRequestNormalized(&request); err != nil {
-		return MappingRequest{}, internalAPIError(err)
+	if err := rebuildMappingRequestNormalized(&request); err != nil {
+		return mappingRequest{}, internalAPIError(err)
 	}
 	return request, nil
 }
 
-func (s *Service) applicationApproveMapping(
+func (s *service) applicationApproveMapping(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	incidentID uuid.UUID,
 	route importSessionRoute,
-	request MappingRequest,
+	request mappingRequest,
 ) (map[string]any, error, *httpapi.APIError) {
 	materialized, apiErr := s.prepareApprovedMapping(
 		ctx,
@@ -92,7 +95,7 @@ func (s *Service) applicationApproveMapping(
 	if apiErr != nil {
 		return nil, nil, apiErr
 	}
-	unit, _, err := s.store.SaveMapping(ctx, MappingParams{
+	unit, _, err := s.store.saveMapping(ctx, mappingParams{
 		ActorUserID:       actorUserID,
 		SessionID:         route.SessionID,
 		UnitID:            route.UnitID,
@@ -103,7 +106,7 @@ func (s *Service) applicationApproveMapping(
 	return unit, err, nil
 }
 
-func (s *Service) validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
+func (s *service) validateApprovedMapping(mapping approvedMapping) *httpapi.APIError {
 	target, ok := lookupApprovedImportTarget(mapping)
 	if !ok || !target.importable(s.extensionProfileClaimed) {
 		if mapping.targetKindOrDefault() == ImportTargetKindViewSchema {

@@ -82,6 +82,14 @@ func TestImportTargetRegistryDerivationIsDeterministicAndComplete(t *testing.T) 
 		analytical.ErrorSchemaID != "cartulary.network_flow.import_owner_error.v1" {
 		t.Fatalf("unexpected analytical registry row: %#v", analytical)
 	}
+	analyticalAdapter := first.Adapters.Adapters[17]
+	if analyticalAdapter.TargetID != analytical.TargetID ||
+		analyticalAdapter.BindingSchemaID == nil ||
+		*analyticalAdapter.BindingSchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
+		analyticalAdapter.ContractMajor == nil ||
+		*analyticalAdapter.ContractMajor != 5 {
+		t.Fatalf("analytical adapter omitted binding identity: %#v", analyticalAdapter)
+	}
 }
 
 func TestDeriveImportTargetArtifactsProducesIntegrityBoundProjections(t *testing.T) {

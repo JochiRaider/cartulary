@@ -3,6 +3,16 @@
   "owner_id": "module.imports",
   "verifications": [
     {
+      "verification_id": "module.imports.verification.architecture_boundary",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "shell",
+        "static_check"
+      ],
+      "public_target": "backend-module-boundary-check"
+    },
+    {
       "verification_id": "module.imports.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",

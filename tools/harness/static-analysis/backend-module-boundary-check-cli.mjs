@@ -866,6 +866,7 @@ function sqlTableReferences(content) {
 function assertBoundaryFixtures(manifest) {
   assertArtifactBoundaryFixtures(manifest);
   assertExactFileSetBoundaryFixtures(manifest);
+  assertImportsOwnerFacadeBoundaryFixtures(manifest);
 
   const recordsRule = manifest.sqlTableAccess.find(
     (rule) => rule.id === "records-current-envelope-access",
@@ -1426,6 +1427,67 @@ function assertBoundaryFixtures(manifest) {
   );
   if (supportedConfigViolations.length !== 0) {
     throw new Error("supported config seams must remain accepted by contracted boundary rules");
+  }
+}
+
+function assertImportsOwnerFacadeBoundaryFixtures(manifest) {
+  const rule = manifest.forbiddenGoImports.find(
+    (candidate) => candidate.id === "imports-use-owner-facades-not-peer-implementations",
+  );
+  if (!rule) {
+    throw new Error("imports-use-owner-facades-not-peer-implementations boundary rule is required");
+  }
+  const fixtures = [
+    {
+      label: "Imports capability imports",
+      file: {
+        relative: "internal/modules/imports/future_source_capability.go",
+        content:
+          'package imports\nimport "github.com/JochiRaider/cartulary/internal/modules/incidents/admission"',
+      },
+      wantViolation: false,
+    },
+    {
+      label: "Imports peer source-owner implementation import",
+      file: {
+        relative: "internal/modules/imports/future_owner_dispatch.go",
+        content:
+          'package imports\nimport "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers"',
+      },
+      wantViolation: true,
+    },
+    {
+      label: "Imports Workbook implementation import",
+      file: {
+        relative: "internal/modules/imports/future_workbook_dispatch.go",
+        content:
+          'package imports\nimport "github.com/JochiRaider/cartulary/internal/modules/workbook"',
+      },
+      wantViolation: true,
+    },
+    {
+      label: "Imports Projections implementation import",
+      file: {
+        relative: "internal/modules/imports/future_projection_dispatch.go",
+        content:
+          'package imports\nimport "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"',
+      },
+      wantViolation: true,
+    },
+  ];
+  for (const fixture of fixtures) {
+    const violations = checkForbiddenGoImports([fixture.file], [rule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
+    }
+    if (
+      fixture.wantViolation &&
+      (violations.length !== 1 ||
+        violations[0].code !== "forbidden_go_import" ||
+        violations[0].rule_id !== rule.id)
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with ${rule.id}`);
+    }
   }
 }
 

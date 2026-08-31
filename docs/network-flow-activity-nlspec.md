@@ -1287,7 +1287,7 @@ The Network Flow import target MUST contribute this exact
 | `extension_profile_id` | `network_flow_activity` |
 | `owner_contract_ref` | `network_flow_activity@5` |
 | `facade_id` | `network_flow_import_facade_v1` |
-| `contract_major` | `2` |
+| `contract_major` | `5` |
 | `mapping_schema_id` | `cartulary.network_flow.approved_mapping.v1` |
 | `preview_request_schema_id` | `cartulary.network_flow.import_preview_request.v1` |
 | `preview_result_schema_id` | `cartulary.network_flow.import_preview_result.v1` |

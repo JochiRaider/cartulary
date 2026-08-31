@@ -204,6 +204,48 @@ func (catalog PublicationCatalog) ExactProfileContributionSet(profileID string, 
 	return true, nil
 }
 
+// ExactProfileWorkerJobSet returns whether a profile's worker publication is
+// admitted and verifies that its published jobs are exactly the jobs the
+// application module registers together.
+func (catalog PublicationCatalog) ExactProfileWorkerJobSet(profileID string, expectedJobKinds []string) (bool, error) {
+	if profileID == "" || len(expectedJobKinds) == 0 {
+		return false, fmt.Errorf("exact extension worker projection is incomplete")
+	}
+	expected := append([]string(nil), expectedJobKinds...)
+	sort.Strings(expected)
+	for index, jobKind := range expected {
+		if jobKind == "" {
+			return false, fmt.Errorf("exact extension worker projection contains an empty job identity")
+		}
+		if index > 0 && jobKind == expected[index-1] {
+			return false, fmt.Errorf("exact extension worker projection contains duplicate %q", jobKind)
+		}
+	}
+	actual := []string{}
+	for _, worker := range catalog.workers {
+		if worker.ProfileID == profileID {
+			actual = append(actual, worker.JobKinds...)
+		}
+	}
+	sort.Strings(actual)
+	_, admitted := catalog.bindings[profileID]
+	if !admitted {
+		if len(actual) != 0 {
+			return false, fmt.Errorf("unadmitted extension profile %q has executable workers", profileID)
+		}
+		return false, nil
+	}
+	if len(actual) != len(expected) {
+		return false, fmt.Errorf("extension profile %q worker jobs got %v want %v", profileID, actual, expected)
+	}
+	for index := range expected {
+		if actual[index] != expected[index] {
+			return false, fmt.Errorf("extension profile %q worker jobs got %v want %v", profileID, actual, expected)
+		}
+	}
+	return true, nil
+}
+
 func (catalog PublicationCatalog) ContributionIDs(kind string) []string {
 	ids := []string{}
 	for contributionID, contribution := range catalog.contributions {

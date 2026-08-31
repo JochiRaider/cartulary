@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) registerJobHandlers() error {
+func (s *service) registerJobHandlers() error {
 	if s == nil || s.jobRunner == nil {
-		return nil
+		return fmt.Errorf("imports worker registration unavailable")
 	}
 	if err := s.jobRunner.RegisterHandler(importDiscoveryJobHandlerName, s.executeDiscoveryJob); err != nil {
 		return err
@@ -24,7 +24,7 @@ func (s *Service) registerJobHandlers() error {
 	return nil
 }
 
-func (s *Service) executeDiscoveryJob(ctx context.Context, execution jobs.Execution) error {
+func (s *service) executeDiscoveryJob(ctx context.Context, execution jobs.Execution) error {
 	var payload discoveryJobHandlerPayload
 	if err := s.decodeJobPayload(ctx, execution, &payload); err != nil {
 		return err
@@ -36,13 +36,13 @@ func (s *Service) executeDiscoveryJob(ctx context.Context, execution jobs.Execut
 	return s.completeDiscoveryJob(ctx, execution, sessionID)
 }
 
-func (s *Service) completeDiscoveryJob(ctx context.Context, execution jobs.Execution, importSessionID uuid.UUID) error {
+func (s *service) completeDiscoveryJob(ctx context.Context, execution jobs.Execution, importSessionID uuid.UUID) error {
 	jobID := execution.JobID()
 	total := 1
 	if !s.prepareClaimedJob(ctx, execution, total) {
 		job, err := s.jobManager.ObserveExecution(ctx, execution)
 		if err == nil && job.Status == jobs.StatusCanceled {
-			return s.store.CancelDiscovery(ctx, importSessionID, s.now())
+			return s.store.cancelDiscovery(ctx, importSessionID, s.now())
 		}
 		return nil
 	}
@@ -62,13 +62,13 @@ func (s *Service) completeDiscoveryJob(ctx context.Context, execution jobs.Execu
 			},
 		},
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
-			return s.store.MarkDiscoveredTx(ctx, tx, importSessionID, s.now())
+			return s.store.markDiscoveredTx(ctx, tx, importSessionID, s.now())
 		},
 	})
 	return err
 }
 
-func (s *Service) decodeJobPayload(ctx context.Context, execution jobs.Execution, target any) error {
+func (s *service) decodeJobPayload(ctx context.Context, execution jobs.Execution, target any) error {
 	payload, err := s.jobManager.HandlerPayload(ctx, execution)
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (s *Service) decodeJobPayload(ctx context.Context, execution jobs.Execution
 	return json.Unmarshal(payload, target)
 }
 
-func (s *Service) prepareClaimedJob(ctx context.Context, execution jobs.Execution, total int) bool {
+func (s *service) prepareClaimedJob(ctx context.Context, execution jobs.Execution, total int) bool {
 	if total <= 0 {
 		total = 1
 	}

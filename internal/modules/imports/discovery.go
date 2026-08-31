@@ -8,9 +8,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
-func (s *Service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFileKind string) ([]DiscoveredUnit, *httpapi.APIError) {
+func (s *service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFileKind string) ([]discoveredUnit, *httpapi.APIError) {
 	switch sourceFileKind {
-	case SourceFileKindCSV:
+	case sourceFileKindCSV:
 		if int64(len(envelope.File)) > s.limits.MaxCSVSourceBytes {
 			return nil, importSourceRejected("csv_source_too_large", int64(len(envelope.File)), s.limits.MaxCSVSourceBytes)
 		}
@@ -26,8 +26,8 @@ func (s *Service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFil
 		if apiErr != nil {
 			return nil, apiErr
 		}
-		return []DiscoveredUnit{unit}, nil
-	case SourceFileKindXLSX:
+		return []discoveredUnit{unit}, nil
+	case sourceFileKindXLSX:
 		if int64(len(envelope.File)) > s.limits.MaxXLSXSourceBytes {
 			return nil, importSourceRejected("xlsx_source_too_large", int64(len(envelope.File)), s.limits.MaxXLSXSourceBytes)
 		}
@@ -35,7 +35,7 @@ func (s *Service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFil
 		if apiErr != nil {
 			return nil, apiErr
 		}
-		units := make([]DiscoveredUnit, 0, len(workbook.ranges))
+		units := make([]discoveredUnit, 0, len(workbook.ranges))
 		for _, located := range workbook.ranges {
 			decoded, decodeErr := workbook.decodeRectangle(located.sheet, located.rect, s.limits)
 			if decodeErr != nil {
@@ -74,7 +74,7 @@ func (s *Service) discoverImportUnits(envelope httpapi.UploadEnvelope, sourceFil
 	}
 }
 
-func (s *Service) discoveredImportUnit(rows [][]tabularCell, locatorKind string, locator string) (DiscoveredUnit, *httpapi.APIError) {
+func (s *service) discoveredImportUnit(rows [][]tabularCell, locatorKind string, locator string) (discoveredUnit, *httpapi.APIError) {
 	maxCols := 0
 	for _, row := range rows {
 		if len(row) > maxCols {
@@ -91,14 +91,14 @@ func (s *Service) discoveredImportUnit(rows [][]tabularCell, locatorKind string,
 	return s.discoveredImportUnitAt(rows, locatorKind, locator, rect, nil, nil)
 }
 
-func (s *Service) discoveredImportUnitAt(
+func (s *service) discoveredImportUnitAt(
 	rows [][]tabularCell,
 	locatorKind string,
 	locator string,
 	rect sourceRectangle,
 	warningCodes []string,
 	blockingColumnOrdinals []int,
-) (DiscoveredUnit, *httpapi.APIError) {
+) (discoveredUnit, *httpapi.APIError) {
 	if warningCodes == nil {
 		warningCodes = []string{}
 	}
@@ -111,10 +111,10 @@ func (s *Service) discoveredImportUnitAt(
 		dataRows = 0
 	}
 	if int64(dataRows) > s.limits.MaxRows {
-		return DiscoveredUnit{}, importSourceRejected("import_rows_exceeded", int64(dataRows), s.limits.MaxRows)
+		return discoveredUnit{}, importSourceRejected("import_rows_exceeded", int64(dataRows), s.limits.MaxRows)
 	}
 	if int64(dataRows*maxCols) > s.limits.MaxCells {
-		return DiscoveredUnit{}, importSourceRejected("import_cells_exceeded", int64(dataRows*maxCols), s.limits.MaxCells)
+		return discoveredUnit{}, importSourceRejected("import_cells_exceeded", int64(dataRows*maxCols), s.limits.MaxCells)
 	}
 	columns := make([]map[string]any, 0, maxCols)
 	if len(rows) > 0 {
@@ -169,7 +169,7 @@ func (s *Service) discoveredImportUnitAt(
 			"cells":          cells,
 		})
 	}
-	return DiscoveredUnit{
+	return discoveredUnit{
 		LocatorKind:         locatorKind,
 		Locator:             locator,
 		SourceRectA1:        sourceRectangleA1(rect),
@@ -187,9 +187,9 @@ func (s *Service) discoveredImportUnitAt(
 
 func detectSourceFileKind(envelope httpapi.UploadEnvelope) string {
 	if looksLikeXLSX(envelope.File) {
-		return SourceFileKindXLSX
+		return sourceFileKindXLSX
 	}
-	return SourceFileKindCSV
+	return sourceFileKindCSV
 }
 
 func looksLikeXLSX(data []byte) bool {

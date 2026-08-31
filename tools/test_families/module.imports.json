@@ -633,7 +633,7 @@
       ]
     },
     {
-      "row_id": "module.imports.unit.boundary_complete_52a2a59837",
+      "row_id": "module.imports.unit.behavior_contract",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",
       "collaborator_ids": [],
@@ -644,20 +644,19 @@
       "selector": {
         "package": "./internal/modules/imports",
         "tests": [
-          "TestImportsOwnerApplyUsesInjectedFacadeRegistry",
-          "TestImportsProductionPackageHasNoConcretePeerStoresOrPeerTableSQL",
-          "TestImportsProductionPackageUsesOwnerFacadesForWorkbookRows",
-          "TestImportsResponsibilitiesRemainSeparated",
-          "TestImportsTargetsUseOnlyGeneratedRegistry"
+          "TestGeneratedImportTargetRegistryContract",
+          "TestImportSessionMemberRouteContract",
+          "TestInternalImportErrorDoesNotEchoRawMessage",
+          "TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics"
         ]
       },
-      "evidence_class": "static",
+      "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard",
+      "minimum_tier": "fast",
       "service_dependencies": []
     },
     {
@@ -686,7 +685,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.imports.unit.characterization_complete_180f923ec3",
+      "row_id": "module.imports.unit.export_surface_contract",
       "owner_id": "module.imports",
       "family_id": "module.imports.unit",
       "collaborator_ids": [],
@@ -697,13 +696,11 @@
       "selector": {
         "package": "./internal/modules/imports",
         "tests": [
-          "TestCharacterizationCurrentImportSessionMemberRoutes",
-          "TestCharacterizationCurrentImportTargetInventory",
-          "TestInternalImportErrorDoesNotEchoRawMessage",
-          "TestXLSXIndexIncludesHiddenSheetWithoutPresentationSemantics"
+          "TestImportsExportSurfaceGuardRejectsUnclassifiedSyntheticExport",
+          "TestImportsExportSurfaceHasExactProductionRoles"
         ]
       },
-      "evidence_class": "unit",
+      "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -727,6 +724,40 @@
         "package": "./internal/app/importassembly",
         "tests": [
           "TestIndicatorOwnerContributionRejectsGeneratedCatalogIdentityDrift"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.imports.unit.module_composition_contract",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [
+        "app.server",
+        "module.networkflow",
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestImportsModuleConstructsWithoutSideEffectsAndRegistersExactSurface",
+          "TestImportsModuleRejectsEveryMissingDependency",
+          "TestImportsModuleRejectsEveryNonPositiveLimit",
+          "TestImportsModuleRejectsInvalidAnalyticalContributions",
+          "TestImportsModuleRejectsInvalidAuthMaterialAndWorkerRegistrationFailure",
+          "TestImportsModuleRequiresClaimedFacadeAndPermitsUnclaimedOmission",
+          "TestImportsModuleValidatesEveryAnalyticalBindingMember"
         ]
       },
       "evidence_class": "unit",

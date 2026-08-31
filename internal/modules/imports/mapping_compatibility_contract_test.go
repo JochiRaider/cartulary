@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 )
 
-func assertFileMappingCompatibilityCharacterization(t testing.TB) {
+func assertFileMappingCompatibilityContract(t testing.TB) {
 	t.Helper()
 
 	discovered := []map[string]any{
@@ -35,11 +35,11 @@ func assertFileMappingCompatibilityCharacterization(t testing.TB) {
 			{"source_column_ordinal":4,"source_header_text":"Unknown \"<>&","field_key":null,"entity_binding_mode":null,"transform_id":null,"transform_options":{},"empty_value_policy":"omit_field"}
 		]
 	}`
-	request, apiErr := DecodeMappingRequest(strings.NewReader(body), discovered)
+	request, apiErr := decodeMappingRequest(strings.NewReader(body), discovered)
 	if apiErr != nil {
-		t.Fatalf("decode file mapping characterization: %#v", apiErr)
+		t.Fatalf("decode file mapping compatibility contract: %#v", apiErr)
 	}
-	approvedBytes := mappingJSONForReadiness(request.ApprovedMapping)
+	approvedBytes := mappingJSONForReadiness(request.approvedMapping)
 	const approvedGolden = `{"target_view_schema_id":"cartulary.view.hosts.v1","unknown_column_policy":"preserve_raw_capture","source_columns":[{"source_column_ordinal":1,"source_header_text":"Náme","field_key":"host.display_name","entity_binding_mode":"entity_origin","transform_id":"trim_v1","transform_options":{},"empty_value_policy":"omit_field"},{"source_column_ordinal":2,"source_header_text":"Aliases","field_key":"host.aliases","entity_binding_mode":"entity_origin","transform_id":"split_delimited_v1","transform_options":{"delimiter":";"},"empty_value_policy":"omit_field"},{"source_column_ordinal":3,"source_header_text":"Location","field_key":"host.location","entity_binding_mode":"entity_origin","transform_id":"lowercase_v1","transform_options":{},"empty_value_policy":"write_null"},{"source_column_ordinal":4,"source_header_text":"Unknown \"\u003c\u003e\u0026","field_key":null,"entity_binding_mode":null,"transform_id":null,"transform_options":{},"empty_value_policy":"omit_field"}]}`
 	const normalizedGolden = `{"client_txn_id":"txn-file-map-界","mapping":{"data_start_row_ref":2,"header_row_ref":1,"source_columns":[{"source_column_ordinal":1,"source_header_text":"Náme","field_key":"host.display_name","entity_binding_mode":"entity_origin","transform_id":"trim_v1","transform_options":{},"empty_value_policy":"omit_field"},{"source_column_ordinal":2,"source_header_text":"Aliases","field_key":"host.aliases","entity_binding_mode":"entity_origin","transform_id":"split_delimited_v1","transform_options":{"delimiter":";"},"empty_value_policy":"omit_field"},{"source_column_ordinal":3,"source_header_text":"Location","field_key":"host.location","entity_binding_mode":"entity_origin","transform_id":"lowercase_v1","transform_options":{},"empty_value_policy":"write_null"},{"source_column_ordinal":4,"source_header_text":"Unknown \"\u003c\u003e\u0026","field_key":null,"entity_binding_mode":null,"transform_id":null,"transform_options":{},"empty_value_policy":"omit_field"}],"target_view_schema_id":"cartulary.view.hosts.v1","unknown_column_policy":"preserve_raw_capture"}}`
 	const fingerprintGolden = "8b046f4cace5f6a164e3e752ceceee0d1897e31dd200a8a5d2549ab173df6234"
@@ -51,20 +51,20 @@ func assertFileMappingCompatibilityCharacterization(t testing.TB) {
 			request.Fingerprint,
 		)
 	}
-	replay, replayErr := DecodeMappingRequest(
+	replay, replayErr := decodeMappingRequest(
 		strings.NewReader(strings.Replace(body, "txn-file-map-界", "txn-file-map-replay", 1)),
 		discovered,
 	)
 	if replayErr != nil || replay.Fingerprint != request.Fingerprint {
 		t.Fatalf("client transaction identity changed file mapping bytes: replay=%#v error=%#v", replay, replayErr)
 	}
-	if request.ApprovedMapping.SourceColumns[1].TransformOptions["trim_items"] != nil ||
-		request.ApprovedMapping.SourceColumns[1].TransformOptions["drop_empty_items"] != nil {
-		t.Fatalf("omitted split booleans acquired a non-false representation: %#v", request.ApprovedMapping.SourceColumns[1])
+	if request.approvedMapping.SourceColumns[1].TransformOptions["trim_items"] != nil ||
+		request.approvedMapping.SourceColumns[1].TransformOptions["drop_empty_items"] != nil {
+		t.Fatalf("omitted split booleans acquired a non-false representation: %#v", request.approvedMapping.SourceColumns[1])
 	}
 	transformed, err := mappingKernelTransformCompatibility(
 		" alpha ; ; beta ",
-		request.ApprovedMapping.SourceColumns[1],
+		request.approvedMapping.SourceColumns[1],
 	)
 	if err != nil || transformed != " alpha ; ; beta " {
 		t.Fatalf("omitted split booleans no longer behave as false: value=%q error=%v", transformed, err)
@@ -80,11 +80,11 @@ func assertCrossPathMappingKernelCompatibility(t testing.TB) {
 	t.Helper()
 	title := "note.title"
 	body := "note.body"
-	unit := ApplyUnitData{
-		ApprovedMapping: ApprovedMapping{
+	unit := applyUnitData{
+		approvedMapping: approvedMapping{
 			TargetViewSchemaID:  "cartulary.view.notes.v1",
 			UnknownColumnPolicy: tabularingest.UnknownColumnPreserveRawCaptureV1,
-			SourceColumns: []SourceColumnMapping{
+			SourceColumns: []sourceColumnMapping{
 				{SourceColumnOrdinal: 1, SourceHeaderText: "Title", FieldKey: &title, TransformOptions: map[string]any{}, EmptyValuePolicy: tabularingest.EmptyValueOmitFieldV1},
 				{SourceColumnOrdinal: 2, SourceHeaderText: "Body", FieldKey: &body, TransformOptions: map[string]any{}, EmptyValuePolicy: tabularingest.EmptyValueOmitFieldV1},
 				{SourceColumnOrdinal: 3, SourceHeaderText: "Unknown 界", TransformOptions: map[string]any{}, EmptyValuePolicy: tabularingest.EmptyValueOmitFieldV1},
@@ -143,7 +143,7 @@ func assertImportTransformCompatibility(t testing.TB) {
 	t.Helper()
 	value := func(input string, transformID *string, options map[string]any) string {
 		t.Helper()
-		result, err := mappingKernelTransformCompatibility(input, SourceColumnMapping{
+		result, err := mappingKernelTransformCompatibility(input, sourceColumnMapping{
 			TransformID:      transformID,
 			TransformOptions: options,
 		})
@@ -169,7 +169,7 @@ func assertImportTransformCompatibility(t testing.TB) {
 	}
 }
 
-func mappingKernelTransformCompatibility(input string, column SourceColumnMapping) (string, error) {
+func mappingKernelTransformCompatibility(input string, column sourceColumnMapping) (string, error) {
 	fieldKey := "compatibility.field"
 	column.FieldKey = &fieldKey
 	column.SourceColumnOrdinal = 1
@@ -230,29 +230,29 @@ func assertImportOwnerRequestCompatibility(t testing.TB) {
 			return ownerfacade.NormalizeImportScalar(testCase.viewSchemaID, fieldKey, raw, policy)
 		}
 		facade, err := ownerfacade.NewImportOwnerCreateFacadeWithNormalizer(
-			ownerfacade.ImportOwnerCreateBinding{TargetViewSchemaID: testCase.viewSchemaID, FacadeID: "characterization"},
+			ownerfacade.ImportOwnerCreateBinding{TargetViewSchemaID: testCase.viewSchemaID, FacadeID: "compatibility_contract"},
 			normalize,
 			func(context.Context, pgx.Tx, ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 				return ownerfacade.ImportOwnerCreateResponse{}, nil
 			},
 		)
 		if err != nil {
-			t.Fatalf("build characterization facade: %v", err)
+			t.Fatalf("build compatibility facade: %v", err)
 		}
 		fieldKey := testCase.fieldKey
 		request, err := importOwnerCreateRequest(
 			context.Background(),
-			ApplyStartResult{
+			applyStartResult{
 				IncidentID:      uuid.MustParse("11111111-1111-4111-8111-111111111111"),
 				ImportSessionID: uuid.MustParse("22222222-2222-4222-8222-222222222222"),
 				ClientTxnID:     "txn-apply",
 			},
-			ApplyUnitData{
+			applyUnitData{
 				UnitID: uuid.MustParse("33333333-3333-4333-8333-333333333333"),
-				ApprovedMapping: ApprovedMapping{
+				approvedMapping: approvedMapping{
 					TargetViewSchemaID:  testCase.viewSchemaID,
 					UnknownColumnPolicy: "preserve_raw_capture",
-					SourceColumns: []SourceColumnMapping{
+					SourceColumns: []sourceColumnMapping{
 						{SourceColumnOrdinal: 1, SourceHeaderText: "Known", FieldKey: &fieldKey, EntityBindingMode: testCase.bindingMode, TransformOptions: map[string]any{}, EmptyValuePolicy: "omit_field"},
 						{SourceColumnOrdinal: 2, SourceHeaderText: "Unknown", TransformOptions: map[string]any{}, EmptyValuePolicy: "omit_field"},
 					},
@@ -292,7 +292,7 @@ func assertImportOwnerRequestCompatibility(t testing.TB) {
 	}
 	encoded, err := json.Marshal(snapshots)
 	if err != nil {
-		t.Fatalf("encode owner request characterization: %v", err)
+		t.Fatalf("encode owner request compatibility contract: %v", err)
 	}
 	const ownerRequestGolden = `[{"binding_mode":"mention_origin","field_key":"timeline.host_refs","locator":"file","mapping_fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","normalized":{"kind":"collection_token","normalized_text":"Gateway One","raw_text":"  Gateway   One  "},"raw_value":"  Gateway   One  ","source_row_ref":2,"unknown":[{"SourceColumnOrdinal":2,"SourceHeaderText":"Unknown","RawValue":"raw\u2028value","CellKind":"inline_string"}],"view_schema_id":"cartulary.view.timeline.v2"},{"binding_mode":"entity_origin","field_key":"host.display_name","locator":"file","mapping_fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","normalized":{"kind":"text","text":"Gateway One"},"raw_value":" Gateway One ","source_row_ref":2,"unknown":[{"SourceColumnOrdinal":2,"SourceHeaderText":"Unknown","RawValue":"raw\u2028value","CellKind":"inline_string"}],"view_schema_id":"cartulary.view.hosts.v1"},{"binding_mode":"entity_origin","field_key":"identity.display_name","locator":"file","mapping_fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","normalized":{"kind":"text","text":"Analyst One"},"raw_value":" Analyst One ","source_row_ref":2,"unknown":[{"SourceColumnOrdinal":2,"SourceHeaderText":"Unknown","RawValue":"raw\u2028value","CellKind":"inline_string"}],"view_schema_id":"cartulary.view.identities.v1"},{"binding_mode":null,"field_key":"note.title","locator":"file","mapping_fingerprint":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","normalized":{"kind":"text","text":"Investigation note"},"raw_value":" Investigation note ","source_row_ref":2,"unknown":[{"SourceColumnOrdinal":2,"SourceHeaderText":"Unknown","RawValue":"raw\u2028value","CellKind":"inline_string"}],"view_schema_id":"cartulary.view.notes.v1"}]`
 	if string(encoded) != ownerRequestGolden {
@@ -328,7 +328,7 @@ func assertImportMappingFailureCompatibility(t testing.TB, discovered []map[stri
 		{name: "duplicate json member", body: strings.Replace(base, `"client_txn_id":"txn"`, `"client_txn_id":"txn","client_txn_id":"other"`, 1), field: "", reason: "request_not_object"},
 	}
 	for _, testCase := range cases {
-		_, apiErr := DecodeMappingRequest(strings.NewReader(testCase.body), discovered)
+		_, apiErr := decodeMappingRequest(strings.NewReader(testCase.body), discovered)
 		field, hasField := "", false
 		if apiErr != nil {
 			field, hasField = apiErr.Details["field"].(string)

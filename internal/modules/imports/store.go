@@ -13,51 +13,51 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-var ErrNotFound = errors.New("imports: not found")
-var ErrStateConflict = errors.New("imports: state conflict")
-var ErrApplyBlocked = errors.New("imports: apply blocked")
+var errNotFound = errors.New("imports: not found")
+var errStateConflict = errors.New("imports: state conflict")
+var errApplyBlocked = errors.New("imports: apply blocked")
 
-type StateConflictError struct {
+type stateConflictError struct {
 	ReasonCode string
 }
 
-func (e *StateConflictError) Error() string {
-	return ErrStateConflict.Error()
+func (e *stateConflictError) Error() string {
+	return errStateConflict.Error()
 }
 
-func (e *StateConflictError) Unwrap() error {
-	return ErrStateConflict
+func (e *stateConflictError) Unwrap() error {
+	return errStateConflict
 }
 
-type ApplyBlockedError struct {
+type applyBlockedError struct {
 	ReasonCode string
 	Field      string
 }
 
-func (e *ApplyBlockedError) Error() string {
-	return ErrApplyBlocked.Error()
+func (e *applyBlockedError) Error() string {
+	return errApplyBlocked.Error()
 }
 
-func (e *ApplyBlockedError) Unwrap() error {
-	return ErrApplyBlocked
+func (e *applyBlockedError) Unwrap() error {
+	return errApplyBlocked
 }
 
-type Store struct {
-	pool             *pgxpool.Pool
+type store struct {
+	db               postgres.DB
 	incidentAccess   *admission.Checker
 	revisionAppender *revisions.Appender
 	jobTransactions  importJobTransactions
 }
 
-type DiscoveredUnit struct {
+type discoveredUnit struct {
 	LocatorKind         string
 	Locator             string
 	SourceRectA1        string
@@ -72,60 +72,60 @@ type DiscoveredUnit struct {
 	PreviewRows         []map[string]any
 }
 
-type CreateAcceptedSessionParams struct {
+type createAcceptedSessionParams struct {
 	ActorUserID         uuid.UUID
-	Request             CreateSessionRequest
+	Request             createSessionRequest
 	SourceFileKind      string
 	OriginalFilename    string
 	SourceContentSHA256 string
 	SourceMediaType     string
 	SourceByteSize      int64
 	SourceBytes         []byte
-	Units               []DiscoveredUnit
+	Units               []discoveredUnit
 	NormalizedRequest   []byte
 	Now                 time.Time
 }
 
-type CreateAcceptedSessionResult struct {
+type createAcceptedSessionResult struct {
 	Job             jobs.Resource
 	ImportSessionID uuid.UUID
 	Replayed        bool
 }
 
-type MappingParams struct {
+type mappingParams struct {
 	ActorUserID       uuid.UUID
 	SessionID         uuid.UUID
 	UnitID            uuid.UUID
-	Request           MappingRequest
+	Request           mappingRequest
 	NormalizedRequest []byte
 	Now               time.Time
 }
 
-type UnitActionParams struct {
+type unitActionParams struct {
 	ActorUserID       uuid.UUID
 	SessionID         uuid.UUID
 	UnitID            uuid.UUID
 	RouteKey          string
-	Request           ActionRequest
+	Request           actionRequest
 	NormalizedRequest []byte
 	Now               time.Time
 }
 
-type UnitActionResult struct {
+type unitActionResult struct {
 	Payload    map[string]any
 	IncidentID uuid.UUID
 	Replayed   bool
 }
 
-type ApplyStartParams struct {
+type applyStartParams struct {
 	ActorUserID       uuid.UUID
 	SessionID         uuid.UUID
-	Request           ApplyRequest
+	Request           applyRequest
 	NormalizedRequest []byte
 	Now               time.Time
 }
 
-type ApplyStartResult struct {
+type applyStartResult struct {
 	Job             jobs.Resource
 	IncidentID      uuid.UUID
 	ImportSessionID uuid.UUID
@@ -146,11 +146,11 @@ type applyJobHandlerPayload struct {
 	SelectedUnitIDs []string `json:"selected_unit_ids"`
 }
 
-type ApplyUnitData struct {
+type applyUnitData struct {
 	UnitID              uuid.UUID
 	DiscoverySequence   int
 	SourceRows          []map[string]any
-	ApprovedMapping     ApprovedMapping
+	approvedMapping     approvedMapping
 	MappingFingerprint  string
 	SourceFileKind      string
 	SourceContentSHA256 string
@@ -162,7 +162,7 @@ type ApplyUnitData struct {
 	SourceRectA1        string
 }
 
-type ApplyJournalParams struct {
+type applyJournalParams struct {
 	ImportSessionID      uuid.UUID
 	ImportUnitID         uuid.UUID
 	MappingFingerprint   string
@@ -180,14 +180,14 @@ type ApplyJournalParams struct {
 	CreatedAt            time.Time
 }
 
-func NewStore(
-	pool *pgxpool.Pool,
+func newStore(
+	db postgres.DB,
 	appender *revisions.Appender,
 	jobTransactions importJobTransactions,
-) *Store {
-	return &Store{
-		pool:             pool,
-		incidentAccess:   admission.NewChecker(pool),
+) *store {
+	return &store{
+		db:               db,
+		incidentAccess:   admission.NewChecker(db),
 		revisionAppender: appender,
 		jobTransactions:  jobTransactions,
 	}
@@ -200,7 +200,7 @@ func nullableString(value string) *string {
 	return &value
 }
 
-func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAcceptedSessionParams) (CreateAcceptedSessionResult, error) {
+func (s *store) createAcceptedSession(ctx context.Context, params createAcceptedSessionParams) (createAcceptedSessionResult, error) {
 	sum := sha256.Sum256(params.NormalizedRequest)
 	requestHash := sum[:]
 	key := authn.RouteIdempotencyKey{
@@ -209,37 +209,37 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 		ScopeKey:    params.Request.IncidentID.String(),
 		ClientTxnID: params.Request.ClientTxnID,
 	}
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return CreateAcceptedSessionResult{}, err
+		return createAcceptedSessionResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
 	if err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return CreateAcceptedSessionResult{}, authn.ErrClientTxnConflict
+			return createAcceptedSessionResult{}, authn.ErrClientTxnConflict
 		}
 		var resource jobs.Resource
 		if err := json.Unmarshal(existing.ResponseJSON, &resource); err != nil {
-			return CreateAcceptedSessionResult{}, err
+			return createAcceptedSessionResult{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
-			return CreateAcceptedSessionResult{}, err
+			return createAcceptedSessionResult{}, err
 		}
-		return CreateAcceptedSessionResult{Job: resource, Replayed: true}, nil
+		return createAcceptedSessionResult{Job: resource, Replayed: true}, nil
 	}
 	if !errors.Is(err, authn.ErrNotFound) {
-		return CreateAcceptedSessionResult{}, err
+		return createAcceptedSessionResult{}, err
 	}
 
 	sessionID := uuid.New()
 	if len(params.Units) == 0 {
-		return CreateAcceptedSessionResult{}, fmt.Errorf("import session requires at least one discovered unit")
+		return createAcceptedSessionResult{}, fmt.Errorf("import session requires at least one discovered unit")
 	}
 	handlerPayload, err := json.Marshal(discoveryJobHandlerPayload{ImportSessionID: sessionID.String()})
 	if err != nil {
-		return CreateAcceptedSessionResult{}, err
+		return createAcceptedSessionResult{}, err
 	}
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
@@ -249,7 +249,7 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 		params.NormalizedRequest,
 	)
 	if err != nil {
-		return CreateAcceptedSessionResult{}, err
+		return createAcceptedSessionResult{}, err
 	}
 	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
 		JobKind:           DiscoveryJobKind,
@@ -261,7 +261,7 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
-		return CreateAcceptedSessionResult{}, err
+		return createAcceptedSessionResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
 	if _, err := tx.Exec(ctx, `
@@ -272,23 +272,23 @@ INSERT INTO import_sessions (
     session_status, discovery_job_id, created_at, updated_at
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, $14)
-`, sessionID, params.Request.IncidentID, params.ActorUserID, params.Request.ClientTxnID, params.Request.AssistantProfile, params.SourceFileKind, params.OriginalFilename, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, ParserProfileWorkbookImport, ParserVersionWorkbookImport, jobID, params.Now.UTC()); err != nil {
-		return CreateAcceptedSessionResult{}, err
+`, sessionID, params.Request.IncidentID, params.ActorUserID, params.Request.ClientTxnID, params.Request.AssistantProfile, params.SourceFileKind, params.OriginalFilename, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, parserProfileWorkbookImport, parserVersionWorkbookImport, jobID, params.Now.UTC()); err != nil {
+		return createAcceptedSessionResult{}, err
 	}
 	for index, unit := range params.Units {
 		unitID := uuid.New()
 		sourceStreamRef := newImportSourceStreamRef()
 		previewRows, err := json.Marshal(unit.PreviewRows)
 		if err != nil {
-			return CreateAcceptedSessionResult{}, err
+			return createAcceptedSessionResult{}, err
 		}
 		sourceRows, err := json.Marshal(unit.SourceRows)
 		if err != nil {
-			return CreateAcceptedSessionResult{}, err
+			return createAcceptedSessionResult{}, err
 		}
 		columns, err := json.Marshal(unit.Columns)
 		if err != nil {
-			return CreateAcceptedSessionResult{}, err
+			return createAcceptedSessionResult{}, err
 		}
 		if _, err := tx.Exec(ctx, `
 	INSERT INTO import_units (
@@ -301,7 +301,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, 
 	`, unitID, sessionID, unit.LocatorKind, unit.Locator, unit.SourceRectA1,
 			unit.HeaderRowRef, unit.DataStartRowRef, unit.InferredRowCount, unit.InferredColumnCount,
 			unit.WarningCodes, unit.BlockingColumns, columns, sourceRows, previewRows, sourceStreamRef, index+1, params.Now.UTC()); err != nil {
-			return CreateAcceptedSessionResult{}, err
+			return createAcceptedSessionResult{}, err
 		}
 		if _, err := tx.Exec(ctx, `
 	INSERT INTO import_source_streams (
@@ -310,36 +310,19 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, 
 	)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, sourceStreamRef, sessionID, unitID, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, params.SourceBytes, params.Now.UTC()); err != nil {
-			return CreateAcceptedSessionResult{}, err
+			return createAcceptedSessionResult{}, err
 		}
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
-		return CreateAcceptedSessionResult{}, err
+		return createAcceptedSessionResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return CreateAcceptedSessionResult{}, err
+		return createAcceptedSessionResult{}, err
 	}
-	return CreateAcceptedSessionResult{Job: job, ImportSessionID: sessionID}, nil
+	return createAcceptedSessionResult{Job: job, ImportSessionID: sessionID}, nil
 }
 
-func (s *Store) MarkDiscovered(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
-	tag, err := s.pool.Exec(ctx, `
-UPDATE import_sessions
-   SET session_status = 'discovered',
-       updated_at = $2
- WHERE import_session_id = $1
-   AND session_status = 'created'
-`, sessionID, now.UTC())
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-func (s *Store) MarkDiscoveredTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, now time.Time) error {
+func (s *store) markDiscoveredTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, now time.Time) error {
 	tag, err := tx.Exec(ctx, `
 UPDATE import_sessions
    SET session_status = 'discovered',
@@ -351,13 +334,13 @@ UPDATE import_sessions
 		return err
 	}
 	if tag.RowsAffected() != 1 {
-		return ErrNotFound
+		return errNotFound
 	}
 	return nil
 }
 
-func (s *Store) GetSession(ctx context.Context, sessionID uuid.UUID) (map[string]any, uuid.UUID, error) {
-	row := s.pool.QueryRow(ctx, `
+func (s *store) getSession(ctx context.Context, sessionID uuid.UUID) (map[string]any, uuid.UUID, error) {
+	row := s.db.QueryRow(ctx, `
 SELECT import_session_id, incident_id, created_by_user_id, client_txn_id, assistant_profile,
        source_file_kind, original_filename, source_content_sha256, parser_profile_id, parser_version,
        session_status, discovery_job_id, apply_job_id, to_jsonb(selected_unit_ids),
@@ -367,18 +350,18 @@ SELECT import_session_id, incident_id, created_by_user_id, client_txn_id, assist
 `, sessionID)
 	resource, incidentID, err := scanSessionResource(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, uuid.UUID{}, ErrNotFound
+		return nil, uuid.UUID{}, errNotFound
 	}
 	return resource, incidentID, err
 }
 
-func (s *Store) ListUnits(ctx context.Context, sessionID uuid.UUID) ([]map[string]any, uuid.UUID, error) {
-	session, incidentID, err := s.GetSession(ctx, sessionID)
+func (s *store) listUnits(ctx context.Context, sessionID uuid.UUID) ([]map[string]any, uuid.UUID, error) {
+	session, incidentID, err := s.getSession(ctx, sessionID)
 	if err != nil {
 		return nil, uuid.UUID{}, err
 	}
 	_ = session
-	rows, err := s.pool.Query(ctx, `
+	rows, err := s.db.Query(ctx, `
 SELECT import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
        header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
        to_jsonb(warning_codes), mapping_fingerprint, approved_mapping_json, created_at, updated_at
@@ -404,12 +387,12 @@ SELECT import_unit_id, import_session_id, unit_status, locator_kind, locator, so
 	return units, incidentID, nil
 }
 
-func (s *Store) GetUnit(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (map[string]any, uuid.UUID, error) {
-	_, incidentID, err := s.GetSession(ctx, sessionID)
+func (s *store) getUnit(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (map[string]any, uuid.UUID, error) {
+	_, incidentID, err := s.getSession(ctx, sessionID)
 	if err != nil {
 		return nil, uuid.UUID{}, err
 	}
-	row := s.pool.QueryRow(ctx, `
+	row := s.db.QueryRow(ctx, `
 SELECT import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
        header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
        to_jsonb(warning_codes), mapping_fingerprint, approved_mapping_json, created_at, updated_at
@@ -419,17 +402,17 @@ SELECT import_unit_id, import_session_id, unit_status, locator_kind, locator, so
 `, sessionID, unitID)
 	unit, err := scanUnitResource(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, uuid.UUID{}, ErrNotFound
+		return nil, uuid.UUID{}, errNotFound
 	}
 	return unit, incidentID, err
 }
 
-func (s *Store) GetPreview(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (map[string]any, uuid.UUID, error) {
-	unit, incidentID, err := s.GetUnit(ctx, sessionID, unitID)
+func (s *store) getPreview(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (map[string]any, uuid.UUID, error) {
+	unit, incidentID, err := s.getUnit(ctx, sessionID, unitID)
 	if err != nil {
 		return nil, uuid.UUID{}, err
 	}
-	row := s.pool.QueryRow(ctx, `
+	row := s.db.QueryRow(ctx, `
 SELECT columns_json, preview_rows_json
   FROM import_units
  WHERE import_session_id = $1
@@ -470,12 +453,12 @@ SELECT columns_json, preview_rows_json
 	return preview, incidentID, nil
 }
 
-func (s *Store) GetUnitColumns(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) ([]map[string]any, uuid.UUID, error) {
-	_, incidentID, err := s.GetUnit(ctx, sessionID, unitID)
+func (s *store) getUnitColumns(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) ([]map[string]any, uuid.UUID, error) {
+	_, incidentID, err := s.getUnit(ctx, sessionID, unitID)
 	if err != nil {
 		return nil, uuid.UUID{}, err
 	}
-	row := s.pool.QueryRow(ctx, `
+	row := s.db.QueryRow(ctx, `
 SELECT columns_json
   FROM import_units
  WHERE import_session_id = $1
@@ -484,7 +467,7 @@ SELECT columns_json
 	var columnsJSON []byte
 	if err := row.Scan(&columnsJSON); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, uuid.UUID{}, ErrNotFound
+			return nil, uuid.UUID{}, errNotFound
 		}
 		return nil, uuid.UUID{}, err
 	}
@@ -498,7 +481,7 @@ SELECT columns_json
 	return columns, incidentID, nil
 }
 
-func (s *Store) SaveMapping(ctx context.Context, params MappingParams) (map[string]any, uuid.UUID, error) {
+func (s *store) saveMapping(ctx context.Context, params mappingParams) (map[string]any, uuid.UUID, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "imports.units.mapping",
 		ActorUserID: params.ActorUserID,
@@ -527,10 +510,10 @@ SELECT blocking_source_column_ordinals
 			return nil, err
 		}
 		if (status == "selected" || status == "ready") &&
-			!mappingUsesBlockingColumn(mappingJSONForReadiness(params.Request.ApprovedMapping), blockingColumns) {
+			!mappingUsesBlockingColumn(mappingJSONForReadiness(params.Request.approvedMapping), blockingColumns) {
 			nextStatus = "ready"
 		}
-		mappingJSON, err := json.Marshal(params.Request.ApprovedMapping)
+		mappingJSON, err := json.Marshal(params.Request.approvedMapping)
 		if err != nil {
 			return nil, err
 		}
@@ -548,7 +531,7 @@ SELECT blocking_source_column_ordinals
 	 WHERE import_session_id = $1
 	   AND import_unit_id = $2
 	   AND unit_status = $3
-	`, params.SessionID, params.UnitID, status, nextStatus, params.Request.HeaderRowRef, params.Request.DataStartRowRef, params.Request.Fingerprint, mappingJSON, params.Request.ApprovedMapping.targetKindOrDefault(), nullableString(params.Request.ApprovedMapping.ExtensionProfileID), nullableString(params.Request.ApprovedMapping.TargetViewSchemaID), params.Now.UTC()); err != nil {
+	`, params.SessionID, params.UnitID, status, nextStatus, params.Request.HeaderRowRef, params.Request.DataStartRowRef, params.Request.Fingerprint, mappingJSON, params.Request.approvedMapping.targetKindOrDefault(), nullableString(params.Request.approvedMapping.ExtensionProfileID), nullableString(params.Request.approvedMapping.TargetViewSchemaID), params.Now.UTC()); err != nil {
 			return nil, err
 		}
 		if err := refreshSessionStatusTx(ctx, tx, params.SessionID, params.Now); err != nil {
@@ -562,12 +545,12 @@ SELECT blocking_source_column_ordinals
 	})
 }
 
-func mappingJSONForReadiness(mapping ApprovedMapping) []byte {
+func mappingJSONForReadiness(mapping approvedMapping) []byte {
 	data, _ := json.Marshal(mapping)
 	return data
 }
 
-func (s *Store) SelectUnit(ctx context.Context, params UnitActionParams) (UnitActionResult, error) {
+func (s *store) selectUnit(ctx context.Context, params unitActionParams) (unitActionResult, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    params.RouteKey,
 		ActorUserID: params.ActorUserID,
@@ -618,10 +601,10 @@ UPDATE import_sessions
 		}
 		return unitActionPayloadTx(ctx, tx, params.SessionID, params.UnitID)
 	})
-	return UnitActionResult{Payload: payload, IncidentID: incidentID}, err
+	return unitActionResult{Payload: payload, IncidentID: incidentID}, err
 }
 
-func (s *Store) SkipUnit(ctx context.Context, params UnitActionParams) (UnitActionResult, error) {
+func (s *store) skipUnit(ctx context.Context, params unitActionParams) (unitActionResult, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    params.RouteKey,
 		ActorUserID: params.ActorUserID,
@@ -663,19 +646,19 @@ UPDATE import_sessions
 		}
 		return unitActionPayloadTx(ctx, tx, params.SessionID, params.UnitID)
 	})
-	return UnitActionResult{Payload: payload, IncidentID: incidentID}, err
+	return unitActionResult{Payload: payload, IncidentID: incidentID}, err
 }
 
-func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyStartResult, error) {
+func (s *store) startApply(ctx context.Context, params applyStartParams) (applyStartResult, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey:    "imports.sessions.apply",
 		ActorUserID: params.ActorUserID,
 		ScopeKey:    params.SessionID.String(),
 		ClientTxnID: params.Request.ClientTxnID,
 	}
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -683,51 +666,51 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err == nil {
 		incidentID, selected, err := sessionApplySelectionTx(ctx, tx, params.SessionID, params.Request.SelectedUnitIDs)
 		if err != nil {
-			return ApplyStartResult{}, err
+			return applyStartResult{}, err
 		}
 		requestHash, err := applyRequestHash(params.Request, selected)
 		if err != nil {
-			return ApplyStartResult{}, err
+			return applyStartResult{}, err
 		}
 		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return ApplyStartResult{}, authn.ErrClientTxnConflict
+			return applyStartResult{}, authn.ErrClientTxnConflict
 		}
 		var resource jobs.Resource
 		if err := json.Unmarshal(existing.ResponseJSON, &resource); err != nil {
-			return ApplyStartResult{}, err
+			return applyStartResult{}, err
 		}
-		return ApplyStartResult{Job: resource, IncidentID: incidentID, ImportSessionID: params.SessionID, ClientTxnID: params.Request.ClientTxnID, SelectedUnitIDs: selected, Replayed: true}, tx.Commit(ctx)
+		return applyStartResult{Job: resource, IncidentID: incidentID, ImportSessionID: params.SessionID, ClientTxnID: params.Request.ClientTxnID, SelectedUnitIDs: selected, Replayed: true}, tx.Commit(ctx)
 	}
 	if !errors.Is(err, authn.ErrNotFound) {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 
 	status, incidentID, selected, err := sessionStatusAndSelectionTx(ctx, tx, params.SessionID, params.Request.SelectedUnitIDs)
 	if err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	if err := s.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	switch status {
 	case "applying":
-		return ApplyStartResult{}, importConflictError("session_applying")
+		return applyStartResult{}, importConflictError("session_applying")
 	case "applied", "partially_applied", "failed", "canceled":
-		return ApplyStartResult{}, importApplyBlockedError("duplicate_apply_blocked")
+		return applyStartResult{}, importApplyBlockedError("duplicate_apply_blocked")
 	}
 	if len(selected) == 0 {
-		return ApplyStartResult{}, importApplyBlockedError("unit_not_ready")
+		return applyStartResult{}, importApplyBlockedError("unit_not_ready")
 	}
 	if err := requireSelectedUnitsReadyTx(ctx, tx, params.SessionID, selected); err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	requestHash, err := applyRequestHash(params.Request, selected)
 	if err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	normalizedRequest, err := normalizedApplyRequest(params.Request, selected)
 	if err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	handlerPayload, err := json.Marshal(applyJobHandlerPayload{
 		IncidentID:      incidentID.String(),
@@ -737,7 +720,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 		SelectedUnitIDs: uuidStrings(selected),
 	})
 	if err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
@@ -747,7 +730,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 		normalizedRequest,
 	)
 	if err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
 		JobKind:           ApplyJobKind,
@@ -759,7 +742,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
 	if err := s.insertApplyUnitPlansTx(
@@ -770,7 +753,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 		selected,
 		params.Now.UTC(),
 	); err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	if _, err := tx.Exec(ctx, `
 UPDATE import_sessions
@@ -780,7 +763,7 @@ UPDATE import_sessions
        updated_at = $4
  WHERE import_session_id = $1
 `, params.SessionID, jobID, selected, params.Now.UTC()); err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	if _, err := tx.Exec(ctx, `
 UPDATE import_units
@@ -789,18 +772,18 @@ UPDATE import_units
  WHERE import_session_id = $1
    AND import_unit_id = ANY($2)
 `, params.SessionID, selected, params.Now.UTC()); err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return ApplyStartResult{}, err
+		return applyStartResult{}, err
 	}
-	return ApplyStartResult{Job: job, IncidentID: incidentID, ImportSessionID: params.SessionID, ClientTxnID: params.Request.ClientTxnID, SelectedUnitIDs: selected}, nil
+	return applyStartResult{Job: job, IncidentID: incidentID, ImportSessionID: params.SessionID, ClientTxnID: params.Request.ClientTxnID, SelectedUnitIDs: selected}, nil
 }
 
-func applyRequestHash(request ApplyRequest, resolvedSelected []uuid.UUID) ([]byte, error) {
+func applyRequestHash(request applyRequest, resolvedSelected []uuid.UUID) ([]byte, error) {
 	normalized, err := normalizedApplyRequest(request, resolvedSelected)
 	if err != nil {
 		return nil, err
@@ -809,7 +792,7 @@ func applyRequestHash(request ApplyRequest, resolvedSelected []uuid.UUID) ([]byt
 	return sum[:], nil
 }
 
-func normalizedApplyRequest(request ApplyRequest, resolvedSelected []uuid.UUID) ([]byte, error) {
+func normalizedApplyRequest(request applyRequest, resolvedSelected []uuid.UUID) ([]byte, error) {
 	normalized := request.Normalized
 	if request.SelectedUnitIDs == nil {
 		var err error
@@ -824,8 +807,8 @@ func normalizedApplyRequest(request ApplyRequest, resolvedSelected []uuid.UUID) 
 	return normalized, nil
 }
 
-func (s *Store) GetApplyUnits(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID) ([]ApplyUnitData, error) {
-	rows, err := s.pool.Query(ctx, `
+func (s *store) getApplyUnits(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID) ([]applyUnitData, error) {
+	rows, err := s.db.Query(ctx, `
 SELECT u.import_unit_id,
        u.discovery_sequence,
        u.source_rows_json,
@@ -850,9 +833,9 @@ SELECT u.import_unit_id,
 		return nil, err
 	}
 	defer rows.Close()
-	units := make([]ApplyUnitData, 0)
+	units := make([]applyUnitData, 0)
 	for rows.Next() {
-		var unit ApplyUnitData
+		var unit applyUnitData
 		var sourceRowsJSON []byte
 		var mappingJSON []byte
 		if err := rows.Scan(&unit.UnitID, &unit.DiscoverySequence, &sourceRowsJSON, &mappingJSON, &unit.MappingFingerprint, &unit.SourceFileKind, &unit.SourceContentSHA256, &unit.SourceStreamRef, &unit.ParserProfileID, &unit.ParserVersion, &unit.LocatorKind, &unit.Locator, &unit.SourceRectA1); err != nil {
@@ -861,7 +844,7 @@ SELECT u.import_unit_id,
 		if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal(mappingJSON, &unit.ApprovedMapping); err != nil {
+		if err := json.Unmarshal(mappingJSON, &unit.approvedMapping); err != nil {
 			return nil, err
 		}
 		units = append(units, unit)
@@ -869,8 +852,8 @@ SELECT u.import_unit_id,
 	return units, rows.Err()
 }
 
-func (s *Store) CancelDiscovery(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
-	_, err := s.pool.Exec(ctx, `
+func (s *store) cancelDiscovery(ctx context.Context, sessionID uuid.UUID, now time.Time) error {
+	_, err := s.db.Exec(ctx, `
 UPDATE import_sessions
    SET session_status = 'canceled',
        updated_at = $2
@@ -880,7 +863,7 @@ UPDATE import_sessions
 	return err
 }
 
-func (s *Store) InsertApplyJournalTx(ctx context.Context, tx pgx.Tx, params ApplyJournalParams) error {
+func (s *store) insertApplyJournalTx(ctx context.Context, tx pgx.Tx, params applyJournalParams) error {
 	ownerResponse, err := json.Marshal(params.OwnerResponse)
 	if err != nil {
 		return fmt.Errorf("encode import owner response: %w", err)
@@ -938,7 +921,7 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	return record, nil
 }
 
-func (s *Store) withUnitMutation(
+func (s *store) withUnitMutation(
 	ctx context.Context,
 	key authn.RouteIdempotencyKey,
 	normalizedRequest []byte,
@@ -949,7 +932,7 @@ func (s *Store) withUnitMutation(
 ) (map[string]any, uuid.UUID, error) {
 	sum := sha256.Sum256(normalizedRequest)
 	requestHash := sum[:]
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, uuid.UUID{}, err
 	}
@@ -1009,7 +992,7 @@ SELECT unit_status
  FOR UPDATE
 `, sessionID, unitID).Scan(&status); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrNotFound
+			return "", errNotFound
 		}
 		return "", err
 	}
@@ -1026,7 +1009,7 @@ SELECT session_status, incident_id
  FOR UPDATE
 `, sessionID).Scan(&status, &incidentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", uuid.UUID{}, ErrNotFound
+			return "", uuid.UUID{}, errNotFound
 		}
 		return "", uuid.UUID{}, err
 	}
@@ -1103,7 +1086,7 @@ SELECT incident_id, to_jsonb(selected_unit_ids)
  WHERE import_session_id = $1
 `, sessionID).Scan(&incidentID, &selectedJSON); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.UUID{}, nil, ErrNotFound
+			return uuid.UUID{}, nil, errNotFound
 		}
 		return uuid.UUID{}, nil, err
 	}
@@ -1154,7 +1137,7 @@ SELECT import_unit_id, unit_status, approved_mapping_json, locator_kind, locator
 		if status != "ready" || len(mapping) == 0 {
 			return importApplyBlockedError("unit_not_ready")
 		}
-		var approved ApprovedMapping
+		var approved approvedMapping
 		if err := json.Unmarshal(mapping, &approved); err != nil {
 			return err
 		}
@@ -1187,11 +1170,11 @@ SELECT import_unit_id, unit_status, approved_mapping_json, locator_kind, locator
 }
 
 func importConflictError(reason string) error {
-	return &StateConflictError{ReasonCode: reason}
+	return &stateConflictError{ReasonCode: reason}
 }
 
 func importApplyBlockedError(reason string) error {
-	return &ApplyBlockedError{ReasonCode: reason}
+	return &applyBlockedError{ReasonCode: reason}
 }
 
 func intPtr(value int) *int {
@@ -1322,16 +1305,6 @@ func scanUnitResource(row pgx.Row) (map[string]any, error) {
 	return resource, nil
 }
 
-func SourceRect(rowCount int, columnCount int) string {
-	if rowCount < 1 {
-		rowCount = 1
-	}
-	if columnCount < 1 {
-		columnCount = 1
-	}
-	return fmt.Sprintf("A1:%s%d", columnName(columnCount), rowCount)
-}
-
 func previewTruncated(unit map[string]any, previewRows any) bool {
 	rowCount, ok := intFromAny(unit["inferred_row_count"])
 	if !ok {
@@ -1363,14 +1336,4 @@ func intFromAny(value any) (int, bool) {
 	default:
 		return 0, false
 	}
-}
-
-func columnName(index int) string {
-	name := ""
-	for index > 0 {
-		index--
-		name = string(rune('A'+(index%26))) + name
-		index /= 26
-	}
-	return name
 }

@@ -119,6 +119,26 @@ func TestImportOwnerErrorTranslationUsesClosedRegisteredUnion(t *testing.T) {
 	}
 }
 
+func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
+	binding := (&importFacade{}).Binding()
+	if binding.SchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
+		binding.TargetKind != TargetKindNetworkFlowTable ||
+		binding.ExtensionProfileID != ProfileID ||
+		binding.OwnerContractRef != "network_flow_activity@5" ||
+		binding.FacadeID != "network_flow_import_facade_v1" ||
+		binding.ContractMajor != 5 ||
+		binding.MappingSchemaID != "cartulary.network_flow.approved_mapping.v1" ||
+		binding.PreviewRequestSchemaID != "cartulary.network_flow.import_preview_request.v1" ||
+		binding.PreviewResultSchemaID != "cartulary.network_flow.import_preview_result.v1" ||
+		binding.ApplyRequestSchemaID != "cartulary.network_flow.import_apply_request.v1" ||
+		binding.ApplyResultSchemaID != "cartulary.network_flow.import_unit_result.v1" ||
+		binding.ErrorSchemaID != "cartulary.network_flow.import_owner_error.v1" ||
+		binding.ErrorTranslationID != "network_flow_activity.import_error_translation.v1" ||
+		binding.CommitProtocolID != "cartulary.imports.unit_commit.v1" {
+		t.Fatalf("Network Flow import binding = %#v", binding)
+	}
+}
+
 func AssertJSONAdmissionAndErrorDetails(t *testing.T) {
 	t.Helper()
 	limits := DefaultLimits()

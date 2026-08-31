@@ -147,6 +147,8 @@ type importTargetAdapterDescriptor struct {
 	TargetID               string  `json:"target_id"`
 	FacadeKind             string  `json:"facade_kind"`
 	FacadeBindingID        *string `json:"facade_binding_id"`
+	BindingSchemaID        *string `json:"binding_schema_id"`
+	ContractMajor          *int    `json:"contract_major"`
 	FacadeID               *string `json:"facade_id"`
 	OwnerContractRef       string  `json:"owner_contract_ref"`
 	CreateRequestSchemaID  *string `json:"create_request_schema_id"`
@@ -315,6 +317,7 @@ func materializeImportTargetArtifacts(root string) (importTargetDerivedSet, erro
 	errorTranslations := stringSliceSet(catalog.ErrorTranslationIDs)
 
 	rowsByID := map[string]importTargetRegistryRow{}
+	analyticalBindingsByTargetID := map[string]analyticalFacadeBinding{}
 	if viewTargetInput.Value.SchemaID != "cartulary.import_view_target_input_set.v1" {
 		return importTargetDerivedSet{}, fmt.Errorf("view-target input has unsupported schema_id %s", viewTargetInput.Value.SchemaID)
 	}
@@ -481,6 +484,7 @@ func materializeImportTargetArtifacts(root string) (importTargetDerivedSet, erro
 			EntityBearingDefault:        input.EntityBearingDefault,
 			PublicProjectionDisposition: input.PublicProjectionDisposition,
 		}
+		analyticalBindingsByTargetID[targetID] = binding
 	}
 
 	if len(rowsByID) != len(catalog.TargetOrder) {
@@ -546,10 +550,19 @@ func materializeImportTargetArtifacts(root string) (importTargetDerivedSet, erro
 	}
 	verificationIDs := map[string]string{}
 	for _, row := range rows {
+		var bindingSchemaID *string
+		var contractMajor *int
+		if binding, present := analyticalBindingsByTargetID[row.TargetID]; present {
+			bindingSchemaID = cloneStringPointer(&binding.SchemaID)
+			major := binding.ContractMajor
+			contractMajor = &major
+		}
 		adapters.Adapters = append(adapters.Adapters, importTargetAdapterDescriptor{
 			TargetID:               row.TargetID,
 			FacadeKind:             row.FacadeKind,
 			FacadeBindingID:        cloneStringPointer(row.FacadeBindingID),
+			BindingSchemaID:        bindingSchemaID,
+			ContractMajor:          contractMajor,
 			FacadeID:               cloneStringPointer(row.FacadeID),
 			OwnerContractRef:       row.OwnerContractRef,
 			CreateRequestSchemaID:  cloneStringPointer(row.CreateRequestSchemaID),
@@ -1050,22 +1063,31 @@ func writeImportTargetRegistryGo(root string, families []family) error {
 	buffer.WriteString("package importtargetregistry\n\n")
 	buffer.WriteString("type Target struct {\n")
 	buffer.WriteString("\tRegistryOrder int\n\tTargetID string\n\tTargetKind string\n\tTargetViewSchemaID *string\n\tExtensionProfileID *string\n")
-	buffer.WriteString("\tOwnerContractRef string\n\tSourceResourceFamily string\n\tFacadeKind string\n\tFacadeBindingID *string\n\tFacadeID *string\n")
+	buffer.WriteString("\tOwnerContractRef string\n\tSourceResourceFamily string\n\tFacadeKind string\n\tFacadeBindingID *string\n\tBindingSchemaID *string\n\tContractMajor *int\n\tFacadeID *string\n")
 	buffer.WriteString("\tAvailabilityKind string\n\tActivationPolicy string\n\tMappingContractSchemaID string\n")
 	buffer.WriteString("\tCreateRequestSchemaID *string\n\tCreateResultSchemaID *string\n\tPreviewRequestSchemaID *string\n\tPreviewResultSchemaID *string\n")
 	buffer.WriteString("\tApplyRequestSchemaID *string\n\tApplyResultSchemaID *string\n\tErrorSchemaID string\n\tErrorTranslationID *string\n")
 	buffer.WriteString("\tCommitProtocolID string\n\tDefaultUnknownColumnPolicy string\n\tEntityBearingDefault string\n")
 	buffer.WriteString("\tPublicProjectionDisposition string\n\tRowSHA256 string\n}\n\n")
-	buffer.WriteString("type AdapterDescriptor struct {\n\tTargetID string\n\tFacadeKind string\n\tFacadeBindingID *string\n\tFacadeID *string\n")
+	buffer.WriteString("type AdapterDescriptor struct {\n\tTargetID string\n\tFacadeKind string\n\tFacadeBindingID *string\n\tBindingSchemaID *string\n\tContractMajor *int\n\tFacadeID *string\n")
 	buffer.WriteString("\tOwnerContractRef string\n\tCreateRequestSchemaID *string\n\tCreateResultSchemaID *string\n")
 	buffer.WriteString("\tPreviewRequestSchemaID *string\n\tPreviewResultSchemaID *string\n\tApplyRequestSchemaID *string\n\tApplyResultSchemaID *string\n")
 	buffer.WriteString("\tErrorSchemaID string\n\tErrorTranslationID *string\n\tCommitProtocolID string\n}\n\n")
 	buffer.WriteString("type VerificationTarget struct {\n\tRegistryOrder int\n\tTargetID string\n\tVerificationID string\n\tAvailabilityKind string\n}\n\n")
 	fmt.Fprintf(&buffer, "const SourceSHA256 = %s\n", strconv.Quote(registry.SourceSHA256))
 	fmt.Fprintf(&buffer, "const RegistrySHA256 = %s\n\n", strconv.Quote(registryArtifact.SHA256))
-	buffer.WriteString("func stringPointer(value string) *string { return &value }\n\n")
+	buffer.WriteString("func stringPointer(value string) *string { return &value }\n")
+	buffer.WriteString("func intPointer(value int) *int { return &value }\n\n")
+	adaptersByTargetID := make(map[string]importTargetAdapterDescriptor, len(adapters.Adapters))
+	for _, descriptor := range adapters.Adapters {
+		adaptersByTargetID[descriptor.TargetID] = descriptor
+	}
 	buffer.WriteString("var Targets = []Target{\n")
 	for _, row := range registry.Rows {
+		descriptor, present := adaptersByTargetID[row.TargetID]
+		if !present {
+			return fmt.Errorf("generated import target %s has no adapter descriptor", row.TargetID)
+		}
 		buffer.WriteString("\t{\n")
 		fmt.Fprintf(&buffer, "\t\tRegistryOrder: %d,\n", row.RegistryOrder)
 		fmt.Fprintf(&buffer, "\t\tTargetID: %s,\n", strconv.Quote(row.TargetID))
@@ -1076,6 +1098,8 @@ func writeImportTargetRegistryGo(root string, families []family) error {
 		fmt.Fprintf(&buffer, "\t\tSourceResourceFamily: %s,\n", strconv.Quote(row.SourceResourceFamily))
 		fmt.Fprintf(&buffer, "\t\tFacadeKind: %s,\n", strconv.Quote(row.FacadeKind))
 		writeImportTargetGoPointer(&buffer, "FacadeBindingID", row.FacadeBindingID)
+		writeImportTargetGoPointer(&buffer, "BindingSchemaID", descriptor.BindingSchemaID)
+		writeImportTargetGoIntPointer(&buffer, "ContractMajor", descriptor.ContractMajor)
 		writeImportTargetGoPointer(&buffer, "FacadeID", row.FacadeID)
 		fmt.Fprintf(&buffer, "\t\tAvailabilityKind: %s,\n", strconv.Quote(row.AvailabilityKind))
 		fmt.Fprintf(&buffer, "\t\tActivationPolicy: %s,\n", strconv.Quote(row.ActivationPolicy))
@@ -1102,6 +1126,8 @@ func writeImportTargetRegistryGo(root string, families []family) error {
 		fmt.Fprintf(&buffer, "\t\tTargetID: %s,\n", strconv.Quote(descriptor.TargetID))
 		fmt.Fprintf(&buffer, "\t\tFacadeKind: %s,\n", strconv.Quote(descriptor.FacadeKind))
 		writeImportTargetGoPointer(&buffer, "FacadeBindingID", descriptor.FacadeBindingID)
+		writeImportTargetGoPointer(&buffer, "BindingSchemaID", descriptor.BindingSchemaID)
+		writeImportTargetGoIntPointer(&buffer, "ContractMajor", descriptor.ContractMajor)
 		writeImportTargetGoPointer(&buffer, "FacadeID", descriptor.FacadeID)
 		fmt.Fprintf(&buffer, "\t\tOwnerContractRef: %s,\n", strconv.Quote(descriptor.OwnerContractRef))
 		writeImportTargetGoPointer(&buffer, "CreateRequestSchemaID", descriptor.CreateRequestSchemaID)
@@ -1144,6 +1170,13 @@ func writeImportTargetGoPointer(buffer *bytes.Buffer, field string, value *strin
 		return
 	}
 	fmt.Fprintf(buffer, "\t\t%s: stringPointer(%s),\n", field, strconv.Quote(*value))
+}
+
+func writeImportTargetGoIntPointer(buffer *bytes.Buffer, field string, value *int) {
+	if value == nil {
+		return
+	}
+	fmt.Fprintf(buffer, "\t\t%s: intPointer(%d),\n", field, *value)
 }
 
 func writeImportTargetRegistryTypeScript(root string, families []family) error {

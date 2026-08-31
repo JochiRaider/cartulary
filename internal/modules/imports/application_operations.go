@@ -16,16 +16,16 @@ type importScopedValue[T any] struct {
 	IncidentID uuid.UUID
 }
 
-func (s *Service) applicationCreateSession(
+func (s *service) applicationCreateSession(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	envelope httpapi.UploadEnvelope,
-	request CreateSessionRequest,
-) (CreateAcceptedSessionResult, error, *httpapi.APIError) {
+	request createSessionRequest,
+) (createAcceptedSessionResult, error, *httpapi.APIError) {
 	sourceFileKind := detectSourceFileKind(envelope)
 	units, apiErr := s.discoverImportUnits(envelope, sourceFileKind)
 	if apiErr != nil {
-		return CreateAcceptedSessionResult{}, nil, apiErr
+		return createAcceptedSessionResult{}, nil, apiErr
 	}
 	normalized, err := json.Marshal(map[string]any{
 		"incident_id":           request.IncidentID.String(),
@@ -34,9 +34,9 @@ func (s *Service) applicationCreateSession(
 		"source_content_sha256": envelope.FileSHA256Hex,
 	})
 	if err != nil {
-		return CreateAcceptedSessionResult{}, err, nil
+		return createAcceptedSessionResult{}, err, nil
 	}
-	result, err := s.store.CreateAcceptedSession(ctx, CreateAcceptedSessionParams{
+	result, err := s.store.createAcceptedSession(ctx, createAcceptedSessionParams{
 		ActorUserID:         actorUserID,
 		Request:             request,
 		SourceFileKind:      sourceFileKind,
@@ -55,61 +55,64 @@ func (s *Service) applicationCreateSession(
 	return result, err, nil
 }
 
-func (s *Service) applicationGetSession(ctx context.Context, sessionID uuid.UUID) (importScopedValue[map[string]any], error) {
-	value, incidentID, err := s.store.GetSession(ctx, sessionID)
+func (s *service) applicationGetSession(ctx context.Context, sessionID uuid.UUID) (importScopedValue[map[string]any], error) {
+	value, incidentID, err := s.store.getSession(ctx, sessionID)
 	return importScopedValue[map[string]any]{Value: value, IncidentID: incidentID}, err
 }
 
-func (s *Service) applicationListUnits(ctx context.Context, sessionID uuid.UUID) (importScopedValue[[]map[string]any], error) {
-	value, incidentID, err := s.store.ListUnits(ctx, sessionID)
+func (s *service) applicationListUnits(ctx context.Context, sessionID uuid.UUID) (importScopedValue[[]map[string]any], error) {
+	value, incidentID, err := s.store.listUnits(ctx, sessionID)
 	return importScopedValue[[]map[string]any]{Value: value, IncidentID: incidentID}, err
 }
 
-func (s *Service) applicationGetUnit(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[map[string]any], error) {
-	value, incidentID, err := s.store.GetUnit(ctx, sessionID, unitID)
+func (s *service) applicationGetUnit(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[map[string]any], error) {
+	value, incidentID, err := s.store.getUnit(ctx, sessionID, unitID)
 	return importScopedValue[map[string]any]{Value: value, IncidentID: incidentID}, err
 }
 
-func (s *Service) applicationGetPreview(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[map[string]any], error) {
-	value, incidentID, err := s.store.GetPreview(ctx, sessionID, unitID)
+func (s *service) applicationGetPreview(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[map[string]any], error) {
+	value, incidentID, err := s.store.getPreview(ctx, sessionID, unitID)
 	return importScopedValue[map[string]any]{Value: value, IncidentID: incidentID}, err
 }
 
-func (s *Service) applicationGetMappingContext(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[[]map[string]any], error) {
-	value, incidentID, err := s.store.GetUnitColumns(ctx, sessionID, unitID)
+func (s *service) applicationGetMappingContext(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (importScopedValue[[]map[string]any], error) {
+	value, incidentID, err := s.store.getUnitColumns(ctx, sessionID, unitID)
 	return importScopedValue[[]map[string]any]{Value: value, IncidentID: incidentID}, err
 }
 
-func (s *Service) applicationPrepareMappingPreview(
+func (s *service) applicationPrepareMappingPreview(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	incidentID uuid.UUID,
 	route importSessionRoute,
-	request MappingPreviewRequest,
-) (ExtensionMappingPreviewResource, *httpapi.APIError) {
-	mapping := ApprovedMapping{
+	request mappingPreviewRequest,
+) (extensionMappingPreviewResource, *httpapi.APIError) {
+	mapping := approvedMapping{
 		TargetKind:           request.TargetKind,
 		ExtensionProfileID:   request.ExtensionProfileID,
 		OwnerMappingSchemaID: request.OwnerMappingSchemaID,
 		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
 	}
 	if apiErr := s.validateApprovedMapping(mapping); apiErr != nil {
-		return ExtensionMappingPreviewResource{}, apiErr
+		return extensionMappingPreviewResource{}, apiErr
 	}
 	target, ok := lookupApprovedImportTarget(mapping)
 	if !ok {
-		return ExtensionMappingPreviewResource{}, invalidImportRequest("target_kind", "target_kind_not_importable")
+		return extensionMappingPreviewResource{}, invalidImportRequest("target_kind", "target_kind_not_importable")
 	}
-	facade := s.extensionImportFacades[extensionImportFacadeKey(target)]
+	facade := s.extensionImportFacades[analyticalImportTargetKey{
+		TargetKind:         target.TargetKind,
+		ExtensionProfileID: target.ExtensionProfileID,
+	}]
 	if facade == nil {
-		return ExtensionMappingPreviewResource{}, invalidImportRequest("target_kind", "owner_preview_contract_unavailable")
+		return extensionMappingPreviewResource{}, invalidImportRequest("target_kind", "owner_preview_contract_unavailable")
 	}
-	sourceCapability, err := s.store.SourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
-	if errors.Is(err, ErrNotFound) {
-		return ExtensionMappingPreviewResource{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
+	sourceCapability, err := s.store.sourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
+	if errors.Is(err, errNotFound) {
+		return extensionMappingPreviewResource{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
 	}
 	if err != nil {
-		return ExtensionMappingPreviewResource{}, internalAPIError(err)
+		return extensionMappingPreviewResource{}, internalAPIError(err)
 	}
 	result, err := facade.PrepareImportUnitMapping(ctx, ExtensionImportMappingRequest{
 		IncidentID:           incidentID,
@@ -123,13 +126,13 @@ func (s *Service) applicationPrepareMappingPreview(
 		OwnerMapping:         append(json.RawMessage(nil), request.OwnerMapping...),
 	})
 	if err != nil {
-		return ExtensionMappingPreviewResource{}, extensionFacadeAPIError(target, facade, err)
+		return extensionMappingPreviewResource{}, extensionFacadeAPIError(target, facade, err)
 	}
 	if err := facade.ValidateImportUnitMappingResult(result); err != nil {
-		return ExtensionMappingPreviewResource{}, invalidImportRequest("owner_result", "owner_preview_validation_failed")
+		return extensionMappingPreviewResource{}, invalidImportRequest("owner_result", "owner_preview_validation_failed")
 	}
-	return ExtensionMappingPreviewResource{
-		SchemaID:            ExtensionMappingPreviewResultSchemaID,
+	return extensionMappingPreviewResource{
+		SchemaID:            extensionMappingPreviewResultSchemaID,
 		ImportSessionID:     route.SessionID.String(),
 		ImportUnitID:        route.UnitID.String(),
 		TargetKind:          request.TargetKind,
@@ -139,14 +142,14 @@ func (s *Service) applicationPrepareMappingPreview(
 	}, nil
 }
 
-func (s *Service) applicationExecuteUnitAction(
+func (s *service) applicationExecuteUnitAction(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	route importSessionRoute,
-	request ActionRequest,
+	request actionRequest,
 	routeKey string,
-) (UnitActionResult, error) {
-	params := UnitActionParams{
+) (unitActionResult, error) {
+	params := unitActionParams{
 		ActorUserID:       actorUserID,
 		SessionID:         route.SessionID,
 		UnitID:            route.UnitID,
@@ -156,18 +159,18 @@ func (s *Service) applicationExecuteUnitAction(
 		Now:               s.now(),
 	}
 	if routeKey == "imports.units.select" {
-		return s.store.SelectUnit(ctx, params)
+		return s.store.selectUnit(ctx, params)
 	}
-	return s.store.SkipUnit(ctx, params)
+	return s.store.skipUnit(ctx, params)
 }
 
-func (s *Service) applicationStartApply(
+func (s *service) applicationStartApply(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	sessionID uuid.UUID,
-	request ApplyRequest,
-) (ApplyStartResult, error) {
-	result, err := s.store.StartApply(ctx, ApplyStartParams{
+	request applyRequest,
+) (applyStartResult, error) {
+	result, err := s.store.startApply(ctx, applyStartParams{
 		ActorUserID:       actorUserID,
 		SessionID:         sessionID,
 		Request:           request,
@@ -180,51 +183,51 @@ func (s *Service) applicationStartApply(
 	return result, err
 }
 
-func (s *Service) applicationCreateOperatorRegion(
+func (s *service) applicationCreateOperatorRegion(
 	ctx context.Context,
 	actorUserID uuid.UUID,
 	route importSessionRoute,
-	request RegionRequest,
-) (CreateOperatorRegionResult, error, *httpapi.APIError) {
-	base, err := s.store.GetRegionBase(ctx, route.SessionID, route.UnitID)
-	if errors.Is(err, ErrNotFound) {
-		return CreateOperatorRegionResult{}, nil, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
+	request regionRequest,
+) (createOperatorRegionResult, error, *httpapi.APIError) {
+	base, err := s.store.getRegionBase(ctx, route.SessionID, route.UnitID)
+	if errors.Is(err, errNotFound) {
+		return createOperatorRegionResult{}, nil, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
 	}
-	if errors.Is(err, ErrInvalidSourceRect) {
-		return CreateOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
+	if errors.Is(err, errInvalidSourceRect) {
+		return createOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	if err != nil {
-		return CreateOperatorRegionResult{}, err, nil
+		return createOperatorRegionResult{}, err, nil
 	}
 	requested := request.SourceRect.sourceRectangle()
 	baseRect, rectErr := parseSourceRectangle(base.Unit["source_rect_a1"].(string))
 	if rectErr != nil || !sourceRectangleContains(baseRect, requested) ||
 		!operatorRegionWithinLimits(requested, s.limits) {
-		return CreateOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
+		return createOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	locator, ok := base.Unit["locator"].(map[string]any)
 	if !ok {
-		return CreateOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
+		return createOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	sheetName, ok := locator["sheet_name"].(string)
 	if !ok || strings.TrimSpace(sheetName) == "" {
-		return CreateOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
+		return createOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	workbook, apiErr := indexXLSXWorkbook(base.SourceBytes, s.limits, s.archiveLimits)
 	if apiErr != nil {
-		return CreateOperatorRegionResult{}, nil, apiErr
+		return createOperatorRegionResult{}, nil, apiErr
 	}
 	sheet := workbook.sheetsByName[sheetName]
 	decoded, apiErr := workbook.decodeRectangle(sheet, requested, s.limits)
 	if apiErr != nil {
-		return CreateOperatorRegionResult{}, nil, apiErr
+		return createOperatorRegionResult{}, nil, apiErr
 	}
 	locatorJSON, err := json.Marshal(map[string]any{
 		"sheet_name": sheetName,
 		"rect_a1":    sourceRectangleA1(requested),
 	})
 	if err != nil {
-		return CreateOperatorRegionResult{}, err, nil
+		return createOperatorRegionResult{}, err, nil
 	}
 	unit, apiErr := s.discoveredImportUnitAt(
 		decoded.rows,
@@ -235,9 +238,9 @@ func (s *Service) applicationCreateOperatorRegion(
 		decoded.blockingColumnOrdinals,
 	)
 	if apiErr != nil {
-		return CreateOperatorRegionResult{}, nil, apiErr
+		return createOperatorRegionResult{}, nil, apiErr
 	}
-	result, err := s.store.CreateOperatorRegion(ctx, CreateOperatorRegionParams{
+	result, err := s.store.createOperatorRegion(ctx, createOperatorRegionParams{
 		ActorUserID:                 actorUserID,
 		SessionID:                   route.SessionID,
 		BaseUnitID:                  route.UnitID,
@@ -246,8 +249,8 @@ func (s *Service) applicationCreateOperatorRegion(
 		ExpectedSourceContentSHA256: base.SourceContentSHA256,
 		Now:                         s.now(),
 	})
-	if errors.Is(err, ErrInvalidSourceRect) {
-		return CreateOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
+	if errors.Is(err, errInvalidSourceRect) {
+		return createOperatorRegionResult{}, nil, invalidImportRequest("source_rect", "invalid_source_rect")
 	}
 	return result, err, nil
 }

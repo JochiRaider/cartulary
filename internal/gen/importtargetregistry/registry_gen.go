@@ -12,6 +12,8 @@ type Target struct {
 	SourceResourceFamily        string
 	FacadeKind                  string
 	FacadeBindingID             *string
+	BindingSchemaID             *string
+	ContractMajor               *int
 	FacadeID                    *string
 	AvailabilityKind            string
 	ActivationPolicy            string
@@ -35,6 +37,8 @@ type AdapterDescriptor struct {
 	TargetID               string
 	FacadeKind             string
 	FacadeBindingID        *string
+	BindingSchemaID        *string
+	ContractMajor          *int
 	FacadeID               *string
 	OwnerContractRef       string
 	CreateRequestSchemaID  *string
@@ -59,6 +63,7 @@ const SourceSHA256 = "3eb7764fe8a4d062f6340d3b803bb3910bf9db29d8857baa76dec8214b
 const RegistrySHA256 = "0951bc007d993878666417be808e02e86969d3e0e0ce54ef8b4e3453333f8ef8"
 
 func stringPointer(value string) *string { return &value }
+func intPointer(value int) *int          { return &value }
 
 var Targets = []Target{
 	{
@@ -438,6 +443,8 @@ var Targets = []Target{
 		SourceResourceFamily:        "network_flow_table",
 		FacadeKind:                  "owner_preview_apply",
 		FacadeBindingID:             stringPointer("network_flow_activity.import_facade.v1"),
+		BindingSchemaID:             stringPointer("cartulary.imports.analytical_facade_binding.v1"),
+		ContractMajor:               intPointer(5),
 		FacadeID:                    stringPointer("network_flow_import_facade_v1"),
 		AvailabilityKind:            "claim_gated",
 		ActivationPolicy:            "extension_claim_required",
@@ -642,6 +649,8 @@ var AdapterDescriptors = []AdapterDescriptor{
 		TargetID:               "network_flow_table:network_flow_activity",
 		FacadeKind:             "owner_preview_apply",
 		FacadeBindingID:        stringPointer("network_flow_activity.import_facade.v1"),
+		BindingSchemaID:        stringPointer("cartulary.imports.analytical_facade_binding.v1"),
+		ContractMajor:          intPointer(5),
 		FacadeID:               stringPointer("network_flow_import_facade_v1"),
 		OwnerContractRef:       "network_flow_activity@5",
 		PreviewRequestSchemaID: stringPointer("cartulary.network_flow.import_preview_request.v1"),

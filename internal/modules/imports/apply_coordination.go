@@ -19,19 +19,19 @@ var (
 	errUnitCommitIndeterminate = errors.New("imports: unit commit is indeterminate")
 )
 
-func (s *Service) applyUnit(
+func (s *service) applyUnit(
 	ctx context.Context,
 	execution jobs.Execution,
 	actor authn.UserRecord,
-	start ApplyStartResult,
+	start applyStartResult,
 	unitID uuid.UUID,
 ) (unitApplyOutcome, error) {
 	if existing, err := s.store.getUnitOutcome(ctx, start.ImportSessionID, unitID); err == nil {
 		return existing, nil
-	} else if !errors.Is(err, ErrNotFound) {
+	} else if !errors.Is(err, errNotFound) {
 		return unitApplyOutcome{}, err
 	}
-	tx, err := s.store.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.store.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return unitApplyOutcome{}, fmt.Errorf("begin import apply unit transaction: %w", err)
 	}
@@ -65,15 +65,15 @@ func (s *Service) applyUnit(
 	if err != nil || !currentActor.IsActive {
 		return unitApplyOutcome{}, errImportActorUnauthorized
 	}
-	target, ok := lookupApprovedImportTarget(unit.ApprovedMapping)
+	target, ok := lookupApprovedImportTarget(unit.approvedMapping)
 	if !ok || !target.importable(s.extensionProfileClaimed) {
-		if unit.ApprovedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
+		if unit.approvedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
 			return unitApplyOutcome{}, importApplyBlockedError("target_view_schema_not_importable")
 		}
 		return unitApplyOutcome{}, importApplyBlockedError("target_kind_not_importable")
 	}
 	var commit appliedUnitCommit
-	if unit.ApprovedMapping.targetKindOrDefault() != ImportTargetKindViewSchema {
+	if unit.approvedMapping.targetKindOrDefault() != ImportTargetKindViewSchema {
 		if !target.ownerApplyFacadeAvailable() {
 			return unitApplyOutcome{}, importApplyBlockedError("owner_apply_contract_unavailable")
 		}
