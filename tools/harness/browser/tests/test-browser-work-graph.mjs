@@ -4,10 +4,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   closeSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   openSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
   writeSync,
@@ -19,6 +21,15 @@ import {
   classifyFrontendVisualGoldens,
   resolveRegisteredFixtures,
 } from "../frontend-visual-reconciliation.mjs";
+import {
+  buildFrontendVisualGoldenManifest,
+  validateFrontendVisualGoldenManifest,
+} from "../frontend-visual-golden-manifest.mjs";
+import {
+  assertVisualRendererEnvironmentIsPrivate,
+  loadVisualRendererProfile,
+} from "../visual-renderer-lease.mjs";
+import { promoteVisualSnapshotCandidate } from "../visual-snapshot-promotion.mjs";
 import {
   collectFinalizedMeasurementSummaries,
   collectFrontendMeasurementObservations,
@@ -664,6 +675,148 @@ assert.ok(
     "browser-e2e-visual/frontend-visual-reconciliation.json",
   ),
   "visual target finalizer must retain the reconciliation artifact",
+);
+for (const unit of visualGraph.units.filter((entry) =>
+  entry.unit_id.startsWith("browser_group:visual:"),
+)) {
+  assert.ok(
+    unit.current_run_evidence_outputs.some((output) =>
+      output.endsWith("/renderer-profile-attestation.json"),
+    ),
+    `${unit.unit_id} must retain renderer attestation`,
+  );
+}
+const visualUpdateGraph = compiler.compile({
+  kind: "target",
+  target: "browser-e2e-visual-update",
+});
+const visualUpdateFinalizer = visualUpdateGraph.units.find(
+  (unit) => unit.unit_id === "browser_target_summary:browser-e2e-visual-update",
+);
+assert.ok(
+  visualUpdateFinalizer?.current_run_evidence_outputs.includes(
+    "browser-e2e-visual-update/frontend-visual-reconciliation.json",
+  ),
+  "visual update must reconcile its complete scratch candidate before promotion",
+);
+const rendererProfile = loadVisualRendererProfile(root);
+assert.equal(rendererProfile.playwright_version, "1.59.1");
+assert.throws(
+  () =>
+    assertVisualRendererEnvironmentIsPrivate({
+      CARTULARY_VISUAL_RENDERER_WS_ENDPOINT: "ws://127.0.0.1:1/host-input",
+    }),
+  /harness-private/u,
+  "visual renderer endpoints must not be inherited user inputs",
+);
+assert.doesNotThrow(() => assertVisualRendererEnvironmentIsPrivate({}));
+const currentGoldenManifest = buildFrontendVisualGoldenManifest({ root });
+assert.deepEqual(
+  validateFrontendVisualGoldenManifest(currentGoldenManifest, { root }),
+  [],
+  "generated golden manifest must exhaustively match committed PNG identities",
+);
+assert.match(
+  validateFrontendVisualGoldenManifest(
+    {
+      ...currentGoldenManifest,
+      goldens: currentGoldenManifest.goldens.map((golden, index) =>
+        index === 0 ? { ...golden, sha256: "0".repeat(64) } : golden,
+      ),
+    },
+    { root },
+  ).join("\n"),
+  /do not match committed PNGs/u,
+  "edited PNG identity must fail golden-manifest validation",
+);
+const rendererLeaseSource = readFileSync(
+  path.join(root, "tools/harness/browser/visual-renderer-lease.mjs"),
+  "utf8",
+);
+assert.match(rendererLeaseSource, /"--publish",\s*`127\.0\.0\.1:/u);
+assert.doesNotMatch(rendererLeaseSource, /"--network",\s*"host"/u);
+assert.match(rendererLeaseSource, /"--user",\s*"pwuser"/u);
+assert.doesNotMatch(rendererLeaseSource, /"--volume"|"-v"/u);
+assert.match(rendererLeaseSource, /rendererLease\?\.cleanup|cleanup\(\)/u);
+const promotionRoot = mkdtempSync(
+  path.join(os.tmpdir(), "cartulary-visual-promotion."),
+);
+try {
+  const sourceSnapshots = path.join(promotionRoot, "source-snapshots");
+  const candidateSnapshots = path.join(promotionRoot, "candidate-snapshots");
+  const sourceManifest = path.join(promotionRoot, "source-manifest.json");
+  const candidateManifest = path.join(promotionRoot, "candidate-manifest.json");
+  const snapshotBackup = path.join(promotionRoot, "snapshot-backup");
+  const manifestBackup = path.join(promotionRoot, "manifest-backup.json");
+  mkdirSync(sourceSnapshots);
+  mkdirSync(candidateSnapshots);
+  writeFileSync(path.join(sourceSnapshots, "fixture.png"), "old-golden");
+  writeFileSync(path.join(candidateSnapshots, "fixture.png"), "new-golden");
+  writeFileSync(sourceManifest, "old-manifest");
+  writeFileSync(candidateManifest, "new-manifest");
+  let renameCount = 0;
+  assert.throws(
+    () =>
+      promoteVisualSnapshotCandidate(
+        {
+          sourceSnapshots,
+          candidateSnapshots,
+          sourceManifest,
+          candidateManifest,
+          snapshotBackup,
+          manifestBackup,
+        },
+        {
+          existsSync,
+          renameSync(from, to) {
+            renameCount += 1;
+            if (renameCount === 4) throw new Error("injected manifest promotion failure");
+            renameSync(from, to);
+          },
+          rmSync,
+        },
+      ),
+    /injected manifest promotion failure/u,
+  );
+  assert.equal(
+    readFileSync(path.join(sourceSnapshots, "fixture.png"), "utf8"),
+    "old-golden",
+  );
+  assert.equal(readFileSync(sourceManifest, "utf8"), "old-manifest");
+  assert.equal(
+    readFileSync(path.join(candidateSnapshots, "fixture.png"), "utf8"),
+    "new-golden",
+  );
+  assert.equal(readFileSync(candidateManifest, "utf8"), "new-manifest");
+  assert.equal(existsSync(snapshotBackup), false);
+  assert.equal(existsSync(manifestBackup), false);
+
+  promoteVisualSnapshotCandidate({
+    sourceSnapshots,
+    candidateSnapshots,
+    sourceManifest,
+    candidateManifest,
+    snapshotBackup,
+    manifestBackup,
+  });
+  assert.equal(
+    readFileSync(path.join(sourceSnapshots, "fixture.png"), "utf8"),
+    "new-golden",
+  );
+  assert.equal(readFileSync(sourceManifest, "utf8"), "new-manifest");
+  assert.equal(existsSync(snapshotBackup), false);
+  assert.equal(existsSync(manifestBackup), false);
+} finally {
+  rmSync(promotionRoot, { force: true, recursive: true });
+}
+const visualFinalizerSource = readFileSync(
+  path.join(root, "tools/harness/browser/browser-target-finalizer-cli.mjs"),
+  "utf8",
+);
+assert.ok(
+  visualFinalizerSource.lastIndexOf("secureWriteFile(output") <
+    visualFinalizerSource.lastIndexOf("promoteVisualSnapshotCandidate"),
+  "visual promotion must be the final fallible target operation after schema and artifact writes",
 );
 const stateful = compiler.compile({ kind: "target", target: "browser-e2e-stateful" });
 assert.ok(stateful.units.some((unit) => unit.unit_id.startsWith("browser_reset:")), "stateful browser work must expose resets");

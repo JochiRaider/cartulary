@@ -1,0 +1,262 @@
+{
+  "schema_id": "cartulary.frontend_visual_golden_manifest.v1",
+  "renderer_profile_id": "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64",
+  "goldens": [
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-200-zoom-linux.png",
+      "sha256": "83f9ca73f1a0faf735f8d202f6114164da0e0f65b04ce7105382dafe6ab3f949"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-focused-linux.png",
+      "sha256": "c078f3f07dd74d827a2280aab0d887701de3e76f0a9bf82dda4d2ece57a253c0"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-initial-linux.png",
+      "sha256": "359738a0280c98f31e1a346fdd5e564e37df193e2889065df34b0ccf0b2c6466"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-credentials-linux.png",
+      "sha256": "5621da825359024dcc20a2c38cec83526278e6a130f950b47bbd0ed27f7f8d78"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-mfa-linux.png",
+      "sha256": "ac3fd345eb072e1f461fc9661f5d301a0a4a2e4437e86ddbf4f9881585f4fff1"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-loading-linux.png",
+      "sha256": "359738a0280c98f31e1a346fdd5e564e37df193e2889065df34b0ccf0b2c6466"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-required-linux.png",
+      "sha256": "e3ab55761a6aab8106c9c4b609881c95ab238ab935fed6a3f0cfa5c3fe8cfa73"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-setup-required-linux.png",
+      "sha256": "9b2a9ab8ef461bd74886852663dd54be418a97622817e621b0b72429fe4930f2"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mobile-linux.png",
+      "sha256": "33973c354fdc7d7123b33cedb2a4d0b15765c6b31da7aaac628286f1a00b38c4"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-reduced-motion-linux.png",
+      "sha256": "c3af670be6537e045085f2b3e2d951272b7b4e72f83a20537157400f73e47aa4"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-service-unavailable-linux.png",
+      "sha256": "74b093c295e8c7b8e33b5e6b8f7766daa7e93ac487465d22a9337e8d00421900"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-submitting-linux.png",
+      "sha256": "29f3283974b3ca582f0eedee6151b1c96b618e5517cb2c0fddefa53419562d38"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",
+      "sha256": "fe2ed8828f2960332bc260762cfb7599ec2ebcdfdc097b2ba8d363c7eb8ae84f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-strip-linux.png",
+      "sha256": "69580cd3207206c6447a8a2af8902f4ae1e8da862ebfea9934924269f1bb7305"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-blocked-conflict-linux.png",
+      "sha256": "caeef97987e32eb26cfdbfc8cdd921922d59a2c5ca2487897cf734abc155679b"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-compact-linux.png",
+      "sha256": "1b605862e955028a473762f604bb6f89b83128584d1f05256231243dd0edf22e"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png",
+      "sha256": "c843d508dd018c2b502d5657bc4fff14cd00bcaef6a40cfe7f35075433f90ac6"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-narrow-linux.png",
+      "sha256": "d44a01176e5dcdd549551c0882ccf045f3d4a39cb0d3303a22c4b9714dad3d90"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-presence-markers-linux.png",
+      "sha256": "2739d71a490e59f145ea1fc5634f5bcfa503e8da35fa2b5a0fb0e1cf4c7b2386"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-recovered-saved-strip-linux.png",
+      "sha256": "34c7441baf5bba6197b46f077cb7d37e7941cd9d79e7b055eb8c74f51b696b2f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-saved-strip-linux.png",
+      "sha256": "34c7441baf5bba6197b46f077cb7d37e7941cd9d79e7b055eb8c74f51b696b2f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png",
+      "sha256": "fc34327ca6570212bec36bbaf27893630979de69ed5b3c961c666ea8c3000e00"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
+      "sha256": "7b972d32b32d0f8d479acfc99824f3c97d5f9d09c52a55fc531b64ad6c4d2761"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-recovered-saved-strip-linux.png",
+      "sha256": "67ae7b0ebd00352756b6c7fcd32679fc11c86a65e3bf6b38e35a01713490d026"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
+      "sha256": "d2754a7963478ed6ff88128c98dfa7e8eb62777013b1040c75b729d45ef7314c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-error-presentation-loci-linux.png",
+      "sha256": "619223fd97b836eab5295b8cd70173f59cfd7dc7d37fd1f319b55ee3ad3ba727"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-exposed-theme-states-linux.png",
+      "sha256": "5c59cc20f4027c10b7ac66d675a3ae1e2fe65e972c3580de8c17a5932ffdcb9e"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
+      "sha256": "ab679abd9eedc9ceb84504880a68b28d6dc8662446e80d774f636187f49c9c23"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
+      "sha256": "ed5118c112db0241d965d6da204c7b27fe1f48bf9b19cbb496cd6e2e2409c6de"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-available-evidence-linux.png",
+      "sha256": "c29e59b03b32d4db9fbcb487c1427d9613169eeb53d90bbaa946924c7b840940"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-blocked-preview-linux.png",
+      "sha256": "c99f7536c87f7c3b53ef70e1e525c3a5c71c5c05eb403c665a13923a580fd7cc"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-requested-evidence-linux.png",
+      "sha256": "0b7c4415ba2ddfd26a47e7fb82e1de18415dce622adc2d5eb1bfdffda08f74aa"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-timeline-evidence-badge-linux.png",
+      "sha256": "62c44cc2329fc46b051f8b31783c76504ab431a09b790cccd00157377bf371c7"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png",
+      "sha256": "f5475fd50e6a2d3223339295343892dfdc412c84008899913b0a5d07a7d28508"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
+      "sha256": "4c139ef234b4725501dcf91a95989345dc243a170e79a1dee92c6d9ca89824a9"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
+      "sha256": "4c0a9504d1907033865baaef32440781b381523e126db5b17795eccbabb395a3"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",
+      "sha256": "d02bd914e60c8c271f82af503f2e6ddc488e46d896146e1253633ae82bc0778b"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
+      "sha256": "546589ef11409d8204ac294298685fd3e1f92460d47f11e7c1e52f81ff811466"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
+      "sha256": "8336533c57597847a6540765afe300fc4f2a85a0caf2a7571c64dd11ac99d58f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
+      "sha256": "4f9f3590b275c2f82c9418e8c36ee39c69e55e29ee4e0cb3a16c1a3a330806e8"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",
+      "sha256": "53deb4351a2eedf6b4bee571a90fd6186331d50655dffc00e18bb146f6fa7107"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",
+      "sha256": "529db2cf6c6d8e7ad6690e163c448140549570297450889b1030eac1ba96a962"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-mention-chips-linux.png",
+      "sha256": "0ef4d818c5148afcbad9d0dd26b36189462b46c8d94ac09416793d19f70946d3"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-task-requests-linux.png",
+      "sha256": "a0d66bf9bf35f8d98b16bed229876e733c833345b8e07bf26555da59db7cdb99"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-active-edit-cell-linux.png",
+      "sha256": "54f100408505761a2bb2c20ab77fd977ba13bb8e315c10541484de0a61b19c92"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
+      "sha256": "c24e5e0f147e397fbd45250377ae07663d5aba73ae8dfb63631496941a7a08f0"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-conflict-strip-linux.png",
+      "sha256": "ee25c5b61b172406567bdee076eaecca1264063aebc7926de41a953e33d48ea9"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-grouped-grid-linux.png",
+      "sha256": "22a3e4089cda3bebae00b15c9b5d17774c214931ec1eefb35cb43bdf90772082"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-saved-strip-linux.png",
+      "sha256": "8b5243ec87ff25e350c658b2909bdc46e1fb91cc6d0e16d60156953d9d81ef88"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png",
+      "sha256": "df6a75049af91ad9e933cecc52a1a7638b0bd7076a7829304f7cedc0845a08d2"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-timeline-default-linux.png",
+      "sha256": "6b3a8a1a86c9e6e1fe0d2c1e45e12268fab1a80a00b9fd903b2ae6e3b57eee14"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-active-edit-cell-linux.png",
+      "sha256": "54f100408505761a2bb2c20ab77fd977ba13bb8e315c10541484de0a61b19c92"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-empty-timeline-query-linux.png",
+      "sha256": "0cbf6da6c7ff50308e1b5b022ab9ca183dc836fc6b5d58542ed0683f68f655f1"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-pending-replay-status-linux.png",
+      "sha256": "9e47c1a6219b278e6f518ca616c5427a017697adf6fa6a20775640de0023174d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png",
+      "sha256": "e67a6000f1a10f1cde7fe5ca243e358be0a2d49cf3d826dfe68d0f57d1066c94"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
+      "sha256": "42ff83fe65b7e89f972a7f176afa66170e79c9f0ad460e9ad343a65ca37473f5"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
+      "sha256": "3a08a9a161a5676ff101f8722039e8d95fa5f9e8d77d6ca3f0aa4c1af7aed0d7"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
+      "sha256": "c229d6084081682584835d956cec6f80c67e200e0b6429c05eb9676f3ddb590f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
+      "sha256": "cde396bc705dddc4d891edab57b41b02c8029c297892b65eaf9499897f337fd4"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png",
+      "sha256": "7c308b3a9584bddf3472f671fed9b0f75e253539af0ac60811886ff86e9f825a"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
+      "sha256": "23e3179e46c4c7e919ba05303ea6432903a1605ef56d175c10b69400bf3285ad"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
+      "sha256": "50c8d90afd93a54175d5d1030d029b626b5879dce2c89d68436f51a34e82286f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png",
+      "sha256": "566707276c038c0fc7205f05096c36119a9a8df97440d0946677c4f05c44d102"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-saved-view-query-controls-linux.png",
+      "sha256": "a1b42ed88a83d5d71dd57287889f359d50f191eeda0e561a03a5292b91038f28"
+    }
+  ]
+}

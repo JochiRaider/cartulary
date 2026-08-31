@@ -3934,9 +3934,20 @@ async function emitVisualCaptureIntent(
         document.documentElement.getAttribute("data-cartulary-theme") ?? "",
     };
   });
-  const expectedGoldenPath = path
-    .relative(findRepoRoot(), testInfo.snapshotPath(`${captureIntent}.png`))
-    .replaceAll(path.sep, "/");
+  const rendererProfileId =
+    process.env.CARTULARY_VISUAL_RENDERER_PROFILE_ID ?? "";
+  if (
+    process.env.CARTULARY_VISUAL_RENDERER_ATTESTED !== "1" ||
+    rendererProfileId !==
+      "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64" ||
+    page.context().browser()?.version() !== "147.0.7727.15"
+  ) {
+    throw new Error("visual capture requires the attested pinned renderer");
+  }
+  const snapshotPath = testInfo.snapshotPath(`${captureIntent}.png`);
+  const expectedGoldenPath = process.env.CARTULARY_VISUAL_SNAPSHOT_ROOT
+    ? `apps/web/e2e/workbook.visual.spec.ts-snapshots/${path.basename(snapshotPath)}`
+    : path.relative(findRepoRoot(), snapshotPath).replaceAll(path.sep, "/");
   const captureId = `visual.capture.${createHash("sha256")
     .update(
       JSON.stringify([
@@ -3955,6 +3966,7 @@ async function emitVisualCaptureIntent(
         capture_intent: captureIntent,
         expected_golden_path: expectedGoldenPath,
         project_id: testInfo.project.name,
+        renderer_profile_id: rendererProfileId,
         screenshot_assertion_location: screenshotAssertionLocation,
         capture_profile: {
           ...browserProfile,

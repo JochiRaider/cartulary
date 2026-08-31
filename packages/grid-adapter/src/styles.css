@@ -102,15 +102,31 @@
   border-color: var(--ct-colors-hairline);
 }
 
-.cartulary-grid .cartulary-grid-header-cell,
-.cartulary-grid .cartulary-grid-selection-cell,
-.cartulary-grid .cartulary-grid-gutter-cell {
+.cartulary-grid .cartulary-grid-header-cell {
   font-size: var(--cartulary-grid-font-size);
   line-height: var(--cartulary-grid-line-height);
-  padding-block-end: var(--cartulary-grid-cell-padding-block);
-  padding-block-start: var(--cartulary-grid-cell-padding-block);
-  padding-inline-end: var(--cartulary-grid-cell-padding-inline);
-  padding-inline-start: var(--cartulary-grid-cell-padding-inline);
+  padding-block-end: 0;
+  padding-inline: 0;
+}
+
+.cartulary-grid .cartulary-grid-selection-cell,
+.cartulary-grid .cartulary-grid-gutter-cell {
+  padding: 0;
+}
+
+.cartulary-grid-header-content,
+.cartulary-grid-selection-content,
+.cartulary-grid-gutter-content {
+  block-size: 100%;
+  box-sizing: border-box;
+  font-size: var(--cartulary-grid-font-size);
+  inline-size: 100%;
+  line-height: var(--cartulary-grid-line-height);
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-block: var(--cartulary-grid-cell-padding-block);
+  padding-inline: var(--cartulary-grid-cell-padding-inline);
 }
 
 .cartulary-grid-row {

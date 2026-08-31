@@ -62,6 +62,7 @@ import { validateTestCatalog } from "../test-catalog/test-catalog.mjs";
 import { validateTestCatalogImportBoundary } from "../test-catalog/import-boundary.mjs";
 import { validateExecutableInputPolicy } from "../test-catalog/restricted-input-boundary.mjs";
 import { loadHistoricalPerformanceSchemaRegistry } from "../diagnostics/historical-performance-evidence.mjs";
+import { validateFrontendVisualGoldenManifest } from "../browser/frontend-visual-golden-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -3556,6 +3557,27 @@ function validateAll(root) {
     frontendVisualFixtureRegistrySchemaID,
     visualFixtureRegistry,
   );
+  const visualRendererProfile = readShapeFile(
+    repoFile(root, "tools/frontend_visual_renderer_profile.json"),
+  );
+  validateSchemaSync(
+    "cartulary.frontend_visual_renderer_profile.v1",
+    visualRendererProfile,
+  );
+  const visualGoldenManifest = readShapeFile(
+    repoFile(root, "tools/frontend_visual_golden_manifest.json"),
+  );
+  validateSchemaSync(
+    "cartulary.frontend_visual_golden_manifest.v1",
+    visualGoldenManifest,
+  );
+  const visualGoldenManifestErrors = validateFrontendVisualGoldenManifest(
+    visualGoldenManifest,
+    { root },
+  );
+  if (visualGoldenManifestErrors.length > 0) {
+    throw new Error(visualGoldenManifestErrors.join("; "));
+  }
   const fixtureIDs = new Set();
   const designFixtureCounts = new Map(
     frontendVisualDesignContractIDs.map((designContractID) => [

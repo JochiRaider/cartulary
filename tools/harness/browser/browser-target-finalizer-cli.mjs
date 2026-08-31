@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+} from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -17,10 +22,16 @@ import {
 } from "../performance-fixture/index.mjs";
 import { buildFrontendVisualReconciliation } from "./frontend-visual-reconciliation.mjs";
 import {
+  buildFrontendVisualGoldenManifest,
+  goldenManifestPath,
+  visualSnapshotRoot,
+} from "./frontend-visual-golden-manifest.mjs";
+import {
   collectFinalizedMeasurementSummaries,
   currentUnitEventFile,
   readMeasurementSchedulerEvidenceForGroups,
 } from "./frontend-measurement-evidence.mjs";
+import { promoteVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -138,6 +149,12 @@ function relativeToRun(base, file) {
   return relative;
 }
 
+function rendererAttestationPaths(groups) {
+  return groups.map((group) =>
+    path.join(path.dirname(group.file), "renderer-profile-attestation.json"),
+  );
+}
+
 async function measurementSchedulerOverlapCount(base, groups) {
   const eventsFile = currentUnitEventFile(base);
   if (!existsSync(eventsFile)) {
@@ -159,6 +176,7 @@ async function writeTargetResult(base, options, groups, resets) {
   secureMkdir(targetDirectory);
   const artifacts = [];
   let visualReconciliation = null;
+  let visualPromotion = null;
   let measurementAggregate = null;
   if (options.target === "browser-e2e-measurement") {
     const catalog = loadTestCatalog(root);
@@ -311,7 +329,10 @@ async function writeTargetResult(base, options, groups, resets) {
       });
     }
   }
-  if (options.target === "browser-e2e-visual") {
+  if (
+    options.target === "browser-e2e-visual" ||
+    options.target === "browser-e2e-visual-update"
+  ) {
     const reconciliationOutput = path.join(
       targetDirectory,
       "frontend-visual-reconciliation.json",
@@ -321,12 +342,47 @@ async function writeTargetResult(base, options, groups, resets) {
         `frontend visual reconciliation is immutable: ${reconciliationOutput}`,
       );
     }
+    const snapshotDirectory =
+      options.target === "browser-e2e-visual-update"
+        ? path.join(targetDirectory, "snapshot-scratch")
+        : path.join(root, visualSnapshotRoot);
+    const candidateGoldenManifest =
+      options.target === "browser-e2e-visual-update"
+        ? buildFrontendVisualGoldenManifest({
+            root,
+            snapshotRoot: snapshotDirectory,
+          })
+        : null;
+    if (candidateGoldenManifest !== null) {
+      const candidateManifest = path.join(
+        targetDirectory,
+        "frontend-visual-golden-manifest.candidate.json",
+      );
+      secureWriteFile(
+        candidateManifest,
+        `${JSON.stringify(candidateGoldenManifest, null, 2)}\n`,
+      );
+      visualPromotion = {
+        sourceSnapshots: path.join(root, visualSnapshotRoot),
+        candidateSnapshots: snapshotDirectory,
+        sourceManifest: path.join(root, goldenManifestPath),
+        candidateManifest,
+        snapshotBackup: path.join(targetDirectory, "snapshot-backup"),
+        manifestBackup: path.join(
+          targetDirectory,
+          "golden-manifest-backup.json",
+        ),
+      };
+    }
     visualReconciliation = buildFrontendVisualReconciliation({
       root,
       reportPaths: groups.map((group) =>
         path.join(path.dirname(group.file), "playwright-report.json"),
       ),
       attemptPassed: groups.every((group) => group.result.status === "pass"),
+      snapshotDirectory,
+      rendererAttestationPaths: rendererAttestationPaths(groups),
+      candidateGoldenManifest,
     });
     validateSchemaSync(visualReconciliation.schema_id, visualReconciliation);
     const reconciliationBytes = Buffer.from(
@@ -335,7 +391,7 @@ async function writeTargetResult(base, options, groups, resets) {
     );
     secureWriteFile(reconciliationOutput, reconciliationBytes);
     artifacts.push({
-      kind: "frontend_visual_reconciliation_v1",
+      kind: "frontend_visual_reconciliation_v2",
       ref: relativeToRun(base, reconciliationOutput),
       sha256: sha256(reconciliationBytes),
     });
@@ -382,6 +438,9 @@ async function writeTargetResult(base, options, groups, resets) {
   };
   validateSchemaSync(payload.schema_id, payload);
   secureWriteFile(output, `${JSON.stringify(payload, null, 2)}\n`);
+  if (visualPromotion !== null && payload.status === "pass") {
+    promoteVisualSnapshotCandidate(visualPromotion);
+  }
   return payload;
 }
 

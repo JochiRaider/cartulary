@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { lstatSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,7 @@ import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
 import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
 import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
+import { startVisualRendererLease } from "./visual-renderer-lease.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -201,6 +202,19 @@ function commandForGroup(rows, group, artifactRoot) {
   return { command: pnpm, args };
 }
 
+function visualSnapshotScratch(target) {
+  if (target !== "browser-e2e-visual-update") return "";
+  const scratch = path.join(runRoot(), target, "snapshot-scratch");
+  if (!existsSync(scratch)) {
+    cpSync(
+      path.join(root, "apps/web/e2e/workbook.visual.spec.ts-snapshots"),
+      scratch,
+      { recursive: true, errorOnExist: true, preserveTimestamps: true },
+    );
+  }
+  return scratch;
+}
+
 async function main() {
   enforcePrivateProcessUmask();
   const options = parseArgs(process.argv.slice(2));
@@ -243,32 +257,56 @@ async function main() {
   const stdoutPath = path.join(artifactRoot, "stdout.log");
   const stderrPath = path.join(artifactRoot, "stderr.log");
   const invocation = commandForGroup(rows, group, artifactRoot);
+  const rendererLease =
+    group.kind === "visual"
+      ? await startVisualRendererLease({ root, environment: process.env })
+      : null;
+  if (rendererLease !== null) {
+    secureWriteFile(
+      path.join(artifactRoot, "renderer-profile-attestation.json"),
+      `${JSON.stringify(rendererLease.profile, null, 2)}\n`,
+    );
+  }
+  const onSignal = (exitCode) => {
+    rendererLease?.cleanup();
+    process.exit(exitCode);
+  };
+  const onInterrupt = () => onSignal(130);
+  const onTerminate = () => onSignal(143);
+  process.once("SIGINT", onInterrupt);
+  process.once("SIGTERM", onTerminate);
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
-    captureID: `browser-${stage.name}-${group.name}`.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-"),
-    cwd: root,
-    env: {
-      ...process.env,
-      PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath,
-      PLAYWRIGHT_WORKERS: group.workers === "default" ? (process.env.PLAYWRIGHT_WORKERS || "2") : group.workers,
-      CARTULARY_PLAYWRIGHT_WORKER_COUNT:
-        process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT ||
-        (group.workers === "default" ? (process.env.PLAYWRIGHT_WORKERS || "2") : group.workers),
-      CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET:
-        process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET || "0",
-      CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
-      CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR:
-        group.kind === "a11y" ? path.join(artifactRoot, "contrast-checks") : "",
-    },
-    repoRoot: root,
-    runRoot: runRoot(),
-  });
+  let child;
   try {
+    child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
+      captureID: `browser-${stage.name}-${group.name}`.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-"),
+      cwd: root,
+      env: {
+        ...process.env,
+        ...(rendererLease?.environment ?? {}),
+        PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath,
+        PLAYWRIGHT_WORKERS: group.workers === "default" ? (process.env.PLAYWRIGHT_WORKERS || "2") : group.workers,
+        CARTULARY_PLAYWRIGHT_WORKER_COUNT:
+          process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT ||
+          (group.workers === "default" ? (process.env.PLAYWRIGHT_WORKERS || "2") : group.workers),
+        CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET:
+          process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET || "0",
+        CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+        CARTULARY_VISUAL_SNAPSHOT_ROOT: visualSnapshotScratch(target),
+        CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR:
+          group.kind === "a11y" ? path.join(artifactRoot, "contrast-checks") : "",
+      },
+      repoRoot: root,
+      runRoot: runRoot(),
+    });
     secureWriteFile(stdoutPath, redactString(child.stdout ?? ""));
     secureWriteFile(stderrPath, redactString(child.stderr ?? ""));
   } finally {
-    child.cleanup();
+    child?.cleanup();
+    rendererLease?.cleanup();
+    process.removeListener("SIGINT", onInterrupt);
+    process.removeListener("SIGTERM", onTerminate);
   }
   let report = null;
   try {

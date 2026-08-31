@@ -8,6 +8,8 @@ node_bin="${NODE_BIN:?NODE_BIN is required}"
 pnpm="${PNPM:?PNPM is required}"
 node_version="${NODE_VERSION:?NODE_VERSION is required}"
 pnpm_version="${PNPM_VERSION:?PNPM_VERSION is required}"
+visual_renderer_image="mcr.microsoft.com/playwright@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645"
+visual_renderer_platform="linux/amd64"
 
 detect_playwright_host_platform_override() {
   local arch
@@ -175,8 +177,25 @@ run_playwright_install() {
   verify_chromium_native_deps
 }
 
+install_visual_renderer_image() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Docker is required for the pinned frontend visual renderer." >&2
+    return 1
+  fi
+  docker pull --platform "$visual_renderer_platform" "$visual_renderer_image" >/dev/null
+  local architecture
+  local os
+  architecture="$(docker image inspect "$visual_renderer_image" --format '{{.Architecture}}')"
+  os="$(docker image inspect "$visual_renderer_image" --format '{{.Os}}')"
+  if [[ "$architecture" != "amd64" || "$os" != "linux" ]]; then
+    echo "Visual renderer image platform mismatch: expected linux/amd64, got ${os}/${architecture}." >&2
+    return 1
+  fi
+}
+
 if [[ "${CARTULARY_PLAYWRIGHT_INSTALL_CHILD:-0}" == "1" ]]; then
   run_playwright_install
+  install_visual_renderer_image
   exit $?
 fi
 
@@ -193,11 +212,13 @@ mkdir -p "$(dirname "$stamp")"
     NODE_VERSION="$node_version" \
     PNPM_VERSION="$pnpm_version" \
     "$0"
-printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\nplaywright_install_args=%s\nnative_dependency_strategy=%s\nplaywright_host_platform_override=%s\n' \
+printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\nplaywright_install_args=%s\nnative_dependency_strategy=%s\nplaywright_host_platform_override=%s\nvisual_renderer_image=%s\nvisual_renderer_platform=%s\n' \
   "$node_bin" \
   "$node_version" \
   "$pnpm" \
   "$pnpm_version" \
   "install --with-deps chromium" \
   "playwright_with_deps,ubuntu_apt_fallback,ldd_verify" \
-  "${playwright_host_platform_override:-}" >"$stamp"
+  "${playwright_host_platform_override:-}" \
+  "$visual_renderer_image" \
+  "$visual_renderer_platform" >"$stamp"

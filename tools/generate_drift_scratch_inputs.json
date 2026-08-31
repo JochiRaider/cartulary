@@ -31,6 +31,7 @@
     "packages/ui-contracts/src/generated",
     "tools/browser_e2e_batch_manifest.json",
     "tools/execution_topology_render_index.json",
+    "tools/frontend_visual_golden_manifest.json",
     "tools/harness/contract/generated/foundation-schema-validators.cjs",
     "tools/migration_history_manifest.json",
     "tools/scheduler_manifest.json",
@@ -40,6 +41,7 @@
     "tools/task_surface_manifest.json"
   ],
   "copy_paths": [
+    "apps/web/e2e/workbook.visual.spec.ts-snapshots",
     "apps/web/src/app/otelBoundary.test.ts",
     "Makefile",
     "sqlc.yaml",
@@ -56,6 +58,7 @@
     "tools/harness_helper_ownership.json",
     "tools/harness_schema_attachments.json",
     "tools/harness_work_graph_owner.json",
+    "tools/frontend_visual_renderer_profile.json",
     "tools/execution_topology_manifest.json",
     "tools/execution_topology_render_index.json",
     "tools/task_surface_owner.json",

@@ -287,12 +287,14 @@ async function readTimelineSummaryGeometry(page: Page, recordId: string) {
       const controlStyle = window.getComputedStyle(controlElement);
       const contentStyle = window.getComputedStyle(contentElement);
       const headerStyle = window.getComputedStyle(
-        gridElement.querySelector<HTMLElement>('[role="columnheader"]') ??
-          contentElement,
+        gridElement.querySelector<HTMLElement>(
+          '[role="columnheader"] .cartulary-grid-header-content',
+        ) ?? contentElement,
       );
       const gutterStyle = window.getComputedStyle(
-        gridElement.querySelector<HTMLElement>('[role="rowheader"]') ??
-          contentElement,
+        gridElement.querySelector<HTMLElement>(
+          ".cartulary-grid-gutter-cell .cartulary-grid-gutter-content",
+        ) ?? contentElement,
       );
       return {
         cell: rectFor(cellElement),
@@ -302,14 +304,20 @@ async function readTimelineSummaryGeometry(page: Page, recordId: string) {
         fontSize: controlStyle.fontSize,
         gutterFontSize: gutterStyle.fontSize,
         gutterLineHeight: gutterStyle.lineHeight,
-        gutterPadding: gutterStyle.padding,
+        gutterPaddingBlockEnd: gutterStyle.paddingBlockEnd,
+        gutterPaddingBlockStart: gutterStyle.paddingBlockStart,
+        gutterPaddingInlineEnd: gutterStyle.paddingInlineEnd,
+        gutterPaddingInlineStart: gutterStyle.paddingInlineStart,
         hasEditableControl:
           cellElement.querySelector(
             "input, textarea, select, [contenteditable='true']",
           ) !== null,
         headerFontSize: headerStyle.fontSize,
         headerLineHeight: headerStyle.lineHeight,
-        headerPadding: headerStyle.padding,
+        headerPaddingBlockEnd: headerStyle.paddingBlockEnd,
+        headerPaddingBlockStart: headerStyle.paddingBlockStart,
+        headerPaddingInlineEnd: headerStyle.paddingInlineEnd,
+        headerPaddingInlineStart: headerStyle.paddingInlineStart,
         lineHeight: controlStyle.lineHeight,
         padding: contentStyle.padding,
       };
@@ -471,15 +479,29 @@ test("updates workbook density from Account Settings while the workbook remains 
     expect(comfortableGeometry.fontSize).toBe("14px");
     expectNear(Number.parseFloat(comfortableGeometry.lineHeight), 18.9);
     expect(comfortableGeometry.padding).toBe("5px 9px");
+    expect(comfortableGeometry.headerPaddingBlockStart).toBe("5px");
+    expect(comfortableGeometry.headerPaddingBlockEnd).toBe("5px");
+    expect(comfortableGeometry.headerPaddingInlineStart).toBe("9px");
+    expect(comfortableGeometry.headerPaddingInlineEnd).toBe("9px");
+    expect(comfortableGeometry.gutterPaddingBlockStart).toBe("5px");
+    expect(comfortableGeometry.gutterPaddingBlockEnd).toBe("5px");
+    expect(comfortableGeometry.gutterPaddingInlineStart).toBe("9px");
+    expect(comfortableGeometry.gutterPaddingInlineEnd).toBe("9px");
     expect(compactGeometry.fontSize).toBe("12px");
     expectNear(Number.parseFloat(compactGeometry.lineHeight), 14.4);
     expect(compactGeometry.padding).toBe("2px 5px");
     expect(compactGeometry.headerFontSize).toBe("12px");
     expectNear(Number.parseFloat(compactGeometry.headerLineHeight), 14.4);
-    expect(compactGeometry.headerPadding).toBe("2px 5px");
+    expect(compactGeometry.headerPaddingBlockStart).toBe("2px");
+    expect(compactGeometry.headerPaddingBlockEnd).toBe("2px");
+    expect(compactGeometry.headerPaddingInlineStart).toBe("5px");
+    expect(compactGeometry.headerPaddingInlineEnd).toBe("5px");
     expect(compactGeometry.gutterFontSize).toBe("12px");
     expectNear(Number.parseFloat(compactGeometry.gutterLineHeight), 14.4);
-    expect(compactGeometry.gutterPadding).toBe("2px 5px");
+    expect(compactGeometry.gutterPaddingBlockStart).toBe("2px");
+    expect(compactGeometry.gutterPaddingBlockEnd).toBe("2px");
+    expect(compactGeometry.gutterPaddingInlineStart).toBe("5px");
+    expect(compactGeometry.gutterPaddingInlineEnd).toBe("5px");
     expect(comfortableGeometry.hasEditableControl).toBe(false);
     expect(compactGeometry.hasEditableControl).toBe(false);
 

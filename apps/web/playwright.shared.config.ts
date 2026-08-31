@@ -26,6 +26,27 @@ function requireValidatedAttachment(): void {
   }
 }
 
+function visualRendererUse(): NonNullable<PlaywrightTestConfig["use"]> {
+  const endpoint = process.env.CARTULARY_VISUAL_RENDERER_WS_ENDPOINT ?? "";
+  const profileId = process.env.CARTULARY_VISUAL_RENDERER_PROFILE_ID ?? "";
+  const attested = process.env.CARTULARY_VISUAL_RENDERER_ATTESTED ?? "";
+  const supplied = endpoint !== "" || profileId !== "" || attested !== "";
+  if (!supplied) return {};
+  if (
+    attested !== "1" ||
+    !/^ws:\/\/127\.0\.0\.1:[0-9]+\/[A-Za-z0-9_-]+$/u.test(endpoint) ||
+    profileId !== "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64"
+  ) {
+    throw new Error("Playwright visual renderer attestation is invalid");
+  }
+  return {
+    connectOptions: { wsEndpoint: endpoint, exposeNetwork: "<loopback>" },
+    colorScheme: "light",
+    deviceScaleFactor: 1,
+    locale: "en-US",
+  };
+}
+
 export function webE2EBaseConfig(
   overrides: Partial<PlaywrightTestConfig> = {},
 ): PlaywrightTestConfig {
@@ -57,6 +78,7 @@ export function webE2EBaseConfig(
     use: {
       baseURL: publicOrigin,
       trace: "retain-on-failure",
+      ...visualRendererUse(),
       ...use,
     },
     ...rest,

@@ -63,6 +63,13 @@
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     },
     {
+      "path": "tools/frontend_visual_golden_manifest.json",
+      "allowed_extensions": [
+        ".json"
+      ],
+      "required_marker": "^\\{\\n  \\\"schema_id\\\": \\\"cartulary\\.frontend_visual_golden_manifest\\.v1\\\""
+    },
+    {
       "path": "tools/performance_fixture_snapshot_key_vectors.json",
       "allowed_extensions": [
         ".json"

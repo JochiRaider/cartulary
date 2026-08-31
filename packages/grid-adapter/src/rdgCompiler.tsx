@@ -153,44 +153,56 @@ export function compileGridColumns<Row>({
       minWidth: 42,
       name: "Select records",
       renderHeaderCell: () => (
-        <input
-          aria-label="Select all records on this page"
-          checked={bulkSelection.allSelected}
-          disabled={bulkSelection.selectableRecordCount === 0}
-          ref={(node) => {
-            if (node !== null) {
-              node.indeterminate = bulkSelection.partiallySelected;
-            }
+        <span
+          className="cartulary-grid-header-content cartulary-grid-selection-content"
+          data-grid-field-key={gridSelectionColumnKey}
+          ref={(node) =>
             markSemanticHeaderCell(node, {
               accessibleLabel: "Select records",
               fieldKey: gridSelectionColumnKey,
               testId: undefined,
-            });
-          }}
-          readOnly
-          type="checkbox"
-          onClick={(event) => {
-            event.stopPropagation();
-            bulkSelection.onSelectAll();
-          }}
-        />
-      ),
-      renderCell: ({ row }) =>
-        row.rowIdentity.kind === "core_record" &&
-        bulkSelection.isRecordSelectable(row) ? (
+            })
+          }
+        >
           <input
-            aria-label={`Select record ${row.rowIdentity.recordId}`}
-            checked={bulkSelection.selectedRecordIds.has(
-              row.rowIdentity.recordId,
-            )}
-            data-grid-field-key={gridSelectionColumnKey}
+            aria-label="Select all records on this page"
+            checked={bulkSelection.allSelected}
+            disabled={bulkSelection.selectableRecordCount === 0}
+            ref={(node) => {
+              if (node !== null) {
+                node.indeterminate = bulkSelection.partiallySelected;
+              }
+            }}
             readOnly
             type="checkbox"
             onClick={(event) => {
               event.stopPropagation();
-              bulkSelection.onToggleRecord(row, event.shiftKey);
+              bulkSelection.onSelectAll();
             }}
           />
+        </span>
+      ),
+      renderCell: ({ row }) =>
+        row.rowIdentity.kind === "core_record" &&
+        bulkSelection.isRecordSelectable(row) ? (
+          <span
+            className="cartulary-grid-selection-content"
+            data-grid-field-key={gridSelectionColumnKey}
+          >
+            <input
+              aria-label={`Select record ${row.rowIdentity.recordId}`}
+              checked={bulkSelection.selectedRecordIds.has(
+                row.rowIdentity.recordId,
+              )}
+              data-grid-field-key={gridSelectionColumnKey}
+              readOnly
+              type="checkbox"
+              onClick={(event) => {
+                event.stopPropagation();
+                bulkSelection.onToggleRecord(row, event.shiftKey);
+              }}
+            />
+          </span>
         ) : null,
       renderSummaryCell: () => null,
       resizable: false,
@@ -209,6 +221,8 @@ export function compileGridColumns<Row>({
       minWidth: rowGutter.minWidth,
       name: (
         <span
+          className="cartulary-grid-header-content cartulary-grid-gutter-content"
+          data-grid-field-key={gridRowGutterColumnKey}
           ref={(node) =>
             markSemanticHeaderCell(node, {
               accessibleLabel: "Row gutter",
@@ -222,6 +236,7 @@ export function compileGridColumns<Row>({
       ),
       renderCell: ({ row }) => (
         <span
+          className="cartulary-grid-gutter-content"
           data-grid-field-key={gridRowGutterColumnKey}
           ref={(node) => markSemanticGutterCell(node, row.gutterTestId)}
         >
@@ -231,6 +246,7 @@ export function compileGridColumns<Row>({
       renderSummaryCell: ({ row }) => (
         <span
           {...draftMarker(row, gridRowGutterColumnKey, firstColumnKey)}
+          className="cartulary-grid-gutter-content"
           data-grid-field-key={gridRowGutterColumnKey}
         >
           {row.gutterContent ?? row.gutterLabel ?? ""}
@@ -266,6 +282,7 @@ export function compileGridColumns<Row>({
       name: column.label,
       renderHeaderCell: ({ sortDirection }) => (
         <span
+          className="cartulary-grid-header-content"
           data-grid-field-key={column.fieldKey}
           ref={(node) =>
             markSemanticHeaderCell(node, {
@@ -383,6 +400,8 @@ export function compileGridColumns<Row>({
       minWidth: actionsColumn.minWidth,
       name: (
         <span
+          className="cartulary-grid-header-content cartulary-grid-actions-content"
+          data-grid-field-key={gridActionsColumnKey}
           ref={(node) =>
             markSemanticHeaderCell(node, {
               accessibleLabel: actionsColumn.label,

@@ -7,13 +7,19 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+import {
+  goldenManifestPath,
+  rendererProfilePath,
+  validateFrontendVisualGoldenManifest,
+  visualSnapshotRoot,
+} from "./frontend-visual-golden-manifest.mjs";
+
 const captureIntentSchemaID =
   "cartulary.frontend_visual_capture_intent.v1";
 const reconciliationSchemaID =
-  "cartulary.frontend_visual_reconciliation.v1";
+  "cartulary.frontend_visual_reconciliation.v2";
 const captureAttachmentPrefix = "cartulary-visual-capture-intent-";
-const snapshotRoot =
-  "apps/web/e2e/workbook.visual.spec.ts-snapshots";
+const snapshotRoot = visualSnapshotRoot;
 const playwrightConfigPath = "apps/web/playwright.config.ts";
 const visualSpecPath = "apps/web/e2e/workbook.visual.spec.ts";
 const snapshotPathTemplate =
@@ -146,6 +152,7 @@ function validateCapturePayload(payload) {
     "capture_intent",
     "expected_golden_path",
     "project_id",
+    "renderer_profile_id",
     "screenshot_assertion_location",
     "test_file",
     "test_title",
@@ -369,6 +376,9 @@ export function buildFrontendVisualReconciliation({
   root,
   reportPaths,
   attemptPassed,
+  snapshotDirectory = path.join(root, snapshotRoot),
+  rendererAttestationPaths = [],
+  candidateGoldenManifest = null,
 }) {
   const catalog = loadVisualCatalog(root);
   const catalogEntries = catalogCaptureEntries(catalog);
@@ -404,6 +414,7 @@ export function buildFrontendVisualReconciliation({
       row_id: candidate.row_id,
       scenario_id: candidate.scenario_id,
       project_id: payload.project_id,
+      renderer_profile_id: payload.renderer_profile_id,
       screenshot_assertion_location: payload.screenshot_assertion_location,
       assertion_file: payload.test_file,
       capture_intent: payload.capture_intent,
@@ -423,9 +434,12 @@ export function buildFrontendVisualReconciliation({
     left.capture_id.localeCompare(right.capture_id),
   );
   const committedGoldens = new Map(
-    recursivelyListFiles(path.join(root, snapshotRoot))
+    recursivelyListFiles(snapshotDirectory)
       .filter((file) => file.endsWith(".png") && statSync(file).isFile())
-      .map((file) => [repoRelative(root, file), sha256File(file)]),
+      .map((file) => [
+        `${snapshotRoot}/${path.basename(file)}`,
+        sha256File(file),
+      ]),
   );
   const goldens = classifyFrontendVisualGoldens({
     captureIntents,
@@ -467,6 +481,58 @@ export function buildFrontendVisualReconciliation({
       `${counts.unresolved_registered_fixtures} registered fixture(s) do not resolve`,
     );
   }
+  const rendererProfile = readJSON(path.join(root, rendererProfilePath));
+  if (rendererAttestationPaths.length === 0) {
+    errors.push("visual target retained no renderer attestation");
+  }
+  for (const attestationPath of rendererAttestationPaths) {
+    try {
+      const attestation = readJSON(attestationPath);
+      if (JSON.stringify(attestation) !== JSON.stringify(rendererProfile)) {
+        errors.push(`${repoRelative(root, attestationPath)}: renderer attestation mismatch`);
+      } else {
+        artifactRefs.push(repoRelative(root, attestationPath));
+      }
+    } catch (error) {
+      errors.push(
+        `${repoRelative(root, attestationPath)}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  const distinctCaptureRendererIDs = uniqueSorted(
+    captureIntents.map((capture) => capture.renderer_profile_id),
+  );
+  if (
+    distinctCaptureRendererIDs.length !== 1 ||
+    distinctCaptureRendererIDs[0] !== rendererProfile.profile_id
+  ) {
+    errors.push("visual capture intents do not use the active renderer profile");
+  }
+  const manifestFile = path.join(root, goldenManifestPath);
+  let manifest = candidateGoldenManifest;
+  let manifestBytes = null;
+  let manifestStatus = "pass";
+  if (manifest === null) {
+    if (!existsSync(manifestFile)) {
+      manifestStatus = "missing";
+      errors.push("frontend visual golden manifest is missing");
+    } else {
+      manifestBytes = readFileSync(manifestFile);
+      manifest = JSON.parse(manifestBytes.toString("utf8"));
+    }
+  } else {
+    manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  }
+  if (manifest !== null) {
+    const manifestErrors = validateFrontendVisualGoldenManifest(manifest, {
+      root,
+      snapshotRoot: snapshotDirectory,
+    });
+    if (manifestErrors.length > 0) {
+      manifestStatus = "mismatch";
+      errors.push(...manifestErrors);
+    }
+  }
   const projectIDs = uniqueSorted(
     catalogEntries.map((entry) => entry.project_id),
   );
@@ -484,6 +550,17 @@ export function buildFrontendVisualReconciliation({
       "fixture_registry",
       "tools/frontend_visual_fixture_registry.json",
     ),
+    sourceRef(root, "renderer_profile", rendererProfilePath),
+    {
+      kind: "golden_manifest",
+      path: goldenManifestPath,
+      sha256: manifestBytes === null
+        ? "0".repeat(64)
+        : createHash("sha256").update(manifestBytes).digest("hex"),
+      project_ids: [],
+      snapshot_path_template: null,
+      symbols: [],
+    },
     sourceRef(root, "playwright_config", playwrightConfigPath, {
       projectIDs,
       snapshotTemplate: snapshotPathTemplate,
@@ -498,11 +575,32 @@ export function buildFrontendVisualReconciliation({
   return {
     schema_id: reconciliationSchemaID,
     status: errors.length === 0 ? "pass" : "fail",
+    renderer: {
+      profile_id: rendererProfile.profile_id,
+      container_image: rendererProfile.container_image,
+      platform: rendererProfile.platform,
+      playwright_version: rendererProfile.playwright_version,
+      chromium_revision: rendererProfile.chromium_revision,
+      chromium_version: rendererProfile.chromium_version,
+      font_manifest_sha256: rendererProfile.font_manifest_sha256,
+      locale: rendererProfile.locale,
+      device_scale_factor: rendererProfile.device_scale_factor,
+      color_scheme: rendererProfile.color_scheme,
+      attestation_count: rendererAttestationPaths.length,
+    },
+    golden_manifest: {
+      path: goldenManifestPath,
+      sha256: manifestBytes === null
+        ? null
+        : createHash("sha256").update(manifestBytes).digest("hex"),
+      renderer_profile_id: manifest?.renderer_profile_id ?? null,
+      status: manifestStatus,
+    },
     source_refs: sourceRefs,
     capture_intents: captureIntents,
     goldens,
     counts,
-    artifact_refs: artifactRefs,
+    artifact_refs: uniqueSorted(artifactRefs),
     errors: uniqueSorted(errors),
   };
 }

@@ -358,6 +358,9 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
     current_run_evidence_outputs: [
       ...group.selectedRowIDs.map((rowID) => `rows/${rowID}.json`),
       `${target}/browser-groups/${safeID(group.name)}/browser-group-result.json`,
+      ...(group.kind === "visual"
+        ? [`${target}/browser-groups/${safeID(group.name)}/renderer-profile-attestation.json`]
+        : []),
     ].sort(compareASCII),
     failure_policy: finalizableFailurePolicy(),
     estimated_work_ms: group.estimatedWorkMs ??
@@ -458,7 +461,7 @@ function targetFinalizer(root, stage, target, groupUnits, resetUnits, needs, own
       ...(target === "browser-e2e-measurement" && includesFixtureMeasurements
         ? [`${target}/frontend-measurement-aggregate.json`]
         : []),
-      ...(target === "browser-e2e-visual"
+      ...(target === "browser-e2e-visual" || target === "browser-e2e-visual-update"
         ? [`${target}/frontend-visual-reconciliation.json`]
         : []),
     ],

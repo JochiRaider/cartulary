@@ -31,6 +31,8 @@ find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
   "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs
 "$RUN_STEP_SCRIPT" "generate performance contracts" -- \
   "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/generated-artifacts/performance/performance-contracts-cli.mjs
+"$RUN_STEP_SCRIPT" "generate frontend visual golden manifest" -- \
+  "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/browser/frontend-visual-golden-manifest.mjs
 "$RUN_STEP_SCRIPT" "generate task surface and execution topology" -- \
   "$NODE_BIN" ./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs \
   --topology tools/execution_topology_manifest.json

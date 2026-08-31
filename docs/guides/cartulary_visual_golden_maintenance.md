@@ -26,14 +26,21 @@ refresh. `docs/design.md` supplies design direction only.
 - The Playwright source is `apps/web/e2e/workbook.visual.spec.ts`.
 - Committed goldens live in
   `apps/web/e2e/workbook.visual.spec.ts-snapshots/`.
+- `tools/frontend_visual_renderer_profile.json` pins the executable renderer;
+  `tools/frontend_visual_golden_manifest.json` records that profile and every
+  committed golden's SHA-256.
 - Failed-run actual and diff artifacts live under the retained run root reported
   by the harness.
 - Concept art and external bitmaps are inputs, not golden sources.
 
-The update target must use the same harness-owned server, runtime profile,
-browser pin, viewport, font bundle, fixture lifecycle, and per-row accounting as
-the validation target. It may change snapshot bytes; it may not bypass functional
-assertions or start an unowned parallel application server.
+The update target and ordinary validation both use the harness-owned, pinned
+Playwright renderer. The harness verifies the container image digest, platform,
+Playwright and Chromium versions, font manifest, locale, device scale factor,
+and color scheme before exposing the authenticated loopback endpoint to a visual
+worker. The endpoint is private harness state, not a supported user override.
+The two targets must otherwise use the same application server, viewport,
+fixture lifecycle, and per-row accounting. An update may change snapshot bytes;
+it may not bypass functional assertions or start an unowned application server.
 
 ## Accepted Refresh Triggers
 
@@ -73,7 +80,7 @@ absence alone is neither drift nor an orphan and never permits filename-derived
 ownership.
 
 Before moving, refreshing, deleting, or re-accounting a golden, review the
-retained `cartulary.frontend_visual_reconciliation.v1` artifact from an ordinary
+retained `cartulary.frontend_visual_reconciliation.v2` artifact from an ordinary
 visual run. It must account for every active capture intent, every committed PNG,
 every declared registry fixture, SHA-256, exact catalog/scenario/project identity,
 and any declared non-Playwright consumer. Ambiguous mappings and active missing
@@ -114,6 +121,13 @@ After `make browser-e2e-visual-update`:
 5. Run fixture-registry, catalog, JSON-shape, generated-policy, and drift checks
    selected by the owner task guide.
 6. Commit source, registry changes, goldens, and the refresh record together.
+
+The update writes a complete candidate snapshot directory first. It promotes
+that directory and its newly generated golden manifest only after every selected
+group, reconciliation check, and schema check passes. If the update fails, the
+tracked snapshot directory and manifest must remain byte-identical. After an
+accepted renderer or golden refresh, require two fresh ordinary visual runs to
+pass against the promoted manifest.
 
 If the visual validation fails before screenshot comparison, fix the functional
 or infrastructure defect first. A successful refresh never substitutes for

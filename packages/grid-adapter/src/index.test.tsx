@@ -17,6 +17,7 @@ import { SemanticDataGrid as SemanticDataGridDomUnit } from "./domUnitBinding";
 import {
   type GridColumn,
   type GridDataRow,
+  type GridDensity,
   type GridHandle,
   type GridSortEntry,
   GridViewport,
@@ -1265,6 +1266,7 @@ describe("grid-adapter", () => {
     const groupedHandle = createRef<GridHandle>();
     const rows: readonly GridDataRow<HarnessRow>[] = [
       {
+        gutterLabel: "1",
         kind: "data",
         mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
         rowIdentity: { kind: "core_record", recordId: "record-1" },
@@ -1761,15 +1763,29 @@ describe("grid-adapter", () => {
       },
     ];
 
-    const { rerender } = render(
-      <GridViewport testId="density-grid-shell">
-        <SemanticDataGrid
-          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
-          columns={columns}
-          dataRows={rows}
-        />
-      </GridViewport>,
-    );
+    function DensityGrid({ density }: { density?: GridDensity }) {
+      return (
+        <GridViewport testId="density-grid-shell">
+          <SemanticDataGrid
+            actionsColumn={{
+              label: "Actions",
+              renderCell: () => <button type="button">Inspect</button>,
+            }}
+            coreRecordBulkSelection={{
+              onSelectedRecordIdsChange: vi.fn(),
+              selectedRecordIds: new Set(),
+            }}
+            surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
+            columns={columns}
+            density={density}
+            dataRows={rows}
+            rowGutter={{ label: "Row", width: 48 }}
+          />
+        </GridViewport>
+      );
+    }
+
+    const { rerender } = render(<DensityGrid />);
 
     const grid = (
       await screen.findByTestId("density-grid-shell")
@@ -1795,17 +1811,19 @@ describe("grid-adapter", () => {
     expect(grid.style.getPropertyValue("--cartulary-grid-line-height")).toBe(
       "var(--ct-density-default-lineHeight)",
     );
+    expect(
+      grid.querySelector('[role="columnheader"]')?.getAttribute("style"),
+    ).toContain("padding-block-start");
+    expect(
+      grid.querySelectorAll(".cartulary-grid-header-content"),
+    ).toHaveLength(5);
+    expect(
+      grid.querySelector(".cartulary-grid-selection-content"),
+    ).toBeTruthy();
+    expect(grid.querySelector(".cartulary-grid-gutter-content")).toBeTruthy();
+    expect(grid.querySelector(".cartulary-grid-actions-content")).toBeTruthy();
 
-    rerender(
-      <GridViewport testId="density-grid-shell">
-        <SemanticDataGrid
-          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
-          columns={columns}
-          density="compact"
-          dataRows={rows}
-        />
-      </GridViewport>,
-    );
+    rerender(<DensityGrid density="compact" />);
 
     expect(grid.style.getPropertyValue("--cartulary-grid-density")).toBe(
       "compact",
@@ -1829,16 +1847,7 @@ describe("grid-adapter", () => {
       "var(--ct-density-compact-lineHeight)",
     );
 
-    rerender(
-      <GridViewport testId="density-grid-shell">
-        <SemanticDataGrid
-          surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
-          columns={columns}
-          density="comfortable"
-          dataRows={rows}
-        />
-      </GridViewport>,
-    );
+    rerender(<DensityGrid density="comfortable" />);
 
     expect(grid.style.getPropertyValue("--cartulary-grid-density")).toBe(
       "comfortable",

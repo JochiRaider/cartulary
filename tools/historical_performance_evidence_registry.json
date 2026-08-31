@@ -33,6 +33,11 @@
       "sha256": "8f339a964f679ba741ec30eab7379d4bad728388adccbe6122e59c57ecf8cce1"
     },
     {
+      "schema_id": "cartulary.frontend_visual_reconciliation.v1",
+      "path": "tools/historical-schemas/performance/cartulary.frontend_visual_reconciliation.v1.schema.json",
+      "sha256": "e16951e606a79a39eff1be765d97120f0119a2288f97f7ecff4aa8c9d784ec5e"
+    },
+    {
       "schema_id": "cartulary.performance_fixture_runtime.v1",
       "path": "tools/historical-schemas/performance/cartulary.performance_fixture_runtime.v1.schema.json",
       "sha256": "94392d418e396230380280f793374cc2c4061b978c3bdb7c0e8ef3991ebb8fc2"

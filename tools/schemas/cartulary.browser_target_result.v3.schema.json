@@ -76,7 +76,7 @@
           "kind": {
             "enum": [
               "frontend_measurement_aggregate_v3",
-              "frontend_visual_reconciliation_v1"
+              "frontend_visual_reconciliation_v2"
             ]
           },
           "ref": { "$ref": "#/$defs/run_relative_path" },

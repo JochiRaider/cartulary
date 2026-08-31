@@ -177,10 +177,24 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_reconciliation.v1",
-      "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v1.schema.json",
+      "schema_id": "cartulary.frontend_visual_golden_manifest.v1",
+      "path": "tools/schemas/cartulary.frontend_visual_golden_manifest.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser visual golden manifest generator",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_visual_reconciliation.v2",
+      "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v2.schema.json",
       "classification": "public_contract",
       "producer": "browser visual target summary",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_visual_renderer_profile.v1",
+      "path": "tools/schemas/cartulary.frontend_visual_renderer_profile.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "browser visual renderer owner",
       "validation": "json-shape-check"
     },
     {

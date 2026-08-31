@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_visual_renderer_profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "profile_id",
+    "container_image",
+    "platform",
+    "playwright_version",
+    "chromium_revision",
+    "chromium_version",
+    "font_manifest_sha256",
+    "locale",
+    "device_scale_factor",
+    "color_scheme"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_visual_renderer_profile.v1" },
+    "profile_id": { "type": "string", "pattern": "^visual\\.renderer\\.[a-z0-9_]+$" },
+    "container_image": {
+      "const": "mcr.microsoft.com/playwright@sha256:eac9b0a5312cdab40ee8c2429df5bf19bffdccf8f3bf3c42268e173f97541645"
+    },
+    "platform": { "const": "linux/amd64" },
+    "playwright_version": { "const": "1.59.1" },
+    "chromium_revision": { "const": "1217" },
+    "chromium_version": { "const": "147.0.7727.15" },
+    "font_manifest_sha256": {
+      "const": "c21f8663e6c8fe72681b2be644aa8398538afc59a0f0cda06b94d46d5fbba5fe"
+    },
+    "locale": { "const": "en-US" },
+    "device_scale_factor": { "const": 1 },
+    "color_scheme": { "const": "light" }
+  }
+}

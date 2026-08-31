@@ -4387,6 +4387,7 @@
             "contract-derived generated code",
             "sqlc generated code",
             "foundation schema validators",
+            "frontend visual golden manifest",
             "task-surface generated Make outputs",
             "scheduler and browser topology manifests",
             "execution topology render index"
@@ -4404,6 +4405,7 @@
       "backing_scripts": [
         "tools/harness/generated-artifacts/generate-artifacts.sh",
         "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs",
+        "tools/harness/browser/frontend-visual-golden-manifest.mjs",
         "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
         "tools/protocol-ts/generate-protocol-types.mjs"
       ],
@@ -4615,7 +4617,10 @@
         "configs/dev/bootstrap-admin.json",
         "tools/execution_topology_manifest.json",
         "tools/frontend_import_boundaries.json",
+        "tools/frontend_visual_golden_manifest.json",
+        "tools/frontend_visual_renderer_profile.json",
         "tools/generated_artifact_policy.json",
+        "tools/harness/browser/frontend-visual-golden-manifest.mjs",
         "tools/harness/generated-artifacts/check-json-shapes.mjs",
         "tools/harness/generated-artifacts/json-shape.mjs",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
@@ -11169,7 +11174,8 @@
           "class": "authored_source_write",
           "owner_section": "Section 4",
           "paths": [
-            "apps/web/e2e/workbook.visual.spec.ts-snapshots"
+            "apps/web/e2e/workbook.visual.spec.ts-snapshots",
+            "tools/frontend_visual_golden_manifest.json"
           ]
         },
         {
