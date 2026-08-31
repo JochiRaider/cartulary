@@ -6,6 +6,7 @@ import {
   type SetStateAction,
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
@@ -14,7 +15,9 @@ import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbo
 import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookViewQueryAdapter } from "../workbook/adapters/createWorkbookViewQueryAdapter";
 import { WorkbookCollaborationCoordinator } from "../workbook/collaboration/WorkbookCollaborationCoordinator";
-import { WorkbookConflictResolver } from "../workbook/components/WorkbookConflictResolver";
+import { WorkbookEditRecoveryPanel } from "../workbook/components/WorkbookEditRecoveryPanel";
+import { WorkbookQueueOverflowNotice } from "../workbook/components/WorkbookQueueOverflowNotice";
+import { WorkbookSameFieldConflictResolver } from "../workbook/components/WorkbookSameFieldConflictResolver";
 import {
   defaultWorkbookLayoutState,
   moveWorkbookColumn,
@@ -33,6 +36,7 @@ import {
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
+import { useWorkbookMutationRuntime } from "../workbook/runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
 import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 import type {
@@ -189,6 +193,28 @@ export function TimelineWorkbookRuntimeFixture({
   });
   const { mutationCommands, mutationRuntime, pendingMutationPort } =
     runtimeAssembly;
+  const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
+  const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
+  const overflowNoticeRef = useRef<HTMLElement | null>(null);
+  const sameFieldSummaryRef = useRef<HTMLDivElement | null>(null);
+  const focusSameFieldSummary = useCallback(() => {
+    sameFieldSummaryRef.current?.focus({ preventScroll: true });
+  }, []);
+  const activateConflict = useCallback(
+    (_invoker: HTMLButtonElement) => {
+      if (mutationSnapshot.blockedEdit !== null) {
+        editRecoveryPanelRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (mutationSnapshot.overflowMessage !== null) {
+        overflowNoticeRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      mutationRuntime.activateConflict();
+      window.requestAnimationFrame(focusSameFieldSummary);
+    },
+    [focusSameFieldSummary, mutationRuntime, mutationSnapshot],
+  );
   const viewQuery = useMemo(
     () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
@@ -267,14 +293,35 @@ export function TimelineWorkbookRuntimeFixture({
               state: providedLayoutState ?? layoutState,
             },
           },
+          onActivateConflict: activateConflict,
           onIncidentAccessLost,
         }}
       />
-      <WorkbookConflictResolver
-        apiBase={apiBase}
-        mutationRuntime={mutationRuntime}
-        onActivateOrigin={() => undefined}
-      />
+      {mutationSnapshot.blockedEdit !== null ? (
+        <WorkbookEditRecoveryPanel
+          blockedEdit={mutationSnapshot.blockedEdit}
+          key={mutationSnapshot.blockedEdit.unitId}
+          onDiscard={() => mutationRuntime.discardBlockedEdit()}
+          onFocusWithinChange={() => undefined}
+          onRetry={() => mutationRuntime.retryBlockedEdit()}
+          ref={editRecoveryPanelRef}
+        />
+      ) : mutationSnapshot.overflowMessage !== null ? (
+        <WorkbookQueueOverflowNotice
+          message={mutationSnapshot.overflowMessage}
+          onFocusWithinChange={() => undefined}
+          ref={overflowNoticeRef}
+        />
+      ) : (
+        <WorkbookSameFieldConflictResolver
+          apiBase={apiBase}
+          focusSummary={focusSameFieldSummary}
+          mutationRuntime={mutationRuntime}
+          onActivateOrigin={() => undefined}
+          snapshot={mutationSnapshot}
+          summaryRef={sameFieldSummaryRef}
+        />
+      )}
     </div>
   );
 }

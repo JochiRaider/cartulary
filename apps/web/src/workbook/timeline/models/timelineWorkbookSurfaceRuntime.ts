@@ -75,5 +75,8 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly refresh: (() => Promise<void> | void) | undefined;
   };
   readonly layout: WorkbookSurfaceLayoutOwner;
+  readonly onActivateConflict:
+    | ((invoker: HTMLButtonElement) => void)
+    | undefined;
   readonly onIncidentAccessLost: (() => void) | undefined;
 };

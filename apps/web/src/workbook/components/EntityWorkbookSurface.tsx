@@ -123,7 +123,10 @@ import {
 } from "./WorkbookInspectorFeatureGroups";
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookRelationshipChip } from "./WorkbookRelationshipChip";
-import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
+import {
+  type WorkbookConflictActivation,
+  WorkbookSurfaceStatusStrip,
+} from "./WorkbookStatusStrip";
 import { WorkbookViewBar } from "./WorkbookViewBar";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
@@ -148,6 +151,7 @@ export type EntityWorkbookSurfaceProps = {
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   mutationCommands: EntityMutationCommandPort;
+  onActivateConflict?: WorkbookConflictActivation | undefined;
   recordMutationCommands: RecordRouteCommandPort;
   relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
@@ -212,6 +216,7 @@ export function EntityWorkbookSurface({
   loadState,
   mutationRuntime,
   mutationCommands,
+  onActivateConflict,
   recordMutationCommands,
   relatedMutationCommands,
   collaborationProjection,
@@ -1572,6 +1577,7 @@ export function EntityWorkbookSurface({
           activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
           mutationError={mutationError ?? sharedMutation.secondaryMessage}
           mutationState={presentedMutationState}
+          onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}
           workbookFocusAnchor={entityFocus.snapshot.anchor}
         />

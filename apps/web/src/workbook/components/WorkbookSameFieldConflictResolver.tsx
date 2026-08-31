@@ -5,13 +5,19 @@ import {
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
   workbookConflictSummaryTestId,
-  workbookEditRecoveryDiscardButtonTestId,
-  workbookEditRecoveryRetryButtonTestId,
-  workbookEditRecoveryTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
-import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
+import {
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import type {
+  WorkbookMutationRuntime,
+  WorkbookMutationSnapshot,
+} from "../runtime/WorkbookMutationRuntime";
+import { RecoverySurface } from "./RecoverySurface";
 
 function displayConflictValue(value: unknown): string {
   if (typeof value === "string") return value;
@@ -59,23 +65,30 @@ function LineComparison({
   );
 }
 
-export function WorkbookConflictResolver({
+export function WorkbookSameFieldConflictResolver({
   apiBase,
+  focusSummary,
   mutationRuntime,
   onActivateOrigin,
+  snapshot,
+  summaryRef,
 }: {
   readonly apiBase?: string | undefined;
+  readonly focusSummary: () => void;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly onActivateOrigin: (viewSchemaId: string) => void;
+  readonly snapshot: Pick<
+    WorkbookMutationSnapshot,
+    "conflictPanelOpen" | "conflicts"
+  >;
+  readonly summaryRef: RefObject<HTMLDivElement | null>;
 }) {
-  const snapshot = useWorkbookMutationRuntime(mutationRuntime);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const conflict =
     snapshot.conflicts.find((entry) => entry.key === activeKey) ??
     snapshot.conflicts[0] ??
     null;
   const resolverRef = useRef<HTMLElement | null>(null);
-  const summaryRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -92,9 +105,9 @@ export function WorkbookConflictResolver({
     setMessage(null);
     if (snapshot.conflictPanelOpen && conflict !== null) {
       if (resolverRef.current?.contains(document.activeElement)) return;
-      summaryRef.current?.focus({ preventScroll: true });
+      focusSummary();
     }
-  }, [conflict, snapshot.conflictPanelOpen]);
+  }, [conflict, focusSummary, snapshot.conflictPanelOpen]);
 
   useEffect(() => {
     if (!snapshot.conflictPanelOpen || conflict === null) return;
@@ -109,63 +122,7 @@ export function WorkbookConflictResolver({
       document.removeEventListener("keydown", dismissFromUnhandledEscape);
   }, [conflict, mutationRuntime, snapshot.conflictPanelOpen]);
 
-  if (conflict === null) {
-    if (snapshot.blockedEdit === null && snapshot.overflowMessage === null) {
-      return null;
-    }
-    return (
-      <aside
-        aria-label="Workbook edit recovery"
-        data-testid={workbookEditRecoveryTestId()}
-        style={resolverStyle}
-      >
-        <div ref={summaryRef} tabIndex={-1}>
-          <p style={eyebrowStyle}>Local edit needs attention</p>
-          <h2 style={titleStyle}>Pending edit recovery</h2>
-          <p style={bodyStyle}>
-            {snapshot.blockedEdit?.message ?? snapshot.overflowMessage}
-          </p>
-        </div>
-        {message ? (
-          <p aria-live="polite" role="status" style={errorStyle}>
-            {message}
-          </p>
-        ) : null}
-        {snapshot.blockedEdit ? (
-          <div style={buttonRowStyle}>
-            {snapshot.blockedEdit.canRetryWithNewClientTxnId ? (
-              <button
-                data-testid={workbookEditRecoveryRetryButtonTestId()}
-                disabled={submitting}
-                onClick={() => {
-                  setMessage(mutationRuntime.retryBlockedEdit());
-                }}
-                style={primaryButtonStyle}
-                type="button"
-              >
-                Retry with a new request ID
-              </button>
-            ) : null}
-            <button
-              data-testid={workbookEditRecoveryDiscardButtonTestId()}
-              disabled={submitting}
-              onClick={() => {
-                setSubmitting(true);
-                void mutationRuntime
-                  .discardBlockedEdit()
-                  .then(setMessage)
-                  .finally(() => setSubmitting(false));
-              }}
-              style={destructiveButtonStyle}
-              type="button"
-            >
-              Discard blocked edit
-            </button>
-          </div>
-        ) : null}
-      </aside>
-    );
-  }
+  if (conflict === null) return null;
   if (!snapshot.conflictPanelOpen) return null;
 
   const submit = async (
@@ -193,7 +150,7 @@ export function WorkbookConflictResolver({
   const dismiss = () => mutationRuntime.dismissConflict(conflict.key);
 
   return (
-    <aside
+    <RecoverySurface
       aria-label="Workbook conflict recovery"
       ref={resolverRef}
       data-conflict-base-row-version={String(
@@ -206,7 +163,6 @@ export function WorkbookConflictResolver({
       data-conflict-record-id={conflict.conflict.record_id}
       data-conflict-resolution-class={conflict.resolutionClass}
       data-testid={workbookConflictResolverTestId()}
-      style={resolverStyle}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
         event.preventDefault();
@@ -294,7 +250,7 @@ export function WorkbookConflictResolver({
                 onClick={() => setActiveKey(entry.key)}
                 style={
                   entry.key === conflict.key
-                    ? primaryButtonStyle
+                    ? selectedConflictButtonStyle
                     : secondaryButtonStyle
                 }
                 type="button"
@@ -401,7 +357,7 @@ export function WorkbookConflictResolver({
             data-testid={workbookConflictControlTestId("apply-collection")}
             disabled={submitting}
             onClick={() => void submit("merged_value")}
-            style={primaryButtonStyle}
+            style={secondaryButtonStyle}
             type="button"
           >
             Apply reviewed collection
@@ -421,7 +377,7 @@ export function WorkbookConflictResolver({
               data-testid={workbookConflictControlTestId("use-merged")}
               disabled={submitting}
               onClick={() => void submit("merged_value")}
-              style={primaryButtonStyle}
+              style={secondaryButtonStyle}
               type="button"
             >
               Use merged value
@@ -432,34 +388,16 @@ export function WorkbookConflictResolver({
             data-testid={workbookConflictControlTestId("use-unsaved")}
             disabled={submitting}
             onClick={() => void submit("use_unsaved")}
-            style={primaryButtonStyle}
+            style={secondaryButtonStyle}
             type="button"
           >
             Use my unsaved value
           </button>
         )}
       </div>
-    </aside>
+    </RecoverySurface>
   );
 }
-
-const resolverStyle = {
-  position: "absolute",
-  insetBlock: "0.75rem",
-  insetInlineEnd: "0.75rem",
-  zIndex: 30,
-  width: "min(46rem, calc(100% - 1.5rem))",
-  overflow: "auto",
-  boxSizing: "border-box",
-  border: "1px solid var(--ct-colors-semantic-conflict)",
-  borderRadius: "var(--ct-rounded-md)",
-  background: "var(--ct-colors-surface-raised)",
-  boxShadow: "var(--ct-shadow-lg)",
-  padding: "1rem",
-  display: "grid",
-  alignContent: "start",
-  gap: "0.9rem",
-} satisfies CSSProperties;
 
 const eyebrowStyle = {
   margin: 0,
@@ -469,10 +407,14 @@ const eyebrowStyle = {
   letterSpacing: "0.08em",
   textTransform: "uppercase",
 } satisfies CSSProperties;
-const titleStyle = { margin: "0.2rem 0" } satisfies CSSProperties;
+const titleStyle = {
+  margin: "0.2rem 0",
+  overflowWrap: "anywhere",
+} satisfies CSSProperties;
 const bodyStyle = {
   margin: 0,
   color: "var(--ct-colors-ink-muted)",
+  overflowWrap: "anywhere",
 } satisfies CSSProperties;
 const comparisonGridStyle = {
   display: "grid",
@@ -481,7 +423,7 @@ const comparisonGridStyle = {
 } satisfies CSSProperties;
 const comparisonStyle = {
   minWidth: 0,
-  border: "1px solid var(--ct-colors-border-subtle)",
+  border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
   overflow: "hidden",
 } satisfies CSSProperties;
@@ -496,19 +438,19 @@ const comparisonTitleStyle = {
   margin: 0,
   padding: "0.45rem 0.6rem",
   fontSize: "0.85rem",
-  background: "var(--ct-colors-surface-muted)",
+  background: "var(--ct-colors-surface-2)",
 } satisfies CSSProperties;
 const lineListStyle = {
   margin: 0,
   padding: "0.5rem 0.5rem 0.5rem 2.5rem",
-  maxHeight: "12rem",
+  maxHeight: "clamp(6rem, 18vh, 12rem)",
   overflow: "auto",
   whiteSpace: "pre-wrap",
   overflowWrap: "anywhere",
 } satisfies CSSProperties;
 const lineStyle = {
   paddingInlineStart: "0.3rem",
-  borderInlineStart: "1px solid var(--ct-colors-border-subtle)",
+  borderInlineStart: "var(--ct-border-hairline)",
 } satisfies CSSProperties;
 const labelStyle = {
   display: "grid",
@@ -516,7 +458,7 @@ const labelStyle = {
   fontWeight: 700,
 } satisfies CSSProperties;
 const textareaStyle = {
-  minHeight: "9rem",
+  minHeight: "clamp(5rem, 14vh, 9rem)",
   boxSizing: "border-box",
   width: "100%",
   resize: "vertical",
@@ -533,24 +475,27 @@ const buttonRowStyle = {
   gap: "0.5rem",
 } satisfies CSSProperties;
 const baseButtonStyle = {
-  borderRadius: "var(--ct-rounded-sm)",
-  padding: "0.5rem 0.75rem",
+  maxInlineSize: "100%",
+  minInlineSize: 0,
+  borderRadius: "var(--ct-component-button-secondary-rounded)",
+  padding: "var(--ct-component-button-secondary-padding)",
   font: "inherit",
   fontWeight: 700,
   cursor: "pointer",
+  overflowWrap: "anywhere",
+  whiteSpace: "normal",
 } satisfies CSSProperties;
 const secondaryButtonStyle = {
   ...baseButtonStyle,
-  border: "1px solid var(--ct-colors-border-strong)",
-  background: "var(--ct-colors-surface-raised)",
-  color: "var(--ct-colors-ink)",
+  border: "var(--ct-component-button-secondary-border)",
+  background: "var(--ct-component-button-secondary-backgroundColor)",
+  color: "var(--ct-component-button-secondary-textColor)",
   justifySelf: "start",
 } satisfies CSSProperties;
-const primaryButtonStyle = {
-  ...baseButtonStyle,
-  border: "1px solid var(--ct-colors-accent)",
-  background: "var(--ct-colors-accent)",
-  color: "var(--ct-colors-on-accent)",
+const selectedConflictButtonStyle = {
+  ...secondaryButtonStyle,
+  border: "1px solid var(--ct-colors-semantic-conflict)",
+  background: "var(--ct-colors-surface-3)",
 } satisfies CSSProperties;
 const destructiveButtonStyle = {
   ...baseButtonStyle,
@@ -566,7 +511,7 @@ const errorStyle = {
 const navigatorStyle = {
   display: "grid",
   gap: "0.5rem",
-  border: "1px solid var(--ct-colors-border-subtle)",
+  border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
   padding: "0.65rem",
 } satisfies CSSProperties;

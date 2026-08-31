@@ -1,7 +1,6 @@
 import {
   cellPresenceMarkerTestId,
   gridShellTestId,
-  pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
@@ -310,9 +309,20 @@ describe("workbook collaboration coverage", () => {
     await changeInputValue(input, "Unsaved local value");
     fireEvent.blur(input);
 
+    const resolver = await screen.findByTestId(
+      workbookConflictResolverTestId(),
+    );
+    expect(resolver).toBeTruthy();
+    expect(resolver.style.background).toBe("var(--ct-colors-surface-1)");
+    expect(resolver.style.border).toBe("var(--ct-border-strong)");
+    expect(resolver.style.boxShadow).toBe("var(--ct-elevation-popover)");
     expect(
-      await screen.findByTestId(workbookConflictResolverTestId()),
-    ).toBeTruthy();
+      Array.from(resolver.querySelectorAll<HTMLElement>("[style]"))
+        .map((element) => element.getAttribute("style"))
+        .join(" "),
+    ).not.toMatch(
+      /--ct-(?:colors-(?:surface-(?:raised|muted)|border-(?:subtle|strong))|shadow-lg)/u,
+    );
     expect(
       screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
     ).toBeTruthy();
@@ -328,6 +338,10 @@ describe("workbook collaboration coverage", () => {
     expect(
       screen.getByTestId(workbookConflictLocalValueTestId()),
     ).toHaveProperty("value", "Unsaved local value");
+    expect(
+      screen.getByTestId(workbookConflictControlTestId("use-merged")).style
+        .background,
+    ).toBe("var(--ct-component-button-secondary-backgroundColor)");
 
     fireEvent.keyDown(screen.getByTestId(workbookConflictSummaryTestId()), {
       key: "Enter",
@@ -1002,7 +1016,25 @@ describe("workbook collaboration coverage", () => {
       }),
     );
     routedFetch.mockRecordPatchOnce(
-      errorEnvelope("future_terminal_public_error", 409),
+      new Response(
+        JSON.stringify({
+          error: {
+            status: 409,
+            code: "future_terminal_public_error",
+            message:
+              "future_terminal_public_error txn=raw-transaction-id unit=raw-unit-id route=/api/v1/private token=secret-token payload={unsafe:true} stack=/srv/private/handler.go:42",
+            request_id: "raw-request-id",
+            retryable: false,
+            details: {
+              client_txn_id: "raw-transaction-id",
+              unit_id: "raw-unit-id",
+              route: "/api/v1/private",
+              token: "secret-token",
+            },
+          },
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      ),
     );
     render(
       <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
@@ -1014,21 +1046,43 @@ describe("workbook collaboration coverage", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(haltInput, "Halt local"));
+    const recoveryPanel = await screen.findByTestId(
+      workbookEditRecoveryTestId(),
+    );
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
         "Conflict",
       );
-      expect(
-        screen.getByTestId(pendingQueueCountTestId()).textContent,
-      ).toContain("1");
-      expect(
-        screen.getByTestId(pendingQueueNoticeTestId()).textContent,
-      ).toContain("future_terminal_public_error");
     });
+    expect(recoveryPanel.textContent).toContain("Queued edits");
+    expect(recoveryPanel.textContent).toContain(
+      "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
+    );
+    expect(recoveryPanel.textContent).not.toContain(
+      "future_terminal_public_error",
+    );
+    expect(document.body.textContent).not.toMatch(
+      /raw-transaction-id|raw-unit-id|\/api\/v1\/private|secret-token|unsafe:true|handler\.go/u,
+    );
+    expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
+    expect(
+      document.querySelector('[data-grid-data-state="stale_error"]'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId(workbookEditRecoveryRetryButtonTestId()),
+    ).toBeNull();
+    expect(
+      (
+        screen.getByTestId(
+          workbookEditRecoveryDiscardButtonTestId(),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
   });
 
   it("recovers a Timeline client transaction conflict with a fresh opaque request ID", async () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
+    const retrySuccess = deferred<Response>();
     routedFetch.mockRowQueryOnce(
       successEnvelope({
         incident_id: "10000000-0000-4000-8000-000000000001",
@@ -1043,19 +1097,38 @@ describe("workbook collaboration coverage", () => {
         ],
       }),
     );
-    routedFetch.mockRecordPatchOnce(errorEnvelope("client_txn_conflict", 409));
     routedFetch.mockRecordPatchOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "30000000-0000-4000-8000-000000000001",
-        row: timelineRow({
-          recordId: "20000000-0000-4000-8000-000000000103",
-          rowVersion: 2,
-          summary: "Retry local",
-          captureState: "rough",
+      new Response(
+        JSON.stringify({
+          error: {
+            status: 409,
+            code: "client_txn_conflict",
+            message:
+              "client_txn_conflict txn=raw-transaction-id unit=raw-unit-id route=/api/v1/private token=secret-token payload={unsafe:true} stack=/srv/private/handler.go:42",
+            request_id: "raw-request-id",
+            retryable: false,
+            details: {
+              client_txn_id: "raw-transaction-id",
+              unit_id: "raw-unit-id",
+              route: "/api/v1/private",
+              token: "secret-token",
+            },
+          },
         }),
-      }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      ),
     );
+    routedFetch.mockRecordPatchOnce(retrySuccess.promise);
+    const retryResponse = successEnvelope({
+      view_schema_id: timelineViewSchemaId,
+      change_set_id: "30000000-0000-4000-8000-000000000001",
+      row: timelineRow({
+        recordId: "20000000-0000-4000-8000-000000000103",
+        rowVersion: 2,
+        summary: "Retry local",
+        captureState: "rough",
+      }),
+    });
 
     render(
       <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
@@ -1078,16 +1151,42 @@ describe("workbook collaboration coverage", () => {
     expect(screen.getByRole("button", { name: "Discard blocked edit" })).toBe(
       screen.getByTestId(workbookEditRecoveryDiscardButtonTestId()),
     );
-    expect(recoveryPanel.textContent).not.toContain("timeline-client-");
+    expect(recoveryPanel.textContent).toContain("Queued edits");
+    expect(recoveryPanel.textContent).toContain(
+      "A queued edit could not be replayed safely. Retry it with a new request ID, or discard the blocked edit to continue.",
+    );
+    expect(recoveryPanel.textContent).not.toMatch(
+      /client_txn_conflict|timeline-client-|\/api\/v1|conflict-token/u,
+    );
+    expect(document.body.textContent).not.toMatch(
+      /raw-transaction-id|raw-unit-id|\/api\/v1\/private|secret-token|unsafe:true|handler\.go/u,
+    );
+    expect(recoveryPanel.style.background).toBe("var(--ct-colors-surface-1)");
+    const recoveryStatus = screen.getByRole("status", {
+      name: "Queued edit recovery message",
+    });
+    expect(recoveryStatus.getAttribute("aria-live")).toBe("polite");
+    expect(recoveryStatus.getAttribute("aria-atomic")).toBe("true");
 
     fireEvent.click(screen.getByTestId(saveStateActionButtonTestId()));
-    expect(document.activeElement).toBe(
-      screen.getByTestId(pendingQueueNoticeTestId()),
-    );
-    fireEvent.click(
-      screen.getByTestId(workbookEditRecoveryRetryButtonTestId()),
-    );
+    expect(document.activeElement).toBe(recoveryPanel);
+    expect(screen.queryByTestId(pendingQueueNoticeTestId())).toBeNull();
+    expect(
+      document.querySelector('[data-grid-data-state="stale_error"]'),
+    ).toBeNull();
+    const retryButton = screen.getByTestId(
+      workbookEditRecoveryRetryButtonTestId(),
+    ) as HTMLButtonElement;
+    const discardButton = screen.getByTestId(
+      workbookEditRecoveryDiscardButtonTestId(),
+    ) as HTMLButtonElement;
+    fireEvent.click(retryButton);
+    expect(retryButton.disabled).toBe(true);
+    expect(discardButton.disabled).toBe(true);
+    fireEvent.click(retryButton);
     await waitForTimelineRecordPatchCalls(fetchMock, 2);
+    expect(timelineRecordPatchCallURLs(fetchMock)).toHaveLength(2);
+    retrySuccess.resolve(retryResponse);
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
@@ -1153,6 +1252,11 @@ describe("workbook collaboration coverage", () => {
     expect(
       await screen.findByTestId(workbookConflictResolverTestId()),
     ).toBeTruthy();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByTestId(workbookConflictSummaryTestId()),
+      );
+    });
     expect(screen.queryByTestId(workbookEditRecoveryTestId())).toBeNull();
     expect(
       (

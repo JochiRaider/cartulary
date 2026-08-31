@@ -1562,6 +1562,31 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
         "timeline-mutation-transaction-recovery-panel",
       );
 
+      await page.setViewportSize({ width: 1024, height: 720 });
+      await expect(
+        page.getByTestId(workbookEditRecoveryTestId()),
+      ).toBeVisible();
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "left" },
+      });
+      await assertViewportVisualRegression(
+        page,
+        "timeline-mutation-transaction-recovery-panel-narrow",
+      );
+
+      await page.setViewportSize({ width: 768, height: 640 });
+      await expect(
+        page.getByTestId(workbookEditRecoveryTestId()),
+      ).toBeVisible();
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "left" },
+      });
+      await assertViewportVisualRegression(
+        page,
+        "timeline-mutation-transaction-recovery-panel-compact",
+      );
+      await page.setViewportSize({ width: 1440, height: 900 });
+
       await page.getByTestId(workbookEditRecoveryDiscardButtonTestId()).click();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
@@ -3155,13 +3180,15 @@ test.describe("workbook visual evidence", () => {
     await maskIncidentIdentity(page, incidentId);
     const patchController = await installPatchController(page);
     try {
+      const localValue = `Conflict_visual_local_${"L".repeat(96)}`;
+      const remoteValue = `Conflict_visual_saved_${"S".repeat(96)}`;
       await driveRealTimelineSummaryConflict({
         baseRowVersion: timelineRow.row_version,
-        localValue: "Conflict visual local",
+        localValue,
         page,
         patchController,
         recordId: timelineRow.record_id,
-        remoteValue: "Conflict visual server",
+        remoteValue,
         txnPrefix: "visual-collaboration-conflict",
       });
       await stabilizeConflictResolverVisual(page);
@@ -3172,6 +3199,26 @@ test.describe("workbook visual evidence", () => {
       await assertViewportVisualRegression(
         page,
         "collaboration-grid-conflict-resolver",
+      );
+
+      await page.setViewportSize({ width: 1024, height: 720 });
+      await stabilizeConflictResolverVisual(page);
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "right" },
+      });
+      await assertViewportVisualRegression(
+        page,
+        "collaboration-grid-conflict-resolver-narrow",
+      );
+
+      await page.setViewportSize({ width: 768, height: 640 });
+      await stabilizeConflictResolverVisual(page);
+      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+        scroll: { top: 0, left: "right" },
+      });
+      await assertViewportVisualRegression(
+        page,
+        "collaboration-grid-conflict-resolver-compact",
       );
     } finally {
       await patchController.dispose();

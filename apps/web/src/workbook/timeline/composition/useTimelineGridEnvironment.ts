@@ -1,9 +1,5 @@
 import type { GridColumn, GridHandle } from "@cartulary/grid-adapter";
-import {
-  dataTestIdSelector,
-  draftCellTestId,
-  workbookConflictSummaryTestId,
-} from "@cartulary/ui-contracts";
+import { dataTestIdSelector, draftCellTestId } from "@cartulary/ui-contracts";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { createTimelineRowMutationEditorAdapter } from "../adapters/createTimelineRowMutationEditorAdapter";
@@ -38,7 +34,6 @@ export function useTimelineGridEnvironment({
   );
   const timelineGridHandleRef = useRef<GridHandle | null>(null);
   const gridShellRef = useRef<HTMLDivElement | null>(null);
-  const recoveryPanelRef = useRef<HTMLDivElement | null>(null);
   const viewportContinuityTokenRef = useRef(1);
   const [gridShellWidth, setGridShellWidth] = useState(0);
   const interactionRefs: TimelineGridInteractionRefs = {
@@ -156,25 +151,10 @@ export function useTimelineGridEnvironment({
       )
       ?.focus({ preventScroll: false });
   }, []);
-  const focusRecoveryPanel = useCallback(() => {
-    recoveryPanelRef.current?.focus();
-  }, []);
-  const focusConflictSummary = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLElement>(
-          dataTestIdSelector(workbookConflictSummaryTestId()),
-        )
-        ?.focus();
-    });
-  }, []);
-
   return {
     commands: {
       anchors: anchors,
-      focusConflictSummary,
       focusDraftRow,
-      focusRecoveryPanel,
       registerVisibleColumns,
       updateTimelineSurfaceFocusAnchor,
       updateWorkbookFocusAnchor:
@@ -188,7 +168,6 @@ export function useTimelineGridEnvironment({
     refs: {
       gridHandle: timelineGridHandleRef,
       gridShell: gridShellRef,
-      recoveryPanel: recoveryPanelRef,
       timelineAnchorColumns: timelineAnchorColumnsRef,
       viewportContinuityToken: viewportContinuityTokenRef,
       workbookFocusAnchor: workbookFocusAnchorRef,

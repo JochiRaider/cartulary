@@ -788,7 +788,8 @@ describe("pending queue unit model", () => {
     expect(validationResult.halt).toMatchObject({
       unit_id: "unit-txn-invalid",
       error_code: "invalid_mutation_payload",
-      message: "Summary is required",
+      message:
+        "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
       anchor: {
         kind: "cell",
         record_id: "record-invalid",
@@ -841,7 +842,7 @@ describe("pending queue unit model", () => {
       "future_terminal_public_error",
     );
     expect(unknownTerminalResult.halt.message).toBe(
-      "Future terminal public error",
+      "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
     );
 
     const unsafeUnknownTerminalQueue = createQueue();
@@ -876,7 +877,9 @@ describe("pending queue unit model", () => {
     expect(unsafeUnknownTerminalResult.halt.error_code).toBe(
       "future_terminal_public_error",
     );
-    expect(unsafeUnknownTerminalResult.halt.message).toBe("Request failed.");
+    expect(unsafeUnknownTerminalResult.halt.message).toBe(
+      "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
+    );
     expect(JSON.stringify(unsafeUnknownTerminalResult.halt)).not.toContain(
       "/home/cartulary",
     );

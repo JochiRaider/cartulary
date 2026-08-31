@@ -109,6 +109,7 @@ import {
   timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
+  workbookActiveSurfaceFocusTargetTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
@@ -290,6 +291,9 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     );
     expect(workbookEditRecoveryDiscardButtonTestId()).toBe(
       "workbook-edit-recovery-discard",
+    );
+    expect(workbookActiveSurfaceFocusTargetTestId()).toBe(
+      "workbook-active-surface-focus-target",
     );
     expect(rowPresenceMarkerTestId("record-1")).toBe("presence-row-record-1");
     expect(

@@ -28,5 +28,9 @@ describe("design presentation projection", () => {
       actions: [],
       live: "assertive",
     });
+    expect(cartularyErrorPresentation("client_txn_conflict")).toMatchObject({
+      actions: ["retry_with_new_request_id", "discard_blocked_edit"],
+      live: "polite",
+    });
   });
 });

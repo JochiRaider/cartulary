@@ -51,6 +51,9 @@ export type WorkbookSurfacesFacadeProps = {
   readonly layout: WorkbookSurfaceLayoutOwner;
   readonly mutations: {
     readonly commands: WorkbookMutationCommandPorts;
+    readonly onActivateConflict:
+      | ((invoker: HTMLButtonElement) => void)
+      | undefined;
     readonly pending: WorkbookPendingMutationPort;
     readonly runtime: WorkbookMutationRuntime;
   };
@@ -137,6 +140,7 @@ export function WorkbookSurfacesFacade({
   } = queries;
   const {
     commands: mutationCommands,
+    onActivateConflict,
     pending: pendingMutationPort,
     runtime: mutationRuntime,
   } = mutations;
@@ -208,6 +212,7 @@ export function WorkbookSurfacesFacade({
             refresh: loadEntities,
           },
           layout,
+          onActivateConflict,
           onIncidentAccessLost,
         }}
       />
@@ -230,6 +235,7 @@ export function WorkbookSurfacesFacade({
         layout={layout}
         mutationRuntime={mutationRuntime}
         mutationCommands={mutationCommands.entity}
+        onActivateConflict={onActivateConflict}
         recordMutationCommands={mutationCommands.records}
         relatedMutationCommands={mutationCommands.timeline.related}
         collaborationProjection={collaborationProjection}
@@ -272,6 +278,7 @@ export function WorkbookSurfacesFacade({
         layout={layout}
         mutationRuntime={mutationRuntime}
         mutationCommands={mutationCommands.assessment}
+        onActivateConflict={onActivateConflict}
         recordMutationCommands={mutationCommands.records}
         relatedMutationCommands={mutationCommands.timeline.related}
         collaborationProjection={collaborationProjection}
@@ -306,6 +313,7 @@ export function WorkbookSurfacesFacade({
       layout={layout}
       mutationRuntime={mutationRuntime}
       mutationCommands={mutationCommands}
+      onActivateConflict={onActivateConflict}
       referenceQueryBroker={referenceQueryBroker}
       collaborationProjection={collaborationProjection}
       sheetRef={sheetRef}

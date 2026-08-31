@@ -23,6 +23,7 @@ import {
 } from "../utils/workbookStyles";
 
 export type WorkbookStatusSaveState = "Syncing" | "Saved" | "Conflict";
+export type WorkbookConflictActivation = (invoker: HTMLButtonElement) => void;
 
 export function WorkbookStatusStrip({
   activeSheetPresenceRecords,
@@ -38,7 +39,7 @@ export function WorkbookStatusStrip({
   readonly saveState: WorkbookStatusSaveState;
   readonly saveStateSecondaryMessage: string | null;
   readonly showPresence?: boolean | undefined;
-  readonly onActivateConflict?: (() => void) | undefined;
+  readonly onActivateConflict?: WorkbookConflictActivation | undefined;
   readonly workbookFocusAnchor: WorkbookContinuityAnchor | null;
 }) {
   return (
@@ -51,7 +52,7 @@ export function WorkbookStatusStrip({
             data-testid={saveStateActionButtonTestId()}
             style={statusStripActionButtonStyle}
             type="button"
-            onClick={onActivateConflict}
+            onClick={(event) => onActivateConflict(event.currentTarget)}
           >
             <strong
               aria-live="polite"
@@ -92,12 +93,14 @@ export function WorkbookSurfaceStatusStrip({
   activeSheetPresenceRecords = [],
   mutationError = null,
   mutationState,
+  onActivateConflict,
   showPresence = true,
   workbookFocusAnchor,
 }: {
   readonly activeSheetPresenceRecords?: readonly PresenceRecord[] | undefined;
   readonly mutationError?: string | null | undefined;
   readonly mutationState: WorkbookStatusSaveState;
+  readonly onActivateConflict?: WorkbookConflictActivation | undefined;
   readonly showPresence?: boolean | undefined;
   readonly workbookFocusAnchor: WorkbookContinuityAnchor | null;
 }) {
@@ -105,15 +108,35 @@ export function WorkbookSurfaceStatusStrip({
     <>
       <span style={statusStripItemStyle}>
         <span aria-hidden="true" style={statusIconStyle(mutationState)} />
-        <strong
-          aria-live="polite"
-          aria-label="Save state"
-          data-density-role="narrow-metadata"
-          data-testid={saveStateTestId()}
-          role="status"
-        >
-          {mutationState}
-        </strong>
+        {mutationState === "Conflict" && onActivateConflict !== undefined ? (
+          <button
+            aria-label="Open conflict recovery"
+            data-testid={saveStateActionButtonTestId()}
+            style={statusStripActionButtonStyle}
+            type="button"
+            onClick={(event) => onActivateConflict(event.currentTarget)}
+          >
+            <strong
+              aria-live="polite"
+              aria-label="Save state"
+              data-density-role="narrow-metadata"
+              data-testid={saveStateTestId()}
+              role="status"
+            >
+              {mutationState}
+            </strong>
+          </button>
+        ) : (
+          <strong
+            aria-live="polite"
+            aria-label="Save state"
+            data-density-role="narrow-metadata"
+            data-testid={saveStateTestId()}
+            role="status"
+          >
+            {mutationState}
+          </strong>
+        )}
       </span>
       {mutationError ? (
         <span

@@ -1,4 +1,8 @@
 import {
+  type WorkbookEditRecoveryPresentation,
+  workbookEditRecoveryPresentation,
+} from "../utils/workbookEditRecoveryPresentation";
+import {
   type PendingReplayScope,
   type PendingReplayUnitInput,
   type PendingReplayUnitState,
@@ -31,10 +35,8 @@ export type WorkbookPendingQueueSnapshot = {
 
 export type WorkbookBlockedEditRecovery = {
   unitId: string;
-  errorCode: string;
+  kind: WorkbookEditRecoveryPresentation["kind"];
   message: string;
-  canRetryWithNewClientTxnId: boolean;
-  canDiscard: true;
 };
 
 export type WorkbookPendingReplayAdmissionRequest<TMeta> =
@@ -83,14 +85,16 @@ export function workbookPendingQueueSnapshot<TMeta>(
     blockedEdit:
       snapshot.halted === null
         ? null
-        : {
-            unitId: snapshot.halted.unit_id,
-            errorCode: snapshot.halted.error_code,
-            message: snapshot.halted.message,
-            canRetryWithNewClientTxnId:
-              snapshot.halted.error_code === "client_txn_conflict",
-            canDiscard: true,
-          },
+        : (() => {
+            const presentation = workbookEditRecoveryPresentation({
+              errorCode: snapshot.halted.error_code,
+            });
+            return {
+              unitId: snapshot.halted.unit_id,
+              kind: presentation.kind,
+              message: presentation.message,
+            };
+          })(),
     authPaused: snapshot.authPaused,
     overflowMessage: snapshot.overflow?.message ?? null,
     resetRefreshInFlight: pending.resetRefreshInFlight,

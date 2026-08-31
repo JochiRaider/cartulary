@@ -1171,12 +1171,18 @@ test(
       );
       expect(unknownEnvelope.error.retryable).toBe(false);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      const notice = page.getByTestId(pendingQueueNoticeTestId());
-      await expect(notice).toBeVisible();
-      await expect(notice).toContainText("Request failed.");
-      await expect(notice).not.toContainText("/home/cartulary");
-      await expect(notice).not.toContainText("stack trace");
-      await expect(notice).not.toContainText("private.go");
+      const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
+      await expect(recoveryPanel).toBeVisible();
+      await expect(recoveryPanel).toContainText(
+        "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.",
+      );
+      await expect(recoveryPanel).not.toContainText("/home/cartulary");
+      await expect(recoveryPanel).not.toContainText("stack trace");
+      await expect(recoveryPanel).not.toContainText("private.go");
+      await expect(recoveryPanel).not.toContainText(
+        "future_private_public_error",
+      );
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
       await expect(alphaSummaryEditor).toHaveValue(
         "end-to-end.mutation-lifecycle.row-01 unknown fallback local",
       );
@@ -1313,9 +1319,8 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       expect(await recoveryPanel.getByRole("button").allTextContents()).toEqual(
         ["Retry with a new request ID", "Discard blocked edit"],
       );
-      await expect(
-        page.getByTestId(pendingQueueNoticeTestId()),
-      ).not.toContainText(blockedClientTxnId);
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+      await expect(recoveryPanel).not.toContainText(blockedClientTxnId);
 
       const serverAdvanceResponse = await patchTimelinePublic(
         page,
@@ -1341,7 +1346,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       ).toHaveText(String(serverAdvance.data.row.row_version));
 
       await page.getByTestId(saveStateActionButtonTestId()).click();
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeFocused();
+      await expect(recoveryPanel).toBeFocused();
       const retryButton = page.getByTestId(
         workbookEditRecoveryRetryButtonTestId(),
       );

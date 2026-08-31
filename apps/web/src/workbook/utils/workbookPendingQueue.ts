@@ -3,6 +3,7 @@ import {
   publicErrorStatusText,
 } from "../../shared/publicError";
 import { parseSameFieldConflictFields } from "../runtime/workbookConflictModel";
+import { workbookEditRecoveryPresentation } from "./workbookEditRecoveryPresentation";
 
 export const pendingReplayCapacity = 64;
 
@@ -1317,18 +1318,14 @@ export class WorkbookPendingQueueModel {
       };
     }
 
+    const recoveryPresentation = workbookEditRecoveryPresentation({
+      errorCode: result.error.code,
+      status: result.status,
+    });
     this.halted = {
       unit_id: unit.id,
       error_code: result.error.code,
-      message: publicErrorStatusText(
-        {
-          code: result.error.code,
-          details: result.error.details,
-          message: result.error.message,
-          status: result.status,
-        },
-        result.status,
-      ),
+      message: recoveryPresentation.message,
       anchor: failureAnchor(unit, result.error),
     };
     return {

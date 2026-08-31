@@ -87,6 +87,7 @@ import {
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
+  workbookActiveSurfaceFocusTargetTestId,
   workbookAddRowButtonTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
@@ -694,6 +695,217 @@ async function expectTextSpacingViewBarResilience(
       `${previous?.name} before ${control.name}`,
     ).toBeGreaterThanOrEqual((previous?.right ?? 0) - 1);
   });
+}
+
+async function expectRecoverySurfaceGeometry(
+  page: Page,
+  options: { readonly enforceDocumentBlockExtent?: boolean } = {},
+) {
+  const geometry = await page.evaluate(
+    ({ activeSurfaceSelector, panelSelector }) => {
+      const panel = document.querySelector<HTMLElement>(panelSelector);
+      const activeSurface = document.querySelector<HTMLElement>(
+        activeSurfaceSelector,
+      );
+      if (panel === null || activeSurface === null) {
+        throw new Error("Expected recovery panel and active surface");
+      }
+      const heading = panel.querySelector<HTMLElement>("h2");
+      const message = panel.querySelector<HTMLElement>('[role="status"]');
+      const buttons = Array.from(
+        panel.querySelectorAll<HTMLButtonElement>("button"),
+      );
+      const actionRow = buttons[0]?.parentElement;
+      if (heading === null || message === null || actionRow == null) {
+        throw new Error("Expected recovery heading, message, and actions");
+      }
+      const rect = (element: Element) => {
+        const value = element.getBoundingClientRect();
+        return {
+          bottom: value.bottom,
+          left: value.left,
+          right: value.right,
+          top: value.top,
+        };
+      };
+      const style = getComputedStyle(panel);
+      return {
+        activeSurface: rect(activeSurface),
+        actions: rect(actionRow),
+        backgroundColor: style.backgroundColor,
+        buttons: buttons.map(rect),
+        document: {
+          clientHeight: document.documentElement.clientHeight,
+          clientWidth: document.documentElement.clientWidth,
+          scrollHeight: document.documentElement.scrollHeight,
+          scrollWidth: document.documentElement.scrollWidth,
+        },
+        heading: rect(heading),
+        message: rect(message),
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+        panel: rect(panel),
+        panelClientWidth: panel.clientWidth,
+        panelScrollWidth: panel.scrollWidth,
+      };
+    },
+    {
+      activeSurfaceSelector: dataTestIdSelector(
+        workbookActiveSurfaceFocusTargetTestId(),
+      ),
+      panelSelector: dataTestIdSelector(workbookEditRecoveryTestId()),
+    },
+  );
+
+  expect(geometry.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  expect(geometry.backgroundColor).not.toBe("transparent");
+  expect(geometry.overflowX).toBe("hidden");
+  expect(["auto", "scroll"]).toContain(geometry.overflowY);
+  expect(geometry.panel.left).toBeGreaterThanOrEqual(
+    geometry.activeSurface.left - 1,
+  );
+  expect(geometry.panel.right).toBeLessThanOrEqual(
+    geometry.activeSurface.right + 1,
+  );
+  expect(geometry.panel.top).toBeGreaterThanOrEqual(
+    geometry.activeSurface.top - 1,
+  );
+  expect(geometry.panel.bottom).toBeLessThanOrEqual(
+    geometry.activeSurface.bottom + 1,
+  );
+  expect(geometry.heading.bottom).toBeLessThanOrEqual(geometry.message.top + 1);
+  expect(geometry.message.bottom).toBeLessThanOrEqual(geometry.actions.top + 1);
+  expect(geometry.panelScrollWidth).toBeLessThanOrEqual(
+    geometry.panelClientWidth + 1,
+  );
+  for (const button of geometry.buttons) {
+    expect(button.left).toBeGreaterThanOrEqual(geometry.panel.left - 1);
+    expect(button.right).toBeLessThanOrEqual(geometry.panel.right + 1);
+  }
+  expect(geometry.document.scrollWidth).toBeLessThanOrEqual(
+    geometry.document.clientWidth + 1,
+  );
+  if (options.enforceDocumentBlockExtent !== false) {
+    expect(geometry.document.scrollHeight).toBeLessThanOrEqual(
+      geometry.document.clientHeight + 1,
+    );
+  }
+}
+
+async function expectResolverSurfaceGeometry(
+  page: Page,
+  options: { readonly enforceDocumentBlockExtent?: boolean } = {},
+) {
+  const resolver = page.getByTestId(workbookConflictResolverTestId());
+  await resolver.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  const geometry = await page.evaluate(
+    ({ activeSurfaceSelector, resolverSelector }) => {
+      const panel = document.querySelector<HTMLElement>(resolverSelector);
+      const activeSurface = document.querySelector<HTMLElement>(
+        activeSurfaceSelector,
+      );
+      if (panel === null || activeSurface === null) {
+        throw new Error("Expected resolver and active surface");
+      }
+      const rect = (element: Element) => {
+        const value = element.getBoundingClientRect();
+        return {
+          bottom: value.bottom,
+          left: value.left,
+          right: value.right,
+          top: value.top,
+        };
+      };
+      const style = getComputedStyle(panel);
+      return {
+        activeSurface: rect(activeSurface),
+        backgroundColor: style.backgroundColor,
+        document: {
+          clientHeight: document.documentElement.clientHeight,
+          clientWidth: document.documentElement.clientWidth,
+          scrollHeight: document.documentElement.scrollHeight,
+          scrollWidth: document.documentElement.scrollWidth,
+        },
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+        panel: rect(panel),
+        panelClientWidth: panel.clientWidth,
+        panelScrollWidth: panel.scrollWidth,
+      };
+    },
+    {
+      activeSurfaceSelector: dataTestIdSelector(
+        workbookActiveSurfaceFocusTargetTestId(),
+      ),
+      resolverSelector: dataTestIdSelector(workbookConflictResolverTestId()),
+    },
+  );
+  expect(geometry.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  expect(geometry.backgroundColor).not.toBe("transparent");
+  expect(geometry.overflowX).toBe("hidden");
+  expect(["auto", "scroll"]).toContain(geometry.overflowY);
+  expect(geometry.panel.left).toBeGreaterThanOrEqual(
+    geometry.activeSurface.left - 1,
+  );
+  expect(geometry.panel.right).toBeLessThanOrEqual(
+    geometry.activeSurface.right + 1,
+  );
+  expect(geometry.panel.top).toBeGreaterThanOrEqual(
+    geometry.activeSurface.top - 1,
+  );
+  expect(geometry.panel.bottom).toBeLessThanOrEqual(
+    geometry.activeSurface.bottom + 1,
+  );
+  expect(geometry.panelScrollWidth).toBeLessThanOrEqual(
+    geometry.panelClientWidth + 1,
+  );
+  expect(geometry.document.scrollWidth).toBeLessThanOrEqual(
+    geometry.document.clientWidth + 1,
+  );
+  if (options.enforceDocumentBlockExtent !== false) {
+    expect(geometry.document.scrollHeight).toBeLessThanOrEqual(
+      geometry.document.clientHeight + 1,
+    );
+  }
+
+  const finalAction = page.getByTestId(
+    workbookConflictControlTestId("use-merged"),
+  );
+  await finalAction.scrollIntoViewIfNeeded();
+  await expect(finalAction).toBeVisible();
+  const actionGeometry = await resolver.evaluate(
+    (panel, actionSelector) => {
+      const action = panel.querySelector<HTMLElement>(actionSelector);
+      if (action === null) throw new Error("Expected resolver final action");
+      const panelRect = panel.getBoundingClientRect();
+      const actionRect = action.getBoundingClientRect();
+      return {
+        actionBottom: actionRect.bottom,
+        actionLeft: actionRect.left,
+        actionRight: actionRect.right,
+        actionTop: actionRect.top,
+        panelBottom: panelRect.bottom,
+        panelLeft: panelRect.left,
+        panelRight: panelRect.right,
+        panelTop: panelRect.top,
+      };
+    },
+    dataTestIdSelector(workbookConflictControlTestId("use-merged")),
+  );
+  expect(actionGeometry.actionLeft).toBeGreaterThanOrEqual(
+    actionGeometry.panelLeft - 1,
+  );
+  expect(actionGeometry.actionRight).toBeLessThanOrEqual(
+    actionGeometry.panelRight + 1,
+  );
+  expect(actionGeometry.actionTop).toBeGreaterThanOrEqual(
+    actionGeometry.panelTop - 1,
+  );
+  expect(actionGeometry.actionBottom).toBeLessThanOrEqual(
+    actionGeometry.panelBottom + 1,
+  );
 }
 
 async function expectTabTraversalAdvancesFrom(
@@ -2093,10 +2305,68 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       await expect(discardButton).toHaveAccessibleName("Discard blocked edit");
       await expect(retryButton).toBeEnabled();
       await expect(discardButton).toBeEnabled();
+      await expect(
+        recoveryPanel.getByRole("status", {
+          name: "Queued edit recovery message",
+        }),
+      ).toHaveAttribute("aria-live", "polite");
+      await expect(
+        recoveryPanel.getByRole("status", {
+          name: "Queued edit recovery message",
+        }),
+      ).toHaveAttribute("aria-atomic", "true");
+      await expect(recoveryPanel.getByRole("status")).toHaveCount(1);
+      await expect(recoveryPanel).toContainText("Queued edits");
+      await expect(recoveryPanel).toContainText(
+        "A queued edit could not be replayed safely. Retry it with a new request ID, or discard the blocked edit to continue.",
+      );
+      await expect(recoveryPanel).not.toContainText("client_txn_conflict");
+      await expect(page.getByTestId(pendingQueueNoticeTestId())).toHaveCount(0);
+
+      for (const viewport of [
+        { width: 1440, height: 900 },
+        { width: 1024, height: 720 },
+        { width: 768, height: 640 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await expectRecoverySurfaceGeometry(page);
+      }
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "200%";
+      });
+      await expectRecoverySurfaceGeometry(page, {
+        enforceDocumentBlockExtent: false,
+      });
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "100%";
+      });
+      await page.setViewportSize({ width: 768, height: 640 });
+      await page.evaluate(() => {
+        const style = document.createElement("style");
+        style.id = "workbook-recovery-text-spacing";
+        style.textContent = `
+          #root * {
+            letter-spacing: 0.12em !important;
+            line-height: 1.5 !important;
+            word-spacing: 0.16em !important;
+          }
+          #root p {
+            margin-bottom: 2em !important;
+          }
+        `;
+        document.head.append(style);
+      });
+      await expectRecoverySurfaceGeometry(page);
+      await page.evaluate(() => {
+        document.getElementById("workbook-recovery-text-spacing")?.remove();
+      });
+      await page.setViewportSize({ width: 1440, height: 900 });
 
       await page.getByTestId(saveStateActionButtonTestId()).click();
-      await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeFocused();
-      await retryButton.focus();
+      await expect(recoveryPanel).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(retryButton).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(discardButton).toBeFocused();
 
@@ -2122,7 +2392,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         ),
         rowCellTestId(editRow.record_id, "timeline.activity_synopsis_text"),
         rowCellTestId(validationRow.record_id, "timeline.activity_utc_text"),
-        pendingQueueNoticeTestId(),
+        workbookEditRecoveryTestId(),
         workbookEditRecoveryRetryButtonTestId(),
         workbookEditRecoveryDiscardButtonTestId(),
         saveStateTestId(),
@@ -2131,6 +2401,9 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       await discardButton.press("Space");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expect(recoveryPanel).toHaveCount(0);
+      await expect(
+        page.getByTestId(workbookActiveSurfaceFocusTargetTestId()),
+      ).toBeFocused();
       expect(recoveryController.calls).toHaveLength(1);
     } finally {
       await recoveryController.dispose();
@@ -2628,14 +2901,16 @@ test.describe("browser.collaboration accessibility readiness", () => {
           socketMonitor: primarySocket,
         });
 
+        const localConflictValue = `a11y_collaboration_local_${"L".repeat(96)}`;
+        const savedConflictValue = `a11y_collaboration_saved_${"S".repeat(96)}`;
         await driveRealTimelineSummaryConflict({
           baseRowVersion: 1,
-          localValue: "a11y.collaboration local draft",
+          localValue: localConflictValue,
           page,
           patchController,
           recordId,
           remotePatchPage: remotePage,
-          remoteValue: "a11y.collaboration saved value",
+          remoteValue: savedConflictValue,
           txnPrefix: "fea11yp7-conflict",
         });
         const resolver = page.getByTestId(workbookConflictResolverTestId());
@@ -2651,10 +2926,10 @@ test.describe("browser.collaboration accessibility readiness", () => {
         );
         await expect(
           page.getByTestId(workbookConflictSavedValueTestId()),
-        ).toHaveValue("a11y.collaboration saved value");
+        ).toHaveValue(savedConflictValue);
         await expect(
           page.getByTestId(workbookConflictLocalValueTestId()),
-        ).toHaveValue("a11y.collaboration local draft");
+        ).toHaveValue(localConflictValue);
         await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
         await expect(
           page.getByRole("button", { name: "Discard local draft" }),
@@ -2665,6 +2940,49 @@ test.describe("browser.collaboration accessibility readiness", () => {
         await expect(
           page.getByRole("button", { name: "Use merged value" }),
         ).toBeVisible();
+
+        for (const viewport of [
+          { width: 1440, height: 900 },
+          { width: 1024, height: 720 },
+          { width: 768, height: 640 },
+        ]) {
+          await page.setViewportSize(viewport);
+          await expectResolverSurfaceGeometry(page);
+        }
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = "200%";
+        });
+        await expectResolverSurfaceGeometry(page, {
+          enforceDocumentBlockExtent: false,
+        });
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = "100%";
+        });
+        await page.setViewportSize({ width: 768, height: 640 });
+        await page.evaluate(() => {
+          const style = document.createElement("style");
+          style.id = "workbook-resolver-text-spacing";
+          style.textContent = `
+            #root * {
+              letter-spacing: 0.12em !important;
+              line-height: 1.5 !important;
+              word-spacing: 0.16em !important;
+            }
+            #root p {
+              margin-bottom: 2em !important;
+            }
+          `;
+          document.head.append(style);
+        });
+        await expectResolverSurfaceGeometry(page);
+        await page.evaluate(() => {
+          document.getElementById("workbook-resolver-text-spacing")?.remove();
+        });
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await resolver.evaluate((element) => {
+          element.scrollTop = 0;
+        });
 
         await summary.press("Enter");
         await expect(resolver).toBeVisible();

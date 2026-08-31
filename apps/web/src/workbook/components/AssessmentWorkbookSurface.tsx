@@ -88,7 +88,10 @@ import {
 } from "./WorkbookInspectorFeatureGroups";
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
-import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
+import {
+  type WorkbookConflictActivation,
+  WorkbookSurfaceStatusStrip,
+} from "./WorkbookStatusStrip";
 import { WorkbookViewBar } from "./WorkbookViewBar";
 
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
@@ -107,6 +110,7 @@ export type AssessmentWorkbookSurfaceProps = {
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   mutationCommands: AssessmentMutationCommandPort;
+  onActivateConflict?: WorkbookConflictActivation | undefined;
   recordMutationCommands: RecordRouteCommandPort;
   relatedMutationCommands: TimelineRelatedRecordPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
@@ -131,6 +135,7 @@ export function AssessmentWorkbookSurface({
   loadState,
   mutationRuntime,
   mutationCommands,
+  onActivateConflict,
   recordMutationCommands,
   relatedMutationCommands,
   collaborationProjection,
@@ -843,6 +848,7 @@ export function AssessmentWorkbookSurface({
           activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
           mutationError={mutation.secondaryMessage}
           mutationState={mutation.primaryLabel}
+          onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}
           workbookFocusAnchor={assessmentFocus.snapshot.anchor}
         />

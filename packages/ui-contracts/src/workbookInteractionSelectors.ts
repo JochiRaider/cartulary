@@ -159,6 +159,10 @@ export function workbookEditRecoveryDiscardButtonTestId(): string {
   return "workbook-edit-recovery-discard";
 }
 
+export function workbookActiveSurfaceFocusTargetTestId(): string {
+  return "workbook-active-surface-focus-target";
+}
+
 export function rowPresenceMarkerTestId(recordId: string): string {
   return `presence-row-${requireRecordId(recordId)}`;
 }

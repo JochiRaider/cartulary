@@ -51,6 +51,7 @@ export type TimelineWorkbookPresentationRuntime = {
     "hosts" | "identities" | "index"
   >;
   readonly layout: TimelineWorkbookSurfaceRuntime["layout"];
+  readonly onActivateConflict: TimelineWorkbookSurfaceRuntime["onActivateConflict"];
   readonly queryControls: Pick<
     TimelineWorkbookSurfaceRuntime["query"],
     "renderInlineControls" | "savedViewSelector" | "viewBarQueryControls"
@@ -71,6 +72,7 @@ export function useTimelineWorkbookPresentation({
     indicatorWorkflow,
     entities,
     layout,
+    onActivateConflict,
     queryControls,
   } = runtime;
   const {
@@ -130,7 +132,6 @@ export function useTimelineWorkbookPresentation({
   const editorDraftRegistry = foundation.refs.editorDraftRegistry;
   const timelineGridHandleRef = grid.refs.gridHandle;
   const gridShellRef = grid.refs.gridShell;
-  const recoveryPanelRef = grid.refs.recoveryPanel;
   const timelineGridShellWidth = grid.snapshot.gridShellWidth;
   const { workbookFocusAnchor } = grid.snapshot;
   const updateTimelineSurfaceFocusAnchor =
@@ -166,8 +167,6 @@ export function useTimelineWorkbookPresentation({
   } = interaction.snapshot.bulk;
   const { assignTag: assignTagToSelectedRows, changeTagName: setBulkTagName } =
     interaction.commands.bulk;
-  const { activateConflictStatus } = interaction.commands;
-  const { conflictStatusIsActionable } = interaction.snapshot;
   const {
     canManageMentions,
     inspectorMessage,
@@ -353,7 +352,10 @@ export function useTimelineWorkbookPresentation({
   const pendingQueueDisplayMessage =
     timelinePendingQueueMessage(pendingQueueSnapshot);
   const visibleRefreshError =
-    refreshError !== null && refreshError !== pendingQueueDisplayMessage
+    pendingQueueSnapshot.blockedEdit === null &&
+    pendingQueueSnapshot.overflowMessage === null &&
+    refreshError !== null &&
+    refreshError !== pendingQueueDisplayMessage
       ? refreshError
       : null;
   const timelineLoadState: WorkbookQueryLoadState = isInitialLoading
@@ -519,15 +521,12 @@ export function useTimelineWorkbookPresentation({
         onReviewAutoResolution: handleSelectMention,
         onUndoAutoResolution: handleUndoAutoResolutionNotice,
         pendingQueueSnapshot,
-        recoveryPanelRef,
       },
     },
     status: {
       activeSheetPresenceRecords,
       inFlightCount: pendingQueueSnapshot.inFlightCount,
-      onActivateConflict: conflictStatusIsActionable
-        ? activateConflictStatus
-        : undefined,
+      onActivateConflict,
       queuedCount: pendingQueueSnapshot.queuedCount,
       saveState: commonMutationSnapshot.primaryLabel,
       saveStateSecondaryMessage: commonMutationSnapshot.secondaryMessage,

@@ -1,6 +1,7 @@
 import {
   networkAnalysisTestId,
   surfaceTabTestId,
+  workbookActiveSurfaceFocusTargetTestId,
   workbookIncidentIdentityTestId,
   workbookResponsiveBandTestId,
   workbookShellReadyTestId,
@@ -15,6 +16,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -56,8 +58,10 @@ import type { WorkbookActiveSurfacePort } from "./collaboration/workbookSurfaceP
 import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedViewSelector";
 import { IncidentControlsDrawer } from "./components/IncidentControlsDrawer";
 import { SystemViewSwitcher } from "./components/SystemViewSwitcher";
-import { WorkbookConflictResolver } from "./components/WorkbookConflictResolver";
+import { WorkbookEditRecoveryPanel } from "./components/WorkbookEditRecoveryPanel";
 import { WorkbookGridControls } from "./components/WorkbookGridControls";
+import { WorkbookQueueOverflowNotice } from "./components/WorkbookQueueOverflowNotice";
+import { WorkbookSameFieldConflictResolver } from "./components/WorkbookSameFieldConflictResolver";
 import {
   WorkbookShellSlotRegion,
   workbookShellId,
@@ -271,6 +275,88 @@ function WorkbookShellContent({
     [apiBase, incidentId, transactionIds],
   );
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
+  const activeSurfaceFocusTargetRef = useRef<HTMLElement | null>(null);
+  const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
+  const overflowNoticeRef = useRef<HTMLElement | null>(null);
+  const sameFieldSummaryRef = useRef<HTMLDivElement | null>(null);
+  const conflictInvokerRef = useRef<HTMLButtonElement | null>(null);
+  const recoveryFocusOwnedRef = useRef(false);
+  const previousRecoveryTargetKeyRef = useRef<string | null>(null);
+  const recoveryTargetKey =
+    mutationSnapshot.blockedEdit !== null
+      ? `blocked:${mutationSnapshot.blockedEdit.unitId}`
+      : mutationSnapshot.overflowMessage !== null
+        ? "overflow"
+        : null;
+  const onRecoveryFocusWithinChange = useCallback((focused: boolean) => {
+    recoveryFocusOwnedRef.current = focused;
+  }, []);
+  const focusSameFieldSummary = useCallback(() => {
+    sameFieldSummaryRef.current?.focus({ preventScroll: true });
+  }, []);
+  const activateConflictStatus = useCallback(
+    (invoker: HTMLButtonElement) => {
+      conflictInvokerRef.current = invoker;
+      if (mutationSnapshot.blockedEdit !== null) {
+        recoveryFocusOwnedRef.current = true;
+        editRecoveryPanelRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (mutationSnapshot.overflowMessage !== null) {
+        recoveryFocusOwnedRef.current = true;
+        overflowNoticeRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (mutationSnapshot.conflicts.length === 0) return;
+      mutationRuntime.activateConflict();
+      window.requestAnimationFrame(() => {
+        focusSameFieldSummary();
+      });
+    },
+    [focusSameFieldSummary, mutationRuntime, mutationSnapshot],
+  );
+  const conflictStatusActivation =
+    mutationSnapshot.blockedEdit !== null ||
+    mutationSnapshot.overflowMessage !== null ||
+    mutationSnapshot.conflicts.length > 0
+      ? activateConflictStatus
+      : undefined;
+
+  useLayoutEffect(() => {
+    const previousTarget = previousRecoveryTargetKeyRef.current;
+    previousRecoveryTargetKeyRef.current = recoveryTargetKey;
+    if (
+      previousTarget === null ||
+      previousTarget === recoveryTargetKey ||
+      !recoveryFocusOwnedRef.current
+    ) {
+      return;
+    }
+    if (recoveryTargetKey !== null) {
+      const nextTarget =
+        mutationSnapshot.blockedEdit !== null
+          ? editRecoveryPanelRef.current
+          : overflowNoticeRef.current;
+      nextTarget?.focus({ preventScroll: true });
+      return;
+    }
+    recoveryFocusOwnedRef.current = false;
+    if (mutationSnapshot.conflictPanelOpen) {
+      focusSameFieldSummary();
+      return;
+    }
+    const invoker = conflictInvokerRef.current;
+    if (invoker?.isConnected && !invoker.disabled) {
+      invoker.focus({ preventScroll: true });
+      return;
+    }
+    activeSurfaceFocusTargetRef.current?.focus({ preventScroll: true });
+  }, [
+    mutationSnapshot.blockedEdit,
+    mutationSnapshot.conflictPanelOpen,
+    focusSameFieldSummary,
+    recoveryTargetKey,
+  ]);
   const surfaceSelectionVersionRef = useRef(0);
   const incidentPort = useMemo(
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
@@ -1002,16 +1088,24 @@ function WorkbookShellContent({
       </WorkbookShellSlotRegion>
 
       <div style={shellContentRegionStyle}>
-        <div style={shellActiveSurfaceStyle}>
+        <section
+          aria-label="Active workbook surface focus target"
+          data-testid={workbookActiveSurfaceFocusTargetTestId()}
+          ref={activeSurfaceFocusTargetRef}
+          style={shellActiveSurfaceStyle}
+          tabIndex={-1}
+        >
           <div
             aria-hidden={
-              activeExtensionWorkspace === null &&
+              mutationSnapshot.blockedEdit === null &&
+              mutationSnapshot.overflowMessage === null &&
               mutationSnapshot.conflictPanelOpen
                 ? true
                 : undefined
             }
             inert={
-              activeExtensionWorkspace === null &&
+              mutationSnapshot.blockedEdit === null &&
+              mutationSnapshot.overflowMessage === null &&
               mutationSnapshot.conflictPanelOpen
                 ? true
                 : undefined
@@ -1034,6 +1128,7 @@ function WorkbookShellContent({
                 layout={workbookLayout.surface}
                 mutations={{
                   commands: mutationCommands,
+                  onActivateConflict: conflictStatusActivation,
                   pending: pendingMutationPort,
                   runtime: mutationRuntime,
                 }}
@@ -1085,14 +1180,32 @@ function WorkbookShellContent({
               />
             )}
           </div>
-          {activeExtensionWorkspace === null ? (
-            <WorkbookConflictResolver
+          {mutationSnapshot.blockedEdit !== null ? (
+            <WorkbookEditRecoveryPanel
+              blockedEdit={mutationSnapshot.blockedEdit}
+              key={mutationSnapshot.blockedEdit.unitId}
+              onDiscard={() => mutationRuntime.discardBlockedEdit()}
+              onFocusWithinChange={onRecoveryFocusWithinChange}
+              onRetry={() => mutationRuntime.retryBlockedEdit()}
+              ref={editRecoveryPanelRef}
+            />
+          ) : mutationSnapshot.overflowMessage !== null ? (
+            <WorkbookQueueOverflowNotice
+              message={mutationSnapshot.overflowMessage}
+              onFocusWithinChange={onRecoveryFocusWithinChange}
+              ref={overflowNoticeRef}
+            />
+          ) : (
+            <WorkbookSameFieldConflictResolver
               apiBase={apiBase}
+              focusSummary={focusSameFieldSummary}
               mutationRuntime={mutationRuntime}
               onActivateOrigin={selectBaseWorkbookSurface}
+              snapshot={mutationSnapshot}
+              summaryRef={sameFieldSummaryRef}
             />
-          ) : null}
-        </div>
+          )}
+        </section>
 
         {incidentControlsDrawerSection !== null ? (
           <IncidentControlsDrawer

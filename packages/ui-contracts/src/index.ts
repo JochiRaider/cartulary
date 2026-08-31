@@ -241,6 +241,7 @@ export {
   timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookActiveSurfaceFocusTargetTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,

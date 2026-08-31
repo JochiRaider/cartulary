@@ -5,7 +5,7 @@ import {
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties, RefObject } from "react";
+import type { CSSProperties } from "react";
 import type { WorkbookPendingQueueSnapshot } from "../../runtime/workbookPendingReplayRuntime";
 import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 import { actionButtonStyle } from "./TimelineWorkbookStyles";
@@ -13,11 +13,11 @@ import { actionButtonStyle } from "./TimelineWorkbookStyles";
 export function timelinePendingQueueMessage(
   pendingQueueSnapshot: WorkbookPendingQueueSnapshot,
 ): string | null {
-  if (pendingQueueSnapshot.overflowMessage !== null) {
-    return pendingQueueSnapshot.overflowMessage;
-  }
-  if (pendingQueueSnapshot.haltedMessage !== null) {
-    return pendingQueueSnapshot.haltedMessage;
+  if (
+    pendingQueueSnapshot.blockedEdit !== null ||
+    pendingQueueSnapshot.overflowMessage !== null
+  ) {
+    return null;
   }
   if (
     pendingQueueSnapshot.authPaused &&
@@ -41,7 +41,6 @@ export function TimelineWorkbookNotices({
   onReviewAutoResolution,
   onUndoAutoResolution,
   pendingQueueSnapshot,
-  recoveryPanelRef,
 }: {
   readonly autoResolutionNotices: readonly AutoResolutionNotice[];
   readonly entityIndex: Record<string, { label: string }>;
@@ -52,11 +51,7 @@ export function TimelineWorkbookNotices({
   ) => void;
   readonly onUndoAutoResolution: (notice: AutoResolutionNotice) => void;
   readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
-  readonly recoveryPanelRef: RefObject<HTMLDivElement | null>;
 }) {
-  const blockedEdit = pendingQueueSnapshot.blockedEdit;
-  const noticeIsFocusable =
-    blockedEdit !== null || pendingQueueSnapshot.overflowMessage !== null;
   const pendingQueueMessage = timelinePendingQueueMessage(pendingQueueSnapshot);
   const pendingQueueCount =
     pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount;
@@ -121,23 +116,10 @@ export function TimelineWorkbookNotices({
       {pendingQueueMessage !== null ? (
         <div
           data-testid={pendingQueueNoticeTestId()}
-          ref={recoveryPanelRef}
-          role={blockedEdit === null ? "status" : undefined}
-          style={
-            blockedEdit === null
-              ? pendingQueueNoticeCardStyle
-              : pendingQueueRecoveryCardStyle
-          }
-          tabIndex={noticeIsFocusable ? -1 : undefined}
+          role="status"
+          style={pendingQueueNoticeCardStyle}
         >
-          <strong
-            id={
-              blockedEdit === null ? undefined : "pending-queue-recovery-title"
-            }
-            style={pendingQueueTitleStyle}
-          >
-            Queued edits
-          </strong>
+          <strong style={pendingQueueTitleStyle}>Queued edits</strong>
           <span aria-live="polite" style={noticeMessageStyle}>
             {pendingQueueMessage}
           </span>
@@ -230,14 +212,6 @@ const pendingQueueNoticeCardStyle = {
   overflow: "hidden",
   boxShadow: "var(--ct-elevation-popover)",
   pointerEvents: "none",
-} satisfies CSSProperties;
-
-const pendingQueueRecoveryCardStyle = {
-  ...pendingQueueNoticeCardStyle,
-  alignItems: "start",
-  display: "grid",
-  overflow: "visible",
-  pointerEvents: "auto",
 } satisfies CSSProperties;
 
 const pendingQueueTitleStyle = {

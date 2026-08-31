@@ -52,7 +52,7 @@
       "retention": "retain_blocker_and_later_fifo_units",
       "actions": ["retry_with_new_request_id", "discard_blocked_edit"],
       "focus_effect": "no_automatic_move",
-      "live": "assertive_once"
+      "live": "polite"
     },
     {
       "family": "queue_overflow",

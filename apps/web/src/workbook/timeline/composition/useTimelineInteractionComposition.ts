@@ -37,10 +37,6 @@ type TimelineInteractionCompositionInput = {
     readonly clipboardPastePort: ClipboardInput["timelineClipboardPaste"];
     readonly deactivateCollectionInput: (focusKey: string) => void;
     readonly editorDraftRegistry: ClipboardInput["editorDraftRegistry"];
-    readonly pendingQueueSnapshot: {
-      readonly blockedEdit: unknown;
-      readonly overflowMessage: string | null;
-    };
     readonly pendingSavesRefs: ClipboardInput["pendingSavesRefs"];
     readonly recordTiming: KeyboardInput["recordTiming"];
     readonly rows: readonly WorkbookRow[];
@@ -52,9 +48,7 @@ type TimelineInteractionCompositionInput = {
     readonly beginViewportContinuity: ClipboardInput["beginViewportContinuity"];
     readonly clearViewportContinuity: ClipboardInput["clearViewportContinuity"];
     readonly currentTimelineAnchorFor: KeyboardInput["currentTimelineAnchorFor"];
-    readonly focusConflictSummary: () => void;
     readonly focusDraftRow: () => void;
-    readonly focusRecoveryPanel: () => void;
     readonly navigateTimelineFocusAnchor: KeyboardInput["navigateTimelineFocusAnchor"];
     readonly resolveTimelinePasteTargetResolution: ClipboardInput["resolveTimelinePasteTargetResolution"];
     readonly restoreTimelineFocusAnchor: (
@@ -79,11 +73,9 @@ type TimelineInteractionCompositionInput = {
   };
   readonly interactionMode: WorkbookSurfaceLayoutOwner["snapshot"]["interactionMode"];
   readonly mutation: {
-    readonly activateConflict: (key: string) => void;
     readonly applyClipboardResponseRows: ClipboardInput["applyResponseRows"];
     readonly beginSave: ClipboardInput["beginSave"];
     readonly commitScalarGridEdit: MutationCommandOutput["commitScalarGridEdit"];
-    readonly conflictQueue: Record<string, unknown>;
     readonly enqueueSaveWork: FillInput["enqueueSaveWork"];
     readonly finishSave: ClipboardInput["finishSave"];
     readonly loadRows: ClipboardInput["loadRows"];
@@ -271,27 +263,8 @@ export function useTimelineInteractionComposition({
     },
     [collectionKeyboardCommitRef],
   );
-  const conflictStatusIsActionable =
-    foundation.pendingQueueSnapshot.blockedEdit !== null ||
-    foundation.pendingQueueSnapshot.overflowMessage !== null ||
-    Object.keys(mutation.conflictQueue).length > 0;
-  const activateConflictStatus = useCallback(() => {
-    if (
-      foundation.pendingQueueSnapshot.blockedEdit !== null ||
-      foundation.pendingQueueSnapshot.overflowMessage !== null
-    ) {
-      grid.focusRecoveryPanel();
-      return;
-    }
-    const firstConflictKey = Object.keys(mutation.conflictQueue)[0];
-    if (firstConflictKey === undefined) return;
-    mutation.activateConflict(firstConflictKey);
-    grid.focusConflictSummary();
-  }, [foundation.pendingQueueSnapshot, grid, mutation]);
-
   return {
     commands: {
-      activateConflictStatus,
       bulk: bulk.commands,
       editor: {
         activateConflictCell: mutation.setActiveConflictKey,
@@ -316,7 +289,6 @@ export function useTimelineInteractionComposition({
     ports: {},
     snapshot: {
       bulk: bulk.snapshot,
-      conflictStatusIsActionable,
       editor: {
         activeCollectionInputKey: foundation.activeCollectionInputKey,
       },

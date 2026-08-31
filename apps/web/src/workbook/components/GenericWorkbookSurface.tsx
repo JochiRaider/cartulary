@@ -116,7 +116,10 @@ import {
   WorkbookInspectorPanelSection,
 } from "./WorkbookInspectorFeatureGroups";
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
-import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
+import {
+  type WorkbookConflictActivation,
+  WorkbookSurfaceStatusStrip,
+} from "./WorkbookStatusStrip";
 import { WorkbookViewBar } from "./WorkbookViewBar";
 
 export type ContractWorkbookSurfaceProps = {
@@ -132,6 +135,7 @@ export type ContractWorkbookSurfaceProps = {
   readonly loadState: WorkbookQueryLoadState;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly mutationCommands: WorkbookMutationCommandPorts;
+  readonly onActivateConflict?: WorkbookConflictActivation | undefined;
   readonly referenceQueryBroker: ReferenceQueryBrokerPort;
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly sheetRef: SheetRef;
@@ -156,6 +160,7 @@ export function ContractWorkbookSurface({
   loadState,
   mutationRuntime,
   mutationCommands,
+  onActivateConflict,
   referenceQueryBroker,
   collaborationProjection,
   sheetRef: _sheetRef,
@@ -1404,6 +1409,7 @@ export function ContractWorkbookSurface({
           activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
           mutationError={mutationError ?? sharedMutation.secondaryMessage}
           mutationState={presentedMutationState}
+          onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}
           workbookFocusAnchor={genericFocus.snapshot.anchor}
         />

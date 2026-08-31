@@ -1321,7 +1321,7 @@ Design contract. Error presentation MUST be selected from a typed error code or 
 | --- | --- | --- | --- | --- | --- |
 | `local_validation` | Affected editor or cell. | Retain committed value and exact local draft. | Correct value; cancel draft. | No automatic move. | Assertive. |
 | `same_field_conflict` | Cell marker and same-surface resolver. | Retain saved and unsaved values. | Owner-declared resolution actions. | Move only after activation; return to cell after resolution or close. | Assertive. |
-| `client_txn_conflict` | Same-surface non-modal recovery panel. | Retain blocker and later FIFO units. | `Retry with a new request ID`; `Discard blocked edit`. | No automatic move. | One assertive announcement. |
+| `client_txn_conflict` | Same-surface non-modal recovery panel. | Retain blocker and later FIFO units. | `Retry with a new request ID`; `Discard blocked edit`. | No automatic move. | One polite announcement. |
 | `queue_overflow` | Status secondary and same-surface overflow notice. | Retain 64 units and refuse the 65th. | Enter recovery. | No automatic move. | Assertive. |
 | `stale_refresh` | Non-blocking grid and status. | Retain previously authorized materialization. | `Retry`. | Preserve selection and focus. | Assertive. |
 | `initial_load_failure` | Blocking grid state. | Retain no fabricated rows. | `Retry` after failure. | Do not focus the action automatically. | Assertive. |

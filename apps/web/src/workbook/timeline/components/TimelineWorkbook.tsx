@@ -25,6 +25,7 @@ function TimelineWorkbookContent({
       },
       indicatorWorkflow: runtime.indicatorWorkflow,
       layout: runtime.layout,
+      onActivateConflict: runtime.onActivateConflict,
       queryControls: {
         renderInlineControls: runtime.query.renderInlineControls,
         savedViewSelector: runtime.query.savedViewSelector,

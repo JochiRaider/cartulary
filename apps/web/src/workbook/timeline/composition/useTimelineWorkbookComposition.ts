@@ -170,7 +170,6 @@ export function useTimelineWorkbookComposition({
       deactivateCollectionInput:
         foundation.commands.editor.deactivateCollectionInput,
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
-      pendingQueueSnapshot: foundation.snapshot.pendingQueue,
       pendingSavesRefs: foundation.refs.pendingSaves,
       recordTiming: foundation.commands.recordTiming,
       rows: foundation.snapshot.rows,
@@ -184,9 +183,7 @@ export function useTimelineWorkbookComposition({
       clearViewportContinuity:
         grid.commands.viewportContinuity.clearViewportContinuity,
       currentTimelineAnchorFor: grid.commands.anchors.currentTimelineAnchorFor,
-      focusConflictSummary: grid.commands.focusConflictSummary,
       focusDraftRow: grid.commands.focusDraftRow,
-      focusRecoveryPanel: grid.commands.focusRecoveryPanel,
       navigateTimelineFocusAnchor:
         grid.commands.anchors.navigateTimelineFocusAnchor,
       resolveTimelinePasteTargetResolution:
@@ -208,12 +205,10 @@ export function useTimelineWorkbookComposition({
     },
     interactionMode: runtime.layout.snapshot.interactionMode,
     mutation: {
-      activateConflict: mutation.commands.save.activateConflict,
       applyClipboardResponseRows:
         mutation.commands.save.applyClipboardResponseRows,
       beginSave: mutation.commands.save.beginSave,
       commitScalarGridEdit: mutation.commands.mutation.commitScalarGridEdit,
-      conflictQueue: mutation.snapshot.conflict.conflictQueue,
       enqueueSaveWork: mutation.commands.save.enqueueSaveWork,
       finishSave: mutation.commands.save.finishSave,
       loadRows: mutation.commands.query.loadRows,
@@ -267,7 +262,6 @@ export function useTimelineWorkbookComposition({
       refs: {
         gridHandle: grid.refs.gridHandle,
         gridShell: grid.refs.gridShell,
-        recoveryPanel: grid.refs.recoveryPanel,
       },
       snapshot: {
         gridShellWidth: grid.snapshot.gridShellWidth,

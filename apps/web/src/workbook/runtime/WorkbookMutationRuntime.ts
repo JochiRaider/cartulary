@@ -7,8 +7,10 @@ import {
 } from "../mutations/workbookConflictResolutionAdapter";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import { workbookEditRecoveryPresentation } from "../utils/workbookEditRecoveryPresentation";
 import type {
   PendingQueueSnapshot,
+  PendingReplayRecoveryRefusal,
   PendingReplayScope,
   PendingReplayUnitState,
 } from "../utils/workbookPendingQueue";
@@ -49,7 +51,7 @@ export type WorkbookQueuedPatchRequest = {
 export type WorkbookMutationSnapshot = {
   readonly authPaused: boolean;
   readonly blockedEdit: {
-    readonly canRetryWithNewClientTxnId: boolean;
+    readonly kind: "client_txn_conflict" | "terminal_replay_failure";
     readonly message: string;
     readonly unitId: string;
   } | null;
@@ -61,6 +63,16 @@ export type WorkbookMutationSnapshot = {
   readonly secondaryMessage: string | null;
   readonly secondaryCandidates: readonly WorkbookStatusSecondaryCandidate[];
 };
+
+export type WorkbookEditRecoveryActionResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly reason:
+        | PendingReplayRecoveryRefusal
+        | "origin_refused"
+        | "secure_id_unavailable";
+    };
 
 export type WorkbookSurfaceSaveStateProjection = {
   readonly primaryLabel: "Conflict" | "Saved" | "Syncing";
@@ -200,12 +212,16 @@ export class WorkbookMutationRuntime {
       blockedEdit:
         queue.halted === null
           ? null
-          : {
-              canRetryWithNewClientTxnId:
-                queue.halted.error_code === "client_txn_conflict",
-              message: queue.halted.message,
-              unitId: queue.halted.unit_id,
-            },
+          : (() => {
+              const presentation = workbookEditRecoveryPresentation({
+                errorCode: queue.halted.error_code,
+              });
+              return {
+                kind: presentation.kind,
+                message: presentation.message,
+                unitId: queue.halted.unit_id,
+              };
+            })(),
       conflictPanelOpen:
         this.conflictsByKey.size > 0 && !this.conflictPanelDismissed,
       conflicts: Array.from(this.conflictsByKey.values()),
@@ -551,31 +567,31 @@ export class WorkbookMutationRuntime {
     if (restore !== undefined) queueMicrotask(() => restore(conflict));
   }
 
-  retryBlockedEdit(): string | null {
+  async retryBlockedEdit(): Promise<WorkbookEditRecoveryActionResult> {
     const halted = this.pendingRuntime.model.snapshot().halted;
-    if (halted === null) return "There is no blocked edit to retry.";
+    if (halted === null) return { ok: false, reason: "not_halted" };
     let transactionId: string;
     try {
       transactionId = this.transactionIds.create("workbook-recovery");
     } catch {
-      return "A secure replacement transaction ID could not be created.";
+      return { ok: false, reason: "secure_id_unavailable" };
     }
     const result = this.pendingRuntime.model.retryHaltedWithNewClientTxnId(
       halted.unit_id,
       transactionId,
     );
     if (!result.recovered) {
-      return `The blocked edit could not be retried (${result.reason}).`;
+      return { ok: false, reason: result.reason };
     }
     this.emit();
     this.requestDrain();
-    return null;
+    return { ok: true };
   }
 
-  async discardBlockedEdit(): Promise<string | null> {
+  async discardBlockedEdit(): Promise<WorkbookEditRecoveryActionResult> {
     const queue = this.pendingRuntime.model.snapshot();
     const halted = queue.halted;
-    if (halted === null) return "There is no blocked edit to discard.";
+    if (halted === null) return { ok: false, reason: "not_halted" };
     const haltedUnit = queue.units.find((unit) => unit.id === halted.unit_id);
     const surfaceDiscard =
       haltedUnit === undefined
@@ -583,15 +599,15 @@ export class WorkbookMutationRuntime {
         : this.blockedEditDiscardBySurface.get(haltedUnit.viewSchemaId);
     if (surfaceDiscard !== undefined) {
       if (!(await surfaceDiscard(halted.unit_id))) {
-        return "The blocked edit could not be discarded by its originating surface.";
+        return { ok: false, reason: "origin_refused" };
       }
       this.emit();
       this.requestDrain();
-      return null;
+      return { ok: true };
     }
     const result = this.pendingRuntime.model.discardHaltedUnit(halted.unit_id);
     if (!result.recovered) {
-      return `The blocked edit could not be discarded (${result.reason}).`;
+      return { ok: false, reason: result.reason };
     }
     const meta = this.managedPatchByUnitId.get(result.unit.id);
     this.managedPatchByUnitId.delete(result.unit.id);
@@ -599,7 +615,7 @@ export class WorkbookMutationRuntime {
     this.emit();
     if (meta !== undefined) await this.refreshSurface(meta.viewSchemaId);
     this.requestDrain();
-    return null;
+    return { ok: true };
   }
 
   async resolveConflict({
