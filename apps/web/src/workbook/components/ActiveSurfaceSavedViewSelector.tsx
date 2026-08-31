@@ -72,6 +72,7 @@ export function ActiveSurfaceSavedViewSelector({
     },
   ) => Promise<SavedViewResource>;
 }) {
+  const condensedControls = chromeMode !== "base";
   const compactControls =
     chromeMode === "compact_desktop" ||
     chromeMode === "below_supported_minimum";
@@ -111,6 +112,8 @@ export function ActiveSurfaceSavedViewSelector({
     activeSavedViews.find(
       (savedView) => savedView.saved_view_id === selectedSavedViewId,
     ) ?? null;
+  const selectedSavedViewName =
+    selectedSavedView?.display_name ?? "Unsaved view";
   const selectedSavedViewMutable = canMutateSavedView(
     selectedSavedView,
     currentUserId,
@@ -144,9 +147,25 @@ export function ActiveSurfaceSavedViewSelector({
   };
 
   return (
-    <div style={savedViewControlGroupStyle}>
-      <label style={savedViewSelectorFrameStyle}>
-        {compactControls ? null : (
+    <div
+      style={{
+        ...savedViewControlGroupStyle,
+        ...(condensedControls ? condensedSavedViewControlGroupStyle : null),
+        ...(!condensedControls && selectedSavedView !== null
+          ? selectedBaseSavedViewControlGroupStyle
+          : null),
+        ...(compactControls ? compactSavedViewControlGroupStyle : null),
+      }}
+    >
+      <label
+        style={{
+          ...savedViewSelectorFrameStyle,
+          ...(condensedControls || selectedSavedView !== null
+            ? condensedSavedViewSelectorFrameStyle
+            : null),
+        }}
+      >
+        {condensedControls ? null : (
           <span style={savedViewSelectorLabelStyle}>View:</span>
         )}
         <select
@@ -159,8 +178,12 @@ export function ActiveSurfaceSavedViewSelector({
           data-testid={savedViewSelectorTestId(activeViewSchemaId)}
           style={{
             ...savedViewSelectStyle,
-            ...(compactControls ? compactSavedViewSelectStyle : null),
+            ...(condensedControls ? compactSavedViewSelectStyle : null),
+            ...(!condensedControls && selectedSavedView !== null
+              ? allocatedBaseSavedViewSelectStyle
+              : null),
           }}
+          title={selectedSavedViewName}
           value={selectedSavedViewId}
           onChange={(event) => {
             const nextSavedViewId = event.currentTarget.value;
@@ -198,7 +221,14 @@ export function ActiveSurfaceSavedViewSelector({
       {selectedSavedView !== null && isModified ? (
         <span
           data-testid={savedViewModifiedTestId(activeViewSchemaId)}
-          style={modifiedBadgeStyle}
+          style={{
+            ...modifiedBadgeStyle,
+            ...(condensedControls || selectedSavedView !== null
+              ? condensedModifiedBadgeStyle
+              : null),
+            ...(compactControls ? compactModifiedBadgeStyle : null),
+          }}
+          title="Saved view modified"
         >
           Modified
         </span>
@@ -441,7 +471,14 @@ export function ActiveSurfaceSavedViewSelector({
       <span
         aria-live="polite"
         data-testid={savedViewStatusTestId(activeViewSchemaId)}
-        style={savedViewStatusStyle}
+        style={{
+          ...savedViewStatusStyle,
+          ...(condensedControls || selectedSavedView !== null
+            ? condensedSavedViewStatusStyle
+            : null),
+          ...(status === "" ? emptySavedViewStatusStyle : null),
+        }}
+        title={status || undefined}
       >
         {status}
       </span>
@@ -490,12 +527,34 @@ const savedViewControlGroupStyle = {
   overflow: "visible",
 };
 
+const condensedSavedViewControlGroupStyle = {
+  flex: "1 1 auto",
+  inlineSize: "100%",
+  maxInlineSize: "100%",
+};
+
+const selectedBaseSavedViewControlGroupStyle = {
+  flex: "0 1 clamp(10rem, 20vw, 18rem)",
+  inlineSize: "clamp(10rem, 20vw, 18rem)",
+  maxInlineSize: "clamp(10rem, 20vw, 18rem)",
+};
+
 const savedViewSelectorFrameStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.4rem",
   flex: "0 1 auto",
   minWidth: 0,
+};
+
+const condensedSavedViewSelectorFrameStyle = {
+  flex: "1 1 6.5rem",
+  minInlineSize: "6.5rem",
+  maxInlineSize: "100%",
+};
+
+const compactSavedViewControlGroupStyle = {
+  gap: "0.15rem",
 };
 
 const savedViewSelectorLabelStyle = {
@@ -525,10 +584,16 @@ const savedViewSelectStyle = {
   minInlineSize: "10rem",
 };
 
-const compactSavedViewSelectStyle = {
-  inlineSize: "8rem",
+const allocatedBaseSavedViewSelectStyle = {
+  inlineSize: "100%",
   minInlineSize: "6.5rem",
-  maxInlineSize: "8rem",
+  maxInlineSize: "100%",
+};
+
+const compactSavedViewSelectStyle = {
+  inlineSize: "100%",
+  minInlineSize: "6.5rem",
+  maxInlineSize: "6.5rem",
 };
 
 const modifiedBadgeStyle = {
@@ -540,6 +605,17 @@ const modifiedBadgeStyle = {
   fontWeight: 700,
   padding: "0.25rem 0.4rem",
   whiteSpace: "nowrap" as const,
+};
+
+const condensedModifiedBadgeStyle = {
+  maxInlineSize: "3rem",
+  minInlineSize: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+};
+
+const compactModifiedBadgeStyle = {
+  maxInlineSize: "1.75rem",
 };
 
 const actionMenuFrameStyle = {
@@ -609,4 +685,16 @@ const savedViewStatusStyle = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
+};
+
+const condensedSavedViewStatusStyle = {
+  contain: "inline-size",
+  flex: "1 1 0",
+  inlineSize: 0,
+  minInlineSize: 0,
+};
+
+const emptySavedViewStatusStyle = {
+  flex: "0 0 0",
+  maxInlineSize: 0,
 };

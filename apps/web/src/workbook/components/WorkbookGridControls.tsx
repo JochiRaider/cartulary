@@ -148,6 +148,12 @@ export function WorkbookGridControls({
   const filterPopoverTriggerRef = useRef<HTMLButtonElement>(null);
   const inputMode = filterInputMode(draft.fieldKey);
   const activeSort = queryState.sort[0] ?? null;
+  const activeSortLabel =
+    activeSort === null ? null : sortLabel(contract, activeSort.fieldKey);
+  const activeGroupLabel =
+    queryState.groupBy === null
+      ? "None"
+      : (contract.fieldMap[queryState.groupBy]?.label ?? queryState.groupBy);
   const hiddenFieldKeys = useMemo(
     () => new Set(layoutState.hiddenFieldKeys),
     [layoutState.hiddenFieldKeys],
@@ -242,6 +248,10 @@ export function WorkbookGridControls({
       data-testid={workbookViewBarQueryControlsTestId(surface)}
       style={{
         ...queryControlsStyle,
+        ...(chromeMode === "base" && hiddenQueryChips.length > 0
+          ? constrainedBaseQueryControlsStyle
+          : null),
+        ...(chromeMode === "base" ? null : condensedQueryControlsStyle),
         ...(visibleChipCapacity === 0 ? compactQueryControlsStyle : null),
       }}
       onKeyDown={(event) => {
@@ -268,8 +278,18 @@ export function WorkbookGridControls({
         }
       }}
     >
-      <div style={menuFrameStyle}>
+      <div
+        style={{
+          ...sortMenuFrameStyle,
+          ...(chromeMode !== "base" || hiddenQueryChips.length > 0
+            ? constrainedSortMenuFrameStyle
+            : null),
+        }}
+      >
         <button
+          aria-label={
+            activeSortLabel === null ? "Sort" : `Sort: ${activeSortLabel}`
+          }
           aria-controls={
             isSortMenuOpen ? workbookSortMenuTestId(surface) : undefined
           }
@@ -277,7 +297,8 @@ export function WorkbookGridControls({
           aria-haspopup="menu"
           data-testid={workbookSortMenuTriggerTestId(surface)}
           ref={sortMenuTriggerRef}
-          style={controlButtonStyle}
+          style={sortControlButtonStyle}
+          title={activeSortLabel === null ? "Sort" : `Sort: ${activeSortLabel}`}
           type="button"
           onClick={() => {
             setIsSortMenuOpen((current) => !current);
@@ -289,8 +310,12 @@ export function WorkbookGridControls({
             focusFirstMenuItem(workbookSortMenuTestId(surface));
           }}
         >
-          Sort
-          {activeSort ? `: ${sortLabel(contract, activeSort.fieldKey)}` : ""}
+          <span style={immutableControlLabelStyle}>Sort</span>
+          {activeSortLabel === null ? null : (
+            <span aria-hidden="true" style={dynamicControlValueStyle}>
+              : {activeSortLabel}
+            </span>
+          )}
         </button>
         {isSortMenuOpen ? (
           <div
@@ -344,12 +369,27 @@ export function WorkbookGridControls({
         ) : null}
       </div>
 
-      <label style={inlineLabelStyle}>
-        Group:
+      <label
+        style={{
+          ...groupControlStyle,
+          ...(chromeMode !== "base" || hiddenQueryChips.length > 0
+            ? constrainedGroupControlStyle
+            : null),
+          ...(chromeMode === "base" ? null : condensedGroupControlStyle),
+          ...(visibleChipCapacity === 0 ? compactGroupControlStyle : null),
+        }}
+      >
+        <span style={immutableControlLabelStyle}>Group:</span>
         <select
           aria-label="Group rows"
           data-testid={gridGroupingSelectTestId(surface)}
-          style={groupSelectStyle}
+          style={{
+            ...groupSelectStyle,
+            ...(chromeMode !== "base" || hiddenQueryChips.length > 0
+              ? constrainedGroupSelectStyle
+              : null),
+          }}
+          title={activeGroupLabel}
           value={queryState.groupBy ?? ""}
           onChange={(event) => {
             onGroupByChange(
@@ -366,11 +406,11 @@ export function WorkbookGridControls({
         </select>
       </label>
 
-      <div style={menuFrameStyle}>
+      <div style={fixedMenuFrameStyle}>
         <button
           aria-label={
             hiddenQueryChips.length > 0
-              ? `Filters, ${queryState.filters.length} active filters, ${hiddenQueryChips.length} active query chips hidden`
+              ? `Filters, ${hiddenQueryChips.length} hidden`
               : `Filters, ${queryState.filters.length} active filters`
           }
           aria-controls={
@@ -533,7 +573,7 @@ export function WorkbookGridControls({
         ) : null}
       </div>
 
-      <div style={menuFrameStyle}>
+      <div style={fixedMenuFrameStyle}>
         <button
           aria-expanded={isColumnsMenuOpen}
           aria-haspopup="menu"
@@ -622,12 +662,16 @@ export function WorkbookGridControls({
         aria-label="Active query chips"
         hidden={visibleChipCapacity === 0}
         role="toolbar"
-        style={chipRailStyle}
+        style={{
+          ...chipRailStyle,
+          ...(chromeMode === "base" ? null : condensedChipRailStyle),
+        }}
       >
         <span style={visuallyHiddenStyle}>Active query chips</span>
         {visibleQueryChips.map((chip) => (
           <button
             key={chip.key}
+            aria-label={chip.label}
             data-testid={chip.testId}
             style={chipButtonStyle}
             title={chip.label}
@@ -637,7 +681,9 @@ export function WorkbookGridControls({
             <span style={chipLabelStyle}>{chip.label}</span>
           </button>
         ))}
-        {hasActiveQuery && activeQueryChipCount > 1 ? (
+        {hasActiveQuery &&
+        activeQueryChipCount > 1 &&
+        hiddenQueryChips.length === 0 ? (
           <button
             style={clearButtonStyle}
             type="button"
@@ -684,7 +730,7 @@ const queryControlsStyle = {
     "max-content max-content minmax(0, max-content) max-content minmax(5.5rem, 1fr)",
   alignItems: "center",
   gap: "0.35rem",
-  inlineSize: "auto",
+  inlineSize: "100%",
   maxInlineSize: "100%",
   boxSizing: "border-box" as const,
   border: 0,
@@ -696,15 +742,38 @@ const queryControlsStyle = {
   overflow: "visible",
 };
 
+const constrainedBaseQueryControlsStyle = {
+  gridTemplateColumns: "5.5rem 8rem max-content max-content minmax(0, 1fr)",
+};
+
+const condensedQueryControlsStyle = {
+  columnGap: "0.25rem",
+  gridTemplateColumns: "3.75rem 5.75rem max-content max-content minmax(0, 1fr)",
+};
+
 const compactQueryControlsStyle = {
-  gridTemplateColumns:
-    "max-content minmax(0, max-content) max-content max-content 0",
+  columnGap: "0.05rem",
+  gridTemplateColumns: "3.75rem 4.5rem max-content max-content 0",
 };
 
 const menuFrameStyle = {
   position: "relative" as const,
   display: "inline-flex",
+};
+
+const sortMenuFrameStyle = {
+  ...menuFrameStyle,
+  maxInlineSize: "8rem",
+};
+
+const constrainedSortMenuFrameStyle = {
+  minInlineSize: "3.75rem",
+};
+
+const fixedMenuFrameStyle = {
+  ...menuFrameStyle,
   flex: "0 0 auto",
+  minInlineSize: "max-content",
 };
 
 const columnMenuRowStyle = {
@@ -726,6 +795,27 @@ const controlButtonStyle = {
   font: "inherit",
   cursor: "pointer",
   minBlockSize: "1.8rem",
+  whiteSpace: "nowrap" as const,
+};
+
+const sortControlButtonStyle = {
+  ...controlButtonStyle,
+  inlineSize: "100%",
+  maxInlineSize: "100%",
+  minInlineSize: 0,
+  overflow: "hidden",
+};
+
+const immutableControlLabelStyle = {
+  flex: "0 0 auto",
+  whiteSpace: "nowrap" as const,
+};
+
+const dynamicControlValueStyle = {
+  display: "block",
+  minInlineSize: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
 };
 
@@ -752,7 +842,13 @@ const groupSelectStyle = {
   maxInlineSize: "7rem",
 };
 
-const inlineLabelStyle = {
+const constrainedGroupSelectStyle = {
+  inlineSize: "100%",
+  minInlineSize: 0,
+  maxInlineSize: "100%",
+};
+
+const groupControlStyle = {
   display: "inline-flex",
   gap: "0.25rem",
   alignItems: "center",
@@ -760,6 +856,20 @@ const inlineLabelStyle = {
   fontSize: "0.78rem",
   whiteSpace: "nowrap" as const,
   minWidth: 0,
+};
+
+const constrainedGroupControlStyle = {
+  display: "grid",
+  gridTemplateColumns: "max-content minmax(0, 1fr)",
+  minInlineSize: 0,
+};
+
+const condensedGroupControlStyle = {
+  maxInlineSize: "5.75rem",
+};
+
+const compactGroupControlStyle = {
+  maxInlineSize: "4.5rem",
 };
 
 const stackedLabelStyle = {
@@ -795,6 +905,7 @@ const menuItemStyle = {
   font: "inherit",
   padding: "0.45rem 0.5rem",
   textAlign: "left" as const,
+  overflowWrap: "anywhere" as const,
 };
 
 const menuItemSelectedStyle = {
@@ -825,9 +936,9 @@ const queryListStyle = {
 
 const queryListButtonStyle = {
   ...menuItemStyle,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
+  maxInlineSize: "100%",
+  whiteSpace: "normal" as const,
+  overflowWrap: "anywhere" as const,
 } satisfies CSSProperties;
 
 const popoverActionsStyle = {
@@ -861,8 +972,11 @@ const chipRailStyle = {
   minWidth: 0,
   minInlineSize: 0,
   flex: "1 1 auto",
-  overflowX: "hidden" as const,
-  overflowY: "hidden" as const,
+  overflow: "visible",
+};
+
+const condensedChipRailStyle = {
+  gap: "0.2rem",
 };
 
 const chipButtonStyle = {
@@ -870,7 +984,7 @@ const chipButtonStyle = {
   background: "var(--ct-colors-surface-3)",
   justifyContent: "flex-start",
   flex: "1 1 0",
-  minInlineSize: 0,
+  minInlineSize: "1.8rem",
   maxInlineSize: "7rem",
   overflow: "hidden",
 };

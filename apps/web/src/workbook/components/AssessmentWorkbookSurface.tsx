@@ -850,6 +850,7 @@ export function AssessmentWorkbookSurface({
       viewBar={
         <WorkbookViewBar
           addRowDisabled={!canCreate}
+          chromeMode={chromeMode}
           queryControls={queryControls}
           savedViewControls={savedViewSelector}
           onAddRow={() => {

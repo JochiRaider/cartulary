@@ -71,6 +71,7 @@ import {
   savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
+  savedViewModifiedTestId,
   savedViewNameInputTestId,
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
@@ -86,6 +87,7 @@ import {
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
+  workbookAddRowButtonTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
@@ -103,6 +105,10 @@ import {
   workbookShellSlotLabel,
   workbookShellSlots,
   workbookShellSlotTestId,
+  workbookSortMenuTestId,
+  workbookSortMenuTriggerTestId,
+  workbookSortOptionTestId,
+  workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import {
   commLogViewSchemaId,
@@ -525,6 +531,169 @@ async function openSavedViewActionMenu(page: Page, viewSchemaId: string) {
     await trigger.click();
   }
   await expect(menu).toBeVisible();
+}
+
+async function expectTextSpacingViewBarResilience(
+  page: Page,
+  options: {
+    readonly capacity: number;
+    readonly height: number;
+    readonly hiddenCount: number;
+    readonly width: number;
+  },
+) {
+  await page.setViewportSize({ height: options.height, width: options.width });
+  const queryControls = page.getByTestId(
+    workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+  );
+  await expect(queryControls).toHaveAttribute(
+    "data-query-chip-capacity",
+    String(options.capacity),
+  );
+  await expect(queryControls).toHaveAttribute(
+    "data-hidden-query-chip-count",
+    String(options.hiddenCount),
+  );
+  const geometry = await page.evaluate(
+    ({
+      actionMenuSelector,
+      addRowSelector,
+      filterSelector,
+      groupingSelector,
+      inspectorSelector,
+      queryControlsSelector,
+      savedViewSelector,
+      sortSelector,
+    }) => {
+      const select = (selector: string) =>
+        document.querySelector<HTMLElement>(selector);
+      const requireElement = (element: HTMLElement | null, label: string) => {
+        if (element === null) throw new Error(`Expected ${label} to exist`);
+        return element;
+      };
+      const controls = requireElement(
+        select(queryControlsSelector),
+        "query controls",
+      );
+      const viewBar = requireElement(
+        controls.closest<HTMLElement>(
+          'section[aria-label="Workbook query and action controls"]',
+        ),
+        "workbook view bar",
+      );
+      const columns = requireElement(
+        Array.from(controls.querySelectorAll<HTMLButtonElement>("button")).find(
+          (button) => button.textContent?.trim() === "Columns",
+        ) ?? null,
+        "Columns button",
+      );
+      const chipButtons = Array.from(
+        controls.querySelectorAll<HTMLButtonElement>(
+          '[role="toolbar"][aria-label="Active query chips"] button[title]',
+        ),
+      ).filter((button) => button.getBoundingClientRect().width > 0);
+      const orderedControls: ReadonlyArray<readonly [string, HTMLElement]> = [
+        ["saved-view", requireElement(select(savedViewSelector), "saved view")],
+        [
+          "saved-view-actions",
+          requireElement(select(actionMenuSelector), "saved view actions"),
+        ],
+        ["sort", requireElement(select(sortSelector), "Sort button")],
+        ["group", requireElement(select(groupingSelector), "Group select")],
+        ["filters", requireElement(select(filterSelector), "Filters button")],
+        ["columns", columns],
+        ...chipButtons.map(
+          (button, index) => [`chip-${index}`, button] as const,
+        ),
+        [
+          "inspector",
+          requireElement(select(inspectorSelector), "Inspector button"),
+        ],
+        ["add-row", requireElement(select(addRowSelector), "Add row button")],
+      ];
+      const viewBarRect = viewBar.getBoundingClientRect();
+      const filter = requireElement(select(filterSelector), "Filters button");
+      return {
+        controls: orderedControls.map(([name, element]) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            clientHeight: element.clientHeight,
+            left: rect.left,
+            name,
+            right: rect.right,
+            scrollHeight: element.scrollHeight,
+          };
+        }),
+        document: {
+          clientHeight: document.documentElement.clientHeight,
+          clientWidth: document.documentElement.clientWidth,
+          scrollHeight: document.documentElement.scrollHeight,
+          scrollWidth: document.documentElement.scrollWidth,
+        },
+        filter: {
+          clientWidth: filter.clientWidth,
+          scrollWidth: filter.scrollWidth,
+        },
+        viewBar: { left: viewBarRect.left, right: viewBarRect.right },
+      };
+    },
+    {
+      actionMenuSelector: dataTestIdSelector(
+        savedViewActionMenuTriggerTestId(timelineViewSchemaId),
+      ),
+      addRowSelector: dataTestIdSelector(
+        workbookAddRowButtonTestId(timelineViewSchemaId),
+      ),
+      filterSelector: dataTestIdSelector(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+      groupingSelector: dataTestIdSelector(
+        gridGroupingSelectTestId(timelineViewSchemaId),
+      ),
+      inspectorSelector: dataTestIdSelector(
+        workbookInspectorToggleTestId(timelineViewSchemaId),
+      ),
+      queryControlsSelector: dataTestIdSelector(
+        workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+      ),
+      savedViewSelector: dataTestIdSelector(
+        savedViewSelectorTestId(timelineViewSchemaId),
+      ),
+      sortSelector: dataTestIdSelector(
+        workbookSortMenuTriggerTestId(timelineViewSchemaId),
+      ),
+    },
+  );
+  expect(geometry.document.scrollWidth).toBeLessThanOrEqual(
+    geometry.document.clientWidth + 1,
+  );
+  expect(geometry.document.scrollHeight).toBeLessThanOrEqual(
+    geometry.document.clientHeight + 1,
+  );
+  expect(geometry.filter.scrollWidth).toBeLessThanOrEqual(
+    geometry.filter.clientWidth + 1,
+  );
+  for (const control of geometry.controls) {
+    expect(
+      control.left,
+      `${control.name} left containment`,
+    ).toBeGreaterThanOrEqual(geometry.viewBar.left - 1);
+    expect(
+      control.right,
+      `${control.name} right containment`,
+    ).toBeLessThanOrEqual(geometry.viewBar.right + 1);
+    expect(
+      control.scrollHeight,
+      `${control.name} block clipping`,
+    ).toBeLessThanOrEqual(control.clientHeight + 1);
+  }
+  geometry.controls.slice(1).forEach((control, index) => {
+    const previous = geometry.controls[index];
+    expect(
+      control.left,
+      `${previous?.name} before ${control.name}`,
+    ).toBeGreaterThanOrEqual((previous?.right ?? 0) - 1);
+  });
 }
 
 async function expectTabTraversalAdvancesFrom(
@@ -2550,6 +2719,10 @@ test.describe("browser.collaboration accessibility readiness", () => {
 test.describe("browser.saved-view-query accessibility readiness", () => {
   test(p8AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    const longSavedViewName =
+      "a11y.saved-view-query workbook layout resilience with a deliberately long selected view name";
+    const longTagToken =
+      "unbroken-tag-token-0123456789-abcdefghijklmnopqrstuvwxyz";
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YSAVEDVIEWQUERY"),
@@ -2562,6 +2735,10 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       {
         client_txn_id: uniqueTxn("a11y.saved-view-query-reviewed"),
         "timeline.activity_synopsis_text": "a11y.saved-view-query reviewed row",
+        "timeline.tags": {
+          actions: [{ op: "add_tag", tag_name: longTagToken }],
+          kind: "collection_actions_v1",
+        },
       },
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
@@ -2628,11 +2805,53 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     );
     await expectVisibleFocus(filterChip);
 
+    const sortMenuTrigger = page.getByTestId(
+      workbookSortMenuTriggerTestId(timelineViewSchemaId),
+    );
+    await expectVisibleFocus(sortMenuTrigger);
+    await sortMenuTrigger.press("Enter");
+    const sortMenu = page.getByTestId(
+      workbookSortMenuTestId(timelineViewSchemaId),
+    );
+    await expect(sortMenu).toBeVisible();
+    for (const fieldKey of [
+      "timeline.activity_sort_ts",
+      "timeline.date_entered_sort_day",
+      "timeline.analyst_text",
+      "timeline.mitre_stage_text",
+      "timeline.device_object_text",
+      "timeline.has_evidence",
+      "timeline.capture_state",
+    ]) {
+      const option = page.getByTestId(
+        workbookSortOptionTestId(timelineViewSchemaId, fieldKey),
+      );
+      await option.click();
+      await expect(option).toHaveAttribute("aria-checked", "true");
+    }
+    await sortMenu.press("Escape");
+    await expect(sortMenu).toHaveCount(0);
+    await expect(sortMenuTrigger).toBeFocused();
+    await expect(sortMenuTrigger).toHaveAttribute(
+      "aria-label",
+      "Sort: Activity Synopsis",
+    );
+    await expect(sortMenuTrigger).toHaveAttribute(
+      "title",
+      "Sort: Activity Synopsis",
+    );
+
+    await openFilterPopover(page, timelineViewSchemaId);
+    await filterField.selectOption("timeline.tags");
+    await filterValue.fill(longTagToken);
+    await filterApply.press("Enter");
+
     const groupingSelect = page.getByTestId(
       gridGroupingSelectTestId(timelineViewSchemaId),
     );
     await expectVisibleFocus(groupingSelect);
     await groupingSelect.selectOption("timeline.capture_state");
+    await expect(groupingSelect).toHaveAttribute("title", "Capture State");
     const reviewedGroup = page.getByTestId(
       gridGroupRowTestId(
         timelineViewSchemaId,
@@ -2661,7 +2880,7 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       savedViewNameInputTestId(timelineViewSchemaId),
     );
     await expectVisibleFocus(savedViewNameInput);
-    await savedViewNameInput.fill("a11y.saved-view-query keyboard saved view");
+    await savedViewNameInput.fill(longSavedViewName);
     const createSavedViewButton = page.getByTestId(
       savedViewCreateButtonTestId(timelineViewSchemaId),
     );
@@ -2676,6 +2895,7 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       "data-selected-sheet-ref-kind",
       "saved_view",
     );
+    await expect(savedViewSelector).toHaveAttribute("title", longSavedViewName);
 
     await openSavedViewActionMenu(page, timelineViewSchemaId);
     const homeButton = page.getByTestId(
@@ -2691,6 +2911,96 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     await expectVisibleFocus(defaultButton);
     await defaultButton.press("Enter");
     await expect(savedViewStatus).toHaveText("Default view updated.");
+    await expect(savedViewStatus).toHaveAttribute(
+      "title",
+      "Default view updated.",
+    );
+
+    await groupingSelect.selectOption("timeline.has_evidence");
+    await expect(
+      page.getByTestId(savedViewModifiedTestId(timelineViewSchemaId)),
+    ).toHaveText("Modified");
+    await expect(
+      page.locator('[data-grid-data-state="refreshing"]'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator(
+        '[data-grid-data-state="stale_error"], [data-grid-data-state="unavailable"]',
+      ),
+    ).toHaveCount(0);
+
+    const queryControls = page.getByTestId(
+      workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+    );
+    await expect(queryControls).toHaveAttribute(
+      "data-hidden-query-chip-count",
+      "3",
+    );
+    const filterTrigger = page.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+    );
+    await expect(filterTrigger).toHaveAttribute(
+      "aria-label",
+      "Filters, 3 hidden",
+    );
+    await expectVisibleFocus(filterTrigger);
+    await filterTrigger.press("Enter");
+    const filterPopover = page.getByTestId(
+      workbookFilterPopoverTestId(timelineViewSchemaId),
+    );
+    await expect(filterPopover).toBeVisible();
+    await expect(filterTrigger).toHaveAttribute(
+      "aria-controls",
+      workbookFilterPopoverTestId(timelineViewSchemaId),
+    );
+    await expect(
+      filterPopover.getByRole("button", {
+        name: new RegExp(longTagToken),
+      }),
+    ).toContainText(longTagToken);
+    await filterPopover.press("Escape");
+    await expect(filterPopover).toHaveCount(0);
+    await expect(filterTrigger).toBeFocused();
+
+    await page.addStyleTag({
+      content: `
+        * {
+          line-height: 1.5 !important;
+          letter-spacing: 0.12em !important;
+          word-spacing: 0.16em !important;
+        }
+        p {
+          margin-block-end: 2em !important;
+        }
+      `,
+    });
+    await expectTextSpacingViewBarResilience(page, {
+      capacity: 8,
+      height: 900,
+      hiddenCount: 3,
+      width: 1440,
+    });
+    await expectTextSpacingViewBarResilience(page, {
+      capacity: 6,
+      height: 720,
+      hiddenCount: 5,
+      width: 1024,
+    });
+    await expectTextSpacingViewBarResilience(page, {
+      capacity: 0,
+      height: 640,
+      hiddenCount: 11,
+      width: 768,
+    });
+    await expectVisibleFocus(
+      page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    );
+    await expectVisibleFocus(
+      page.getByTestId(workbookAddRowButtonTestId(timelineViewSchemaId)),
+    );
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await groupingSelect.selectOption("timeline.capture_state");
+    await expect(reviewedGroup).toBeVisible();
 
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
@@ -2704,7 +3014,7 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       gridFilterFieldTestId(timelineViewSchemaId),
       gridFilterValueTestId(timelineViewSchemaId),
       gridFilterApplyTestId(timelineViewSchemaId),
-      gridFilterChipTestId(timelineViewSchemaId, "timeline.capture_state"),
+      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       gridGroupingSelectTestId(timelineViewSchemaId),
       gridGroupRowTestId(
         timelineViewSchemaId,

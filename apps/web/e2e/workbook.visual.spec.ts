@@ -62,6 +62,7 @@ import {
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
   rowPresenceMarkerTestId,
+  savedViewModifiedTestId,
   savedViewSelectorTestId,
   savedViewStatusTestId,
   saveStateTestId,
@@ -74,6 +75,7 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
+  workbookAddRowButtonTestId,
   workbookConflictControlTestId,
   workbookConflictResolverTestId,
   workbookEditRecoveryDiscardButtonTestId,
@@ -88,7 +90,9 @@ import {
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
+  workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
+  workbookSortOptionTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -153,7 +157,9 @@ import {
 } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 import {
+  createSavedView,
   createSavedViewFromCurrentSurface,
+  selectSavedView,
   setCurrentSavedViewAsDefault,
   setCurrentSavedViewAsHome,
   setSavedViewDraftName,
@@ -710,6 +716,24 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     const rowSummariesById = new Map(
       rows.map((row, index) => [row.record_id, fixtureRows[index] ?? ""]),
     );
+    const longQuerySavedView = await createSavedView(page, incidentId, {
+      display_name:
+        "Workbook view-bar visual resilience with a deliberately long selected saved-view name",
+      query_json: {
+        group_by: "timeline.capture_state",
+        sort: [
+          { direction: "asc", field_key: "timeline.activity_sort_ts" },
+          { direction: "desc", field_key: "timeline.date_entered_sort_day" },
+          { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+          { direction: "desc", field_key: "timeline.analyst_text" },
+          { direction: "asc", field_key: "timeline.mitre_stage_text" },
+          { direction: "desc", field_key: "timeline.device_object_text" },
+          { direction: "asc", field_key: "timeline.ip_address_text" },
+          { direction: "desc", field_key: "timeline.capture_state" },
+        ],
+      },
+      view_schema_id: timelineViewSchemaId,
+    });
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
@@ -1039,6 +1063,28 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       "incident-directory-default-timeline-workbook-shell",
     );
 
+    await selectSavedView(
+      page,
+      timelineViewSchemaId,
+      longQuerySavedView.saved_view_id,
+    );
+    await expect(
+      page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+    ).toHaveValue(longQuerySavedView.saved_view_id);
+    await expect(
+      page.locator('[data-grid-data-state="refreshing"]'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator(
+        '[data-grid-data-state="stale_error"], [data-grid-data-state="unavailable"]',
+      ),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId(
+        workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("data-hidden-query-chip-count", "1");
+
     await page.setViewportSize({ width: 1024, height: 720 });
     await expect(
       page.getByTestId(workbookResponsiveBandTestId()),
@@ -1048,6 +1094,16 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         workbookViewBarQueryControlsTestId(timelineViewSchemaId),
       ),
     ).toHaveAttribute("data-query-chip-capacity", "6");
+    await expect(
+      page.getByTestId(
+        workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("data-hidden-query-chip-count", "3");
+    await expect(
+      page.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("aria-label", "Filters, 3 hidden");
     await assertViewportVisualRegression(
       page,
       "incident-directory-narrow-desktop-workbook-shell",
@@ -1062,6 +1118,16 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
         workbookViewBarQueryControlsTestId(timelineViewSchemaId),
       ),
     ).toHaveAttribute("data-query-chip-capacity", "0");
+    await expect(
+      page.getByTestId(
+        workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("data-hidden-query-chip-count", "9");
+    await expect(
+      page.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("aria-label", "Filters, 9 hidden");
     await expect(
       page
         .getByTestId(workbookShellSlotTestId("status-strip"))
@@ -2459,6 +2525,10 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    const longSavedViewName =
+      "browser.saved-view-query visual layout resilience with a deliberately long selected saved-view name";
+    const longTagToken =
+      "visual-unbroken-tag-0123456789-abcdefghijklmnopqrstuvwxyz";
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("VISUALSAVEDVIEW"),
@@ -2473,6 +2543,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
         "timeline.activity_utc_text": "2026-06-08T12:00:00Z",
         "timeline.activity_synopsis_text":
           "browser.saved-view-query reviewed saved-view visual row",
+        "timeline.tags": tagActionsPayload([longTagToken]),
       },
     );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
@@ -2525,11 +2596,43 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       ),
     ).toBeVisible();
 
-    await setSavedViewDraftName(
-      page,
-      timelineViewSchemaId,
-      "browser.saved-view-query visual saved-view state",
+    const sortTrigger = page.getByTestId(
+      workbookSortMenuTriggerTestId(timelineViewSchemaId),
     );
+    await sortTrigger.click();
+    const sortMenu = page.getByTestId(
+      workbookSortMenuTestId(timelineViewSchemaId),
+    );
+    await expect(sortMenu).toBeVisible();
+    for (const fieldKey of [
+      "timeline.activity_sort_ts",
+      "timeline.date_entered_sort_day",
+      "timeline.activity_synopsis_text",
+      "timeline.analyst_text",
+      "timeline.mitre_stage_text",
+      "timeline.device_object_text",
+      "timeline.ip_address_text",
+      "timeline.capture_state",
+    ]) {
+      const option = page.getByTestId(
+        workbookSortOptionTestId(timelineViewSchemaId, fieldKey),
+      );
+      await option.click();
+      await expect(option).toHaveAttribute("aria-checked", "true");
+    }
+    await sortMenu.press("Escape");
+    await expect(sortMenu).toHaveCount(0);
+    await expect(sortTrigger).toBeFocused();
+    await expect(
+      page.locator('[data-grid-data-state="refreshing"]'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator(
+        '[data-grid-data-state="stale_error"], [data-grid-data-state="unavailable"]',
+      ),
+    ).toHaveCount(0);
+
+    await setSavedViewDraftName(page, timelineViewSchemaId, longSavedViewName);
     await createSavedViewFromCurrentSurface(page, timelineViewSchemaId);
     await expect(
       page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
@@ -2542,6 +2645,46 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     await expect(
       page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
     ).toHaveText("Default view updated.");
+
+    await applyFilterChip(
+      page,
+      timelineViewSchemaId,
+      "timeline.tags",
+      longTagToken,
+    );
+    await expect(
+      page.getByTestId(savedViewModifiedTestId(timelineViewSchemaId)),
+    ).toHaveText("Modified");
+    await expect(
+      page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+    ).toHaveAttribute("title", longSavedViewName);
+    const queryControls = page.getByTestId(
+      workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+    );
+    await expect(queryControls).toHaveAttribute(
+      "data-query-chip-capacity",
+      "8",
+    );
+    await expect(queryControls).toHaveAttribute(
+      "data-hidden-query-chip-count",
+      "3",
+    );
+    await expect(
+      queryControls
+        .getByRole("toolbar", { name: "Active query chips" })
+        .locator("button[title]"),
+    ).toHaveCount(8);
+    await expect(
+      page.getByTestId(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+    ).toHaveAttribute("aria-label", "Filters, 3 hidden");
+    await expect(
+      page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(workbookAddRowButtonTestId(timelineViewSchemaId)),
+    ).toBeVisible();
 
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
@@ -4776,6 +4919,22 @@ async function installFeP6EvidenceAccessVisualStyle(page: Page) {
 }
 
 async function prepareVisualRegressionState(page: Page) {
+  const responsiveBand = page.getByTestId(workbookResponsiveBandTestId());
+  if ((await responsiveBand.count()) > 0) {
+    const viewportWidth = page.viewportSize()?.width ?? 0;
+    const expectedBand =
+      viewportWidth >= 1280
+        ? "base"
+        : viewportWidth >= 1024
+          ? "narrow_desktop"
+          : viewportWidth >= 768
+            ? "compact_desktop"
+            : "below_supported_minimum";
+    await expect(responsiveBand).toHaveAttribute(
+      "data-workbook-responsive-band",
+      expectedBand,
+    );
+  }
   await page.evaluate(() => {
     document.documentElement.dataset.visualSnapshot = "true";
   });

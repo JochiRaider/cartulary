@@ -4,10 +4,12 @@ import {
 } from "@cartulary/ui-contracts";
 import { Plus, SlidersHorizontal } from "lucide-react";
 import type { CSSProperties, ReactNode, Ref } from "react";
+import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 
 type WorkbookViewBarProps = {
   readonly addRowDisabled?: boolean | undefined;
   readonly addRowLabel?: string | undefined;
+  readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly inspectorButtonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onAddRow?: (() => void) | undefined;
   readonly onInspectorToggle?: (() => void) | undefined;
@@ -20,6 +22,7 @@ type WorkbookViewBarProps = {
 export function WorkbookViewBar({
   addRowDisabled = false,
   addRowLabel = "Add row",
+  chromeMode = "base",
   inspectorButtonRef,
   onAddRow,
   onInspectorToggle,
@@ -34,9 +37,37 @@ export function WorkbookViewBar({
       style={viewBarStyle}
     >
       <div style={controlRailStyle}>
-        {savedViewControls}
-        {queryControls}
-        {supplementalControls}
+        {savedViewControls !== undefined && savedViewControls !== null ? (
+          <div
+            style={
+              chromeMode === "base"
+                ? baseAllocationStyle
+                : savedViewAllocationStyle
+            }
+          >
+            {savedViewControls}
+          </div>
+        ) : null}
+        {queryControls !== undefined && queryControls !== null ? (
+          <div
+            style={
+              chromeMode === "base" ? baseAllocationStyle : queryAllocationStyle
+            }
+          >
+            {queryControls}
+          </div>
+        ) : null}
+        {supplementalControls !== undefined && supplementalControls !== null ? (
+          <div
+            style={
+              chromeMode === "base"
+                ? baseAllocationStyle
+                : supplementalAllocationStyle
+            }
+          >
+            {supplementalControls}
+          </div>
+        ) : null}
       </div>
       <div style={rightRailStyle}>
         {onInspectorToggle ? (
@@ -114,7 +145,42 @@ const controlRailStyle = {
   display: "flex",
   alignItems: "center",
   gap: "0.45rem",
+  inlineSize: "100%",
+  maxInlineSize: "100%",
   minWidth: 0,
+  overflow: "visible",
+} satisfies CSSProperties;
+
+const savedViewAllocationStyle = {
+  display: "flex",
+  alignItems: "center",
+  flex: "0 1 clamp(10rem, 20vw, 18rem)",
+  inlineSize: "clamp(10rem, 20vw, 18rem)",
+  maxInlineSize: "clamp(10rem, 20vw, 18rem)",
+  minInlineSize: "min-content",
+  overflow: "visible",
+} satisfies CSSProperties;
+
+const baseAllocationStyle = {
+  display: "contents",
+  overflow: "visible",
+} satisfies CSSProperties;
+
+const queryAllocationStyle = {
+  display: "flex",
+  alignItems: "center",
+  flex: "1 1 0",
+  inlineSize: "100%",
+  maxInlineSize: "100%",
+  minInlineSize: 0,
+  overflow: "visible",
+} satisfies CSSProperties;
+
+const supplementalAllocationStyle = {
+  display: "flex",
+  alignItems: "center",
+  flex: "0 1 auto",
+  minInlineSize: 0,
   overflow: "visible",
 } satisfies CSSProperties;
 
@@ -123,5 +189,6 @@ const rightRailStyle = {
   alignItems: "center",
   justifyContent: "end",
   gap: "0.45rem",
-  minWidth: 0,
+  flex: "0 0 auto",
+  minInlineSize: "max-content",
 } satisfies CSSProperties;

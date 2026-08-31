@@ -20,6 +20,8 @@ import {
   rowCellTestId,
   rowHistoryPanelTestId,
   rowInspectorFieldTestId,
+  savedViewActionMenuTriggerTestId,
+  savedViewSelectorTestId,
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherOptionTestId,
@@ -28,6 +30,7 @@ import {
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
+  workbookAddRowButtonTestId,
   workbookFilterPopoverTriggerTestId,
   workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
@@ -75,6 +78,10 @@ import {
   waitForViewRow,
 } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
+import {
+  createSavedView,
+  selectSavedView,
+} from "./support/workbook/savedViews";
 
 function stringCell(
   row: { readonly cells?: Record<string, { readonly value?: unknown }> },
@@ -313,6 +320,188 @@ async function readWorkbookDocumentLayout(page: Page) {
       shellSelector: dataTestIdSelector(gridShellTestId(timelineViewSchemaId)),
     },
   );
+}
+
+async function readWorkbookViewBarGeometry(page: Page) {
+  return page.evaluate(
+    ({
+      actionMenuSelector,
+      addRowSelector,
+      filterSelector,
+      groupingSelector,
+      inspectorSelector,
+      queryControlsSelector,
+      savedViewSelector,
+      sortSelector,
+    }) => {
+      const select = (selector: string) =>
+        document.querySelector<HTMLElement>(selector);
+      const requireElement = (element: HTMLElement | null, label: string) => {
+        if (element === null) throw new Error(`Expected ${label} to exist`);
+        return element;
+      };
+      const queryControls = requireElement(
+        select(queryControlsSelector),
+        "query controls",
+      );
+      const viewBar = requireElement(
+        queryControls.closest<HTMLElement>(
+          'section[aria-label="Workbook query and action controls"]',
+        ),
+        "workbook view bar",
+      );
+      const columns = requireElement(
+        Array.from(
+          queryControls.querySelectorAll<HTMLButtonElement>("button"),
+        ).find((button) => button.textContent?.trim() === "Columns") ?? null,
+        "Columns button",
+      );
+      const chipButtons = Array.from(
+        queryControls.querySelectorAll<HTMLButtonElement>(
+          '[role="toolbar"][aria-label="Active query chips"] button[title]',
+        ),
+      );
+      const controls: ReadonlyArray<readonly [string, HTMLElement]> = [
+        ["saved-view", requireElement(select(savedViewSelector), "saved view")],
+        [
+          "saved-view-actions",
+          requireElement(select(actionMenuSelector), "saved view actions"),
+        ],
+        ["sort", requireElement(select(sortSelector), "Sort button")],
+        ["group", requireElement(select(groupingSelector), "Group select")],
+        ["filters", requireElement(select(filterSelector), "Filters button")],
+        ["columns", columns],
+        ...chipButtons.map(
+          (button, index) => [`chip-${index}`, button] as const,
+        ),
+        [
+          "inspector",
+          requireElement(select(inspectorSelector), "Inspector button"),
+        ],
+        ["add-row", requireElement(select(addRowSelector), "Add row button")],
+      ];
+      const viewBarRect = viewBar.getBoundingClientRect();
+      const filter = requireElement(select(filterSelector), "Filters button");
+
+      return {
+        capacity: Number(queryControls.dataset.queryChipCapacity ?? "-1"),
+        controls: controls.map(([name, element]) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            bottom: Math.round(rect.bottom * 100) / 100,
+            left: Math.round(rect.left * 100) / 100,
+            name,
+            right: Math.round(rect.right * 100) / 100,
+            top: Math.round(rect.top * 100) / 100,
+            width: Math.round(rect.width * 100) / 100,
+          };
+        }),
+        document: {
+          clientWidth: document.documentElement.clientWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+        },
+        filter: {
+          accessibleName: filter.getAttribute("aria-label"),
+          clientWidth: filter.clientWidth,
+          scrollWidth: filter.scrollWidth,
+          visibleText: filter.innerText.trim(),
+        },
+        hiddenCount: Number(queryControls.dataset.hiddenQueryChipCount ?? "-1"),
+        viewBar: {
+          bottom: Math.round(viewBarRect.bottom * 100) / 100,
+          left: Math.round(viewBarRect.left * 100) / 100,
+          right: Math.round(viewBarRect.right * 100) / 100,
+          top: Math.round(viewBarRect.top * 100) / 100,
+        },
+      };
+    },
+    {
+      actionMenuSelector: dataTestIdSelector(
+        savedViewActionMenuTriggerTestId(timelineViewSchemaId),
+      ),
+      addRowSelector: dataTestIdSelector(
+        workbookAddRowButtonTestId(timelineViewSchemaId),
+      ),
+      filterSelector: dataTestIdSelector(
+        workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      ),
+      groupingSelector: dataTestIdSelector(
+        gridGroupingSelectTestId(timelineViewSchemaId),
+      ),
+      inspectorSelector: dataTestIdSelector(
+        workbookInspectorToggleTestId(timelineViewSchemaId),
+      ),
+      queryControlsSelector: dataTestIdSelector(
+        workbookViewBarQueryControlsTestId(timelineViewSchemaId),
+      ),
+      savedViewSelector: dataTestIdSelector(
+        savedViewSelectorTestId(timelineViewSchemaId),
+      ),
+      sortSelector: dataTestIdSelector(
+        workbookSortMenuTriggerTestId(timelineViewSchemaId),
+      ),
+    },
+  );
+}
+
+async function expectWorkbookViewBarGeometry(
+  page: Page,
+  options: {
+    readonly capacity: number;
+    readonly hiddenCount: number;
+    readonly label: string;
+  },
+) {
+  await expect(
+    page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("data-query-chip-capacity", String(options.capacity));
+  await expect(
+    page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
+  ).toHaveAttribute(
+    "data-hidden-query-chip-count",
+    String(options.hiddenCount),
+  );
+  const geometry = await readWorkbookViewBarGeometry(page);
+  expect(geometry.capacity, `${options.label}: chip capacity`).toBe(
+    options.capacity,
+  );
+  expect(geometry.hiddenCount, `${options.label}: hidden chip count`).toBe(
+    options.hiddenCount,
+  );
+  expect(
+    geometry.filter.scrollWidth,
+    `${options.label}: Filters content clipping`,
+  ).toBeLessThanOrEqual(geometry.filter.clientWidth + 1);
+  expect(
+    geometry.filter.visibleText,
+    `${options.label}: Filters visible text`,
+  ).toContain("Filters");
+  expect(
+    geometry.document.scrollWidth,
+    `${options.label}: document inline overflow`,
+  ).toBeLessThanOrEqual(geometry.document.clientWidth + 1);
+  for (const control of geometry.controls) {
+    expect(
+      control.width,
+      `${options.label}: ${control.name} width`,
+    ).toBeGreaterThan(0);
+    expect(
+      control.left,
+      `${options.label}: ${control.name} left containment`,
+    ).toBeGreaterThanOrEqual(geometry.viewBar.left - 1);
+    expect(
+      control.right,
+      `${options.label}: ${control.name} right containment`,
+    ).toBeLessThanOrEqual(geometry.viewBar.right + 1);
+  }
+  geometry.controls.slice(1).forEach((control, index) => {
+    const previous = geometry.controls[index];
+    expect(
+      control.left,
+      `${options.label}: ${previous?.name ?? "previous"} before ${control.name}`,
+    ).toBeGreaterThanOrEqual((previous?.right ?? 0) - 1);
+  });
+  return geometry;
 }
 
 function expectWorkbookDocumentBounded(
@@ -595,7 +784,7 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
 test("keeps the incident workbook inside the browser viewport and delegates overflow to workbook panels", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.setViewportSize({ width: 1440, height: 900 });
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("WORKBOOK-LAYOUT"),
@@ -607,11 +796,49 @@ test("keeps the incident workbook inside the browser viewport and delegates over
     "Workbook inspector layout row",
     72,
   );
+  const longSavedViewName =
+    "Workbook view-bar layout resilience with a deliberately long saved-view name";
+  const longQuerySavedView = await createSavedView(page, incidentId, {
+    display_name: longSavedViewName,
+    query_json: {
+      group_by: "timeline.capture_state",
+      sort: [
+        { direction: "asc", field_key: "timeline.activity_sort_ts" },
+        { direction: "desc", field_key: "timeline.date_entered_sort_day" },
+        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+        { direction: "desc", field_key: "timeline.analyst_text" },
+        { direction: "asc", field_key: "timeline.mitre_stage_text" },
+        { direction: "desc", field_key: "timeline.device_object_text" },
+        { direction: "asc", field_key: "timeline.ip_address_text" },
+        { direction: "desc", field_key: "timeline.capture_state" },
+      ],
+    },
+    view_schema_id: timelineViewSchemaId,
+  });
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toBeVisible();
+  await selectSavedView(
+    page,
+    timelineViewSchemaId,
+    longQuerySavedView.saved_view_id,
+  );
+  await expect(
+    page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+  ).toHaveValue(longQuerySavedView.saved_view_id);
+  await expect(
+    page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
+  ).toHaveAttribute("data-hidden-query-chip-count", "1");
+  await expect(page.locator('[data-grid-data-state="refreshing"]')).toHaveCount(
+    0,
+  );
+  await expect(
+    page.locator(
+      '[data-grid-data-state="stale_error"], [data-grid-data-state="unavailable"]',
+    ),
+  ).toHaveCount(0);
 
   await expect
     .poll(async () => {
@@ -636,6 +863,52 @@ test("keeps the incident workbook inside the browser viewport and delegates over
       .getByTestId(workbookShellSlotTestId("status-strip"))
       .getByTestId(workbookPresenceSummaryTestId()),
   ).toHaveCount(0);
+
+  const baseGeometry = await expectWorkbookViewBarGeometry(page, {
+    capacity: 8,
+    hiddenCount: 1,
+    label: "base 1440x900",
+  });
+  await page.setViewportSize({ width: 1440, height: 720 });
+  const baseShortGeometry = await expectWorkbookViewBarGeometry(page, {
+    capacity: 8,
+    hiddenCount: 1,
+    label: "base 1440x720",
+  });
+  expect(baseShortGeometry.filter).toEqual(baseGeometry.filter);
+  expect(baseShortGeometry.viewBar).toEqual(baseGeometry.viewBar);
+
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const narrowGeometry = await expectWorkbookViewBarGeometry(page, {
+    capacity: 6,
+    hiddenCount: 3,
+    label: "narrow 1024x720",
+  });
+  await page.setViewportSize({ width: 1024, height: 640 });
+  const narrowShortGeometry = await expectWorkbookViewBarGeometry(page, {
+    capacity: 6,
+    hiddenCount: 3,
+    label: "narrow 1024x640",
+  });
+  expect(narrowShortGeometry.filter).toEqual(narrowGeometry.filter);
+  expect(narrowShortGeometry.viewBar).toEqual(narrowGeometry.viewBar);
+
+  await page.setViewportSize({ width: 768, height: 640 });
+  const compactGeometry = await expectWorkbookViewBarGeometry(page, {
+    capacity: 0,
+    hiddenCount: 9,
+    label: "compact 768x640",
+  });
+  await page.setViewportSize({ width: 768, height: 560 });
+  const compactShortGeometry = await expectWorkbookViewBarGeometry(page, {
+    capacity: 0,
+    hiddenCount: 9,
+    label: "compact 768x560",
+  });
+  expect(compactShortGeometry.filter).toEqual(compactGeometry.filter);
+  expect(compactShortGeometry.viewBar).toEqual(compactGeometry.viewBar);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   await page.setViewportSize({ width: 1280, height: 639 });
   await expectWideWorkbookTopBarChrome(page);

@@ -1579,6 +1579,7 @@ export function EntityWorkbookSurface({
       viewBar={
         <WorkbookViewBar
           addRowDisabled={!canCreateRows}
+          chromeMode={chromeMode}
           queryControls={queryControls}
           savedViewControls={savedViewSelector}
           onAddRow={focusEntityDraft}

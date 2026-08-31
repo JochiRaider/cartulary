@@ -536,6 +536,7 @@ export function useTimelineWorkbookPresentation({
     },
     viewBar: {
       addRowDisabled: interactionMode.kind === "read_only",
+      chromeMode,
       bulk:
         selectedTimelineRecordIds.size === 0
           ? null

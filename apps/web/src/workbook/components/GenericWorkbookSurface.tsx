@@ -1411,6 +1411,7 @@ export function ContractWorkbookSurface({
       viewBar={
         <WorkbookViewBar
           addRowDisabled={!canCreateRows}
+          chromeMode={chromeMode}
           queryControls={queryControls}
           savedViewControls={savedViewSelector}
           onAddRow={focusDraftRow}

@@ -21,6 +21,7 @@ export function TimelineWorkbookViewBarRegion({
   return (
     <WorkbookViewBar
       addRowDisabled={model.addRowDisabled}
+      chromeMode={model.chromeMode}
       queryControls={
         model.inlineQuery === null ? (
           model.viewBarQueryControls
