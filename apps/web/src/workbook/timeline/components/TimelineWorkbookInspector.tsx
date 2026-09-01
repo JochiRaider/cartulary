@@ -4,21 +4,20 @@ import {
 } from "@cartulary/ui-contracts";
 import type {
   InspectorConfig,
+  InspectorDisabledCondition,
   InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
 import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
+import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import {
-  WorkbookInspectorContextualActions,
   WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
-} from "../../inspector/presentation/WorkbookInspectorPresentation";
-import {
-  type WorkbookInspectorSubjectPresentation,
-  workbookInspectorSafePublicMessage,
-} from "../../inspector/presentation/workbookInspectorPresentationModel";
-import type { InspectorDisabledToken } from "../../inspector/semanticInspectorDispatcher";
+} from "../../inspector/presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorSubjectPresentation } from "../../inspector/presentation/workbookInspectorPresentationModel";
+import { WorkbookInspectorContextualActions } from "../../inspector/WorkbookInspectorContextualActions";
+import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
@@ -70,7 +69,7 @@ export function TimelineWorkbookInspector({
   readonly hostEntities: readonly MentionEntityOption[];
   readonly identityEntities: readonly MentionEntityOption[];
   readonly inspectorConfig: InspectorConfig;
-  readonly inspectorMessage: string | null;
+  readonly inspectorMessage: WorkbookInspectorFeedback | null;
   readonly inspectorMentions: readonly InspectorMention[];
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
@@ -97,7 +96,7 @@ export function TimelineWorkbookInspector({
   readonly selectedResolveTargetId: string;
   readonly selectedRow: WorkbookRow | null;
 }) {
-  const disabledTokens = new Set<InspectorDisabledToken>();
+  const disabledTokens = new Set<InspectorDisabledCondition>();
   if (!selectedRow?.recordId && !currentHistoryDeleted) {
     disabledTokens.add("no_row_selected");
   }
@@ -233,10 +232,20 @@ export function TimelineWorkbookInspector({
   );
 }
 
-function InspectorMessage({ message }: { readonly message: string | null }) {
-  return message ? (
+function InspectorMessage({
+  message,
+}: {
+  readonly message: WorkbookInspectorFeedback | null;
+}) {
+  if (message === null) return null;
+  return typeof message === "string" ? (
     <p data-testid={timelineInspectorMessageTestId()} style={bodyStyle}>
-      {workbookInspectorSafePublicMessage(message)}
+      {message}
     </p>
-  ) : null;
+  ) : (
+    <WorkbookInspectorPublicError
+      error={message}
+      testId={timelineInspectorMessageTestId()}
+    />
+  );
 }

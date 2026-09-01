@@ -4,69 +4,26 @@ import type {
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useState } from "react";
 import {
-  genericCreateMinimumMessage,
-  initialGenericCreateDraft,
-  workbookCreationAvailable,
-} from "../../models/genericWorkbookModel";
+  buildInspectorRelatedRecordDraft,
+  type InspectorRelatedRecordFormModel,
+} from "../../inspector/inspectorRelatedRecordModel";
+import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorPresentation,
+} from "../../inspector/workbookInspectorErrorModel";
+import { genericCreateMinimumMessage } from "../../models/genericWorkbookModel";
 import { evidenceViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type {
   TimelineRelatedEvidenceLinked,
   TimelineRelatedRecordPort,
 } from "../../mutations/workbookMutationCommandPorts";
-import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
-export type TimelineCreateRelatedWorkflowState = {
-  readonly featureGroup: InspectorFeatureGroup;
-  readonly targetContract: ViewContract;
-  readonly sourceRowKey: string;
-  readonly draft: Record<string, string>;
-  readonly isSubmitting: boolean;
-  readonly message: string | null;
-};
-
-function applyTimelineCreateRelatedSeedBindings(
-  draft: Record<string, string>,
-  featureGroup: InspectorFeatureGroup,
-  selectedRow: WorkbookRow,
-): Record<string, string> {
-  const next = { ...draft };
-  for (const binding of featureGroup.seedBindings) {
-    const value = timelineCreateRelatedSeedValue(binding.source, selectedRow);
-    if (value !== null) {
-      next[binding.targetFieldKey] = value;
-    }
-  }
-  return next;
-}
-
-function timelineCreateRelatedSeedValue(
-  source: InspectorFeatureGroup["seedBindings"][number]["source"],
-  selectedRow: WorkbookRow,
-): string | null {
-  switch (source.kind) {
-    case "selected_record_id":
-      return selectedRow.recordId;
-    case "selected_field_value": {
-      if (source.sourceFieldKey === undefined) {
-        return null;
-      }
-      if (selectedRow.rawRow === null) {
-        return null;
-      }
-      const value = selectedRow.rawRow.cells[source.sourceFieldKey]?.value;
-      const text = stringifyGridValue(value).trim();
-      return text === "" ? null : text;
-    }
-    case "literal":
-      if (source.value === null || source.value === undefined) {
-        return null;
-      }
-      return typeof source.value === "string"
-        ? source.value
-        : JSON.stringify(source.value);
-  }
-}
+export type TimelineCreateRelatedWorkflowState =
+  InspectorRelatedRecordFormModel & {
+    readonly sourceRowKey: string;
+  };
 
 export function useTimelineCreateRelatedWorkflow({
   applyAcceptedRowMutation,
@@ -89,7 +46,9 @@ export function useTimelineCreateRelatedWorkflow({
   readonly mutationCommands: TimelineRelatedRecordPort;
   readonly selectedRow: WorkbookRow | null;
   readonly selectedRowWorkflowKey: string;
-  readonly setInspectorMessage: (message: string | null) => void;
+  readonly setInspectorMessage: (
+    message: WorkbookInspectorFeedback | null,
+  ) => void;
   readonly targetContracts: ReadonlyMap<string, ViewContract>;
 }) {
   const [workflow, setWorkflow] =
@@ -125,10 +84,6 @@ export function useTimelineCreateRelatedWorkflow({
         setInspectorMessage("Inspector action is unavailable.");
         return;
       }
-      if (!workbookCreationAvailable(targetContract)) {
-        setInspectorMessage("The target view does not allow row creation.");
-        return;
-      }
       if (
         selectedRow?.recordId === null ||
         selectedRow?.recordId === undefined
@@ -136,18 +91,26 @@ export function useTimelineCreateRelatedWorkflow({
         setInspectorMessage("Select a row before creating a related record.");
         return;
       }
-      const seededDraft = applyTimelineCreateRelatedSeedBindings(
-        initialGenericCreateDraft(targetContract, currentUserId),
+      const result = buildInspectorRelatedRecordDraft({
+        currentUserId,
         featureGroup,
-        selectedRow,
-      );
+        subject: {
+          cells: selectedRow.rawRow?.cells ?? {},
+          recordId: selectedRow.recordId,
+        },
+        targetContract,
+      });
+      if (result.kind === "invalid_target") {
+        setInspectorMessage("The target view does not allow row creation.");
+        return;
+      }
       setWorkflow({
         featureGroup,
         targetContract,
         sourceRowKey: selectedRowWorkflowKey,
-        draft: seededDraft,
+        draft: result.draft,
+        error: null,
         isSubmitting: false,
-        message: null,
       });
       setInspectorMessage(null);
     },
@@ -170,7 +133,7 @@ export function useTimelineCreateRelatedWorkflow({
                 ...current.draft,
                 [fieldKey]: value,
               },
-              message: null,
+              error: null,
             }
           : current,
       );
@@ -191,7 +154,7 @@ export function useTimelineCreateRelatedWorkflow({
     setWorkflow({
       ...activeWorkflow,
       isSubmitting: true,
-      message: null,
+      error: null,
     });
     const createResult = await mutationCommands.createRelatedRecord({
       contract: activeWorkflow.targetContract,
@@ -202,10 +165,12 @@ export function useTimelineCreateRelatedWorkflow({
       setWorkflow({
         ...activeWorkflow,
         isSubmitting: false,
-        message:
+        error:
           createResult.failure.kind === "validation"
-            ? genericCreateMinimumMessage(activeWorkflow.targetContract)
-            : createResult.failure.message,
+            ? workbookInspectorLocalErrorPresentation(
+                genericCreateMinimumMessage(activeWorkflow.targetContract),
+              )
+            : workbookInspectorErrorPresentation(createResult.failure),
       });
       return;
     }
@@ -220,7 +185,7 @@ export function useTimelineCreateRelatedWorkflow({
         setWorkflow({
           ...activeWorkflow,
           isSubmitting: false,
-          message: `Created evidence, but Timeline link failed: ${patchResult.failure.message}`,
+          error: workbookInspectorErrorPresentation(patchResult.failure),
         });
         return;
       }

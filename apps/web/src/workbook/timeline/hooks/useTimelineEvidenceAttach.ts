@@ -1,4 +1,8 @@
 import { useCallback } from "react";
+import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorErrorPresentation,
+} from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import type { TimelineEvidenceAttachmentPort } from "../ports/TimelineEvidenceAttachmentPort";
 
@@ -44,7 +48,9 @@ export function useTimelineEvidenceAttach({
   readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
-  readonly setInspectorMessage: (message: string | null) => void;
+  readonly setInspectorMessage: (
+    message: WorkbookInspectorFeedback | null,
+  ) => void;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
   readonly waitForCommittedRecordIdle: (
     recordId: string,
@@ -86,7 +92,9 @@ export function useTimelineEvidenceAttach({
         }
         if (result.outcome.kind === "rejected") {
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage(result.outcome.failure.message);
+          setInspectorMessage(
+            workbookInspectorErrorPresentation(result.outcome.failure),
+          );
           finishSave("Conflict");
           return;
         }

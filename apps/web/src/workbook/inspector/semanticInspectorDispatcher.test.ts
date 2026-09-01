@@ -1,102 +1,118 @@
 import {
+  type InspectorConfig,
+  type InspectorFeatureGroup,
   listViewContracts,
   requireViewContract,
 } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
-  assertCurrentInspectorDispatchCompleteness,
   inspectorFeatureDisabledTokens,
   resolveSemanticInspectorFeature,
-  semanticInspectorFeatureKey,
+  type SemanticInspectorDisposition,
 } from "./semanticInspectorDispatcher";
 
 describe("semantic inspector dispatcher", () => {
-  it("resolves every current projected feature exactly once", () => {
-    expect(assertCurrentInspectorDispatchCompleteness).not.toThrow();
+  it("resolves every current projected tuple once to its canonical object and disposition", () => {
     const contracts = listViewContracts();
-    const features = contracts.flatMap((contract) =>
-      contract.inspectorConfig.featureGroups.map((featureGroup) =>
-        semanticInspectorFeatureKey(contract.viewSchemaId, featureGroup),
-      ),
-    );
-    expect(contracts).toHaveLength(17);
-    expect(features).toHaveLength(247);
-    expect(new Set(features).size).toBe(features.length);
-  });
+    const semanticKeys = new Set<string>();
+    let featureCount = 0;
 
-  it("classifies the complete current corpus without using presentation labels", () => {
-    const resolutions = listViewContracts().flatMap((contract) =>
-      contract.inspectorConfig.featureGroups.map((featureGroup) => ({
-        expectedKind:
-          featureGroup.routeBinding.kind === "panel_read"
-            ? "panel_read"
-            : "action",
-        resolution: resolveSemanticInspectorFeature(
+    for (const contract of contracts) {
+      for (const featureGroup of contract.inspectorConfig.featureGroups) {
+        const resolution = resolveSemanticInspectorFeature(
           contract.inspectorConfig,
-          featureGroup,
-        ),
-      })),
-    );
-
-    expect(resolutions).toHaveLength(247);
-    for (const { expectedKind, resolution } of resolutions) {
-      expect(resolution.kind).toBe(expectedKind);
+          featureGroup.featureGroupKey,
+        );
+        expect(resolution.kind).toBe("supported");
+        if (resolution.kind === "unsupported") continue;
+        expect(resolution.featureGroup).toBe(featureGroup);
+        expect(resolution.disposition).toBe(expectedDisposition(featureGroup));
+        expect(semanticKeys.has(resolution.semanticKey)).toBe(false);
+        semanticKeys.add(resolution.semanticKey);
+        featureCount += 1;
+      }
     }
+
+    expect(contracts).toHaveLength(17);
+    expect(featureCount).toBe(247);
+    expect(semanticKeys.size).toBe(247);
   });
 
-  it("omits an unknown additive feature instead of inferring from its label", () => {
-    const contract = requireViewContract("cartulary.view.timeline.v2");
-    const canonical = contract.inspectorConfig.featureGroups[0];
-    expect(canonical).toBeDefined();
-    if (!canonical) return;
-    expect(
-      resolveSemanticInspectorFeature(contract.inspectorConfig, {
-        ...canonical,
-        featureGroupKey: "future.unknown_action",
-        label: canonical.label,
-      }),
-    ).toEqual({ kind: "unsupported" });
-  });
-
-  it("matches the complete semantic contract while treating labels as presentation", () => {
-    const contract = requireViewContract("cartulary.view.timeline.v2");
-    const canonical = contract.inspectorConfig.featureGroups.find(
+  it("omits an unknown key and any additive or altered stable tuple", () => {
+    const canonicalConfig = requireViewContract(
+      "cartulary.view.timeline.v2",
+    ).inspectorConfig;
+    const canonical = canonicalConfig.featureGroups.find(
       (feature) => feature.featureGroupKey === "create_related.note",
     );
     expect(canonical).toBeDefined();
     if (!canonical) return;
+
     expect(
-      resolveSemanticInspectorFeature(contract.inspectorConfig, {
-        ...canonical,
-        label: "Localized label",
-      }).kind,
-    ).toBe("action");
+      resolveSemanticInspectorFeature(canonicalConfig, "future.unknown_action"),
+    ).toEqual({ kind: "unsupported" });
+
+    const additiveConfig = withFeatureGroups(canonicalConfig, [
+      ...canonicalConfig.featureGroups,
+      { ...canonical, featureGroupKey: "future.unknown_action" },
+    ]);
+    expect(
+      resolveSemanticInspectorFeature(additiveConfig, "future.unknown_action"),
+    ).toEqual({ kind: "unsupported" });
+
     for (const altered of [
-      { ...canonical, minimumIncidentRole: "admin" as const },
-      { ...canonical, mutates: !canonical.mutates },
-      { ...canonical, requiresConfirmation: !canonical.requiresConfirmation },
+      { ...canonical, featureGroupKey: "create_related.changed" },
+      { ...canonical, panelId: "details" as const },
       {
         ...canonical,
-        disabledWhen: [...canonical.disabledWhen, "record_deleted" as const],
+        routeBinding: {
+          ...canonical.routeBinding,
+          kind: "record_patch" as const,
+        },
       },
       {
         ...canonical,
-        seedBindings: canonical.seedBindings.slice(1),
+        routeBinding: {
+          ...canonical.routeBinding,
+          owner: "record_patch_route" as const,
+        },
       },
       {
         ...canonical,
-        successResultBehavior: "clear_to_no_row_selected" as const,
-      },
-      {
-        ...canonical,
-        failureResultBehavior:
-          "show_same_shell_error_invalidate_pending_action" as const,
+        routeBinding: {
+          ...canonical.routeBinding,
+          actionKey: "create_related.changed",
+        },
       },
     ]) {
+      const alteredConfig = replaceFeature(canonicalConfig, canonical, altered);
       expect(
-        resolveSemanticInspectorFeature(contract.inspectorConfig, altered),
+        resolveSemanticInspectorFeature(alteredConfig, altered.featureGroupKey),
       ).toEqual({ kind: "unsupported" });
     }
+  });
+
+  it("returns the canonical config-owned feature when presentation labels change", () => {
+    const canonicalConfig = requireViewContract(
+      "cartulary.view.timeline.v2",
+    ).inspectorConfig;
+    const canonical = canonicalConfig.featureGroups[0];
+    expect(canonical).toBeDefined();
+    if (!canonical) return;
+    const localized = { ...canonical, label: "Localized label" };
+    const localizedConfig = replaceFeature(
+      canonicalConfig,
+      canonical,
+      localized,
+    );
+    const resolution = resolveSemanticInspectorFeature(
+      localizedConfig,
+      localized.featureGroupKey,
+    );
+
+    expect(resolution.kind).toBe("supported");
+    if (resolution.kind === "unsupported") return;
+    expect(resolution.featureGroup).toBe(localized);
   });
 
   it("adds authorization_lost without hiding role-restricted features", () => {
@@ -122,3 +138,44 @@ describe("semantic inspector dispatcher", () => {
     ).not.toContain("authorization_lost");
   });
 });
+
+function expectedDisposition(
+  featureGroup: InspectorFeatureGroup,
+): SemanticInspectorDisposition {
+  if (featureGroup.routeBinding.kind === "panel_read") return "panel_read";
+  if (
+    featureGroup.routeBinding.kind === "view_row_create" ||
+    featureGroup.routeBinding.kind === "surface_pivot"
+  ) {
+    return "contextual_workflow_or_pivot";
+  }
+  if (
+    featureGroup.panelId === "history" &&
+    ["record.delete", "record.restore", "history.rollback"].includes(
+      featureGroup.featureGroupKey,
+    )
+  ) {
+    return "direct_history_action";
+  }
+  return "existing_owner_control";
+}
+
+function withFeatureGroups(
+  config: InspectorConfig,
+  featureGroups: readonly InspectorFeatureGroup[],
+): InspectorConfig {
+  return { ...config, featureGroups };
+}
+
+function replaceFeature(
+  config: InspectorConfig,
+  current: InspectorFeatureGroup,
+  replacement: InspectorFeatureGroup,
+): InspectorConfig {
+  return withFeatureGroups(
+    config,
+    config.featureGroups.map((feature) =>
+      feature === current ? replacement : feature,
+    ),
+  );
+}

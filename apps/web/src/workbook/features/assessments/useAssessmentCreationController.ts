@@ -1,5 +1,10 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type WorkbookInspectorErrorPresentation,
+  workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorPresentation,
+} from "../../inspector/workbookInspectorErrorModel";
 import type {
   AssessmentCreateDraft,
   AssessmentSubjectType,
@@ -10,6 +15,7 @@ import {
 } from "../../models/assessmentWorkbookModel";
 import { assessmentsViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { AssessmentMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
@@ -19,6 +25,7 @@ export type AssessmentCreationController = {
     readonly cancel: () => void;
     readonly openFollowOn: (selected: WorkbookQueryRow | null) => boolean;
     readonly openStandalone: (defaultSubjectRecordId: string) => void;
+    readonly rejectFailure: (failure: WorkbookOperationFailure) => void;
     readonly rejectStart: (message: string) => void;
     readonly reset: () => void;
     readonly submit: (canCreate: boolean) => Promise<void>;
@@ -30,7 +37,7 @@ export type AssessmentCreationController = {
     readonly draft: AssessmentCreateDraft;
     readonly draftMode: "follow_on" | "standalone";
     readonly isSubmitting: boolean;
-    readonly message: string | null;
+    readonly message: WorkbookInspectorErrorPresentation | null;
   };
 };
 
@@ -56,7 +63,8 @@ export function useAssessmentCreationController({
     "standalone",
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] =
+    useState<WorkbookInspectorErrorPresentation | null>(null);
   const generationRef = useRef(0);
   const previousLifecycleKeyRef = useRef(lifecycleResetKey);
 
@@ -113,7 +121,11 @@ export function useAssessmentCreationController({
 
   const openFollowOn = useCallback((selected: WorkbookQueryRow | null) => {
     if (selected === null) {
-      setMessage("Select an assessment before creating a follow-on.");
+      setMessage(
+        workbookInspectorLocalErrorPresentation(
+          "Select an assessment before creating a follow-on.",
+        ),
+      );
       return false;
     }
     const followOnDraft = followOnAssessmentDraft(
@@ -121,7 +133,11 @@ export function useAssessmentCreationController({
       selected,
     );
     if (followOnDraft === null) {
-      setMessage("The selected assessment has no valid subject.");
+      setMessage(
+        workbookInspectorLocalErrorPresentation(
+          "The selected assessment has no valid subject.",
+        ),
+      );
       return false;
     }
     setDraft(followOnDraft);
@@ -131,7 +147,11 @@ export function useAssessmentCreationController({
   }, []);
 
   const rejectStart = useCallback((nextMessage: string) => {
-    setMessage(nextMessage);
+    setMessage(workbookInspectorLocalErrorPresentation(nextMessage));
+  }, []);
+
+  const rejectFailure = useCallback((failure: WorkbookOperationFailure) => {
+    setMessage(workbookInspectorErrorPresentation(failure));
   }, []);
 
   const updateDraft = useCallback(
@@ -149,11 +169,19 @@ export function useAssessmentCreationController({
   const submit = useCallback(
     async (canCreate: boolean) => {
       if (!canCreate) {
-        setMessage("Assessment creation requires an active editor role.");
+        setMessage(
+          workbookInspectorLocalErrorPresentation(
+            "Assessment creation requires an active editor role.",
+          ),
+        );
         return;
       }
       if (!mutationCommands.canCreate({ draft })) {
-        setMessage("Complete the required assessment fields.");
+        setMessage(
+          workbookInspectorLocalErrorPresentation(
+            "Complete the required assessment fields.",
+          ),
+        );
         return;
       }
       const generation = generationRef.current;
@@ -167,7 +195,7 @@ export function useAssessmentCreationController({
         });
         if (generationRef.current !== generation) return;
         if (outcome.kind === "rejected") {
-          setMessage(outcome.failure.message);
+          setMessage(workbookInspectorErrorPresentation(outcome.failure));
           return;
         }
         await onRefreshAssessmentRows();
@@ -178,7 +206,9 @@ export function useAssessmentCreationController({
             subjectRecordId: submittedDraft.subjectRecordId,
           }),
         );
-        setMessage("Assessment created.");
+        setMessage(
+          workbookInspectorLocalErrorPresentation("Assessment created."),
+        );
       } finally {
         finishMutation();
         if (generationRef.current === generation) setIsSubmitting(false);
@@ -192,6 +222,7 @@ export function useAssessmentCreationController({
       cancel,
       openFollowOn,
       openStandalone,
+      rejectFailure,
       rejectStart,
       reset,
       submit,

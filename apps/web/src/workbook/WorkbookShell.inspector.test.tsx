@@ -22,7 +22,6 @@ import {
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
   workbookInspectorFeatureActionTestId,
-  workbookInspectorFeatureGroupTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookLayoutMetrics,
@@ -611,7 +610,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     ).toBeTruthy();
     expect(
       screen.getByTestId(
-        workbookInspectorFeatureGroupTestId(
+        workbookInspectorFeatureActionTestId(
           timelineViewSchemaId,
           "create_related.task_request",
         ),

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type WorkbookInspectorErrorPresentation,
+  workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorPresentation,
+} from "../../inspector/workbookInspectorErrorModel";
+import {
   buildMergePlan,
   type EntityMergePlan,
   type EntityRow,
@@ -25,7 +30,7 @@ export type EntityMergeController = {
   readonly snapshot: {
     readonly candidateId: string;
     readonly loser: EntityRow | null;
-    readonly message: string | null;
+    readonly message: WorkbookInspectorErrorPresentation | null;
     readonly plan: EntityMergePlan | null;
     readonly preconditionDetails: readonly EntityMergePreconditionDetail[];
     readonly reason: string;
@@ -82,7 +87,8 @@ export function useEntityMergeController({
   readonly selectedEntity: EntityRow | null;
 }): EntityMergeController {
   const [candidateId, setCandidateId] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] =
+    useState<WorkbookInspectorErrorPresentation | null>(null);
   const [details, setDetails] = useState<
     readonly EntityMergePreconditionDetail[]
   >([]);
@@ -146,7 +152,11 @@ export function useEntityMergeController({
   }, []);
 
   const start = useCallback(() => {
-    setMessage("Select a loser to review the merge plan.");
+    setMessage(
+      workbookInspectorLocalErrorPresentation(
+        "Select a loser to review the merge plan.",
+      ),
+    );
     setDetails([]);
   }, []);
 
@@ -165,7 +175,7 @@ export function useEntityMergeController({
     });
     if (generationRef.current !== generation) return;
     if (outcome.kind === "rejected") {
-      setMessage(outcome.failure.message);
+      setMessage(workbookInspectorErrorPresentation(outcome.failure));
       setDetails(
         outcome.failure.kind === "validation"
           ? preconditionDetails(outcome.failure.fields)
@@ -178,7 +188,9 @@ export function useEntityMergeController({
     clearDrafts();
     setDetails([]);
     setMessage(
-      `Merged ${loser.label} into ${survivor.label} (${outcome.value.recordType}).`,
+      workbookInspectorLocalErrorPresentation(
+        `Merged ${loser.label} into ${survivor.label} (${outcome.value.recordType}).`,
+      ),
     );
     await onRefreshEntities();
     if (generationRef.current !== generation) return;

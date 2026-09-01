@@ -1,6 +1,7 @@
 import type { InspectorFeatureGroup } from "@cartulary/view-contracts";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { IndicatorInspectorHandler } from "../../features/indicators/indicatorInspectorHandlers";
+import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { resolveTimelineWorkbookFeature } from "../models/timelineWorkbookFeaturePolicy";
 
@@ -23,7 +24,9 @@ export function useTimelineInspectorFeatureController({
   ) => void;
   readonly cancelCreateRelatedWorkflow: () => void;
   readonly lifecycle: TimelineInspectorFeatureLifecycle;
-  readonly setInspectorMessage: (message: string | null) => void;
+  readonly setInspectorMessage: (
+    message: WorkbookInspectorFeedback | null,
+  ) => void;
 }) {
   const [indicatorHandler, setIndicatorHandler] =
     useState<IndicatorInspectorHandler | null>(null);
@@ -54,7 +57,7 @@ export function useTimelineInspectorFeatureController({
     (featureGroup: InspectorFeatureGroup) => {
       const resolution = resolveTimelineWorkbookFeature(
         timelineViewSchemaId,
-        featureGroup,
+        featureGroup.featureGroupKey,
       );
       if (resolution.kind === "indicator") {
         cancelCreateRelatedWorkflow();

@@ -51,7 +51,7 @@ describe("useAssessmentCreationController", () => {
 
     expect(create).toHaveBeenCalledTimes(1);
     expect(finishMutation).toHaveBeenCalledTimes(1);
-    expect(result.current.snapshot.message).toBe("Try again.");
+    expect(result.current.snapshot.message?.primaryMessage).toBe("Try again.");
     expect(result.current.snapshot.draft.rationale).toBe("Preserve this draft");
     expect(result.current.snapshot.draft.supportRecordIds).toEqual([
       "00000000-0000-4000-8000-000000008200",
@@ -82,7 +82,7 @@ describe("useAssessmentCreationController", () => {
 
     await act(async () => result.current.commands.submit(true));
     expect(create).not.toHaveBeenCalled();
-    expect(result.current.snapshot.message).toBe(
+    expect(result.current.snapshot.message?.primaryMessage).toBe(
       "Complete the required assessment fields.",
     );
 

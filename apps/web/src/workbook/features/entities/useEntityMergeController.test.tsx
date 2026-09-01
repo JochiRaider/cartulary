@@ -105,7 +105,7 @@ describe("useEntityMergeController", () => {
     expect(loadSurvivorPreview).toHaveBeenCalledWith(survivorId);
     expect(retargetSurvivor).toHaveBeenCalledWith(survivorId);
     expect(result.current.snapshot.candidateId).toBe("");
-    expect(result.current.snapshot.message).toBe(
+    expect(result.current.snapshot.message?.primaryMessage).toBe(
       "Merged Loser into Survivor (host).",
     );
   });

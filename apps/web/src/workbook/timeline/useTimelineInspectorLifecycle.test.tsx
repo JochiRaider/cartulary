@@ -3,12 +3,10 @@ import { expect, it, vi } from "vitest";
 import { useTimelineInspectorLifecycle } from "./hooks/useTimelineInspectorSelection";
 
 it("useTimelineInspectorLifecycle shares one close command across explicit and layout requests", () => {
-  const cancelInspectorFeatureAction = vi.fn();
   const clearRowHistory = vi.fn();
   const setIsInspectorOpen = vi.fn();
   const { result } = renderHook(() =>
     useTimelineInspectorLifecycle({
-      cancelInspectorFeatureAction,
       cancelRowHistoryRequests: vi.fn(),
       clearRowHistory,
       gridShellRef: { current: null },
@@ -18,7 +16,7 @@ it("useTimelineInspectorLifecycle shares one close command across explicit and l
       restoreTimelineFocusAnchor: () => false,
       rowHistory: {
         data: null,
-        message: null,
+        error: null,
         recordId: null,
         status: "idle",
       },
@@ -43,6 +41,5 @@ it("useTimelineInspectorLifecycle shares one close command across explicit and l
 
   expect(setIsInspectorOpen).toHaveBeenNthCalledWith(1, false);
   expect(setIsInspectorOpen).toHaveBeenNthCalledWith(2, false);
-  expect(clearRowHistory).toHaveBeenCalledTimes(2);
-  expect(cancelInspectorFeatureAction).toHaveBeenCalledTimes(2);
+  expect(clearRowHistory).not.toHaveBeenCalled();
 });

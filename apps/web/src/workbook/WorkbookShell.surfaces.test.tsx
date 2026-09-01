@@ -3,7 +3,6 @@ import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
   entityInspectButtonTestId,
-  entityInspectorSubjectTestId,
   entityInspectorTestId,
   entityMergeControlTestId,
   entityMergePreconditionDetailsTestId,
@@ -2645,13 +2644,10 @@ describe("WorkbookShell surface selection", () => {
     await flushWorkbookAsync();
 
     expect(
-      screen.getByTestId(
-        entityInspectorSubjectTestId(
-          "host",
-          "00000000-0000-4000-8000-000000000701",
-        ),
-      ),
-    ).toBeTruthy();
+      screen
+        .getByTestId(entityInspectorTestId("host"))
+        .getAttribute("data-record-id"),
+    ).toBe("00000000-0000-4000-8000-000000000701");
     await waitForEntityInspectorReady(container, {
       entityType: "host",
       recordId: "00000000-0000-4000-8000-000000000701",
@@ -2873,7 +2869,9 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(entityMergeControlTestId("message")).textContent,
-      ).toBe("merge_precondition_failed: carry_forward_identifier_collision");
+      ).toContain(
+        "merge_precondition_failed: carry_forward_identifier_collision",
+      );
     });
     expect(
       screen.getByTestId(
@@ -3084,6 +3082,11 @@ describe("WorkbookShell surface selection", () => {
         "Conflict",
       );
     });
+    expect(
+      screen.getAllByText("This row changed; refresh it before retrying."),
+    ).toHaveLength(2);
+    expect(screen.getByText("Public error code")).not.toBeNull();
+    expect(screen.getAllByText("row_version_conflict")).toHaveLength(2);
   });
 
   it("retains a created party for explicit link retry after partial completion", async () => {

@@ -13,6 +13,7 @@ import {
   gridShellTestId,
   gridSortHeaderTestId,
 } from "@cartulary/ui-contracts";
+import type { InspectorDisabledCondition } from "@cartulary/view-contracts";
 import {
   type InspectorFeatureGroup,
   requireViewContract,
@@ -40,18 +41,15 @@ import type {
 import { useAssessmentCreationController } from "../features/assessments/useAssessmentCreationController";
 import { useAssessmentSupportCandidates } from "../hooks/useAssessmentSupportCandidates";
 import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import { WorkbookInspectorPublicError } from "../inspector/presentation/WorkbookInspectorFeedback";
 import {
-  WorkbookInspectorContextualActions,
   WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
-} from "../inspector/presentation/WorkbookInspectorPresentation";
-import {
-  type WorkbookInspectorSubjectPresentation,
-  workbookInspectorSafePublicMessage,
-} from "../inspector/presentation/workbookInspectorPresentationModel";
-import type { InspectorDisabledToken } from "../inspector/semanticInspectorDispatcher";
+} from "../inspector/presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import { WorkbookInspectorContextualActions } from "../inspector/WorkbookInspectorContextualActions";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
@@ -74,10 +72,7 @@ import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
 } from "../models/workbookGridState";
-import {
-  inspectorPanelIsDeclared,
-  selectInspectorConfig,
-} from "../models/workbookInspectorModel";
+import { inspectorPanelIsDeclared } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
@@ -176,7 +171,7 @@ export function AssessmentWorkbookSurface({
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
-  const inspectorConfig = selectInspectorConfig(assessmentsContract);
+  const inspectorConfig = assessmentsContract.inspectorConfig;
   const showWorkflowPanel = inspectorPanelIsDeclared(
     inspectorConfig,
     "workflow",
@@ -239,15 +234,13 @@ export function AssessmentWorkbookSurface({
   const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
-      clearLocalForm: () => {
+      resetOwnerState: ({ scope }) => {
         assessmentCreation.commands.reset();
-      },
-      clearLifecycleState: () => {
-        continuityPortRef.current?.clear();
-      },
-      clearSelection: () => {
-        setSelectedAssessmentRecordId(null);
-        setSelectedAssessmentSnapshot(null);
+        if (scope === "surface") {
+          continuityPortRef.current?.clear();
+          setSelectedAssessmentRecordId(null);
+          setSelectedAssessmentSnapshot(null);
+        }
       },
       restoreFocus: () => {
         const token = inspectorContinuityTokenRef.current;
@@ -270,7 +263,7 @@ export function AssessmentWorkbookSurface({
   });
   const isInspectorOpen = inspector.snapshot.isOpen;
   const assessmentInspectorDisabledTokens = useMemo(() => {
-    const tokens = new Set<InspectorDisabledToken>();
+    const tokens = new Set<InspectorDisabledCondition>();
     if (selectedAssessment === null) {
       tokens.add("no_row_selected");
     } else {
@@ -446,7 +439,7 @@ export function AssessmentWorkbookSurface({
         recordId: selectedAssessment.record_id,
       });
       if (outcome.kind === "rejected") {
-        assessmentCreation.commands.rejectStart(outcome.failure.message);
+        assessmentCreation.commands.rejectFailure(outcome.failure);
         return true;
       }
       setSelectedAssessmentRecordId(null);
@@ -778,12 +771,10 @@ export function AssessmentWorkbookSurface({
                 Create assessment
               </button>
               {message ? (
-                <p
-                  data-testid={assessmentCreateControlTestId("message")}
-                  style={bodyStyle}
-                >
-                  {workbookInspectorSafePublicMessage(message)}
-                </p>
+                <WorkbookInspectorPublicError
+                  error={message}
+                  testId={assessmentCreateControlTestId("message")}
+                />
               ) : null}
             </div>
           </WorkbookInspectorShell>

@@ -49,8 +49,10 @@ describe("useTimelineInspectorFeatureController", () => {
     const { mocks, result } = controller();
     const supportedFeatures = timelineFeatures.filter(
       (featureGroup) =>
-        resolveTimelineWorkbookFeature(timelineViewSchemaId, featureGroup)
-          .kind !== "unsupported",
+        resolveTimelineWorkbookFeature(
+          timelineViewSchemaId,
+          featureGroup.featureGroupKey,
+        ).kind !== "unsupported",
     );
 
     expect(supportedFeatures).toHaveLength(timelineFeatures.length);
@@ -93,14 +95,14 @@ describe("useTimelineInspectorFeatureController", () => {
 
     const unsupportedFeature = {
       ...createRelatedFeature,
-      routeBinding: {
-        ...createRelatedFeature.routeBinding,
-        targetViewSchemaId: "cartulary.view.unknown.v1",
-      },
+      featureGroupKey: "create_related.unknown",
     } satisfies InspectorFeatureGroup;
     act(() => result.current.commands.handleFeatureAction(unsupportedFeature));
     expect(
-      resolveTimelineWorkbookFeature(timelineViewSchemaId, unsupportedFeature),
+      resolveTimelineWorkbookFeature(
+        timelineViewSchemaId,
+        unsupportedFeature.featureGroupKey,
+      ),
     ).toEqual({ kind: "unsupported" });
     expect(mocks.beginCreateRelatedWorkflow).toHaveBeenCalledTimes(1);
     expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledTimes(2);

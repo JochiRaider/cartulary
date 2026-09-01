@@ -1,12 +1,14 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { selectInspectorConfig } from "../models/workbookInspectorModel";
-import { useWorkbookInspectorCoordinator } from "./useWorkbookInspectorCoordinator";
+import {
+  useWorkbookInspectorCoordinator,
+  workbookInspectorResetScope,
+} from "./useWorkbookInspectorCoordinator";
 
-const config = selectInspectorConfig(
-  requireViewContract("cartulary.view.timeline.v2"),
-);
+const config = requireViewContract(
+  "cartulary.view.timeline.v2",
+).inspectorConfig;
 const subject = {
   recordId: "row-1",
   rowVersion: 1,
@@ -15,21 +17,13 @@ const subject = {
 
 describe("useWorkbookInspectorCoordinator", () => {
   it("coordinates explicit open, retarget, lifecycle invalidation, action completion, and focus restoration", () => {
-    const clearLocalForm = vi.fn();
-    const clearMergePlan = vi.fn();
-    const clearPendingConfirmation = vi.fn();
-    const clearPreview = vi.fn();
-    const clearWorkflowForm = vi.fn();
+    const resetOwnerState = vi.fn();
     const restoreFocus = vi.fn();
     const { result, rerender } = renderHook(
       ({ lifecycleKey, rowVersion }) =>
         useWorkbookInspectorCoordinator({
           actionPorts: {
-            clearLocalForm,
-            clearMergePlan,
-            clearPendingConfirmation,
-            clearPreview,
-            clearWorkflowForm,
+            resetOwnerState,
             restoreFocus,
           },
           config,
@@ -42,9 +36,8 @@ describe("useWorkbookInspectorCoordinator", () => {
     expect(result.current.snapshot.isOpen).toBe(false);
     expect(result.current.snapshot.subject).toEqual(subject);
 
-    act(() => result.current.commands.open("history"));
+    act(() => result.current.commands.open());
     expect(result.current.snapshot).toMatchObject({
-      activePanelId: "history",
       isOpen: true,
       status: "ready",
     });
@@ -52,11 +45,10 @@ describe("useWorkbookInspectorCoordinator", () => {
     const generation = result.current.snapshot.invalidationGeneration;
     rerender({ lifecycleKey: "base", rowVersion: 2 });
     expect(result.current.snapshot.invalidationGeneration).toBe(generation + 1);
-    expect(clearPendingConfirmation).toHaveBeenCalled();
-    expect(clearPreview).toHaveBeenCalled();
-    expect(clearMergePlan).toHaveBeenCalled();
-    expect(clearWorkflowForm).toHaveBeenCalled();
-    expect(clearLocalForm).toHaveBeenCalled();
+    expect(resetOwnerState).toHaveBeenCalledWith({
+      cause: "retarget",
+      scope: "row_local",
+    });
 
     act(() => result.current.commands.completeAction());
     expect(restoreFocus).toHaveBeenCalledOnce();
@@ -68,13 +60,17 @@ describe("useWorkbookInspectorCoordinator", () => {
       status: "closed",
       subject: null,
     });
+    expect(resetOwnerState).toHaveBeenLastCalledWith({
+      cause: "surface_changed",
+      scope: "surface",
+    });
   });
 
   it("closes idempotently and restores focus only when requested", () => {
     const restoreFocus = vi.fn();
     const { result } = renderHook(() =>
       useWorkbookInspectorCoordinator({
-        actionPorts: { restoreFocus },
+        actionPorts: { resetOwnerState: vi.fn(), restoreFocus },
         config,
         lifecycleKey: "base",
         subject: null,
@@ -86,5 +82,21 @@ describe("useWorkbookInspectorCoordinator", () => {
     act(() => result.current.commands.close({ restoreFocus: true }));
     expect(result.current.snapshot.status).toBe("closed");
     expect(restoreFocus).toHaveBeenCalledOnce();
+  });
+
+  it("maps every reset cause to its closed scope", () => {
+    for (const cause of ["close", "retarget", "action_completed"] as const) {
+      expect(workbookInspectorResetScope(cause)).toBe("row_local");
+    }
+    for (const cause of [
+      "surface_changed",
+      "authorization_lost",
+      "incident_closed",
+      "record_deleted",
+      "record_merged",
+      "hard_refresh",
+    ] as const) {
+      expect(workbookInspectorResetScope(cause)).toBe("surface");
+    }
   });
 });

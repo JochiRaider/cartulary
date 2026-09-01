@@ -291,6 +291,7 @@ function operationFailure(
         : "field_mutation";
   return {
     ...failure,
+    ...(decoded.ok ? { publicCode: decoded.value.error.code } : {}),
     presentation: resolvePublicErrorPresentation({
       code,
       hasAuthorizedMaterialization: false,

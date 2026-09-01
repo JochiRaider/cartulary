@@ -4,6 +4,10 @@ import {
   useCallback,
   useEffect,
 } from "react";
+import {
+  workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorPresentation,
+} from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
 import type {
@@ -114,7 +118,7 @@ export function useTimelineHistoryActions({
             options.retainedData?.record_id === recordId
               ? options.retainedData
               : null,
-          message: null,
+          error: null,
         });
       }
       const result = await historyPort.load({ recordId });
@@ -127,7 +131,7 @@ export function useTimelineHistoryActions({
           recordId,
           status: "error",
           data: null,
-          message: result.failure.message,
+          error: workbookInspectorErrorPresentation(result.failure),
         });
         return null;
       }
@@ -141,7 +145,7 @@ export function useTimelineHistoryActions({
         recordId,
         status: "ready",
         data: historyData,
-        message: null,
+        error: null,
       });
       return historyData;
     },
@@ -228,7 +232,7 @@ export function useTimelineHistoryActions({
       beginSave();
       setRowHistoryPendingAction(null);
       setRowHistory((current) =>
-        current.recordId === recordId ? { ...current, message: null } : current,
+        current.recordId === recordId ? { ...current, error: null } : current,
       );
       enqueueSaveWork(async () => {
         const idleRecord = await waitForCommittedRecordIdle(
@@ -241,7 +245,9 @@ export function useTimelineHistoryActions({
             current.recordId === recordId
               ? {
                   ...current,
-                  message: missingVersionMessage,
+                  error: workbookInspectorLocalErrorPresentation(
+                    missingVersionMessage,
+                  ),
                 }
               : current,
           );
@@ -257,7 +263,7 @@ export function useTimelineHistoryActions({
             current.recordId === recordId
               ? {
                   ...current,
-                  message: result.failure.message,
+                  error: workbookInspectorErrorPresentation(result.failure),
                 }
               : current,
           );
@@ -404,7 +410,7 @@ export function useTimelineHistoryActions({
         rowVersion: currentHistoryRowVersion,
       });
       setRowHistory((current) =>
-        current.recordId === recordId ? { ...current, message: null } : current,
+        current.recordId === recordId ? { ...current, error: null } : current,
       );
     },
     [
@@ -434,7 +440,7 @@ export function useTimelineHistoryActions({
         target,
       });
       setRowHistory((current) =>
-        current.recordId === recordId ? { ...current, message: null } : current,
+        current.recordId === recordId ? { ...current, error: null } : current,
       );
     },
     [

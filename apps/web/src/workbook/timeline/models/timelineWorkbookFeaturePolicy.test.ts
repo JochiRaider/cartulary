@@ -24,7 +24,7 @@ describe("timelineWorkbookFeaturePolicy", () => {
     for (const featureGroup of createRelatedFeatures) {
       const result = resolveTimelineWorkbookFeature(
         timelineViewSchemaId,
-        featureGroup,
+        featureGroup.featureGroupKey,
       );
       expect(result).toEqual({ kind: "create_related", featureGroup });
       if (featureGroup.routeBinding.kind !== "view_row_create") {
@@ -38,7 +38,10 @@ describe("timelineWorkbookFeaturePolicy", () => {
     }
 
     expect(
-      resolveTimelineWorkbookFeature(timelineViewSchemaId, indicatorFeature),
+      resolveTimelineWorkbookFeature(
+        timelineViewSchemaId,
+        indicatorFeature.featureGroupKey,
+      ),
     ).toEqual({
       kind: "indicator",
       handler: {
@@ -50,84 +53,24 @@ describe("timelineWorkbookFeaturePolicy", () => {
 
   it("fails closed for unsupported schemas and altered semantic tuple members", () => {
     const relatedFeature = requireTimelineFeature("create_related.note");
-    const alterations: readonly InspectorFeatureGroup[] = [
-      {
-        ...relatedFeature,
-        panelId: "relationships",
-      },
-      {
-        ...relatedFeature,
-        minimumIncidentRole: "admin",
-      },
-      {
-        ...relatedFeature,
-        mutates: false,
-      },
-      {
-        ...relatedFeature,
-        requiresConfirmation: true,
-      },
-      {
-        ...relatedFeature,
-        routeBinding: {
-          ...relatedFeature.routeBinding,
-          owner: "record_patch_route",
-        },
-      },
-      {
-        ...relatedFeature,
-        routeBinding: {
-          ...relatedFeature.routeBinding,
-          targetViewSchemaId: "cartulary.view.unknown.v1",
-        },
-      },
-      {
-        ...relatedFeature,
-        seedBindings: [
-          {
-            source: { kind: "selected_record_id" },
-            targetFieldKey: "unexpected.field",
-          },
-        ],
-      },
-      {
-        ...relatedFeature,
-        disabledWhen: [...relatedFeature.disabledWhen, "record_deleted"],
-      },
-      {
-        ...indicatorFeature,
-        routeBinding: {
-          actionKey: "create_related.note",
-          kind: "view_row_create",
-          owner: "view_row_create_route",
-          targetViewSchemaId: "cartulary.view.notes.v1",
-        },
-      },
-    ];
-
-    for (const alteredFeature of alterations) {
-      expect(
-        resolveTimelineWorkbookFeature(timelineViewSchemaId, alteredFeature),
-      ).toEqual({ kind: "unsupported" });
-    }
     expect(
       resolveTimelineWorkbookFeature(
         "cartulary.view.indicators.v1",
-        indicatorFeature,
+        indicatorFeature.featureGroupKey,
       ),
     ).toEqual({ kind: "unsupported" });
     expect(
-      resolveTimelineWorkbookFeature(timelineViewSchemaId, {
-        ...relatedFeature,
-        featureGroupKey: "create_related.unknown",
-      }),
+      resolveTimelineWorkbookFeature(
+        timelineViewSchemaId,
+        "create_related.unknown",
+      ),
     ).toEqual({ kind: "unsupported" });
 
     expect(
-      resolveTimelineWorkbookFeature(timelineViewSchemaId, {
-        ...relatedFeature,
-        label: "A label that is deliberately not an identity",
-      }),
+      resolveTimelineWorkbookFeature(
+        timelineViewSchemaId,
+        relatedFeature.featureGroupKey,
+      ),
     ).toEqual({ kind: "create_related", featureGroup: relatedFeature });
   });
 });

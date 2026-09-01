@@ -56,7 +56,13 @@ describe("WorkbookInspectorRecordHistory", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open history" }));
-    await screen.findByTestId(rowHistoryItemTestId({ historyItemRef }));
+    const historyItem = await screen.findByTestId(
+      rowHistoryItemTestId({ historyItemRef }),
+    );
+    expect(historyItem.textContent).not.toContain(
+      "Changed by 40000000-0000-4000-8000-000000000001",
+    );
+    expect(historyItem.textContent).toContain("Actor ID");
     fireEvent.click(
       screen.getByTestId(
         rowHistoryActionTestId({

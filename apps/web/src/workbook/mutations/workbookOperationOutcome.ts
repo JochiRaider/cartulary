@@ -24,7 +24,10 @@ export type WorkbookOperationFailure = (
   | { readonly kind: "retryable"; readonly message: string }
   | { readonly kind: "invalid_contract"; readonly message: string }
   | { readonly kind: "terminal"; readonly message: string }
-) & { readonly presentation?: CartularyErrorPresentation | undefined };
+) & {
+  readonly presentation?: CartularyErrorPresentation | undefined;
+  readonly publicCode?: string | undefined;
+};
 
 export type WorkbookOperationOutcome<Accepted> =
   | { readonly kind: "accepted"; readonly value: Accepted }

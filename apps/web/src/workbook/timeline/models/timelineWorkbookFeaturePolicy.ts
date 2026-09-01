@@ -56,14 +56,14 @@ export const timelineCreateRelatedTargetContracts: ReadonlyMap<
 
 export function resolveTimelineWorkbookFeature(
   viewSchemaId: string,
-  featureGroup: InspectorFeatureGroup,
+  featureGroupKey: string,
 ): TimelineWorkbookFeatureResolution {
   if (viewSchemaId !== timelineViewSchemaId) {
     return unsupportedTimelineWorkbookFeature;
   }
   const semanticResolution = resolveSemanticInspectorFeature(
     timelineContract.inspectorConfig,
-    featureGroup,
+    featureGroupKey,
   );
   if (semanticResolution.kind === "unsupported") {
     return unsupportedTimelineWorkbookFeature;

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { WorkbookInspectorTechnicalDetails } from "./WorkbookInspectorPresentation";
+import { WorkbookInspectorTechnicalDetails } from "./WorkbookInspectorFeedback";
 import type { WorkbookHistoryEventPresentation } from "./workbookInspectorPresentationModel";
 
 export function WorkbookHistoryList({

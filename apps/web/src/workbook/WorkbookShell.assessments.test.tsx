@@ -630,7 +630,10 @@ describe("Assessment workbook surface", () => {
     fireEvent.click(
       screen.getByTestId(assessmentCreateControlTestId("submit")),
     );
-    await screen.findByText("invalid_mutation_payload");
+    expect(
+      (await screen.findByTestId(assessmentCreateControlTestId("message")))
+        .textContent,
+    ).toContain("invalid_mutation_payload");
     expect(assessmentControlValue("rationale")).toBe(
       "Fresh follow-on rationale",
     );
@@ -644,7 +647,10 @@ describe("Assessment workbook surface", () => {
     fireEvent.click(
       screen.getByTestId(assessmentCreateControlTestId("submit")),
     );
-    await screen.findByText("authorization_denied");
+    expect(
+      (await screen.findByTestId(assessmentCreateControlTestId("message")))
+        .textContent,
+    ).toContain("authorization_denied");
     expect(assessmentControlValue("rationale")).toBe(
       "Fresh follow-on rationale",
     );

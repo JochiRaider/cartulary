@@ -6,16 +6,14 @@ import type {
   WorkbookContinuityToken,
 } from "../../continuity/workbookContinuityPort";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
-import { selectInspectorConfig } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
 import { useTimelineInspectorSelection } from "../hooks/useTimelineInspectorSelection";
 import type { DismissedMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
-const timelineInspectorConfig = selectInspectorConfig(
-  requireViewContract(timelineViewSchemaId),
-);
+const timelineInspectorConfig =
+  requireViewContract(timelineViewSchemaId).inspectorConfig;
 
 export function useTimelineInspectorStateComposition({
   continuity,
@@ -46,11 +44,18 @@ export function useTimelineInspectorStateComposition({
     selectedMentionRef,
   });
   const selectedRow = selection.snapshot.selectedRow;
+  const history = useTimelineHistoryState({
+    draftRow: selection.snapshot.draftRow,
+    selectedRow,
+  });
   const coordinator = useWorkbookInspectorCoordinator({
     actionPorts: {
-      clearLifecycleState: continuity.clear,
-      clearSelection: () => {
-        selection.commands.setSelectedRowId(null);
+      resetOwnerState: ({ scope }) => {
+        selection.commands.setInspectorMessage(null);
+        if (scope === "surface") {
+          continuity.clear();
+          selection.commands.setSelectedRowId(null);
+        }
       },
       restoreFocus: () => {
         const token = inspectorContinuityTokenRef.current;
@@ -93,11 +98,6 @@ export function useTimelineInspectorStateComposition({
       workbookFocusAnchorRef,
     ],
   );
-  const history = useTimelineHistoryState({
-    draftRow: selection.snapshot.draftRow,
-    selectedRow,
-  });
-
   return {
     commands: {
       history: history.commands,

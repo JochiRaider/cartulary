@@ -1,5 +1,4 @@
 import {
-  entityInspectorSubjectTestId,
   entityInspectorTestId,
   gridShellTestId,
 } from "@cartulary/ui-contracts";
@@ -50,9 +49,7 @@ function EntityInspectorFixture({
           data-row-version={rowVersion}
           data-testid={entityInspectorTestId("host")}
           data-view-schema-id={hostsViewSchemaId}
-        >
-          <span data-testid={entityInspectorSubjectTestId("host", recordId)} />
-        </aside>
+        />
       ) : null}
     </section>
   );

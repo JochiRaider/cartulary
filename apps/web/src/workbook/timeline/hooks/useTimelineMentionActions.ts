@@ -1,5 +1,9 @@
 import { type Dispatch, type SetStateAction, useCallback } from "react";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
+import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorErrorPresentation,
+} from "../../inspector/workbookInspectorErrorModel";
 import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordRequirement,
@@ -67,7 +71,9 @@ export function useTimelineMentionActions({
   readonly setDismissedMentionsByRow: Dispatch<
     SetStateAction<Record<string, DismissedMention[]>>
   >;
-  readonly setInspectorMessage: (message: string | null) => void;
+  readonly setInspectorMessage: (
+    message: WorkbookInspectorFeedback | null,
+  ) => void;
   readonly settleViewportContinuityFollowUp: (
     token: number,
     requirement: TimelineContinuityRequirementName,
@@ -116,7 +122,9 @@ export function useTimelineMentionActions({
         });
         if (createResult.kind === "rejected") {
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage(createResult.failure.message);
+          setInspectorMessage(
+            workbookInspectorErrorPresentation(createResult.failure),
+          );
           finishSave("Conflict");
           return;
         }
@@ -148,7 +156,9 @@ export function useTimelineMentionActions({
         if (result.kind === "rejected") {
           resolvePendingSocketTxn(resolveClientTxnId);
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage(result.failure.message);
+          setInspectorMessage(
+            workbookInspectorErrorPresentation(result.failure),
+          );
           finishSave("Conflict");
           return;
         }
@@ -273,7 +283,9 @@ export function useTimelineMentionActions({
         if (result.kind === "rejected") {
           resolvePendingSocketTxn(clientTxnId);
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage(result.failure.message);
+          setInspectorMessage(
+            workbookInspectorErrorPresentation(result.failure),
+          );
           finishSave("Conflict");
           return;
         }

@@ -1,4 +1,9 @@
 import { useCallback, useRef, useState } from "react";
+import {
+  type WorkbookInspectorErrorPresentation,
+  workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorPresentation,
+} from "../inspector/workbookInspectorErrorModel";
 import type {
   GenericMutationCommandPort,
   GenericViewMutationAccepted,
@@ -22,7 +27,7 @@ export type GenericSurfaceMutationController = {
   readonly completeGenericMutation: () => Promise<void>;
   readonly markMutationConflict: () => void;
   readonly markMutationSaved: () => void;
-  readonly mutationError: string | null;
+  readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly mutationState: GenericMutationSaveState;
   readonly rejectMutationFailure: (failure: WorkbookOperationFailure) => void;
   readonly setValidationError: (message: string) => void;
@@ -44,7 +49,8 @@ export function useGenericSurfaceMutationController({
   readonly refreshReferenceOptions: () => Promise<void> | void;
   readonly surfaceLabel: string;
 }): GenericSurfaceMutationController {
-  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationError, setMutationError] =
+    useState<WorkbookInspectorErrorPresentation | null>(null);
   const [mutationState, setMutationState] =
     useState<GenericMutationSaveState>("Saved");
   const finishExplicitMutationRef = useRef<(() => void) | null>(null);
@@ -77,13 +83,13 @@ export function useGenericSurfaceMutationController({
       finishExplicitMutationRef.current?.();
       finishExplicitMutationRef.current = null;
       setMutationState("Conflict");
-      setMutationError(failure.message);
+      setMutationError(workbookInspectorErrorPresentation(failure));
     },
     [],
   );
 
   const setValidationError = useCallback((message: string) => {
-    setMutationError(message);
+    setMutationError(workbookInspectorLocalErrorPresentation(message));
   }, []);
 
   const completeGenericMutation = useCallback(async () => {
@@ -95,7 +101,9 @@ export function useGenericSurfaceMutationController({
       finishExplicitMutationRef.current = null;
       setMutationState("Conflict");
       setMutationError(
-        error instanceof Error ? error.message : "Workbook refresh failed.",
+        workbookInspectorLocalErrorPresentation(
+          error instanceof Error ? error.message : "Workbook refresh failed.",
+        ),
       );
       return;
     }

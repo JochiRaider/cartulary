@@ -1,65 +1,49 @@
-import {
-  type InspectorConfig,
-  type InspectorFeatureGroup,
-  listViewContracts,
+import type {
+  InspectorConfig,
+  InspectorDisabledCondition,
+  InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 
-export type InspectorDisabledToken =
-  | "no_row_selected"
-  | "incident_closed"
-  | "authorization_lost"
-  | "row_version_changed"
-  | "record_deleted"
-  | "record_merged"
-  | "evidence_preview_unavailable"
-  | "merge_target_unavailable"
-  | "record_not_deleted"
-  | "rollback_target_unavailable"
-  | "party_text_unavailable"
-  | "pivot_target_unavailable";
+export type SemanticInspectorDisposition =
+  | "panel_read"
+  | "contextual_workflow_or_pivot"
+  | "direct_history_action"
+  | "existing_owner_control";
 
 export type SemanticInspectorFeatureResolution =
   | {
-      readonly kind: "panel_read";
-      readonly featureGroup: InspectorFeatureGroup;
-      readonly semanticKey: string;
-    }
-  | {
-      readonly kind: "action";
+      readonly kind: "supported";
+      readonly disposition: SemanticInspectorDisposition;
       readonly featureGroup: InspectorFeatureGroup;
       readonly semanticKey: string;
     }
   | { readonly kind: "unsupported" };
 
-const supportedRouteOwners = new Map<string, ReadonlySet<string>>([
-  ["panel_read", new Set(["current_row_projection", "record_history_route"])],
-  ["view_row_create", new Set(["view_row_create_route"])],
-  ["record_patch", new Set(["record_patch_route"])],
-  [
-    "record_action",
-    new Set([
-      "record_delete_route",
-      "record_restore_route",
-      "record_rollback_route",
-      "record_merge_route",
-      "record_supersede_route",
-      "record_mark_reviewed_route",
-      "evidence_attach_blob_route",
-    ]),
-  ],
-  ["entity_mention_action", new Set(["entity_mention_resolve_route"])],
-  [
-    "evidence_access",
-    new Set([
-      "evidence_preview_handle_route",
-      "evidence_download_handle_route",
-    ]),
-  ],
-  ["surface_pivot", new Set(["view_query_route"])],
-  ["indicator_observations", new Set(["indicator_observations_route"])],
-  ["indicator_lifecycle", new Set(["indicator_lifecycle_route"])],
-]);
+// Each value pins the ordered set of complete stable semantic tuples for one
+// current view schema: view schema, feature key, panel, route kind, route
+// owner, and action key. A changed or additive tuple fails closed until this
+// authored registration is deliberately updated and reviewed.
+const registeredInspectorConfigFingerprints: Readonly<Record<string, string>> =
+  Object.freeze({
+    "cartulary.view.timeline.v2": "27:f988d895",
+    "cartulary.view.hosts.v1": "16:4a395ac9",
+    "cartulary.view.identities.v1": "16:1c096141",
+    "cartulary.view.evidence.v1": "19:f9f930e7",
+    "cartulary.view.notes.v1": "14:67c3c511",
+    "cartulary.view.indicators.v1": "12:a93fc881",
+    "cartulary.view.assessments.v1": "11:275a8346",
+    "cartulary.view.task_requests.v1": "16:a22c9b79",
+    "cartulary.view.decisions.v1": "14:11b62214",
+    "cartulary.view.parties.v1": "13:00c29d32",
+    "cartulary.view.comm_log.v1": "13:2b546c22",
+    "cartulary.view.handoff.v1": "13:0244a3e3",
+    "cartulary.view.status_review.v1": "14:a27703d9",
+    "cartulary.view.lesson.v1": "12:0b28e2af",
+    "cartulary.view.findings.v1": "14:610cd279",
+    "cartulary.view.investigative_queries.v1": "12:85a5d5ff",
+    "cartulary.view.forensic_keywords.v1": "11:a8202f53",
+  });
 
 const roleRank: Readonly<Record<Exclude<WorkbookIncidentRole, "">, number>> = {
   viewer: 0,
@@ -75,6 +59,7 @@ export function semanticInspectorFeatureKey(
   return [
     viewSchemaId,
     featureGroup.featureGroupKey,
+    featureGroup.panelId,
     featureGroup.routeBinding.kind,
     featureGroup.routeBinding.owner,
     featureGroup.routeBinding.actionKey ?? "",
@@ -83,27 +68,23 @@ export function semanticInspectorFeatureKey(
 
 export function resolveSemanticInspectorFeature(
   config: InspectorConfig,
-  requested: InspectorFeatureGroup,
+  featureGroupKey: string,
 ): SemanticInspectorFeatureResolution {
-  const featureGroup = config.featureGroups.find(
-    (candidate) => candidate.featureGroupKey === requested.featureGroupKey,
-  );
-  if (
-    featureGroup === undefined ||
-    !sameSemanticInspectorFeature(featureGroup, requested) ||
-    !supportedRouteOwners
-      .get(featureGroup.routeBinding.kind)
-      ?.has(featureGroup.routeBinding.owner)
-  ) {
+  if (!inspectorConfigIsExplicitlyRegistered(config)) {
     return { kind: "unsupported" };
   }
-  const semanticKey = semanticInspectorFeatureKey(
-    config.viewSchemaId,
-    featureGroup,
+  const featureGroup = config.featureGroups.find(
+    (candidate) => candidate.featureGroupKey === featureGroupKey,
   );
-  return featureGroup.routeBinding.kind === "panel_read"
-    ? { kind: "panel_read", featureGroup, semanticKey }
-    : { kind: "action", featureGroup, semanticKey };
+  if (featureGroup === undefined) {
+    return { kind: "unsupported" };
+  }
+  return {
+    kind: "supported",
+    disposition: semanticInspectorDisposition(featureGroup),
+    featureGroup,
+    semanticKey: semanticInspectorFeatureKey(config.viewSchemaId, featureGroup),
+  };
 }
 
 export function inspectorFeatureDisabledTokens({
@@ -113,8 +94,8 @@ export function inspectorFeatureDisabledTokens({
 }: {
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly featureGroup: InspectorFeatureGroup;
-  readonly stateTokens: ReadonlySet<InspectorDisabledToken>;
-}): ReadonlySet<InspectorDisabledToken> {
+  readonly stateTokens: ReadonlySet<InspectorDisabledCondition>;
+}): ReadonlySet<InspectorDisabledCondition> {
   const tokens = new Set(stateTokens);
   const minimumRole = featureGroup.minimumIncidentRole;
   const currentRole = currentIncidentRole || null;
@@ -127,103 +108,48 @@ export function inspectorFeatureDisabledTokens({
   return tokens;
 }
 
-export function assertCurrentInspectorDispatchCompleteness(): void {
-  const keys = new Set<string>();
-  for (const contract of listViewContracts()) {
-    for (const featureGroup of contract.inspectorConfig.featureGroups) {
-      const resolution = resolveSemanticInspectorFeature(
-        contract.inspectorConfig,
-        featureGroup,
-      );
-      if (resolution.kind === "unsupported") {
-        throw new Error(
-          `Unsupported current inspector feature ${contract.viewSchemaId}/${featureGroup.featureGroupKey}`,
-        );
-      }
-      if (keys.has(resolution.semanticKey)) {
-        throw new Error(
-          `Duplicate inspector semantic key ${resolution.semanticKey}`,
-        );
-      }
-      keys.add(resolution.semanticKey);
-    }
-  }
-}
-
-function sameSemanticInspectorFeature(
-  left: InspectorFeatureGroup,
-  right: InspectorFeatureGroup,
-): boolean {
-  return (
-    left.featureGroupKey === right.featureGroupKey &&
-    left.panelId === right.panelId &&
-    left.routeBinding.kind === right.routeBinding.kind &&
-    left.routeBinding.owner === right.routeBinding.owner &&
-    left.routeBinding.actionKey === right.routeBinding.actionKey &&
-    left.routeBinding.targetViewSchemaId ===
-      right.routeBinding.targetViewSchemaId &&
-    left.minimumIncidentRole === right.minimumIncidentRole &&
-    left.mutates === right.mutates &&
-    left.requiresConfirmation === right.requiresConfirmation &&
-    left.successResultBehavior === right.successResultBehavior &&
-    left.failureResultBehavior === right.failureResultBehavior &&
-    sameStringArray(left.disabledWhen, right.disabledWhen) &&
-    sameSeedBindings(left.seedBindings, right.seedBindings)
-  );
-}
-
-function sameStringArray(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
-}
-
-function sameSeedBindings(
-  left: InspectorFeatureGroup["seedBindings"],
-  right: InspectorFeatureGroup["seedBindings"],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((binding, index) => {
-      const candidate = right[index];
-      return (
-        candidate !== undefined &&
-        binding.targetFieldKey === candidate.targetFieldKey &&
-        binding.source.kind === candidate.source.kind &&
-        binding.source.sourceFieldKey === candidate.source.sourceFieldKey &&
-        sameLiteralValue(binding.source.value, candidate.source.value)
-      );
-    })
-  );
-}
-
-function sameLiteralValue(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true;
-  if (left === null || right === null) return false;
-  if (Array.isArray(left) && Array.isArray(right)) {
-    return (
-      left.length === right.length &&
-      left.every((value, index) => sameLiteralValue(value, right[index]))
-    );
+function semanticInspectorDisposition(
+  featureGroup: InspectorFeatureGroup,
+): SemanticInspectorDisposition {
+  if (featureGroup.routeBinding.kind === "panel_read") {
+    return "panel_read";
   }
   if (
-    typeof left !== "object" ||
-    typeof right !== "object" ||
-    Array.isArray(left) ||
-    Array.isArray(right)
+    featureGroup.routeBinding.kind === "view_row_create" ||
+    featureGroup.routeBinding.kind === "surface_pivot"
   ) {
-    return false;
+    return "contextual_workflow_or_pivot";
   }
-  const leftRecord = left as Readonly<Record<string, unknown>>;
-  const rightRecord = right as Readonly<Record<string, unknown>>;
-  const leftKeys = Object.keys(leftRecord).sort();
-  const rightKeys = Object.keys(rightRecord).sort();
+  if (
+    featureGroup.panelId === "history" &&
+    (featureGroup.featureGroupKey === "record.delete" ||
+      featureGroup.featureGroupKey === "record.restore" ||
+      featureGroup.featureGroupKey === "history.rollback")
+  ) {
+    return "direct_history_action";
+  }
+  return "existing_owner_control";
+}
+
+function inspectorConfigIsExplicitlyRegistered(
+  config: InspectorConfig,
+): boolean {
+  const expected = registeredInspectorConfigFingerprints[config.viewSchemaId];
   return (
-    sameStringArray(leftKeys, rightKeys) &&
-    leftKeys.every((key) => sameLiteralValue(leftRecord[key], rightRecord[key]))
+    expected !== undefined && expected === inspectorConfigFingerprint(config)
   );
+}
+
+function inspectorConfigFingerprint(config: InspectorConfig): string {
+  const corpus = config.featureGroups
+    .map((featureGroup) =>
+      semanticInspectorFeatureKey(config.viewSchemaId, featureGroup),
+    )
+    .join("\n");
+  let hash = 2_166_136_261;
+  for (let index = 0; index < corpus.length; index += 1) {
+    hash ^= corpus.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619) >>> 0;
+  }
+  return `${config.featureGroups.length}:${hash.toString(16).padStart(8, "0")}`;
 }

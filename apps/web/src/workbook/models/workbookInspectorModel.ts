@@ -1,8 +1,6 @@
 import type {
   InspectorConfig,
-  InspectorFeatureGroup,
   InspectorPanelId,
-  ViewContract,
 } from "@cartulary/view-contracts";
 
 export type WorkbookInspectorSubject = {
@@ -23,8 +21,6 @@ export type WorkbookInspectorInvalidationReason =
   | "surface_changed";
 
 export type WorkbookInspectorState = {
-  readonly activePanelId: InspectorPanelId | null;
-  readonly configViewSchemaId: string;
   readonly invalidationGeneration: number;
   readonly invalidationCause:
     | WorkbookInspectorInvalidationReason
@@ -37,38 +33,19 @@ export type WorkbookInspectorState = {
 };
 
 export type WorkbookInspectorAction =
-  | {
-      readonly type: "reset_config";
-      readonly config: InspectorConfig;
-    }
-  | {
-      readonly type: "open";
-      readonly panelId?: InspectorPanelId | undefined;
-    }
+  | { readonly type: "open" }
   | { readonly type: "close" }
   | {
       readonly type: "retarget";
       readonly subject: WorkbookInspectorSubject | null;
     }
   | {
-      readonly type: "select_panel";
-      readonly panelId: InspectorPanelId;
-    }
-  | {
       readonly type: "invalidate";
       readonly reason: WorkbookInspectorInvalidationReason;
     };
 
-export function selectInspectorConfig(contract: ViewContract): InspectorConfig {
-  return contract.inspectorConfig;
-}
-
-export function initialWorkbookInspectorState(
-  config: InspectorConfig,
-): WorkbookInspectorState {
+export function initialWorkbookInspectorState(): WorkbookInspectorState {
   return {
-    activePanelId: firstPanelId(config),
-    configViewSchemaId: config.viewSchemaId,
     invalidationGeneration: 0,
     invalidationCause: null,
     isOpen: false,
@@ -82,16 +59,9 @@ export function workbookInspectorReducer(
   action: WorkbookInspectorAction,
 ): WorkbookInspectorState {
   switch (action.type) {
-    case "reset_config":
-      return {
-        ...initialWorkbookInspectorState(action.config),
-        invalidationCause: "surface_changed",
-        invalidationGeneration: state.invalidationGeneration + 1,
-      };
     case "open":
       return {
         ...state,
-        activePanelId: action.panelId ?? state.activePanelId,
         isOpen: true,
         status: state.subject === null ? "no_row_selected" : "ready",
       };
@@ -117,11 +87,6 @@ export function workbookInspectorReducer(
             : "ready"
           : "closed",
         subject: action.subject,
-      };
-    case "select_panel":
-      return {
-        ...state,
-        activePanelId: action.panelId,
       };
     case "invalidate":
       return {
@@ -161,22 +126,4 @@ export function inspectorPanelIsDeclared(
   panelId: InspectorPanelId,
 ): boolean {
   return config.panels.some((panel) => panel.panelId === panelId);
-}
-
-export function inspectorFeatureGroupsForPanel(
-  config: InspectorConfig,
-  panelId: InspectorPanelId,
-): readonly InspectorFeatureGroup[] {
-  if (!inspectorPanelIsDeclared(config, panelId)) {
-    return [];
-  }
-  return config.featureGroups.filter((group) => group.panelId === panelId);
-}
-
-export function inspectorNoRowState(config: InspectorConfig): string {
-  return config.noRowState;
-}
-
-function firstPanelId(config: InspectorConfig): InspectorPanelId | null {
-  return config.panels[0]?.panelId ?? null;
 }

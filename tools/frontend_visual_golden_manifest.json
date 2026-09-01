@@ -112,7 +112,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/entity-mention-chip-states-linux.png",
-      "sha256": "b6fe175b2a15ad2f0dca80feadb03cfcee8af1f550885712392a84856cbe2a64"
+      "sha256": "dc1c6011a31690f1211be653919f616d6a4d02d7067241d286889b1c0a5e8e91"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
@@ -248,23 +248,23 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png",
-      "sha256": "3111770c755e9c7707b893ff8e8e42fd90e4290b6e27522b3ba934a18c804c4f"
+      "sha256": "577b92a46b220b33a4ef249ee1c141aa24df98c06b10760633f7c9fcf7553ab7"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-destructive-confirmation-linux.png",
-      "sha256": "f8fa6f6395705fccc7390e73d74f7490ebcd9fdf8db7cda0b45f7c52f58ed74c"
+      "sha256": "72e7aa24bb45f00e166a158d9f9990918967656d80a0377b2eb9cea20b24d76b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-history-linux.png",
-      "sha256": "00c52087156ca9676f9d7ad62a444e5eceb8bb71af48a7c099682e9764015d70"
+      "sha256": "26e78ce41817710f538f177e3b5c60c2b9e5e9c9f5f569b9b7f93011d8f7d736"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png",
-      "sha256": "9f1ca15139ce01528134b67db0460989057c18a1068ff02920d81e426e10daa4"
+      "sha256": "0b3c88c86f2bfaada220f8df5b8cdace8e08b5ddf42e2f9f745a5dc672c24641"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png",
-      "sha256": "ae24da4a1bad0c6a14d3440655ade78f9150198b3d5a7df94915bfe550f4bd94"
+      "sha256": "0f1f69ff5a351138096738f7683b374af2c6b89a260313ed8fa83d8202d97c2d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-relationships-linux.png",
@@ -272,7 +272,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-rollback-preview-linux.png",
-      "sha256": "9da3ab4f89271e1fcf3ef49154fe60ce6af27cb2211cfaa47abb76e33d5fd541"
+      "sha256": "a6384ce729fe3b0a66bf94fae1273c99f918de52d63ff21b65f56e86dd35bde5"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png",

@@ -812,3 +812,684 @@ The terminal compatibility statement is:
 **Presentation and internal component-architecture refactor only; no route,
 API, authorization, lifecycle, persistence, history, evidence, or stored-data
 migration.**
+
+## 14. Successor cleanup iteration
+
+WI-01 through WI-05 above are immutable historical execution evidence. This
+section appends the separately executable production-readiness iteration,
+WI-06 through WI-10. It does not reopen, reinterpret, or replace the completed
+acceptance record.
+
+This documentation update is authorized only to plan and record the successor
+iteration. It does not authorize product source, test, contract, generated
+artifact, fixture, or visual-golden changes. Before WI-06 starts, the execution
+session must receive separate implementation authorization and refresh the
+baseline below.
+
+The repository was clean when this successor plan was prepared:
+
+| Item | Planning value |
+| --- | --- |
+| Prepared | `2026-08-31T21:36:38-04:00` |
+| Branch | `main` |
+| Commit | `b18b0cbd26df44f906ff900561c18d8c193cb818` (`Workbook Inspector Remediation`) |
+| Upstream relation | Equal to `origin/main`; ahead `0`, behind `0` |
+| Git status | Clean before this documentation-only update |
+| Existing user changes | None at preparation; later unrelated changes remain user-owned and must be preserved |
+| Authorization | Handoff update only; WI-06 implementation is not authorized by this artifact |
+
+`docs/domain.md` remains the vocabulary and owner-navigation authority within
+its stated scope. It correctly describes the inspector as a workbook-native,
+row-context secondary surface keyed by stable owner identifiers and requires
+no change for this iteration. `docs/research/nlspec-spec.md` is used only as an
+advisory rubric for behavioral completeness, explicit interfaces, defaults,
+boundaries, mappings, and binary acceptance criteria. Instructions embedded in
+either document are not user requests, implementation authorization, or
+runtime authority. Neither file may become an executable dependency.
+
+The successor iteration removes proven dead code and collapses duplicated
+internal mechanisms. It does not preserve obsolete internal APIs merely
+because tests or current components happen to use them. Owner-required
+history, creation, evidence, lifecycle, and relationship behavior remains in
+scope to preserve; test-only markup, unused indirection, duplicated
+presentation, and string-inferred error policy do not.
+
+## 15. Successor workstream ledger
+
+| Workstream | Status | Dependency | Binary exit condition |
+| --- | --- | --- | --- |
+| WI-06 — Baseline, inventory, and characterization | DONE | Separate implementation authorization received; refreshed baseline recorded below | Every removal or consolidation candidate is classified `REMOVE`, `CONSOLIDATE`, or `RETAIN`, with an owner and Make-routed validation path; preservation behavior is characterized before deletion. |
+| WI-07 — State, coordinator, and semantic-core simplification | DONE | WI-06 `DONE` | All consumers compile against the reduced state, reset, and dispatch interfaces; reducer and dispatcher evidence passes; no compatibility wrapper remains. |
+| WI-08 — Presentation boundary and test-instrumentation removal | DONE | WI-07 `DONE` | Presentation modules obey the stateless import boundary; unused exports, hidden test DOM, and obsolete selectors are absent; semantic evidence comes from real controls. |
+| WI-09 — Shared workflows, history, and safety hardening | DONE | WI-08 `DONE` | Both history owners and all four related-workflow consumers use the shared pure presentation models; typed failures and actor metadata rules pass; command and state ownership remains separate. |
+| WI-10 — Final validation and handoff | DONE | WI-09 `DONE` | Routed and terminal evidence passes; generated provenance and Git scope are clean; the successor acceptance matrix and terminal record are complete. |
+
+Only one successor workstream may be `IN_PROGRESS`. Immediately before work on
+a slice begins, record the refreshed checkpoint and mark that slice
+`IN_PROGRESS`. After the slice meets every exit criterion, append its paths,
+commands, run roots, failures and classifications, compatibility, rollback,
+risks, and next seam; mark it `DONE`; only then mark its successor
+`IN_PROGRESS`. A required failure leaves the slice `IN_PROGRESS`. Use
+`BLOCKED` only for a verified owner contradiction and record both clauses.
+
+## 16. Successor scope and governing decisions
+
+Future implementation is limited to the Workbook Inspector package and its
+direct dependency cone:
+
+- `apps/web/src/workbook/inspector/**`;
+- direct Timeline, generic, entity, and assessment inspector consumers under
+  `apps/web/src/workbook/**`;
+- shared operation-failure presentation used by those consumers;
+- inspector selectors and internal types under
+  `packages/ui-contracts/src/**` and other already-owned package paths;
+- focused unit, accessibility, stateful, measurement, support,
+  webserver-backed, and visual tests affected by those paths;
+- authored source-ownership, import-boundary, verification-routing, and visual
+  fixture inputs under `tools/**` when the structural change requires them;
+- Make-generated output from an authorized owning input; and
+- this handoff as the successor execution ledger.
+
+Do not change public routes, APIs, schemas, payloads, authorization decisions,
+lifecycle transitions, persistence, stored data, history legality, evidence
+semantics, or concurrency rules. Do not add dependencies, client-side feature
+label registries, generic command buses, universal inspector controllers, or
+compatibility aliases. Do not hand-edit generated roots or the visual manifest.
+
+The cleanup must use the smallest durable internal interfaces:
+
+- inspector state contains only state that production consumers read;
+- the coordinator emits one owner reset event and requests focus restoration,
+  without knowing feature-specific form or selection names;
+- semantic dispatch receives the inspector config and a feature-group key and
+  returns the canonical contract feature with a typed disposition;
+- presentation modules receive already-derived models and callbacks, without
+  importing owner hooks, mutation ports, reducers, or stateful controllers;
+- shared history and related-workflow code owns pure mapping and presentation,
+  while Timeline and generic owners retain their command, loading, refresh,
+  and mutation state; and
+- public error copy is derived from typed failures at the rejection boundary,
+  never by searching arbitrary strings.
+
+Internal selector and component removals are atomic. Tests migrate in the same
+slice as the production removal. No alias, deprecated export, hidden marker,
+parallel renderer, or temporary adapter may survive a workstream exit.
+
+## 17. Successor remediation matrix
+
+### G01 — Dead inspector state and model API
+
+- **Remediation:** Remove `activePanelId`, `configViewSchemaId`,
+  `select_panel`, `selectPanel`, the panel argument to `open`, and
+  `firstPanelId`. Remove test-only `inspectorFeatureGroupsForPanel` and
+  `inspectorNoRowState`. Delete the trivial `selectInspectorConfig` wrapper
+  and read `contract.inspectorConfig` at its consumers.
+- **Areas and owners:** Implementation and unit tests; `web.workbook` owns the
+  model and direct consumers. No specification change is planned.
+- **Rationale and long-term benefit:** State and commands with no production
+  reader manufacture lifecycle cases and imply panel navigation that the
+  product does not have. A smaller model makes invalidation, future panels,
+  and reducer evolution easier to reason about and exhaustively test.
+- **Compatibility or migration impact:** Internal TypeScript callers and tests
+  migrate atomically. Stable machine status, selected record, invalidation
+  generation/cause, feature identity, routes, and owner behavior remain.
+- **Risk if unresolved:** Dead state can acquire accidental authority, tests
+  preserve imaginary behavior, and future panel work must distinguish real
+  invariants from abandoned scaffolding.
+- **Binary validation:** Repository search finds none of the removed symbols;
+  model consumers compile; reducer tests still prove open, close, retarget,
+  no-row, invalidation, and stale-state clearing.
+
+### G02 — Feature-specific coordinator reset ports
+
+- **Remediation:** Replace `clearLocalForm`, `clearLifecycleState`,
+  `clearMergePlan`, `clearPendingConfirmation`, `clearPreview`,
+  `clearSelection`, and `clearWorkflowForm` with one required owner reset
+  callback receiving `{ cause, scope }` and one required focus-restoration
+  callback. The scope is `row_local` or `surface`. Close, retarget, and action
+  completion use `row_local`; surface/config change, authorization loss,
+  incident closure, deletion, merge, and hard refresh use `surface`.
+- **Areas and owners:** Implementation, coordinator/model unit tests, and
+  consumer integration tests; `web.workbook` owns the coordinator, while each
+  consumer owns the effects of its reset callback.
+- **Rationale and long-term benefit:** A generic coordinator should express
+  invalidation extent, not enumerate every current feature. One semantic reset
+  event allows future owner state to grow without widening the coordinator.
+- **Compatibility or migration impact:** Every owner installs the new required
+  callback in the same slice. Surface resets additionally clear owner
+  selection and lifecycle state. No authorization, lifecycle, selection, or
+  focus policy changes.
+- **Risk if unresolved:** Each future feature adds another optional port;
+  callers silently omit cleanup, and stale forms, previews, selections, or
+  confirmations can survive subject changes.
+- **Binary validation:** Compile-time construction requires both callbacks;
+  no feature-named reset port remains; tests prove the expected scope for
+  close, retarget, action completion, surface change, authorization loss,
+  deletion, merge, and hard refresh, including focus fallback.
+
+### G03 — Copied semantic features and duplicated contract types
+
+- **Remediation:** Resolve semantic features by
+  `(inspectorConfig, featureGroupKey)` and return the canonical feature object
+  held by that config. Delete copied-feature deep equality and the discarded
+  per-render resolution loop. Use generated `InspectorDisabledCondition`
+  instead of a local token union. Replace the string-keyed route-owner map with
+  an exhaustive typed disposition table: panel read, contextual workflow or
+  pivot, direct history action, existing owner control, or unsupported.
+- **Areas and owners:** Inspector implementation and dispatcher tests under
+  `web.workbook`; generated view-contract types are consumed, not edited.
+- **Rationale and long-term benefit:** Canonical objects prevent silent drift
+  when the contract grows. Exhaustive dispositions make unsupported additions
+  visible at compile/test time without duplicating route or label knowledge.
+- **Compatibility or migration impact:** Call sites pass the key instead of a
+  copied feature. All 17 current schemas and 247 current feature-group
+  instances retain their semantic identity and owner locus. Unknown additive
+  groups remain omitted without inference.
+- **Risk if unresolved:** New contract fields can be ignored by hand-written
+  equality, copied token unions diverge from generated owners, and dead runtime
+  resolution adds complexity without enforcing a behavior.
+- **Binary validation:** Corpus characterization resolves every current
+  instance exactly once to the canonical object and expected disposition;
+  an unknown additive group returns no presentation; searches find no local
+  disabled-token union, deep feature comparator, or discarded resolution loop.
+
+### G04 — Stateful and oversized presentation seam
+
+- **Remediation:** Move contextual-action pending-confirmation state out of
+  `presentation/` into an inspector orchestration container. Split the current
+  presentation file into focused shell/panel, action, feedback/confirmation,
+  history, and pure-model modules. Delete unused
+  `WorkbookInspectorStatus` and `WorkbookInspectorMessage`; make helpers that
+  are not public presentation contracts private. Add an import-boundary rule
+  that forbids owner hooks, mutation ports, runtime state, reducers, and
+  stateful controllers from presentation modules.
+- **Areas and owners:** Implementation, source-ownership/import-boundary
+  manifests, unit tests, and accessibility tests; `web.workbook` and
+  `web.design` share verification ownership.
+- **Rationale and long-term benefit:** Presentation can remain reusable only
+  when it is pure about owner state and commands. Focused modules improve
+  cohesion, reduce exported surface area, and stop a new universal inspector
+  controller from forming accidentally.
+- **Compatibility or migration impact:** Internal imports and tests change
+  atomically. Confirmation identity, nested `Esc`, safe focus, outer-inspector
+  close, and focus restoration remain. Focus-oriented effects and refs may
+  remain in confirmation presentation; orchestration state may not.
+- **Risk if unresolved:** Presentation and control ownership continue to blur,
+  future actions add branches to a monolith, and accessibility changes become
+  coupled to unrelated mutation behavior.
+- **Binary validation:** Presentation files contain no `useState` or
+  `useReducer` and pass the new import boundary; removed exports have no
+  definitions or imports; contextual confirmation and focus tests pass.
+
+### G05 — Production DOM and selectors created only for tests
+
+- **Remediation:** Delete hidden feature-group marker nodes and
+  `workbookInspectorFeatureGroupTestId`. Delete the hidden entity-subject node
+  and `entityInspectorSubjectTestId`. Remove both selectors from
+  `@cartulary/ui-contracts` without aliases. Retarget evidence to real action
+  controls, the inspector `data-record-id`, panel selectors, or pure
+  disposition results.
+- **Areas and owners:** Inspector/entity implementation, `package.ui`, focused
+  frontend and browser tests, and affected test-support helpers.
+- **Rationale and long-term benefit:** The production accessibility tree and
+  component API should represent product semantics, not private test
+  bookkeeping. Tests grounded in real interaction loci are more durable.
+- **Compatibility or migration impact:** Internal test selectors are removed
+  intentionally. Actual controls retain the feature key, route kind, route
+  owner, accessible disabled reason, record identity, and stable action
+  selector needed by behavior tests.
+- **Risk if unresolved:** Hidden marker contracts become permanent public
+  baggage, tests can pass while real controls regress, and duplicated semantic
+  nodes complicate accessibility and future refactors.
+- **Binary validation:** Source and built DOM contain neither hidden marker nor
+  selector; UI-contract exports and tests compile; semantic tests locate and
+  operate the real control or inspector element.
+
+### G06 — Duplicated history presentation mapping
+
+- **Remediation:** Share one pure history-event mapper, rollback-label mapping,
+  and technical-field builder between Timeline and generic history. Keep
+  loading, command ports, mutation state, deleted-row behavior, refresh logic,
+  and exact server selectors in their existing owners. Treat actor IDs as
+  technical metadata unless a genuine human actor label is available.
+- **Areas and owners:** Inspector presentation and Timeline/generic consumer
+  implementation; history, rollback, deletion, restoration, concurrency,
+  accessibility, and visual tests.
+- **Rationale and long-term benefit:** Identical event hierarchy and metadata
+  rules should have one pure source, while distinct state machines should not
+  be forced into a universal controller. Human/technical separation prevents
+  opaque identifiers from becoming user-facing names.
+- **Compatibility or migration impact:** History APIs, legal actions, rollback
+  scope, selectors, commands, and refresh behavior remain. Only actor-ID
+  prominence may change visually; the exact value remains available in
+  technical details.
+- **Risk if unresolved:** Two mappers drift on destructive language, metadata,
+  new event types, and accessibility; actor UUIDs continue to masquerade as
+  human context.
+- **Binary validation:** Both owners render the same pure event model and
+  technical field order; actor UUIDs are never primary labels; exact rollback,
+  delete, restore, concurrency, deleted-history, and refresh tests pass.
+
+### G07 — Duplicated related-record workflows
+
+- **Remediation:** Extract one pure seed/draft binding model over
+  `{ recordId, cells }` and one shared related-record form presentation for
+  Timeline, generic, entity, and assessment consumers. Retain separate owner
+  controllers and submission logic. Timeline continues to own evidence
+  post-create linking and refresh.
+- **Areas and owners:** Inspector presentation and direct consumer hooks/tests;
+  routed ownership includes Workbook, Timeline, Entities, Evidence, and
+  Assessments where their behaviors are exercised.
+- **Rationale and long-term benefit:** Draft initialization, target validation,
+  and form rendering are one concept. Command sequencing and post-create
+  effects are owner-specific. This boundary reduces duplicate fixes without
+  creating a generic workflow engine.
+- **Compatibility or migration impact:** Existing creation commands, payloads,
+  append-only assessment semantics, selection, validation, and evidence links
+  remain unchanged. Internal hook and form props may be replaced atomically.
+- **Risk if unresolved:** Four consumers drift on seed binding, validation,
+  labels, and disabled behavior; a later consolidation becomes broader and
+  riskier.
+- **Binary validation:** All four consumers use the shared pure model and form;
+  generic, entity, assessment, and Timeline creation tests pass; Timeline
+  evidence creation still links to the source record and refreshes once.
+
+### G08 — Local presentation literals and unshared actions
+
+- **Remediation:** Replace component-local `rem` spacing in related-workflow
+  and history presentation with existing design tokens. Replace unstyled local
+  inspector buttons with the established inspector action presentation. Do not
+  add a new token, density rule, card, or component-local design registry.
+- **Areas and owners:** Inspector implementation, `web.design` tests, source
+  policy checks, and directly affected visual evidence.
+- **Rationale and long-term benefit:** Shared tokens and action semantics keep
+  hierarchy, hit targets, disabled treatment, and responsive behavior coherent
+  as panels grow.
+- **Compatibility or migration impact:** No command or interaction locus moves.
+  Narrow, reviewed spacing/button drift is permitted only where removing a
+  literal changes pixels.
+- **Risk if unresolved:** Local visual policy multiplies, responsive fixes must
+  be repeated, and actions with identical meaning present inconsistently.
+- **Binary validation:** Searches and policy tests find no replaced local
+  literal or unshared inspector button; affected accessibility, measurement,
+  and reviewed visual scenarios pass without new token definitions.
+
+### G09 — String-inferred public error policy
+
+- **Remediation:** Carry the decoded `publicCode` on internal transport
+  `WorkbookOperationFailure` values. Build a typed inspector error
+  presentation at the failure boundary; do not inspect arbitrary strings with
+  `includes`. Preserve primary copy exactly as
+  `This row changed; refresh it before retrying.` for a row-version conflict.
+  Put the public code and sanitized server message in operable
+  `Technical details`. Delete `workbookInspectorSafePublicMessage` when every
+  inspector caller uses typed failure presentation or a deliberately local
+  message.
+- **Areas and owners:** Internal operation-executor and inspector
+  implementation, failure-model unit tests, accessibility tests, and directly
+  affected visual evidence. This is not a public API change.
+- **Rationale and long-term benefit:** Error safety should be exhaustive over a
+  typed failure model, not dependent on text fragments. Carrying the decoded
+  code preserves operational diagnostics while preventing technical values
+  from becoming primary public copy.
+- **Compatibility or migration impact:** Internal failure objects gain an
+  optional field only where a decoded transport code exists; local failures
+  legitimately omit it. Server messages are shown only after existing
+  sanitization. The intentional visible change is safe typed copy instead of a
+  raw code or actor-style technical label.
+- **Risk if unresolved:** Copy changes can bypass conflict handling, unrelated
+  text can be misclassified, raw public codes can dominate the UI, and future
+  failure types require more brittle string branches.
+- **Binary validation:** Tests map each typed failure deterministically; raw
+  `row_version_conflict` is never primary copy; code and sanitized detail stay
+  operable in technical disclosure; repository search finds no inspector
+  substring inference or removed helper.
+
+## 18. WI-06 — Baseline, inventory, and characterization
+
+**Dependencies:** Separate implementation authorization. Refresh branch,
+commit, upstream relation, Git status, toolchain, applicable instructions,
+generated policy, allowed paths, relevant task guides, and unrelated changes.
+
+**Work:**
+
+1. Inventory every field, reducer action, command, callback port, export,
+   helper, hidden marker, selector, duplicate mapper/form, design literal, and
+   string-based error path named in G01-G09. Use production references,
+   test-only references, generated ownership, and consumer construction sites
+   to distinguish dead code from indirect use.
+2. Assign each candidate `REMOVE`, `CONSOLIDATE`, or `RETAIN`; record its
+   current owner, future owner, reason, compatibility effect, and narrowest
+   Make validation route. `RETAIN` requires an owner-backed production need,
+   not merely a test reference.
+3. Add characterization before deletion for model invalidation, reset scope,
+   focus restoration, exact feature disposition, unknown omission, history
+   legality, actor metadata, related creation, and Timeline evidence linking.
+4. Confirm all 17 schemas and 247 current feature-group instances at the live
+   baseline. Recount rather than treating the historical totals as executable
+   authority.
+5. Reconcile the cleanup boundary with current Core owners, design direction,
+   domain vocabulary, generated types, and source-ownership rules. On a real
+   contradiction, record `BLOCKED: owner contradiction` and both clauses.
+
+### WI-06 live classified inventory
+
+| Gap and live count | Disposition | Current owner to future owner | Rationale, compatibility, and narrow Make route |
+| --- | --- | --- | --- |
+| G01: two unread state fields, two reducer actions, two commands, one `open` argument, one initial-state config argument, one config wrapper, two test-only helpers | `REMOVE` | `web.workbook` model/tests to no owner | They have no production reader or semantic control. Atomic internal compile break with no alias; preserve open/status/subject/invalidation and production `inspectorPanelIsDeclared`. Validate with `make test-slice OWNER=web.workbook`. |
+| G02: seven optional feature-named ports across four production consumers | `CONSOLIDATE` | `web.workbook` coordinator plus Timeline/generic/entity/assessment owner callbacks to one coordinator reset event; state remains in each consumer | Scope is the durable shared concept; owner state and focus remain excluded from the coordinator. Internal callback migration only. Validate with `make test-slice OWNER=web.workbook` and affected module slices. |
+| G03: one local disabled union, one route-owner wildcard map, one deep comparator family, one discarded render lookup, and one test-only production completeness helper over 17 schemas/247 feature instances | `REMOVE` plus `CONSOLIDATE` | `web.workbook` dispatcher to canonical config lookup plus an explicit stable-tuple disposition registry; generated `InspectorDisabledCondition` remains `package.view` owned | Canonical identity and fail-closed tuples prevent silent contract drift. No generated edit; unknown additions remain omitted. Validate with `make test-slice OWNER=web.workbook`. |
+| G04: one 698-line presentation module, one pending-confirmation state cell, two unused component exports, and non-contract public helpers | `CONSOLIDATE` plus `REMOVE` | `web.workbook` presentation to focused shell/panel, action, feedback/confirmation, history, and pure-model modules; pending state moves to inspector orchestration | Focus effects/refs remain presentation-owned; mutations, controllers, and state orchestration remain excluded. Internal imports only. Validate with `web.workbook`, `web.architecture`, and `frontend-import-boundary-check`. |
+| G05: two hidden production nodes and two authored UI selector exports | `REMOVE` | `web.workbook`/entity presentation and `package.ui` selectors to no owner; real action controls and inspector-root record/version attributes remain | Intentional internal test API break without alias. Tests move to real semantic loci. Validate with `web.workbook`, `package.ui`, and affected browser support. |
+| G06: two event mappers, two rollback-label maps, and two technical-field policies | `CONSOLIDATE` | generic and Timeline history presentation to one pure inspector history model | Generic and Timeline loading, requests, commands, deleted-row handling, mutations, selectors, and refresh remain separate stateful owners. Actor IDs become technical-only. Validate through `web.workbook`, `module.workbook`, and `module.timeline`. |
+| G07: two seed interpreters and two form presentations serving four consumers | `CONSOLIDATE` | generic/entity/assessment shared controller plus Timeline controller to one pure seed/draft model and form presentation | Submission remains owner-local; Timeline evidence link, accepted-row apply, and one refresh are explicit exclusions. No payload change. Validate through `web.workbook`, Timeline, Entities, Evidence, and Assessments slices. |
+| G08: seven inventoried local `rem` spacing literals and unshared history/related-workflow buttons | `CONSOLIDATE` | local component styles to existing `web.design` tokens and inspector action presentation | No new token registry and no command-locus move; only narrow token/button pixel drift is permitted. Validate through `web.design`, accessibility, measurement, and visual evidence. |
+| G09: one substring helper with five production presentation callers and rejection paths in Timeline/generic/entity/assessment/history | `REMOVE` plus `CONSOLIDATE` | arbitrary strings to typed `WorkbookOperationFailure` mapping and inspector error presentation | Preserve existing typed family presentation and sanitizer; add optional decoded `publicCode`; deliberate local messages remain a separate path. Internal-only type growth. Validate through `web.workbook`, affected modules, accessibility, and visual evidence. |
+
+The live corpus recount is 17 view schemas and 247 schema-qualified semantic
+tuples; every tuple is unique under view schema, feature key, panel, route kind,
+route owner, and action key. Characterization covers canonical object identity,
+unknown omission, reducer invalidation and row-version retarget, reset/focus,
+server-advertised history actions, actor metadata, all four related-create
+surfaces, Timeline evidence create-link-apply-refresh sequencing, and current
+typed error-family behavior. Every `RETAIN` item above has a production owner;
+every `CONSOLIDATE` item names its pure owner and stateful exclusions.
+
+Core 01 REQ-01-615/617, Core 03 REQ-03-291/292, `docs/domain.md`, and
+`docs/design.md` already own the required vocabulary, config identity,
+invalidation, focus, feature execution, and design policy. No contradiction or
+missing normative behavior was found, so no specification, domain, or design
+edit is needed.
+
+**Primary risks:** Deleting an indirectly constructed owner callback; treating
+test usage as product authority; using this handoff or advisory research as a
+runtime input; relying on stale counts after contract growth.
+
+**Exit criteria:** The complete classified inventory and preservation tests
+pass; every removal has zero production owner; every consolidation names one
+pure shared owner and the stateful owners it must not absorb; every retained
+symbol has a current owner-backed purpose; no unresolved contradiction remains.
+
+**Tracker gate:** Append WI-06 evidence and mark it `DONE`. Mark WI-07
+`IN_PROGRESS` before changing model, coordinator, or dispatcher source.
+
+## 19. WI-07 — State, coordinator, and semantic-core simplification
+
+**Dependencies:** WI-06 `DONE` with characterization passing.
+
+**Work:**
+
+1. Remove the G01 model fields, reducer action, commands, arguments, wrappers,
+   and test-only helpers in one compile-safe change; update consumers and tests
+   to use contract state directly.
+2. Define the reset event with closed cause and scope semantics. Install the
+   required reset and focus callbacks for every owner before removing the
+   feature-specific port bag.
+3. Convert semantic resolution to config-plus-key lookup returning the
+   canonical feature, adopt generated disabled-condition typing, and implement
+   the exhaustive disposition table.
+4. Delete copied-feature comparison, string-keyed owner dispatch, discarded
+   render-time lookup, and production-only completeness helpers whose sole
+   consumer is characterization.
+5. Run reducer, coordinator, dispatcher, consumer compilation, and exact
+   corpus tests before broadening to routed `web.workbook` evidence.
+
+**Primary risks:** Over-broad surface resets; focus restoration occurring twice;
+loss of exact feature identity; silently accepting an unsupported additive
+group; retaining adapters that recreate the deleted API.
+
+**Exit criteria:** All consumers compile against only the new interfaces;
+reset-scope and focus tests pass; every live contract feature resolves exactly
+once; unknown additions remain omitted; repository search finds no removed
+state, port, copied-feature comparator, or compatibility wrapper.
+
+**Tracker gate:** Record paths, searches, focused commands, run roots, and any
+failure classification. Mark WI-07 `DONE`, then WI-08 `IN_PROGRESS`, before
+moving orchestration or deleting test instrumentation.
+
+## 20. WI-08 — Presentation boundary and test-instrumentation removal
+
+**Dependencies:** WI-07 `DONE` with all consumers on the reduced core.
+
+**Work:**
+
+1. Move contextual-action pending-confirmation orchestration out of
+   `presentation/` while retaining owner commands and inspector-local focus
+   behavior.
+2. Split the presentation seam by responsibility and reduce its exported API
+   to components and models that production consumers use.
+3. Add authored source-ownership entries and an import-boundary assertion for
+   the presentation directory. The rule must reject owner hooks, mutation
+   ports, runtime model state, reducers, controllers, `useState`, and
+   `useReducer`.
+4. Remove hidden feature and entity nodes, delete both UI-contract selectors,
+   and migrate all tests/support to actual controls, record identity, panels,
+   or pure disposition.
+5. Prove confirmation `Esc`, safe focus, outer close, and restoration behavior
+   after moving state. Inspect rendered DOM and accessibility output to confirm
+   no test-only node remains.
+
+**Primary risks:** Accidentally weakening focus behavior while moving state;
+making private presentation helpers a new public package; tests losing semantic
+coverage when markers disappear; hand-editing generated UI contracts instead
+of an authored owner.
+
+**Exit criteria:** Import-boundary and source-ownership checks pass; presentation
+contains no stateful orchestration; removed exports/selectors/DOM are absent;
+real controls expose all required identity and disabled semantics; focused
+unit and accessibility tests pass.
+
+**Tracker gate:** Record selector migrations and exact semantic replacements,
+not just deleted names. Mark WI-08 `DONE`, then WI-09 `IN_PROGRESS`, before
+consolidating history, related workflows, design literals, or failure policy.
+
+## 21. WI-09 — Shared workflows, history, and safety hardening
+
+**Dependencies:** WI-08 `DONE` and the presentation boundary enforced.
+
+**Work:**
+
+1. Extract and adopt the shared pure history mapper, rollback labels, and
+   technical metadata builder. Keep Timeline and generic controllers separate
+   and verify their exact selectors, legal actions, mutation state, and refresh.
+2. Move actor identifiers to technical details. Supply a primary actor label
+   only from an owner-provided human label; never infer one from an ID.
+3. Extract the pure related-record seed model and form presentation; migrate
+   Timeline, generic, entity, and assessment consumers atomically while
+   retaining owner submission and Timeline evidence link/refresh behavior.
+4. Carry typed transport failure codes, adopt typed inspector error
+   presentation at every caller, and remove string-based safe-message logic.
+5. Replace the inventoried local spacing and button presentation with existing
+   tokens/components. Run ordinary visual reconciliation before any update.
+   Promote only narrow intentional drift with the Make-owned update, manually
+   inspect every changed image, and run ordinary visual proof twice.
+
+**Primary risks:** Shared helpers absorbing loading or command state; losing
+Timeline evidence post-create sequencing; exposing unsanitized server text;
+accepting broad visual drift caused by the module split rather than the two
+intended visible changes.
+
+**Exit criteria:** Both history owners and all four creation consumers use the
+shared pure models; actor IDs are technical-only; typed failure and exact
+conflict copy tests pass; evidence linking and owner refresh tests pass; no
+inventoried local design literal remains; all retained golden changes are
+manually accepted and proven twice.
+
+**Tracker gate:** Record changed fixture IDs, golden paths, run roots, manual
+review, and visual compatibility. Mark WI-09 `DONE`, then WI-10 `IN_PROGRESS`,
+before terminal validation.
+
+## 22. WI-10 — Final validation and handoff
+
+**Dependencies:** WI-09 `DONE` with no unreviewed generated or visual output.
+
+**Work:**
+
+1. Refresh task-guide routing for every touched owner. At minimum, reassess
+   `web.workbook`, `web.design`, `package.ui`, `module.workbook`,
+   `module.timeline`, `module.entities`, `module.evidence`,
+   `module.revisions`, `module.assessments`, and any owner added by the live
+   dependency cone. Run every returned focused and service-backed route.
+2. Run `make agent-finalize` before terminal broad verification. Use a retained
+   successful warm-run root only when one actually exists.
+3. Verify authored/generated provenance, UI-contract generation where
+   applicable, source ownership, import boundaries, Git scope, absence of
+   removed symbols, absence of TODOs/adapters, and absence of Markdown runtime
+   dependencies.
+4. Complete the successor acceptance matrix with `PASS`, justified `N/A`, or
+   evidenced `BLOCKED`. Record before/after behavior, files changed, failures
+   and classification, compatibility, rollback, residual risks, deferrals,
+   and the next safe seam.
+
+**Primary risks:** Treating a stale run root as current proof; running
+generation without an owning-input change; overlooking generated selector or
+visual-manifest provenance; declaring completion with an adapter or dead
+export still present.
+
+**Exit criteria:** Applicable focused, service-backed, and terminal checks
+pass; final Git scope contains only authorized paths; every generated change
+has an authored cause and Make provenance; successor acceptance is complete;
+WI-06 through WI-10 are `DONE`; no temporary path or implied cleanup remains.
+
+**Final tracker gate:** Mark WI-10 `DONE` only after the terminal checkpoint,
+acceptance matrix, compatibility statement, rollback unit, risks, and next seam
+are complete.
+
+## 23. Successor validation plan
+
+During implementation, use the narrowest Make-owned route returned by each
+current task guide. Required focused scenarios are:
+
+- no removed reducer field, action, command, reset port, helper, component
+  export, hidden marker, or selector remains;
+- presentation modules contain no owner state/controller imports and no
+  `useState` or `useReducer`;
+- every current feature resolves once to its canonical disposition and unknown
+  additions remain omitted;
+- actual action controls retain feature key, route kind, route owner,
+  accessible disabled reason, and stable action selector;
+- close, retarget, action completion, surface change, authorization loss,
+  incident closure, deletion, merge, and hard refresh select the correct reset
+  scope and restore focus once;
+- Timeline and generic history produce identical hierarchy and technical
+  metadata while retaining separate controllers, selectors, and legal actions;
+- actor UUIDs never become primary human labels;
+- related creation works on Timeline, generic, entity, and assessment
+  surfaces, and Timeline evidence creation still links and refreshes;
+- raw `row_version_conflict` is never primary copy, while the typed code and
+  sanitized detail remain operable;
+- no new component-local design literal, Markdown runtime dependency,
+  generated-file hand edit, compatibility layer, or duplicate inspector path
+  exists; and
+- selection, stale-state clearing, grid scroll, responsive overlay, nested
+  `Esc`, focus visibility/restoration, disabled descriptions, long technical
+  values, and non-color state cues continue to pass.
+
+The applicable terminal matrix is:
+
+```text
+make format
+make generate-drift
+make generated-artifact-policy-check
+make json-shape-check
+make frontend-typecheck
+make frontend-unit
+make frontend-import-boundary-check
+make lint-biome
+make browser-e2e-a11y
+make browser-e2e-measurement
+make browser-e2e-stateful
+make browser-e2e-support
+make browser-e2e-webserver-backed
+make browser-e2e-visual
+make test-fast
+make agent-finalize
+make lint-markdown
+git diff --check
+```
+
+Run `make agent-finalize` before the broader terminal checks even though it is
+listed with the complete target inventory above. Run `make format` only when
+authored Go or frontend source changed. Run `make generate` only when an
+authored owning input or generated accounting changed, and record the owning
+input. For visual drift, follow the repository visual-golden guide: ordinary
+reconciliation first, Make-owned update only for reviewed intentional changes,
+manual review of every changed image, and two ordinary proofs after promotion.
+
+For this immediate documentation-only update, run only:
+
+```text
+make lint-markdown
+git diff --check
+```
+
+The handoff must be the sole changed file. Product, contract, generated,
+conformance, fixture, and release checks are intentionally not changed or run.
+
+## 24. Successor acceptance matrix
+
+WI-10 must classify each row `PASS`, justified `N/A`, or evidenced `BLOCKED`.
+
+| Acceptance | Result | Required evidence |
+| --- | --- | --- |
+| C001 — Authority and scope | PASS | Refreshed instructions and owners permit the bounded cleanup; no Markdown or advisory content becomes executable authority. |
+| C002 — Complete inventory | PASS | Every candidate in G01-G09 is classified with current/future owner, disposition, rationale, compatibility, and Make route. |
+| C003 — Dead model removal | PASS | Removed state, actions, arguments, wrappers, and helpers have zero definitions/references; preservation reducer tests pass. |
+| C004 — Reset semantics | PASS | One required reset callback and one focus callback serve every owner; all listed causes select the expected scope and clear no more or less than owned state. |
+| C005 — Canonical dispatch | PASS | The live corpus resolves exactly once to canonical features and typed dispositions; unknown additions are omitted; duplicated types/comparators are absent. |
+| C006 — Presentation boundary | PASS | Authored ownership and import-boundary checks reject owner/stateful dependencies; presentation has no orchestration state. |
+| C007 — Real semantic DOM | PASS | Hidden markers and obsolete selectors are absent; real controls and inspector record identity provide the required test evidence. |
+| C008 — History consolidation | PASS | Timeline and generic history share pure mapping and metadata while preserving separate state, commands, legal actions, selectors, and refresh. |
+| C009 — Related workflow consolidation | PASS | Timeline, generic, entity, and assessment use the shared seed/form model; all command behavior and Timeline evidence linking pass. |
+| C010 — Safe technical metadata | PASS | Actor IDs are technical-only; typed failures drive public copy; exact conflict copy and operable sanitized detail pass. |
+| C011 — Design and accessibility | PASS | No inventoried local literal or unshared action remains; responsive, keyboard, focus, description, and reviewed visual evidence passes. |
+| C012 — Compatibility | PASS | No route, API, schema, payload, authorization, lifecycle, persistence, history, evidence, concurrency, dependency, or stored-data behavior changed. |
+| C013 — Generated provenance | PASS | Every generated change has an authorized authored input and Make-owned provenance; prohibited generated roots were not hand-edited. |
+| C014 — No compatibility residue | PASS | Searches find no alias, adapter, deprecated export, hidden test node, duplicate path, TODO, or string-inferred inspector error policy. |
+| C015 — Verification and handoff | PASS | All routed/applicable terminal checks pass and the final checkpoint records paths, runs, failures, review, rollback, risks, deferrals, and next seam. |
+
+## 25. Successor checkpoint log
+
+| Time | Workstream | Paths and decisions | Commands and results | Compatibility, rollback, risks, next action |
+| --- | --- | --- | --- | --- |
+| `2026-08-31T21:36:38-04:00` | Successor planning; WI-06 not started | Appended sections 14-26 to `docs/handoffs/workbook-inspector-refactor-handoff.md`. Preserved WI-01-WI-05 unchanged; recorded the clean planning baseline, G01-G09 remediation matrix, ordered WI-06-WI-10 workstreams, validation, acceptance, and rollback. `docs/domain.md` and `docs/research/nlspec-spec.md` were reference inputs only and were not edited. | `make lint-markdown` PASS at `.cartulary/test-results/20260901T013943Z-p31673`; `git diff --check` PASS. No product check was warranted or authorized in this documentation-only step. | No runtime, test, contract, generated, fixture, golden, selector, or stored-data behavior changed. This appended documentation is the sole rollback unit. Next: obtain separate implementation authorization, refresh the baseline, and mark WI-06 `IN_PROGRESS`. |
+| `2026-08-31T22:09:47-04:00` | WI-06 started | Received implementation authorization. Refreshed `AGENTS.md`, branch, commit, upstream, Git state, generated-artifact policy, nested-instruction scope, and the `web.workbook` task guide before source or test work. Baseline is `main` at `b18b0cbd26df44f906ff900561c18d8c193cb818`, equal to `origin/main` (ahead `0`, behind `0`). The staged successor addition to this handoff is the sole pre-existing user-owned change and remains preserved in place; no nested `AGENTS.md` applies below `apps/`, `packages/`, or `tools/`. WI-06 is the only `IN_PROGRESS` workstream. | Read-only baseline commands PASS: `git status --short --branch`, revision/upstream queries, staged/unstaged stats, `find apps packages tools -name AGENTS.md -print`, generated policy inspection, and `make task-guide ROLE=module-author OWNER=web.workbook` (`focused make test-slice OWNER=web.workbook`; `broader make test-fast`). | No product behavior changed. The active rollback unit remains the staged successor handoff addition. Next: complete the G01-G09 live inventory, authority comparison, and preservation characterization before implementation removal. |
+| `2026-08-31T22:12:15-04:00` | WI-06 complete; WI-07 started | Recorded the complete classified G01-G09 inventory, live consumer and duplication counts, pure-owner/stateful-exclusion decisions, compatibility, and Make routes. Reconciled Core 01 REQ-01-615/617, Core 03 REQ-03-291/292, domain vocabulary, design direction, generated ownership, and source boundaries: no contradiction and no normative edit required. Strengthened live-corpus characterization so all 247 instances must resolve by canonical object identity as well as unique semantic key; existing focused evidence already covers invalidation/focus, legal history actions, actor metadata, four creation surfaces, Timeline evidence linking/refresh, and typed error behavior. | `make doctor` PASS at `.cartulary/test-results/20260901T021128Z-p46495`; `make toolchain-drift` PASS at `.cartulary/test-results/20260901T021129Z-p46976`; `make test-slice OWNER=web.workbook` PASS (139/139) at `.cartulary/test-results/20260901T021130Z-p47360`; `git diff --check` and staged diff check PASS. No failures. | Characterization-only test and tracker changes; no runtime, public, stored-data, or generated behavior changed. Rollback is the WI-06 test assertion plus successor tracker rows. Residual implementation risks are over-reset, double focus, copied identity, and wildcard admission. WI-07 is now the sole `IN_PROGRESS` workstream; next: implement G01-G03 atomically. |
+| `2026-08-31T22:33:13-04:00` | WI-07 complete; WI-08 started | Reduced `workbookInspectorModel` to open/status/subject/invalidation facts; removed config/panel state, actions, arguments, wrappers, and test helpers. Replaced the optional feature-named coordinator bag with required `resetOwnerState({cause, scope})` and `restoreFocus`, migrated Timeline/generic/entity/assessment consumers, and delegated Timeline close cleanup to coordinator invalidation. Replaced copied-feature resolution with `(config, featureGroupKey)`, canonical object identity, generated disabled-condition typing, four dispositions, and a fail-closed authored fingerprint for every schema's ordered complete stable tuple corpus. Removed the wildcard owner map, comparator family, discarded lookup, and test-only production completeness helper. | `make test-slice OWNER=web.workbook` PASS (139/139) at `.cartulary/test-results/20260901T022404Z-p97838`; focused tombstone regression rerun PASS at `.cartulary/test-results/20260901T022353Z-p97271`; `module.entities` PASS (42/42) at `.cartulary/test-results/20260901T022500Z-p13620`; `module.timeline` PASS (53/53) at `.cartulary/test-results/20260901T022500Z-p13630`; serial `module.assessments` PASS (28/28) at `.cartulary/test-results/20260901T023006Z-p86348`; serial `module.workbook` PASS (68/68) at `.cartulary/test-results/20260901T023103Z-p29188`; removed-symbol searches, `git diff --check`, and staged diff check PASS. Introduced failures and resolutions: two catalog-title selectors were restored without restoring removed APIs; copied-feature Timeline tests migrated to key/canonical semantics; one Timeline tombstone regression was caused by duplicate synchronous history reset and fixed by retaining its existing stateful invalidation owner. Parallel `module.workbook` (`.cartulary/test-results/20260901T022500Z-p13616`) and `module.assessments` (`.cartulary/test-results/20260901T022500Z-p13641`) failed from concurrent Vite output-directory contention (`FONT_MANIFEST.json` copy `ENOENT`), classified unrelated to product and proven by serial passes. | Internal TypeScript break only; no alias or wrapper, and no public, route, payload, authorization, lifecycle, persistence, history, evidence, dependency, generated, or stored-data change. Rollback is atomic across model/coordinator/dispatcher, four consumers, Timeline policy/lifecycle, and tests. Residual risks move to confirmation focus and selector migration. WI-08 is now the sole `IN_PROGRESS` workstream; next: split presentation, enforce its stateless boundary, and remove hidden DOM/selectors atomically. |
+| `2026-08-31T22:43:47-04:00` | WI-08 complete; WI-09 started | Moved contextual-confirmation state to `inspector/WorkbookInspectorContextualActions.tsx`; replaced the monolith with focused `WorkbookInspectorShell`, `WorkbookInspectorActions`, `WorkbookInspectorFeedback`, existing history presentation, and pure model modules. Deleted unused status/message exports, kept confirmation focus effects local, added an authored stateless import boundary and source-hook policy, and updated source ownership. Removed both hidden production nodes and the authored `workbookInspectorFeatureGroupTestId`/`entityInspectorSubjectTestId` exports without aliases. Exact selector migrations: feature characterization now uses the real `workbookInspectorFeatureActionTestId` button with feature/route attributes; entity readiness and diagnostics use `entityInspectorTestId` plus inspector-root `data-record-id`, `data-row-version`, state, and schema attributes. | `make frontend-typecheck` PASS at `.cartulary/test-results/20260901T023955Z-p87148`; `make test-slice OWNER=web.workbook` PASS (139/139) at `.cartulary/test-results/20260901T024014Z-p87758`; `web.architecture` PASS (12/12) at `.cartulary/test-results/20260901T024014Z-p87765`; `package.ui` PASS (10/10) at `.cartulary/test-results/20260901T024014Z-p87782`; `web.design` PASS (15/15) at `.cartulary/test-results/20260901T024105Z-p6151`; `make frontend-import-boundary-check` PASS at `.cartulary/test-results/20260901T024105Z-p6247`; `make browser-e2e-a11y` PASS (12/12) at `.cartulary/test-results/20260901T024214Z-p54188`; removed-export, hidden-node, old-import, state-hook, source, and diff checks PASS. One introduced typecheck failure at `.cartulary/test-results/20260901T023901Z-p86294` identified an unsupported matcher, unused characterization values, and the obsolete Timeline close callback parameter; all were removed and the rerun passed. No visual update or generated output occurred. | Internal component/test API migration only; confirmation identity, safe initial focus, nested `Escape`, inspector close/focus return, real action identity, routes, disabled descriptions, and entity readiness remain. Rollback is atomic across the split modules, four consumers, selectors/package tests, entity test support, ownership/import policy, and tracker. Residual risks move to shared mapper/form semantics, typed error detail, and reviewed token/button drift. WI-09 is now the sole `IN_PROGRESS` workstream; next: implement G06-G09 while preserving separate stateful controllers. |
+| `2026-08-31T23:51:39-04:00` | WI-09 complete; WI-10 started | Added pure `workbookHistoryPresentationModel`, `inspectorRelatedRecordModel`, and `workbookInspectorErrorModel` owners with routed unit rows and source ownership. Timeline and generic history now share event, rollback-label, pending-field, technical-order, and action presentation while retaining separate state, requests, commands, deletion, and refresh. Timeline, generic, entity, and assessment creation now share the seed/draft model and `InspectorCreateRelatedWorkflow`; Timeline alone retains create/link/apply/single-refresh sequencing. `WorkbookOperationFailure.publicCode` is preserved only from decoded envelopes, every inspector rejection boundary maps the typed failure immediately, actor IDs are technical-only, and string inference was deleted. Existing spacing tokens and `WorkbookInspectorActionButton` replace the inventoried local literals/buttons. Visual capture stabilization replaced ambiguous history `scrollIntoViewIfNeeded` behavior with the existing explicit scroll-container anchor. No owner, Core, domain, design, API, contract, payload, lifecycle, persistence, history, evidence, concurrency, dependency, or stored-data change was required. | Final focused PASS: `frontend-typecheck` `.cartulary/test-results/20260901T030048Z-p7031`; `web.workbook` 142/142 `.cartulary/test-results/20260901T031514Z-p37201`; `web.architecture` 12/12 `.cartulary/test-results/20260901T031332Z-p87073`; `web.design` 15/15 `.cartulary/test-results/20260901T031342Z-p88598`; import boundaries `.cartulary/test-results/20260901T031322Z-p86686`; `frontend-unit` 395/395 `.cartulary/test-results/20260901T034922Z-p62783`; `module.timeline` 53/53 `.cartulary/test-results/20260901T031601Z-p52477`; `module.entities` 42/42 `.cartulary/test-results/20260901T033501Z-p95390`; `module.evidence` 36/36 `.cartulary/test-results/20260901T033646Z-p46976`; `module.indicators` 20/20 `.cartulary/test-results/20260901T033800Z-p96940`; `module.revisions` 26/26 `.cartulary/test-results/20260901T033849Z-p15118`; `module.assessments` 28/28 `.cartulary/test-results/20260901T034002Z-p59918`; `module.workbook` 68/68 `.cartulary/test-results/20260901T034104Z-p3451`; accessibility 12/12 `.cartulary/test-results/20260901T034318Z-p61114`; measurement 22/22 `.cartulary/test-results/20260901T034447Z-p5983`. Introduced assertion/type migrations failed at `frontend-typecheck` `.cartulary/test-results/20260901T025806Z-p4916`, `web.workbook` `.cartulary/test-results/20260901T030151Z-p7817` and `.cartulary/test-results/20260901T030257Z-p23196`, `frontend-unit` `.cartulary/test-results/20260901T030438Z-p39140`, assessment `.cartulary/test-results/20260901T030718Z-p79814`, Workbook `.cartulary/test-results/20260901T030755Z-p81018`, and the new-model rows `.cartulary/test-results/20260901T031247Z-p85226`; each identified stale string/selector or missing-field expectations and passed after migration. `lint-biome` at `.cartulary/test-results/20260901T031456Z-p36734` reports only import organization/formatting intentionally queued for WI-10 `make format`. The first `module.workbook` route `.cartulary/test-results/20260901T032037Z-p12393` failed only the intentional visual delta; the first post-refresh proof `.cartulary/test-results/20260901T032612Z-p15544` exposed the introduced ambiguous scroll anchor. The explicit-anchor correction passed update 12/12 at `.cartulary/test-results/20260901T032848Z-p60767` and two fresh ordinary proofs 12/12 at `.cartulary/test-results/20260901T033110Z-p6338` and `.cartulary/test-results/20260901T033305Z-p51320`. Removed-symbol, local-literal/button, presentation-state/import, hidden-node, and diff checks pass. | Accepted trigger: G08 intentionally adopted the established inspector action presentation and spacing tokens; G09 intentionally changed conflict copy and technical-detail hierarchy. Affected rows are `module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea` and `module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7`; capture IDs are `visual.capture.06903c2d94c98d2d2eaf`, `visual.capture.1aebc4c7b4cfc2965a5f`, `visual.capture.21a59ffec6a398738353`, `visual.capture.26d4c9bb1434fa99f29b`, `visual.capture.3451d6d508d3782f0df3`, `visual.capture.bda571d19ea0163393fc`, and `visual.capture.f5ca1ba5368f9538cbb9`. Registered fixture IDs are `visual.fixture.destructive_actions`, `visual.fixture.inspector_compact_actions`, `visual.fixture.inspector_narrow_technical_details`, and `visual.fixture.mention_chip_state_matrix`; the three history/error captures are active reconciled nonregistry captures. Changed goldens: `entity-mention-chip-states-linux.png`, `workbook-inspector-compact-actions-linux.png`, `workbook-inspector-destructive-confirmation-linux.png`, `workbook-inspector-history-linux.png`, `workbook-inspector-narrow-technical-details-linux.png`, `workbook-inspector-public-error-linux.png`, and `workbook-inspector-rollback-preview-linux.png`, plus the Make-generated visual manifest. Viewport, zoom, masks, and screenshot scope did not change; scroll normalization changed only for the history capture. Manual review of all seven promoted images found only intended button spacing, typed conflict copy, technical hierarchy, and stabilized scrolling, with no clipping, overflow, focus, typography, loading, or unrelated drift. Compatibility remains internal and source-only; no alias or public migration. Rollback is atomic across shared models/presentation, separate consumer adaptations, typed failure plumbing, focused tests/catalog/ownership, the anchor correction, seven goldens, generated manifest, and this row. WI-10 is now the sole `IN_PROGRESS` workstream; next: refresh every owner guide, format, generate from the authored `web.workbook` catalog input, finalize, and run the complete terminal matrix. |
+| `2026-09-01T00:44:39-04:00` | WI-10 complete | Refreshed live task guides for `web.workbook`, `web.design`, `web.architecture`, `package.ui`, `module.workbook`, `module.timeline`, `module.entities`, `module.evidence`, `module.indicators`, `module.revisions`, and `module.assessments`; ran every returned focused and service-backed route. `make format` normalized authored frontend imports. The authorized authored input `tools/test_families/web.workbook.json` required `make generate`, which changed only the generated `tools/execution_topology_render_index.json`; the visual-update target separately owns `tools/frontend_visual_golden_manifest.json`. Source ownership contains every new module; UI-contract removed exports have no definition or reference; generated roots have no diff; runtime/tests have no Markdown dependency; final Git scope is limited to authorized `apps/web`, `packages/ui-contracts`, `tools`, goldens, and this handoff. Removed-symbol, state/import, hidden-DOM, duplicate seed/mapping, local design residue, substring inference, TODO/alias/temporary-adapter, provenance, manifest-hash, and `git diff --check` audits pass. C001-C015 are `PASS`; there are no deferrals or blocked criteria. | Focused PASS roots: `web.workbook` 142/142 `.cartulary/test-results/20260901T035410Z-p7539`; `web.design` 15/15 `.cartulary/test-results/20260901T035451Z-p22916` and service 15/15 `.cartulary/test-results/20260901T035603Z-p70535`; `web.architecture` 12/12 `.cartulary/test-results/20260901T035707Z-p17276`; `package.ui` 10/10 `.cartulary/test-results/20260901T035715Z-p18813`; `module.workbook` 68/68 `.cartulary/test-results/20260901T035723Z-p19261` and service 39/39 `.cartulary/test-results/20260901T035934Z-p76957`; `module.timeline` 53/53 `.cartulary/test-results/20260901T040143Z-p32496` and service 30/30 `.cartulary/test-results/20260901T040624Z-p91935`; `module.entities` 42/42 `.cartulary/test-results/20260901T041059Z-p50491` and service 33/33 `.cartulary/test-results/20260901T041249Z-p1989`; `module.evidence` 36/36 `.cartulary/test-results/20260901T041437Z-p52793` and service 25/25 `.cartulary/test-results/20260901T041551Z-p3323`; `module.indicators` 20/20 `.cartulary/test-results/20260901T041702Z-p52719` and service 8/8 `.cartulary/test-results/20260901T041749Z-p70390`; `module.revisions` 26/26 `.cartulary/test-results/20260901T041837Z-p87662` and service 20/20 `.cartulary/test-results/20260901T041949Z-p32996`; `module.assessments` 28/28 `.cartulary/test-results/20260901T042100Z-p77797` and service 19/19 `.cartulary/test-results/20260901T042201Z-p21472`. `make format` PASS `.cartulary/test-results/20260901T035341Z-p99789`; `make generate` PASS `.cartulary/test-results/20260901T035350Z-p4490`; `make agent-finalize` PASS `.cartulary/test-results/20260901T042302Z-p63879`, with retained-run maintenance skipped because `RESULTS_DIR` was unset. Terminal PASS: generation drift `.cartulary/test-results/20260901T042320Z-p66772`; generated policy `.cartulary/test-results/20260901T042331Z-p69791`; JSON shape `.cartulary/test-results/20260901T042335Z-p70241`; typecheck `.cartulary/test-results/20260901T042341Z-p70743`; frontend unit 395/395 `.cartulary/test-results/20260901T042356Z-p71288`; import boundary `.cartulary/test-results/20260901T042442Z-p87043`; Biome `.cartulary/test-results/20260901T042448Z-p87487`; accessibility 12/12 `.cartulary/test-results/20260901T042453Z-p88029`; measurement 22/22 `.cartulary/test-results/20260901T042622Z-p32921`; stateful 34/34 `.cartulary/test-results/20260901T043050Z-p89871`; support 19/19 `.cartulary/test-results/20260901T043314Z-p39629`; webserver-backed 60/60 `.cartulary/test-results/20260901T043440Z-p83223`; visual 12/12 `.cartulary/test-results/20260901T044022Z-p40657`; `test-fast` 447/447 `.cartulary/test-results/20260901T044217Z-p84883`; post-tracker Markdown lint `.cartulary/test-results/20260901T044608Z-p87955`; `git diff --check` PASS. No WI-10 command failed. | Before/after: dead and feature-specific core surfaces are gone; semantic dispatch is canonical and fail-closed; presentation is state-orchestration-free; tests use real DOM; history, creation, design, and error policy have cohesive shared owners without merging state machines. Compatibility remains the recorded internal TypeScript/test API break only; public and stored-data interfaces are unchanged. The complete source-only rollback unit is the WI-06-WI-10 model/coordinator/dispatcher cleanup, presentation split, selector removals, shared models, typed failure plumbing, consumer/test/catalog/ownership changes, explicit visual anchor, seven reviewed goldens, two Make-generated manifests/indexes, and successor ledger. Residual risk is limited to ordinary future contract growth: each new feature must add a canonical tuple, real owner control, reset participation, and focused evidence. The next safe extension seam is the canonical contract feature plus explicit dispatcher disposition, owner reset callback, shared pure presentation model where applicable, and an owner-held controller; no wildcard or universal controller is needed. WI-06 through WI-10 are `DONE`. |
+
+Append a checkpoint after every workstream and before its successor begins.
+Every failure entry must identify the target, retained run root and summary when
+available, and introduced/unrelated classification. Every visual entry must
+name the changed images and manual-review result.
+
+## 26. Successor compatibility and rollback
+
+The intended implementation is an internal cleanup and safety-hardening
+iteration. It permits no public route, API, schema, payload, authorization,
+lifecycle, persistence, history, evidence, concurrency, dependency, or
+stored-data migration. Stable feature keys, route owners, action identities,
+commands, server-provided selectors, machine states, and owner decisions remain
+compatible.
+
+Internal selector and component APIs named for removal receive no aliases or
+compatibility wrappers. The only intended visible changes are typed safe error
+presentation and keeping actor identifiers in technical details instead of
+using them as human labels. All other visual drift requires specific
+owner/design justification and reviewed evidence.
+
+The future implementation rollback unit is source-only and atomic across the
+model/coordinator/dispatcher cleanup, presentation split, selector removals,
+shared history and related-workflow models, typed failure presentation,
+affected tests, authored ownership and fixture inputs, reviewed goldens,
+Make-generated visual manifest, and updated successor ledger. No data rollback,
+migration reversal, dependency cleanup, or external operation is expected.
+
+WI-06 through WI-10 completed under separate implementation authorization.
+The successor terminal compatibility statement is:
+
+**Internal Workbook Inspector cleanup and safety hardening only; no route, API,
+schema, authorization, lifecycle, persistence, history, evidence, concurrency,
+dependency, or stored-data migration.**

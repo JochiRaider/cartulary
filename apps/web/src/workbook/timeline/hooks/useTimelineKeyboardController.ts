@@ -8,6 +8,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
+import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { mapWorkbookKeyboardCommand } from "../../utils/workbookKeyboard";
 import type { TimelineScalarSaveOptions } from "../models/timelineControllerPorts";
@@ -81,7 +82,9 @@ export function useTimelineKeyboardController({
     readonly status: string;
   };
   readonly selectedRowId: string | null;
-  readonly setInspectorMessage: (message: string | null) => void;
+  readonly setInspectorMessage: (
+    message: WorkbookInspectorFeedback | null,
+  ) => void;
   readonly setIsInspectorOpen: (isOpen: boolean) => void;
   readonly setSelectedMentionRef: (itemRef: string | null) => void;
   readonly setSelectedRowId: (recordId: string | null) => void;

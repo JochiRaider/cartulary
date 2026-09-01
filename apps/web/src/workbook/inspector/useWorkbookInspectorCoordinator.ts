@@ -1,7 +1,4 @@
-import type {
-  InspectorConfig,
-  InspectorPanelId,
-} from "@cartulary/view-contracts";
+import type { InspectorConfig } from "@cartulary/view-contracts";
 import {
   type SetStateAction,
   useCallback,
@@ -18,15 +15,45 @@ import {
 } from "../models/workbookInspectorModel";
 
 export type WorkbookInspectorOwnerActionPorts = {
-  readonly clearLocalForm?: (() => void) | undefined;
-  readonly clearLifecycleState?: (() => void) | undefined;
-  readonly clearMergePlan?: (() => void) | undefined;
-  readonly clearPendingConfirmation?: (() => void) | undefined;
-  readonly clearPreview?: (() => void) | undefined;
-  readonly clearSelection?: (() => void) | undefined;
-  readonly clearWorkflowForm?: (() => void) | undefined;
-  readonly restoreFocus?: (() => void) | undefined;
+  readonly resetOwnerState: (event: WorkbookInspectorResetEvent) => void;
+  readonly restoreFocus: () => void;
 };
+
+export type WorkbookInspectorResetCause =
+  | "close"
+  | "retarget"
+  | "action_completed"
+  | "surface_changed"
+  | "authorization_lost"
+  | "incident_closed"
+  | "record_deleted"
+  | "record_merged"
+  | "hard_refresh";
+
+export type WorkbookInspectorResetScope = "row_local" | "surface";
+
+export type WorkbookInspectorResetEvent = {
+  readonly cause: WorkbookInspectorResetCause;
+  readonly scope: WorkbookInspectorResetScope;
+};
+
+export function workbookInspectorResetScope(
+  cause: WorkbookInspectorResetCause,
+): WorkbookInspectorResetScope {
+  switch (cause) {
+    case "close":
+    case "retarget":
+    case "action_completed":
+      return "row_local";
+    case "surface_changed":
+    case "authorization_lost":
+    case "incident_closed":
+    case "record_deleted":
+    case "record_merged":
+    case "hard_refresh":
+      return "surface";
+  }
+}
 
 export function useWorkbookInspectorCoordinator({
   actionPorts,
@@ -41,7 +68,7 @@ export function useWorkbookInspectorCoordinator({
 }) {
   const [snapshot, dispatch] = useReducer(
     workbookInspectorReducer,
-    config,
+    undefined,
     initialWorkbookInspectorState,
   );
   const actionPortsRef = useRef(actionPorts);
@@ -56,13 +83,11 @@ export function useWorkbookInspectorCoordinator({
     snapshotRef.current = snapshot;
   });
 
-  const clearFeatureState = useCallback(() => {
-    const ports = actionPortsRef.current;
-    ports.clearPendingConfirmation?.();
-    ports.clearPreview?.();
-    ports.clearMergePlan?.();
-    ports.clearWorkflowForm?.();
-    ports.clearLocalForm?.();
+  const resetOwnerState = useCallback((cause: WorkbookInspectorResetCause) => {
+    actionPortsRef.current.resetOwnerState({
+      cause,
+      scope: workbookInspectorResetScope(cause),
+    });
   }, []);
 
   useLayoutEffect(() => {
@@ -72,11 +97,9 @@ export function useWorkbookInspectorCoordinator({
     configRef.current = config;
     subjectRef.current = null;
     blockedSubjectRef.current = subject;
-    clearFeatureState();
-    actionPortsRef.current.clearLifecycleState?.();
-    actionPortsRef.current.clearSelection?.();
-    dispatch({ type: "reset_config", config });
-  }, [clearFeatureState, config, subject]);
+    resetOwnerState("surface_changed");
+    dispatch({ type: "invalidate", reason: "surface_changed" });
+  }, [config, resetOwnerState, subject]);
 
   useLayoutEffect(() => {
     if (lifecycleKeyRef.current === lifecycleKey) {
@@ -85,11 +108,9 @@ export function useWorkbookInspectorCoordinator({
     lifecycleKeyRef.current = lifecycleKey;
     subjectRef.current = null;
     blockedSubjectRef.current = subject;
-    clearFeatureState();
-    actionPortsRef.current.clearLifecycleState?.();
-    actionPortsRef.current.clearSelection?.();
+    resetOwnerState("surface_changed");
     dispatch({ type: "invalidate", reason: "surface_changed" });
-  }, [clearFeatureState, lifecycleKey, subject]);
+  }, [lifecycleKey, resetOwnerState, subject]);
 
   useLayoutEffect(() => {
     if (
@@ -103,22 +124,22 @@ export function useWorkbookInspectorCoordinator({
       return;
     }
     subjectRef.current = subject;
-    clearFeatureState();
+    resetOwnerState("retarget");
     dispatch({ type: "retarget", subject });
-  }, [clearFeatureState, subject]);
+  }, [resetOwnerState, subject]);
 
-  const open = useCallback((panelId?: InspectorPanelId) => {
-    dispatch({ type: "open", panelId });
+  const open = useCallback(() => {
+    dispatch({ type: "open" });
   }, []);
   const close = useCallback(
     ({ restoreFocus = false }: { readonly restoreFocus?: boolean } = {}) => {
-      clearFeatureState();
+      resetOwnerState("close");
       dispatch({ type: "close" });
       if (restoreFocus) {
-        actionPortsRef.current.restoreFocus?.();
+        actionPortsRef.current.restoreFocus();
       }
     },
-    [clearFeatureState],
+    [resetOwnerState],
   );
   const setOpen = useCallback(
     (next: SetStateAction<boolean>) => {
@@ -132,24 +153,19 @@ export function useWorkbookInspectorCoordinator({
     },
     [close, open],
   );
-  const selectPanel = useCallback((panelId: InspectorPanelId) => {
-    dispatch({ type: "select_panel", panelId });
-  }, []);
   const invalidate = useCallback(
     (reason: WorkbookInspectorInvalidationReason) => {
-      clearFeatureState();
+      resetOwnerState(reason);
       if (reason !== "action_completed") {
         subjectRef.current = null;
-        actionPortsRef.current.clearLifecycleState?.();
-        actionPortsRef.current.clearSelection?.();
       }
       dispatch({ type: "invalidate", reason });
     },
-    [clearFeatureState],
+    [resetOwnerState],
   );
   const completeAction = useCallback(() => {
     invalidate("action_completed");
-    actionPortsRef.current.restoreFocus?.();
+    actionPortsRef.current.restoreFocus();
   }, [invalidate]);
 
   return {
@@ -158,7 +174,6 @@ export function useWorkbookInspectorCoordinator({
       completeAction,
       invalidate,
       open,
-      selectPanel,
       setOpen,
     },
     snapshot,

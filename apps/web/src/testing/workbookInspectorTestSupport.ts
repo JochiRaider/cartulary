@@ -1,7 +1,6 @@
 import {
   dataTestIdSelector,
   type EntityType,
-  entityInspectorSubjectTestId,
   entityInspectorTestId,
 } from "@cartulary/ui-contracts";
 import { waitFor } from "@testing-library/react";
@@ -36,14 +35,8 @@ function inspectEntityInspectorReadiness(
   const inspector = container.querySelector<HTMLElement>(
     dataTestIdSelector(entityInspectorTestId(expected.entityType)),
   );
-  const subject = container.querySelector<HTMLElement>(
-    dataTestIdSelector(
-      entityInspectorSubjectTestId(expected.entityType, expected.recordId),
-    ),
-  );
   const ready =
     inspector !== null &&
-    subject !== null &&
     inspector.getAttribute("data-inspector-state") === "ready" &&
     inspector.getAttribute("data-view-schema-id") === expected.viewSchemaId &&
     inspector.getAttribute("data-record-id") === expected.recordId &&
@@ -72,11 +65,7 @@ export function entityInspectorReadinessDiagnostic(
     `row_version=${selectedAttribute(inspector, "data-row-version")}`,
     `inspector_state=${selectedAttribute(inspector, "data-inspector-state")}.`,
     `Mounted row record_ids=${mountedRecordIds.join(",") || "(none)"}.`,
-    `Inspector selector=${entityInspectorTestId(expected.entityType)}`,
-    `subject_selector=${entityInspectorSubjectTestId(
-      expected.entityType,
-      expected.recordId,
-    )}.`,
+    `Inspector selector=${entityInspectorTestId(expected.entityType)}.`,
   ].join(" ");
 }
 

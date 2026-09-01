@@ -16,7 +16,7 @@ function emptyRowHistoryState(): RecordHistoryState {
     recordId: null,
     status: "idle",
     data: null,
-    message: null,
+    error: null,
   };
 }
 

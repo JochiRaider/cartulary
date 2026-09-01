@@ -19,19 +19,27 @@ import type { RecordRouteCommandPort } from "../mutations/workbookMutationComman
 import {
   buildRecordRollbackTargetFromHistoryAction,
   type RecordHistoryData,
-  type RecordHistoryItem,
   type RecordHistoryRollbackAction,
 } from "../timeline/models/timelineHistoryModel";
 import {
   WorkbookHistoryEvent,
   WorkbookHistoryList,
 } from "./presentation/WorkbookHistoryPresentation";
+import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
   WorkbookInspectorPublicError,
   WorkbookInspectorTechnicalDetails,
-} from "./presentation/WorkbookInspectorPresentation";
-import type { WorkbookHistoryEventPresentation } from "./presentation/workbookInspectorPresentationModel";
+} from "./presentation/WorkbookInspectorFeedback";
+import {
+  workbookHistoryEventPresentation,
+  workbookHistoryPendingTechnicalFields,
+  workbookHistoryRollbackLabel,
+} from "./workbookHistoryPresentationModel";
+import {
+  type WorkbookInspectorErrorPresentation,
+  workbookInspectorErrorPresentation,
+} from "./workbookInspectorErrorModel";
 
 type HistorySubject = {
   readonly recordId: string;
@@ -60,7 +68,9 @@ export function WorkbookInspectorRecordHistory({
   readonly subject: HistorySubject | null;
 }) {
   const [data, setData] = useState<RecordHistoryData | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<WorkbookInspectorErrorPresentation | null>(
+    null,
+  );
   const [pending, setPending] = useState<PendingRollback | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready">("idle");
   const generationRef = useRef(0);
@@ -75,12 +85,12 @@ export function WorkbookInspectorRecordHistory({
       if (generationRef.current !== generation) return;
       if (outcome.kind === "rejected") {
         setData(null);
-        setMessage(outcome.failure.message);
+        setError(workbookInspectorErrorPresentation(outcome.failure));
         setStatus("ready");
         return;
       }
       setData(outcome.value);
-      setMessage(null);
+      setError(null);
       setStatus("ready");
     },
     [commands],
@@ -90,7 +100,7 @@ export function WorkbookInspectorRecordHistory({
     const generation = generationRef.current + 1;
     generationRef.current = generation;
     setPending(null);
-    setMessage(null);
+    setError(null);
     setData(null);
     if (subjectRecordId === null || subjectRowVersion === null) {
       setStatus("idle");
@@ -122,7 +132,7 @@ export function WorkbookInspectorRecordHistory({
       return;
     }
     const generation = generationRef.current;
-    setMessage(null);
+    setError(null);
     const outcome = await commands.rollback({
       baseRowVersion: active.rowVersion,
       reason: `Rollback ${active.action} from the workbook inspector`,
@@ -132,7 +142,7 @@ export function WorkbookInspectorRecordHistory({
     if (generationRef.current !== generation) return;
     if (outcome.kind === "rejected") {
       setPending(null);
-      setMessage(outcome.failure.message);
+      setError(workbookInspectorErrorPresentation(outcome.failure));
       return;
     }
     setPending(null);
@@ -163,38 +173,38 @@ export function WorkbookInspectorRecordHistory({
         ]}
       />
       {status === "idle" ? (
-        <button type="button" onClick={openHistory}>
+        <WorkbookInspectorActionButton onClick={openHistory}>
           Open history
-        </button>
+        </WorkbookInspectorActionButton>
       ) : null}
       {status === "loading" ? (
         <p data-testid={rowHistoryLoadingTestId()} style={metadataStyle}>
           Loading history...
         </p>
       ) : null}
-      {message !== null ? (
+      {error !== null ? (
         <WorkbookInspectorPublicError
-          message={message}
+          error={error}
           testId={rowHistoryMessageTestId()}
         />
       ) : null}
       {data === null ? null : (
         <WorkbookHistoryList>
           {data.items.map((item) => {
-            const event = recordHistoryEventPresentation(item);
+            const event = workbookHistoryEventPresentation(item);
             return (
               <WorkbookHistoryEvent
                 actions={
                   <div style={actionsStyle}>
                     {item.available_rollback_actions.map((action) => (
-                      <button
+                      <WorkbookInspectorActionButton
                         data-testid={rowHistoryActionTestId({
                           action,
                           historyItemRef: item.history_item_ref,
                         })}
                         disabled={!canMutate}
                         key={action}
-                        type="button"
+                        tone="secondary"
                         onClick={() => {
                           const target =
                             buildRecordRollbackTargetFromHistoryAction(
@@ -211,8 +221,8 @@ export function WorkbookInspectorRecordHistory({
                           });
                         }}
                       >
-                        {rollbackLabel(action)}
-                      </button>
+                        {workbookHistoryRollbackLabel(action)}
+                      </WorkbookInspectorActionButton>
                     ))}
                   </div>
                 }
@@ -237,11 +247,10 @@ export function WorkbookInspectorRecordHistory({
             action: pending.action,
             historyItemRef: pending.historyItemRef,
           })}
-          operation={`${rollbackLabel(pending.action)} rollback`}
+          operation={`${workbookHistoryRollbackLabel(pending.action)} rollback`}
           subject="this history state"
           technicalFields={[
-            { label: "Record ID", value: pending.recordId },
-            { label: "Row version", value: String(pending.rowVersion) },
+            ...workbookHistoryPendingTechnicalFields(pending),
             { label: "History item", value: pending.historyItemRef },
           ]}
           testId={rowHistoryRollbackPreviewTestId({
@@ -256,39 +265,10 @@ export function WorkbookInspectorRecordHistory({
   );
 }
 
-function rollbackLabel(action: RecordHistoryRollbackAction): string {
-  if (action === "history_entry") return "Rollback entry";
-  if (action === "change_set") return "Rollback change set";
-  return "Restore row fields";
-}
-
-function recordHistoryEventPresentation(
-  item: RecordHistoryItem,
-): WorkbookHistoryEventPresentation {
-  return {
-    actorLabel: item.actor_user_id,
-    committedAt: item.committed_at,
-    key: item.history_item_ref,
-    operation: item.operation,
-    summary: item.diff_summary.summary,
-    technicalFields: [
-      { label: "Actor ID", value: item.actor_user_id },
-      { label: "History reference", value: item.history_item_ref },
-      { label: "Change set ID", value: item.change_set_id },
-      ...(item.history_entry_ref === undefined
-        ? []
-        : [{ label: "History entry", value: item.history_entry_ref }]),
-      ...(item.revision_no === undefined
-        ? []
-        : [{ label: "Revision", value: String(item.revision_no) }]),
-    ],
-  };
-}
-
 const panelStyle = {
   display: "grid",
-  gap: "0.6rem",
-  paddingBlock: "0.5rem",
+  gap: "var(--ct-spacing-sm)",
+  paddingBlock: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;
 const metadataStyle = {
   color: "var(--ct-colors-ink-muted)",
@@ -298,5 +278,5 @@ const metadataStyle = {
 const actionsStyle = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "0.4rem",
+  gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;

@@ -1,5 +1,11 @@
 import type { CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import {
+  type WorkbookInspectorErrorPresentation,
+  type WorkbookInspectorFeedback,
+  workbookInspectorErrorPresentation,
+} from "../../inspector/workbookInspectorErrorModel";
 import type {
   IndicatorLifecycleState,
   IndicatorMutationAccepted,
@@ -74,8 +80,11 @@ export function IndicatorInspectorWorkflow({
   const [intervals, setIntervals] = useState<readonly IndicatorStateInterval[]>(
     [],
   );
-  const [message, setMessage] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [message, setMessage] = useState<WorkbookInspectorFeedback | null>(
+    null,
+  );
+  const [loadError, setLoadError] =
+    useState<WorkbookInspectorErrorPresentation | null>(null);
   const [paging, setPaging] = useState<IndicatorPaging | null>(null);
   const [busy, setBusy] = useState(false);
   const loadRequestId = useRef(0);
@@ -128,7 +137,9 @@ export function IndicatorInspectorWorkflow({
         if (requestId !== loadRequestId.current) return;
         setBusy(false);
         if (lifecycleOutcome.kind === "rejected") {
-          setLoadError(lifecycleOutcome.failure.message);
+          setLoadError(
+            workbookInspectorErrorPresentation(lifecycleOutcome.failure),
+          );
           return;
         }
         setIntervals((current) =>
@@ -145,7 +156,7 @@ export function IndicatorInspectorWorkflow({
       if (requestId !== loadRequestId.current) return;
       setBusy(false);
       if (outcome.kind === "rejected") {
-        setLoadError(outcome.failure.message);
+        setLoadError(workbookInspectorErrorPresentation(outcome.failure));
         return;
       }
       setObservations((current) =>
@@ -215,7 +226,7 @@ export function IndicatorInspectorWorkflow({
     });
     setBusy(false);
     if (outcome.kind === "rejected") {
-      setMessage(outcome.failure.message);
+      setMessage(workbookInspectorErrorPresentation(outcome.failure));
       return;
     }
     const observation = outcome.value.resource;
@@ -245,7 +256,7 @@ export function IndicatorInspectorWorkflow({
     });
     setBusy(false);
     if (outcome.kind === "rejected") {
-      setMessage(outcome.failure.message);
+      setMessage(workbookInspectorErrorPresentation(outcome.failure));
       return;
     }
     setObservations((current) =>
@@ -291,7 +302,7 @@ export function IndicatorInspectorWorkflow({
     });
     setBusy(false);
     if (outcome.kind === "rejected") {
-      setMessage(outcome.failure.message);
+      setMessage(workbookInspectorErrorPresentation(outcome.failure));
       return;
     }
     setIntervals((current) => [outcome.value.resource, ...current]);
@@ -486,9 +497,7 @@ export function IndicatorInspectorWorkflow({
       ) : null}
       {loadError ? (
         <div style={shellStyle}>
-          <p role="alert" style={messageStyle}>
-            {loadError}
-          </p>
+          <WorkbookInspectorPublicError error={loadError} />
           <button
             disabled={busy}
             type="button"
@@ -498,10 +507,12 @@ export function IndicatorInspectorWorkflow({
           </button>
         </div>
       ) : null}
-      {message ? (
+      {typeof message === "string" ? (
         <p aria-live="polite" role="status" style={messageStyle}>
           {message}
         </p>
+      ) : message ? (
+        <WorkbookInspectorPublicError error={message} />
       ) : null}
     </div>
   );

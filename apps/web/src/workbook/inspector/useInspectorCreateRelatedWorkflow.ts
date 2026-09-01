@@ -1,16 +1,18 @@
 import {
   getViewContract,
   type InspectorFeatureGroup,
-  type ViewContract,
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useState } from "react";
-import {
-  genericCreateMinimumMessage,
-  initialGenericCreateDraft,
-  workbookCreationAvailable,
-} from "../models/genericWorkbookModel";
+import { genericCreateMinimumMessage } from "../models/genericWorkbookModel";
 import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
-import { stringifyGridValue } from "../utils/workbookValueFormat";
+import {
+  buildInspectorRelatedRecordDraft,
+  type InspectorRelatedRecordFormModel,
+} from "./inspectorRelatedRecordModel";
+import {
+  workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorPresentation,
+} from "./workbookInspectorErrorModel";
 
 export type InspectorCreateRelatedSubject = {
   readonly cells: Readonly<Record<string, { readonly value: unknown }>>;
@@ -18,14 +20,10 @@ export type InspectorCreateRelatedSubject = {
   readonly rowVersion: number;
 };
 
-export type InspectorCreateRelatedWorkflowState = {
-  readonly draft: Record<string, string>;
-  readonly featureGroup: InspectorFeatureGroup;
-  readonly isSubmitting: boolean;
-  readonly message: string | null;
-  readonly sourceRecordId: string;
-  readonly targetContract: ViewContract;
-};
+export type InspectorCreateRelatedWorkflowState =
+  InspectorRelatedRecordFormModel & {
+    readonly sourceRecordId: string;
+  };
 
 export function useInspectorCreateRelatedWorkflow({
   currentUserId,
@@ -64,10 +62,7 @@ export function useInspectorCreateRelatedWorkflow({
       const targetContract = getViewContract(
         featureGroup.routeBinding.targetViewSchemaId,
       );
-      if (
-        targetContract === undefined ||
-        !workbookCreationAvailable(targetContract)
-      ) {
+      if (targetContract === undefined) {
         onMessage("The target view does not allow row creation.");
         return true;
       }
@@ -75,16 +70,21 @@ export function useInspectorCreateRelatedWorkflow({
         onMessage("Select a saved row before creating a related record.");
         return true;
       }
-      const draft = applySeedBindings(
-        initialGenericCreateDraft(targetContract, currentUserId),
+      const result = buildInspectorRelatedRecordDraft({
+        currentUserId,
         featureGroup,
-        selectedSubject,
-      );
+        subject: selectedSubject,
+        targetContract,
+      });
+      if (result.kind === "invalid_target") {
+        onMessage("The target view does not allow row creation.");
+        return true;
+      }
       setWorkflow({
-        draft,
+        draft: result.draft,
+        error: null,
         featureGroup,
         isSubmitting: false,
-        message: null,
         sourceRecordId: selectedSubject.recordId,
         targetContract,
       });
@@ -101,7 +101,7 @@ export function useInspectorCreateRelatedWorkflow({
         : {
             ...current,
             draft: { ...current.draft, [fieldKey]: value },
-            message: null,
+            error: null,
           },
     );
   }, []);
@@ -111,7 +111,7 @@ export function useInspectorCreateRelatedWorkflow({
   const submit = useCallback(async () => {
     const active = workflow;
     if (active === null) return;
-    setWorkflow({ ...active, isSubmitting: true, message: null });
+    setWorkflow({ ...active, isSubmitting: true, error: null });
     const outcome = await mutationCommands.createRelatedRecord({
       contract: active.targetContract,
       draft: active.draft,
@@ -121,10 +121,12 @@ export function useInspectorCreateRelatedWorkflow({
       setWorkflow({
         ...active,
         isSubmitting: false,
-        message:
+        error:
           outcome.failure.kind === "validation"
-            ? genericCreateMinimumMessage(active.targetContract)
-            : outcome.failure.message,
+            ? workbookInspectorLocalErrorPresentation(
+                genericCreateMinimumMessage(active.targetContract),
+              )
+            : workbookInspectorErrorPresentation(outcome.failure),
       });
       return;
     }
@@ -139,37 +141,4 @@ export function useInspectorCreateRelatedWorkflow({
     commands: { begin, cancel, submit, updateDraft },
     snapshot: { workflow },
   };
-}
-
-function applySeedBindings(
-  draft: Record<string, string>,
-  featureGroup: InspectorFeatureGroup,
-  subject: InspectorCreateRelatedSubject,
-): Record<string, string> {
-  const next = { ...draft };
-  for (const binding of featureGroup.seedBindings) {
-    let value: string | null = null;
-    if (binding.source.kind === "selected_record_id") {
-      value = subject.recordId;
-    } else if (
-      binding.source.kind === "selected_field_value" &&
-      binding.source.sourceFieldKey !== undefined
-    ) {
-      const text = stringifyGridValue(
-        subject.cells[binding.source.sourceFieldKey]?.value,
-      ).trim();
-      value = text === "" ? null : text;
-    } else if (
-      binding.source.kind === "literal" &&
-      binding.source.value !== null &&
-      binding.source.value !== undefined
-    ) {
-      value =
-        typeof binding.source.value === "string"
-          ? binding.source.value
-          : JSON.stringify(binding.source.value);
-    }
-    if (value !== null) next[binding.targetFieldKey] = value;
-  }
-  return next;
 }

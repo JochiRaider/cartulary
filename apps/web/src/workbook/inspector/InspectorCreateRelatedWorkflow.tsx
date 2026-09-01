@@ -1,7 +1,13 @@
+import {
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
+} from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
 import { GenericMutationControl } from "../components/GenericMutationControl";
 import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
-import type { InspectorCreateRelatedWorkflowState } from "./useInspectorCreateRelatedWorkflow";
+import type { InspectorRelatedRecordFormModel } from "./inspectorRelatedRecordModel";
+import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
+import { WorkbookInspectorPublicError } from "./presentation/WorkbookInspectorFeedback";
 
 export function InspectorCreateRelatedWorkflow({
   referenceOptions,
@@ -11,7 +17,7 @@ export function InspectorCreateRelatedWorkflow({
   onUpdateDraft,
 }: {
   readonly referenceOptions: GenericReferenceOptions;
-  readonly state: InspectorCreateRelatedWorkflowState;
+  readonly state: InspectorRelatedRecordFormModel;
   readonly onCancel: () => void;
   readonly onSubmit: () => void;
   readonly onUpdateDraft: (fieldKey: string, value: string) => void;
@@ -32,25 +38,34 @@ export function InspectorCreateRelatedWorkflow({
               field={field}
               id={controlId}
               referenceOptions={referenceOptions}
-              testId={controlId}
+              testId={genericCreateFieldTestId(field.fieldKey)}
               value={state.draft[field.fieldKey] ?? ""}
               onChange={(value) => onUpdateDraft(field.fieldKey, value)}
             />
           </label>
         );
       })}
-      {state.message === null ? null : (
-        <p aria-live="assertive" role="alert" style={messageStyle}>
-          {state.message}
-        </p>
+      {state.error === null ? null : (
+        <WorkbookInspectorPublicError error={state.error} />
       )}
       <div style={actionsStyle}>
-        <button disabled={state.isSubmitting} type="button" onClick={onSubmit}>
+        <WorkbookInspectorActionButton
+          data-testid={genericCreateSubmitTestId(
+            state.targetContract.viewSchemaId,
+          )}
+          disabled={state.isSubmitting}
+          tone="primary"
+          onClick={onSubmit}
+        >
           Create related row
-        </button>
-        <button disabled={state.isSubmitting} type="button" onClick={onCancel}>
+        </WorkbookInspectorActionButton>
+        <WorkbookInspectorActionButton
+          disabled={state.isSubmitting}
+          tone="secondary"
+          onClick={onCancel}
+        >
           Cancel
-        </button>
+        </WorkbookInspectorActionButton>
       </div>
     </section>
   );
@@ -58,13 +73,13 @@ export function InspectorCreateRelatedWorkflow({
 
 const workflowStyle = {
   display: "grid",
-  gap: "0.6rem",
-  paddingBlock: "0.5rem",
+  gap: "var(--ct-spacing-sm)",
+  paddingBlock: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;
 
 const labelStyle = {
   display: "grid",
-  gap: "0.3rem",
+  gap: "var(--ct-spacing-xs)",
 } satisfies CSSProperties;
 
 const messageStyle = { margin: 0 } satisfies CSSProperties;
@@ -72,5 +87,5 @@ const messageStyle = { margin: 0 } satisfies CSSProperties;
 const actionsStyle = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "0.5rem",
+  gap: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;

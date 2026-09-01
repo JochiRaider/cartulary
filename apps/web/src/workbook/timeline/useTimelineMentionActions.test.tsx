@@ -266,9 +266,10 @@ describe("useTimelineMentionActions auto-resolution undo", () => {
       "txn-undo",
     );
     expect(active.mocks.clearViewportContinuity).toHaveBeenCalledWith(41);
-    expect(active.mocks.setInspectorMessage).toHaveBeenCalledWith(
-      "Stale mention version",
-    );
+    expect(active.mocks.setInspectorMessage).toHaveBeenCalledWith({
+      primaryMessage: "Stale mention version",
+      technicalFields: [],
+    });
     expect(active.mocks.finishSave).toHaveBeenLastCalledWith("Conflict");
     expect(active.mocks.loadRows).not.toHaveBeenCalled();
   });

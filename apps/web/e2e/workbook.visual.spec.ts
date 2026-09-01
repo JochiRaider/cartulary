@@ -2970,7 +2970,10 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         feP9VisualHistoryActionTestId(rollbackItem, "history_entry"),
       ),
     ).toBeVisible();
-    await page.getByTestId(rowHistoryPanelTestId()).scrollIntoViewIfNeeded();
+    await scrollVisualAnchorToScrollContainerTop(
+      page,
+      page.getByTestId(rowHistoryPanelTestId()),
+    );
     await assertViewportVisualRegression(page, "workbook-inspector-history");
 
     await page

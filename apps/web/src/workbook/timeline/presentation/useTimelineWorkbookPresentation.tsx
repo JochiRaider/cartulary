@@ -15,7 +15,6 @@ import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
 } from "../../models/workbookGridState";
-import { selectInspectorConfig } from "../../models/workbookInspectorModel";
 import {
   defaultFilterDraft,
   emptyWorkbookQueryState,
@@ -41,7 +40,7 @@ import {
 } from "../models/workbookTimelineModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
-const timelineInspectorConfig = selectInspectorConfig(timelineContract);
+const timelineInspectorConfig = timelineContract.inspectorConfig;
 
 export type TimelineWorkbookPresentationRuntime = {
   readonly currentIncidentRole: TimelineWorkbookSurfaceRuntime["incident"]["currentRole"];

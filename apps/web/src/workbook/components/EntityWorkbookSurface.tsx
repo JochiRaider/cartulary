@@ -13,7 +13,6 @@ import {
 import {
   dataTestIdSelector,
   entityInspectButtonTestId,
-  entityInspectorSubjectTestId,
   entityInspectorTestId,
   entityMergeControlTestId,
   entityMergePreconditionDetailsTestId,
@@ -32,6 +31,7 @@ import {
   workbookInlineDraftRowTestId,
   workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
+import type { InspectorDisabledCondition } from "@cartulary/view-contracts";
 import {
   type InspectorFeatureGroup,
   requireViewContract,
@@ -59,19 +59,21 @@ import type {
 import { useEntityMergeController } from "../features/entities/useEntityMergeController";
 import { useEntityTimelinePreview } from "../hooks/useEntityTimelinePreview";
 import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import { WorkbookInspectorPublicError } from "../inspector/presentation/WorkbookInspectorFeedback";
 import {
-  WorkbookInspectorContextualActions,
   WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
-} from "../inspector/presentation/WorkbookInspectorPresentation";
-import {
-  type WorkbookInspectorSubjectPresentation,
-  workbookInspectorSafePublicMessage,
-} from "../inspector/presentation/workbookInspectorPresentationModel";
-import type { InspectorDisabledToken } from "../inspector/semanticInspectorDispatcher";
+} from "../inspector/presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import { WorkbookInspectorContextualActions } from "../inspector/WorkbookInspectorContextualActions";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
+import {
+  type WorkbookInspectorErrorPresentation,
+  workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorPresentation,
+} from "../inspector/workbookInspectorErrorModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -101,10 +103,7 @@ import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
 } from "../models/workbookGridState";
-import {
-  inspectorPanelIsDeclared,
-  selectInspectorConfig,
-} from "../models/workbookInspectorModel";
+import { inspectorPanelIsDeclared } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import {
@@ -254,10 +253,10 @@ export function EntityWorkbookSurface({
       null,
     ),
   );
-  const [mutationError, setMutationError] = useState<string | null>(null);
-  const [entityActionMessage, setEntityActionMessage] = useState<string | null>(
-    null,
-  );
+  const [mutationError, setMutationError] =
+    useState<WorkbookInspectorErrorPresentation | null>(null);
+  const [entityActionMessage, setEntityActionMessage] =
+    useState<WorkbookInspectorErrorPresentation | null>(null);
   const [mutationState, setMutationState] =
     useState<WorkbookMutationSaveState>("Saved");
   const sharedMutation = useWorkbookMutationRuntime(
@@ -280,7 +279,7 @@ export function EntityWorkbookSurface({
   const selectedEntity =
     rows.find((row) => row.recordId === selectedRecordId) ?? null;
   const entityInspectorDisabledTokens = useMemo(() => {
-    const tokens = new Set<InspectorDisabledToken>();
+    const tokens = new Set<InspectorDisabledCondition>();
     if (selectedEntity === null) tokens.add("no_row_selected");
     else tokens.add("record_not_deleted");
     tokens.add("rollback_target_unavailable");
@@ -292,26 +291,22 @@ export function EntityWorkbookSurface({
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
-  const inspectorConfig = selectInspectorConfig(contract);
+  const inspectorConfig = contract.inspectorConfig;
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
-      clearLocalForm: () => {
+      resetOwnerState: ({ scope }) => {
         setEditRecordId("");
         setEditFieldKey("");
         setEditValue("");
         setAliasDraft("");
         setCreateDraft(initialGenericCreateDraft(contract, null));
-      },
-      clearLifecycleState: () => {
-        continuityPortRef.current?.clear();
-        setEntityActionMessage(null);
-      },
-      clearMergePlan: () => {
         mergeResetRef.current();
-      },
-      clearPreview: clearTimelinePreview,
-      clearSelection: () => {
-        setSelectedRecordId(null);
+        clearTimelinePreview();
+        setEntityActionMessage(null);
+        if (scope === "surface") {
+          continuityPortRef.current?.clear();
+          setSelectedRecordId(null);
+        }
       },
       restoreFocus: () => {
         const token = inspectorContinuityTokenRef.current;
@@ -358,7 +353,13 @@ export function EntityWorkbookSurface({
     currentUserId,
     mutationCommands: relatedMutationCommands,
     onCreated: onRefreshEntities,
-    onMessage: setEntityActionMessage,
+    onMessage: (message) => {
+      setEntityActionMessage(
+        message === null
+          ? null
+          : workbookInspectorLocalErrorPresentation(message),
+      );
+    },
     selectedSubject:
       selectedEntity === null
         ? null
@@ -599,7 +600,9 @@ export function EntityWorkbookSurface({
         viewSchemaId: contract.viewSchemaId,
       });
       if (outcome.kind !== "accepted") {
-        setMutationError(outcome.message);
+        setMutationError(
+          workbookInspectorLocalErrorPresentation(outcome.message),
+        );
       } else {
         setSelectedRecordId(target.recordId);
       }
@@ -620,13 +623,21 @@ export function EntityWorkbookSurface({
         targetResolution.columns.length === 0 ||
         targetResolution.rowTargets.length !== values.length
       ) {
-        setMutationError("Paste targets are incomplete or incompatible.");
+        setMutationError(
+          workbookInspectorLocalErrorPresentation(
+            "Paste targets are incomplete or incompatible.",
+          ),
+        );
         return;
       }
       if (values.length === 1 && values[0]?.length === 1) {
         const rowTarget = targetResolution.rowTargets[0];
         if (rowTarget?.kind !== "record") {
-          setMutationError("Scalar paste requires an existing record target.");
+          setMutationError(
+            workbookInspectorLocalErrorPresentation(
+              "Scalar paste requires an existing record target.",
+            ),
+          );
           return;
         }
         const outcome = await commitGridEdit(
@@ -637,18 +648,26 @@ export function EntityWorkbookSurface({
             recordId: rowTarget.rowIdentity.recordId,
           },
         );
-        if (outcome.kind !== "accepted") setMutationError(outcome.message);
+        if (outcome.kind !== "accepted") {
+          setMutationError(
+            workbookInspectorLocalErrorPresentation(outcome.message),
+          );
+        }
         return;
       }
       if (grouping !== null) {
         setMutationError(
-          "Rectangular entity creation paste is unavailable while grouped.",
+          workbookInspectorLocalErrorPresentation(
+            "Rectangular entity creation paste is unavailable while grouped.",
+          ),
         );
         return;
       }
       if (!canCreateRows) {
         setMutationError(
-          "Row creation is unavailable in the current view mode.",
+          workbookInspectorLocalErrorPresentation(
+            "Row creation is unavailable in the current view mode.",
+          ),
         );
         return;
       }
@@ -662,14 +681,18 @@ export function EntityWorkbookSurface({
         viewSchemaId: contract.viewSchemaId,
       });
       if (result.kind === "rejected") {
-        setEntityActionMessage(result.failure.message);
+        setEntityActionMessage(
+          workbookInspectorErrorPresentation(result.failure),
+        );
         return;
       }
       const firstRow = result.value.rows[0];
       await onRefreshEntities();
       if (firstRow) setSelectedRecordId(firstRow.record_id);
       setEntityActionMessage(
-        `Paste applied to ${result.value.rows.length} ${entityType === "host" ? "host" : "identity"} row${result.value.rows.length === 1 ? "" : "s"}.`,
+        workbookInspectorLocalErrorPresentation(
+          `Paste applied to ${result.value.rows.length} ${entityType === "host" ? "host" : "identity"} row${result.value.rows.length === 1 ? "" : "s"}.`,
+        ),
       );
     },
     [
@@ -881,13 +904,17 @@ export function EntityWorkbookSurface({
 
   async function submitEntityEdit() {
     if (selectedEditRow === null || selectedEditField === null) {
-      setMutationError("invalid_mutation_payload");
+      setMutationError(
+        workbookInspectorLocalErrorPresentation("invalid_mutation_payload"),
+      );
       return;
     }
     const change = buildGenericPatchChange(selectedEditField, editValue);
     if (change === null) {
       setMutationError(
-        "Provide a value, or leave clearable fields empty to clear them.",
+        workbookInspectorLocalErrorPresentation(
+          "Provide a value, or leave clearable fields empty to clear them.",
+        ),
       );
       return;
     }
@@ -913,7 +940,7 @@ export function EntityWorkbookSurface({
           });
         }
         setMutationState("Conflict");
-        setMutationError(result.failure.message);
+        setMutationError(workbookInspectorErrorPresentation(result.failure));
         return;
       }
       await onRefreshEntities();
@@ -931,7 +958,9 @@ export function EntityWorkbookSurface({
     >,
   ) {
     if (selectedEntity === null) {
-      setMutationError("invalid_mutation_payload");
+      setMutationError(
+        workbookInspectorLocalErrorPresentation("invalid_mutation_payload"),
+      );
       return;
     }
     const aliasFieldKey =
@@ -963,7 +992,7 @@ export function EntityWorkbookSurface({
           });
         }
         setMutationState("Conflict");
-        setMutationError(result.failure.message);
+        setMutationError(workbookInspectorErrorPresentation(result.failure));
         return;
       }
       setAliasDraft("");
@@ -979,7 +1008,11 @@ export function EntityWorkbookSurface({
   async function submitEntityCreate() {
     if (!canCreateRows) return;
     if (!mutationCommands.canCreateRecord({ contract, draft: createDraft })) {
-      setMutationError(genericCreateMinimumMessage(contract));
+      setMutationError(
+        workbookInspectorLocalErrorPresentation(
+          genericCreateMinimumMessage(contract),
+        ),
+      );
       return;
     }
     setMutationState("Syncing");
@@ -992,7 +1025,7 @@ export function EntityWorkbookSurface({
       });
       if (result.kind === "rejected") {
         setMutationState("Conflict");
-        setMutationError(result.failure.message);
+        setMutationError(workbookInspectorErrorPresentation(result.failure));
         return;
       }
       setCreateDraft(initialGenericCreateDraft(contract, null));
@@ -1014,7 +1047,11 @@ export function EntityWorkbookSurface({
       return false;
     }
     if (selectedEntity === null) {
-      setEntityActionMessage("Select a saved row before running this action.");
+      setEntityActionMessage(
+        workbookInspectorLocalErrorPresentation(
+          "Select a saved row before running this action.",
+        ),
+      );
       return true;
     }
     const finishMutation = mutationRuntime.beginExplicitMutation();
@@ -1029,7 +1066,7 @@ export function EntityWorkbookSurface({
       });
       if (outcome.kind === "rejected") {
         setMutationState("Conflict");
-        setMutationError(outcome.failure.message);
+        setMutationError(workbookInspectorErrorPresentation(outcome.failure));
         return true;
       }
       setSelectedRecordId(null);
@@ -1124,22 +1161,16 @@ export function EntityWorkbookSurface({
                             rowVersion: selectedEntity.rowVersion,
                           }
                     }
-                    onMessage={setEntityActionMessage}
+                    onMessage={(message) => {
+                      setEntityActionMessage(
+                        workbookInspectorLocalErrorPresentation(message),
+                      );
+                    }}
                     onRefresh={onRefreshEntities}
                   />
                 ) : null}
               </WorkbookInspectorPanelSection>
             ))}
-            {selectedEntity ? (
-              <span
-                aria-hidden="true"
-                data-testid={entityInspectorSubjectTestId(
-                  entityType,
-                  selectedEntity.recordId,
-                )}
-                style={{ display: "none" }}
-              />
-            ) : null}
             {showDetailsPanel &&
             editableEntityFields.length > 0 &&
             rows.length > 0 ? (
@@ -1203,9 +1234,7 @@ export function EntityWorkbookSurface({
                   </button>
                 </div>
                 {mutationError ? (
-                  <p style={bodyStyle}>
-                    {workbookInspectorSafePublicMessage(mutationError)}
-                  </p>
+                  <WorkbookInspectorPublicError error={mutationError} />
                 ) : null}
               </section>
             ) : null}
@@ -1460,14 +1489,10 @@ export function EntityWorkbookSurface({
 
                 {presentedEntityActionMessage ? (
                   <div style={mergeMessageBlockStyle}>
-                    <p
-                      data-testid={entityMergeControlTestId("message")}
-                      style={bodyStyle}
-                    >
-                      {workbookInspectorSafePublicMessage(
-                        presentedEntityActionMessage,
-                      )}
-                    </p>
+                    <WorkbookInspectorPublicError
+                      error={presentedEntityActionMessage}
+                      testId={entityMergeControlTestId("message")}
+                    />
                     {mergePreconditionDetails.length > 0 ? (
                       <ul
                         data-testid={entityMergePreconditionDetailsTestId(
@@ -1548,7 +1573,9 @@ export function EntityWorkbookSurface({
       statusStrip={
         <WorkbookSurfaceStatusStrip
           activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
-          mutationError={mutationError ?? sharedMutation.secondaryMessage}
+          mutationError={
+            mutationError?.primaryMessage ?? sharedMutation.secondaryMessage
+          }
           mutationState={presentedMutationState}
           onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}

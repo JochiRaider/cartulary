@@ -15,7 +15,6 @@ import {
   draftRowCreateButtonTestId,
   draftTimelineCollectionInputTestId,
   entityInspectButtonTestId,
-  entityInspectorSubjectTestId,
   entityInspectorTestId,
   entityMergeControlTestId,
   entityMergePreconditionDetailsTestId,
@@ -502,9 +501,6 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     ]);
     expect(() => assessmentCreateControlTestId("delete" as never)).toThrow(
       "Invalid assessment create control token: delete",
-    );
-    expect(entityInspectorSubjectTestId("identity", "identity-1")).toBe(
-      "identity-inspector-subject-identity-1",
     );
     expect(evidencePreviewButtonTestId("evidence-1")).toBe(
       "evidence-preview-evidence-1",

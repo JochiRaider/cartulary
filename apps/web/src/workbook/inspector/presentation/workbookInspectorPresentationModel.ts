@@ -1,23 +1,17 @@
 import { workbookInspectorFeatureActionTestId } from "@cartulary/ui-contracts";
 import type {
   InspectorConfig,
+  InspectorDisabledCondition,
   InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import {
-  type InspectorDisabledToken,
   inspectorFeatureDisabledTokens,
   resolveSemanticInspectorFeature,
 } from "../semanticInspectorDispatcher";
 
 export const workbookInspectorNoRowMessage =
   "Select a saved row to inspect its details.";
-
-export function workbookInspectorSafePublicMessage(message: string): string {
-  return message.includes("row_version_conflict")
-    ? "This row changed; refresh it before retrying."
-    : message;
-}
 
 export type WorkbookInspectorSubjectPresentation = {
   readonly label: string;
@@ -50,10 +44,15 @@ export type WorkbookHistoryEventPresentation = {
 
 export function bindWorkbookInspectorAction(
   config: InspectorConfig,
-  requested: InspectorFeatureGroup,
+  featureGroupKey: string,
 ): WorkbookInspectorActionBinding | null {
-  const resolution = resolveSemanticInspectorFeature(config, requested);
-  if (resolution.kind !== "action") return null;
+  const resolution = resolveSemanticInspectorFeature(config, featureGroupKey);
+  if (
+    resolution.kind === "unsupported" ||
+    resolution.disposition === "panel_read"
+  ) {
+    return null;
+  }
   return {
     featureGroup: resolution.featureGroup,
     semanticKey: resolution.semanticKey,
@@ -72,7 +71,7 @@ export function workbookInspectorDisabledReason({
 }: {
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly featureGroup: InspectorFeatureGroup;
-  readonly stateTokens: ReadonlySet<InspectorDisabledToken>;
+  readonly stateTokens: ReadonlySet<InspectorDisabledCondition>;
 }): string | null {
   const activeTokens = inspectorFeatureDisabledTokens({
     currentIncidentRole,
@@ -107,4 +106,4 @@ const disabledReasonByToken = {
     "Select an available history change to roll back.",
   party_text_unavailable: "No party reference text is available to link.",
   pivot_target_unavailable: "No matching destination is available.",
-} as const satisfies Record<InspectorDisabledToken, string>;
+} as const satisfies Record<InspectorDisabledCondition, string>;

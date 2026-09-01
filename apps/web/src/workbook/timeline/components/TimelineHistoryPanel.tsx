@@ -21,12 +21,17 @@ import {
   WorkbookHistoryEvent,
   WorkbookHistoryList,
 } from "../../inspector/presentation/WorkbookHistoryPresentation";
+import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
   WorkbookInspectorPublicError,
   WorkbookInspectorTechnicalDetails,
-} from "../../inspector/presentation/WorkbookInspectorPresentation";
-import type { WorkbookHistoryEventPresentation } from "../../inspector/presentation/workbookInspectorPresentationModel";
+} from "../../inspector/presentation/WorkbookInspectorFeedback";
+import {
+  workbookHistoryEventPresentation,
+  workbookHistoryPendingTechnicalFields,
+  workbookHistoryRollbackLabel,
+} from "../../inspector/workbookHistoryPresentationModel";
 import type {
   RecordHistoryItem,
   RecordHistoryRollbackAction,
@@ -34,11 +39,9 @@ import type {
   RowHistoryPendingAction,
 } from "../models/timelineHistoryModel";
 import {
-  actionButtonStyle,
   bodyStyle,
   inlineButtonRowStyle,
   inspectorSectionStyle,
-  secondaryActionButtonStyle,
 } from "./TimelineWorkbookStyles";
 
 type TimelineHistoryPanelProps = {
@@ -80,7 +83,7 @@ export function TimelineHistoryPanel({
     !historyMatchesActiveRecord
       ? "loading"
       : history.status;
-  const historyMessage = historyMatchesActiveRecord ? history.message : null;
+  const historyError = historyMatchesActiveRecord ? history.error : null;
   const pendingHistoryAction =
     recordId !== null && pendingAction?.recordId === recordId
       ? pendingAction
@@ -94,16 +97,15 @@ export function TimelineHistoryPanel({
     >
       <div data-testid={rowHistoryPanelTestId()} style={historyPanelStyle}>
         {selectedActiveRowRecordId !== null ? (
-          <button
+          <WorkbookInspectorActionButton
             data-testid={rowHistoryOpenInspectorButtonTestId(
               selectedActiveRowRecordId,
             )}
-            style={secondaryActionButtonStyle}
-            type="button"
+            tone="secondary"
             onClick={() => onOpenHistory(selectedActiveRowRecordId)}
           >
             Refresh history
-          </button>
+          </WorkbookInspectorActionButton>
         ) : null}
         {recordId === null ? null : (
           <WorkbookInspectorTechnicalDetails
@@ -111,23 +113,21 @@ export function TimelineHistoryPanel({
           />
         )}
         {historyStatus === "idle" && selectedActiveRowRecordId !== null ? (
-          <button
+          <WorkbookInspectorActionButton
             data-testid={rowHistoryOpenSelectedButtonTestId()}
-            style={actionButtonStyle}
-            type="button"
             onClick={() => onOpenHistory(selectedActiveRowRecordId)}
           >
             Open history
-          </button>
+          </WorkbookInspectorActionButton>
         ) : null}
         {historyStatus === "loading" ? (
           <p data-testid={rowHistoryLoadingTestId()} style={bodyStyle}>
             Loading history...
           </p>
         ) : null}
-        {historyMessage ? (
+        {historyError ? (
           <WorkbookInspectorPublicError
-            message={historyMessage}
+            error={historyError}
             testId={rowHistoryMessageTestId()}
           />
         ) : null}
@@ -147,24 +147,21 @@ export function TimelineHistoryPanel({
             />
             <div style={inlineButtonRowStyle}>
               {selectedActiveRowRecordId !== null && !historyData.deleted ? (
-                <button
+                <WorkbookInspectorActionButton
                   data-testid={rowHistoryDeleteButtonTestId()}
-                  style={destructiveActionButtonStyle}
-                  type="button"
+                  tone="destructive"
                   onClick={() => onPreviewDeleteRestore("delete")}
                 >
                   Soft-delete row
-                </button>
+                </WorkbookInspectorActionButton>
               ) : null}
               {historyData.deleted ? (
-                <button
+                <WorkbookInspectorActionButton
                   data-testid={rowHistoryRestoreButtonTestId()}
-                  style={actionButtonStyle}
-                  type="button"
                   onClick={() => onPreviewDeleteRestore("restore")}
                 >
                   Restore row
-                </button>
+                </WorkbookInspectorActionButton>
               ) : null}
             </div>
             {pendingHistoryAction?.kind === "destructive" ? (
@@ -187,7 +184,9 @@ export function TimelineHistoryPanel({
                     : "Restore"
                 }
                 subject="this timeline row"
-                technicalFields={pendingTechnicalFields(pendingHistoryAction)}
+                technicalFields={workbookHistoryPendingTechnicalFields(
+                  pendingHistoryAction,
+                )}
                 testId={rowHistoryDestructiveConfirmPanelTestId({
                   operation: pendingHistoryAction.operation,
                 })}
@@ -206,10 +205,12 @@ export function TimelineHistoryPanel({
                   action: pendingHistoryAction.action,
                   historyItemRef: pendingHistoryAction.historyItemRef,
                 })}
-                operation={`${rollbackLabel(pendingHistoryAction.action)} rollback`}
+                operation={`${workbookHistoryRollbackLabel(pendingHistoryAction.action)} rollback`}
                 subject="this history state"
                 technicalFields={[
-                  ...pendingTechnicalFields(pendingHistoryAction),
+                  ...workbookHistoryPendingTechnicalFields(
+                    pendingHistoryAction,
+                  ),
                   {
                     label: "History item",
                     value: pendingHistoryAction.historyItemRef,
@@ -229,7 +230,7 @@ export function TimelineHistoryPanel({
             ) : null}
             <WorkbookHistoryList>
               {historyData.items.map((item) => {
-                const event = historyEventPresentation(item);
+                const event = workbookHistoryEventPresentation(item);
                 return (
                   <WorkbookHistoryEvent
                     actions={
@@ -238,22 +239,21 @@ export function TimelineHistoryPanel({
                       ) : (
                         <div style={inlineButtonRowStyle}>
                           {item.available_rollback_actions.map((action) => (
-                            <button
+                            <WorkbookInspectorActionButton
                               data-testid={rowHistoryActionTestId({
                                 action,
                                 historyItemRef: item.history_item_ref,
                               })}
                               key={action}
-                              style={
+                              tone={
                                 action === "row_restore"
-                                  ? actionButtonStyle
-                                  : secondaryActionButtonStyle
+                                  ? "ordinary"
+                                  : "secondary"
                               }
-                              type="button"
                               onClick={() => onPreviewRollback(item, action)}
                             >
-                              {rollbackLabel(action)}
-                            </button>
+                              {workbookHistoryRollbackLabel(action)}
+                            </WorkbookInspectorActionButton>
                           ))}
                         </div>
                       )
@@ -274,54 +274,9 @@ export function TimelineHistoryPanel({
   );
 }
 
-function pendingTechnicalFields(action: RowHistoryPendingAction) {
-  return [
-    { label: "Record ID", value: action.recordId },
-    {
-      label: "Row version",
-      value: action.rowVersion === null ? "unknown" : String(action.rowVersion),
-    },
-  ];
-}
-
-function historyEventPresentation(
-  item: RecordHistoryItem,
-): WorkbookHistoryEventPresentation {
-  return {
-    committedAt: item.committed_at,
-    key: item.history_item_ref,
-    operation: item.operation,
-    summary: item.diff_summary.summary,
-    technicalFields: [
-      { label: "Actor ID", value: item.actor_user_id },
-      { label: "History reference", value: item.history_item_ref },
-      { label: "Change set ID", value: item.change_set_id },
-      ...(item.history_entry_ref === undefined
-        ? []
-        : [{ label: "History entry", value: item.history_entry_ref }]),
-      ...(item.revision_no === undefined
-        ? []
-        : [{ label: "Revision", value: String(item.revision_no) }]),
-    ],
-  };
-}
-
-function rollbackLabel(action: RecordHistoryRollbackAction): string {
-  if (action === "history_entry") return "Rollback entry";
-  if (action === "change_set") return "Rollback change set";
-  return "Restore row fields";
-}
-
 const historyPanelStyle = {
   display: "grid",
   gap: "var(--ct-spacing-sm)",
-} satisfies CSSProperties;
-
-const destructiveActionButtonStyle = {
-  ...actionButtonStyle,
-  borderColor: "var(--ct-colors-semantic-destructive)",
-  background: "transparent",
-  color: "var(--ct-colors-semantic-destructive)",
 } satisfies CSSProperties;
 
 const emptyStateStyle = {

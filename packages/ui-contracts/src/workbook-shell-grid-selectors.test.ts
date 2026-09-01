@@ -33,7 +33,6 @@ import {
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorFeatureActionTestId,
-  workbookInspectorFeatureGroupTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookLayoutMetrics,
@@ -224,14 +223,6 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
       workbookInspectorPanelTestId("cartulary.view.timeline.v2", "workflow"),
     ).toBe("cartulary.view.timeline.v2-inspector-panel-workflow");
     expect(
-      workbookInspectorFeatureGroupTestId(
-        "cartulary.view.timeline.v2",
-        "create_related.task_request",
-      ),
-    ).toBe(
-      "cartulary.view.timeline.v2-inspector-feature-create_related.task_request",
-    );
-    expect(
       workbookInspectorFeatureActionTestId(
         "cartulary.view.timeline.v2",
         "history.rollback",
@@ -257,12 +248,6 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
         "details-title" as never,
       ),
     ).toThrow("Invalid workbook inspector panel token: details-title");
-    expect(() =>
-      workbookInspectorFeatureGroupTestId(
-        "cartulary.view.timeline.v2",
-        "Create task",
-      ),
-    ).toThrow("Invalid feature_group_key selector token: Create task");
   });
 
   it("preserves closed shell and system-view order with exact accessibility labels", () => {

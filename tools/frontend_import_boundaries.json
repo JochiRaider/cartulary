@@ -289,6 +289,59 @@
       ]
     },
     {
+      "id": "frontend-workbook-inspector-presentation-stateless-boundary",
+      "level": "error",
+      "message": "Workbook Inspector presentation must not import owner hooks, mutations, runtime state, reducers, controllers, Timeline implementation, or orchestration containers.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/inspector/presentation/**"
+        ],
+        "exclude": [
+          "apps/web/src/workbook/inspector/presentation/*.test.ts",
+          "apps/web/src/workbook/inspector/presentation/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/features"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/hooks"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/models"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/mutations"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/runtime"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/inspector/WorkbookInspectorContextualActions"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/inspector/useInspectorCreateRelatedWorkflow"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/inspector/useWorkbookInspectorCoordinator"
+        }
+      ]
+    },
+    {
       "id": "frontend-workbook-common-presentation-no-timeline-presentation",
       "level": "error",
       "message": "Common Workbook presentation must not import Timeline presentation components.",

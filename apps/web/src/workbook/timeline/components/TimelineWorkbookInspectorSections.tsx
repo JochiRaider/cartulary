@@ -1,10 +1,6 @@
-import {
-  genericCreateFieldTestId,
-  genericCreateSubmitTestId,
-  timelineInspectorSectionTestId,
-} from "@cartulary/ui-contracts";
+import { timelineInspectorSectionTestId } from "@cartulary/ui-contracts";
 import { type ReactNode, useCallback } from "react";
-import { GenericMutationControl } from "../../components/GenericMutationControl";
+import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { TimelineCreateRelatedWorkflowState } from "../hooks/useTimelineCreateRelatedWorkflow";
@@ -25,13 +21,9 @@ import {
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 import { TimelineHistoryPanel } from "./TimelineHistoryPanel";
 import {
-  actionButtonStyle,
   bodyStyle,
-  inlineButtonRowStyle,
   inspectorActionStackStyle,
   inspectorSectionStyle,
-  labelStyle,
-  secondaryActionButtonStyle,
   sectionTitleStyle,
 } from "./TimelineWorkbookStyles";
 
@@ -151,67 +143,22 @@ export function useTimelineWorkbookInspectorSections({
         </p>
       );
     }
-    const workflow = createRelatedWorkflow;
-    const createFields = workflow.targetContract.fields.filter(
-      (field) => field.createWritable,
-    );
     return (
-      <div style={inspectorActionStackStyle}>
-        <p style={bodyStyle}>{workflow.targetContract.viewSchemaId}</p>
-        {createFields.map((field) => {
-          const controlId = `timeline-create-related-${workflow.featureGroup.featureGroupKey}-${field.fieldKey}`;
-          return (
-            <label htmlFor={controlId} key={field.fieldKey} style={labelStyle}>
-              {field.label}
-              <GenericMutationControl
-                collectionMode="add"
-                field={field}
-                id={controlId}
-                referenceOptions={timelineCreateRelatedReferenceOptions}
-                testId={genericCreateFieldTestId(field.fieldKey)}
-                value={workflow.draft[field.fieldKey] ?? ""}
-                onChange={(value) => {
-                  updateCreateRelatedWorkflowDraft(
-                    workflow.featureGroup.featureGroupKey,
-                    field.fieldKey,
-                    value,
-                  );
-                }}
-              />
-            </label>
+      <InspectorCreateRelatedWorkflow
+        referenceOptions={timelineCreateRelatedReferenceOptions}
+        state={createRelatedWorkflow}
+        onCancel={cancelCreateRelatedWorkflow}
+        onSubmit={() => {
+          void submitCreateRelatedWorkflow();
+        }}
+        onUpdateDraft={(fieldKey, value) => {
+          updateCreateRelatedWorkflowDraft(
+            createRelatedWorkflow.featureGroup.featureGroupKey,
+            fieldKey,
+            value,
           );
-        })}
-        <div style={inlineButtonRowStyle}>
-          <button
-            data-testid={genericCreateSubmitTestId(
-              workflow.targetContract.viewSchemaId,
-            )}
-            disabled={workflow.isSubmitting}
-            style={secondaryActionButtonStyle}
-            type="button"
-            onClick={() => {
-              void submitCreateRelatedWorkflow();
-            }}
-          >
-            Create related row
-          </button>
-          <button
-            disabled={workflow.isSubmitting}
-            style={actionButtonStyle}
-            type="button"
-            onClick={() => {
-              cancelCreateRelatedWorkflow();
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-        {workflow.message ? (
-          <p role="alert" style={bodyStyle}>
-            {workflow.message}
-          </p>
-        ) : null}
-      </div>
+        }}
+      />
     );
   }, [
     cancelCreateRelatedWorkflow,

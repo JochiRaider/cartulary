@@ -1,3 +1,4 @@
+import type { WorkbookInspectorErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookRow } from "./workbookTimelineModel";
 
 export type RecordHistoryRollbackAction =
@@ -76,7 +77,7 @@ export type RecordHistoryState = {
   recordId: string | null;
   status: "idle" | "loading" | "ready" | "error";
   data: RecordHistoryData | null;
-  message: string | null;
+  error: WorkbookInspectorErrorPresentation | null;
 };
 
 export type RowHistoryPendingAction =

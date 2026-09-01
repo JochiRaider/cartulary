@@ -99,6 +99,21 @@ describe("semantic mutation command ports", () => {
           }),
           { status: 409, headers: { "content-type": "application/json" } },
         ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "row_version_conflict",
+              details: {},
+              message: "Server conflict prose.",
+              request_id: "request-row-version-conflict",
+              retryable: false,
+              status: 409,
+            },
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
       );
     vi.stubGlobal("fetch", fetchMock);
     const operations = createWorkbookOperationExecutor({ apiBase: undefined });
@@ -128,6 +143,7 @@ describe("semantic mutation command ports", () => {
       failure: {
         kind: "authorization_lost",
         message: "Access denied.",
+        publicCode: "authorization_denied",
         presentation: { family: "permission_or_incident_access_loss" },
       },
     });
@@ -152,7 +168,15 @@ describe("semantic mutation command ports", () => {
       failure: {
         kind: "terminal",
         message: "evidence_access_unavailable: unsupported_preview",
+        publicCode: "evidence_access_unavailable",
         presentation: { family: "evidence_preview_blocked" },
+      },
+    });
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "stale_target",
+        publicCode: "row_version_conflict",
       },
     });
     expect(fetchMock).toHaveBeenNthCalledWith(

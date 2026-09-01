@@ -27,6 +27,7 @@ import {
   workbookInlineDraftRowTestId,
 } from "@cartulary/ui-contracts";
 import type {
+  InspectorDisabledCondition,
   InspectorFeatureGroup,
   ViewContract,
 } from "@cartulary/view-contracts";
@@ -62,19 +63,17 @@ import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericParty
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import { WorkbookInspectorPublicError } from "../inspector/presentation/WorkbookInspectorFeedback";
 import {
-  WorkbookInspectorContextualActions,
   WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
-} from "../inspector/presentation/WorkbookInspectorPresentation";
-import {
-  type WorkbookInspectorSubjectPresentation,
-  workbookInspectorSafePublicMessage,
-} from "../inspector/presentation/workbookInspectorPresentationModel";
-import type { InspectorDisabledToken } from "../inspector/semanticInspectorDispatcher";
+} from "../inspector/presentation/WorkbookInspectorShell";
+import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import { WorkbookInspectorContextualActions } from "../inspector/WorkbookInspectorContextualActions";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
+import { workbookInspectorLocalErrorPresentation } from "../inspector/workbookInspectorErrorModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -104,10 +103,7 @@ import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
 } from "../models/workbookGridState";
-import {
-  inspectorPanelIsDeclared,
-  selectInspectorConfig,
-} from "../models/workbookInspectorModel";
+import { inspectorPanelIsDeclared } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
@@ -191,7 +187,7 @@ export function ContractWorkbookSurface({
     contract.viewSchemaId,
   );
   const { ownerBindings } = registration.policy;
-  const inspectorConfig = selectInspectorConfig(contract);
+  const inspectorConfig = contract.inspectorConfig;
   const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
   const showRelationshipsPanel = inspectorPanelIsDeclared(
     inspectorConfig,
@@ -265,18 +261,16 @@ export function ContractWorkbookSurface({
     rows.find((row) => row.record_id === editRecordId) ?? null;
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
-      clearLocalForm: () => {
+      resetOwnerState: ({ scope }) => {
         setEditValue("");
         setLinkedNoteSourceRecordId("");
         setEditCollectionMode("add");
         setPartyLinkExistingPartyId("");
         clearMutationError();
-      },
-      clearLifecycleState: () => {
-        continuityPortRef.current?.clear();
-      },
-      clearSelection: () => {
-        setEditRecordId("");
+        if (scope === "surface") {
+          continuityPortRef.current?.clear();
+          setEditRecordId("");
+        }
       },
       restoreFocus: () => {
         const token = inspectorContinuityTokenRef.current;
@@ -750,7 +744,7 @@ export function ContractWorkbookSurface({
           },
   });
   const genericInspectorDisabledTokens = useMemo(() => {
-    const tokens = new Set<InspectorDisabledToken>();
+    const tokens = new Set<InspectorDisabledCondition>();
     if (selectedEditRow === null) tokens.add("no_row_selected");
     else tokens.add("record_not_deleted");
     tokens.add("rollback_target_unavailable");
@@ -1334,18 +1328,16 @@ export function ContractWorkbookSurface({
             ) : null}
 
             {referenceLoadError ? (
-              <p
-                data-testid={genericWorkbookTestId("reference-load-error")}
-                style={bodyStyle}
-              >
-                {workbookInspectorSafePublicMessage(referenceLoadError)}
-              </p>
+              <WorkbookInspectorPublicError
+                error={workbookInspectorLocalErrorPresentation(
+                  referenceLoadError,
+                )}
+                testId={genericWorkbookTestId("reference-load-error")}
+              />
             ) : null}
 
             {mutationError ? (
-              <p style={genericErrorTextStyle}>
-                {workbookInspectorSafePublicMessage(mutationError)}
-              </p>
+              <WorkbookInspectorPublicError error={mutationError} />
             ) : null}
           </WorkbookInspectorShell>
         ) : undefined
@@ -1403,7 +1395,9 @@ export function ContractWorkbookSurface({
       statusStrip={
         <WorkbookSurfaceStatusStrip
           activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
-          mutationError={mutationError ?? sharedMutation.secondaryMessage}
+          mutationError={
+            mutationError?.primaryMessage ?? sharedMutation.secondaryMessage
+          }
           mutationState={presentedMutationState}
           onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}
@@ -1429,12 +1423,6 @@ export function ContractWorkbookSurface({
     />
   );
 }
-
-const bodyStyle = {
-  margin: 0,
-  lineHeight: 1.5,
-  color: "var(--ct-colors-ink-muted)",
-};
 
 const gridShellStyle = {
   ...workbookSurfaceGridShellStyle,
@@ -1484,12 +1472,6 @@ const secondaryActionButtonStyle = {
 
 const draftCellPlaceholderStyle = {
   color: "var(--ct-colors-ink-subtle)",
-};
-
-const genericErrorTextStyle = {
-  margin: 0,
-  color: "var(--ct-colors-semantic-conflict)",
-  fontWeight: 700,
 };
 
 const labelStyle = {

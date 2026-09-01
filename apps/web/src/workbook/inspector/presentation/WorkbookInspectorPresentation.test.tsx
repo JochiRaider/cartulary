@@ -1,27 +1,47 @@
+import { readdirSync, readFileSync } from "node:fs";
 import {
+  type InspectorDisabledCondition,
   type InspectorFeatureGroup,
   requireViewContract,
 } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { InspectorDisabledToken } from "../semanticInspectorDispatcher";
+import { workbookInspectorErrorPresentation } from "../workbookInspectorErrorModel";
+import { WorkbookInspectorContextualAction } from "./WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
-  WorkbookInspectorDisabledReason,
-  WorkbookInspectorPanelSection,
   WorkbookInspectorPublicError,
+} from "./WorkbookInspectorFeedback";
+import {
+  WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
-  workbookInspectorActionSemanticProps,
-} from "./WorkbookInspectorPresentation";
+} from "./WorkbookInspectorShell";
 import {
   bindWorkbookInspectorAction,
   workbookInspectorDisabledReason,
-  workbookInspectorSafePublicMessage,
 } from "./workbookInspectorPresentationModel";
 
 const hosts = requireViewContract("cartulary.view.hosts.v1");
 
 describe("Workbook Inspector presentation", () => {
+  it("keeps presentation source free of state orchestration hooks", () => {
+    const presentationDirectory = new URL(".", import.meta.url);
+    for (const filename of readdirSync(presentationDirectory)) {
+      if (
+        (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) ||
+        filename.endsWith(".test.ts") ||
+        filename.endsWith(".test.tsx")
+      ) {
+        continue;
+      }
+      const source = readFileSync(
+        new URL(filename, presentationDirectory),
+        "utf8",
+      );
+      expect(source, filename).not.toMatch(/\buse(?:State|Reducer)\b/u);
+    }
+  });
+
   it("keeps the machine no-row state while presenting ordinary-user copy", () => {
     render(
       <WorkbookInspectorShell
@@ -106,7 +126,7 @@ describe("Workbook Inspector presentation", () => {
     ["party_text_unavailable", "No party reference text is available to link."],
     ["pivot_target_unavailable", "No matching destination is available."],
   ] satisfies readonly (readonly [
-    InspectorDisabledToken,
+    InspectorDisabledCondition,
     string,
   ])[])("presents deterministic copy for %s", (token, expected) => {
     const template = hosts.inspectorConfig.featureGroups.find(
@@ -128,19 +148,22 @@ describe("Workbook Inspector presentation", () => {
     ).toBe(expected);
   });
 
-  it("replaces a raw row-version code with safe typed conflict copy", () => {
-    expect(workbookInspectorSafePublicMessage("row_version_conflict")).toBe(
-      "This row changed; refresh it before retrying.",
-    );
-  });
-
   it("keeps a safe public code available in technical details", () => {
-    render(<WorkbookInspectorPublicError message="row_version_conflict" />);
+    render(
+      <WorkbookInspectorPublicError
+        error={workbookInspectorErrorPresentation({
+          kind: "stale_target",
+          message: "The record is stale.",
+          publicCode: "row_version_conflict",
+        })}
+      />,
+    );
     expect(screen.getByRole("alert").textContent).toContain(
       "This row changed; refresh it before retrying.",
     );
     expect(screen.getByText("Public error code")).not.toBeNull();
     expect(screen.getByText("row_version_conflict")).not.toBeNull();
+    expect(screen.getByText("The record is stale.")).not.toBeNull();
   });
 
   it("binds semantic identity to an owner control and describes it", () => {
@@ -149,26 +172,23 @@ describe("Workbook Inspector presentation", () => {
     );
     expect(merge).toBeDefined();
     if (!merge) return;
-    const binding = bindWorkbookInspectorAction(hosts.inspectorConfig, merge);
+    const binding = bindWorkbookInspectorAction(
+      hosts.inspectorConfig,
+      merge.featureGroupKey,
+    );
     expect(binding).not.toBeNull();
     if (!binding) return;
     render(
-      <>
-        <button
-          {...workbookInspectorActionSemanticProps(binding, "merge-reason")}
-          disabled
-          type="button"
-        >
-          Merge entities
-        </button>
-        <WorkbookInspectorDisabledReason id="merge-reason">
-          Requires the reviewer incident role.
-        </WorkbookInspectorDisabledReason>
-      </>,
+      <WorkbookInspectorContextualAction
+        binding={binding}
+        currentIncidentRole="editor"
+        disabledTokens={new Set()}
+        onInvoke={vi.fn()}
+      />,
     );
-    expect(screen.getByRole("button").getAttribute("aria-describedby")).toBe(
-      "merge-reason",
-    );
+    expect(
+      screen.getByRole("button").getAttribute("aria-describedby"),
+    ).not.toBeNull();
     expect(
       screen.getByText("Requires the reviewer incident role."),
     ).not.toBeNull();

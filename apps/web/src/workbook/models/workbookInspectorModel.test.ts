@@ -2,10 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
   initialWorkbookInspectorState,
-  inspectorFeatureGroupsForPanel,
-  inspectorNoRowState,
   inspectorPanelIsDeclared,
-  selectInspectorConfig,
   type WorkbookInspectorSubject,
   workbookInspectorReducer,
 } from "./workbookInspectorModel";
@@ -22,18 +19,17 @@ const timelineSubject = (
 describe("workbookInspectorModel", () => {
   it("selects immutable schema configuration, starts closed, and exposes the declared no-row state", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
-    const config = selectInspectorConfig(timeline);
-    const state = initialWorkbookInspectorState(config);
+    const config = timeline.inspectorConfig;
+    const state = initialWorkbookInspectorState();
 
     expect(config.viewSchemaId).toBe(timeline.viewSchemaId);
     expect(state).toMatchObject({
-      configViewSchemaId: "cartulary.view.timeline.v2",
       invalidationGeneration: 0,
       isOpen: false,
       status: "closed",
       subject: null,
     });
-    expect(inspectorNoRowState(config)).toBe("no_row_selected");
+    expect(config.noRowState).toBe("no_row_selected");
   });
 
   it("keeps saved-view inheritance tied to the base view_schema_id", () => {
@@ -43,19 +39,15 @@ describe("workbookInspectorModel", () => {
       view_schema_id: baseContract.viewSchemaId,
     };
 
-    expect(selectInspectorConfig(baseContract).viewSchemaId).toBe(
+    expect(baseContract.inspectorConfig.viewSchemaId).toBe(
       savedView.view_schema_id,
     );
   });
 
   it("opens explicitly and represents no selection without inventing a row identity", () => {
-    const config = selectInspectorConfig(
-      requireViewContract("cartulary.view.timeline.v2"),
-    );
-    const opened = workbookInspectorReducer(
-      initialWorkbookInspectorState(config),
-      { type: "open" },
-    );
+    const opened = workbookInspectorReducer(initialWorkbookInspectorState(), {
+      type: "open",
+    });
 
     expect(opened.isOpen).toBe(true);
     expect(opened.status).toBe("no_row_selected");
@@ -63,13 +55,9 @@ describe("workbookInspectorModel", () => {
   });
 
   it("retargets synchronously by stable schema, record, and row-version identity", () => {
-    const config = selectInspectorConfig(
-      requireViewContract("cartulary.view.timeline.v2"),
-    );
-    const opened = workbookInspectorReducer(
-      initialWorkbookInspectorState(config),
-      { type: "open" },
-    );
+    const opened = workbookInspectorReducer(initialWorkbookInspectorState(), {
+      type: "open",
+    });
     const selected = workbookInspectorReducer(opened, {
       type: "retarget",
       subject: timelineSubject(),
@@ -97,11 +85,8 @@ describe("workbookInspectorModel", () => {
   });
 
   it("Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.", () => {
-    const config = selectInspectorConfig(
-      requireViewContract("cartulary.view.timeline.v2"),
-    );
     const ready = workbookInspectorReducer(
-      workbookInspectorReducer(initialWorkbookInspectorState(config), {
+      workbookInspectorReducer(initialWorkbookInspectorState(), {
         type: "retarget",
         subject: timelineSubject(),
       }),
@@ -141,27 +126,19 @@ describe("workbookInspectorModel", () => {
   });
 
   it("resets closed when the active surface schema changes", () => {
-    const timelineConfig = selectInspectorConfig(
-      requireViewContract("cartulary.view.timeline.v2"),
-    );
-    const hostsConfig = selectInspectorConfig(
-      requireViewContract("cartulary.view.hosts.v1"),
-    );
     const ready = workbookInspectorReducer(
-      workbookInspectorReducer(initialWorkbookInspectorState(timelineConfig), {
+      workbookInspectorReducer(initialWorkbookInspectorState(), {
         type: "retarget",
         subject: timelineSubject(),
       }),
-      { type: "open", panelId: "workflow" },
+      { type: "open" },
     );
     const switched = workbookInspectorReducer(ready, {
-      type: "reset_config",
-      config: hostsConfig,
+      type: "invalidate",
+      reason: "surface_changed",
     });
 
     expect(switched).toMatchObject({
-      activePanelId: "details",
-      configViewSchemaId: "cartulary.view.hosts.v1",
       invalidationGeneration: ready.invalidationGeneration + 1,
       isOpen: false,
       status: "closed",
@@ -170,21 +147,21 @@ describe("workbookInspectorModel", () => {
   });
 
   it("filters panels and feature groups by declared semantic config", () => {
-    const config = selectInspectorConfig(
-      requireViewContract("cartulary.view.hosts.v1"),
-    );
+    const config = requireViewContract(
+      "cartulary.view.hosts.v1",
+    ).inspectorConfig;
 
     expect(inspectorPanelIsDeclared(config, "relationships")).toBe(true);
     expect(inspectorPanelIsDeclared(config, "workflow")).toBe(true);
     expect(
-      inspectorFeatureGroupsForPanel(config, "relationships").map(
-        (group) => group.featureGroupKey,
-      ),
+      config.featureGroups
+        .filter((group) => group.panelId === "relationships")
+        .map((group) => group.featureGroupKey),
     ).toContain("entity.relationships.manage");
     expect(
-      inspectorFeatureGroupsForPanel(config, "workflow").map(
-        (group) => group.featureGroupKey,
-      ),
+      config.featureGroups
+        .filter((group) => group.panelId === "workflow")
+        .map((group) => group.featureGroupKey),
     ).toContain("create_related.note");
   });
 });

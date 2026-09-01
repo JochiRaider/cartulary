@@ -158,16 +158,6 @@ export function entityInspectorTestId(entityType: EntityType): string {
   return `${requireEntityType(entityType)}-inspector`;
 }
 
-export function entityInspectorSubjectTestId(
-  entityType: EntityType,
-  recordId: string,
-): string {
-  return recordTestId(
-    `${requireEntityType(entityType)}-inspector-subject`,
-    recordId,
-  );
-}
-
 export function entityReusableIdentifiersSectionTestId(
   entityType: EntityType,
   recordId: string,

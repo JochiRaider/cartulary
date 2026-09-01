@@ -140,18 +140,6 @@ export function workbookInspectorPanelTestId(
   );
 }
 
-export function workbookInspectorFeatureGroupTestId(
-  viewSchemaId: string,
-  featureGroupKey: string,
-): StableTestId {
-  return stableTestId(
-    viewFirstTestId(
-      viewSchemaId,
-      `inspector-feature-${requireFeatureGroupKey(featureGroupKey)}`,
-    ),
-  );
-}
-
 export function workbookInspectorFeatureActionTestId(
   viewSchemaId: string,
   featureGroupKey: string,

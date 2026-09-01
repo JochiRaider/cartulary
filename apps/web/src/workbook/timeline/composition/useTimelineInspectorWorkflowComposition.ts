@@ -188,7 +188,6 @@ export function useTimelineInspectorWorkflowComposition({
     setSelectedRowId: inspector.selectRow,
   });
   const close = useTimelineInspectorLifecycle({
-    cancelInspectorFeatureAction: features.commands.cancelFeatureAction,
     cancelRowHistoryRequests:
       inspector.history.commands.cancelRowHistoryRequests,
     clearRowHistory: inspector.history.commands.clearRowHistory,
