@@ -8,7 +8,10 @@ import {
 } from "@cartulary/ui-contracts";
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
-import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
+import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorMessageFeedback,
+} from "../../inspector/workbookInspectorErrorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { mapWorkbookKeyboardCommand } from "../../utils/workbookKeyboard";
 import type { TimelineScalarSaveOptions } from "../models/timelineControllerPorts";
@@ -384,7 +387,10 @@ export function useTimelineKeyboardController({
       setIsInspectorOpen(true);
       if (mention === undefined) {
         setInspectorMessage(
-          "No unresolved mention is available for quick link.",
+          workbookInspectorMessageFeedback(
+            "No unresolved mention is available for quick link.",
+            "none",
+          ),
         );
       } else {
         setSelectedMentionRef(mention.itemRef);

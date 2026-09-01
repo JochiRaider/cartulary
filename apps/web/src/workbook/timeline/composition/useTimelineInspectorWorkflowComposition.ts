@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { sheetRefKey } from "../../../shared/sheetRef";
 import { useIncidentMemberReferenceOptions } from "../../hooks/useOwnerReferenceOptions";
+import { workbookInspectorMessageFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import { useTimelineCreateRelatedWorkflow } from "../hooks/useTimelineCreateRelatedWorkflow";
 import { useTimelineEvidenceAttach } from "../hooks/useTimelineEvidenceAttach";
@@ -90,7 +91,7 @@ type TimelineInspectorWorkflowCompositionInput = {
       readonly inspectorMentions: InspectorLifecycleInput["inspectorMentions"];
       readonly selectedRow: CreateRelatedInput["selectedRow"];
       readonly selectedRowId: InspectorLifecycleInput["selectedRowId"];
-      readonly selectedRowWorkflowKey: string;
+      readonly selectedRowWorkflowSubject: CreateRelatedInput["selectedSubjectKey"];
     };
     readonly publishFeedback: CreateRelatedInput["setInspectorMessage"];
     readonly selectRow: InspectorLifecycleInput["setSelectedRowId"];
@@ -144,7 +145,7 @@ export function useTimelineInspectorWorkflowComposition({
     loadRows: mutation.loadRows,
     mutationCommands: mutationCommands.related,
     selectedRow: inspector.selection.selectedRow,
-    selectedRowWorkflowKey: inspector.selection.selectedRowWorkflowKey,
+    selectedSubjectKey: inspector.selection.selectedRowWorkflowSubject,
     setInspectorMessage: inspector.publishFeedback,
     targetContracts: timelineCreateRelatedTargetContracts,
   });
@@ -155,7 +156,9 @@ export function useTimelineInspectorWorkflowComposition({
       authorizationKey: `${incident.currentRole ?? "none"}:${foundation.loadAccessLost}`,
       invalidationGeneration: inspector.lifecycle.invalidationGeneration,
       lifecycleKey: `${incident.inspectorResetKey}:${incident.continuityResetKey}`,
-      subjectKey: inspector.selection.selectedRowWorkflowKey,
+      subjectKey: JSON.stringify(
+        inspector.selection.selectedRowWorkflowSubject,
+      ),
       surfaceKey: sheetRefKey(activeSheetRef),
     },
     setInspectorMessage: inspector.publishFeedback,
@@ -280,7 +283,9 @@ export function useTimelineInspectorWorkflowComposition({
     (value: string) => {
       foundation.setSelectedResolveTargetId(value);
       if (value !== "") {
-        inspector.publishFeedback(`Selected ${value}`);
+        inspector.publishFeedback(
+          workbookInspectorMessageFeedback(`Selected ${value}`, "none"),
+        );
       }
     },
     [foundation.setSelectedResolveTargetId, inspector.publishFeedback],

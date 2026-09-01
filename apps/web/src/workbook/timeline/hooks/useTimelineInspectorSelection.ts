@@ -17,7 +17,11 @@ import {
   useState,
 } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
-import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
+import type { InspectorRelatedRecordSubjectKey } from "../../inspector/inspectorRelatedRecordModel";
+import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorMessageFeedback,
+} from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
@@ -84,10 +88,18 @@ export function useTimelineInspectorSelection({
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
-  const selectedRowWorkflowKey =
-    selectedRow?.recordId && selectedRow.rowVersion !== null
-      ? `${selectedRow.recordId}:${selectedRow.rowVersion}`
-      : (selectedRow?.recordId ?? "");
+  const selectedRowWorkflowSubject =
+    useMemo<InspectorRelatedRecordSubjectKey | null>(
+      () =>
+        selectedRow?.recordId && selectedRow.rowVersion !== null
+          ? {
+              recordId: selectedRow.recordId,
+              rowVersion: selectedRow.rowVersion,
+              viewSchemaId: timelineViewSchemaId,
+            }
+          : null,
+      [selectedRow],
+    );
 
   return {
     commands: {
@@ -103,7 +115,7 @@ export function useTimelineInspectorSelection({
       selectedMention,
       selectedRow,
       selectedRowId,
-      selectedRowWorkflowKey,
+      selectedRowWorkflowSubject,
     },
   };
 }
@@ -387,9 +399,12 @@ export function useTimelineInspectorLifecycle({
         current?.recordId === selectedRowId ? null : current,
       );
       setInspectorMessage(
-        deletedHistoryMatchesSelectedRow
-          ? "Selected row was deleted."
-          : "Selected row is no longer available.",
+        workbookInspectorMessageFeedback(
+          deletedHistoryMatchesSelectedRow
+            ? "Selected row was deleted."
+            : "Selected row is no longer available.",
+          "none",
+        ),
       );
       if (deletedHistoryMatchesSelectedRow) {
         return;

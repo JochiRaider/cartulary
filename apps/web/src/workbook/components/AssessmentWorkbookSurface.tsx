@@ -227,6 +227,7 @@ export function AssessmentWorkbookSurface({
             cells: selectedAssessment.cells,
             recordId: selectedAssessment.record_id,
             rowVersion: selectedAssessment.row_version,
+            viewSchemaId: assessmentsViewSchemaId,
           },
   });
   const { draft, draftMode, isSubmitting, message } =

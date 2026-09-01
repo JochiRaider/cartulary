@@ -1,7 +1,10 @@
 import type { InspectorFeatureGroup } from "@cartulary/view-contracts";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { IndicatorInspectorHandler } from "../../features/indicators/indicatorInspectorHandlers";
-import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
+import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorMessageFeedback,
+} from "../../inspector/workbookInspectorErrorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { resolveTimelineWorkbookFeature } from "../models/timelineWorkbookFeaturePolicy";
 
@@ -22,7 +25,9 @@ export function useTimelineInspectorFeatureController({
   readonly beginCreateRelatedWorkflow: (
     featureGroup: InspectorFeatureGroup,
   ) => void;
-  readonly cancelCreateRelatedWorkflow: () => void;
+  readonly cancelCreateRelatedWorkflow: (
+    reason?: "owner_action" | "lifecycle",
+  ) => void;
   readonly lifecycle: TimelineInspectorFeatureLifecycle;
   readonly setInspectorMessage: (
     message: WorkbookInspectorFeedback | null,
@@ -39,17 +44,13 @@ export function useTimelineInspectorFeatureController({
   }, [cancelCreateRelatedWorkflow, setInspectorMessage]);
 
   useLayoutEffect(() => {
-    if (
-      sameTimelineInspectorFeatureLifecycle(
-        previousLifecycleRef.current,
-        lifecycle,
-      )
-    ) {
+    const previousLifecycle = previousLifecycleRef.current;
+    if (sameTimelineInspectorFeatureLifecycle(previousLifecycle, lifecycle)) {
       return;
     }
     previousLifecycleRef.current = lifecycle;
     setIndicatorHandler(null);
-    cancelCreateRelatedWorkflow();
+    cancelCreateRelatedWorkflow("lifecycle");
     setInspectorMessage(null);
   }, [cancelCreateRelatedWorkflow, lifecycle, setInspectorMessage]);
 
@@ -76,7 +77,12 @@ export function useTimelineInspectorFeatureController({
         return;
       }
       cancelCreateRelatedWorkflow();
-      setInspectorMessage("Inspector action is unavailable.");
+      setInspectorMessage(
+        workbookInspectorMessageFeedback(
+          "Inspector action is unavailable.",
+          "none",
+        ),
+      );
     },
     [
       beginCreateRelatedWorkflow,

@@ -10,7 +10,7 @@ import type {
 import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
-import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
 import {
   WorkbookInspectorPanelSection,
   WorkbookInspectorShell,
@@ -73,7 +73,7 @@ export function TimelineWorkbookInspector({
   readonly inspectorMentions: readonly InspectorMention[];
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
-  readonly onSetInspectorMessage: (message: string) => void;
+  readonly onSetInspectorMessage: (message: WorkbookInspectorFeedback) => void;
   readonly onClose: () => void;
   readonly onFeatureAction: (featureGroup: InspectorFeatureGroup) => void;
   readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
@@ -216,36 +216,30 @@ export function TimelineWorkbookInspector({
       {selectedRow?.recordId ? (
         <>
           {inspectorConfig.panels.map((panel) => renderPanel(panel.panelId))}
-          <InspectorMessage message={inspectorMessage} />
+          <WorkbookInspectorFeedbackView
+            feedback={inspectorMessage}
+            neutralStyle={bodyStyle}
+            testId={timelineInspectorMessageTestId()}
+          />
         </>
       ) : currentHistoryDeleted && rowHistoryRecordId !== null ? (
         <>
           {inspectorConfig.panels
             .filter((panel) => panel.panelId === "history")
             .map((panel) => renderPanel(panel.panelId))}
-          <InspectorMessage message={inspectorMessage} />
+          <WorkbookInspectorFeedbackView
+            feedback={inspectorMessage}
+            neutralStyle={bodyStyle}
+            testId={timelineInspectorMessageTestId()}
+          />
         </>
       ) : (
-        <InspectorMessage message={inspectorMessage} />
+        <WorkbookInspectorFeedbackView
+          feedback={inspectorMessage}
+          neutralStyle={bodyStyle}
+          testId={timelineInspectorMessageTestId()}
+        />
       )}
     </WorkbookInspectorShell>
-  );
-}
-
-function InspectorMessage({
-  message,
-}: {
-  readonly message: WorkbookInspectorFeedback | null;
-}) {
-  if (message === null) return null;
-  return typeof message === "string" ? (
-    <p data-testid={timelineInspectorMessageTestId()} style={bodyStyle}>
-      {message}
-    </p>
-  ) : (
-    <WorkbookInspectorPublicError
-      error={message}
-      testId={timelineInspectorMessageTestId()}
-    />
   );
 }

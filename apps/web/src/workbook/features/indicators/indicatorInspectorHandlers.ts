@@ -65,7 +65,7 @@ export function resolveIndicatorInspectorHandler(
     : { action: binding.action, panelId: binding.panelId };
 }
 
-export function isIndicatorInspectorAction(
+function isIndicatorInspectorAction(
   value: string | undefined,
 ): value is IndicatorInspectorAction {
   return value !== undefined && indicatorInspectorActionKeys.has(value);

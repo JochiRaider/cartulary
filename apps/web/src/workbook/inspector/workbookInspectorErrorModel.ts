@@ -7,8 +7,15 @@ export type WorkbookInspectorErrorPresentation = {
 };
 
 export type WorkbookInspectorFeedback =
-  | string
-  | WorkbookInspectorErrorPresentation;
+  | {
+      readonly kind: "message";
+      readonly message: string;
+      readonly announcement: "none" | "polite";
+    }
+  | {
+      readonly kind: "error";
+      readonly error: WorkbookInspectorErrorPresentation;
+    };
 
 const rowVersionConflictMessage =
   "This row changed; refresh it before retrying.";
@@ -34,16 +41,21 @@ export function workbookInspectorErrorPresentation(
   };
 }
 
+export function workbookInspectorMessageFeedback(
+  message: string,
+  announcement: "none" | "polite",
+): WorkbookInspectorFeedback {
+  return { announcement, kind: "message", message };
+}
+
+export function workbookInspectorOperationFailureFeedback(
+  failure: WorkbookOperationFailure,
+): WorkbookInspectorFeedback {
+  return { error: workbookInspectorErrorPresentation(failure), kind: "error" };
+}
+
 export function workbookInspectorLocalErrorPresentation(
   message: string,
 ): WorkbookInspectorErrorPresentation {
   return { primaryMessage: message, technicalFields: [] };
-}
-
-export function workbookInspectorFeedbackPresentation(
-  feedback: WorkbookInspectorFeedback,
-): WorkbookInspectorErrorPresentation {
-  return typeof feedback === "string"
-    ? workbookInspectorLocalErrorPresentation(feedback)
-    : feedback;
 }

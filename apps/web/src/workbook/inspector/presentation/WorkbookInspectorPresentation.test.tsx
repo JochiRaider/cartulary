@@ -6,10 +6,15 @@ import {
 } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { workbookInspectorErrorPresentation } from "../workbookInspectorErrorModel";
+import {
+  workbookInspectorErrorPresentation,
+  workbookInspectorMessageFeedback,
+  workbookInspectorOperationFailureFeedback,
+} from "../workbookInspectorErrorModel";
 import { WorkbookInspectorContextualAction } from "./WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
+  WorkbookInspectorFeedbackView,
   WorkbookInspectorPublicError,
 } from "./WorkbookInspectorFeedback";
 import {
@@ -164,6 +169,41 @@ describe("Workbook Inspector presentation", () => {
     expect(screen.getByText("Public error code")).not.toBeNull();
     expect(screen.getByText("row_version_conflict")).not.toBeNull();
     expect(screen.getByText("The record is stale.")).not.toBeNull();
+  });
+
+  it("renders declared neutral announcements and assertive typed failures", () => {
+    const { rerender } = render(
+      <WorkbookInspectorFeedbackView
+        feedback={workbookInspectorMessageFeedback("Timeline ready.", "none")}
+      />,
+    );
+    expect(screen.getByText("Timeline ready.").getAttribute("role")).toBeNull();
+    expect(
+      screen.getByText("Timeline ready.").getAttribute("aria-live"),
+    ).toBeNull();
+
+    rerender(
+      <WorkbookInspectorFeedbackView
+        feedback={workbookInspectorMessageFeedback(
+          "Indicator ready.",
+          "polite",
+        )}
+      />,
+    );
+    expect(screen.getByRole("status").getAttribute("aria-live")).toBe("polite");
+
+    rerender(
+      <WorkbookInspectorFeedbackView
+        feedback={workbookInspectorOperationFailureFeedback({
+          kind: "retryable",
+          message: "Try again.",
+        })}
+      />,
+    );
+    expect(screen.getByRole("alert").getAttribute("aria-live")).toBe(
+      "assertive",
+    );
+    expect(screen.getByText("Try again.")).not.toBeNull();
   });
 
   it("binds semantic identity to an owner control and describes it", () => {

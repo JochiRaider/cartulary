@@ -30,7 +30,6 @@ export type WorkbookInspectorActionBinding = {
   readonly featureGroup: InspectorFeatureGroup;
   readonly semanticKey: string;
   readonly testId: string;
-  readonly viewSchemaId: string;
 };
 
 export type WorkbookHistoryEventPresentation = {
@@ -60,7 +59,6 @@ export function bindWorkbookInspectorAction(
       config.viewSchemaId,
       resolution.featureGroup.featureGroupKey,
     ),
-    viewSchemaId: config.viewSchemaId,
   };
 }
 

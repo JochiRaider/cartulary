@@ -367,6 +367,7 @@ export function EntityWorkbookSurface({
             cells: selectedEntity.rawRow.cells,
             recordId: selectedEntity.recordId,
             rowVersion: selectedEntity.rowVersion,
+            viewSchemaId: contract.viewSchemaId,
           },
   });
   const clearEntityMergeDrafts = useCallback(() => {

@@ -5,7 +5,10 @@ import {
   useEffect,
   useRef,
 } from "react";
-import type { WorkbookInspectorErrorPresentation } from "../workbookInspectorErrorModel";
+import type {
+  WorkbookInspectorErrorPresentation,
+  WorkbookInspectorFeedback,
+} from "../workbookInspectorErrorModel";
 import { WorkbookInspectorActionButton } from "./WorkbookInspectorActions";
 import type { WorkbookInspectorTechnicalField } from "./workbookInspectorPresentationModel";
 
@@ -55,6 +58,33 @@ export function WorkbookInspectorPublicError({
       <p style={messageStyle}>{error.primaryMessage}</p>
       <WorkbookInspectorTechnicalDetails fields={error.technicalFields} />
     </div>
+  );
+}
+
+export function WorkbookInspectorFeedbackView({
+  feedback,
+  neutralStyle,
+  testId,
+}: {
+  readonly feedback: WorkbookInspectorFeedback | null;
+  readonly neutralStyle?: CSSProperties | undefined;
+  readonly testId?: string | undefined;
+}) {
+  if (feedback === null) return null;
+  if (feedback.kind === "error") {
+    return (
+      <WorkbookInspectorPublicError error={feedback.error} testId={testId} />
+    );
+  }
+  return (
+    <p
+      aria-live={feedback.announcement === "polite" ? "polite" : undefined}
+      data-testid={testId}
+      role={feedback.announcement === "polite" ? "status" : undefined}
+      style={neutralStyle}
+    >
+      {feedback.message}
+    </p>
   );
 }
 

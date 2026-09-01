@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import {
   type WorkbookInspectorFeedback,
-  workbookInspectorErrorPresentation,
+  workbookInspectorMessageFeedback,
+  workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import type { TimelineEvidenceAttachmentPort } from "../ports/TimelineEvidenceAttachmentPort";
@@ -67,7 +68,9 @@ export function useTimelineEvidenceAttach({
           : { kind: "row-inspect", recordId: snapshot.recordId },
       );
       beginSave();
-      setInspectorMessage("Uploading evidence.");
+      setInspectorMessage(
+        workbookInspectorMessageFeedback("Uploading evidence.", "none"),
+      );
 
       enqueueSaveWork(async () => {
         const effectiveSnapshot =
@@ -77,7 +80,10 @@ export function useTimelineEvidenceAttach({
         if (effectiveSnapshot === null || effectiveSnapshot === undefined) {
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage(
-            "The selected Timeline row is no longer available.",
+            workbookInspectorMessageFeedback(
+              "The selected Timeline row is no longer available.",
+              "none",
+            ),
           );
           finishSave("Conflict");
           return;
@@ -93,7 +99,7 @@ export function useTimelineEvidenceAttach({
         if (result.outcome.kind === "rejected") {
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage(
-            workbookInspectorErrorPresentation(result.outcome.failure),
+            workbookInspectorOperationFailureFeedback(result.outcome.failure),
           );
           finishSave("Conflict");
           return;
@@ -104,7 +110,9 @@ export function useTimelineEvidenceAttach({
           detectAutoResolution: false,
           viewportContinuityToken,
         });
-        setInspectorMessage("Evidence attached.");
+        setInspectorMessage(
+          workbookInspectorMessageFeedback("Evidence attached.", "none"),
+        );
         finishSave("Saved");
       });
     },

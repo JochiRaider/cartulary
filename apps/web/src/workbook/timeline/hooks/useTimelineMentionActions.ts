@@ -2,7 +2,8 @@ import { type Dispatch, type SetStateAction, useCallback } from "react";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import {
   type WorkbookInspectorFeedback,
-  workbookInspectorErrorPresentation,
+  workbookInspectorMessageFeedback,
+  workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import type {
   TimelineContinuityRequirementName,
@@ -123,7 +124,7 @@ export function useTimelineMentionActions({
         if (createResult.kind === "rejected") {
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage(
-            workbookInspectorErrorPresentation(createResult.failure),
+            workbookInspectorOperationFailureFeedback(createResult.failure),
           );
           finishSave("Conflict");
           return;
@@ -133,13 +134,23 @@ export function useTimelineMentionActions({
         const mentionID = entityMentionID(currentMention);
         if (mentionID === null) {
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage("Missing entity mention identifier.");
+          setInspectorMessage(
+            workbookInspectorMessageFeedback(
+              "Missing entity mention identifier.",
+              "none",
+            ),
+          );
           finishSave("Conflict");
           return;
         }
         if (currentMention.mentionRowVersion === null) {
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage("Missing mention row version.");
+          setInspectorMessage(
+            workbookInspectorMessageFeedback(
+              "Missing mention row version.",
+              "none",
+            ),
+          );
           finishSave("Conflict");
           return;
         }
@@ -157,7 +168,7 @@ export function useTimelineMentionActions({
           resolvePendingSocketTxn(resolveClientTxnId);
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage(
-            workbookInspectorErrorPresentation(result.failure),
+            workbookInspectorOperationFailureFeedback(result.failure),
           );
           finishSave("Conflict");
           return;
@@ -240,7 +251,9 @@ export function useTimelineMentionActions({
       const recordId = snapshot.recordId;
       const clientTxnId = nextClientTxnId();
       if (action === "resolve_item" && resolvedRecordId === undefined) {
-        setInspectorMessage("Select a target first.");
+        setInspectorMessage(
+          workbookInspectorMessageFeedback("Select a target first.", "none"),
+        );
         return;
       }
       const viewportContinuityToken = beginViewportContinuity({
@@ -261,13 +274,23 @@ export function useTimelineMentionActions({
         const mentionID = entityMentionID(currentMention);
         if (mentionID === null) {
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage("Missing entity mention identifier.");
+          setInspectorMessage(
+            workbookInspectorMessageFeedback(
+              "Missing entity mention identifier.",
+              "none",
+            ),
+          );
           finishSave("Conflict");
           return;
         }
         if (currentMention.mentionRowVersion === null) {
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage("Missing mention row version.");
+          setInspectorMessage(
+            workbookInspectorMessageFeedback(
+              "Missing mention row version.",
+              "none",
+            ),
+          );
           finishSave("Conflict");
           return;
         }
@@ -284,7 +307,7 @@ export function useTimelineMentionActions({
           resolvePendingSocketTxn(clientTxnId);
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage(
-            workbookInspectorErrorPresentation(result.failure),
+            workbookInspectorOperationFailureFeedback(result.failure),
           );
           finishSave("Conflict");
           return;

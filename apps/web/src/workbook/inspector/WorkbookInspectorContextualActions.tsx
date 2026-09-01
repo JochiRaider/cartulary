@@ -79,10 +79,7 @@ function ContextualActionsForSubject({
   );
   if (bindings.length === 0) return null;
   return (
-    <WorkbookInspectorActionGroup
-      bindings={bindings}
-      label="Contextual actions"
-    >
+    <WorkbookInspectorActionGroup label="Contextual actions">
       {bindings.map((binding) => (
         <WorkbookInspectorContextualAction
           binding={binding}

@@ -8,15 +8,25 @@ import { describe, expect, it } from "vitest";
 import {
   inspectorFeatureDisabledTokens,
   resolveSemanticInspectorFeature,
-  type SemanticInspectorDisposition,
 } from "./semanticInspectorDispatcher";
+import { semanticInspectorRegistrations } from "./semanticInspectorRegistry";
 
 describe("semantic inspector dispatcher", () => {
   it("resolves every current projected tuple once to its canonical object and disposition", () => {
     const contracts = listViewContracts();
     const semanticKeys = new Set<string>();
+    const registeredDispositionByKey = new Map(
+      semanticInspectorRegistrations.map((registration) => [
+        JSON.stringify(registration.slice(0, 6)),
+        registration[6],
+      ]),
+    );
+    const dispositionCounts = new Map<string, number>();
     let featureCount = 0;
 
+    expect(registeredDispositionByKey.size).toBe(
+      semanticInspectorRegistrations.length,
+    );
     for (const contract of contracts) {
       for (const featureGroup of contract.inspectorConfig.featureGroups) {
         const resolution = resolveSemanticInspectorFeature(
@@ -26,9 +36,15 @@ describe("semantic inspector dispatcher", () => {
         expect(resolution.kind).toBe("supported");
         if (resolution.kind === "unsupported") continue;
         expect(resolution.featureGroup).toBe(featureGroup);
-        expect(resolution.disposition).toBe(expectedDisposition(featureGroup));
+        expect(resolution.disposition).toBe(
+          registeredDispositionByKey.get(resolution.semanticKey),
+        );
         expect(semanticKeys.has(resolution.semanticKey)).toBe(false);
         semanticKeys.add(resolution.semanticKey);
+        dispositionCounts.set(
+          resolution.disposition,
+          (dispositionCounts.get(resolution.disposition) ?? 0) + 1,
+        );
         featureCount += 1;
       }
     }
@@ -36,9 +52,19 @@ describe("semantic inspector dispatcher", () => {
     expect(contracts).toHaveLength(17);
     expect(featureCount).toBe(247);
     expect(semanticKeys.size).toBe(247);
+    expect(semanticInspectorRegistrations).toHaveLength(247);
+    expect([...semanticKeys].sort()).toEqual(
+      [...registeredDispositionByKey.keys()].sort(),
+    );
+    expect(Object.fromEntries(dispositionCounts)).toEqual({
+      contextual_workflow_or_pivot: 50,
+      direct_history_action: 51,
+      existing_owner_control: 66,
+      panel_read: 80,
+    });
   });
 
-  it("omits an unknown key and any additive or altered stable tuple", () => {
+  it("omits an unknown or altered tuple without disabling a registered sibling", () => {
     const canonicalConfig = requireViewContract(
       "cartulary.view.timeline.v2",
     ).inspectorConfig;
@@ -59,6 +85,14 @@ describe("semantic inspector dispatcher", () => {
     expect(
       resolveSemanticInspectorFeature(additiveConfig, "future.unknown_action"),
     ).toEqual({ kind: "unsupported" });
+    const additiveSibling = resolveSemanticInspectorFeature(
+      additiveConfig,
+      canonical.featureGroupKey,
+    );
+    expect(additiveSibling.kind).toBe("supported");
+    if (additiveSibling.kind === "supported") {
+      expect(additiveSibling.featureGroup).toBe(canonical);
+    }
 
     for (const altered of [
       { ...canonical, featureGroupKey: "create_related.changed" },
@@ -89,7 +123,35 @@ describe("semantic inspector dispatcher", () => {
       expect(
         resolveSemanticInspectorFeature(alteredConfig, altered.featureGroupKey),
       ).toEqual({ kind: "unsupported" });
+      expect(
+        resolveSemanticInspectorFeature(alteredConfig, "details.read").kind,
+      ).toBe("supported");
     }
+  });
+
+  it("fails only an ambiguously duplicated addressed feature", () => {
+    const canonicalConfig = requireViewContract(
+      "cartulary.view.timeline.v2",
+    ).inspectorConfig;
+    const canonical = canonicalConfig.featureGroups.find(
+      (feature) => feature.featureGroupKey === "create_related.note",
+    );
+    expect(canonical).toBeDefined();
+    if (!canonical) return;
+    const duplicateConfig = withFeatureGroups(canonicalConfig, [
+      ...canonicalConfig.featureGroups,
+      canonical,
+    ]);
+
+    expect(
+      resolveSemanticInspectorFeature(
+        duplicateConfig,
+        canonical.featureGroupKey,
+      ),
+    ).toEqual({ kind: "unsupported" });
+    expect(
+      resolveSemanticInspectorFeature(duplicateConfig, "details.read").kind,
+    ).toBe("supported");
   });
 
   it("returns the canonical config-owned feature when presentation labels change", () => {
@@ -138,27 +200,6 @@ describe("semantic inspector dispatcher", () => {
     ).not.toContain("authorization_lost");
   });
 });
-
-function expectedDisposition(
-  featureGroup: InspectorFeatureGroup,
-): SemanticInspectorDisposition {
-  if (featureGroup.routeBinding.kind === "panel_read") return "panel_read";
-  if (
-    featureGroup.routeBinding.kind === "view_row_create" ||
-    featureGroup.routeBinding.kind === "surface_pivot"
-  ) {
-    return "contextual_workflow_or_pivot";
-  }
-  if (
-    featureGroup.panelId === "history" &&
-    ["record.delete", "record.restore", "history.rollback"].includes(
-      featureGroup.featureGroupKey,
-    )
-  ) {
-    return "direct_history_action";
-  }
-  return "existing_owner_control";
-}
 
 function withFeatureGroups(
   config: InspectorConfig,

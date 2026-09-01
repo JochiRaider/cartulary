@@ -1,6 +1,10 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
-import { buildInspectorRelatedRecordDraft } from "./inspectorRelatedRecordModel";
+import {
+  buildInspectorRelatedRecordDraft,
+  type InspectorRelatedRecordSubjectKey,
+  inspectorRelatedRecordWorkflowReducer,
+} from "./inspectorRelatedRecordModel";
 
 const timeline = requireViewContract("cartulary.view.timeline.v2");
 const taskRequests = requireViewContract("cartulary.view.task_requests.v1");
@@ -92,4 +96,171 @@ describe("inspector related-record model", () => {
       }),
     ).toEqual({ kind: "invalid_target", reason: "semantic_mismatch" });
   });
+
+  it("reduces editing, submission, rejection, retry, and completion exhaustively", () => {
+    expect(canonicalFeature).toBeDefined();
+    if (canonicalFeature === undefined) return;
+    const workflowId = Symbol("workflow");
+    const subjectKey = timelineSubject("timeline-1", 4);
+    const editing = inspectorRelatedRecordWorkflowReducer(null, {
+      type: "begin",
+      draft: { "task.title": "Investigate" },
+      featureGroup: canonicalFeature,
+      subjectKey,
+      targetContract: taskRequests,
+      workflowId,
+    });
+    expect(editing).toMatchObject({
+      draft: { "task.title": "Investigate" },
+      error: null,
+      phase: "editing",
+      subjectKey,
+      workflowId,
+    });
+
+    const updated = inspectorRelatedRecordWorkflowReducer(editing, {
+      type: "update",
+      fieldKey: "task.title",
+      value: "Investigate host",
+      workflowId,
+    });
+    expect(updated?.draft["task.title"]).toBe("Investigate host");
+    const submitting = inspectorRelatedRecordWorkflowReducer(updated, {
+      type: "submit",
+      workflowId,
+    });
+    expect(submitting?.phase).toBe("submitting");
+    expect(
+      inspectorRelatedRecordWorkflowReducer(submitting, {
+        type: "update",
+        fieldKey: "task.title",
+        value: "Ignored while submitting",
+        workflowId,
+      }),
+    ).toBe(submitting);
+
+    const error = {
+      primaryMessage: "Creation failed.",
+      technicalFields: [],
+    };
+    const rejected = inspectorRelatedRecordWorkflowReducer(submitting, {
+      type: "reject",
+      error,
+      workflowId,
+    });
+    expect(rejected).toMatchObject({ error, phase: "editing" });
+    const retrying = inspectorRelatedRecordWorkflowReducer(rejected, {
+      type: "submit",
+      workflowId,
+    });
+    expect(retrying).toMatchObject({ error: null, phase: "submitting" });
+    expect(
+      inspectorRelatedRecordWorkflowReducer(retrying, {
+        type: "complete",
+        workflowId,
+      }),
+    ).toBeNull();
+  });
+
+  it("ignores obsolete workflow actions after cancel and reopen", () => {
+    expect(canonicalFeature).toBeDefined();
+    if (canonicalFeature === undefined) return;
+    const oldWorkflowId = Symbol("old-workflow");
+    const currentWorkflowId = Symbol("current-workflow");
+    const subjectKey = timelineSubject("timeline-1", 4);
+    const oldState = inspectorRelatedRecordWorkflowReducer(null, {
+      type: "begin",
+      draft: {},
+      featureGroup: canonicalFeature,
+      subjectKey,
+      targetContract: taskRequests,
+      workflowId: oldWorkflowId,
+    });
+    const canceled = inspectorRelatedRecordWorkflowReducer(oldState, {
+      type: "cancel",
+      workflowId: oldWorkflowId,
+    });
+    const currentState = inspectorRelatedRecordWorkflowReducer(canceled, {
+      type: "begin",
+      draft: { "task.title": "Current" },
+      featureGroup: canonicalFeature,
+      subjectKey,
+      targetContract: taskRequests,
+      workflowId: currentWorkflowId,
+    });
+
+    for (const obsoleteAction of [
+      {
+        type: "update" as const,
+        fieldKey: "task.title",
+        value: "Obsolete",
+        workflowId: oldWorkflowId,
+      },
+      { type: "submit" as const, workflowId: oldWorkflowId },
+      {
+        type: "reject" as const,
+        error: { primaryMessage: "Obsolete", technicalFields: [] },
+        workflowId: oldWorkflowId,
+      },
+      { type: "complete" as const, workflowId: oldWorkflowId },
+      { type: "cancel" as const, workflowId: oldWorkflowId },
+      {
+        type: "retarget" as const,
+        subjectKey: null,
+        workflowId: oldWorkflowId,
+      },
+    ]) {
+      expect(
+        inspectorRelatedRecordWorkflowReducer(currentState, obsoleteAction),
+      ).toBe(currentState);
+    }
+  });
+
+  it("retains an equal subject and clears record, version, surface, or no-row retargets", () => {
+    expect(canonicalFeature).toBeDefined();
+    if (canonicalFeature === undefined) return;
+    const workflowId = Symbol("workflow");
+    const subjectKey = timelineSubject("timeline-1", 4);
+    const state = inspectorRelatedRecordWorkflowReducer(null, {
+      type: "begin",
+      draft: {},
+      featureGroup: canonicalFeature,
+      subjectKey,
+      targetContract: taskRequests,
+      workflowId,
+    });
+    expect(
+      inspectorRelatedRecordWorkflowReducer(state, {
+        type: "retarget",
+        subjectKey: { ...subjectKey },
+        workflowId,
+      }),
+    ).toBe(state);
+
+    for (const retargeted of [
+      timelineSubject("timeline-2", 4),
+      timelineSubject("timeline-1", 5),
+      { ...subjectKey, viewSchemaId: "cartulary.view.notes.v1" },
+      null,
+    ]) {
+      expect(
+        inspectorRelatedRecordWorkflowReducer(state, {
+          type: "retarget",
+          subjectKey: retargeted,
+          workflowId,
+        }),
+      ).toBeNull();
+    }
+  });
 });
+
+function timelineSubject(
+  recordId: string,
+  rowVersion: number,
+): InspectorRelatedRecordSubjectKey {
+  return {
+    recordId,
+    rowVersion,
+    viewSchemaId: timeline.viewSchemaId,
+  };
+}

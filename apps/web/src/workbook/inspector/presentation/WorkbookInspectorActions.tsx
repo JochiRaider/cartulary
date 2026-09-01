@@ -10,15 +10,12 @@ import type { WorkbookInspectorActionBinding } from "./workbookInspectorPresenta
 import { workbookInspectorDisabledReason } from "./workbookInspectorPresentationModel";
 
 export function WorkbookInspectorActionGroup({
-  bindings,
   children,
   label = "Actions",
 }: {
-  readonly bindings: readonly WorkbookInspectorActionBinding[];
   readonly children: ReactNode;
   readonly label?: string | undefined;
 }) {
-  if (bindings.length === 0) return null;
   return (
     <fieldset aria-label={label} style={actionGroupStyle}>
       {children}
@@ -89,7 +86,7 @@ export function WorkbookInspectorActionButton({
   );
 }
 
-export function workbookInspectorActionSemanticProps(
+function workbookInspectorActionSemanticProps(
   binding: WorkbookInspectorActionBinding,
   descriptionId?: string,
 ) {

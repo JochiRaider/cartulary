@@ -1,10 +1,15 @@
 import type { CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import {
+  WorkbookInspectorFeedbackView,
+  WorkbookInspectorPublicError,
+} from "../../inspector/presentation/WorkbookInspectorFeedback";
 import {
   type WorkbookInspectorErrorPresentation,
   type WorkbookInspectorFeedback,
   workbookInspectorErrorPresentation,
+  workbookInspectorMessageFeedback,
+  workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import type {
   IndicatorLifecycleState,
@@ -17,11 +22,6 @@ import type {
 } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type { IndicatorInspectorAction } from "./indicatorInspectorHandlers";
-
-export {
-  type IndicatorInspectorAction,
-  isIndicatorInspectorAction,
-} from "./indicatorInspectorHandlers";
 
 const lifecycleStates = [
   "active",
@@ -181,7 +181,12 @@ export function IndicatorInspectorWorkflow({
         action === "indicator.lifecycle.manage") &&
       !indicatorRecordId
     ) {
-      setMessage("The selected row is not an Indicator record.");
+      setMessage(
+        workbookInspectorMessageFeedback(
+          "The selected row is not an Indicator record.",
+          "polite",
+        ),
+      );
       return () => {
         loadRequestId.current += 1;
       };
@@ -197,7 +202,9 @@ export function IndicatorInspectorWorkflow({
   const submitObservation = async (event: FormEvent) => {
     event.preventDefault();
     if (!sourceRecordId || sourceFieldKey === "") {
-      setMessage("Select a source field.");
+      setMessage(
+        workbookInspectorMessageFeedback("Select a source field.", "polite"),
+      );
       return;
     }
     const start = Number(spanStart);
@@ -208,7 +215,12 @@ export function IndicatorInspectorWorkflow({
       start < 0 ||
       end <= start
     ) {
-      setMessage("Enter a valid UTF-8 byte span.");
+      setMessage(
+        workbookInspectorMessageFeedback(
+          "Enter a valid UTF-8 byte span.",
+          "polite",
+        ),
+      );
       return;
     }
     setBusy(true);
@@ -226,11 +238,16 @@ export function IndicatorInspectorWorkflow({
     });
     setBusy(false);
     if (outcome.kind === "rejected") {
-      setMessage(workbookInspectorErrorPresentation(outcome.failure));
+      setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
       return;
     }
     const observation = outcome.value.resource;
-    setMessage(`Observation ${observation.observation_id} created.`);
+    setMessage(
+      workbookInspectorMessageFeedback(
+        `Observation ${observation.observation_id} created.`,
+        "polite",
+      ),
+    );
     setObservations((current) => [observation, ...current]);
     await onMutationCommitted?.(outcome.value);
   };
@@ -241,7 +258,12 @@ export function IndicatorInspectorWorkflow({
   ) => {
     const target = resolvedIndicatorID.trim();
     if (transition === "resolve" && target === "") {
-      setMessage("Enter the Indicator ID to resolve this observation.");
+      setMessage(
+        workbookInspectorMessageFeedback(
+          "Enter the Indicator ID to resolve this observation.",
+          "polite",
+        ),
+      );
       return;
     }
     setBusy(true);
@@ -256,7 +278,7 @@ export function IndicatorInspectorWorkflow({
     });
     setBusy(false);
     if (outcome.kind === "rejected") {
-      setMessage(workbookInspectorErrorPresentation(outcome.failure));
+      setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
       return;
     }
     setObservations((current) =>
@@ -266,14 +288,24 @@ export function IndicatorInspectorWorkflow({
           : candidate,
       ),
     );
-    setMessage(`Observation ${outcome.value.resource.observation_id} updated.`);
+    setMessage(
+      workbookInspectorMessageFeedback(
+        `Observation ${outcome.value.resource.observation_id} updated.`,
+        "polite",
+      ),
+    );
     await onMutationCommitted?.(outcome.value);
   };
 
   const submitLifecycle = async (event: FormEvent) => {
     event.preventDefault();
     if (!indicatorRecordId || validFrom.trim() === "") {
-      setMessage("Enter a valid-from timestamp.");
+      setMessage(
+        workbookInspectorMessageFeedback(
+          "Enter a valid-from timestamp.",
+          "polite",
+        ),
+      );
       return;
     }
     const parsedConfidence =
@@ -284,7 +316,12 @@ export function IndicatorInspectorWorkflow({
         parsedConfidence < 0 ||
         parsedConfidence > 100)
     ) {
-      setMessage("Confidence must be an integer from 0 through 100.");
+      setMessage(
+        workbookInspectorMessageFeedback(
+          "Confidence must be an integer from 0 through 100.",
+          "polite",
+        ),
+      );
       return;
     }
     setBusy(true);
@@ -302,12 +339,15 @@ export function IndicatorInspectorWorkflow({
     });
     setBusy(false);
     if (outcome.kind === "rejected") {
-      setMessage(workbookInspectorErrorPresentation(outcome.failure));
+      setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
       return;
     }
     setIntervals((current) => [outcome.value.resource, ...current]);
     setMessage(
-      `Lifecycle interval ${outcome.value.resource.interval_id} created.`,
+      workbookInspectorMessageFeedback(
+        `Lifecycle interval ${outcome.value.resource.interval_id} created.`,
+        "polite",
+      ),
     );
     await onMutationCommitted?.(outcome.value);
   };
@@ -507,13 +547,10 @@ export function IndicatorInspectorWorkflow({
           </button>
         </div>
       ) : null}
-      {typeof message === "string" ? (
-        <p aria-live="polite" role="status" style={messageStyle}>
-          {message}
-        </p>
-      ) : message ? (
-        <WorkbookInspectorPublicError error={message} />
-      ) : null}
+      <WorkbookInspectorFeedbackView
+        feedback={message}
+        neutralStyle={messageStyle}
+      />
     </div>
   );
 }

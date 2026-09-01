@@ -5,7 +5,7 @@ import {
 import type { CSSProperties } from "react";
 import { GenericMutationControl } from "../components/GenericMutationControl";
 import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
-import type { InspectorRelatedRecordFormModel } from "./inspectorRelatedRecordModel";
+import type { InspectorRelatedRecordWorkflowState } from "./inspectorRelatedRecordModel";
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
 import { WorkbookInspectorPublicError } from "./presentation/WorkbookInspectorFeedback";
 
@@ -17,7 +17,7 @@ export function InspectorCreateRelatedWorkflow({
   onUpdateDraft,
 }: {
   readonly referenceOptions: GenericReferenceOptions;
-  readonly state: InspectorRelatedRecordFormModel;
+  readonly state: InspectorRelatedRecordWorkflowState;
   readonly onCancel: () => void;
   readonly onSubmit: () => void;
   readonly onUpdateDraft: (fieldKey: string, value: string) => void;
@@ -53,14 +53,14 @@ export function InspectorCreateRelatedWorkflow({
           data-testid={genericCreateSubmitTestId(
             state.targetContract.viewSchemaId,
           )}
-          disabled={state.isSubmitting}
+          disabled={state.phase === "submitting"}
           tone="primary"
           onClick={onSubmit}
         >
           Create related row
         </WorkbookInspectorActionButton>
         <WorkbookInspectorActionButton
-          disabled={state.isSubmitting}
+          disabled={state.phase === "submitting"}
           tone="secondary"
           onClick={onCancel}
         >

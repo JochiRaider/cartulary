@@ -27,10 +27,95 @@ export type InspectorRelatedRecordDraftResult =
 export type InspectorRelatedRecordFormModel = {
   readonly draft: Record<string, string>;
   readonly featureGroup: InspectorFeatureGroup;
-  readonly isSubmitting: boolean;
   readonly error: WorkbookInspectorErrorPresentation | null;
   readonly targetContract: ViewContract;
 };
+
+export type InspectorRelatedRecordSubjectKey = {
+  readonly viewSchemaId: string;
+  readonly recordId: string;
+  readonly rowVersion: number;
+};
+
+export type InspectorRelatedRecordWorkflowState =
+  InspectorRelatedRecordFormModel & {
+    readonly workflowId: symbol;
+    readonly subjectKey: InspectorRelatedRecordSubjectKey;
+    readonly phase: "editing" | "submitting";
+  };
+
+export type InspectorRelatedRecordWorkflowAction =
+  | {
+      readonly type: "begin";
+      readonly workflowId: symbol;
+      readonly subjectKey: InspectorRelatedRecordSubjectKey;
+      readonly draft: Record<string, string>;
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly targetContract: ViewContract;
+    }
+  | {
+      readonly type: "update";
+      readonly workflowId: symbol;
+      readonly fieldKey: string;
+      readonly value: string;
+    }
+  | { readonly type: "submit"; readonly workflowId: symbol }
+  | {
+      readonly type: "reject";
+      readonly workflowId: symbol;
+      readonly error: WorkbookInspectorErrorPresentation;
+    }
+  | { readonly type: "complete"; readonly workflowId: symbol }
+  | { readonly type: "cancel"; readonly workflowId: symbol }
+  | {
+      readonly type: "retarget";
+      readonly workflowId: symbol;
+      readonly subjectKey: InspectorRelatedRecordSubjectKey | null;
+    };
+
+export function inspectorRelatedRecordWorkflowReducer(
+  state: InspectorRelatedRecordWorkflowState | null,
+  action: InspectorRelatedRecordWorkflowAction,
+): InspectorRelatedRecordWorkflowState | null {
+  if (action.type === "begin") {
+    return {
+      draft: action.draft,
+      error: null,
+      featureGroup: action.featureGroup,
+      phase: "editing",
+      subjectKey: action.subjectKey,
+      targetContract: action.targetContract,
+      workflowId: action.workflowId,
+    };
+  }
+  if (state === null || state.workflowId !== action.workflowId) return state;
+  switch (action.type) {
+    case "update":
+      return state.phase === "editing"
+        ? {
+            ...state,
+            draft: { ...state.draft, [action.fieldKey]: action.value },
+            error: null,
+          }
+        : state;
+    case "submit":
+      return state.phase === "editing"
+        ? { ...state, error: null, phase: "submitting" }
+        : state;
+    case "reject":
+      return state.phase === "submitting"
+        ? { ...state, error: action.error, phase: "editing" }
+        : state;
+    case "complete":
+      return state.phase === "submitting" ? null : state;
+    case "cancel":
+      return null;
+    case "retarget":
+      return subjectKeysEqual(state.subjectKey, action.subjectKey)
+        ? state
+        : null;
+  }
+}
 
 export function buildInspectorRelatedRecordDraft({
   currentUserId,
@@ -79,4 +164,16 @@ function inspectorRelatedRecordSeedValue(
   return typeof source.value === "string"
     ? source.value
     : JSON.stringify(source.value);
+}
+
+function subjectKeysEqual(
+  current: InspectorRelatedRecordSubjectKey,
+  next: InspectorRelatedRecordSubjectKey | null,
+): boolean {
+  return (
+    next !== null &&
+    current.viewSchemaId === next.viewSchemaId &&
+    current.recordId === next.recordId &&
+    current.rowVersion === next.rowVersion
+  );
 }

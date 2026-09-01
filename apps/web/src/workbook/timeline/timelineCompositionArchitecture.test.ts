@@ -81,5 +81,39 @@ describe("Timeline workbook composition architecture", () => {
     expect(presentationSource).toContain(
       "grid.commands.registerVisibleColumns(visibleTimelineColumns)",
     );
+
+    const workbookDirectory = path.resolve(timelineDirectory, "..");
+    const feedbackModelSource = readFileSync(
+      path.join(workbookDirectory, "inspector/workbookInspectorErrorModel.ts"),
+      "utf8",
+    );
+    expect(feedbackModelSource).toContain('readonly kind: "message"');
+    expect(feedbackModelSource).toContain('readonly kind: "error"');
+    expect(feedbackModelSource).not.toMatch(
+      /WorkbookInspectorFeedback\s*=\s*(?:\r?\n\s*)?\|?\s*string\b/u,
+    );
+
+    for (const relativePath of [
+      "features/indicators/IndicatorInspectorWorkflow.tsx",
+      "timeline/components/TimelineMentionsPanel.tsx",
+      "timeline/components/TimelineWorkbookInspector.tsx",
+      "timeline/composition/useTimelineInspectorWorkflowComposition.ts",
+      "timeline/hooks/useTimelineCreateRelatedWorkflow.ts",
+      "timeline/hooks/useTimelineEvidenceAttach.ts",
+      "timeline/hooks/useTimelineInspectorFeatureController.ts",
+      "timeline/hooks/useTimelineInspectorSelection.ts",
+      "timeline/hooks/useTimelineKeyboardController.ts",
+      "timeline/hooks/useTimelineMentionActions.ts",
+    ]) {
+      const source = readFileSync(
+        path.join(workbookDirectory, relativePath),
+        "utf8",
+      );
+      expect(source, relativePath).not.toMatch(
+        /\b(?:onSetInspectorMessage|setInspectorMessage|setMessage)\(\s*(?:"|'|`)/u,
+      );
+      expect(source, relativePath).not.toMatch(/\btypeof\s+message\b/u);
+      expect(source, relativePath).not.toContain("function InspectorMessage");
+    }
   });
 });

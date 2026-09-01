@@ -741,6 +741,7 @@ export function ContractWorkbookSurface({
             cells: inspectorSubjectRow.cells,
             recordId: inspectorSubjectRow.record_id,
             rowVersion: inspectorSubjectRow.row_version,
+            viewSchemaId: contract.viewSchemaId,
           },
   });
   const genericInspectorDisabledTokens = useMemo(() => {

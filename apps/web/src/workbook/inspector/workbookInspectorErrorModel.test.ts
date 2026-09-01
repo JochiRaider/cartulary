@@ -3,6 +3,8 @@ import type { WorkbookOperationFailure } from "../mutations/workbookOperationOut
 import {
   workbookInspectorErrorPresentation,
   workbookInspectorLocalErrorPresentation,
+  workbookInspectorMessageFeedback,
+  workbookInspectorOperationFailureFeedback,
 } from "./workbookInspectorErrorModel";
 
 describe("workbook inspector error model", () => {
@@ -59,6 +61,23 @@ describe("workbook inspector error model", () => {
     ).toEqual({
       primaryMessage: "Local text mentions row_version_conflict literally.",
       technicalFields: [],
+    });
+  });
+
+  it("constructs closed neutral-message and typed-operation feedback", () => {
+    expect(workbookInspectorMessageFeedback("Ready.", "none")).toEqual({
+      announcement: "none",
+      kind: "message",
+      message: "Ready.",
+    });
+    expect(
+      workbookInspectorOperationFailureFeedback({
+        kind: "retryable",
+        message: "Retry.",
+      }),
+    ).toEqual({
+      error: { primaryMessage: "Retry.", technicalFields: [] },
+      kind: "error",
     });
   });
 });

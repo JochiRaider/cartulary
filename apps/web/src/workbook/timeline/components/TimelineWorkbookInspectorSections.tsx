@@ -1,9 +1,9 @@
 import { timelineInspectorSectionTestId } from "@cartulary/ui-contracts";
 import { type ReactNode, useCallback } from "react";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
+import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
-import type { TimelineCreateRelatedWorkflowState } from "../hooks/useTimelineCreateRelatedWorkflow";
 import type { TimelineInspectorHistorySubject } from "../hooks/useTimelineHistoryState";
 import type {
   RecordHistoryItem,
@@ -48,7 +48,7 @@ export function useTimelineWorkbookInspectorSections({
 }: {
   readonly cancelCreateRelatedWorkflow: () => void;
   readonly confirmRowHistoryPendingAction: () => void;
-  readonly createRelatedWorkflow: TimelineCreateRelatedWorkflowState | null;
+  readonly createRelatedWorkflow: InspectorRelatedRecordWorkflowState | null;
   readonly currentHistoryRecordId: string | null;
   readonly handleTimelineEvidenceFiles: (
     row: WorkbookRow,

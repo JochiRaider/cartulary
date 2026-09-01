@@ -106,9 +106,11 @@ describe("useTimelineInspectorFeatureController", () => {
     ).toEqual({ kind: "unsupported" });
     expect(mocks.beginCreateRelatedWorkflow).toHaveBeenCalledTimes(1);
     expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledTimes(2);
-    expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith(
-      "Inspector action is unavailable.",
-    );
+    expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith({
+      announcement: "none",
+      kind: "message",
+      message: "Inspector action is unavailable.",
+    });
 
     act(() => result.current.commands.cancelFeatureAction());
     expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledTimes(3);

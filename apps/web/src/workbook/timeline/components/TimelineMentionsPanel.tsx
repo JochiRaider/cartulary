@@ -11,6 +11,10 @@ import type { CSSProperties, ReactNode } from "react";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import { WorkbookRelationshipChip } from "../../components/WorkbookRelationshipChip";
 import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorMessageFeedback,
+} from "../../inspector/workbookInspectorErrorModel";
+import {
   type InspectorMention,
   relationshipItemLabel,
   timelineRelationshipChipPresentation,
@@ -48,7 +52,7 @@ type TimelineMentionsPanelProps = {
   readonly relationshipEditors?: ReactNode;
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
-  readonly onSetInspectorMessage: (message: string) => void;
+  readonly onSetInspectorMessage: (message: WorkbookInspectorFeedback) => void;
   readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
@@ -190,7 +194,7 @@ function SelectedMentionSection({
   readonly hostEntities: readonly MentionEntityOption[];
   readonly identityEntities: readonly MentionEntityOption[];
   readonly onResolveTargetChange: (value: string) => void;
-  readonly onSetInspectorMessage: (message: string) => void;
+  readonly onSetInspectorMessage: (message: WorkbookInspectorFeedback) => void;
   readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
@@ -246,7 +250,12 @@ function SelectedMentionSection({
               type="button"
               onClick={() => {
                 if (selectedResolveTargetId === "") {
-                  onSetInspectorMessage("Select a target first.");
+                  onSetInspectorMessage(
+                    workbookInspectorMessageFeedback(
+                      "Select a target first.",
+                      "none",
+                    ),
+                  );
                   return;
                 }
                 onSubmitMentionAction(
@@ -298,7 +307,12 @@ function SelectedMentionSection({
                 type="button"
                 onClick={() => {
                   if (selectedResolveTargetId === "") {
-                    onSetInspectorMessage("Select a target first.");
+                    onSetInspectorMessage(
+                      workbookInspectorMessageFeedback(
+                        "Select a target first.",
+                        "none",
+                      ),
+                    );
                     return;
                   }
                   onSubmitMentionAction(

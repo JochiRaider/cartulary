@@ -466,6 +466,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_create_related_workflow_stale_results_31f0cbe2d1",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/useInspectorCreateRelatedWorkflow.test.tsx",
+        "titles": [
+          "useInspectorCreateRelatedWorkflow ignores a late accepted result after cancel and reopen while retaining the owner effect",
+          "useInspectorCreateRelatedWorkflow ignores a late rejection after a row-version retarget"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_related_record_model_20a3b73f6d",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -478,8 +503,11 @@
         "file": "apps/web/src/workbook/inspector/inspectorRelatedRecordModel.test.ts",
         "titles": [
           "inspector related-record model builds selected-record, selected-field, and literal seeds",
+          "inspector related-record model ignores obsolete workflow actions after cancel and reopen",
           "inspector related-record model leaves defaults intact for a missing selected field",
-          "inspector related-record model rejects a mismatched target contract"
+          "inspector related-record model reduces editing, submission, rejection, retry, and completion exhaustively",
+          "inspector related-record model rejects a mismatched target contract",
+          "inspector related-record model retains an equal subject and clears record, version, surface, or no-row retargets"
         ]
       },
       "evidence_class": "unit",
@@ -556,6 +584,33 @@
         "file": "apps/web/src/workbook/timeline/useTimelineCommittedRecordIdle.test.tsx",
         "titles": [
           "useTimelineCommittedRecordIdle refreshes a missing committed version at most once"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_create_related_workflow_stale_effects_4b8ce2aa71",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineCreateRelatedWorkflow.test.tsx",
+        "titles": [
+          "useTimelineCreateRelatedWorkflow finishes captured Evidence effects without overwriting a reopened workflow"
         ]
       },
       "evidence_class": "unit",
@@ -1393,9 +1448,36 @@
       "selector": {
         "file": "apps/web/src/workbook/inspector/workbookInspectorErrorModel.test.ts",
         "titles": [
+          "workbook inspector error model constructs closed neutral-message and typed-operation feedback",
           "workbook inspector error model keeps local messages on an explicit path without inference",
           "workbook inspector error model preserves the safe primary message for every failure kind",
           "workbook inspector error model uses the decoded row-version code and retains sanitized detail"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbook_inspector_feedback_presentation_3ca71e692b",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
+        "titles": [
+          "Workbook Inspector presentation renders declared neutral announcements and assertive typed failures"
         ]
       },
       "evidence_class": "unit",

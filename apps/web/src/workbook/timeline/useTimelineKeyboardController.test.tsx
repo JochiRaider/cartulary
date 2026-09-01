@@ -92,7 +92,17 @@ function controller(
     queueScalarSave: vi.fn(() => calls.push("save-scalar")),
     recordTiming: vi.fn(() => calls.push("timing")),
     restoreTimelineFocusAnchor: vi.fn(() => calls.push("restore-focus")),
-    setInspectorMessage: vi.fn((message) => calls.push(`message-${message}`)),
+    setInspectorMessage: vi.fn((feedback) =>
+      calls.push(
+        `message-${
+          feedback === null
+            ? "null"
+            : feedback.kind === "message"
+              ? feedback.message
+              : feedback.error.primaryMessage
+        }`,
+      ),
+    ),
     setIsInspectorOpen: vi.fn((isOpen) => calls.push(`inspector-${isOpen}`)),
     setSelectedMentionRef: vi.fn((itemRef) => calls.push(`mention-${itemRef}`)),
     setSelectedRowId: vi.fn((selectedRecordId) =>
