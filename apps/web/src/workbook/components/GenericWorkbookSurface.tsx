@@ -25,13 +25,11 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   workbookInlineDraftRowTestId,
-  workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
 import type {
   InspectorFeatureGroup,
   ViewContract,
 } from "@cartulary/view-contracts";
-import { X } from "lucide-react";
 import {
   type CSSProperties,
   type ReactNode,
@@ -64,6 +62,16 @@ import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericParty
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import {
+  WorkbookInspectorContextualActions,
+  WorkbookInspectorPanelSection,
+  WorkbookInspectorShell,
+} from "../inspector/presentation/WorkbookInspectorPresentation";
+import {
+  type WorkbookInspectorSubjectPresentation,
+  workbookInspectorSafePublicMessage,
+} from "../inspector/presentation/workbookInspectorPresentationModel";
+import type { InspectorDisabledToken } from "../inspector/semanticInspectorDispatcher";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
@@ -71,7 +79,6 @@ import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFaca
 import {
   WorkbookSurfaceLayout,
   workbookSurfaceGridShellStyle,
-  workbookSurfaceInspectorPanelStyle,
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
@@ -82,6 +89,7 @@ import {
   genericCollectionSupportsRemove,
   genericContractColumnWidth,
   genericCreateMinimumMessage,
+  genericInspectorRowLabel,
   genericRowLabel,
   initialGenericCreateDraft,
   partyLinkPairsForContract,
@@ -111,10 +119,6 @@ import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker"
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { GenericMutationControl } from "./GenericMutationControl";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
-import {
-  type InspectorDisabledToken,
-  WorkbookInspectorPanelSection,
-} from "./WorkbookInspectorFeatureGroups";
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
@@ -176,6 +180,7 @@ export function ContractWorkbookSurface({
     snapshot: {
       chromeMode,
       density,
+      incidentClosed,
       interactionMode,
       showStatusPresence,
       state: layoutState,
@@ -750,9 +755,9 @@ export function ContractWorkbookSurface({
     else tokens.add("record_not_deleted");
     tokens.add("rollback_target_unavailable");
     tokens.add("pivot_target_unavailable");
-    if (interactionMode.kind === "read_only") tokens.add("incident_closed");
+    if (incidentClosed) tokens.add("incident_closed");
     return tokens;
-  }, [interactionMode.kind, selectedEditRow]);
+  }, [incidentClosed, selectedEditRow]);
   const executeInspectorRecordLifecycle = useCallback(
     async (featureGroup: InspectorFeatureGroup): Promise<boolean> => {
       if (
@@ -802,41 +807,13 @@ export function ContractWorkbookSurface({
       if (indicatorHandler !== null) return;
       if (createRelatedWorkflow.commands.begin(featureGroup)) return;
       if (featureGroup.routeBinding.kind === "record_action") {
-        void executeInspectorRecordLifecycle(featureGroup).then((handled) => {
-          if (!handled) {
-            setValidationError(
-              `${featureGroup.label}: use the owner controls in this inspector section.`,
-            );
-          }
-        });
-        return;
+        void executeInspectorRecordLifecycle(featureGroup);
       }
-      if (featureGroup.routeBinding.kind === "record_patch") {
-        if (inspectorSubjectRow !== null) {
-          setEditRecordId(inspectorSubjectRow.record_id);
-        }
-        const actionField = contract.fields.find(
-          (field) => field.writeAction === featureGroup.routeBinding.actionKey,
-        );
-        if (actionField !== undefined) {
-          setEditFieldKey(actionField.fieldKey);
-        }
-        setValidationError(
-          `${featureGroup.label}: the selected row edit controls are ready below.`,
-        );
-        return;
-      }
-      setValidationError(
-        `${featureGroup.label}: use the owner controls in this inspector section.`,
-      );
     },
     [
       contract.viewSchemaId,
-      contract.fields,
       createRelatedWorkflow.commands,
       executeInspectorRecordLifecycle,
-      inspectorSubjectRow,
-      setValidationError,
     ],
   );
 
@@ -965,41 +942,57 @@ export function ContractWorkbookSurface({
     rowCount: gridRecordRows.length,
     surfaceLabel: contract.title,
   });
+  const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
+    inspectorSubjectRow === null
+      ? null
+      : {
+          label: genericInspectorRowLabel(contract, inspectorSubjectRow),
+          recordId: inspectorSubjectRow.record_id,
+          rowVersion: inspectorSubjectRow.row_version,
+          surfaceLabel: contract.title,
+        };
 
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
         isInspectorOpen ? (
-          <section style={genericMutationPanelStyle}>
-            <div style={inspectorTitleRowStyle}>
-              <div>
-                <p style={eyebrowStyle}>Inspector</p>
-                <h2 style={inspectorTitleStyle}>Workbook actions</h2>
-              </div>
-              <button
-                aria-label="Close inspector"
-                data-testid={workbookInspectorCloseButtonTestId(surface)}
-                style={inspectorCloseButtonStyle}
-                type="button"
-                onClick={() => {
-                  inspector.commands.close({ restoreFocus: true });
-                }}
-              >
-                <X aria-hidden="true" size={16} />
-              </button>
-            </div>
+          <WorkbookInspectorShell
+            accessibleLabel={`${contract.title} inspector`}
+            noRowHeading={`${contract.title} inspector`}
+            subject={inspectorSubjectPresentation}
+            viewSchemaId={surface}
+            onClose={() => {
+              inspector.commands.close({ restoreFocus: true });
+            }}
+          >
             {inspectorConfig.panels.map((panel) => (
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
-                currentIncidentRole={currentIncidentRole}
-                disabledTokens={genericInspectorDisabledTokens}
                 key={panel.panelId}
                 panelId={panel.panelId}
-                subjectRecordId={selectedEditRow?.record_id ?? null}
-                subjectRowVersion={selectedEditRow?.row_version ?? null}
-                onFeatureAction={handleInspectorFeatureAction}
               >
+                {inspectorSubjectPresentation === null ? null : (
+                  <WorkbookInspectorContextualActions
+                    config={inspectorConfig}
+                    currentIncidentRole={currentIncidentRole}
+                    disabledTokens={genericInspectorDisabledTokens}
+                    featureGroups={inspectorConfig.featureGroups.filter(
+                      (featureGroup) =>
+                        featureGroup.panelId === panel.panelId &&
+                        (featureGroup.routeBinding.kind === "view_row_create" ||
+                          featureGroup.routeBinding.kind ===
+                            "indicator_observations" ||
+                          featureGroup.routeBinding.kind ===
+                            "indicator_lifecycle" ||
+                          (featureGroup.routeBinding.kind === "record_action" &&
+                            featureGroup.routeBinding.owner ===
+                              "record_delete_route")),
+                    )}
+                    subject={inspectorSubjectPresentation}
+                    onAction={handleInspectorFeatureAction}
+                  />
+                )}
                 {indicatorInspectorHandler?.panelId === panel.panelId &&
                 selectedEditRow !== null ? (
                   <IndicatorInspectorWorkflow
@@ -1345,14 +1338,16 @@ export function ContractWorkbookSurface({
                 data-testid={genericWorkbookTestId("reference-load-error")}
                 style={bodyStyle}
               >
-                {referenceLoadError}
+                {workbookInspectorSafePublicMessage(referenceLoadError)}
               </p>
             ) : null}
 
             {mutationError ? (
-              <p style={genericErrorTextStyle}>{mutationError}</p>
+              <p style={genericErrorTextStyle}>
+                {workbookInspectorSafePublicMessage(mutationError)}
+              </p>
             ) : null}
-          </section>
+          </WorkbookInspectorShell>
         ) : undefined
       }
       onRequestInspectorClose={() => {
@@ -1379,6 +1374,7 @@ export function ContractWorkbookSurface({
                 anchor?.rowIdentity.kind === "core_record"
                   ? anchor.rowIdentity.recordId
                   : null;
+              setEditRecordId(recordId ?? "");
               if (recordId === null || anchor === null) {
                 genericFocus.port.clear();
               } else {
@@ -1434,14 +1430,6 @@ export function ContractWorkbookSurface({
   );
 }
 
-const eyebrowStyle = {
-  margin: 0,
-  fontSize: "0.78rem",
-  letterSpacing: "0.12em",
-  textTransform: "uppercase" as const,
-  color: "var(--ct-colors-accent)",
-};
-
 const bodyStyle = {
   margin: 0,
   lineHeight: 1.5,
@@ -1451,14 +1439,6 @@ const bodyStyle = {
 const gridShellStyle = {
   ...workbookSurfaceGridShellStyle,
 } satisfies CSSProperties;
-
-const genericMutationPanelStyle = {
-  ...workbookSurfaceInspectorPanelStyle,
-  display: "grid",
-  alignContent: "start",
-  gap: "0.75rem",
-  background: "var(--ct-colors-surface-2)",
-};
 
 const genericEditRowStyle = {
   display: "grid",
@@ -1517,31 +1497,6 @@ const labelStyle = {
   gap: "0.4rem",
   fontSize: "0.95rem",
   color: "var(--ct-colors-ink-muted)",
-};
-
-const inspectorTitleRowStyle = {
-  display: "flex",
-  alignItems: "start",
-  justifyContent: "space-between",
-  gap: "1rem",
-};
-
-const inspectorCloseButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "1.9rem",
-  height: "1.9rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "transparent",
-  color: "var(--ct-colors-ink-muted)",
-  cursor: "pointer",
-};
-
-const inspectorTitleStyle = {
-  margin: 0,
-  fontSize: "1.25rem",
 };
 
 const selectStyle = {

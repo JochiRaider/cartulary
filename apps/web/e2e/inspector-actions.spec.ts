@@ -364,7 +364,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     ),
   ).toHaveCount(0);
   await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
-    `Record ${target.record_id}`,
+    target.record_id,
   );
   await expect(page.getByTestId(rowHistoryRestoreButtonTestId())).toBeVisible();
   const restoreResponse = page.waitForResponse(
@@ -512,7 +512,14 @@ test("Verify default-closed inspector state, no-row state, surface switch config
   await page
     .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
     .click();
-  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveAttribute(
+    "data-inspector-state",
+    "no_row_selected",
+  );
+  await expect(
+    page.getByText("Select a saved row to inspect its details."),
+  ).toBeVisible();
+  await expect(page.getByTestId(timelineInspectorTestId())).not.toContainText(
     "no_row_selected",
   );
   await page.keyboard.press("Escape");

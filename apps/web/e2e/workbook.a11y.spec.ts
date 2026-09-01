@@ -101,6 +101,7 @@ import {
   workbookFilterPopoverTriggerTestId,
   workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
+  workbookInspectorFeatureActionTestId,
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
@@ -3541,104 +3542,205 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
 });
 
 test.describe("browser.inspector-history accessibility readiness", () => {
-  test(p9ConfigAccessibilityScenarioTitles[0], async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("A11YINSPECTORCONFIG"),
-      "a11y.inspector-history.row-02 config-driven inspector",
-    );
-    const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
-      client_txn_id: uniqueTxn("a11y.inspector-history-02-row"),
-      "timeline.raw_activity_text":
+  test(
+    p9ConfigAccessibilityScenarioTitles[0],
+    async ({ browser, page, sessionTracker }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const incidentId = await createIncident(
+        page,
+        uniqueIncidentKey("A11YINSPECTORCONFIG"),
+        "a11y.inspector-history.row-02 config-driven inspector",
+      );
+      const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
+        client_txn_id: uniqueTxn("a11y.inspector-history-02-row"),
+        "timeline.raw_activity_text":
+          "a11y.inspector-history.row-02 inspector details",
+        "timeline.activity_synopsis_text":
+          "a11y.inspector-history.row-02 selected row",
+      });
+      const viewerPassword = "A11yInspectorViewer1!";
+      const viewer = await createIncidentMemberUser(page, incidentId, {
+        display_name: "A11y Inspector Viewer",
+        email: uniqueEmail("a11y-inspector-viewer"),
+        initial_password: viewerPassword,
+        role: "viewer",
+        is_deployment_admin: false,
+        mfa_required: false,
+      });
+
+      await page.goto(`/?incident_id=${incidentId}`);
+      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+      await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+
+      const toggle = page.getByTestId(
+        workbookInspectorToggleTestId(timelineViewSchemaId),
+      );
+      await toggle.focus();
+      await expectVisibleFocus(toggle);
+      await toggle.press("Enter");
+      await expect(page.getByTestId(timelineInspectorTestId())).toHaveAttribute(
+        "data-inspector-state",
+        "no_row_selected",
+      );
+      await expect(
+        page.getByText("Select a saved row to inspect its details."),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(timelineInspectorTestId()),
+      ).not.toContainText("no_row_selected");
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+      await expectVisibleFocus(toggle);
+
+      const summaryCell = await mountedGridCell(
+        page,
+        timelineViewSchemaId,
+        row.record_id,
+        "timeline.activity_synopsis_text",
+      );
+      await expectVisibleSemanticGridCellFocus(summaryCell);
+      await openTimelineInspector(page, row.record_id);
+      const detailsEditor = page.getByTestId(
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.raw_activity_text",
+          recordId: row.record_id,
+          surface: "inspector",
+        }),
+      );
+      await expectVisibleFocus(detailsEditor);
+      await expect(detailsEditor).toHaveValue(
         "a11y.inspector-history.row-02 inspector details",
-      "timeline.activity_synopsis_text":
-        "a11y.inspector-history.row-02 selected row",
-    });
+      );
 
-    await page.goto(`/?incident_id=${incidentId}`);
-    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+      await detailsEditor.press("Escape");
+      const semanticSummaryCell = semanticGridCell(summaryCell);
+      await expect(semanticSummaryCell).toBeFocused();
+      await semanticSummaryCell.press("Escape");
+      await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+      await expectVisibleSemanticGridCellFocus(summaryCell);
+      await page.keyboard.press("Shift+F10");
+      const openHistory = page.getByTestId(
+        rowHistoryOpenButtonTestId(row.record_id),
+      );
+      await expectVisibleFocus(openHistory);
+      await openHistory.press("Enter");
+      await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
+      const deleteButton = page.getByTestId(rowHistoryDeleteButtonTestId());
+      await expectVisibleFocus(deleteButton);
+      await deleteButton.press("Enter");
+      const deletePanel = page.getByTestId(
+        rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
+      );
+      await expect(deletePanel).toHaveAttribute("role", "alertdialog");
+      await expect(deletePanel).not.toHaveAttribute("aria-modal");
+      await expect(deletePanel).toContainText(row.record_id);
+      const deleteConfirm = page.getByTestId(
+        rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+      );
+      const deleteCancel = page.getByTestId(
+        rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
+      );
+      await expect(deleteCancel).toBeFocused();
+      await expectVisibleFocus(deleteConfirm);
+      await expectVisibleFocus(deleteCancel);
+      await expectAndRecordContrast(page, [
+        workbookInspectorToggleTestId(timelineViewSchemaId),
+        rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
+        timelineScalarEditorTestId({
+          fieldKey: "timeline.raw_activity_text",
+          recordId: row.record_id,
+          surface: "inspector",
+        }),
+        rowHistoryOpenButtonTestId(row.record_id),
+        rowHistoryDeleteButtonTestId(),
+        rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+        rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
+      ]);
+      await deleteCancel.press("Escape");
+      await expect(deletePanel).toHaveCount(0);
+      await expect(deleteButton).toBeFocused();
 
-    const toggle = page.getByTestId(
-      workbookInspectorToggleTestId(timelineViewSchemaId),
-    );
-    await toggle.focus();
-    await expectVisibleFocus(toggle);
-    await toggle.press("Enter");
-    await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
-      "no_row_selected",
-    );
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-    await expectVisibleFocus(toggle);
+      const viewerSession = await openIncidentAsTrackedUserReady(
+        browser,
+        sessionTracker,
+        {
+          createdBy: "a11y.inspector-history.row-02",
+          email: viewer.email,
+          incidentId,
+          password: viewerPassword,
+          purpose: "a11y inspector disabled reason viewer",
+          readyRecordId: row.record_id,
+          userId: viewer.user_id,
+        },
+      );
+      try {
+        const viewerPage = viewerSession.page;
+        await viewerPage.setViewportSize({ width: 1024, height: 720 });
+        await openTimelineInspector(viewerPage, row.record_id);
+        const disabledAction = viewerPage.getByTestId(
+          workbookInspectorFeatureActionTestId(
+            timelineViewSchemaId,
+            "indicator.observations.manage",
+          ),
+        );
+        await expect(disabledAction).toBeDisabled();
+        const descriptionId =
+          await disabledAction.getAttribute("aria-describedby");
+        expect(descriptionId).not.toBeNull();
+        await expect(viewerPage.locator(`[id="${descriptionId}"]`)).toHaveText(
+          "Requires the editor incident role.",
+        );
 
-    const summaryCell = await mountedGridCell(
-      page,
-      timelineViewSchemaId,
-      row.record_id,
-      "timeline.activity_synopsis_text",
-    );
-    await expectVisibleSemanticGridCellFocus(summaryCell);
-    await openTimelineInspector(page, row.record_id);
-    const detailsEditor = page.getByTestId(
-      timelineScalarEditorTestId({
-        fieldKey: "timeline.raw_activity_text",
-        recordId: row.record_id,
-        surface: "inspector",
-      }),
-    );
-    await expectVisibleFocus(detailsEditor);
-    await expect(detailsEditor).toHaveValue(
-      "a11y.inspector-history.row-02 inspector details",
-    );
-
-    await detailsEditor.press("Escape");
-    const semanticSummaryCell = semanticGridCell(summaryCell);
-    await expect(semanticSummaryCell).toBeFocused();
-    await semanticSummaryCell.press("Escape");
-    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-    await expectVisibleSemanticGridCellFocus(summaryCell);
-    await page.keyboard.press("Shift+F10");
-    const openHistory = page.getByTestId(
-      rowHistoryOpenButtonTestId(row.record_id),
-    );
-    await expectVisibleFocus(openHistory);
-    await openHistory.press("Enter");
-    await expect(page.getByTestId(rowHistoryPanelTestId())).toBeVisible();
-    const deleteButton = page.getByTestId(rowHistoryDeleteButtonTestId());
-    await expectVisibleFocus(deleteButton);
-    await deleteButton.press("Enter");
-    const deletePanel = page.getByTestId(
-      rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
-    );
-    await expect(deletePanel).toHaveAttribute("role", "alertdialog");
-    await expect(deletePanel).toHaveAttribute("aria-modal", "true");
-    await expect(deletePanel).toContainText(row.record_id);
-    const deleteConfirm = page.getByTestId(
-      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
-    );
-    const deleteCancel = page.getByTestId(
-      rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
-    );
-    await expectVisibleFocus(deleteConfirm);
-    await expectVisibleFocus(deleteCancel);
-    await expectAndRecordContrast(page, [
-      workbookInspectorToggleTestId(timelineViewSchemaId),
-      rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
-      timelineScalarEditorTestId({
-        fieldKey: "timeline.raw_activity_text",
-        recordId: row.record_id,
-        surface: "inspector",
-      }),
-      rowHistoryOpenButtonTestId(row.record_id),
-      rowHistoryDeleteButtonTestId(),
-      rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
-      rowHistoryDestructiveCancelButtonTestId({ operation: "delete" }),
-    ]);
-    await deleteCancel.press("Enter");
-    await expect(deletePanel).toHaveCount(0);
-  });
+        await viewerPage.evaluate((inspectorSelector) => {
+          const style = document.createElement("style");
+          style.id = "workbook-inspector-text-spacing";
+          style.textContent = `
+              ${inspectorSelector} * {
+                letter-spacing: 0.12em !important;
+                line-height: 1.5 !important;
+                word-spacing: 0.16em !important;
+              }
+              ${inspectorSelector} p {
+                margin-block-end: 2em !important;
+              }
+            `;
+          document.head.append(style);
+        }, dataTestIdSelector(timelineInspectorTestId()));
+        const textSpacingGeometry = await viewerPage
+          .getByTestId(timelineInspectorTestId())
+          .evaluate((element) => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+          }));
+        expect(textSpacingGeometry.scrollWidth).toBeLessThanOrEqual(
+          textSpacingGeometry.clientWidth + 1,
+        );
+        await viewerPage.evaluate(() => {
+          document.getElementById("workbook-inspector-text-spacing")?.remove();
+          document.documentElement.style.zoom = "200%";
+        });
+        await expect(
+          viewerPage.getByTestId(
+            workbookInspectorCloseButtonTestId(timelineViewSchemaId),
+          ),
+        ).toBeVisible();
+        const zoomGeometry = await viewerPage
+          .getByTestId(timelineInspectorTestId())
+          .evaluate((element) => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+          }));
+        expect(zoomGeometry.scrollWidth).toBeLessThanOrEqual(
+          zoomGeometry.clientWidth + 1,
+        );
+        await viewerPage.evaluate(() => {
+          document.documentElement.style.zoom = "100%";
+        });
+      } finally {
+        await viewerSession.page.context().close();
+      }
+    },
+  );
 
   test(p9AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -3746,8 +3848,8 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     const rollbackPreview = page.getByTestId(
       rowHistoryRollbackPreviewTestId(rollbackAnchor),
     );
-    await expect(rollbackPreview).toHaveAttribute("role", "dialog");
-    await expect(rollbackPreview).toHaveAttribute("aria-modal", "true");
+    await expect(rollbackPreview).toHaveAttribute("role", "alertdialog");
+    await expect(rollbackPreview).not.toHaveAttribute("aria-modal");
     await expect(rollbackPreview).toContainText(/rollback/i);
     const rollbackCancel = page.getByTestId(
       rowHistoryRollbackCancelButtonTestId(rollbackAnchor),
@@ -3780,6 +3882,9 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     const historyMessage = page.getByTestId(rowHistoryMessageTestId());
     await expectAlertRole(historyMessage);
     await expect(historyMessage).toHaveAttribute("aria-live", "assertive");
+    await expect(historyMessage).toContainText(
+      "This row changed; refresh it before retrying.",
+    );
     await expect(historyMessage).toContainText("row_version_conflict");
     await expectNoPrivateDiagnostics(historyMessage);
 
@@ -3790,7 +3895,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       rowHistoryDestructiveConfirmPanelTestId({ operation: "delete" }),
     );
     await expect(deletePanel).toHaveAttribute("role", "alertdialog");
-    await expect(deletePanel).toHaveAttribute("aria-modal", "true");
+    await expect(deletePanel).not.toHaveAttribute("aria-modal");
     await expect(deletePanel).toContainText(row.record_id);
     const deleteConfirm = page.getByTestId(
       rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),

@@ -84,6 +84,8 @@ import {
   workbookFocusAnchorTestId,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
+  workbookInspectorFeatureActionTestId,
+  workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookPresenceSummaryTestId,
   workbookResponsiveBandTestId,
@@ -202,6 +204,8 @@ const expectedFrontendVisualFixtureIds = [
   "visual.fixture.claimed_network_analysis_narrow_workspace",
   "visual.fixture.claimed_network_analysis_compact_workspace",
   "visual.fixture.base_inspector",
+  "visual.fixture.inspector_narrow_technical_details",
+  "visual.fixture.inspector_compact_actions",
   "visual.fixture.default_timeline_workbook_shell",
   "visual.fixture.compact_desktop_workbook_shell",
   "visual.fixture.destructive_actions",
@@ -2303,7 +2307,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     await openTimelineInspector(page, timelineRow.record_id);
     await expect(
       page.getByTestId(timelineInspectorSectionTestId("evidence")),
-    ).toContainText("Evidence");
+    ).toHaveAttribute("aria-label", "Timeline evidence attachment");
     await page
       .getByTestId(timelineEvidenceFileInputTestId(timelineRow.record_id))
       .setInputFiles({
@@ -2762,7 +2766,9 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
 
 test.describe("browser.inspector-history workbook visual readiness", () => {
   test("Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.", async ({
+    browser,
     page,
+    sessionTracker,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     const incidentId = await createIncident(
@@ -2812,6 +2818,15 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       rollbackItem,
       "history_entry",
     );
+    const narrowViewerPassword = "VisualInspectorNarrowViewer1!";
+    const narrowViewer = await createIncidentMemberUser(page, incidentId, {
+      display_name: "Visual Inspector Viewer",
+      email: uniqueEmail("visual-inspector-narrow-viewer"),
+      initial_password: narrowViewerPassword,
+      role: "viewer",
+      is_deployment_admin: false,
+      mfa_required: false,
+    });
 
     await page.goto(
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -2862,6 +2877,84 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       page,
       "workbook-inspector-relationships",
     );
+
+    const narrowSession = await openIncidentAsTrackedUserReady(
+      browser,
+      sessionTracker,
+      {
+        createdBy: "visual.inspector.narrow",
+        email: narrowViewer.email,
+        incidentId,
+        password: narrowViewerPassword,
+        purpose: "narrow inspector disabled-reason visual fixture",
+        readyRecordId: target.record_id,
+        userId: narrowViewer.user_id,
+      },
+    );
+    try {
+      const narrowPage = narrowSession.page;
+      await narrowPage.setViewportSize({ width: 1024, height: 720 });
+      await maskIncidentIdentity(narrowPage, incidentId);
+      await openTimelineInspector(narrowPage, target.record_id);
+      await expect(
+        narrowPage.locator("[data-inspector-layout]"),
+      ).toHaveAttribute("data-inspector-layout", "right_overlay");
+      await expect(
+        narrowPage.getByTestId(workbookShellSlotTestId("primary-grid")),
+      ).toHaveAttribute("inert", "");
+      const disabledAction = narrowPage.getByTestId(
+        workbookInspectorFeatureActionTestId(
+          timelineViewSchemaId,
+          "create_related.lesson",
+        ),
+      );
+      await expect(disabledAction).toBeDisabled();
+      await expect(disabledAction).toHaveAttribute("aria-describedby", /.+/u);
+      const disabledReason = narrowPage
+        .getByText("Requires the editor incident role.")
+        .last();
+      await expect(disabledReason).toBeVisible();
+      const recordMetadata = narrowPage.getByRole("region", {
+        name: "Record technical metadata",
+      });
+      await recordMetadata.getByText("Technical details").click();
+      const technicalRecordId = recordMetadata.getByText(target.record_id);
+      await expect(technicalRecordId).toBeVisible();
+      await technicalRecordId.scrollIntoViewIfNeeded();
+      await expect(disabledReason).toBeInViewport();
+      await expect(technicalRecordId).toBeInViewport();
+      await assertViewportVisualRegression(
+        narrowPage,
+        "workbook-inspector-narrow-technical-details",
+      );
+    } finally {
+      await narrowSession.page.context().close();
+    }
+
+    await page.setViewportSize({ width: 768, height: 640 });
+    await expect(page.locator("[data-inspector-layout]")).toHaveAttribute(
+      "data-inspector-layout",
+      "full_overlay",
+    );
+    await expect(
+      page.getByTestId(workbookShellSlotTestId("primary-grid")),
+    ).toHaveAttribute("inert", "");
+    const workflowPanel = page.getByTestId(
+      workbookInspectorPanelTestId(timelineViewSchemaId, "workflow"),
+    );
+    const workflowActions = workflowPanel.locator(
+      'button[data-route-kind="view_row_create"]',
+    );
+    await expect(workflowActions).toHaveCount(8);
+    for (const action of await workflowActions.all()) {
+      await action.scrollIntoViewIfNeeded();
+      await expect(action).toBeVisible();
+    }
+    await assertViewportVisualRegression(
+      page,
+      "workbook-inspector-compact-actions",
+    );
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     await page
       .getByTestId(timelineInspectorSectionTestId("history"))
@@ -2953,7 +3046,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       .getByTestId(rowHistoryRollbackConfirmButtonTestId(rollbackAnchor))
       .click();
     await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
-      "row_version_conflict",
+      "This row changed; refresh it before retrying.",
     );
     await scrollVisualAnchorToScrollContainerTop(
       page,

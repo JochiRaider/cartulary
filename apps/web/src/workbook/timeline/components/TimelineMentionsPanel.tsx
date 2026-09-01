@@ -117,11 +117,10 @@ function MentionGroups({
   readonly selectedMention: InspectorMention | null;
 }) {
   return (
-    <section
+    <div
       data-testid={timelineInspectorSectionTestId("relationships")}
       style={inspectorSectionStyle}
     >
-      <h3 style={sectionTitleStyle}>Relationships</h3>
       {relationshipEditors}
       <div style={mentionGroupStyle}>
         {mentionStatuses.map((status) => {
@@ -166,7 +165,7 @@ function MentionGroups({
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -204,11 +203,10 @@ function SelectedMentionSection({
   return (
     <section style={inspectorSectionStyle}>
       <h3 style={sectionTitleStyle}>Selected mention</h3>
+      <p style={selectedMentionTextStyle}>
+        <strong>{selectedMention.rawText}</strong>
+      </p>
       <dl style={detailListStyle}>
-        <div>
-          <dt style={detailTermStyle}>Raw token</dt>
-          <dd style={detailValueStyle}>{selectedMention.rawText}</dd>
-        </div>
         <div>
           <dt style={detailTermStyle}>Field</dt>
           <dd style={detailValueStyle}>
@@ -451,6 +449,11 @@ const detailListStyle = {
   display: "grid",
   gap: "0.75rem",
   margin: 0,
+} satisfies CSSProperties;
+
+const selectedMentionTextStyle = {
+  margin: 0,
+  overflowWrap: "anywhere",
 } satisfies CSSProperties;
 
 const detailTermStyle = {

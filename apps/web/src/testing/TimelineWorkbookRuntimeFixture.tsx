@@ -55,6 +55,7 @@ export type TimelineWorkbookRuntimeFixtureProps = {
   readonly reloadToken?: number | undefined;
   readonly renderInlineQueryControls?: boolean | undefined;
   readonly chromeMode?: WorkbookChromeMode | undefined;
+  readonly incidentClosed?: boolean | undefined;
   readonly savedViewSelector?: ReactNode | undefined;
   readonly showStatusPresence?: boolean | undefined;
   readonly filterDraft?: FilterDraft | undefined;
@@ -104,6 +105,7 @@ export function TimelineWorkbookRuntimeFixture({
   reloadToken = 0,
   renderInlineQueryControls = true,
   chromeMode = "base",
+  incidentClosed = false,
   savedViewSelector,
   showStatusPresence = true,
   filterDraft: providedFilterDraft,
@@ -288,6 +290,7 @@ export function TimelineWorkbookRuntimeFixture({
             snapshot: {
               chromeMode,
               density,
+              incidentClosed,
               interactionMode,
               showStatusPresence,
               state: providedLayoutState ?? layoutState,

@@ -12,14 +12,12 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   gridSortHeaderTestId,
-  workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
   type InspectorFeatureGroup,
   requireViewContract,
   resolveHeaderSortFieldKey,
 } from "@cartulary/view-contracts";
-import { X } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -42,6 +40,16 @@ import type {
 import { useAssessmentCreationController } from "../features/assessments/useAssessmentCreationController";
 import { useAssessmentSupportCandidates } from "../hooks/useAssessmentSupportCandidates";
 import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import {
+  WorkbookInspectorContextualActions,
+  WorkbookInspectorPanelSection,
+  WorkbookInspectorShell,
+} from "../inspector/presentation/WorkbookInspectorPresentation";
+import {
+  type WorkbookInspectorSubjectPresentation,
+  workbookInspectorSafePublicMessage,
+} from "../inspector/presentation/workbookInspectorPresentationModel";
+import type { InspectorDisabledToken } from "../inspector/semanticInspectorDispatcher";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
@@ -49,7 +57,6 @@ import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFaca
 import {
   WorkbookSurfaceLayout,
   workbookSurfaceGridShellStyle,
-  workbookSurfaceInspectorPanelStyle,
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
@@ -60,6 +67,7 @@ import type { EntityRow } from "../models/entityWorkbookModel";
 import {
   enumValuesFor,
   genericCellLabel,
+  genericInspectorRowLabel,
 } from "../models/genericWorkbookModel";
 import { workbookGridRows } from "../models/workbookContractRows";
 import {
@@ -82,10 +90,6 @@ import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import {
-  type InspectorDisabledToken,
-  WorkbookInspectorPanelSection,
-} from "./WorkbookInspectorFeatureGroups";
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
 import {
@@ -150,6 +154,7 @@ export function AssessmentWorkbookSurface({
     snapshot: {
       chromeMode,
       density,
+      incidentClosed,
       interactionMode,
       showStatusPresence,
       state: layoutState,
@@ -274,11 +279,11 @@ export function AssessmentWorkbookSurface({
     tokens.add("rollback_target_unavailable");
     if (!roleCanCreate) {
       tokens.add("authorization_lost");
-    } else if (interactionMode.kind === "read_only") {
+    } else if (incidentClosed) {
       tokens.add("incident_closed");
     }
     return tokens;
-  }, [interactionMode.kind, roleCanCreate, selectedAssessment]);
+  }, [incidentClosed, roleCanCreate, selectedAssessment]);
   const stateOptions = enumValuesFor(
     assessmentsContract,
     "assessment.assessment_state",
@@ -462,19 +467,10 @@ export function AssessmentWorkbookSurface({
       return;
     }
     if (featureGroup.routeBinding.kind === "record_action") {
-      void executeAssessmentRecordLifecycle(featureGroup).then((handled) => {
-        if (!handled) {
-          assessmentCreation.commands.rejectStart(
-            `${featureGroup.label}: use the owner controls in this inspector section.`,
-          );
-        }
-      });
+      void executeAssessmentRecordLifecycle(featureGroup);
       return;
     }
     if (featureGroup.featureGroupKey !== "create_related.assessment") {
-      assessmentCreation.commands.rejectStart(
-        `${featureGroup.label}: use the owner controls in this inspector section.`,
-      );
       return;
     }
     if (
@@ -520,50 +516,63 @@ export function AssessmentWorkbookSurface({
       ),
     [mutationRuntime, onRefreshAssessmentRows],
   );
+  const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
+    selectedAssessment === null
+      ? null
+      : {
+          label: genericInspectorRowLabel(
+            assessmentsContract,
+            selectedAssessment,
+          ),
+          recordId: selectedAssessment.record_id,
+          rowVersion: selectedAssessment.row_version,
+          stateLabel: `Follow-on subject: ${draft.subjectRecordId || "not selected"}`,
+          surfaceLabel: assessmentsContract.title,
+        };
 
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
         isInspectorOpen && showWorkflowPanel ? (
-          <aside
-            data-testid={assessmentCreatePanelTestId()}
-            style={inspectorShellStyle}
+          <WorkbookInspectorShell
+            accessibleLabel="Compromise Assessments inspector"
+            eyebrow="Create"
+            heading={
+              draftMode === "follow_on"
+                ? "Append follow-on assessment"
+                : "Append assessment"
+            }
+            mode="creation"
+            noRowHeading="Append assessment"
+            subject={inspectorSubjectPresentation}
+            testId={assessmentCreatePanelTestId()}
+            viewSchemaId={assessmentsViewSchemaId}
+            onClose={cancelAssessmentDraft}
           >
-            <div style={inspectorHeaderStyle}>
-              <div style={inspectorTitleRowStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Create</p>
-                  <h2 style={inspectorTitleStyle}>
-                    {draftMode === "follow_on"
-                      ? "Append follow-on assessment"
-                      : "Append assessment"}
-                  </h2>
-                </div>
-                <button
-                  aria-label="Close inspector"
-                  data-testid={workbookInspectorCloseButtonTestId(
-                    assessmentsViewSchemaId,
-                  )}
-                  style={inspectorCloseButtonStyle}
-                  type="button"
-                  onClick={cancelAssessmentDraft}
-                >
-                  <X aria-hidden="true" size={16} />
-                </button>
-              </div>
-            </div>
             {inspectorConfig.panels.map((panel) => (
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
-                currentIncidentRole={currentIncidentRole}
-                disabledTokens={assessmentInspectorDisabledTokens}
                 key={panel.panelId}
                 panelId={panel.panelId}
-                subjectRecordId={selectedAssessment?.record_id ?? null}
-                subjectRowVersion={selectedAssessment?.row_version ?? null}
-                onFeatureAction={beginAssessmentFeatureAction}
               >
+                {inspectorSubjectPresentation === null ? null : (
+                  <WorkbookInspectorContextualActions
+                    config={inspectorConfig}
+                    currentIncidentRole={currentIncidentRole}
+                    disabledTokens={assessmentInspectorDisabledTokens}
+                    featureGroups={inspectorConfig.featureGroups.filter(
+                      (featureGroup) =>
+                        featureGroup.panelId === panel.panelId &&
+                        (featureGroup.routeBinding.kind === "view_row_create" ||
+                          (featureGroup.routeBinding.kind === "record_action" &&
+                            featureGroup.routeBinding.owner ===
+                              "record_delete_route")),
+                    )}
+                    subject={inspectorSubjectPresentation}
+                    onAction={beginAssessmentFeatureAction}
+                  />
+                )}
                 {panel.panelId === "relationships" &&
                 selectedAssessment !== null ? (
                   <p style={bodyStyle}>
@@ -773,11 +782,11 @@ export function AssessmentWorkbookSurface({
                   data-testid={assessmentCreateControlTestId("message")}
                   style={bodyStyle}
                 >
-                  {message}
+                  {workbookInspectorSafePublicMessage(message)}
                 </p>
               ) : null}
             </div>
-          </aside>
+          </WorkbookInspectorShell>
         ) : undefined
       }
       onRequestInspectorClose={cancelAssessmentDraft}
@@ -875,14 +884,6 @@ export function AssessmentWorkbookSurface({
   );
 }
 
-const eyebrowStyle = {
-  margin: 0,
-  fontSize: "0.78rem",
-  letterSpacing: "0.12em",
-  textTransform: "uppercase" as const,
-  color: "var(--ct-colors-accent)",
-};
-
 const bodyStyle = {
   margin: 0,
   lineHeight: 1.5,
@@ -931,41 +932,6 @@ const labelStyle = {
   gap: "0.4rem",
   fontSize: "0.95rem",
   color: "var(--ct-colors-ink-muted)",
-};
-
-const inspectorShellStyle = {
-  ...workbookSurfaceInspectorPanelStyle,
-};
-
-const inspectorHeaderStyle = {
-  display: "grid",
-  gap: "0.35rem",
-  marginBottom: "1rem",
-};
-
-const inspectorTitleRowStyle = {
-  display: "flex",
-  alignItems: "start",
-  justifyContent: "space-between",
-  gap: "1rem",
-};
-
-const inspectorCloseButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "1.9rem",
-  height: "1.9rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "transparent",
-  color: "var(--ct-colors-ink-muted)",
-  cursor: "pointer",
-};
-
-const inspectorTitleStyle = {
-  margin: 0,
-  fontSize: "1.25rem",
 };
 
 const inspectorSectionStyle = {

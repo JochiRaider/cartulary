@@ -96,6 +96,7 @@ export function useTimelineWorkbookPresentation({
     snapshot: {
       chromeMode,
       density,
+      incidentClosed,
       interactionMode,
       showStatusPresence,
       state: layoutState,
@@ -445,7 +446,7 @@ export function useTimelineWorkbookPresentation({
           canManageMentions,
           currentHistoryDeleted,
           currentIncidentRole,
-          incidentClosed: interactionMode.kind === "read_only",
+          incidentClosed,
           currentHistoryRecordId,
           entityIndex,
           getRelationshipLabel: timelineRelationshipLabel,

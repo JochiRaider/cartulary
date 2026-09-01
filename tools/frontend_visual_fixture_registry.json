@@ -197,6 +197,98 @@
       ]
     },
     {
+      "fixture_id": "visual.fixture.inspector_narrow_technical_details",
+      "fixture_title": "Narrow inspector technical details and disabled reason",
+      "status": "current",
+      "playwright_scenario_title": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png"
+      ],
+      "seed_id": "visual.seed.inspector_narrow_technical_details",
+      "viewport_css_px": "1024x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "cell",
+        "anchor": "selected-timeline-inspector-subject"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Technical details are open and a role-disabled contextual action has visible aria-described reason text."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No grid or inspector editor is active."
+      },
+      "inspector_state": {
+        "kind": "open_right_overlay",
+        "description": "The narrow inspector overlays an inert grid while preserving internal scrolling and long technical-value wrapping."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea"
+      ]
+    },
+    {
+      "fixture_id": "visual.fixture.inspector_compact_actions",
+      "fixture_title": "Compact full-overlay inspector actions",
+      "status": "current",
+      "playwright_scenario_title": "Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png"
+      ],
+      "seed_id": "visual.seed.inspector_compact_actions",
+      "viewport_css_px": "768x640",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "cell",
+        "anchor": "selected-timeline-workflow-actions"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "The compact full-overlay inspector is scrolled through every required workflow action before capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No grid or inspector editor is active."
+      },
+      "inspector_state": {
+        "kind": "open_full_overlay",
+        "description": "The compact inspector fully overlays an inert grid and keeps all contextual actions reachable by internal scrolling."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea"
+      ]
+    },
+    {
       "fixture_id": "visual.fixture.default_timeline_workbook_shell",
       "fixture_title": "Default Timeline workbook shell",
       "design_contract_id": "D-VFIX-001",

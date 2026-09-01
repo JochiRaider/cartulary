@@ -9,7 +9,6 @@ import {
   inputStyle,
   inspectorSectionStyle,
   labelStyle,
-  sectionTitleStyle,
 } from "./TimelineWorkbookStyles";
 
 type TimelineEvidenceCountDisplay = {
@@ -57,7 +56,6 @@ export function TimelineEvidencePanel({
       }}
     >
       <div data-testid={timelineEvidenceAttachSectionTestId(recordId)}>
-        <h3 style={sectionTitleStyle}>Evidence</h3>
         <p style={bodyStyle}>
           Attached evidence count: {countDisplay.displayCount}
         </p>

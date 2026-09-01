@@ -326,8 +326,14 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     );
 
     expect(
-      (await screen.findByTestId(timelineInspectorTestId())).textContent,
-    ).toContain("no_row_selected");
+      (await screen.findByTestId(timelineInspectorTestId())).getAttribute(
+        "data-inspector-state",
+      ),
+    ).toBe("no_row_selected");
+    expect(
+      screen.getByText("Select a saved row to inspect its details."),
+    ).toBeTruthy();
+    expect(screen.queryByText("no_row_selected")).toBeNull();
     expect(
       screen.queryByTestId(timelineInspectorSectionTestId("evidence")),
     ).toBeNull();
@@ -612,15 +618,13 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ),
     ).toBeTruthy();
     expect(
-      screen
-        .getByTestId(
-          workbookInspectorFeatureActionTestId(
-            timelineViewSchemaId,
-            "timeline.mark_reviewed",
-          ),
-        )
-        .getAttribute("data-route-owner"),
-    ).toBe("record_mark_reviewed_route");
+      screen.queryByTestId(
+        workbookInspectorFeatureActionTestId(
+          timelineViewSchemaId,
+          "timeline.mark_reviewed",
+        ),
+      ),
+    ).toBeNull();
     expect(
       screen
         .getByTestId(

@@ -656,6 +656,7 @@ function WorkbookShellContent({
       onResetColumns: activeLayoutControls.onResetColumns,
     },
     columnState: activeLayoutState,
+    incidentClosed: incidentIdentity?.status === "closed",
     interactionMode,
     viewSchemaId: surface,
   });

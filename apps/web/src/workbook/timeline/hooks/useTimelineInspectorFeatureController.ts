@@ -69,9 +69,7 @@ export function useTimelineInspectorFeatureController({
       }
       if (resolution.kind === "panel_owned") {
         cancelCreateRelatedWorkflow();
-        setInspectorMessage(
-          `${resolution.featureGroup.label}: use the controls in this inspector section.`,
-        );
+        setInspectorMessage(null);
         return;
       }
       cancelCreateRelatedWorkflow();

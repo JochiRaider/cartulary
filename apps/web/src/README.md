@@ -289,7 +289,7 @@ workflow logic.
 | `workbook/components/WorkbookConflictResolver.tsx` | Common typed conflict resolver and recovery presentation for every writable Base renderer. |
 | `workbook/components/WorkbookGridEditorControl.tsx` | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
 | `workbook/components/WorkbookGridControls.tsx` | Reusable workbook grid filter/sort/grouping control shell. |
-| `workbook/components/WorkbookInspectorFeatureGroups.tsx` | Inspector feature-group renderer and disabled-state presentation helpers. |
+| `workbook/inspector/presentation/` | Stateless inspector shell, section, semantic action, history, confirmation, and technical-detail presentation. |
 | `workbook/components/WorkbookPresenceMarkers.tsx` | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
 | `workbook/components/WorkbookRelationshipChip.tsx` | Shared relationship-chip presentation over an explicit label, state, detail, selector identity, selection, and command model. |
 | `workbook/components/WorkbookViewBar.tsx` | Shared saved-view, query, inspector, and create control composition. |

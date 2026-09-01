@@ -22,6 +22,16 @@ import {
   type RecordHistoryItem,
   type RecordHistoryRollbackAction,
 } from "../timeline/models/timelineHistoryModel";
+import {
+  WorkbookHistoryEvent,
+  WorkbookHistoryList,
+} from "./presentation/WorkbookHistoryPresentation";
+import {
+  WorkbookInspectorConfirmation,
+  WorkbookInspectorPublicError,
+  WorkbookInspectorTechnicalDetails,
+} from "./presentation/WorkbookInspectorPresentation";
+import type { WorkbookHistoryEventPresentation } from "./presentation/workbookInspectorPresentationModel";
 
 type HistorySubject = {
   readonly recordId: string;
@@ -146,10 +156,12 @@ export function WorkbookInspectorRecordHistory({
   if (subject === null) return null;
   return (
     <section data-testid={rowHistoryPanelTestId()} style={panelStyle}>
-      <h4 style={titleStyle}>Row history</h4>
-      <p style={metadataStyle}>
-        Record <code>{subject.recordId}</code>
-      </p>
+      <WorkbookInspectorTechnicalDetails
+        fields={[
+          { label: "Record ID", value: subject.recordId },
+          { label: "Row version", value: String(subject.rowVersion) },
+        ]}
+      />
       {status === "idle" ? (
         <button type="button" onClick={openHistory}>
           Open history
@@ -161,111 +173,116 @@ export function WorkbookInspectorRecordHistory({
         </p>
       ) : null}
       {message !== null ? (
-        <p
-          aria-live="assertive"
-          data-testid={rowHistoryMessageTestId()}
-          role="alert"
-          style={errorStyle}
-        >
-          {message}
-        </p>
+        <WorkbookInspectorPublicError
+          message={message}
+          testId={rowHistoryMessageTestId()}
+        />
       ) : null}
       {data === null ? null : (
-        <ol style={listStyle}>
-          {data.items.map((item) => (
-            <li
-              data-testid={rowHistoryItemTestId({
-                historyItemRef: item.history_item_ref,
-              })}
-              key={item.history_item_ref}
-              style={itemStyle}
-            >
-              <strong>{item.operation}</strong>
-              <time dateTime={item.committed_at}>{item.committed_at}</time>
-              <span>{item.diff_summary.summary}</span>
-              <div style={actionsStyle}>
-                {item.available_rollback_actions.map((action) => (
-                  <button
-                    data-testid={rowHistoryActionTestId({
-                      action,
-                      historyItemRef: item.history_item_ref,
-                    })}
-                    disabled={!canMutate}
-                    key={action}
-                    type="button"
-                    onClick={() => {
-                      const target = buildRecordRollbackTargetFromHistoryAction(
-                        item,
-                        action,
-                      );
-                      if (target === null) return;
-                      setPending({
-                        action,
-                        historyItemRef: item.history_item_ref,
-                        recordId: data.record_id,
-                        rowVersion: data.row_version,
-                        target,
-                      });
-                    }}
-                  >
-                    {rollbackLabel(item, action)}
-                  </button>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ol>
+        <WorkbookHistoryList>
+          {data.items.map((item) => {
+            const event = recordHistoryEventPresentation(item);
+            return (
+              <WorkbookHistoryEvent
+                actions={
+                  <div style={actionsStyle}>
+                    {item.available_rollback_actions.map((action) => (
+                      <button
+                        data-testid={rowHistoryActionTestId({
+                          action,
+                          historyItemRef: item.history_item_ref,
+                        })}
+                        disabled={!canMutate}
+                        key={action}
+                        type="button"
+                        onClick={() => {
+                          const target =
+                            buildRecordRollbackTargetFromHistoryAction(
+                              item,
+                              action,
+                            );
+                          if (target === null) return;
+                          setPending({
+                            action,
+                            historyItemRef: item.history_item_ref,
+                            recordId: data.record_id,
+                            rowVersion: data.row_version,
+                            target,
+                          });
+                        }}
+                      >
+                        {rollbackLabel(action)}
+                      </button>
+                    ))}
+                  </div>
+                }
+                event={event}
+                key={event.key}
+                testId={rowHistoryItemTestId({
+                  historyItemRef: item.history_item_ref,
+                })}
+              />
+            );
+          })}
+        </WorkbookHistoryList>
       )}
       {pending === null ? null : (
-        <div
-          aria-label="Rollback preview"
-          aria-modal="true"
-          data-testid={rowHistoryRollbackPreviewTestId({
+        <WorkbookInspectorConfirmation
+          cancelTestId={rowHistoryRollbackCancelButtonTestId({
             action: pending.action,
             historyItemRef: pending.historyItemRef,
           })}
-          role="alertdialog"
-          style={confirmationStyle}
-        >
-          <p style={metadataStyle}>
-            Confirm {pending.action} rollback for record{" "}
-            <code>{pending.recordId}</code> at row version {pending.rowVersion}.
-          </p>
-          <div style={actionsStyle}>
-            <button
-              data-testid={rowHistoryRollbackConfirmButtonTestId({
-                action: pending.action,
-                historyItemRef: pending.historyItemRef,
-              })}
-              type="button"
-              onClick={() => void confirmRollback()}
-            >
-              Confirm rollback
-            </button>
-            <button
-              data-testid={rowHistoryRollbackCancelButtonTestId({
-                action: pending.action,
-                historyItemRef: pending.historyItemRef,
-              })}
-              type="button"
-              onClick={() => setPending(null)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+          confirmLabel="Confirm rollback"
+          confirmTestId={rowHistoryRollbackConfirmButtonTestId({
+            action: pending.action,
+            historyItemRef: pending.historyItemRef,
+          })}
+          operation={`${rollbackLabel(pending.action)} rollback`}
+          subject="this history state"
+          technicalFields={[
+            { label: "Record ID", value: pending.recordId },
+            { label: "Row version", value: String(pending.rowVersion) },
+            { label: "History item", value: pending.historyItemRef },
+          ]}
+          testId={rowHistoryRollbackPreviewTestId({
+            action: pending.action,
+            historyItemRef: pending.historyItemRef,
+          })}
+          onCancel={() => setPending(null)}
+          onConfirm={() => void confirmRollback()}
+        />
       )}
     </section>
   );
 }
 
-function rollbackLabel(
-  _item: RecordHistoryItem,
-  action: RecordHistoryRollbackAction,
-): string {
+function rollbackLabel(action: RecordHistoryRollbackAction): string {
   if (action === "history_entry") return "Rollback entry";
   if (action === "change_set") return "Rollback change set";
   return "Restore row fields";
+}
+
+function recordHistoryEventPresentation(
+  item: RecordHistoryItem,
+): WorkbookHistoryEventPresentation {
+  return {
+    actorLabel: item.actor_user_id,
+    committedAt: item.committed_at,
+    key: item.history_item_ref,
+    operation: item.operation,
+    summary: item.diff_summary.summary,
+    technicalFields: [
+      { label: "Actor ID", value: item.actor_user_id },
+      { label: "History reference", value: item.history_item_ref },
+      { label: "Change set ID", value: item.change_set_id },
+      ...(item.history_entry_ref === undefined
+        ? []
+        : [{ label: "History entry", value: item.history_entry_ref }]),
+      ...(item.revision_no === undefined
+        ? []
+        : [{ label: "Revision", value: String(item.revision_no) }]),
+    ],
+  };
 }
 
 const panelStyle = {
@@ -273,38 +290,13 @@ const panelStyle = {
   gap: "0.6rem",
   paddingBlock: "0.5rem",
 } satisfies CSSProperties;
-const titleStyle = { margin: 0 } satisfies CSSProperties;
 const metadataStyle = {
   color: "var(--ct-colors-ink-muted)",
   margin: 0,
   overflowWrap: "anywhere",
 } satisfies CSSProperties;
-const errorStyle = {
-  color: "var(--ct-colors-semantic-conflict)",
-  fontWeight: 700,
-  margin: 0,
-} satisfies CSSProperties;
-const listStyle = {
-  display: "grid",
-  gap: "0.5rem",
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-} satisfies CSSProperties;
-const itemStyle = {
-  border: "var(--ct-border-hairline)",
-  display: "grid",
-  gap: "0.35rem",
-  padding: "var(--ct-spacing-sm)",
-} satisfies CSSProperties;
 const actionsStyle = {
   display: "flex",
   flexWrap: "wrap",
   gap: "0.4rem",
-} satisfies CSSProperties;
-const confirmationStyle = {
-  border: "var(--ct-border-focus)",
-  display: "grid",
-  gap: "0.5rem",
-  padding: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;

@@ -2956,6 +2956,11 @@ describe("WorkbookShell surface selection", () => {
       "00000000-0000-4000-8000-000000000901",
     ]);
     fireEvent.click(
+      screen.getByTestId(
+        rowCellTestId("00000000-0000-4000-8000-000000000901", "task.title"),
+      ),
+    );
+    fireEvent.click(
       await screen.findByTestId(
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),
       ),
@@ -3049,6 +3054,11 @@ describe("WorkbookShell surface selection", () => {
     await expectRecordIds(taskRequestsViewSchemaId, [
       "00000000-0000-4000-8000-000000000901",
     ]);
+    fireEvent.click(
+      screen.getByTestId(
+        rowCellTestId("00000000-0000-4000-8000-000000000901", "task.title"),
+      ),
+    );
     fireEvent.click(
       await screen.findByTestId(
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),

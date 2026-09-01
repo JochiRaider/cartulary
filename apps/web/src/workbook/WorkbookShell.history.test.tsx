@@ -309,7 +309,7 @@ describe("workbook history support coverage", () => {
 
     await screen.findByTestId(rowHistoryLoadingTestId());
     expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
-      "Record 20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000002",
     );
     expect(screen.queryByTestId(historyItemTestId(record1History))).toBeNull();
     expect(
@@ -754,11 +754,11 @@ describe("workbook history support coverage", () => {
       ]);
     });
     expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
-      "Record 20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000001",
     );
     expect(
       screen.getByTestId(rowHistoryPanelTestId()).textContent,
-    ).not.toContain("Record 20000000-0000-4000-8000-000000000002");
+    ).not.toContain("20000000-0000-4000-8000-000000000002");
     const deleteCallIndex = fetchMock.mock.calls.findIndex(
       ([url, init]) =>
         String(url).endsWith(

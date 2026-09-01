@@ -39,6 +39,7 @@ export type WorkbookSurfaceLayoutOwner = {
   readonly snapshot: {
     readonly chromeMode: WorkbookChromeMode;
     readonly density: GridDensity;
+    readonly incidentClosed: boolean;
     readonly interactionMode: GridInteractionMode;
     readonly showStatusPresence: boolean;
     readonly state: WorkbookResolvedLayoutState;
@@ -49,12 +50,14 @@ export function useWorkbookLayoutFacade({
   accountDensityMode,
   columnCommands,
   columnState,
+  incidentClosed,
   interactionMode,
   viewSchemaId,
 }: {
   readonly accountDensityMode: AccountDensityMode | undefined;
   readonly columnCommands: WorkbookSurfaceLayoutOwner["commands"];
   readonly columnState: WorkbookResolvedLayoutState;
+  readonly incidentClosed: boolean;
   readonly interactionMode: GridInteractionMode;
   readonly viewSchemaId: string;
 }): WorkbookLayoutFacade {
@@ -77,6 +80,7 @@ export function useWorkbookLayoutFacade({
       snapshot: {
         chromeMode: responsive.chromeMode,
         density,
+        incidentClosed,
         interactionMode,
         showStatusPresence:
           responsive.chromeMode === "compact_desktop" ||

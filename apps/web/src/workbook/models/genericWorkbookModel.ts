@@ -511,6 +511,25 @@ export function genericRowLabel(
   contract: ViewContract,
   row: WorkbookQueryRow,
 ): string {
+  const humanLabel = genericPreferredRowLabel(contract, row);
+  return humanLabel === null
+    ? row.record_id
+    : `${humanLabel} (${row.record_id})`;
+}
+
+export function genericInspectorRowLabel(
+  contract: ViewContract,
+  row: WorkbookQueryRow,
+): string {
+  return (
+    genericPreferredRowLabel(contract, row) ?? `Selected ${contract.title} row`
+  );
+}
+
+function genericPreferredRowLabel(
+  contract: ViewContract,
+  row: WorkbookQueryRow,
+): string | null {
   const preferredFieldKeys = [
     "timeline.activity_synopsis_text",
     "host.display_name",
@@ -522,6 +541,7 @@ export function genericRowLabel(
     "decision.summary",
     "evidence.title",
     "evidence.storage_ref",
+    "assessment.rationale",
     "note.title",
     "note.body",
     "comm_log.summary",
@@ -539,10 +559,10 @@ export function genericRowLabel(
     }
     const label = stringifyGridValue(row.cells[fieldKey]?.value).trim();
     if (label !== "") {
-      return `${label} (${row.record_id})`;
+      return label;
     }
   }
-  return row.record_id;
+  return null;
 }
 
 export function genericCollectionSupportsRemove(_fieldKey: string): boolean {

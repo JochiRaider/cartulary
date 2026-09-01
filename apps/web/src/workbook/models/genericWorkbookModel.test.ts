@@ -14,6 +14,7 @@ import {
   genericCollectionItems,
   genericContractColumnWidth,
   genericCreateMinimumMessage,
+  genericInspectorRowLabel,
   genericReferenceOptionsFromRows,
   genericRowLabel,
   initialGenericCreateDraft,
@@ -438,6 +439,7 @@ describe("genericWorkbookModel", () => {
     expect(genericRowLabel(evidence, row)).toBe(
       "Endpoint package (evidence-1)",
     );
+    expect(genericInspectorRowLabel(evidence, row)).toBe("Endpoint package");
     expect(
       genericReferenceOptionsFromRows(evidenceViewSchemaId, [row]),
     ).toEqual([

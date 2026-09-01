@@ -30,7 +30,6 @@ import {
   gridShellTestId,
   timelinePreviewRowTestId,
   workbookInlineDraftRowTestId,
-  workbookInspectorCloseButtonTestId,
   workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
 import {
@@ -60,6 +59,16 @@ import type {
 import { useEntityMergeController } from "../features/entities/useEntityMergeController";
 import { useEntityTimelinePreview } from "../hooks/useEntityTimelinePreview";
 import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
+import {
+  WorkbookInspectorContextualActions,
+  WorkbookInspectorPanelSection,
+  WorkbookInspectorShell,
+} from "../inspector/presentation/WorkbookInspectorPresentation";
+import {
+  type WorkbookInspectorSubjectPresentation,
+  workbookInspectorSafePublicMessage,
+} from "../inspector/presentation/workbookInspectorPresentationModel";
+import type { InspectorDisabledToken } from "../inspector/semanticInspectorDispatcher";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
@@ -67,7 +76,6 @@ import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFaca
 import {
   WorkbookSurfaceLayout,
   workbookSurfaceGridShellStyle,
-  workbookSurfaceInspectorPanelStyle,
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
@@ -94,7 +102,6 @@ import {
   workbookGridDataState,
 } from "../models/workbookGridState";
 import {
-  inspectorNoRowState,
   inspectorPanelIsDeclared,
   selectInspectorConfig,
 } from "../models/workbookInspectorModel";
@@ -117,10 +124,6 @@ import { timelineRelationshipChipPresentation } from "../timeline/models/workboo
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { GenericMutationControl } from "./GenericMutationControl";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
-import {
-  type InspectorDisabledToken,
-  WorkbookInspectorPanelSection,
-} from "./WorkbookInspectorFeatureGroups";
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookRelationshipChip } from "./WorkbookRelationshipChip";
 import {
@@ -228,6 +231,7 @@ export function EntityWorkbookSurface({
     snapshot: {
       chromeMode,
       density,
+      incidentClosed,
       interactionMode,
       showStatusPresence,
       state: layoutState,
@@ -282,12 +286,11 @@ export function EntityWorkbookSurface({
     tokens.add("rollback_target_unavailable");
     tokens.add("pivot_target_unavailable");
     if (rows.length < 2) tokens.add("merge_target_unavailable");
-    if (interactionMode.kind === "read_only") tokens.add("incident_closed");
+    if (incidentClosed) tokens.add("incident_closed");
     return tokens;
-  }, [interactionMode.kind, rows.length, selectedEntity]);
+  }, [incidentClosed, rows.length, selectedEntity]);
   const canMerge =
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
-  const survivorLabel = selectedEntity?.label ?? "Select a record";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
   const inspectorConfig = selectInspectorConfig(contract);
   const inspector = useWorkbookInspectorCoordinator({
@@ -1039,92 +1042,60 @@ export function EntityWorkbookSurface({
     }
   }
 
+  const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
+    selectedEntity === null
+      ? null
+      : {
+          label: selectedEntity.label,
+          recordId: selectedEntity.recordId,
+          rowVersion: selectedEntity.rowVersion,
+          stateLabel: selectedEntity.state,
+          surfaceLabel: contract.title,
+        };
+
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
         isInspectorOpen ? (
-          <aside
-            data-inspector-state={
-              selectedEntity === undefined ? "no_row_selected" : "ready"
-            }
-            data-record-id={selectedEntity?.recordId}
-            data-row-version={selectedEntity?.rowVersion}
-            data-testid={entityInspectorTestId(entityType)}
-            data-view-schema-id={contract.viewSchemaId}
-            style={inspectorShellStyle}
+          <WorkbookInspectorShell
+            accessibleLabel={`${contract.title} inspector`}
+            noRowHeading={`${contract.title} inspector`}
+            subject={inspectorSubjectPresentation}
+            testId={entityInspectorTestId(entityType)}
+            viewSchemaId={contract.viewSchemaId}
+            onClose={() => {
+              inspector.commands.close({ restoreFocus: true });
+            }}
           >
-            <div style={inspectorHeaderStyle}>
-              <div style={inspectorTitleRowStyle}>
-                <div>
-                  <p style={eyebrowStyle}>Inspector</p>
-                  <h2 style={inspectorTitleStyle}>{survivorLabel}</h2>
-                </div>
-                <button
-                  aria-label="Close inspector"
-                  data-testid={workbookInspectorCloseButtonTestId(surface)}
-                  style={inspectorCloseButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    inspector.commands.close({ restoreFocus: true });
-                  }}
-                >
-                  <X aria-hidden="true" size={16} />
-                </button>
-              </div>
-              <p style={bodyStyle}>
-                Merge review stays inside the workbook shell.
-              </p>
-            </div>
             {inspectorConfig.panels.map((panel) => (
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
-                currentIncidentRole={currentIncidentRole}
-                disabledTokens={entityInspectorDisabledTokens}
                 key={panel.panelId}
                 panelId={panel.panelId}
-                subjectRecordId={selectedEntity?.recordId ?? null}
-                subjectRowVersion={selectedEntity?.rowVersion ?? null}
-                onFeatureAction={(featureGroup) => {
-                  if (createRelatedWorkflow.commands.begin(featureGroup)) {
-                    return;
-                  }
-                  if (featureGroup.routeBinding.kind === "record_action") {
-                    void executeEntityRecordLifecycle(featureGroup).then(
-                      (handled) => {
-                        if (!handled) {
-                          setEntityActionMessage(
-                            `${featureGroup.label}: use the owner controls in this inspector section.`,
-                          );
-                        }
-                      },
-                    );
-                    return;
-                  }
-                  if (featureGroup.routeBinding.kind === "record_patch") {
-                    if (selectedEntity !== null) {
-                      setEditRecordId(selectedEntity.recordId);
-                    }
-                    const actionField = contract.fields.find(
-                      (field) =>
-                        field.writeAction ===
-                        featureGroup.routeBinding.actionKey,
-                    );
-                    if (actionField !== undefined) {
-                      setEditFieldKey(actionField.fieldKey);
-                    }
-                    setEntityActionMessage(
-                      `${featureGroup.label}: the selected row edit controls are ready below.`,
-                    );
-                    return;
-                  }
-                  setEntityActionMessage(
-                    featureGroup.featureGroupKey === "entity.merge"
-                      ? "Use the merge review controls below."
-                      : `${featureGroup.label}: use the owner controls in this inspector section.`,
-                  );
-                }}
               >
+                {inspectorSubjectPresentation === null ? null : (
+                  <WorkbookInspectorContextualActions
+                    config={inspectorConfig}
+                    currentIncidentRole={currentIncidentRole}
+                    disabledTokens={entityInspectorDisabledTokens}
+                    featureGroups={inspectorConfig.featureGroups.filter(
+                      (featureGroup) =>
+                        featureGroup.panelId === panel.panelId &&
+                        (featureGroup.routeBinding.kind === "view_row_create" ||
+                          (featureGroup.routeBinding.kind === "record_action" &&
+                            featureGroup.routeBinding.owner ===
+                              "record_delete_route")),
+                    )}
+                    subject={inspectorSubjectPresentation}
+                    onAction={(featureGroup) => {
+                      if (createRelatedWorkflow.commands.begin(featureGroup)) {
+                        return;
+                      }
+                      void executeEntityRecordLifecycle(featureGroup);
+                    }}
+                  />
+                )}
                 {createRelatedWorkflow.snapshot.workflow?.featureGroup
                   .panelId === panel.panelId ? (
                   <InspectorCreateRelatedWorkflow
@@ -1232,7 +1203,9 @@ export function EntityWorkbookSurface({
                   </button>
                 </div>
                 {mutationError ? (
-                  <p style={bodyStyle}>{mutationError}</p>
+                  <p style={bodyStyle}>
+                    {workbookInspectorSafePublicMessage(mutationError)}
+                  </p>
                 ) : null}
               </section>
             ) : null}
@@ -1491,7 +1464,9 @@ export function EntityWorkbookSurface({
                       data-testid={entityMergeControlTestId("message")}
                       style={bodyStyle}
                     >
-                      {presentedEntityActionMessage}
+                      {workbookInspectorSafePublicMessage(
+                        presentedEntityActionMessage,
+                      )}
                     </p>
                     {mergePreconditionDetails.length > 0 ? (
                       <ul
@@ -1511,10 +1486,8 @@ export function EntityWorkbookSurface({
                   </div>
                 ) : null}
               </>
-            ) : (
-              <p style={bodyStyle}>{inspectorNoRowState(inspectorConfig)}</p>
-            )}
-          </aside>
+            ) : null}
+          </WorkbookInspectorShell>
         ) : undefined
       }
       onRequestInspectorClose={() => {
@@ -1601,14 +1574,6 @@ export function EntityWorkbookSurface({
   );
 }
 
-const eyebrowStyle = {
-  margin: 0,
-  fontSize: "0.78rem",
-  letterSpacing: "0.12em",
-  textTransform: "uppercase" as const,
-  color: "var(--ct-colors-accent)",
-};
-
 const bodyStyle = {
   margin: 0,
   lineHeight: 1.5,
@@ -1669,41 +1634,6 @@ const labelStyle = {
   gap: "0.4rem",
   fontSize: "0.95rem",
   color: "var(--ct-colors-ink-muted)",
-};
-
-const inspectorShellStyle = {
-  ...workbookSurfaceInspectorPanelStyle,
-};
-
-const inspectorHeaderStyle = {
-  display: "grid",
-  gap: "0.35rem",
-  marginBottom: "1rem",
-};
-
-const inspectorTitleRowStyle = {
-  display: "flex",
-  alignItems: "start",
-  justifyContent: "space-between",
-  gap: "1rem",
-};
-
-const inspectorCloseButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "1.9rem",
-  height: "1.9rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "transparent",
-  color: "var(--ct-colors-ink-muted)",
-  cursor: "pointer",
-};
-
-const inspectorTitleStyle = {
-  margin: 0,
-  fontSize: "1.25rem",
 };
 
 const inspectorSectionStyle = {

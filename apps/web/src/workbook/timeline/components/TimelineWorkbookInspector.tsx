@@ -1,21 +1,24 @@
 import {
   timelineInspectorMessageTestId,
   timelineInspectorTestId,
-  workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
 import type {
   InspectorConfig,
   InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
-import { X } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import {
-  type InspectorDisabledToken,
+  WorkbookInspectorContextualActions,
   WorkbookInspectorPanelSection,
-} from "../../components/WorkbookInspectorFeatureGroups";
-import { inspectorNoRowState } from "../../models/workbookInspectorModel";
+  WorkbookInspectorShell,
+} from "../../inspector/presentation/WorkbookInspectorPresentation";
+import {
+  type WorkbookInspectorSubjectPresentation,
+  workbookInspectorSafePublicMessage,
+} from "../../inspector/presentation/workbookInspectorPresentationModel";
+import type { InspectorDisabledToken } from "../../inspector/semanticInspectorDispatcher";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
@@ -107,6 +110,27 @@ export function TimelineWorkbookInspector({
   if (incidentClosed) {
     disabledTokens.add("incident_closed");
   }
+  const subjectPresentation: WorkbookInspectorSubjectPresentation | null =
+    selectedRow?.recordId
+      ? {
+          label:
+            selectedRow.values.activitySynopsisText.trim() ||
+            "Selected timeline row",
+          recordId: selectedRow.recordId,
+          rowVersion: selectedRow.rowVersion,
+          surfaceLabel: "Timeline",
+        }
+      : currentHistoryDeleted &&
+          rowHistoryRecordId !== null &&
+          rowHistoryRowVersion !== null
+        ? {
+            label: "Deleted timeline row",
+            recordId: rowHistoryRecordId,
+            rowVersion: rowHistoryRowVersion,
+            stateLabel: "Deleted",
+            surfaceLabel: "Timeline",
+          }
+        : null;
   const renderPanel = (
     panelId: (typeof inspectorConfig.panels)[number]["panelId"],
   ) => {
@@ -157,44 +181,39 @@ export function TimelineWorkbookInspector({
     return (
       <WorkbookInspectorPanelSection
         config={inspectorConfig}
-        currentIncidentRole={currentIncidentRole}
-        disabledTokens={disabledTokens}
         key={panelId}
         panelId={panelId}
-        subjectRecordId={selectedRow?.recordId ?? rowHistoryRecordId}
-        subjectRowVersion={selectedRow?.rowVersion ?? rowHistoryRowVersion}
-        onFeatureAction={onFeatureAction}
       >
+        {subjectPresentation === null ? null : (
+          <WorkbookInspectorContextualActions
+            config={inspectorConfig}
+            currentIncidentRole={currentIncidentRole}
+            disabledTokens={disabledTokens}
+            featureGroups={inspectorConfig.featureGroups.filter(
+              (featureGroup) =>
+                featureGroup.panelId === panelId &&
+                (featureGroup.routeBinding.kind === "view_row_create" ||
+                  featureGroup.routeBinding.kind === "indicator_observations" ||
+                  featureGroup.routeBinding.kind === "indicator_lifecycle"),
+            )}
+            subject={subjectPresentation}
+            onAction={onFeatureAction}
+          />
+        )}
         {content}
         {supplement}
       </WorkbookInspectorPanelSection>
     );
   };
   return (
-    <aside
-      aria-label="Timeline inspector"
-      data-testid={timelineInspectorTestId()}
-      style={inspectorShellStyle}
+    <WorkbookInspectorShell
+      accessibleLabel="Timeline inspector"
+      noRowHeading="Timeline inspector"
+      subject={subjectPresentation}
+      testId={timelineInspectorTestId()}
+      viewSchemaId={timelineViewSchemaId}
+      onClose={onClose}
     >
-      <div style={inspectorHeaderStyle}>
-        <div style={inspectorTopRowStyle}>
-          <p style={eyebrowStyle}>Inspector</p>
-          <button
-            aria-label="Close inspector"
-            data-testid={workbookInspectorCloseButtonTestId(
-              timelineViewSchemaId,
-            )}
-            style={closeButtonStyle}
-            type="button"
-            onClick={onClose}
-          >
-            <X aria-hidden="true" size={16} />
-          </button>
-        </div>
-        <h2 style={inspectorTitleStyle}>
-          {inspectorTitle(selectedRow, currentHistoryDeleted)}
-        </h2>
-      </div>
       {selectedRow?.recordId ? (
         <>
           {inspectorConfig.panels.map((panel) => renderPanel(panel.panelId))}
@@ -208,86 +227,16 @@ export function TimelineWorkbookInspector({
           <InspectorMessage message={inspectorMessage} />
         </>
       ) : (
-        <>
-          <p style={bodyStyle}>{inspectorNoRowState(inspectorConfig)}</p>
-          <InspectorMessage message={inspectorMessage} />
-        </>
+        <InspectorMessage message={inspectorMessage} />
       )}
-    </aside>
+    </WorkbookInspectorShell>
   );
-}
-
-function inspectorTitle(
-  selectedRow: WorkbookRow | null,
-  currentHistoryDeleted: boolean,
-) {
-  if (selectedRow?.recordId) {
-    return (
-      selectedRow.values.activitySynopsisText.trim() || "Selected timeline row"
-    );
-  }
-  if (currentHistoryDeleted) {
-    return "Deleted timeline row";
-  }
-  return "no_row_selected";
 }
 
 function InspectorMessage({ message }: { readonly message: string | null }) {
   return message ? (
     <p data-testid={timelineInspectorMessageTestId()} style={bodyStyle}>
-      {message}
+      {workbookInspectorSafePublicMessage(message)}
     </p>
   ) : null;
 }
-
-const eyebrowStyle = {
-  margin: 0,
-  fontSize: "0.78rem",
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  color: "var(--ct-colors-accent)",
-} satisfies CSSProperties;
-
-const inspectorShellStyle = {
-  boxSizing: "border-box",
-  blockSize: "100%",
-  maxBlockSize: "100%",
-  borderRadius: "var(--ct-rounded-sm) 0 0 var(--ct-rounded-sm)",
-  border: "var(--ct-component-inspector-border)",
-  borderInlineEnd: 0,
-  background: "var(--ct-component-inspector-backgroundColor)",
-  color: "var(--ct-component-inspector-textColor)",
-  padding: "var(--ct-spacing-panel-padding)",
-  overflow: "auto",
-} satisfies CSSProperties;
-
-const inspectorHeaderStyle = {
-  display: "grid",
-  gap: "0.35rem",
-  marginBottom: "1rem",
-} satisfies CSSProperties;
-
-const inspectorTopRowStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.5rem",
-} satisfies CSSProperties;
-
-const inspectorTitleStyle = {
-  margin: 0,
-  fontSize: "1.25rem",
-} satisfies CSSProperties;
-
-const closeButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  inlineSize: "1.8rem",
-  blockSize: "1.8rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink-muted)",
-  cursor: "pointer",
-} satisfies CSSProperties;

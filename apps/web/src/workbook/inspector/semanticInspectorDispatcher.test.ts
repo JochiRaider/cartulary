@@ -13,12 +13,35 @@ import {
 describe("semantic inspector dispatcher", () => {
   it("resolves every current projected feature exactly once", () => {
     expect(assertCurrentInspectorDispatchCompleteness).not.toThrow();
-    const features = listViewContracts().flatMap((contract) =>
+    const contracts = listViewContracts();
+    const features = contracts.flatMap((contract) =>
       contract.inspectorConfig.featureGroups.map((featureGroup) =>
         semanticInspectorFeatureKey(contract.viewSchemaId, featureGroup),
       ),
     );
+    expect(contracts).toHaveLength(17);
+    expect(features).toHaveLength(247);
     expect(new Set(features).size).toBe(features.length);
+  });
+
+  it("classifies the complete current corpus without using presentation labels", () => {
+    const resolutions = listViewContracts().flatMap((contract) =>
+      contract.inspectorConfig.featureGroups.map((featureGroup) => ({
+        expectedKind:
+          featureGroup.routeBinding.kind === "panel_read"
+            ? "panel_read"
+            : "action",
+        resolution: resolveSemanticInspectorFeature(
+          contract.inspectorConfig,
+          featureGroup,
+        ),
+      })),
+    );
+
+    expect(resolutions).toHaveLength(247);
+    for (const { expectedKind, resolution } of resolutions) {
+      expect(resolution.kind).toBe(expectedKind);
+    }
   });
 
   it("omits an unknown additive feature instead of inferring from its label", () => {

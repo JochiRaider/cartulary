@@ -134,9 +134,12 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
   await page
     .getByTestId(mentionItemTestId(String(hostMention.item_ref)))
     .click();
-  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
-    "Raw token",
-  );
+  await expect(
+    page.getByTestId(mentionResolveTargetSelectTestId()),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(mentionResolveExistingButtonTestId()),
+  ).toBeVisible();
   await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "WS-023?",
   );
