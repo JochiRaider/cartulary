@@ -2,7 +2,12 @@ import { useCallback, useMemo } from "react";
 import { sheetRefKey } from "../../../shared/sheetRef";
 import { useIncidentMemberReferenceOptions } from "../../hooks/useOwnerReferenceOptions";
 import { workbookInspectorMessageFeedback } from "../../inspector/workbookInspectorErrorModel";
+import {
+  type WorkbookInspectorState,
+  workbookInspectorStateIsOpen,
+} from "../../models/workbookInspectorModel";
 import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineCreateRelatedWorkflow } from "../hooks/useTimelineCreateRelatedWorkflow";
 import { useTimelineEvidenceAttach } from "../hooks/useTimelineEvidenceAttach";
 import { useTimelineHistoryActions } from "../hooks/useTimelineHistoryActions";
@@ -60,6 +65,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     | "inspectorResetKey"
   >;
   readonly inspector: {
+    readonly elementRegistry: TimelineInspectorElementRegistry;
     readonly history: {
       readonly commands: Pick<
         HistoryInput,
@@ -85,16 +91,12 @@ type TimelineInspectorWorkflowCompositionInput = {
         readonly inspectorHistorySubject: HistoryInput["activeHistorySubject"];
       };
     };
-    readonly lifecycle: {
-      readonly invalidationCause: InspectorLifecycleInput["inspectorInvalidationCause"];
-      readonly invalidationGeneration: number;
-      readonly isOpen: boolean;
-    };
+    readonly lifecycle: WorkbookInspectorState;
     readonly selection: {
       readonly inspectorMentions: InspectorLifecycleInput["inspectorMentions"];
       readonly selectedRow: CreateRelatedInput["selectedRow"];
       readonly selectedRowId: InspectorLifecycleInput["selectedRowId"];
-      readonly selectedRowWorkflowSubject: CreateRelatedInput["selectedSubjectKey"];
+      readonly selectedRowWorkflowSubject: CreateRelatedInput["selectedSubject"];
     };
     readonly publishFeedback: CreateRelatedInput["setInspectorMessage"];
     readonly selectRow: InspectorLifecycleInput["setSelectedRowId"];
@@ -148,7 +150,7 @@ export function useTimelineInspectorWorkflowComposition({
     loadRows: mutation.loadRows,
     mutationCommands: mutationCommands.related,
     selectedRow: inspector.selection.selectedRow,
-    selectedSubjectKey: inspector.selection.selectedRowWorkflowSubject,
+    selectedSubject: inspector.selection.selectedRowWorkflowSubject,
     setInspectorMessage: inspector.publishFeedback,
     targetContracts: timelineCreateRelatedTargetContracts,
   });
@@ -159,9 +161,7 @@ export function useTimelineInspectorWorkflowComposition({
       authorizationKey: `${incident.currentRole ?? "none"}:${foundation.loadAccessLost}`,
       invalidationGeneration: inspector.lifecycle.invalidationGeneration,
       lifecycleKey: `${incident.inspectorResetKey}:${incident.continuityResetKey}`,
-      subjectKey: JSON.stringify(
-        inspector.selection.selectedRowWorkflowSubject,
-      ),
+      subject: inspector.selection.selectedRowWorkflowSubject,
       surfaceKey: sheetRefKey(activeSheetRef),
     },
     setInspectorMessage: inspector.publishFeedback,
@@ -184,6 +184,7 @@ export function useTimelineInspectorWorkflowComposition({
     [incidentMemberOptions],
   );
   const rowInteractions = useTimelineInspectorRowInteractions({
+    elementRegistry: inspector.elementRegistry,
     publishViewingPresence: mutation.publishViewingPresence,
     rows: foundation.rows,
     rowsRef: foundation.rowsRef,
@@ -297,7 +298,7 @@ export function useTimelineInspectorWorkflowComposition({
   useTimelineInspectorEscape({
     activeConflict: mutation.activeConflict,
     clearRowHistory: inspector.history.commands.clearRowHistory,
-    isInspectorOpen: inspector.lifecycle.isOpen,
+    isInspectorOpen: workbookInspectorStateIsOpen(inspector.lifecycle),
     restoreTimelineFocusAnchor: grid.restoreTimelineFocusAnchor,
     setInspectorMessage: inspector.publishFeedback,
     setIsInspectorOpen: inspector.setOpen,

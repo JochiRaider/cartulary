@@ -30,7 +30,7 @@ const initialLifecycle: TimelineInspectorFeatureLifecycle = {
   authorizationKey: "editor:authorized",
   invalidationGeneration: 0,
   lifecycleKey: "inspector-1:continuity-1",
-  subjectKey: "row-a:1",
+  subject: timelineSubject("row-a", 1),
   surfaceKey: "view_schema:cartulary.view.timeline.v2",
 };
 
@@ -93,7 +93,7 @@ describe("useTimelineInspectorFeatureController", () => {
     const { mocks, result } = controller({
       ...initialLifecycle,
       authorizationKey: "viewer:authorized",
-      subjectKey: "",
+      subject: null,
     });
     act(() => result.current.commands.handleFeatureAction(indicatorCapability));
     expect(result.current.snapshot.indicatorHandler).not.toBeNull();
@@ -116,8 +116,8 @@ describe("useTimelineInspectorFeatureController", () => {
   it("resets Indicator and generic workflows on subject, version, surface, lifecycle, and authorization changes", () => {
     const { mocks, rerender, result } = controller();
     const lifecycleChanges: readonly TimelineInspectorFeatureLifecycle[] = [
-      { ...initialLifecycle, subjectKey: "row-b:1" },
-      { ...initialLifecycle, subjectKey: "row-b:2" },
+      { ...initialLifecycle, subject: timelineSubject("row-b", 1) },
+      { ...initialLifecycle, subject: timelineSubject("row-b", 2) },
       { ...initialLifecycle, surfaceKey: "saved_view:saved-view-2" },
       {
         ...initialLifecycle,
@@ -141,6 +141,17 @@ describe("useTimelineInspectorFeatureController", () => {
     expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith(null);
   });
 });
+
+function timelineSubject(recordId: string, rowVersion: number) {
+  return {
+    kind: "live" as const,
+    label: "Timeline row",
+    recordId,
+    rowVersion,
+    surfaceLabel: "Timeline",
+    viewSchemaId: timelineViewSchemaId,
+  };
+}
 
 function requireTimelineFeature(
   featureGroupKey: string,

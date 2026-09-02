@@ -2,65 +2,27 @@ import type { ViewFieldContract } from "@cartulary/view-contracts";
 import type { CSSProperties, RefCallback } from "react";
 import {
   type GenericCollectionMode,
-  isMultilineGenericField,
   splitDraftValues,
 } from "../models/genericWorkbookModel";
+import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
 import {
-  type GenericReferenceOptions,
-  genericFieldUsesReferenceOptions,
-  referenceOptionsForField,
-} from "../models/workbookReferenceOptions";
+  type GenericMutationControlDescriptor,
+  type GenericMutationControlSurface,
+  resolveGenericMutationControl,
+} from "./genericMutationControlModel";
 
-function GenericMultiSelectControl({
-  ariaLabel,
-  id,
-  options,
-  focusTargetRef,
-  size,
-  style,
-  testId,
-  value,
-  onChange,
-}: {
-  readonly ariaLabel: string;
-  readonly id: string | undefined;
-  readonly options: readonly {
-    readonly label: string;
-    readonly value: string;
-  }[];
-  readonly focusTargetRef?: RefCallback<HTMLSelectElement> | undefined;
-  readonly size: number;
-  readonly style: CSSProperties;
+type GenericMutationControlRef = RefCallback<
+  HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+>;
+
+type GenericMutationControlElementProps = {
+  readonly descriptor: GenericMutationControlDescriptor;
+  readonly focusTargetRef?: GenericMutationControlRef | undefined;
+  readonly id?: string | undefined;
   readonly testId: string;
   readonly value: string;
   readonly onChange: (value: string) => void;
-}) {
-  return (
-    <select
-      aria-label={ariaLabel}
-      data-testid={testId}
-      id={id}
-      multiple
-      ref={focusTargetRef}
-      size={size}
-      style={style}
-      value={splitDraftValues(value)}
-      onChange={(event) => {
-        onChange(
-          Array.from(event.currentTarget.selectedOptions)
-            .map((option) => option.value)
-            .join("\n"),
-        );
-      }}
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  );
-}
+};
 
 export function GenericMutationControl({
   collectionItems = [],
@@ -74,204 +36,225 @@ export function GenericMutationControl({
   value,
   onChange,
 }: {
-  collectionItems?: Array<{ itemRef: string; displayText: string }>;
+  collectionItems?: readonly { itemRef: string; displayText: string }[];
   collectionMode: GenericCollectionMode;
   field: ViewFieldContract;
-  focusTargetRef?:
-    | RefCallback<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-    | undefined;
+  focusTargetRef?: GenericMutationControlRef | undefined;
   id?: string;
   referenceOptions: GenericReferenceOptions;
-  surface?: "form" | "grid";
+  surface?: GenericMutationControlSurface;
   testId: string;
   value: string;
   onChange: (value: string) => void;
 }) {
-  const controlLabel = `${field.label} value`;
-  const inputControlStyle = surface === "grid" ? gridInputStyle : inputStyle;
-  const textareaControlStyle =
-    surface === "grid" ? gridTextareaStyle : textareaStyle;
-  const selectControlStyle = surface === "grid" ? gridSelectStyle : selectStyle;
-  if (field.writeKind === "action_payload") {
-    if (collectionMode === "remove") {
-      return (
-        <GenericMultiSelectControl
-          ariaLabel={controlLabel}
-          id={id}
-          focusTargetRef={focusTargetRef}
-          options={collectionItems.map((item) => ({
-            label: item.displayText,
-            value: item.itemRef,
-          }))}
-          size={
-            surface === "grid"
-              ? 1
-              : Math.min(Math.max(collectionItems.length, 2), 6)
-          }
-          style={selectControlStyle}
-          testId={testId}
-          value={value}
-          onChange={onChange}
-        />
-      );
-    }
-
-    const options = referenceOptionsForField(field, referenceOptions);
-    if (genericFieldUsesReferenceOptions(field)) {
-      return (
-        <GenericMultiSelectControl
-          ariaLabel={controlLabel}
-          id={id}
-          focusTargetRef={focusTargetRef}
-          options={options.map((option) => ({
-            label: option.label,
-            value: option.recordId,
-          }))}
-          size={
-            surface === "grid" ? 1 : Math.min(Math.max(options.length, 2), 6)
-          }
-          style={selectControlStyle}
-          testId={testId}
-          value={value}
-          onChange={onChange}
-        />
-      );
-    }
-
-    return (
-      <textarea
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        ref={focusTargetRef}
-        rows={surface === "grid" ? 1 : 3}
-        style={textareaControlStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-    );
+  const descriptor = resolveGenericMutationControl({
+    collectionItems,
+    collectionMode,
+    field,
+    referenceOptions,
+    surface,
+  });
+  const props = {
+    descriptor,
+    focusTargetRef,
+    id,
+    testId,
+    value,
+    onChange,
+  };
+  switch (descriptor.kind) {
+    case "collection_removal":
+    case "collection_reference":
+      return <GenericMultiSelectControl {...props} descriptor={descriptor} />;
+    case "direct_reference":
+    case "enumerated_value":
+      return <GenericSingleSelectControl {...props} descriptor={descriptor} />;
+    case "boolean":
+      return <GenericBooleanControl {...props} descriptor={descriptor} />;
+    case "number":
+    case "text":
+      return <GenericTextInputControl {...props} descriptor={descriptor} />;
+    case "multiline_text":
+      return <GenericTextareaControl {...props} descriptor={descriptor} />;
   }
+}
 
-  const referenceChoices = referenceOptionsForField(field, referenceOptions);
-  if (genericFieldUsesReferenceOptions(field)) {
-    return (
-      <select
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        ref={focusTargetRef}
-        style={selectControlStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      >
-        <option value="">{field.clearable ? "None" : "Select"}</option>
-        {referenceChoices.map((option) => (
-          <option key={option.recordId} value={option.recordId}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (field.enumValues && field.enumValues.length > 0) {
-    return (
-      <select
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        ref={focusTargetRef}
-        style={selectControlStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      >
-        <option value="">Select</option>
-        {field.enumValues.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (field.readKind === "boolean") {
-    return (
-      <input
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        ref={focusTargetRef}
-        style={surface === "grid" ? gridCheckboxStyle : inputStyle}
-        type="checkbox"
-        checked={value === "true"}
-        onChange={(event) => {
-          onChange(event.target.checked ? "true" : "false");
-        }}
-      />
-    );
-  }
-
-  if (field.readKind === "number") {
-    return (
-      <input
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        ref={focusTargetRef}
-        inputMode="numeric"
-        style={inputControlStyle}
-        type={surface === "grid" ? "text" : "number"}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-    );
-  }
-
-  if (isMultilineGenericField(field)) {
-    return (
-      <textarea
-        aria-label={controlLabel}
-        data-testid={testId}
-        id={id}
-        ref={focusTargetRef}
-        rows={surface === "grid" ? 1 : 3}
-        style={textareaControlStyle}
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-      />
-    );
-  }
-
+function GenericMultiSelectControl({
+  descriptor,
+  focusTargetRef,
+  id,
+  testId,
+  value,
+  onChange,
+}: GenericMutationControlElementProps & {
+  readonly descriptor: Extract<
+    GenericMutationControlDescriptor,
+    { readonly kind: "collection_reference" | "collection_removal" }
+  >;
+}) {
   return (
-    <input
-      aria-label={controlLabel}
+    <select
+      aria-label={descriptor.ariaLabel}
+      data-testid={testId}
+      id={id}
+      multiple
+      ref={focusTargetRef}
+      size={descriptor.size}
+      style={selectControlStyle(descriptor.surface)}
+      value={splitDraftValues(value)}
+      onChange={(event) => {
+        onChange(
+          Array.from(event.currentTarget.selectedOptions)
+            .map((option) => option.value)
+            .join("\n"),
+        );
+      }}
+    >
+      {descriptor.options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function GenericSingleSelectControl({
+  descriptor,
+  focusTargetRef,
+  id,
+  testId,
+  value,
+  onChange,
+}: GenericMutationControlElementProps & {
+  readonly descriptor: Extract<
+    GenericMutationControlDescriptor,
+    { readonly kind: "direct_reference" | "enumerated_value" }
+  >;
+}) {
+  const options =
+    descriptor.kind === "direct_reference"
+      ? descriptor.options
+      : descriptor.options.map((option) => ({ label: option, value: option }));
+  return (
+    <select
+      aria-label={descriptor.ariaLabel}
       data-testid={testId}
       id={id}
       ref={focusTargetRef}
-      placeholder={
-        field.directScalarContractId === "timestamp_instant_v1"
-          ? "RFC3339 timestamp"
-          : undefined
-      }
-      style={inputControlStyle}
-      type="text"
+      style={selectControlStyle(descriptor.surface)}
       value={value}
-      onChange={(event) => {
-        onChange(event.target.value);
-      }}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">
+        {descriptor.kind === "direct_reference"
+          ? descriptor.emptyLabel
+          : "Select"}
+      </option>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function GenericBooleanControl({
+  descriptor,
+  focusTargetRef,
+  id,
+  testId,
+  value,
+  onChange,
+}: GenericMutationControlElementProps & {
+  readonly descriptor: Extract<
+    GenericMutationControlDescriptor,
+    { readonly kind: "boolean" }
+  >;
+}) {
+  return (
+    <input
+      aria-label={descriptor.ariaLabel}
+      checked={value === "true"}
+      data-testid={testId}
+      id={id}
+      ref={focusTargetRef}
+      style={descriptor.surface === "grid" ? gridCheckboxStyle : inputStyle}
+      type="checkbox"
+      onChange={(event) => onChange(event.target.checked ? "true" : "false")}
     />
   );
+}
+
+function GenericTextInputControl({
+  descriptor,
+  focusTargetRef,
+  id,
+  testId,
+  value,
+  onChange,
+}: GenericMutationControlElementProps & {
+  readonly descriptor: Extract<
+    GenericMutationControlDescriptor,
+    { readonly kind: "number" | "text" }
+  >;
+}) {
+  return (
+    <input
+      aria-label={descriptor.ariaLabel}
+      data-testid={testId}
+      id={id}
+      inputMode={descriptor.kind === "number" ? "numeric" : undefined}
+      placeholder={
+        descriptor.kind === "text" ? descriptor.placeholder : undefined
+      }
+      ref={focusTargetRef}
+      style={inputControlStyle(descriptor.surface)}
+      type={descriptor.kind === "number" ? descriptor.inputType : "text"}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+function GenericTextareaControl({
+  descriptor,
+  focusTargetRef,
+  id,
+  testId,
+  value,
+  onChange,
+}: GenericMutationControlElementProps & {
+  readonly descriptor: Extract<
+    GenericMutationControlDescriptor,
+    { readonly kind: "multiline_text" }
+  >;
+}) {
+  return (
+    <textarea
+      aria-label={descriptor.ariaLabel}
+      data-testid={testId}
+      id={id}
+      ref={focusTargetRef}
+      rows={descriptor.rows}
+      style={textareaControlStyle(descriptor.surface)}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+function inputControlStyle(surface: GenericMutationControlSurface) {
+  return surface === "grid" ? gridInputStyle : inputStyle;
+}
+
+function textareaControlStyle(surface: GenericMutationControlSurface) {
+  return surface === "grid" ? gridTextareaStyle : textareaStyle;
+}
+
+function selectControlStyle(surface: GenericMutationControlSurface) {
+  return surface === "grid" ? gridSelectStyle : selectStyle;
 }
 
 const inputStyle = {

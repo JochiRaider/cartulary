@@ -3,6 +3,7 @@ import {
   timelineEvidenceFileInputTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
+import type { RefCallback } from "react";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import {
   bodyStyle,
@@ -18,6 +19,7 @@ type TimelineEvidenceCountDisplay = {
 
 type TimelineEvidencePanelProps = {
   readonly countDisplay: TimelineEvidenceCountDisplay;
+  readonly elementRef?: RefCallback<HTMLElement> | undefined;
   readonly row: WorkbookRow;
   readonly onFilesSelected: (
     row: WorkbookRow,
@@ -27,6 +29,7 @@ type TimelineEvidencePanelProps = {
 
 export function TimelineEvidencePanel({
   countDisplay,
+  elementRef,
   row,
   onFilesSelected,
 }: TimelineEvidencePanelProps) {
@@ -37,6 +40,7 @@ export function TimelineEvidencePanel({
 
   return (
     <section
+      ref={elementRef}
       tabIndex={-1}
       data-testid={timelineInspectorSectionTestId("evidence")}
       data-evidence-count-state={countDisplay.stateKey}

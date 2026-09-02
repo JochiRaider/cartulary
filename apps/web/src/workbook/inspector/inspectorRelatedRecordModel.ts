@@ -8,11 +8,11 @@ import {
 } from "../models/genericWorkbookModel";
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 import type { WorkbookInspectorErrorPresentation } from "./workbookInspectorErrorModel";
-
-type InspectorRelatedRecordSubject = {
-  readonly cells: Readonly<Record<string, { readonly value: unknown }>>;
-  readonly recordId: string;
-};
+import {
+  type WorkbookInspectorLiveRowBinding,
+  type WorkbookInspectorLiveSubject,
+  workbookInspectorSubjectsEqual,
+} from "./workbookInspectorSubject";
 
 type InspectorRelatedRecordDraftResult =
   | {
@@ -31,16 +31,10 @@ export type InspectorRelatedRecordFormModel = {
   readonly targetContract: ViewContract;
 };
 
-export type InspectorRelatedRecordSubjectKey = {
-  readonly viewSchemaId: string;
-  readonly recordId: string;
-  readonly rowVersion: number;
-};
-
 export type InspectorRelatedRecordWorkflowState =
   InspectorRelatedRecordFormModel & {
     readonly workflowId: symbol;
-    readonly subjectKey: InspectorRelatedRecordSubjectKey;
+    readonly subject: WorkbookInspectorLiveSubject;
     readonly phase: "editing" | "submitting";
   };
 
@@ -48,7 +42,7 @@ export type InspectorRelatedRecordWorkflowAction =
   | {
       readonly type: "begin";
       readonly workflowId: symbol;
-      readonly subjectKey: InspectorRelatedRecordSubjectKey;
+      readonly subject: WorkbookInspectorLiveSubject;
       readonly draft: Record<string, string>;
       readonly featureGroup: InspectorFeatureGroup;
       readonly targetContract: ViewContract;
@@ -70,7 +64,7 @@ export type InspectorRelatedRecordWorkflowAction =
   | {
       readonly type: "retarget";
       readonly workflowId: symbol;
-      readonly subjectKey: InspectorRelatedRecordSubjectKey | null;
+      readonly subject: WorkbookInspectorLiveSubject | null;
     };
 
 export function inspectorRelatedRecordWorkflowReducer(
@@ -83,7 +77,7 @@ export function inspectorRelatedRecordWorkflowReducer(
       error: null,
       featureGroup: action.featureGroup,
       phase: "editing",
-      subjectKey: action.subjectKey,
+      subject: action.subject,
       targetContract: action.targetContract,
       workflowId: action.workflowId,
     };
@@ -111,7 +105,7 @@ export function inspectorRelatedRecordWorkflowReducer(
     case "cancel":
       return null;
     case "retarget":
-      return subjectKeysEqual(state.subjectKey, action.subjectKey)
+      return workbookInspectorSubjectsEqual(state.subject, action.subject)
         ? state
         : null;
   }
@@ -125,7 +119,7 @@ export function buildInspectorRelatedRecordDraft({
 }: {
   readonly currentUserId: string | null;
   readonly featureGroup: InspectorFeatureGroup;
-  readonly subject: InspectorRelatedRecordSubject;
+  readonly subject: WorkbookInspectorLiveRowBinding;
   readonly targetContract: ViewContract;
 }): InspectorRelatedRecordDraftResult {
   const route = featureGroup.routeBinding;
@@ -150,9 +144,9 @@ export function buildInspectorRelatedRecordDraft({
 
 function inspectorRelatedRecordSeedValue(
   source: InspectorFeatureGroup["seedBindings"][number]["source"],
-  subject: InspectorRelatedRecordSubject,
+  subject: WorkbookInspectorLiveRowBinding,
 ): string | null {
-  if (source.kind === "selected_record_id") return subject.recordId;
+  if (source.kind === "selected_record_id") return subject.subject.recordId;
   if (source.kind === "selected_field_value") {
     if (source.sourceFieldKey === undefined) return null;
     const text = stringifyGridValue(
@@ -164,16 +158,4 @@ function inspectorRelatedRecordSeedValue(
   return typeof source.value === "string"
     ? source.value
     : JSON.stringify(source.value);
-}
-
-function subjectKeysEqual(
-  current: InspectorRelatedRecordSubjectKey,
-  next: InspectorRelatedRecordSubjectKey | null,
-): boolean {
-  return (
-    next !== null &&
-    current.viewSchemaId === next.viewSchemaId &&
-    current.recordId === next.recordId &&
-    current.rowVersion === next.rowVersion
-  );
 }

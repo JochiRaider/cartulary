@@ -3117,6 +3117,13 @@ describe("WorkbookShell surface selection", () => {
       .mockResolvedValueOnce(true);
     const rejectMutationFailure = vi.fn();
     const setValidationError = vi.fn();
+    const selectedRow = taskRequestRow(
+      "00000000-0000-4000-8000-000000000901",
+      4,
+      "Task requester link",
+      "Created Party",
+      null,
+    );
     const { result } = renderHook(() =>
       useGenericPartyLinkWorkflow({
         mutation: {
@@ -3135,13 +3142,15 @@ describe("WorkbookShell surface selection", () => {
           },
         ],
         resetKey: "reset-1",
-        selectedRow: taskRequestRow(
-          "00000000-0000-4000-8000-000000000901",
-          4,
-          "Task requester link",
-          "Created Party",
-          null,
-        ),
+        selectedRow,
+        selectedSubject: {
+          kind: "live",
+          label: "Task requester link",
+          recordId: selectedRow.record_id,
+          rowVersion: selectedRow.row_version,
+          surfaceLabel: "Task Requests",
+          viewSchemaId: taskRequestsViewSchemaId,
+        },
         submitLinkPatch,
       }),
     );

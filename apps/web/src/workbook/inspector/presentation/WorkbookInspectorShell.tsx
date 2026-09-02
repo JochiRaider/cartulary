@@ -23,6 +23,7 @@ export function WorkbookInspectorShell({
   accessibleLabel,
   children,
   config,
+  elementRef,
   eyebrow = "Inspector",
   heading,
   mode = "record",
@@ -34,6 +35,7 @@ export function WorkbookInspectorShell({
   readonly accessibleLabel: string;
   readonly children?: ReactNode;
   readonly config: InspectorConfig;
+  readonly elementRef?: ((element: HTMLElement | null) => void) | undefined;
   readonly eyebrow?: string | undefined;
   readonly heading?: string | undefined;
   readonly mode?: "record" | "creation" | undefined;
@@ -58,6 +60,7 @@ export function WorkbookInspectorShell({
       data-row-version={subject?.rowVersion}
       data-testid={testId}
       data-view-schema-id={config.viewSchemaId}
+      ref={elementRef}
       style={shellStyle}
     >
       <header style={headerStyle}>
@@ -102,17 +105,21 @@ export function WorkbookInspectorShell({
 
 export function WorkbookInspectorPanelSection({
   children,
+  elementRef,
   panel,
   viewSchemaId,
 }: {
   readonly children?: ReactNode;
+  readonly elementRef?: ((element: HTMLElement | null) => void) | undefined;
   readonly panel: InspectorPanel;
   readonly viewSchemaId: string;
 }) {
   return (
     <section
       data-testid={workbookInspectorPanelTestId(viewSchemaId, panel.panelId)}
+      ref={elementRef}
       style={panelSectionStyle}
+      tabIndex={-1}
     >
       <h3 style={panelTitleStyle}>{panel.label}</h3>
       {children}

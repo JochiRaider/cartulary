@@ -557,8 +557,10 @@ describe("grid-adapter", () => {
 
   it("keeps the bottom create draft recordless and usable with zero committed rows", async () => {
     const onPasteCell = vi.fn();
+    const handle = createRef<GridHandle>();
     render(
       <SemanticDataGrid
+        ref={handle}
         coreRecordBulkSelection={{
           onSelectedRecordIdsChange: vi.fn(),
           selectedRecordIds: new Set(),
@@ -569,8 +571,24 @@ describe("grid-adapter", () => {
             fieldKey: "label",
             label: "Label",
             renderCell: ({ row }) => row.label,
-            renderDraftCell: () => (
-              <input aria-label="Zero-row create draft" defaultValue="" />
+            renderDraftCell: ({ focusTargetRef }) => (
+              <input
+                aria-label="Zero-row create draft"
+                defaultValue=""
+                ref={focusTargetRef}
+              />
+            ),
+          },
+          {
+            fieldKey: "state",
+            label: "State",
+            renderCell: ({ row }) => row.state,
+            renderDraftCell: ({ focusTargetRef }) => (
+              <input
+                aria-label="Disabled create draft"
+                disabled
+                ref={focusTargetRef}
+              />
             ),
           },
         ]}
@@ -601,12 +619,60 @@ describe("grid-adapter", () => {
       0,
     );
     expect(document.querySelectorAll("[data-grid-record-id]")).toHaveLength(0);
+    expect(handle.current?.focusDraftCell("missing")).toBe(false);
+    expect(handle.current?.focusDraftCell("state")).toBe(false);
+    expect(handle.current?.focusDraftCell("label")).toBe(true);
+    expect(document.activeElement).toBe(draftInput);
     fireEvent.change(draftInput, { target: { value: "Draft remains usable" } });
     expect((draftInput as HTMLInputElement).value).toBe("Draft remains usable");
     fireEvent.paste(draftInput, {
       clipboardData: { getData: () => "must not become a record paste" },
     });
     expect(onPasteCell).not.toHaveBeenCalled();
+  });
+
+  it("keeps test-support draft focus and committed measurement semantic", () => {
+    const handle = createRef<GridHandle>();
+    render(
+      <SemanticDataGridTestSupport
+        ref={handle}
+        columns={[
+          {
+            fieldKey: "label",
+            label: "Label",
+            renderCell: ({ row }) => row.label,
+            renderDraftCell: ({ focusTargetRef }) => (
+              <input aria-label="Support draft" ref={focusTargetRef} />
+            ),
+          },
+        ]}
+        dataRows={[
+          {
+            data: { label: "Alpha", state: "open" },
+            kind: "data",
+            rowIdentity: { kind: "core_record", recordId: "record-1" },
+          },
+        ]}
+        draftRow={{
+          data: { label: "", state: "open" },
+          kind: "draft",
+        }}
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Support draft" });
+    expect(handle.current?.focusDraftCell("label")).toBe(true);
+    expect(document.activeElement).toBe(input);
+    expect(
+      handle.current?.getAnchorRect(gridAnchor("record-1", "label")),
+    ).not.toBeNull();
+    expect(
+      handle.current?.getAnchorRect({
+        ...gridAnchor("record-1", "label"),
+        surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
+      }),
+    ).toBeNull();
   });
 
   it("translates live cell events and the restricted handle through semantic coordinates", async () => {
@@ -703,6 +769,13 @@ describe("grid-adapter", () => {
       }),
     );
     expect(handle.current?.getScrollElement()).toBeTruthy();
+    expect(handle.current?.getAnchorRect(anchor)).not.toBeNull();
+    expect(
+      handle.current?.getAnchorRect({
+        ...anchor,
+        surface: { kind: "view_schema", viewSchemaId: "wrong.view" },
+      }),
+    ).toBeNull();
     expect(
       handle.current?.planPasteTargets(anchor, {
         columnCount: 1,
@@ -747,6 +820,14 @@ describe("grid-adapter", () => {
     });
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     expect(document.activeElement).toBe(externalButton);
+    const interruptingButton = document.createElement("button");
+    document.body.append(interruptingButton);
+    expect(handle.current?.focusAnchor(anchor)).toBe(true);
+    interruptingButton.focus();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    expect(document.activeElement).toBe(interruptingButton);
+    interruptingButton.remove();
     externalButton.remove();
     expect(
       handle.current?.focusAnchor({

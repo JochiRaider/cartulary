@@ -9,13 +9,17 @@ import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import {
+  type WorkbookInspectorSubject,
+  workbookInspectorSubjectsEqual,
+} from "../../inspector/workbookInspectorSubject";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 
 export type TimelineInspectorFeatureLifecycle = {
   readonly authorizationKey: string;
   readonly invalidationGeneration: number;
   readonly lifecycleKey: string;
-  readonly subjectKey: string;
+  readonly subject: WorkbookInspectorSubject | null;
   readonly surfaceKey: string;
 };
 
@@ -109,7 +113,7 @@ function sameTimelineInspectorFeatureLifecycle(
     left.authorizationKey === right.authorizationKey &&
     left.invalidationGeneration === right.invalidationGeneration &&
     left.lifecycleKey === right.lifecycleKey &&
-    left.subjectKey === right.subjectKey &&
+    workbookInspectorSubjectsEqual(left.subject, right.subject) &&
     left.surfaceKey === right.surfaceKey
   );
 }

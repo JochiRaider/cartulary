@@ -4,6 +4,7 @@ import {
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
+import type { RefCallback } from "react";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookRecordHistoryPanel } from "../../inspector/WorkbookInspectorRecordHistory";
 import type {
@@ -20,6 +21,7 @@ const timelineHistoryActions = inspectorRecordHistoryActions(
 
 export function TimelineHistoryPanel({
   canMutate,
+  elementRef,
   history,
   selectedActiveRowRecordId,
   onCancelPendingAction,
@@ -29,6 +31,7 @@ export function TimelineHistoryPanel({
   onPreviewRollback,
 }: {
   readonly canMutate: boolean;
+  readonly elementRef?: RefCallback<HTMLElement> | undefined;
   readonly history: WorkbookRecordHistoryState;
   readonly selectedActiveRowRecordId: string | null;
   readonly onCancelPendingAction: () => void;
@@ -42,6 +45,7 @@ export function TimelineHistoryPanel({
 }) {
   return (
     <section
+      ref={elementRef}
       data-testid={timelineInspectorSectionTestId("history")}
       style={inspectorSectionStyle}
       tabIndex={-1}

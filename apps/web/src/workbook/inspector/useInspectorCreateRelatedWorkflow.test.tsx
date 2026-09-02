@@ -13,9 +13,14 @@ const createTaskRequest = timeline.inspectorConfig.featureGroups.find(
 );
 const initialSubject = {
   cells: { "timeline.activity_synopsis_text": { value: "Investigate" } },
-  recordId: "10000000-0000-4000-8000-000000000001",
-  rowVersion: 4,
-  viewSchemaId: timeline.viewSchemaId,
+  subject: {
+    kind: "live" as const,
+    label: "Timeline row",
+    recordId: "10000000-0000-4000-8000-000000000001",
+    rowVersion: 4,
+    surfaceLabel: timeline.title,
+    viewSchemaId: timeline.viewSchemaId,
+  },
 };
 
 describe("useInspectorCreateRelatedWorkflow", () => {
@@ -99,9 +104,9 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     expect(onFeedback).toHaveBeenCalledTimes(feedbackCallCount);
     expect(result.current.snapshot.workflow).toMatchObject({
       phase: "editing",
-      subjectKey: {
-        recordId: initialSubject.recordId,
-        rowVersion: initialSubject.rowVersion,
+      subject: {
+        recordId: initialSubject.subject.recordId,
+        rowVersion: initialSubject.subject.rowVersion,
       },
       workflowId: reopenedWorkflowId,
     });
@@ -133,7 +138,13 @@ describe("useInspectorCreateRelatedWorkflow", () => {
       await Promise.resolve();
     });
     rerender({
-      subject: { ...initialSubject, rowVersion: initialSubject.rowVersion + 1 },
+      subject: {
+        ...initialSubject,
+        subject: {
+          ...initialSubject.subject,
+          rowVersion: initialSubject.subject.rowVersion + 1,
+        },
+      },
     });
     await waitFor(() => expect(result.current.snapshot.workflow).toBeNull());
     await act(async () => {

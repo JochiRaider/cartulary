@@ -136,19 +136,19 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-timeline-evidence-count-linux.png",
-      "sha256": "f5475fd50e6a2d3223339295343892dfdc412c84008899913b0a5d07a7d28508"
+      "sha256": "d24e0171cb08211e71bbb1ee13e9a6a10c890d30305031896b01773b16805e35"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
-      "sha256": "4c139ef234b4725501dcf91a95989345dc243a170e79a1dee92c6d9ca89824a9"
+      "sha256": "1a50205c63ae6f905e81be0cbb84ac5a3dcccd4e0d265ba4d925bca706f13497"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-default-timeline-workbook-shell-linux.png",
-      "sha256": "4c0a9504d1907033865baaef32440781b381523e126db5b17795eccbabb395a3"
+      "sha256": "90047cbc13c8dcc3c8f2d229a5acd4aa8f6ee563b6c33cff07bbaf457cbce73a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-narrow-desktop-workbook-shell-linux.png",
-      "sha256": "d02bd914e60c8c271f82af503f2e6ddc488e46d896146e1253633ae82bc0778b"
+      "sha256": "79e55c0b9990181284f1c66cfa3faff9acb1812324ba115f279977f46fdae976"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",

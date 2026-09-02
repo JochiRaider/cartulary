@@ -23,6 +23,22 @@ type TimelineInputIdentity = {
 
 type TimelineEditorElement = HTMLInputElement | HTMLTextAreaElement;
 
+function isUsableEditorElement(
+  element: TimelineEditorElement | undefined,
+): element is TimelineEditorElement {
+  if (
+    element === undefined ||
+    !element.isConnected ||
+    element.disabled ||
+    element.hidden ||
+    element.closest("[hidden], [aria-hidden='true']") !== null
+  ) {
+    return false;
+  }
+  const style = window.getComputedStyle(element);
+  return style.display !== "none" && style.visibility !== "hidden";
+}
+
 export type TimelineEditorDraftRegistry = ReturnType<
   typeof createTimelineEditorDraftRegistry
 >;
@@ -30,7 +46,6 @@ export type TimelineEditorDraftRegistry = ReturnType<
 export function createTimelineEditorDraftRegistry() {
   const draftValues = new Map<string, string>();
   const inputElements = new Map<string, TimelineEditorElement>();
-  const inputTestIds = new Map<string, string>();
   const focusKeysByRow = new Map<string, Set<string>>();
 
   const rememberFocusKey = (rowKey: string, focusKey: string) => {
@@ -40,11 +55,7 @@ export function createTimelineEditorDraftRegistry() {
   };
 
   const forgetFocusKeyIfUnused = (rowKey: string, focusKey: string) => {
-    if (
-      draftValues.has(focusKey) ||
-      inputElements.has(focusKey) ||
-      inputTestIds.has(focusKey)
-    ) {
+    if (draftValues.has(focusKey) || inputElements.has(focusKey)) {
       return;
     }
     const rowFocusKeys = focusKeysByRow.get(rowKey);
@@ -56,7 +67,6 @@ export function createTimelineEditorDraftRegistry() {
     for (const focusKey of focusKeysByRow.get(rowKey) ?? []) {
       draftValues.delete(focusKey);
       inputElements.delete(focusKey);
-      inputTestIds.delete(focusKey);
     }
     focusKeysByRow.delete(rowKey);
   };
@@ -67,7 +77,6 @@ export function createTimelineEditorDraftRegistry() {
     clearAll() {
       draftValues.clear();
       inputElements.clear();
-      inputTestIds.clear();
       focusKeysByRow.clear();
     },
     clearRow,
@@ -128,10 +137,10 @@ export function createTimelineEditorDraftRegistry() {
     },
     draftValueForFocusKey,
     inputElementForFocusKey(focusKey: string) {
-      return inputElements.get(focusKey) ?? null;
-    },
-    inputTestIdForFocusKey(focusKey: string) {
-      return inputTestIds.get(focusKey) ?? null;
+      const element = inputElements.get(focusKey);
+      if (isUsableEditorElement(element)) return element;
+      if (element !== undefined) inputElements.delete(focusKey);
+      return null;
     },
     materializeRow(
       row: WorkbookRow,
@@ -165,7 +174,6 @@ export function createTimelineEditorDraftRegistry() {
     },
     registerInput(
       identity: TimelineInputIdentity,
-      dataTestId: string,
       element: TimelineEditorElement | null,
     ) {
       const focusKey = inputFocusKey(
@@ -175,13 +183,11 @@ export function createTimelineEditorDraftRegistry() {
       );
       if (element === null) {
         inputElements.delete(focusKey);
-        inputTestIds.delete(focusKey);
         forgetFocusKeyIfUnused(identity.rowKey, focusKey);
         return;
       }
       rememberFocusKey(identity.rowKey, focusKey);
       inputElements.set(focusKey, element);
-      inputTestIds.set(focusKey, dataTestId);
     },
     retainRows(rowKeys: ReadonlySet<string>) {
       for (const rowKey of focusKeysByRow.keys()) {

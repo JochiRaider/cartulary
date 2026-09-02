@@ -40,20 +40,32 @@ describe("workbook surface ownership policy", () => {
     expect(source).not.toContain("/supersede");
     expect(source).not.toContain("createAndAttachEvidenceBlob");
 
-    for (const [rootPath, ownerModulePath, ownerComponent] of [
+    for (const [
+      rootPath,
+      compositionPath,
+      ownerModulePath,
+      compositionHook,
+      ownerComponent,
+    ] of [
       [
         "components/GenericWorkbookSurface.tsx",
+        "features/generic/useGenericWorkbookInspectorComposition.tsx",
         "features/generic/GenericWorkbookInspector.tsx",
+        "useGenericWorkbookInspectorComposition",
         "GenericWorkbookInspector",
       ],
       [
         "components/EntityWorkbookSurface.tsx",
+        "features/entities/useEntityWorkbookInspectorComposition.tsx",
         "features/entities/EntityWorkbookInspector.tsx",
+        "useEntityWorkbookInspectorComposition",
         "EntityWorkbookInspector",
       ],
       [
         "components/AssessmentWorkbookSurface.tsx",
+        "features/assessments/useAssessmentWorkbookInspectorComposition.tsx",
         "features/assessments/AssessmentWorkbookInspector.tsx",
+        "useAssessmentWorkbookInspectorComposition",
         "AssessmentWorkbookInspector",
       ],
     ] as const) {
@@ -65,7 +77,15 @@ describe("workbook surface ownership policy", () => {
         path.join(workbookDirectory, ownerModulePath),
         "utf8",
       );
-      expect(rootSource, rootPath).toContain(`<${ownerComponent}`);
+      const compositionSource = readFileSync(
+        path.join(workbookDirectory, compositionPath),
+        "utf8",
+      );
+      expect(rootSource, rootPath).toContain(`${compositionHook}({`);
+      expect(rootSource, rootPath).not.toContain(`<${ownerComponent}`);
+      expect(compositionSource, compositionPath).toContain(
+        `<${ownerComponent}`,
+      );
       expect(rootSource, rootPath).not.toContain("inspectorConfig.panels");
       expect(rootSource, rootPath).not.toContain(
         "WorkbookInspectorPanelSection",

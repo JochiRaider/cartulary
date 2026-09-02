@@ -7,7 +7,7 @@ import type {
   InspectorDisabledCondition,
   InspectorPanelId,
 } from "@cartulary/view-contracts";
-import type { ReactNode } from "react";
+import type { ReactNode, RefCallback } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
@@ -16,6 +16,7 @@ import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookIns
 import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import {
@@ -36,6 +37,7 @@ export function TimelineWorkbookInspector({
   inspectorConfig,
   inspectorMessage,
   inspectorMentions,
+  elementRegistry,
   onResolveTargetChange,
   onSelectMention,
   onSetInspectorMessage,
@@ -68,6 +70,7 @@ export function TimelineWorkbookInspector({
   readonly inspectorConfig: InspectorConfig;
   readonly inspectorMessage: WorkbookInspectorFeedback | null;
   readonly inspectorMentions: readonly InspectorMention[];
+  readonly elementRegistry: TimelineInspectorElementRegistry;
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly onSetInspectorMessage: (message: WorkbookInspectorFeedback) => void;
@@ -79,12 +82,17 @@ export function TimelineWorkbookInspector({
     action: MentionResolutionAction,
     resolvedRecordId?: string,
   ) => void;
-  readonly renderEvidenceAttachSection: (row: WorkbookRow) => ReactNode;
+  readonly renderEvidenceAttachSection: (
+    row: WorkbookRow,
+    elementRef?: RefCallback<HTMLElement>,
+  ) => ReactNode;
   readonly renderInspectorFieldEditors: (row: WorkbookRow) => ReactNode;
   readonly renderPanelSupplement: (panelId: InspectorPanelId) => ReactNode;
   readonly renderRelationshipEditors: (row: WorkbookRow) => ReactNode;
   readonly renderWorkflowSection: () => ReactNode;
-  readonly renderRowHistorySection: () => ReactNode;
+  readonly renderRowHistorySection: (
+    elementRef?: RefCallback<HTMLElement>,
+  ) => ReactNode;
   readonly rowHistoryRecordId: string | null;
   readonly rowHistoryRowVersion: number | null;
   readonly selectedMention: InspectorMention | null;
@@ -143,6 +151,7 @@ export function TimelineWorkbookInspector({
         identityEntities={identityEntities}
         inspectorMentions={inspectorMentions}
         relationshipEditors={renderRelationshipEditors(liveRow)}
+        registerMention={elementRegistry.registerMention}
         onResolveTargetChange={onResolveTargetChange}
         onSelectMention={onSelectMention}
         onSetInspectorMessage={onSetInspectorMessage}
@@ -157,6 +166,7 @@ export function TimelineWorkbookInspector({
     <WorkbookInspectorShell
       accessibleLabel="Timeline inspector"
       config={inspectorConfig}
+      elementRef={elementRegistry.registerRoot}
       noRowHeading="Timeline inspector"
       subject={subject}
       testId={timelineInspectorTestId()}
@@ -166,6 +176,11 @@ export function TimelineWorkbookInspector({
         config={inspectorConfig}
         currentIncidentRole={currentIncidentRole}
         disabledTokens={disabledTokens}
+        panelRef={(panelId, element) => {
+          if (panelId !== "evidence" && panelId !== "history") {
+            elementRegistry.registerPanel(panelId, element);
+          }
+        }}
         subject={subject}
         contentByPanel={{
           details:
@@ -177,12 +192,19 @@ export function TimelineWorkbookInspector({
               ? undefined
               : withSupplement(
                   "evidence",
-                  renderEvidenceAttachSection(liveRow),
+                  renderEvidenceAttachSection(liveRow, (element) =>
+                    elementRegistry.registerPanel("evidence", element),
+                  ),
                 ),
           history:
             subject === null
               ? undefined
-              : withSupplement("history", renderRowHistorySection()),
+              : withSupplement(
+                  "history",
+                  renderRowHistorySection((element) =>
+                    elementRegistry.registerPanel("history", element),
+                  ),
+                ),
           relationships:
             liveRow === null
               ? undefined

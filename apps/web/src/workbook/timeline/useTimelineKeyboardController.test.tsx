@@ -84,6 +84,15 @@ function controller(
     currentTimelineAnchorFor: vi.fn(
       overrides.currentTimelineAnchorFor ?? (() => anchor),
     ),
+    elementRegistry: {
+      containsActiveElement: vi.fn(() => false),
+      focusMention: vi.fn(() => true),
+      focusPanel: vi.fn(() => true),
+      registerMention: vi.fn(),
+      registerPanel: vi.fn(),
+      registerRoot: vi.fn(),
+      updateScope: vi.fn(),
+    },
     handleTimelineGridContextKeyDown: vi.fn(),
     navigateTimelineFocusAnchor: vi.fn((_anchor, intent) =>
       calls.push(`navigate-${intent.key}-${intent.shiftKey}`),
@@ -309,6 +318,12 @@ describe("useTimelineKeyboardController", () => {
   });
 
   it("owns work-area shortcuts and leaves controls, menus, dialogs, and unavailable actions unconsumed", () => {
+    const animationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
     const target = document.createElement("div");
     target.dataset.gridFieldKey = "timeline.host_refs";
     const row = workbookRow();
@@ -337,6 +352,14 @@ describe("useTimelineKeyboardController", () => {
     expect(history.preventDefault).toHaveBeenCalledOnce();
     expect(history.stopPropagation).toHaveBeenCalledOnce();
     expect(calls).toEqual(["open-history"]);
+    expect(mocks.elementRegistry.focusPanel).toHaveBeenCalledWith(
+      {
+        recordId,
+        rowVersion: 3,
+        viewSchemaId: timelineViewSchemaId,
+      },
+      "history",
+    );
 
     const menu = document.createElement("div");
     menu.setAttribute("role", "menu");
@@ -372,5 +395,6 @@ describe("useTimelineKeyboardController", () => {
     expect(unavailable.preventDefault).not.toHaveBeenCalled();
     expect(unavailable.stopPropagation).not.toHaveBeenCalled();
     expect(mocks.setSelectedMentionRef).not.toHaveBeenCalled();
+    animationFrame.mockRestore();
   });
 });

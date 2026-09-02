@@ -9,10 +9,13 @@ import {
 import {
   initialWorkbookInspectorState,
   type WorkbookInspectorInvalidationReason,
-  type WorkbookInspectorSubject,
   workbookInspectorReducer,
-  workbookInspectorSubjectsEqual,
+  workbookInspectorStateIsOpen,
 } from "../models/workbookInspectorModel";
+import {
+  type WorkbookInspectorSubject,
+  workbookInspectorSubjectsEqual,
+} from "./workbookInspectorSubject";
 
 type WorkbookInspectorOwnerActionPorts = {
   readonly resetOwnerState: (event: WorkbookInspectorResetEvent) => void;
@@ -66,16 +69,18 @@ export function useWorkbookInspectorCoordinator({
   readonly lifecycleKey: string;
   readonly subject: WorkbookInspectorSubject | null;
 }) {
+  const effectiveLifecycleKey = `${config.viewSchemaId.length}:${config.viewSchemaId}${lifecycleKey}`;
   const [snapshot, dispatch] = useReducer(
     workbookInspectorReducer,
-    undefined,
+    { lifecycleKey: effectiveLifecycleKey },
     initialWorkbookInspectorState,
   );
   const actionPortsRef = useRef(actionPorts);
-  const configRef = useRef(config);
-  const lifecycleKeyRef = useRef(lifecycleKey);
-  const blockedSubjectRef = useRef<WorkbookInspectorSubject | null>(null);
-  const subjectRef = useRef<WorkbookInspectorSubject | null>(null);
+  const observedInputsRef = useRef<{
+    lifecycleKey: string;
+    subject: WorkbookInspectorSubject | null;
+  }>({ lifecycleKey: effectiveLifecycleKey, subject: null });
+  const currentSubjectRef = useRef(subject);
   const snapshotRef = useRef(snapshot);
 
   useLayoutEffect(() => {
@@ -91,60 +96,69 @@ export function useWorkbookInspectorCoordinator({
   }, []);
 
   useLayoutEffect(() => {
-    if (configRef.current.viewSchemaId === config.viewSchemaId) {
+    currentSubjectRef.current = subject;
+    const observed = observedInputsRef.current;
+    if (observed.lifecycleKey !== effectiveLifecycleKey) {
+      observedInputsRef.current = {
+        lifecycleKey: effectiveLifecycleKey,
+        subject,
+      };
+      resetOwnerState("surface_changed");
+      dispatch({
+        lifecycleKey: effectiveLifecycleKey,
+        type: "lifecycle_changed",
+      });
       return;
     }
-    configRef.current = config;
-    subjectRef.current = null;
-    blockedSubjectRef.current = subject;
-    resetOwnerState("surface_changed");
-    dispatch({ type: "invalidate", reason: "surface_changed" });
-  }, [config, resetOwnerState, subject]);
-
-  useLayoutEffect(() => {
-    if (lifecycleKeyRef.current === lifecycleKey) {
+    observedInputsRef.current = {
+      lifecycleKey: effectiveLifecycleKey,
+      subject,
+    };
+    if (workbookInspectorSubjectsEqual(observed.subject, subject)) {
       return;
     }
-    lifecycleKeyRef.current = lifecycleKey;
-    subjectRef.current = null;
-    blockedSubjectRef.current = subject;
-    resetOwnerState("surface_changed");
-    dispatch({ type: "invalidate", reason: "surface_changed" });
-  }, [lifecycleKey, resetOwnerState, subject]);
-
-  useLayoutEffect(() => {
-    if (
-      blockedSubjectRef.current !== null &&
-      workbookInspectorSubjectsEqual(blockedSubjectRef.current, subject)
-    ) {
-      return;
-    }
-    blockedSubjectRef.current = null;
-    if (workbookInspectorSubjectsEqual(subjectRef.current, subject)) {
-      return;
-    }
-    subjectRef.current = subject;
     resetOwnerState("retarget");
-    dispatch({ type: "retarget", subject });
-  }, [resetOwnerState, subject]);
+    dispatch({
+      lifecycleKey: effectiveLifecycleKey,
+      type: "retarget",
+      subject,
+    });
+  }, [effectiveLifecycleKey, resetOwnerState, subject]);
+
+  const commandIsCurrent = useCallback(
+    () => snapshotRef.current.lifecycleKey === effectiveLifecycleKey,
+    [effectiveLifecycleKey],
+  );
 
   const open = useCallback(() => {
-    dispatch({ type: "open" });
-  }, []);
+    if (!commandIsCurrent()) {
+      return;
+    }
+    dispatch({
+      lifecycleKey: effectiveLifecycleKey,
+      subject: currentSubjectRef.current,
+      type: "open",
+    });
+  }, [commandIsCurrent, effectiveLifecycleKey]);
   const close = useCallback(
     ({ restoreFocus = false }: { readonly restoreFocus?: boolean } = {}) => {
+      if (!commandIsCurrent()) {
+        return;
+      }
       resetOwnerState("close");
-      dispatch({ type: "close" });
+      dispatch({ lifecycleKey: effectiveLifecycleKey, type: "close" });
       if (restoreFocus) {
         actionPortsRef.current.restoreFocus();
       }
     },
-    [resetOwnerState],
+    [commandIsCurrent, effectiveLifecycleKey, resetOwnerState],
   );
   const setOpen = useCallback(
     (next: SetStateAction<boolean>) => {
       const isOpen =
-        typeof next === "function" ? next(snapshotRef.current.isOpen) : next;
+        typeof next === "function"
+          ? next(workbookInspectorStateIsOpen(snapshotRef.current))
+          : next;
       if (isOpen) {
         open();
       } else {
@@ -155,18 +169,25 @@ export function useWorkbookInspectorCoordinator({
   );
   const invalidate = useCallback(
     (reason: WorkbookInspectorInvalidationReason) => {
-      resetOwnerState(reason);
-      if (reason !== "action_completed") {
-        subjectRef.current = null;
+      if (!commandIsCurrent()) {
+        return;
       }
-      dispatch({ type: "invalidate", reason });
+      resetOwnerState(reason);
+      dispatch({
+        lifecycleKey: effectiveLifecycleKey,
+        type: "invalidate",
+        reason,
+      });
     },
-    [resetOwnerState],
+    [commandIsCurrent, effectiveLifecycleKey, resetOwnerState],
   );
   const completeAction = useCallback(() => {
+    if (!commandIsCurrent()) {
+      return;
+    }
     invalidate("action_completed");
     actionPortsRef.current.restoreFocus();
-  }, [invalidate]);
+  }, [commandIsCurrent, invalidate]);
 
   return {
     commands: {

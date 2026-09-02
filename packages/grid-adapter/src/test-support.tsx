@@ -163,6 +163,7 @@ function useSemanticDataGridTestSupport<Row>(
   const effectiveBulkSelection = editable ? coreRecordBulkSelection : undefined;
   const effectiveDraftRow = editable ? draftRow : undefined;
   const cellElements = useRef(new Map<string, HTMLTableCellElement>());
+  const draftFocusTargets = useRef(new Map<string, GridEditorFocusTarget>());
   const scrollElement = useRef<HTMLDivElement>(null);
   const selectionAnchorRecordId = useRef<string | null>(null);
   const [activeEditor, setActiveEditor] = useState<{
@@ -239,6 +240,8 @@ function useSemanticDataGridTestSupport<Row>(
         return true;
       },
       focusAnchor: focusSemanticAnchor,
+      focusDraftCell: (fieldKey) =>
+        focusTestDraftCell(draftFocusTargets.current, fieldKey),
       focusRoot: () => {
         const element = scrollElement.current;
         if (element === null) return false;
@@ -246,6 +249,8 @@ function useSemanticDataGridTestSupport<Row>(
         return true;
       },
       getScrollElement: () => scrollElement.current,
+      getAnchorRect: (anchor) =>
+        testAnchorRect(cellElements.current, surface, anchor),
       isAnchorRendered: (anchor) =>
         semanticPresentation.positions.has(gridAnchorKey(anchor)),
       moveFocus: (current, intent) => {
@@ -830,21 +835,28 @@ function useSemanticDataGridTestSupport<Row>(
                           ""}
                       </th>
                     )}
-                    {columns.map((column) => (
-                      <td
-                        data-grid-field-key={column.fieldKey}
-                        key={column.fieldKey}
-                        role="gridcell"
-                      >
-                        {surface.kind === "view_schema"
-                          ? (column.renderDraftCell?.({
-                              fieldKey: column.fieldKey,
-                              row: effectiveDraftRow.data,
-                              surface,
-                            }) ?? null)
-                          : null}
-                      </td>
-                    ))}
+                    {columns.map((column) => {
+                      const focusTargetRef = createTestDraftFocusTargetRef(
+                        draftFocusTargets.current,
+                        column.fieldKey,
+                      );
+                      return (
+                        <td
+                          data-grid-field-key={column.fieldKey}
+                          key={column.fieldKey}
+                          role="gridcell"
+                        >
+                          {surface.kind === "view_schema"
+                            ? (column.renderDraftCell?.({
+                                fieldKey: column.fieldKey,
+                                focusTargetRef,
+                                row: effectiveDraftRow.data,
+                                surface,
+                              }) ?? null)
+                            : null}
+                        </td>
+                      );
+                    })}
                     {actionsColumn === undefined ? null : (
                       <td role="gridcell">
                         {actionsColumn.renderDraftCell?.(effectiveDraftRow)}
@@ -859,6 +871,55 @@ function useSemanticDataGridTestSupport<Row>(
       </div>
     </>
   );
+}
+
+function createTestDraftFocusTargetRef(
+  registry: Map<string, GridEditorFocusTarget>,
+  fieldKey: string,
+) {
+  let registeredElement: GridEditorFocusTarget | null = null;
+  return (element: GridEditorFocusTarget | null) => {
+    if (element === null) {
+      if (registry.get(fieldKey) === registeredElement) {
+        registry.delete(fieldKey);
+      }
+      registeredElement = null;
+      return;
+    }
+    registeredElement = element;
+    registry.set(fieldKey, element);
+  };
+}
+
+function focusTestDraftCell(
+  registry: ReadonlyMap<string, GridEditorFocusTarget>,
+  fieldKey: string,
+): boolean {
+  const element = registry.get(fieldKey);
+  if (
+    element === undefined ||
+    !element.isConnected ||
+    element.disabled ||
+    element.hidden ||
+    element.closest("[hidden], [aria-hidden='true']") !== null
+  ) {
+    return false;
+  }
+  element.focus({ preventScroll: true });
+  return document.activeElement === element;
+}
+
+function testAnchorRect(
+  cellElements: ReadonlyMap<string, HTMLTableCellElement>,
+  surface: SemanticDataGridProps<unknown>["surface"],
+  anchor: GridCellAnchor,
+): DOMRectReadOnly | null {
+  if (!gridSurfaceIdentitiesEqual(surface, anchor.surface)) return null;
+  const element = cellElements.get(gridAnchorKey(anchor));
+  return element?.isConnected === true &&
+    element.closest("[hidden], [aria-hidden='true']") === null
+    ? element.getBoundingClientRect()
+    : null;
 }
 
 function SemanticDataGridInner<Row>(

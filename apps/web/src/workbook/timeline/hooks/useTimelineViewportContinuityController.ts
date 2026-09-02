@@ -1,10 +1,4 @@
 import type { GridCellAnchor, GridHandle } from "@cartulary/grid-adapter";
-import {
-  dataTestIdSelector,
-  draftCellTestId,
-  gridRowGutterTestId,
-  rowCellTestId,
-} from "@cartulary/ui-contracts";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import {
   captureViewportAnchor,
@@ -41,6 +35,14 @@ export type TimelineViewportContinuityRequest = {
   lifecycle: TimelineContinuityLifecycle;
   preservedViewport: ViewportSnapshot | null;
 };
+
+function timelineAnchor(recordId: string, fieldKey: string): GridCellAnchor {
+  return {
+    fieldKey,
+    rowIdentity: { kind: "core_record", recordId },
+    surface: { kind: "view_schema", viewSchemaId: timelineViewSchemaId },
+  };
+}
 
 export function useTimelineViewportContinuityController({
   gridHandleRef,
@@ -97,72 +99,36 @@ export function useTimelineViewportContinuityController({
   }, [currentGridScrollElement]);
 
   const resolveInputElement = useCallback(
-    (focusKey: string) => {
-      const selectorTestId =
-        editorDraftRegistry.inputTestIdForFocusKey(focusKey);
-      const selector =
-        selectorTestId === null
-          ? null
-          : document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-              dataTestIdSelector(selectorTestId),
-            );
-      if (selector !== null) {
-        return selector;
-      }
-      const [rowKey, fieldKey, surface] = focusKey.split(":");
-      const scalarBinding = timelineScalarBindings.find(
-        (binding) => binding.key === fieldKey,
-      );
-      if (
-        rowKey !== undefined &&
-        surface === "grid" &&
-        scalarBinding !== undefined
-      ) {
-        const fallbackTestId = rowKey.startsWith("draft-")
-          ? draftCellTestId(scalarBinding.fieldKey)
-          : rowCellTestId(rowKey, scalarBinding.fieldKey);
-        const fallback = document.querySelector<
-          HTMLInputElement | HTMLTextAreaElement
-        >(dataTestIdSelector(fallbackTestId));
-        if (fallback !== null) {
-          return fallback;
-        }
-      }
-      return editorDraftRegistry.inputElementForFocusKey(focusKey);
-    },
+    (focusKey: string) => editorDraftRegistry.inputElementForFocusKey(focusKey),
     [editorDraftRegistry],
   );
 
-  const resolveViewportContinuityElement = useCallback(
+  const resolveViewportContinuityRect = useCallback(
     (target: TimelineViewportContinuityTarget) => {
       switch (target.kind) {
-        case "row-inspect": {
-          const content = document.querySelector<HTMLElement>(
-            dataTestIdSelector(
-              rowCellTestId(target.recordId, "timeline.activity_synopsis_text"),
-            ),
-          );
+        case "row-inspect":
           return (
-            content?.closest<HTMLElement>('[role="gridcell"]') ??
-            content ??
-            document.querySelector<HTMLElement>(
-              dataTestIdSelector(
-                gridRowGutterTestId(timelineViewSchemaId, target.recordId),
+            gridHandleRef.current?.getAnchorRect(
+              timelineAnchor(
+                target.recordId,
+                "timeline.activity_synopsis_text",
               ),
-            )
+            ) ?? null
           );
-        }
         case "input":
-          return resolveInputElement(target.focusKey);
+          return (
+            resolveInputElement(target.focusKey)?.getBoundingClientRect() ??
+            null
+          );
         case "scroll-only":
           return null;
       }
     },
-    [resolveInputElement],
+    [gridHandleRef, resolveInputElement],
   );
 
   const currentGridViewportSnapshot = useCallback(
-    (target: HTMLElement | null = null): ViewportSnapshot | null => {
+    (targetRect: DOMRectReadOnly | null = null): ViewportSnapshot | null => {
       const gridShell = gridShellRef.current;
       const scroll = currentGridScrollSnapshot();
       const scrollElement = currentGridScrollElement();
@@ -170,7 +136,6 @@ export function useTimelineViewportContinuityController({
         return null;
       }
       const containerRect = scrollElement.getBoundingClientRect();
-      const targetRect = target?.getBoundingClientRect() ?? null;
       return {
         scroll,
         anchor:
@@ -201,9 +166,10 @@ export function useTimelineViewportContinuityController({
     [currentGridScrollElement],
   );
 
-  const restoreGridViewportForElement = useCallback(
+  const restoreGridViewportForTarget = useCallback(
     (
-      resolveElement: () => HTMLElement | null,
+      focusTarget: () => boolean,
+      resolveRect: () => DOMRectReadOnly | null,
       preservedViewport: ViewportSnapshot | null,
     ) => {
       const currentViewport =
@@ -218,28 +184,16 @@ export function useTimelineViewportContinuityController({
               anchor: null,
             } satisfies ViewportSnapshot));
       const preservedScroll = currentViewport.scroll;
-      const focusResolvedElement = () => {
-        const element = resolveElement();
-        if (element === null || !element.isConnected) {
-          return false;
-        }
-        if (!element.hasAttribute("tabindex")) {
-          element.tabIndex = -1;
-        }
-        element.focus({ preventScroll: true });
-        return document.activeElement === element;
-      };
       window.focus();
-      const focusedNow = focusResolvedElement();
+      const focusedNow = focusTarget();
       restoreGridScroll(preservedScroll);
       const restoreViewportGeometryNow = () => {
         const scrollElement = currentGridScrollElement();
-        const currentElement = resolveElement();
+        const currentRect = resolveRect();
         if (
           scrollElement === null ||
           preservedScroll === null ||
-          currentElement === null ||
-          !currentElement.isConnected
+          currentRect === null
         ) {
           return false;
         }
@@ -251,23 +205,19 @@ export function useTimelineViewportContinuityController({
           },
           preservedAnchor: currentViewport.anchor,
           containerRect: scrollElement.getBoundingClientRect(),
-          elementRect: currentElement.getBoundingClientRect(),
+          elementRect: currentRect,
         });
         restoreGridScroll(restoredScroll);
         const updatedScrollElement = currentGridScrollElement();
-        const updatedElement = resolveElement();
-        if (
-          updatedScrollElement === null ||
-          updatedElement === null ||
-          !updatedElement.isConnected
-        ) {
+        const updatedRect = resolveRect();
+        if (updatedScrollElement === null || updatedRect === null) {
           return false;
         }
         const fullyVisible = isRectFullyVisibleWithinContainer(
           updatedScrollElement.getBoundingClientRect(),
-          updatedElement.getBoundingClientRect(),
+          updatedRect,
         );
-        return focusResolvedElement() && fullyVisible;
+        return focusTarget() && fullyVisible;
       };
       const restoredNow = restoreViewportGeometryNow();
       return focusedNow && restoredNow;
@@ -303,7 +253,7 @@ export function useTimelineViewportContinuityController({
             : { requirements: options.requirements }),
         }),
         preservedViewport: currentGridViewportSnapshot(
-          resolveViewportContinuityElement(target),
+          resolveViewportContinuityRect(target),
         ),
       };
       activeViewportContinuityRequestRef.current = request;
@@ -312,7 +262,7 @@ export function useTimelineViewportContinuityController({
     },
     [
       currentGridViewportSnapshot,
-      resolveViewportContinuityElement,
+      resolveViewportContinuityRect,
       setViewportContinuityRequest,
       viewportContinuityTokenRef,
     ],
@@ -478,14 +428,10 @@ export function useTimelineViewportContinuityController({
     (target: TimelineViewportContinuityTarget) => {
       let anchor: GridCellAnchor | null = null;
       if (target.kind === "row-inspect") {
-        anchor = {
-          fieldKey: "timeline.activity_synopsis_text",
-          rowIdentity: { kind: "core_record", recordId: target.recordId },
-          surface: {
-            kind: "view_schema",
-            viewSchemaId: timelineViewSchemaId,
-          },
-        };
+        anchor = timelineAnchor(
+          target.recordId,
+          "timeline.activity_synopsis_text",
+        );
       } else if (target.kind === "input") {
         const [rowKey, fieldKey] = target.focusKey.split(":");
         const scalarBinding = timelineScalarBindings.find(
@@ -513,6 +459,26 @@ export function useTimelineViewportContinuityController({
     [gridHandleRef],
   );
 
+  const focusViewportContinuityTarget = useCallback(
+    (target: TimelineViewportContinuityTarget): boolean => {
+      if (target.kind === "row-inspect") {
+        return (
+          gridHandleRef.current?.focusAnchor(
+            timelineAnchor(target.recordId, "timeline.activity_synopsis_text"),
+          ) ?? false
+        );
+      }
+      if (target.kind === "input") {
+        const element = resolveInputElement(target.focusKey);
+        if (element === null) return false;
+        element.focus({ preventScroll: true });
+        return document.activeElement === element;
+      }
+      return false;
+    },
+    [gridHandleRef, resolveInputElement],
+  );
+
   const tryRestoreViewportContinuity = useCallback(
     (continuity: TimelineViewportContinuityRequest) => {
       const target = continuity.lifecycle.semanticFocusTarget;
@@ -520,18 +486,20 @@ export function useTimelineViewportContinuityController({
         restoreGridScroll(continuity.preservedViewport?.scroll ?? null);
         return true;
       }
-      if (resolveViewportContinuityElement(target) === null) {
+      if (resolveViewportContinuityRect(target) === null) {
         scrollToViewportContinuityTarget(target);
       }
-      return restoreGridViewportForElement(
-        () => resolveViewportContinuityElement(target),
+      return restoreGridViewportForTarget(
+        () => focusViewportContinuityTarget(target),
+        () => resolveViewportContinuityRect(target),
         continuity.preservedViewport,
       );
     },
     [
-      resolveViewportContinuityElement,
+      focusViewportContinuityTarget,
+      resolveViewportContinuityRect,
       restoreGridScroll,
-      restoreGridViewportForElement,
+      restoreGridViewportForTarget,
       scrollToViewportContinuityTarget,
     ],
   );
@@ -648,9 +616,9 @@ export function useTimelineViewportContinuityController({
       failViewportContinuity,
       requireViewportContinuitySourceRecord,
       resolveInputElement,
-      resolveViewportContinuityElement,
+      resolveViewportContinuityRect,
       restoreGridScroll,
-      restoreGridViewportForElement,
+      restoreGridViewportForTarget,
       scrollToViewportContinuityTarget,
       settleViewportContinuityFollowUp,
     },

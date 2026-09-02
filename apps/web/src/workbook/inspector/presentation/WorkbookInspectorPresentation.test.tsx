@@ -13,7 +13,11 @@ import {
   workbookInspectorMessageFeedback,
   workbookInspectorOperationFailureFeedback,
 } from "../workbookInspectorErrorModel";
-import { buildWorkbookInspectorSubject } from "../workbookInspectorSubject";
+import {
+  buildWorkbookInspectorSubject,
+  updateWorkbookInspectorSubject,
+  workbookInspectorSubjectsEqual,
+} from "../workbookInspectorSubject";
 import { WorkbookInspectorContextualAction } from "./WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
@@ -82,6 +86,29 @@ describe("Workbook Inspector presentation", () => {
         }),
       ).toBeNull();
     }
+    expect(live).not.toBeNull();
+    if (live === null) return;
+    expect(
+      workbookInspectorSubjectsEqual(live, {
+        ...live,
+        label: "Renamed host",
+        surfaceLabel: "Host records",
+      }),
+    ).toBe(true);
+    expect(
+      updateWorkbookInspectorSubject(live, {
+        kind: "live",
+        recordId: " host-a ",
+        rowVersion: 3,
+      }),
+    ).toBe(live);
+    expect(
+      workbookInspectorSubjectsEqual(live, {
+        ...live,
+        kind: "deleted",
+        stateLabel: "Deleted",
+      }),
+    ).toBe(false);
   });
 
   it("renders declared panels once in order for live, only History for deleted, and only explicit creation content for null", () => {

@@ -89,7 +89,6 @@ export function TimelineScalarEditor({
     rowKey: string,
     field: FocusFieldKey,
     surface: TimelineScalarEditorSurface,
-    dataTestId: string,
     element: HTMLInputElement | HTMLTextAreaElement | null,
   ) => void;
   readonly presenceFieldKey: string;
@@ -203,7 +202,7 @@ export function TimelineScalarEditor({
   };
   const inputRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
     focusTargetRef?.(element);
-    registerInput(rowKey, field, surface, dataTestId, element);
+    registerInput(rowKey, field, surface, element);
   };
 
   if (multiline) {

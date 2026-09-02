@@ -46,7 +46,7 @@ describe("useTimelineCreateRelatedWorkflow", () => {
           loadRows,
           mutationCommands,
           selectedRow,
-          selectedSubjectKey: subjectKey(selectedRow),
+          selectedSubject: subject(selectedRow),
           setInspectorMessage,
           targetContracts: new Map([[evidence.viewSchemaId, evidence]]),
         }),
@@ -106,16 +106,19 @@ describe("useTimelineCreateRelatedWorkflow", () => {
     expect(setInspectorMessage).toHaveBeenCalledTimes(feedbackCallCount);
     expect(result.current.workflow).toMatchObject({
       phase: "editing",
-      subjectKey: subjectKey(nextRow),
+      subject: subject(nextRow),
       workflowId: reopenedWorkflowId,
     });
   });
 });
 
-function subjectKey(row: WorkbookRow) {
+function subject(row: WorkbookRow) {
   return {
+    kind: "live" as const,
+    label: "Timeline row",
     recordId: row.recordId ?? "",
     rowVersion: row.rowVersion ?? 0,
+    surfaceLabel: timeline.title,
     viewSchemaId: timelineViewSchemaId,
   };
 }

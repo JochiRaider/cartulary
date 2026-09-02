@@ -5,7 +5,6 @@ import type {
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   buildInspectorRelatedRecordDraft,
-  type InspectorRelatedRecordSubjectKey,
   type InspectorRelatedRecordWorkflowAction,
   inspectorRelatedRecordWorkflowReducer,
 } from "../../inspector/inspectorRelatedRecordModel";
@@ -15,6 +14,11 @@ import {
   workbookInspectorLocalErrorPresentation,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import {
+  updateWorkbookInspectorSubject,
+  type WorkbookInspectorLiveSubject,
+  workbookInspectorSubjectsEqual,
+} from "../../inspector/workbookInspectorSubject";
 import { genericCreateMinimumMessage } from "../../models/genericWorkbookModel";
 import { evidenceViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type {
@@ -29,7 +33,7 @@ export function useTimelineCreateRelatedWorkflow({
   loadRows,
   mutationCommands,
   selectedRow,
-  selectedSubjectKey,
+  selectedSubject,
   setInspectorMessage,
   targetContracts,
 }: {
@@ -43,7 +47,7 @@ export function useTimelineCreateRelatedWorkflow({
   }) => Promise<void>;
   readonly mutationCommands: TimelineRelatedRecordPort;
   readonly selectedRow: WorkbookRow | null;
-  readonly selectedSubjectKey: InspectorRelatedRecordSubjectKey | null;
+  readonly selectedSubject: WorkbookInspectorLiveSubject | null;
   readonly setInspectorMessage: (
     message: WorkbookInspectorFeedback | null,
   ) => void;
@@ -74,10 +78,7 @@ export function useTimelineCreateRelatedWorkflow({
     const currentIdentity = currentWorkflowIdentityRef.current;
     if (
       currentIdentity !== null &&
-      !timelineRelatedWorkflowSubjectKeysEqual(
-        currentIdentity.subjectKey,
-        selectedSubjectKey,
-      )
+      !workbookInspectorSubjectsEqual(currentIdentity.subject, selectedSubject)
     ) {
       currentWorkflowIdentityRef.current = null;
     }
@@ -86,9 +87,9 @@ export function useTimelineCreateRelatedWorkflow({
     dispatchWorkflow({
       type: "retarget",
       workflowId: active.workflowId,
-      subjectKey: selectedSubjectKey,
+      subject: selectedSubject,
     });
-  }, [dispatchWorkflow, selectedSubjectKey]);
+  }, [dispatchWorkflow, selectedSubject]);
 
   const cancelWorkflow = useCallback(
     (reason: "owner_action" | "lifecycle" = "owner_action") => {
@@ -130,7 +131,7 @@ export function useTimelineCreateRelatedWorkflow({
         );
         return;
       }
-      if (selectedRow?.recordId == null || selectedSubjectKey === null) {
+      if (selectedRow?.recordId == null || selectedSubject === null) {
         setInspectorMessage(
           workbookInspectorMessageFeedback(
             "Select a row before creating a related record.",
@@ -144,7 +145,7 @@ export function useTimelineCreateRelatedWorkflow({
         featureGroup,
         subject: {
           cells: selectedRow.rawRow?.cells ?? {},
-          recordId: selectedRow.recordId,
+          subject: selectedSubject,
         },
         targetContract,
       });
@@ -162,12 +163,12 @@ export function useTimelineCreateRelatedWorkflow({
         type: "begin",
         featureGroup,
         targetContract,
-        subjectKey: selectedSubjectKey,
+        subject: selectedSubject,
         draft: result.draft,
         workflowId,
       });
       currentWorkflowIdentityRef.current = {
-        subjectKey: selectedSubjectKey,
+        subject: selectedSubject,
         workflowId,
       };
       capturedOwnerSequenceRef.current = false;
@@ -177,7 +178,7 @@ export function useTimelineCreateRelatedWorkflow({
       currentUserId,
       dispatchWorkflow,
       selectedRow,
-      selectedSubjectKey,
+      selectedSubject,
       setInspectorMessage,
       targetContracts,
     ],
@@ -210,8 +211,8 @@ export function useTimelineCreateRelatedWorkflow({
       activeWorkflow.phase !== "editing" ||
       sourceRow === null ||
       sourceRow.recordId === null ||
-      sourceRow.recordId !== activeWorkflow.subjectKey.recordId ||
-      sourceRow.rowVersion !== activeWorkflow.subjectKey.rowVersion
+      sourceRow.recordId !== activeWorkflow.subject.recordId ||
+      sourceRow.rowVersion !== activeWorkflow.subject.rowVersion
     ) {
       return;
     }
@@ -262,14 +263,21 @@ export function useTimelineCreateRelatedWorkflow({
           type: "complete",
           workflowId: activeWorkflow.workflowId,
         });
-        currentWorkflowIdentityRef.current = {
-          subjectKey: {
+        const acceptedSubject = updateWorkbookInspectorSubject(
+          activeWorkflow.subject,
+          {
+            kind: "live",
             recordId: patchResult.value.row.record_id,
             rowVersion: patchResult.value.row.row_version,
-            viewSchemaId: patchResult.value.viewSchemaId,
           },
-          workflowId: activeWorkflow.workflowId,
-        };
+        );
+        currentWorkflowIdentityRef.current =
+          acceptedSubject?.kind === "live"
+            ? {
+                subject: acceptedSubject,
+                workflowId: activeWorkflow.workflowId,
+              }
+            : null;
         capturedOwnerSequenceRef.current = true;
       }
       applyAcceptedRowMutation(sourceRow.key, patchResult.value);
@@ -326,18 +334,6 @@ export function useTimelineCreateRelatedWorkflow({
 }
 
 type CurrentTimelineRelatedWorkflowIdentity = {
-  readonly subjectKey: InspectorRelatedRecordSubjectKey;
+  readonly subject: WorkbookInspectorLiveSubject;
   readonly workflowId: symbol;
 };
-
-function timelineRelatedWorkflowSubjectKeysEqual(
-  left: InspectorRelatedRecordSubjectKey,
-  right: InspectorRelatedRecordSubjectKey | null,
-): boolean {
-  return (
-    right !== null &&
-    left.viewSchemaId === right.viewSchemaId &&
-    left.recordId === right.recordId &&
-    left.rowVersion === right.rowVersion
-  );
-}

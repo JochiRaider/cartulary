@@ -57,7 +57,9 @@ describe("Timeline workbook composition architecture", () => {
   it("keeps presentation regions stateless and excludes privileged runtime capabilities", () => {
     const presentationPaths = productionTypeScriptPaths(presentationDirectory);
     const regionPaths = presentationPaths.filter(
-      (file) => !file.endsWith("useTimelineWorkbookPresentation.tsx"),
+      (file) =>
+        !file.endsWith("useTimelineWorkbookPresentation.tsx") &&
+        !file.endsWith("useTimelineInspectorPresentation.tsx"),
     );
     for (const file of regionPaths) {
       expect(readFileSync(file, "utf8"), file).not.toMatch(
@@ -80,6 +82,10 @@ describe("Timeline workbook composition architecture", () => {
     expect(presentationSource).toContain("useLayoutEffect(() => {");
     expect(presentationSource).toContain(
       "grid.commands.registerVisibleColumns(visibleTimelineColumns)",
+    );
+    expect(presentationSource).toContain("useTimelineInspectorPresentation({");
+    expect(presentationSource).not.toContain(
+      "useTimelineWorkbookInspectorSections",
     );
 
     const workbookDirectory = path.resolve(timelineDirectory, "..");

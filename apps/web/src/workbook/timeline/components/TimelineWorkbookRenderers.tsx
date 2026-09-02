@@ -91,14 +91,9 @@ export function useTimelineWorkbookRenderers({
       rowKey: string,
       field: FocusFieldKey,
       surface: TimelineScalarEditorSurface,
-      dataTestId: string,
       element: HTMLInputElement | HTMLTextAreaElement | null,
     ) => {
-      editorDraftRegistry.registerInput(
-        { field, rowKey, surface },
-        dataTestId,
-        element,
-      );
+      editorDraftRegistry.registerInput({ field, rowKey, surface }, element);
     },
     [editorDraftRegistry],
   );
@@ -139,6 +134,7 @@ export function useTimelineWorkbookRenderers({
     queueCollectionSave,
     readOnly,
     registerInput,
+    resolveInputElement: editorDraftRegistry.inputElementForFocusKey,
     deactivateCollectionInput,
     timelineBindingLabel,
     updateTimelineSurfaceFocusAnchor,

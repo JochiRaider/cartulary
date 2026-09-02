@@ -290,6 +290,7 @@ export type GridCellRenderContext<Row> = {
 
 export type GridDraftCellRenderContext<Row> = {
   readonly fieldKey: string;
+  readonly focusTargetRef: RefCallback<GridEditorFocusTarget>;
   readonly row: Row;
   readonly surface: Extract<
     GridSurfaceIdentity,
@@ -372,7 +373,9 @@ export type GridHandle = {
   ) => boolean;
   readonly cancelEdit: (anchor: GridCellAnchor) => boolean;
   readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly focusDraftCell: (fieldKey: string) => boolean;
   readonly focusRoot: () => boolean;
+  readonly getAnchorRect: (anchor: GridCellAnchor) => DOMRectReadOnly | null;
   readonly getScrollElement: () => HTMLDivElement | null;
   readonly isAnchorRendered: (anchor: GridCellAnchor) => boolean;
   readonly moveFocus: (

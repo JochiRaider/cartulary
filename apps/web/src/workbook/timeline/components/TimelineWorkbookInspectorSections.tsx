@@ -1,5 +1,5 @@
 import { timelineInspectorSectionTestId } from "@cartulary/ui-contracts";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode, type RefCallback, useCallback } from "react";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
@@ -108,7 +108,7 @@ export function useTimelineWorkbookInspectorSections({
   );
 
   const renderEvidenceAttachSection = useCallback(
-    (row: WorkbookRow) => {
+    (row: WorkbookRow, elementRef?: RefCallback<HTMLElement>) => {
       const countDisplay = buildEvidenceCountDisplayViewModel({
         projectedCount: readTimelineCellValue(
           row.rawRow,
@@ -122,6 +122,7 @@ export function useTimelineWorkbookInspectorSections({
       return (
         <TimelineEvidencePanel
           countDisplay={countDisplay}
+          elementRef={elementRef}
           row={row}
           onFilesSelected={handleTimelineEvidenceFiles}
         />
@@ -164,9 +165,10 @@ export function useTimelineWorkbookInspectorSections({
   ]);
 
   const renderRowHistorySection = useCallback(
-    () => (
+    (elementRef?: RefCallback<HTMLElement>) => (
       <TimelineHistoryPanel
         canMutate={canMutateHistory}
+        elementRef={elementRef}
         history={rowHistory}
         selectedActiveRowRecordId={
           inspectorHistorySubject?.kind === "live"

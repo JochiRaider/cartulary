@@ -52,7 +52,6 @@ export type RegisterTimelineInput = (
   rowKey: string,
   field: FocusFieldKey,
   surface: TimelineScalarEditorSurface,
-  dataTestId: string,
   element: HTMLInputElement | HTMLTextAreaElement | null,
 ) => void;
 
@@ -74,6 +73,9 @@ export type TimelineCollectionKeyDown = (
 export type RenderTimelineCollectionInput = (
   row: WorkbookRow,
   binding: TimelineCollectionBinding,
+  focusTargetRef?:
+    | ((element: GridEditorFocusTarget | null) => void)
+    | undefined,
 ) => ReactNode;
 
 export type RenderTimelineGridEditor = (

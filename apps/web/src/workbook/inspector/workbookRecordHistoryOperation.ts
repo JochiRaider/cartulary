@@ -4,10 +4,6 @@ import type {
 } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import { workbookInspectorMessageFeedback } from "./workbookInspectorErrorModel";
-import {
-  updateWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "./workbookInspectorSubject";
 import type { WorkbookRecordHistoryPendingAction } from "./workbookRecordHistoryModel";
 import type { WorkbookRecordHistoryOwnerEffects } from "./workbookRecordHistoryOwnerEffects";
 
@@ -31,23 +27,6 @@ export function executeWorkbookRecordHistoryOperation(
         ? "Deleted from the workbook inspector"
         : "Restored from the workbook inspector",
     recordId: pending.recordId,
-  });
-}
-
-export function acceptedWorkbookRecordHistorySubject(
-  subject: WorkbookInspectorSubject,
-  pending: WorkbookRecordHistoryPendingAction,
-  accepted: RecordLifecycleAccepted,
-): WorkbookInspectorSubject | null {
-  return updateWorkbookInspectorSubject(subject, {
-    kind:
-      pending.kind === "destructive"
-        ? pending.operation === "delete"
-          ? "deleted"
-          : "live"
-        : subject.kind,
-    recordId: accepted.recordId,
-    rowVersion: accepted.rowVersion,
   });
 }
 

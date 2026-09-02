@@ -4,10 +4,7 @@ import {
   workbookInspectorLocalErrorPresentation,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
-import {
-  updateWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "../../inspector/workbookInspectorSubject";
+import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import {
   buildRecordRollbackTargetFromHistoryAction,
   type RecordHistoryData,
@@ -88,7 +85,9 @@ export function useTimelineHistoryActions({
   readonly loadRows: (options: TimelineHistoryLoadRowsOptions) => Promise<void>;
   readonly nextClientTxnId: () => string;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
-  readonly dispatchRowHistory: (event: WorkbookRecordHistoryEvent) => void;
+  readonly dispatchRowHistory: (
+    event: WorkbookRecordHistoryEvent,
+  ) => WorkbookRecordHistoryState;
   readonly retargetRowHistory: (
     subject: WorkbookInspectorSubject | null,
   ) => void;
@@ -319,33 +318,25 @@ export function useTimelineHistoryActions({
           }),
         onSuccess: async (accepted, viewportContinuityToken) => {
           acceptTimelineRecordVersion(recordId, accepted.rowVersion);
-          const sourceSubject = rowHistory.subject;
-          if (sourceSubject === null) return;
-          const nextSubject = updateWorkbookInspectorSubject(sourceSubject, {
-            kind: operation === "delete" ? "deleted" : "live",
+          const feedback = workbookInspectorMessageFeedback(
+            operation === "delete"
+              ? `Deleted record ${recordId}.`
+              : `Restored record ${recordId}.`,
+            "polite",
+          );
+          const acceptedState = dispatchRowHistory({
+            feedback,
+            operationId,
             recordId,
             rowVersion: accepted.rowVersion,
-          });
-          if (nextSubject === null) return;
-          dispatchRowHistory({
-            feedback: workbookInspectorMessageFeedback(
-              operation === "delete"
-                ? `Deleted record ${recordId}.`
-                : `Restored record ${recordId}.`,
-              "polite",
-            ),
-            operationId,
-            subject: nextSubject,
             type: "operation_accepted",
           });
+          const nextSubject =
+            acceptedState.phase === "idle" ? acceptedState.subject : null;
+          if (nextSubject === null) return;
           if (currentHistoryRecordIdMatches(recordId)) {
             await fetchRecordHistory(recordId, {
-              completionFeedback: workbookInspectorMessageFeedback(
-                operation === "delete"
-                  ? `Deleted record ${recordId}.`
-                  : `Restored record ${recordId}.`,
-                "polite",
-              ),
+              completionFeedback: feedback,
               setLoading: true,
               subject: nextSubject,
             });
@@ -367,7 +358,6 @@ export function useTimelineHistoryActions({
       fetchRecordHistory,
       historyPort,
       loadRows,
-      rowHistory.subject,
       selectedRowRecordId,
       setSelectedRowId,
       submitRowHistoryMutation,
@@ -410,32 +400,23 @@ export function useTimelineHistoryActions({
           }),
         onSuccess: async (accepted, viewportContinuityToken) => {
           acceptTimelineRecordVersion(recordId, accepted.rowVersion);
-          const sourceSubject = rowHistory.subject;
-          if (sourceSubject === null) return;
-          const nextSubject = updateWorkbookInspectorSubject(sourceSubject, {
-            kind:
-              rowHistory.subject?.recordId === recordId
-                ? rowHistory.subject.kind
-                : "live",
+          const feedback = workbookInspectorMessageFeedback(
+            `Rolled back record ${recordId}.`,
+            "polite",
+          );
+          const acceptedState = dispatchRowHistory({
+            feedback,
+            operationId,
             recordId,
             rowVersion: accepted.rowVersion,
-          });
-          if (nextSubject === null) return;
-          dispatchRowHistory({
-            feedback: workbookInspectorMessageFeedback(
-              `Rolled back record ${recordId}.`,
-              "polite",
-            ),
-            operationId,
-            subject: nextSubject,
             type: "operation_accepted",
           });
+          const nextSubject =
+            acceptedState.phase === "idle" ? acceptedState.subject : null;
+          if (nextSubject === null) return;
           if (currentHistoryRecordIdMatches(recordId)) {
             await fetchRecordHistory(recordId, {
-              completionFeedback: workbookInspectorMessageFeedback(
-                `Rolled back record ${recordId}.`,
-                "polite",
-              ),
+              completionFeedback: feedback,
               setLoading: true,
               subject: nextSubject,
             });
@@ -456,7 +437,6 @@ export function useTimelineHistoryActions({
       fetchRecordHistory,
       historyPort,
       loadRows,
-      rowHistory.subject,
       selectedRowRecordId,
       submitRowHistoryMutation,
     ],

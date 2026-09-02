@@ -2,9 +2,9 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
   buildInspectorRelatedRecordDraft,
-  type InspectorRelatedRecordSubjectKey,
   inspectorRelatedRecordWorkflowReducer,
 } from "./inspectorRelatedRecordModel";
+import type { WorkbookInspectorLiveSubject } from "./workbookInspectorSubject";
 
 const timeline = requireViewContract("cartulary.view.timeline.v2");
 const taskRequests = requireViewContract("cartulary.view.task_requests.v1");
@@ -43,7 +43,7 @@ describe("inspector related-record model", () => {
         featureGroup: feature,
         subject: {
           cells: { "timeline.title": { value: "  Investigate  " } },
-          recordId: "timeline-1",
+          subject: timelineSubject("timeline-1", 4),
         },
         targetContract: taskRequests,
       }),
@@ -75,7 +75,7 @@ describe("inspector related-record model", () => {
     const result = buildInspectorRelatedRecordDraft({
       currentUserId: null,
       featureGroup: feature,
-      subject: { cells: {}, recordId: "timeline-1" },
+      subject: { cells: {}, subject: timelineSubject("timeline-1", 4) },
       targetContract: taskRequests,
     });
     expect(result.kind).toBe("ready");
@@ -91,7 +91,7 @@ describe("inspector related-record model", () => {
       buildInspectorRelatedRecordDraft({
         currentUserId: null,
         featureGroup: canonicalFeature,
-        subject: { cells: {}, recordId: "timeline-1" },
+        subject: { cells: {}, subject: timelineSubject("timeline-1", 4) },
         targetContract: requireViewContract("cartulary.view.notes.v1"),
       }),
     ).toEqual({ kind: "invalid_target", reason: "semantic_mismatch" });
@@ -101,12 +101,12 @@ describe("inspector related-record model", () => {
     expect(canonicalFeature).toBeDefined();
     if (canonicalFeature === undefined) return;
     const workflowId = Symbol("workflow");
-    const subjectKey = timelineSubject("timeline-1", 4);
+    const subject = timelineSubject("timeline-1", 4);
     const editing = inspectorRelatedRecordWorkflowReducer(null, {
       type: "begin",
       draft: { "task.title": "Investigate" },
       featureGroup: canonicalFeature,
-      subjectKey,
+      subject,
       targetContract: taskRequests,
       workflowId,
     });
@@ -114,7 +114,7 @@ describe("inspector related-record model", () => {
       draft: { "task.title": "Investigate" },
       error: null,
       phase: "editing",
-      subjectKey,
+      subject,
       workflowId,
     });
 
@@ -167,12 +167,12 @@ describe("inspector related-record model", () => {
     if (canonicalFeature === undefined) return;
     const oldWorkflowId = Symbol("old-workflow");
     const currentWorkflowId = Symbol("current-workflow");
-    const subjectKey = timelineSubject("timeline-1", 4);
+    const subject = timelineSubject("timeline-1", 4);
     const oldState = inspectorRelatedRecordWorkflowReducer(null, {
       type: "begin",
       draft: {},
       featureGroup: canonicalFeature,
-      subjectKey,
+      subject,
       targetContract: taskRequests,
       workflowId: oldWorkflowId,
     });
@@ -184,7 +184,7 @@ describe("inspector related-record model", () => {
       type: "begin",
       draft: { "task.title": "Current" },
       featureGroup: canonicalFeature,
-      subjectKey,
+      subject,
       targetContract: taskRequests,
       workflowId: currentWorkflowId,
     });
@@ -206,7 +206,7 @@ describe("inspector related-record model", () => {
       { type: "cancel" as const, workflowId: oldWorkflowId },
       {
         type: "retarget" as const,
-        subjectKey: null,
+        subject: null,
         workflowId: oldWorkflowId,
       },
     ]) {
@@ -220,19 +220,19 @@ describe("inspector related-record model", () => {
     expect(canonicalFeature).toBeDefined();
     if (canonicalFeature === undefined) return;
     const workflowId = Symbol("workflow");
-    const subjectKey = timelineSubject("timeline-1", 4);
+    const subject = timelineSubject("timeline-1", 4);
     const state = inspectorRelatedRecordWorkflowReducer(null, {
       type: "begin",
       draft: {},
       featureGroup: canonicalFeature,
-      subjectKey,
+      subject,
       targetContract: taskRequests,
       workflowId,
     });
     expect(
       inspectorRelatedRecordWorkflowReducer(state, {
         type: "retarget",
-        subjectKey: { ...subjectKey },
+        subject: { ...subject, label: "Presentation-only rename" },
         workflowId,
       }),
     ).toBe(state);
@@ -240,13 +240,13 @@ describe("inspector related-record model", () => {
     for (const retargeted of [
       timelineSubject("timeline-2", 4),
       timelineSubject("timeline-1", 5),
-      { ...subjectKey, viewSchemaId: "cartulary.view.notes.v1" },
+      { ...subject, viewSchemaId: "cartulary.view.notes.v1" },
       null,
     ]) {
       expect(
         inspectorRelatedRecordWorkflowReducer(state, {
           type: "retarget",
-          subjectKey: retargeted,
+          subject: retargeted,
           workflowId,
         }),
       ).toBeNull();
@@ -257,10 +257,13 @@ describe("inspector related-record model", () => {
 function timelineSubject(
   recordId: string,
   rowVersion: number,
-): InspectorRelatedRecordSubjectKey {
+): WorkbookInspectorLiveSubject {
   return {
+    kind: "live",
+    label: "Timeline row",
     recordId,
     rowVersion,
+    surfaceLabel: timeline.title,
     viewSchemaId: timeline.viewSchemaId,
   };
 }

@@ -1,9 +1,4 @@
 import {
-  dataTestIdSelector,
-  mentionItemTestId,
-  timelineInspectorTestId,
-} from "@cartulary/ui-contracts";
-import {
   type Dispatch,
   type MutableRefObject,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -17,7 +12,6 @@ import {
   useState,
 } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
-import type { InspectorRelatedRecordSubjectKey } from "../../inspector/inspectorRelatedRecordModel";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
@@ -29,6 +23,7 @@ import {
 } from "../../inspector/workbookRecordHistoryModel";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
 import {
   buildInspectorMentions,
@@ -89,19 +84,6 @@ export function useTimelineInspectorSelection({
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
-  const selectedRowWorkflowSubject =
-    useMemo<InspectorRelatedRecordSubjectKey | null>(
-      () =>
-        selectedRow?.recordId && selectedRow.rowVersion !== null
-          ? {
-              recordId: selectedRow.recordId,
-              rowVersion: selectedRow.rowVersion,
-              viewSchemaId: timelineViewSchemaId,
-            }
-          : null,
-      [selectedRow],
-    );
-
   return {
     commands: {
       setInspectorMessage,
@@ -116,12 +98,12 @@ export function useTimelineInspectorSelection({
       selectedMention,
       selectedRow,
       selectedRowId,
-      selectedRowWorkflowSubject,
     },
   };
 }
 
 export function useTimelineInspectorRowInteractions({
+  elementRegistry,
   publishViewingPresence,
   rows,
   rowsRef,
@@ -131,6 +113,7 @@ export function useTimelineInspectorRowInteractions({
   setSelectedMentionRef,
   setSelectedRowId,
 }: {
+  readonly elementRegistry: TimelineInspectorElementRegistry;
   readonly publishViewingPresence: (recordId: string) => void;
   readonly rows: readonly WorkbookRow[];
   readonly rowsRef: TimelineRowsRef;
@@ -266,32 +249,33 @@ export function useTimelineInspectorRowInteractions({
 
   const handleSelectMention = useCallback(
     (rowRecordId: string, itemRef: string) => {
+      const rowVersion =
+        rowsRef.current.find((row) => row.recordId === rowRecordId)
+          ?.rowVersion ?? null;
       setSelectedRowId(rowRecordId);
       setSelectedMentionRef(itemRef);
       setInspectorMessage(null);
       setIsInspectorOpen(true);
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          const mentionButton = document.querySelector<HTMLButtonElement>(
-            dataTestIdSelector(mentionItemTestId(itemRef)),
+          if (rowVersion === null || elementRegistry.containsActiveElement()) {
+            return;
+          }
+          elementRegistry.focusMention(
+            {
+              recordId: rowRecordId,
+              rowVersion,
+              viewSchemaId: timelineViewSchemaId,
+            },
+            rowRecordId,
+            itemRef,
           );
-          if (mentionButton === null) {
-            return;
-          }
-          const activeElement = document.activeElement;
-          if (
-            activeElement instanceof HTMLElement &&
-            activeElement !== document.body &&
-            activeElement !== mentionButton &&
-            activeElement.closest(dataTestIdSelector(timelineInspectorTestId()))
-          ) {
-            return;
-          }
-          mentionButton.focus({ preventScroll: true });
         });
       });
     },
     [
+      elementRegistry,
+      rowsRef,
       setInspectorMessage,
       setIsInspectorOpen,
       setSelectedMentionRef,

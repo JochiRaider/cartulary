@@ -1,11 +1,15 @@
 import type { InspectorConfig } from "@cartulary/view-contracts";
 
-type WorkbookInspectorSubjectContext = {
-  readonly label: string;
+export type WorkbookInspectorSubjectIdentity = {
+  readonly kind: "live" | "deleted";
   readonly recordId: string;
   readonly rowVersion: number;
-  readonly surfaceLabel: string;
   readonly viewSchemaId: string;
+};
+
+type WorkbookInspectorSubjectContext = WorkbookInspectorSubjectIdentity & {
+  readonly label: string;
+  readonly surfaceLabel: string;
 };
 
 export type WorkbookInspectorSubject =
@@ -17,6 +21,16 @@ export type WorkbookInspectorSubject =
       readonly kind: "deleted";
       readonly stateLabel: string;
     });
+
+export type WorkbookInspectorLiveSubject = Extract<
+  WorkbookInspectorSubject,
+  { readonly kind: "live" }
+>;
+
+export type WorkbookInspectorLiveRowBinding = {
+  readonly cells: Readonly<Record<string, { readonly value: unknown }>>;
+  readonly subject: WorkbookInspectorLiveSubject;
+};
 
 export function buildWorkbookInspectorSubject({
   config,
@@ -54,11 +68,38 @@ export function updateWorkbookInspectorSubject(
     readonly rowVersion: number | null | undefined;
   },
 ): WorkbookInspectorSubject | null {
+  if (
+    identity.kind === subject.kind &&
+    identity.recordId?.trim() === subject.recordId &&
+    identity.rowVersion === subject.rowVersion
+  ) {
+    return subject;
+  }
   return validatedWorkbookInspectorSubject({
     ...subject,
     ...identity,
-    stateLabel: identity.kind === "deleted" ? "Deleted" : subject.stateLabel,
+    stateLabel:
+      identity.kind === "deleted"
+        ? "Deleted"
+        : subject.kind === "deleted"
+          ? undefined
+          : subject.stateLabel,
   });
+}
+
+export function workbookInspectorSubjectsEqual(
+  left: WorkbookInspectorSubject | null,
+  right: WorkbookInspectorSubject | null,
+): boolean {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.kind === right.kind &&
+      left.viewSchemaId === right.viewSchemaId &&
+      left.recordId === right.recordId &&
+      left.rowVersion === right.rowVersion)
+  );
 }
 
 function validatedWorkbookInspectorSubject({
@@ -81,10 +122,12 @@ function validatedWorkbookInspectorSubject({
   const normalizedRecordId = recordId?.trim() ?? "";
   const normalizedLabel = label.trim();
   const normalizedSurfaceLabel = surfaceLabel.trim();
+  const normalizedViewSchemaId = viewSchemaId.trim();
   if (
     normalizedRecordId === "" ||
     normalizedLabel === "" ||
     normalizedSurfaceLabel === "" ||
+    normalizedViewSchemaId === "" ||
     !Number.isInteger(rowVersion) ||
     (rowVersion ?? 0) <= 0
   ) {
@@ -95,7 +138,7 @@ function validatedWorkbookInspectorSubject({
     recordId: normalizedRecordId,
     rowVersion: rowVersion as number,
     surfaceLabel: normalizedSurfaceLabel,
-    viewSchemaId,
+    viewSchemaId: normalizedViewSchemaId,
   };
   if (kind === "deleted") {
     return {

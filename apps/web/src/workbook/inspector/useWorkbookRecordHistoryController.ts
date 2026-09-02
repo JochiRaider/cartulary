@@ -17,14 +17,15 @@ import {
   initialWorkbookRecordHistoryState,
   type RecordHistoryItem,
   type RecordHistoryRollbackAction,
+  type WorkbookRecordHistoryEvent,
   type WorkbookRecordHistoryPendingAction,
+  type WorkbookRecordHistoryState,
   workbookRecordHistoryOperationId,
   workbookRecordHistoryPendingAction,
   workbookRecordHistoryReducer,
   workbookRecordHistoryRequestId,
 } from "./workbookRecordHistoryModel";
 import {
-  acceptedWorkbookRecordHistorySubject,
   applyWorkbookRecordHistoryOwnerEffect,
   executeWorkbookRecordHistoryOperation,
   workbookRecordHistoryCompletionFeedback,
@@ -42,7 +43,7 @@ export function useWorkbookRecordHistoryController({
   readonly ownerEffects: WorkbookRecordHistoryOwnerEffects;
   readonly subject: WorkbookInspectorSubject | null;
 }) {
-  const [snapshot, dispatch] = useReducer(
+  const [snapshot, reactDispatch] = useReducer(
     workbookRecordHistoryReducer,
     subject,
     initialWorkbookRecordHistoryState,
@@ -51,6 +52,15 @@ export function useWorkbookRecordHistoryController({
   const requestSequenceRef = useRef(0);
   const operationSequenceRef = useRef(0);
   const ownerEffectsRef = useRef(ownerEffects);
+  const dispatchHistory = useCallback(
+    (event: WorkbookRecordHistoryEvent): WorkbookRecordHistoryState => {
+      const next = workbookRecordHistoryReducer(snapshotRef.current, event);
+      snapshotRef.current = next;
+      reactDispatch(event);
+      return next;
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
     snapshotRef.current = snapshot;
@@ -58,12 +68,12 @@ export function useWorkbookRecordHistoryController({
   });
 
   useEffect(() => {
-    dispatch({ subject, type: "retarget" });
-  }, [subject]);
+    dispatchHistory({ subject, type: "retarget" });
+  }, [dispatchHistory, subject]);
 
   useEffect(() => {
-    if (!canMutate) dispatch({ type: "cancel" });
-  }, [canMutate]);
+    if (!canMutate) dispatchHistory({ type: "cancel" });
+  }, [canMutate, dispatchHistory]);
 
   const load = useCallback(
     async (
@@ -74,12 +84,16 @@ export function useWorkbookRecordHistoryController({
         requestSequenceRef.current + 1,
       );
       requestSequenceRef.current = requestId.value;
-      dispatch({ requestId, subject: activeSubject, type: "load_requested" });
+      dispatchHistory({
+        requestId,
+        subject: activeSubject,
+        type: "load_requested",
+      });
       const outcome = await commands.loadHistory({
         recordId: activeSubject.recordId,
       });
       if (outcome.kind === "rejected") {
-        dispatch({
+        dispatchHistory({
           error: workbookInspectorErrorPresentation(outcome.failure),
           feedback: completionFeedback,
           requestId,
@@ -88,7 +102,7 @@ export function useWorkbookRecordHistoryController({
         });
         return;
       }
-      dispatch({
+      dispatchHistory({
         data: outcome.value,
         feedback: completionFeedback,
         requestId,
@@ -96,7 +110,7 @@ export function useWorkbookRecordHistoryController({
         type: "load_accepted",
       });
     },
-    [commands],
+    [commands, dispatchHistory],
   );
 
   const open = useCallback(() => {
@@ -114,9 +128,9 @@ export function useWorkbookRecordHistoryController({
         recordId: activeSubject.recordId,
         rowVersion: activeSubject.rowVersion,
       };
-      dispatch({ pendingAction, type: "preview" });
+      dispatchHistory({ pendingAction, type: "preview" });
     },
-    [canMutate],
+    [canMutate, dispatchHistory],
   );
 
   const previewRollback = useCallback(
@@ -125,7 +139,7 @@ export function useWorkbookRecordHistoryController({
       if (activeSubject === null || !canMutate) return;
       const target = buildRecordRollbackTargetFromHistoryAction(item, action);
       if (target === null) return;
-      dispatch({
+      dispatchHistory({
         pendingAction: {
           action,
           historyItemRef: item.history_item_ref,
@@ -137,16 +151,19 @@ export function useWorkbookRecordHistoryController({
         type: "preview",
       });
     },
-    [canMutate],
+    [canMutate, dispatchHistory],
   );
 
-  const cancel = useCallback(() => dispatch({ type: "cancel" }), []);
+  const cancel = useCallback(
+    () => dispatchHistory({ type: "cancel" }),
+    [dispatchHistory],
+  );
 
   const confirm = useCallback(async () => {
     const pending = workbookRecordHistoryPendingAction(snapshotRef.current);
     const operationSubject = snapshotRef.current.subject;
     if (pending === null || operationSubject === null || !canMutate) {
-      dispatch({ type: "cancel" });
+      dispatchHistory({ type: "cancel" });
       return;
     }
     const operationId = workbookRecordHistoryOperationId(
@@ -154,13 +171,13 @@ export function useWorkbookRecordHistoryController({
     );
     operationSequenceRef.current = operationId.value;
     const capturedOwnerEffects = ownerEffectsRef.current;
-    dispatch({ operationId, type: "submit" });
+    dispatchHistory({ operationId, type: "submit" });
     const outcome = await executeWorkbookRecordHistoryOperation(
       commands,
       pending,
     );
     if (outcome.kind === "rejected") {
-      dispatch({
+      dispatchHistory({
         feedback: {
           error: workbookInspectorErrorPresentation(outcome.failure),
           kind: "error",
@@ -171,13 +188,12 @@ export function useWorkbookRecordHistoryController({
       return;
     }
     const accepted = outcome.value;
-    const nextSubject = acceptedWorkbookRecordHistorySubject(
-      operationSubject,
-      pending,
-      accepted,
-    );
-    if (nextSubject === null) {
-      dispatch({
+    if (
+      accepted.recordId !== pending.recordId ||
+      !Number.isInteger(accepted.rowVersion) ||
+      accepted.rowVersion <= 0
+    ) {
+      dispatchHistory({
         feedback: workbookInspectorLocalErrorFeedback(
           "The history operation returned an invalid record identity.",
         ),
@@ -191,27 +207,30 @@ export function useWorkbookRecordHistoryController({
       pending,
       accepted,
     );
-    const operationIsCurrent =
-      snapshotRef.current.phase === "submitting" &&
-      snapshotRef.current.operationId.value === operationId.value &&
-      snapshotRef.current.subject?.recordId === pending.recordId;
     const completionFeedback = workbookRecordHistoryCompletionFeedback(
       pending,
       accepted,
     );
-    dispatch({
+    const next = dispatchHistory({
       feedback: completionFeedback,
       operationId,
-      subject: nextSubject,
+      recordId: accepted.recordId,
+      rowVersion: accepted.rowVersion,
       type: "operation_accepted",
     });
-    if (operationIsCurrent) await load(nextSubject, completionFeedback);
-  }, [canMutate, commands, load]);
+    if (
+      next.phase === "idle" &&
+      next.subject?.recordId === accepted.recordId &&
+      next.subject.rowVersion === accepted.rowVersion
+    ) {
+      await load(next.subject, completionFeedback);
+    }
+  }, [canMutate, commands, dispatchHistory, load]);
 
   return {
     commands: {
       cancel,
-      clearFeedback: () => dispatch({ type: "feedback_cleared" }),
+      clearFeedback: () => dispatchHistory({ type: "feedback_cleared" }),
       confirm,
       open,
       previewDeleteRestore,

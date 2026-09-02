@@ -18,6 +18,7 @@ export function TimelineWorkbookInspectorRegion({
       currentIncidentRole={model.currentIncidentRole}
       incidentClosed={model.incidentClosed}
       entityIndex={model.entityIndex}
+      elementRegistry={model.elementRegistry}
       getRelationshipLabel={model.getRelationshipLabel}
       hostEntities={model.hostEntities}
       identityEntities={model.identityEntities}

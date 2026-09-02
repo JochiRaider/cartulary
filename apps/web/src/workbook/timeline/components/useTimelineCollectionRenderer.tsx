@@ -1,5 +1,4 @@
 import {
-  dataTestIdSelector,
   draftRelationshipItemsTestId,
   draftTimelineCollectionInputTestId,
   relationshipItemsTestId,
@@ -44,6 +43,7 @@ export function useTimelineCollectionRenderer({
   queueCollectionSave,
   readOnly,
   registerInput,
+  resolveInputElement,
   timelineBindingLabel,
   updateTimelineSurfaceFocusAnchor,
 }: {
@@ -62,6 +62,9 @@ export function useTimelineCollectionRenderer({
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
   readonly registerInput: RegisterTimelineInput;
+  readonly resolveInputElement: (
+    focusKey: string,
+  ) => HTMLInputElement | HTMLTextAreaElement | null;
   readonly timelineBindingLabel: (fieldKey: string) => string;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -69,7 +72,11 @@ export function useTimelineCollectionRenderer({
   ) => void;
 }) {
   return useCallback(
-    (row: WorkbookRow, binding: TimelineCollectionBinding) => {
+    (
+      row: WorkbookRow,
+      binding: TimelineCollectionBinding,
+      focusTargetRef?: (element: HTMLInputElement | null) => void,
+    ) => {
       const label = timelineBindingLabel(binding.fieldKey);
       const items = row.collectionValues[binding.draftKey];
       const collectionInputTestId =
@@ -91,11 +98,9 @@ export function useTimelineCollectionRenderer({
         if (readOnly) return;
         activateCollectionInput(collectionFocusKey);
         window.requestAnimationFrame(() => {
-          document
-            .querySelector<HTMLInputElement>(
-              dataTestIdSelector(collectionInputTestId),
-            )
-            ?.focus({ preventScroll: true });
+          resolveInputElement(collectionFocusKey)?.focus({
+            preventScroll: true,
+          });
         });
       };
       const relationshipOverflowRecordId =
@@ -223,13 +228,8 @@ export function useTimelineCollectionRenderer({
             data-testid={collectionInputTestId}
             key={`${row.key}:${binding.draftKey}:${row.rowVersion ?? "draft"}`}
             ref={(element) => {
-              registerInput(
-                row.key,
-                binding.draftKey,
-                "grid",
-                collectionInputTestId,
-                element,
-              );
+              focusTargetRef?.(element);
+              registerInput(row.key, binding.draftKey, "grid", element);
             }}
             readOnly={readOnly}
             tabIndex={isCollectionInputActive ? 0 : -1}
@@ -297,6 +297,7 @@ export function useTimelineCollectionRenderer({
       queueCollectionSave,
       readOnly,
       registerInput,
+      resolveInputElement,
       timelineBindingLabel,
       updateTimelineSurfaceFocusAnchor,
     ],

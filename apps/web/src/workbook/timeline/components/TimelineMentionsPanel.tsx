@@ -50,6 +50,11 @@ type TimelineMentionsPanelProps = {
   readonly identityEntities: readonly MentionEntityOption[];
   readonly inspectorMentions: readonly InspectorMention[];
   readonly relationshipEditors?: ReactNode;
+  readonly registerMention: (
+    sourceRecordId: string,
+    itemRef: string,
+    element: HTMLButtonElement | null,
+  ) => void;
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly onSetInspectorMessage: (message: WorkbookInspectorFeedback) => void;
@@ -71,6 +76,7 @@ export function TimelineMentionsPanel({
   identityEntities,
   inspectorMentions,
   relationshipEditors,
+  registerMention,
   onResolveTargetChange,
   onSelectMention,
   onSetInspectorMessage,
@@ -85,6 +91,7 @@ export function TimelineMentionsPanel({
         entityIndex={entityIndex}
         inspectorMentions={inspectorMentions}
         relationshipEditors={relationshipEditors}
+        registerMention={registerMention}
         onSelectMention={onSelectMention}
         selectedMention={selectedMention}
       />
@@ -111,12 +118,14 @@ function MentionGroups({
   entityIndex,
   inspectorMentions,
   relationshipEditors,
+  registerMention,
   onSelectMention,
   selectedMention,
 }: {
   readonly entityIndex: Record<string, { label: string }>;
   readonly inspectorMentions: readonly InspectorMention[];
   readonly relationshipEditors?: ReactNode;
+  readonly registerMention: TimelineMentionsPanelProps["registerMention"];
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly selectedMention: InspectorMention | null;
 }) {
@@ -141,6 +150,9 @@ function MentionGroups({
                   <button
                     key={item.itemRef}
                     data-testid={mentionItemTestId(item.itemRef)}
+                    ref={(element) =>
+                      registerMention(item.rowRecordId, item.itemRef, element)
+                    }
                     tabIndex={0}
                     style={{
                       ...mentionListButtonStyle,

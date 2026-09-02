@@ -4,6 +4,9 @@ import {
   initialWorkbookRecordHistoryState,
   type RecordHistoryData,
   type RecordHistoryItem,
+  type WorkbookRecordHistoryEvent,
+  type WorkbookRecordHistoryPendingAction,
+  type WorkbookRecordHistoryState,
   workbookRecordHistoryLoadedData,
   workbookRecordHistoryOperationId,
   workbookRecordHistoryPendingAction,
@@ -82,7 +85,8 @@ describe("workbookRecordHistoryModel", () => {
       { operationId, type: "submit" as const },
       {
         operationId,
-        subject: liveSubject,
+        recordId: liveSubject.recordId,
+        rowVersion: liveSubject.rowVersion + 1,
         type: "operation_accepted" as const,
       },
       {
@@ -102,6 +106,119 @@ describe("workbookRecordHistoryModel", () => {
 
     for (const event of events) {
       expect(workbookRecordHistoryReducer(initial, event)).toBe(initial);
+    }
+  });
+
+  it("routes every non-global event through only its legal phase transition", () => {
+    const requestId = workbookRecordHistoryRequestId(11);
+    const operationId = workbookRecordHistoryOperationId(12);
+    const pendingAction: WorkbookRecordHistoryPendingAction = {
+      kind: "destructive",
+      operation: "delete",
+      recordId: liveSubject.recordId,
+      rowVersion: liveSubject.rowVersion,
+    };
+    const feedback = {
+      announcement: "polite" as const,
+      kind: "message" as const,
+      message: "Completed.",
+    };
+    const loading: WorkbookRecordHistoryState = {
+      phase: "loading",
+      requestId,
+      subject: liveSubject,
+    };
+    const ready: WorkbookRecordHistoryState = {
+      feedback,
+      pendingAction,
+      phase: "ready",
+      result: { data, kind: "loaded" },
+      subject: liveSubject,
+    };
+    const submitting: WorkbookRecordHistoryState = {
+      data,
+      operation: { pendingAction },
+      operationId,
+      phase: "submitting",
+      subject: liveSubject,
+    };
+    const states = {
+      idle: { feedback, phase: "idle", subject: liveSubject },
+      loading,
+      ready,
+      submitting,
+    } as const satisfies Record<
+      WorkbookRecordHistoryState["phase"],
+      WorkbookRecordHistoryState
+    >;
+    const events = {
+      cancel: { type: "cancel" },
+      feedback_cleared: { type: "feedback_cleared" },
+      load_accepted: {
+        data,
+        requestId,
+        subject: liveSubject,
+        type: "load_accepted",
+      },
+      load_rejected: {
+        error: { primaryMessage: "Rejected", technicalFields: [] },
+        requestId,
+        subject: liveSubject,
+        type: "load_rejected",
+      },
+      load_requested: {
+        requestId,
+        subject: liveSubject,
+        type: "load_requested",
+      },
+      operation_accepted: {
+        operationId,
+        recordId: liveSubject.recordId,
+        rowVersion: liveSubject.rowVersion + 1,
+        type: "operation_accepted",
+      },
+      operation_rejected: {
+        feedback,
+        operationId,
+        type: "operation_rejected",
+      },
+      preview: { pendingAction, type: "preview" },
+      submit: { operationId, type: "submit" },
+    } as const satisfies Record<
+      Exclude<WorkbookRecordHistoryEvent["type"], "clear" | "retarget">,
+      WorkbookRecordHistoryEvent
+    >;
+    const allowed: Record<
+      WorkbookRecordHistoryState["phase"],
+      ReadonlySet<string>
+    > = {
+      idle: new Set(["feedback_cleared", "load_requested"]),
+      loading: new Set(["load_accepted", "load_rejected", "load_requested"]),
+      ready: new Set([
+        "cancel",
+        "feedback_cleared",
+        "load_requested",
+        "preview",
+        "submit",
+      ]),
+      submitting: new Set([
+        "load_requested",
+        "operation_accepted",
+        "operation_rejected",
+      ]),
+    } as const;
+
+    for (const [phase, state] of Object.entries(states)) {
+      for (const [eventType, event] of Object.entries(events)) {
+        const next = workbookRecordHistoryReducer(state, event);
+        if (
+          allowed[phase as WorkbookRecordHistoryState["phase"]].has(eventType)
+        ) {
+          expect(next, `${phase} accepts ${eventType}`).not.toBe(state);
+        } else {
+          expect(next, `${phase} rejects ${eventType}`).toBe(state);
+        }
+      }
     }
   });
 
@@ -242,14 +359,38 @@ describe("workbookRecordHistoryModel", () => {
       type: "operation_rejected",
     });
     expect(stale).toBe(state);
+    for (const event of [
+      {
+        operationId: workbookRecordHistoryOperationId(1),
+        recordId: liveSubject.recordId,
+        rowVersion: 5,
+        type: "operation_accepted" as const,
+      },
+      {
+        operationId,
+        recordId: "record-b",
+        rowVersion: 5,
+        type: "operation_accepted" as const,
+      },
+      {
+        operationId,
+        recordId: liveSubject.recordId,
+        rowVersion: 0,
+        type: "operation_accepted" as const,
+      },
+      {
+        operationId,
+        recordId: liveSubject.recordId,
+        rowVersion: 5.5,
+        type: "operation_accepted" as const,
+      },
+    ]) {
+      expect(workbookRecordHistoryReducer(state, event)).toBe(state);
+    }
     state = workbookRecordHistoryReducer(state, {
       operationId,
-      subject: {
-        ...liveSubject,
-        kind: "deleted",
-        rowVersion: 5,
-        stateLabel: "Deleted",
-      },
+      recordId: liveSubject.recordId,
+      rowVersion: 5,
       type: "operation_accepted",
     });
     expect(state).toMatchObject({
@@ -260,6 +401,99 @@ describe("workbookRecordHistoryModel", () => {
         rowVersion: 5,
       },
     });
+  });
+
+  it("derives delete, restore, and rollback subject kinds from captured operations", () => {
+    const operationId = workbookRecordHistoryOperationId(21);
+    const deletedSubject = {
+      ...liveSubject,
+      kind: "deleted" as const,
+      stateLabel: "Deleted",
+    };
+    const cases = [
+      {
+        expectedKind: "deleted",
+        pendingAction: {
+          kind: "destructive",
+          operation: "delete",
+          recordId: liveSubject.recordId,
+          rowVersion: liveSubject.rowVersion,
+        },
+        subject: liveSubject,
+      },
+      {
+        expectedKind: "live",
+        pendingAction: {
+          kind: "destructive",
+          operation: "restore",
+          recordId: deletedSubject.recordId,
+          rowVersion: deletedSubject.rowVersion,
+        },
+        subject: deletedSubject,
+      },
+      {
+        expectedKind: "deleted",
+        pendingAction: {
+          action: "history_entry",
+          historyItemRef: "item-a",
+          kind: "rollback",
+          recordId: deletedSubject.recordId,
+          rowVersion: deletedSubject.rowVersion,
+          target: {
+            history_entry_ref: "entry-a",
+            kind: "history_entry",
+          },
+        },
+        subject: deletedSubject,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const submitting: WorkbookRecordHistoryState = {
+        data: { ...data, deleted: testCase.subject.kind === "deleted" },
+        operation: { pendingAction: testCase.pendingAction },
+        operationId,
+        phase: "submitting",
+        subject: testCase.subject,
+      };
+      const accepted = workbookRecordHistoryReducer(submitting, {
+        operationId,
+        recordId: testCase.subject.recordId,
+        rowVersion: testCase.subject.rowVersion + 1,
+        type: "operation_accepted",
+      });
+      expect(accepted).toMatchObject({
+        phase: "idle",
+        subject: {
+          kind: testCase.expectedKind,
+          recordId: testCase.subject.recordId,
+          rowVersion: testCase.subject.rowVersion + 1,
+        },
+      });
+    }
+
+    const malformed: WorkbookRecordHistoryState = {
+      data,
+      operation: {
+        pendingAction: {
+          kind: "destructive",
+          operation: "delete",
+          recordId: "record-b",
+          rowVersion: liveSubject.rowVersion,
+        },
+      },
+      operationId,
+      phase: "submitting",
+      subject: liveSubject,
+    };
+    expect(
+      workbookRecordHistoryReducer(malformed, {
+        operationId,
+        recordId: "record-b",
+        rowVersion: 5,
+        type: "operation_accepted",
+      }),
+    ).toBe(malformed);
   });
 
   it("builds rollback targets only from the server-advertised selector", () => {

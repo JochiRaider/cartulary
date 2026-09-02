@@ -1,4 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type WorkbookInspectorLiveSubject,
+  workbookInspectorSubjectsEqual,
+} from "../../inspector/workbookInspectorSubject";
 import {
   normalizeGenericTextValue,
   type PartyLinkPair,
@@ -34,6 +38,7 @@ export function useGenericPartyLinkWorkflow({
   partyLinkPairs,
   resetKey,
   selectedRow,
+  selectedSubject,
   submitLinkPatch,
 }: {
   readonly mutation: PartyLinkMutationOwner;
@@ -42,6 +47,7 @@ export function useGenericPartyLinkWorkflow({
   readonly partyLinkPairs: readonly PartyLinkPair[];
   readonly resetKey: string;
   readonly selectedRow: WorkbookQueryRow | null;
+  readonly selectedSubject: WorkbookInspectorLiveSubject | null;
   readonly submitLinkPatch: (
     changes: Array<Record<string, unknown>>,
     txnPrefix: string,
@@ -69,17 +75,30 @@ export function useGenericPartyLinkWorkflow({
     );
   }, [partyLinkPairs]);
 
-  const selectedSubjectKey =
-    selectedRow === null
-      ? ""
-      : `${selectedRow.record_id}:${selectedRow.row_version}:${selectedPartyLinkPair?.key ?? ""}`;
-  const lifecycleKey = `${resetKey}:${selectedSubjectKey}`;
+  const previousLifecycleRef = useRef({
+    pairKey: selectedPartyLinkPair?.key ?? null,
+    resetKey,
+    subject: selectedSubject,
+  });
   useEffect(() => {
-    void lifecycleKey;
+    const previous = previousLifecycleRef.current;
+    const pairKey = selectedPartyLinkPair?.key ?? null;
+    if (
+      previous.resetKey === resetKey &&
+      previous.pairKey === pairKey &&
+      workbookInspectorSubjectsEqual(previous.subject, selectedSubject)
+    ) {
+      return;
+    }
+    previousLifecycleRef.current = {
+      pairKey,
+      resetKey,
+      subject: selectedSubject,
+    };
     setPartyLinkExistingPartyId("");
     setCreatedPartyId(null);
     setPartialCompletionMessage(null);
-  }, [lifecycleKey]);
+  }, [resetKey, selectedPartyLinkPair?.key, selectedSubject]);
 
   const submitCreatedPartyLink = useCallback(
     async (partyId: string) => {

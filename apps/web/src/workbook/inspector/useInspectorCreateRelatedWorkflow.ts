@@ -2,12 +2,11 @@ import {
   getViewContract,
   type InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { genericCreateMinimumMessage } from "../models/genericWorkbookModel";
 import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
 import {
   buildInspectorRelatedRecordDraft,
-  type InspectorRelatedRecordSubjectKey,
   type InspectorRelatedRecordWorkflowAction,
   inspectorRelatedRecordWorkflowReducer,
 } from "./inspectorRelatedRecordModel";
@@ -18,13 +17,7 @@ import {
   workbookInspectorLocalErrorPresentation,
   workbookInspectorMessageFeedback,
 } from "./workbookInspectorErrorModel";
-
-type InspectorCreateRelatedSubject = {
-  readonly cells: Readonly<Record<string, { readonly value: unknown }>>;
-  readonly recordId: string;
-  readonly rowVersion: number;
-  readonly viewSchemaId: string;
-};
+import type { WorkbookInspectorLiveRowBinding } from "./workbookInspectorSubject";
 
 export function useInspectorCreateRelatedWorkflow({
   currentUserId,
@@ -37,7 +30,7 @@ export function useInspectorCreateRelatedWorkflow({
   readonly mutationCommands: TimelineRelatedRecordPort;
   readonly onCreated: () => Promise<void> | void;
   readonly onFeedback: (feedback: WorkbookInspectorFeedback | null) => void;
-  readonly selectedSubject: InspectorCreateRelatedSubject | null;
+  readonly selectedSubject: WorkbookInspectorLiveRowBinding | null;
 }) {
   const [workflow, reactDispatch] = useReducer(
     inspectorRelatedRecordWorkflowReducer,
@@ -45,26 +38,6 @@ export function useInspectorCreateRelatedWorkflow({
   );
   const workflowRef = useRef(workflow);
   workflowRef.current = workflow;
-  const selectedSubjectRecordId = selectedSubject?.recordId ?? null;
-  const selectedSubjectRowVersion = selectedSubject?.rowVersion ?? null;
-  const selectedSubjectViewSchemaId = selectedSubject?.viewSchemaId ?? null;
-  const selectedSubjectKey = useMemo<InspectorRelatedRecordSubjectKey | null>(
-    () =>
-      selectedSubjectRecordId === null ||
-      selectedSubjectRowVersion === null ||
-      selectedSubjectViewSchemaId === null
-        ? null
-        : {
-            recordId: selectedSubjectRecordId,
-            rowVersion: selectedSubjectRowVersion,
-            viewSchemaId: selectedSubjectViewSchemaId,
-          },
-    [
-      selectedSubjectRecordId,
-      selectedSubjectRowVersion,
-      selectedSubjectViewSchemaId,
-    ],
-  );
   const dispatchWorkflow = useCallback(
     (action: InspectorRelatedRecordWorkflowAction) => {
       workflowRef.current = inspectorRelatedRecordWorkflowReducer(
@@ -83,9 +56,9 @@ export function useInspectorCreateRelatedWorkflow({
     dispatchWorkflow({
       type: "retarget",
       workflowId: active.workflowId,
-      subjectKey: selectedSubjectKey,
+      subject: selectedSubject?.subject ?? null,
     });
-  }, [dispatchWorkflow, selectedSubjectKey]);
+  }, [dispatchWorkflow, selectedSubject]);
 
   const begin = useCallback(
     (featureGroup: InspectorFeatureGroup): boolean => {
@@ -107,7 +80,7 @@ export function useInspectorCreateRelatedWorkflow({
         );
         return true;
       }
-      if (selectedSubject === null || selectedSubjectKey === null) {
+      if (selectedSubject === null) {
         onFeedback(
           workbookInspectorLocalErrorFeedback(
             "Select a saved row before creating a related record.",
@@ -133,20 +106,14 @@ export function useInspectorCreateRelatedWorkflow({
         type: "begin",
         draft: result.draft,
         featureGroup,
-        subjectKey: selectedSubjectKey,
+        subject: selectedSubject.subject,
         targetContract,
         workflowId: Symbol("inspector-create-related-workflow"),
       });
       onFeedback(null);
       return true;
     },
-    [
-      currentUserId,
-      dispatchWorkflow,
-      onFeedback,
-      selectedSubject,
-      selectedSubjectKey,
-    ],
+    [currentUserId, dispatchWorkflow, onFeedback, selectedSubject],
   );
 
   const updateDraft = useCallback(

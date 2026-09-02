@@ -129,6 +129,7 @@ export function useTimelineWorkbookComposition({
       inspectorResetKey: runtime.incident.inspectorResetKey,
     },
     inspector: {
+      elementRegistry: inspector.ports.elements,
       history: {
         commands: inspector.commands.history,
         snapshot: inspector.snapshot.history,
@@ -197,6 +198,7 @@ export function useTimelineWorkbookComposition({
     },
     inspector: {
       clearRowHistory: inspector.commands.history.clearRowHistory,
+      elementRegistry: inspector.ports.elements,
       publishFeedback: inspector.commands.publishFeedback,
       rowHistory: inspector.snapshot.history.rowHistory,
       selectedRowId: inspector.snapshot.selection.selectedRowId,
@@ -276,6 +278,9 @@ export function useTimelineWorkbookComposition({
         },
         publishFeedback: inspector.commands.publishFeedback,
         setOpen: inspector.commands.setOpen,
+      },
+      ports: {
+        elements: inspector.ports.elements,
       },
       snapshot: inspector.snapshot,
     },

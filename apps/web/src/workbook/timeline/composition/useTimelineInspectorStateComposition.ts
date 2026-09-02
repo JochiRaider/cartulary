@@ -6,9 +6,12 @@ import type {
   WorkbookContinuityToken,
 } from "../../continuity/workbookContinuityPort";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
+import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { useTimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
 import { useTimelineInspectorSelection } from "../hooks/useTimelineInspectorSelection";
+import { selectTimelineInspectorHistorySubject } from "../models/timelineHistoryModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
@@ -48,6 +51,11 @@ export function useTimelineInspectorStateComposition({
     draftRow: selection.snapshot.draftRow,
     selectedRow,
   });
+  const inspectorSubject = selectTimelineInspectorHistorySubject({
+    draftRow: selection.snapshot.draftRow,
+    rowHistory: history.snapshot.rowHistory,
+    selectedRow,
+  });
   const coordinator = useWorkbookInspectorCoordinator({
     actionPorts: {
       resetOwnerState: ({ scope }) => {
@@ -67,36 +75,25 @@ export function useTimelineInspectorStateComposition({
     },
     config: timelineInspectorConfig,
     lifecycleKey: inspectorResetKey,
-    subject:
-      selectedRow?.recordId === null ||
-      selectedRow?.recordId === undefined ||
-      selectedRow.rowVersion === null
-        ? null
-        : {
-            recordId: selectedRow.recordId,
-            rowVersion: selectedRow.rowVersion,
-            viewSchemaId: timelineViewSchemaId,
-          },
+    subject: inspectorSubject,
   });
+  const isOpen = workbookInspectorStateIsOpen(coordinator.snapshot);
+  const elementRegistry = useTimelineInspectorElementRegistry(
+    coordinator.snapshot,
+  );
   const setOpen = useCallback(
     (next: SetStateAction<boolean>) => {
-      const nextOpen =
-        typeof next === "function" ? next(coordinator.snapshot.isOpen) : next;
-      if (nextOpen && !coordinator.snapshot.isOpen) {
+      const nextOpen = typeof next === "function" ? next(isOpen) : next;
+      if (nextOpen && !isOpen) {
         inspectorContinuityTokenRef.current = continuity.capture();
-      } else if (!nextOpen && coordinator.snapshot.isOpen) {
+      } else if (!nextOpen && isOpen) {
         inspectorContinuityTokenRef.current = continuity.capture(
           workbookFocusAnchorRef.current,
         );
       }
       coordinator.commands.setOpen(next);
     },
-    [
-      continuity,
-      coordinator.commands,
-      coordinator.snapshot.isOpen,
-      workbookFocusAnchorRef,
-    ],
+    [continuity, coordinator.commands, isOpen, workbookFocusAnchorRef],
   );
   return {
     commands: {
@@ -105,14 +102,18 @@ export function useTimelineInspectorStateComposition({
       selectRow: selection.commands.setSelectedRowId,
       setOpen,
     },
-    ports: {},
+    ports: { elements: elementRegistry },
     refs: {
       continuityToken: inspectorContinuityTokenRef,
     },
     snapshot: {
       history: history.snapshot,
       lifecycle: coordinator.snapshot,
-      selection: selection.snapshot,
+      selection: {
+        ...selection.snapshot,
+        selectedRowWorkflowSubject:
+          inspectorSubject?.kind === "live" ? inspectorSubject : null,
+      },
     },
   };
 }

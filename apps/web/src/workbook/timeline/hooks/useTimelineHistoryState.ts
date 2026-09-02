@@ -20,14 +20,25 @@ export function useTimelineHistoryState({
   readonly draftRow: WorkbookRow | null;
   readonly selectedRow: WorkbookRow | null;
 }) {
-  const [rowHistory, dispatchRowHistory] = useReducer(
+  const [rowHistory, reactDispatchRowHistory] = useReducer(
     workbookRecordHistoryReducer,
     null,
     initialWorkbookRecordHistoryState,
   );
+  const rowHistoryRef = useRef(rowHistory);
+  rowHistoryRef.current = rowHistory;
   const currentHistoryRecordIdRef = useRef<string | null>(null);
   const rowHistoryRequestSeqRef = useRef(0);
   const rowHistoryOperationSeqRef = useRef(0);
+  const sendRowHistoryEvent = useCallback(
+    (event: WorkbookRecordHistoryEvent) => {
+      const next = workbookRecordHistoryReducer(rowHistoryRef.current, event);
+      rowHistoryRef.current = next;
+      reactDispatchRowHistory(event);
+      return next;
+    },
+    [],
+  );
 
   const inspectorHistorySubject = selectTimelineInspectorHistorySubject({
     draftRow,
@@ -73,17 +84,13 @@ export function useTimelineHistoryState({
   );
   const clearRowHistory = useCallback(() => {
     cancelRowHistoryRequests();
-    dispatchRowHistory({ type: "clear" });
-  }, [cancelRowHistoryRequests]);
+    sendRowHistoryEvent({ type: "clear" });
+  }, [cancelRowHistoryRequests, sendRowHistoryEvent]);
   const retargetRowHistory = useCallback(
     (subject: WorkbookInspectorSubject | null) => {
-      dispatchRowHistory({ subject, type: "retarget" });
+      sendRowHistoryEvent({ subject, type: "retarget" });
     },
-    [],
-  );
-  const sendRowHistoryEvent = useCallback(
-    (event: WorkbookRecordHistoryEvent) => dispatchRowHistory(event),
-    [],
+    [sendRowHistoryEvent],
   );
 
   return {

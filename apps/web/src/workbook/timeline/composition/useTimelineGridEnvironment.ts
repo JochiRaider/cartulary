@@ -1,5 +1,4 @@
 import type { GridColumn, GridHandle } from "@cartulary/grid-adapter";
-import { dataTestIdSelector, draftCellTestId } from "@cartulary/ui-contracts";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { createTimelineRowMutationEditorAdapter } from "../adapters/createTimelineRowMutationEditorAdapter";
@@ -145,11 +144,9 @@ export function useTimelineGridEnvironment({
     [],
   );
   const focusDraftRow = useCallback(() => {
-    document
-      .querySelector<HTMLInputElement>(
-        dataTestIdSelector(draftCellTestId("timeline.activity_synopsis_text")),
-      )
-      ?.focus({ preventScroll: false });
+    timelineGridHandleRef.current?.focusDraftCell(
+      "timeline.activity_synopsis_text",
+    );
   }, []);
   return {
     commands: {

@@ -65,6 +65,7 @@ type TimelineInteractionCompositionInput = {
   };
   readonly inspector: {
     readonly clearRowHistory: KeyboardInput["clearRowHistory"];
+    readonly elementRegistry: KeyboardInput["elementRegistry"];
     readonly publishFeedback: KeyboardInput["setInspectorMessage"];
     readonly rowHistory: KeyboardInput["rowHistory"];
     readonly selectedRowId: KeyboardInput["selectedRowId"];
@@ -154,6 +155,7 @@ export function useTimelineInteractionComposition({
   const { commands: keyboard } = useTimelineKeyboardController({
     clearRowHistory: inspector.clearRowHistory,
     currentTimelineAnchorFor: grid.currentTimelineAnchorFor,
+    elementRegistry: inspector.elementRegistry,
     handleTimelineGridContextKeyDown: workflow.handleTimelineGridContextKeyDown,
     navigateTimelineFocusAnchor: grid.navigateTimelineFocusAnchor,
     openRowHistory: workflow.openRowHistory,

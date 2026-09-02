@@ -76,6 +76,9 @@ type CompileGridColumnsInput<Row> = {
     cell: HTMLElement | null,
     token: object,
   ) => void;
+  readonly draftFocusTargetRef: (
+    fieldKey: string,
+  ) => (element: GridEditorFocusTarget | null) => void;
   readonly registerEditorSession: (
     session: {
       readonly cancel: () => void;
@@ -125,6 +128,7 @@ export function compileGridColumns<Row>({
   columns,
   readEditorSeed,
   editable,
+  draftFocusTargetRef,
   isCellRangeSelected,
   onEditorKeyboardAction,
   onPasteCellContent,
@@ -375,6 +379,7 @@ export function compileGridColumns<Row>({
           {surface.kind === "view_schema"
             ? (column.renderDraftCell?.({
                 fieldKey: column.fieldKey,
+                focusTargetRef: draftFocusTargetRef(column.fieldKey),
                 row: row.data,
                 surface,
               }) ?? null)

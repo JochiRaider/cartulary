@@ -2,10 +2,6 @@ import type {
   GridCellAnchor,
   GridNavigationIntent,
 } from "@cartulary/grid-adapter";
-import {
-  dataTestIdSelector,
-  timelineInspectorSectionTestId,
-} from "@cartulary/ui-contracts";
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
 import {
@@ -14,8 +10,14 @@ import {
 } from "../../inspector/workbookInspectorErrorModel";
 import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { mapWorkbookKeyboardCommand } from "../../utils/workbookKeyboard";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { TimelineScalarSaveOptions } from "../models/timelineControllerPorts";
+import {
+  mapTimelineCollectionEditorIntent,
+  mapTimelineScalarEditorIntent,
+  mapTimelineWorkAreaInspectorIntent,
+  type TimelineEditorKeyboardIntent,
+} from "../models/timelineKeyboardIntentModel";
 import {
   type CollectionDraftKey,
   type CollectionFieldKey,
@@ -40,9 +42,119 @@ type QueueCollectionSave = (
   source?: "keyboard" | "blur",
 ) => void;
 
+function executeScalarEditorIntent({
+  anchor,
+  closeInspector,
+  focusField,
+  intent,
+  navigate,
+  priorGridAnchor,
+  queueSave,
+  recordTiming,
+  restoreFocus,
+  rowKey,
+  surface,
+  value,
+}: {
+  readonly anchor: GridCellAnchor | null;
+  readonly closeInspector: (anchor: GridCellAnchor | null) => boolean;
+  readonly focusField: keyof RowValues;
+  readonly intent: TimelineEditorKeyboardIntent;
+  readonly navigate: (
+    anchor: GridCellAnchor,
+    intent: GridNavigationIntent,
+  ) => void;
+  readonly priorGridAnchor: WorkbookContinuityAnchor | null;
+  readonly queueSave: QueueScalarSave;
+  readonly recordTiming: (
+    name: string,
+    details?: Record<string, unknown>,
+  ) => void;
+  readonly restoreFocus: (anchor: WorkbookContinuityAnchor) => unknown;
+  readonly rowKey: string;
+  readonly surface: TimelineScalarEditorSurface;
+  readonly value: string;
+}) {
+  switch (intent.kind) {
+    case "restore_prior_grid_focus":
+      if (priorGridAnchor !== null) restoreFocus(priorGridAnchor);
+      return;
+    case "close_inspector":
+      closeInspector(anchor);
+      return;
+    case "navigate":
+      if (anchor !== null) navigate(anchor, intent.navigation);
+      return;
+    case "save":
+      executeScalarSaveIntent({
+        anchor,
+        focusField,
+        intent,
+        navigate,
+        queueSave,
+        recordTiming,
+        rowKey,
+        surface,
+        value,
+      });
+      return;
+    case "none":
+      return;
+  }
+}
+
+function executeScalarSaveIntent({
+  anchor,
+  focusField,
+  intent,
+  navigate,
+  queueSave,
+  recordTiming,
+  rowKey,
+  surface,
+  value,
+}: {
+  readonly anchor: GridCellAnchor | null;
+  readonly focusField: keyof RowValues;
+  readonly intent: Extract<TimelineEditorKeyboardIntent, { kind: "save" }>;
+  readonly navigate: (
+    anchor: GridCellAnchor,
+    intent: GridNavigationIntent,
+  ) => void;
+  readonly queueSave: QueueScalarSave;
+  readonly recordTiming: (
+    name: string,
+    details?: Record<string, unknown>,
+  ) => void;
+  readonly rowKey: string;
+  readonly surface: TimelineScalarEditorSurface;
+  readonly value: string;
+}) {
+  if (intent.recordBlankRowTiming) {
+    recordTiming("blank_row_commit_accepted", {
+      field: "timeline.activity_synopsis_text",
+      surface,
+    });
+  }
+  queueSave(
+    rowKey,
+    focusField,
+    {
+      continueOnFreshDraft: true,
+      preserveInputFocus: intent.preserveInputFocus,
+      surface,
+    },
+    value,
+  );
+  if (intent.navigateAfterSave !== null && anchor !== null) {
+    navigate(anchor, intent.navigateAfterSave);
+  }
+}
+
 export function useTimelineKeyboardController({
   clearRowHistory,
   currentTimelineAnchorFor,
+  elementRegistry,
   handleTimelineGridContextKeyDown,
   navigateTimelineFocusAnchor,
   openRowHistory,
@@ -64,6 +176,7 @@ export function useTimelineKeyboardController({
     rowKey: string,
     fieldKey: string,
   ) => GridCellAnchor | null;
+  readonly elementRegistry: TimelineInspectorElementRegistry;
   readonly handleTimelineGridContextKeyDown: (
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => void;
@@ -121,103 +234,39 @@ export function useTimelineKeyboardController({
       surface: TimelineScalarEditorSurface,
     ) => {
       const priorGridAnchor = workbookFocusAnchorRef.current;
-      if (
-        surface === "inspector" &&
-        event.key === "Escape" &&
-        priorGridAnchor?.viewSchemaId === timelineViewSchemaId
-      ) {
-        event.preventDefault();
-        restoreTimelineFocusAnchor(priorGridAnchor);
-        return;
-      }
       const binding = timelineScalarBindings.find(
         (candidate) => candidate.key === focusField,
       );
       const fieldKey = binding?.fieldKey ?? focusField;
       const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
-      const command = mapWorkbookKeyboardCommand(event, {
-        closeInspector:
-          anchor !== null &&
-          (surface === "inspector" ||
-            selectedRowId !== null ||
-            rowHistory.subject !== null ||
-            rowHistory.phase !== "idle"),
-        mode: "editor",
-        rowKind: anchor === null ? "draft" : "committed",
+      const intent = mapTimelineScalarEditorIntent({
+        event,
+        focusField,
+        hasCommittedAnchor: anchor !== null,
+        inspectorCanClose:
+          surface === "inspector" ||
+          selectedRowId !== null ||
+          rowHistory.subject !== null ||
+          rowHistory.phase !== "idle",
+        priorTimelineGridAnchor:
+          priorGridAnchor?.viewSchemaId === timelineViewSchemaId,
+        surface,
       });
-      if (command.preventDefault) event.preventDefault();
-
-      const adapterOwnsRange =
-        surface === "grid" &&
-        command.kind === "navigate" &&
-        command.intent.shiftKey &&
-        command.intent.key.startsWith("Arrow");
-      if (adapterOwnsRange) return;
-
-      if (
-        surface === "grid" &&
-        command.kind === "navigate" &&
-        anchor !== null &&
-        command.intent.key === "Tab"
-      ) {
-        queueScalarSave(
-          rowKey,
-          focusField,
-          {
-            continueOnFreshDraft: true,
-            preserveInputFocus: false,
-            surface,
-          },
-          event.currentTarget.value,
-        );
-        return;
-      }
-      if (
-        command.kind === "navigate" &&
-        anchor === null &&
-        (command.intent.key === "Enter" || command.intent.key === "Tab")
-      ) {
-        if (
-          command.intent.key === "Enter" &&
-          focusField === "activitySynopsisText" &&
-          surface === "grid"
-        ) {
-          recordTiming("blank_row_commit_accepted", {
-            field: "timeline.activity_synopsis_text",
-            surface,
-          });
-        }
-        queueScalarSave(
-          rowKey,
-          focusField,
-          {
-            continueOnFreshDraft: true,
-            preserveInputFocus: true,
-            surface,
-          },
-          event.currentTarget.value,
-        );
-        return;
-      }
-      if (command.kind === "navigate" && anchor !== null) {
-        if (command.intent.key === "Enter" || command.intent.key === "Tab") {
-          queueScalarSave(
-            rowKey,
-            focusField,
-            {
-              continueOnFreshDraft: true,
-              preserveInputFocus: false,
-              surface,
-            },
-            event.currentTarget.value,
-          );
-        }
-        navigateTimelineFocusAnchor(anchor, command.intent);
-        return;
-      }
-      if (command.kind === "close-inspector") {
-        closeInspectorFromEditor(anchor);
-      }
+      if (intent.preventDefault) event.preventDefault();
+      executeScalarEditorIntent({
+        anchor,
+        closeInspector: closeInspectorFromEditor,
+        focusField,
+        intent,
+        navigate: navigateTimelineFocusAnchor,
+        priorGridAnchor,
+        queueSave: queueScalarSave,
+        recordTiming,
+        restoreFocus: restoreTimelineFocusAnchor,
+        rowKey,
+        surface,
+        value: event.currentTarget.value,
+      });
     },
     [
       closeInspectorFromEditor,
@@ -241,63 +290,33 @@ export function useTimelineKeyboardController({
       draftKey: CollectionDraftKey,
     ) => {
       const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
-      const command = mapWorkbookKeyboardCommand(event, {
-        closeInspector:
-          anchor !== null &&
-          (selectedRowId !== null ||
-            rowHistory.subject !== null ||
-            rowHistory.phase !== "idle"),
-        mode: "editor",
-        rowKind: anchor === null ? "draft" : "committed",
+      const intent = mapTimelineCollectionEditorIntent({
+        event,
+        hasCommittedAnchor: anchor !== null,
+        inspectorCanClose:
+          selectedRowId !== null ||
+          rowHistory.subject !== null ||
+          rowHistory.phase !== "idle",
       });
-      if (command.preventDefault) event.preventDefault();
-      if (
-        command.kind === "navigate" &&
-        command.intent.shiftKey &&
-        command.intent.key.startsWith("Arrow")
-      ) {
-        return;
-      }
-      if (
-        command.kind === "navigate" &&
-        command.intent.key === "Tab" &&
-        anchor !== null
-      ) {
-        queueCollectionSave(
-          rowKey,
-          fieldKey,
-          draftKey,
-          event.currentTarget.value,
-          "keyboard",
-        );
-        return;
-      }
-      if (command.kind === "navigate" && anchor !== null) {
-        if (command.intent.key === "Enter" || command.intent.key === "Tab") {
-          queueCollectionSave(
-            rowKey,
-            fieldKey,
-            draftKey,
-            event.currentTarget.value,
-            "keyboard",
-          );
-        }
-        navigateTimelineFocusAnchor(anchor, command.intent);
-        return;
-      }
-      if (command.kind === "close-inspector") {
+      if (intent.preventDefault) event.preventDefault();
+      if (intent.kind === "close_inspector") {
         closeInspectorFromEditor(anchor);
         return;
       }
-      if (event.key === "Enter" || event.key === "Tab") {
-        event.preventDefault();
-        queueCollectionSave(
-          rowKey,
-          fieldKey,
-          draftKey,
-          event.currentTarget.value,
-          "keyboard",
-        );
+      if (intent.kind === "navigate" && anchor !== null) {
+        navigateTimelineFocusAnchor(anchor, intent.navigation);
+        return;
+      }
+      if (intent.kind !== "save") return;
+      queueCollectionSave(
+        rowKey,
+        fieldKey,
+        draftKey,
+        event.currentTarget.value,
+        "keyboard",
+      );
+      if (intent.navigateAfterSave !== null && anchor !== null) {
+        navigateTimelineFocusAnchor(anchor, intent.navigateAfterSave);
       }
     },
     [
@@ -312,16 +331,18 @@ export function useTimelineKeyboardController({
   );
 
   const focusInspectorSection = useCallback(
-    (section: "evidence" | "history") => {
+    (section: "evidence" | "history", row: WorkbookRow) => {
+      if (row.recordId === null || row.rowVersion === null) return;
+      const identity = {
+        recordId: row.recordId,
+        rowVersion: row.rowVersion,
+        viewSchemaId: timelineViewSchemaId,
+      };
       window.requestAnimationFrame(() => {
-        document
-          .querySelector<HTMLElement>(
-            dataTestIdSelector(timelineInspectorSectionTestId(section)),
-          )
-          ?.focus({ preventScroll: true });
+        elementRegistry.focusPanel(identity, section);
       });
     },
-    [],
+    [elementRegistry],
   );
 
   const onWorkAreaKeyDown = useCallback(
@@ -340,50 +361,33 @@ export function useTimelineKeyboardController({
         "[data-grid-field-key]",
       );
       const fieldKey = fieldElement?.dataset.gridFieldKey;
-      const recordId = row?.recordId ?? null;
-      const command = mapWorkbookKeyboardCommand(event, {
-        cell:
-          fieldKey === undefined
-            ? null
-            : {
-                linkResolveCapability:
-                  fieldKey === "timeline.host_refs" ||
-                  fieldKey === "timeline.identity_refs",
-              },
-        inspectorGroups: ["evidence", "history"],
-        mode: "grid_navigation",
-        committedRowIdentity: recordId,
-        previewableEvidenceCount: 0,
-        rowKind: recordId === null ? "none" : "committed",
+      const intent = mapTimelineWorkAreaInspectorIntent({
+        event,
+        fieldKey,
+        row,
       });
-      const isInspectorShortcut =
-        command.kind === "open-history" ||
-        command.kind === "preview-linked-evidence" ||
-        command.kind === "quick-link";
-      if (!isInspectorShortcut || row === null || recordId === null) return;
+      if (intent.kind === "none") return;
 
       event.preventDefault();
       event.stopPropagation();
-      if (command.kind === "open-history") {
+      const recordId = intent.row.recordId;
+      if (recordId === null) return;
+      if (intent.kind === "open_panel" && intent.panelId === "history") {
         openRowHistory(recordId);
-        focusInspectorSection("history");
+        focusInspectorSection("history", intent.row);
         return;
       }
-      if (command.kind === "preview-linked-evidence") {
+      if (intent.kind === "open_panel") {
         setSelectedRowId(recordId);
         setIsInspectorOpen(true);
         setInspectorMessage(null);
-        focusInspectorSection("evidence");
+        focusInspectorSection("evidence", intent.row);
         return;
       }
 
-      const mention = [
-        ...row.collectionValues.hostRefs,
-        ...row.collectionValues.identityRefs,
-      ].find((item) => item.itemKind !== "resolved_ref");
       setSelectedRowId(recordId);
       setIsInspectorOpen(true);
-      if (mention === undefined) {
+      if (intent.itemRef === null) {
         setInspectorMessage(
           workbookInspectorMessageFeedback(
             "No unresolved mention is available for quick link.",
@@ -391,7 +395,7 @@ export function useTimelineKeyboardController({
           ),
         );
       } else {
-        setSelectedMentionRef(mention.itemRef);
+        setSelectedMentionRef(intent.itemRef);
         setInspectorMessage(null);
       }
     },

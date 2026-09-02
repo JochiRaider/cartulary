@@ -11,25 +11,14 @@ import {
   SemanticDataGrid,
 } from "@cartulary/grid-adapter";
 import {
-  coordinationWorkflowTestId,
-  dataTestIdSelector,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
-  genericEditActionSelectTestId,
-  genericEditFieldSelectTestId,
-  genericEditRecordSelectTestId,
-  genericEditSubmitTestId,
-  genericEditValueTestId,
-  genericWorkbookTestId,
   gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridShellTestId,
   workbookInlineDraftRowTestId,
 } from "@cartulary/ui-contracts";
-import type {
-  InspectorDisabledCondition,
-  ViewContract,
-} from "@cartulary/view-contracts";
+import type { ViewContract } from "@cartulary/view-contracts";
 import {
   type CSSProperties,
   type ReactNode,
@@ -51,24 +40,9 @@ import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
-import { CoordinationWorkflowBindings } from "../features/coordination/CoordinationWorkflowBindings";
-import { useEvidenceWorkbookBindings } from "../features/evidence/useEvidenceWorkbookBindings";
-import { GenericWorkbookInspector } from "../features/generic/GenericWorkbookInspector";
-import type { IndicatorInspectorHandler } from "../features/indicators/indicatorInspectorHandlers";
-import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericPartyLinkWorkflow";
+import { useGenericWorkbookInspectorComposition } from "../features/generic/useGenericWorkbookInspectorComposition";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
-import { inspectorRecordHistoryActions } from "../inspector/inspectorCapabilityResolver";
-import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
-import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
-import {
-  type WorkbookInspectorFeedback,
-  workbookInspectorLocalErrorPresentation,
-} from "../inspector/workbookInspectorErrorModel";
-import {
-  buildWorkbookInspectorSubject,
-  type WorkbookInspectorSubject,
-} from "../inspector/workbookInspectorSubject";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -77,17 +51,10 @@ import {
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
   buildGenericPatchChange,
-  type GenericCollectionMode,
   genericCellLabelForField,
-  genericCollectionItems,
-  genericCollectionSupportsRemove,
   genericContractColumnWidth,
-  genericCreateMinimumMessage,
-  genericInspectorRowLabel,
   genericRowLabel,
   initialGenericCreateDraft,
-  partyLinkPairsForContract,
-  selectWorkbookEditTarget,
   workbookCreationAvailable,
 } from "../models/genericWorkbookModel";
 import {
@@ -181,16 +148,11 @@ export function ContractWorkbookSurface({
     contract.viewSchemaId,
   );
   const { ownerBindings } = registration.policy;
-  const inspectorConfig = contract.inspectorConfig;
   const draftRowRecordId = `${surface}:draft-row`;
   const inspectorContinuityTokenRef = useRef<WorkbookContinuityToken | null>(
     null,
   );
   const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
-  const editableFields = useMemo(
-    () => contract.fields.filter((field) => field.writeKind !== "read_only"),
-    [contract],
-  );
   const createFields = useMemo(
     () => contract.fields.filter((field) => field.createWritable),
     [contract],
@@ -201,17 +163,6 @@ export function ContractWorkbookSurface({
     initialGenericCreateDraft(contract, currentUserId),
   );
   const [editRecordId, setEditRecordId] = useState("");
-  const [deletedHistorySubject, setDeletedHistorySubject] =
-    useState<WorkbookInspectorSubject | null>(null);
-  const [relatedFeedback, setRelatedFeedback] =
-    useState<WorkbookInspectorFeedback | null>(null);
-  const [editFieldKey, setEditFieldKey] = useState("");
-  const [editValue, setEditValue] = useState("");
-  const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
-  const [indicatorInspectorHandler, setIndicatorInspectorHandler] =
-    useState<IndicatorInspectorHandler | null>(null);
-  const [editCollectionMode, setEditCollectionMode] =
-    useState<GenericCollectionMode>("add");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
     useOwnerReferenceOptions({
       incidentPort,
@@ -219,24 +170,15 @@ export function ContractWorkbookSurface({
       referenceQueryBroker,
       viewSchemaId: contract.viewSchemaId,
     });
-  const {
-    beginMutation,
-    clearMutationError,
-    completeGenericMutation,
-    markMutationConflict,
-    markMutationSaved,
-    mutationError,
-    mutationState,
-    rejectMutationFailure,
-    setValidationError,
-    submitPatchMutation,
-  } = useGenericSurfaceMutationController({
+  const mutationController = useGenericSurfaceMutationController({
     mutationCommands: mutationCommands.generic,
     mutationRuntime,
     onRefresh,
     refreshReferenceOptions,
     surfaceLabel: contract.title,
   });
+  const { mutationError, mutationState, setValidationError } =
+    mutationController;
   const sharedMutation = useWorkbookMutationRuntime(
     mutationRuntime,
     contract.viewSchemaId,
@@ -246,66 +188,6 @@ export function ContractWorkbookSurface({
   );
   const presentedMutationState =
     mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
-  const inspectorSubjectRow =
-    rows.find((row) => row.record_id === editRecordId) ?? null;
-  const inspectorSubject: WorkbookInspectorSubject | null =
-    inspectorSubjectRow === null
-      ? deletedHistorySubject
-      : buildWorkbookInspectorSubject({
-          config: inspectorConfig,
-          kind: "live",
-          label: genericInspectorRowLabel(contract, inspectorSubjectRow),
-          recordId: inspectorSubjectRow.record_id,
-          rowVersion: inspectorSubjectRow.row_version,
-          surfaceLabel: contract.title,
-        });
-  const recordHistoryActions = useMemo(
-    () => inspectorRecordHistoryActions(inspectorConfig),
-    [inspectorConfig],
-  );
-  const inspector = useWorkbookInspectorCoordinator({
-    actionPorts: {
-      resetOwnerState: ({ cause, scope }) => {
-        setEditValue("");
-        setLinkedNoteSourceRecordId("");
-        setEditCollectionMode("add");
-        setPartyLinkExistingPartyId("");
-        clearMutationError();
-        setRelatedFeedback(null);
-        if (cause === "close" || scope === "surface") {
-          setDeletedHistorySubject(null);
-        }
-        if (scope === "surface") {
-          continuityPortRef.current?.clear();
-          setEditRecordId("");
-        }
-      },
-      restoreFocus: () => {
-        const token = inspectorContinuityTokenRef.current;
-        inspectorContinuityTokenRef.current = null;
-        if (token !== null) {
-          continuityPortRef.current?.restore(token);
-        }
-      },
-    },
-    config: inspectorConfig,
-    lifecycleKey: inspectorResetKey,
-    subject:
-      inspectorSubject === null
-        ? null
-        : {
-            recordId: inspectorSubject.recordId,
-            rowVersion: inspectorSubject.rowVersion,
-            viewSchemaId: contract.viewSchemaId,
-          },
-  });
-  const isInspectorOpen = inspector.snapshot.isOpen;
-  const inspectorInvalidationKey = `${contract.viewSchemaId}:${inspector.snapshot.invalidationGeneration}`;
-  const isNotesSurface = ownerBindings.includes("linked_note_create");
-  const partyLinkPairs = useMemo(
-    () => partyLinkPairsForContract(contract),
-    [contract],
-  );
 
   useEffect(() => {
     setCreateDraft((current) => {
@@ -313,55 +195,6 @@ export function ContractWorkbookSurface({
       return { ...defaults, ...current };
     });
   }, [contract, currentUserId]);
-
-  const ownerRecordActions = useEvidenceWorkbookBindings({
-    mutationCommands: mutationCommands.evidence,
-    mutation: { beginMutation, markMutationConflict, markMutationSaved },
-    onRefresh,
-    ownerBindings,
-    resetKey: inspectorInvalidationKey,
-  });
-
-  const submitCreate = useCallback(async () => {
-    if (!canCreateRows) return;
-    if (
-      !mutationCommands.generic.canCreateRecord({
-        contract,
-        draft: createDraft,
-      })
-    ) {
-      setValidationError(genericCreateMinimumMessage(contract));
-      return;
-    }
-    beginMutation();
-    const result = await mutationCommands.generic.createRecord({
-      contract,
-      draft: createDraft,
-      linkedNoteSourceRecordId:
-        isNotesSurface && linkedNoteSourceRecordId !== ""
-          ? linkedNoteSourceRecordId
-          : "",
-    });
-    if (result.kind === "rejected") {
-      rejectMutationFailure(result.failure);
-      return;
-    }
-    setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
-    setLinkedNoteSourceRecordId("");
-    await completeGenericMutation();
-  }, [
-    beginMutation,
-    completeGenericMutation,
-    contract,
-    canCreateRows,
-    createDraft,
-    currentUserId,
-    isNotesSurface,
-    linkedNoteSourceRecordId,
-    mutationCommands,
-    rejectMutationFailure,
-    setValidationError,
-  ]);
 
   const anchorColumns = useMemo<readonly GridColumn<WorkbookQueryRow>[]>(
     () =>
@@ -474,6 +307,37 @@ export function ContractWorkbookSurface({
     );
     return createFields.filter((field) => !gridFieldKeys.has(field.fieldKey));
   }, [createFields, visibleAnchorColumns]);
+  const genericInspector = useGenericWorkbookInspectorComposition({
+    canCreateRows,
+    contract,
+    createDraft,
+    currentIncidentRole,
+    currentUserId,
+    draftInspectorFields,
+    incidentClosed,
+    inspectorResetKey,
+    interactionMode,
+    mutation: mutationController,
+    mutationCommands,
+    onClearSurfaceSelection: () => {
+      continuityPortRef.current?.clear();
+      setEditRecordId("");
+    },
+    onRefresh,
+    onRestoreFocus: () => {
+      const token = inspectorContinuityTokenRef.current;
+      inspectorContinuityTokenRef.current = null;
+      if (token !== null) continuityPortRef.current?.restore(token);
+    },
+    onSelectRecord: setEditRecordId,
+    ownerBindings,
+    referenceLoadError,
+    referenceOptions,
+    refreshReferenceOptions,
+    rows,
+    selectedRecordId: editRecordId,
+    setCreateDraft,
+  });
   const draftApiRow = useMemo<WorkbookQueryRow>(
     () => ({
       record_id: draftRowRecordId,
@@ -626,7 +490,7 @@ export function ContractWorkbookSurface({
                 referenceOptions,
               })
             : undefined,
-        renderDraftCell: () => {
+        renderDraftCell: ({ focusTargetRef }) => {
           const writableField =
             createFields.find(
               (candidate) => candidate.fieldKey === column.fieldKey,
@@ -638,6 +502,7 @@ export function ContractWorkbookSurface({
             <GenericMutationControl
               collectionMode="add"
               field={writableField}
+              focusTargetRef={focusTargetRef}
               referenceOptions={referenceOptions}
               surface="grid"
               testId={genericCreateFieldTestId(writableField.fieldKey)}
@@ -685,17 +550,20 @@ export function ContractWorkbookSurface({
   const rowActionsColumn = useMemo<
     GridActionsColumn<WorkbookQueryRow> | undefined
   >(() => {
-    if (!ownerRecordActions.hasRecordActions && !canCreateRows) {
+    if (
+      !genericInspector.ownerRecordActions.hasRecordActions &&
+      !canCreateRows
+    ) {
       return undefined;
     }
     return {
       headerTestId: gridActionsHeaderTestId(surface),
       label: "",
-      width: ownerRecordActions.actionsWidth,
+      width: genericInspector.ownerRecordActions.actionsWidth,
       renderDraftCell: () => (
         <button
           data-testid={
-            isInspectorOpen
+            genericInspector.isOpen
               ? undefined
               : genericCreateSubmitTestId(contract.viewSchemaId)
           }
@@ -703,158 +571,23 @@ export function ContractWorkbookSurface({
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() => {
-            void submitCreate();
+            void genericInspector.submitCreate();
           }}
         >
           Commit
         </button>
       ),
       renderCell: ({ data: row }) => {
-        return ownerRecordActions.renderRecordActions(row);
+        return genericInspector.ownerRecordActions.renderRecordActions(row);
       },
     };
   }, [
     contract.viewSchemaId,
-    isInspectorOpen,
+    genericInspector,
     mutationState,
-    ownerRecordActions,
     surface,
-    submitCreate,
     canCreateRows,
   ]);
-  const { row: selectedEditRow, field: selectedEditField } =
-    selectWorkbookEditTarget({
-      fieldKey: editFieldKey,
-      fields: editableFields,
-      getRecordId: (row: WorkbookQueryRow) => row.record_id,
-      recordId: editRecordId,
-      rows,
-    });
-  const selectedEditCollectionItems =
-    selectedEditRow !== null && selectedEditField !== null
-      ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
-      : [];
-  const createRelatedWorkflow = useInspectorCreateRelatedWorkflow({
-    currentUserId,
-    mutationCommands: mutationCommands.timeline.related,
-    onCreated: refreshReferenceOptions,
-    onFeedback: setRelatedFeedback,
-    selectedSubject:
-      inspectorSubjectRow === null
-        ? null
-        : {
-            cells: inspectorSubjectRow.cells,
-            recordId: inspectorSubjectRow.record_id,
-            rowVersion: inspectorSubjectRow.row_version,
-            viewSchemaId: contract.viewSchemaId,
-          },
-  });
-  const genericInspectorDisabledTokens = useMemo(() => {
-    const tokens = new Set<InspectorDisabledCondition>();
-    if (selectedEditRow === null) tokens.add("no_row_selected");
-    else tokens.add("record_not_deleted");
-    tokens.add("rollback_target_unavailable");
-    tokens.add("pivot_target_unavailable");
-    if (incidentClosed) tokens.add("incident_closed");
-    return tokens;
-  }, [incidentClosed, selectedEditRow]);
-  useEffect(() => {
-    if (selectedEditField?.writeKind !== "action_payload") {
-      setEditCollectionMode("add");
-    } else if (
-      !genericCollectionSupportsRemove(selectedEditField.fieldKey) &&
-      editCollectionMode === "remove"
-    ) {
-      setEditCollectionMode("add");
-    }
-  }, [editCollectionMode, selectedEditField]);
-
-  useEffect(() => {
-    if (selectedEditRow === null || selectedEditField === null) {
-      setEditValue("");
-      return;
-    }
-    if (selectedEditField.writeKind === "action_payload") {
-      setEditValue("");
-      return;
-    }
-    const value = selectedEditRow.cells[selectedEditField.fieldKey]?.value;
-    setEditValue(value === null || value === undefined ? "" : String(value));
-  }, [selectedEditField, selectedEditRow]);
-
-  const submitEdit = async () => {
-    if (selectedEditRow === null || selectedEditField === null) {
-      setValidationError("invalid_mutation_payload");
-      return;
-    }
-    const change = buildGenericPatchChange(
-      selectedEditField,
-      editValue,
-      editCollectionMode,
-      contract.viewSchemaId,
-    );
-    if (change === null) {
-      setValidationError(
-        "Provide a value, or leave clearable fields empty to clear them.",
-      );
-      return;
-    }
-    const payload = await submitPatchMutation({
-      baseRowVersion: selectedEditRow.row_version,
-      changes: [change],
-      purpose: "generic-patch",
-      recordId: selectedEditRow.record_id,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) {
-      return;
-    }
-    setEditValue("");
-    await completeGenericMutation();
-  };
-
-  const submitPartyLinkPatch = async (
-    changes: Array<Record<string, unknown>>,
-    txnPrefix: string,
-  ) => {
-    if (selectedEditRow === null) {
-      setValidationError("Select a row before changing a party link.");
-      return false;
-    }
-    const payload = await submitPatchMutation({
-      baseRowVersion: selectedEditRow.row_version,
-      changes,
-      purpose: txnPrefix,
-      recordId: selectedEditRow.record_id,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) {
-      return false;
-    }
-    await completeGenericMutation();
-    return true;
-  };
-  const {
-    clearPartyBoth,
-    clearPartyLink,
-    clearPartyText,
-    createPartyFromText,
-    linkExistingParty,
-    partialCompletionMessage,
-    partyLinkExistingPartyId,
-    retryCreatedPartyLink,
-    selectedPartyLinkPair,
-    setPartyLinkExistingPartyId,
-    setPartyLinkPairKey,
-  } = useGenericPartyLinkWorkflow({
-    mutation: { beginMutation, rejectMutationFailure, setValidationError },
-    mutationCommands: mutationCommands.generic,
-    originViewSchemaId: contract.viewSchemaId,
-    partyLinkPairs,
-    resetKey: inspectorInvalidationKey,
-    selectedRow: selectedEditRow,
-    submitLinkPatch: submitPartyLinkPatch,
-  });
 
   const focusDraftRow = useCallback(() => {
     const firstWritableField = createFields[0];
@@ -862,13 +595,7 @@ export function ContractWorkbookSurface({
       return;
     }
     window.setTimeout(() => {
-      document
-        .querySelector<HTMLElement>(
-          dataTestIdSelector(
-            genericCreateFieldTestId(firstWritableField.fieldKey),
-          ),
-        )
-        ?.focus({ preventScroll: true });
+      gridHandleRef.current?.focusDraftCell(firstWritableField.fieldKey);
     }, 0);
   }, [canCreateRows, createFields]);
   const dataState = workbookGridDataState({
@@ -886,387 +613,9 @@ export function ContractWorkbookSurface({
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
-      inspector={
-        isInspectorOpen ? (
-          <GenericWorkbookInspector
-            config={inspectorConfig}
-            currentIncidentRole={currentIncidentRole}
-            disabledTokens={genericInspectorDisabledTokens}
-            evidenceContent={
-              inspectorSubjectRow === null
-                ? null
-                : ownerRecordActions.renderRecordActions(inspectorSubjectRow)
-            }
-            history={{
-              actions: recordHistoryActions,
-              canMutate:
-                interactionMode.kind === "editable" &&
-                currentIncidentRole !== null &&
-                currentIncidentRole !== "viewer",
-              commands: mutationCommands.records,
-              effects: {
-                deleteAccepted: async (accepted) => {
-                  setIndicatorInspectorHandler(null);
-                  createRelatedWorkflow.commands.cancel();
-                  setEditRecordId("");
-                  setDeletedHistorySubject(
-                    buildWorkbookInspectorSubject({
-                      config: inspectorConfig,
-                      kind: "deleted",
-                      label: "Deleted record",
-                      recordId: accepted.recordId,
-                      rowVersion: accepted.rowVersion,
-                      stateLabel: "Deleted",
-                      surfaceLabel: contract.title,
-                    }),
-                  );
-                  await onRefresh();
-                },
-                restoreAccepted: async (accepted) => {
-                  await onRefresh();
-                  setDeletedHistorySubject(null);
-                  setEditRecordId(accepted.recordId);
-                },
-                rollbackAccepted: async () => {
-                  await onRefresh();
-                },
-              },
-            }}
-            indicator={
-              selectedEditRow === null
-                ? null
-                : {
-                    handler: indicatorInspectorHandler,
-                    onMutationCommitted: onRefresh,
-                    port: mutationCommands.indicators,
-                    recordId: selectedEditRow.record_id,
-                    rowVersion: selectedEditRow.row_version,
-                    select: setIndicatorInspectorHandler,
-                  }
-            }
-            mutationError={mutationError}
-            referenceLoadError={
-              referenceLoadError === null
-                ? null
-                : workbookInspectorLocalErrorPresentation(referenceLoadError)
-            }
-            referenceLoadErrorTestId={genericWorkbookTestId(
-              "reference-load-error",
-            )}
-            related={{
-              begin: createRelatedWorkflow.commands.begin,
-              cancel: createRelatedWorkflow.commands.cancel,
-              referenceOptions,
-              state: createRelatedWorkflow.snapshot.workflow,
-              submit: createRelatedWorkflow.commands.submit,
-              updateDraft: createRelatedWorkflow.commands.updateDraft,
-            }}
-            relatedFeedback={relatedFeedback}
-            subject={inspectorSubject}
-            surfaceTitle={contract.title}
-            onClose={() => {
-              inspector.commands.close({ restoreFocus: true });
-            }}
-            workflowContent={
-              <>
-                {isNotesSurface ? (
-                  <label
-                    htmlFor={genericWorkbookTestId("note-source-record")}
-                    style={labelStyle}
-                  >
-                    Linked source for draft row
-                    <select
-                      data-testid={genericWorkbookTestId("note-source-record")}
-                      id={genericWorkbookTestId("note-source-record")}
-                      style={selectStyle}
-                      value={linkedNoteSourceRecordId}
-                      onChange={(event) => {
-                        setLinkedNoteSourceRecordId(event.target.value);
-                      }}
-                    >
-                      <option value="">None</option>
-                      {referenceOptions.noteSourceRecords.map((option) => (
-                        <option key={option.recordId} value={option.recordId}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                {canCreateRows && draftInspectorFields.length > 0 ? (
-                  <div style={genericDraftInspectorFieldsStyle}>
-                    {draftInspectorFields.map((field) => {
-                      const controlId = `generic-create-inspector-${field.fieldKey}`;
-                      return (
-                        <label
-                          htmlFor={controlId}
-                          key={field.fieldKey}
-                          style={labelStyle}
-                        >
-                          {field.label}
-                          <GenericMutationControl
-                            collectionMode="add"
-                            field={field}
-                            id={controlId}
-                            referenceOptions={referenceOptions}
-                            testId={genericCreateFieldTestId(field.fieldKey)}
-                            value={createDraft[field.fieldKey] ?? ""}
-                            onChange={(value) => {
-                              setCreateDraft((current) => ({
-                                ...current,
-                                [field.fieldKey]: value,
-                              }));
-                            }}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                {canCreateRows ? (
-                  <button
-                    data-testid={genericCreateSubmitTestId(
-                      contract.viewSchemaId,
-                    )}
-                    disabled={mutationState === "Syncing"}
-                    style={secondaryActionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void submitCreate();
-                    }}
-                  >
-                    Commit draft row
-                  </button>
-                ) : null}
-                {inspectorSubject === null ? null : (
-                  <CoordinationWorkflowBindings
-                    contract={contract}
-                    disabled={mutationState === "Syncing"}
-                    mutation={{
-                      beginMutation,
-                      completeGenericMutation,
-                      rejectMutationFailure,
-                      setValidationError,
-                    }}
-                    mutationCommands={mutationCommands.coordination}
-                    ownerBindings={ownerBindings}
-                    referenceOptions={referenceOptions}
-                    resetKey={inspectorInvalidationKey}
-                    rows={rows}
-                  />
-                )}
-              </>
-            }
-            detailsContent={
-              rows.length > 0 && selectedEditField !== null ? (
-                <div style={genericEditRowStyle}>
-                  <select
-                    data-testid={genericEditRecordSelectTestId(
-                      contract.viewSchemaId,
-                    )}
-                    style={selectStyle}
-                    value={editRecordId}
-                    onChange={(event) => {
-                      setEditRecordId(event.target.value);
-                    }}
-                  >
-                    <option value="">Row</option>
-                    {rows.map((row) => (
-                      <option key={row.record_id} value={row.record_id}>
-                        {genericRowLabel(contract, row)}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    data-testid={genericEditFieldSelectTestId(
-                      contract.viewSchemaId,
-                    )}
-                    style={selectStyle}
-                    value={editFieldKey}
-                    onChange={(event) => {
-                      setEditFieldKey(event.target.value);
-                    }}
-                  >
-                    <option value="">Field</option>
-                    {editableFields.map((field) => (
-                      <option key={field.fieldKey} value={field.fieldKey}>
-                        {field.label}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedEditField.writeKind === "action_payload" &&
-                  genericCollectionSupportsRemove(
-                    selectedEditField.fieldKey,
-                  ) ? (
-                    <select
-                      aria-label="Collection edit action"
-                      data-testid={genericEditActionSelectTestId(
-                        contract.viewSchemaId,
-                      )}
-                      style={selectStyle}
-                      value={editCollectionMode}
-                      onChange={(event) => {
-                        setEditCollectionMode(
-                          event.target.value === "remove" ? "remove" : "add",
-                        );
-                        setEditValue("");
-                      }}
-                    >
-                      <option value="add">Add</option>
-                      <option value="remove">Remove</option>
-                    </select>
-                  ) : null}
-                  <GenericMutationControl
-                    collectionItems={selectedEditCollectionItems}
-                    collectionMode={editCollectionMode}
-                    field={selectedEditField}
-                    referenceOptions={referenceOptions}
-                    testId={genericEditValueTestId(contract.viewSchemaId)}
-                    value={editValue}
-                    onChange={setEditValue}
-                  />
-                  <button
-                    data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
-                    disabled={mutationState === "Syncing"}
-                    style={actionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void submitEdit();
-                    }}
-                  >
-                    Update
-                  </button>
-                </div>
-              ) : null
-            }
-            relationshipsContent={
-              partyLinkPairs.length > 0 && selectedEditRow !== null ? (
-                <div style={genericEditRowStyle}>
-                  <select
-                    aria-label="Party link field"
-                    data-testid={coordinationWorkflowTestId("party-pair")}
-                    style={selectStyle}
-                    value={selectedPartyLinkPair?.key ?? ""}
-                    onChange={(event) => {
-                      setPartyLinkPairKey(event.target.value);
-                    }}
-                  >
-                    {partyLinkPairs.map((pair) => (
-                      <option key={pair.key} value={pair.key}>
-                        {pair.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Existing party"
-                    data-testid={coordinationWorkflowTestId("party-existing")}
-                    style={selectStyle}
-                    value={partyLinkExistingPartyId}
-                    onChange={(event) => {
-                      setPartyLinkExistingPartyId(event.target.value);
-                    }}
-                  >
-                    <option value="">Party</option>
-                    {referenceOptions.parties.map((option) => (
-                      <option key={option.recordId} value={option.recordId}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    data-testid={coordinationWorkflowTestId(
-                      "party-create-from-text",
-                    )}
-                    disabled={mutationState === "Syncing"}
-                    style={secondaryActionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void createPartyFromText();
-                    }}
-                  >
-                    Create party from text
-                  </button>
-                  <button
-                    data-testid={coordinationWorkflowTestId(
-                      "party-link-existing",
-                    )}
-                    disabled={mutationState === "Syncing"}
-                    style={secondaryActionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void linkExistingParty();
-                    }}
-                  >
-                    Link existing party
-                  </button>
-                  <button
-                    data-testid={coordinationWorkflowTestId("party-clear-link")}
-                    disabled={mutationState === "Syncing"}
-                    style={secondaryActionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void clearPartyLink();
-                    }}
-                  >
-                    Clear party link
-                  </button>
-                  <button
-                    data-testid={coordinationWorkflowTestId("party-clear-text")}
-                    disabled={mutationState === "Syncing"}
-                    style={secondaryActionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void clearPartyText();
-                    }}
-                  >
-                    Clear party text
-                  </button>
-                  <button
-                    data-testid={coordinationWorkflowTestId("party-clear-both")}
-                    disabled={mutationState === "Syncing"}
-                    style={secondaryActionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void clearPartyBoth();
-                    }}
-                  >
-                    Clear both
-                  </button>
-                  {partialCompletionMessage === null ? null : (
-                    <div>
-                      <p
-                        data-testid={coordinationWorkflowTestId(
-                          "party-partial-completion",
-                        )}
-                        role="status"
-                      >
-                        {partialCompletionMessage}
-                      </p>
-                      <button
-                        data-testid={coordinationWorkflowTestId(
-                          "party-retry-created-link",
-                        )}
-                        disabled={mutationState === "Syncing"}
-                        style={secondaryActionButtonStyle}
-                        type="button"
-                        onClick={() => {
-                          void retryCreatedPartyLink();
-                        }}
-                      >
-                        Retry link to created party
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : null
-            }
-          />
-        ) : undefined
-      }
+      inspector={genericInspector.node}
       onRequestInspectorClose={() => {
-        inspector.commands.close({ restoreFocus: true });
+        genericInspector.close();
       }}
       primaryGrid={
         <GridViewport
@@ -1338,13 +687,13 @@ export function ContractWorkbookSurface({
           onAddRow={focusDraftRow}
           onInspectorToggle={() => {
             inspectorContinuityTokenRef.current = genericFocus.port.capture();
-            inspector.commands.open();
+            genericInspector.open();
           }}
           surface={surface}
         />
       }
       viewSchemaId={surface}
-      workAreaOverlays={ownerRecordActions.overlay}
+      workAreaOverlays={genericInspector.ownerRecordActions.overlay}
     />
   );
 }
@@ -1352,33 +701,6 @@ export function ContractWorkbookSurface({
 const gridShellStyle = {
   ...workbookSurfaceGridShellStyle,
 } satisfies CSSProperties;
-
-const genericEditRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gap: "0.6rem",
-  alignItems: "stretch",
-};
-
-const genericDraftInspectorFieldsStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
-  gap: "0.75rem",
-  alignItems: "end",
-};
-
-const inputStyle = {
-  boxSizing: "border-box" as const,
-  display: "block",
-  minWidth: 0,
-  width: "100%",
-  borderRadius: "var(--ct-component-text-input-rounded)",
-  border: "var(--ct-component-text-input-border)",
-  background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
-  color: "var(--ct-component-text-input-textColor)",
-};
 
 const actionButtonStyle = {
   borderRadius: "var(--ct-component-button-secondary-rounded)",
@@ -1397,16 +719,4 @@ const secondaryActionButtonStyle = {
 
 const draftCellPlaceholderStyle = {
   color: "var(--ct-colors-ink-subtle)",
-};
-
-const labelStyle = {
-  display: "grid",
-  gap: "0.4rem",
-  fontSize: "0.95rem",
-  color: "var(--ct-colors-ink-muted)",
-};
-
-const selectStyle = {
-  ...inputStyle,
-  appearance: "auto" as const,
 };

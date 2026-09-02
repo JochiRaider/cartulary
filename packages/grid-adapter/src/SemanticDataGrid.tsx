@@ -40,6 +40,7 @@ import {
   type GridDataRow,
   type GridDraftRow,
   type GridEditorActivation,
+  type GridEditorFocusTarget,
   type GridHandle,
   type GridRowIdentity,
   type GridRowStateInput,
@@ -185,6 +186,7 @@ function useSemanticDataGrid<Row>(
   const semanticCellElementsRef = useRef(
     new Map<string, SemanticCellRegistration>(),
   );
+  const draftFocusTargetsRef = useRef(new Map<string, GridEditorFocusTarget>());
   const pendingEditorSeedRef = useRef<PendingEditorSeed | null>(null);
   const activeEditorSessionRef = useRef<ActiveEditorSession | null>(null);
   const pointerCellActivatorRef = useRef<{
@@ -498,6 +500,9 @@ function useSemanticDataGrid<Row>(
     },
     [],
   );
+  const draftFocusTargetRef = useCallback((fieldKey: string) => {
+    return createDraftFocusTargetRef(draftFocusTargetsRef.current, fieldKey);
+  }, []);
 
   const dispatchSemanticFill = useCallback(
     (
@@ -605,6 +610,7 @@ function useSemanticDataGrid<Row>(
         onPasteCellContent:
           clipboardPaste === undefined ? undefined : handleSemanticPaste,
         registerEditorSession,
+        draftFocusTargetRef,
         registerSemanticCell,
         rowGutter,
         surface,
@@ -617,6 +623,7 @@ function useSemanticDataGrid<Row>(
       columns,
       compiledBulkSelection,
       editable,
+      draftFocusTargetRef,
       handleEditorKeyboardAction,
       handleSemanticPaste,
       isCellRangeSelected,
@@ -746,7 +753,15 @@ function useSemanticDataGrid<Row>(
           vendorHandle: vendorHandle.current,
           focus: true,
         }),
+      focusDraftCell: (fieldKey) =>
+        focusRegisteredDraftCell(draftFocusTargetsRef.current, fieldKey),
       focusRoot: () => focusGridRoot(vendorHandle.current?.element ?? null),
+      getAnchorRect: (anchor) =>
+        registeredSemanticAnchorRect(
+          semanticCellElementsRef.current,
+          semanticPresentationRef.current,
+          anchor,
+        ),
       getScrollElement: () => vendorHandle.current?.element ?? null,
       isAnchorRendered: (anchor) =>
         semanticCellElementsRef.current.has(gridAnchorKey(anchor)),
@@ -1618,6 +1633,7 @@ function focusSemanticCellAfterRender(
   // already-selected position. Keep the workaround private and resolve the
   // element from Cartulary's private semantic registry, never RDG coordinates
   // or generated class names.
+  const invocationActiveElement = document.activeElement;
   const focusRegisteredCell = () => {
     const cell = cellElements.get(gridAnchorKey(anchor))?.cell;
     if (cell === undefined) return null;
@@ -1626,6 +1642,15 @@ function focusSemanticCellAfterRender(
     return cell;
   };
   window.setTimeout(() => {
+    const activeElement = document.activeElement;
+    const registeredCell = cellElements.get(gridAnchorKey(anchor))?.cell;
+    if (
+      activeElement !== invocationActiveElement &&
+      activeElement !== document.body &&
+      activeElement !== registeredCell
+    ) {
+      return;
+    }
     const focusedCell = focusRegisteredCell();
     // Focusing away from an inspector/editor may synchronously publish its
     // final clean draft and replace the rendered cell. Re-resolve once after
@@ -1646,6 +1671,69 @@ function focusGridRoot(gridElement: HTMLDivElement | null): boolean {
   if (!gridElement.hasAttribute("tabindex")) gridElement.tabIndex = 0;
   gridElement.focus({ preventScroll: true });
   return document.activeElement === gridElement;
+}
+
+function isFocusableSemanticElement(
+  element: GridEditorFocusTarget | undefined,
+): element is GridEditorFocusTarget {
+  return (
+    element?.isConnected === true &&
+    !element.disabled &&
+    isMeasurableSemanticElement(element)
+  );
+}
+
+function createDraftFocusTargetRef(
+  registry: Map<string, GridEditorFocusTarget>,
+  fieldKey: string,
+) {
+  let registeredElement: GridEditorFocusTarget | null = null;
+  return (element: GridEditorFocusTarget | null) => {
+    if (element === null) {
+      if (registry.get(fieldKey) === registeredElement) {
+        registry.delete(fieldKey);
+      }
+      registeredElement = null;
+      return;
+    }
+    registeredElement = element;
+    registry.set(fieldKey, element);
+  };
+}
+
+function focusRegisteredDraftCell(
+  registry: ReadonlyMap<string, GridEditorFocusTarget>,
+  fieldKey: string,
+): boolean {
+  const element = registry.get(fieldKey);
+  if (!isFocusableSemanticElement(element)) return false;
+  element.focus({ preventScroll: true });
+  return document.activeElement === element;
+}
+
+function registeredSemanticAnchorRect<Row>(
+  registry: ReadonlyMap<string, SemanticCellRegistration>,
+  presentation: GridSemanticPresentationModel<Row>,
+  anchor: GridCellAnchor,
+): DOMRectReadOnly | null {
+  if (!gridSurfaceIdentitiesEqual(anchor.surface, presentation.surface)) {
+    return null;
+  }
+  const cell = registry.get(gridAnchorKey(anchor))?.cell;
+  return isMeasurableSemanticElement(cell)
+    ? cell.getBoundingClientRect()
+    : null;
+}
+
+function isMeasurableSemanticElement(
+  element: HTMLElement | undefined,
+): element is HTMLElement {
+  if (element === undefined || !element.isConnected || element.hidden) {
+    return false;
+  }
+  if (element.closest("[hidden], [aria-hidden='true']") !== null) return false;
+  const style = window.getComputedStyle(element);
+  return style.display !== "none" && style.visibility !== "hidden";
 }
 
 function semanticRowAttributes(state: GridResolvedSemanticState) {

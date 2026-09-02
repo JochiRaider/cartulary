@@ -155,10 +155,17 @@ export function useTimelineColumnAssembly({
             timelineColumnWidths[binding.fieldKey] ??
             timelineColumnWidth(binding.fieldKey),
           renderCell: ({ row }) => renderCell(row),
-          renderDraftCell: ({ row }) =>
+          renderDraftCell: ({ focusTargetRef, row }) =>
             binding.kind === "scalar"
-              ? renderTimelineGridEditor(row, binding)
-              : renderCell(row),
+              ? renderTimelineGridEditor(
+                  row,
+                  binding,
+                  undefined,
+                  focusTargetRef,
+                )
+              : binding.kind === "collection"
+                ? renderTimelineCollectionInput(row, binding, focusTargetRef)
+                : renderCell(row),
           editor:
             binding.kind === "scalar"
               ? {

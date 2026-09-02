@@ -5,6 +5,7 @@ import type {
 import {
   updateWorkbookInspectorSubject,
   type WorkbookInspectorSubject,
+  workbookInspectorSubjectsEqual,
 } from "./workbookInspectorSubject";
 
 export type RecordHistoryRollbackAction =
@@ -141,7 +142,8 @@ export type WorkbookRecordHistoryEvent =
       readonly type: "operation_accepted";
       readonly feedback?: WorkbookInspectorFeedback | undefined;
       readonly operationId: WorkbookRecordHistoryOperationId;
-      readonly subject: WorkbookInspectorSubject;
+      readonly recordId: string;
+      readonly rowVersion: number;
     }
   | {
       readonly type: "operation_rejected";
@@ -219,138 +221,261 @@ export function workbookRecordHistoryReducer(
 ): WorkbookRecordHistoryState {
   switch (event.type) {
     case "retarget":
-      return workbookRecordHistorySubjectsEqual(state.subject, event.subject)
+      return workbookInspectorSubjectsEqual(state.subject, event.subject)
         ? state
         : initialWorkbookRecordHistoryState(event.subject);
     case "clear":
       return initialWorkbookRecordHistoryState();
-    case "load_requested": {
-      if (!workbookRecordHistorySubjectsEqual(state.subject, event.subject)) {
-        return state;
-      }
-      const retainedData = workbookRecordHistoryLoadedData(state);
-      return retainedData === null
-        ? {
-            phase: "loading",
-            requestId: event.requestId,
-            subject: event.subject,
-          }
-        : {
-            phase: "loading",
-            requestId: event.requestId,
-            retainedData,
-            subject: event.subject,
-          };
-    }
-    case "load_accepted": {
-      if (
-        state.phase !== "loading" ||
-        state.requestId.value !== event.requestId.value ||
-        !workbookRecordHistorySubjectsEqual(state.subject, event.subject) ||
-        event.data.record_id !== event.subject.recordId ||
-        !isPositiveInteger(event.data.row_version)
-      ) {
-        return state;
-      }
-      const acceptedSubject = updateWorkbookInspectorSubject(state.subject, {
-        kind: event.data.deleted ? "deleted" : "live",
-        recordId: event.data.record_id,
-        rowVersion: event.data.row_version,
-      });
-      if (acceptedSubject === null) return state;
-      return event.feedback === undefined
-        ? {
-            phase: "ready",
-            result: { data: event.data, kind: "loaded" },
-            subject: acceptedSubject,
-          }
-        : {
-            feedback: event.feedback,
-            phase: "ready",
-            result: { data: event.data, kind: "loaded" },
-            subject: acceptedSubject,
-          };
-    }
+    default:
+      return reduceHistoryPhase(state, event);
+  }
+}
+
+type WorkbookRecordHistoryPhaseEvent = Exclude<
+  WorkbookRecordHistoryEvent,
+  { readonly type: "clear" | "retarget" }
+>;
+
+function reduceHistoryPhase(
+  state: WorkbookRecordHistoryState,
+  event: WorkbookRecordHistoryPhaseEvent,
+): WorkbookRecordHistoryState {
+  switch (state.phase) {
+    case "idle":
+      return reduceIdleHistory(state, event);
+    case "loading":
+      return reduceLoadingHistory(state, event);
+    case "ready":
+      return reduceReadyHistory(state, event);
+    case "submitting":
+      return reduceSubmittingHistory(state, event);
+  }
+}
+
+function reduceIdleHistory(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "idle" }>,
+  event: WorkbookRecordHistoryPhaseEvent,
+): WorkbookRecordHistoryState {
+  switch (event.type) {
+    case "load_requested":
+      return reduceHistoryLoadRequested(state, event);
+    case "feedback_cleared":
+      return state.feedback === undefined
+        ? state
+        : { ...state, feedback: undefined };
+    default:
+      return state;
+  }
+}
+
+function reduceLoadingHistory(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "loading" }>,
+  event: WorkbookRecordHistoryPhaseEvent,
+): WorkbookRecordHistoryState {
+  switch (event.type) {
+    case "load_requested":
+      return reduceHistoryLoadRequested(state, event);
+    case "load_accepted":
+      return reduceHistoryLoadAccepted(state, event);
     case "load_rejected":
-      if (
-        state.phase !== "loading" ||
-        state.requestId.value !== event.requestId.value ||
-        !workbookRecordHistorySubjectsEqual(state.subject, event.subject)
-      ) {
-        return state;
-      }
-      return event.feedback === undefined
-        ? {
-            phase: "ready",
-            result: { error: event.error, kind: "load_error" },
-            subject: state.subject,
-          }
-        : {
-            feedback: event.feedback,
-            phase: "ready",
-            result: { error: event.error, kind: "load_error" },
-            subject: state.subject,
-          };
+      return reduceHistoryLoadRejected(state, event);
+    default:
+      return state;
+  }
+}
+
+function reduceReadyHistory(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "ready" }>,
+  event: WorkbookRecordHistoryPhaseEvent,
+): WorkbookRecordHistoryState {
+  switch (event.type) {
+    case "load_requested":
+      return reduceHistoryLoadRequested(state, event);
     case "preview":
-      if (
-        state.phase !== "ready" ||
-        state.result.kind !== "loaded" ||
-        event.pendingAction.recordId !== state.subject.recordId ||
-        event.pendingAction.rowVersion !== state.subject.rowVersion ||
-        !pendingActionMatchesSubject(event.pendingAction, state.subject)
-      ) {
-        return state;
-      }
-      return {
-        ...state,
-        feedback: undefined,
-        pendingAction: event.pendingAction,
-      };
+      return reduceHistoryPreview(state, event);
     case "cancel":
-      return state.phase !== "ready" || state.pendingAction === undefined
+      return state.pendingAction === undefined
         ? state
         : { ...state, pendingAction: undefined };
     case "submit":
-      return state.phase === "ready" &&
-        state.result.kind === "loaded" &&
-        state.pendingAction !== undefined
+      return reduceHistorySubmit(state, event);
+    case "feedback_cleared":
+      return state.feedback === undefined
+        ? state
+        : { ...state, feedback: undefined };
+    default:
+      return state;
+  }
+}
+
+function reduceSubmittingHistory(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "submitting" }>,
+  event: WorkbookRecordHistoryPhaseEvent,
+): WorkbookRecordHistoryState {
+  switch (event.type) {
+    case "load_requested":
+      return reduceHistoryLoadRequested(state, event);
+    case "operation_accepted":
+      return reduceHistoryOperationAccepted(state, event);
+    case "operation_rejected":
+      return state.operationId.value === event.operationId.value
         ? {
-            data: state.result.data,
-            operation: { pendingAction: state.pendingAction },
-            operationId: event.operationId,
-            phase: "submitting",
+            feedback: event.feedback,
+            phase: "ready",
+            result: { data: state.data, kind: "loaded" },
             subject: state.subject,
           }
         : state;
-    case "operation_accepted":
-      if (
-        state.phase !== "submitting" ||
-        state.operationId.value !== event.operationId.value
-      ) {
-        return state;
-      }
-      return event.feedback === undefined
-        ? { phase: "idle", subject: event.subject }
-        : { feedback: event.feedback, phase: "idle", subject: event.subject };
-    case "operation_rejected":
-      if (
-        state.phase !== "submitting" ||
-        state.operationId.value !== event.operationId.value
-      ) {
-        return state;
-      }
-      return {
-        feedback: event.feedback,
-        phase: "ready",
-        result: { data: state.data, kind: "loaded" },
-        subject: state.subject,
-      };
-    case "feedback_cleared":
-      return (state.phase !== "idle" && state.phase !== "ready") ||
-        state.feedback === undefined
-        ? state
-        : { ...state, feedback: undefined };
+    default:
+      return state;
   }
+}
+
+function reduceHistoryLoadRequested(
+  state: WorkbookRecordHistoryState,
+  event: Extract<
+    WorkbookRecordHistoryPhaseEvent,
+    { readonly type: "load_requested" }
+  >,
+): WorkbookRecordHistoryState {
+  if (!workbookInspectorSubjectsEqual(state.subject, event.subject)) {
+    return state;
+  }
+  const retainedData = workbookRecordHistoryLoadedData(state);
+  return retainedData === null
+    ? {
+        phase: "loading",
+        requestId: event.requestId,
+        subject: event.subject,
+      }
+    : {
+        phase: "loading",
+        requestId: event.requestId,
+        retainedData,
+        subject: event.subject,
+      };
+}
+
+function reduceHistoryLoadAccepted(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "loading" }>,
+  event: Extract<
+    WorkbookRecordHistoryPhaseEvent,
+    { readonly type: "load_accepted" }
+  >,
+): WorkbookRecordHistoryState {
+  if (
+    state.requestId.value !== event.requestId.value ||
+    !workbookInspectorSubjectsEqual(state.subject, event.subject) ||
+    event.data.record_id !== event.subject.recordId ||
+    !isPositiveInteger(event.data.row_version)
+  ) {
+    return state;
+  }
+  const subject = updateWorkbookInspectorSubject(state.subject, {
+    kind: event.data.deleted ? "deleted" : "live",
+    recordId: event.data.record_id,
+    rowVersion: event.data.row_version,
+  });
+  if (subject === null) return state;
+  const ready = {
+    phase: "ready" as const,
+    result: { data: event.data, kind: "loaded" as const },
+    subject,
+  };
+  return event.feedback === undefined
+    ? ready
+    : { ...ready, feedback: event.feedback };
+}
+
+function reduceHistoryLoadRejected(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "loading" }>,
+  event: Extract<
+    WorkbookRecordHistoryPhaseEvent,
+    { readonly type: "load_rejected" }
+  >,
+): WorkbookRecordHistoryState {
+  if (
+    state.requestId.value !== event.requestId.value ||
+    !workbookInspectorSubjectsEqual(state.subject, event.subject)
+  ) {
+    return state;
+  }
+  const ready = {
+    phase: "ready" as const,
+    result: { error: event.error, kind: "load_error" as const },
+    subject: state.subject,
+  };
+  return event.feedback === undefined
+    ? ready
+    : { ...ready, feedback: event.feedback };
+}
+
+function reduceHistoryPreview(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "ready" }>,
+  event: Extract<WorkbookRecordHistoryPhaseEvent, { readonly type: "preview" }>,
+): WorkbookRecordHistoryState {
+  if (
+    state.result.kind !== "loaded" ||
+    event.pendingAction.recordId !== state.subject.recordId ||
+    event.pendingAction.rowVersion !== state.subject.rowVersion ||
+    !pendingActionMatchesSubject(event.pendingAction, state.subject)
+  ) {
+    return state;
+  }
+  return {
+    ...state,
+    feedback: undefined,
+    pendingAction: event.pendingAction,
+  };
+}
+
+function reduceHistorySubmit(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "ready" }>,
+  event: Extract<WorkbookRecordHistoryPhaseEvent, { readonly type: "submit" }>,
+): WorkbookRecordHistoryState {
+  return state.result.kind === "loaded" && state.pendingAction !== undefined
+    ? {
+        data: state.result.data,
+        operation: { pendingAction: state.pendingAction },
+        operationId: event.operationId,
+        phase: "submitting",
+        subject: state.subject,
+      }
+    : state;
+}
+
+function reduceHistoryOperationAccepted(
+  state: Extract<WorkbookRecordHistoryState, { readonly phase: "submitting" }>,
+  event: Extract<
+    WorkbookRecordHistoryPhaseEvent,
+    { readonly type: "operation_accepted" }
+  >,
+): WorkbookRecordHistoryState {
+  const pending = state.operation.pendingAction;
+  if (
+    state.operationId.value !== event.operationId.value ||
+    pending.recordId !== state.subject.recordId ||
+    pending.rowVersion !== state.subject.rowVersion ||
+    !pendingActionMatchesSubject(pending, state.subject) ||
+    event.recordId !== pending.recordId ||
+    !isPositiveInteger(event.rowVersion)
+  ) {
+    return state;
+  }
+  const subject = updateWorkbookInspectorSubject(state.subject, {
+    kind:
+      pending.kind === "destructive"
+        ? pending.operation === "delete"
+          ? "deleted"
+          : "live"
+        : state.subject.kind,
+    recordId: event.recordId,
+    rowVersion: event.rowVersion,
+  });
+  if (subject === null) return state;
+  return event.feedback === undefined
+    ? { phase: "idle", subject }
+    : { feedback: event.feedback, phase: "idle", subject };
 }
 
 export function normalizeRecordHistoryData(
@@ -399,21 +524,6 @@ export function buildRecordRollbackTargetFromHistoryAction(
         ? { kind: "row_restore", restore_to_revision_no: item.revision_no }
         : null;
   }
-}
-
-function workbookRecordHistorySubjectsEqual(
-  left: WorkbookInspectorSubject | null,
-  right: WorkbookInspectorSubject | null,
-): boolean {
-  return (
-    left === right ||
-    (left !== null &&
-      right !== null &&
-      left.kind === right.kind &&
-      left.viewSchemaId === right.viewSchemaId &&
-      left.recordId === right.recordId &&
-      left.rowVersion === right.rowVersion)
-  );
 }
 
 function pendingActionMatchesSubject(

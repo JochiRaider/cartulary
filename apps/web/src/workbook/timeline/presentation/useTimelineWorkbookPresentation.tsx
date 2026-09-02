@@ -10,12 +10,12 @@ import {
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useLayoutEffect, useMemo } from "react";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
-import { workbookRecordHistoryLoadedData } from "../../inspector/workbookRecordHistoryModel";
 import { applyWorkbookLayoutToColumns } from "../../layout/workbookColumnLayout";
 import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
 } from "../../models/workbookGridState";
+import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import {
   defaultFilterDraft,
   emptyWorkbookQueryState,
@@ -23,7 +23,6 @@ import {
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { DraftRowCreateButton } from "../components/TimelineDraftRowActions";
-import { useTimelineWorkbookInspectorSections } from "../components/TimelineWorkbookInspectorSections";
 import { timelinePendingQueueMessage } from "../components/TimelineWorkbookNotices";
 import { useTimelineWorkbookRenderers } from "../components/TimelineWorkbookRenderers";
 import {
@@ -39,6 +38,7 @@ import {
   timelineRelationshipLabel,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
+import { useTimelineInspectorPresentation } from "./useTimelineInspectorPresentation";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const timelineInspectorConfig = timelineContract.inspectorConfig;
@@ -178,14 +178,15 @@ export function useTimelineWorkbookPresentation({
   } = inspector.snapshot.selection;
   const setInspectorMessage = inspector.commands.publishFeedback;
   const setIsInspectorOpen = inspector.commands.setOpen;
-  const isInspectorOpen = inspector.snapshot.lifecycle.isOpen;
+  const isInspectorOpen = workbookInspectorStateIsOpen(
+    inspector.snapshot.lifecycle,
+  );
   const {
     currentHistoryDeleted,
     currentHistoryRecordId,
     inspectorHistorySubject,
     rowHistory,
   } = inspector.snapshot.history;
-  const rowHistoryData = workbookRecordHistoryLoadedData(rowHistory);
   const { cancelRowHistoryPendingAction } = inspector.commands.history;
   const handleResolveTargetChange = workflow.commands.resolveTargetChange;
   const createRelatedWorkflow = workflow.snapshot.createRelatedWorkflow;
@@ -324,32 +325,60 @@ export function useTimelineWorkbookPresentation({
     [],
   );
 
-  const {
-    renderEvidenceAttachSection,
-    renderInspectorFieldEditors,
-    renderRelationshipEditors: renderInspectorRelationshipEditors,
-    renderRowHistorySection,
-    renderWorkflowSection: renderCreateRelatedWorkflowSection,
-  } = useTimelineWorkbookInspectorSections({
-    cancelCreateRelatedWorkflow: cancelInspectorFeatureAction,
-    cancelRowHistoryPendingAction,
-    canMutateHistory:
-      !incidentClosed &&
-      currentIncidentRole !== null &&
-      currentIncidentRole !== "viewer",
-    confirmRowHistoryPendingAction,
-    createRelatedWorkflow,
-    handleTimelineEvidenceFiles,
-    inspectorHistorySubject,
-    openRowHistory,
-    previewRowHistoryDeleteRestore,
-    previewRowHistoryRollback,
-    renderTimelineCollectionInput,
-    renderTimelineInspectorEditor,
-    rowHistory,
-    submitCreateRelatedWorkflow,
-    timelineCreateRelatedReferenceOptions,
-    updateCreateRelatedWorkflowDraft,
+  const timelineInspector = useTimelineInspectorPresentation({
+    currentHistoryDeleted,
+    currentHistoryRecordId,
+    isOpen: isInspectorOpen,
+    model: {
+      canManageMentions,
+      currentHistoryDeleted,
+      currentIncidentRole,
+      elementRegistry: inspector.ports.elements,
+      incidentClosed,
+      currentHistoryRecordId,
+      entityIndex,
+      getRelationshipLabel: timelineRelationshipLabel,
+      hostEntities,
+      identityEntities,
+      indicatorInspectorHandler,
+      indicatorWorkflow,
+      inspectorConfig: timelineInspectorConfig,
+      inspectorMentions,
+      inspectorMessage,
+      loadRows,
+      onClose: closeInspector,
+      onCreateEntityFromMention: createEntityFromMention,
+      onFeatureAction: handleInspectorFeatureAction,
+      onResolveTargetChange: handleResolveTargetChange,
+      onSelectMention: handleSelectMention,
+      onSetInspectorMessage: setInspectorMessage,
+      onSubmitMentionAction: submitMentionAction,
+      selectedMention,
+      selectedResolveTargetId,
+      selectedRow,
+      sourceFields: timelineObservationSourceFields,
+    },
+    sections: {
+      cancelCreateRelatedWorkflow: cancelInspectorFeatureAction,
+      cancelRowHistoryPendingAction,
+      canMutateHistory:
+        !incidentClosed &&
+        currentIncidentRole !== null &&
+        currentIncidentRole !== "viewer",
+      confirmRowHistoryPendingAction,
+      createRelatedWorkflow,
+      handleTimelineEvidenceFiles,
+      inspectorHistorySubject,
+      openRowHistory,
+      previewRowHistoryDeleteRestore,
+      previewRowHistoryRollback,
+      renderTimelineCollectionInput,
+      renderTimelineInspectorEditor,
+      rowHistory,
+      submitCreateRelatedWorkflow,
+      timelineCreateRelatedReferenceOptions,
+      updateCreateRelatedWorkflowDraft,
+    },
   });
 
   const pendingQueueDisplayMessage =
@@ -443,49 +472,7 @@ export function useTimelineWorkbookPresentation({
       timelineDraftRow,
       timelineGridRows,
     },
-    inspector: isInspectorOpen
-      ? {
-          canManageMentions,
-          currentHistoryDeleted,
-          currentIncidentRole,
-          incidentClosed,
-          currentHistoryRecordId,
-          entityIndex,
-          getRelationshipLabel: timelineRelationshipLabel,
-          hostEntities,
-          identityEntities,
-          indicatorInspectorHandler,
-          indicatorWorkflow,
-          inspectorConfig: timelineInspectorConfig,
-          inspectorMentions,
-          inspectorMessage,
-          loadRows,
-          onClose: closeInspector,
-          onCreateEntityFromMention: createEntityFromMention,
-          onFeatureAction: handleInspectorFeatureAction,
-          onResolveTargetChange: handleResolveTargetChange,
-          onSelectMention: handleSelectMention,
-          onSetInspectorMessage: setInspectorMessage,
-          onSubmitMentionAction: submitMentionAction,
-          renderEvidenceAttachSection,
-          renderInspectorFieldEditors,
-          renderRelationshipEditors: renderInspectorRelationshipEditors,
-          renderRowHistorySection,
-          renderWorkflowSection: renderCreateRelatedWorkflowSection,
-          rowHistoryRecordId: currentHistoryDeleted
-            ? currentHistoryRecordId
-            : null,
-          rowHistoryRowVersion:
-            currentHistoryDeleted &&
-            rowHistoryData?.record_id === currentHistoryRecordId
-              ? rowHistoryData.row_version
-              : null,
-          selectedMention,
-          selectedResolveTargetId,
-          selectedRow,
-          sourceFields: timelineObservationSourceFields,
-        }
-      : null,
+    inspector: timelineInspector,
     layout: {
       chromeMode,
       onRequestInspectorClose: closeInspector,

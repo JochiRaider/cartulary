@@ -108,13 +108,13 @@ describe("Timeline editor draft registry", () => {
   it("owns semantic editor registration, unregistration, and row removal", () => {
     const registry = createTimelineEditorDraftRegistry();
     const input = document.createElement("input");
+    document.body.append(input);
     registry.registerInput(
       {
         field: "activitySynopsisText",
         rowKey: recordId,
         surface: "grid",
       },
-      "timeline-editor",
       input,
     );
     registry.setDraft(
@@ -128,7 +128,6 @@ describe("Timeline editor draft registry", () => {
     const focusKey = `${recordId}:activitySynopsisText:grid`;
 
     expect(registry.inputElementForFocusKey(focusKey)).toBe(input);
-    expect(registry.inputTestIdForFocusKey(focusKey)).toBe("timeline-editor");
 
     registry.registerInput(
       {
@@ -136,18 +135,40 @@ describe("Timeline editor draft registry", () => {
         rowKey: recordId,
         surface: "grid",
       },
-      "timeline-editor",
       null,
     );
     expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
-    expect(registry.inputTestIdForFocusKey(focusKey)).toBeNull();
     expect(registry.draftValueForFocusKey(focusKey)).toBe("invalid local text");
 
     registry.retainRows(new Set());
 
     expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
-    expect(registry.inputTestIdForFocusKey(focusKey)).toBeNull();
     expect(registry.draftValueForFocusKey(focusKey)).toBeUndefined();
+  });
+
+  it("rejects stale, hidden, disabled, and disconnected editor elements", () => {
+    const registry = createTimelineEditorDraftRegistry();
+    const identity = {
+      field: "activitySynopsisText" as const,
+      rowKey: recordId,
+      surface: "grid" as const,
+    };
+    const focusKey = `${recordId}:activitySynopsisText:grid`;
+    const input = document.createElement("input");
+    document.body.append(input);
+    registry.registerInput(identity, input);
+    input.hidden = true;
+    expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
+
+    input.hidden = false;
+    input.disabled = true;
+    registry.registerInput(identity, input);
+    expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
+
+    input.disabled = false;
+    registry.registerInput(identity, input);
+    input.remove();
+    expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
   });
 
   it("invalidates drafts when the schema identity changes", () => {

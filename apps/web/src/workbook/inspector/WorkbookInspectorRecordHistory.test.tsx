@@ -429,6 +429,50 @@ describe("WorkbookInspectorRecordHistory", () => {
       screen.getByTestId(rowHistoryPanelTestId()),
     );
   });
+
+  it("rejects a server acceptance for the wrong record before owner effects", async () => {
+    const deleteAccepted = vi.fn();
+    const commands: RecordRouteCommandPort = {
+      execute: vi.fn(async () => ({
+        kind: "accepted" as const,
+        value: { recordId: "record-b", rowVersion: 6 },
+      })),
+      loadHistory: vi.fn(async () => ({
+        kind: "accepted" as const,
+        value: historyData(),
+      })),
+      rollback: vi.fn(),
+    };
+    render(
+      <WorkbookInspectorRecordHistory
+        actions={new Set(["delete", "restore", "rollback"])}
+        canMutate
+        commands={commands}
+        ownerEffects={{
+          deleteAccepted,
+          restoreAccepted: vi.fn(),
+          rollbackAccepted: vi.fn(),
+        }}
+        subject={historySubject(recordId, 5)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open history" }));
+    fireEvent.click(await screen.findByTestId(rowHistoryDeleteButtonTestId()));
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+      ),
+    );
+
+    expect(
+      await screen.findByText(
+        "The history operation returned an invalid record identity.",
+      ),
+    ).not.toBeNull();
+    expect(deleteAccepted).not.toHaveBeenCalled();
+    expect(commands.loadHistory).toHaveBeenCalledOnce();
+  });
 });
 
 function historyData({

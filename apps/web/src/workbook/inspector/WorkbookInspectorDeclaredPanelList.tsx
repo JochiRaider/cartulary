@@ -18,6 +18,7 @@ export function WorkbookInspectorDeclaredPanelList({
   contentByPanel,
   currentIncidentRole,
   disabledTokens,
+  panelRef,
   onContextualAction,
   subject,
 }: {
@@ -25,6 +26,9 @@ export function WorkbookInspectorDeclaredPanelList({
   readonly contentByPanel: Partial<Record<InspectorPanelId, ReactNode>>;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
+  readonly panelRef?:
+    | ((panelId: InspectorPanelId, element: HTMLElement | null) => void)
+    | undefined;
   readonly onContextualAction: (
     capability: InspectorContextualCapability,
   ) => void;
@@ -50,6 +54,7 @@ export function WorkbookInspectorDeclaredPanelList({
         : [];
     return (
       <WorkbookInspectorPanelSection
+        elementRef={(element) => panelRef?.(panel.panelId, element)}
         key={panel.panelId}
         panel={panel}
         viewSchemaId={config.viewSchemaId}
