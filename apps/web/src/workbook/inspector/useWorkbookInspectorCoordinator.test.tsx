@@ -1,10 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import {
-  useWorkbookInspectorCoordinator,
-  workbookInspectorResetScope,
-} from "./useWorkbookInspectorCoordinator";
+import { useWorkbookInspectorCoordinator } from "./useWorkbookInspectorCoordinator";
 
 const config = requireViewContract(
   "cartulary.view.timeline.v2",
@@ -82,21 +79,5 @@ describe("useWorkbookInspectorCoordinator", () => {
     act(() => result.current.commands.close({ restoreFocus: true }));
     expect(result.current.snapshot.status).toBe("closed");
     expect(restoreFocus).toHaveBeenCalledOnce();
-  });
-
-  it("maps every reset cause to its closed scope", () => {
-    for (const cause of ["close", "retarget", "action_completed"] as const) {
-      expect(workbookInspectorResetScope(cause)).toBe("row_local");
-    }
-    for (const cause of [
-      "surface_changed",
-      "authorization_lost",
-      "incident_closed",
-      "record_deleted",
-      "record_merged",
-      "hard_refresh",
-    ] as const) {
-      expect(workbookInspectorResetScope(cause)).toBe("surface");
-    }
   });
 });

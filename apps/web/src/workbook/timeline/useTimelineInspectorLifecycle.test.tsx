@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { initialWorkbookRecordHistoryState } from "../inspector/workbookRecordHistoryModel";
 import { useTimelineInspectorLifecycle } from "./hooks/useTimelineInspectorSelection";
 
 it("useTimelineInspectorLifecycle shares one close command across explicit and layout requests", () => {
@@ -14,19 +15,13 @@ it("useTimelineInspectorLifecycle shares one close command across explicit and l
       inspectorInvalidationGeneration: 0,
       inspectorMentions: [],
       restoreTimelineFocusAnchor: () => false,
-      rowHistory: {
-        data: null,
-        error: null,
-        recordId: null,
-        status: "idle",
-      },
+      rowHistory: initialWorkbookRecordHistoryState(),
       rows: [],
       selectedMentionRef: null,
       selectedRowId: null,
       setInspectorMessage: vi.fn(),
       setIsInspectorOpen,
-      setRowHistory: vi.fn(),
-      setRowHistoryPendingAction: vi.fn(),
+      dispatchRowHistory: vi.fn(),
       setSelectedMentionRef: vi.fn(),
       setSelectedResolveTargetId: vi.fn(),
       setSelectedRowId: vi.fn(),

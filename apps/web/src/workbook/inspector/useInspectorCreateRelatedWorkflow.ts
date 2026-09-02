@@ -12,11 +12,14 @@ import {
   inspectorRelatedRecordWorkflowReducer,
 } from "./inspectorRelatedRecordModel";
 import {
+  type WorkbookInspectorFeedback,
   workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorFeedback,
   workbookInspectorLocalErrorPresentation,
+  workbookInspectorMessageFeedback,
 } from "./workbookInspectorErrorModel";
 
-export type InspectorCreateRelatedSubject = {
+type InspectorCreateRelatedSubject = {
   readonly cells: Readonly<Record<string, { readonly value: unknown }>>;
   readonly recordId: string;
   readonly rowVersion: number;
@@ -27,13 +30,13 @@ export function useInspectorCreateRelatedWorkflow({
   currentUserId,
   mutationCommands,
   onCreated,
-  onMessage,
+  onFeedback,
   selectedSubject,
 }: {
   readonly currentUserId: string | null;
   readonly mutationCommands: TimelineRelatedRecordPort;
   readonly onCreated: () => Promise<void> | void;
-  readonly onMessage: (message: string | null) => void;
+  readonly onFeedback: (feedback: WorkbookInspectorFeedback | null) => void;
   readonly selectedSubject: InspectorCreateRelatedSubject | null;
 }) {
   const [workflow, reactDispatch] = useReducer(
@@ -97,11 +100,19 @@ export function useInspectorCreateRelatedWorkflow({
         featureGroup.routeBinding.targetViewSchemaId,
       );
       if (targetContract === undefined) {
-        onMessage("The target view does not allow row creation.");
+        onFeedback(
+          workbookInspectorLocalErrorFeedback(
+            "The target view does not allow row creation.",
+          ),
+        );
         return true;
       }
       if (selectedSubject === null || selectedSubjectKey === null) {
-        onMessage("Select a saved row before creating a related record.");
+        onFeedback(
+          workbookInspectorLocalErrorFeedback(
+            "Select a saved row before creating a related record.",
+          ),
+        );
         return true;
       }
       const result = buildInspectorRelatedRecordDraft({
@@ -111,7 +122,11 @@ export function useInspectorCreateRelatedWorkflow({
         targetContract,
       });
       if (result.kind === "invalid_target") {
-        onMessage("The target view does not allow row creation.");
+        onFeedback(
+          workbookInspectorLocalErrorFeedback(
+            "The target view does not allow row creation.",
+          ),
+        );
         return true;
       }
       dispatchWorkflow({
@@ -122,13 +137,13 @@ export function useInspectorCreateRelatedWorkflow({
         targetContract,
         workflowId: Symbol("inspector-create-related-workflow"),
       });
-      onMessage(null);
+      onFeedback(null);
       return true;
     },
     [
       currentUserId,
       dispatchWorkflow,
-      onMessage,
+      onFeedback,
       selectedSubject,
       selectedSubjectKey,
     ],
@@ -185,12 +200,15 @@ export function useInspectorCreateRelatedWorkflow({
         type: "complete",
         workflowId: active.workflowId,
       });
-      onMessage(
-        `Created ${active.targetContract.title} record ${outcome.value.recordId}.`,
+      onFeedback(
+        workbookInspectorMessageFeedback(
+          `Created ${active.targetContract.title} record ${outcome.value.recordId}.`,
+          "none",
+        ),
       );
     }
     await onCreated();
-  }, [dispatchWorkflow, mutationCommands, onCreated, onMessage]);
+  }, [dispatchWorkflow, mutationCommands, onCreated, onFeedback]);
 
   return {
     commands: { begin, cancel, submit, updateDraft },

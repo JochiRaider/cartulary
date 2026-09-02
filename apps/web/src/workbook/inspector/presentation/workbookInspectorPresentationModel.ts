@@ -6,8 +6,8 @@ import type {
 } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import {
+  type InspectorContextualCapability,
   inspectorFeatureDisabledTokens,
-  resolveSemanticInspectorFeature,
 } from "../semanticInspectorDispatcher";
 
 export const workbookInspectorNoRowMessage =
@@ -27,6 +27,7 @@ export type WorkbookInspectorTechnicalField = {
 };
 
 export type WorkbookInspectorActionBinding = {
+  readonly capability: InspectorContextualCapability;
   readonly featureGroup: InspectorFeatureGroup;
   readonly semanticKey: string;
   readonly testId: string;
@@ -43,21 +44,15 @@ export type WorkbookHistoryEventPresentation = {
 
 export function bindWorkbookInspectorAction(
   config: InspectorConfig,
-  featureGroupKey: string,
-): WorkbookInspectorActionBinding | null {
-  const resolution = resolveSemanticInspectorFeature(config, featureGroupKey);
-  if (
-    resolution.kind === "unsupported" ||
-    resolution.disposition === "panel_read"
-  ) {
-    return null;
-  }
+  capability: InspectorContextualCapability,
+): WorkbookInspectorActionBinding {
   return {
-    featureGroup: resolution.featureGroup,
-    semanticKey: resolution.semanticKey,
+    capability,
+    featureGroup: capability.featureGroup,
+    semanticKey: capability.semanticKey,
     testId: workbookInspectorFeatureActionTestId(
       config.viewSchemaId,
-      resolution.featureGroup.featureGroupKey,
+      capability.featureGroup.featureGroupKey,
     ),
   };
 }

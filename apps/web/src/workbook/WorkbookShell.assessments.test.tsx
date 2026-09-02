@@ -328,7 +328,12 @@ describe("Assessment workbook surface", () => {
       screen.getByTestId(assessmentCreateControlTestId("submit")),
     );
 
-    await screen.findByText("Assessment created.");
+    const createdFeedback = await screen.findByTestId(
+      assessmentCreateControlTestId("message"),
+    );
+    expect(createdFeedback.textContent).toBe("Assessment created.");
+    expect(createdFeedback.getAttribute("role")).toBe("status");
+    expect(createdFeedback.getAttribute("aria-live")).toBe("polite");
     const createCallIndex = fetchMock.mock.calls.findIndex(([input]) =>
       String(input).includes(`/views/${assessmentsViewSchemaId}/rows`),
     );
@@ -658,7 +663,12 @@ describe("Assessment workbook surface", () => {
     fireEvent.click(
       screen.getByTestId(assessmentCreateControlTestId("submit")),
     );
-    await screen.findByText("Assessment created.");
+    const createdFeedback = await screen.findByTestId(
+      assessmentCreateControlTestId("message"),
+    );
+    expect(createdFeedback.textContent).toBe("Assessment created.");
+    expect(createdFeedback.getAttribute("role")).toBe("status");
+    expect(createdFeedback.getAttribute("aria-live")).toBe("polite");
     await screen.findByTestId(
       rowCellTestId(
         "00000000-0000-4000-8000-000000008401",

@@ -105,9 +105,11 @@ describe("useEntityMergeController", () => {
     expect(loadSurvivorPreview).toHaveBeenCalledWith(survivorId);
     expect(retargetSurvivor).toHaveBeenCalledWith(survivorId);
     expect(result.current.snapshot.candidateId).toBe("");
-    expect(result.current.snapshot.message?.primaryMessage).toBe(
-      "Merged Loser into Survivor (host).",
-    );
+    expect(result.current.snapshot.feedback).toEqual({
+      announcement: "polite",
+      kind: "message",
+      message: "Merged Loser into Survivor (host).",
+    });
   });
 
   it("rejects a late merge completion after lifecycle authorization changes", async () => {
@@ -154,7 +156,7 @@ describe("useEntityMergeController", () => {
     expect(clearDrafts).not.toHaveBeenCalled();
     expect(onRefreshEntities).not.toHaveBeenCalled();
     expect(retargetSurvivor).not.toHaveBeenCalled();
-    expect(result.current.snapshot.message).toBeNull();
+    expect(result.current.snapshot.feedback).toBeNull();
     expect(result.current.snapshot.candidateId).toBe("");
   });
 });

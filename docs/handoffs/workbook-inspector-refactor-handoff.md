@@ -2009,3 +2009,580 @@ The second successor terminal compatibility statement is:
 no route, API, schema, authorization, lifecycle, persistence, history,
 evidence, concurrency, dependency, generated-contract, or stored-data
 migration.**
+
+## 41. Third successor authority, authorization, and baseline
+
+Sections 1 through 40 are completed history and MUST remain unchanged. This
+section begins the third-successor production-readiness plan. WI-16 through
+WI-22 are the sole active execution ledger for this iteration, and all seven
+workstreams are `PLANNED`. This planning update does not authorize product,
+test, contract, generated, fixture, golden, conformance, or release-evidence
+changes. Separate implementation authorization is required before WI-16 may
+be marked `IN_PROGRESS`.
+
+The adopted Core owners remain normative. Core 01 owns exact configured
+feature identity and unsupported-feature omission; Core 03 owns row-version
+identity, invalidation, and retained recovery behavior; Core 04 owns
+authorization. `docs/domain.md` continues to own Workbook-native vocabulary,
+and `docs/design.md` continues to own presentation and accessibility direction.
+`docs/research/nlspec-spec.md` was used only as advisory drafting guidance. It
+is neither a requirement owner nor an executable dependency. No Core, domain,
+or design change is planned. If WI-16 finds contradictory owner clauses, mark
+the affected workstream `BLOCKED: owner contradiction`, record both clauses,
+and stop that workstream.
+
+The documentation-planning checkpoint is:
+
+- branch `main` at `fa784e85d7e7f14a56e1548958272dd76d321429`, equal to
+  `origin/main`, with a clean worktree before this handoff edit;
+- 17 live view schemas and 247 inspector feature-group instances;
+- all 17 schemas declare `record.delete`, `record.restore`, and
+  `history.rollback`;
+- four surface-local `featureGroups.filter` predicates independently select
+  visible inspector actions;
+- Timeline implements delete, restore, and rollback, while Generic, Entity,
+  and Assessment expose delete and rollback mechanisms without a retained
+  tombstone restore path;
+- Generic, Entity, and Assessment contain their inspector panel assembly and
+  dispatch inside their surface roots;
+- 11 production structural assertions remain in the scoped Timeline
+  clipboard, mention, Evidence, and history adapters;
+- owner-only-umask `make frontend-fallow-static` passed at
+  `.cartulary/test-results/20260901T211002Z-p5486` with 190 advisory repo-wide
+  findings. The scoped useful findings are the unnecessary recovery-message
+  exports; the remaining inspector candidates were identified by direct
+  production-consumer searches. Owner-required collaboration, mutation
+  runtime, and pending-queue members are explicit static-analysis false
+  positives and remain out of scope.
+
+The implementation boundary is internal Workbook Inspector production
+readiness plus the directly required Timeline adapters and private
+`package.view_contracts` literal-preservation helper. No public route, wire
+API, payload, schema, authorization, persistence, Evidence semantics,
+dependency, generated contract, or stored-data migration is authorized.
+
+## 42. Third successor gap register and disposition rules
+
+| Gap | Current failure | Durable disposition | Areas | Intended behavior change |
+| --- | --- | --- | --- | --- |
+| G14 | Same-file and test-only mechanics remain exported. | `PRIVATIZE` or move only to a production-consumed pure owner; do not alias. | Implementation, tests, static analysis, tracker. | None. |
+| G15 | Exact semantic registration is treated as executable support while four owners independently filter and dispatch features. | `CONSOLIDATE` owner capability resolution while retaining exact semantic admission. | Inspector model, four owners, tests, tracker. | Registered-but-ownerless features are omitted. |
+| G16 | Core history behavior is duplicated and restore is unavailable outside Timeline. | `CONSOLIDATE` pure state and presentation; `RETAIN` separate command sequences. | Model, presentation, adapters, consumers, tests, tracker. | Non-Timeline restore and stale-result rejection become available. |
+| G17 | Ordinary successes still enter error-only state and presentation. | `REPLACE` primitive/error callbacks with typed feedback at the producer. | Feedback model, controllers, presentation, accessibility tests, tracker. | Success urgency is corrected. |
+| G18 | Inspector composition remains embedded in three broad surface roots. | `EXTRACT` owner-specific composition without creating a universal controller. | Generic, Entity, Assessment, tests, boundaries, tracker. | None. |
+| G19 | Structural casts conceal mismatches at Timeline protocol boundaries. | `REPLACE` assertions with exact construction and validation. | Timeline adapters/models, `package.view_contracts`, tests, tracker. | Malformed responses fail closed. |
+
+`REMOVE` and `PRIVATIZE` require a zero-consumer or same-file proof.
+`RETAIN` requires a named production owner and a Make-owned verification
+route. Test-only use never justifies retention. A generated type or schema is
+consumed but never hand-edited. Do not add a suppression, deprecated wrapper,
+compatibility alias, wildcard dispatcher, broad command facade, or Markdown
+runtime dependency to complete a disposition.
+
+## 43. G14 and G15 — Minimal surface and truthful owner capability
+
+### G14 remediation
+
+Privatize `SemanticInspectorFeatureResolution`,
+`InspectorCreateRelatedSubject`, `InspectorRelatedRecordSubject`,
+`InspectorRelatedRecordDraftResult`, `GenericMutationSaveState`,
+`GenericPatchMutationRequest`, `AssessmentCreationController`, the
+same-file-only Workbook Inspector owner/reset types, and the two edit-recovery
+message constants when WI-16 reconfirms their current consumer graph. The
+reset-scope algorithm may remain independently testable only if it moves to a
+pure module that the production coordinator also imports; otherwise test it
+through coordinator behavior. Do not preserve any removed export through a
+barrel, alias, or deprecation wrapper.
+
+This change reduces accidental package contracts without changing runtime
+behavior. Leaving the exports in place lets tests and future callers turn
+implementation details into permanent compatibility obligations. Completion
+requires removed-symbol searches, a production owner for every remaining
+export, frontend typecheck, focused owner tests, import-boundary checks, and a
+scoped Fallow report with no G14 finding.
+
+### G15 remediation
+
+Keep `resolveSemanticInspectorFeature` responsible only for exact tuple
+admission and canonical config-owned object identity. Add owner capability
+resolution over the admitted feature with the closed outcomes
+`create_related`, `indicator`, `record_history`, `existing_owner_control`, and
+`unsupported`. A `record_history` result includes exactly one action:
+`delete`, `restore`, or `rollback`.
+
+Each of Generic, Entity, Assessment, and Timeline MUST use its owner
+resolution both to derive visible invokable controls and to dispatch an
+invocation. `existing_owner_control` remains implemented by its existing
+panel-local owner and is not duplicated as a contextual action. An admitted
+feature with no current owner resolution is `unsupported` and omitted without
+affecting registered siblings. Delete the four surface-local route-kind
+filters and all divergent click-time reclassification.
+
+The semantic registry remains unchanged at 247 tuples unless the live corpus
+itself changes under separate authority. This is an internal TypeScript
+boundary migration; it changes no contract or payload. The long-term seam for
+a new feature is exact registration plus one explicit owner capability, not a
+new filter or universal action controller. Completion requires corpus equality,
+one capability result per tuple, render/dispatch parity, unsupported omission,
+canonical identity, and zero remaining surface-local route filters.
+
+## 44. G16 — Shared core record-history capability
+
+Introduce one pure record-history model with:
+
+- a subject union of `live` and `deleted`, each containing `recordId` and
+  `rowVersion`;
+- an exhaustive rollback-target union of `history_entry`, `change_set`, and
+  `row_restore` with only its required server-authored selector;
+- `idle`, `loading`, `ready`, and `submitting` phases;
+- loaded history, a typed local error, an optional pending confirmation, and
+  optional typed local feedback;
+- owner-created opaque request and operation IDs; and
+- exhaustive load, preview, cancel, submit, reject, accept, retarget, and
+  clear transitions that commit only for the matching subject and ID.
+
+Use one shared record-history presentation for metadata, loading, failures,
+delete/restore controls, rollback actions, confirmations, technical details,
+and local feedback. Controls are enabled only when the matching registered
+`record_history` capability is present, the server advertises the rollback
+selector where applicable, authorization permits mutation, and the subject
+state permits the action.
+
+Generic, Entity, and Assessment share a narrow controller over their existing
+`RecordRouteCommandPort`. Timeline adapts its existing history controller to
+the same pure state and presentation but retains socket transaction tracking,
+save-state transitions, committed-record waiting, viewport continuity, and
+load ordering. Do not merge those command sequences.
+
+After accepted deletion, retain only a `deleted` history subject with the
+accepted tombstone row version, clear row details and workflows, and render
+only the History panel. Restore uses that tombstone version, refreshes the
+owner once, reselects the restored record ID, and returns to a live subject.
+Rollback uses only a server-advertised target, refreshes according to the
+owner sequence, and reloads current history. Once a mutation crosses its port,
+complete its captured owner effects; only matching current IDs may update
+inspector state or feedback.
+
+Routes and wire payloads remain unchanged. The intentional compatibility
+changes are non-Timeline restore availability and rejection of stale history
+results. Leaving the gap unresolved preserves misleading declared actions,
+inconsistent confirmation behavior, and stale-result races. Completion
+requires all three actions on all 17 schemas; live and tombstone row-version
+tests; duplicate/stale load and mutation tests; authorization-loss tests;
+server-selector tests; and exact Timeline link, continuity, save-state, and
+refresh evidence.
+
+## 45. G17 and G18 — Feedback semantics and owner composition
+
+### G17 remediation
+
+Change the generic related-workflow callback to accept
+`WorkbookInspectorFeedback | null`. Begin-time and operation failures use the
+typed error variant. A successful related-record creation keeps its current
+copy, neutral styling, and `announcement: "none"`. Standalone Assessment
+creation success is a neutral message with `announcement: "polite"`.
+
+Record-history completion produces local neutral, polite feedback with the
+existing rollback copy and explicit delete/restore completion copy. No success
+may pass through `WorkbookInspectorPublicError`. Entity merge errors, mutation
+errors, and ordinary inspector feedback become distinct state so a precedence
+expression cannot coerce messages into errors. Field-local related-form errors
+remain in the related-form model.
+
+This corrects internal and accessibility semantics without changing routes,
+payloads, technical error details, or failure urgency. Completion requires
+compile-time rejection of raw feedback strings; constructor and renderer
+tests; related success with no live announcement; Assessment and history
+success with polite announcement; assertive failures; and zero success paths
+through the public-error renderer.
+
+### G18 remediation
+
+Extract owner-specific Generic, Entity, and Assessment inspector composition
+into dedicated modules. Each owner module receives narrow subject, capability,
+authorization, mutation, refresh, selection, focus/reset, and presentation
+ports. It owns panel assembly, capability selection, contextual dispatch,
+related workflow presentation, record history, Indicator composition where
+applicable, and inspector-local feedback.
+
+The surface roots retain grid/query composition, cell editing, persistence
+commands, selection authority, mutation runtime, and owner-specific non-
+inspector workflows. Do not introduce a shared mega-prop object, a universal
+inspector controller, or broad surface decomposition. Preserve DOM contracts,
+test IDs, panel order, focus/reset behavior, and visuals.
+
+Completion requires no inspector route filtering or panel assembly in the
+three surface roots, independent focused evidence for each owner module,
+passing import boundaries, and unchanged functional and ordinary visual
+evidence. The long-term benefit is a cohesive inspector extension boundary
+without coupling unrelated grid and mutation behavior.
+
+## 46. G19 — Timeline adapter type integrity
+
+Remove the scoped production structural assertions through exact typed
+construction:
+
+1. Make the private registry validator generic over its string-literal input,
+   validate membership, and return the input rather than the registry's
+   widened string. Exported built-in view-schema constants consequently retain
+   source-compatible literal types.
+2. Validate and destructure clipboard columns and targets into non-empty
+   tuples. Use the canonical Workbook same-field-conflict payload and one
+   parser that returns that type; validate the conflicts collection without
+   an array cast.
+3. Type the mention request builder to the generated request-compatible shape.
+   Read the generated mention resource through field validators without an
+   `unknown` round-trip and reject invalid row-version or entity shapes.
+4. Make Evidence create and patch builders return their exact request type or
+   `null`. Split create and patch execution branches so TypeScript narrows the
+   request and accepted response without a request cast.
+5. Carry the exhaustive rollback-target union through the Timeline history
+   port and structurally assign it to the generated rollback request.
+
+Literal `as const` expressions that establish discriminants are not the
+target; `as unknown as`, generated-request assertions, and collection-shape
+assertions are. Generated sources remain untouched. Runtime requests must
+remain byte-for-byte compatible, while malformed responses newly fail closed.
+Completion requires zero scoped structural assertions, exact adapter request
+tests, negative response tests, `package.view_contracts` evidence, frontend
+typecheck, and Timeline owner tests.
+
+## 47. Third successor workstream ledger and tracker protocol
+
+| Workstream | Status | Dependency | Binary exit condition |
+| --- | --- | --- | --- |
+| WI-16 — Authority, baseline, inventory, and characterization | DONE | Separate implementation authorization | Complete owner/inventory evidence, passing characterization, and no owner contradiction. |
+| WI-17 — Minimal exports and truthful capability resolution | DONE | WI-16 `DONE` | Remaining exports are production-owned and one owner resolution drives render and dispatch. |
+| WI-18 — Shared core record-history capability | DONE | WI-17 `DONE` | Shared pure state/presentation serves all four owners and all 17 schemas implement the core action triple. |
+| WI-19 — Feedback semantic correction | DONE | WI-18 `DONE` | Every success and failure uses its typed feedback and announcement path. |
+| WI-20 — Owner-specific inspector composition | DONE | WI-19 `DONE` | Three surface roots delegate inspector composition through narrow owner boundaries. |
+| WI-21 — Timeline adapter type integrity | DONE | WI-20 `DONE` | Scoped adapters construct and validate exact contract shapes without structural casts. |
+| WI-22 — Final validation and handoff | DONE | WI-21 `DONE` | All routed and terminal evidence passes and C026-C035 are resolved. |
+
+Only one workstream may be `IN_PROGRESS`. Immediately before beginning a
+workstream, append its refreshed checkpoint and change only that workstream to
+`IN_PROGRESS`. After its exit criteria pass, append paths, decisions,
+commands, run roots, failures and classifications, compatibility, rollback,
+residual risks, and next action; mark it `DONE`; only then mark its successor
+`IN_PROGRESS`. A required failure leaves the workstream `IN_PROGRESS`.
+`BLOCKED` is reserved for a verified owner contradiction and must name both
+clauses.
+
+## 48. WI-16 — Authority, baseline, inventory, and characterization
+
+1. Refresh repository and nested instructions, branch, commit, upstream
+   relation, Git state, toolchain, generated policy, source ownership, task
+   guides, and the live contract corpus.
+2. Reconfirm every G14 candidate and every retained static-analysis false
+   positive by direct production-consumer search. Classify each candidate
+   `REMOVE`, `PRIVATIZE`, `CONSOLIDATE`, `EXTRACT`, or `RETAIN`.
+3. Produce a tuple-to-owner-capability inventory for all 247 feature groups
+   and prove all 17 schemas contain the core history action triple.
+4. Inventory the four render filters and matching execution predicates, both
+   history controller families, every related/Assessment/history/Entity
+   feedback producer and renderer, the three embedded inspector compositions,
+   and every scoped adapter assertion.
+5. Strengthen documentation-free pre-change characterization for canonical
+   identity, supported omission, render/dispatch parity, live and deleted
+   history subjects, delete/restore/rollback versions, stale loads and
+   mutations, feedback copy/roles, owner focus/reset, and exact adapter wire
+   shapes.
+6. Run Fallow with an owner-only process umask and record scoped findings
+   separately from the repo-wide advisory count. Add no suppression.
+7. Confirm no normative owner edit is required or invoke the contradiction
+   protocol from section 41.
+
+**Exit:** The inventory is complete, current behavior is characterized by
+passing evidence, every retained interface has a production owner and Make
+route, and no owner contradiction remains.
+
+**Tracker gate:** Mark WI-16 `DONE`, append all evidence, then mark WI-17
+`IN_PROGRESS` before changing production interfaces.
+
+## 49. WI-17 — Minimal exports and truthful capability resolution
+
+1. Implement G14 and G15 atomically so removal cannot leave a second feature
+   policy behind.
+2. Add corpus-driven owner-capability tests before deleting the four render
+   filters and divergent execution predicates.
+3. Preserve exact semantic registration and config-owned object identity.
+   Owner capability consumes only an admitted canonical feature.
+4. Keep existing-owner controls panel-owned, core actions history-owned, and
+   related/Indicator actions with their current owner controllers.
+5. Privatize the confirmed dead surface without aliases, wrappers, barrels,
+   or suppressions.
+6. Run focused `web.workbook`, `web.architecture`, `module.timeline`,
+   `module.entities`, `module.assessments`, and `module.indicators` evidence,
+   plus typecheck, import boundaries, Biome, removed-symbol searches, and
+   scoped Fallow.
+
+**Primary risks:** Treating semantic admission as execution, omitting a live
+owner capability, duplicating an existing-owner control, or retaining a
+test-only compatibility wrapper.
+
+**Exit:** Every live tuple has its intended closed capability result, rendered
+actions have exactly one execution path, registered-but-ownerless features
+are omitted individually, and the G14 surface is private or removed.
+
+**Tracker gate:** Record capability counts, removed symbols, reports, run
+roots, compatibility, and rollback; mark WI-17 `DONE`, then WI-18
+`IN_PROGRESS`.
+
+## 50. WI-18 — Shared core record-history capability
+
+1. Add the pure subject, rollback-target, state, action, and reducer model
+   described in section 44, with exhaustive tests for every legal and illegal
+   transition.
+2. Replace the duplicate history presentations with one shared component
+   driven by registered owner capabilities and server-advertised selectors.
+3. Migrate Generic, Entity, and Assessment to the simple command adapter and
+   retained tombstone lifecycle. Preserve each owner's refresh, reselection,
+   mutation-state, focus, and reset responsibilities.
+4. Migrate Timeline state and presentation while retaining its existing
+   socket, committed-record, viewport-continuity, save-state, and refresh
+   command sequence.
+5. Add deferred-promise evidence for stale loads, stale rejections, stale
+   acceptances, cancel/reopen, subject retarget, row-version retarget, and an
+   accepted captured owner sequence.
+6. Prove delete uses a live version, restore uses the accepted tombstone
+   version, rollback targets contain only their required selectors, and a
+   restored record is refreshed and reselected once.
+7. Run focused and service-backed Workbook, Timeline, Entity, Assessment, and
+   applicable design routes returned by refreshed task guides.
+
+**Primary risks:** Losing a tombstone after selection clears, applying an old
+operation to a new subject, duplicating Timeline refresh/socket effects, or
+constructing a rollback target not advertised by the server.
+
+**Exit:** All four owners share the pure model and presentation, all 17 schema
+action triples execute through their real owner, stale results cannot affect a
+new subject, and Timeline sequencing remains exact.
+
+**Tracker gate:** Record reducer cases, owner paths, action coverage, run
+roots, compatibility, and rollback; mark WI-18 `DONE`, then WI-19
+`IN_PROGRESS`.
+
+## 51. WI-19 — Feedback semantic correction
+
+1. Implement the G17 producer and state migrations without adding a second
+   renderer or primitive compatibility callback.
+2. Preserve related-record success copy and render it as non-announced neutral
+   feedback.
+3. Render standalone Assessment success and record-history completion as
+   neutral polite feedback at their local locus.
+4. Keep all operation failures typed, assertive, and capable of rendering
+   current technical details. Keep related-form validation local to the form.
+5. Separate Entity merge, mutation, and ordinary inspector feedback state and
+   remove the overloaded public-error precedence path.
+6. Add unit and accessibility evidence for copy, style, test IDs, roles,
+   announcement policy, retarget/reset, and failure retention.
+7. Run `web.workbook`, `web.design`, `module.timeline`, `module.entities`,
+   `module.assessments`, frontend checks, accessibility, and ordinary visual
+   evidence.
+
+**Primary risks:** Copy drift, duplicate announcements, lost technical detail,
+or clearing an actionable failure during an unrelated feedback update.
+
+**Exit:** Raw feedback strings are rejected, no success uses the public-error
+renderer, announcement policy matches section 45, failures remain assertive,
+and no unintended visual change exists.
+
+**Tracker gate:** Record every migrated producer and renderer, accessibility
+and visual outcomes, run roots, compatibility, and rollback; mark WI-19
+`DONE`, then WI-20 `IN_PROGRESS`.
+
+## 52. WI-20 — Owner-specific inspector composition
+
+1. Extract Generic inspector composition behind a narrow owner module while
+   leaving Generic query, grid, edit, and persistence mechanics in the surface
+   root.
+2. Extract Host/Identity inspector composition behind the Entity owner module
+   while leaving entity grid, merge authority, alias editing, and persistence
+   in their current owners.
+3. Extract Assessment inspector composition behind the Assessment owner
+   module while preserving append-only creation and selection authority.
+4. Move panel mapping, owner capability usage, contextual dispatch, related
+   workflow presentation, record history, Indicator composition, and local
+   feedback into those modules.
+5. Use explicit narrow props/ports. Reject a shared universal controller,
+   mega-prop facade, or broad grid/mutation decomposition.
+6. Preserve DOM/test-ID contracts, panel order, authorization, focus/reset,
+   payloads, refresh counts, and visuals through focused and browser evidence.
+
+**Primary risks:** Moving selection authority into presentation, creating a
+large cross-owner facade, changing focus restoration, or accidentally
+reordering inspector content.
+
+**Exit:** The three surface roots contain no inspector route filtering or
+panel assembly, owner modules are independently testable, import boundaries
+pass, and functional/accessibility/visual behavior remains compatible.
+
+**Tracker gate:** Record moved responsibilities, retained owners, run roots,
+visual outcome, compatibility, and rollback; mark WI-20 `DONE`, then WI-21
+`IN_PROGRESS`.
+
+## 53. WI-21 — Timeline adapter type integrity
+
+1. Implement the five structural changes in section 46 without editing a
+   generated root.
+2. Add compile-time and runtime evidence for non-empty clipboard structures,
+   canonical conflict payloads, mention request/response validation, exact
+   Evidence create/patch branches, and exhaustive rollback targets.
+3. Confirm built-in view-schema constants retain literal types and all
+   existing package consumers typecheck without a compatibility cast.
+4. Preserve exact accepted request bodies and response application for valid
+   data; add negative cases that reject malformed data before owner state is
+   updated.
+5. Run `package.view_contracts`, `module.timeline`, `module.evidence`,
+   `web.architecture`, frontend typecheck/unit, import boundaries, Biome, and
+   structural-cast searches.
+
+**Primary risks:** Replacing a cast with a second untyped builder, widening a
+literal elsewhere, subtly changing request serialization, or accepting a
+partial response.
+
+**Exit:** No scoped production structural assertion remains, valid wire
+behavior is unchanged, invalid shapes fail closed, and package plus owner
+evidence passes.
+
+**Tracker gate:** Record every eliminated assertion, type refinement, negative
+case, run root, compatibility statement, and rollback; mark WI-21 `DONE`, then
+WI-22 `IN_PROGRESS`.
+
+## 54. WI-22 — Final validation, acceptance, and handoff
+
+Refresh task guides for these expected owners, adding no owner unless the live
+dependency cone proves it necessary:
+
+```text
+make task-guide ROLE=module-author OWNER=web.workbook
+make task-guide ROLE=module-author OWNER=web.architecture
+make task-guide ROLE=module-author OWNER=web.design
+make task-guide ROLE=module-author OWNER=module.workbook
+make task-guide ROLE=module-author OWNER=module.timeline
+make task-guide ROLE=module-author OWNER=module.entities
+make task-guide ROLE=module-author OWNER=module.evidence
+make task-guide ROLE=module-author OWNER=module.assessments
+make task-guide ROLE=module-author OWNER=module.indicators
+make task-guide ROLE=module-author OWNER=package.view_contracts
+```
+
+Run every returned focused and service-backed slice. Update authored source
+ownership and test-catalog inputs for new tests, then run `make generate` and
+verify every changed generated output has Make-owned provenance. Run
+`make format`, followed by `make agent-finalize` before terminal verification.
+Pass `RESULTS_DIR` only for a real successful retained warm-run root.
+
+Run the terminal matrix:
+
+```text
+make generate-drift
+make generated-artifact-policy-check
+make json-shape-check
+make frontend-typecheck
+make frontend-unit
+make frontend-import-boundary-check
+make lint-biome
+make browser-e2e-a11y
+make browser-e2e-measurement
+make browser-e2e-stateful
+make browser-e2e-support
+make browser-e2e-webserver-backed
+make browser-e2e-visual
+make test-fast
+```
+
+Run scoped Fallow under an owner-only process umask. Audit final Git scope,
+source ownership, generated provenance, corpus/capability equality, core
+action coverage, removed exports, surface-root boundaries, scoped casts, and
+the absence of Markdown runtime dependencies, TODOs, aliases, deprecated
+wrappers, suppressions, wildcard dispatch, and parallel legacy paths.
+
+WI-22 must classify every row as `PASS`, justified `N/A`, or evidenced
+`BLOCKED`:
+
+| Acceptance | Planning result | Required evidence |
+| --- | --- | --- |
+| C026 — Authority and bounded scope | PASS | Core 01, Core 03, Core 04, domain, and design ownership was reconfirmed without contradiction. Changes remain within internal TypeScript, focused evidence, authored ownership/catalog inputs, one Make-generated topology digest, and this ledger; no normative owner or unplanned subsystem changed. |
+| C027 — Minimal package surface | PASS | All G14 candidates are private or removed without aliases, wrappers, barrels, or suppressions. Final scoped Fallow has no finding in the implementation cone; its repo-wide advisory findings remain explicitly deferred. |
+| C028 — Truthful capability | PASS | Corpus-driven evidence proves 247 exact tuples across 17 schemas, one intended closed capability per tuple, canonical config identity, render/dispatch parity, and sibling-safe omission. Root policy tests prevent owner capability dispatch from returning to broad surface roots. |
+| C029 — Complete core history actions | PASS | All 17 schemas expose delete, restore, and rollback through shared presentation and real owner adapters; rollback accepts only server-advertised `history_entry`, `change_set`, or `row_restore` selectors. |
+| C030 — Tombstone and stale-result safety | PASS | Reducer, deferred-promise, owner, and browser evidence covers positive live/tombstone versions, history-only deleted subjects, restore reselection, cancel/reopen, retarget, duplicate work, and stale load/mutation rejection while captured accepted owner effects finish. |
+| C031 — Typed feedback semantics | PASS | Producers accept only `WorkbookInspectorFeedback | null`; related success is neutral and silent, Assessment/history success is neutral and polite, failures remain assertive with technical detail, and success never enters `WorkbookInspectorPublicError`. |
+| C032 — Owner surface cohesion | PASS | Generic, Entity, and Assessment roots delegate panel assembly, capability selection and dispatch, related/history presentation, applicable Indicator composition, and local feedback to narrow owner modules. Static policy forbids shell, panel, and capability-dispatch logic in those roots; no universal facade exists. |
+| C033 — Adapter type integrity | PASS | All 11 scoped assertions are absent. Literal-preserving registry validation, non-empty clipboard validation, direct mention validation, exact Evidence request variants, canonical conflicts, and exhaustive rollback targets preserve valid wire behavior and reject malformed data before state application. |
+| C034 — Compatibility and provenance | PASS | Public routes, valid payloads, schemas, authorization, persistence, dependencies, generated contracts, stored data, DOM/test IDs, focus, and ordinary pixels remain compatible. The only generated change is the Make-produced topology render-index digest; no image or golden changed. Intended corrections are isolated omission, non-Timeline restore availability, stale-result rejection, typed announcements, and malformed-response rejection. |
+| C035 — Verification and terminal handoff | PASS | Every applicable focused, service-backed, terminal, Fallow, finalize, Markdown, and diff gate passes; all failures are classified and resolved, WI-16-WI-22 are `DONE`, and the final checkpoint is recorded. |
+
+No visual change is expected. Treat a difference as a regression unless an
+owner/design decision explicitly authorizes it. Any intentional update must
+follow the visual-golden guide, include manual review of every changed image,
+and pass two fresh ordinary visual proofs.
+
+After the terminal tracker edit, run:
+
+```text
+make lint-markdown
+git diff --check
+```
+
+Mark WI-22 `DONE` only after C026-C035, all run roots, failure
+classifications, compatibility, rollback, residual risks, deferrals, and the
+next safe extension seam are recorded.
+
+## 55. Third successor checkpoint, compatibility, rollback, and deferrals
+
+| Time | Workstream | Paths and decisions | Commands and results | Compatibility, rollback, risks, next action |
+| --- | --- | --- | --- | --- |
+| `2026-09-01T17:33:08-04:00` | Third successor planning; WI-16 not started | Appended sections 41-55 to this handoff and preserved sections 1-40 as completed history. Recorded G14-G19, WI-16-WI-22, C026-C035, the clean baseline, 17-schema/247-feature corpus, core history action declarations, four duplicated filters, 11 scoped adapter assertions, explicit static-analysis exclusions, validation, compatibility, rollback, and deferrals. `docs/research/nlspec-spec.md` was advisory only; no normative document was edited. | Planning inspection confirmed `main` at `fa784e85d7e7f14a56e1548958272dd76d321429`, equal to `origin/main`, and the prior owner-only-umask Fallow PASS at `.cartulary/test-results/20260901T211002Z-p5486` with 190 advisory repo-wide findings. Pre-tracker `git diff --check` passed; `make lint-markdown` passed at `.cartulary/test-results/20260901T213609Z-p16022`. | Documentation only; no product, test, contract, generated, fixture, golden, route, API, payload, schema, authorization, persistence, Evidence, dependency, or stored-data behavior changed. This handoff addition is the sole rollback unit. Next: obtain separate implementation authorization, refresh the baseline, and mark only WI-16 `IN_PROGRESS`. |
+| `2026-09-01T17:49:35-04:00` | WI-16 started | Received separate implementation authorization. Refreshed repository instructions, Git/upstream state, generated-artifact policy, live inspector corpus, initial source ownership, and Make-owned verification routing. Sections 1-40 remain unchanged; no normative owner edit is authorized. | `main` remains at `fa784e85d7e7f14a56e1548958272dd76d321429`, equal to `origin/main`; the only pre-existing change is this staged handoff. `git diff --cached --check` passed. The machine projection contains 17 schemas, 247 feature keys, and no missing delete/restore/rollback triple. Task guides confirmed focused routes for `web.workbook`, `module.timeline`, and `package.view_contracts`; the remaining owner guides, inventories, characterization, and scoped Fallow are in progress. | Tracker-only transition. No product, test, contract, generated, fixture, golden, route, API, payload, schema, authorization, persistence, Evidence, dependency, or stored-data behavior changed. WI-16 is the sole `IN_PROGRESS` workstream. |
+| `2026-09-01T17:56:58-04:00` | WI-16 complete; WI-17 started | Reconfirmed the adopted Core 01/Core 03/Core 04 and domain/design boundaries with no contradiction. The inventory remains 17 schemas, 247 semantic registrations, four owner-local render filters plus matching dispatch classification, two history controller/presentation families, three embedded owner compositions, typed-feedback exceptions, and exactly 11 scoped adapter assertions. Direct searches proved every G14 candidate same-file or test-only; retained collaboration, mutation-runtime, and pending-queue members remain explicit out-of-scope false positives. | PASS: `web.workbook` 145/145 `.cartulary/test-results/20260901T215034Z-p24737`; `web.architecture` 12/12 `.cartulary/test-results/20260901T215034Z-p24745`; `package.view_contracts` 5/5 `.cartulary/test-results/20260901T215034Z-p24736`; `module.entities` 42/42 `.cartulary/test-results/20260901T215048Z-p27095`; `module.assessments` 28/28 `.cartulary/test-results/20260901T215048Z-p27106`; `module.timeline` 53/53 `.cartulary/test-results/20260901T215048Z-p27131`; `module.indicators` 20/20 `.cartulary/test-results/20260901T215048Z-p27150`; owner-only-umask Fallow `.cartulary/test-results/20260901T215618Z-p1228` retained the expected 190 advisory dead-code findings and no suppression. | Characterization and tracker only; no product, contract, generated, fixture, golden, route, API, payload, schema, authorization, persistence, Evidence, dependency, or stored-data behavior changed. WI-16 is independently revertible through this tracker row. WI-17 is now the sole `IN_PROGRESS` workstream; next: privatize the confirmed surface and make one owner capability result drive rendering and dispatch. |
+| `2026-09-01T18:25:50-04:00` | WI-17 complete; WI-18 started | Privatized every confirmed G14 same-file/test-only type, helper, and recovery constant without an alias or wrapper. Added a closed owner-capability union over exact semantic admission, including typed history actions; all four surfaces now derive contextual rendering from canonical capability objects and dispatch those same objects. Removed four surface-local route filters, click-time route reclassification, and the redundant Timeline feature resolver. Updated the authored Timeline policy test selector to the replacement target-contract ownership evidence. The live registry remains 247 exact tuples across 17 schemas, with 17 delete, 17 restore, and 17 rollback capabilities; unknown additive tuples are omitted without disabling siblings. | PASS: format `.cartulary/test-results/20260901T220757Z-p5993`; typecheck `.cartulary/test-results/20260901T220843Z-p11192`; `web.workbook` 145/145 `.cartulary/test-results/20260901T220900Z-p11767`; `web.architecture` 12/12 `.cartulary/test-results/20260901T220946Z-p27734`; `module.entities` 42/42 `.cartulary/test-results/20260901T220946Z-p27777`; `module.assessments` 28/28 `.cartulary/test-results/20260901T220946Z-p27799`; `module.indicators` 20/20 `.cartulary/test-results/20260901T220946Z-p27827`; `module.timeline` 53/53 `.cartulary/test-results/20260901T222058Z-p65463`; import boundaries `.cartulary/test-results/20260901T221944Z-p63211`; Biome `.cartulary/test-results/20260901T222023Z-p64163`; owner-only-umask Fallow `.cartulary/test-results/20260901T222033Z-p64660` with 188 advisory dead-code findings and no G14 candidate. `git diff --check` and removed-symbol/filter searches passed. The first typecheck failed at `.cartulary/test-results/20260901T220809Z-p10246` because one test import used the wrong relative path; introduced and fixed. The first Biome run failed at `.cartulary/test-results/20260901T221944Z-p63229` on that test's import order; introduced and fixed. A parallel Timeline run was manually cancelled at 51/53 (`.cartulary/test-results/20260901T220946Z-p27749`) after cross-run browser contention; the first sequential rerun then failed only the pre-existing blank-row measurement qualification at `.cartulary/test-results/20260901T221444Z-p4453`; unchanged rerun passed 53/53. | Internal TypeScript ownership and authored test routing only. Public routes, payloads, schemas, authorization, persistence, generated contracts, stored data, DOM/test IDs, and visuals are unchanged. The intended correction is that only capabilities with a real contextual owner render, while config discovery and registered siblings remain intact. Rollback is atomic across the capability dispatcher, four consumers, private export cleanup, Timeline policy simplification, focused tests, catalog selector, and this row; no data rollback is required. Residual history duplication now moves to WI-18, which is the sole `IN_PROGRESS` workstream. Next: introduce the shared pure history state/presentation and retain owner-specific command sequencing. |
+| `2026-09-01T19:39:21-04:00` | WI-18 complete; WI-19 started | Added `workbookRecordHistoryModel.ts`, its exhaustive reducer tests, the narrow simple-owner controller, and one shared history presentation. Generic, Entity, and Assessment now retain accepted tombstones, clear live inspector work on delete, restore from the accepted version, refresh/reselect once, and reject stale load/mutation commits while completing captured owner effects. Timeline now uses the same pure state and presentation while retaining its private socket, save-state, committed-record, viewport-continuity, selection, and load sequence. Exact rollback selectors flow through the shared union and the Timeline port. The presentation preserves the prior Timeline idle, spacing, confirmation order/copy, focus restoration, DOM IDs, and ordinary goldens. Added authored source ownership for the new production and test paths. | PASS: format `.cartulary/test-results/20260901T233056Z-p75208`; typecheck `.cartulary/test-results/20260901T233206Z-p23242`; `web.workbook` 145/145 `.cartulary/test-results/20260901T233255Z-p26362`; `web.architecture` 12/12 `.cartulary/test-results/20260901T233255Z-p26355`; `module.assessments` 28/28 `.cartulary/test-results/20260901T225748Z-p99457`; `module.indicators` 20/20 `.cartulary/test-results/20260901T225852Z-p43207`; full `module.timeline` 53/53 `.cartulary/test-results/20260901T233340Z-p42588`; focused Workbook history visual route 11/11 `.cartulary/test-results/20260901T233100Z-p79355`; focused Entity visual rerun 11/11 `.cartulary/test-results/20260901T233824Z-p2553`; import boundaries `.cartulary/test-results/20260901T233206Z-p23270`; Biome `.cartulary/test-results/20260901T233206Z-p23307`; `git diff --check`. Introduced and fixed failures: nullable Timeline subject and exact-optional props in typecheck roots `.cartulary/test-results/20260901T230439Z-p24470`, `.cartulary/test-results/20260901T230553Z-p45114`, and `.cartulary/test-results/20260901T231251Z-p22361`; empty initial Timeline history section in `module.workbook` `.cartulary/test-results/20260901T225942Z-p60875`; source-owner ordering in `web.architecture` `.cartulary/test-results/20260901T233206Z-p23141`; and visual compatibility deltas successively isolated at `.cartulary/test-results/20260901T231425Z-p43294`, `.cartulary/test-results/20260901T231812Z-p91769`, `.cartulary/test-results/20260901T232118Z-p40162`, `.cartulary/test-results/20260901T232304Z-p87591`, and `.cartulary/test-results/20260901T232424Z-p35487` through `.cartulary/test-results/20260901T232842Z-p31583`. The Entity chip golden failures at `.cartulary/test-results/20260901T225545Z-p46748` and `.cartulary/test-results/20260901T230638Z-p50397` were unrelated renderer capture noise; unchanged focused rerun passed and no image changed. | Internal TypeScript state, controller, presentation, owner integration, focused tests, and authored ownership only. Routes, request/response bodies, schemas, authorization, persistence, generated contracts, dependencies, stored data, and goldens are unchanged. Intended corrections are restore availability for non-Timeline owners and rejection of stale history commits; successful history feedback is already typed and polite for the WI-19 migration. Rollback is source-only across the shared model/controller/presentation, four owner integrations, Timeline adapter/state migration, tests, ownership input, and this row. Residual risk is limited to the still-authorized Timeline history target assertion, which remains for WI-21. WI-19 is now the sole `IN_PROGRESS` workstream; next: migrate every remaining success/error producer to typed feedback without a primitive callback or second renderer. |
+| `2026-09-01T19:53:32-04:00` | WI-19 complete; WI-20 started | Changed the related-workflow port to `WorkbookInspectorFeedback | null`; the producer now emits typed assertive local failures and preserves `Created <title> record <id>.` as neutral, non-announced feedback. Standalone Assessment creation now emits neutral polite `Assessment created.` feedback. History already emits polite delete/restore/rollback feedback from WI-18. Entity merge, mutation error, and ordinary action feedback are independent states; merge and paste successes are neutral while operation failures retain typed technical detail. All four loci use the existing shared feedback renderer, and tests assert constructors, exact copy, announcement policy, stale completion, and error roles. | PASS: format `.cartulary/test-results/20260901T234815Z-p52675`; typecheck `.cartulary/test-results/20260901T234819Z-p56845`; `web.workbook` 145/145 `.cartulary/test-results/20260901T234843Z-p57453`; `web.design` 15/15 `.cartulary/test-results/20260901T234843Z-p57459`; `module.assessments` 28/28 `.cartulary/test-results/20260901T235017Z-p21175`; `module.entities` 42/42 `.cartulary/test-results/20260901T235118Z-p64547`; import boundaries `.cartulary/test-results/20260901T235317Z-p16278`; Biome `.cartulary/test-results/20260901T235317Z-p16293`; typed-producer/public-error searches and `git diff --check`. The first typecheck failed at `.cartulary/test-results/20260901T234713Z-p51803` because three retained Entity mutation-error calls needed their existing constructor import and Generic lacked a local neutral style; introduced and fixed. No golden changed, and the ordinary design and Entity visual evidence passed without update. | Internal TypeScript feedback types, state separation, shared-renderer consumption, and focused tests only. Copy, test IDs, technical failure details, assertive error behavior, routes, payloads, schemas, persistence, authorization, dependencies, generated contracts, and stored data remain compatible. Announcement changes are intentional: related success is silent-neutral, while Assessment and history success are polite-neutral. Rollback is source-only across the feedback constructor, related/Assessment/Entity producers and consumers, tests, and this row. WI-20 is now the sole `IN_PROGRESS` workstream; next: extract three narrow owner-specific inspector composition modules while retaining grid, query, selection, mutation runtime, and persistence in their roots. |
+| `2026-09-01T20:10:38-04:00` | WI-20 complete; WI-21 started | Added dedicated Generic, Entity, and Assessment inspector composition modules with explicit subject, capability, authorization, history, related-workflow, owner-content, feedback, and close/action ports. The modules now own shell and panel assembly, capability selection, contextual controls, shared history, related-workflow presentation, Indicator composition where applicable, and local feedback. The broad roots retain grid/query state, persistence and mutation commands, selection, refresh effects, and owner-specific edit/merge/create controls supplied as explicit content. Added static boundary evidence proving all three roots delegate and cannot reintroduce shell or panel assembly; registered all new production paths in authored frontend source ownership. Existing DOM/test IDs, panel order, focus/close behavior, feedback placement and styling were preserved. | PASS: format `.cartulary/test-results/20260902T000347Z-p26095`; typecheck `.cartulary/test-results/20260902T000213Z-p24912`; `web.architecture` 12/12 `.cartulary/test-results/20260902T000408Z-p31260`; `web.workbook` 145/145 `.cartulary/test-results/20260902T000408Z-p31304`; `module.assessments` 28/28 `.cartulary/test-results/20260902T000408Z-p31283`; `module.entities` 42/42 `.cartulary/test-results/20260902T000408Z-p31314`; import boundaries `.cartulary/test-results/20260902T000646Z-p46040`; Biome `.cartulary/test-results/20260902T000646Z-p46057`; accessibility 12/12 `.cartulary/test-results/20260902T000656Z-p46924`; ordinary visual 12/12 `.cartulary/test-results/20260902T000834Z-p91720`; root-assembly searches found no inspector shell, panel map, contextual resolver, related presentation, or history presentation in the three roots. The first post-extraction typecheck failed at `.cartulary/test-results/20260902T000137Z-p23925` only for an introduced unused style left by the move; removed and the rerun passed. No image or golden changed. | Internal TypeScript composition, static architecture evidence, authored source ownership, and tracker only. Routes, payloads, schemas, persistence, authorization, dependencies, generated contracts, stored data, test IDs, DOM behavior, focus/reset, and pixels remain compatible. Rollback is source-only across the three owner modules, their root delegation, the architecture assertion, ownership input, and this row. The remaining scoped structural assertions are isolated to WI-21, now the sole `IN_PROGRESS` workstream; next: replace each assertion with literal-preserving construction or fail-closed runtime validation without editing generated sources. |
+| `2026-09-01T20:28:05-04:00` | WI-21 complete; WI-22 started | Made the private view-schema registry validator generic and literal-preserving. Clipboard construction now validates columns and targets into non-empty tuples, uses the literal Timeline schema ID, and parses conflicts through the canonical same-field payload without collection casts. Mention requests are structurally generated-compatible at the adapter boundary; mention identity, positive row versions, entity type, and optional metadata fields are validated directly. Added one production-owned adapter builder for exact Timeline Evidence create and patch variants, split their execution branches, and retained the exact Evidence-row request variant. The exhaustive history rollback target now assigns directly to the generated request. Removed all 11 scoped structural assertions without replacement casts; generated sources were untouched. Added exact request-body, empty-collection, malformed mention/Evidence/conflict, literal-type, and rollback-target evidence. | PASS: final format `.cartulary/test-results/20260902T002505Z-p71286`; final typecheck `.cartulary/test-results/20260902T002509Z-p75448`; import boundaries `.cartulary/test-results/20260902T002519Z-p75922`; `package.view_contracts` 5/5 `.cartulary/test-results/20260902T002532Z-p76517`; focused Timeline adapter evidence 2/2 `.cartulary/test-results/20260902T002532Z-p76522`; focused Evidence adapter evidence 2/2 `.cartulary/test-results/20260902T002532Z-p76537`; full `module.timeline` 53/53 `.cartulary/test-results/20260902T001834Z-p52227`; full `module.evidence` 36/36 `.cartulary/test-results/20260902T001834Z-p52231`; `web.architecture` 12/12 `.cartulary/test-results/20260902T002617Z-p79766`; frontend unit 398/398 `.cartulary/test-results/20260902T002617Z-p79871`; Biome `.cartulary/test-results/20260902T002617Z-p79916`; scoped structural-cast, removed-builder, protocol-layer, and `git diff --check` searches passed. Introduced and fixed failures: literal preservation exposed two overly narrow test containers in typecheck `.cartulary/test-results/20260902T001519Z-p43090`; the first architecture run `.cartulary/test-results/20260902T001834Z-p52236` correctly rejected protocol imports outside adapters, so exact Evidence builders moved to a production-owned adapter module and the mention model retained a protocol-independent structural payload; the intervening typecheck `.cartulary/test-results/20260902T002401Z-p70442` exposed the remaining builder consumer and exact-optional mismatch; the next architecture run `.cartulary/test-results/20260902T002532Z-p76514` found only authored ownership ordering, which was corrected. | Valid request serialization, operation IDs, routes, payload fields, response application, public types, schemas, persistence, authorization, dependencies, generated contracts, and stored data remain compatible. Malformed adapter responses now intentionally fail closed, and constants retain narrower source-compatible literals. Rollback is source-only across the private registry helper, adapter request/response validation, canonical conflict parsing, Evidence request owner, tests, ownership input, and this row. No generated file or golden changed. WI-22 is now the sole `IN_PROGRESS` workstream; next: refresh all task guides, reconcile authored catalogs/topology through Make, run the full terminal matrix and Fallow audit, resolve C026-C035, finalize, and close the handoff. |
+| `2026-09-01T21:48:20-04:00` | WI-22 validation complete; closure gate pending | Refreshed all ten task guides and ran every applicable focused and service-backed slice. Reconciled authored source ownership and the `web.workbook` catalog; `make generate` changed only `tools/execution_topology_render_index.json` through declared Make provenance. The final architecture audit found residual capability dispatch in the three broad roots, so it moved into the already extracted Generic, Entity, and Assessment owner modules and the static ownership policy now rejects root `InspectorContextualCapability`/`capability.kind` use. Final Fallow then identified the same-file `workbookRecordHistorySubjectsEqual` export; it was privatized without an alias. Searches prove no scoped cast, removed export, root panel/dispatch path, Markdown runtime dependency, added TODO/FIXME, suppression, wildcard dispatch, deprecated wrapper, compatibility alias, parallel legacy path, or golden/image change. C026-C034 are `PASS`; C035 awaits the post-ledger Markdown and diff gates. | Generation/provenance PASS: `make generate` `.cartulary/test-results/20260902T002915Z-p20321`; generation drift `.cartulary/test-results/20260902T002936Z-p23436`; generated policy `.cartulary/test-results/20260902T002945Z-p26442`; JSON shape `.cartulary/test-results/20260902T002946Z-p26862`; initial format `.cartulary/test-results/20260902T003000Z-p27411`; initial finalize `.cartulary/test-results/20260902T003004Z-p31537`, with retained-run maintenance skipped because `RESULTS_DIR` was unset. Focused PASS: `web.workbook` 145/145 `.cartulary/test-results/20260902T003034Z-p34680`; `web.architecture` 12/12 `.cartulary/test-results/20260902T003034Z-p34687`; `web.design` 15/15 `.cartulary/test-results/20260902T003034Z-p34678`; `package.view_contracts` 5/5 `.cartulary/test-results/20260902T003034Z-p34702`; `module.workbook` 68/68 `.cartulary/test-results/20260902T003144Z-p83762`; `module.entities` 42/42 `.cartulary/test-results/20260902T003144Z-p83774`; `module.assessments` 28/28 `.cartulary/test-results/20260902T003144Z-p83775`; `module.indicators` 20/20 `.cartulary/test-results/20260902T003144Z-p83796`; `module.evidence` 36/36 `.cartulary/test-results/20260902T003417Z-p50462`; `module.timeline` 53/53 `.cartulary/test-results/20260902T003417Z-p50456`. Service-backed PASS: `web.design` 15/15 `.cartulary/test-results/20260902T003906Z-p58627`; `module.workbook` 39/39 `.cartulary/test-results/20260902T004015Z-p5571`; `module.timeline` 30/30 `.cartulary/test-results/20260902T004226Z-p61057`; `module.entities` 33/33 `.cartulary/test-results/20260902T004716Z-p20002`; `module.evidence` 25/25 `.cartulary/test-results/20260902T004908Z-p71008`; `module.assessments` 19/19 `.cartulary/test-results/20260902T005021Z-p21130`; `module.indicators` 8/8 `.cartulary/test-results/20260902T005125Z-p63771`; `web.workbook`, `web.architecture`, and `package.view_contracts` expose no service-backed rows. Pre-correction terminal PASS: typecheck `.cartulary/test-results/20260902T005218Z-p81442`; unit 398/398 `.cartulary/test-results/20260902T005218Z-p81456`; import boundaries `.cartulary/test-results/20260902T005218Z-p81468`; Biome `.cartulary/test-results/20260902T005218Z-p81509`; accessibility retry 12/12 `.cartulary/test-results/20260902T005640Z-p27008`; measurement 22/22 `.cartulary/test-results/20260902T005814Z-p71677`; stateful 34/34 `.cartulary/test-results/20260902T010244Z-p29537`; support 19/19 `.cartulary/test-results/20260902T010510Z-p79062`; webserver-backed 60/60 `.cartulary/test-results/20260902T010639Z-p23382`; visual 12/12 `.cartulary/test-results/20260902T011223Z-p80836`; `test-fast` 450/450 `.cartulary/test-results/20260902T011423Z-p25797`; owner-only-umask Fallow `.cartulary/test-results/20260902T011449Z-p26704`. The first accessibility attempt failed 10/12 at `.cartulary/test-results/20260902T005233Z-p83022` because service readiness timed out before two groups produced results; classified unrelated infrastructure, and the immediate unchanged retry passed. | Post-audit cohesion PASS: format `.cartulary/test-results/20260902T012129Z-p29923`; typecheck `.cartulary/test-results/20260902T012138Z-p34165`; `web.workbook` 145/145 `.cartulary/test-results/20260902T012157Z-p34855`; `web.architecture` 12/12 `.cartulary/test-results/20260902T012157Z-p34865`; `module.entities` 42/42 `.cartulary/test-results/20260902T012157Z-p34860`; `module.assessments` 28/28 `.cartulary/test-results/20260902T012157Z-p34883`; `module.indicators` 20/20 `.cartulary/test-results/20260902T012432Z-p49457`; import boundaries `.cartulary/test-results/20260902T012432Z-p49585`; Biome `.cartulary/test-results/20260902T012432Z-p49598`. Fresh terminal PASS: generation drift `.cartulary/test-results/20260902T012530Z-p68104`; generated policy `.cartulary/test-results/20260902T012530Z-p68129`; JSON shape `.cartulary/test-results/20260902T012530Z-p68163`; typecheck `.cartulary/test-results/20260902T012530Z-p68603`; frontend unit 398/398 `.cartulary/test-results/20260902T012530Z-p68578`; import boundaries `.cartulary/test-results/20260902T012531Z-p68677`; Biome `.cartulary/test-results/20260902T012531Z-p68760`; accessibility 12/12 `.cartulary/test-results/20260902T012636Z-p93660`; measurement 22/22 `.cartulary/test-results/20260902T012808Z-p38869`; stateful 34/34 `.cartulary/test-results/20260902T013243Z-p96449`; support 19/19 `.cartulary/test-results/20260902T013505Z-p46492`; webserver-backed 60/60 `.cartulary/test-results/20260902T013630Z-p90290`; visual 12/12 `.cartulary/test-results/20260902T014217Z-p48374`; `test-fast` 450/450 `.cartulary/test-results/20260902T014415Z-p92846`. Owner-only-umask Fallow passed at `.cartulary/test-results/20260902T014442Z-p93735` but surfaced the introduced same-file history helper export; after privatization, format `.cartulary/test-results/20260902T014530Z-p94813`, typecheck `.cartulary/test-results/20260902T014542Z-p99298`, `web.workbook` 145/145 `.cartulary/test-results/20260902T014542Z-p99161`, Biome `.cartulary/test-results/20260902T014542Z-p99370`, `test-fast` 450/450 `.cartulary/test-results/20260902T014542Z-p99476`, and final Fallow `.cartulary/test-results/20260902T014715Z-p32969` pass with zero scoped findings; its 205 repo-wide issues are advisory and deferred. Final `agent-finalize` passed at `.cartulary/test-results/20260902T014749Z-p33842`, with retained-run maintenance skipped because `RESULTS_DIR` was unset. Valid wire bodies, routes, schemas, authorization, persistence, dependencies, generated contracts, stored data, DOM/test IDs, focus/reset, and ordinary visuals remain compatible. Intended changes are truthful unsupported omission, non-Timeline restore availability, stale-result rejection, typed success announcements, and malformed-response rejection. No image or golden changed. Rollback is source-only and workstream-granular across the capability model, package-surface removals, shared history, four adapters, typed feedback, owner modules, Timeline adapter refinements, focused evidence, authored ownership/catalog, the Make-generated render-index digest, and this ledger; no data or external rollback exists. Residual risk is ordinary future feature growth. Deferred work remains broad grid/mutation decomposition, non-adapter Timeline casts, repo-wide Fallow cleanup, dependencies, unrelated harness cleanup, and normative specification edits. Next safe extension seam: exact semantic identity, explicit owner capability, real owner control, reset/invalidation participation, and focused evidence—never wildcard dispatch or a universal controller. |
+| `2026-09-01T21:51:21-04:00` | WI-22 complete | The terminal ledger resolves C026-C035 and records all scoped paths, decisions, run roots, failure classifications, compatibility, rollback, residual risks, deferrals, and the next extension seam. WI-16 through WI-22 are `DONE`; sections 1-40 remain unchanged. | Post-ledger `make lint-markdown` PASS at `.cartulary/test-results/20260902T015006Z-p37366`; completed-state rerun PASS at `.cartulary/test-results/20260902T015217Z-p39029`; `git diff --check` PASS after each tracker edit. | No additional product or generated change occurred during closure. The complete source-only rollback remains workstream-granular and requires no data migration or external rollback. Handoff complete. |
+
+Append a checkpoint after every workstream and before its successor begins.
+Every failure entry must identify the target, retained run root and summary
+when available, and whether the failure was introduced or unrelated. Every
+visual entry must state whether images changed and record the manual-review
+result when they did.
+
+The intended future behavior changes are limited to truthful owner-capability
+omission, restore availability on non-Timeline surfaces, rejection of stale
+history results, malformed adapter-response rejection, and corrected success
+announcement semantics. Routes, wire payloads, schemas, authorization,
+persistence, Evidence semantics, dependencies, generated contracts, and
+stored data remain compatible. The private view-schema validator's generic
+return is a source-compatible type refinement for exported constants.
+
+Each completed workstream is independently source-revertible after its tracker
+gate. The complete source-only rollback unit includes the capability model,
+package-surface removals, shared history model and presentation, four owner
+adapters, typed feedback migration, three owner composition extractions,
+Timeline adapter corrections, focused tests, authored ownership/catalog
+inputs, their Make-generated topology outputs, and WI-16 through WI-22 ledger
+entries. No data rollback or external operation is required.
+
+Broad grid or mutation decomposition, non-adapter Timeline casts, repo-wide
+Fallow cleanup, dependency changes, unrelated harness/test-support cleanup,
+and normative specification edits remain deferred. A future inspector feature
+must add one exact semantic tuple, one explicit owner capability, real owner
+control, reset/invalidation participation, and focused evidence. It must not
+introduce wildcard dispatch or a universal inspector controller.
+
+For this immediate documentation-only update, run only:
+
+```text
+make lint-markdown
+git diff --check
+```
+
+The third-successor planning compatibility statement is:
+
+**Documentation-only production-readiness planning; no product, test,
+contract, generated, fixture, golden, route, API, payload, schema,
+authorization, persistence, Evidence, dependency, or stored-data change.**

@@ -1,8 +1,11 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookOperationResponse } from "../adapters/workbookOperationExecutor";
+import type {
+  RecordHistoryData,
+  RecordHistoryRollbackTarget,
+} from "../inspector/workbookRecordHistoryModel";
 import type { AssessmentCreateDraft } from "../models/assessmentWorkbookModel";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
-import type { RecordHistoryData } from "../timeline/models/timelineHistoryModel";
 import type {
   TimelineApiRow,
   WorkbookRow,
@@ -37,7 +40,7 @@ export interface RecordRouteCommandPort {
     readonly baseRowVersion: number;
     readonly reason: string;
     readonly recordId: string;
-    readonly target: Record<string, unknown>;
+    readonly target: RecordHistoryRollbackTarget;
   }): Promise<WorkbookOperationOutcome<RecordLifecycleAccepted>>;
 }
 

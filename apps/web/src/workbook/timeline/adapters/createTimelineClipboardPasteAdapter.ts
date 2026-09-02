@@ -2,11 +2,11 @@ import type { PasteWorkbookClipboardRequest } from "@cartulary/protocol-ts/http"
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import { parseSameFieldConflictFields } from "../../runtime/workbookConflictModel";
 import {
-  normalizeTimelineFullRow,
-  type SameFieldConflictPayload,
-} from "../models/workbookTimelineModel";
+  parseSameFieldConflictPayload,
+  type WorkbookSameFieldConflictPayload,
+} from "../../runtime/workbookConflictModel";
+import { normalizeTimelineFullRow } from "../models/workbookTimelineModel";
 import type {
   TimelineClipboardPasteAccepted,
   TimelineClipboardPastePort,
@@ -22,16 +22,11 @@ function invalidContract(): WorkbookOperationOutcome<TimelineClipboardPasteAccep
   };
 }
 
-function normalizeConflict(value: unknown): SameFieldConflictPayload | null {
-  const fields = parseSameFieldConflictFields(value);
-  if (
-    fields === null ||
-    !("client_value" in fields) ||
-    !("server_value" in fields)
-  ) {
-    return null;
-  }
-  return fields as SameFieldConflictPayload;
+function nonEmptyTuple<Value>(
+  values: readonly Value[],
+): [Value, ...Value[]] | null {
+  const [first, ...rest] = values;
+  return first === undefined ? null : [first, ...rest];
 }
 
 export function createTimelineClipboardPasteAdapter(options: {
@@ -43,7 +38,19 @@ export function createTimelineClipboardPasteAdapter(options: {
   });
   return {
     async paste(input) {
-      if (input.targets.length === 0 || input.columns.length === 0) {
+      const columns = nonEmptyTuple(input.columns);
+      const targets = nonEmptyTuple(
+        input.targets.map((target) =>
+          target.kind === "create"
+            ? { kind: "create" as const }
+            : {
+                base_row_version: target.baseRowVersion,
+                kind: "record" as const,
+                record_id: target.recordId,
+              },
+        ),
+      );
+      if (targets === null || columns === null) {
         return {
           kind: "rejected",
           failure: {
@@ -55,20 +62,11 @@ export function createTimelineClipboardPasteAdapter(options: {
       const request: PasteWorkbookClipboardRequest = {
         client_txn_id: input.clientTxnId,
         clipboard_text: input.clipboardText,
-        columns: input.columns as PasteWorkbookClipboardRequest["columns"],
+        columns,
         format: input.format,
         start_field_key: input.startFieldKey,
-        targets: input.targets.map((target) =>
-          target.kind === "create"
-            ? { kind: "create" as const }
-            : {
-                base_row_version: target.baseRowVersion,
-                kind: "record" as const,
-                record_id: target.recordId,
-              },
-        ) as PasteWorkbookClipboardRequest["targets"],
-        view_schema_id:
-          timelineViewSchemaId as PasteWorkbookClipboardRequest["view_schema_id"],
+        targets,
+        view_schema_id: timelineViewSchemaId,
       };
       try {
         const outcome = await operations.execute({
@@ -88,14 +86,16 @@ export function createTimelineClipboardPasteAdapter(options: {
           const rows = data.rows.map((row) =>
             normalizeTimelineFullRow(row, "clipboard paste response row"),
           );
-          const conflicts = (data.conflicts ?? []).map(normalizeConflict);
-          if (conflicts.some((conflict) => conflict === null)) {
-            return invalidContract();
+          const conflicts: WorkbookSameFieldConflictPayload[] = [];
+          for (const value of data.conflicts ?? []) {
+            const conflict = parseSameFieldConflictPayload(value);
+            if (conflict === null) return invalidContract();
+            conflicts.push(conflict);
           }
           return {
             kind: "accepted",
             value: {
-              conflicts: conflicts as SameFieldConflictPayload[],
+              conflicts,
               rows,
             },
           };

@@ -1,7 +1,6 @@
 import type {
-  CreateViewRowRequest,
   CreateViewRowResponse,
-  PatchRecordRequest,
+  EvidenceCreateRequest,
 } from "@cartulary/protocol-ts/http";
 import {
   createUploadedEvidenceObjectBlob,
@@ -13,15 +12,15 @@ import {
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import {
-  buildAttachedEvidenceCreatePayload,
-  buildAttachedEvidencePatchPayload,
-  normalizeTimelineFullRow,
-} from "../models/workbookTimelineModel";
+import { normalizeTimelineFullRow } from "../models/workbookTimelineModel";
 import type {
   TimelineEvidenceAttachmentAccepted,
   TimelineEvidenceAttachmentPort,
 } from "../ports/TimelineEvidenceAttachmentPort";
+import {
+  buildAttachedEvidenceCreateRequest,
+  buildAttachedEvidencePatchRequest,
+} from "./timelineEvidenceRequestBuilders";
 
 function invalidContract(): WorkbookOperationOutcome<TimelineEvidenceAttachmentAccepted> {
   return {
@@ -62,13 +61,13 @@ export function createTimelineEvidenceAttachmentAdapter(options: {
           incidentId: options.incidentId,
         });
         const rowClientTxnId = options.createClientTxnId();
-        const request = {
+        const request: EvidenceCreateRequest = {
           client_txn_id: rowClientTxnId,
           "evidence.collector_party_text": "Workbook upload",
           "evidence.initial_object_blob_id": objectBlobId,
           "evidence.lifecycle_state": "available",
           "evidence.title": evidenceTitleFromFile(file),
-        } as CreateViewRowRequest;
+        };
         let createOutcome:
           | WorkbookOperationOutcome<CreateViewRowResponse>
           | undefined;
@@ -116,43 +115,47 @@ export function createTimelineEvidenceAttachmentAdapter(options: {
           ),
         };
       }
-      const request =
-        target.recordId === null
-          ? buildAttachedEvidenceCreatePayload(evidenceRecordId, clientTxnId)
-          : buildAttachedEvidencePatchPayload(
-              target,
-              evidenceRecordId,
-              clientTxnId,
-            );
-      if (request === null) {
-        return {
-          clientTxnId,
-          outcome: {
-            kind: "rejected",
-            failure: {
-              kind: "stale_target",
-              message: "The selected Timeline row is stale.",
-            },
-          },
-        };
-      }
-      onTimelineClientTxnId(clientTxnId);
       try {
-        const outcome =
-          target.recordId === null
-            ? await operations.execute({
-                operationID: "createViewRow",
-                pathParameters: {
-                  incident_id: options.incidentId,
-                  view_schema_id: timelineViewSchemaId,
+        let outcome: WorkbookOperationOutcome<CreateViewRowResponse>;
+        if (target.recordId === null) {
+          const request = buildAttachedEvidenceCreateRequest(
+            evidenceRecordId,
+            clientTxnId,
+          );
+          onTimelineClientTxnId(clientTxnId);
+          outcome = await operations.execute({
+            operationID: "createViewRow",
+            pathParameters: {
+              incident_id: options.incidentId,
+              view_schema_id: timelineViewSchemaId,
+            },
+            request,
+          });
+        } else {
+          const request = buildAttachedEvidencePatchRequest(
+            target,
+            evidenceRecordId,
+            clientTxnId,
+          );
+          if (request === null) {
+            return {
+              clientTxnId,
+              outcome: {
+                kind: "rejected",
+                failure: {
+                  kind: "stale_target",
+                  message: "The selected Timeline row is stale.",
                 },
-                request: request as CreateViewRowRequest,
-              })
-            : await operations.execute({
-                operationID: "patchRecord",
-                pathParameters: { record_id: target.recordId },
-                request: request as PatchRecordRequest,
-              });
+              },
+            };
+          }
+          onTimelineClientTxnId(clientTxnId);
+          outcome = await operations.execute({
+            operationID: "patchRecord",
+            pathParameters: { record_id: target.recordId },
+            request,
+          });
+        }
         if (outcome.kind === "rejected") {
           return { clientTxnId, outcome };
         }

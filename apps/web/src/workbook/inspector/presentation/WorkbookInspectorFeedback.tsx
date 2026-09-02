@@ -97,6 +97,7 @@ export function WorkbookInspectorConfirmation({
   onCancel,
   onConfirm,
   operation,
+  returnFocusTestId,
   subject,
   technicalFields = [],
   testId,
@@ -109,6 +110,7 @@ export function WorkbookInspectorConfirmation({
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
   readonly operation: string;
+  readonly returnFocusTestId?: string | undefined;
   readonly subject: string;
   readonly technicalFields?: readonly WorkbookInspectorTechnicalField[];
   readonly testId?: string | undefined;
@@ -122,11 +124,22 @@ export function WorkbookInspectorConfirmation({
         : null;
     safeControlRef.current?.focus({ preventScroll: true });
     return () => {
-      if (invokingControlRef.current?.isConnected) {
-        invokingControlRef.current.focus({ preventScroll: true });
-      }
+      const invokingControl = invokingControlRef.current;
+      queueMicrotask(() => {
+        const returnControl =
+          returnFocusTestId === undefined
+            ? invokingControl
+            : (Array.from(
+                document.querySelectorAll<HTMLElement>("[data-testid]"),
+              ).find(
+                (element) => element.dataset.testid === returnFocusTestId,
+              ) ?? null);
+        if (returnControl?.isConnected) {
+          returnControl.focus({ preventScroll: true });
+        }
+      });
     };
-  }, []);
+  }, [returnFocusTestId]);
   const cancel = () => onCancel();
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Escape") return;

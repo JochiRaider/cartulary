@@ -287,24 +287,15 @@ export function parseSameFieldConflictFields(
   return object as SameFieldConflictFields;
 }
 
-export function parseSameFieldConflict(
-  payload: unknown,
+export function parseSameFieldConflictPayload(
+  conflict: unknown,
 ): WorkbookSameFieldConflictPayload | null {
-  if (!payload || typeof payload !== "object" || !("error" in payload)) {
-    return null;
-  }
-  const error = payload.error;
+  const object = parseSameFieldConflictFields(conflict);
   if (
-    !error ||
-    typeof error !== "object" ||
-    !("code" in error) ||
-    error.code !== "same_field_conflict" ||
-    !("conflict" in error)
+    object === null ||
+    !("client_value" in object) ||
+    !("server_value" in object)
   ) {
-    return null;
-  }
-  const object = parseSameFieldConflictFields(error.conflict);
-  if (object === null) {
     return null;
   }
   const parsed: WorkbookSameFieldConflictPayload = {
@@ -326,4 +317,23 @@ export function parseSameFieldConflict(
     parsed.server_updated_at = object.server_updated_at;
   }
   return parsed;
+}
+
+export function parseSameFieldConflict(
+  payload: unknown,
+): WorkbookSameFieldConflictPayload | null {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return null;
+  }
+  const error = payload.error;
+  if (
+    !error ||
+    typeof error !== "object" ||
+    !("code" in error) ||
+    error.code !== "same_field_conflict" ||
+    !("conflict" in error)
+  ) {
+    return null;
+  }
+  return parseSameFieldConflictPayload(error.conflict);
 }

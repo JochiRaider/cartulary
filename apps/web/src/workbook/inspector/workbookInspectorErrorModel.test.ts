@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import {
   workbookInspectorErrorPresentation,
+  workbookInspectorLocalErrorFeedback,
   workbookInspectorLocalErrorPresentation,
   workbookInspectorMessageFeedback,
   workbookInspectorOperationFailureFeedback,
@@ -77,6 +78,13 @@ describe("workbook inspector error model", () => {
       }),
     ).toEqual({
       error: { primaryMessage: "Retry.", technicalFields: [] },
+      kind: "error",
+    });
+    expect(workbookInspectorLocalErrorFeedback("Select a record.")).toEqual({
+      error: {
+        primaryMessage: "Select a record.",
+        technicalFields: [],
+      },
       kind: "error",
     });
   });

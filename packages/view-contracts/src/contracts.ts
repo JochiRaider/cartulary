@@ -55,14 +55,16 @@ export function listWorkbookSurfaceContracts(): readonly WorkbookSurfaceContract
   return workbookSurfaceContracts;
 }
 
-function requiredRegistryViewSchemaId(viewSchemaId: string): string {
+function requiredRegistryViewSchemaId<const ViewSchemaId extends string>(
+  viewSchemaId: ViewSchemaId,
+): ViewSchemaId {
   const entry = workbookSurfaceRegistryEntries.find(
     (candidate) => candidate.view_schema_id === viewSchemaId,
   );
   if (!entry) {
     throw new Error(`Missing workbook surface registry entry: ${viewSchemaId}`);
   }
-  return entry.view_schema_id;
+  return viewSchemaId;
 }
 
 export const timelineViewSchemaId = requiredRegistryViewSchemaId(

@@ -6,6 +6,7 @@ import {
 } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { resolveInspectorOwnerCapability } from "../semanticInspectorDispatcher";
 import {
   workbookInspectorErrorPresentation,
   workbookInspectorMessageFeedback,
@@ -207,17 +208,16 @@ describe("Workbook Inspector presentation", () => {
   });
 
   it("binds semantic identity to an owner control and describes it", () => {
-    const merge = hosts.inspectorConfig.featureGroups.find(
-      (feature) => feature.featureGroupKey === "entity.merge",
+    const deleteCapability = resolveInspectorOwnerCapability(
+      hosts.inspectorConfig,
+      "record.delete",
     );
-    expect(merge).toBeDefined();
-    if (!merge) return;
+    expect(deleteCapability.kind).toBe("record_history");
+    if (deleteCapability.kind !== "record_history") return;
     const binding = bindWorkbookInspectorAction(
       hosts.inspectorConfig,
-      merge.featureGroupKey,
+      deleteCapability,
     );
-    expect(binding).not.toBeNull();
-    if (!binding) return;
     render(
       <WorkbookInspectorContextualAction
         binding={binding}
@@ -230,7 +230,7 @@ describe("Workbook Inspector presentation", () => {
       screen.getByRole("button").getAttribute("aria-describedby"),
     ).not.toBeNull();
     expect(
-      screen.getByText("Requires the reviewer incident role."),
+      screen.getByText("Requires the editor incident role."),
     ).not.toBeNull();
   });
 

@@ -19,6 +19,37 @@ const initialSubject = {
 };
 
 describe("useInspectorCreateRelatedWorkflow", () => {
+  it("publishes related success as neutral non-announced feedback", async () => {
+    expect(createTaskRequest).toBeDefined();
+    if (createTaskRequest === undefined) return;
+    const onFeedback = vi.fn();
+    const { result } = renderHook(() =>
+      useInspectorCreateRelatedWorkflow({
+        currentUserId: null,
+        mutationCommands: relatedPort(async () => ({
+          kind: "accepted",
+          value: {
+            changeSetId: "20000000-0000-4000-8000-000000000001",
+            recordId: "20000000-0000-4000-8000-000000000002",
+            viewSchemaId: taskRequests.viewSchemaId,
+          },
+        })),
+        onCreated: vi.fn(),
+        onFeedback,
+        selectedSubject: initialSubject,
+      }),
+    );
+
+    act(() => result.current.commands.begin(createTaskRequest));
+    await act(async () => result.current.commands.submit());
+
+    expect(onFeedback).toHaveBeenLastCalledWith({
+      announcement: "none",
+      kind: "message",
+      message: `Created ${taskRequests.title} record 20000000-0000-4000-8000-000000000002.`,
+    });
+  });
+
   it("ignores a late accepted result after cancel and reopen while retaining the owner effect", async () => {
     expect(createTaskRequest).toBeDefined();
     if (createTaskRequest === undefined) return;
@@ -28,13 +59,13 @@ describe("useInspectorCreateRelatedWorkflow", () => {
       >();
     const mutationCommands = relatedPort(() => pending.promise);
     const onCreated = vi.fn(async () => undefined);
-    const onMessage = vi.fn();
+    const onFeedback = vi.fn();
     const { result } = renderHook(() =>
       useInspectorCreateRelatedWorkflow({
         currentUserId: null,
         mutationCommands,
         onCreated,
-        onMessage,
+        onFeedback,
         selectedSubject: initialSubject,
       }),
     );
@@ -50,7 +81,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
       result.current.commands.begin(createTaskRequest);
     });
     const reopenedWorkflowId = result.current.snapshot.workflow?.workflowId;
-    const messageCallCount = onMessage.mock.calls.length;
+    const feedbackCallCount = onFeedback.mock.calls.length;
 
     await act(async () => {
       pending.resolve({
@@ -65,7 +96,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     });
 
     expect(onCreated).toHaveBeenCalledOnce();
-    expect(onMessage).toHaveBeenCalledTimes(messageCallCount);
+    expect(onFeedback).toHaveBeenCalledTimes(feedbackCallCount);
     expect(result.current.snapshot.workflow).toMatchObject({
       phase: "editing",
       subjectKey: {
@@ -89,7 +120,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
           currentUserId: null,
           mutationCommands: relatedPort(() => pending.promise),
           onCreated: vi.fn(),
-          onMessage: vi.fn(),
+          onFeedback: vi.fn(),
           selectedSubject: subject,
         }),
       { initialProps: { subject: initialSubject } },

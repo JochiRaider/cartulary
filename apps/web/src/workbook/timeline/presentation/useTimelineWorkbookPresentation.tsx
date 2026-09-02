@@ -183,9 +183,8 @@ export function useTimelineWorkbookPresentation({
     currentHistoryRecordId,
     inspectorHistorySubject,
     rowHistory,
-    rowHistoryPendingAction,
   } = inspector.snapshot.history;
-  const { setRowHistoryPendingAction } = inspector.commands.history;
+  const { cancelRowHistoryPendingAction } = inspector.commands.history;
   const handleResolveTargetChange = workflow.commands.resolveTargetChange;
   const createRelatedWorkflow = workflow.snapshot.createRelatedWorkflow;
   const timelineCreateRelatedReferenceOptions =
@@ -331,9 +330,13 @@ export function useTimelineWorkbookPresentation({
     renderWorkflowSection: renderCreateRelatedWorkflowSection,
   } = useTimelineWorkbookInspectorSections({
     cancelCreateRelatedWorkflow: cancelInspectorFeatureAction,
+    cancelRowHistoryPendingAction,
+    canMutateHistory:
+      !incidentClosed &&
+      currentIncidentRole !== null &&
+      currentIncidentRole !== "viewer",
     confirmRowHistoryPendingAction,
     createRelatedWorkflow,
-    currentHistoryRecordId,
     handleTimelineEvidenceFiles,
     inspectorHistorySubject,
     openRowHistory,
@@ -342,8 +345,6 @@ export function useTimelineWorkbookPresentation({
     renderTimelineCollectionInput,
     renderTimelineInspectorEditor,
     rowHistory,
-    rowHistoryPendingAction,
-    setRowHistoryPendingAction,
     submitCreateRelatedWorkflow,
     timelineCreateRelatedReferenceOptions,
     updateCreateRelatedWorkflowDraft,

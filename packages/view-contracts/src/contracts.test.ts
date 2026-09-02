@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   evidenceViewSchemaId,
@@ -13,6 +13,12 @@ import { listProjectedViewContracts } from "./projection";
 
 describe("view contracts", () => {
   it("initializes all generated view artifacts by stable identity", () => {
+    expectTypeOf(
+      timelineViewSchemaId,
+    ).toEqualTypeOf<"cartulary.view.timeline.v2">();
+    expectTypeOf(
+      evidenceViewSchemaId,
+    ).toEqualTypeOf<"cartulary.view.evidence.v1">();
     expect(listViewContracts()).toHaveLength(17);
     for (const contract of listViewContracts()) {
       expect(getViewContract(contract.viewSchemaId)).toBe(contract);
@@ -102,7 +108,7 @@ describe("view contracts", () => {
   });
 
   it("requires an exact inline_create policy", () => {
-    const semanticCreateExceptions = new Set([
+    const semanticCreateExceptions = new Set<string>([
       evidenceViewSchemaId,
       indicatorsViewSchemaId,
       timelineViewSchemaId,

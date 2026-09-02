@@ -2,14 +2,13 @@ import { timelineInspectorSectionTestId } from "@cartulary/ui-contracts";
 import { type ReactNode, useCallback } from "react";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
+import type {
+  RecordHistoryItem,
+  WorkbookRecordHistoryState,
+} from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { TimelineInspectorHistorySubject } from "../hooks/useTimelineHistoryState";
-import type {
-  RecordHistoryItem,
-  RecordHistoryState,
-  RowHistoryPendingAction,
-} from "../models/timelineHistoryModel";
 import {
   readTimelineCellValue,
   type TimelineCollectionBinding,
@@ -29,9 +28,10 @@ import {
 
 export function useTimelineWorkbookInspectorSections({
   cancelCreateRelatedWorkflow,
+  cancelRowHistoryPendingAction,
+  canMutateHistory,
   confirmRowHistoryPendingAction,
   createRelatedWorkflow,
-  currentHistoryRecordId,
   handleTimelineEvidenceFiles,
   inspectorHistorySubject,
   openRowHistory,
@@ -40,16 +40,15 @@ export function useTimelineWorkbookInspectorSections({
   renderTimelineCollectionInput,
   renderTimelineInspectorEditor,
   rowHistory,
-  rowHistoryPendingAction,
-  setRowHistoryPendingAction,
   submitCreateRelatedWorkflow,
   timelineCreateRelatedReferenceOptions,
   updateCreateRelatedWorkflowDraft,
 }: {
   readonly cancelCreateRelatedWorkflow: () => void;
+  readonly cancelRowHistoryPendingAction: () => void;
+  readonly canMutateHistory: boolean;
   readonly confirmRowHistoryPendingAction: () => void;
   readonly createRelatedWorkflow: InspectorRelatedRecordWorkflowState | null;
-  readonly currentHistoryRecordId: string | null;
   readonly handleTimelineEvidenceFiles: (
     row: WorkbookRow,
     files: FileList | File[],
@@ -71,11 +70,7 @@ export function useTimelineWorkbookInspectorSections({
     row: WorkbookRow,
     binding: TimelineScalarBinding,
   ) => ReactNode;
-  readonly rowHistory: RecordHistoryState;
-  readonly rowHistoryPendingAction: RowHistoryPendingAction | null;
-  readonly setRowHistoryPendingAction: (
-    action: RowHistoryPendingAction | null,
-  ) => void;
+  readonly rowHistory: WorkbookRecordHistoryState;
   readonly submitCreateRelatedWorkflow: () => Promise<void>;
   readonly timelineCreateRelatedReferenceOptions: GenericReferenceOptions;
   readonly updateCreateRelatedWorkflowDraft: (
@@ -171,17 +166,24 @@ export function useTimelineWorkbookInspectorSections({
   const renderRowHistorySection = useCallback(
     () => (
       <TimelineHistoryPanel
-        currentRecordId={currentHistoryRecordId}
+        canMutate={canMutateHistory}
         history={rowHistory}
-        pendingAction={rowHistoryPendingAction}
         selectedActiveRowRecordId={
           inspectorHistorySubject.kind === "live"
             ? inspectorHistorySubject.recordId
             : null
         }
-        onCancelPendingAction={() => {
-          setRowHistoryPendingAction(null);
-        }}
+        selectedActiveSubject={
+          inspectorHistorySubject.kind === "live" &&
+          inspectorHistorySubject.rowVersion !== null
+            ? {
+                kind: "live",
+                recordId: inspectorHistorySubject.recordId,
+                rowVersion: inspectorHistorySubject.rowVersion,
+              }
+            : null
+        }
+        onCancelPendingAction={cancelRowHistoryPendingAction}
         onConfirmPendingAction={confirmRowHistoryPendingAction}
         onOpenHistory={openRowHistory}
         onPreviewDeleteRestore={previewRowHistoryDeleteRestore}
@@ -189,15 +191,14 @@ export function useTimelineWorkbookInspectorSections({
       />
     ),
     [
+      cancelRowHistoryPendingAction,
+      canMutateHistory,
       confirmRowHistoryPendingAction,
-      currentHistoryRecordId,
       inspectorHistorySubject,
       openRowHistory,
       previewRowHistoryDeleteRestore,
       previewRowHistoryRollback,
       rowHistory,
-      rowHistoryPendingAction,
-      setRowHistoryPendingAction,
     ],
   );
 

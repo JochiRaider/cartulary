@@ -1,5 +1,8 @@
+import type {
+  RecordHistoryData,
+  RecordHistoryRollbackTarget,
+} from "../../inspector/workbookRecordHistoryModel";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import type { RecordHistoryData } from "../models/timelineHistoryModel";
 
 export type TimelineHistoryMutationAccepted = {
   readonly recordId: string;
@@ -20,6 +23,6 @@ export interface TimelineHistoryPort {
     readonly baseRowVersion: number;
     readonly clientTxnId: string;
     readonly recordId: string;
-    readonly target: Record<string, unknown>;
+    readonly target: RecordHistoryRollbackTarget;
   }): Promise<WorkbookOperationOutcome<TimelineHistoryMutationAccepted>>;
 }

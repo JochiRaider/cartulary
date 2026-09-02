@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type WorkbookInspectorErrorPresentation,
-  workbookInspectorErrorPresentation,
-  workbookInspectorLocalErrorPresentation,
+  type WorkbookInspectorFeedback,
+  workbookInspectorLocalErrorFeedback,
+  workbookInspectorMessageFeedback,
+  workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import {
   buildMergePlan,
@@ -30,7 +31,7 @@ export type EntityMergeController = {
   readonly snapshot: {
     readonly candidateId: string;
     readonly loser: EntityRow | null;
-    readonly message: WorkbookInspectorErrorPresentation | null;
+    readonly feedback: WorkbookInspectorFeedback | null;
     readonly plan: EntityMergePlan | null;
     readonly preconditionDetails: readonly EntityMergePreconditionDetail[];
     readonly reason: string;
@@ -87,8 +88,9 @@ export function useEntityMergeController({
   readonly selectedEntity: EntityRow | null;
 }): EntityMergeController {
   const [candidateId, setCandidateId] = useState("");
-  const [message, setMessage] =
-    useState<WorkbookInspectorErrorPresentation | null>(null);
+  const [feedback, setFeedback] = useState<WorkbookInspectorFeedback | null>(
+    null,
+  );
   const [details, setDetails] = useState<
     readonly EntityMergePreconditionDetail[]
   >([]);
@@ -100,7 +102,7 @@ export function useEntityMergeController({
 
   const resetState = useCallback(() => {
     setCandidateId("");
-    setMessage(null);
+    setFeedback(null);
     setDetails([]);
     setReason(defaultMergeReason);
   }, []);
@@ -147,13 +149,13 @@ export function useEntityMergeController({
 
   const selectCandidate = useCallback((recordId: string) => {
     setCandidateId(recordId);
-    setMessage(null);
+    setFeedback(null);
     setDetails([]);
   }, []);
 
   const start = useCallback(() => {
-    setMessage(
-      workbookInspectorLocalErrorPresentation(
+    setFeedback(
+      workbookInspectorLocalErrorFeedback(
         "Select a loser to review the merge plan.",
       ),
     );
@@ -164,7 +166,7 @@ export function useEntityMergeController({
     if (!canMerge || selectedEntity === null || loser === null) return;
     const generation = generationRef.current;
     const survivor = selectedEntity;
-    setMessage(null);
+    setFeedback(null);
     setDetails([]);
     const outcome = await mutationCommands.merge({
       loserBaseRowVersion: loser.rowVersion,
@@ -175,7 +177,7 @@ export function useEntityMergeController({
     });
     if (generationRef.current !== generation) return;
     if (outcome.kind === "rejected") {
-      setMessage(workbookInspectorErrorPresentation(outcome.failure));
+      setFeedback(workbookInspectorOperationFailureFeedback(outcome.failure));
       setDetails(
         outcome.failure.kind === "validation"
           ? preconditionDetails(outcome.failure.fields)
@@ -187,9 +189,10 @@ export function useEntityMergeController({
     admittedLifecycleKeyRef.current = `${lifecycleResetKey}:${canMerge}:${survivor.recordId}:${outcome.value.survivorRowVersion}`;
     clearDrafts();
     setDetails([]);
-    setMessage(
-      workbookInspectorLocalErrorPresentation(
+    setFeedback(
+      workbookInspectorMessageFeedback(
         `Merged ${loser.label} into ${survivor.label} (${outcome.value.recordType}).`,
+        "polite",
       ),
     );
     await onRefreshEntities();
@@ -215,8 +218,8 @@ export function useEntityMergeController({
     commands: { clearPlan, confirm, reset, selectCandidate, setReason, start },
     snapshot: {
       candidateId,
+      feedback,
       loser,
-      message,
       plan,
       preconditionDetails: details,
       reason,

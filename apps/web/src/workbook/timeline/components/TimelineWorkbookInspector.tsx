@@ -5,7 +5,6 @@ import {
 import type {
   InspectorConfig,
   InspectorDisabledCondition,
-  InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
 import type { ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
@@ -16,6 +15,10 @@ import {
   WorkbookInspectorShell,
 } from "../../inspector/presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorSubjectPresentation } from "../../inspector/presentation/workbookInspectorPresentationModel";
+import {
+  type InspectorContextualCapability,
+  inspectorContextualCapabilities,
+} from "../../inspector/semanticInspectorDispatcher";
 import { WorkbookInspectorContextualActions } from "../../inspector/WorkbookInspectorContextualActions";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -75,7 +78,7 @@ export function TimelineWorkbookInspector({
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly onSetInspectorMessage: (message: WorkbookInspectorFeedback) => void;
   readonly onClose: () => void;
-  readonly onFeatureAction: (featureGroup: InspectorFeatureGroup) => void;
+  readonly onFeatureAction: (capability: InspectorContextualCapability) => void;
   readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
@@ -188,13 +191,10 @@ export function TimelineWorkbookInspector({
             config={inspectorConfig}
             currentIncidentRole={currentIncidentRole}
             disabledTokens={disabledTokens}
-            featureGroups={inspectorConfig.featureGroups.filter(
-              (featureGroup) =>
-                featureGroup.panelId === panelId &&
-                (featureGroup.routeBinding.kind === "view_row_create" ||
-                  featureGroup.routeBinding.kind === "indicator_observations" ||
-                  featureGroup.routeBinding.kind === "indicator_lifecycle"),
-            )}
+            capabilities={inspectorContextualCapabilities({
+              config: inspectorConfig,
+              panelId,
+            })}
             subject={subjectPresentation}
             onAction={onFeatureAction}
           />

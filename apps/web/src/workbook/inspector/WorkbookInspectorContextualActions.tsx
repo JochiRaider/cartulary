@@ -14,22 +14,21 @@ import {
   type WorkbookInspectorActionBinding,
   type WorkbookInspectorSubjectPresentation,
 } from "./presentation/workbookInspectorPresentationModel";
+import type { InspectorContextualCapability } from "./semanticInspectorDispatcher";
 
 export function WorkbookInspectorContextualActions({
   config,
   currentIncidentRole,
   disabledTokens,
-  featureGroups,
+  capabilities,
   onAction,
   subject,
 }: {
   readonly config: InspectorConfig;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
-  readonly featureGroups: InspectorConfig["featureGroups"];
-  readonly onAction: (
-    featureGroup: InspectorConfig["featureGroups"][number],
-  ) => void;
+  readonly capabilities: readonly InspectorContextualCapability[];
+  readonly onAction: (capability: InspectorContextualCapability) => void;
   readonly subject: WorkbookInspectorSubjectPresentation;
 }) {
   const subjectIdentity = `${config.viewSchemaId}:${subject.recordId}:${subject.rowVersion}`;
@@ -38,7 +37,7 @@ export function WorkbookInspectorContextualActions({
       config={config}
       currentIncidentRole={currentIncidentRole}
       disabledTokens={disabledTokens}
-      featureGroups={featureGroups}
+      capabilities={capabilities}
       key={subjectIdentity}
       subject={subject}
       onAction={onAction}
@@ -50,29 +49,23 @@ function ContextualActionsForSubject({
   config,
   currentIncidentRole,
   disabledTokens,
-  featureGroups,
+  capabilities,
   onAction,
   subject,
 }: {
   readonly config: InspectorConfig;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
-  readonly featureGroups: InspectorConfig["featureGroups"];
-  readonly onAction: (
-    featureGroup: InspectorConfig["featureGroups"][number],
-  ) => void;
+  readonly capabilities: readonly InspectorContextualCapability[];
+  readonly onAction: (capability: InspectorContextualCapability) => void;
   readonly subject: WorkbookInspectorSubjectPresentation;
 }) {
   const bindings = useMemo(
     () =>
-      featureGroups.flatMap((featureGroup) => {
-        const binding = bindWorkbookInspectorAction(
-          config,
-          featureGroup.featureGroupKey,
-        );
-        return binding === null ? [] : [binding];
-      }),
-    [config, featureGroups],
+      capabilities.map((capability) =>
+        bindWorkbookInspectorAction(config, capability),
+      ),
+    [capabilities, config],
   );
   const [pending, setPending] = useState<WorkbookInspectorActionBinding | null>(
     null,
@@ -90,7 +83,7 @@ function ContextualActionsForSubject({
             if (binding.featureGroup.requiresConfirmation) {
               setPending(binding);
             } else {
-              onAction(binding.featureGroup);
+              onAction(binding.capability);
             }
           }}
         />
@@ -114,9 +107,9 @@ function ContextualActionsForSubject({
           ]}
           onCancel={() => setPending(null)}
           onConfirm={() => {
-            const featureGroup = pending.featureGroup;
+            const capability = pending.capability;
             setPending(null);
-            onAction(featureGroup);
+            onAction(capability);
           }}
         />
       )}

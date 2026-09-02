@@ -1,8 +1,14 @@
-import { useCallback, useRef, useState } from "react";
-import type {
-  RecordHistoryState,
-  RowHistoryPendingAction,
-} from "../models/timelineHistoryModel";
+import { useCallback, useReducer, useRef } from "react";
+import {
+  initialWorkbookRecordHistoryState,
+  type WorkbookRecordHistoryEvent,
+  type WorkbookRecordHistoryOperationId,
+  type WorkbookRecordHistoryRequestId,
+  type WorkbookRecordHistorySubject,
+  workbookRecordHistoryOperationId,
+  workbookRecordHistoryReducer,
+  workbookRecordHistoryRequestId,
+} from "../../inspector/workbookRecordHistoryModel";
 import {
   selectTimelineInspectorHistorySubject,
   type TimelineInspectorHistorySubject,
@@ -11,15 +17,6 @@ import type { WorkbookRow } from "../models/workbookTimelineModel";
 
 export type { TimelineInspectorHistorySubject };
 
-function emptyRowHistoryState(): RecordHistoryState {
-  return {
-    recordId: null,
-    status: "idle",
-    data: null,
-    error: null,
-  };
-}
-
 export function useTimelineHistoryState({
   draftRow,
   selectedRow,
@@ -27,12 +24,14 @@ export function useTimelineHistoryState({
   readonly draftRow: WorkbookRow | null;
   readonly selectedRow: WorkbookRow | null;
 }) {
-  const [rowHistory, setRowHistory] =
-    useState<RecordHistoryState>(emptyRowHistoryState);
-  const [rowHistoryPendingAction, setRowHistoryPendingAction] =
-    useState<RowHistoryPendingAction | null>(null);
+  const [rowHistory, dispatchRowHistory] = useReducer(
+    workbookRecordHistoryReducer,
+    null,
+    initialWorkbookRecordHistoryState,
+  );
   const currentHistoryRecordIdRef = useRef<string | null>(null);
   const rowHistoryRequestSeqRef = useRef(0);
+  const rowHistoryOperationSeqRef = useRef(0);
 
   const inspectorHistorySubject = selectTimelineInspectorHistorySubject({
     draftRow,
@@ -56,16 +55,28 @@ export function useTimelineHistoryState({
       ? inspectorHistorySubject.recordId
       : null;
 
-  const beginRowHistoryRequest = useCallback(() => {
-    const requestSeq = rowHistoryRequestSeqRef.current + 1;
-    rowHistoryRequestSeqRef.current = requestSeq;
-    return requestSeq;
-  }, []);
+  const beginRowHistoryRequest =
+    useCallback((): WorkbookRecordHistoryRequestId => {
+      const requestId = workbookRecordHistoryRequestId(
+        rowHistoryRequestSeqRef.current + 1,
+      );
+      rowHistoryRequestSeqRef.current = requestId.value;
+      return requestId;
+    }, []);
+  const beginRowHistoryOperation =
+    useCallback((): WorkbookRecordHistoryOperationId => {
+      const operationId = workbookRecordHistoryOperationId(
+        rowHistoryOperationSeqRef.current + 1,
+      );
+      rowHistoryOperationSeqRef.current = operationId.value;
+      return operationId;
+    }, []);
   const cancelRowHistoryRequests = useCallback(() => {
     rowHistoryRequestSeqRef.current += 1;
   }, []);
   const rowHistoryRequestIsCurrent = useCallback(
-    (requestSeq: number) => rowHistoryRequestSeqRef.current === requestSeq,
+    (requestId: WorkbookRecordHistoryRequestId) =>
+      rowHistoryRequestSeqRef.current === requestId.value,
     [],
   );
   const currentHistoryRecordIdMatches = useCallback(
@@ -74,19 +85,29 @@ export function useTimelineHistoryState({
   );
   const clearRowHistory = useCallback(() => {
     cancelRowHistoryRequests();
-    setRowHistoryPendingAction(null);
-    setRowHistory(emptyRowHistoryState());
+    dispatchRowHistory({ type: "clear" });
   }, [cancelRowHistoryRequests]);
+  const retargetRowHistory = useCallback(
+    (subject: WorkbookRecordHistorySubject | null) => {
+      dispatchRowHistory({ subject, type: "retarget" });
+    },
+    [],
+  );
+  const sendRowHistoryEvent = useCallback(
+    (event: WorkbookRecordHistoryEvent) => dispatchRowHistory(event),
+    [],
+  );
 
   return {
     commands: {
+      beginRowHistoryOperation,
       beginRowHistoryRequest,
       cancelRowHistoryRequests,
       clearRowHistory,
       currentHistoryRecordIdMatches,
+      dispatchRowHistory: sendRowHistoryEvent,
+      retargetRowHistory,
       rowHistoryRequestIsCurrent,
-      setRowHistory,
-      setRowHistoryPendingAction,
     },
     snapshot: {
       activeHistoryLiveRecordId,
@@ -95,7 +116,7 @@ export function useTimelineHistoryState({
       currentHistoryRowVersion,
       inspectorHistorySubject,
       rowHistory,
-      rowHistoryPendingAction,
+      rowHistoryPendingAction: rowHistory.pendingAction,
     },
   };
 }

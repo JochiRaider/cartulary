@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { initialWorkbookRecordHistoryState } from "../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { useTimelineKeyboardController } from "./hooks/useTimelineKeyboardController";
 import {
@@ -113,7 +114,7 @@ function controller(
   const rendered = renderHook(() =>
     useTimelineKeyboardController({
       ...mocks,
-      rowHistory: { recordId: null, status: "idle" },
+      rowHistory: initialWorkbookRecordHistoryState(),
       selectedRowId: overrides.selectedRowId ?? null,
       workbookFocusAnchorRef: {
         current: overrides.workbookFocusAnchor ?? null,

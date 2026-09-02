@@ -34,6 +34,13 @@ export type MentionResolutionAction =
   | "dismiss_item"
   | "revert_to_unresolved";
 
+type MentionActionPayload = {
+  action: MentionResolutionAction;
+  base_mention_row_version: number;
+  client_txn_id: string;
+  resolved_record_id?: string;
+};
+
 export function buildWorkbookPresenceInput(
   presence: WorkbookPresenceDraft,
   sheetRef: SheetRef,
@@ -78,11 +85,11 @@ export function buildMentionActionPayload(
   action: MentionResolutionAction,
   clientTxnId: string,
   resolvedRecordId?: string,
-) {
+): MentionActionPayload | null {
   if (mention.mentionRowVersion === null) {
     return null;
   }
-  const body: Record<string, string | number> = {
+  const body: MentionActionPayload = {
     base_mention_row_version: mention.mentionRowVersion,
     client_txn_id: clientTxnId,
     action,

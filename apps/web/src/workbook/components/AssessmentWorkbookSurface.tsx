@@ -8,14 +8,12 @@ import {
 } from "@cartulary/grid-adapter";
 import {
   assessmentCreateControlTestId,
-  assessmentCreatePanelTestId,
   gridGroupRowTestId,
   gridShellTestId,
   gridSortHeaderTestId,
 } from "@cartulary/ui-contracts";
 import type { InspectorDisabledCondition } from "@cartulary/view-contracts";
 import {
-  type InspectorFeatureGroup,
   requireViewContract,
   resolveHeaderSortFieldKey,
 } from "@cartulary/view-contracts";
@@ -38,19 +36,15 @@ import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
+import { AssessmentWorkbookInspector } from "../features/assessments/AssessmentWorkbookInspector";
 import { useAssessmentCreationController } from "../features/assessments/useAssessmentCreationController";
 import { useAssessmentSupportCandidates } from "../hooks/useAssessmentSupportCandidates";
-import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
-import { WorkbookInspectorPublicError } from "../inspector/presentation/WorkbookInspectorFeedback";
-import {
-  WorkbookInspectorPanelSection,
-  WorkbookInspectorShell,
-} from "../inspector/presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
+import { inspectorRecordHistoryActions } from "../inspector/semanticInspectorDispatcher";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
-import { WorkbookInspectorContextualActions } from "../inspector/WorkbookInspectorContextualActions";
-import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
+import type { WorkbookInspectorFeedback } from "../inspector/workbookInspectorErrorModel";
+import type { WorkbookRecordHistorySubject } from "../inspector/workbookRecordHistoryModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -158,6 +152,10 @@ export function AssessmentWorkbookSurface({
   const [selectedAssessmentRecordId, setSelectedAssessmentRecordId] = useState<
     string | null
   >(null);
+  const [deletedHistorySubject, setDeletedHistorySubject] =
+    useState<WorkbookRecordHistorySubject | null>(null);
+  const [relatedFeedback, setRelatedFeedback] =
+    useState<WorkbookInspectorFeedback | null>(null);
   const [selectedAssessmentSnapshot, setSelectedAssessmentSnapshot] =
     useState<WorkbookQueryRow | null>(null);
   const inspectorContinuityTokenRef = useRef<WorkbookContinuityToken | null>(
@@ -191,6 +189,18 @@ export function AssessmentWorkbookSurface({
     (selectedAssessmentSnapshot?.record_id === selectedAssessmentRecordId
       ? selectedAssessmentSnapshot
       : null);
+  const recordHistorySubject: WorkbookRecordHistorySubject | null =
+    selectedAssessment === null
+      ? deletedHistorySubject
+      : {
+          kind: "live",
+          recordId: selectedAssessment.record_id,
+          rowVersion: selectedAssessment.row_version,
+        };
+  const recordHistoryActions = useMemo(
+    () => inspectorRecordHistoryActions(inspectorConfig),
+    [],
+  );
   const createRelatedReferenceOptions = useMemo(
     () => emptyGenericReferenceOptions(),
     [],
@@ -217,9 +227,7 @@ export function AssessmentWorkbookSurface({
     currentUserId,
     mutationCommands: relatedMutationCommands,
     onCreated: onRefreshAssessmentRows,
-    onMessage: (message) => {
-      if (message !== null) assessmentCreation.commands.rejectStart(message);
-    },
+    onFeedback: setRelatedFeedback,
     selectedSubject:
       selectedAssessment === null
         ? null
@@ -230,13 +238,17 @@ export function AssessmentWorkbookSurface({
             viewSchemaId: assessmentsViewSchemaId,
           },
   });
-  const { draft, draftMode, isSubmitting, message } =
+  const { draft, draftMode, feedback, isSubmitting } =
     assessmentCreation.snapshot;
   const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
-      resetOwnerState: ({ scope }) => {
+      resetOwnerState: ({ cause, scope }) => {
         assessmentCreation.commands.reset();
+        setRelatedFeedback(null);
+        if (cause === "close" || scope === "surface") {
+          setDeletedHistorySubject(null);
+        }
         if (scope === "surface") {
           continuityPortRef.current?.clear();
           setSelectedAssessmentRecordId(null);
@@ -254,11 +266,11 @@ export function AssessmentWorkbookSurface({
     config: inspectorConfig,
     lifecycleKey: inspectorResetKey,
     subject:
-      selectedAssessment === null
+      recordHistorySubject === null
         ? null
         : {
-            recordId: selectedAssessment.record_id,
-            rowVersion: selectedAssessment.row_version,
+            recordId: recordHistorySubject.recordId,
+            rowVersion: recordHistorySubject.rowVersion,
             viewSchemaId: assessmentsViewSchemaId,
           },
   });
@@ -416,80 +428,6 @@ export function AssessmentWorkbookSurface({
     }
   }
 
-  async function executeAssessmentRecordLifecycle(
-    featureGroup: InspectorFeatureGroup,
-  ): Promise<boolean> {
-    if (
-      featureGroup.routeBinding.kind !== "record_action" ||
-      featureGroup.routeBinding.owner !== "record_delete_route"
-    ) {
-      return false;
-    }
-    if (selectedAssessment === null) {
-      assessmentCreation.commands.rejectStart(
-        "Select a saved row before running this action.",
-      );
-      return true;
-    }
-    const finishMutation = mutationRuntime.beginExplicitMutation();
-    try {
-      const outcome = await recordMutationCommands.execute({
-        action: "delete",
-        baseRowVersion: selectedAssessment.row_version,
-        reason: "Deleted from the Assessments inspector",
-        recordId: selectedAssessment.record_id,
-      });
-      if (outcome.kind === "rejected") {
-        assessmentCreation.commands.rejectFailure(outcome.failure);
-        return true;
-      }
-      setSelectedAssessmentRecordId(null);
-      setSelectedAssessmentSnapshot(null);
-      inspector.commands.completeAction();
-      await onRefreshAssessmentRows();
-      return true;
-    } finally {
-      finishMutation();
-    }
-  }
-
-  function beginAssessmentFeatureAction(featureGroup: InspectorFeatureGroup) {
-    if (
-      featureGroup.featureGroupKey !== "create_related.assessment" &&
-      createRelatedWorkflow.commands.begin(featureGroup)
-    ) {
-      return;
-    }
-    if (featureGroup.routeBinding.kind === "record_action") {
-      void executeAssessmentRecordLifecycle(featureGroup);
-      return;
-    }
-    if (featureGroup.featureGroupKey !== "create_related.assessment") {
-      return;
-    }
-    if (
-      featureGroup.routeBinding.kind !== "view_row_create" ||
-      featureGroup.routeBinding.owner !== "view_row_create_route" ||
-      featureGroup.routeBinding.targetViewSchemaId !== assessmentsViewSchemaId
-    ) {
-      assessmentCreation.commands.rejectStart(
-        "Assessment follow-on creation is unavailable.",
-      );
-      return;
-    }
-    if (!canCreate) {
-      assessmentCreation.commands.rejectStart(
-        "Assessment creation requires an active editor role.",
-      );
-      return;
-    }
-    if (!assessmentCreation.commands.openFollowOn(selectedAssessment)) return;
-    if (!inspector.snapshot.isOpen) {
-      inspectorContinuityTokenRef.current = assessmentFocus.port.capture();
-    }
-    inspector.commands.open();
-  }
-
   useEffect(() => {
     if (selectedAssessmentRecordId === null) {
       return;
@@ -511,274 +449,268 @@ export function AssessmentWorkbookSurface({
     [mutationRuntime, onRefreshAssessmentRows],
   );
   const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
-    selectedAssessment === null
+    recordHistorySubject === null
       ? null
-      : {
-          label: genericInspectorRowLabel(
-            assessmentsContract,
-            selectedAssessment,
-          ),
-          recordId: selectedAssessment.record_id,
-          rowVersion: selectedAssessment.row_version,
-          stateLabel: `Follow-on subject: ${draft.subjectRecordId || "not selected"}`,
-          surfaceLabel: assessmentsContract.title,
-        };
+      : recordHistorySubject.kind === "deleted"
+        ? {
+            label: "Deleted assessment",
+            recordId: recordHistorySubject.recordId,
+            rowVersion: recordHistorySubject.rowVersion,
+            stateLabel: "Deleted",
+            surfaceLabel: assessmentsContract.title,
+          }
+        : selectedAssessment === null
+          ? null
+          : {
+              label: genericInspectorRowLabel(
+                assessmentsContract,
+                selectedAssessment,
+              ),
+              recordId: selectedAssessment.record_id,
+              rowVersion: selectedAssessment.row_version,
+              stateLabel: `Follow-on subject: ${draft.subjectRecordId || "not selected"}`,
+              surfaceLabel: assessmentsContract.title,
+            };
 
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
         isInspectorOpen && showWorkflowPanel ? (
-          <WorkbookInspectorShell
-            accessibleLabel="Compromise Assessments inspector"
-            eyebrow="Create"
-            heading={
-              draftMode === "follow_on"
-                ? "Append follow-on assessment"
-                : "Append assessment"
+          <AssessmentWorkbookInspector
+            config={inspectorConfig}
+            currentIncidentRole={currentIncidentRole}
+            disabledTokens={assessmentInspectorDisabledTokens}
+            draftMode={draftMode}
+            feedback={feedback}
+            feedbackTestId={assessmentCreateControlTestId("message")}
+            followOn={{
+              canCreate,
+              open: () =>
+                assessmentCreation.commands.openFollowOn(selectedAssessment),
+              opened: () => {
+                if (!inspector.snapshot.isOpen) {
+                  inspectorContinuityTokenRef.current =
+                    assessmentFocus.port.capture();
+                }
+                inspector.commands.open();
+              },
+              reject: assessmentCreation.commands.rejectStart,
+            }}
+            history={{
+              actions: recordHistoryActions,
+              canMutate: canCreate,
+              commands: recordMutationCommands,
+              effects: {
+                deleteAccepted: async (accepted) => {
+                  createRelatedWorkflow.commands.cancel();
+                  assessmentCreation.commands.reset();
+                  setSelectedAssessmentRecordId(null);
+                  setSelectedAssessmentSnapshot(null);
+                  setDeletedHistorySubject({
+                    kind: "deleted",
+                    recordId: accepted.recordId,
+                    rowVersion: accepted.rowVersion,
+                  });
+                  await onRefreshAssessmentRows();
+                },
+                restoreAccepted: async (accepted) => {
+                  await onRefreshAssessmentRows();
+                  setDeletedHistorySubject(null);
+                  setSelectedAssessmentRecordId(accepted.recordId);
+                },
+                rollbackAccepted: async () => {
+                  await onRefreshAssessmentRows();
+                },
+              },
+              subject: recordHistorySubject,
+            }}
+            relationshipsContent={
+              selectedAssessment === null ? null : (
+                <p style={bodyStyle}>
+                  Supporting records:{" "}
+                  {genericCellLabel(
+                    selectedAssessment.cells["assessment.support_refs"]?.value,
+                  )}
+                </p>
+              )
             }
-            mode="creation"
-            noRowHeading="Append assessment"
+            related={{
+              begin: createRelatedWorkflow.commands.begin,
+              cancel: createRelatedWorkflow.commands.cancel,
+              referenceOptions: createRelatedReferenceOptions,
+              state: createRelatedWorkflow.snapshot.workflow,
+              submit: createRelatedWorkflow.commands.submit,
+              updateDraft: createRelatedWorkflow.commands.updateDraft,
+            }}
+            relatedFeedback={relatedFeedback}
             subject={inspectorSubjectPresentation}
-            testId={assessmentCreatePanelTestId()}
             viewSchemaId={assessmentsViewSchemaId}
             onClose={cancelAssessmentDraft}
           >
-            {inspectorConfig.panels.map((panel) => (
-              <WorkbookInspectorPanelSection
-                config={inspectorConfig}
-                key={panel.panelId}
-                panelId={panel.panelId}
-              >
-                {inspectorSubjectPresentation === null ? null : (
-                  <WorkbookInspectorContextualActions
-                    config={inspectorConfig}
-                    currentIncidentRole={currentIncidentRole}
-                    disabledTokens={assessmentInspectorDisabledTokens}
-                    featureGroups={inspectorConfig.featureGroups.filter(
-                      (featureGroup) =>
-                        featureGroup.panelId === panel.panelId &&
-                        (featureGroup.routeBinding.kind === "view_row_create" ||
-                          (featureGroup.routeBinding.kind === "record_action" &&
-                            featureGroup.routeBinding.owner ===
-                              "record_delete_route")),
-                    )}
-                    subject={inspectorSubjectPresentation}
-                    onAction={beginAssessmentFeatureAction}
-                  />
-                )}
-                {panel.panelId === "relationships" &&
-                selectedAssessment !== null ? (
-                  <p style={bodyStyle}>
-                    Supporting records:{" "}
-                    {genericCellLabel(
-                      selectedAssessment.cells["assessment.support_refs"]
-                        ?.value,
-                    )}
-                  </p>
-                ) : null}
-                {createRelatedWorkflow.snapshot.workflow?.featureGroup
-                  .panelId === panel.panelId ? (
-                  <InspectorCreateRelatedWorkflow
-                    referenceOptions={createRelatedReferenceOptions}
-                    state={createRelatedWorkflow.snapshot.workflow}
-                    onCancel={createRelatedWorkflow.commands.cancel}
-                    onSubmit={() => {
-                      void createRelatedWorkflow.commands.submit();
-                    }}
-                    onUpdateDraft={createRelatedWorkflow.commands.updateDraft}
-                  />
-                ) : null}
-                {panel.panelId === "history" ? (
-                  <WorkbookInspectorRecordHistory
-                    canMutate={canCreate}
-                    commands={recordMutationCommands}
-                    subject={
-                      selectedAssessment === null
-                        ? null
-                        : {
-                            recordId: selectedAssessment.record_id,
-                            rowVersion: selectedAssessment.row_version,
-                          }
-                    }
-                    onMessage={assessmentCreation.commands.rejectStart}
-                    onRefresh={onRefreshAssessmentRows}
-                  />
-                ) : null}
-              </WorkbookInspectorPanelSection>
-            ))}
-            <div style={inspectorSectionStyle}>
-              <label style={labelStyle}>
-                Subject type
-                <select
-                  data-testid={assessmentCreateControlTestId("subject-type")}
-                  disabled={isSubmitting}
-                  style={selectStyle}
-                  value={draft.subjectType}
-                  onChange={(event) => {
-                    const subjectType =
-                      event.target.value === "identity" ? "identity" : "host";
-                    const nextRows =
-                      subjectType === "host" ? hostRows : identityRows;
-                    assessmentCreation.commands.updateDraft((current) => ({
-                      ...current,
-                      subjectType,
-                      subjectRecordId: nextRows[0]?.recordId ?? "",
-                    }));
-                  }}
-                >
-                  {enumValuesFor(
-                    assessmentsContract,
-                    "assessment.subject_type",
-                    ["host", "identity"],
-                  ).map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                Subject
-                <select
-                  data-testid={assessmentCreateControlTestId("subject")}
-                  disabled={isSubmitting}
-                  style={selectStyle}
-                  value={draft.subjectRecordId}
-                  onChange={(event) => {
-                    assessmentCreation.commands.updateDraft((current) => ({
-                      ...current,
-                      subjectRecordId: event.target.value,
-                    }));
-                  }}
-                >
-                  <option value="">Select subject</option>
-                  {subjectRows.map((row) => (
-                    <option key={row.recordId} value={row.recordId}>
-                      {row.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                State
-                <select
-                  data-testid={assessmentCreateControlTestId("state")}
-                  disabled={isSubmitting}
-                  style={selectStyle}
-                  value={draft.assessmentState}
-                  onChange={(event) => {
-                    assessmentCreation.commands.updateDraft((current) => ({
-                      ...current,
-                      assessmentState: event.target.value,
-                    }));
-                  }}
-                >
-                  {stateOptions.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                Confidence
-                <select
-                  data-testid={assessmentCreateControlTestId("confidence-band")}
-                  disabled={isSubmitting}
-                  style={selectStyle}
-                  value={draft.confidenceBand}
-                  onChange={(event) => {
-                    const confidenceBand = isAssessmentConfidenceBand(
-                      event.target.value,
-                    )
-                      ? event.target.value
-                      : "unset";
-                    assessmentCreation.commands.updateDraft((current) => ({
-                      ...current,
-                      confidenceBand,
-                    }));
-                  }}
-                >
-                  {confidenceBandOptions.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={labelStyle}>
-                Rationale
-                <textarea
-                  data-testid={assessmentCreateControlTestId("rationale")}
-                  disabled={isSubmitting}
-                  rows={4}
-                  style={textareaStyle}
-                  value={draft.rationale}
-                  onChange={(event) => {
-                    assessmentCreation.commands.updateDraft((current) => ({
-                      ...current,
-                      rationale: event.target.value,
-                    }));
-                  }}
-                />
-              </label>
-
-              <label style={labelStyle}>
-                Assessed
-                <input
-                  data-testid={assessmentCreateControlTestId("assessed-at")}
-                  disabled={isSubmitting}
-                  placeholder="RFC3339 timestamp"
-                  style={inputStyle}
-                  type="text"
-                  value={draft.assessedAt}
-                  onChange={(event) => {
-                    assessmentCreation.commands.updateDraft((current) => ({
-                      ...current,
-                      assessedAt: event.target.value,
-                    }));
-                  }}
-                />
-              </label>
-
-              <WorkbookRecordCandidatePicker
-                candidates={supportCandidates}
+            <label style={labelStyle}>
+              Subject type
+              <select
+                data-testid={assessmentCreateControlTestId("subject-type")}
                 disabled={isSubmitting}
-                label="Support refs"
-                selectedRecordIds={draft.supportRecordIds}
-                testId={assessmentCreateControlTestId("support-refs")}
-                onSelectedRecordIdsChange={(supportRecordIds) => {
+                style={selectStyle}
+                value={draft.subjectType}
+                onChange={(event) => {
+                  const subjectType =
+                    event.target.value === "identity" ? "identity" : "host";
+                  const nextRows =
+                    subjectType === "host" ? hostRows : identityRows;
                   assessmentCreation.commands.updateDraft((current) => ({
                     ...current,
-                    supportRecordIds,
+                    subjectType,
+                    subjectRecordId: nextRows[0]?.recordId ?? "",
+                  }));
+                }}
+              >
+                {enumValuesFor(assessmentsContract, "assessment.subject_type", [
+                  "host",
+                  "identity",
+                ]).map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              Subject
+              <select
+                data-testid={assessmentCreateControlTestId("subject")}
+                disabled={isSubmitting}
+                style={selectStyle}
+                value={draft.subjectRecordId}
+                onChange={(event) => {
+                  assessmentCreation.commands.updateDraft((current) => ({
+                    ...current,
+                    subjectRecordId: event.target.value,
+                  }));
+                }}
+              >
+                <option value="">Select subject</option>
+                {subjectRows.map((row) => (
+                  <option key={row.recordId} value={row.recordId}>
+                    {row.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              State
+              <select
+                data-testid={assessmentCreateControlTestId("state")}
+                disabled={isSubmitting}
+                style={selectStyle}
+                value={draft.assessmentState}
+                onChange={(event) => {
+                  assessmentCreation.commands.updateDraft((current) => ({
+                    ...current,
+                    assessmentState: event.target.value,
+                  }));
+                }}
+              >
+                {stateOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              Confidence
+              <select
+                data-testid={assessmentCreateControlTestId("confidence-band")}
+                disabled={isSubmitting}
+                style={selectStyle}
+                value={draft.confidenceBand}
+                onChange={(event) => {
+                  const confidenceBand = isAssessmentConfidenceBand(
+                    event.target.value,
+                  )
+                    ? event.target.value
+                    : "unset";
+                  assessmentCreation.commands.updateDraft((current) => ({
+                    ...current,
+                    confidenceBand,
+                  }));
+                }}
+              >
+                {confidenceBandOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              Rationale
+              <textarea
+                data-testid={assessmentCreateControlTestId("rationale")}
+                disabled={isSubmitting}
+                rows={4}
+                style={textareaStyle}
+                value={draft.rationale}
+                onChange={(event) => {
+                  assessmentCreation.commands.updateDraft((current) => ({
+                    ...current,
+                    rationale: event.target.value,
                   }));
                 }}
               />
+            </label>
 
-              <button
-                data-testid={assessmentCreateControlTestId("submit")}
-                disabled={!canCreate || isSubmitting}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void assessmentCreation.commands.submit(canCreate);
+            <label style={labelStyle}>
+              Assessed
+              <input
+                data-testid={assessmentCreateControlTestId("assessed-at")}
+                disabled={isSubmitting}
+                placeholder="RFC3339 timestamp"
+                style={inputStyle}
+                type="text"
+                value={draft.assessedAt}
+                onChange={(event) => {
+                  assessmentCreation.commands.updateDraft((current) => ({
+                    ...current,
+                    assessedAt: event.target.value,
+                  }));
                 }}
-              >
-                Create assessment
-              </button>
-              {message ? (
-                <WorkbookInspectorPublicError
-                  error={message}
-                  testId={assessmentCreateControlTestId("message")}
-                />
-              ) : null}
-            </div>
-          </WorkbookInspectorShell>
+              />
+            </label>
+
+            <WorkbookRecordCandidatePicker
+              candidates={supportCandidates}
+              disabled={isSubmitting}
+              label="Support refs"
+              selectedRecordIds={draft.supportRecordIds}
+              testId={assessmentCreateControlTestId("support-refs")}
+              onSelectedRecordIdsChange={(supportRecordIds) => {
+                assessmentCreation.commands.updateDraft((current) => ({
+                  ...current,
+                  supportRecordIds,
+                }));
+              }}
+            />
+
+            <button
+              data-testid={assessmentCreateControlTestId("submit")}
+              disabled={!canCreate || isSubmitting}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={() => {
+                void assessmentCreation.commands.submit(canCreate);
+              }}
+            >
+              Create assessment
+            </button>
+          </AssessmentWorkbookInspector>
         ) : undefined
       }
       onRequestInspectorClose={cancelAssessmentDraft}
@@ -924,12 +856,6 @@ const labelStyle = {
   gap: "0.4rem",
   fontSize: "0.95rem",
   color: "var(--ct-colors-ink-muted)",
-};
-
-const inspectorSectionStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  marginBottom: "1rem",
 };
 
 const selectStyle = {

@@ -1,10 +1,9 @@
-import type { RollbackRecordRequest } from "@cartulary/protocol-ts/http";
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
+import { normalizeRecordHistoryData } from "../../inspector/workbookRecordHistoryModel";
 import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../../mutations/workbookOperationOutcome";
-import { normalizeRecordHistoryData } from "../models/timelineHistoryModel";
 import type {
   TimelineHistoryMutationAccepted,
   TimelineHistoryPort,
@@ -84,7 +83,7 @@ export function createTimelineHistoryAdapter(options: {
             base_row_version: input.baseRowVersion,
             client_txn_id: input.clientTxnId,
             reason: "Rollback from workbook history",
-            target: input.target as unknown as RollbackRecordRequest["target"],
+            target: input.target,
           },
         });
         return normalizeMutation(outcome, input.recordId);

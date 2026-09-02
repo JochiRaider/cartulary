@@ -12,6 +12,7 @@ import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { mapWorkbookKeyboardCommand } from "../../utils/workbookKeyboard";
 import type { TimelineScalarSaveOptions } from "../models/timelineControllerPorts";
@@ -80,10 +81,7 @@ export function useTimelineKeyboardController({
   readonly restoreTimelineFocusAnchor: (
     anchor: GridCellAnchor | WorkbookContinuityAnchor,
   ) => unknown;
-  readonly rowHistory: {
-    readonly recordId: string | null;
-    readonly status: string;
-  };
+  readonly rowHistory: WorkbookRecordHistoryState;
   readonly selectedRowId: string | null;
   readonly setInspectorMessage: (
     message: WorkbookInspectorFeedback | null,
@@ -142,8 +140,8 @@ export function useTimelineKeyboardController({
           anchor !== null &&
           (surface === "inspector" ||
             selectedRowId !== null ||
-            rowHistory.recordId !== null ||
-            rowHistory.status !== "idle"),
+            rowHistory.subject !== null ||
+            rowHistory.phase !== "idle"),
         mode: "editor",
         rowKind: anchor === null ? "draft" : "committed",
       });
@@ -228,8 +226,8 @@ export function useTimelineKeyboardController({
       queueScalarSave,
       recordTiming,
       restoreTimelineFocusAnchor,
-      rowHistory.recordId,
-      rowHistory.status,
+      rowHistory.phase,
+      rowHistory.subject,
       selectedRowId,
       workbookFocusAnchorRef,
     ],
@@ -247,8 +245,8 @@ export function useTimelineKeyboardController({
         closeInspector:
           anchor !== null &&
           (selectedRowId !== null ||
-            rowHistory.recordId !== null ||
-            rowHistory.status !== "idle"),
+            rowHistory.subject !== null ||
+            rowHistory.phase !== "idle"),
         mode: "editor",
         rowKind: anchor === null ? "draft" : "committed",
       });
@@ -307,8 +305,8 @@ export function useTimelineKeyboardController({
       currentTimelineAnchorFor,
       navigateTimelineFocusAnchor,
       queueCollectionSave,
-      rowHistory.recordId,
-      rowHistory.status,
+      rowHistory.phase,
+      rowHistory.subject,
       selectedRowId,
     ],
   );

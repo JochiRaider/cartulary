@@ -28,7 +28,6 @@ import {
 } from "@cartulary/ui-contracts";
 import type {
   InspectorDisabledCondition,
-  InspectorFeatureGroup,
   ViewContract,
 } from "@cartulary/view-contracts";
 import {
@@ -54,26 +53,20 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { CoordinationWorkflowBindings } from "../features/coordination/CoordinationWorkflowBindings";
 import { useEvidenceWorkbookBindings } from "../features/evidence/useEvidenceWorkbookBindings";
-import { IndicatorInspectorWorkflow } from "../features/indicators/IndicatorInspectorWorkflow";
-import {
-  type IndicatorInspectorHandler,
-  resolveIndicatorInspectorHandler,
-} from "../features/indicators/indicatorInspectorHandlers";
+import { GenericWorkbookInspector } from "../features/generic/GenericWorkbookInspector";
+import type { IndicatorInspectorHandler } from "../features/indicators/indicatorInspectorHandlers";
 import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericPartyLinkWorkflow";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
-import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
-import { WorkbookInspectorPublicError } from "../inspector/presentation/WorkbookInspectorFeedback";
-import {
-  WorkbookInspectorPanelSection,
-  WorkbookInspectorShell,
-} from "../inspector/presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
+import { inspectorRecordHistoryActions } from "../inspector/semanticInspectorDispatcher";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
-import { WorkbookInspectorContextualActions } from "../inspector/WorkbookInspectorContextualActions";
-import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
-import { workbookInspectorLocalErrorPresentation } from "../inspector/workbookInspectorErrorModel";
+import {
+  type WorkbookInspectorFeedback,
+  workbookInspectorLocalErrorPresentation,
+} from "../inspector/workbookInspectorErrorModel";
+import type { WorkbookRecordHistorySubject } from "../inspector/workbookRecordHistoryModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -216,6 +209,10 @@ export function ContractWorkbookSurface({
     initialGenericCreateDraft(contract, currentUserId),
   );
   const [editRecordId, setEditRecordId] = useState("");
+  const [deletedHistorySubject, setDeletedHistorySubject] =
+    useState<WorkbookRecordHistorySubject | null>(null);
+  const [relatedFeedback, setRelatedFeedback] =
+    useState<WorkbookInspectorFeedback | null>(null);
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
   const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
@@ -259,14 +256,30 @@ export function ContractWorkbookSurface({
     mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
   const inspectorSubjectRow =
     rows.find((row) => row.record_id === editRecordId) ?? null;
+  const recordHistorySubject: WorkbookRecordHistorySubject | null =
+    inspectorSubjectRow === null
+      ? deletedHistorySubject
+      : {
+          kind: "live",
+          recordId: inspectorSubjectRow.record_id,
+          rowVersion: inspectorSubjectRow.row_version,
+        };
+  const recordHistoryActions = useMemo(
+    () => inspectorRecordHistoryActions(inspectorConfig),
+    [inspectorConfig],
+  );
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
-      resetOwnerState: ({ scope }) => {
+      resetOwnerState: ({ cause, scope }) => {
         setEditValue("");
         setLinkedNoteSourceRecordId("");
         setEditCollectionMode("add");
         setPartyLinkExistingPartyId("");
         clearMutationError();
+        setRelatedFeedback(null);
+        if (cause === "close" || scope === "surface") {
+          setDeletedHistorySubject(null);
+        }
         if (scope === "surface") {
           continuityPortRef.current?.clear();
           setEditRecordId("");
@@ -283,11 +296,11 @@ export function ContractWorkbookSurface({
     config: inspectorConfig,
     lifecycleKey: inspectorResetKey,
     subject:
-      inspectorSubjectRow === null
+      recordHistorySubject === null
         ? null
         : {
-            recordId: inspectorSubjectRow.record_id,
-            rowVersion: inspectorSubjectRow.row_version,
+            recordId: recordHistorySubject.recordId,
+            rowVersion: recordHistorySubject.rowVersion,
             viewSchemaId: contract.viewSchemaId,
           },
   });
@@ -730,10 +743,7 @@ export function ContractWorkbookSurface({
     currentUserId,
     mutationCommands: mutationCommands.timeline.related,
     onCreated: refreshReferenceOptions,
-    onMessage: (message) => {
-      if (message === null) clearMutationError();
-      else setValidationError(message);
-    },
+    onFeedback: setRelatedFeedback,
     selectedSubject:
       inspectorSubjectRow === null
         ? null
@@ -753,65 +763,6 @@ export function ContractWorkbookSurface({
     if (incidentClosed) tokens.add("incident_closed");
     return tokens;
   }, [incidentClosed, selectedEditRow]);
-  const executeInspectorRecordLifecycle = useCallback(
-    async (featureGroup: InspectorFeatureGroup): Promise<boolean> => {
-      if (
-        featureGroup.routeBinding.kind !== "record_action" ||
-        featureGroup.routeBinding.owner !== "record_delete_route"
-      ) {
-        return false;
-      }
-      if (inspectorSubjectRow === null) {
-        setValidationError("Select a saved row before running this action.");
-        return true;
-      }
-      beginMutation();
-      const outcome = await mutationCommands.records.execute({
-        action: "delete",
-        baseRowVersion: inspectorSubjectRow.row_version,
-        reason: `Deleted from the ${contract.title} inspector`,
-        recordId: inspectorSubjectRow.record_id,
-      });
-      if (outcome.kind === "rejected") {
-        rejectMutationFailure(outcome.failure);
-        return true;
-      }
-      setEditRecordId("");
-      inspector.commands.completeAction();
-      await completeGenericMutation();
-      return true;
-    },
-    [
-      beginMutation,
-      completeGenericMutation,
-      contract.title,
-      inspector.commands,
-      inspectorSubjectRow,
-      mutationCommands.records,
-      rejectMutationFailure,
-      setValidationError,
-    ],
-  );
-  const handleInspectorFeatureAction = useCallback(
-    (featureGroup: InspectorFeatureGroup) => {
-      const indicatorHandler = resolveIndicatorInspectorHandler(
-        contract.viewSchemaId,
-        featureGroup,
-      );
-      setIndicatorInspectorHandler(indicatorHandler);
-      if (indicatorHandler !== null) return;
-      if (createRelatedWorkflow.commands.begin(featureGroup)) return;
-      if (featureGroup.routeBinding.kind === "record_action") {
-        void executeInspectorRecordLifecycle(featureGroup);
-      }
-    },
-    [
-      contract.viewSchemaId,
-      createRelatedWorkflow.commands,
-      executeInspectorRecordLifecycle,
-    ],
-  );
-
   useEffect(() => {
     if (selectedEditField?.writeKind !== "action_payload") {
       setEditCollectionMode("add");
@@ -938,103 +889,106 @@ export function ContractWorkbookSurface({
     surfaceLabel: contract.title,
   });
   const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
-    inspectorSubjectRow === null
+    recordHistorySubject === null
       ? null
-      : {
-          label: genericInspectorRowLabel(contract, inspectorSubjectRow),
-          recordId: inspectorSubjectRow.record_id,
-          rowVersion: inspectorSubjectRow.row_version,
-          surfaceLabel: contract.title,
-        };
+      : recordHistorySubject.kind === "deleted"
+        ? {
+            label: "Deleted record",
+            recordId: recordHistorySubject.recordId,
+            rowVersion: recordHistorySubject.rowVersion,
+            stateLabel: "Deleted",
+            surfaceLabel: contract.title,
+          }
+        : inspectorSubjectRow === null
+          ? null
+          : {
+              label: genericInspectorRowLabel(contract, inspectorSubjectRow),
+              recordId: inspectorSubjectRow.record_id,
+              rowVersion: inspectorSubjectRow.row_version,
+              surfaceLabel: contract.title,
+            };
 
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
         isInspectorOpen ? (
-          <WorkbookInspectorShell
-            accessibleLabel={`${contract.title} inspector`}
-            noRowHeading={`${contract.title} inspector`}
+          <GenericWorkbookInspector
+            config={inspectorConfig}
+            currentIncidentRole={currentIncidentRole}
+            disabledTokens={genericInspectorDisabledTokens}
+            evidenceContent={
+              inspectorSubjectRow === null
+                ? null
+                : ownerRecordActions.renderRecordActions(inspectorSubjectRow)
+            }
+            history={{
+              actions: recordHistoryActions,
+              canMutate:
+                interactionMode.kind === "editable" &&
+                currentIncidentRole !== null &&
+                currentIncidentRole !== "viewer",
+              commands: mutationCommands.records,
+              effects: {
+                deleteAccepted: async (accepted) => {
+                  setIndicatorInspectorHandler(null);
+                  createRelatedWorkflow.commands.cancel();
+                  setEditRecordId("");
+                  setDeletedHistorySubject({
+                    kind: "deleted",
+                    recordId: accepted.recordId,
+                    rowVersion: accepted.rowVersion,
+                  });
+                  await onRefresh();
+                },
+                restoreAccepted: async (accepted) => {
+                  await onRefresh();
+                  setDeletedHistorySubject(null);
+                  setEditRecordId(accepted.recordId);
+                },
+                rollbackAccepted: async () => {
+                  await onRefresh();
+                },
+              },
+              subject: recordHistorySubject,
+            }}
+            indicator={
+              selectedEditRow === null
+                ? null
+                : {
+                    handler: indicatorInspectorHandler,
+                    onMutationCommitted: onRefresh,
+                    port: mutationCommands.indicators,
+                    recordId: selectedEditRow.record_id,
+                    rowVersion: selectedEditRow.row_version,
+                    select: setIndicatorInspectorHandler,
+                  }
+            }
+            mutationError={mutationError}
+            referenceLoadError={
+              referenceLoadError === null
+                ? null
+                : workbookInspectorLocalErrorPresentation(referenceLoadError)
+            }
+            referenceLoadErrorTestId={genericWorkbookTestId(
+              "reference-load-error",
+            )}
+            related={{
+              begin: createRelatedWorkflow.commands.begin,
+              cancel: createRelatedWorkflow.commands.cancel,
+              referenceOptions,
+              state: createRelatedWorkflow.snapshot.workflow,
+              submit: createRelatedWorkflow.commands.submit,
+              updateDraft: createRelatedWorkflow.commands.updateDraft,
+            }}
+            relatedFeedback={relatedFeedback}
             subject={inspectorSubjectPresentation}
+            surfaceTitle={contract.title}
             viewSchemaId={surface}
             onClose={() => {
               inspector.commands.close({ restoreFocus: true });
             }}
           >
-            {inspectorConfig.panels.map((panel) => (
-              <WorkbookInspectorPanelSection
-                config={inspectorConfig}
-                key={panel.panelId}
-                panelId={panel.panelId}
-              >
-                {inspectorSubjectPresentation === null ? null : (
-                  <WorkbookInspectorContextualActions
-                    config={inspectorConfig}
-                    currentIncidentRole={currentIncidentRole}
-                    disabledTokens={genericInspectorDisabledTokens}
-                    featureGroups={inspectorConfig.featureGroups.filter(
-                      (featureGroup) =>
-                        featureGroup.panelId === panel.panelId &&
-                        (featureGroup.routeBinding.kind === "view_row_create" ||
-                          featureGroup.routeBinding.kind ===
-                            "indicator_observations" ||
-                          featureGroup.routeBinding.kind ===
-                            "indicator_lifecycle" ||
-                          (featureGroup.routeBinding.kind === "record_action" &&
-                            featureGroup.routeBinding.owner ===
-                              "record_delete_route")),
-                    )}
-                    subject={inspectorSubjectPresentation}
-                    onAction={handleInspectorFeatureAction}
-                  />
-                )}
-                {indicatorInspectorHandler?.panelId === panel.panelId &&
-                selectedEditRow !== null ? (
-                  <IndicatorInspectorWorkflow
-                    action={indicatorInspectorHandler.action}
-                    indicatorRecordId={selectedEditRow.record_id}
-                    port={mutationCommands.indicators}
-                    rowVersion={selectedEditRow.row_version}
-                    onMutationCommitted={onRefresh}
-                  />
-                ) : null}
-                {createRelatedWorkflow.snapshot.workflow?.featureGroup
-                  .panelId === panel.panelId ? (
-                  <InspectorCreateRelatedWorkflow
-                    referenceOptions={referenceOptions}
-                    state={createRelatedWorkflow.snapshot.workflow}
-                    onCancel={createRelatedWorkflow.commands.cancel}
-                    onSubmit={() => {
-                      void createRelatedWorkflow.commands.submit();
-                    }}
-                    onUpdateDraft={createRelatedWorkflow.commands.updateDraft}
-                  />
-                ) : null}
-                {panel.panelId === "history" ? (
-                  <WorkbookInspectorRecordHistory
-                    canMutate={
-                      interactionMode.kind === "editable" &&
-                      currentIncidentRole !== null &&
-                      currentIncidentRole !== "viewer"
-                    }
-                    commands={mutationCommands.records}
-                    subject={
-                      inspectorSubjectRow === null
-                        ? null
-                        : {
-                            recordId: inspectorSubjectRow.record_id,
-                            rowVersion: inspectorSubjectRow.row_version,
-                          }
-                    }
-                    onMessage={setValidationError}
-                    onRefresh={onRefresh}
-                  />
-                ) : null}
-                {panel.panelId === "evidence" && inspectorSubjectRow !== null
-                  ? ownerRecordActions.renderRecordActions(inspectorSubjectRow)
-                  : null}
-              </WorkbookInspectorPanelSection>
-            ))}
             {isNotesSurface ? (
               <label
                 htmlFor={genericWorkbookTestId("note-source-record")}
@@ -1327,20 +1281,7 @@ export function ContractWorkbookSurface({
                 rows={rows}
               />
             ) : null}
-
-            {referenceLoadError ? (
-              <WorkbookInspectorPublicError
-                error={workbookInspectorLocalErrorPresentation(
-                  referenceLoadError,
-                )}
-                testId={genericWorkbookTestId("reference-load-error")}
-              />
-            ) : null}
-
-            {mutationError ? (
-              <WorkbookInspectorPublicError error={mutationError} />
-            ) : null}
-          </WorkbookInspectorShell>
+          </GenericWorkbookInspector>
         ) : undefined
       }
       onRequestInspectorClose={() => {

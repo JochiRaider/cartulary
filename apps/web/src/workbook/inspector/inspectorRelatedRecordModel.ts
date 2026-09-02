@@ -9,12 +9,12 @@ import {
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 import type { WorkbookInspectorErrorPresentation } from "./workbookInspectorErrorModel";
 
-export type InspectorRelatedRecordSubject = {
+type InspectorRelatedRecordSubject = {
   readonly cells: Readonly<Record<string, { readonly value: unknown }>>;
   readonly recordId: string;
 };
 
-export type InspectorRelatedRecordDraftResult =
+type InspectorRelatedRecordDraftResult =
   | {
       readonly kind: "ready";
       readonly draft: Record<string, string>;

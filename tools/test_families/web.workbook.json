@@ -634,8 +634,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts",
         "titles": [
-          "timelineWorkbookFeaturePolicy fails closed for unsupported schemas and altered semantic tuple members",
-          "timelineWorkbookFeaturePolicy resolves every canonical Timeline create-related and Indicator tuple"
+          "timelineWorkbookFeaturePolicy owns the exact contracts needed by every Timeline create-related target"
         ]
       },
       "evidence_class": "unit",

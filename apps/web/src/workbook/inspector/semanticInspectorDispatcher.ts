@@ -9,7 +9,7 @@ import {
   semanticInspectorRegistrations,
 } from "./semanticInspectorRegistry";
 
-export type SemanticInspectorFeatureResolution =
+type SemanticInspectorFeatureResolution =
   | {
       readonly kind: "supported";
       readonly disposition: SemanticInspectorDisposition;
@@ -17,6 +17,37 @@ export type SemanticInspectorFeatureResolution =
       readonly semanticKey: string;
     }
   | { readonly kind: "unsupported" };
+
+export type InspectorRecordHistoryAction = "delete" | "restore" | "rollback";
+
+export type InspectorOwnerCapability =
+  | {
+      readonly kind: "create_related";
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly semanticKey: string;
+    }
+  | {
+      readonly kind: "indicator";
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly semanticKey: string;
+    }
+  | {
+      readonly kind: "record_history";
+      readonly action: InspectorRecordHistoryAction;
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly semanticKey: string;
+    }
+  | {
+      readonly kind: "existing_owner_control";
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly semanticKey: string;
+    }
+  | { readonly kind: "unsupported" };
+
+export type InspectorContextualCapability = Exclude<
+  InspectorOwnerCapability,
+  { readonly kind: "existing_owner_control" } | { readonly kind: "unsupported" }
+>;
 
 const registeredInspectorDispositionByKey = buildRegistrationLookup();
 
@@ -65,6 +96,100 @@ export function resolveSemanticInspectorFeature(
     featureGroup,
     semanticKey,
   };
+}
+
+export function resolveInspectorOwnerCapability(
+  config: InspectorConfig,
+  featureGroupKey: string,
+): InspectorOwnerCapability {
+  const semantic = resolveSemanticInspectorFeature(config, featureGroupKey);
+  if (semantic.kind === "unsupported") return semantic;
+  const { featureGroup, semanticKey } = semantic;
+  if (semantic.disposition === "direct_history_action") {
+    const action = recordHistoryAction(featureGroup);
+    return action === null
+      ? { kind: "unsupported" }
+      : { action, featureGroup, kind: "record_history", semanticKey };
+  }
+  if (
+    featureGroup.routeBinding.kind === "indicator_observations" ||
+    featureGroup.routeBinding.kind === "indicator_lifecycle"
+  ) {
+    return { featureGroup, kind: "indicator", semanticKey };
+  }
+  if (
+    semantic.disposition === "contextual_workflow_or_pivot" &&
+    featureGroup.routeBinding.kind === "view_row_create" &&
+    featureGroup.routeBinding.owner === "view_row_create_route"
+  ) {
+    return { featureGroup, kind: "create_related", semanticKey };
+  }
+  return { featureGroup, kind: "existing_owner_control", semanticKey };
+}
+
+export function inspectorContextualCapabilities({
+  config,
+  panelId,
+  recordHistoryActions = [],
+}: {
+  readonly config: InspectorConfig;
+  readonly panelId: InspectorFeatureGroup["panelId"];
+  readonly recordHistoryActions?: readonly InspectorRecordHistoryAction[];
+}): readonly InspectorContextualCapability[] {
+  const allowedHistoryActions = new Set(recordHistoryActions);
+  return config.featureGroups.flatMap((featureGroup) => {
+    if (featureGroup.panelId !== panelId) return [];
+    const capability = resolveInspectorOwnerCapability(
+      config,
+      featureGroup.featureGroupKey,
+    );
+    if (
+      capability.kind === "unsupported" ||
+      capability.kind === "existing_owner_control" ||
+      (capability.kind === "record_history" &&
+        !allowedHistoryActions.has(capability.action))
+    ) {
+      return [];
+    }
+    return [capability];
+  });
+}
+
+export function inspectorRecordHistoryActions(
+  config: InspectorConfig,
+): ReadonlySet<InspectorRecordHistoryAction> {
+  const actions = new Set<InspectorRecordHistoryAction>();
+  for (const featureGroup of config.featureGroups) {
+    const capability = resolveInspectorOwnerCapability(
+      config,
+      featureGroup.featureGroupKey,
+    );
+    if (capability.kind === "record_history") {
+      actions.add(capability.action);
+    }
+  }
+  return actions;
+}
+
+function recordHistoryAction(
+  featureGroup: InspectorFeatureGroup,
+): InspectorRecordHistoryAction | null {
+  if (
+    featureGroup.routeBinding.kind !== "record_action" ||
+    featureGroup.routeBinding.actionKey !== featureGroup.featureGroupKey
+  ) {
+    return null;
+  }
+  switch (featureGroup.routeBinding.owner) {
+    case "record_delete_route":
+      return "delete";
+    case "record_restore_route":
+      return "restore";
+    case "record_rollback_route":
+      return "rollback";
+    default:
+      return null;
+  }
 }
 
 export function inspectorFeatureDisabledTokens({

@@ -39,6 +39,52 @@ describe("workbook surface ownership policy", () => {
     expect(source).not.toContain('field_key: "task.status"');
     expect(source).not.toContain("/supersede");
     expect(source).not.toContain("createAndAttachEvidenceBlob");
+
+    for (const [rootPath, ownerModulePath, ownerComponent] of [
+      [
+        "components/GenericWorkbookSurface.tsx",
+        "features/generic/GenericWorkbookInspector.tsx",
+        "GenericWorkbookInspector",
+      ],
+      [
+        "components/EntityWorkbookSurface.tsx",
+        "features/entities/EntityWorkbookInspector.tsx",
+        "EntityWorkbookInspector",
+      ],
+      [
+        "components/AssessmentWorkbookSurface.tsx",
+        "features/assessments/AssessmentWorkbookInspector.tsx",
+        "AssessmentWorkbookInspector",
+      ],
+    ] as const) {
+      const rootSource = readFileSync(
+        path.join(workbookDirectory, rootPath),
+        "utf8",
+      );
+      const ownerSource = readFileSync(
+        path.join(workbookDirectory, ownerModulePath),
+        "utf8",
+      );
+      expect(rootSource, rootPath).toContain(`<${ownerComponent}`);
+      expect(rootSource, rootPath).not.toContain("inspectorConfig.panels");
+      expect(rootSource, rootPath).not.toContain(
+        "WorkbookInspectorPanelSection",
+      );
+      expect(rootSource, rootPath).not.toContain("WorkbookInspectorShell");
+      expect(rootSource, rootPath).not.toContain(
+        "InspectorContextualCapability",
+      );
+      expect(rootSource, rootPath).not.toContain("capability.kind");
+      expect(ownerSource, ownerModulePath).toContain(
+        "WorkbookInspectorPanelSection",
+      );
+      expect(ownerSource, ownerModulePath).toContain(
+        "WorkbookInspectorContextualActions",
+      );
+      expect(ownerSource, ownerModulePath).toContain(
+        "WorkbookInspectorRecordHistory",
+      );
+    }
   });
 
   it("keeps assessment semantics out of Timeline and vendor grid imports behind the adapter", () => {

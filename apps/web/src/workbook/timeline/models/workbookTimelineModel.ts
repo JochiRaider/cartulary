@@ -5,6 +5,7 @@ import {
 } from "@cartulary/view-contracts";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import type { WorkbookSameFieldConflictPayload } from "../../runtime/workbookConflictModel";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import {
   type CollectionItem,
@@ -76,20 +77,7 @@ export type WorkbookRow = WorkbookVersionedRecord & {
   rawRow: TimelineApiRow | null;
 };
 
-export type SameFieldConflictPayload = {
-  conflict_token: string;
-  record_id: string;
-  field_key: string;
-  conflict_resolution_class: string;
-  base_row_version: number;
-  current_row_version: number;
-  client_value: unknown;
-  server_value: unknown;
-  base_value?: unknown;
-  server_updated_by?: string;
-  server_updated_at?: string;
-  suggested_merged_value?: unknown;
-};
+export type SameFieldConflictPayload = WorkbookSameFieldConflictPayload;
 
 export type LocalConflictState = {
   key: string;
@@ -662,53 +650,6 @@ export function buildCollectionPatchIntent(
       {
         field_key: fieldKey,
         action_payload: actionPayload,
-      },
-    ],
-  };
-}
-
-export function buildAttachedEvidenceCreatePayload(
-  evidenceRecordId: string,
-  clientTxnId: string,
-) {
-  return {
-    client_txn_id: clientTxnId,
-    "timeline.attached_evidence_ids": {
-      kind: "collection_actions_v1",
-      actions: [
-        {
-          op: "add_record_ref",
-          linked_record_id: evidenceRecordId,
-        },
-      ],
-    },
-  };
-}
-
-export function buildAttachedEvidencePatchPayload(
-  row: WorkbookRow,
-  evidenceRecordId: string,
-  clientTxnId: string,
-) {
-  if (row.rowVersion === null) {
-    return null;
-  }
-  return {
-    view_schema_id: timelineViewSchemaId,
-    base_row_version: row.rowVersion,
-    client_txn_id: clientTxnId,
-    changes: [
-      {
-        field_key: "timeline.attached_evidence_ids",
-        action_payload: {
-          kind: "collection_actions_v1",
-          actions: [
-            {
-              op: "add_record_ref",
-              linked_record_id: evidenceRecordId,
-            },
-          ],
-        },
       },
     ],
   };

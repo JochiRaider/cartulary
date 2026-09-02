@@ -63,11 +63,12 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly history: {
       readonly commands: Pick<
         HistoryInput,
+        | "beginRowHistoryOperation"
         | "beginRowHistoryRequest"
         | "currentHistoryRecordIdMatches"
+        | "dispatchRowHistory"
+        | "retargetRowHistory"
         | "rowHistoryRequestIsCurrent"
-        | "setRowHistory"
-        | "setRowHistoryPendingAction"
       > &
         Pick<
           InspectorLifecycleInput,
@@ -194,6 +195,7 @@ export function useTimelineInspectorWorkflowComposition({
     cancelRowHistoryRequests:
       inspector.history.commands.cancelRowHistoryRequests,
     clearRowHistory: inspector.history.commands.clearRowHistory,
+    dispatchRowHistory: inspector.history.commands.dispatchRowHistory,
     gridShellRef: grid.gridShellRef,
     inspectorInvalidationCause: inspector.lifecycle.invalidationCause,
     inspectorMentions: inspector.selection.inspectorMentions,
@@ -205,9 +207,6 @@ export function useTimelineInspectorWorkflowComposition({
     selectedRowId: inspector.selection.selectedRowId,
     setInspectorMessage: inspector.publishFeedback,
     setIsInspectorOpen: inspector.setOpen,
-    setRowHistory: inspector.history.commands.setRowHistory,
-    setRowHistoryPendingAction:
-      inspector.history.commands.setRowHistoryPendingAction,
     setSelectedMentionRef: foundation.setSelectedMentionRef,
     setSelectedResolveTargetId: foundation.setSelectedResolveTargetId,
     setSelectedRowId: inspector.selectRow,
@@ -217,6 +216,8 @@ export function useTimelineInspectorWorkflowComposition({
     acceptTimelineRecordVersion: mutation.commands.acceptTimelineRecordVersion,
     activeHistoryLiveRecordId:
       inspector.history.snapshot.activeHistoryLiveRecordId,
+    beginRowHistoryOperation:
+      inspector.history.commands.beginRowHistoryOperation,
     beginRowHistoryRequest: inspector.history.commands.beginRowHistoryRequest,
     beginSave: mutation.commands.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
@@ -226,21 +227,20 @@ export function useTimelineInspectorWorkflowComposition({
       inspector.history.commands.currentHistoryRecordIdMatches,
     currentHistoryRowVersion:
       inspector.history.snapshot.currentHistoryRowVersion,
+    dispatchRowHistory: inspector.history.commands.dispatchRowHistory,
     enqueueSaveWork: mutation.commands.enqueueSaveWork,
     finishSave: mutation.commands.finishSave,
     historyPort: foundation.historyPort,
     loadRows: mutation.loadRows,
     nextClientTxnId: mutation.commands.nextClientTxnId,
     resolvePendingSocketTxn: mutation.commands.resolvePendingSocketTxn,
+    retargetRowHistory: inspector.history.commands.retargetRowHistory,
     rowHistory: inspector.history.snapshot.rowHistory,
     rowHistoryPendingAction: inspector.history.snapshot.rowHistoryPendingAction,
     rowHistoryRequestIsCurrent:
       inspector.history.commands.rowHistoryRequestIsCurrent,
     selectedRowRecordId: inspector.selection.selectedRow?.recordId ?? null,
     setIsInspectorOpen: inspector.setOpen,
-    setRowHistory: inspector.history.commands.setRowHistory,
-    setRowHistoryPendingAction:
-      inspector.history.commands.setRowHistoryPendingAction,
     setSelectedRowId: inspector.selectRow,
     trackPendingSocketTxn: mutation.commands.trackPendingSocketTxn,
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,

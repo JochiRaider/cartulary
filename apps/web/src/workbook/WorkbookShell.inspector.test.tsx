@@ -49,8 +49,8 @@ import {
   timelineRowsEnvelope,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import type { RecordHistoryItem } from "./inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import type { RecordHistoryItem } from "./timeline/models/timelineHistoryModel";
 
 vi.mock(
   "@cartulary/grid-adapter",

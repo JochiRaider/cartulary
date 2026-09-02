@@ -14,12 +14,12 @@ import {
   workbookInspectorSubjectsEqual,
 } from "../models/workbookInspectorModel";
 
-export type WorkbookInspectorOwnerActionPorts = {
+type WorkbookInspectorOwnerActionPorts = {
   readonly resetOwnerState: (event: WorkbookInspectorResetEvent) => void;
   readonly restoreFocus: () => void;
 };
 
-export type WorkbookInspectorResetCause =
+type WorkbookInspectorResetCause =
   | "close"
   | "retarget"
   | "action_completed"
@@ -30,14 +30,14 @@ export type WorkbookInspectorResetCause =
   | "record_merged"
   | "hard_refresh";
 
-export type WorkbookInspectorResetScope = "row_local" | "surface";
+type WorkbookInspectorResetScope = "row_local" | "surface";
 
-export type WorkbookInspectorResetEvent = {
+type WorkbookInspectorResetEvent = {
   readonly cause: WorkbookInspectorResetCause;
   readonly scope: WorkbookInspectorResetScope;
 };
 
-export function workbookInspectorResetScope(
+function workbookInspectorResetScope(
   cause: WorkbookInspectorResetCause,
 ): WorkbookInspectorResetScope {
   switch (cause) {

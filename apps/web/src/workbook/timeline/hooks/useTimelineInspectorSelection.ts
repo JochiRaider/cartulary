@@ -22,13 +22,13 @@ import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import type {
+  WorkbookRecordHistoryEvent,
+  WorkbookRecordHistoryState,
+} from "../../inspector/workbookRecordHistoryModel";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
-import type {
-  RecordHistoryState,
-  RowHistoryPendingAction,
-} from "../models/timelineHistoryModel";
 import {
   buildInspectorMentions,
   type DismissedMention,
@@ -329,10 +329,9 @@ export function useTimelineInspectorLifecycle({
   rows,
   selectedMentionRef,
   selectedRowId,
+  dispatchRowHistory,
   setInspectorMessage,
   setIsInspectorOpen,
-  setRowHistory,
-  setRowHistoryPendingAction,
   setSelectedMentionRef,
   setSelectedResolveTargetId,
   setSelectedRowId,
@@ -347,18 +346,15 @@ export function useTimelineInspectorLifecycle({
   readonly restoreTimelineFocusAnchor: (
     anchor: WorkbookContinuityAnchor,
   ) => boolean;
-  readonly rowHistory: RecordHistoryState;
+  readonly rowHistory: WorkbookRecordHistoryState;
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
   readonly selectedRowId: string | null;
+  readonly dispatchRowHistory: (event: WorkbookRecordHistoryEvent) => void;
   readonly setInspectorMessage: (
     message: WorkbookInspectorFeedback | null,
   ) => void;
   readonly setIsInspectorOpen: Dispatch<SetStateAction<boolean>>;
-  readonly setRowHistory: Dispatch<SetStateAction<RecordHistoryState>>;
-  readonly setRowHistoryPendingAction: Dispatch<
-    SetStateAction<RowHistoryPendingAction | null>
-  >;
   readonly setSelectedMentionRef: Dispatch<SetStateAction<string | null>>;
   readonly setSelectedResolveTargetId: Dispatch<SetStateAction<string>>;
   readonly setSelectedRowId: Dispatch<SetStateAction<string | null>>;
@@ -380,24 +376,14 @@ export function useTimelineInspectorLifecycle({
       setSelectedRowId(null);
       setSelectedMentionRef(null);
       setSelectedResolveTargetId("");
-      setRowHistory((current) => {
-        if (
-          current.recordId !== selectedRowId ||
-          current.data?.deleted === true
-        ) {
-          return current;
-        }
+      if (
+        rowHistory.subject?.recordId === selectedRowId &&
+        rowHistory.data?.deleted !== true
+      ) {
         cancelRowHistoryRequests();
-        return {
-          recordId: null,
-          status: "idle",
-          data: null,
-          error: null,
-        };
-      });
-      setRowHistoryPendingAction((current) =>
-        current?.recordId === selectedRowId ? null : current,
-      );
+        dispatchRowHistory({ type: "clear" });
+      }
+      dispatchRowHistory({ type: "cancel" });
       setInspectorMessage(
         workbookInspectorMessageFeedback(
           deletedHistoryMatchesSelectedRow
@@ -437,14 +423,14 @@ export function useTimelineInspectorLifecycle({
     }
   }, [
     cancelRowHistoryRequests,
+    dispatchRowHistory,
     gridShellRef,
     restoreTimelineFocusAnchor,
     rowHistory.data,
+    rowHistory.subject?.recordId,
     rows,
     selectedRowId,
     setInspectorMessage,
-    setRowHistory,
-    setRowHistoryPendingAction,
     setSelectedMentionRef,
     setSelectedResolveTargetId,
     setSelectedRowId,
@@ -490,15 +476,15 @@ export function useTimelineInspectorLifecycle({
     previousInvalidationGenerationRef.current = inspectorInvalidationGeneration;
     setSelectedMentionRef(null);
     setSelectedResolveTargetId("");
-    setRowHistoryPendingAction(null);
+    dispatchRowHistory({ type: "cancel" });
     if (inspectorInvalidationCause !== "retarget") {
       clearRowHistory();
     }
   }, [
     clearRowHistory,
+    dispatchRowHistory,
     inspectorInvalidationCause,
     inspectorInvalidationGeneration,
-    setRowHistoryPendingAction,
     setSelectedMentionRef,
     setSelectedResolveTargetId,
   ]);

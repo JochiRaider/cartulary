@@ -271,8 +271,8 @@ export function useTimelineWorkbookComposition({
     inspector: {
       commands: {
         history: {
-          setRowHistoryPendingAction:
-            inspector.commands.history.setRowHistoryPendingAction,
+          cancelRowHistoryPendingAction:
+            workflow.commands.history.cancelRowHistoryPendingAction,
         },
         publishFeedback: inspector.commands.publishFeedback,
         setOpen: inspector.commands.setOpen,

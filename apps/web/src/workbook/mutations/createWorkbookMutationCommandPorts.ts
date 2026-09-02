@@ -21,6 +21,7 @@ import {
   createWorkbookOperationExecutor,
   type WorkbookOperationExecutor,
 } from "../adapters/workbookOperationExecutor";
+import { normalizeRecordHistoryData } from "../inspector/workbookRecordHistoryModel";
 import { buildAssessmentCreatePayload } from "../models/assessmentWorkbookModel";
 import {
   buildGenericCreatePayload,
@@ -33,11 +34,8 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import { normalizeRecordHistoryData } from "../timeline/models/timelineHistoryModel";
-import {
-  buildAttachedEvidencePatchPayload,
-  normalizeTimelineFullRow,
-} from "../timeline/models/workbookTimelineModel";
+import { buildAttachedEvidencePatchRequest } from "../timeline/adapters/timelineEvidenceRequestBuilders";
+import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
 import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
@@ -623,7 +621,7 @@ export function createWorkbookMutationCommandPorts(
             "timeline-link-created-evidence",
           );
           if (clientTxnId === null) return operationIdentityFailure();
-          const request = buildAttachedEvidencePatchPayload(
+          const request = buildAttachedEvidencePatchRequest(
             input.sourceRow,
             input.createdRecordId,
             clientTxnId,

@@ -1,12 +1,15 @@
 import type { InspectorFeatureGroup } from "@cartulary/view-contracts";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import type { IndicatorInspectorHandler } from "../../features/indicators/indicatorInspectorHandlers";
+import {
+  type IndicatorInspectorHandler,
+  resolveIndicatorInspectorHandler,
+} from "../../features/indicators/indicatorInspectorHandlers";
+import type { InspectorContextualCapability } from "../../inspector/semanticInspectorDispatcher";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { resolveTimelineWorkbookFeature } from "../models/timelineWorkbookFeaturePolicy";
 
 export type TimelineInspectorFeatureLifecycle = {
   readonly authorizationKey: string;
@@ -55,34 +58,39 @@ export function useTimelineInspectorFeatureController({
   }, [cancelCreateRelatedWorkflow, lifecycle, setInspectorMessage]);
 
   const handleFeatureAction = useCallback(
-    (featureGroup: InspectorFeatureGroup) => {
-      const resolution = resolveTimelineWorkbookFeature(
-        timelineViewSchemaId,
-        featureGroup.featureGroupKey,
-      );
-      if (resolution.kind === "indicator") {
-        cancelCreateRelatedWorkflow();
-        setIndicatorHandler(resolution.handler);
-        setInspectorMessage(null);
-        return;
+    (capability: InspectorContextualCapability) => {
+      switch (capability.kind) {
+        case "indicator": {
+          const handler = resolveIndicatorInspectorHandler(
+            timelineViewSchemaId,
+            capability.featureGroup,
+          );
+          cancelCreateRelatedWorkflow();
+          setIndicatorHandler(handler);
+          setInspectorMessage(
+            handler === null
+              ? workbookInspectorMessageFeedback(
+                  "Inspector action is unavailable.",
+                  "none",
+                )
+              : null,
+          );
+          return;
+        }
+        case "create_related":
+          setIndicatorHandler(null);
+          beginCreateRelatedWorkflow(capability.featureGroup);
+          return;
+        case "record_history":
+          setIndicatorHandler(null);
+          cancelCreateRelatedWorkflow();
+          setInspectorMessage(
+            workbookInspectorMessageFeedback(
+              "Inspector action is unavailable.",
+              "none",
+            ),
+          );
       }
-      setIndicatorHandler(null);
-      if (resolution.kind === "create_related") {
-        beginCreateRelatedWorkflow(resolution.featureGroup);
-        return;
-      }
-      if (resolution.kind === "panel_owned") {
-        cancelCreateRelatedWorkflow();
-        setInspectorMessage(null);
-        return;
-      }
-      cancelCreateRelatedWorkflow();
-      setInspectorMessage(
-        workbookInspectorMessageFeedback(
-          "Inspector action is unavailable.",
-          "none",
-        ),
-      );
     },
     [
       beginCreateRelatedWorkflow,

@@ -27,7 +27,7 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function baseStartup(viewSchemaId = hostsViewSchemaId) {
+function baseStartup(viewSchemaId: string = hostsViewSchemaId) {
   return {
     incident_id: "incident-1",
     extension_workspace_availability: { workspaces: [] },

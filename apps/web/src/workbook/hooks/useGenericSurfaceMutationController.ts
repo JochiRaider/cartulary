@@ -11,9 +11,9 @@ import type {
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 
-export type GenericMutationSaveState = "Syncing" | "Saved" | "Conflict";
+type GenericMutationSaveState = "Syncing" | "Saved" | "Conflict";
 
-export type GenericPatchMutationRequest = {
+type GenericPatchMutationRequest = {
   readonly baseRowVersion: number;
   readonly changes: readonly Record<string, unknown>[];
   readonly purpose: string;

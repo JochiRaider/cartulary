@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   applyViewRowPatch,
-  buildAttachedEvidenceCreatePayload,
-  buildAttachedEvidencePatchPayload,
   buildCollectionPatchIntent,
   buildExpandedTimelineColumnWidths,
   buildScalarPatchIntent,
@@ -302,20 +300,6 @@ describe("workbookTimelineModel", () => {
           },
         },
       ],
-    });
-    expect(buildAttachedEvidenceCreatePayload("evidence-1", "txn-3")).toEqual({
-      client_txn_id: "txn-3",
-      "timeline.attached_evidence_ids": {
-        kind: "collection_actions_v1",
-        actions: [{ op: "add_record_ref", linked_record_id: "evidence-1" }],
-      },
-    });
-    expect(
-      buildAttachedEvidencePatchPayload(row, "evidence-2", "txn-4"),
-    ).toMatchObject({
-      view_schema_id: timelineViewSchemaId,
-      base_row_version: 4,
-      client_txn_id: "txn-4",
     });
     expect(createDraftRowForKey("draft-22")).toMatchObject({ key: "draft-22" });
     expect(createDraftRowForKey("timeline-1")).toBeNull();

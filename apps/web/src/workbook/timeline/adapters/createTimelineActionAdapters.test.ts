@@ -8,7 +8,10 @@ import {
   hostsViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import { rowFromApi } from "../models/workbookTimelineModel";
+import {
+  createDraftRowForKey,
+  rowFromApi,
+} from "../models/workbookTimelineModel";
 import { createTimelineClipboardPasteAdapter } from "./createTimelineClipboardPasteAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "./createTimelineEvidenceAttachmentAdapter";
 import { createTimelineHistoryAdapter } from "./createTimelineHistoryAdapter";
@@ -119,6 +122,12 @@ it("derives history routes and rejects target-inconsistent history responses", a
     client_txn_id: "txn-delete",
     reason: "Deleted from workbook history",
   });
+  expect(requestBody(fetchMock, 2)).toEqual({
+    base_row_version: 5,
+    client_txn_id: "txn-rollback",
+    reason: "Rollback from workbook history",
+    target: { change_set_id: changeSetId, kind: "change_set" },
+  });
 });
 
 it("normalizes Timeline review outcomes and fails closed on supersede replacement drift", async () => {
@@ -216,6 +225,24 @@ it("owns entity mention creation and resolution transport behind semantic outcom
         incident_id: incidentId,
         source_record: { record_id: recordId, row_version: 7 },
       }),
+    )
+    .mockResolvedValueOnce(
+      successEnvelope({
+        active_link: null,
+        change_set_id: changeSetId,
+        entity_mention: {
+          entity_mention_id: mentionId,
+          entity_type: { malformed: true },
+          raw_text: "server.example",
+          resolution_method: "manual",
+          resolution_status: "resolved",
+          resolved_record_id: replacementRecordId,
+          row_version: 4,
+          source_field_key: "timeline.activity_synopsis_text",
+        },
+        incident_id: incidentId,
+        source_record: { record_id: recordId, row_version: 8 },
+      }),
     );
   vi.stubGlobal("fetch", fetchMock);
   const mentions = createTimelineMentionAdapter({
@@ -248,6 +275,19 @@ it("owns entity mention creation and resolution transport behind semantic outcom
       entityMention: { entityType: "host", rowVersion: 3 },
       sourceRecord: { recordId, rowVersion: 7 },
     },
+  });
+  await expect(
+    mentions.resolve({
+      action: "resolve_item",
+      baseMentionRowVersion: 3,
+      clientTxnId: "txn-resolve-malformed",
+      expectedSourceRecordId: recordId,
+      mentionId,
+      resolvedRecordId: replacementRecordId,
+    }),
+  ).resolves.toMatchObject({
+    kind: "rejected",
+    failure: { kind: "invalid_contract" },
   });
   expect(requestBody(fetchMock, 0)).toEqual({
     client_txn_id: "txn-create-host",
@@ -310,6 +350,19 @@ it("validates Timeline clipboard rows and sanitized same-field conflicts", async
     targets: [{ kind: "record" as const, recordId, baseRowVersion: 2 }],
   };
 
+  await expect(
+    clipboard.paste({ ...input, columns: [] }),
+  ).resolves.toMatchObject({
+    kind: "rejected",
+    failure: { kind: "validation" },
+  });
+  await expect(
+    clipboard.paste({ ...input, targets: [] }),
+  ).resolves.toMatchObject({
+    kind: "rejected",
+    failure: { kind: "validation" },
+  });
+
   await expect(clipboard.paste(input)).resolves.toMatchObject({
     kind: "accepted",
     value: {
@@ -321,6 +374,22 @@ it("validates Timeline clipboard rows and sanitized same-field conflicts", async
     kind: "rejected",
     failure: { kind: "invalid_contract" },
   });
+  expect(requestBody(fetchMock, 0)).toEqual({
+    client_txn_id: "txn-paste",
+    clipboard_text: "client",
+    columns: ["timeline.activity_synopsis_text"],
+    format: "tsv",
+    start_field_key: "timeline.activity_synopsis_text",
+    targets: [
+      {
+        base_row_version: 2,
+        kind: "record",
+        record_id: recordId,
+      },
+    ],
+    view_schema_id: timelineViewSchemaId,
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
 it("creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty", async () => {
@@ -328,6 +397,7 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
     "cartulary_csrf=evidence-timeline-csrf",
   );
   let evidenceRowAttempts = 0;
+  let timelinePatchAttempts = 0;
   const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input);
     if (url === "/base/api/v1/object-blobs") {
@@ -374,14 +444,33 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
       );
     }
     if (url === `/base/api/v1/records/${recordId}`) {
+      timelinePatchAttempts += 1;
       return Promise.resolve(
         successEnvelope({
           change_set_id: changeSetId,
           row: timelineRow({
             captureState: "enriched",
             evidenceCount: 1,
-            recordId,
-            rowVersion: 5,
+            recordId:
+              timelinePatchAttempts === 1 ? recordId : replacementRecordId,
+            rowVersion: timelinePatchAttempts === 1 ? 5 : 6,
+          }),
+          view_schema_id: timelineViewSchemaId,
+        }),
+      );
+    }
+    if (
+      url ===
+      `/base/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`
+    ) {
+      return Promise.resolve(
+        successEnvelope({
+          change_set_id: changeSetId,
+          row: timelineRow({
+            captureState: "enriched",
+            evidenceCount: 1,
+            recordId: replacementRecordId,
+            rowVersion: 1,
           }),
           view_schema_id: timelineViewSchemaId,
         }),
@@ -396,7 +485,13 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
     .fn()
     .mockReturnValueOnce("txn-blob")
     .mockReturnValueOnce("txn-evidence-row")
-    .mockReturnValueOnce("txn-timeline-link");
+    .mockReturnValueOnce("txn-timeline-link")
+    .mockReturnValueOnce("txn-blob-malformed")
+    .mockReturnValueOnce("txn-evidence-row-malformed")
+    .mockReturnValueOnce("txn-timeline-link-malformed")
+    .mockReturnValueOnce("txn-blob-create")
+    .mockReturnValueOnce("txn-evidence-row-create")
+    .mockReturnValueOnce("txn-timeline-create");
   const trackTimelineTxn = vi.fn();
   const target = rowFromApi({
     ...timelineRow({ captureState: "rough", recordId, rowVersion: 4 }),
@@ -437,6 +532,56 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
     client_txn_id: "txn-evidence-row",
     "evidence.initial_object_blob_id": objectBlobId,
   });
+
+  const malformedResult = await createTimelineEvidenceAttachmentAdapter({
+    apiBase: "/base",
+    createClientTxnId,
+    incidentId,
+  }).attach({
+    file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+    onTimelineClientTxnId: trackTimelineTxn,
+    target,
+  });
+  expect(malformedResult).toMatchObject({
+    clientTxnId: "txn-timeline-link-malformed",
+    outcome: {
+      kind: "rejected",
+      failure: { kind: "invalid_contract" },
+    },
+  });
+
+  const draftTarget = createDraftRowForKey("draft-evidence");
+  if (draftTarget === null) throw new Error("expected draft Timeline target");
+  const createResult = await createTimelineEvidenceAttachmentAdapter({
+    apiBase: "/base",
+    createClientTxnId,
+    incidentId,
+  }).attach({
+    file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+    onTimelineClientTxnId: trackTimelineTxn,
+    target: draftTarget,
+  });
+  expect(createResult).toMatchObject({
+    clientTxnId: "txn-timeline-create",
+    outcome: {
+      kind: "accepted",
+      value: {
+        evidenceRecordId,
+        row: { record_id: replacementRecordId, row_version: 1 },
+      },
+    },
+  });
+  const timelineCreateCall = fetchMock.mock.calls.find(([input]) =>
+    String(input).endsWith(`/views/${timelineViewSchemaId}/rows`),
+  );
+  expect(JSON.parse(String(timelineCreateCall?.[1]?.body ?? "null"))).toEqual({
+    client_txn_id: "txn-timeline-create",
+    "timeline.attached_evidence_ids": {
+      actions: [{ linked_record_id: evidenceRecordId, op: "add_record_ref" }],
+      kind: "collection_actions_v1",
+    },
+  });
+  expect(createClientTxnId).toHaveBeenCalledTimes(9);
 });
 
 function jsonResponse(payload: unknown, status = 200): Response {

@@ -32,10 +32,7 @@ import {
   workbookRowActionMenuButtonTestId,
 } from "@cartulary/ui-contracts";
 import type { InspectorDisabledCondition } from "@cartulary/view-contracts";
-import {
-  type InspectorFeatureGroup,
-  requireViewContract,
-} from "@cartulary/view-contracts";
+import { requireViewContract } from "@cartulary/view-contracts";
 import { MoreHorizontal, X } from "lucide-react";
 import {
   type ReactNode,
@@ -56,24 +53,23 @@ import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
+import { EntityWorkbookInspector } from "../features/entities/EntityWorkbookInspector";
 import { useEntityMergeController } from "../features/entities/useEntityMergeController";
 import { useEntityTimelinePreview } from "../hooks/useEntityTimelinePreview";
-import { InspectorCreateRelatedWorkflow } from "../inspector/InspectorCreateRelatedWorkflow";
 import { WorkbookInspectorPublicError } from "../inspector/presentation/WorkbookInspectorFeedback";
-import {
-  WorkbookInspectorPanelSection,
-  WorkbookInspectorShell,
-} from "../inspector/presentation/WorkbookInspectorShell";
 import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
+import { inspectorRecordHistoryActions } from "../inspector/semanticInspectorDispatcher";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
-import { WorkbookInspectorContextualActions } from "../inspector/WorkbookInspectorContextualActions";
-import { WorkbookInspectorRecordHistory } from "../inspector/WorkbookInspectorRecordHistory";
 import {
   type WorkbookInspectorErrorPresentation,
+  type WorkbookInspectorFeedback,
   workbookInspectorErrorPresentation,
   workbookInspectorLocalErrorPresentation,
+  workbookInspectorMessageFeedback,
+  workbookInspectorOperationFailureFeedback,
 } from "../inspector/workbookInspectorErrorModel";
+import type { WorkbookRecordHistorySubject } from "../inspector/workbookRecordHistoryModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -237,6 +233,8 @@ export function EntityWorkbookSurface({
     },
   } = layout;
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+  const [deletedHistorySubject, setDeletedHistorySubject] =
+    useState<WorkbookRecordHistorySubject | null>(null);
   const inspectorContinuityTokenRef = useRef<WorkbookContinuityToken | null>(
     null,
   );
@@ -255,8 +253,8 @@ export function EntityWorkbookSurface({
   );
   const [mutationError, setMutationError] =
     useState<WorkbookInspectorErrorPresentation | null>(null);
-  const [entityActionMessage, setEntityActionMessage] =
-    useState<WorkbookInspectorErrorPresentation | null>(null);
+  const [entityActionFeedback, setEntityActionFeedback] =
+    useState<WorkbookInspectorFeedback | null>(null);
   const [mutationState, setMutationState] =
     useState<WorkbookMutationSaveState>("Saved");
   const sharedMutation = useWorkbookMutationRuntime(
@@ -292,9 +290,21 @@ export function EntityWorkbookSurface({
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
   const inspectorConfig = contract.inspectorConfig;
+  const recordHistorySubject: WorkbookRecordHistorySubject | null =
+    selectedEntity === null
+      ? deletedHistorySubject
+      : {
+          kind: "live",
+          recordId: selectedEntity.recordId,
+          rowVersion: selectedEntity.rowVersion,
+        };
+  const recordHistoryActions = useMemo(
+    () => inspectorRecordHistoryActions(inspectorConfig),
+    [inspectorConfig],
+  );
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
-      resetOwnerState: ({ scope }) => {
+      resetOwnerState: ({ cause, scope }) => {
         setEditRecordId("");
         setEditFieldKey("");
         setEditValue("");
@@ -302,7 +312,10 @@ export function EntityWorkbookSurface({
         setCreateDraft(initialGenericCreateDraft(contract, null));
         mergeResetRef.current();
         clearTimelinePreview();
-        setEntityActionMessage(null);
+        setEntityActionFeedback(null);
+        if (cause === "close" || scope === "surface") {
+          setDeletedHistorySubject(null);
+        }
         if (scope === "surface") {
           continuityPortRef.current?.clear();
           setSelectedRecordId(null);
@@ -319,11 +332,11 @@ export function EntityWorkbookSurface({
     config: inspectorConfig,
     lifecycleKey: inspectorResetKey,
     subject:
-      selectedEntity === null
+      recordHistorySubject === null
         ? null
         : {
-            recordId: selectedEntity.recordId,
-            rowVersion: selectedEntity.rowVersion,
+            recordId: recordHistorySubject.recordId,
+            rowVersion: recordHistorySubject.rowVersion,
             viewSchemaId: contract.viewSchemaId,
           },
   });
@@ -353,13 +366,7 @@ export function EntityWorkbookSurface({
     currentUserId,
     mutationCommands: relatedMutationCommands,
     onCreated: onRefreshEntities,
-    onMessage: (message) => {
-      setEntityActionMessage(
-        message === null
-          ? null
-          : workbookInspectorLocalErrorPresentation(message),
-      );
-    },
+    onFeedback: setEntityActionFeedback,
     selectedSubject:
       selectedEntity === null
         ? null
@@ -391,12 +398,11 @@ export function EntityWorkbookSurface({
   const {
     candidateId: mergeCandidateId,
     loser: loserEntity,
-    message: mergeMessage,
+    feedback: mergeFeedback,
     plan: mergePlan,
     preconditionDetails: mergePreconditionDetails,
     reason: mergeReason,
   } = merge.snapshot;
-  const presentedEntityActionMessage = mergeMessage ?? entityActionMessage;
   const selectedEntityRecordKey = selectedEntity?.recordId ?? "";
   const selectedEntityPlanInvalidationKey =
     selectedEntity === null
@@ -672,7 +678,7 @@ export function EntityWorkbookSurface({
         );
         return;
       }
-      setEntityActionMessage(null);
+      setEntityActionFeedback(null);
       const result = await mutationCommands.pasteCreate({
         clipboardText,
         columns: targetResolution.columns,
@@ -682,17 +688,18 @@ export function EntityWorkbookSurface({
         viewSchemaId: contract.viewSchemaId,
       });
       if (result.kind === "rejected") {
-        setEntityActionMessage(
-          workbookInspectorErrorPresentation(result.failure),
+        setEntityActionFeedback(
+          workbookInspectorOperationFailureFeedback(result.failure),
         );
         return;
       }
       const firstRow = result.value.rows[0];
       await onRefreshEntities();
       if (firstRow) setSelectedRecordId(firstRow.record_id);
-      setEntityActionMessage(
-        workbookInspectorLocalErrorPresentation(
+      setEntityActionFeedback(
+        workbookInspectorMessageFeedback(
           `Paste applied to ${result.value.rows.length} ${entityType === "host" ? "host" : "identity"} row${result.value.rows.length === 1 ? "" : "s"}.`,
+          "none",
         ),
       );
     },
@@ -835,7 +842,7 @@ export function EntityWorkbookSurface({
           type="button"
           onClick={() => {
             setSelectedRecordId(row.recordId);
-            setEntityActionMessage(null);
+            setEntityActionFeedback(null);
             merge.commands.reset();
             inspectorContinuityTokenRef.current = entityFocus.port.capture({
               fieldKey:
@@ -1038,141 +1045,105 @@ export function EntityWorkbookSurface({
     }
   }
 
-  async function executeEntityRecordLifecycle(
-    featureGroup: InspectorFeatureGroup,
-  ): Promise<boolean> {
-    if (
-      featureGroup.routeBinding.kind !== "record_action" ||
-      featureGroup.routeBinding.owner !== "record_delete_route"
-    ) {
-      return false;
-    }
-    if (selectedEntity === null) {
-      setEntityActionMessage(
-        workbookInspectorLocalErrorPresentation(
-          "Select a saved row before running this action.",
-        ),
-      );
-      return true;
-    }
-    const finishMutation = mutationRuntime.beginExplicitMutation();
-    try {
-      setMutationState("Syncing");
-      setMutationError(null);
-      const outcome = await recordMutationCommands.execute({
-        action: "delete",
-        baseRowVersion: selectedEntity.rowVersion,
-        reason: `Deleted from the ${contract.title} inspector`,
-        recordId: selectedEntity.recordId,
-      });
-      if (outcome.kind === "rejected") {
-        setMutationState("Conflict");
-        setMutationError(workbookInspectorErrorPresentation(outcome.failure));
-        return true;
-      }
-      setSelectedRecordId(null);
-      inspector.commands.completeAction();
-      await onRefreshEntities();
-      setMutationState("Saved");
-      return true;
-    } finally {
-      finishMutation();
-    }
-  }
-
   const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
-    selectedEntity === null
+    recordHistorySubject === null
       ? null
-      : {
-          label: selectedEntity.label,
-          recordId: selectedEntity.recordId,
-          rowVersion: selectedEntity.rowVersion,
-          stateLabel: selectedEntity.state,
-          surfaceLabel: contract.title,
-        };
+      : recordHistorySubject.kind === "deleted"
+        ? {
+            label: "Deleted entity",
+            recordId: recordHistorySubject.recordId,
+            rowVersion: recordHistorySubject.rowVersion,
+            stateLabel: "Deleted",
+            surfaceLabel: contract.title,
+          }
+        : selectedEntity === null
+          ? null
+          : {
+              label: selectedEntity.label,
+              recordId: selectedEntity.recordId,
+              rowVersion: selectedEntity.rowVersion,
+              stateLabel: selectedEntity.state,
+              surfaceLabel: contract.title,
+            };
 
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
         isInspectorOpen ? (
-          <WorkbookInspectorShell
-            accessibleLabel={`${contract.title} inspector`}
-            noRowHeading={`${contract.title} inspector`}
+          <EntityWorkbookInspector
+            actionFeedback={entityActionFeedback}
+            config={inspectorConfig}
+            currentIncidentRole={currentIncidentRole}
+            disabledTokens={entityInspectorDisabledTokens}
+            feedbackTestId={entityMergeControlTestId("message")}
+            history={{
+              actions: recordHistoryActions,
+              canMutate:
+                interactionMode.kind === "editable" &&
+                currentIncidentRole !== null &&
+                currentIncidentRole !== "viewer",
+              commands: recordMutationCommands,
+              effects: {
+                deleteAccepted: async (accepted) => {
+                  createRelatedWorkflow.commands.cancel();
+                  clearTimelinePreview();
+                  setSelectedRecordId(null);
+                  setDeletedHistorySubject({
+                    kind: "deleted",
+                    recordId: accepted.recordId,
+                    rowVersion: accepted.rowVersion,
+                  });
+                  await onRefreshEntities();
+                },
+                restoreAccepted: async (accepted) => {
+                  await onRefreshEntities();
+                  setDeletedHistorySubject(null);
+                  setSelectedRecordId(accepted.recordId);
+                },
+                rollbackAccepted: async () => {
+                  await onRefreshEntities();
+                },
+              },
+              subject: recordHistorySubject,
+            }}
+            mergeFeedback={mergeFeedback}
+            mergePreconditionDetails={
+              mergePreconditionDetails.length === 0 ||
+              selectedEntity === null ? null : (
+                <ul
+                  data-testid={entityMergePreconditionDetailsTestId(
+                    entityType,
+                    selectedEntity.recordId,
+                  )}
+                  style={flatListStyle}
+                >
+                  {mergePreconditionDetails.map((line) => (
+                    <li key={line.key}>
+                      {line.label}: {line.value}
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+            related={{
+              begin: createRelatedWorkflow.commands.begin,
+              cancel: createRelatedWorkflow.commands.cancel,
+              referenceOptions: entityReferenceOptions,
+              state: createRelatedWorkflow.snapshot.workflow,
+              submit: createRelatedWorkflow.commands.submit,
+              updateDraft: createRelatedWorkflow.commands.updateDraft,
+            }}
             subject={inspectorSubjectPresentation}
+            surfaceTitle={contract.title}
             testId={entityInspectorTestId(entityType)}
             viewSchemaId={contract.viewSchemaId}
             onClose={() => {
               inspector.commands.close({ restoreFocus: true });
             }}
           >
-            {inspectorConfig.panels.map((panel) => (
-              <WorkbookInspectorPanelSection
-                config={inspectorConfig}
-                key={panel.panelId}
-                panelId={panel.panelId}
-              >
-                {inspectorSubjectPresentation === null ? null : (
-                  <WorkbookInspectorContextualActions
-                    config={inspectorConfig}
-                    currentIncidentRole={currentIncidentRole}
-                    disabledTokens={entityInspectorDisabledTokens}
-                    featureGroups={inspectorConfig.featureGroups.filter(
-                      (featureGroup) =>
-                        featureGroup.panelId === panel.panelId &&
-                        (featureGroup.routeBinding.kind === "view_row_create" ||
-                          (featureGroup.routeBinding.kind === "record_action" &&
-                            featureGroup.routeBinding.owner ===
-                              "record_delete_route")),
-                    )}
-                    subject={inspectorSubjectPresentation}
-                    onAction={(featureGroup) => {
-                      if (createRelatedWorkflow.commands.begin(featureGroup)) {
-                        return;
-                      }
-                      void executeEntityRecordLifecycle(featureGroup);
-                    }}
-                  />
-                )}
-                {createRelatedWorkflow.snapshot.workflow?.featureGroup
-                  .panelId === panel.panelId ? (
-                  <InspectorCreateRelatedWorkflow
-                    referenceOptions={entityReferenceOptions}
-                    state={createRelatedWorkflow.snapshot.workflow}
-                    onCancel={createRelatedWorkflow.commands.cancel}
-                    onSubmit={() => {
-                      void createRelatedWorkflow.commands.submit();
-                    }}
-                    onUpdateDraft={createRelatedWorkflow.commands.updateDraft}
-                  />
-                ) : null}
-                {panel.panelId === "history" ? (
-                  <WorkbookInspectorRecordHistory
-                    canMutate={
-                      interactionMode.kind === "editable" &&
-                      currentIncidentRole !== null &&
-                      currentIncidentRole !== "viewer"
-                    }
-                    commands={recordMutationCommands}
-                    subject={
-                      selectedEntity === null
-                        ? null
-                        : {
-                            recordId: selectedEntity.recordId,
-                            rowVersion: selectedEntity.rowVersion,
-                          }
-                    }
-                    onMessage={(message) => {
-                      setEntityActionMessage(
-                        workbookInspectorLocalErrorPresentation(message),
-                      );
-                    }}
-                    onRefresh={onRefreshEntities}
-                  />
-                ) : null}
-              </WorkbookInspectorPanelSection>
-            ))}
             {showDetailsPanel &&
+            recordHistorySubject?.kind !== "deleted" &&
             editableEntityFields.length > 0 &&
             rows.length > 0 ? (
               <section style={inspectorSectionStyle}>
@@ -1350,7 +1321,7 @@ export function EntityWorkbookSurface({
                         style={selectStyle}
                         value={mergeCandidateId}
                         onChange={(event) => {
-                          setEntityActionMessage(null);
+                          setEntityActionFeedback(null);
                           merge.commands.selectCandidate(event.target.value);
                         }}
                       >
@@ -1421,7 +1392,7 @@ export function EntityWorkbookSurface({
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
-                            setEntityActionMessage(null);
+                            setEntityActionFeedback(null);
                             void merge.commands.confirm();
                           }}
                         >
@@ -1434,7 +1405,7 @@ export function EntityWorkbookSurface({
                         style={secondaryActionButtonStyle}
                         type="button"
                         onClick={() => {
-                          setEntityActionMessage(null);
+                          setEntityActionFeedback(null);
                           merge.commands.start();
                         }}
                       >
@@ -1487,33 +1458,9 @@ export function EntityWorkbookSurface({
                     </div>
                   </section>
                 ) : null}
-
-                {presentedEntityActionMessage ? (
-                  <div style={mergeMessageBlockStyle}>
-                    <WorkbookInspectorPublicError
-                      error={presentedEntityActionMessage}
-                      testId={entityMergeControlTestId("message")}
-                    />
-                    {mergePreconditionDetails.length > 0 ? (
-                      <ul
-                        data-testid={entityMergePreconditionDetailsTestId(
-                          entityType,
-                          selectedEntity.recordId,
-                        )}
-                        style={flatListStyle}
-                      >
-                        {mergePreconditionDetails.map((line) => (
-                          <li key={line.key}>
-                            {line.label}: {line.value}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                ) : null}
               </>
             ) : null}
-          </WorkbookInspectorShell>
+          </EntityWorkbookInspector>
         ) : undefined
       }
       onRequestInspectorClose={() => {
@@ -1700,11 +1647,6 @@ const readOnlyBadgeStyle = {
   fontSize: "0.75rem",
   lineHeight: 1,
   padding: "0.2rem 0.45rem",
-};
-
-const mergeMessageBlockStyle = {
-  display: "grid",
-  gap: "0.4rem",
 };
 
 const relationshipItemsWrapStyle = {

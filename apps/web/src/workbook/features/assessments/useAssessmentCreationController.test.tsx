@@ -22,6 +22,46 @@ function port({
 }
 
 describe("useAssessmentCreationController", () => {
+  it("publishes accepted standalone creation as polite neutral feedback", async () => {
+    const { result } = renderHook(() =>
+      useAssessmentCreationController({
+        beginMutation: () => vi.fn(),
+        lifecycleResetKey: "authorized",
+        mutationCommands: port({
+          create: async () => ({
+            kind: "accepted",
+            value: {
+              changeSetId: "00000000-0000-4000-8000-000000008300",
+              row: {
+                cells: {},
+                record_id: "00000000-0000-4000-8000-000000008301",
+                row_version: 1,
+              },
+              viewSchemaId: "cartulary.view.assessments.v1",
+            },
+          }),
+        }),
+        onRefreshAssessmentRows: async () => undefined,
+        subjectRecordIds,
+      }),
+    );
+    act(() => {
+      result.current.commands.openStandalone(subjectRecordIds.host[0]);
+      result.current.commands.updateDraft((current) => ({
+        ...current,
+        rationale: "Confirmed assessment",
+      }));
+    });
+
+    await act(async () => result.current.commands.submit(true));
+
+    expect(result.current.snapshot.feedback).toEqual({
+      announcement: "polite",
+      kind: "message",
+      message: "Assessment created.",
+    });
+  });
+
   it("retains the append-only draft and support selection after rejection", async () => {
     const create = vi.fn(async () => ({
       kind: "rejected" as const,
@@ -51,7 +91,10 @@ describe("useAssessmentCreationController", () => {
 
     expect(create).toHaveBeenCalledTimes(1);
     expect(finishMutation).toHaveBeenCalledTimes(1);
-    expect(result.current.snapshot.message?.primaryMessage).toBe("Try again.");
+    expect(result.current.snapshot.feedback).toEqual({
+      error: { primaryMessage: "Try again.", technicalFields: [] },
+      kind: "error",
+    });
     expect(result.current.snapshot.draft.rationale).toBe("Preserve this draft");
     expect(result.current.snapshot.draft.supportRecordIds).toEqual([
       "00000000-0000-4000-8000-000000008200",
@@ -82,9 +125,13 @@ describe("useAssessmentCreationController", () => {
 
     await act(async () => result.current.commands.submit(true));
     expect(create).not.toHaveBeenCalled();
-    expect(result.current.snapshot.message?.primaryMessage).toBe(
-      "Complete the required assessment fields.",
-    );
+    expect(result.current.snapshot.feedback).toEqual({
+      error: {
+        primaryMessage: "Complete the required assessment fields.",
+        technicalFields: [],
+      },
+      kind: "error",
+    });
 
     canCreate.mockReturnValue(true);
     act(() => {
@@ -116,7 +163,7 @@ describe("useAssessmentCreationController", () => {
     });
 
     expect(onRefreshAssessmentRows).not.toHaveBeenCalled();
-    expect(result.current.snapshot.message).toBeNull();
+    expect(result.current.snapshot.feedback).toBeNull();
     expect(result.current.snapshot.isSubmitting).toBe(false);
   });
 });

@@ -1,9 +1,9 @@
 import { resolvePublicErrorPresentation } from "../../shared/publicErrorPresentation";
 
-export const clientTransactionRecoveryMessage =
+const clientTransactionRecoveryMessage =
   "A queued edit could not be replayed safely. Retry it with a new request ID, or discard the blocked edit to continue.";
 
-export const terminalReplayRecoveryMessage =
+const terminalReplayRecoveryMessage =
   "A queued edit could not be completed safely. Discard the blocked edit to continue with later queued edits.";
 
 export type WorkbookEditRecoveryPresentation =

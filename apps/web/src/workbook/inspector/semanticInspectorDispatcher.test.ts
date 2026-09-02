@@ -6,7 +6,9 @@ import {
 } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
+  inspectorContextualCapabilities,
   inspectorFeatureDisabledTokens,
+  resolveInspectorOwnerCapability,
   resolveSemanticInspectorFeature,
 } from "./semanticInspectorDispatcher";
 import { semanticInspectorRegistrations } from "./semanticInspectorRegistry";
@@ -62,6 +64,86 @@ describe("semantic inspector dispatcher", () => {
       existing_owner_control: 66,
       panel_read: 80,
     });
+  });
+
+  it("assigns every projected tuple exactly one canonical owner capability", () => {
+    const capabilityCounts = new Map<string, number>();
+    const historyActionCounts = new Map<string, number>();
+    let featureCount = 0;
+
+    for (const contract of listViewContracts()) {
+      for (const featureGroup of contract.inspectorConfig.featureGroups) {
+        const capability = resolveInspectorOwnerCapability(
+          contract.inspectorConfig,
+          featureGroup.featureGroupKey,
+        );
+        expect(capability.kind).not.toBe("unsupported");
+        if (capability.kind === "unsupported") continue;
+        expect(capability.featureGroup).toBe(featureGroup);
+        capabilityCounts.set(
+          capability.kind,
+          (capabilityCounts.get(capability.kind) ?? 0) + 1,
+        );
+        if (capability.kind === "record_history") {
+          historyActionCounts.set(
+            capability.action,
+            (historyActionCounts.get(capability.action) ?? 0) + 1,
+          );
+        }
+        featureCount += 1;
+      }
+    }
+
+    expect(featureCount).toBe(247);
+    expect(Object.fromEntries(historyActionCounts)).toEqual({
+      delete: 17,
+      restore: 17,
+      rollback: 17,
+    });
+    expect(
+      [...capabilityCounts.values()].reduce((total, count) => total + count, 0),
+    ).toBe(247);
+  });
+
+  it("derives contextual rendering from capabilities and isolates unsupported additions", () => {
+    const canonicalConfig = requireViewContract(
+      "cartulary.view.timeline.v2",
+    ).inspectorConfig;
+    const canonical = canonicalConfig.featureGroups.find(
+      (feature) => feature.featureGroupKey === "create_related.note",
+    );
+    expect(canonical).toBeDefined();
+    if (canonical === undefined) return;
+    const additiveConfig = withFeatureGroups(canonicalConfig, [
+      ...canonicalConfig.featureGroups,
+      { ...canonical, featureGroupKey: "future.unknown_action" },
+    ]);
+
+    expect(
+      inspectorContextualCapabilities({
+        config: additiveConfig,
+        panelId: canonical.panelId,
+      }).some(
+        (capability) =>
+          capability.featureGroup.featureGroupKey === canonical.featureGroupKey,
+      ),
+    ).toBe(true);
+    expect(
+      inspectorContextualCapabilities({
+        config: additiveConfig,
+        panelId: canonical.panelId,
+      }).some(
+        (capability) =>
+          capability.featureGroup.featureGroupKey === "future.unknown_action",
+      ),
+    ).toBe(false);
+    expect(
+      inspectorContextualCapabilities({
+        config: canonicalConfig,
+        panelId: "history",
+        recordHistoryActions: ["delete"],
+      }).map((capability) => capability.kind),
+    ).toContain("record_history");
   });
 
   it("omits an unknown or altered tuple without disabling a registered sibling", () => {

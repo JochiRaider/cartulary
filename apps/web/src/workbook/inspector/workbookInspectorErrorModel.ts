@@ -54,6 +54,15 @@ export function workbookInspectorOperationFailureFeedback(
   return { error: workbookInspectorErrorPresentation(failure), kind: "error" };
 }
 
+export function workbookInspectorLocalErrorFeedback(
+  message: string,
+): WorkbookInspectorFeedback {
+  return {
+    error: workbookInspectorLocalErrorPresentation(message),
+    kind: "error",
+  };
+}
+
 export function workbookInspectorLocalErrorPresentation(
   message: string,
 ): WorkbookInspectorErrorPresentation {

@@ -34,8 +34,19 @@ function retryable<T>(): WorkbookOperationOutcome<T> {
   };
 }
 
-function optionalString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() !== "" ? value : null;
+type OptionalString =
+  | { readonly valid: true; readonly value: string | null }
+  | { readonly valid: false };
+
+function optionalString(value: unknown): OptionalString {
+  if (value === undefined || value === null) {
+    return { valid: true, value: null };
+  }
+  if (typeof value !== "string") return { valid: false };
+  return {
+    valid: true,
+    value: value.trim() === "" ? null : value,
+  };
 }
 
 function entityCreateRequest(input: {
@@ -112,14 +123,15 @@ export function createTimelineMentionAdapter(options: {
       }
     },
     async resolve(input) {
-      const request = buildMentionActionPayload(
-        {
-          mentionRowVersion: input.baseMentionRowVersion,
-        },
-        input.action,
-        input.clientTxnId,
-        input.resolvedRecordId,
-      );
+      const request: ResolveEntityMentionRequest | null =
+        buildMentionActionPayload(
+          {
+            mentionRowVersion: input.baseMentionRowVersion,
+          },
+          input.action,
+          input.clientTxnId,
+          input.resolvedRecordId,
+        );
       if (request === null) {
         return {
           kind: "rejected",
@@ -133,22 +145,39 @@ export function createTimelineMentionAdapter(options: {
         const outcome = await operations.execute({
           operationID: "resolveEntityMention",
           pathParameters: { entity_mention_id: input.mentionId },
-          request: request as unknown as ResolveEntityMentionRequest,
+          request,
         });
         if (outcome.kind === "rejected") return outcome;
         const data = outcome.value.data;
         if (
           data.source_record.record_id !== input.expectedSourceRecordId ||
+          data.entity_mention.entity_mention_id !== input.mentionId ||
           !Number.isSafeInteger(data.source_record.row_version) ||
-          data.source_record.row_version < 1
+          data.source_record.row_version < 1 ||
+          !Number.isSafeInteger(data.entity_mention.row_version) ||
+          data.entity_mention.row_version < 1
         ) {
           return invalidContract();
         }
-        const mention = data.entity_mention as unknown as Record<
-          string,
-          unknown
-        >;
-        const entityType = optionalString(mention.entity_type);
+        const entityType = data.entity_mention.entity_type;
+        const rawText = optionalString(data.entity_mention.raw_text);
+        const resolutionMethod = optionalString(
+          data.entity_mention.resolution_method,
+        );
+        const sourceFieldKey = optionalString(
+          data.entity_mention.source_field_key,
+        );
+        if (
+          (entityType !== undefined &&
+            entityType !== null &&
+            entityType !== "host" &&
+            entityType !== "identity") ||
+          !rawText.valid ||
+          !resolutionMethod.valid ||
+          !sourceFieldKey.valid
+        ) {
+          return invalidContract();
+        }
         return {
           kind: "accepted",
           value: {
@@ -157,10 +186,10 @@ export function createTimelineMentionAdapter(options: {
                 entityType === "host" || entityType === "identity"
                   ? entityType
                   : null,
-              rawText: optionalString(mention.raw_text),
-              resolutionMethod: optionalString(mention.resolution_method),
+              rawText: rawText.value,
+              resolutionMethod: resolutionMethod.value,
               rowVersion: data.entity_mention.row_version,
-              sourceFieldKey: optionalString(mention.source_field_key),
+              sourceFieldKey: sourceFieldKey.value,
             },
             sourceRecord: {
               recordId: data.source_record.record_id,
