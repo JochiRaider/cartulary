@@ -1,59 +1,31 @@
 import {
-  rowHistoryActionTestId,
-  rowHistoryDeleteButtonTestId,
-  rowHistoryDestructiveCancelButtonTestId,
-  rowHistoryDestructiveConfirmButtonTestId,
-  rowHistoryDestructiveConfirmPanelTestId,
-  rowHistoryItemTestId,
   rowHistoryLoadingTestId,
   rowHistoryMessageTestId,
   rowHistoryPanelTestId,
-  rowHistoryRestoreButtonTestId,
-  rowHistoryRollbackCancelButtonTestId,
-  rowHistoryRollbackConfirmButtonTestId,
-  rowHistoryRollbackPreviewTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useEffect, useRef } from "react";
+import type { CSSProperties } from "react";
 import type { RecordRouteCommandPort } from "../mutations/workbookMutationCommandPorts";
-import {
-  WorkbookHistoryEvent,
-  WorkbookHistoryList,
-} from "./presentation/WorkbookHistoryPresentation";
+import type { InspectorRecordHistoryAction } from "./inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
 import {
-  WorkbookInspectorConfirmation,
   WorkbookInspectorFeedbackView,
   WorkbookInspectorPublicError,
   WorkbookInspectorTechnicalDetails,
 } from "./presentation/WorkbookInspectorFeedback";
-import type { InspectorRecordHistoryAction } from "./semanticInspectorDispatcher";
 import { useWorkbookRecordHistoryController } from "./useWorkbookRecordHistoryController";
+import { useWorkbookRecordHistoryFocus } from "./useWorkbookRecordHistoryFocus";
+import { WorkbookRecordHistoryLoadedPresentation } from "./WorkbookRecordHistoryPresentation";
+import type { WorkbookInspectorSubject } from "./workbookInspectorSubject";
 import {
-  workbookHistoryEventPresentation,
-  workbookHistoryPendingTechnicalFields,
-  workbookHistoryRollbackLabel,
-} from "./workbookHistoryPresentationModel";
-import type {
-  RecordHistoryItem,
-  RecordHistoryRollbackAction,
-  WorkbookRecordHistoryState,
-  WorkbookRecordHistorySubject,
+  type RecordHistoryItem,
+  type RecordHistoryRollbackAction,
+  type WorkbookRecordHistoryState,
+  workbookRecordHistoryFeedback,
+  workbookRecordHistoryLoadError,
+  workbookRecordHistoryLoadedData,
+  workbookRecordHistoryPendingAction,
 } from "./workbookRecordHistoryModel";
-
-type WorkbookRecordHistoryOwnerEffects = {
-  readonly deleteAccepted: (accepted: {
-    readonly recordId: string;
-    readonly rowVersion: number;
-  }) => Promise<void> | void;
-  readonly restoreAccepted: (accepted: {
-    readonly recordId: string;
-    readonly rowVersion: number;
-  }) => Promise<void> | void;
-  readonly rollbackAccepted: (accepted: {
-    readonly recordId: string;
-    readonly rowVersion: number;
-  }) => Promise<void> | void;
-};
+import type { WorkbookRecordHistoryOwnerEffects } from "./workbookRecordHistoryOwnerEffects";
 
 export function WorkbookInspectorRecordHistory({
   actions,
@@ -66,7 +38,7 @@ export function WorkbookInspectorRecordHistory({
   readonly canMutate: boolean;
   readonly commands: RecordRouteCommandPort;
   readonly ownerEffects: WorkbookRecordHistoryOwnerEffects;
-  readonly subject: WorkbookRecordHistorySubject | null;
+  readonly subject: WorkbookInspectorSubject | null;
 }) {
   const controller = useWorkbookRecordHistoryController({
     canMutate,
@@ -127,98 +99,26 @@ export function WorkbookRecordHistoryPanel({
     action: RecordHistoryRollbackAction,
   ) => void;
 }) {
-  const { data, error, feedback, pendingAction, phase, subject } = state;
-  const submittedReturnFocusTestIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (pendingAction !== null) {
-      submittedReturnFocusTestIdRef.current =
-        pendingAction.kind === "destructive"
-          ? pendingAction.operation === "delete"
-            ? rowHistoryDeleteButtonTestId()
-            : rowHistoryRestoreButtonTestId()
-          : rowHistoryActionTestId({
-              action: pendingAction.action,
-              historyItemRef: pendingAction.historyItemRef,
-            });
-      return;
-    }
-    if (phase === "ready" && submittedReturnFocusTestIdRef.current !== null) {
-      const testId = submittedReturnFocusTestIdRef.current;
-      submittedReturnFocusTestIdRef.current = null;
-      queueMicrotask(() => {
-        const returnControl = Array.from(
-          document.querySelectorAll<HTMLElement>("[data-testid]"),
-        ).find((element) => element.dataset.testid === testId);
-        returnControl?.focus({ preventScroll: true });
-      });
-      return;
-    }
-    if (phase === "idle") submittedReturnFocusTestIdRef.current = null;
-  }, [pendingAction, phase]);
-  const presentedRecordId = subject?.recordId ?? idleRecordId ?? null;
+  const data = workbookRecordHistoryLoadedData(state);
+  const error = workbookRecordHistoryLoadError(state);
+  const feedback = workbookRecordHistoryFeedback(state);
+  const pendingAction = workbookRecordHistoryPendingAction(state);
+  const focus = useWorkbookRecordHistoryFocus({
+    canMutate,
+    state,
+    onCancelPendingAction,
+    onConfirmPendingAction,
+  });
+  const presentedRecordId = state.subject?.recordId ?? idleRecordId ?? null;
   if (presentedRecordId === null) return null;
-  const busy = phase === "loading" || phase === "submitting";
-  const pendingConfirmation =
-    pendingAction?.kind === "destructive" ? (
-      <WorkbookInspectorConfirmation
-        cancelTestId={rowHistoryDestructiveCancelButtonTestId({
-          operation: pendingAction.operation,
-        })}
-        confirmLabel={`Confirm ${
-          pendingAction.operation === "delete" ? "soft-delete" : "restore"
-        }`}
-        confirmTestId={rowHistoryDestructiveConfirmButtonTestId({
-          operation: pendingAction.operation,
-        })}
-        destructive={pendingAction.operation === "delete"}
-        operation={
-          pendingAction.operation === "delete" ? "Soft-delete" : "Restore"
-        }
-        returnFocusTestId={
-          pendingAction.operation === "delete"
-            ? rowHistoryDeleteButtonTestId()
-            : rowHistoryRestoreButtonTestId()
-        }
-        subject={destructiveSubject}
-        technicalFields={workbookHistoryPendingTechnicalFields(pendingAction)}
-        testId={rowHistoryDestructiveConfirmPanelTestId({
-          operation: pendingAction.operation,
-        })}
-        onCancel={onCancelPendingAction}
-        onConfirm={onConfirmPendingAction}
-      />
-    ) : pendingAction?.kind === "rollback" ? (
-      <WorkbookInspectorConfirmation
-        cancelTestId={rowHistoryRollbackCancelButtonTestId({
-          action: pendingAction.action,
-          historyItemRef: pendingAction.historyItemRef,
-        })}
-        confirmLabel="Confirm rollback"
-        confirmTestId={rowHistoryRollbackConfirmButtonTestId({
-          action: pendingAction.action,
-          historyItemRef: pendingAction.historyItemRef,
-        })}
-        operation={`${workbookHistoryRollbackLabel(pendingAction.action)} rollback`}
-        returnFocusTestId={rowHistoryActionTestId({
-          action: pendingAction.action,
-          historyItemRef: pendingAction.historyItemRef,
-        })}
-        subject="this history state"
-        technicalFields={[
-          ...workbookHistoryPendingTechnicalFields(pendingAction),
-          { label: "History item", value: pendingAction.historyItemRef },
-          { label: "Target kind", value: pendingAction.target.kind },
-        ]}
-        testId={rowHistoryRollbackPreviewTestId({
-          action: pendingAction.action,
-          historyItemRef: pendingAction.historyItemRef,
-        })}
-        onCancel={onCancelPendingAction}
-        onConfirm={onConfirmPendingAction}
-      />
-    ) : null;
+  const busy = state.phase === "loading" || state.phase === "submitting";
   return (
-    <section data-testid={rowHistoryPanelTestId()} style={panelStyle}>
+    <section
+      data-testid={rowHistoryPanelTestId()}
+      ref={focus.panelRef}
+      style={panelStyle}
+      tabIndex={-1}
+    >
       {refreshControl === undefined ? null : (
         <WorkbookInspectorActionButton
           data-testid={refreshControl.testId}
@@ -231,7 +131,7 @@ export function WorkbookRecordHistoryPanel({
       <WorkbookInspectorTechnicalDetails
         fields={[{ label: "Record ID", value: presentedRecordId }]}
       />
-      {phase === "idle" ? (
+      {state.phase === "idle" ? (
         <WorkbookInspectorActionButton
           data-testid={openTestId}
           onClick={onOpenHistory}
@@ -239,7 +139,7 @@ export function WorkbookRecordHistoryPanel({
           {refreshLabel}
         </WorkbookInspectorActionButton>
       ) : null}
-      {phase === "loading" ? (
+      {state.phase === "loading" ? (
         <p data-testid={rowHistoryLoadingTestId()} style={metadataStyle}>
           Loading history...
         </p>
@@ -255,7 +155,7 @@ export function WorkbookRecordHistoryPanel({
         neutralStyle={metadataStyle}
         testId={rowHistoryMessageTestId()}
       />
-      {data === null ? null : (
+      {data === null || state.subject === null ? null : (
         <>
           <WorkbookInspectorTechnicalDetails
             fields={[
@@ -263,73 +163,23 @@ export function WorkbookRecordHistoryPanel({
               { label: "Deleted", value: data.deleted ? "yes" : "no" },
             ]}
           />
-          <div style={actionsStyle}>
-            {actions.has("delete") &&
-            subject?.kind === "live" &&
-            !data.deleted ? (
-              <WorkbookInspectorActionButton
-                data-testid={rowHistoryDeleteButtonTestId()}
-                disabled={!canMutate || busy}
-                tone="destructive"
-                onClick={() => onPreviewDeleteRestore("delete")}
-              >
-                Soft-delete row
-              </WorkbookInspectorActionButton>
-            ) : null}
-            {actions.has("restore") &&
-            subject?.kind === "deleted" &&
-            data.deleted ? (
-              <WorkbookInspectorActionButton
-                data-testid={rowHistoryRestoreButtonTestId()}
-                disabled={!canMutate || busy}
-                onClick={() => onPreviewDeleteRestore("restore")}
-              >
-                Restore row
-              </WorkbookInspectorActionButton>
-            ) : null}
-          </div>
-          {pendingConfirmation}
-          <WorkbookHistoryList>
-            {data.items.map((item) => {
-              const event = workbookHistoryEventPresentation(item);
-              return (
-                <WorkbookHistoryEvent
-                  actions={
-                    !actions.has("rollback") ? null : item
-                        .available_rollback_actions.length === 0 ? (
-                      <p style={emptyStateStyle}>No rollback action</p>
-                    ) : (
-                      <div style={actionsStyle}>
-                        {item.available_rollback_actions.map((action) => (
-                          <WorkbookInspectorActionButton
-                            data-testid={rowHistoryActionTestId({
-                              action,
-                              historyItemRef: item.history_item_ref,
-                            })}
-                            disabled={!canMutate || busy}
-                            key={action}
-                            tone={
-                              action === "row_restore"
-                                ? "ordinary"
-                                : "secondary"
-                            }
-                            onClick={() => onPreviewRollback(item, action)}
-                          >
-                            {workbookHistoryRollbackLabel(action)}
-                          </WorkbookInspectorActionButton>
-                        ))}
-                      </div>
-                    )
-                  }
-                  event={event}
-                  key={event.key}
-                  testId={rowHistoryItemTestId({
-                    historyItemRef: item.history_item_ref,
-                  })}
-                />
-              );
-            })}
-          </WorkbookHistoryList>
+          <WorkbookRecordHistoryLoadedPresentation
+            actions={actions}
+            busy={busy}
+            canMutate={canMutate}
+            data={data}
+            destructiveSubject={destructiveSubject}
+            focus={{
+              capture: focus.captureFocusRequest,
+              register: focus.registerActionElement,
+            }}
+            pendingAction={pendingAction}
+            subject={state.subject}
+            onCancelPendingAction={focus.cancelPendingAction}
+            onConfirmPendingAction={focus.confirmPendingAction}
+            onPreviewDeleteRestore={onPreviewDeleteRestore}
+            onPreviewRollback={onPreviewRollback}
+          />
         </>
       )}
     </section>
@@ -345,15 +195,4 @@ const metadataStyle = {
   color: "var(--ct-colors-ink-muted)",
   margin: 0,
   overflowWrap: "anywhere",
-} satisfies CSSProperties;
-
-const actionsStyle = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "0.5rem",
-} satisfies CSSProperties;
-
-const emptyStateStyle = {
-  color: "var(--ct-colors-ink-tertiary)",
-  margin: 0,
 } satisfies CSSProperties;

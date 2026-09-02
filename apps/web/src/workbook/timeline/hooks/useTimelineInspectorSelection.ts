@@ -22,9 +22,10 @@ import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
-import type {
-  WorkbookRecordHistoryEvent,
-  WorkbookRecordHistoryState,
+import {
+  type WorkbookRecordHistoryEvent,
+  type WorkbookRecordHistoryState,
+  workbookRecordHistoryLoadedData,
 } from "../../inspector/workbookRecordHistoryModel";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -360,6 +361,7 @@ export function useTimelineInspectorLifecycle({
   readonly setSelectedRowId: Dispatch<SetStateAction<string | null>>;
   readonly workbookFocusAnchorRef: MutableRefObject<WorkbookContinuityAnchor | null>;
 }) {
+  const rowHistoryData = workbookRecordHistoryLoadedData(rowHistory);
   const closeInspector = useCallback(() => {
     setIsInspectorOpen(false);
   }, [setIsInspectorOpen]);
@@ -370,15 +372,15 @@ export function useTimelineInspectorLifecycle({
     }
     if (!rows.some((row) => row.recordId === selectedRowId)) {
       const deletedHistoryMatchesSelectedRow =
-        rowHistory.data?.deleted === true &&
-        rowHistory.data.record_id === selectedRowId;
+        rowHistoryData?.deleted === true &&
+        rowHistoryData.record_id === selectedRowId;
       const previousAnchor = workbookFocusAnchorRef.current;
       setSelectedRowId(null);
       setSelectedMentionRef(null);
       setSelectedResolveTargetId("");
       if (
         rowHistory.subject?.recordId === selectedRowId &&
-        rowHistory.data?.deleted !== true
+        rowHistoryData?.deleted !== true
       ) {
         cancelRowHistoryRequests();
         dispatchRowHistory({ type: "clear" });
@@ -426,7 +428,7 @@ export function useTimelineInspectorLifecycle({
     dispatchRowHistory,
     gridShellRef,
     restoreTimelineFocusAnchor,
-    rowHistory.data,
+    rowHistoryData,
     rowHistory.subject?.recordId,
     rows,
     selectedRowId,

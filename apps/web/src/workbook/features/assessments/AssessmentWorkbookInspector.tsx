@@ -2,46 +2,25 @@ import { assessmentCreatePanelTestId } from "@cartulary/ui-contracts";
 import type {
   InspectorDisabledCondition,
   InspectorFeatureGroup,
+  InspectorPanelId,
   ViewContract,
 } from "@cartulary/view-contracts";
 import type { CSSProperties, ReactNode } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
+import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
 import { WorkbookInspectorFeedbackView } from "../../inspector/presentation/WorkbookInspectorFeedback";
-import {
-  WorkbookInspectorPanelSection,
-  WorkbookInspectorShell,
-} from "../../inspector/presentation/WorkbookInspectorShell";
-import type { WorkbookInspectorSubjectPresentation } from "../../inspector/presentation/workbookInspectorPresentationModel";
-import {
-  type InspectorContextualCapability,
-  inspectorContextualCapabilities,
-} from "../../inspector/semanticInspectorDispatcher";
-import { WorkbookInspectorContextualActions } from "../../inspector/WorkbookInspectorContextualActions";
+import { WorkbookInspectorShell } from "../../inspector/presentation/WorkbookInspectorShell";
+import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInspectorDeclaredPanelList";
 import { WorkbookInspectorRecordHistory } from "../../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
-import type { WorkbookRecordHistorySubject } from "../../inspector/workbookRecordHistoryModel";
+import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
+import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 
-type RecordHistoryEffects = {
-  readonly deleteAccepted: (accepted: {
-    readonly recordId: string;
-    readonly rowVersion: number;
-  }) => Promise<void> | void;
-  readonly restoreAccepted: (accepted: {
-    readonly recordId: string;
-    readonly rowVersion: number;
-  }) => Promise<void> | void;
-  readonly rollbackAccepted: (accepted: {
-    readonly recordId: string;
-    readonly rowVersion: number;
-  }) => Promise<void> | void;
-};
-
 export function AssessmentWorkbookInspector({
-  children,
   config,
   currentIncidentRole,
   disabledTokens,
@@ -55,9 +34,8 @@ export function AssessmentWorkbookInspector({
   related,
   relatedFeedback,
   subject,
-  viewSchemaId,
+  workflowContent,
 }: {
-  readonly children: ReactNode;
   readonly config: ViewContract["inspectorConfig"];
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
@@ -74,8 +52,7 @@ export function AssessmentWorkbookInspector({
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
     readonly canMutate: boolean;
     readonly commands: RecordRouteCommandPort;
-    readonly effects: RecordHistoryEffects;
-    readonly subject: WorkbookRecordHistorySubject | null;
+    readonly effects: WorkbookRecordHistoryOwnerEffects;
   };
   readonly onClose: () => void;
   readonly relationshipsContent: ReactNode;
@@ -88,13 +65,12 @@ export function AssessmentWorkbookInspector({
     readonly updateDraft: (fieldKey: string, value: string) => void;
   };
   readonly relatedFeedback: WorkbookInspectorFeedback | null;
-  readonly subject: WorkbookInspectorSubjectPresentation | null;
-  readonly viewSchemaId: string;
+  readonly subject: WorkbookInspectorSubject | null;
+  readonly workflowContent: ReactNode;
 }) {
-  const liveSubject = history.subject?.kind === "live" ? subject : null;
-  function dispatchContextualAction(
+  const dispatchContextualAction = (
     capability: InspectorContextualCapability,
-  ): void {
+  ): void => {
     if (capability.kind !== "create_related") return;
     const { featureGroup } = capability;
     if (featureGroup.featureGroupKey !== "create_related.assessment") {
@@ -104,7 +80,7 @@ export function AssessmentWorkbookInspector({
     if (
       featureGroup.routeBinding.kind !== "view_row_create" ||
       featureGroup.routeBinding.owner !== "view_row_create_route" ||
-      featureGroup.routeBinding.targetViewSchemaId !== viewSchemaId
+      featureGroup.routeBinding.targetViewSchemaId !== config.viewSchemaId
     ) {
       followOn.reject("Assessment follow-on creation is unavailable.");
       return;
@@ -114,11 +90,27 @@ export function AssessmentWorkbookInspector({
       return;
     }
     if (followOn.open()) followOn.opened();
-  }
+  };
+  const panelContent = (panelId: InspectorPanelId, content?: ReactNode) => (
+    <>
+      {content}
+      {subject?.kind === "live" &&
+      related.state?.featureGroup.panelId === panelId ? (
+        <InspectorCreateRelatedWorkflow
+          referenceOptions={related.referenceOptions}
+          state={related.state}
+          onCancel={related.cancel}
+          onSubmit={() => void related.submit()}
+          onUpdateDraft={related.updateDraft}
+        />
+      ) : null}
+    </>
+  );
 
   return (
     <WorkbookInspectorShell
       accessibleLabel="Compromise Assessments inspector"
+      config={config}
       eyebrow="Create"
       heading={
         draftMode === "follow_on"
@@ -129,68 +121,46 @@ export function AssessmentWorkbookInspector({
       noRowHeading="Append assessment"
       subject={subject}
       testId={assessmentCreatePanelTestId()}
-      viewSchemaId={viewSchemaId}
       onClose={onClose}
     >
-      {config.panels
-        .filter(
-          (panel) =>
-            history.subject?.kind !== "deleted" || panel.panelId === "history",
-        )
-        .map((panel) => (
-          <WorkbookInspectorPanelSection
-            config={config}
-            key={panel.panelId}
-            panelId={panel.panelId}
-          >
-            {liveSubject === null ? null : (
-              <WorkbookInspectorContextualActions
-                config={config}
-                currentIncidentRole={currentIncidentRole}
-                disabledTokens={disabledTokens}
-                capabilities={inspectorContextualCapabilities({
-                  config,
-                  panelId: panel.panelId,
-                })}
-                subject={liveSubject}
-                onAction={dispatchContextualAction}
-              />
-            )}
-            {panel.panelId === "relationships" ? relationshipsContent : null}
-            {related.state?.featureGroup.panelId === panel.panelId ? (
-              <InspectorCreateRelatedWorkflow
-                referenceOptions={related.referenceOptions}
-                state={related.state}
-                onCancel={related.cancel}
-                onSubmit={() => void related.submit()}
-                onUpdateDraft={related.updateDraft}
-              />
-            ) : null}
-            {panel.panelId === "history" ? (
+      <WorkbookInspectorDeclaredPanelList
+        config={config}
+        currentIncidentRole={currentIncidentRole}
+        disabledTokens={disabledTokens}
+        subject={subject}
+        contentByPanel={{
+          history:
+            subject === null ? undefined : (
               <WorkbookInspectorRecordHistory
                 actions={history.actions}
                 canMutate={history.canMutate}
                 commands={history.commands}
                 ownerEffects={history.effects}
-                subject={history.subject}
+                subject={subject}
               />
-            ) : null}
-          </WorkbookInspectorPanelSection>
-        ))}
-      <WorkbookInspectorFeedbackView
-        feedback={relatedFeedback}
-        neutralStyle={feedbackStyle}
+            ),
+          relationships:
+            subject === null
+              ? undefined
+              : panelContent("relationships", relationshipsContent),
+          workflow: panelContent(
+            "workflow",
+            <div style={creationSectionStyle}>
+              {workflowContent}
+              <WorkbookInspectorFeedbackView
+                feedback={feedback}
+                neutralStyle={feedbackStyle}
+                testId={feedbackTestId}
+              />
+              <WorkbookInspectorFeedbackView
+                feedback={relatedFeedback}
+                neutralStyle={feedbackStyle}
+              />
+            </div>,
+          ),
+        }}
+        onContextualAction={dispatchContextualAction}
       />
-      {history.subject?.kind === "deleted" ? null : (
-        <div style={creationSectionStyle}>
-          {children}
-          <WorkbookInspectorFeedbackView
-            feedback={feedback}
-            neutralStyle={feedbackStyle}
-            testId={feedbackTestId}
-          />
-        </div>
-      )}
     </WorkbookInspectorShell>
   );
 }

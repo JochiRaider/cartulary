@@ -75,14 +75,49 @@ describe("workbook surface ownership policy", () => {
         "InspectorContextualCapability",
       );
       expect(rootSource, rootPath).not.toContain("capability.kind");
-      expect(ownerSource, ownerModulePath).toContain(
-        "WorkbookInspectorPanelSection",
-      );
-      expect(ownerSource, ownerModulePath).toContain(
-        "WorkbookInspectorContextualActions",
-      );
+      expect(rootSource, rootPath).not.toContain("InspectorPanelId");
+      expect(rootSource, rootPath).not.toContain("inspectorPanelIsDeclared");
       expect(ownerSource, ownerModulePath).toContain(
         "WorkbookInspectorRecordHistory",
+      );
+      expect(ownerSource, ownerModulePath).toContain(
+        "WorkbookInspectorDeclaredPanelList",
+      );
+    }
+
+    const panelListSource = readFileSync(
+      path.join(
+        workbookDirectory,
+        "inspector/WorkbookInspectorDeclaredPanelList.tsx",
+      ),
+      "utf8",
+    );
+    expect(panelListSource).toContain("config.panels.map");
+    for (const forbiddenOwnerFacade of [
+      "mutationCommands",
+      "onRefresh",
+      "persistence",
+      "selectedRow",
+      "socket",
+    ]) {
+      expect(panelListSource).not.toContain(forbiddenOwnerFacade);
+    }
+    for (const ownerModulePath of [
+      "features/generic/GenericWorkbookInspector.tsx",
+      "features/entities/EntityWorkbookInspector.tsx",
+      "features/assessments/AssessmentWorkbookInspector.tsx",
+      "timeline/components/TimelineWorkbookInspector.tsx",
+    ]) {
+      const ownerSource = readFileSync(
+        path.join(workbookDirectory, ownerModulePath),
+        "utf8",
+      );
+      expect(ownerSource, ownerModulePath).not.toContain("config.panels.map");
+      expect(ownerSource, ownerModulePath).not.toContain(
+        "inspectorConfig.panels.map",
+      );
+      expect(ownerSource, ownerModulePath).toContain(
+        "WorkbookInspectorDeclaredPanelList",
       );
     }
   });

@@ -4,6 +4,7 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
+  entityInspectButtonTestId,
   genericEditFieldSelectTestId,
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
@@ -18,10 +19,16 @@ import {
   saveStateTestId,
   timelineInspectorTestId,
   timelineRowVersionTestId,
+  workbookFocusAnchorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import {
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  requireViewContract,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Page, Response } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { readWorkbookMutation } from "./query";
@@ -343,7 +350,24 @@ export async function editGenericCell(
   fieldKey: string,
   value: string | string[],
 ) {
-  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
+  if (
+    viewSchemaId === hostsViewSchemaId ||
+    viewSchemaId === identitiesViewSchemaId
+  ) {
+    const inspectButtonTestId = entityInspectButtonTestId(
+      viewSchemaId === hostsViewSchemaId ? "host" : "identity",
+      recordId,
+    );
+    await scrollGridTargetIntoView({
+      page,
+      surface: viewSchemaId,
+      targetTestId: inspectButtonTestId,
+    });
+    await page.getByTestId(inspectButtonTestId).click();
+    await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
+  } else {
+    await openGenericInspectorForRecord(page, viewSchemaId, recordId);
+  }
   await page
     .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
     .selectOption(recordId);
@@ -358,6 +382,33 @@ export async function editGenericCell(
     await input.fill(Array.isArray(value) ? value.join("\n") : value);
   }
   await submitGenericEditAndWait(page, viewSchemaId, recordId);
+}
+
+export async function openGenericInspectorForRecord(
+  page: Page,
+  viewSchemaId: string,
+  recordId: string,
+): Promise<void> {
+  const selectionFieldKey =
+    requireViewContract(viewSchemaId).defaultVisibleFields[0];
+  if (selectionFieldKey === undefined) {
+    throw new Error(`No visible field can select a row in ${viewSchemaId}.`);
+  }
+  const selectedCellTestId = rowCellTestId(recordId, selectionFieldKey);
+  await scrollGridTargetIntoView({
+    page,
+    surface: viewSchemaId,
+    targetTestId: selectedCellTestId,
+  });
+  const selectedCell = page
+    .getByTestId(selectedCellTestId)
+    .locator("xpath=ancestor::*[@role='gridcell'][1]");
+  await selectedCell.dispatchEvent("mousedown", { button: 0 });
+  await selectedCell.focus();
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${viewSchemaId}:${recordId}:${selectionFieldKey}`,
+  );
+  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
 }
 
 function waitForRecordPatch(page: Page, recordId: string): Promise<Response> {

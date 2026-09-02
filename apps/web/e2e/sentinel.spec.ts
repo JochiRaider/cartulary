@@ -92,6 +92,7 @@ import {
 } from "./support/workbook/query";
 import {
   editGenericCell,
+  openGenericInspectorForRecord,
   openTimelineInspector,
   submitGenericEditAndWait,
 } from "./support/workbook/rowMutations";
@@ -637,9 +638,6 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   );
 
   await openGenericSurface(page, incidentId, evidenceViewSchemaId, "Evidence");
-  await page
-    .getByTestId(genericEditRecordSelectTestId(evidenceViewSchemaId))
-    .selectOption(evidence.record_id as string);
   const typedCollectorText = "Browser Collector Raw <collector@example.test>";
   await editGenericCell(
     page,
@@ -842,9 +840,6 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     taskRequestsViewSchemaId,
     "Task Requests",
   );
-  await page
-    .getByTestId(genericEditRecordSelectTestId(taskRequestsViewSchemaId))
-    .selectOption(task.record_id as string);
   const typedRequesterText = "Browser Requester Raw <requester@example.test>";
   await editGenericCell(
     page,
@@ -1027,9 +1022,6 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     commLogViewSchemaId,
     "Communications Log",
   );
-  await page
-    .getByTestId(genericEditRecordSelectTestId(commLogViewSchemaId))
-    .selectOption(commLog.record_id as string);
   await activateSemanticGridCell(
     page.getByTestId(
       rowCellTestId(commLog.record_id as string, "comm_log.summary"),
@@ -1551,6 +1543,14 @@ test("Task Request and Decision workbook workflows stay native", async ({
   await expect(
     page.getByTestId(gridShellTestId(decisionsViewSchemaId)),
   ).toBeVisible();
+  await activateSemanticGridCell(
+    page.getByTestId(
+      rowCellTestId(targetDecision.record_id as string, "decision.summary"),
+    ),
+  );
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${decisionsViewSchemaId}:${targetDecision.record_id}:decision.summary`,
+  );
   await expect(
     page
       .getByTestId(coordinationWorkflowTestId("decision-replacement"))
@@ -2992,7 +2992,7 @@ async function editExtendedSurfaceCell(
   fieldKey: string,
   value: string | string[],
 ) {
-  await page.getByTestId(workbookInspectorToggleTestId(viewSchemaId)).click();
+  await openGenericInspectorForRecord(page, viewSchemaId, recordId);
   await page
     .getByTestId(genericEditRecordSelectTestId(viewSchemaId))
     .selectOption(recordId);

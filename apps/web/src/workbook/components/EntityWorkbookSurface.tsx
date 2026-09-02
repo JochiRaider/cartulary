@@ -56,9 +56,8 @@ import type {
 import { EntityWorkbookInspector } from "../features/entities/EntityWorkbookInspector";
 import { useEntityMergeController } from "../features/entities/useEntityMergeController";
 import { useEntityTimelinePreview } from "../hooks/useEntityTimelinePreview";
+import { inspectorRecordHistoryActions } from "../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorPublicError } from "../inspector/presentation/WorkbookInspectorFeedback";
-import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
-import { inspectorRecordHistoryActions } from "../inspector/semanticInspectorDispatcher";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import {
@@ -69,7 +68,10 @@ import {
   workbookInspectorMessageFeedback,
   workbookInspectorOperationFailureFeedback,
 } from "../inspector/workbookInspectorErrorModel";
-import type { WorkbookRecordHistorySubject } from "../inspector/workbookRecordHistoryModel";
+import {
+  buildWorkbookInspectorSubject,
+  type WorkbookInspectorSubject,
+} from "../inspector/workbookInspectorSubject";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -99,7 +101,6 @@ import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
 } from "../models/workbookGridState";
-import { inspectorPanelIsDeclared } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { emptyGenericReferenceOptions } from "../models/workbookReferenceOptions";
 import {
@@ -234,7 +235,7 @@ export function EntityWorkbookSurface({
   } = layout;
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [deletedHistorySubject, setDeletedHistorySubject] =
-    useState<WorkbookRecordHistorySubject | null>(null);
+    useState<WorkbookInspectorSubject | null>(null);
   const inspectorContinuityTokenRef = useRef<WorkbookContinuityToken | null>(
     null,
   );
@@ -290,14 +291,18 @@ export function EntityWorkbookSurface({
     currentIncidentRole === "reviewer" || currentIncidentRole === "admin";
   const contract = entityType === "host" ? hostsContract : identitiesContract;
   const inspectorConfig = contract.inspectorConfig;
-  const recordHistorySubject: WorkbookRecordHistorySubject | null =
+  const inspectorSubject: WorkbookInspectorSubject | null =
     selectedEntity === null
       ? deletedHistorySubject
-      : {
+      : buildWorkbookInspectorSubject({
+          config: inspectorConfig,
           kind: "live",
+          label: selectedEntity.label,
           recordId: selectedEntity.recordId,
           rowVersion: selectedEntity.rowVersion,
-        };
+          stateLabel: selectedEntity.state,
+          surfaceLabel: contract.title,
+        });
   const recordHistoryActions = useMemo(
     () => inspectorRecordHistoryActions(inspectorConfig),
     [inspectorConfig],
@@ -332,20 +337,15 @@ export function EntityWorkbookSurface({
     config: inspectorConfig,
     lifecycleKey: inspectorResetKey,
     subject:
-      recordHistorySubject === null
+      inspectorSubject === null
         ? null
         : {
-            recordId: recordHistorySubject.recordId,
-            rowVersion: recordHistorySubject.rowVersion,
+            recordId: inspectorSubject.recordId,
+            rowVersion: inspectorSubject.rowVersion,
             viewSchemaId: contract.viewSchemaId,
           },
   });
   const isInspectorOpen = inspector.snapshot.isOpen;
-  const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
-  const showRelationshipsPanel = inspectorPanelIsDeclared(
-    inspectorConfig,
-    "relationships",
-  );
   const surface: string = contract.viewSchemaId;
   const draftRowRecordId = `${surface}:draft-row`;
   const createFields = useMemo(
@@ -1045,27 +1045,6 @@ export function EntityWorkbookSurface({
     }
   }
 
-  const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
-    recordHistorySubject === null
-      ? null
-      : recordHistorySubject.kind === "deleted"
-        ? {
-            label: "Deleted entity",
-            recordId: recordHistorySubject.recordId,
-            rowVersion: recordHistorySubject.rowVersion,
-            stateLabel: "Deleted",
-            surfaceLabel: contract.title,
-          }
-        : selectedEntity === null
-          ? null
-          : {
-              label: selectedEntity.label,
-              recordId: selectedEntity.recordId,
-              rowVersion: selectedEntity.rowVersion,
-              stateLabel: selectedEntity.state,
-              surfaceLabel: contract.title,
-            };
-
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
@@ -1089,11 +1068,17 @@ export function EntityWorkbookSurface({
                   createRelatedWorkflow.commands.cancel();
                   clearTimelinePreview();
                   setSelectedRecordId(null);
-                  setDeletedHistorySubject({
-                    kind: "deleted",
-                    recordId: accepted.recordId,
-                    rowVersion: accepted.rowVersion,
-                  });
+                  setDeletedHistorySubject(
+                    buildWorkbookInspectorSubject({
+                      config: inspectorConfig,
+                      kind: "deleted",
+                      label: "Deleted entity",
+                      recordId: accepted.recordId,
+                      rowVersion: accepted.rowVersion,
+                      stateLabel: "Deleted",
+                      surfaceLabel: contract.title,
+                    }),
+                  );
                   await onRefreshEntities();
                 },
                 restoreAccepted: async (accepted) => {
@@ -1105,7 +1090,6 @@ export function EntityWorkbookSurface({
                   await onRefreshEntities();
                 },
               },
-              subject: recordHistorySubject,
             }}
             mergeFeedback={mergeFeedback}
             mergePreconditionDetails={
@@ -1134,333 +1118,339 @@ export function EntityWorkbookSurface({
               submit: createRelatedWorkflow.commands.submit,
               updateDraft: createRelatedWorkflow.commands.updateDraft,
             }}
-            subject={inspectorSubjectPresentation}
+            subject={inspectorSubject}
             surfaceTitle={contract.title}
             testId={entityInspectorTestId(entityType)}
-            viewSchemaId={contract.viewSchemaId}
             onClose={() => {
               inspector.commands.close({ restoreFocus: true });
             }}
-          >
-            {showDetailsPanel &&
-            recordHistorySubject?.kind !== "deleted" &&
-            editableEntityFields.length > 0 &&
-            rows.length > 0 ? (
-              <section style={inspectorSectionStyle}>
-                <h3 style={sectionTitleStyle}>Edit cell</h3>
-                <div style={inspectorControlStackStyle}>
-                  <select
-                    data-testid={genericEditRecordSelectTestId(
-                      contract.viewSchemaId,
-                    )}
-                    style={selectStyle}
-                    value={editRecordId}
-                    onChange={(event) => {
-                      setEditRecordId(event.target.value);
-                    }}
-                  >
-                    <option value="">Row</option>
-                    {rows.map((row) => (
-                      <option key={row.recordId} value={row.recordId}>
-                        {genericRowLabel(contract, row.rawRow)}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    data-testid={genericEditFieldSelectTestId(
-                      contract.viewSchemaId,
-                    )}
-                    style={selectStyle}
-                    value={editFieldKey}
-                    onChange={(event) => {
-                      setEditFieldKey(event.target.value);
-                    }}
-                  >
-                    <option value="">Field</option>
-                    {editableEntityFields.map((field) => (
-                      <option key={field.fieldKey} value={field.fieldKey}>
-                        {field.label}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedEditField ? (
-                    <GenericMutationControl
-                      collectionMode="add"
-                      field={selectedEditField}
-                      referenceOptions={entityReferenceOptions}
-                      testId={genericEditValueTestId(contract.viewSchemaId)}
-                      value={editValue}
-                      onChange={setEditValue}
-                    />
-                  ) : null}
-                  <button
-                    data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
-                    disabled={mutationState === "Syncing"}
-                    style={actionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void submitEntityEdit();
-                    }}
-                  >
-                    Update
-                  </button>
-                </div>
-                {mutationError ? (
-                  <WorkbookInspectorPublicError error={mutationError} />
-                ) : null}
-              </section>
-            ) : null}
-            {showDetailsPanel && selectedEntity ? (
-              <section style={inspectorSectionStyle}>
-                <h3 style={sectionTitleStyle}>Aliases</h3>
-                <div style={entityAliasListStyle}>
-                  {selectedEntity.aliases.map((alias) => (
-                    <span key={alias.itemRef} style={tagChipStyle}>
-                      {alias.displayText}
+            detailsContent={
+              <>
+                {editableEntityFields.length > 0 && rows.length > 0 ? (
+                  <section style={inspectorSectionStyle}>
+                    <h3 style={sectionTitleStyle}>Edit cell</h3>
+                    <div style={inspectorControlStackStyle}>
+                      <select
+                        data-testid={genericEditRecordSelectTestId(
+                          contract.viewSchemaId,
+                        )}
+                        style={selectStyle}
+                        value={editRecordId}
+                        onChange={(event) => {
+                          setEditRecordId(event.target.value);
+                        }}
+                      >
+                        <option value="">Row</option>
+                        {rows.map((row) => (
+                          <option key={row.recordId} value={row.recordId}>
+                            {genericRowLabel(contract, row.rawRow)}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        data-testid={genericEditFieldSelectTestId(
+                          contract.viewSchemaId,
+                        )}
+                        style={selectStyle}
+                        value={editFieldKey}
+                        onChange={(event) => {
+                          setEditFieldKey(event.target.value);
+                        }}
+                      >
+                        <option value="">Field</option>
+                        {editableEntityFields.map((field) => (
+                          <option key={field.fieldKey} value={field.fieldKey}>
+                            {field.label}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedEditField ? (
+                        <GenericMutationControl
+                          collectionMode="add"
+                          field={selectedEditField}
+                          referenceOptions={entityReferenceOptions}
+                          testId={genericEditValueTestId(contract.viewSchemaId)}
+                          value={editValue}
+                          onChange={setEditValue}
+                        />
+                      ) : null}
                       <button
-                        aria-label={`Remove alias ${alias.displayText}`}
+                        data-testid={genericEditSubmitTestId(
+                          contract.viewSchemaId,
+                        )}
                         disabled={mutationState === "Syncing"}
-                        style={aliasRemoveButtonStyle}
+                        style={actionButtonStyle}
+                        type="button"
+                        onClick={() => {
+                          void submitEntityEdit();
+                        }}
+                      >
+                        Update
+                      </button>
+                    </div>
+                    {mutationError ? (
+                      <WorkbookInspectorPublicError error={mutationError} />
+                    ) : null}
+                  </section>
+                ) : null}
+                {selectedEntity ? (
+                  <section style={inspectorSectionStyle}>
+                    <h3 style={sectionTitleStyle}>Aliases</h3>
+                    <div style={entityAliasListStyle}>
+                      {selectedEntity.aliases.map((alias) => (
+                        <span key={alias.itemRef} style={tagChipStyle}>
+                          {alias.displayText}
+                          <button
+                            aria-label={`Remove alias ${alias.displayText}`}
+                            disabled={mutationState === "Syncing"}
+                            style={aliasRemoveButtonStyle}
+                            type="button"
+                            onClick={() => {
+                              void submitAliasActions([
+                                { op: "remove_alias", item_ref: alias.itemRef },
+                              ]);
+                            }}
+                          >
+                            <X aria-hidden="true" size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div style={aliasAddRowStyle}>
+                      <input
+                        ref={aliasInputRef}
+                        aria-label="Alias text"
+                        maxLength={256}
+                        style={inputStyle}
+                        value={aliasDraft}
+                        onChange={(event) => setAliasDraft(event.target.value)}
+                      />
+                      <button
+                        disabled={
+                          mutationState === "Syncing" ||
+                          aliasDraft.trim() === ""
+                        }
+                        style={secondaryActionButtonStyle}
                         type="button"
                         onClick={() => {
                           void submitAliasActions([
-                            { op: "remove_alias", item_ref: alias.itemRef },
+                            { op: "add_alias", alias_text: aliasDraft },
                           ]);
                         }}
                       >
-                        <X aria-hidden="true" size={12} />
+                        Add alias
                       </button>
-                    </span>
-                  ))}
-                </div>
-                <div style={aliasAddRowStyle}>
-                  <input
-                    ref={aliasInputRef}
-                    aria-label="Alias text"
-                    maxLength={256}
-                    style={inputStyle}
-                    value={aliasDraft}
-                    onChange={(event) => setAliasDraft(event.target.value)}
-                  />
-                  <button
-                    disabled={
-                      mutationState === "Syncing" || aliasDraft.trim() === ""
-                    }
-                    style={secondaryActionButtonStyle}
-                    type="button"
-                    onClick={() => {
-                      void submitAliasActions([
-                        { op: "add_alias", alias_text: aliasDraft },
-                      ]);
-                    }}
-                  >
-                    Add alias
-                  </button>
-                </div>
-              </section>
-            ) : null}
-            {selectedEntity ? (
-              <>
-                {showDetailsPanel ? (
-                  <section style={inspectorSectionStyle}>
-                    <h3 style={sectionTitleStyle}>Identifiers</h3>
-                    <ul style={flatListStyle}>
-                      {selectedEntity.identifiers.length > 0 ? (
-                        selectedEntity.identifiers.map((identifier) => (
-                          <li key={identifier.key}>
-                            {identifier.label}: {identifier.value}
-                          </li>
-                        ))
-                      ) : (
-                        <li>No exact-match identifiers visible.</li>
-                      )}
-                    </ul>
-                  </section>
-                ) : null}
-
-                {showDetailsPanel ? (
-                  <section
-                    data-testid={entityReusableIdentifiersSectionTestId(
-                      entityType,
-                      selectedEntity.recordId,
-                    )}
-                    style={reusableIdentifierSectionStyle}
-                  >
-                    <div style={sectionHeadingRowStyle}>
-                      <h3 style={sectionTitleStyle}>Reusable identifiers</h3>
-                      <span style={readOnlyBadgeStyle}>Read-only</span>
                     </div>
-                    <ul style={flatListStyle}>
-                      {selectedEntity.reusableIdentifiers.length > 0 ? (
-                        selectedEntity.reusableIdentifiers.map((identifier) => (
-                          <li
-                            data-testid={entityReusableIdentifierItemTestId(
-                              entityType,
-                              selectedEntity.recordId,
-                              identifier.itemRef,
-                            )}
-                            key={identifier.itemRef}
-                          >
-                            {identifier.label}: {identifier.displayText}
-                          </li>
-                        ))
-                      ) : (
-                        <li>No reusable identifiers carried forward.</li>
-                      )}
-                    </ul>
                   </section>
                 ) : null}
-
-                {showRelationshipsPanel && canMerge ? (
-                  <section style={inspectorSectionStyle}>
-                    <h3 style={sectionTitleStyle}>Merge</h3>
-                    <label style={labelStyle}>
-                      Merge loser
-                      <select
-                        data-testid={entityMergeControlTestId("loser-record")}
-                        style={selectStyle}
-                        value={mergeCandidateId}
-                        onChange={(event) => {
-                          setEntityActionFeedback(null);
-                          merge.commands.selectCandidate(event.target.value);
-                        }}
-                      >
-                        <option value="">Select duplicate</option>
-                        {rows
-                          .filter(
-                            (row) => row.recordId !== selectedEntity.recordId,
-                          )
-                          .map((row) => (
-                            <option key={row.recordId} value={row.recordId}>
-                              {row.label}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                    <label style={labelStyle}>
-                      Merge reason
-                      <input
-                        data-testid={entityMergeControlTestId("reason")}
-                        style={inputStyle}
-                        type="text"
-                        value={mergeReason}
-                        onChange={(event) => {
-                          merge.commands.setReason(event.target.value);
-                        }}
-                      />
-                    </label>
-                    {loserEntity && mergePlan ? (
-                      <div
-                        data-testid={entityMergeControlTestId("plan")}
-                        style={mergePlanStyle}
-                      >
-                        <p style={noticeTitleStyle}>
-                          Survivor {selectedEntity.label} absorbs loser{" "}
-                          {loserEntity.label}
-                        </p>
-                        <p style={bodyStyle}>
-                          Survivor record {selectedEntity.recordId}
-                          <br />
-                          Loser record {loserEntity.recordId}
-                        </p>
-                        <ul style={flatListStyle}>
-                          {mergePlan.identifierLines.map((line) => (
-                            <li key={`${line.label}:${line.outcome}`}>
-                              {line.label}: {line.outcome}
+                {selectedEntity ? (
+                  <>
+                    <section style={inspectorSectionStyle}>
+                      <h3 style={sectionTitleStyle}>Identifiers</h3>
+                      <ul style={flatListStyle}>
+                        {selectedEntity.identifiers.length > 0 ? (
+                          selectedEntity.identifiers.map((identifier) => (
+                            <li key={identifier.key}>
+                              {identifier.label}: {identifier.value}
                             </li>
-                          ))}
-                          <li>
-                            Aliases to copy:{" "}
-                            {mergePlan.aliasesToCopy.length > 0
-                              ? mergePlan.aliasesToCopy.join(", ")
-                              : "none"}
-                          </li>
-                          <li>
-                            Alias duplicate no-op:{" "}
-                            {mergePlan.duplicateAliases.length > 0
-                              ? mergePlan.duplicateAliases.join(", ")
-                              : "none"}
-                          </li>
-                          <li>
-                            Provenance-only values:{" "}
-                            {mergePlan.provenanceOnlySummary}
-                          </li>
-                          <li>{mergePlan.dependencySummary}</li>
-                        </ul>
+                          ))
+                        ) : (
+                          <li>No exact-match identifiers visible.</li>
+                        )}
+                      </ul>
+                    </section>
+
+                    <section
+                      data-testid={entityReusableIdentifiersSectionTestId(
+                        entityType,
+                        selectedEntity.recordId,
+                      )}
+                      style={reusableIdentifierSectionStyle}
+                    >
+                      <div style={sectionHeadingRowStyle}>
+                        <h3 style={sectionTitleStyle}>Reusable identifiers</h3>
+                        <span style={readOnlyBadgeStyle}>Read-only</span>
+                      </div>
+                      <ul style={flatListStyle}>
+                        {selectedEntity.reusableIdentifiers.length > 0 ? (
+                          selectedEntity.reusableIdentifiers.map(
+                            (identifier) => (
+                              <li
+                                data-testid={entityReusableIdentifierItemTestId(
+                                  entityType,
+                                  selectedEntity.recordId,
+                                  identifier.itemRef,
+                                )}
+                                key={identifier.itemRef}
+                              >
+                                {identifier.label}: {identifier.displayText}
+                              </li>
+                            ),
+                          )
+                        ) : (
+                          <li>No reusable identifiers carried forward.</li>
+                        )}
+                      </ul>
+                    </section>
+                  </>
+                ) : null}
+              </>
+            }
+            relationshipsContent={
+              selectedEntity ? (
+                <>
+                  {canMerge ? (
+                    <section style={inspectorSectionStyle}>
+                      <h3 style={sectionTitleStyle}>Merge</h3>
+                      <label style={labelStyle}>
+                        Merge loser
+                        <select
+                          data-testid={entityMergeControlTestId("loser-record")}
+                          style={selectStyle}
+                          value={mergeCandidateId}
+                          onChange={(event) => {
+                            setEntityActionFeedback(null);
+                            merge.commands.selectCandidate(event.target.value);
+                          }}
+                        >
+                          <option value="">Select duplicate</option>
+                          {rows
+                            .filter(
+                              (row) => row.recordId !== selectedEntity.recordId,
+                            )
+                            .map((row) => (
+                              <option key={row.recordId} value={row.recordId}>
+                                {row.label}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <label style={labelStyle}>
+                        Merge reason
+                        <input
+                          data-testid={entityMergeControlTestId("reason")}
+                          style={inputStyle}
+                          type="text"
+                          value={mergeReason}
+                          onChange={(event) => {
+                            merge.commands.setReason(event.target.value);
+                          }}
+                        />
+                      </label>
+                      {loserEntity && mergePlan ? (
+                        <div
+                          data-testid={entityMergeControlTestId("plan")}
+                          style={mergePlanStyle}
+                        >
+                          <p style={noticeTitleStyle}>
+                            Survivor {selectedEntity.label} absorbs loser{" "}
+                            {loserEntity.label}
+                          </p>
+                          <p style={bodyStyle}>
+                            Survivor record {selectedEntity.recordId}
+                            <br />
+                            Loser record {loserEntity.recordId}
+                          </p>
+                          <ul style={flatListStyle}>
+                            {mergePlan.identifierLines.map((line) => (
+                              <li key={`${line.label}:${line.outcome}`}>
+                                {line.label}: {line.outcome}
+                              </li>
+                            ))}
+                            <li>
+                              Aliases to copy:{" "}
+                              {mergePlan.aliasesToCopy.length > 0
+                                ? mergePlan.aliasesToCopy.join(", ")
+                                : "none"}
+                            </li>
+                            <li>
+                              Alias duplicate no-op:{" "}
+                              {mergePlan.duplicateAliases.length > 0
+                                ? mergePlan.duplicateAliases.join(", ")
+                                : "none"}
+                            </li>
+                            <li>
+                              Provenance-only values:{" "}
+                              {mergePlan.provenanceOnlySummary}
+                            </li>
+                            <li>{mergePlan.dependencySummary}</li>
+                          </ul>
+                          <button
+                            data-testid={entityMergeControlTestId("confirm")}
+                            style={secondaryActionButtonStyle}
+                            type="button"
+                            onClick={() => {
+                              setEntityActionFeedback(null);
+                              void merge.commands.confirm();
+                            }}
+                          >
+                            Confirm merge
+                          </button>
+                        </div>
+                      ) : (
                         <button
-                          data-testid={entityMergeControlTestId("confirm")}
+                          data-testid={entityMergeControlTestId("start")}
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
                             setEntityActionFeedback(null);
-                            void merge.commands.confirm();
+                            merge.commands.start();
                           }}
                         >
-                          Confirm merge
+                          Start merge
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        data-testid={entityMergeControlTestId("start")}
-                        style={secondaryActionButtonStyle}
-                        type="button"
-                        onClick={() => {
-                          setEntityActionFeedback(null);
-                          merge.commands.start();
-                        }}
-                      >
-                        Start merge
-                      </button>
-                    )}
-                  </section>
-                ) : showRelationshipsPanel ? (
-                  <section style={inspectorSectionStyle}>
-                    <h3 style={sectionTitleStyle}>Merge</h3>
-                    <p style={bodyStyle}>
-                      Merge is available to reviewer or admin roles.
-                    </p>
-                  </section>
-                ) : null}
+                      )}
+                    </section>
+                  ) : (
+                    <section style={inspectorSectionStyle}>
+                      <h3 style={sectionTitleStyle}>Merge</h3>
+                      <p style={bodyStyle}>
+                        Merge is available to reviewer or admin roles.
+                      </p>
+                    </section>
+                  )}
 
-                {timelinePreviewRows.length > 0 ? (
-                  <section style={inspectorSectionStyle}>
-                    <h3 style={sectionTitleStyle}>Dependent Timeline</h3>
-                    <div style={timelinePreviewStackStyle}>
-                      {timelinePreviewRows.map((row) => (
-                        <article
-                          key={row.recordId ?? row.key}
-                          data-testid={
-                            row.recordId === null
-                              ? undefined
-                              : timelinePreviewRowTestId(row.recordId)
-                          }
-                          style={timelinePreviewCardStyle}
-                        >
-                          <p style={noticeTitleStyle}>
-                            {row.values.activitySynopsisText || "Untitled row"}
-                          </p>
-                          <div style={relationshipItemsWrapStyle}>
-                            {row.collectionValues[
-                              entityType === "host"
-                                ? "hostRefs"
-                                : "identityRefs"
-                            ].map((item) => (
-                              <WorkbookRelationshipChip
-                                key={item.itemRef}
-                                presentation={timelineRelationshipChipPresentation(
-                                  { entityIndex, item },
-                                )}
-                              />
-                            ))}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-              </>
-            ) : null}
-          </EntityWorkbookInspector>
+                  {timelinePreviewRows.length > 0 ? (
+                    <section style={inspectorSectionStyle}>
+                      <h3 style={sectionTitleStyle}>Dependent Timeline</h3>
+                      <div style={timelinePreviewStackStyle}>
+                        {timelinePreviewRows.map((row) => (
+                          <article
+                            key={row.recordId ?? row.key}
+                            data-testid={
+                              row.recordId === null
+                                ? undefined
+                                : timelinePreviewRowTestId(row.recordId)
+                            }
+                            style={timelinePreviewCardStyle}
+                          >
+                            <p style={noticeTitleStyle}>
+                              {row.values.activitySynopsisText ||
+                                "Untitled row"}
+                            </p>
+                            <div style={relationshipItemsWrapStyle}>
+                              {row.collectionValues[
+                                entityType === "host"
+                                  ? "hostRefs"
+                                  : "identityRefs"
+                              ].map((item) => (
+                                <WorkbookRelationshipChip
+                                  key={item.itemRef}
+                                  presentation={timelineRelationshipChipPresentation(
+                                    { entityIndex, item },
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                </>
+              ) : null
+            }
+          />
         ) : undefined
       }
       onRequestInspectorClose={() => {

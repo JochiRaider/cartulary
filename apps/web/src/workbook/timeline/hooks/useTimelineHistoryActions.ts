@@ -5,6 +5,10 @@ import {
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import {
+  updateWorkbookInspectorSubject,
+  type WorkbookInspectorSubject,
+} from "../../inspector/workbookInspectorSubject";
+import {
   buildRecordRollbackTargetFromHistoryAction,
   type RecordHistoryData,
   type RecordHistoryItem,
@@ -14,7 +18,6 @@ import {
   type WorkbookRecordHistoryPendingAction,
   type WorkbookRecordHistoryRequestId,
   type WorkbookRecordHistoryState,
-  type WorkbookRecordHistorySubject,
 } from "../../inspector/workbookRecordHistoryModel";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
@@ -36,6 +39,7 @@ type TimelineHistoryLoadRowsOptions = {
 
 export function useTimelineHistoryActions({
   acceptTimelineRecordVersion,
+  activeHistorySubject,
   activeHistoryLiveRecordId,
   beginRowHistoryOperation,
   beginRowHistoryRequest,
@@ -66,6 +70,7 @@ export function useTimelineHistoryActions({
     recordId: string,
     rowVersion: number,
   ) => void;
+  readonly activeHistorySubject: WorkbookInspectorSubject | null;
   readonly activeHistoryLiveRecordId: string | null;
   readonly beginRowHistoryOperation: () => WorkbookRecordHistoryOperationId;
   readonly beginRowHistoryRequest: () => WorkbookRecordHistoryRequestId;
@@ -85,7 +90,7 @@ export function useTimelineHistoryActions({
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly dispatchRowHistory: (event: WorkbookRecordHistoryEvent) => void;
   readonly retargetRowHistory: (
-    subject: WorkbookRecordHistorySubject | null,
+    subject: WorkbookInspectorSubject | null,
   ) => void;
   readonly rowHistory: WorkbookRecordHistoryState;
   readonly rowHistoryPendingAction: WorkbookRecordHistoryPendingAction | null;
@@ -108,23 +113,22 @@ export function useTimelineHistoryActions({
     async (
       recordId: string,
       options: {
-        readonly retainedData?: RecordHistoryData | null;
+        readonly completionFeedback?: ReturnType<
+          typeof workbookInspectorMessageFeedback
+        >;
         readonly setLoading?: boolean;
-        readonly subject?: WorkbookRecordHistorySubject;
+        readonly subject?: WorkbookInspectorSubject;
       } = {},
     ): Promise<RecordHistoryData | null> => {
       const requestId = beginRowHistoryRequest();
-      const currentSubject = rowHistory.subject;
-      const rowVersion =
-        currentSubject?.recordId === recordId
-          ? currentSubject.rowVersion
-          : currentHistoryRowVersion;
-      if (rowVersion === null || rowVersion === undefined) return null;
-      const activeSubject: WorkbookRecordHistorySubject =
-        options.subject ??
-        (currentSubject?.recordId === recordId
-          ? currentSubject
-          : { kind: "live", recordId, rowVersion });
+      const activeSubject = resolveTimelineHistoryLoadSubject({
+        activeHistorySubject,
+        currentHistoryRowVersion,
+        currentSubject: rowHistory.subject,
+        explicitSubject: options.subject,
+        recordId,
+      });
+      if (activeSubject === null) return null;
       retargetRowHistory(activeSubject);
       if (options.setLoading === true) {
         dispatchRowHistory({
@@ -134,12 +138,11 @@ export function useTimelineHistoryActions({
         });
       }
       const result = await historyPort.load({ recordId });
-      if (!rowHistoryRequestIsCurrent(requestId)) {
-        return null;
-      }
+      if (!rowHistoryRequestIsCurrent(requestId)) return null;
       if (result.kind === "rejected") {
         dispatchRowHistory({
           error: workbookInspectorErrorPresentation(result.failure),
+          feedback: options.completionFeedback,
           requestId,
           subject: activeSubject,
           type: "load_rejected",
@@ -147,12 +150,10 @@ export function useTimelineHistoryActions({
         return null;
       }
       const historyData = result.value;
-      if (!rowHistoryRequestIsCurrent(requestId)) {
-        return null;
-      }
       acceptTimelineRecordVersion(recordId, historyData.row_version);
       dispatchRowHistory({
         data: historyData,
+        feedback: options.completionFeedback,
         requestId,
         subject: activeSubject,
         type: "load_accepted",
@@ -161,6 +162,7 @@ export function useTimelineHistoryActions({
     },
     [
       acceptTimelineRecordVersion,
+      activeHistorySubject,
       beginRowHistoryRequest,
       currentHistoryRowVersion,
       dispatchRowHistory,
@@ -176,18 +178,10 @@ export function useTimelineHistoryActions({
       setSelectedRowId(recordId);
       setIsInspectorOpen(true);
       void fetchRecordHistory(recordId, {
-        retainedData:
-          rowHistory.subject?.recordId === recordId ? rowHistory.data : null,
         setLoading: true,
       });
     },
-    [
-      fetchRecordHistory,
-      rowHistory.data,
-      rowHistory.subject,
-      setIsInspectorOpen,
-      setSelectedRowId,
-    ],
+    [fetchRecordHistory, setIsInspectorOpen, setSelectedRowId],
   );
 
   useEffect(() => {
@@ -199,16 +193,11 @@ export function useTimelineHistoryActions({
       return;
     }
     void fetchRecordHistory(activeHistoryLiveRecordId, {
-      retainedData:
-        rowHistory.subject?.recordId === activeHistoryLiveRecordId
-          ? rowHistory.data
-          : null,
       setLoading: true,
     });
   }, [
     activeHistoryLiveRecordId,
     fetchRecordHistory,
-    rowHistory.data,
     rowHistory.phase,
     rowHistory.subject,
   ]);
@@ -253,9 +242,12 @@ export function useTimelineHistoryActions({
         if (idleRecord === null) {
           clearViewportContinuity(viewportContinuityToken);
           dispatchRowHistory({
-            error: workbookInspectorLocalErrorPresentation(
-              missingVersionMessage,
-            ),
+            feedback: {
+              error: workbookInspectorLocalErrorPresentation(
+                missingVersionMessage,
+              ),
+              kind: "error",
+            },
             operationId,
             type: "operation_rejected",
           });
@@ -268,7 +260,10 @@ export function useTimelineHistoryActions({
           resolvePendingSocketTxn(clientTxnId);
           clearViewportContinuity(viewportContinuityToken);
           dispatchRowHistory({
-            error: workbookInspectorErrorPresentation(result.failure),
+            feedback: {
+              error: workbookInspectorErrorPresentation(result.failure),
+              kind: "error",
+            },
             operationId,
             type: "operation_rejected",
           });
@@ -324,11 +319,14 @@ export function useTimelineHistoryActions({
           }),
         onSuccess: async (accepted, viewportContinuityToken) => {
           acceptTimelineRecordVersion(recordId, accepted.rowVersion);
-          const nextSubject: WorkbookRecordHistorySubject = {
+          const sourceSubject = rowHistory.subject;
+          if (sourceSubject === null) return;
+          const nextSubject = updateWorkbookInspectorSubject(sourceSubject, {
             kind: operation === "delete" ? "deleted" : "live",
             recordId,
             rowVersion: accepted.rowVersion,
-          };
+          });
+          if (nextSubject === null) return;
           dispatchRowHistory({
             feedback: workbookInspectorMessageFeedback(
               operation === "delete"
@@ -342,6 +340,12 @@ export function useTimelineHistoryActions({
           });
           if (currentHistoryRecordIdMatches(recordId)) {
             await fetchRecordHistory(recordId, {
+              completionFeedback: workbookInspectorMessageFeedback(
+                operation === "delete"
+                  ? `Deleted record ${recordId}.`
+                  : `Restored record ${recordId}.`,
+                "polite",
+              ),
               setLoading: true,
               subject: nextSubject,
             });
@@ -363,6 +367,7 @@ export function useTimelineHistoryActions({
       fetchRecordHistory,
       historyPort,
       loadRows,
+      rowHistory.subject,
       selectedRowRecordId,
       setSelectedRowId,
       submitRowHistoryMutation,
@@ -405,14 +410,17 @@ export function useTimelineHistoryActions({
           }),
         onSuccess: async (accepted, viewportContinuityToken) => {
           acceptTimelineRecordVersion(recordId, accepted.rowVersion);
-          const nextSubject: WorkbookRecordHistorySubject = {
+          const sourceSubject = rowHistory.subject;
+          if (sourceSubject === null) return;
+          const nextSubject = updateWorkbookInspectorSubject(sourceSubject, {
             kind:
               rowHistory.subject?.recordId === recordId
                 ? rowHistory.subject.kind
                 : "live",
             recordId,
             rowVersion: accepted.rowVersion,
-          };
+          });
+          if (nextSubject === null) return;
           dispatchRowHistory({
             feedback: workbookInspectorMessageFeedback(
               `Rolled back record ${recordId}.`,
@@ -424,6 +432,10 @@ export function useTimelineHistoryActions({
           });
           if (currentHistoryRecordIdMatches(recordId)) {
             await fetchRecordHistory(recordId, {
+              completionFeedback: workbookInspectorMessageFeedback(
+                `Rolled back record ${recordId}.`,
+                "polite",
+              ),
               setLoading: true,
               subject: nextSubject,
             });
@@ -444,8 +456,8 @@ export function useTimelineHistoryActions({
       fetchRecordHistory,
       historyPort,
       loadRows,
-      selectedRowRecordId,
       rowHistory.subject,
+      selectedRowRecordId,
       submitRowHistoryMutation,
     ],
   );
@@ -524,4 +536,29 @@ export function useTimelineHistoryActions({
     previewRowHistoryDeleteRestore,
     previewRowHistoryRollback,
   };
+}
+
+function resolveTimelineHistoryLoadSubject({
+  activeHistorySubject,
+  currentHistoryRowVersion,
+  currentSubject,
+  explicitSubject,
+  recordId,
+}: {
+  readonly activeHistorySubject: WorkbookInspectorSubject | null;
+  readonly currentHistoryRowVersion: number | null;
+  readonly currentSubject: WorkbookInspectorSubject | null;
+  readonly explicitSubject?: WorkbookInspectorSubject | undefined;
+  readonly recordId: string;
+}): WorkbookInspectorSubject | null {
+  const rowVersion =
+    currentSubject?.recordId === recordId
+      ? currentSubject.rowVersion
+      : currentHistoryRowVersion;
+  if (rowVersion === null) return null;
+  if (explicitSubject !== undefined) return explicitSubject;
+  if (currentSubject?.recordId === recordId) return currentSubject;
+  return activeHistorySubject?.recordId === recordId
+    ? activeHistorySubject
+    : null;
 }

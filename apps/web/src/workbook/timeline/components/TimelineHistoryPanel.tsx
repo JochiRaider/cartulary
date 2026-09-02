@@ -4,13 +4,12 @@ import {
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
-import { inspectorRecordHistoryActions } from "../../inspector/semanticInspectorDispatcher";
+import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookRecordHistoryPanel } from "../../inspector/WorkbookInspectorRecordHistory";
 import type {
   RecordHistoryItem,
   RecordHistoryRollbackAction,
   WorkbookRecordHistoryState,
-  WorkbookRecordHistorySubject,
 } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { inspectorSectionStyle } from "./TimelineWorkbookStyles";
@@ -23,7 +22,6 @@ export function TimelineHistoryPanel({
   canMutate,
   history,
   selectedActiveRowRecordId,
-  selectedActiveSubject,
   onCancelPendingAction,
   onConfirmPendingAction,
   onOpenHistory,
@@ -33,7 +31,6 @@ export function TimelineHistoryPanel({
   readonly canMutate: boolean;
   readonly history: WorkbookRecordHistoryState;
   readonly selectedActiveRowRecordId: string | null;
-  readonly selectedActiveSubject: WorkbookRecordHistorySubject | null;
   readonly onCancelPendingAction: () => void;
   readonly onConfirmPendingAction: () => void;
   readonly onOpenHistory: (recordId: string) => void;
@@ -43,10 +40,6 @@ export function TimelineHistoryPanel({
     action: RecordHistoryRollbackAction,
   ) => void;
 }) {
-  const presentedHistory =
-    history.subject === null && selectedActiveSubject !== null
-      ? { ...history, subject: selectedActiveSubject }
-      : history;
   return (
     <section
       data-testid={timelineInspectorSectionTestId("history")}
@@ -70,14 +63,12 @@ export function TimelineHistoryPanel({
                 ),
               }
         }
-        state={presentedHistory}
+        state={history}
         onCancelPendingAction={onCancelPendingAction}
         onConfirmPendingAction={onConfirmPendingAction}
         onOpenHistory={() => {
           const recordId =
-            presentedHistory.subject?.recordId ??
-            selectedActiveRowRecordId ??
-            undefined;
+            history.subject?.recordId ?? selectedActiveRowRecordId ?? undefined;
           if (recordId !== undefined) onOpenHistory(recordId);
         }}
         onPreviewDeleteRestore={onPreviewDeleteRestore}

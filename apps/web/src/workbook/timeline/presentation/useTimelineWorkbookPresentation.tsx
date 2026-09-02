@@ -10,6 +10,7 @@ import {
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useLayoutEffect, useMemo } from "react";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
+import { workbookRecordHistoryLoadedData } from "../../inspector/workbookRecordHistoryModel";
 import { applyWorkbookLayoutToColumns } from "../../layout/workbookColumnLayout";
 import {
   type WorkbookQueryLoadState,
@@ -184,6 +185,7 @@ export function useTimelineWorkbookPresentation({
     inspectorHistorySubject,
     rowHistory,
   } = inspector.snapshot.history;
+  const rowHistoryData = workbookRecordHistoryLoadedData(rowHistory);
   const { cancelRowHistoryPendingAction } = inspector.commands.history;
   const handleResolveTargetChange = workflow.commands.resolveTargetChange;
   const createRelatedWorkflow = workflow.snapshot.createRelatedWorkflow;
@@ -475,8 +477,8 @@ export function useTimelineWorkbookPresentation({
             : null,
           rowHistoryRowVersion:
             currentHistoryDeleted &&
-            rowHistory.data?.record_id === currentHistoryRecordId
-              ? rowHistory.data.row_version
+            rowHistoryData?.record_id === currentHistoryRecordId
+              ? rowHistoryData.row_version
               : null,
           selectedMention,
           selectedResolveTargetId,

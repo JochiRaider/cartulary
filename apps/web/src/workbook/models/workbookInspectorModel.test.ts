@@ -2,7 +2,6 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
   initialWorkbookInspectorState,
-  inspectorPanelIsDeclared,
   type WorkbookInspectorSubject,
   workbookInspectorReducer,
 } from "./workbookInspectorModel";
@@ -151,8 +150,6 @@ describe("workbookInspectorModel", () => {
       "cartulary.view.hosts.v1",
     ).inspectorConfig;
 
-    expect(inspectorPanelIsDeclared(config, "relationships")).toBe(true);
-    expect(inspectorPanelIsDeclared(config, "workflow")).toBe(true);
     expect(
       config.featureGroups
         .filter((group) => group.panelId === "relationships")

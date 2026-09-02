@@ -1,27 +1,17 @@
-import type {
-  RecordHistoryData,
-  WorkbookRecordHistorySubject,
+import { requireViewContract } from "@cartulary/view-contracts";
+import {
+  buildWorkbookInspectorSubject,
+  type WorkbookInspectorSubject,
+} from "../../inspector/workbookInspectorSubject";
+import {
+  type WorkbookRecordHistoryState,
+  workbookRecordHistoryLoadedData,
 } from "../../inspector/workbookRecordHistoryModel";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRow } from "./workbookTimelineModel";
 
-export type TimelineInspectorHistorySubject =
-  | {
-      readonly kind: "live";
-      readonly recordId: string;
-      readonly rowVersion: number | null;
-    }
-  | {
-      readonly kind: "deleted";
-      readonly recordId: string;
-      readonly rowVersion: number;
-    }
-  | { readonly kind: "draft" }
-  | { readonly kind: "none" };
-
-type TimelineHistoryStateLike = {
-  readonly subject: WorkbookRecordHistorySubject | null;
-  readonly data: RecordHistoryData | null;
-};
+const timelineInspectorConfig =
+  requireViewContract(timelineViewSchemaId).inspectorConfig;
 
 export function selectTimelineInspectorHistorySubject({
   draftRow,
@@ -29,13 +19,14 @@ export function selectTimelineInspectorHistorySubject({
   selectedRow,
 }: {
   readonly draftRow: WorkbookRow | null;
-  readonly rowHistory: TimelineHistoryStateLike;
+  readonly rowHistory: WorkbookRecordHistoryState;
   readonly selectedRow: WorkbookRow | null;
-}): TimelineInspectorHistorySubject {
+}): WorkbookInspectorSubject | null {
+  const rowHistoryData = workbookRecordHistoryLoadedData(rowHistory);
   const matchedRowHistoryData =
-    rowHistory.data !== null &&
-    rowHistory.data.record_id === rowHistory.subject?.recordId
-      ? rowHistory.data
+    rowHistoryData !== null &&
+    rowHistoryData.record_id === rowHistory.subject?.recordId
+      ? rowHistoryData
       : null;
   const deletedRowHistoryData =
     matchedRowHistoryData?.deleted === true ? matchedRowHistoryData : null;
@@ -45,21 +36,27 @@ export function selectTimelineInspectorHistorySubject({
     (selectedLiveRecordId === null ||
       selectedLiveRecordId === deletedRowHistoryData.record_id);
   if (deletedRowIsActiveSubject && deletedRowHistoryData !== null) {
-    return {
+    return buildWorkbookInspectorSubject({
+      config: timelineInspectorConfig,
       kind: "deleted",
+      label: "Deleted timeline row",
       recordId: deletedRowHistoryData.record_id,
       rowVersion: deletedRowHistoryData.row_version,
-    };
+      surfaceLabel: "Timeline",
+    });
   }
   if (selectedLiveRecordId !== null) {
-    return {
+    return buildWorkbookInspectorSubject({
+      config: timelineInspectorConfig,
       kind: "live",
+      label:
+        selectedRow?.values.activitySynopsisText.trim() ||
+        "Selected timeline row",
       recordId: selectedLiveRecordId,
-      rowVersion: selectedRow?.rowVersion ?? null,
-    };
+      rowVersion: selectedRow?.rowVersion,
+      surfaceLabel: "Timeline",
+    });
   }
-  if (draftRow !== null) {
-    return { kind: "draft" };
-  }
-  return { kind: "none" };
+  if (draftRow !== null) return null;
+  return null;
 }

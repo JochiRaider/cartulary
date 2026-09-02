@@ -1,21 +1,17 @@
 import { useCallback, useReducer, useRef } from "react";
+import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import {
   initialWorkbookRecordHistoryState,
   type WorkbookRecordHistoryEvent,
   type WorkbookRecordHistoryOperationId,
   type WorkbookRecordHistoryRequestId,
-  type WorkbookRecordHistorySubject,
   workbookRecordHistoryOperationId,
+  workbookRecordHistoryPendingAction,
   workbookRecordHistoryReducer,
   workbookRecordHistoryRequestId,
 } from "../../inspector/workbookRecordHistoryModel";
-import {
-  selectTimelineInspectorHistorySubject,
-  type TimelineInspectorHistorySubject,
-} from "../models/timelineHistoryModel";
+import { selectTimelineInspectorHistorySubject } from "../models/timelineHistoryModel";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-
-export type { TimelineInspectorHistorySubject };
 
 export function useTimelineHistoryState({
   draftRow,
@@ -38,20 +34,12 @@ export function useTimelineHistoryState({
     rowHistory,
     selectedRow,
   });
-  const currentHistoryRecordId =
-    inspectorHistorySubject.kind === "live" ||
-    inspectorHistorySubject.kind === "deleted"
-      ? inspectorHistorySubject.recordId
-      : null;
+  const currentHistoryRecordId = inspectorHistorySubject?.recordId ?? null;
   currentHistoryRecordIdRef.current = currentHistoryRecordId;
-  const currentHistoryRowVersion =
-    inspectorHistorySubject.kind === "live" ||
-    inspectorHistorySubject.kind === "deleted"
-      ? inspectorHistorySubject.rowVersion
-      : null;
-  const currentHistoryDeleted = inspectorHistorySubject.kind === "deleted";
+  const currentHistoryRowVersion = inspectorHistorySubject?.rowVersion ?? null;
+  const currentHistoryDeleted = inspectorHistorySubject?.kind === "deleted";
   const activeHistoryLiveRecordId =
-    inspectorHistorySubject.kind === "live"
+    inspectorHistorySubject?.kind === "live"
       ? inspectorHistorySubject.recordId
       : null;
 
@@ -88,7 +76,7 @@ export function useTimelineHistoryState({
     dispatchRowHistory({ type: "clear" });
   }, [cancelRowHistoryRequests]);
   const retargetRowHistory = useCallback(
-    (subject: WorkbookRecordHistorySubject | null) => {
+    (subject: WorkbookInspectorSubject | null) => {
       dispatchRowHistory({ subject, type: "retarget" });
     },
     [],
@@ -116,7 +104,7 @@ export function useTimelineHistoryState({
       currentHistoryRowVersion,
       inspectorHistorySubject,
       rowHistory,
-      rowHistoryPendingAction: rowHistory.pendingAction,
+      rowHistoryPendingAction: workbookRecordHistoryPendingAction(rowHistory),
     },
   };
 }

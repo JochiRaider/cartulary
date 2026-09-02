@@ -4,15 +4,20 @@ import {
   initialWorkbookRecordHistoryState,
   type RecordHistoryData,
   type RecordHistoryItem,
+  workbookRecordHistoryLoadedData,
   workbookRecordHistoryOperationId,
+  workbookRecordHistoryPendingAction,
   workbookRecordHistoryReducer,
   workbookRecordHistoryRequestId,
 } from "./workbookRecordHistoryModel";
 
 const liveSubject = {
   kind: "live",
+  label: "Record A",
   recordId: "record-a",
   rowVersion: 4,
+  surfaceLabel: "Test records",
+  viewSchemaId: "cartulary.view.test.v1",
 } as const;
 const data: RecordHistoryData = {
   deleted: false,
@@ -23,6 +28,83 @@ const data: RecordHistoryData = {
 };
 
 describe("workbookRecordHistoryModel", () => {
+  it("preserves an exactly equal subject reference and resets every changed identity", () => {
+    const initial = initialWorkbookRecordHistoryState(liveSubject);
+    const equal = workbookRecordHistoryReducer(initial, {
+      subject: { ...liveSubject },
+      type: "retarget",
+    });
+    expect(equal).toBe(initial);
+
+    for (const subject of [
+      {
+        ...liveSubject,
+        kind: "deleted" as const,
+        stateLabel: "Deleted",
+      },
+      { ...liveSubject, recordId: "record-b" },
+      { ...liveSubject, rowVersion: liveSubject.rowVersion + 1 },
+      null,
+    ]) {
+      expect(
+        workbookRecordHistoryReducer(initial, { subject, type: "retarget" }),
+      ).toEqual(initialWorkbookRecordHistoryState(subject));
+    }
+  });
+
+  it("makes events from the wrong phase, request, operation, or subject explicit no-ops", () => {
+    const initial = initialWorkbookRecordHistoryState(liveSubject);
+    const requestId = workbookRecordHistoryRequestId(1);
+    const operationId = workbookRecordHistoryOperationId(1);
+    const wrongSubject = { ...liveSubject, recordId: "record-b" };
+    const events = [
+      {
+        data,
+        requestId,
+        subject: liveSubject,
+        type: "load_accepted" as const,
+      },
+      {
+        error: { primaryMessage: "late", technicalFields: [] },
+        requestId,
+        subject: liveSubject,
+        type: "load_rejected" as const,
+      },
+      {
+        pendingAction: {
+          kind: "destructive" as const,
+          operation: "delete" as const,
+          recordId: liveSubject.recordId,
+          rowVersion: liveSubject.rowVersion,
+        },
+        type: "preview" as const,
+      },
+      { operationId, type: "submit" as const },
+      {
+        operationId,
+        subject: liveSubject,
+        type: "operation_accepted" as const,
+      },
+      {
+        feedback: {
+          error: { primaryMessage: "late", technicalFields: [] },
+          kind: "error" as const,
+        },
+        operationId,
+        type: "operation_rejected" as const,
+      },
+      {
+        requestId,
+        subject: wrongSubject,
+        type: "load_requested" as const,
+      },
+    ];
+
+    for (const event of events) {
+      expect(workbookRecordHistoryReducer(initial, event)).toBe(initial);
+    }
+  });
+
   it("rejects stale and duplicate loads after a retarget", () => {
     const firstRequest = workbookRecordHistoryRequestId(1);
     const secondRequest = workbookRecordHistoryRequestId(2);
@@ -44,10 +126,10 @@ describe("workbookRecordHistoryModel", () => {
       type: "load_accepted",
     });
     expect(state.phase).toBe("loading");
-    expect(state.data).toBeNull();
+    expect(workbookRecordHistoryLoadedData(state)).toBeNull();
 
     const nextSubject = {
-      kind: "live",
+      ...liveSubject,
       recordId: "record-b",
       rowVersion: 1,
     } as const;
@@ -62,6 +144,50 @@ describe("workbookRecordHistoryModel", () => {
       type: "load_accepted",
     });
     expect(state).toEqual(initialWorkbookRecordHistoryState(nextSubject));
+  });
+
+  it("retains only same-subject loaded data while loading and makes load failure exclusive", () => {
+    const firstRequest = workbookRecordHistoryRequestId(1);
+    let state = workbookRecordHistoryReducer(
+      initialWorkbookRecordHistoryState(liveSubject),
+      {
+        requestId: firstRequest,
+        subject: liveSubject,
+        type: "load_requested",
+      },
+    );
+    state = workbookRecordHistoryReducer(state, {
+      data,
+      requestId: firstRequest,
+      subject: liveSubject,
+      type: "load_accepted",
+    });
+    const secondRequest = workbookRecordHistoryRequestId(2);
+    state = workbookRecordHistoryReducer(state, {
+      requestId: secondRequest,
+      subject: liveSubject,
+      type: "load_requested",
+    });
+    expect(state).toMatchObject({
+      phase: "loading",
+      retainedData: data,
+      requestId: secondRequest,
+    });
+    state = workbookRecordHistoryReducer(state, {
+      error: { primaryMessage: "Load failed", technicalFields: [] },
+      requestId: secondRequest,
+      subject: liveSubject,
+      type: "load_rejected",
+    });
+    expect(state).toEqual({
+      phase: "ready",
+      result: {
+        error: { primaryMessage: "Load failed", technicalFields: [] },
+        kind: "load_error",
+      },
+      subject: liveSubject,
+    });
+    expect(workbookRecordHistoryLoadedData(state)).toBeNull();
   });
 
   it("cancels and reopens confirmation without weakening operation identity", () => {
@@ -91,7 +217,7 @@ describe("workbookRecordHistoryModel", () => {
       type: "preview",
     });
     state = workbookRecordHistoryReducer(state, { type: "cancel" });
-    expect(state.pendingAction).toBeNull();
+    expect(workbookRecordHistoryPendingAction(state)).toBeNull();
     state = workbookRecordHistoryReducer(state, {
       pendingAction: pending,
       type: "preview",
@@ -103,23 +229,26 @@ describe("workbookRecordHistoryModel", () => {
     });
     expect(state).toMatchObject({
       operationId,
-      pendingAction: null,
+      operation: { pendingAction: pending },
       phase: "submitting",
     });
 
     const stale = workbookRecordHistoryReducer(state, {
-      error: { primaryMessage: "stale", technicalFields: [] },
+      feedback: {
+        error: { primaryMessage: "stale", technicalFields: [] },
+        kind: "error",
+      },
       operationId: workbookRecordHistoryOperationId(1),
       type: "operation_rejected",
     });
     expect(stale).toBe(state);
     state = workbookRecordHistoryReducer(state, {
-      feedback: null,
       operationId,
       subject: {
+        ...liveSubject,
         kind: "deleted",
-        recordId: liveSubject.recordId,
         rowVersion: 5,
+        stateLabel: "Deleted",
       },
       type: "operation_accepted",
     });

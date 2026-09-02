@@ -2,13 +2,13 @@ import { timelineInspectorSectionTestId } from "@cartulary/ui-contracts";
 import { type ReactNode, useCallback } from "react";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
+import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type {
   RecordHistoryItem,
   WorkbookRecordHistoryState,
 } from "../../inspector/workbookRecordHistoryModel";
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
-import type { TimelineInspectorHistorySubject } from "../hooks/useTimelineHistoryState";
 import {
   readTimelineCellValue,
   type TimelineCollectionBinding,
@@ -53,7 +53,7 @@ export function useTimelineWorkbookInspectorSections({
     row: WorkbookRow,
     files: FileList | File[],
   ) => void;
-  readonly inspectorHistorySubject: TimelineInspectorHistorySubject;
+  readonly inspectorHistorySubject: WorkbookInspectorSubject | null;
   readonly openRowHistory: (recordId: string) => void;
   readonly previewRowHistoryDeleteRestore: (
     operation: "delete" | "restore",
@@ -169,18 +169,8 @@ export function useTimelineWorkbookInspectorSections({
         canMutate={canMutateHistory}
         history={rowHistory}
         selectedActiveRowRecordId={
-          inspectorHistorySubject.kind === "live"
+          inspectorHistorySubject?.kind === "live"
             ? inspectorHistorySubject.recordId
-            : null
-        }
-        selectedActiveSubject={
-          inspectorHistorySubject.kind === "live" &&
-          inspectorHistorySubject.rowVersion !== null
-            ? {
-                kind: "live",
-                recordId: inspectorHistorySubject.recordId,
-                rowVersion: inspectorHistorySubject.rowVersion,
-              }
             : null
         }
         onCancelPendingAction={cancelRowHistoryPendingAction}

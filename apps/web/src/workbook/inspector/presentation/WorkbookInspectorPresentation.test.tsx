@@ -6,12 +6,14 @@ import {
 } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { resolveInspectorOwnerCapability } from "../semanticInspectorDispatcher";
+import { inspectorContextualCapabilities } from "../inspectorCapabilityResolver";
+import { WorkbookInspectorDeclaredPanelList } from "../WorkbookInspectorDeclaredPanelList";
 import {
   workbookInspectorErrorPresentation,
   workbookInspectorMessageFeedback,
   workbookInspectorOperationFailureFeedback,
 } from "../workbookInspectorErrorModel";
+import { buildWorkbookInspectorSubject } from "../workbookInspectorSubject";
 import { WorkbookInspectorContextualAction } from "./WorkbookInspectorActions";
 import {
   WorkbookInspectorConfirmation,
@@ -28,8 +30,127 @@ import {
 } from "./workbookInspectorPresentationModel";
 
 const hosts = requireViewContract("cartulary.view.hosts.v1");
+const relationshipsPanel = hosts.inspectorConfig.panels.find(
+  (panel) => panel.panelId === "relationships",
+);
+if (relationshipsPanel === undefined) {
+  throw new Error("Missing Hosts relationships panel");
+}
 
 describe("Workbook Inspector presentation", () => {
+  it("validates one live or deleted subject boundary and rejects invalid identity", () => {
+    const live = buildWorkbookInspectorSubject({
+      config: hosts.inspectorConfig,
+      kind: "live",
+      label: "Host alpha",
+      recordId: "  host-a  ",
+      rowVersion: 3,
+      surfaceLabel: "Hosts",
+    });
+    expect(live).toEqual({
+      kind: "live",
+      label: "Host alpha",
+      recordId: "host-a",
+      rowVersion: 3,
+      surfaceLabel: "Hosts",
+      viewSchemaId: hosts.viewSchemaId,
+    });
+    expect(
+      buildWorkbookInspectorSubject({
+        config: hosts.inspectorConfig,
+        kind: "deleted",
+        label: "Deleted host",
+        recordId: "host-a",
+        rowVersion: 4,
+        surfaceLabel: "Hosts",
+      }),
+    ).toMatchObject({ kind: "deleted", stateLabel: "Deleted" });
+    for (const identity of [
+      { recordId: "", rowVersion: 1 },
+      { recordId: "   ", rowVersion: 1 },
+      { recordId: "host-a", rowVersion: 0 },
+      { recordId: "host-a", rowVersion: -1 },
+      { recordId: "host-a", rowVersion: 1.5 },
+    ]) {
+      expect(
+        buildWorkbookInspectorSubject({
+          config: hosts.inspectorConfig,
+          kind: "live",
+          label: "Host alpha",
+          surfaceLabel: "Hosts",
+          ...identity,
+        }),
+      ).toBeNull();
+    }
+  });
+
+  it("renders declared panels once in order for live, only History for deleted, and only explicit creation content for null", () => {
+    const live = buildWorkbookInspectorSubject({
+      config: hosts.inspectorConfig,
+      kind: "live",
+      label: "Host alpha",
+      recordId: "host-a",
+      rowVersion: 3,
+      surfaceLabel: "Hosts",
+    });
+    const deleted = buildWorkbookInspectorSubject({
+      config: hosts.inspectorConfig,
+      kind: "deleted",
+      label: "Deleted host",
+      recordId: "host-a",
+      rowVersion: 4,
+      surfaceLabel: "Hosts",
+    });
+    const props = {
+      config: hosts.inspectorConfig,
+      currentIncidentRole: "admin" as const,
+      disabledTokens: new Set<InspectorDisabledCondition>(),
+      onContextualAction: vi.fn(),
+    };
+    const { rerender } = render(
+      <WorkbookInspectorDeclaredPanelList
+        {...props}
+        contentByPanel={{
+          details: <p>Details content</p>,
+          evidence: <p>Evidence content</p>,
+          history: <p>History content</p>,
+          relationships: <p>Relationships content</p>,
+          workflow: <p>Workflow content</p>,
+        }}
+        subject={live}
+      />,
+    );
+    expect(
+      screen
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(hosts.inspectorConfig.panels.map((panel) => panel.label));
+
+    rerender(
+      <WorkbookInspectorDeclaredPanelList
+        {...props}
+        contentByPanel={{ history: <p>History content</p> }}
+        subject={deleted}
+      />,
+    );
+    expect(
+      screen
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["History"]);
+
+    rerender(
+      <WorkbookInspectorDeclaredPanelList
+        {...props}
+        contentByPanel={{ workflow: <p>Standalone creation</p> }}
+        subject={null}
+      />,
+    );
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
+    expect(screen.getByText("Standalone creation")).not.toBeNull();
+    expect(screen.queryByText("History content")).toBeNull();
+  });
+
   it("keeps presentation source free of state orchestration hooks", () => {
     const presentationDirectory = new URL(".", import.meta.url);
     for (const filename of readdirSync(presentationDirectory)) {
@@ -52,9 +173,9 @@ describe("Workbook Inspector presentation", () => {
     render(
       <WorkbookInspectorShell
         accessibleLabel="Hosts inspector"
+        config={hosts.inspectorConfig}
         noRowHeading="Hosts inspector"
         subject={null}
-        viewSchemaId={hosts.viewSchemaId}
         onClose={vi.fn()}
       >
         <button type="button">Create a host</button>
@@ -75,8 +196,8 @@ describe("Workbook Inspector presentation", () => {
   it("consumes panel-read groups without rendering their labels", () => {
     render(
       <WorkbookInspectorPanelSection
-        config={hosts.inspectorConfig}
-        panelId="relationships"
+        panel={relationshipsPanel}
+        viewSchemaId={hosts.viewSchemaId}
       >
         <p>Relationship content</p>
       </WorkbookInspectorPanelSection>,
@@ -208,15 +329,18 @@ describe("Workbook Inspector presentation", () => {
   });
 
   it("binds semantic identity to an owner control and describes it", () => {
-    const deleteCapability = resolveInspectorOwnerCapability(
-      hosts.inspectorConfig,
-      "record.delete",
+    const createCapability = inspectorContextualCapabilities({
+      config: hosts.inspectorConfig,
+      panelId: "workflow",
+    }).find(
+      (capability) =>
+        capability.featureGroup.featureGroupKey === "create_related.note",
     );
-    expect(deleteCapability.kind).toBe("record_history");
-    if (deleteCapability.kind !== "record_history") return;
+    expect(createCapability).toBeDefined();
+    if (createCapability === undefined) return;
     const binding = bindWorkbookInspectorAction(
       hosts.inspectorConfig,
-      deleteCapability,
+      createCapability,
     );
     render(
       <WorkbookInspectorContextualAction

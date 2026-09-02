@@ -2586,3 +2586,490 @@ The third-successor planning compatibility statement is:
 **Documentation-only production-readiness planning; no product, test,
 contract, generated, fixture, golden, route, API, payload, schema,
 authorization, persistence, Evidence, dependency, or stored-data change.**
+
+## 56. Fourth successor authority, authorization, and baseline
+
+Sections 56-70 plan the fourth successor to the completed WI-16 through WI-22
+iteration. Sections 1-55 remain the historical record and are not reopened.
+WI-23 through WI-28 were initially `PLANNED`. Separate implementation
+authorization was received on `2026-09-01`; the tracker below now controls
+the authorized execution. Sections 1-55 remain completed history.
+
+For requirements, apply the repository authority order rather than treating
+this handoff as a normative owner. Adopted Core owner sections are normative
+for their scopes. In particular, Core 01 owns the inspector schema and
+vocabulary, Core 03 owns interaction and invalidation, and Core 04 owns exact
+semantic-tuple admission before route-family handling. `docs/domain.md` owns
+vocabulary and owner navigation. `docs/research/nlspec-spec.md` is advisory
+only; use its completeness, define-once, conceptual-fidelity, and economy
+criteria to review the implementation, not to create requirements.
+
+The planning baseline is:
+
+- branch `main` at `76af3be33af87edf43dbfc94c391198dd127ff0b`, equal
+  to `origin/main`, with a clean worktree before this documentation edit;
+- 17 canonical view schemas and 247 canonical feature-group tuples;
+- Git 2.53.0, Node v24.15.0, pnpm 10.33.0, Go 1.26.6, Python 3.14.4,
+  jq 1.8.1, and GNU Make 4.4.1; and
+- the generated-artifact policy and repository toolchain pins already owned
+  by their current machine-readable inputs.
+
+Refresh all baseline facts at WI-23 start. If an adopted owner contradicts
+this plan, stop, name both clauses, and use the contradiction protocol from
+section 41. A changed count or implementation shape is an inventory update,
+not permission to weaken exact admission or create a compatibility layer.
+
+## 57. Fourth successor gap register and disposition rules
+
+| Gap | Current evidence | Required disposition |
+| --- | --- | --- |
+| G20 — Duplicated semantic policy | `semanticInspectorRegistry.ts` copies all 247 canonical tuples into roughly 2,250 lines, while the dispatcher exposes semantic and owner-resolution internals beyond its production responsibility. | Delete the copied registry, derive a private exact-identity admission index from canonical view contracts, rename the dispatcher around capability resolution, and remove dead exports and aliases. |
+| G21 — Parallel composition and subject models | Generic, Entity, and Assessment accept broad `children`, owner modules repeat panel traversal, Timeline has a separate traversal, and presentation/history identities can diverge. | Introduce one internal subject union and one stateless declared-panel list with explicit named owner content. |
+| G22 — Unreachable confirmation and selector coupling | All 45 current contextual create/Indicator capabilities have `requires_confirmation=false`, yet the generic contextual path carries confirmation state; production focus restoration queries `[data-testid]` in two places. | Delete unreachable contextual confirmation state and restore focus through element refs plus semantic action identity. |
+| G23 — History-state and controller complexity | Flat history state permits impossible combinations; retained scoped Fallow evidence reports high complexity in the reducer, controller confirmation path, and history panel. | Replace the flat model with a discriminated union and split private focused helpers/components until scoped Fallow has no high-severity finding. |
+
+For every candidate, prefer `REMOVE`, then `PRIVATIZE`, `CONSOLIDATE`, or
+`EXTRACT`. Use `RETAIN` only when the behavior materially improves the future
+state and has an identified production owner, extension seam, and focused
+evidence. Do not preserve a deprecated wrapper, compatibility alias, wildcard
+dispatcher, universal inspector controller, parallel legacy path, or test-only
+production API. Do not add a Fallow suppression for scoped production code.
+
+## 58. G20 — Canonical admission and capability-surface deletion
+
+Delete `semanticInspectorRegistry.ts` and its 247 copied tuples. Build one
+private exact-identity index from the canonical `listViewContracts()`
+projection. Identity consists of view-schema ID, feature key, panel ID, route
+kind, route owner, and action key; presentation labels are not identity.
+Admission MUST occur before capability classification and MUST return the
+canonical feature object. Altered, duplicated, or runtime-additive tuples are
+unsupported without affecting an admitted canonical sibling.
+
+Rename the dispatcher around its actual responsibility: capability
+resolution. Remove `SemanticInspectorDisposition`,
+`resolveSemanticInspectorFeature`, exported owner-resolution internals, dead
+barrel exports, and compatibility aliases. Existing-owner controls remain in
+their declared panels, and record-history actions remain owned by the history
+subsystem rather than entering contextual rendering.
+
+The current canonical corpus MUST resolve to:
+
+- 41 `create_related` capabilities;
+- 4 `indicator` capabilities;
+- 51 `record_history` capabilities; and
+- 151 non-contextual features.
+
+Only the 45 `create_related` and `indicator` capabilities enter contextual
+rendering. All currently have `requires_confirmation=false`. If a future
+create or Indicator capability requires confirmation, capability resolution
+MUST fail closed until its owner supplies an explicit workflow; the generic
+renderer must not infer or reintroduce confirmation behavior.
+
+Completion requires one canonical source of tuple facts, exact admission
+before classification, preserved object identity, the four counts above,
+isolated omission of invalid tuples, and no copied registry or public semantic
+resolution surface.
+
+## 59. G21 — Unified subject and declared-panel composition
+
+Replace parallel presentation and history identities with one private
+inspector-subject union:
+
+- `live` contains a non-empty record ID, positive row version, label, and
+  surface context; and
+- `deleted` contains the same validated identity plus the context needed to
+  present the tombstone history subject.
+
+Derive the history subject from this union. Do not accept nullable or
+unversioned subjects past the construction boundary. Invalid internal input
+fails closed instead of receiving a presentation-only patch.
+
+Add one stateless shared panel-list component. It receives only the canonical
+config, validated subject, disabled-action tokens, an explicit panel-content
+map, and a contextual-action callback. It traverses `config.panels[]` exactly
+once and in declared order. It must not receive selection, mutation, refresh,
+persistence, socket, or owner command facades, and it must not become a
+universal inspector controller.
+
+Remove generic `children` and redundant `viewSchemaId` props from the Generic,
+Entity, and Assessment inspector components. Owner modules supply named
+Details, Relationships, Evidence, and Workflow content while retaining their
+owner-specific behavior. Broad surface roots neither iterate inspector panels
+nor import panel IDs or capability kinds. Migrate Timeline to the same
+declared-panel traversal while keeping its owner controller and sequencing.
+
+Place existing content explicitly:
+
+- Generic editing belongs to Details; party and relationship controls to
+  Relationships; record Evidence actions to Evidence; and create and
+  coordination controls to Workflow.
+- Entity editing, identifiers, and aliases belong to Details; merge and
+  dependent-record content to Relationships.
+- Assessment support summary belongs to Relationships; standalone and
+  follow-on creation to Workflow.
+- Timeline field content belongs to Details; mentions to Relationships;
+  Evidence actions to Evidence; history to History; and workflow and Indicator
+  content to their declared panels.
+
+For a live subject, render declared panel content plus its admitted contextual
+actions. For a deleted subject, render only History. This regrouping is an
+intentional observable change selected for the future structure. Update a
+golden only when its panel order or hierarchy changed intentionally, manually
+review every changed image, and pass the final visual suite twice after the
+last golden update.
+
+## 60. G22 — Stateless contextual actions and semantic focus
+
+Make contextual actions stateless by deleting their unreachable generic
+confirmation state and presentation. Current create and Indicator workflows
+continue through their real owners, with no implicit confirmation fallback.
+
+Remove `returnFocusTestId`, all production `[data-testid]` DOM searches, and
+the duplicate submitted-focus effect. Test IDs remain test attributes only;
+runtime behavior must neither read nor branch on them. Carry actual invoking
+element refs and semantic history-action identities through the interaction
+boundary. Make the History panel programmatically focusable and expose its
+element ref through the narrow presentation boundary.
+
+Focus restoration is exact:
+
+- cancellation and failed submission return to the invoking action;
+- successful rollback returns to the same action if it remains available,
+  otherwise to the History panel; and
+- successful delete or restore focuses the History panel because the invoking
+  action intentionally disappears.
+
+Preserve role, disabled-state, authorization, invalidation, and owner reset
+behavior. Completion requires interaction tests for cancellation, rejection,
+rollback, delete, restore, an unavailable rollback control, and retargeting,
+plus a production-source search proving test selectors do not drive runtime
+behavior.
+
+## 61. G23 — History state and controller production hardening
+
+Replace the flat history state with an exhaustive discriminated union:
+
+- `idle`: optional subject and optional completion feedback;
+- `loading`: subject, request ID, and optional retained data;
+- `ready`: subject, data or load error, feedback, and optional pending action;
+  and
+- `submitting`: subject, retained data, operation ID, and the captured
+  operation.
+
+Transitions MUST preserve same-subject no-op retargeting, reset on changed
+subject, stale request and operation rejection, server-authored rollback
+selectors, live and tombstone row versions, authorization changes, and
+captured owner effects. Illegal transitions are explicit no-ops or rejected
+by construction; they do not manufacture partial ready or submitting states.
+
+Split the reducer, controller confirmation path, and history panel into
+private focused helpers and components. Run Fallow with an owner-only process
+umask and require no high-severity scoped complexity result in these paths.
+Do not export helpers merely for tests and do not suppress findings.
+
+Remove Timeline's unused `retainedData` option and the
+`selectedActiveSubject` presentation patch. Retain Timeline's independently
+justified request gate, socket transaction tracking, save-state transition,
+committed-row wait, refresh, and viewport-continuity sequence. Consolidate the
+repeated owner-effect types into one production-owned internal type and
+replace the remaining local spacing literal with the existing design token.
+
+Completion requires exhaustive reducer/controller evidence, exact retained
+Timeline sequencing, no dead compatibility option or presentation patch, no
+duplicated owner-effect type, and no scoped high-severity Fallow finding.
+
+## 62. Fourth successor workstream ledger and tracker protocol
+
+| Workstream | Status | Dependency | Binary exit condition |
+| --- | --- | --- | --- |
+| WI-23 — Baseline and characterization | DONE | Separate implementation authorization received `2026-09-01` | Refreshed authority/inventory evidence and passing characterization establish the safe deletion baseline. |
+| WI-24 — Canonical admission and dead capability surface | DONE | WI-23 `DONE` | Canonical exact admission replaces the copied registry and only truthful internal capabilities remain. |
+| WI-25 — Unified subject and declared-panel composition | DONE | WI-24 `DONE` | All four owners share validated subject and panel traversal boundaries with explicit declared content. |
+| WI-26 — Remove unused confirmation and test-selector runtime coupling | DONE | WI-25 `DONE` | Contextual actions are stateless and focus restoration uses refs and semantic identities only. |
+| WI-27 — History state and controller hardening | DONE | WI-26 `DONE` | The discriminated state and focused helpers preserve owner behavior without scoped high complexity. |
+| WI-28 — Final validation and closure | DONE | WI-27 `DONE` | Authored ownership is reconciled, all required evidence passes, and C036-C049 are resolved. |
+
+Only one workstream may be `IN_PROGRESS`. Immediately before implementation,
+append a refreshed checkpoint and change only WI-23 to `IN_PROGRESS`. At each
+gate, record paths, decisions, commands, run roots, failures and
+classifications, compatibility, rollback, residual risks, and the next safe
+action; mark the current workstream `DONE`; only then start its successor. A
+required failure leaves the workstream `IN_PROGRESS`. `BLOCKED` is reserved
+for a verified owner contradiction and must identify both clauses.
+
+## 63. WI-23 — Baseline and characterization
+
+1. Refresh repository instructions, adopted owner sections, vocabulary,
+   branch, commit, upstream relation, worktree, toolchain pins, generated
+   policy, authored source ownership, test catalog, task guides, and corpus
+   counts.
+2. Inventory the copied semantic registry, capability consumers and exports,
+   untyped owner `children`, redundant view-schema props, every production
+   `[data-testid]` query, duplicate focus effects, subject variants, Timeline
+   compatibility options, repeated owner-effect types, spacing literals, and
+   scoped Fallow complexity findings.
+3. Record exact-tuple admission behavior and the current 41/4/51/151
+   capability counts. Characterize canonical identity and altered, additive,
+   and duplicate tuple omission without sibling loss.
+4. Characterize panel order and content for Generic, Entity, Assessment, and
+   Timeline; live and deleted subjects; contextual role and disabled state;
+   owner invalidation; and focus restoration after cancel, rejection,
+   rollback, delete, and restore.
+5. Characterize every history-state transition, same- and changed-subject
+   retarget, stale load and mutation, live and tombstone versions,
+   server-authored selector, authorization loss, and Timeline continuity
+   sequence before structural edits.
+6. Run scoped Fallow without suppression and separate relevant findings from
+   its repo-wide advisory total.
+7. Confirm no owner change is required or stop under section 56's
+   contradiction protocol.
+
+**Exit:** The deletion and composition baseline is complete, all current
+behavior that must survive has focused passing evidence, and no owner
+contradiction remains.
+
+**Tracker gate:** Record the inventory, counts, characterization commands,
+run roots, and Fallow findings; mark WI-23 `DONE`, then WI-24 `IN_PROGRESS`.
+
+## 64. WI-24 — Canonical admission and dead capability surface
+
+1. Add corpus tests for all 17 schemas and 247 tuples, exact canonical object
+   identity, and isolated omission of altered, additive, and duplicate tuples.
+2. Build the private canonical exact-identity index and require admission
+   before capability classification.
+3. Rename the dispatcher around capability resolution and delete the copied
+   registry, dispositions, semantic resolver, public internals, barrels, and
+   aliases described in section 58.
+4. Narrow contextual rendering to the 41 create and four Indicator
+   capabilities. Keep all 51 history actions history-owned and all 151 other
+   features out of the contextual renderer.
+5. Add a negative future-confirmation case proving an otherwise admitted
+   create or Indicator capability is omitted until an owner workflow exists.
+6. Run focused `web.workbook`, `web.architecture`, Workbook, Timeline,
+   Entities, Assessments, and Indicators evidence, plus typecheck, frontend
+   unit, import boundaries, Biome, removed-symbol searches, and scoped Fallow.
+
+**Primary risks:** Classifying before exact admission, rebuilding a second
+tuple policy, losing canonical identity, or preserving a test-only export.
+
+**Exit:** The canonical corpus is the only tuple source, capability counts are
+41/4/51/151, only 45 capabilities enter contextual rendering, and all dead
+semantic-registry surface is absent.
+
+**Tracker gate:** Record counts, removed paths and symbols, negative cases,
+run roots, compatibility, and rollback; mark WI-24 `DONE`, then WI-25
+`IN_PROGRESS`.
+
+## 65. WI-25 — Unified subject and declared-panel composition
+
+1. Introduce the validated private `live | deleted` subject boundary and
+   derive history identity from it. Add negative construction evidence for
+   blank IDs and non-positive row versions.
+2. Add the stateless panel-list component with the inputs and exclusions from
+   section 59. Test exact `config.panels[]` order and absent-content behavior.
+3. Replace Generic, Entity, and Assessment `children` with named Details,
+   Relationships, Evidence, and Workflow content. Remove redundant
+   `viewSchemaId` props and consume the canonical config identity.
+4. Move each existing block to its declared panel exactly as mapped in
+   section 59. Keep owner commands and selection, mutation, refresh, and
+   persistence authority outside the shared panel list.
+5. Migrate Timeline to the same traversal without merging its controller or
+   command sequence.
+6. Prove all four owners use the shared traversal, broad roots do not iterate
+   panels, live subjects render admitted content, and deleted subjects render
+   only History.
+7. Run focused owner, architecture, design, accessibility, and visual
+   evidence. Review every intentional panel-order or hierarchy golden change
+   and reserve the required second final visual pass for WI-28.
+
+**Primary risks:** Moving owner commands into presentation, creating a
+mega-prop facade, rendering content outside its panel, or retaining a parallel
+Timeline traversal.
+
+**Exit:** One validated subject model and one declared-panel traversal serve
+all four owners; owner content is explicit; trailing `children`, redundant
+schema identity, and root panel iteration are absent.
+
+**Tracker gate:** Record content mapping, retained owner boundaries, invalid
+subject cases, visual review, run roots, compatibility, and rollback; mark
+WI-25 `DONE`, then WI-26 `IN_PROGRESS`.
+
+## 66. WI-26 — Remove unused confirmation and test-selector runtime coupling
+
+1. Delete generic contextual confirmation state, handlers, and presentation;
+   retain only the real create and Indicator owner workflows.
+2. Remove `returnFocusTestId`, both selector-search paths, and the duplicate
+   submitted-focus effect.
+3. Carry invoking refs and semantic history-action identity through the
+   narrow action boundary and make the History panel a programmatic fallback
+   focus target.
+4. Implement and test the exact focus matrix in section 60, including a
+   rollback action that disappears during completion.
+5. Preserve authorization, disabled tokens, owner invalidation, roles, local
+   feedback, and reset behavior.
+6. Run interaction, accessibility, owner-slice, typecheck, frontend-unit,
+   Biome, and production-selector searches.
+
+**Primary risks:** Losing focus after a destructive operation, retaining a
+hidden selector dependency, or silently confirming a future capability.
+
+**Exit:** Contextual rendering has no generic confirmation lifecycle,
+production focus uses only semantic identity and actual refs, and every focus
+outcome is covered by interaction evidence.
+
+**Tracker gate:** Record deleted state and effects, focus cases, searches, run
+roots, accessibility outcome, compatibility, and rollback; mark WI-26 `DONE`,
+then WI-27 `IN_PROGRESS`.
+
+## 67. WI-27 — History state and controller hardening
+
+1. Implement the four-state union from section 61 and exhaustive legal,
+   illegal, retarget, stale-result, row-version, selector, and authorization
+   tests.
+2. Split reducer transitions, confirmation/submission coordination, and
+   history presentation into private focused helpers and components without
+   widening the package surface.
+3. Preserve captured owner effects and prove a stale result cannot mutate a
+   new subject while an accepted operation completes only its captured owner
+   sequence.
+4. Remove Timeline `retainedData` and `selectedActiveSubject` compatibility
+   paths. Test the retained request gate, socket transaction, save-state,
+   committed-row wait, refresh, and viewport-continuity order.
+5. Consolidate history owner-effect types and replace the spacing literal
+   with the existing design token.
+6. Run focused and service-backed Workbook, Timeline, Entities, Assessments,
+   and applicable design evidence, plus typecheck, frontend unit, import
+   boundaries, Biome, accessibility, stateful, and scoped Fallow.
+
+**Primary risks:** Creating an impossible transitional state, applying an old
+operation to a new subject, altering Timeline ordering, or extracting helpers
+that merely relocate complexity.
+
+**Exit:** The union makes legal state explicit, stale work is rejected,
+Timeline sequencing is exact, dead compatibility paths are gone, and scoped
+Fallow reports no high-severity complexity finding without suppression.
+
+**Tracker gate:** Record transition coverage, Timeline trace, removed paths,
+Fallow outcome, run roots, compatibility, and rollback; mark WI-27 `DONE`,
+then WI-28 `IN_PROGRESS`.
+
+## 68. WI-28 — Final validation and closure
+
+1. Reconcile authored source ownership and `web.workbook` catalog rows for all
+   renamed, added, and deleted files. Regenerate only through Make and inspect
+   every generated diff against declared provenance.
+2. Refresh task guides for `web.workbook`, `web.architecture`, `web.design`,
+   `package.view_contracts`, Workbook, Timeline, Entities, Evidence,
+   Assessments, and Indicators; run every applicable focused and
+   service-backed slice.
+3. Run `make agent-finalize` before broad terminal verification. Supply
+   `RESULTS_DIR` only when a genuine successful retained warm-run root exists;
+   otherwise record that retained-run maintenance was skipped.
+4. Run generation drift, generated-artifact policy, JSON shape, frontend
+   typecheck and unit, import boundaries, Biome, accessibility, measurement,
+   stateful, support, webserver-backed, visual, `test-fast`, and scoped Fallow.
+5. If a golden changed, manually review the final image set and run the visual
+   suite twice after the last update. Record that no image changed when none
+   did.
+6. Search for the copied registry, removed exports and props, generic
+   confirmation, production selector reads, duplicate traversal and subject
+   paths, compatibility aliases, suppressions, TODO/FIXME additions, and
+   Markdown runtime dependencies.
+7. Resolve C036-C049 and append checkpoints, failures and classifications,
+   compatibility, workstream rollback, residual risks, deferrals, and the next
+   safe feature-extension seam before marking WI-28 `DONE`.
+
+**Primary risks:** Stale authored catalogs, generated hand edits, unreviewed
+visual regrouping, a hidden compatibility path, or terminal evidence from
+before the final source change.
+
+**Exit:** All required fresh evidence passes, final generated and visual
+changes are understood, C036-C049 are `PASS`, the ledger is complete, and no
+authorized work remains.
+
+## 69. Fourth successor validation and acceptance matrix
+
+| ID | Status | Acceptance statement | Required evidence |
+| --- | --- | --- | --- |
+| C036 | PASS | Authority and refreshed baseline agree with the implementation start; no owner contradiction is unresolved. | Instruction and owner inventory, Git/upstream status, corpus counts, toolchain and policy capture. |
+| C037 | PASS | All 17 schemas and 247 exact tuples are admitted from canonical contracts with canonical object identity. | Full-corpus equality and identity tests. |
+| C038 | PASS | Altered, additive, and duplicate tuples are omitted individually, and no copied tuple registry remains. | Negative corpus tests and removed-path/source searches. |
+| C039 | PASS | Resolution produces 41 create, 4 Indicator, 51 history, and 151 non-contextual features; only the first 45 enter contextual rendering. | Exhaustive capability-count and render-admission tests. |
+| C040 | PASS | No disposition API, semantic resolver, public owner internals, compatibility alias, or implicit future-confirmation path remains. | Typecheck, package-surface and removed-symbol searches, negative confirmation test. |
+| C041 | PASS | One validated `live | deleted` subject supplies presentation and history identity. | Constructor, live/tombstone, invalid-ID, invalid-version, and retarget tests. |
+| C042 | PASS | All four owners traverse canonical declared panels once and every owner content block appears in its declared panel. | Composition, ordering, static architecture, accessibility, and reviewed visual evidence. |
+| C043 | PASS | Deleted subjects render only History; broad roots have no panel iteration; owner inspectors have no trailing generic `children` or redundant schema ID. | Owner tests and static production-source assertions. |
+| C044 | PASS | Contextual actions are stateless and current role, disabled-state, authorization, invalidation, and feedback behavior remains correct. | Interaction and owner tests. |
+| C045 | PASS | Runtime focus never reads a test selector and follows the cancel, failure, rollback, delete, and restore matrix. | Focus interaction tests and production-source search. |
+| C046 | PASS | History state represents only legal idle, loading, ready, and submitting combinations and rejects stale loads and operations. | Exhaustive reducer and deferred-promise controller tests. |
+| C047 | PASS | Server selectors, live/tombstone versions, captured owner effects, and Timeline continuity sequencing remain exact. | History integration and Timeline order traces. |
+| C048 | PASS | Scoped history production paths have no high-severity Fallow finding, suppression, dead option, duplicate effect type, or local spacing literal. | Owner-only-umask Fallow report and static searches. |
+| C049 | PASS | Authored ownership/catalogs are reconciled, all terminal checks pass, visual changes are reviewed twice when applicable, and compatibility plus rollback are recorded. | Final ledger, generated diff review, run roots, visual review record, and closure searches. |
+
+The corpus suite MUST cover canonical identity, exact admission, count totals,
+and invalid-tuple isolation. Composition tests MUST cover all four owners,
+declared order and content, live/deleted subjects, and root boundaries.
+Interaction tests MUST cover role/state behavior, invalidation, confirmation
+absence, and every focus outcome. History tests MUST cover every state and
+illegal transition, retarget, stale result, version, selector,
+authorization-loss, owner effect, and Timeline continuity case.
+
+Use the narrowest current Make route returned by each refreshed task guide,
+then run the terminal matrix from WI-28. A changed golden is not accepted by
+snapshot update alone: record manual review and two passing post-update visual
+runs. Any failure entry must name the target, retained run root and summary
+when available, and whether the failure was introduced or unrelated.
+
+## 70. Fourth successor checkpoint, compatibility, rollback, and deferrals
+
+The initial fourth-successor checkpoint is:
+
+| Timestamp | State | Planning result | Verification and compatibility |
+| --- | --- | --- | --- |
+| `2026-09-01` | WI-23 through WI-28 `PLANNED` | Sections 56-70 record the production-readiness successor plan. No implementation is authorized by this edit. | Documentation-only gate: `make lint-markdown` and `git diff --check`. Product and generated checks are intentionally deferred until separately authorized implementation. |
+| `2026-09-01T23:04:40-04:00` | WI-23 `IN_PROGRESS`; WI-24 through WI-28 `PLANNED` | Separate implementation authorization was received. `main` remains at `76af3be33af87edf43dbfc94c391198dd127ff0b`, equal to `origin/main`; the only pre-existing worktree change is this staged handoff. Core 01 inspector ownership, Core 03 subject/invalidation/focus ownership, Core 04 exact Indicator admission, and domain vocabulary/navigation were reconciled without contradiction or normative omission. | WI-23 may add characterization and inventory evidence. No route, wire payload, schema, persistence, authorization, dependency, generated contract, stored-data migration, or normative owner edit is authorized or expected. Next: complete the fresh machine inventory, characterization suite, and owner-only-umask Fallow gate before WI-24. |
+| `2026-09-01T23:19:38-04:00` | WI-23 `DONE`; WI-24 `IN_PROGRESS` | Refreshed Git/upstream, toolchain pins, generated policy, source ownership, catalog routing, all ten task guides, and the implementation inventory. The canonical projection remains 17 schemas and 247 tuples, classified 41 create-related, four Indicator, 51 history, and 151 non-contextual. The deletion baseline is the 2,250-line copied registry, 245-line dispatcher, three owner panel traversals plus Timeline traversal, parallel presentation/history/Timeline subjects, two production test-selector reads, two focus effects, two local history-effect declarations plus three owner declarations, Timeline `retainedData`/`selectedActiveSubject`, and the history action-stack `0.5rem`. Strengthened exact-count and history equal/changed-retarget and wrong-phase/request/operation/subject no-op characterization in the existing routed tests. No adopted owner contradiction or normative omission was found. | Baseline PASS: `web.workbook` 145/145 `.cartulary/test-results/20260902T030558Z-p65593`; architecture 12/12 `.cartulary/test-results/20260902T030601Z-p66000`; Workbook 68/68 `.cartulary/test-results/20260902T030607Z-p67489`; Timeline 53/53 `.cartulary/test-results/20260902T030815Z-p25278`; Entities 42/42 `.cartulary/test-results/20260902T031250Z-p83426`; Assessments 28/28 `.cartulary/test-results/20260902T031432Z-p35100`; Indicators 20/20 `.cartulary/test-results/20260902T031529Z-p77630`. Owner-only-umask Fallow target passed at `.cartulary/test-results/20260902T031618Z-p95125`; its report identifies the expected scoped high findings in `workbookRecordHistoryReducer` (36/29), `WorkbookRecordHistoryPanel` (29/27), and controller `confirm` (19/18), separately from 274 repository-wide advisory findings. Strengthened characterization passed 145/145 at `.cartulary/test-results/20260902T031802Z-p96319`; Markdown lint passed at `.cartulary/test-results/20260902T031841Z-p12569`; staged and unstaged diff checks passed. Compatibility is test-only; rollback is the two characterization additions and this checkpoint. Residual risk is limited to the now-evidenced intentional behavior changes. Next: replace copied semantic policy atomically in WI-24. |
+| `2026-09-01T23:36:59-04:00` | WI-24 `DONE`; WI-25 `IN_PROGRESS` | Added `canonicalInspectorAdmission.ts` and `inspectorCapabilityResolver.ts`; the former builds one exact six-field identity index from `listViewContracts()`, and the latter exports only the contextual-capability type, history-action type, panel lookup, and history lookup. Admission returns the canonical object, rejects ambiguous/additive/altered tuples independently, and precedes classification. Deleted the 2,250-line registry, old dispatcher and test, dispositions, semantic/general owner resolution, history-in-contextual behavior, and all old imports. The exhaustive replacement test proves 17 schemas/247 identities, 41 create-related, four Indicator, 51 history, 151 non-contextual, canonical label-variant identity, isolated invalid tuples, and fail-closed future confirmation through a mocked canonical corpus. Authored source ownership now names only the replacement files. | PASS: typecheck `.cartulary/test-results/20260902T032329Z-p14943`; Workbook resolver suite 145/145 `.cartulary/test-results/20260902T032342Z-p15420`; import boundaries `.cartulary/test-results/20260902T032422Z-p31133`; format `.cartulary/test-results/20260902T032432Z-p32195`; final Biome `.cartulary/test-results/20260902T032441Z-p36477`; owner-only-umask Fallow `.cartulary/test-results/20260902T032443Z-p36915`, with no new scoped finding and only the three WI-27 history highs; frontend unit 398/398 `.cartulary/test-results/20260902T032501Z-p37633`; architecture 12/12 `.cartulary/test-results/20260902T032637Z-p75329`; Workbook 68/68 `.cartulary/test-results/20260902T032642Z-p75771`; Timeline 53/53 `.cartulary/test-results/20260902T032845Z-p32774`; Entities 42/42 `.cartulary/test-results/20260902T033319Z-p90779`; Assessments 28/28 `.cartulary/test-results/20260902T033506Z-p42307`; Indicators 20/20 `.cartulary/test-results/20260902T033603Z-p84791`; removed-symbol and diff checks pass. Initial Biome failed at `.cartulary/test-results/20260902T032425Z-p31529` only on introduced formatting/import order and passed after `make format`. Compatibility is an intentional internal TypeScript break; routes, payloads, authorization, data, and runtime semantics remain stable except fail-closed future confirmation and canonical labels. Rollback is the admission/resolver files, migrated consumers/tests, ownership input, and this row. No alias or parallel path remains. Next: unify validated subjects and panel traversal in WI-25. |
+| `2026-09-02T00:42:16-04:00` | WI-25 `DONE`; WI-26 `IN_PROGRESS` | Added the validated `live | deleted` subject constructor/update seam and the sole declared-panel traversal, then migrated Generic, Entity, Assessment, and Timeline composition, shell identity, history identity, and named Details/Relationships/Evidence/Workflow content. Invalid IDs, non-positive versions, and incomplete presentation context fail closed; deleted subjects render History only and null subjects render only explicit recordless creation content. Removed the parallel presentation/history/Timeline subject types, redundant schema props, broad inspector children, owner traversal helpers, and the unused panel-declaration predicate. Generic now retains its selected subject when grid focus leaves for the inspector. Entity surfaces are keyed by canonical schema so a late Hosts reset cannot clear a newly selected Identity. The E2E edit helper now enters Entity inspectors through their owner row action and generic inspectors through semantic grid activation. Source ownership includes both new files; one traversal serves all four owners and Timeline mutation sequencing remains owner-local. | PASS: format `.cartulary/test-results/20260902T035645Z-p21286` and `.cartulary/test-results/20260902T043425Z-p25828`; final typecheck `.cartulary/test-results/20260902T043435Z-p30285`; final Biome `.cartulary/test-results/20260902T043435Z-p30338`; Workbook 145/145 `.cartulary/test-results/20260902T043435Z-p30176`; architecture 12/12 `.cartulary/test-results/20260902T043435Z-p30196`; Timeline 53/53 `.cartulary/test-results/20260902T035748Z-p44964`; Assessment 28/28 `.cartulary/test-results/20260902T040419Z-p6253`; focused Entity provenance 11/11 `.cartulary/test-results/20260902T043239Z-p81622` after the other 40 owner rows passed in `.cartulary/test-results/20260902T035748Z-p44981`; Evidence 36/36 `.cartulary/test-results/20260902T043856Z-p38944`; Indicators 20/20 `.cartulary/test-results/20260902T044011Z-p89138`; Design 15/15 `.cartulary/test-results/20260902T044058Z-p7297`; accessibility 12/12 `.cartulary/test-results/20260902T043525Z-p48224`; visual 12/12 `.cartulary/test-results/20260902T043659Z-p94074`, with no image or golden change. Introduced failures were syntax/type/format migration errors at `.cartulary/test-results/20260902T034946Z-p6802`, `20260902T035015Z-p7418`, `20260902T035055Z-p8527`, `20260902T035412Z-p10820`, `20260902T035502Z-p15755`, and `20260902T035516Z-p20386`; all were repaired before the passing gates. Assessment `.cartulary/test-results/20260902T035748Z-p44995` found an accidental heading-copy regression, which was restored. Entity runs `.cartulary/test-results/20260902T035748Z-p44981` and `20260902T040520Z-p50837` first exposed the changed subject prerequisite; subsequent focused failures documented the no-op autosave waiter and cross-schema reset race until the exact passing run above. Compatibility is internal and intentionally changes declared grouping, invalid-subject omission, and schema-switch isolation; routes, commands, payloads, test IDs, authorization, persistence, and stored data are unchanged. Rollback is the subject/panel files, four owner migrations, shell/history adaptations, source ownership, test support, focused tests, and this row. Residual risk is confined to WI-26 focus behavior and WI-27 history internals. Next: delete generic confirmation and replace selector-driven focus with semantic identities and refs. |
+| `2026-09-02T00:56:07-04:00` | WI-26 `DONE`; WI-27 `IN_PROGRESS` | Removed contextual-action confirmation state and the generic confirmation branch; all 45 admitted contextual capabilities now dispatch statelessly, while the real History workflow retains explicit confirmation. Removed `returnFocusTestId`, both inspector production selector searches, and the duplicate submitted-focus effect. History now captures the invoking button, registers live controls by subject-kind/record/version/action identity (plus rollback action and item reference), and focuses through refs only. Cancel, Escape, and rejected submissions return to the available same identity; successful rollback returns there only if the exact identity survives, while rollback removal and successful delete/restore use the programmatically focusable History panel. Authorization loss cancels confirmation and discards focus; retarget/version changes cannot focus another subject. Availability rejects disconnected, hidden, aria-hidden, visibility-hidden, and disabled controls. Replaced the history action-stack literal with `var(--ct-spacing-sm)`. | PASS: final format `.cartulary/test-results/20260902T044747Z-p80199`; typecheck `.cartulary/test-results/20260902T044805Z-p84603`; Biome `.cartulary/test-results/20260902T044805Z-p84623`; Workbook focus matrix 145/145 `.cartulary/test-results/20260902T044805Z-p84509`; architecture 12/12 `.cartulary/test-results/20260902T044853Z-p1582`; import boundaries `.cartulary/test-results/20260902T044853Z-p1715`; frontend unit 398/398 `.cartulary/test-results/20260902T044853Z-p1723`; accessibility 12/12 `.cartulary/test-results/20260902T044958Z-p25055`; Timeline 53/53 `.cartulary/test-results/20260902T045133Z-p70841`; removed-symbol, selector-driven-focus, confirmation-state, spacing-literal, and diff searches pass. Introduced format and type failures at `.cartulary/test-results/20260902T044518Z-p54659` and `.cartulary/test-results/20260902T044550Z-p63360` were confined to hook dependencies and null narrowing and passed after correction. Compatibility is an intentional accessible-focus improvement only; commands, payloads, role/disabled behavior, invalidation, feedback, and selectors as passive test attributes remain compatible. Rollback is the stateless contextual component, confirmation API, History focus registry/policy, authorization cancellation, focus tests, and this row. No alias or selector fallback remains. Next: make History illegal states unrepresentable, capture owner effects at operation dispatch, split private helpers, and remove Timeline’s dead options. |
+| `2026-09-02T01:53:42-04:00` | WI-27 `DONE`; WI-28 `IN_PROGRESS` | Replaced the flat history model with exhaustive idle/loading/ready/submitting states, an exclusive loaded/load-error ready result, typed request and operation identities, same-subject reference-preserving retarget, changed-subject reset, and explicit wrong-phase/request/operation/subject no-ops. Added focused production-consumed presentation, semantic-focus, operation-execution, and owner-effect units; operation completion now reconstructs from the subject and owner-effect object captured at dispatch, so a late result cannot borrow a newer subject or owner sequence. Rejection feedback is typed and restores semantic focus. Timeline retains its request gate, committed-row wait, save-state, socket, authoritative-version, refresh, row-refresh, and viewport-continuity sequence while removing the dead `retainedData` option and `selectedActiveSubject` patch. Five history-effect declarations became one port. The action stack uses `var(--ct-spacing-sm)`. Authored ownership names every new unit. The full Module Workbook gate exposed two introduced E2E support assumptions: a hidden edit field was used as the selection anchor and recordless optional surfaces were opened before selecting a row. Test support now selects through the contract's first declared visible field; the exact failed rows pass 11/11. | PASS: final format `.cartulary/test-results/20260902T052220Z-p82308`; typecheck `.cartulary/test-results/20260902T051529Z-p82620`; Biome `.cartulary/test-results/20260902T051408Z-p76931`; import boundaries `.cartulary/test-results/20260902T051613Z-p83923`; frontend unit 398/398 `.cartulary/test-results/20260902T051619Z-p84335`; final Workbook reducer/controller/focus and Timeline evidence 145/145 `.cartulary/test-results/20260902T055257Z-p23894`; Timeline 53/53 `.cartulary/test-results/20260902T052335Z-p29758`; Entities 42/42 `.cartulary/test-results/20260902T052816Z-p89290`; Assessments 28/28 `.cartulary/test-results/20260902T053006Z-p40961`; Evidence 36/36 `.cartulary/test-results/20260902T053108Z-p84179`; Design 15/15 `.cartulary/test-results/20260902T053222Z-p34835`; stateful 34/34 `.cartulary/test-results/20260902T053331Z-p81332`; accessibility 12/12 `.cartulary/test-results/20260902T053554Z-p31142`. Dedicated service-backed PASS: Workbook 39/39 `.cartulary/test-results/20260902T053725Z-p75668`; Timeline 30/30 `.cartulary/test-results/20260902T053933Z-p31329`; Entities 33/33 `.cartulary/test-results/20260902T054411Z-p89459`; Assessments 19/19 `.cartulary/test-results/20260902T054919Z-p84176`; Evidence 25/25 `.cartulary/test-results/20260902T055020Z-p27264`; Design 15/15 `.cartulary/test-results/20260902T055135Z-p76838`. Owner-only-umask Fallow passed at `.cartulary/test-results/20260902T051542Z-p83112`; direct JSON inspection confirms no high-severity finding in the scoped inspector or Timeline-history paths and searches find no suppression, dead Timeline option/patch, duplicate effect type, or local history spacing literal. The initial Module Workbook attempt passed 66/68 but failed two introduced browser rows at `.cartulary/test-results/20260902T051803Z-p22767`; their unchanged rerun passed 11/11 at `.cartulary/test-results/20260902T052229Z-p86467`. An Assessment service-backed attempt at `.cartulary/test-results/20260902T054600Z-p40932` was an unrelated `service_readiness_timeout` and passed unchanged on rerun. Compatibility is internal; feedback, selectors, versions, commands, Timeline ordering, routes, payloads, authorization, persistence, and stored data remain compatible. Rollback is the state/model/controller/presentation/focus/operation units, Timeline migration, owner port, tests and support, ownership input, and this row. Residual risk is limited to terminal catalog/generated drift and broad verification. Next: reconcile catalogs, run `agent-finalize`, execute the fresh terminal matrix, close C036-C049, and complete WI-28. |
+| `2026-09-02T03:07:31-04:00` | WI-28 `DONE`; fourth successor complete | Reconciled authored source ownership for every added, renamed, and deleted inspector unit; no authored test-catalog or family row required a path change. `make generate` passed with no generated diff, and all ten refreshed task guides routed to their declared focused/service-backed evidence. `agent-finalize` ran before terminal verification; `RESULTS_DIR` was intentionally unset because no successful retained full warm-check root existed, so retained-run maintenance was skipped. C036-C049 are `PASS`. Closure searches find no copied registry, old resolver/export, compatibility alias, generic inspector `children`, redundant schema prop, parallel panel traversal, Timeline dead option/subject patch, contextual confirmation state, selector-driven History focus, duplicate effect type, scoped Fallow suppression, added TODO/FIXME, or Markdown runtime dependency. The only `retainedData` remaining is the specified loading-state retained-data member. The only production `config.panels.map` is the shared declared-panel list. No generated file or golden changed; the final visual set was manually checked through the passing reconciliation result, so the two-pass changed-golden protocol was not applicable. | Focused PASS: web.workbook 145/145 `.cartulary/test-results/20260902T055932Z-p40871`; web.architecture 12/12 `.cartulary/test-results/20260902T055520Z-p45602`; web.design 15/15 focused `.cartulary/test-results/20260902T055943Z-p41331` and service-backed `.cartulary/test-results/20260902T060053Z-p87789`; package.view_contracts 5/5 `.cartulary/test-results/20260902T055530Z-p47173`; Workbook 68/68 `.cartulary/test-results/20260902T055716Z-p82612` and service-backed 39/39 `.cartulary/test-results/20260902T062344Z-p89319`; Timeline 53/53 `.cartulary/test-results/20260902T060202Z-p34720` and service-backed 30/30 `.cartulary/test-results/20260902T060650Z-p92855`; Entities 42/42 `.cartulary/test-results/20260902T061133Z-p51445` and service-backed 33/33 `.cartulary/test-results/20260902T061322Z-p2886`; Assessments 28/28 `.cartulary/test-results/20260902T061520Z-p53877` and service-backed 19/19 `.cartulary/test-results/20260902T061623Z-p96450`; Evidence 36/36 `.cartulary/test-results/20260902T061726Z-p39575` and service-backed 25/25 `.cartulary/test-results/20260902T062227Z-p39749`; Indicators 20/20 `.cartulary/test-results/20260902T055537Z-p47616` and service-backed 8/8 `.cartulary/test-results/20260902T055627Z-p65320`. Terminal PASS: generate `.cartulary/test-results/20260902T055441Z-p40330` with no diff; agent-finalize `.cartulary/test-results/20260902T062606Z-p45070`; generate drift `.cartulary/test-results/20260902T062629Z-p47986`; generated policy `.cartulary/test-results/20260902T062643Z-p51038`; JSON shape `.cartulary/test-results/20260902T062649Z-p51501`; final typecheck `.cartulary/test-results/20260902T070521Z-p46463`; frontend unit 398/398 `.cartulary/test-results/20260902T062715Z-p52568`; final import boundaries `.cartulary/test-results/20260902T070541Z-p47001`; final Biome `.cartulary/test-results/20260902T070550Z-p47450`; accessibility 12/12 `.cartulary/test-results/20260902T062819Z-p69328`; measurement 22/22 `.cartulary/test-results/20260902T062953Z-p14442`; stateful 34/34 `.cartulary/test-results/20260902T063915Z-p21816`; support 19/19 `.cartulary/test-results/20260902T064142Z-p71235`; webserver-backed 60/60 `.cartulary/test-results/20260902T065554Z-p12762`; visual 12/12 `.cartulary/test-results/20260902T070143Z-p69850`; test-fast 450/450 `.cartulary/test-results/20260902T070341Z-p14753`; owner-only-umask Fallow `.cartulary/test-results/20260902T070557Z-p47935`, whose `0600` JSON has no scoped high finding or suppression; post-closure Markdown lint `.cartulary/test-results/20260902T071004Z-p49820`; staged and unstaged diff checks pass. Recovery evidence retained: Evidence service-backed `.cartulary/test-results/20260902T061843Z-p89178` and stateful `.cartulary/test-results/20260902T063427Z-p71549` failed only on unrelated `service_readiness_timeout` and passed unchanged; initial webserver-backed `.cartulary/test-results/20260902T064310Z-p15529` found two introduced null-subject test assumptions, and the exact Parties and Tasks/Decisions rows passed 11/11 at `.cartulary/test-results/20260902T065358Z-p27648` and `.cartulary/test-results/20260902T065455Z-p70337` before the clean full rerun. Compatibility remains source-only and internal: routes, wire payloads, schemas, persistence, authorization, generated contracts, dependencies, and stored data are unchanged; observable changes are the authorized declared-panel grouping, semantic focus, and fail-closed invalid/null/future-confirmation behavior. Each WI-24 through WI-27 source unit and this validation/handoff unit is independently revertible; no data rollback exists. Deferred work remains broad grid/mutation decomposition, unrelated Timeline casts, repository-wide Fallow cleanup, dependency work, and unrelated harness cleanup. The next extension seam is exact canonical tuple admission, one explicit owner capability, validated subject, declared panel content, a real owner workflow, reset/invalidation participation, and focused evidence. No authorized work remains. |
+
+Append a checkpoint immediately before WI-23 starts and at every workstream
+gate. Do not rewrite the completed WI-16 through WI-22 ledger or sections
+1-55.
+
+All planned interface changes are internal TypeScript boundaries. Routes,
+wire payloads, schemas, authorization, persistence, generated contracts,
+dependencies, Evidence semantics, and stored data remain unchanged.
+Intentional observable changes are limited to correct declared-panel grouping,
+semantic focus restoration, and fail-closed handling of invalid internal
+subjects or newly confirmed contextual capabilities.
+
+Rollback is source-only and workstream-granular. Each completed workstream
+must be revertible after its tracker gate. The complete rollback unit may
+include capability admission and exports, shared subject and panel
+composition, contextual focus handling, history state/controller helpers,
+Timeline cleanup, focused tests, authored ownership/catalog inputs, their
+Make-generated outputs, and WI-23 through WI-28 ledger entries. No data or
+external rollback is required.
+
+Broad grid or mutation decomposition, unrelated Timeline casts, repo-wide
+Fallow cleanup, dependency changes, unrelated harness cleanup, and normative
+specification edits remain out of scope. Carry no feature forward solely for
+compatibility. The next safe feature-extension seam is an exact canonical
+semantic identity, one explicit owner capability, declared panel content, a
+real owner workflow, reset/invalidation participation, and focused evidence.
+
+For this immediate documentation-only update, run only:
+
+```text
+make lint-markdown
+git diff --check
+```
+
+The fourth-successor planning compatibility statement is:
+
+**Documentation-only production-readiness planning; no product, test,
+contract, generated, fixture, golden, route, API, payload, schema,
+authorization, persistence, Evidence, dependency, or stored-data change.**

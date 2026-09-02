@@ -1,8 +1,3 @@
-import type {
-  InspectorConfig,
-  InspectorPanelId,
-} from "@cartulary/view-contracts";
-
 export type WorkbookInspectorSubject = {
   readonly viewSchemaId: string;
   readonly recordId: string;
@@ -119,11 +114,4 @@ export function workbookInspectorSubjectsEqual(
       left.recordId === right.recordId &&
       left.rowVersion === right.rowVersion)
   );
-}
-
-export function inspectorPanelIsDeclared(
-  config: InspectorConfig,
-  panelId: InspectorPanelId,
-): boolean {
-  return config.panels.some((panel) => panel.panelId === panelId);
 }

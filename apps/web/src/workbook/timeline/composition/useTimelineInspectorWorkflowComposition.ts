@@ -81,7 +81,9 @@ type TimelineInspectorWorkflowCompositionInput = {
         | "currentHistoryRowVersion"
         | "rowHistory"
         | "rowHistoryPendingAction"
-      >;
+      > & {
+        readonly inspectorHistorySubject: HistoryInput["activeHistorySubject"];
+      };
     };
     readonly lifecycle: {
       readonly invalidationCause: InspectorLifecycleInput["inspectorInvalidationCause"];
@@ -214,6 +216,7 @@ export function useTimelineInspectorWorkflowComposition({
   });
   const history = useTimelineHistoryActions({
     acceptTimelineRecordVersion: mutation.commands.acceptTimelineRecordVersion,
+    activeHistorySubject: inspector.history.snapshot.inspectorHistorySubject,
     activeHistoryLiveRecordId:
       inspector.history.snapshot.activeHistoryLiveRecordId,
     beginRowHistoryOperation:

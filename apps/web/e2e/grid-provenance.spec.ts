@@ -121,11 +121,25 @@ async function patchBodyForEdit(
   fieldKey: string,
   value: string,
 ) {
-  const responsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === "PATCH" &&
-      response.url().endsWith(`/api/v1/records/${recordId}`),
-  );
+  const responsePromise = page.waitForResponse((response) => {
+    if (
+      response.request().method() !== "PATCH" ||
+      !response.url().endsWith(`/api/v1/records/${recordId}`)
+    ) {
+      return false;
+    }
+    const payload = response.request().postDataJSON() as {
+      readonly changes?: readonly {
+        readonly field_key?: string;
+        readonly value?: unknown;
+      }[];
+    };
+    return (
+      payload.changes?.some(
+        (change) => change.field_key === fieldKey && change.value === value,
+      ) ?? false
+    );
+  });
   await editGenericCell(page, viewSchemaId, recordId, fieldKey, value);
   const response = await responsePromise;
   expect(response.ok()).toBeTruthy();

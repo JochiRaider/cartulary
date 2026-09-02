@@ -4,7 +4,7 @@ import {
   type IndicatorInspectorHandler,
   resolveIndicatorInspectorHandler,
 } from "../../features/indicators/indicatorInspectorHandlers";
-import type { InspectorContextualCapability } from "../../inspector/semanticInspectorDispatcher";
+import type { InspectorContextualCapability } from "../../inspector/inspectorCapabilityResolver";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
@@ -81,15 +81,6 @@ export function useTimelineInspectorFeatureController({
           setIndicatorHandler(null);
           beginCreateRelatedWorkflow(capability.featureGroup);
           return;
-        case "record_history":
-          setIndicatorHandler(null);
-          cancelCreateRelatedWorkflow();
-          setInspectorMessage(
-            workbookInspectorMessageFeedback(
-              "Inspector action is unavailable.",
-              "none",
-            ),
-          );
       }
     },
     [

@@ -226,6 +226,7 @@ export function WorkbookSurfacesFacade({
     const isHosts = registration.renderer === "entity_hosts";
     return (
       <EntityWorkbookSurface
+        key={activeContract.viewSchemaId}
         continuityResetKey={continuityResetKey}
         currentIncidentRole={currentIncidentRole}
         currentUserId={currentUserId}

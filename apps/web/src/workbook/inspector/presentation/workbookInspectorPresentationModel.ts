@@ -5,21 +5,10 @@ import type {
   InspectorFeatureGroup,
 } from "@cartulary/view-contracts";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
-import {
-  type InspectorContextualCapability,
-  inspectorFeatureDisabledTokens,
-} from "../semanticInspectorDispatcher";
+import type { InspectorContextualCapability } from "../inspectorCapabilityResolver";
 
 export const workbookInspectorNoRowMessage =
   "Select a saved row to inspect its details.";
-
-export type WorkbookInspectorSubjectPresentation = {
-  readonly label: string;
-  readonly recordId: string;
-  readonly rowVersion: number | null;
-  readonly stateLabel?: string | undefined;
-  readonly surfaceLabel: string;
-};
 
 export type WorkbookInspectorTechnicalField = {
   readonly label: string;
@@ -66,11 +55,15 @@ export function workbookInspectorDisabledReason({
   readonly featureGroup: InspectorFeatureGroup;
   readonly stateTokens: ReadonlySet<InspectorDisabledCondition>;
 }): string | null {
-  const activeTokens = inspectorFeatureDisabledTokens({
-    currentIncidentRole,
-    featureGroup,
-    stateTokens,
-  });
+  const activeTokens = new Set(stateTokens);
+  const minimumRole = featureGroup.minimumIncidentRole;
+  const currentRole = currentIncidentRole || null;
+  if (
+    minimumRole !== null &&
+    (currentRole === null || roleRank[currentRole] < roleRank[minimumRole])
+  ) {
+    activeTokens.add("authorization_lost");
+  }
   const token = featureGroup.disabledWhen.find((candidate) =>
     activeTokens.has(candidate),
   );
@@ -84,6 +77,13 @@ export function workbookInspectorDisabledReason({
   }
   return disabledReasonByToken[token];
 }
+
+const roleRank: Readonly<Record<Exclude<WorkbookIncidentRole, "">, number>> = {
+  viewer: 0,
+  editor: 1,
+  reviewer: 2,
+  admin: 3,
+};
 
 const disabledReasonByToken = {
   no_row_selected: "Select a saved row to use this action.",

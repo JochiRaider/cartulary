@@ -58,15 +58,17 @@ import type { IndicatorInspectorHandler } from "../features/indicators/indicator
 import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericPartyLinkWorkflow";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
-import type { WorkbookInspectorSubjectPresentation } from "../inspector/presentation/workbookInspectorPresentationModel";
-import { inspectorRecordHistoryActions } from "../inspector/semanticInspectorDispatcher";
+import { inspectorRecordHistoryActions } from "../inspector/inspectorCapabilityResolver";
 import { useInspectorCreateRelatedWorkflow } from "../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorLocalErrorPresentation,
 } from "../inspector/workbookInspectorErrorModel";
-import type { WorkbookRecordHistorySubject } from "../inspector/workbookRecordHistoryModel";
+import {
+  buildWorkbookInspectorSubject,
+  type WorkbookInspectorSubject,
+} from "../inspector/workbookInspectorSubject";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -96,7 +98,6 @@ import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
 } from "../models/workbookGridState";
-import { inspectorPanelIsDeclared } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
@@ -181,15 +182,6 @@ export function ContractWorkbookSurface({
   );
   const { ownerBindings } = registration.policy;
   const inspectorConfig = contract.inspectorConfig;
-  const showDetailsPanel = inspectorPanelIsDeclared(inspectorConfig, "details");
-  const showRelationshipsPanel = inspectorPanelIsDeclared(
-    inspectorConfig,
-    "relationships",
-  );
-  const showWorkflowPanel = inspectorPanelIsDeclared(
-    inspectorConfig,
-    "workflow",
-  );
   const draftRowRecordId = `${surface}:draft-row`;
   const inspectorContinuityTokenRef = useRef<WorkbookContinuityToken | null>(
     null,
@@ -210,7 +202,7 @@ export function ContractWorkbookSurface({
   );
   const [editRecordId, setEditRecordId] = useState("");
   const [deletedHistorySubject, setDeletedHistorySubject] =
-    useState<WorkbookRecordHistorySubject | null>(null);
+    useState<WorkbookInspectorSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
   const [editFieldKey, setEditFieldKey] = useState("");
@@ -256,14 +248,17 @@ export function ContractWorkbookSurface({
     mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
   const inspectorSubjectRow =
     rows.find((row) => row.record_id === editRecordId) ?? null;
-  const recordHistorySubject: WorkbookRecordHistorySubject | null =
+  const inspectorSubject: WorkbookInspectorSubject | null =
     inspectorSubjectRow === null
       ? deletedHistorySubject
-      : {
+      : buildWorkbookInspectorSubject({
+          config: inspectorConfig,
           kind: "live",
+          label: genericInspectorRowLabel(contract, inspectorSubjectRow),
           recordId: inspectorSubjectRow.record_id,
           rowVersion: inspectorSubjectRow.row_version,
-        };
+          surfaceLabel: contract.title,
+        });
   const recordHistoryActions = useMemo(
     () => inspectorRecordHistoryActions(inspectorConfig),
     [inspectorConfig],
@@ -296,11 +291,11 @@ export function ContractWorkbookSurface({
     config: inspectorConfig,
     lifecycleKey: inspectorResetKey,
     subject:
-      recordHistorySubject === null
+      inspectorSubject === null
         ? null
         : {
-            recordId: recordHistorySubject.recordId,
-            rowVersion: recordHistorySubject.rowVersion,
+            recordId: inspectorSubject.recordId,
+            rowVersion: inspectorSubject.rowVersion,
             viewSchemaId: contract.viewSchemaId,
           },
   });
@@ -888,26 +883,6 @@ export function ContractWorkbookSurface({
     rowCount: gridRecordRows.length,
     surfaceLabel: contract.title,
   });
-  const inspectorSubjectPresentation: WorkbookInspectorSubjectPresentation | null =
-    recordHistorySubject === null
-      ? null
-      : recordHistorySubject.kind === "deleted"
-        ? {
-            label: "Deleted record",
-            recordId: recordHistorySubject.recordId,
-            rowVersion: recordHistorySubject.rowVersion,
-            stateLabel: "Deleted",
-            surfaceLabel: contract.title,
-          }
-        : inspectorSubjectRow === null
-          ? null
-          : {
-              label: genericInspectorRowLabel(contract, inspectorSubjectRow),
-              recordId: inspectorSubjectRow.record_id,
-              rowVersion: inspectorSubjectRow.row_version,
-              surfaceLabel: contract.title,
-            };
-
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
@@ -934,11 +909,17 @@ export function ContractWorkbookSurface({
                   setIndicatorInspectorHandler(null);
                   createRelatedWorkflow.commands.cancel();
                   setEditRecordId("");
-                  setDeletedHistorySubject({
-                    kind: "deleted",
-                    recordId: accepted.recordId,
-                    rowVersion: accepted.rowVersion,
-                  });
+                  setDeletedHistorySubject(
+                    buildWorkbookInspectorSubject({
+                      config: inspectorConfig,
+                      kind: "deleted",
+                      label: "Deleted record",
+                      recordId: accepted.recordId,
+                      rowVersion: accepted.rowVersion,
+                      stateLabel: "Deleted",
+                      surfaceLabel: contract.title,
+                    }),
+                  );
                   await onRefresh();
                 },
                 restoreAccepted: async (accepted) => {
@@ -950,7 +931,6 @@ export function ContractWorkbookSurface({
                   await onRefresh();
                 },
               },
-              subject: recordHistorySubject,
             }}
             indicator={
               selectedEditRow === null
@@ -982,306 +962,307 @@ export function ContractWorkbookSurface({
               updateDraft: createRelatedWorkflow.commands.updateDraft,
             }}
             relatedFeedback={relatedFeedback}
-            subject={inspectorSubjectPresentation}
+            subject={inspectorSubject}
             surfaceTitle={contract.title}
-            viewSchemaId={surface}
             onClose={() => {
               inspector.commands.close({ restoreFocus: true });
             }}
-          >
-            {isNotesSurface ? (
-              <label
-                htmlFor={genericWorkbookTestId("note-source-record")}
-                style={labelStyle}
-              >
-                Linked source for draft row
-                <select
-                  data-testid={genericWorkbookTestId("note-source-record")}
-                  id={genericWorkbookTestId("note-source-record")}
-                  style={selectStyle}
-                  value={linkedNoteSourceRecordId}
-                  onChange={(event) => {
-                    setLinkedNoteSourceRecordId(event.target.value);
-                  }}
-                >
-                  <option value="">None</option>
-                  {referenceOptions.noteSourceRecords.map((option) => (
-                    <option key={option.recordId} value={option.recordId}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-
-            {showWorkflowPanel &&
-            canCreateRows &&
-            draftInspectorFields.length > 0 ? (
-              <div style={genericDraftInspectorFieldsStyle}>
-                {draftInspectorFields.map((field) => {
-                  const controlId = `generic-create-inspector-${field.fieldKey}`;
-                  return (
-                    <label
-                      htmlFor={controlId}
-                      key={field.fieldKey}
-                      style={labelStyle}
+            workflowContent={
+              <>
+                {isNotesSurface ? (
+                  <label
+                    htmlFor={genericWorkbookTestId("note-source-record")}
+                    style={labelStyle}
+                  >
+                    Linked source for draft row
+                    <select
+                      data-testid={genericWorkbookTestId("note-source-record")}
+                      id={genericWorkbookTestId("note-source-record")}
+                      style={selectStyle}
+                      value={linkedNoteSourceRecordId}
+                      onChange={(event) => {
+                        setLinkedNoteSourceRecordId(event.target.value);
+                      }}
                     >
-                      {field.label}
-                      <GenericMutationControl
-                        collectionMode="add"
-                        field={field}
-                        id={controlId}
-                        referenceOptions={referenceOptions}
-                        testId={genericCreateFieldTestId(field.fieldKey)}
-                        value={createDraft[field.fieldKey] ?? ""}
-                        onChange={(value) => {
-                          setCreateDraft((current) => ({
-                            ...current,
-                            [field.fieldKey]: value,
-                          }));
-                        }}
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-            ) : null}
+                      <option value="">None</option>
+                      {referenceOptions.noteSourceRecords.map((option) => (
+                        <option key={option.recordId} value={option.recordId}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
 
-            {showWorkflowPanel && canCreateRows ? (
-              <button
-                data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
-                disabled={mutationState === "Syncing"}
-                style={secondaryActionButtonStyle}
-                type="button"
-                onClick={() => {
-                  void submitCreate();
-                }}
-              >
-                Commit draft row
-              </button>
-            ) : null}
+                {canCreateRows && draftInspectorFields.length > 0 ? (
+                  <div style={genericDraftInspectorFieldsStyle}>
+                    {draftInspectorFields.map((field) => {
+                      const controlId = `generic-create-inspector-${field.fieldKey}`;
+                      return (
+                        <label
+                          htmlFor={controlId}
+                          key={field.fieldKey}
+                          style={labelStyle}
+                        >
+                          {field.label}
+                          <GenericMutationControl
+                            collectionMode="add"
+                            field={field}
+                            id={controlId}
+                            referenceOptions={referenceOptions}
+                            testId={genericCreateFieldTestId(field.fieldKey)}
+                            value={createDraft[field.fieldKey] ?? ""}
+                            onChange={(value) => {
+                              setCreateDraft((current) => ({
+                                ...current,
+                                [field.fieldKey]: value,
+                              }));
+                            }}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : null}
 
-            {showDetailsPanel &&
-            rows.length > 0 &&
-            selectedEditField !== null ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  data-testid={genericEditRecordSelectTestId(
-                    contract.viewSchemaId,
-                  )}
-                  style={selectStyle}
-                  value={editRecordId}
-                  onChange={(event) => {
-                    setEditRecordId(event.target.value);
-                  }}
-                >
-                  <option value="">Row</option>
-                  {rows.map((row) => (
-                    <option key={row.record_id} value={row.record_id}>
-                      {genericRowLabel(contract, row)}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  data-testid={genericEditFieldSelectTestId(
-                    contract.viewSchemaId,
-                  )}
-                  style={selectStyle}
-                  value={editFieldKey}
-                  onChange={(event) => {
-                    setEditFieldKey(event.target.value);
-                  }}
-                >
-                  <option value="">Field</option>
-                  {editableFields.map((field) => (
-                    <option key={field.fieldKey} value={field.fieldKey}>
-                      {field.label}
-                    </option>
-                  ))}
-                </select>
-                {selectedEditField.writeKind === "action_payload" &&
-                genericCollectionSupportsRemove(selectedEditField.fieldKey) ? (
+                {canCreateRows ? (
+                  <button
+                    data-testid={genericCreateSubmitTestId(
+                      contract.viewSchemaId,
+                    )}
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void submitCreate();
+                    }}
+                  >
+                    Commit draft row
+                  </button>
+                ) : null}
+                {inspectorSubject === null ? null : (
+                  <CoordinationWorkflowBindings
+                    contract={contract}
+                    disabled={mutationState === "Syncing"}
+                    mutation={{
+                      beginMutation,
+                      completeGenericMutation,
+                      rejectMutationFailure,
+                      setValidationError,
+                    }}
+                    mutationCommands={mutationCommands.coordination}
+                    ownerBindings={ownerBindings}
+                    referenceOptions={referenceOptions}
+                    resetKey={inspectorInvalidationKey}
+                    rows={rows}
+                  />
+                )}
+              </>
+            }
+            detailsContent={
+              rows.length > 0 && selectedEditField !== null ? (
+                <div style={genericEditRowStyle}>
                   <select
-                    aria-label="Collection edit action"
-                    data-testid={genericEditActionSelectTestId(
+                    data-testid={genericEditRecordSelectTestId(
                       contract.viewSchemaId,
                     )}
                     style={selectStyle}
-                    value={editCollectionMode}
+                    value={editRecordId}
                     onChange={(event) => {
-                      setEditCollectionMode(
-                        event.target.value === "remove" ? "remove" : "add",
-                      );
-                      setEditValue("");
+                      setEditRecordId(event.target.value);
                     }}
                   >
-                    <option value="add">Add</option>
-                    <option value="remove">Remove</option>
+                    <option value="">Row</option>
+                    {rows.map((row) => (
+                      <option key={row.record_id} value={row.record_id}>
+                        {genericRowLabel(contract, row)}
+                      </option>
+                    ))}
                   </select>
-                ) : null}
-                <GenericMutationControl
-                  collectionItems={selectedEditCollectionItems}
-                  collectionMode={editCollectionMode}
-                  field={selectedEditField}
-                  referenceOptions={referenceOptions}
-                  testId={genericEditValueTestId(contract.viewSchemaId)}
-                  value={editValue}
-                  onChange={setEditValue}
-                />
-                <button
-                  data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
-                  disabled={mutationState === "Syncing"}
-                  style={actionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void submitEdit();
-                  }}
-                >
-                  Update
-                </button>
-              </div>
-            ) : null}
-
-            {showRelationshipsPanel &&
-            partyLinkPairs.length > 0 &&
-            selectedEditRow !== null ? (
-              <div style={genericEditRowStyle}>
-                <select
-                  aria-label="Party link field"
-                  data-testid={coordinationWorkflowTestId("party-pair")}
-                  style={selectStyle}
-                  value={selectedPartyLinkPair?.key ?? ""}
-                  onChange={(event) => {
-                    setPartyLinkPairKey(event.target.value);
-                  }}
-                >
-                  {partyLinkPairs.map((pair) => (
-                    <option key={pair.key} value={pair.key}>
-                      {pair.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Existing party"
-                  data-testid={coordinationWorkflowTestId("party-existing")}
-                  style={selectStyle}
-                  value={partyLinkExistingPartyId}
-                  onChange={(event) => {
-                    setPartyLinkExistingPartyId(event.target.value);
-                  }}
-                >
-                  <option value="">Party</option>
-                  {referenceOptions.parties.map((option) => (
-                    <option key={option.recordId} value={option.recordId}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  data-testid={coordinationWorkflowTestId(
-                    "party-create-from-text",
-                  )}
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void createPartyFromText();
-                  }}
-                >
-                  Create party from text
-                </button>
-                <button
-                  data-testid={coordinationWorkflowTestId(
-                    "party-link-existing",
-                  )}
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void linkExistingParty();
-                  }}
-                >
-                  Link existing party
-                </button>
-                <button
-                  data-testid={coordinationWorkflowTestId("party-clear-link")}
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void clearPartyLink();
-                  }}
-                >
-                  Clear party link
-                </button>
-                <button
-                  data-testid={coordinationWorkflowTestId("party-clear-text")}
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void clearPartyText();
-                  }}
-                >
-                  Clear party text
-                </button>
-                <button
-                  data-testid={coordinationWorkflowTestId("party-clear-both")}
-                  disabled={mutationState === "Syncing"}
-                  style={secondaryActionButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void clearPartyBoth();
-                  }}
-                >
-                  Clear both
-                </button>
-                {partialCompletionMessage === null ? null : (
-                  <div>
-                    <p
-                      data-testid={coordinationWorkflowTestId(
-                        "party-partial-completion",
+                  <select
+                    data-testid={genericEditFieldSelectTestId(
+                      contract.viewSchemaId,
+                    )}
+                    style={selectStyle}
+                    value={editFieldKey}
+                    onChange={(event) => {
+                      setEditFieldKey(event.target.value);
+                    }}
+                  >
+                    <option value="">Field</option>
+                    {editableFields.map((field) => (
+                      <option key={field.fieldKey} value={field.fieldKey}>
+                        {field.label}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedEditField.writeKind === "action_payload" &&
+                  genericCollectionSupportsRemove(
+                    selectedEditField.fieldKey,
+                  ) ? (
+                    <select
+                      aria-label="Collection edit action"
+                      data-testid={genericEditActionSelectTestId(
+                        contract.viewSchemaId,
                       )}
-                      role="status"
-                    >
-                      {partialCompletionMessage}
-                    </p>
-                    <button
-                      data-testid={coordinationWorkflowTestId(
-                        "party-retry-created-link",
-                      )}
-                      disabled={mutationState === "Syncing"}
-                      style={secondaryActionButtonStyle}
-                      type="button"
-                      onClick={() => {
-                        void retryCreatedPartyLink();
+                      style={selectStyle}
+                      value={editCollectionMode}
+                      onChange={(event) => {
+                        setEditCollectionMode(
+                          event.target.value === "remove" ? "remove" : "add",
+                        );
+                        setEditValue("");
                       }}
                     >
-                      Retry link to created party
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            {showWorkflowPanel ? (
-              <CoordinationWorkflowBindings
-                contract={contract}
-                disabled={mutationState === "Syncing"}
-                mutation={{
-                  beginMutation,
-                  completeGenericMutation,
-                  rejectMutationFailure,
-                  setValidationError,
-                }}
-                mutationCommands={mutationCommands.coordination}
-                ownerBindings={ownerBindings}
-                referenceOptions={referenceOptions}
-                resetKey={inspectorInvalidationKey}
-                rows={rows}
-              />
-            ) : null}
-          </GenericWorkbookInspector>
+                      <option value="add">Add</option>
+                      <option value="remove">Remove</option>
+                    </select>
+                  ) : null}
+                  <GenericMutationControl
+                    collectionItems={selectedEditCollectionItems}
+                    collectionMode={editCollectionMode}
+                    field={selectedEditField}
+                    referenceOptions={referenceOptions}
+                    testId={genericEditValueTestId(contract.viewSchemaId)}
+                    value={editValue}
+                    onChange={setEditValue}
+                  />
+                  <button
+                    data-testid={genericEditSubmitTestId(contract.viewSchemaId)}
+                    disabled={mutationState === "Syncing"}
+                    style={actionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void submitEdit();
+                    }}
+                  >
+                    Update
+                  </button>
+                </div>
+              ) : null
+            }
+            relationshipsContent={
+              partyLinkPairs.length > 0 && selectedEditRow !== null ? (
+                <div style={genericEditRowStyle}>
+                  <select
+                    aria-label="Party link field"
+                    data-testid={coordinationWorkflowTestId("party-pair")}
+                    style={selectStyle}
+                    value={selectedPartyLinkPair?.key ?? ""}
+                    onChange={(event) => {
+                      setPartyLinkPairKey(event.target.value);
+                    }}
+                  >
+                    {partyLinkPairs.map((pair) => (
+                      <option key={pair.key} value={pair.key}>
+                        {pair.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Existing party"
+                    data-testid={coordinationWorkflowTestId("party-existing")}
+                    style={selectStyle}
+                    value={partyLinkExistingPartyId}
+                    onChange={(event) => {
+                      setPartyLinkExistingPartyId(event.target.value);
+                    }}
+                  >
+                    <option value="">Party</option>
+                    {referenceOptions.parties.map((option) => (
+                      <option key={option.recordId} value={option.recordId}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    data-testid={coordinationWorkflowTestId(
+                      "party-create-from-text",
+                    )}
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void createPartyFromText();
+                    }}
+                  >
+                    Create party from text
+                  </button>
+                  <button
+                    data-testid={coordinationWorkflowTestId(
+                      "party-link-existing",
+                    )}
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void linkExistingParty();
+                    }}
+                  >
+                    Link existing party
+                  </button>
+                  <button
+                    data-testid={coordinationWorkflowTestId("party-clear-link")}
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void clearPartyLink();
+                    }}
+                  >
+                    Clear party link
+                  </button>
+                  <button
+                    data-testid={coordinationWorkflowTestId("party-clear-text")}
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void clearPartyText();
+                    }}
+                  >
+                    Clear party text
+                  </button>
+                  <button
+                    data-testid={coordinationWorkflowTestId("party-clear-both")}
+                    disabled={mutationState === "Syncing"}
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void clearPartyBoth();
+                    }}
+                  >
+                    Clear both
+                  </button>
+                  {partialCompletionMessage === null ? null : (
+                    <div>
+                      <p
+                        data-testid={coordinationWorkflowTestId(
+                          "party-partial-completion",
+                        )}
+                        role="status"
+                      >
+                        {partialCompletionMessage}
+                      </p>
+                      <button
+                        data-testid={coordinationWorkflowTestId(
+                          "party-retry-created-link",
+                        )}
+                        disabled={mutationState === "Syncing"}
+                        style={secondaryActionButtonStyle}
+                        type="button"
+                        onClick={() => {
+                          void retryCreatedPartyLink();
+                        }}
+                      >
+                        Retry link to created party
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null
+            }
+          />
         ) : undefined
       }
       onRequestInspectorClose={() => {
@@ -1308,7 +1289,9 @@ export function ContractWorkbookSurface({
                 anchor?.rowIdentity.kind === "core_record"
                   ? anchor.rowIdentity.recordId
                   : null;
-              setEditRecordId(recordId ?? "");
+              if (recordId !== null) {
+                setEditRecordId(recordId);
+              }
               if (recordId === null || anchor === null) {
                 genericFocus.port.clear();
               } else {

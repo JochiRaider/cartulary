@@ -4,17 +4,17 @@ import {
 } from "@cartulary/ui-contracts";
 import type {
   InspectorConfig,
-  InspectorPanelId,
+  InspectorPanel,
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import { type CSSProperties, type ReactNode, useId } from "react";
 import { workbookSurfaceInspectorPanelStyle } from "../../layout/WorkbookSurfaceLayout";
+import type { WorkbookInspectorSubject } from "../workbookInspectorSubject";
 import {
   WorkbookInspectorCompactMetadata,
   WorkbookInspectorTechnicalDetails,
 } from "./WorkbookInspectorFeedback";
 import {
-  type WorkbookInspectorSubjectPresentation,
   type WorkbookInspectorTechnicalField,
   workbookInspectorNoRowMessage,
 } from "./workbookInspectorPresentationModel";
@@ -22,6 +22,7 @@ import {
 export function WorkbookInspectorShell({
   accessibleLabel,
   children,
+  config,
   eyebrow = "Inspector",
   heading,
   mode = "record",
@@ -29,18 +30,17 @@ export function WorkbookInspectorShell({
   onClose,
   subject,
   testId,
-  viewSchemaId,
 }: {
   readonly accessibleLabel: string;
   readonly children?: ReactNode;
+  readonly config: InspectorConfig;
   readonly eyebrow?: string | undefined;
   readonly heading?: string | undefined;
   readonly mode?: "record" | "creation" | undefined;
   readonly noRowHeading: string;
   readonly onClose: () => void;
-  readonly subject: WorkbookInspectorSubjectPresentation | null;
+  readonly subject: WorkbookInspectorSubject | null;
   readonly testId?: string | undefined;
-  readonly viewSchemaId: string;
 }) {
   const headingId = useId();
   return (
@@ -57,7 +57,7 @@ export function WorkbookInspectorShell({
       data-record-id={subject?.recordId}
       data-row-version={subject?.rowVersion}
       data-testid={testId}
-      data-view-schema-id={viewSchemaId}
+      data-view-schema-id={config.viewSchemaId}
       style={shellStyle}
     >
       <header style={headerStyle}>
@@ -70,7 +70,9 @@ export function WorkbookInspectorShell({
           </div>
           <button
             aria-label="Close inspector"
-            data-testid={workbookInspectorCloseButtonTestId(viewSchemaId)}
+            data-testid={workbookInspectorCloseButtonTestId(
+              config.viewSchemaId,
+            )}
             style={closeButtonStyle}
             type="button"
             onClick={onClose}
@@ -100,20 +102,16 @@ export function WorkbookInspectorShell({
 
 export function WorkbookInspectorPanelSection({
   children,
-  config,
-  panelId,
+  panel,
+  viewSchemaId,
 }: {
   readonly children?: ReactNode;
-  readonly config: InspectorConfig;
-  readonly panelId: InspectorPanelId;
+  readonly panel: InspectorPanel;
+  readonly viewSchemaId: string;
 }) {
-  const panel = config.panels.find(
-    (candidate) => candidate.panelId === panelId,
-  );
-  if (panel === undefined) return null;
   return (
     <section
-      data-testid={workbookInspectorPanelTestId(config.viewSchemaId, panelId)}
+      data-testid={workbookInspectorPanelTestId(viewSchemaId, panel.panelId)}
       style={panelSectionStyle}
     >
       <h3 style={panelTitleStyle}>{panel.label}</h3>
@@ -125,7 +123,7 @@ export function WorkbookInspectorPanelSection({
 function RecordContext({
   subject,
 }: {
-  readonly subject: WorkbookInspectorSubjectPresentation;
+  readonly subject: WorkbookInspectorSubject;
 }) {
   return (
     <div style={recordContextStyle}>
@@ -138,13 +136,11 @@ function RecordContext({
 }
 
 function subjectTechnicalFields(
-  subject: WorkbookInspectorSubjectPresentation,
+  subject: WorkbookInspectorSubject,
 ): WorkbookInspectorTechnicalField[] {
   return [
     { label: "Record ID", value: subject.recordId },
-    ...(subject.rowVersion === null
-      ? []
-      : [{ label: "Row version", value: String(subject.rowVersion) }]),
+    { label: "Row version", value: String(subject.rowVersion) },
   ];
 }
 

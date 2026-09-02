@@ -1,9 +1,12 @@
 import {
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
+  rowHistoryDestructiveCancelButtonTestId,
   rowHistoryDestructiveConfirmButtonTestId,
   rowHistoryItemTestId,
+  rowHistoryPanelTestId,
   rowHistoryRestoreButtonTestId,
+  rowHistoryRollbackCancelButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
 } from "@cartulary/ui-contracts";
@@ -57,7 +60,7 @@ describe("WorkbookInspectorRecordHistory", () => {
           restoreAccepted: vi.fn(),
           rollbackAccepted,
         }}
-        subject={{ kind: "live", recordId, rowVersion: 5 }}
+        subject={historySubject(recordId, 5)}
       />,
     );
 
@@ -143,7 +146,7 @@ describe("WorkbookInspectorRecordHistory", () => {
           restoreAccepted,
           rollbackAccepted: vi.fn(),
         }}
-        subject={{ kind: "live", recordId, rowVersion: 5 }}
+        subject={historySubject(recordId, 5)}
       />,
     );
 
@@ -195,6 +198,7 @@ describe("WorkbookInspectorRecordHistory", () => {
       rollback: vi.fn(() => pendingRollback.promise),
     };
     const rollbackAccepted = vi.fn(async () => undefined);
+    const newerRollbackAccepted = vi.fn(async () => undefined);
     const { rerender } = render(
       <WorkbookInspectorRecordHistory
         actions={new Set(["delete", "restore", "rollback"])}
@@ -205,7 +209,7 @@ describe("WorkbookInspectorRecordHistory", () => {
           restoreAccepted: vi.fn(),
           rollbackAccepted,
         }}
-        subject={{ kind: "live", recordId, rowVersion: 5 }}
+        subject={historySubject(recordId, 5)}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Open history" }));
@@ -233,9 +237,9 @@ describe("WorkbookInspectorRecordHistory", () => {
         ownerEffects={{
           deleteAccepted: vi.fn(),
           restoreAccepted: vi.fn(),
-          rollbackAccepted,
+          rollbackAccepted: newerRollbackAccepted,
         }}
-        subject={{ kind: "live", recordId: "record-b", rowVersion: 1 }}
+        subject={historySubject("record-b", 1)}
       />,
     );
     pendingRollback.resolve({
@@ -244,8 +248,186 @@ describe("WorkbookInspectorRecordHistory", () => {
     });
 
     await waitFor(() => expect(rollbackAccepted).toHaveBeenCalledOnce());
+    expect(newerRollbackAccepted).not.toHaveBeenCalled();
     expect(screen.queryByText(`Rolled back record ${recordId}.`)).toBeNull();
     expect(screen.getByText("record-b")).not.toBeNull();
+  });
+
+  it("returns cancel, Escape, and rejected submissions to the same semantic action", async () => {
+    const commands: RecordRouteCommandPort = {
+      execute: vi.fn(),
+      loadHistory: vi.fn(async () => ({
+        kind: "accepted" as const,
+        value: historyData(),
+      })),
+      rollback: vi.fn(async () => ({
+        failure: { kind: "retryable" as const, message: "Rollback rejected" },
+        kind: "rejected" as const,
+      })),
+    };
+    render(
+      <WorkbookInspectorRecordHistory
+        actions={new Set(["delete", "restore", "rollback"])}
+        canMutate
+        commands={commands}
+        ownerEffects={{
+          deleteAccepted: vi.fn(),
+          restoreAccepted: vi.fn(),
+          rollbackAccepted: vi.fn(),
+        }}
+        subject={historySubject(recordId, 5)}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open history" }));
+    const actionTestId = rowHistoryActionTestId({
+      action: "history_entry",
+      historyItemRef,
+    });
+    const action = await screen.findByTestId(actionTestId);
+
+    fireEvent.click(action);
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryRollbackCancelButtonTestId({
+          action: "history_entry",
+          historyItemRef,
+        }),
+      ),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(action));
+
+    fireEvent.click(action);
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(action));
+
+    fireEvent.click(action);
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryRollbackConfirmButtonTestId({
+          action: "history_entry",
+          historyItemRef,
+        }),
+      ),
+    );
+    await screen.findByText("Rollback rejected");
+    await waitFor(() => expect(document.activeElement).toBe(action));
+  });
+
+  it("restores successful rollback focus only when the exact action identity survives", async () => {
+    const loadHistory = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: "accepted", value: historyData() })
+      .mockResolvedValueOnce({ kind: "accepted", value: historyData() });
+    const commands: RecordRouteCommandPort = {
+      execute: vi.fn(),
+      loadHistory,
+      rollback: vi.fn(async () => ({
+        kind: "accepted" as const,
+        value: { recordId, rowVersion: 5 },
+      })),
+    };
+    render(
+      <WorkbookInspectorRecordHistory
+        actions={new Set(["delete", "restore", "rollback"])}
+        canMutate
+        commands={commands}
+        ownerEffects={{
+          deleteAccepted: vi.fn(),
+          restoreAccepted: vi.fn(),
+          rollbackAccepted: vi.fn(),
+        }}
+        subject={historySubject(recordId, 5)}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open history" }));
+    const actionTestId = rowHistoryActionTestId({
+      action: "history_entry",
+      historyItemRef,
+    });
+    fireEvent.click(await screen.findByTestId(actionTestId));
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryRollbackConfirmButtonTestId({
+          action: "history_entry",
+          historyItemRef,
+        }),
+      ),
+    );
+    await waitFor(() => expect(loadHistory).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByTestId(actionTestId)),
+    );
+  });
+
+  it("uses History as the success fallback and discards invalidated focus requests", async () => {
+    let deleted = false;
+    let rowVersion = 5;
+    const commands: RecordRouteCommandPort = {
+      execute: vi.fn(async () => {
+        deleted = true;
+        rowVersion = 6;
+        return {
+          kind: "accepted" as const,
+          value: { recordId, rowVersion },
+        };
+      }),
+      loadHistory: vi.fn(async () => ({
+        kind: "accepted" as const,
+        value: historyData({ deleted, rowVersion }),
+      })),
+      rollback: vi.fn(),
+    };
+    const ownerEffects = {
+      deleteAccepted: vi.fn(),
+      restoreAccepted: vi.fn(),
+      rollbackAccepted: vi.fn(),
+    };
+    const { rerender } = render(
+      <WorkbookInspectorRecordHistory
+        actions={new Set(["delete", "restore", "rollback"])}
+        canMutate
+        commands={commands}
+        ownerEffects={ownerEffects}
+        subject={historySubject(recordId, 5)}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open history" }));
+    fireEvent.click(await screen.findByTestId(rowHistoryDeleteButtonTestId()));
+    fireEvent.click(
+      screen.getByTestId(
+        rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
+      ),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByTestId(rowHistoryPanelTestId()),
+      ),
+    );
+
+    fireEvent.click(await screen.findByTestId(rowHistoryRestoreButtonTestId()));
+    rerender(
+      <WorkbookInspectorRecordHistory
+        actions={new Set(["delete", "restore", "rollback"])}
+        canMutate={false}
+        commands={commands}
+        ownerEffects={ownerEffects}
+        subject={{
+          ...historySubject(recordId, 6),
+          kind: "deleted",
+          stateLabel: "Deleted",
+        }}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId(
+          rowHistoryDestructiveCancelButtonTestId({ operation: "restore" }),
+        ),
+      ).toBeNull(),
+    );
+    expect(document.activeElement).not.toBe(
+      screen.getByTestId(rowHistoryPanelTestId()),
+    );
   });
 });
 
@@ -276,6 +458,17 @@ function historyData({
     ],
     record_id: historyRecordId,
     row_version: rowVersion,
+  };
+}
+
+function historySubject(subjectRecordId: string, rowVersion: number) {
+  return {
+    kind: "live" as const,
+    label: "Timeline row",
+    recordId: subjectRecordId,
+    rowVersion,
+    surfaceLabel: "Timeline",
+    viewSchemaId: "cartulary.view.timeline.v2",
   };
 }
 

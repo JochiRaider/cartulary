@@ -6,8 +6,8 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   type InspectorContextualCapability,
-  resolveInspectorOwnerCapability,
-} from "../inspector/semanticInspectorDispatcher";
+  inspectorContextualCapabilities,
+} from "../inspector/inspectorCapabilityResolver";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import {
   type TimelineInspectorFeatureLifecycle,
@@ -26,7 +26,6 @@ const indicatorCapability = requireTimelineCapability(
 const createRelatedCapability = requireTimelineCapability(
   "create_related.note",
 );
-const recordHistoryCapability = requireTimelineCapability("record.delete");
 const initialLifecycle: TimelineInspectorFeatureLifecycle = {
   authorizationKey: "editor:authorized",
   invalidationGeneration: 0,
@@ -57,12 +56,10 @@ function controller(
 describe("useTimelineInspectorFeatureController", () => {
   it("routes canonical features with Indicator precedence and no generic fallback", () => {
     const { mocks, result } = controller();
-    const createRelatedCapabilities = timelineFeatures
-      .map((featureGroup) =>
-        resolveInspectorOwnerCapability(
-          requireViewContract(timelineViewSchemaId).inspectorConfig,
-          featureGroup.featureGroupKey,
-        ),
+    const config = requireViewContract(timelineViewSchemaId).inspectorConfig;
+    const createRelatedCapabilities = config.panels
+      .flatMap((panel) =>
+        inspectorContextualCapabilities({ config, panelId: panel.panelId }),
       )
       .filter(
         (
@@ -108,19 +105,11 @@ describe("useTimelineInspectorFeatureController", () => {
       createRelatedFeature,
     );
 
-    act(() =>
-      result.current.commands.handleFeatureAction(recordHistoryCapability),
-    );
     expect(mocks.beginCreateRelatedWorkflow).toHaveBeenCalledTimes(1);
-    expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledTimes(2);
-    expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith({
-      announcement: "none",
-      kind: "message",
-      message: "Inspector action is unavailable.",
-    });
+    expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledOnce();
 
     act(() => result.current.commands.cancelFeatureAction());
-    expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledTimes(3);
+    expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenCalledTimes(2);
     expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith(null);
   });
 
@@ -168,14 +157,15 @@ function requireTimelineFeature(
 function requireTimelineCapability(
   featureGroupKey: string,
 ): InspectorContextualCapability {
-  const capability = resolveInspectorOwnerCapability(
-    requireViewContract(timelineViewSchemaId).inspectorConfig,
-    featureGroupKey,
-  );
-  if (
-    capability.kind === "unsupported" ||
-    capability.kind === "existing_owner_control"
-  ) {
+  const config = requireViewContract(timelineViewSchemaId).inspectorConfig;
+  const capability = config.panels
+    .flatMap((panel) =>
+      inspectorContextualCapabilities({ config, panelId: panel.panelId }),
+    )
+    .find(
+      (candidate) => candidate.featureGroup.featureGroupKey === featureGroupKey,
+    );
+  if (capability === undefined) {
     throw new Error(`Missing Timeline capability ${featureGroupKey}`);
   }
   return capability;
