@@ -3,9 +3,10 @@ import {
   workbookEditRecoveryPresentation,
 } from "../utils/workbookEditRecoveryPresentation";
 import {
+  createWorkbookPendingQueueModel,
   type PendingReplayScope,
   type PendingReplayUnitState,
-  WorkbookPendingQueueModel,
+  type WorkbookPendingQueueModel,
 } from "../utils/workbookPendingQueue";
 
 export type WorkbookPendingQueueRuntime = {
@@ -41,7 +42,7 @@ export function createWorkbookPendingQueueRuntime(
   scope: PendingReplayScope,
 ): WorkbookPendingQueueRuntime {
   return {
-    model: new WorkbookPendingQueueModel(scope),
+    model: createWorkbookPendingQueueModel(scope),
     refreshBlockedRecordIds: new Map(),
     refreshInFlightCount: 0,
     refreshReplayBlockAllCount: 0,

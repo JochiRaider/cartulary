@@ -164,19 +164,10 @@
             }
           },
           {
-            "name": "view_schema_id",
-            "in": "query",
-            "required": false,
-            "description": "Legacy explicit launch pointer for a base view-schema surface.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "sheet_ref_kind",
             "in": "query",
             "required": false,
-            "description": "Explicit launch pointer kind. Must be paired with sheet_ref_id and must not be combined with view_schema_id.",
+            "description": "Explicit launch pointer kind. Must be paired with sheet_ref_id.",
             "schema": {
               "type": "string",
               "enum": [

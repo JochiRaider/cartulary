@@ -7,7 +7,6 @@ import {
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import type {
-  TimelineRelatedEvidenceLinked,
   TimelineRelatedRecordCreated,
   TimelineRelatedRecordPort,
 } from "../mutations/workbookMutationCommandPorts";
@@ -22,16 +21,15 @@ const createEvidence = timeline.inspectorConfig.featureGroups.find(
 );
 
 describe("useTimelineCreateRelatedWorkflow", () => {
-  it("finishes captured Evidence effects without overwriting a reopened workflow", async () => {
+  it("discards a stale Evidence continuation without overwriting a reopened workflow", async () => {
     expect(createEvidence).toBeDefined();
     if (createEvidence === undefined) return;
     const createPending =
       deferred<WorkbookOperationOutcome<TimelineRelatedRecordCreated>>();
-    const linkPending =
-      deferred<WorkbookOperationOutcome<TimelineRelatedEvidenceLinked>>();
     const mutationCommands: TimelineRelatedRecordPort = {
       createRelatedRecord: vi.fn(() => createPending.promise),
-      linkCreatedEvidence: vi.fn(() => linkPending.promise),
+      linkCreatedEvidence:
+        vi.fn<TimelineRelatedRecordPort["linkCreatedEvidence"]>(),
     };
     const applyAcceptedRowMutation = vi.fn();
     const loadRows = vi.fn(async () => undefined);
@@ -41,6 +39,10 @@ describe("useTimelineCreateRelatedWorkflow", () => {
     const { result, rerender } = renderHook(
       ({ selectedRow }) =>
         useTimelineCreateRelatedWorkflow({
+          actionContext: {
+            authorized: true,
+            surfaceKey: "view_schema:cartulary.view.timeline.v2",
+          },
           applyAcceptedRowMutation,
           currentUserId: null,
           loadRows,
@@ -73,36 +75,12 @@ describe("useTimelineCreateRelatedWorkflow", () => {
           viewSchemaId: evidenceViewSchemaId,
         },
       });
-      await Promise.resolve();
-    });
-    expect(mutationCommands.linkCreatedEvidence).toHaveBeenCalledWith({
-      createdRecordId: "evidence-1",
-      sourceRow: originalRow,
-    });
-    await act(async () => {
-      linkPending.resolve({
-        kind: "accepted",
-        value: {
-          changeSetId: "change-link",
-          row: {
-            cells: {},
-            record_id: originalRow.recordId ?? "",
-            row_version: 6,
-            view_schema_id: timelineViewSchemaId,
-          },
-          viewSchemaId: timelineViewSchemaId,
-        },
-      });
       await completion;
     });
 
-    expect(applyAcceptedRowMutation).toHaveBeenCalledOnce();
-    expect(applyAcceptedRowMutation).toHaveBeenCalledWith(
-      originalRow.key,
-      expect.objectContaining({ viewSchemaId: timelineViewSchemaId }),
-    );
-    expect(loadRows).toHaveBeenCalledOnce();
-    expect(loadRows).toHaveBeenCalledWith({ showLoading: false });
+    expect(mutationCommands.linkCreatedEvidence).not.toHaveBeenCalled();
+    expect(applyAcceptedRowMutation).not.toHaveBeenCalled();
+    expect(loadRows).not.toHaveBeenCalled();
     expect(setInspectorMessage).toHaveBeenCalledTimes(feedbackCallCount);
     expect(result.current.workflow).toMatchObject({
       phase: "editing",

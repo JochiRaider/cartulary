@@ -4,7 +4,11 @@ import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecove
 import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinatorSession } from "../collaboration/useWorkbookCollaborationCoordinator";
-import { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
+import { createWorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
+import {
+  systemWorkbookCollaborationClock,
+  systemWorkbookCollaborationScheduler,
+} from "../collaboration/workbookCollaborationTiming";
 import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
@@ -62,8 +66,9 @@ export function useWorkbookCollaborationLifecycle({
   }, []);
   const projection = useMemo(
     () =>
-      new WorkbookCollaborationCoordinator({
+      createWorkbookCollaborationCoordinator({
         authorizationRecovery,
+        clock: systemWorkbookCollaborationClock,
         continuityInvalidation,
         evidenceInvalidation,
         extensionInvalidation,
@@ -77,6 +82,7 @@ export function useWorkbookCollaborationLifecycle({
         onAuthorizationRecovered,
         onIncidentAccessLost,
         queryInvalidation,
+        scheduler: systemWorkbookCollaborationScheduler,
       }),
     [
       authorizationRecovery,

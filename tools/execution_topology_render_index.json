@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:e925bb9aedf6da7471539cd213108b2db26de5cd15cb96d33b5c04cefe5418da",
+  "input_digest": "sha256:c3d731db70c8d3ee1045262487fbc5da9a81e3388d855af7f1495f026d7e0eb6",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -222,7 +222,7 @@
     {
       "path": "contracts/verification/owners/package.grid_adapter.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:8646de801d0b249f939e4880f8252a2aaf17f1bb916d6f14f8fadf5027d83bc1"
+      "hash": "sha256:dc90fe6ae33fb6bd228d554c5b5c67d445f05072c8a354bcde56248db8ca92f5"
     },
     {
       "path": "contracts/verification/owners/package.protocol_ts.json",
@@ -857,7 +857,7 @@
     {
       "path": "tools/harness/test-catalog/selector-resolution.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b84baa4959152c567b1fa8aa8b6043bd5c9c602637639fdc6bfd8cad26eec5c9"
+      "hash": "sha256:e76369e73138043180deb7df8a98d4953f5ea23272815d5db0cef4c34a3375dd"
     },
     {
       "path": "tools/harness/test-catalog/semantic-identity-check-cli.mjs",
@@ -997,12 +997,12 @@
     {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
-      "hash": "sha256:6b9be63e870b2ecf8e5ef54748d9c93422c315d7b6e29e624a6be3a37b3b9fcd"
+      "hash": "sha256:edf527350f69a536ecb75e31e6a93ad3db3293e9b59d1e11828aeb2ae29c1daa"
     },
     {
       "path": "tools/test_families/module.evidence.json",
       "role": "test_family_manifest",
-      "hash": "sha256:51a5593bbc5877d706d89b59cc219e65604ba8b947d431003f10d152775ac3e7"
+      "hash": "sha256:abb39cfbad5e114a2d3c56381b83f2f878f1bf2572d0efdf9ef9de2d6a23cb27"
     },
     {
       "path": "tools/test_families/module.extensions.json",
@@ -1092,7 +1092,7 @@
     {
       "path": "tools/test_families/module.savedviews.json",
       "role": "test_family_manifest",
-      "hash": "sha256:8fccf37d9826ba5fe5fee827032c80f36aff2d387f812684981f6e07b9d6256b"
+      "hash": "sha256:1550737ec481dde83c6f03dc334e838bd6aa2e3d77297e06daca246f1af4e2d8"
     },
     {
       "path": "tools/test_families/module.stagedobjects.json",
@@ -1112,7 +1112,7 @@
     {
       "path": "tools/test_families/module.timeline.json",
       "role": "test_family_manifest",
-      "hash": "sha256:b5d55b92d744de134a8e2fb9b1e102bfb5e3d586bccccfa31e501e0c4f0e26a5"
+      "hash": "sha256:fa5d8beddd5ef5794befb1007f557fa64c44beba3b058afd59a3a1efee58994c"
     },
     {
       "path": "tools/test_families/module.workbook.json",
@@ -1122,7 +1122,7 @@
     {
       "path": "tools/test_families/package.grid_adapter.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e8dbc7ac684872c9e697a59ffc68c2437bde9f8b848b66f04b098367b9223bed"
+      "hash": "sha256:1c7c79a550b41524bb63aa2892236e0c332d1b50ed1594afdd466c3031a5f927"
     },
     {
       "path": "tools/test_families/package.protocol_ts.json",
@@ -1217,12 +1217,12 @@
     {
       "path": "tools/test_families/web.architecture.json",
       "role": "test_family_manifest",
-      "hash": "sha256:840a0d39848aeb6ee484d4341ce8f60a9c2d0324751a89c5bb4a8c826a0cb562"
+      "hash": "sha256:bc39130ff347fbea9981c3c88c4949899da9662c2923cba66464df534cdf1109"
     },
     {
       "path": "tools/test_families/web.collaboration.json",
       "role": "test_family_manifest",
-      "hash": "sha256:a97c76444f317c03f6dc292eb5c8112a50ae635dc7a398f930c175d685795939"
+      "hash": "sha256:420b3a406e8581301f9deea377cbe89a29b2f0a9b0c18247ee580e6cfd256f87"
     },
     {
       "path": "tools/test_families/web.design.json",
@@ -1237,7 +1237,7 @@
     {
       "path": "tools/test_families/web.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:a62d54da2738714d70325424d8f2631c181229cd05871f773622a4969d921556"
+      "hash": "sha256:7fc4edb06a51ea4608fcc62fb95d539eb8afd888f811076e15734258bd01b855"
     },
     {
       "path": "tools/test_runner_registry.json",

@@ -74,12 +74,12 @@ The machine-state root defaults to `$XDG_CACHE_HOME/cartulary` when
 module, and temporary work state live below `go/build`, `go/mod`, and `go/tmp`.
 `make doctor` prints the exact resolved paths, filesystem, and available bytes.
 
-For the current Linux x86_64 profile, a Go 1.26.5 automatic-toolchain cache is
+For the current Linux x86_64 profile, a Go 1.27.1 automatic-toolchain cache is
 recognized as corrupt when the following installation marker below the
 reported `GO_MOD_CACHE_DIR` is missing while the extracted directory exists:
 
 ```text
-<GO_MOD_CACHE_DIR>/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64/src/_go.mod
+<GO_MOD_CACHE_DIR>/golang.org/toolchain@v0.0.1-go1.27.1.linux-amd64/src/_go.mod
 ```
 
 This is launcher/cache readiness failure, not a failure of SQLC or another Go
@@ -93,9 +93,9 @@ pgrep -af '(^|/)(go|make)([[:space:]]|$)' || true
 quarantine_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-go-toolchain-quarantine.XXXXXX")"
 go_mod_cache_dir="<copy GO_MOD_CACHE_DIR from make doctor>"
 mkdir -p "$quarantine_dir/cache-download"
-mv -- "$go_mod_cache_dir/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64" \
+mv -- "$go_mod_cache_dir/golang.org/toolchain@v0.0.1-go1.27.1.linux-amd64" \
   "$quarantine_dir/"
-mv -- "$go_mod_cache_dir/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.5.linux-amd64.ziphash" \
+mv -- "$go_mod_cache_dir/cache/download/golang.org/toolchain/@v/v0.0.1-go1.27.1.linux-amd64.ziphash" \
   "$quarantine_dir/cache-download/"
 printf 'quarantine: %s\n' "$quarantine_dir"
 ```
@@ -110,10 +110,10 @@ make bootstrap
 make generate
 ```
 
-The readiness command must report `go1.26.5`, and generation must progress
+The readiness command must report `go1.27.1`, and generation must progress
 beyond `codegen-toolchain`. An unqualified `go version` is not equivalent when
 it uses a different launcher or module cache. On managed hosts, an administrator may
-instead install Go 1.26.5 directly after verifying the distribution against
+instead install Go 1.27.1 directly after verifying the distribution against
 the publisher's SHA-256 checksum; the repository pin and validation remain
 unchanged.
 

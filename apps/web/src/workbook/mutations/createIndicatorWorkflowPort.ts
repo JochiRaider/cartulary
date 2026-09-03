@@ -1,7 +1,7 @@
 import type {
   WorkbookOperationExecutor,
   WorkbookOperationResponse,
-} from "../adapters/workbookOperationExecutor";
+} from "../adapters/workbookOperationContract";
 import type {
   IndicatorMutationAccepted,
   IndicatorObservation,

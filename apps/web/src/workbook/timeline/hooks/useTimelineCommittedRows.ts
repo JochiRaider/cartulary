@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { TimelineCommittedVersionLedger } from "../models/timelineCommittedVersionLedger";
+import { createTimelineCommittedVersionLedger } from "../models/timelineCommittedVersionLedger";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineRecordActionAccepted } from "../ports/TimelineRecordActionPort";
 
@@ -8,7 +8,7 @@ export function useTimelineCommittedRows({
 }: {
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
 }) {
-  const ledgerRef = useRef(new TimelineCommittedVersionLedger());
+  const ledgerRef = useRef(createTimelineCommittedVersionLedger());
   const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
 

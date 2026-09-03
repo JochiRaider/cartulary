@@ -156,7 +156,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 		"default_sheet_ref": map[string]any{"kind": "saved_view", "id": defaultSavedViewID},
 	})
 
-	explicit := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "view_schema_id="+timeline.TimelineViewSchemaID, viewerSession)
+	explicit := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=view_schema&sheet_ref_id="+timeline.TimelineViewSchemaID, viewerSession)
 	requireStartupSelection(t, explicit, "explicit", "view_schema", timeline.TimelineViewSchemaID, timeline.TimelineViewSchemaID)
 	requireClearedPointers(t, explicit)
 
@@ -207,14 +207,18 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 	requireStartupSelection(t, explicitInvalid, "default", "view_schema", "cartulary.view.task_requests.v1", "cartulary.view.task_requests.v1")
 	requireClearedPointers(t, explicitInvalid)
 
-	dualSelector := httptestx.DoJSON(
+	legacySelector := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?view_schema_id="+timeline.TimelineViewSchemaID+"&sheet_ref_kind=view_schema&sheet_ref_id=cartulary.view.hosts.v1",
 		nil,
 		httptestx.WithCookies(viewerSession),
 	)
-	httptestx.RequireErrorEnvelope(t, dualSelector, http.StatusBadRequest, "invalid_startup_request")
+	legacyBody := httptestx.RequireErrorEnvelope(t, legacySelector, http.StatusBadRequest, "invalid_startup_request")
+	legacyDetails := httptestx.RequireErrorDetails(t, legacyBody)
+	if legacyDetails["field"] != "view_schema_id" || legacyDetails["reason_code"] != "unknown_field" {
+		t.Fatalf("unexpected legacy startup rejection details: %#v", legacyDetails)
+	}
 
 	extensionRef := map[string]any{
 		"kind":                 "extension_workspace",

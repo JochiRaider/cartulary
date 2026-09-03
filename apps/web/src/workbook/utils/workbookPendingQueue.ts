@@ -116,7 +116,7 @@ export type PendingReplayPublicError = {
 
 export type PendingReplayPublicSameFieldConflict = SameFieldConflictFields;
 
-export type PendingReplayPublicResult =
+type PendingReplayPublicResult =
   | {
       ok: true;
       row: {
@@ -260,7 +260,7 @@ export type PendingQueueAdmissionResult =
       snapshot: PendingQueueSnapshot;
     };
 
-export type PendingReplayDispatch = {
+type PendingReplayDispatch = {
   unit: PendingReplayUnitState;
   identity: PendingReplayMutationIdentity;
   payloadIntent: PendingReplayPayloadIntent;
@@ -312,7 +312,7 @@ export type PendingReplayRecoveryRefusal =
   | "unsupported_error"
   | "wrong_unit";
 
-export type PendingReplayRetryRecoveryResult =
+type PendingReplayRetryRecoveryResult =
   | {
       recovered: true;
       status: "retried";
@@ -326,7 +326,7 @@ export type PendingReplayRetryRecoveryResult =
       snapshot: PendingQueueSnapshot;
     };
 
-export type PendingReplayDiscardRecoveryResult =
+type PendingReplayDiscardRecoveryResult =
   | {
       recovered: true;
       status: "discarded";
@@ -1068,7 +1068,7 @@ function canCoalescePendingReplayUnits(
   );
 }
 
-export class WorkbookPendingQueueModel {
+class WorkbookPendingQueueState {
   readonly scope: PendingReplayScope;
 
   private units: PendingReplayUnitState[] = [];
@@ -1498,3 +1498,28 @@ export class WorkbookPendingQueueModel {
     return this.snapshot();
   }
 }
+
+export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
+  const state = new WorkbookPendingQueueState(scope);
+  return {
+    scope: state.scope,
+    snapshot: () => state.snapshot(),
+    admit: (input: PendingReplayUnitInput) => state.admit(input),
+    peekNextQueued: () => state.peekNextQueued(),
+    markDispatched: (unitId: string) => state.markDispatched(unitId),
+    dispatchNext: () => state.dispatchNext(),
+    settleDispatched: (result: PendingReplayPublicResult) =>
+      state.settleDispatched(result),
+    retryHaltedWithNewClientTxnId: (unitId: string, newClientTxnId: string) =>
+      state.retryHaltedWithNewClientTxnId(unitId, newClientTxnId),
+    discardHaltedUnit: (unitId: string) => state.discardHaltedUnit(unitId),
+    resumeAfterAuthRecovery: () => state.resumeAfterAuthRecovery(),
+    pauseForAuthRecovery: () => state.pauseForAuthRecovery(),
+    pauseForTerminalLifecycle: () => state.pauseForTerminalLifecycle(),
+    clearSameFieldConflict: (key: string) => state.clearSameFieldConflict(key),
+  };
+}
+
+export type WorkbookPendingQueueModel = ReturnType<
+  typeof createWorkbookPendingQueueModel
+>;

@@ -13,6 +13,10 @@ import {
   useState,
 } from "react";
 import type { SheetRef } from "../shared/sheetRef";
+import {
+  type IncidentCollaborationSessionMessagePlan,
+  planIncidentCollaborationSessionMessage,
+} from "./incidentCollaborationSessionPlan";
 
 export type CollaborationPresence = {
   readonly sheet_ref: SheetRef;
@@ -97,25 +101,6 @@ function tabClientInstanceId(): string {
   } catch {
     return `${Date.now()}-${Math.random()}`;
   }
-}
-
-type ReplayableIncidentStreamMessage = Extract<
-  IncidentStreamMessage,
-  { stream_seq: number }
->;
-
-function replayable(
-  message: IncidentStreamMessage,
-): message is ReplayableIncidentStreamMessage {
-  return (
-    message.type === "record_changed" ||
-    message.type === "extension_resource_changed" ||
-    message.type === "job_progress"
-  );
-}
-
-function streamSequence(message: IncidentStreamMessage): number | null {
-  return replayable(message) ? message.stream_seq : null;
 }
 
 export function IncidentCollaborationSession({
@@ -271,58 +256,47 @@ export function IncidentCollaborationSession({
       });
     };
 
-    const handleMessage = (socket: WebSocket, raw: unknown) => {
-      const decoded = incidentStreamMessageDecoder.decode(raw);
-      if (!decoded.ok) {
-        return;
-      }
-      const message = decoded.value;
-      if (message.type === "ping") {
+    type EstablishmentPlan = Extract<
+      IncidentCollaborationSessionMessagePlan,
+      { readonly kind: "established" }
+    >;
+    const applyEstablishmentPlan = (plan: EstablishmentPlan) => {
+      resumeTokenRef.current = plan.resumeToken;
+      if (plan.connectionId !== null) setConnectionId(plan.connectionId);
+      updateStatus(plan.resetRequired ? "resetting" : "connected");
+      emit({
+        kind: "established",
+        messageType: plan.messageType,
+        payload: {
+          ...(plan.connectionId === null
+            ? {}
+            : { connection_id: plan.connectionId }),
+          ...(plan.serverHighWaterStreamSeq === null
+            ? {}
+            : {
+                server_high_water_stream_seq: plan.serverHighWaterStreamSeq,
+              }),
+          ...(plan.status === null ? {} : { status: plan.status }),
+        },
+      });
+      if (plan.resetRequired) beginReset("resume_reset");
+    };
+
+    const applyMessagePlan = (
+      socket: WebSocket,
+      plan: IncidentCollaborationSessionMessagePlan,
+    ) => {
+      lastSeenStreamSeqRef.current = plan.nextStreamSeq;
+      if (plan.kind === "ignore") return;
+      if (plan.kind === "pong") {
         socket.send(JSON.stringify({ type: "pong", payload: {} }));
         return;
       }
-      if (message.type === "hello_ack" || message.type === "resume_ack") {
-        const payload = message.payload;
-        const resumeToken = payload.resume_token;
-        resumeTokenRef.current = resumeToken;
-        const serverHighWater =
-          message.type === "resume_ack"
-            ? message.payload.server_high_water_stream_seq
-            : undefined;
-        if (serverHighWater !== undefined) {
-          lastSeenStreamSeqRef.current = Math.max(
-            lastSeenStreamSeqRef.current,
-            serverHighWater,
-          );
-        }
-        const resetRequired =
-          message.type === "resume_ack" &&
-          message.payload.status === "reset_required";
-        if (message.type === "hello_ack") {
-          setConnectionId(message.payload.connection_id);
-        }
-        updateStatus(resetRequired ? "resetting" : "connected");
-        emit({
-          kind: "established",
-          messageType: message.type,
-          payload: {
-            ...(message.type === "hello_ack"
-              ? { connection_id: message.payload.connection_id }
-              : {}),
-            ...(serverHighWater !== undefined
-              ? { server_high_water_stream_seq: serverHighWater }
-              : {}),
-            ...(message.type === "resume_ack"
-              ? { status: message.payload.status }
-              : {}),
-          },
-        });
-        if (resetRequired) {
-          beginReset("resume_reset");
-        }
+      if (plan.kind === "established") {
+        applyEstablishmentPlan(plan);
         return;
       }
-      if (message.type === "session_revoked") {
+      if (plan.kind === "terminate" && plan.reason === "session_revoked") {
         reconnectSuppressedRef.current = true;
         resumeTokenRef.current = null;
         setConnectionId(null);
@@ -331,32 +305,28 @@ export function IncidentCollaborationSession({
         socket.close();
         return;
       }
-      if (message.type === "error") {
-        if (message.payload.code === "incident_closed") {
-          terminate("incident_closed", { kind: "incident_closed" });
-          return;
-        }
+      if (plan.kind === "terminate") {
+        terminate("incident_closed", { kind: "incident_closed" });
+        return;
       }
-      if (replayable(message)) {
-        const sequence = streamSequence(message);
-        if (sequence !== null) {
-          if (sequence <= lastSeenStreamSeqRef.current) {
-            return;
-          }
-          const gap =
-            lastSeenStreamSeqRef.current > 0 &&
-            sequence > lastSeenStreamSeqRef.current + 1;
-          lastSeenStreamSeqRef.current = sequence;
-          if (gap) {
-            beginReset("sequence_gap");
-            return;
-          }
-        }
-        if (statusRef.current === "resetting") {
-          return;
-        }
+      if (plan.kind === "reset") {
+        beginReset("sequence_gap");
+        return;
       }
-      emit({ kind: "message", message });
+      emit({ kind: "message", message: plan.message });
+    };
+
+    const handleMessage = (socket: WebSocket, raw: unknown) => {
+      const decoded = incidentStreamMessageDecoder.decode(raw);
+      if (!decoded.ok) return;
+      applyMessagePlan(
+        socket,
+        planIncidentCollaborationSessionMessage({
+          lastSeenStreamSeq: lastSeenStreamSeqRef.current,
+          message: decoded.value,
+          resetting: statusRef.current === "resetting",
+        }),
+      );
     };
 
     const connect = () => {

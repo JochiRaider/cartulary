@@ -1,6 +1,6 @@
 import type { InspectorConfig } from "@cartulary/view-contracts";
 
-export type WorkbookInspectorSubjectIdentity = {
+type WorkbookInspectorSubjectIdentity = {
   readonly kind: "live" | "deleted";
   readonly recordId: string;
   readonly rowVersion: number;

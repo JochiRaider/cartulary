@@ -9,7 +9,6 @@ export type WorkbookStartupQuery = {
   readonly extensionProfileId?: string;
   readonly sheetRefId?: string;
   readonly sheetRefKind?: string;
-  readonly viewSchemaId?: string;
 };
 
 export type WorkbookStartupRejectedReference = {
@@ -90,8 +89,16 @@ export function workbookStartupQueryFromURLParams(
   const sheetRefKind = params.get("sheet_ref_kind");
   const sheetRefId = params.get("sheet_ref_id");
   const extensionProfileId = params.get("extension_profile_id");
+  if (
+    sheetRefKind === null &&
+    sheetRefId === null &&
+    extensionProfileId === null
+  ) {
+    return viewSchemaId === null
+      ? {}
+      : { sheetRefId: viewSchemaId, sheetRefKind: "view_schema" };
+  }
   return {
-    ...(viewSchemaId === null ? {} : { viewSchemaId }),
     ...(sheetRefKind === null ? {} : { sheetRefKind }),
     ...(sheetRefId === null ? {} : { sheetRefId }),
     ...(extensionProfileId === null ? {} : { extensionProfileId }),

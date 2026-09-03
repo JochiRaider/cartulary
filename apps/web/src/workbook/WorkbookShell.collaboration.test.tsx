@@ -707,7 +707,7 @@ describe("workbook collaboration coverage", () => {
         incidentId: "10000000-0000-4000-8000-000000000001",
       }),
     );
-    runtime.pauseForAuthRecovery();
+    runtime.applyAuthorizationRecoveryState("paused");
     for (const [recordId, value, version] of [
       ["20000000-0000-4000-8000-000000000001", "A1 queued", 1],
       ["20000000-0000-4000-8000-000000000002", "B1 queued", 1],

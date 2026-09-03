@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .SECONDEXPANSION:
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
-override GO_TOOLCHAIN := go1.26.6
+override GO_TOOLCHAIN := go1.27.1
 override GOTOOLCHAIN := $(GO_TOOLCHAIN)
 override GO_TOOLCHAIN_READY :=
 CONFIG_FILE ?= $(CURDIR)/configs/dev/config.toml
@@ -30,7 +30,7 @@ OPERATOR_BIN ?= $(CURDIR)/operator
 TOOLBIN_DIR ?= $(CURDIR)/tmp/toolbin
 SQLC_BIN ?= $(TOOLBIN_DIR)/sqlc-v1.30.0
 GOOSE_BIN ?= $(TOOLBIN_DIR)/goose-v3.27.0
-STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.7.0
+STATICCHECK_BIN ?= $(TOOLBIN_DIR)/staticcheck-v0.8.0-rc.1
 GOVULNCHECK_BIN ?= $(TOOLBIN_DIR)/govulncheck-v1.3.0
 GOSEC_BIN ?= $(TOOLBIN_DIR)/gosec-v2.26.1
 CYCLONEDX_GOMOD_BIN ?= $(TOOLBIN_DIR)/cyclonedx-gomod-v1.10.0
@@ -129,7 +129,7 @@ endif
 
 SQLC_TOOL := github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
 GOOSE_TOOL := github.com/pressly/goose/v3/cmd/goose@v3.27.0
-STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.7.0
+STATICCHECK_TOOL := honnef.co/go/tools/cmd/staticcheck@v0.8.0-rc.1
 GOVULNCHECK_TOOL := golang.org/x/vuln/cmd/govulncheck@v1.3.0
 GOSEC_TOOL := github.com/securego/gosec/v2/cmd/gosec@v2.26.1
 CYCLONEDX_GOMOD_TOOL := github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0

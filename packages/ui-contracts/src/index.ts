@@ -56,22 +56,17 @@ export {
   workbookImportAssistantTestId,
 } from "./applicationSelectors";
 export {
-  type CartularyErrorFamily,
   type CartularyErrorPresentation,
   type CartularyStatusSecondaryKind,
   cartularyDesignPresentation,
   cartularyErrorPresentation,
 } from "./designPresentation";
 export {
-  type CartularyDefaultThemeId,
-  type CartularyDesignTokenReference,
   type CartularyDesignTokenVarName,
   cartularyDefaultThemeId,
   cartularyDesignThemeCssText,
   cartularyDesignTokenReference,
   cartularyDesignTokenVars,
-  type WorkbookGridDensityMetrics,
-  type WorkbookLayoutMetrics,
   workbookGridDensityMetrics,
   workbookGridRowHeightPx,
   workbookLayoutMetrics,
@@ -144,7 +139,6 @@ export {
   networkAnalysisVertexTestId,
 } from "./networkFlowSelectors";
 export {
-  type CartularyAc043Predicate,
   type CartularyAc043PredicateId,
   cartularyAc043PerformanceContract,
   cartularyInteractiveP95MeasurementPolicy,
@@ -225,7 +219,6 @@ export {
   rowPresenceMarkerTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
-  statusStripQueueCountTestId,
   timelineCollectionInputTestId,
   timelineDraftEvidenceAttachSectionTestId,
   timelineDraftEvidenceFileInputTestId,

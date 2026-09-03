@@ -9,9 +9,14 @@ remains unchanged as historical evidence.
 
 Creating this tracker was a documentation-only planning action. Implementation
 was authorized on `2026-09-02`; CR-01 through CR-12 and CR-C01 through CR-C12
-are `DONE`. The refreshed pre-CR-01 checkpoint required by section 20 and every
-workstream completion checkpoint are appended below the immutable initial
-planning checkpoint.
+are `DONE` and remain immutable completed history. Sections 26 onward govern a
+new production-readiness legacy-removal iteration. Earlier prohibitions on
+public-contract changes apply only to the completed CR iteration.
+
+The LR-01 through LR-09 successor iteration was separately authorized and is
+complete. LR-01 through LR-09 and LR-C01 through LR-C09 are `DONE`; the
+append-only checkpoints below preserve the planning boundary, implementation
+sequence, scope expansion, validation evidence, and terminal handoff.
 
 The objective is a durable ownership cleanup, not line-count reduction by
 itself. Each workstream must leave one clear policy or lifecycle owner, narrow
@@ -1193,5 +1198,523 @@ would require a second policy, runtime, transport, or compatibility path.
 | `2026-09-03T08:58:28-04:00` | CR-12 `IN_PROGRESS`; CR-C12 remains `PLANNED` | Predecessor CR-11/CR-C11 confirmed `DONE`; the post-workstream Markdown lint passed at `.cartulary/test-results/20260903T125755Z-p57487`. Refreshed Core 03, design, domain vocabulary/navigation, verification/catalog/topology ownership, all 13 final module-author task guides, branch `main`, HEAD `c3d5c449551e7b58ae49b61f57f745aa385b36fa`, upstream relation `0 1`, and the cumulative 244-path authorized worktree. Toolchain and generated-policy digests remain `d530190d...` and `ddc06647...`; no owner contradiction or authority drift was found. Every guide resolves to the expected focused route, and applicable owners expose service-backed routes plus the browser classes recorded in section 19. The latest generated reconciliation changes only `tools/execution_topology_render_index.json` for authored test-family hashes; generated product roots and goldens remain unchanged. | CR-12 is limited to resolving any validation-discovered defect within the authorized dependency cone, final owner/catalog/topology reconciliation, focused and service-backed owner routes, the complete terminal Make matrix, direct artifact and generated/golden/public-contract inspection, closure scans, compatibility/rollback/residual-risk/deferral records, and final tracker completion. Rollback is the cumulative CR-01 through CR-12 source/test/metadata/generated-index/guide/tracker unit, workstream-granular where dependencies permit, with no data migration. Residual risks are terminal browser/resource contention, stale generated metadata, global closure-search false positives, and explicitly excluded repository-wide Fallow debt. Next action: run every final focused and applicable service-backed owner route, then execute formatting, agent-finalize, terminal frontend/browser/test/static checks and close only after direct scope review. |
 | `2026-09-03T09:44:39-04:00` | CR-12 and CR-C12 `DONE`; all workstreams and gates `DONE` | Reconciled the final owner, test-family, catalog, and execution-topology inputs and refreshed all 13 module-author task guides. Focused routes passed for `web.workbook` 159/159 `.cartulary/test-results/20260903T125937Z-p61946`, `web.architecture` 12/12 `.cartulary/test-results/20260903T125937Z-p61960`, `web.design` 15/15 `.cartulary/test-results/20260903T125937Z-p61980`, `web.networkflow` 38/38 `.cartulary/test-results/20260903T125937Z-p62004`, `package.grid_adapter` 43/43 `.cartulary/test-results/20260903T130132Z-p34378`, `module.workbook` 69/69 `.cartulary/test-results/20260903T130132Z-p34371`, `module.timeline` 57/57 `.cartulary/test-results/20260903T130132Z-p34392`, `module.entities` 43/43 `.cartulary/test-results/20260903T130633Z-p52425`, `module.collaboration` 31/31 `.cartulary/test-results/20260903T130829Z-p5359`, `module.evidence` 36/36 `.cartulary/test-results/20260903T130829Z-p5337`, `module.assessments` 28/28 `.cartulary/test-results/20260903T130829Z-p5362`, `module.indicators` 20/20 `.cartulary/test-results/20260903T130829Z-p5338`, and `module.networkflow` 34/34 `.cartulary/test-results/20260903T131025Z-p71151`. Applicable service-backed routes passed for Grid Adapter 13/13 `.cartulary/test-results/20260903T131240Z-p31912`, design 15/15 `.cartulary/test-results/20260903T131240Z-p31922`, Workbook 39/39 `.cartulary/test-results/20260903T131453Z-p86633`, Timeline 30/30 `.cartulary/test-results/20260903T131453Z-p86645`, Entities 33/33 `.cartulary/test-results/20260903T131453Z-p86631`, Collaboration 22/22 `.cartulary/test-results/20260903T131938Z-p54469`, Evidence 25/25 `.cartulary/test-results/20260903T131938Z-p54476`, Assessments 19/19 `.cartulary/test-results/20260903T131240Z-p31916`, Indicators 8/8 `.cartulary/test-results/20260903T131240Z-p31938`, and Network Flow 28/28 `.cartulary/test-results/20260903T131938Z-p54482`. The first concurrently loaded Entities focused run reached 41/43 at `.cartulary/test-results/20260903T130132Z-p34408` because one `mentions.resolve` browser focus-continuity row timed out under concurrent browser load; its immediate isolated 43/43 pass classifies that failure as resource contention rather than a product regression. | PASS generation `.cartulary/test-results/20260903T132201Z-p15821` with no generated diff; drift `.cartulary/test-results/20260903T132220Z-p18907`; generated policy `.cartulary/test-results/20260903T132220Z-p18926`; JSON shape `.cartulary/test-results/20260903T132220Z-p18947`; format `.cartulary/test-results/20260903T132231Z-p22839`; `agent-finalize` `.cartulary/test-results/20260903T132238Z-p26997` with `RESULTS_DIR` intentionally unset; typecheck `.cartulary/test-results/20260903T132257Z-p30260`; frontend unit 423/423 `.cartulary/test-results/20260903T132257Z-p30281`; import boundary `.cartulary/test-results/20260903T132257Z-p30301`; Biome `.cartulary/test-results/20260903T132257Z-p30346`; accessibility 12/12 `.cartulary/test-results/20260903T132335Z-p42272`; measurement 22/22 `.cartulary/test-results/20260903T132505Z-p87970`; stateful 34/34 `.cartulary/test-results/20260903T132936Z-p46734`; support 19/19 `.cartulary/test-results/20260903T133158Z-p97286`; webserver-backed 60/60 `.cartulary/test-results/20260903T133323Z-p42698`; visual 12/12 `.cartulary/test-results/20260903T133915Z-p1544`; `test-fast` 475/475 `.cartulary/test-results/20260903T134117Z-p47140`; and post-tracker Markdown lint `.cartulary/test-results/20260903T134551Z-p55710`. Fresh owner-only-umask Fallow passed at `.cartulary/test-results/20260903T134207Z-p53493`; direct JSON inspection reports 983 files, 16,894 functions, 711 critical, 308 high, and 507 moderate findings repository-wide, while every named or replacement production path remains free of high/critical findings and suppression. The only high replacement-file match is the explicitly excluded pre-existing Generic create builder. Closure searches found no deleted mapper, copied Grid policy, menu/overlay selector/timer/frame focus, redundant saved-view production action, generic metadata/drainer/replay bag, duplicate paste transport, synthetic clipboard bridge, old Timeline replay controller, scoped structural escape, compatibility facade or legacy import, wildcard owner dispatcher, test-only production export, new TODO/FIXME, misplaced Grid Adapter vendor import, or Markdown runtime dependency. Residual matches are the negative removed-action test, TypeScript import renames, fail-closed/presentation defaults, existing typed queue vocabulary, allowed literals, and the two recorded Import Assistant casts. Git staged/unstaged review and whitespace checks are clean; Make generation added no diff; generated product roots and visual goldens are unchanged; the only public-package change is the intentional CR-03 deletion of obsolete Rename/Manage Sharing selector exports. Valid routes, wire bodies, persistence, authorization, Grid Adapter APIs, remaining selectors, and user behavior stay compatible; malformed/future values fail closed and Rename/Manage Sharing are intentionally removed. No data migration or rollout is required. Rollback is source-only and workstream-granular, including each workstream's production, tests, authored metadata, generated topology digest, guide/README, and append-only tracker record. Residual risk is limited to the documented moderate notes and explicitly excluded repository-wide Fallow, Import Assistant, Evidence/Mention, related-record, broad viewport/presentation, and unrelated harness debt. The extension seam is one owner-local pure policy/model, one narrow effect or exact driver port, the unchanged Grid Adapter contract where sufficient, and a new closed runtime-envelope member only for a genuinely new mutation owner. No authorized work or deferred in-scope action remains; handoff is complete. |
 
-Do not alter this planning row when implementation begins. Append the refreshed
-pre-CR-01 checkpoint below it and continue the log append-only.
+The CR table above is immutable historical evidence. Do not alter, reorder, or
+remove its rows while executing the LR successor iteration.
+
+## 26. Production-readiness legacy-removal successor
+
+The next iteration removes legacy and dead code from the Workbook production
+cone and prepares that cone for a production release. It covers Workbook,
+Timeline code owned below Workbook, direct collaboration dependencies, the
+Workbook startup API, and the relevant private Grid Adapter and UI Contracts
+surfaces.
+
+This repository is pre-production. LR work uses atomic hard cutovers. Do not
+add or retain an alias, shim, deprecated entrypoint, dual-read path, fallback
+translation, compatibility-only export, parallel controller, or legacy route
+form. Existing behavior has no preservation priority over a cleaner
+owner-backed design. Carry a feature forward only when an adopted owner
+requires it or it materially improves the production design.
+
+The authority order in section 3 remains controlling. Unlike the completed CR
+iteration, LR-02 intentionally amends an adopted owner and its public contract
+to remove an obsolete startup selector. The new owner text, rather than the
+old implementation, then controls every projection and consumer. A discovered
+owner conflict must be recorded exactly as `BLOCKED: owner contradiction` and
+must stop the current workstream.
+
+Runtime code, tests, tools, generated artifacts, conformance, and release
+evidence must not read this handoff or any other Markdown file. This document
+is an execution tracker, not a machine dependency.
+
+## 27. LR planning baseline and scope
+
+| Item | Planning value |
+| --- | --- |
+| Prepared | `2026-09-03` in `America/New_York` |
+| Branch | Clean `main`; two commits ahead of `origin/main` |
+| Commit | `1e90c8ce2431c1651e31e331baecb555b3ef3fb7` (`Workbook and Timeline Cleanup`) |
+| Upstream | `origin/main` at `79d305265e433ef5d3eafb4750e319ec34fd5c3f`; `HEAD...@{upstream}` left/right count `2 0` |
+| Git status | Clean before this planning update |
+| Retained Fallow evidence | `.cartulary/test-results/20260903T135448Z-p59949`; target passed |
+| Existing user changes | None before this documentation-only update; later unrelated changes remain user-owned |
+
+The retained Fallow dead-code artifact reports 214 repository-wide issues: 28
+unused files, 129 unused exports, 24 unused types, 21 unused class members, 10
+unresolved imports, and 2 duplicate exports. Its health artifact reports 983
+analyzed files, 16,894 analyzed functions, 711 critical, 308 high, and 507
+moderate findings. These totals are orientation evidence, not an LR gate.
+Only findings in the named LR production dependency cone are acceptance scope.
+
+The implementation scope is limited to:
+
+- `apps/web/src/workbook/**` and its direct Workbook test support;
+- the directly used collaboration session boundary when LR-07 requires it;
+- `internal/modules/workbook/startup/**` and its direct server composition;
+- the Workbook owner OpenAPI source, error registry, unreleased `2.0.0`
+  compatibility change set, and Make-generated projections;
+- manual public exports of the private Grid Adapter and UI Contracts packages;
+- focused tests, browser evidence, owner metadata, test families, catalog rows,
+  execution-topology inputs, and generated topology projections required by
+  the changed source;
+- the frontend implementation/testing guide and source-ownership README when
+  implemented boundaries change; and
+- this handoff as the append-only execution ledger.
+
+The following remain outside the LR iteration:
+
+- Import Assistant, Network Flow, account, authentication, and administration
+  cleanup;
+- unrelated harness cleanup and repository-wide Fallow remediation;
+- persistence, stored-data, database-migration, and dependency changes;
+- generated exports not changed through an adopted owner;
+- immutable OpenAPI `1.0.0` release evidence; and
+- broad Workbook or Timeline visual, layout, and viewport redesign.
+
+`docs/domain.md` remains the vocabulary and owner-navigation authority. Removing
+the startup query alias does not change domain vocabulary, so no domain update
+is planned. Core 01, Core 03, Core 04, and design direction must nevertheless
+be refreshed before LR-01 and before any workstream that changes their scope.
+
+## 28. LR status, gates, and execution protocol
+
+| Workstream | Status | Acceptance gate | Gate status | Dependency |
+| --- | --- | --- | --- | --- |
+| LR-01 Authority, reachability, and deletion ledger | `DONE` | LR-C01 Complete classified ledger | `DONE` | Separate implementation authorization |
+| LR-02 Workbook startup API hard cutover | `DONE` | LR-C02 Canonical-only startup contract | `DONE` | LR-01 and LR-C01 `DONE` |
+| LR-03 Dead source and test-only export closure | `DONE` | LR-C03 Scoped source reachability closure | `DONE` | LR-02 and LR-C02 `DONE` |
+| LR-04 Private-package public-surface reduction | `DONE` | LR-C04 Minimal consumed package surface | `DONE` | LR-03 and LR-C03 `DONE` |
+| LR-05 Workbook operation and mutation boundaries | `DONE` | LR-C05 Exact operation and mutation owners | `DONE` | LR-04 and LR-C04 `DONE` |
+| LR-06 Startup, saved-view, and live-query lifecycles | `DONE` | LR-C06 Deterministic inbound read lifecycles | `DONE` | LR-05 and LR-C05 `DONE` |
+| LR-07 Collaboration and authorization lifecycle | `DONE` | LR-C07 One deterministic collaboration owner | `DONE` | LR-06 and LR-C06 `DONE` |
+| LR-08 Timeline action workflows and adapters | `DONE` | LR-C08 Exact Timeline action owners | `DONE` | LR-07 and LR-C07 `DONE` |
+| LR-09 Validation and handoff completion | `DONE` | LR-C09 Production-readiness closure | `DONE` | LR-08 and LR-C08 `DONE` |
+
+Before each LR workstream:
+
+1. Confirm its predecessor and predecessor gate are `DONE`.
+2. Append a new checkpoint with the current authorization, instructions,
+   branch, commit, upstream relation, worktree scope, applicable owners, task
+   guides, generated-artifact policy, retained evidence, and unrelated user
+   changes.
+3. Refresh the applicable owner clauses, implementation, consumers, public
+   exports, generated projections, tests, and static findings.
+4. Mark only that workstream `IN_PROGRESS`; leave its LR-C gate `PLANNED`.
+5. Characterize required current behavior before deleting or replacing it.
+
+At completion, append a checkpoint containing changed, added, moved, generated,
+and deleted paths; owner decisions; removals; commands, selected rows, run
+roots, and direct artifact review; every failure classification; hard-cut
+compatibility impact; source/spec/generated rollback unit; residual risk;
+exclusions; deferrals; and exact next action. Mark the workstream and gate
+`DONE` only after all required checks pass. Append a separate successor
+checkpoint before starting the next workstream. Never defer tracker updates
+until the end.
+
+## 29. Phase A - authority and contract cutover
+
+### LR-01 - authority, reachability, and deletion ledger
+
+**Remediation and areas:** Audit Core 01, Core 03, Core 04, design direction,
+domain vocabulary, Workbook source, direct collaboration dependencies, package
+entrypoints, tests, selectors, generated contracts, catalogs, and dynamic
+entrypoint metadata. Create an exhaustive ledger that classifies each candidate
+as `delete`, `de-export`, `replace structurally`, `retain as current owner
+requirement`, or `out of scope`. Each entry must name its authority,
+reachability evidence, rationale, and closing LR workstream.
+
+The ledger must cover every scoped unused file, export, type, class member,
+manual private-package export, production export used only by tests, legacy
+startup path, and high or critical production hotspot. Static analysis is
+evidence, not authority: dynamically invoked files must be proven through
+authored reachability metadata, while a test caller alone does not justify a
+production export.
+
+**Rationale and long-term benefit:** Owner-backed classification prevents both
+unsafe deletion of real entrypoints and retention of accidental APIs. Later
+workstreams receive a finite, reviewable closure set instead of an open-ended
+cleanup mandate.
+
+**Compatibility, migration, and unresolved risk:** LR-01 changes no behavior or
+contract. Without it, hard cutovers can remove dynamic entrypoints, overlook
+test-only surfaces, or refactor a feature an owner no longer requires. Add only
+passing characterization tests; record missing required behavior as LR debt,
+not as a committed failing test.
+
+**Validation and exit:** LR-C01 passes only when every scoped candidate is
+classified with a closing workstream, all intended removals have current
+consumer evidence, every retained item cites a current owner or runtime
+entrypoint, public and generated boundaries are identified, and no owner
+contradiction exists.
+
+### LR-02 - Workbook startup API hard cutover
+
+**Remediation and areas:** Amend Core 01 REQ-01-151.1 so an explicit Workbook
+startup request accepts only `sheet_ref_kind`, `sheet_ref_id`, and, for an
+extension workspace, `extension_profile_id`. Remove the legacy startup-query
+`view_schema_id` parameter and the `ambiguous_explicit_sheet_ref` reason from
+the Workbook owner OpenAPI and error registry. Update Core 04 only where needed
+to assert canonical-only behavior. Change the backend parser, all repository
+clients, fixtures, and tests, then regenerate downstream contracts through
+Make-owned generation.
+
+Any startup request containing `view_schema_id`, alone or alongside canonical
+selectors, must fail with HTTP `400`, `error.code=invalid_startup_request`,
+`error.details.field=view_schema_id`, and
+`error.details.reason_code=unknown_field`. Canonical selectors remain:
+
+- `sheet_ref_kind=view_schema&sheet_ref_id=<view_schema_id>`;
+- `sheet_ref_kind=saved_view&sheet_ref_id=<saved_view_id>`; and
+- `sheet_ref_kind=extension_workspace&sheet_ref_id=<workspace_key>` plus
+  `extension_profile_id=<extension_profile_id>`.
+
+**Rationale and long-term benefit:** One canonical `sheet_ref` identity removes
+mixed-form admission, duplicate terminology, and branching every future
+surface kind would otherwise inherit.
+
+**Compatibility, migration, and unresolved risk:** This is an intentional
+public breaking change. Migrate every repository caller atomically and provide
+no translation, warning period, alias, or dual parser. Fold the removal into
+the unreleased OpenAPI `2.0.0` candidate and its change set; never edit immutable
+`1.0.0` release evidence. No data migration is required. Leaving the alias
+would make every later startup extension support two identity systems.
+
+**Validation and exit:** LR-C02 requires passing canonical view-schema,
+saved-view, and extension-workspace requests; fail-closed missing, empty,
+unknown, extra, mixed-variant, and legacy requests; exact error fixtures;
+passing OpenAPI compatibility classification; inspected generated diffs; and
+closure searches showing legacy references only in immutable release history
+or explicit negative/change-set evidence.
+
+## 30. Phase B - dead surface removal
+
+### LR-03 - dead source and test-only export closure
+
+**Remediation and areas:** Delete `focusReadyGridScalarInput` and the unused
+`TimelineWorkbookStyles.inlineButtonRowStyle` declaration with their obsolete
+evidence. Make `committedTimelineProjection`,
+`timelineLoadIdentitiesEqual`, and `WorkbookInspectorSubjectIdentity` private.
+Apply the LR-01 ledger across the Workbook cone: delete zero-caller code,
+de-export same-file helpers, remove tests and catalog rows that exist only for
+deleted behavior, and eliminate every production export used solely by tests.
+
+Pure logic that merits direct testing must live in a cohesive private model
+also used by production. Do not create a generic utility barrel, testing alias,
+or production export solely to retain a unit-test seam.
+
+**Rationale and long-term benefit:** Removing accidental contracts reduces
+change surface and makes ownership evident from production dependencies rather
+than test imports.
+
+**Compatibility, migration, and unresolved risk:** Internal imports break and
+must migrate in the same change. Do not retain aliases or compatibility
+barrels. Leaving test-only exports makes private restructuring falsely appear
+to be an API migration.
+
+**Validation and exit:** LR-C03 requires no unresolved source-ledger entry, no
+scoped unused file/export/type/class member, no production symbol whose only
+caller is a test, and passing focused source-ownership, catalog, typecheck,
+unit, and static evidence.
+
+### LR-04 - private-package public-surface reduction
+
+**Remediation and areas:** Delete `statusStripQueueCountTestId` from its
+definition, UI Contracts entrypoint, and self-test. Remove unused named UI
+Contracts type exports and Grid Adapter re-exports identified by LR-01,
+including unconsumed context, intent, identity, presentation,
+state-validation, viewport-prop, and component-prop aliases. Internal type
+definitions may remain only when the package implementation uses them.
+
+Keep only manual runtime values and types imported by another workspace
+package or application, or required as a named callable contract. Generated
+exports remain governed by their adopted owner. Add a blocking owner-routed
+static check under the existing Fallow/module-graph machinery that derives
+cross-package consumption. It must not use a wildcard suppression,
+compatibility allowlist, or Markdown input. Repository-wide Fallow remains
+advisory.
+
+**Rationale and long-term benefit:** The private `0.0.0` packages should expose
+the API used by the application, not a speculative SDK. A blocking reachability
+check prevents the surface from quietly expanding again.
+
+**Compatibility, migration, and unresolved risk:** This is an intentional
+workspace API break. Migrate all repository consumers atomically and add no
+barrel alias. Retaining unused exports increases coupling and turns later
+private changes into artificial compatibility work.
+
+**Validation and exit:** LR-C04 requires an external consumer for every manual
+Grid Adapter and UI Contracts export, passing package tests, selector tests,
+frontend typecheck, import-boundary checks, Grid interaction evidence, and the
+new blocking reachability row.
+
+## 31. Phase C - remaining production hotspots
+
+### LR-05 - Workbook operation and mutation boundaries
+
+**Remediation and areas:** Replace
+`operationFailureWithoutPresentation` with an exact public-error decoder and a
+closed operation/error presentation registry. Move Generic create and Evidence
+attachment request construction into owner-local typed builders and ports.
+Reduce the shared Workbook mutation-command factory to composition and
+transport delegation. Delete superseded generic branching, request builders,
+and exported helper types.
+
+**Rationale and long-term benefit:** Transport execution, contract decoding,
+error classification, feature intent, and presentation gain distinct owners
+and exhaustive extension points.
+
+**Compatibility, migration, and unresolved risk:** Preserve valid routes,
+request bodies, authorization, transaction identity, conflicts, and user
+feedback. Private interfaces cut over atomically. Leaving the branching risks
+wrong error presentation and cross-feature mutation coupling.
+
+**Validation and exit:** LR-C05 requires fail-closed malformed success and
+error envelopes; exhaustive validation, access-loss, Evidence-state, and
+same-field-conflict projection; exact Generic create and attachment fixtures;
+and no superseded builder/export or high/critical finding in replacement
+paths.
+
+### LR-06 - startup, saved-view, and live-query read lifecycles
+
+**Remediation and areas:** Introduce a pure startup-admission machine keyed by
+incident, canonical query, request generation, selection version, and
+availability generation. Introduce a bounded saved-view pagination machine
+with cursor-cycle detection and stale-subject rejection. Replace Entity
+live-event branching with an exact surface, record, type, and version patch
+plan. Keep effects behind narrow owner ports; late or malformed results must
+not mutate current state.
+
+**Rationale and long-term benefit:** Startup, paging, and live-query reads share
+freshness obligations while retaining separate semantic owners. Explicit
+machines make their races deterministic and independently extensible.
+
+**Compatibility, migration, and unresolved risk:** Preserve valid startup
+selection, saved-view order, paging wire behavior, and live updates. The
+startup query follows LR-02's canonical-only contract. Without the change,
+unbounded paging, stale startup completion, or a misclassified live patch can
+corrupt the active surface.
+
+**Validation and exit:** LR-C06 requires deterministic evidence for abort,
+rapid incident and query changes, cursor cycles, access loss, availability
+rejection, stale versions, deleted rows, wrong record types,
+refresh-required outcomes, and reference-preserving no-ops. No test may rely on
+wall-clock delays.
+
+### LR-07 - collaboration and authorization lifecycle
+
+**Remediation and areas:** Split collaboration event decoding and routing,
+invalidation planning, presence projection, reset settlement, and
+authorization recovery into pure plans behind one coordinator effect shell.
+Inject scheduler and clock ports for recovery. Refactor the direct
+`IncidentCollaborationSession` message dependency only where this boundary
+requires it, and retain exactly one socket/session owner.
+
+**Rationale and long-term benefit:** Authorization recovery and message routing
+become explicit transitions rather than intertwined callbacks and timers. New
+event variants must enter an exhaustive local plan.
+
+**Compatibility, migration, and unresolved risk:** Preserve WebSocket wire
+formats, presence semantics, reconnect behavior, transaction settlement, and
+access-loss behavior. Leaving the gap risks stale reconnection, duplicate
+invalidation, replay after role loss, and protected-state retention.
+
+**Validation and exit:** LR-C07 requires deterministic establishment, reset,
+authorization loss and recovery, role downgrade, incident closure, malformed
+message, duplicate transaction, inactive-surface, reconnect, and disposal
+evidence without wall-clock waits or duplicate coordinators.
+
+### LR-08 - Timeline action workflows and adapters
+
+**Remediation and areas:** Replace the related-record submission closure with a
+subject-keyed pure workflow and exact command adapter. Decompose Timeline
+Evidence attachment, Mention resolution, and bulk-tag admission into
+owner-specific validation plans and narrow transport ports. Delete stale
+branches, duplicated validation, compatibility-oriented types, and any
+superseded adapter.
+
+Do not create a universal Timeline action service. Each action owner validates
+the current surface, selection, capability, authorization, record identity,
+and version immediately before its existing transport dispatch.
+
+**Rationale and long-term benefit:** Related-record, Evidence, Mention, and tag
+actions gain explicit ownership and can evolve without sharing an unrelated
+state machine.
+
+**Compatibility, migration, and unresolved risk:** Preserve owner-required
+features, routes, wire bodies, conflict behavior, focus, and refresh
+obligations. Internal contracts break atomically. Without the change, stale
+subjects or generic branching can dispatch against the wrong row or version.
+
+**Validation and exit:** LR-C08 requires start, update, cancel, submit, stale
+completion, selection change, invalid target, missing capability, access loss,
+file failure, Mention lifecycle, partial tag rejection, conflict, focus, and
+refresh evidence. Every named production hotspot must leave high/critical
+Fallow scope.
+
+## 32. Phase D - production gate and handoff
+
+### LR-09 - validation and handoff completion
+
+**Remediation and areas:** Reconcile the LR-01 ledger, owner metadata, test
+families, catalog, execution topology, generated artifacts, OpenAPI `2.0.0`
+change set, package surfaces, guides, and final tracker. Promote the
+Workbook-cone dead-code check to a permanent blocking owner route while
+leaving repository-wide Fallow advisory.
+
+**Rationale and long-term benefit:** The iteration must end with a repeatable
+production gate, not a one-time deletion pass. The scoped check prevents dead
+or speculative surface area from returning as the project expands.
+
+**Compatibility, migration, and unresolved risk:** LR-02's startup query and
+LR-04's private package exports are intentional hard breaks. All other valid
+routes, wire bodies, persistence, authorization, transactions, and user-visible
+behavior remain unless an adopted owner expressly removes them. No data
+migration or dual-version rollout exists. Unresolved scoped debt keeps LR-09
+open.
+
+**Validation and exit:** LR-C09 passes only when:
+
+- scoped production has zero unused files, exports, types, class members,
+  unresolved imports, duplicate exports, and test-only exports;
+- Workbook production source and the directly changed collaboration boundary
+  have zero high or critical Fallow findings;
+- closure searches find no legacy startup selector, ambiguity reason, alias,
+  shim, deprecated barrel, wildcard owner dispatcher, compatibility fallback,
+  new TODO/FIXME, or undocumented suppression;
+- generated and compatibility reports contain only intended OpenAPI `2.0.0`
+  and topology changes;
+- immutable release evidence, persistence, migrations, dependencies, and
+  goldens have no unintended change; and
+- LR-01 through LR-09 and LR-C01 through LR-C09 are `DONE`, with no authorized
+  work or unresolved ledger entry remaining.
+
+## 33. LR validation matrix
+
+Each implementation workstream must first refresh
+`make task-guide ROLE=module-author OWNER=<owner-id>`, then run the narrowest
+applicable `make test-slice` and `make service-backed-test-slice`. Broaden only
+for the workstream's owners and risks. The final owner set is:
+
+- `web.workbook`, `web.architecture`, and `web.design`;
+- `module.workbook`, `module.timeline`, `module.savedviews`,
+  `module.entities`, `module.collaboration`, and `module.evidence`;
+- `package.grid_adapter` and `package.ui`; and
+- `platform.openapi`.
+
+LR-09 must run and record:
+
+- `make generate`, followed by direct inspection of every generated diff;
+- `make generate-drift`, `make generated-artifact-policy-check`, and
+  `make json-shape-check`;
+- `make openapi-compatibility-check` and direct inspection of the compatibility
+  report and unreleased `2.0.0` change set;
+- `make format` and `make agent-finalize` without `RESULTS_DIR` unless a
+  genuinely compatible successful full warm run exists;
+- `make frontend-typecheck`, `make frontend-unit`,
+  `make frontend-import-boundary-check`, and `make lint-biome`;
+- applicable `make browser-e2e-a11y`, `make browser-e2e-measurement`,
+  `make browser-e2e-stateful`, `make browser-e2e-support`,
+  `make browser-e2e-webserver-backed`, and `make browser-e2e-visual` routes;
+- `make test-fast`, `make go-vulncheck`, `make go-gosec-targeted`,
+  `make go-gosec-audit`, `make build`, and `make release-check`;
+- a fresh `make frontend-fallow-static` under an owner-only umask, with direct
+  dead-code and health JSON inspection plus the new blocking scoped row;
+- `make lint-markdown`; and
+- `git diff --check`, staged and unstaged review, and generated, golden,
+  immutable-release, and public-contract scope inspection.
+
+No visual golden change is expected. If an intentional visual delta is
+unavoidable, use only the repository visual-update Make target, inspect every
+image and manifest change, record its owner/design reason, and require two
+subsequent ordinary visual passes.
+
+## 34. LR compatibility, rollback, and extension policy
+
+The project is pre-production. Public and internal hard cutovers are explicit
+LR design constraints. Do not preserve an unused interface for a possible
+consumer, version an internal compatibility layer, or maintain both sides of a
+renamed concept.
+
+The public changes are:
+
+- `GET /api/v1/incidents/{incident_id}/workbook-startup` no longer accepts the
+  legacy explicit `view_schema_id` query parameter;
+- `ambiguous_explicit_sheet_ref` leaves the current error registry because two
+  accepted selector forms no longer exist; and
+- unused manual exports leave the private Grid Adapter and UI Contracts
+  package entrypoints.
+
+All repository consumers migrate atomically. OpenAPI `2.0.0` remains the
+unreleased breaking boundary; this iteration does not create `3.0.0` and does
+not edit immutable `1.0.0` release evidence.
+
+Rollback is workstream-granular and source/spec/generated-artifact based. Each
+rollback unit includes production source, owner text, authored contracts,
+tests, metadata, Make-generated projections, guide/README changes, and an
+append-only tracker record. No data rollback or dual-version runtime is
+provided.
+
+After LR-09, a feature extension must add only the owner-local pure policy or
+model, narrow effect/transport port, exhaustive registry member, and focused
+evidence it genuinely requires. It must not reopen a deleted alias, export,
+selector form, shared action controller, or compatibility path.
+
+## 35. LR initial planning checkpoint
+
+| Timestamp | Status transition | Paths and decisions | Evidence, compatibility, rollback, risk, and next action |
+| --- | --- | --- | --- |
+| `2026-09-03T10:08:49-04:00` | LR successor plan added; LR-01 through LR-09 and LR-C01 through LR-C09 remain `PLANNED` | Updated only `docs/handoffs/clean-up-refactor-handoff.md`. Preserved CR-01 through CR-12 and their checkpoint rows as immutable completed history. Added the Workbook-cone production-readiness scope, public/internal hard-cut policy, refreshed clean `main` baseline at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, retained Fallow root, LR ledger, nine sequential workstreams and gates, canonical startup API removal, dead-source and private-package closure, production hotspot remediation, terminal validation, rollback, exclusions, and extension policy. `docs/domain.md`, product source, specifications, contracts, tests, authored machine inputs, generated artifacts, immutable releases, dependencies, and goldens remain unchanged by this planning step. | PASS: `make lint-markdown` at `.cartulary/test-results/20260903T141110Z-p67398`; `git diff --check`; staged/unstaged scope review found only this handoff changed. Retained orientation evidence is `.cartulary/test-results/20260903T135448Z-p59949`: Fallow passed and reports 214 repository-wide dead-code issues; only the future named dependency cone is acceptance scope. This planning step has no runtime compatibility impact. Rollback is removal of sections 26 through 35 plus restoration of section 1's prior status text. Product tests, generation, OpenAPI compatibility, Fallow reruns, builds, and browser tests are intentionally skipped because this is a Markdown-only planning update. Residual risk is baseline or owner drift before implementation, addressed by LR-01's mandatory refresh. Next action: obtain separate implementation authorization, append a fresh pre-LR-01 checkpoint, and mark only LR-01 `IN_PROGRESS`. |
+| `2026-09-03T11:51:09-04:00` | LR-01 `IN_PROGRESS`; LR-C01 remains `PLANNED` | Implementation authorized by the user on `2026-09-03`. Refreshed root `AGENTS.md`, sections 26 through 35, Core 01 REQ-01-151.1, Core 03 REQ-03-027..031, Core 04 AC-150/AC-478, design and domain ownership, Workbook and direct collaboration source, startup backend/client paths, private package entrypoints, authored verification metadata, generated policy, and retained Fallow artifacts. Branch is `main` at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, two commits ahead of `origin/main` at `79d305265e433ef5d3eafb4750e319ec34fd5c3f`; the only pre-existing worktree change is this staged handoff and is preserved as user-owned history. Toolchain and generated-policy SHA-256 values are `d530190d...` and `ddc06647...`. | All twelve applicable module-author task guides resolve to the focused routes in section 33; applicable service-backed routes remain declared by their guides. Retained orientation evidence `.cartulary/test-results/20260903T135448Z-p59949` is valid but not inherited: it reports 214 repository-wide dead-code findings and the named scoped production hotspots recorded below. No adopted-owner contradiction was found. LR-01 changes no product behavior or contract. Rollback is removal of this checkpoint and the LR-01 ledger/status edits only. Next action: complete and validate the classified closure ledger, then close LR-01/LR-C01 before beginning LR-02. |
+| `2026-09-03T11:54:42-04:00` | LR-01 and LR-C01 `DONE` | Added section 35.1 as the complete scoped classification ledger. It covers the startup API alias/specification/projections, named dead and test-only exports, all current unused Grid Adapter/UI Contracts entrypoint exports, reported class-member false-dead surfaces with their structural destinations, every named high/critical production hotspot, dynamic/package entrypoints, and explicit exclusions. Each entry names authority/reachability evidence, classification, rationale, and one closing LR workstream. No product source, owner contract, generated artifact, test, catalog, dependency, or golden changed. | PASS: `make lint-markdown` at `.cartulary/test-results/20260903T155325Z-p93628`; `git diff --check`; `git diff --cached --check`; direct retained dead-code/health JSON review and repository searches. LR-01 has no compatibility impact. Rollback is removal of section 35.1, this row, and the LR-01 status transition. Residual risk is only source or owner drift after this checkpoint, which every successor refresh must detect. Next action: append a separate pre-LR-02 checkpoint, mark only LR-02 `IN_PROGRESS`, then perform the canonical startup hard cut. |
+| `2026-09-03T11:55:33-04:00` | LR-02 `IN_PROGRESS`; LR-C02 remains `PLANNED` | Confirmed LR-01/LR-C01 `DONE`. Refreshed Core 01 REQ-01-151.1, Core 03 startup ownership, Core 04 AC-150/AC-478, domain vocabulary, backend parser/tests, frontend URL/startup adapter/types/tests, Workbook OpenAPI owner, error registry, generated projections, compatibility change set, and module.workbook/platform.openapi/web.workbook task guides. Branch, HEAD, upstream relation, toolchain/generated-policy hashes, and the preserved pre-existing staged tracker are unchanged from LR-01; current unstaged scope contains only authorized tracker execution records. Immutable OpenAPI `1.0.0` SHA-256 is `de976721...`. | No owner contradiction exists: `view_schema_id` remains a canonical workbook surface/domain/browser-route identifier, while only the startup HTTP query alias is removed. LR-02 may change Core 01, Core 04 conformance, authored OpenAPI/error inputs, startup backend/client code, tests, the `2.0.0` change set, Make-generated projections, topology metadata if required, and this tracker. Rollback is that atomic specification/source/contract/generated/test/tracker unit. Next action: amend the adopted owner and acceptance criterion before changing downstream projections and implementations. |
+| `2026-09-03T12:10:44-04:00` | LR-02 and LR-C02 `DONE` | Amended Core 01 REQ-01-151.1 and Core 04 AC-150; removed the startup request parameter from `contracts/openapi-source/owners/module.workbook/openapi.json` and `ambiguous_explicit_sheet_ref` from `contracts/errors/index.json`; removed backend/client alias parsing and typing; translated browser `view_schema_id` routes to canonical `sheet_ref_kind=view_schema&sheet_ref_id=...`; migrated integration, E2E, protocol, adapter, model, shell, and architecture-policy evidence; added the emitted breaking fingerprint `fbfc1977...` to unreleased `2.0.0`; and regenerated OpenAPI, operation, Go error/OpenAPI, and protocol-ts projections through `make generate`. `docs/domain.md`, immutable `1.0.0`, persistence, migrations, dependencies, and goldens are unchanged. | PASS: generation `.cartulary/test-results/20260903T160105Z-p98955`; OpenAPI compatibility 4/4 `.cartulary/test-results/20260903T160606Z-p1155`; generation drift 4/4 `.cartulary/test-results/20260903T160606Z-p1119`; JSON shape 3/3 `.cartulary/test-results/20260903T160606Z-p1139`; platform.openapi 4/4 `.cartulary/test-results/20260903T160132Z-p2621`; web.workbook 159/159 `.cartulary/test-results/20260903T160132Z-p2627`; module.workbook 68/69 `.cartulary/test-results/20260903T160132Z-p2622` followed by the corrected startup row 3/3 `.cartulary/test-results/20260903T160510Z-p83066`; matching service-backed row 3/3 `.cartulary/test-results/20260903T160606Z-p1242`; frontend unit 422/423 `.cartulary/test-results/20260903T160726Z-p22426` followed by corrected architecture-policy row 2/2 `.cartulary/test-results/20260903T161033Z-p69053`; and `git diff --check`. Both failures were stale success/evidence assertions for the intentionally removed alias and are product-related changes corrected in this slice. Exact legacy empty, non-empty, and mixed-form errors are covered; canonical base, saved-view, extension, and no-selector paths retain coverage. Compatibility impact is the intended hard break only, with no shim or migration. Rollback is the atomic owner/contract/source/test/generated/tracker unit. Next action: append a separate pre-LR-03 checkpoint, refresh its source ledger and owners, and only then mark LR-03 `IN_PROGRESS`. |
+| `2026-09-03T12:11:18-04:00` | LR-03 `IN_PROGRESS`; LR-C03 remains `PLANNED` | Confirmed LR-02/LR-C02 `DONE` and began a distinct successor checkpoint. Refreshed the LR-01 source ledger, Core 03 ownership, design direction, Timeline test support, Timeline style/model/hooks and tests, inspector subject model, retained Fallow findings, repository consumers, and `web.workbook`/`module.timeline` task guides. Branch remains `main` at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, two commits ahead of unchanged upstream; toolchain and generated-policy hashes remain `d530190d...` and `ddc06647...`. The staged handoff remains user-owned; the unstaged LR-02 atomic cutover and current authorized LR-03 source paths are the only worktree changes. | No owner contradiction exists. Search confirms `focusReadyGridScalarInput` has no caller, the shared Timeline `inlineButtonRowStyle` has no importer, the three named exports have only same-file consumers, and every committed-version ledger capability is used by production. LR-03 may delete the two dead declarations, privatize same-file symbols, and replace the class with one closure-backed ledger factory used by production and tests. It may not alter public wire behavior, generated artifacts, persistence, dependencies, or goldens. Retained Fallow root remains `.cartulary/test-results/20260903T135448Z-p59949`; fresh static evidence will close the slice. Rollback is the LR-03 source/test/tracker unit. Next action: complete the exact removals and structural ledger replacement, then run focused typecheck/unit/static gates before closing LR-C03. |
+| `2026-09-03T12:24:59-04:00` | LR-03 and LR-C03 `DONE` | Deleted `focusReadyGridScalarInput`, its now-dead diagnostic helper/import, and the unconsumed shared Timeline `inlineButtonRowStyle`; made `committedTimelineProjection`, `timelineLoadIdentitiesEqual`, `WorkbookInspectorSubjectIdentity`, and freshly reported `TimelineCommittedRowAcceptance` private; replaced the exported `TimelineCommittedVersionLedger` class with a closure-backed `createTimelineCommittedVersionLedger` capability used by the production hook and its direct model test. Appended the fresh type finding to section 35.1 before closure. No owner contract, wire behavior, generated product artifact, package entrypoint, catalog row, persistence, dependency, or golden changed. | PASS: format 2/2 `.cartulary/test-results/20260903T161347Z-p71113`; module.timeline 57/57 `.cartulary/test-results/20260903T161359Z-p75412`; service-backed module.timeline 30/30 `.cartulary/test-results/20260903T162019Z-p43513`; typecheck 2/2 `.cartulary/test-results/20260903T161952Z-p42009`; direct Timeline model row 2/2 `.cartulary/test-results/20260903T161952Z-p41886`; owner-only-umask Fallow 2/2 `.cartulary/test-results/20260903T161952Z-p42038`; and `git diff --check`. The first typecheck at `.cartulary/test-results/20260903T161359Z-p75512` caught a now-impossible typed negative comparison from LR-02 and was corrected; the first static run `.cartulary/test-results/20260903T161359Z-p75557` was rejected as an artifact-permission failure because its invocation used `022`, then rerun correctly with `077`. Direct JSON review reports 207 advisory issues, down from 214, and no LR-03 dead export/type/class-member remains; residual Workbook class findings are the explicitly assigned LR-05/LR-07 structural work. This is an internal source-only cutover with no compatibility migration. Rollback is the named source/test/tracker unit. Next action: append a separate pre-LR-04 checkpoint, refresh private-package consumers and Fallow ownership, and only then mark LR-04 `IN_PROGRESS`. |
+| `2026-09-03T12:25:31-04:00` | LR-04 `IN_PROGRESS`; LR-C04 remains `PLANNED` | Confirmed LR-03/LR-C03 `DONE`. Refreshed both private package entrypoints, their package-local definitions and self-tests, every LR-01 named export consumer, `.fallowrc.json`, the authored Fallow reachability owner, static runner/summary contract, and `package.grid_adapter`/`package.ui` task guides. Branch, HEAD/upstream relation, toolchain/generated-policy hashes, retained evidence, and preserved staged handoff are unchanged; authorized unstaged scope is LR-02/LR-03 plus the current tracker checkpoint. | No owner contradiction exists. The packages are private `0.0.0` workspaces; generated UI exports remain owner-controlled. The existing wildcard `ignoreExports` entries make package self-entrypoints opaque, so LR-04 will remove those wildcard suppressions, prune the classified unconsumed manual exports, and derive a blocking package-surface result from Fallow dead-code output while leaving all other repository findings advisory. Owning-package self-tests will be migrated and cannot justify a manual public export. No public runtime behavior, persistence, dependency, or golden change is authorized. Rollback is the package entrypoint/selector/test plus authored static-policy/metadata/generated-topology/tracker unit. Next action: cut the unused exports atomically, implement the scoped static gate and evidence, then run both package routes and frontend boundary checks before closing LR-C04. |
+| `2026-09-03T12:40:20-04:00` | LR-04 and LR-C04 `DONE` | Removed all nineteen classified Grid Adapter type re-exports, all six classified UI Contracts type re-exports, and `statusStripQueueCountTestId` from its definition, barrel, and self-test; migrated the Grid Adapter owning test to private `./core` imports for its two internal test-only types. Removed both package-entrypoint wildcard suppressions. Added authored `blocking_package_surfaces` ownership and schema, a derived scoped Fallow config that excludes the package entrypoints/public-package assumptions and owning-package tests as reachability roots, TypeScript-AST re-export resolution that excludes generated source, a fail-on-unused-manual-export path and retained scoped artifact, an owner-only umask, harness regression evidence, and one `package.grid_adapter` shell row with `package.ui` collaboration plus its verification contract. Regeneration changed only the expected execution-topology render input digest in addition to prior LR-02 projections. | PASS: final generation `.cartulary/test-results/20260903T163513Z-p22164`; Grid Adapter 44/44 `.cartulary/test-results/20260903T163735Z-p84120`; service-backed Grid Adapter 13/13 `.cartulary/test-results/20260903T163841Z-p34203`; UI Contracts 10/10 `.cartulary/test-results/20260903T163554Z-p29693`; typecheck 2/2 `.cartulary/test-results/20260903T163716Z-p82328`; import boundary 2/2 `.cartulary/test-results/20260903T163716Z-p82353`; Biome 2/2 `.cartulary/test-results/20260903T163716Z-p82386`; Fallow 2/2 `.cartulary/test-results/20260903T163716Z-p82393`; harness contract 2/2 `.cartulary/test-results/20260903T163941Z-p79628`; generation drift 4/4 `.cartulary/test-results/20260903T164003Z-p80258`; generated policy 3/3 `.cartulary/test-results/20260903T164003Z-p80278`; JSON shape 3/3 `.cartulary/test-results/20260903T164003Z-p80270`; format `.cartulary/test-results/20260903T163541Z-p25321`; and `git diff --check`. Direct scoped-summary inspection reports `blocking=true`, `failure_on_issues=true`, and zero findings for both package entrypoints. Intermediate generation failures `.cartulary/test-results/20260903T163156Z-p9495`, `...T163311Z-p12749`, `...T163413Z-p16062`, and `...T163448Z-p19131` were authored topology/config validation correctly identifying row sort, runner contract, duplicate command ownership, and unsupported semantic metadata; each was corrected structurally. The first Grid rerun `.cartulary/test-results/20260903T163554Z-p29695` correctly exposed missing inherited owner-only permissions and led to the self-enforcing runner. The private workspace API break is intentional and atomic; no alias or allowlist remains. Rollback is the package/static-policy/verification/topology/test/tracker unit. Next action: append a separate pre-LR-05 checkpoint, refresh operation/mutation owners and hotspots, and only then mark LR-05 `IN_PROGRESS`. |
+| `2026-09-03T12:41:17-04:00` | LR-05 `IN_PROGRESS`; LR-C05 remains `PLANNED` | Confirmed LR-04/LR-C04 `DONE`. Refreshed Core 01 public-error, mutation, Generic create, and Evidence attachment requirements; Core 03 runtime ownership; the exact HTTP operation bindings/error registry; `workbookOperationExecutor`, `genericWorkbookModel`, `createWorkbookMutationCommandPorts`, Timeline Evidence builders, conflict/managed-patch/driver-registry runtime classes, direct tests and callers; fresh Fallow paths; and `web.workbook`, `module.workbook`, and `module.evidence` task guides. Branch, HEAD/upstream relation, hashes, staged handoff, and retained evidence remain as recorded; authorized unstaged scope is the completed LR-02 through LR-04 units plus this checkpoint. | No owner contradiction exists. Valid routes, bodies, transaction identity, authorization, conflict projection, and feedback remain required. LR-05 will introduce one exact public-error decoder and closed operation-family/error-classification registry, move Generic create and Evidence attachment request construction behind owner-local typed builders/ports, reduce shared command composition, and convert the ledger-assigned runtime class surfaces to closure-backed exact capabilities where needed for static reachability. Malformed envelopes remain fail-closed. No compatibility shim, wire change, data migration, dependency change, or golden change is authorized. Rollback is the operation/error-policy, owner-local builders/ports, runtime capability, tests/metadata/tracker unit. Next action: characterize existing fixtures, extract the pure owners, delete superseded branching, and run focused mutation/error/static gates before closing LR-C05. |
+| `2026-09-03T13:16:10-04:00` | LR-05 and LR-C05 `DONE` | Replaced the coupled/double-decoding operation failure path with `workbookPublicErrorDecoder`, an exhaustive `WorkbookOperationID` contract and operation-family map, and small exact classification/presentation policies; added direct malformed-envelope, conflict, authentication, authorization, stale-target, validation, merge-precondition, retryability, and Evidence-reason tests. Moved Generic create conversion into `genericCreateRequestBuilder`, moved the complete Generic command port into `createGenericMutationCommandPort`, and moved the Evidence slot/upload/attach/available sequence into `createEvidenceAttachmentPort`; the shared command factory now composes those owners. Routed generated HTTP types only through the Workbook protocol facade. Replaced the ledger-assigned Conflict Store, mutation-driver registry, managed-patch driver, and pending-queue public classes with closure-backed factories and exact inferred capabilities; de-exported the newly exposed same-file-only dispatch/recovery types. No route, request body, authorization rule, transaction identity, conflict projection, persistence, dependency, generated product artifact, or golden changed. | PASS: format `.cartulary/test-results/20260903T171435Z-p29656`; web.workbook 159/159 `.cartulary/test-results/20260903T170044Z-p32179`; module.workbook 69/69 `.cartulary/test-results/20260903T170133Z-p49358`; module.evidence 36/36 `.cartulary/test-results/20260903T170349Z-p10736`; service-backed module.workbook 39/39 `.cartulary/test-results/20260903T171005Z-p20315`; service-backed module.evidence 25/25 `.cartulary/test-results/20260903T171214Z-p76852`; typecheck `.cartulary/test-results/20260903T171506Z-p34755`; import boundary `.cartulary/test-results/20260903T171445Z-p33849`; Biome `.cartulary/test-results/20260903T171456Z-p34282`; final owner-only-umask Fallow `.cartulary/test-results/20260903T171519Z-p35257`; and `git diff --check`. The first import-boundary run `.cartulary/test-results/20260903T171354Z-p29048` correctly rejected two direct generated-protocol type imports; both now use the existing facade. The first Workbook service-backed run `.cartulary/test-results/20260903T170505Z-p62521` passed 38/39 and classified its sole failure as `infra/service_readiness_timeout`; the unchanged immediate rerun passed 39/39. Direct static JSON review reports 195 advisory repository-wide issues and no LR-05 unused file/export/type/class member, unresolved/duplicate export, or high/critical production finding; remaining scoped production findings are assigned only to LR-06 through LR-08, and the blocking private-package surface remains zero. Compatibility is source-private and atomic with no shim or migration. Rollback is the operation contract/decoder/policy, Generic/Evidence ports/builders, protocol facade, runtime capabilities, tests, and tracker unit. Next action: append a separate pre-LR-06 checkpoint, refresh startup/saved-view/live-query owners and race evidence, and only then mark LR-06 `IN_PROGRESS`. |
+| `2026-09-03T13:17:17-04:00` | LR-06 `IN_PROGRESS`; LR-C06 remains `PLANNED` | Confirmed LR-05/LR-C05 `DONE` in a distinct successor checkpoint. Refreshed Core 01 startup, saved-view pagination, query, and Collaboration patch contracts; Core 03 Workbook lifecycle ownership; Core 04 AC-146 through AC-150 and authorization ordering; the canonical startup hook/port/model and deterministic admission tests; saved-view adapter/controller pagination and tests; Entity query/live-event hook and tests; current Fallow findings; and `web.workbook`, `module.workbook`, `module.savedviews`, and `module.entities` task guides. Branch remains `main` at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, two commits ahead of unchanged upstream; toolchain/generated-policy hashes remain `d530190d...` and `ddc06647...`; the staged tracker remains user-owned and all unstaged LR changes are authorized. | No owner contradiction exists. LR-06 will create three separate owner-local pure models: startup admission keyed by incident/canonical query/request generation/selection version/availability generation, saved-view pagination with per-page validation plus duplicate/cursor-cycle rejection and stale-subject discard, and an Entity event patch planner that checks exact surface/record/type/change/patch/version before returning apply, stale/no-op, or refresh-required. Effects remain in existing narrow ports/hooks; late, aborted, malformed, superseded, or access-invalidated results cannot commit. Valid selection, saved-view ordering/page size/wire behavior, and live updates remain compatible. No alias, timer sleep, data/dependency/generated/golden change is authorized. Rollback is the three model/hook/adapter/test/metadata/tracker unit. Next action: extract and directly test each pure transition model before rewiring the effect shells. |
+| `2026-09-03T13:49:04-04:00` | LR-06 and LR-C06 `DONE` | Added a pure startup-admission machine keyed by incident, canonical query, request generation, selection version, and availability tag; its effect shell now discards aborted, late, superseded, access-invalidated, and malformed results before any state callback, validates exact standardized view identity, and applies accepted plans through narrow state ports. Added a pure saved-view pagination machine with per-page incident/limit/cursor/resource validation, ordered terminal publication, duplicate-resource and cursor-cycle rejection, and subject-generation admission; both the HTTP adapter and controller use it. Added a pure Entity live-event patch planner with exact surface, record, entity type, change kind, patch schema, and row-version admission plus `apply`, reference-preserving stale/no-op, and refresh-required plans. Added three owner-routed deterministic model suites and regenerated only the expected execution-topology render index. Adopted owner text, public wire contracts, routes, valid selection/order/page size/live updates, `docs/domain.md`, persistence, migrations, dependencies, immutable releases, and goldens are unchanged. | PASS: final generation `.cartulary/test-results/20260903T173116Z-p66519`; generation drift 4/4 `.cartulary/test-results/20260903T174809Z-p42906`; web.workbook 160/160 `.cartulary/test-results/20260903T173944Z-p3766`; module.workbook 69/69 `.cartulary/test-results/20260903T174031Z-p21096`; module.savedviews 26/26 `.cartulary/test-results/20260903T173336Z-p88830`; module.entities 44/44 `.cartulary/test-results/20260903T173449Z-p41635`; service-backed module.workbook 39/39 `.cartulary/test-results/20260903T174246Z-p81853`; module.savedviews 24/24 `.cartulary/test-results/20260903T174457Z-p39055`; module.entities 33/33 `.cartulary/test-results/20260903T174611Z-p89920`; typecheck `.cartulary/test-results/20260903T173836Z-p1216`; import boundary `.cartulary/test-results/20260903T173852Z-p1834`; Biome `.cartulary/test-results/20260903T173901Z-p2303`; format `.cartulary/test-results/20260903T173827Z-p96519`; final owner-only-umask Fallow `.cartulary/test-results/20260903T173912Z-p2846`; and staged/unstaged `git diff --check`. Direct static JSON review reports 195 advisory repository-wide issues, zero blocking package-surface findings, no LR-06 dead source or high/critical production finding, and only the LR-07/LR-08 assigned production hotspots remain. Initial generation `.cartulary/test-results/20260903T173003Z-p63027` correctly rejected an unsorted authored row and was fixed; the first full Workbook run `.cartulary/test-results/20260903T173134Z-p69438` and focused rerun `.cartulary/test-results/20260903T173251Z-p87120` exposed two invalid characterization fixtures, leading to exact defensive identity checks before the final pass. Compatibility is internal and behavior-preserving for valid inputs; there is no shim, migration, timer sleep, or fallback coercion. Rollback is the three models, their effect-shell/adapter integrations, tests, owner metadata, generated topology index, and this tracker row. Next action: append a separate pre-LR-07 checkpoint, refresh collaboration/session/recovery owners and timing seams, and only then mark LR-07 `IN_PROGRESS`. |
+| `2026-09-03T13:51:14-04:00` | LR-07 `IN_PROGRESS`; LR-C07 remains `PLANNED` | Confirmed LR-06/LR-C06 `DONE` and retained its Markdown pass at `.cartulary/test-results/20260903T174914Z-p46405`. Refreshed Core 01 REQ-01-250 through REQ-01-271 collaboration wire/session ownership, Core 03 REQ-03-090 through REQ-03-098A plus closed-incident behavior, coordinator/session source, authorization recovery port, active-surface and invalidation ports, presence helpers, direct coordinator/session tests, test-family ownership, fresh Fallow findings, and `web.collaboration`, `web.workbook`, and `module.collaboration` task guides. Branch remains `main` at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, two commits ahead of `origin/main` at `79d305265e433ef5d3eafb4750e319ec34fd5c3f`; toolchain/generated-policy hashes remain `d530190d...` and `ddc06647...`; the staged tracker remains user-owned and authorized unstaged scope is LR-02 through LR-06 plus this checkpoint. | No owner contradiction exists. `IncidentCollaborationSession` remains the only socket, handshake, resume-token, replay-sequence, reconnect, and transport-status owner; the Workbook coordinator remains the only Workbook interpretation/reconciliation owner. Fresh Fallow identifies only `handleEvent` and `recoverAuthorization` as LR-07 high production paths. The refresh also found concrete lifecycle hazards to close structurally: a late recovery can currently resume after a newer authorization loss or incident closure, reset refresh rejection is not settled explicitly, and presence debounce/recovery timing depends directly on ambient timers. LR-07 may add owner-local pure routing, invalidation, presence, reset-settlement, and recovery plans plus injected scheduler/clock capabilities and deterministic tests. It may not change WebSocket message shapes, session/resume semantics, presence meaning, transaction settlement, valid live updates, dependencies, persistence, or goldens. Rollback is the pure plans, coordinator effect shell, direct session boundary only if required, tests/metadata/topology/tracker unit. Next action: characterize event and recovery transitions, introduce the pure plans, then rewire the single coordinator without creating a second session owner. |
+| `2026-09-03T14:23:01-04:00` | LR-07 and LR-C07 `DONE` | Kept `IncidentCollaborationSession` as the sole socket, handshake, opaque-resume-token, replay-sequence, reconnect, and transport-status owner, but moved its decoded handshake/heartbeat/duplicate/gap/reset/terminal decisions into `incidentCollaborationSessionPlan`. Replaced the Workbook coordinator's public class surface with the exact closure capability returned by `createWorkbookCollaborationCoordinator`, retained it as the sole Workbook interpretation/effect owner, and split its decisions into pure event-routing, ordered invalidation, exact keyed-presence, session/surface-keyed reset, authorization-recovery, and bounded presence-publication models. Injected explicit clock and cancellable scheduler ports at the production composition root. Recovery and reset now reject stale generations, cancel on closure/disposal, retry failed synchronization without releasing replay, and cannot replay protected messages or presence while authorization is unconfirmed; active-port identity is rechecked before live application. Added deterministic pure/coordinator evidence for malformed/duplicate presence, ignored owner messages, duplicate transactions, inactive surfaces, capped coalescing, reset retry/settlement, role downgrade, access loss, late closure/disposal, and reconnect. Updated authored test ownership, regenerated only the topology render index, and documented the new boundaries in `apps/web/src/README.md`. Public WebSocket JSON, handshake/resume behavior, presence semantics, valid live updates, transaction settlement, persistence, dependencies, and goldens are unchanged. | PASS: final generation `.cartulary/test-results/20260903T181237Z-p82022`; generation drift 4/4 `.cartulary/test-results/20260903T182241Z-p69367`; web.collaboration 6/6 `.cartulary/test-results/20260903T182147Z-p67444`; module.collaboration 31/31 `.cartulary/test-results/20260903T181339Z-p86981`; service-backed module.collaboration 22/22 `.cartulary/test-results/20260903T181520Z-p41094`; web.workbook 160/160 `.cartulary/test-results/20260903T181655Z-p92308`; full stateful browser 34/34 `.cartulary/test-results/20260903T181850Z-p12247`; typecheck `.cartulary/test-results/20260903T181219Z-p81525`; import boundary `.cartulary/test-results/20260903T181808Z-p10714`; Biome `.cartulary/test-results/20260903T181818Z-p11203`; format `.cartulary/test-results/20260903T182132Z-p63248`; final owner-only-umask Fallow `.cartulary/test-results/20260903T182158Z-p68490`; and staged/unstaged `git diff --check`. Direct static JSON review reports 191 advisory repository-wide issues, zero blocking package-surface findings, and no LR-07 unused source or high/critical finding across the coordinator or direct session boundary; the session handler fell from critical scope and both coordinator high findings are gone. Typecheck failures at `.cartulary/test-results/20260903T180148Z-p55712` and `.cartulary/test-results/20260903T181149Z-p80863` caught test-fixture mutability and exact-optional projection errors and were corrected before the final pass. The browser target rejected row-level `ROWS` selection as an expected usage error, so the complete stateful batch was run. Tests use manual scheduling, microtask settlement, or framework fake time and no wall-clock wait. Compatibility is internal and atomic with no second coordinator/session, shim, migration, or wire change. Rollback is the session/router, coordinator/factory, pure plans, timing injection, tests, metadata/topology, README, and tracker unit. Next action: append a separate pre-LR-08 checkpoint, refresh each Timeline action owner/adapter and current hotspot, and only then mark LR-08 `IN_PROGRESS`. |
+| `2026-09-03T14:25:25-04:00` | LR-08 `IN_PROGRESS`; LR-C08 remains `PLANNED` | Confirmed LR-07/LR-C07 `DONE` and began a distinct successor checkpoint. Refreshed Core 03 bulk-selection, closed-incident, Evidence attachment, Mention resolution/entity creation, related-record, and multi-row tag requirements; domain/design direction; all four Timeline action implementations, ports, compositions, direct tests, exact transport fixtures, authored test ownership, and the `module.timeline`, `module.evidence`, `module.entities`, and `web.workbook` task guides. Branch remains `main` at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, two commits ahead of `origin/main` at `79d305265e433ef5d3eafb4750e319ec34fd5c3f`; toolchain/generated-policy hashes remain `d530190d...` and `ddc06647...`; the staged handoff remains user-owned and all cumulative unstaged LR changes are authorized. | No owner contradiction exists. Retained owner-only-umask Fallow `.cartulary/test-results/20260903T182158Z-p68490` reports exactly four remaining assigned production hotspots: `useTimelineCreateRelatedWorkflow.submitWorkflow`, Evidence attachment `attach`, Mention adapter `resolve`, and bulk-tag `assignTag`; no scoped unused file/export/type/class member, unresolved import, or duplicate export is present, and the blocking private-package surface remains zero. LR-08 will introduce separate owner-local pure workflow/validation plans and exact transport ports, revalidate active surface, selection, capability, authorization, record identity, and version immediately before each dispatch, and keep effects in thin owner-specific shells. It will not create a universal Timeline action service or change valid routes, bodies, conflicts, focus/refresh behavior, persistence, dependencies, generated public contracts, or goldens. Rollback is the related-record, Evidence attachment, Mention, bulk-tag, test/metadata/topology/README/tracker unit. Next action: characterize the four action lifecycles, add the pure plans and narrow adapters, delete superseded branches/types, and run focused owner/static gates before closing LR-C08. |
+| `2026-09-03T15:23:11-04:00` | LR-08 and LR-C08 `DONE` | Replaced the four coupled Timeline action paths with separate owner-local designs: a subject-keyed related-record workflow and exact create/link adapter; two-stage Evidence materialization/attachment ports with a current-target plan; distinct Mention entity-creation and resolution adapters with an exact mention/target plan; and a dedicated bulk-tag port with a stable-selection plan. Every dispatch rechecks active surface, selection or draft subject, capability, authorization, record identity, and current version; stale completions cannot overwrite a reopened workflow, and accepted bulk commits retain the required refresh obligation. Removed the shared bulk-tag branch and its compatibility-oriented bulk types, deleted the old Mention adapter, updated composition, direct tests, source ownership, Timeline README, owner test families, and generated topology. No universal action service, owner-specification change, public contract change, dependency, persistence, immutable release, or golden change was introduced. | PASS: `module.timeline` 61/61 `.cartulary/test-results/20260903T190053Z-p97374`; service-backed Timeline 30/30 `.cartulary/test-results/20260903T190620Z-p79524`; `web.workbook` 160/160 `.cartulary/test-results/20260903T190053Z-p97378`; final `module.evidence` 36/36 `.cartulary/test-results/20260903T191705Z-p15824`; service-backed Evidence 25/25 `.cartulary/test-results/20260903T191114Z-p51757`; `module.entities` 44/44 `.cartulary/test-results/20260903T190620Z-p79506`; service-backed Entities 33/33 `.cartulary/test-results/20260903T191114Z-p51776`; source-ownership policy 2/2 `.cartulary/test-results/20260903T192052Z-p19331`; frontend unit 432/432 `.cartulary/test-results/20260903T192052Z-p19408`; typecheck `.cartulary/test-results/20260903T191114Z-p51863`; import boundary `.cartulary/test-results/20260903T191548Z-p10637`; Biome `.cartulary/test-results/20260903T191706Z-p15945`; format `.cartulary/test-results/20260903T192032Z-p12200`; generation `.cartulary/test-results/20260903T192038Z-p16330`; final generation drift `.cartulary/test-results/20260903T192300Z-p60767`; JSON shape `.cartulary/test-results/20260903T192300Z-p60783`; and staged/unstaged whitespace checks. Fresh owner-only-umask Fallow `.cartulary/test-results/20260903T191548Z-p10636` reports zero Timeline production dead-code categories, zero Timeline high/critical findings, and zero blocking private-package findings; all four named hotspots left high/critical scope. The first bulk-adapter row failure was an incorrectly query-shaped batch fixture and was corrected. The first Evidence owner run `.cartulary/test-results/20260903T190620Z-p79494` exposed an actual draft-admission regression; the pure plan now expressly admits the unselected active draft while rejecting a competing selection, and both its targeted real webserver/object-store rerun `.cartulary/test-results/20260903T191114Z-p51730` and the final owner run pass. The first frontend-unit run `.cartulary/test-results/20260903T191706Z-p15923` found a stale architecture assertion; it now permits only the three exact LR-05 owner-local command modules while continuing to forbid UI wire intents. Valid routes, bodies, transactions, conflicts, focus, and refresh behavior remain compatible. Rollback is the four model/adapter/port/hook/composition/test/metadata/topology/README/tracker unit. Residual risk is limited to explicitly excluded broader Timeline and repository-wide advisory findings. Next action: append a separate pre-LR-09 checkpoint, refresh all final owners and guides, and only then mark LR-09 `IN_PROGRESS`. |
+| `2026-09-03T15:25:05-04:00` | LR-09 successor checkpoint appended; LR-09 and LR-C09 remain `PLANNED` | Confirmed LR-08/LR-C08 `DONE` and refreshed the twelve final owners, their adopted clauses/projections, current consumers, source ownership, test families, package entrypoints, generated topology, OpenAPI `2.0.0` change set, immutable `1.0.0`, and all twelve `make task-guide ROLE=module-author` results. Branch remains `main` at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, two commits ahead of `origin/main` at `79d305265e433ef5d3eafb4750e319ec34fd5c3f`; toolchain/generated-policy hashes remain `d530190d...` and `ddc06647...`, and immutable `1.0.0` remains `de976721...`. The staged handoff is preserved as user-owned history; all unstaged source, contract, generated, test, metadata, README, and append-only tracker changes are the authorized cumulative LR implementation. | No owner contradiction exists. The guides select focused routes for `web.workbook`, `web.architecture`, `web.design`, `module.workbook`, `module.timeline`, `module.savedviews`, `module.entities`, `module.collaboration`, `module.evidence`, `package.grid_adapter`, `package.ui`, and `platform.openapi`, with service-backed routes for design, Workbook, Timeline, Saved Views, Entities, Collaboration, Evidence, and Grid Adapter. Retained owner-only-umask evidence `.cartulary/test-results/20260903T191548Z-p10636` has zero scoped Timeline findings and zero blocking package-surface findings but will not be inherited as terminal evidence. LR-09 may reconcile authored owner/test/source metadata, generated projections through Make, package surfaces, README/guides, the LR ledger, and this tracker; product changes are allowed only if terminal evidence exposes unresolved authorized debt. Persistence, migrations, dependencies, immutable releases, and goldens remain outside scope. Rollback is the final reconciliation/gate/tracker unit plus the workstream-granular LR units already recorded. Next action: mark only LR-09 `IN_PROGRESS`, run the complete terminal matrix, inspect every report/diff directly, and close LR-C09 only with no scoped debt. |
+| `2026-09-03T16:27:20-04:00` | LR-09 remains `IN_PROGRESS`; LR-C09 remains `PLANNED` pending one newly discovered security dependency blocker | Reconciled the LR-01 ledger, owner metadata, test families, package entrypoints, generated topology, OpenAPI `2.0.0` change set, README guidance, and cumulative worktree scope. Fresh Fallow first reported `WorkbookMutationRuntime.resumeAfterAuthRecovery` as the sole scoped unused class member; replaced the split pause/resume methods with one closed `applyAuthorizationRecoveryState("paused" | "resumed")` transition, migrated the sole coordinator and test consumers, and reran the affected owner routes. Direct final JSON inspection now finds zero scoped unused files, exports, types, class members, unresolved imports, duplicate exports, or test-only dependencies; zero scoped production high/critical findings; and `blocking=true`, `failure_on_issues=true`, `finding_count=0` for both private-package entrypoints. The remaining 273 repository-wide advisory findings are outside section 27 scope. Search confirms the startup HTTP alias survives only in the normative rejection clause and explicit negative tests, and `ambiguous_explicit_sheet_ref` survives only in negative absence evidence; browser URL and non-startup domain uses of `view_schema_id` remain required. Generated diffs are limited to the LR-02 projections and LR-04/LR-06/LR-07/LR-08 topology hashes; the unreleased `2.0.0` change set adds exactly the intended breaking fingerprint `fbfc1977...`. Immutable `1.0.0` remains SHA-256 `de976721...`; `docs/domain.md`, persistence, migrations, dependencies, lockfiles, and visual goldens have no LR diff. No owner contradiction exists. | PASS focused owners: web.workbook 160/160 `.cartulary/test-results/20260903T192611Z-p71792` and post-static-fix 160/160 `.cartulary/test-results/20260903T201547Z-p67958`; web.architecture 12/12 `.cartulary/test-results/20260903T192611Z-p71790`; web.design 15/15 `.cartulary/test-results/20260903T192620Z-p73544`; module.workbook 69/69 `.cartulary/test-results/20260903T192733Z-p69589`; module.timeline 61/61 `.cartulary/test-results/20260903T192951Z-p77708`; module.savedviews 26/26 `.cartulary/test-results/20260903T192733Z-p69598`; module.entities 44/44 `.cartulary/test-results/20260903T192951Z-p77711`; module.collaboration final 31/31 `.cartulary/test-results/20260903T201918Z-p45438`; module.evidence 36/36 `.cartulary/test-results/20260903T193434Z-p89902`; Grid Adapter 44/44 `.cartulary/test-results/20260903T192620Z-p73545`; UI Contracts 10/10 `.cartulary/test-results/20260903T192611Z-p71803`; platform.openapi 4/4 `.cartulary/test-results/20260903T192611Z-p71822`. PASS service-backed: design/Grid Adapter 15/15 and 13/13 `.cartulary/test-results/20260903T193614Z-p92529` and `...p92532`; Workbook/Saved Views 39/39 and 24/24 `.cartulary/test-results/20260903T193726Z-p86458` and `...p86466`; Timeline/Entities 30/30 and 33/33 `.cartulary/test-results/20260903T193948Z-p94472` and `...p94474`; final Collaboration 22/22 `.cartulary/test-results/20260903T202055Z-p98271`; Evidence 25/25 `.cartulary/test-results/20260903T194429Z-p7212`. PASS generation `.cartulary/test-results/20260903T192558Z-p68690`; final generation drift, generated policy, JSON shape, and OpenAPI compatibility `.cartulary/test-results/20260903T202427Z-p28312`, `...p28420`, `...p28285`, and `...p28282`; format `.cartulary/test-results/20260903T201824Z-p40036`; agent-finalize `.cartulary/test-results/20260903T202427Z-p28309`; final typecheck `.cartulary/test-results/20260903T201834Z-p44339`; frontend unit 432/432, import boundary, and Biome `.cartulary/test-results/20260903T202427Z-p28809`, `...p28974`, and `...p28780`; final fast tests 484/484 `.cartulary/test-results/20260903T202427Z-p29147`; build 7/7 `.cartulary/test-results/20260903T202055Z-p98566`; targeted and audit gosec 4/4 each `.cartulary/test-results/20260903T195811Z-p29729` and `...p29758`; and fresh owner-only-umask Fallow `.cartulary/test-results/20260903T201547Z-p68105`. PASS browser routes: accessibility 12/12 `.cartulary/test-results/20260903T194737Z-p23843`; support 19/19 `...p23883`; measurement 22/22 `...p23722`; visual 12/12 `.cartulary/test-results/20260903T195211Z-p73814`; stateful 34/34 `...p73794`; and webserver-backed 60/60 `...p73790`. FAIL `make go-vulncheck` at `.cartulary/test-results/20260903T195811Z-p29725`: the vulnerability DB updated `2026-09-02` reports symbol-reachable GO-2026-6354/CVE-2026-78662 and GO-2026-6355/CVE-2026-56855 through `testcontainers-go` SSH teardown, both fixed by raising `golang.org/x/crypto` from `v0.52.0` to at least `v0.56.0`. Consequently `make release-check` failed 877/880 at `.cartulary/test-results/20260903T195953Z-p87087`; its other failed leaf was one aggregate-load visual row, while the immediately preceding isolated full visual target passed 12/12 with no golden delta. A dependency update is expressly outside the authorized LR scope, so no `go.mod`/`go.sum` mutation or security waiver was made and production readiness is not claimed. Compatibility remains the intentional startup/private-package hard cut already recorded; no data or rollout migration exists. Rollback remains workstream-granular. Exact next action: obtain explicit authorization to expand LR-09 dependency scope, raise `x/crypto` through the repository dependency workflow, regenerate its managed checksums, rerun vulnerability/build/release and terminal drift/scope gates, then append the true completion checkpoint and mark LR-09/LR-C09 `DONE`. |
+| `2026-09-03T17:12:28-04:00` | LR-09 dependency-remediation scope explicitly authorized; LR-09 remains `IN_PROGRESS` and LR-C09 remains `PLANNED` | The user explicitly authorized raising `golang.org/x/crypto` and regenerating its tool-managed checksums to remediate the two terminal vulnerability findings. Confirmed the preceding LR-09 checkpoint remains open, branch/HEAD/upstream remain `main` at `1e90c8ce2431c1651e31e331baecb555b3ef3fb7`, two commits ahead of `origin/main` at `79d305265e433ef5d3eafb4750e319ec34fd5c3f`, and the cumulative authorized LR worktree plus preserved staged tracker are otherwise unchanged. Refreshed `go.mod`, public Make help, the retained vulnerability report, release evidence, toolchain pins, and generated-artifact policy. The exact added scope is `go.mod`, tool-managed `go.sum`, validation artifacts, and append-only tracker reconciliation; no unrelated dependency, toolchain, persistence, migration, immutable release, or golden change is authorized. | No owner contradiction exists. Current `go.mod` pins `golang.org/x/crypto v0.52.0`; both symbol-reachable findings identify `v0.56.0` as the fixed version. The repository exposes verification targets but no public dependency-update target, so the narrow Go module command may be used only to perform this explicitly authorized dependency maintenance, followed by Make-owned verification. Rollback is the exact `go.mod`/`go.sum` delta and this authorization checkpoint. Next action: update only `x/crypto`, inspect all module-graph side effects, reject unrelated upgrades, then rerun vulnerability, build, release, drift, static, Markdown, and scope gates before closing LR-09/LR-C09. |
+
+| `2026-09-03T17:39:12-04:00` | LR-09 and LR-C09 `DONE`; production-readiness legacy-removal successor complete | Updated `golang.org/x/crypto` from `v0.52.0` to `v0.56.0` and accepted only its required module chain: `x/net v0.57.0`, `x/sys v0.47.0`, `x/term v0.45.0`, `x/text v0.41.0`, and `x/sync v0.22.0`; `go mod tidy` generated the checksum delta and pruned obsolete checksum-only rows. Because `x/crypto v0.56.0` requires the canonical `go 1.26.0` directive, synchronized `go.mod` and `tools/toolchain_pins.json` to that language-version spelling while retaining the `go1.26.6` compiler pin, and extended the test-catalog build-context parser to accept Go `1.x.patch` directives without changing build-tag semantics. Regeneration updated only the expected execution-topology source/input hashes in addition to the previously reviewed LR projections. Reconciled the LR-01 ledger, specifications, implementations, tests, authored verification/source metadata, generated artifacts, package surfaces, OpenAPI compatibility evidence, guides, and tracker. Immutable OpenAPI `1.0.0` remains SHA-256 `de976721...`; no persistence, migration, pnpm lock, unrelated dependency family, or visual golden changed. No owner contradiction or authorized debt remains. | PASS: vulnerability scan 4/4 `.cartulary/test-results/20260903T211918Z-p35155`, with the fresh `2026-09-02` database reporting zero blocking/package/symbol findings; final release 880/880 `.cartulary/test-results/20260903T212507Z-p18881`; build 7/7 `.cartulary/test-results/20260903T212010Z-p44742`; isolated final frontend unit 432/432 `.cartulary/test-results/20260903T212438Z-p17530`; isolated final fast tests 484/484 `.cartulary/test-results/20260903T212450Z-p18086`; typecheck `.cartulary/test-results/20260903T212124Z-p6630`; import boundary `.cartulary/test-results/20260903T212124Z-p6711`; Biome `.cartulary/test-results/20260903T212124Z-p6803`; targeted and audit gosec 4/4 each `.cartulary/test-results/20260903T212125Z-p7269` and `...p7281`; generation `.cartulary/test-results/20260903T211940Z-p40532`; generation drift, generated policy, JSON shape, and OpenAPI compatibility `.cartulary/test-results/20260903T212010Z-p43934`, `...p43985`, `...p44033`, and `...p44122`; toolchain drift `.cartulary/test-results/20260903T211918Z-p34880`; format `.cartulary/test-results/20260903T211931Z-p36410`; agent-finalize `.cartulary/test-results/20260903T212010Z-p44020`; and owner-only-umask Fallow `.cartulary/test-results/20260903T212124Z-p6774`. Direct final Fallow inspection reports zero scoped unused files, exports, types, class members, unresolved imports, duplicate exports, or test-only dependencies; zero scoped production high/critical findings; and zero blocking private-package findings. The first post-update preflights at `.cartulary/test-results/20260903T211444Z-p51375`, `...p52013`, `...p51976`, and `...p52010` correctly rejected Go's unowned `1.26.0` normalization against the prior `1.26` pin; the first real scan/build at `.cartulary/test-results/20260903T211638Z-p34297` and `...p34374` then correctly required a tidy-consistent module directive. Both led to the exact language-version/parser synchronization above. Concurrent fast/frontend runs `.cartulary/test-results/20260903T212010Z-p44554` and `.cartulary/test-results/20260903T212124Z-p6668` each hit unrelated lazy debug-harness timeouts under duplicate-suite CPU pressure; the immediate isolated reruns passed completely, and the subsequent release run passed the same rows. The final vulnerability report retains only non-blocking module-level GO-2026-5932 for the unmaintained `openpgp` package, with no package or symbol reachability. Compatibility impact remains the intended startup HTTP/private-package hard cut plus the security-only dependency update; no data or rollout migration exists. Rollback is workstream-granular, with the dependency closure consisting of `go.mod`, tool-managed `go.sum`, the equivalent language-version pin/parser update, generated topology index, and this terminal checkpoint. No successor work remains. |
+
+| `2026-09-03T18:38:56-04:00` | Post-closure Go 1.27.1 maintenance complete; LR-01 through LR-09 and LR-C01 through LR-C09 remain `DONE` | Verified the current stable release against the official Go release history, raised the module language floor from `go 1.26.0` to `go 1.27.0`, and raised every current execution pin from `go1.26.6` to exact `go1.27.1` in `go.mod`, `Makefile`, and `tools/toolchain_pins.json`. Updated the active repository README, Testing Harness owner row, bootstrap/cache-recovery guide, and readiness fixtures while preserving all prior checkpoint tool versions as immutable execution evidence. Go 1.27.1 `go mod tidy` made no checksum or dependency-graph change. Regeneration changed only the expected `tzdb-2026c` embedded ZIP bytes under the generated Network Flow timezone owner; its ruleset identity is unchanged. The first full release exposed that Staticcheck `v0.7.0` cannot decode Go 1.27 export data, so raised the analyzer pin, bootstrap filename, runtime default, README mirror, and repository procedure to the smallest published Go-1.27-capable release, `v0.8.0-rc.1`; no lint rule or suppression changed. No persistence, migration, immutable OpenAPI release, pnpm lock, visual golden, or product contract changed. | PASS: exact readiness selected `go1.27.1`; toolchain drift 2/2 `.cartulary/test-results/20260903T222338Z-p7517`; focused readiness fixture and machine-state checks passed directly; final generation `.cartulary/test-results/20260903T222400Z-p16165`; generation drift 4/4 `.cartulary/test-results/20260903T222413Z-p19512`; generated policy 3/3 `.cartulary/test-results/20260903T222421Z-p22570`; JSON shape 3/3 `.cartulary/test-results/20260903T222422Z-p22974`; isolated fast tests 484/484 `.cartulary/test-results/20260903T220407Z-p7038`; vulnerability scan 4/4 `.cartulary/test-results/20260903T220714Z-p80084`, recording `go1.27.1`, zero blocking/package/symbol findings, and only the existing non-blocking module-level GO-2026-5932 advisory; build 7/7 `.cartulary/test-results/20260903T220723Z-p81827`; final release 880/880 `.cartulary/test-results/20260903T222430Z-p23525`. Expected repair evidence: generation `.cartulary/test-results/20260903T215913Z-p80913` requested the required Go-1.27 tidy; toolchain drift `.cartulary/test-results/20260903T220014Z-p89109` rejected the redundant toolchain directive removed by tidy, leading to the canonical `go 1.27.0` plus `toolchain go1.27.1` split; release `.cartulary/test-results/20260903T220808Z-p25804` passed 879/880 and failed only the incompatible Staticcheck binary before the analyzer pin update. The extended smoke batch `.cartulary/test-results/20260903T220103Z-p90587` stopped before the readiness row on an unrelated pre-existing `release-inventory-artifacts` backing-script declaration mismatch; the changed readiness fixture was therefore run directly and passed, while the authoritative release gate is fully green. Compatibility impact is toolchain-only: developers and CI now require or automatically select Go 1.27.1, and bootstrap installs the Go-1.27-compatible Staticcheck release candidate. Rollback is the exact active pin/mirror/fixture/generated-timezone/checkpoint unit. |
+
+Do not alter this planning row when LR implementation begins. Append the fresh
+pre-LR-01 checkpoint below it and continue the LR log append-only.
+
+### 35.1 LR-01 classified closure ledger
+
+This ledger is human execution evidence only. Runtime, tests, generation, and
+release evidence MUST NOT consume it. A refreshed static finding that is not
+listed below remains out of scope unless it lies in the section 27 dependency
+cone; a scoped discovery MUST be appended here before its closing workstream
+can complete.
+
+| Candidate or closed group | Classification | Authority and reachability evidence | Rationale and closing workstream |
+| --- | --- | --- | --- |
+| Workbook-startup request `view_schema_id`, the mixed-form parser branch, `ambiguous_explicit_sheet_ref`, the authored OpenAPI parameter, generated request typing, repository clients, fixtures, and interceptors | `replace structurally` | Core 01 REQ-01-151.1 currently admits both forms; Core 03 owns one stable `sheet_ref` startup identity; the backend parser and frontend startup adapter both forward the legacy form. Browser `view_schema_id` remains a valid surface URL and domain identifier. | Replace only the HTTP startup request form with the canonical three-variant selector, amend the owner first, and migrate all repository callers atomically in LR-02. |
+| `focusReadyGridScalarInput` and its obsolete direct evidence | `delete` | Repository search finds only its declaration in Timeline test support; no production or retained test caller exists. | It is dead test support rather than a product seam; delete in LR-03. |
+| `TimelineWorkbookStyles.inlineButtonRowStyle` | `delete` | Fallow reports the export unused; the live Timeline panels each own a local style and no consumer imports this declaration. | Remove the unused declaration in LR-03 rather than create a style compatibility barrel. |
+| `committedTimelineProjection`, `timelineLoadIdentitiesEqual`, and `WorkbookInspectorSubjectIdentity` exports | `de-export` | Each symbol is used only inside its cohesive production model; no external production consumer requires the name. | Preserve the logic/type privately and remove the accidental export in LR-03. |
+| `TimelineCommittedRowAcceptance` export | `de-export` | Fresh LR-03 Fallow evidence reports this result type after the committed-version ledger became a closure-backed factory; it is consumed only by the factory's inferred public return and has no direct importer. | Keep the type private and close the newly exposed same-file-only symbol in LR-03. |
+| `TimelineCommittedVersionLedger.acceptVersion` and `.latest` | `replace structurally` | Both are called by `useTimelineCommittedRows`; Fallow's class-member result is not dead-code proof. | Preserve behavior through an exact closure-backed ledger capability so static reachability is explicit; close in LR-03. |
+| `statusStripQueueCountTestId` definition, entrypoint export, and self-test | `delete` | Only the UI Contracts owning-package self-test imports the selector; no application, E2E, or external package consumer exists. | Delete the speculative selector surface in LR-04. |
+| Grid Adapter manual exports `GridBlockSizing`, `GridCellCopyIntent`, `GridCellRenderContext`, `GridCellStateContext`, `GridChrome`, `GridDraftCellRenderContext`, `GridEditCommitIntent`, `GridEditorActivation`, `GridEditorRenderContext`, `GridExpandedCellRange`, `GridGroupingScalar`, `GridMutationIdentity`, `GridPasteRowTarget`, `GridRowIdentity`, `GridSemanticStateInput`, `GridSortDirection`, `GridStateValidation`, `GridViewportProps`, and `SemanticDataGridProps` | `de-export` | Cross-workspace scan finds no application or package import. Definitions remain used privately where applicable; generated contracts are not involved. | Remove only their manual entrypoint exposure in LR-04. |
+| UI Contracts manual exports `CartularyAc043Predicate`, `CartularyDefaultThemeId`, `CartularyDesignTokenReference`, `CartularyErrorFamily`, `WorkbookGridDensityMetrics`, and `WorkbookLayoutMetrics` | `de-export` | Cross-workspace scan finds no consumer outside UI Contracts; generated design values remain owner-controlled and externally consumed values remain exported. | Remove only the unused manual type re-exports in LR-04. |
+| Grid Adapter and UI Contracts entrypoints and every remaining manual export | `retain as current owner requirement` | The entrypoints are workspace package boundaries. Each retained value/type has an application, E2E, test-support, or other workspace-package consumer. | Retain only consumed surface and add a derived blocking cross-package reachability gate in LR-04. |
+| `WorkbookConflictStore.setRefresh`/`.size`, `WorkbookManagedPatchDriver.drain`/`.kind`, `WorkbookMutationDriverRegistry.envelope`, and the reported `WorkbookPendingQueueModel` transition members | `replace structurally` | Production runtime calls each member directly; Fallow's class-member report does not establish deadness. Core 03 requires the mutation, conflict, replay, and lifecycle behavior. | Preserve exact behavior through smaller typed object capabilities while decomposing operation and mutation ownership in LR-05; no compatibility class remains. |
+| `operationFailureWithoutPresentation`, `buildGenericCreatePayload`, and `createWorkbookMutationCommandPorts.attach` high/critical paths | `replace structurally` | These are live production paths backed by Core 01/Core 03 mutation, public-error, Generic create, and Evidence contracts. | Split exact decoding/presentation and owner-local request construction in LR-05. |
+| `createWorkbookSavedViewAdapter.listPage`, `useWorkbookStartupAdmission.loadStartup`, and `useEntitySurfaceQuery.applyRecordChanged` high/critical paths | `replace structurally` | Live Workbook startup, saved-view, and Entity query consumers require them; Core 01/Core 03 own the behaviors. | Replace callback branching with separate pure lifecycle/patch plans in LR-06. |
+| `WorkbookCollaborationCoordinator.getSnapshot`, `.subscribe`, `.retain`, `.setActiveSheet`, `.registerClientTxnResolver`, `.handleEvent`, `.recoverAuthorization`, and `IncidentCollaborationSession.handleMessage` findings | `replace structurally` | The first five are live shell/coordinator capabilities despite class-member reporting; Core 03 owns presence, reset, invalidation, and recovery while the session is the sole WebSocket transport owner. | Convert interpretation and recovery to pure plans behind one exact coordinator effect shell in LR-07. |
+| `useTimelineCreateRelatedWorkflow.submitWorkflow`, Timeline Evidence attachment `attach`, Mention adapter `resolve`, and bulk-tag `assignTag` high/critical paths | `replace structurally` | All are live Core-owned Timeline/Evidence/Entity workflows; their current closures combine admission, transport, response correlation, and UI settlement. | Introduce separate subject-keyed workflows and owner-specific validation/transport ports in LR-08. |
+| Workbook-cone test callback high/critical findings, moderate production findings not named above, Import Assistant, Network Flow, account/auth/admin, unrelated package/harness findings, and repository-wide Fallow issues outside the dependency cone | `out of scope` | Section 27 expressly excludes these areas; test callback complexity is not a production finding. | Preserve as residual advisory evidence. Do not suppress, refactor, or silently add them to LR scope. |
+| Scoped unused files, scoped unresolved imports, and scoped duplicate exports | `retain as current owner requirement` | The refreshed retained Fallow artifact contains no item in these categories inside the named production cone. Dynamic entrypoints are covered by authored task-surface and Fallow reachability ownership. | Recheck in every workstream and require zero at LR-09; no deletion is currently indicated. |

@@ -18,10 +18,6 @@ import {
 
 export type GenericCollectionMode = "add" | "remove";
 type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
-export type GenericCreatePayload = Record<string, unknown> & {
-  readonly client_txn_id: string;
-};
-
 const invalidGenericPayloadValue = Symbol("invalid generic payload value");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,62 +60,6 @@ export function normalizeGenericTextValue(value: string): string {
 
 function normalizeValue(value: string): string {
   return normalizeGenericTextValue(value);
-}
-
-export function buildGenericCreatePayload(
-  contract: ViewContract,
-  draft: Record<string, string>,
-  clientTxnId: string,
-): GenericCreatePayload | null {
-  if (
-    !workbookCreationAvailable(contract) ||
-    !workbookCreateMinimumSatisfied(contract, draft)
-  ) {
-    return null;
-  }
-  const payload: GenericCreatePayload = { client_txn_id: clientTxnId };
-  const fields = contract.fields.filter((field) => field.createWritable);
-  for (const field of fields) {
-    const value = normalizeValue(draft[field.fieldKey] ?? "");
-    if (field.writeKind === "action_payload") {
-      if (value === "") {
-        continue;
-      }
-      const actionPayload = buildGenericCollectionActions(
-        contract.viewSchemaId,
-        field,
-        value,
-        "add",
-      );
-      if (actionPayload !== null) {
-        payload[field.fieldKey] = actionPayload;
-      }
-      continue;
-    }
-
-    if (value === "") {
-      if (field.clearable) {
-        payload[field.fieldKey] = null;
-      }
-      continue;
-    }
-    const payloadValue = genericDirectPayloadValue(field, value);
-    if (payloadValue === invalidGenericPayloadValue) {
-      return null;
-    }
-    payload[field.fieldKey] = payloadValue;
-  }
-  for (const input of contract.createInputs) {
-    const value = normalizeValue(draft[input.inputKey] ?? "");
-    if (value === "") {
-      if (input.required) return null;
-      continue;
-    }
-    payload[input.inputKey] = value;
-  }
-  return Object.keys(payload).length > 1 || contract.permitsZeroFieldCreate
-    ? payload
-    : null;
 }
 
 export function buildGenericPatchChange(

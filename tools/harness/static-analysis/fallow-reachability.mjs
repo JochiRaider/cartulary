@@ -228,6 +228,30 @@ function validateExecutableToolingDependencies(root, executableToolingDependenci
   }
 }
 
+function validateBlockingPackageSurfaces(root, policy) {
+  const packageNames = new Set();
+  const entrypoints = new Set();
+  for (const packageSurface of policy.packages) {
+    assertExistingFile(
+      root,
+      packageSurface.entrypoint,
+      "blocking_package_surfaces.packages.entrypoint",
+    );
+    if (packageNames.has(packageSurface.package_name)) {
+      throw new Error(
+        `blocking_package_surfaces contains duplicate package ${packageSurface.package_name}`,
+      );
+    }
+    if (entrypoints.has(packageSurface.entrypoint)) {
+      throw new Error(
+        `blocking_package_surfaces contains duplicate entrypoint ${packageSurface.entrypoint}`,
+      );
+    }
+    packageNames.add(packageSurface.package_name);
+    entrypoints.add(packageSurface.entrypoint);
+  }
+}
+
 export function loadFallowReachabilityOwner({
   root = defaultRepoRoot,
   ownerPath = defaultFallowReachabilityOwnerPath,
@@ -240,7 +264,30 @@ export function loadFallowReachabilityOwner({
   collectHarnessDynamicExports(root, owner);
   validateVitePublicAssets(root, owner.vite_public_assets);
   validateExecutableToolingDependencies(root, owner.executable_tooling_dependencies);
+  validateBlockingPackageSurfaces(root, owner.blocking_package_surfaces);
   return owner;
+}
+
+export function buildBlockingPackageSurfaceConfig({ config, owner }) {
+  const policy = owner.blocking_package_surfaces;
+  const entrypoints = new Set(policy.packages.map((entry) => entry.entrypoint));
+  const packageNames = new Set(
+    policy.packages.map((entry) => entry.package_name),
+  );
+  return {
+    ...config,
+    entry: (config.entry ?? []).filter((entry) => !entrypoints.has(entry)),
+    ignorePatterns: uniqueSorted([
+      ...(config.ignorePatterns ?? []),
+      ...policy.packages.flatMap((entry) => entry.own_test_globs),
+    ]),
+    ignoreExports: (config.ignoreExports ?? []).filter(
+      (entry) => !entrypoints.has(entry.file),
+    ),
+    publicPackages: (config.publicPackages ?? []).filter(
+      (packageName) => !packageNames.has(packageName),
+    ),
+  };
 }
 
 export function buildResolvedFallowConfig({

@@ -193,7 +193,6 @@ describe("Workbook startup adapter", () => {
           extensionProfileId: "network_flow_activity",
           sheetRefId: "network_analysis",
           sheetRefKind: "extension_workspace",
-          viewSchemaId: hostsViewSchemaId,
         },
         signal: new AbortController().signal,
       }),
@@ -214,7 +213,7 @@ describe("Workbook startup adapter", () => {
       },
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      `/base/api/v1/incidents/${incidentId}/workbook-startup?extension_profile_id=network_flow_activity&sheet_ref_id=network_analysis&sheet_ref_kind=extension_workspace&view_schema_id=${encodeURIComponent(hostsViewSchemaId)}`,
+      `/base/api/v1/incidents/${incidentId}/workbook-startup?extension_profile_id=network_flow_activity&sheet_ref_id=network_analysis&sheet_ref_kind=extension_workspace`,
       expect.objectContaining({ method: "GET" }),
     );
   });

@@ -90,7 +90,7 @@ run_readiness() {
   local fake_go="$2"
   local cache_root="$3"
   GO="$fake_go" \
-  GO_TOOLCHAIN=go1.26.5 \
+  GO_TOOLCHAIN=go1.27.1 \
   GOTOOLCHAIN=go1.99.9 \
   GO_CACHE_DIR="$cache_root/build" \
   GO_MOD_CACHE_DIR="$cache_root/mod" \
@@ -99,13 +99,13 @@ run_readiness() {
 }
 
 exact_dir="$scratch/exact"
-make_fake_go "$exact_dir/bin" go1.26.5 go1.26.5 0
+make_fake_go "$exact_dir/bin" go1.27.1 go1.27.1 0
 exact_output="$(run_readiness diagnose "$exact_dir/bin/go" "$exact_dir/cache")"
-assert_contains "$exact_output" "effective=go1.26.5 source=local" "exact local toolchain"
+assert_contains "$exact_output" "effective=go1.27.1 source=local" "exact local toolchain"
 [[ ! -e "$exact_dir/cache" ]] || fail "diagnose created cache state for exact local toolchain"
 
 missing_dir="$scratch/missing"
-make_fake_go "$missing_dir/bin" go1.26.4 go1.26.5 0
+make_fake_go "$missing_dir/bin" go1.27.0 go1.27.1 0
 set +e
 missing_output="$(run_readiness diagnose "$missing_dir/bin/go" "$missing_dir/cache" 2>&1)"
 missing_status=$?
@@ -117,7 +117,7 @@ assert_contains "$missing_output" "run make bootstrap" "missing cached toolchain
 set +e
 doctor_output="$({
   GO="$missing_dir/bin/go" \
-  GO_TOOLCHAIN=go1.26.5 \
+  GO_TOOLCHAIN=go1.27.1 \
   GO_CACHE_DIR="$missing_dir/cache/build" \
   GO_MOD_CACHE_DIR="$missing_dir/cache/mod" \
   GO_TMP_DIR="$missing_dir/cache/tmp" \
@@ -129,26 +129,26 @@ doctor_output="$({
 doctor_status=$?
 set -e
 assert_equals "$doctor_status" "2" "doctor aggregate failure status"
-assert_contains "$doctor_output" "pinned effective toolchain go1.26.5 is not installed" "doctor Go diagnostic"
+assert_contains "$doctor_output" "pinned effective toolchain go1.27.1 is not installed" "doctor Go diagnostic"
 assert_contains "$doctor_output" "missing node" "doctor continues after Go diagnostic"
 [[ ! -e "$missing_dir/cache" ]] || fail "doctor created cache state"
 [[ ! -f "$missing_dir/bin/selected.log" ]] || fail "doctor invoked Go toolchain selection"
 
 cached_dir="$scratch/cached"
-make_fake_go "$cached_dir/bin" go1.26.4 go1.26.5 0
-module_version="v0.0.1-go1.26.5.linux-amd64"
+make_fake_go "$cached_dir/bin" go1.27.0 go1.27.1 0
+module_version="v0.0.1-go1.27.1.linux-amd64"
 toolchain_dir="$cached_dir/cache/mod/golang.org/toolchain@$module_version"
 ziphash_file="$cached_dir/cache/mod/cache/download/golang.org/toolchain/@v/$module_version.ziphash"
 mkdir -p "$toolchain_dir/src" "$toolchain_dir/bin" "$(dirname "$ziphash_file")"
 printf 'module std\n' >"$toolchain_dir/src/_go.mod"
 cp "$toolchain_dir/src/_go.mod" "$toolchain_dir/src/go.mod"
-make_fake_go "$toolchain_dir/bin" go1.26.5 go1.26.5 0
+make_fake_go "$toolchain_dir/bin" go1.27.1 go1.27.1 0
 printf 'h1:fixture\n' >"$ziphash_file"
 cached_output="$(run_readiness diagnose "$cached_dir/bin/go" "$cached_dir/cache")"
 assert_contains "$cached_output" "source=automatic-cache" "valid cached toolchain"
 
 corrupt_dir="$scratch/corrupt"
-make_fake_go "$corrupt_dir/bin" go1.26.4 go1.26.5 0
+make_fake_go "$corrupt_dir/bin" go1.27.0 go1.27.1 0
 corrupt_toolchain="$corrupt_dir/cache/mod/golang.org/toolchain@$module_version"
 corrupt_ziphash="$corrupt_dir/cache/mod/cache/download/golang.org/toolchain/@v/$module_version.ziphash"
 mkdir -p "$corrupt_toolchain/src" "$(dirname "$corrupt_ziphash")"
@@ -167,17 +167,17 @@ assert_equals "$after_tree" "$before_tree" "corrupt cache remains unchanged"
 [[ ! -f "$corrupt_dir/bin/selected.log" ]] || fail "corrupt cache invoked Go selection before failing"
 
 ensure_dir="$scratch/ensure"
-make_fake_go "$ensure_dir/bin" go1.26.4 go1.26.5 0
+make_fake_go "$ensure_dir/bin" go1.27.0 go1.27.1 0
 ensure_output="$(run_readiness ensure "$ensure_dir/bin/go" "$ensure_dir/cache")"
-assert_contains "$ensure_output" "effective=go1.26.5 source=selected" "ensure selects exact toolchain"
-assert_file_contents "$ensure_dir/bin/selected.log" "selected:go1.26.5" "ensure GOTOOLCHAIN pin"
+assert_contains "$ensure_output" "effective=go1.27.1 source=selected" "ensure selects exact toolchain"
+assert_file_contents "$ensure_dir/bin/selected.log" "selected:go1.27.1" "ensure GOTOOLCHAIN pin"
 ensure_machine_state="$(cat "$ensure_dir/bin/machine-state.log")"
 assert_contains "$ensure_machine_state" "GOCACHE=$ensure_dir/cache/build" "ensure GOCACHE"
 assert_contains "$ensure_machine_state" "GOMODCACHE=$ensure_dir/cache/mod" "ensure GOMODCACHE"
 assert_contains "$ensure_machine_state" "GOTMPDIR=$ensure_dir/cache/tmp" "ensure GOTMPDIR"
 
 mismatch_dir="$scratch/mismatch"
-make_fake_go "$mismatch_dir/bin" go1.26.4 go1.26.6 0
+make_fake_go "$mismatch_dir/bin" go1.27.0 go1.27.0 0
 set +e
 mismatch_output="$(run_readiness ensure "$mismatch_dir/bin/go" "$mismatch_dir/cache" 2>&1)"
 mismatch_status=$?
@@ -186,7 +186,7 @@ assert_equals "$mismatch_status" "2" "effective mismatch status"
 assert_contains "$mismatch_output" "effective Go toolchain mismatch" "effective mismatch diagnostic"
 
 download_dir="$scratch/download-failure"
-make_fake_go "$download_dir/bin" go1.26.4 go1.26.5 41
+make_fake_go "$download_dir/bin" go1.27.0 go1.27.1 41
 set +e
 download_output="$(run_readiness ensure "$download_dir/bin/go" "$download_dir/cache" 2>&1)"
 download_status=$?
@@ -195,13 +195,13 @@ assert_equals "$download_status" "2" "download failure status"
 assert_contains "$download_output" "Go toolchain readiness failed" "download failure diagnostic"
 
 bootstrap_readiness_dir="$scratch/bootstrap-readiness-failure"
-make_fake_go "$bootstrap_readiness_dir/bin" go1.26.4 go1.26.5 41
+make_fake_go "$bootstrap_readiness_dir/bin" go1.27.0 go1.27.1 41
 mkdir -p "$bootstrap_readiness_dir/toolbin"
 printf 'old-tool\n' >"$bootstrap_readiness_dir/toolbin/fake-tool-v1"
 set +e
 bootstrap_readiness_output="$({
   GO="$bootstrap_readiness_dir/bin/go" \
-  GO_TOOLCHAIN=go1.26.5 \
+  GO_TOOLCHAIN=go1.27.1 \
   TOOLBIN_DIR="$bootstrap_readiness_dir/toolbin" \
   TOOL_OUTPUT="$bootstrap_readiness_dir/toolbin/fake-tool-v1" \
   TOOL_MODULE=example.invalid/fake-tool@v1 \
@@ -230,13 +230,13 @@ EOF
 chmod +x "$run_step"
 
 bootstrap_failure_dir="$scratch/bootstrap-failure"
-make_fake_go "$bootstrap_failure_dir/bin" go1.26.5 go1.26.5 0 41
+make_fake_go "$bootstrap_failure_dir/bin" go1.27.1 go1.27.1 0 41
 mkdir -p "$bootstrap_failure_dir/toolbin"
 printf 'old-tool\n' >"$bootstrap_failure_dir/toolbin/fake-tool-v1"
 set +e
 bootstrap_failure_output="$({
   GO="$bootstrap_failure_dir/bin/go" \
-  GO_TOOLCHAIN=go1.26.5 \
+  GO_TOOLCHAIN=go1.27.1 \
   TOOLBIN_DIR="$bootstrap_failure_dir/toolbin" \
   TOOL_OUTPUT="$bootstrap_failure_dir/toolbin/fake-tool-v1" \
   TOOL_MODULE=example.invalid/fake-tool@v1 \
@@ -258,11 +258,11 @@ if find "$bootstrap_failure_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '
 fi
 
 bootstrap_success_dir="$scratch/bootstrap-success"
-make_fake_go "$bootstrap_success_dir/bin" go1.26.5 go1.26.5 0
+make_fake_go "$bootstrap_success_dir/bin" go1.27.1 go1.27.1 0
 mkdir -p "$bootstrap_success_dir/toolbin"
 printf 'old-tool\n' >"$bootstrap_success_dir/toolbin/fake-tool-v1"
 GO="$bootstrap_success_dir/bin/go" \
-GO_TOOLCHAIN=go1.26.5 \
+GO_TOOLCHAIN=go1.27.1 \
 TOOLBIN_DIR="$bootstrap_success_dir/toolbin" \
 TOOL_OUTPUT="$bootstrap_success_dir/toolbin/fake-tool-v1" \
 TOOL_MODULE=example.invalid/fake-tool@v1 \
@@ -273,19 +273,19 @@ GO_MOD_CACHE_DIR="$bootstrap_success_dir/cache/mod" \
   GO_TMP_DIR="$bootstrap_success_dir/cache/tmp" \
 RUN_STEP_SCRIPT="$run_step" \
   "$BOOTSTRAP_SCRIPT"
-assert_file_contents "$bootstrap_success_dir/toolbin/fake-tool-v1" "go1.26.5" "successful bootstrap replaces output"
+assert_file_contents "$bootstrap_success_dir/toolbin/fake-tool-v1" "go1.27.1" "successful bootstrap replaces output"
 if find "$bootstrap_success_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-tool.install.*' | grep -q .; then
   fail "successful bootstrap left a staging directory"
 fi
 
 concurrent_dir="$scratch/bootstrap-concurrent"
-make_fake_go "$concurrent_dir/bin" go1.26.5 go1.26.5 0
+make_fake_go "$concurrent_dir/bin" go1.27.1 go1.27.1 0
 mkdir -p "$concurrent_dir/toolbin"
 run_concurrent_bootstrap() {
   local output="$1"
   local content="$2"
   GO="$concurrent_dir/bin/go" \
-  GO_TOOLCHAIN=go1.26.5 \
+  GO_TOOLCHAIN=go1.27.1 \
   TOOLBIN_DIR="$concurrent_dir/toolbin" \
   TOOL_OUTPUT="$output" \
   TOOL_MODULE=example.invalid/fake-tool@v1 \

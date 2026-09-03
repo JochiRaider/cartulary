@@ -1,3 +1,4 @@
+import { normalizeWorkbookSavedViewPage } from "../models/workbookSavedViewPaginationMachine";
 import type { SavedViewResource } from "../models/workbookSavedViews";
 import { normalizeSavedViewResource } from "../models/workbookSavedViews";
 import type {
@@ -119,34 +120,15 @@ export function createWorkbookSavedViewAdapter(options: {
         if (outcome.kind === "rejected") {
           return normalizeWorkbookAdapterFailure(outcome, message);
         }
-        const paging = outcome.value.meta.paging;
-        if (
-          paging === undefined ||
-          paging.limit !== input.limit ||
-          (paging.has_more &&
-            (paging.next_cursor === null ||
-              paging.next_cursor.trim() === "")) ||
-          (!paging.has_more && paging.next_cursor !== null)
-        ) {
-          return invalidWorkbookAdapterResult(message);
-        }
-        const savedViews: SavedViewResource[] = [];
-        for (const value of outcome.value.data.saved_views) {
-          const savedView = correlatedSavedView(value, options.incidentId, {
-            minimumVersion: 1,
-          });
-          if (savedView === null) {
-            return invalidWorkbookAdapterResult(message);
-          }
-          savedViews.push(savedView);
-        }
-        return {
-          kind: "accepted",
-          value: {
-            nextCursor: paging.has_more ? paging.next_cursor : null,
-            savedViews,
-          },
-        };
+        const page = normalizeWorkbookSavedViewPage({
+          incidentId: options.incidentId,
+          limit: input.limit,
+          paging: outcome.value.meta.paging,
+          savedViews: outcome.value.data.saved_views,
+        });
+        return page === null
+          ? invalidWorkbookAdapterResult(message)
+          : { kind: "accepted", value: page };
       } catch (error) {
         return workbookAdapterCaughtResult(error, input.signal, message);
       }

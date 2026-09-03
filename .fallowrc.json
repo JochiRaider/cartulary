@@ -35,10 +35,8 @@
     "tools/task_surface_manifest.json"
   ],
   "ignoreExports": [
-    { "file": "packages/grid-adapter/src/index.tsx", "exports": ["*"] },
     { "file": "packages/grid-adapter/src/test-support.tsx", "exports": ["*"] },
     { "file": "packages/test-utils/src/index.ts", "exports": ["*"] },
-    { "file": "packages/ui-contracts/src/index.ts", "exports": ["*"] },
     { "file": "packages/view-contracts/src/index.ts", "exports": ["*"] }
   ],
   "publicPackages": [

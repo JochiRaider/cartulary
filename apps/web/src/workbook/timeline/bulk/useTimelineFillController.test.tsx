@@ -8,7 +8,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { TimelineBulkMutationPort } from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineFillMutationPort } from "../../mutations/workbookMutationCommandPorts";
 import {
   normalizeTimelineFullRow,
   rowFromApi,
@@ -206,7 +206,7 @@ describe("useTimelineFillController", () => {
     const sequence: string[] = [];
     let queuedWork: (() => Promise<void>) | null = null;
     const fillDown = vi
-      .fn<Pick<TimelineBulkMutationPort, "fillDown">["fillDown"]>()
+      .fn<TimelineFillMutationPort["fillDown"]>()
       .mockImplementationOnce(async (input) => {
         input.onClientTxnId("txn-accepted");
         sequence.push("dispatch-accepted");

@@ -697,14 +697,17 @@ describe("@cartulary/protocol-ts family conformance", () => {
         expect.objectContaining({ code: "unknown_field_key" }),
       ]),
     );
-    expect(
-      requireReasonCodeRegistry("invalid_startup_request").reason_codes,
-    ).toEqual(
+    const startupReasonCodes = requireReasonCodeRegistry(
+      "invalid_startup_request",
+    ).reason_codes;
+    expect(startupReasonCodes).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: "ambiguous_explicit_sheet_ref" }),
         expect.objectContaining({ code: "unsupported_sheet_ref_kind" }),
       ]),
     );
+    expect(
+      startupReasonCodes.map((reason) => String(reason.code)),
+    ).not.toContain("ambiguous_explicit_sheet_ref");
     expect(
       errorRegistry.reason_registries.find(
         (registry) => String(registry.error_code) === "missing_error_code",

@@ -10,23 +10,23 @@ import {
   workbookLayoutStateFromSavedViewLayoutJson,
 } from "../models/workbookQuery";
 import { savedViewQueryStateForRuntime } from "../models/workbookSavedViewRuntime";
-import {
-  normalizeSavedViewResource,
-  type SavedViewResource,
-} from "../models/workbookSavedViews";
+import type { SavedViewResource } from "../models/workbookSavedViews";
 import { workbookStartupQueryFromURLParams } from "../models/workbookStartup";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
-import { knownWorkbookViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
 import type {
   WorkbookStartupAvailability,
   WorkbookStartupPort,
 } from "./WorkbookStartupPort";
-
-export type StartupFallbackReason =
-  | "availability_reservation_unavailable"
-  | "availability_rejected"
-  | "selected_extension_not_renderable";
+import {
+  beginWorkbookStartupAdmission,
+  cancelWorkbookStartupAdmission,
+  initialWorkbookStartupAdmissionMachine,
+  planAcceptedWorkbookStartup,
+  type StartupFallbackReason,
+  type WorkbookStartupCommitPlan,
+  workbookStartupAdmissionIsCurrent,
+} from "./workbookStartupAdmissionMachine";
 
 export interface WorkbookStartupAvailabilityPort {
   reserve(): ExtensionAvailabilityTag | null;
@@ -55,12 +55,38 @@ export interface WorkbookStartupSavedViewStatePort {
   ): void;
 }
 
-type StartupAdmissionGuard = {
-  readonly incidentId: string;
-  readonly requestOrdinal: number;
-  readonly selectionVersionAtDispatch: number;
-  readonly availabilityTag: ExtensionAvailabilityTag;
-};
+function applyWorkbookStartupCommitPlan(input: {
+  readonly onAvailabilityChange: () => void;
+  readonly plan: WorkbookStartupCommitPlan;
+  readonly savedViewStatePort: WorkbookStartupSavedViewStatePort;
+  readonly selectionPort: WorkbookStartupSelectionPort;
+}): void {
+  input.onAvailabilityChange();
+  const plan = input.plan;
+  if (plan.kind === "discard") return;
+  if (plan.kind === "fallback") {
+    input.selectionPort.selectTimeline(plan.reason);
+    return;
+  }
+  if (plan.savedView !== null && plan.identity.viewSchemaId !== null) {
+    const contract = workbookContractForViewSchemaId(
+      plan.identity.viewSchemaId,
+    );
+    input.savedViewStatePort.upsertSavedView(plan.savedView);
+    input.savedViewStatePort.applyQueryStateForSurface(
+      plan.identity.viewSchemaId,
+      savedViewQueryStateForRuntime(contract, plan.savedView),
+    );
+    input.savedViewStatePort.applyLayoutStateForSurface(
+      plan.identity.viewSchemaId,
+      workbookLayoutStateFromSavedViewLayoutJson(
+        contract,
+        plan.savedView.layout_json,
+      ),
+    );
+  }
+  input.selectionPort.applyStartupIdentity(plan.identity);
+}
 
 export function useWorkbookStartupAdmission({
   incidentId,
@@ -81,109 +107,96 @@ export function useWorkbookStartupAdmission({
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly onAvailabilityChange: () => void;
 }): void {
-  const requestOrdinalRef = useRef(0);
+  const admissionMachineRef = useRef(initialWorkbookStartupAdmissionMachine());
 
   useEffect(() => {
     const controller = new AbortController();
     const startupQuery = workbookStartupQueryFromURLParams(urlParams);
-    const selectionVersionAtDispatch = selectionPort.readSelectionVersion();
-
     const loadStartup = async () => {
       const availabilityTag = availabilityPort.reserve();
       if (availabilityTag === null) {
         selectionPort.selectTimeline("availability_reservation_unavailable");
         return;
       }
-      const requestOrdinal = requestOrdinalRef.current + 1;
-      requestOrdinalRef.current = requestOrdinal;
-      const guard: StartupAdmissionGuard = {
-        incidentId,
-        requestOrdinal,
-        selectionVersionAtDispatch,
-        availabilityTag,
-      };
+      const started = beginWorkbookStartupAdmission(
+        admissionMachineRef.current,
+        {
+          availabilityTag,
+          incidentId,
+          query: startupQuery,
+          selectionVersion: selectionPort.readSelectionVersion(),
+        },
+      );
+      admissionMachineRef.current = started.machine;
       const result = await startupPort.load({
         query: startupQuery,
         signal: controller.signal,
       });
+      const isCurrent = () =>
+        workbookStartupAdmissionIsCurrent(
+          admissionMachineRef.current,
+          started.admission,
+          {
+            incidentId,
+            query: startupQuery,
+            selectionVersion: selectionPort.readSelectionVersion(),
+          },
+        );
       if (
         controller.signal.aborted ||
         result.kind === "aborted" ||
-        requestOrdinalRef.current !== guard.requestOrdinal ||
-        guard.incidentId !== incidentId
+        !isCurrent()
       ) {
         return;
       }
       if (result.kind === "rejected") {
+        admissionMachineRef.current = cancelWorkbookStartupAdmission(
+          admissionMachineRef.current,
+          started.admission,
+        );
         if (workbookOperationFailureIsAccessLoss(result.failure)) {
           onIncidentAccessLost?.();
         }
         return;
       }
-      if (
-        !availabilityPort.acceptWorkbookStartup(
-          guard.availabilityTag,
-          result.value.availability,
-        )
-      ) {
-        onAvailabilityChange();
-        selectionPort.selectTimeline("availability_rejected");
-        return;
-      }
-      onAvailabilityChange();
-      const startup = result.value.selection;
-      if (
-        guard.selectionVersionAtDispatch !==
-        selectionPort.readSelectionVersion()
-      ) {
-        return;
-      }
-      if (
-        startup.selectedSheetRef.kind === "extension_workspace" &&
-        !availabilityPort.isRenderable({
-          extensionProfileId: startup.selectedSheetRef.extension_profile_id,
-          workspaceKey: startup.selectedSheetRef.workspace_key,
-        })
-      ) {
-        selectionPort.selectTimeline("selected_extension_not_renderable");
-        return;
-      }
-      const nextSurface =
-        startup.selectedSheetRef.kind === "extension_workspace"
-          ? null
-          : knownWorkbookViewSchemaId(startup.selectedViewSchemaId ?? "");
-      const startupSavedView = normalizeSavedViewResource(
-        startup.selectedSavedView,
+      const availabilityAccepted = availabilityPort.acceptWorkbookStartup(
+        started.admission.availabilityTag,
+        result.value.availability,
       );
-      if (
-        startup.selectedSheetRef.kind === "saved_view" &&
-        startupSavedView !== null &&
-        nextSurface !== null &&
-        startupSavedView.saved_view_id === startup.selectedSheetRef.id
-      ) {
-        const contract = workbookContractForViewSchemaId(nextSurface);
-        savedViewStatePort.upsertSavedView(startupSavedView);
-        savedViewStatePort.applyQueryStateForSurface(
-          nextSurface,
-          savedViewQueryStateForRuntime(contract, startupSavedView),
-        );
-        savedViewStatePort.applyLayoutStateForSurface(
-          nextSurface,
-          workbookLayoutStateFromSavedViewLayoutJson(
-            contract,
-            startupSavedView.layout_json,
-          ),
-        );
-      }
-      selectionPort.applyStartupIdentity({
-        sheetRef: startup.selectedSheetRef,
-        viewSchemaId: nextSurface,
+      if (!isCurrent()) return;
+      const selectedSheetRef = result.value.selection.selectedSheetRef;
+      const plan = planAcceptedWorkbookStartup({
+        availabilityAccepted,
+        extensionRenderable:
+          selectedSheetRef.kind !== "extension_workspace" ||
+          availabilityPort.isRenderable({
+            extensionProfileId: selectedSheetRef.extension_profile_id,
+            workspaceKey: selectedSheetRef.workspace_key,
+          }),
+        startup: result.value,
+      });
+      admissionMachineRef.current = cancelWorkbookStartupAdmission(
+        admissionMachineRef.current,
+        started.admission,
+      );
+      applyWorkbookStartupCommitPlan({
+        onAvailabilityChange,
+        plan,
+        savedViewStatePort,
+        selectionPort,
       });
     };
 
     void loadStartup();
     return () => {
       controller.abort();
+      const active = admissionMachineRef.current.active;
+      if (active !== null) {
+        admissionMachineRef.current = cancelWorkbookStartupAdmission(
+          admissionMachineRef.current,
+          active,
+        );
+      }
     };
   }, [
     availabilityPort,

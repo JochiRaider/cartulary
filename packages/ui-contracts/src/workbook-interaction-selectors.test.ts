@@ -95,7 +95,6 @@ import {
   savedViewUpdateButtonTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
-  statusStripQueueCountTestId,
   timelineCollectionInputTestId,
   timelineDraftEvidenceAttachSectionTestId,
   timelineDraftEvidenceFileInputTestId,
@@ -298,7 +297,6 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     ).toBe("presence-cell-record-1-timeline.activity_synopsis_text");
     expect(saveStateTestId()).toBe("save-state");
     expect(saveStateActionButtonTestId()).toBe("save-state-action");
-    expect(statusStripQueueCountTestId()).toBe("status-strip-queue-count");
     expect(referencePackAdminPanelTestId()).toBe("reference-pack-admin-panel");
     expect(referencePackFileInputTestId()).toBe("reference-pack-file");
     expect(referencePackImportButtonTestId()).toBe("reference-pack-import");

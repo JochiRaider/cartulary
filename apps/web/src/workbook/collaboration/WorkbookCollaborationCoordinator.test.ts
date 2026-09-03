@@ -3,8 +3,48 @@ import type { IncidentCollaborationEvent } from "../../collaboration/IncidentCol
 import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import { WorkbookCollaborationCoordinator } from "./WorkbookCollaborationCoordinator";
+import { createWorkbookCollaborationCoordinator } from "./WorkbookCollaborationCoordinator";
 import type { WorkbookActiveSurfacePort } from "./workbookSurfacePort";
+
+function manualTiming() {
+  let nowMs = 0;
+  let nextId = 0;
+  const tasks = new Map<
+    number,
+    { readonly dueAtMs: number; readonly run: () => void }
+  >();
+  return {
+    clock: { nowMs: () => nowMs },
+    scheduler: {
+      schedule(delayMs: number, run: () => void) {
+        const id = ++nextId;
+        tasks.set(id, { dueAtMs: nowMs + Math.max(0, delayMs), run });
+        return { cancel: () => tasks.delete(id) };
+      },
+    },
+    async advanceBy(durationMs: number) {
+      const targetMs = nowMs + durationMs;
+      while (true) {
+        const next = Array.from(tasks.entries())
+          .filter(([, task]) => task.dueAtMs <= targetMs)
+          .sort(
+            ([leftId, left], [rightId, right]) =>
+              left.dueAtMs - right.dueAtMs || leftId - rightId,
+          )[0];
+        if (next === undefined) break;
+        const [id, task] = next;
+        tasks.delete(id);
+        nowMs = task.dueAtMs;
+        task.run();
+        await Promise.resolve();
+        await Promise.resolve();
+      }
+      nowMs = targetMs;
+      await Promise.resolve();
+    },
+    pendingTaskCount: () => tasks.size,
+  };
+}
 
 const transactionIds = {
   create: (prefix: string) => `${prefix}-txn`,
@@ -27,6 +67,7 @@ function projectionFixture(
     readonly recover?: AuthorizationRecoveryPort["recover"];
   } = {},
 ) {
+  const timing = manualTiming();
   let listener: ((event: IncidentCollaborationEvent) => void) | null = null;
   const cleanupOrder: string[] = [];
   const published: unknown[] = [];
@@ -64,7 +105,7 @@ function projectionFixture(
   const queryInvalidation = vi.fn(() => {
     cleanupOrder.push("query");
   });
-  const projection = new WorkbookCollaborationCoordinator({
+  const projection = createWorkbookCollaborationCoordinator({
     authorizationRecovery: {
       recover:
         options.recover ??
@@ -74,6 +115,7 @@ function projectionFixture(
           userId: "user-1",
         })),
     },
+    clock: timing.clock,
     continuityInvalidation,
     evidenceInvalidation,
     extensionInvalidation,
@@ -84,6 +126,7 @@ function projectionFixture(
     onAuthorizationRecovered,
     onIncidentAccessLost,
     queryInvalidation,
+    scheduler: timing.scheduler,
   });
   const session = {
     completeReset: vi.fn(() => true),
@@ -116,6 +159,7 @@ function projectionFixture(
     published,
     queryInvalidation,
     session,
+    timing,
   };
 }
 
@@ -138,9 +182,7 @@ function presence(
   } as const;
 }
 
-afterEach(() => {
-  vi.useRealTimers();
-});
+afterEach(() => vi.restoreAllMocks());
 
 describe("WorkbookCollaborationCoordinator", () => {
   it("keeps base and saved-view presence exact, keyed, sorted, and self-free", () => {
@@ -283,19 +325,19 @@ describe("WorkbookCollaborationCoordinator", () => {
       generation: 3,
       reason: "sequence_gap",
     });
-    await vi.waitFor(() => {
-      expect(refresh).toHaveBeenCalledTimes(2);
-      expect(fixture.session.completeReset).toHaveBeenCalledWith(3);
-    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(fixture.session.completeReset).toHaveBeenCalledWith(3);
     fixture.projection.dispose();
   });
 
   it("routes typed invalidation and pauses replay on authorization loss and closure", () => {
-    vi.useFakeTimers();
     const fixture = projectionFixture();
     const invalidate = vi.fn(() => {
       fixture.cleanupOrder.push("active-query");
     });
+    const applyRecordChanged = vi.fn(() => ({ kind: "applied" as const }));
     fixture.projection.registerActiveSurface({
       identity: {
         sheetRef: {
@@ -304,7 +346,7 @@ describe("WorkbookCollaborationCoordinator", () => {
         },
         viewSchemaId: "cartulary.view.timeline.v2",
       },
-      applyRecordChanged: () => ({ kind: "applied" }),
+      applyRecordChanged,
       invalidate,
       refresh: vi.fn(async () => undefined),
     });
@@ -323,6 +365,29 @@ describe("WorkbookCollaborationCoordinator", () => {
       "evidence",
     ]);
     expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    fixture.emit({
+      kind: "message",
+      message: {
+        ...serverEnvelope,
+        payload: {
+          actor_user_id: "user-other",
+          affected_views: [
+            {
+              change_kind: "invalidate",
+              view_schema_id: "cartulary.view.timeline.v2",
+            },
+          ],
+          change_set_id: "change-after-loss",
+          changed_field_keys: [],
+          client_txn_id: "remote-after-loss",
+          record_id: "record-1",
+          row_version: 2,
+        },
+        stream_seq: 2,
+        type: "record_changed",
+      },
+    });
+    expect(applyRecordChanged).not.toHaveBeenCalled();
     fixture.cleanupOrder.length = 0;
     fixture.emit({ kind: "incident_closed" });
     expect(invalidate).toHaveBeenNthCalledWith(2, {
@@ -341,7 +406,6 @@ describe("WorkbookCollaborationCoordinator", () => {
   });
 
   it("recovers authorization through the injected port and keeps role downgrades read-only", async () => {
-    vi.useFakeTimers();
     const fixture = projectionFixture(
       { kind: "view_schema", id: "cartulary.view.timeline.v2" },
       {
@@ -367,7 +431,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     });
 
     fixture.emit({ kind: "session_revoked" });
-    await vi.advanceTimersByTimeAsync(1_000);
+    await fixture.timing.advanceBy(1_000);
     await Promise.resolve();
 
     expect(fixture.onAuthorizationRecovered).toHaveBeenCalledWith({
@@ -396,7 +460,6 @@ describe("WorkbookCollaborationCoordinator", () => {
   });
 
   it("confirms access loss without replay and rejects late recovery after disposal", async () => {
-    vi.useFakeTimers();
     let resolveRecovery:
       | ((result: { readonly kind: "access_lost" }) => void)
       | undefined;
@@ -413,7 +476,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     );
 
     fixture.emit({ kind: "authorization_lost" });
-    await vi.advanceTimersByTimeAsync(1_000);
+    await fixture.timing.advanceBy(1_000);
     fixture.projection.dispose();
     fixture.projection.dispose();
     resolveRecovery?.({ kind: "access_lost" });
@@ -426,7 +489,6 @@ describe("WorkbookCollaborationCoordinator", () => {
   });
 
   it("clears protected owners again when recovery confirms incident access loss", async () => {
-    vi.useFakeTimers();
     const fixture = projectionFixture(
       { kind: "view_schema", id: "cartulary.view.timeline.v2" },
       {
@@ -435,7 +497,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     );
 
     fixture.emit({ kind: "authorization_lost" });
-    await vi.advanceTimersByTimeAsync(1_000);
+    await fixture.timing.advanceBy(1_000);
     await Promise.resolve();
 
     expect(fixture.queryInvalidation).toHaveBeenLastCalledWith({
@@ -449,6 +511,129 @@ describe("WorkbookCollaborationCoordinator", () => {
     });
     expect(fixture.onIncidentAccessLost).toHaveBeenCalledOnce();
     expect(fixture.session.reconnect).not.toHaveBeenCalled();
+    fixture.projection.dispose();
+  });
+
+  it("rejects duplicate transactions and reconciles an inactive surface on registration", async () => {
+    const fixture = projectionFixture();
+    const resolved = vi.fn(
+      (clientTxnId: string | null | undefined) =>
+        clientTxnId === "resolved-txn",
+    );
+    fixture.projection.registerClientTxnResolver(resolved);
+    const event: IncidentCollaborationEvent = {
+      kind: "message",
+      message: {
+        ...serverEnvelope,
+        payload: {
+          actor_user_id: "user-other",
+          affected_views: [
+            {
+              change_kind: "invalidate",
+              view_schema_id: "cartulary.view.timeline.v2",
+            },
+          ],
+          change_set_id: "change-1",
+          changed_field_keys: [],
+          client_txn_id: "resolved-txn",
+          record_id: "record-1",
+          row_version: 2,
+        },
+        stream_seq: 1,
+        type: "record_changed",
+      },
+    };
+    fixture.emit(event);
+    expect(resolved).toHaveBeenCalledWith("resolved-txn");
+
+    fixture.projection.registerClientTxnResolver(() => false);
+    if (event.kind !== "message" || event.message.type !== "record_changed") {
+      throw new Error("invalid record-changed fixture");
+    }
+    fixture.emit({
+      ...event,
+      message: {
+        ...event.message,
+        payload: { ...event.message.payload, client_txn_id: "remote-txn" },
+      },
+    });
+    const refresh = vi.fn(async () => undefined);
+    fixture.projection.registerActiveSurface({
+      applyRecordChanged: vi.fn(() => ({ kind: "applied" as const })),
+      identity: {
+        sheetRef: {
+          id: "cartulary.view.timeline.v2",
+          kind: "view_schema",
+        },
+        viewSchemaId: "cartulary.view.timeline.v2",
+      },
+      invalidate: vi.fn(),
+      refresh,
+    });
+    await Promise.resolve();
+    expect(refresh).toHaveBeenCalledWith({
+      reason: "inactive_surface_reconciliation",
+    });
+    fixture.projection.dispose();
+  });
+
+  it("retries reset refresh and settles only after synchronization succeeds", async () => {
+    const fixture = projectionFixture();
+    const refresh = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(undefined);
+    fixture.projection.registerActiveSurface({
+      applyRecordChanged: () => ({ kind: "applied" }),
+      identity: {
+        sheetRef: {
+          id: "cartulary.view.timeline.v2",
+          kind: "view_schema",
+        },
+        viewSchemaId: "cartulary.view.timeline.v2",
+      },
+      invalidate: vi.fn(),
+      refresh,
+    });
+    fixture.emit({
+      generation: 8,
+      kind: "reset_required",
+      reason: "sequence_gap",
+    });
+    await Promise.resolve();
+    expect(fixture.session.completeReset).not.toHaveBeenCalled();
+    expect(fixture.timing.pendingTaskCount()).toBe(1);
+    await fixture.timing.advanceBy(1_000);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(fixture.session.completeReset).toHaveBeenCalledWith(8);
+    fixture.projection.dispose();
+  });
+
+  it("cancels late authorization recovery when the incident closes", async () => {
+    let resolveRecovery:
+      | ((result: {
+          readonly kind: "authorized";
+          readonly role: "admin";
+          readonly userId: string;
+        }) => void)
+      | undefined;
+    const recovery = new Promise<{
+      readonly kind: "authorized";
+      readonly role: "admin";
+      readonly userId: string;
+    }>((resolve) => {
+      resolveRecovery = resolve;
+    });
+    const fixture = projectionFixture(undefined, { recover: () => recovery });
+    fixture.emit({ kind: "authorization_lost" });
+    await fixture.timing.advanceBy(1_000);
+    fixture.emit({ kind: "incident_closed" });
+    resolveRecovery?.({ kind: "authorized", role: "admin", userId: "user-1" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fixture.onAuthorizationRecovered).not.toHaveBeenCalled();
+    expect(fixture.session.reconnect).not.toHaveBeenCalled();
+    expect(fixture.timing.pendingTaskCount()).toBe(0);
     fixture.projection.dispose();
   });
 });

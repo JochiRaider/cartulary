@@ -414,9 +414,13 @@ function goRunnerBuildContext(root) {
   const cacheKey = realpathSync(root);
   if (goBuildContextCache.has(cacheKey)) return goBuildContextCache.get(cacheKey);
   const pins = JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json"), "utf8"));
-  const version = /^(\d+)\.(\d+)$/u.exec(String(pins.go_version ?? ""));
+  const version = /^(\d+)\.(\d+)(?:\.(\d+))?$/u.exec(
+    String(pins.go_version ?? ""),
+  );
   if (!version || version[1] !== "1") {
-    throw new Error("tools/toolchain_pins.json.go_version must be a Go 1.x release");
+    throw new Error(
+      "tools/toolchain_pins.json.go_version must be a Go 1.x or Go 1.x.patch release",
+    );
   }
   const releaseMinor = Number(version[2]);
   const tags = new Set(["amd64", "amd64.v1", "gc", "linux", "unix"]);

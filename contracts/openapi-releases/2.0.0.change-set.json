@@ -1142,6 +1142,12 @@
       "classification": "breaking",
       "owner_id": "module.reportcomposition",
       "rationale": "Replace the complete required Graph v1 reference tuple with the adopted exact immutable v2 tuple."
+    },
+    {
+      "fingerprint": "fbfc1977b515d5fd7f890cd06594a7af6888130f3e4ac5dabe4c226399611a94",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Remove the compatibility-only view_schema_id startup request parameter after the coordinated cutover to the canonical sheet_ref_kind and sheet_ref_id selector."
     }
   ]
 }

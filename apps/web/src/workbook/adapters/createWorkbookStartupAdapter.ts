@@ -31,9 +31,6 @@ export function createWorkbookStartupAdapter(options: {
             ...(input.query.sheetRefKind === undefined
               ? {}
               : { sheet_ref_kind: input.query.sheetRefKind }),
-            ...(input.query.viewSchemaId === undefined
-              ? {}
-              : { view_schema_id: input.query.viewSchemaId }),
           },
           signal: input.signal,
         });

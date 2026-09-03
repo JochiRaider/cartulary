@@ -723,7 +723,8 @@
         "titles": [
           "derives history routes and rejects target-inconsistent history responses",
           "normalizes Timeline review outcomes and fails closed on supersede replacement drift",
-          "owns entity mention creation and resolution transport behind semantic outcomes"
+          "owns entity mention creation and resolution transport behind semantic outcomes",
+          "owns the exact Timeline bulk-tag transport and validates response rows"
         ]
       },
       "evidence_class": "unit",
@@ -753,6 +754,33 @@
           "useTimelineBulkTagController rejects stale selection and ignores late completion after authorization loss",
           "useTimelineBulkTagController retains recoverable state for rejection and reports only bounded conflict counts",
           "useTimelineBulkTagController submits one versioned command, refreshes, and retains valid selection and draft"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_bulk_tag_plan_a111000001",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineBulkTagPlan.test.ts",
+        "titles": [
+          "Timeline bulk-tag plan builds one ordered versioned command and binds settlement to its subject",
+          "Timeline bulk-tag plan rejects access loss, missing capability, partial selection, and stale targets"
         ]
       },
       "evidence_class": "unit",
@@ -853,6 +881,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.frontend.timeline_evidence_attachment_plan_a111000002",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "module.evidence",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineEvidenceAttachmentPlan.test.ts",
+        "titles": [
+          "Timeline Evidence attachment target plan re-reads the current row version before each dispatch",
+          "Timeline Evidence attachment target plan rejects deleted, replaced, and pending targets",
+          "Timeline Evidence attachment target plan rejects invalid action contexts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.frontend.timeline_load_machine_a109000001",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -873,6 +930,35 @@
           "Timeline load machine publishes initial and refresh starts and commits only the complete active subject",
           "Timeline load machine resets a changed subject and preserves state for an equal subject",
           "Timeline load machine tracks accepted mutations and refuses a pre-mutation success"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_mention_action_plan_a111000003",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineMentionActionPlan.test.ts",
+        "titles": [
+          "Timeline Mention action plan admits entity creation only for a current non-empty mention",
+          "Timeline Mention action plan re-reads the exact mention version and validates an existing target",
+          "Timeline Mention action plan rejects invalid targets, access loss, surface changes, and removed mentions"
         ]
       },
       "evidence_class": "unit",
@@ -930,6 +1016,34 @@
         "titles": [
           "derives and validates Workbook query transport behind the shared semantic port",
           "fails closed on malformed or cross-context query success and contains aborts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_related_record_workflow_a111000004",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "module.evidence",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineRelatedRecordWorkflow.test.ts",
+        "titles": [
+          "Timeline related-record workflow admits only the current subject, surface, capability, and version",
+          "Timeline related-record workflow rejects stale settlement after selection or workflow replacement"
         ]
       },
       "evidence_class": "unit",

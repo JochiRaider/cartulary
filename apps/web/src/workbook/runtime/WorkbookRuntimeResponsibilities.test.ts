@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import { WorkbookClientTransactionLedger } from "./WorkbookClientTransactionLedger";
-import { WorkbookConflictStore } from "./WorkbookConflictStore";
-import { WorkbookMutationDriverRegistry } from "./WorkbookMutationDriverRegistry";
+import { createWorkbookConflictStore } from "./WorkbookConflictStore";
+import { createWorkbookMutationDriverRegistry } from "./WorkbookMutationDriverRegistry";
 import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 import { WorkbookRetryScheduler } from "./WorkbookRetryScheduler";
 import { WorkbookRuntimeLifecycle } from "./WorkbookRuntimeLifecycle";
@@ -140,7 +140,7 @@ describe("Workbook runtime responsibilities", () => {
     expect(admission.accepted).toBe(true);
     if (!admission.accepted) return;
 
-    const drivers = new WorkbookMutationDriverRegistry();
+    const drivers = createWorkbookMutationDriverRegistry();
     drivers.claim(admission.unit.id, {
       kind: "timeline_row",
       viewSchemaId: admission.unit.viewSchemaId,
@@ -192,7 +192,7 @@ describe("Workbook runtime responsibilities", () => {
   });
 
   it("preserves compatible conflict drafts and tracks transaction settlement", () => {
-    const conflicts = new WorkbookConflictStore();
+    const conflicts = createWorkbookConflictStore();
     const registration = {
       conflict: {
         conflict_token: "cft3.active.token",

@@ -182,10 +182,6 @@ export function saveStateActionButtonTestId(): string {
   return "save-state-action";
 }
 
-export function statusStripQueueCountTestId(): string {
-  return "status-strip-queue-count";
-}
-
 export function workbookFocusAnchorTestId(): string {
   return "workbook-focus-anchor";
 }

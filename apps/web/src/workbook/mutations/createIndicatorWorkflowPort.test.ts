@@ -1,6 +1,6 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it, vi } from "vitest";
-import type { WorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import type { WorkbookOperationExecutor } from "../adapters/workbookOperationContract";
 import { resolveIndicatorInspectorHandler } from "../features/indicators/indicatorInspectorHandlers";
 import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
 import type { IndicatorObservation } from "./workbookMutationCommandPorts";

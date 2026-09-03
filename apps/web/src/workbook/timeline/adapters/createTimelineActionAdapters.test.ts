@@ -9,9 +9,11 @@ import {
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
 import { createDraftRowForKey, rowFromApi } from "../models/timelineRowModel";
+import { createTimelineBulkTagCommandAdapter } from "./createTimelineBulkTagCommandAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "./createTimelineEvidenceAttachmentAdapter";
 import { createTimelineHistoryAdapter } from "./createTimelineHistoryAdapter";
-import { createTimelineMentionAdapter } from "./createTimelineMentionAdapter";
+import { createTimelineMentionEntityCreationAdapter } from "./createTimelineMentionEntityCreationAdapter";
+import { createTimelineMentionResolutionAdapter } from "./createTimelineMentionResolutionAdapter";
 import { createTimelineRecordActionAdapter } from "./createTimelineRecordActionAdapter";
 
 const incidentId = "10000000-0000-4000-8000-000000000001";
@@ -241,13 +243,16 @@ it("owns entity mention creation and resolution transport behind semantic outcom
       }),
     );
   vi.stubGlobal("fetch", fetchMock);
-  const mentions = createTimelineMentionAdapter({
+  const mentionEntityCreation = createTimelineMentionEntityCreationAdapter({
     apiBase: "/base",
     incidentId,
   });
+  const mentionResolution = createTimelineMentionResolutionAdapter({
+    apiBase: "/base",
+  });
 
   await expect(
-    mentions.createEntity({
+    mentionEntityCreation.createEntity({
       clientTxnId: "txn-create-host",
       entityType: "host",
       rawText: "server.example",
@@ -257,7 +262,7 @@ it("owns entity mention creation and resolution transport behind semantic outcom
     value: { recordId: replacementRecordId },
   });
   await expect(
-    mentions.resolve({
+    mentionResolution.resolve({
       action: "resolve_item",
       baseMentionRowVersion: 2,
       clientTxnId: "txn-resolve",
@@ -273,7 +278,7 @@ it("owns entity mention creation and resolution transport behind semantic outcom
     },
   });
   await expect(
-    mentions.resolve({
+    mentionResolution.resolve({
       action: "resolve_item",
       baseMentionRowVersion: 3,
       clientTxnId: "txn-resolve-malformed",
@@ -295,6 +300,50 @@ it("owns entity mention creation and resolution transport behind semantic outcom
     base_mention_row_version: 2,
     client_txn_id: "txn-resolve",
     resolved_record_id: replacementRecordId,
+  });
+});
+
+it("owns the exact Timeline bulk-tag transport and validates response rows", async () => {
+  const fetchMock = vi.fn(async () =>
+    successEnvelope({
+      change_set_id: changeSetId,
+      conflicts: [],
+      rows: [
+        timelineRow({
+          captureState: "enriched",
+          recordId,
+          rowVersion: 5,
+        }),
+      ],
+      view_schema_id: timelineViewSchemaId,
+    }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  const port = createTimelineBulkTagCommandAdapter({
+    apiBase: "/base",
+    createClientTxnId: () => "txn-bulk-tag",
+    incidentId,
+  });
+
+  await expect(
+    port.assignTag({
+      tagName: "triaged",
+      targets: [{ baseRowVersion: 4, recordId }],
+    }),
+  ).resolves.toEqual({
+    kind: "accepted",
+    value: {
+      affectedRowCount: 1,
+      changeSetId,
+      conflictCount: 0,
+    },
+  });
+  expect(requestBody(fetchMock, 0)).toEqual({
+    client_txn_id: "txn-bulk-tag",
+    kind: "multi_row_tag_assignment_v1",
+    tag_name: "triaged",
+    targets: [{ base_row_version: 4, record_id: recordId }],
+    view_schema_id: timelineViewSchemaId,
   });
 });
 
@@ -404,12 +453,19 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
     view_schema_id: timelineViewSchemaId,
   });
 
-  const result = await createTimelineEvidenceAttachmentAdapter({
+  const evidenceAttachment = createTimelineEvidenceAttachmentAdapter({
     apiBase: "/base",
     createClientTxnId,
     incidentId,
-  }).attach({
-    file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+  });
+  const file = new File(["abc"], "evidence.txt", { type: "text/plain" });
+  const evidence = await evidenceAttachment.createEvidence({ file });
+  expect(evidence).toEqual({
+    kind: "accepted",
+    value: { evidenceRecordId },
+  });
+  const result = await evidenceAttachment.attachEvidence({
+    evidenceRecordId,
     onTimelineClientTxnId: trackTimelineTxn,
     target,
   });
@@ -439,12 +495,15 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
     "evidence.initial_object_blob_id": objectBlobId,
   });
 
-  const malformedResult = await createTimelineEvidenceAttachmentAdapter({
+  const malformedAttachment = createTimelineEvidenceAttachmentAdapter({
     apiBase: "/base",
     createClientTxnId,
     incidentId,
-  }).attach({
-    file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+  });
+  const malformedEvidence = await malformedAttachment.createEvidence({ file });
+  expect(malformedEvidence.kind).toBe("accepted");
+  const malformedResult = await malformedAttachment.attachEvidence({
+    evidenceRecordId,
     onTimelineClientTxnId: trackTimelineTxn,
     target,
   });
@@ -458,12 +517,15 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
 
   const draftTarget = createDraftRowForKey("draft-evidence");
   if (draftTarget === null) throw new Error("expected draft Timeline target");
-  const createResult = await createTimelineEvidenceAttachmentAdapter({
+  const createAttachment = createTimelineEvidenceAttachmentAdapter({
     apiBase: "/base",
     createClientTxnId,
     incidentId,
-  }).attach({
-    file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+  });
+  const createEvidence = await createAttachment.createEvidence({ file });
+  expect(createEvidence.kind).toBe("accepted");
+  const createResult = await createAttachment.attachEvidence({
+    evidenceRecordId,
     onTimelineClientTxnId: trackTimelineTxn,
     target: draftTarget,
   });
@@ -488,6 +550,31 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
     },
   });
   expect(createClientTxnId).toHaveBeenCalledTimes(9);
+});
+
+it("fails Evidence materialization closed before any Timeline mutation", async () => {
+  vi.spyOn(document, "cookie", "get").mockReturnValue(
+    "cartulary_csrf=evidence-timeline-csrf",
+  );
+  const fetchMock = vi.fn(async () => {
+    throw new TypeError("upload unavailable");
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const port = createTimelineEvidenceAttachmentAdapter({
+    apiBase: "/base",
+    createClientTxnId: () => "txn-file-failure",
+    incidentId,
+  });
+
+  await expect(
+    port.createEvidence({
+      file: new File(["abc"], "failed.txt", { type: "text/plain" }),
+    }),
+  ).resolves.toMatchObject({
+    kind: "rejected",
+    failure: { kind: "terminal" },
+  });
+  expect(fetchMock).toHaveBeenCalledOnce();
 });
 
 function jsonResponse(payload: unknown, status = 200): Response {

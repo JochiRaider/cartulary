@@ -7,9 +7,16 @@ export type TimelineEvidenceAttachmentAccepted = {
   readonly viewSchemaId: string;
 };
 
+export type TimelineEvidenceCreated = {
+  readonly evidenceRecordId: string;
+};
+
 export interface TimelineEvidenceAttachmentPort {
-  attach(input: {
+  createEvidence(input: {
     readonly file: File;
+  }): Promise<WorkbookOperationOutcome<TimelineEvidenceCreated>>;
+  attachEvidence(input: {
+    readonly evidenceRecordId: string;
     readonly onTimelineClientTxnId: (clientTxnId: string) => void;
     readonly target: WorkbookRow;
   }): Promise<{

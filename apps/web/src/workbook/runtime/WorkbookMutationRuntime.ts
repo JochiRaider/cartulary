@@ -10,17 +10,20 @@ import type {
 } from "../utils/workbookPendingQueue";
 import { WorkbookClientTransactionLedger } from "./WorkbookClientTransactionLedger";
 import {
+  createWorkbookConflictStore,
   type WorkbookConflictRegistration,
-  WorkbookConflictStore,
+  type WorkbookConflictStore,
 } from "./WorkbookConflictStore";
 import {
-  WorkbookManagedPatchDriver,
+  createWorkbookManagedPatchDriver,
+  type WorkbookManagedPatchDriver,
   type WorkbookQueuedPatchRequest,
 } from "./WorkbookManagedPatchDriver";
 import {
+  createWorkbookMutationDriverRegistry,
   type WorkbookMutationDriver,
   type WorkbookMutationDriverRegistration,
-  WorkbookMutationDriverRegistry,
+  type WorkbookMutationDriverRegistry,
   type WorkbookMutationOwnerEnvelope,
 } from "./WorkbookMutationDriverRegistry";
 import { WorkbookRetryScheduler } from "./WorkbookRetryScheduler";
@@ -109,13 +112,13 @@ export class WorkbookMutationRuntime {
     this.pendingMutationPort = pendingMutationPort;
     this.pendingRuntime = createWorkbookPendingQueueRuntime(this.scope);
     this.scheduler = dependencies.scheduler;
-    this.conflicts = new WorkbookConflictStore();
-    this.drivers = new WorkbookMutationDriverRegistry();
+    this.conflicts = createWorkbookConflictStore();
+    this.drivers = createWorkbookMutationDriverRegistry();
     this.ledger = new WorkbookClientTransactionLedger();
     this.lifecycle = new WorkbookRuntimeLifecycle(dependencies.scheduler);
     this.retryScheduler = new WorkbookRetryScheduler(dependencies.scheduler);
     this.surfaces = new WorkbookSurfaceRegistry(() => this.emit());
-    this.managedPatches = new WorkbookManagedPatchDriver({
+    this.managedPatches = createWorkbookManagedPatchDriver({
       clock: dependencies.clock,
       conflicts: this.conflicts,
       drivers: this.drivers,
@@ -432,12 +435,12 @@ export class WorkbookMutationRuntime {
     });
   }
 
-  pauseForAuthRecovery(): void {
-    this.pendingRuntime.model.pauseForAuthRecovery();
-    this.emit();
-  }
-
-  resumeAfterAuthRecovery(): void {
+  applyAuthorizationRecoveryState(state: "paused" | "resumed"): void {
+    if (state === "paused") {
+      this.pendingRuntime.model.pauseForAuthRecovery();
+      this.emit();
+      return;
+    }
     this.pendingRuntime.model.resumeAfterAuthRecovery();
     this.emit();
     this.requestDrain();
@@ -463,7 +466,7 @@ export class WorkbookMutationRuntime {
       this.pauseForTerminalLifecycle();
       return;
     }
-    this.pauseForAuthRecovery();
+    this.applyAuthorizationRecoveryState("paused");
   }
 
   resolveSocketClientTxn(clientTxnId: string | null | undefined): boolean {

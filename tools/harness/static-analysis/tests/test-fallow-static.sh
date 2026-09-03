@@ -78,6 +78,38 @@ if (results.filter((result) => result.status === "fail").map((result) => result.
 }
 EOF
 
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const [rootDir] = process.argv.slice(2);
+const { collectBlockingPackageSurfaceFindings } = await import(pathToFileURL(
+  `${rootDir}/tools/harness/static-analysis/fallow-static-cli.mjs`,
+).href);
+const owner = JSON.parse(readFileSync(
+  `${rootDir}/tools/fallow/reachability_owner.json`,
+  "utf8",
+));
+const findings = collectBlockingPackageSurfaceFindings(
+  {
+    unused_types: [
+      {
+        path: "packages/ui-contracts/src/designTokens.ts",
+        export_name: "CartularyDesignTokenVarName",
+      },
+      {
+        path: "packages/ui-contracts/src/designTokens.ts",
+        export_name: "CartularyDefaultThemeId",
+      },
+    ],
+  },
+  owner.blocking_package_surfaces,
+);
+if (findings.length !== 1 || findings[0].symbol !== "CartularyDesignTokenVarName") {
+  throw new Error(`unexpected blocking package-surface findings: ${JSON.stringify(findings)}`);
+}
+EOF
+
 bash "$ROOT_DIR/tools/harness/static-analysis/tests/test-protocol-ts-dead-code-check.sh"
 
 case_root="$(mktemp -d)"

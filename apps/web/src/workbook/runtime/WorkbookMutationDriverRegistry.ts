@@ -50,7 +50,7 @@ export type WorkbookMutationDriverRegistration =
       readonly kind: WorkbookMutationOwnerKind;
     };
 
-export type WorkbookMutationDriverDispatch =
+type WorkbookMutationDriverDispatch =
   | { readonly status: "dispatched" }
   | {
       readonly status: "driver_absent";
@@ -59,7 +59,7 @@ export type WorkbookMutationDriverDispatch =
   | { readonly status: "owner_absent" };
 
 /** Routes the FIFO head to its one exact owner without replacing live drivers. */
-export class WorkbookMutationDriverRegistry {
+class WorkbookMutationDriverRegistryState {
   #managedPatchDriver: WorkbookManagedPatchMutationDriver | null = null;
   #timelineRowDriver: WorkbookTimelineRowMutationDriver | null = null;
   readonly #owners = new Map<string, WorkbookMutationOwnerEnvelope>();
@@ -131,3 +131,19 @@ export class WorkbookMutationDriverRegistry {
     return { status: "dispatched" };
   }
 }
+
+export function createWorkbookMutationDriverRegistry() {
+  const state = new WorkbookMutationDriverRegistryState();
+  return {
+    register: (driver: WorkbookMutationDriver) => state.register(driver),
+    claim: (unitId: string, envelope: WorkbookMutationOwnerEnvelope) =>
+      state.claim(unitId, envelope),
+    release: (unitId: string) => state.release(unitId),
+    envelope: (unitId: string) => state.envelope(unitId),
+    drain: (unit: PendingReplayUnitState) => state.drain(unit),
+  };
+}
+
+export type WorkbookMutationDriverRegistry = ReturnType<
+  typeof createWorkbookMutationDriverRegistry
+>;

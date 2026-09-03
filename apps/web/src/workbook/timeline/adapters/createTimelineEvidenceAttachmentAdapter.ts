@@ -6,6 +6,7 @@ import {
   createUploadedEvidenceObjectBlob,
   evidenceAttachPublicErrorMessage,
 } from "../../../services/workbookEvidence";
+import type { WorkbookOperationExecutor } from "../../adapters/workbookOperationContract";
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import {
   evidenceViewSchemaId,
@@ -16,13 +17,34 @@ import { normalizeTimelineFullRow } from "../models/timelineRowModel";
 import type {
   TimelineEvidenceAttachmentAccepted,
   TimelineEvidenceAttachmentPort,
+  TimelineEvidenceCreated,
 } from "../ports/TimelineEvidenceAttachmentPort";
 import {
   buildAttachedEvidenceCreateRequest,
   buildAttachedEvidencePatchRequest,
 } from "./timelineEvidenceRequestBuilders";
 
-function invalidContract(): WorkbookOperationOutcome<TimelineEvidenceAttachmentAccepted> {
+type TimelineEvidenceAdapterOptions = {
+  readonly apiBase: string | undefined;
+  readonly createClientTxnId: () => string;
+  readonly incidentId: string;
+};
+
+type TimelineEvidenceCommand =
+  | {
+      readonly incidentId: string;
+      readonly kind: "create";
+      readonly request: ReturnType<typeof buildAttachedEvidenceCreateRequest>;
+    }
+  | {
+      readonly kind: "patch";
+      readonly recordId: string;
+      readonly request: NonNullable<
+        ReturnType<typeof buildAttachedEvidencePatchRequest>
+      >;
+    };
+
+function invalidContract<T>(): WorkbookOperationOutcome<T> {
   return {
     kind: "rejected",
     failure: {
@@ -32,9 +54,7 @@ function invalidContract(): WorkbookOperationOutcome<TimelineEvidenceAttachmentA
   };
 }
 
-function rejected(
-  message: string,
-): WorkbookOperationOutcome<TimelineEvidenceAttachmentAccepted> {
+function terminal<T>(message: string): WorkbookOperationOutcome<T> {
   return { kind: "rejected", failure: { kind: "terminal", message } };
 }
 
@@ -42,160 +62,219 @@ function evidenceTitleFromFile(file: File): string {
   return file.name.trim() || "Workbook attachment";
 }
 
-export function createTimelineEvidenceAttachmentAdapter(options: {
-  readonly apiBase: string | undefined;
-  readonly createClientTxnId: () => string;
-  readonly incidentId: string;
-}): TimelineEvidenceAttachmentPort {
+export function createTimelineEvidenceAttachmentAdapter(
+  options: TimelineEvidenceAdapterOptions,
+): TimelineEvidenceAttachmentPort {
   const operations = createWorkbookOperationExecutor({
     apiBase: options.apiBase,
   });
   return {
-    async attach({ file, onTimelineClientTxnId, target }) {
-      let evidenceRecordId: string;
-      try {
-        const objectBlobId = await createUploadedEvidenceObjectBlob({
-          apiBase: options.apiBase,
-          createClientTxnId: options.createClientTxnId,
-          file,
-          incidentId: options.incidentId,
-        });
-        const rowClientTxnId = options.createClientTxnId();
-        const request: EvidenceCreateRequest = {
-          client_txn_id: rowClientTxnId,
-          "evidence.collector_party_text": "Workbook upload",
-          "evidence.initial_object_blob_id": objectBlobId,
-          "evidence.lifecycle_state": "available",
-          "evidence.title": evidenceTitleFromFile(file),
-        };
-        let createOutcome:
-          | WorkbookOperationOutcome<CreateViewRowResponse>
-          | undefined;
-        for (let attempt = 0; attempt < 2; attempt += 1) {
-          try {
-            createOutcome = await operations.execute({
-              operationID: "createViewRow",
-              pathParameters: {
-                incident_id: options.incidentId,
-                view_schema_id: evidenceViewSchemaId,
-              },
-              request,
-            });
-            break;
-          } catch {
-            if (attempt === 1)
-              throw new Error("evidence_row_transport_failure");
-          }
-        }
-        if (createOutcome === undefined || createOutcome.kind === "rejected") {
-          return {
-            clientTxnId: null,
-            outcome: createOutcome ?? rejected("Evidence row creation failed."),
-          };
-        }
-        if (createOutcome.value.data.view_schema_id !== evidenceViewSchemaId) {
-          return { clientTxnId: null, outcome: invalidContract() };
-        }
-        evidenceRecordId = createOutcome.value.data.row.record_id;
-      } catch (error) {
-        return {
-          clientTxnId: null,
-          outcome: rejected(evidenceAttachPublicErrorMessage(error)),
-        };
-      }
-
-      let clientTxnId: string;
-      try {
-        clientTxnId = options.createClientTxnId();
-      } catch {
-        return {
-          clientTxnId: null,
-          outcome: rejected(
-            "A secure request identifier could not be created.",
-          ),
-        };
-      }
-      try {
-        let outcome: WorkbookOperationOutcome<CreateViewRowResponse>;
-        if (target.recordId === null) {
-          const request = buildAttachedEvidenceCreateRequest(
-            evidenceRecordId,
-            clientTxnId,
-          );
-          onTimelineClientTxnId(clientTxnId);
-          outcome = await operations.execute({
-            operationID: "createViewRow",
-            pathParameters: {
-              incident_id: options.incidentId,
-              view_schema_id: timelineViewSchemaId,
-            },
-            request,
-          });
-        } else {
-          const request = buildAttachedEvidencePatchRequest(
-            target,
-            evidenceRecordId,
-            clientTxnId,
-          );
-          if (request === null) {
-            return {
-              clientTxnId,
-              outcome: {
-                kind: "rejected",
-                failure: {
-                  kind: "stale_target",
-                  message: "The selected Timeline row is stale.",
-                },
-              },
-            };
-          }
-          onTimelineClientTxnId(clientTxnId);
-          outcome = await operations.execute({
-            operationID: "patchRecord",
-            pathParameters: { record_id: target.recordId },
-            request,
-          });
-        }
-        if (outcome.kind === "rejected") {
-          return { clientTxnId, outcome };
-        }
-        const data = outcome.value.data;
-        if (
-          data.view_schema_id !== timelineViewSchemaId ||
-          (target.recordId !== null && data.row.record_id !== target.recordId)
-        ) {
-          return { clientTxnId, outcome: invalidContract() };
-        }
-        try {
-          return {
-            clientTxnId,
-            outcome: {
-              kind: "accepted",
-              value: {
-                evidenceRecordId,
-                row: normalizeTimelineFullRow(
-                  data.row,
-                  "evidence attachment response row",
-                ),
-                viewSchemaId: data.view_schema_id,
-              },
-            },
-          };
-        } catch {
-          return { clientTxnId, outcome: invalidContract() };
-        }
-      } catch {
-        return {
-          clientTxnId,
-          outcome: {
-            kind: "rejected",
-            failure: {
-              kind: "retryable",
-              message: "The Timeline evidence link could not be sent.",
-            },
-          },
-        };
-      }
-    },
+    attachEvidence: (input) =>
+      attachEvidenceToTimeline(options, operations, input),
+    createEvidence: ({ file }) =>
+      createEvidenceFromFile(options, operations, file),
   };
+}
+
+async function createEvidenceFromFile(
+  options: TimelineEvidenceAdapterOptions,
+  operations: WorkbookOperationExecutor,
+  file: File,
+): Promise<WorkbookOperationOutcome<TimelineEvidenceCreated>> {
+  try {
+    const objectBlobId = await createUploadedEvidenceObjectBlob({
+      apiBase: options.apiBase,
+      createClientTxnId: options.createClientTxnId,
+      file,
+      incidentId: options.incidentId,
+    });
+    const request: EvidenceCreateRequest = {
+      client_txn_id: options.createClientTxnId(),
+      "evidence.collector_party_text": "Workbook upload",
+      "evidence.initial_object_blob_id": objectBlobId,
+      "evidence.lifecycle_state": "available",
+      "evidence.title": evidenceTitleFromFile(file),
+    };
+    const outcome = await createEvidenceRowWithUncertainResponseRetry(
+      operations,
+      options.incidentId,
+      request,
+    );
+    if (outcome.kind === "rejected") return outcome;
+    const data = outcome.value.data;
+    return data.view_schema_id === evidenceViewSchemaId
+      ? {
+          kind: "accepted",
+          value: { evidenceRecordId: data.row.record_id },
+        }
+      : invalidContract();
+  } catch (error) {
+    return terminal(evidenceAttachPublicErrorMessage(error));
+  }
+}
+
+async function createEvidenceRowWithUncertainResponseRetry(
+  operations: WorkbookOperationExecutor,
+  incidentId: string,
+  request: EvidenceCreateRequest,
+): Promise<WorkbookOperationOutcome<CreateViewRowResponse>> {
+  try {
+    return await operations.execute({
+      operationID: "createViewRow",
+      pathParameters: {
+        incident_id: incidentId,
+        view_schema_id: evidenceViewSchemaId,
+      },
+      request,
+    });
+  } catch {
+    return operations.execute({
+      operationID: "createViewRow",
+      pathParameters: {
+        incident_id: incidentId,
+        view_schema_id: evidenceViewSchemaId,
+      },
+      request,
+    });
+  }
+}
+
+async function attachEvidenceToTimeline(
+  options: TimelineEvidenceAdapterOptions,
+  operations: WorkbookOperationExecutor,
+  input: Parameters<TimelineEvidenceAttachmentPort["attachEvidence"]>[0],
+): ReturnType<TimelineEvidenceAttachmentPort["attachEvidence"]> {
+  let clientTxnId: string;
+  try {
+    clientTxnId = options.createClientTxnId();
+  } catch {
+    return {
+      clientTxnId: null,
+      outcome: terminal("A secure request identifier could not be created."),
+    };
+  }
+  const command = timelineEvidenceCommand(
+    options.incidentId,
+    input.target,
+    input.evidenceRecordId,
+    clientTxnId,
+  );
+  if (command === null) {
+    return {
+      clientTxnId,
+      outcome: {
+        kind: "rejected",
+        failure: {
+          kind: "stale_target",
+          message: "The selected Timeline row is stale.",
+        },
+      },
+    };
+  }
+  input.onTimelineClientTxnId(clientTxnId);
+  try {
+    const outcome = await executeTimelineEvidenceCommand(operations, command);
+    return {
+      clientTxnId,
+      outcome: normalizeTimelineEvidenceOutcome(
+        outcome,
+        input.evidenceRecordId,
+        input.target.recordId,
+      ),
+    };
+  } catch {
+    return {
+      clientTxnId,
+      outcome: {
+        kind: "rejected",
+        failure: {
+          kind: "retryable",
+          message: "The Timeline evidence link could not be sent.",
+        },
+      },
+    };
+  }
+}
+
+function timelineEvidenceCommand(
+  incidentId: string,
+  target: Parameters<
+    TimelineEvidenceAttachmentPort["attachEvidence"]
+  >[0]["target"],
+  evidenceRecordId: string,
+  clientTxnId: string,
+): TimelineEvidenceCommand | null {
+  if (target.recordId === null) {
+    return {
+      incidentId,
+      kind: "create",
+      request: buildAttachedEvidenceCreateRequest(
+        evidenceRecordId,
+        clientTxnId,
+      ),
+    };
+  }
+  const request = buildAttachedEvidencePatchRequest(
+    target,
+    evidenceRecordId,
+    clientTxnId,
+  );
+  return request === null
+    ? null
+    : {
+        kind: "patch",
+        recordId: target.recordId,
+        request,
+      };
+}
+
+function executeTimelineEvidenceCommand(
+  operations: WorkbookOperationExecutor,
+  command: TimelineEvidenceCommand,
+): Promise<WorkbookOperationOutcome<CreateViewRowResponse>> {
+  if (command.kind === "create") {
+    return operations.execute({
+      operationID: "createViewRow",
+      pathParameters: {
+        incident_id: command.incidentId,
+        view_schema_id: timelineViewSchemaId,
+      },
+      request: command.request,
+    });
+  }
+  return operations.execute({
+    operationID: "patchRecord",
+    pathParameters: { record_id: command.recordId },
+    request: command.request,
+  });
+}
+
+function normalizeTimelineEvidenceOutcome(
+  outcome: WorkbookOperationOutcome<CreateViewRowResponse>,
+  evidenceRecordId: string,
+  expectedRecordId: string | null,
+): WorkbookOperationOutcome<TimelineEvidenceAttachmentAccepted> {
+  if (outcome.kind === "rejected") return outcome;
+  const data = outcome.value.data;
+  if (
+    data.view_schema_id !== timelineViewSchemaId ||
+    (expectedRecordId !== null && data.row.record_id !== expectedRecordId)
+  ) {
+    return invalidContract();
+  }
+  try {
+    return {
+      kind: "accepted",
+      value: {
+        evidenceRecordId,
+        row: normalizeTimelineFullRow(
+          data.row,
+          "evidence attachment response row",
+        ),
+        viewSchemaId: data.view_schema_id,
+      },
+    };
+  } catch {
+    return invalidContract();
+  }
 }

@@ -32,6 +32,7 @@ type TimelineInteractionCompositionInput = {
   readonly foundation: {
     readonly activateCollectionInput: (focusKey: string) => void;
     readonly activeCollectionInputKey: string | null;
+    readonly bulkTagPort: BulkInput["port"];
     readonly clipboardPastePort: ClipboardInput["clipboardPaste"];
     readonly deactivateCollectionInput: (focusKey: string) => void;
     readonly pendingSavesRefs: ClipboardInput["pendingSavesRefs"];
@@ -70,6 +71,7 @@ type TimelineInteractionCompositionInput = {
     readonly setOpen: KeyboardInput["setIsInspectorOpen"];
   };
   readonly interactionMode: WorkbookSurfaceLayoutOwner["snapshot"]["interactionMode"];
+  readonly loadAccessLost: boolean;
   readonly mutation: {
     readonly applyClipboardResponseRows: ClipboardInput["applyResponseRows"];
     readonly beginSave: ClipboardInput["beginSave"];
@@ -89,6 +91,7 @@ type TimelineInteractionCompositionInput = {
   };
   readonly queryState: WorkbookQueryState;
   readonly role: TimelineWorkbookSurfaceRuntime["incident"]["currentRole"];
+  readonly surfaceKey: string;
   readonly workflow: {
     readonly handleTimelineGridContextKeyDown: KeyboardInput["handleTimelineGridContextKeyDown"];
     readonly openRowHistory: KeyboardInput["openRowHistory"];
@@ -109,9 +112,11 @@ export function useTimelineInteractionComposition({
   grid,
   inspector,
   interactionMode,
+  loadAccessLost,
   mutation,
   queryState,
   role,
+  surfaceKey,
   workflow,
 }: TimelineInteractionCompositionInput) {
   const canEdit =
@@ -123,8 +128,12 @@ export function useTimelineInteractionComposition({
     [mutation.loadRows],
   );
   const bulk = useTimelineBulkTagController({
-    canAssign: canBulkTag,
-    port: mutation.mutationCommands.bulk,
+    context: {
+      authorized: canBulkTag && !loadAccessLost,
+      capabilityAvailable: timelineBulkTagCapabilityAvailable,
+      surfaceKey,
+    },
+    port: foundation.bulkTagPort,
     refreshRows: refreshRowsForBulkTag,
     rows: foundation.rows,
     rowsRef: foundation.rowsRef,
@@ -233,7 +242,7 @@ export function useTimelineInteractionComposition({
     groupBy: queryState.groupBy,
     interactionMode,
     loadRows: mutation.loadRows,
-    port: mutation.mutationCommands.bulk,
+    port: mutation.mutationCommands.fill,
     resolvePendingSocketTxn: mutation.resolvePendingSocketTxn,
     restoreFocusAnchor: grid.restoreTimelineFocusAnchor,
     rowsRef: foundation.rowsRef,
@@ -296,3 +305,6 @@ export function useTimelineInteractionComposition({
     },
   };
 }
+
+const timelineBulkTagCapabilityAvailable =
+  timelineContract.fieldMap["timeline.tags"]?.writeKind === "action_payload";

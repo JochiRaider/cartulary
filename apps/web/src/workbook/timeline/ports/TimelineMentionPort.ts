@@ -19,12 +19,15 @@ type TimelineMentionActionAccepted = {
   };
 };
 
-export interface TimelineMentionPort {
+export interface TimelineMentionEntityCreationPort {
   createEntity(input: {
     readonly clientTxnId: string;
     readonly entityType: "host" | "identity";
     readonly rawText: string;
   }): Promise<WorkbookOperationOutcome<TimelineMentionEntityCreated>>;
+}
+
+export interface TimelineMentionResolutionPort {
   resolve(input: {
     readonly action: MentionResolutionAction;
     readonly baseMentionRowVersion: number;
@@ -34,3 +37,8 @@ export interface TimelineMentionPort {
     readonly resolvedRecordId?: string | undefined;
   }): Promise<WorkbookOperationOutcome<TimelineMentionActionAccepted>>;
 }
+
+export type TimelineMentionPorts = {
+  readonly entityCreation: TimelineMentionEntityCreationPort;
+  readonly resolution: TimelineMentionResolutionPort;
+};

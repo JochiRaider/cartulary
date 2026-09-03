@@ -62,7 +62,7 @@ type WorkbookManagedPatchDriverOptions = {
 };
 
 /** Owns managed-patch admission, dispatch, settlement, and local projection. */
-export class WorkbookManagedPatchDriver
+class WorkbookManagedPatchDriverState
   implements WorkbookManagedPatchMutationDriver
 {
   readonly kind = "managed_patch";
@@ -392,3 +392,34 @@ export class WorkbookManagedPatchDriver
     }
   }
 }
+
+export function createWorkbookManagedPatchDriver(
+  options: WorkbookManagedPatchDriverOptions,
+) {
+  const state = new WorkbookManagedPatchDriverState(options);
+  return {
+    kind: state.kind,
+    visibleEdit: (viewSchemaId: string, recordId: string, fieldKey: string) =>
+      state.visibleEdit(viewSchemaId, recordId, fieldKey),
+    enqueue: (request: WorkbookQueuedPatchRequest) => state.enqueue(request),
+    discard: (unit: PendingReplayUnitState) => state.discard(unit),
+    clearVisibleConflict: (conflict: WorkbookConflictEntry) =>
+      state.clearVisibleConflict(conflict),
+    drain: (
+      unit: PendingReplayUnitState,
+      envelope: Extract<
+        WorkbookMutationOwnerEnvelope,
+        { readonly kind: "managed_patch" }
+      >,
+    ) => state.drain(unit, envelope),
+  } satisfies WorkbookManagedPatchMutationDriver & {
+    readonly visibleEdit: typeof state.visibleEdit;
+    readonly enqueue: typeof state.enqueue;
+    readonly discard: typeof state.discard;
+    readonly clearVisibleConflict: typeof state.clearVisibleConflict;
+  };
+}
+
+export type WorkbookManagedPatchDriver = ReturnType<
+  typeof createWorkbookManagedPatchDriver
+>;

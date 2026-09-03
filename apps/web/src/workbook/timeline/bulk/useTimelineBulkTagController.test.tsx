@@ -5,16 +5,24 @@ import { describe, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { TimelineBulkMutationPort } from "../../mutations/workbookMutationCommandPorts";
 import {
   createDraftRow,
   normalizeTimelineFullRow,
   rowFromApi,
   type WorkbookRow,
 } from "../models/timelineRowModel";
+import type { TimelineBulkTagCommandPort } from "../ports/TimelineBulkTagCommandPort";
 import { useTimelineBulkTagController } from "./useTimelineBulkTagController";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
+
+function actionContext(authorized: boolean) {
+  return {
+    authorized,
+    capabilityAvailable: true,
+    surfaceKey: "view_schema:cartulary.view.timeline.v2",
+  };
+}
 
 function committedRow(recordId: string, rowVersion: number): WorkbookRow {
   return rowFromApi(
@@ -51,7 +59,7 @@ describe("useTimelineBulkTagController", () => {
     const { result, rerender } = renderHook(
       ({ canAssign, rows }) =>
         useTimelineBulkTagController({
-          canAssign,
+          context: actionContext(canAssign),
           port,
           refreshRows: async () => undefined,
           rows,
@@ -105,11 +113,11 @@ describe("useTimelineBulkTagController", () => {
     const pending = deferred<ReturnType<typeof acceptedBulkResult>>();
     const assignTag = vi.fn(() => pending.promise);
     const refreshRows = vi.fn(async () => undefined);
-    const port: Pick<TimelineBulkMutationPort, "assignTag"> = { assignTag };
+    const port: TimelineBulkTagCommandPort = { assignTag };
     const { result } = renderHook(
       () =>
         useTimelineBulkTagController({
-          canAssign: true,
+          context: actionContext(true),
           port,
           refreshRows,
           rows: rowsRef.current,
@@ -160,7 +168,7 @@ describe("useTimelineBulkTagController", () => {
     const row = committedRow("11111111-1111-4111-8111-111111111111", 3);
     const rowsRef = { current: [row] };
     const assignTag = vi
-      .fn<Pick<TimelineBulkMutationPort, "assignTag">["assignTag"]>()
+      .fn<TimelineBulkTagCommandPort["assignTag"]>()
       .mockResolvedValueOnce({
         kind: "rejected",
         failure: {
@@ -172,7 +180,7 @@ describe("useTimelineBulkTagController", () => {
     const refreshRows = vi.fn(async () => undefined);
     const { result } = renderHook(() =>
       useTimelineBulkTagController({
-        canAssign: true,
+        context: actionContext(true),
         port: { assignTag },
         refreshRows,
         rows: rowsRef.current,
@@ -213,7 +221,7 @@ describe("useTimelineBulkTagController", () => {
     const { result, rerender } = renderHook(
       ({ canAssign, rows }) =>
         useTimelineBulkTagController({
-          canAssign,
+          context: actionContext(canAssign),
           port: { assignTag },
           refreshRows,
           rows,

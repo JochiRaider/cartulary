@@ -48,12 +48,6 @@ export const secondaryActionButtonStyle = {
   background: "var(--ct-colors-surface-3)",
 };
 
-export const inlineButtonRowStyle = {
-  display: "flex",
-  flexWrap: "wrap" as const,
-  gap: "0.5rem",
-};
-
 export const labelStyle = {
   display: "grid",
   gap: "0.4rem",

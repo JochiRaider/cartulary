@@ -1035,15 +1035,16 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
     id: evidenceViewSchemaId,
   });
 
-  const invalidExplicitStartup = await getWorkbookStartup(
-    page,
-    incidentId,
-    "?view_schema_id=cartulary.view.unknown.v1",
+  const legacyStartupResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}/workbook-startup?view_schema_id=cartulary.view.unknown.v1`,
   );
-  expect(invalidExplicitStartup.source).toBe("default");
-  expect(invalidExplicitStartup.selected_view_schema_id).toBe(
-    evidenceViewSchemaId,
-  );
+  expect(legacyStartupResponse.status()).toBe(400);
+  await expect(legacyStartupResponse.json()).resolves.toMatchObject({
+    error: {
+      code: "invalid_startup_request",
+      details: { field: "view_schema_id", reason_code: "unknown_field" },
+    },
+  });
 
   const deletedDefault = await createSavedView(page, incidentId, {
     display_name: "Workbook query deleted default",

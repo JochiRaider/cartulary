@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createWorkbookPendingQueueModel,
   deriveWorkbookSaveState,
   type PendingQueueAdmissionResult,
   type PendingReplayOperationClass,
@@ -11,7 +12,6 @@ import {
   parsePendingReplayPublicError,
   pendingReplayCapacity,
   sameFieldConflictQueueKey,
-  WorkbookPendingQueueModel,
   workbookSaveStateConflictAnchorIdentity,
 } from "./workbookPendingQueue";
 
@@ -20,7 +20,7 @@ const clientInstanceId = "client-instance-mutation-lifecycle";
 const viewSchemaId = "cartulary.view.timeline.v2";
 
 function createQueue() {
-  return new WorkbookPendingQueueModel({ incidentId, clientInstanceId });
+  return createWorkbookPendingQueueModel({ incidentId, clientInstanceId });
 }
 
 function expectAccepted(
@@ -166,7 +166,7 @@ function expectCorePrimaryLabel(label: string) {
 describe("pending queue unit model", () => {
   it("keeps pending queues isolated by incident and client instance scope", () => {
     const queue = createQueue();
-    const otherClientQueue = new WorkbookPendingQueueModel({
+    const otherClientQueue = createWorkbookPendingQueueModel({
       incidentId,
       clientInstanceId: "client-instance-other",
     });

@@ -417,8 +417,7 @@ export const httpOperationBindings = {
     "query_parameters": [
       "extension_profile_id",
       "sheet_ref_id",
-      "sheet_ref_kind",
-      "view_schema_id"
+      "sheet_ref_kind"
     ],
     "success_statuses": [
       200

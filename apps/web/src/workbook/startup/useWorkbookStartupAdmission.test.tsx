@@ -227,7 +227,7 @@ describe("useWorkbookStartupAdmission", () => {
       await pending.promise;
     });
 
-    await waitFor(() => expect(onAvailabilityChange).toHaveBeenCalledOnce());
+    expect(onAvailabilityChange).not.toHaveBeenCalled();
     expect(
       ownedPorts.selectionPort.applyStartupIdentity,
     ).not.toHaveBeenCalled();
@@ -399,7 +399,7 @@ describe("useWorkbookStartupAdmission", () => {
       await pending.promise;
     });
 
-    await waitFor(() => expect(onAvailabilityChange).toHaveBeenCalledOnce());
+    expect(onAvailabilityChange).not.toHaveBeenCalled();
     expect(
       ownedPorts.savedViewStatePort.upsertSavedView,
     ).not.toHaveBeenCalled();

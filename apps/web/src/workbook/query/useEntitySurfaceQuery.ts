@@ -1,7 +1,4 @@
-import {
-  normalizeViewRowPatchV1,
-  requireViewContract,
-} from "@cartulary/view-contracts";
+import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
 import type { WorkbookSurfaceRecordChangeResult } from "../collaboration/workbookSurfacePort";
@@ -19,13 +16,13 @@ import {
 } from "../models/workbookSurfaceRegistry";
 import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
 import { reconcileWorkbookRecordRows } from "../utils/workbookRowReconciliation";
+import { planEntityLiveEventPatch } from "./entityLiveEventPatchPlanner";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 import {
   abortLatestQuery,
   beginLatestQuery,
   type LatestQueryRuntime,
 } from "./workbookLatestRequest";
-import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
@@ -139,55 +136,22 @@ export function useEntitySurfaceQuery({
       payload: RecordChangedPayload,
       viewSchemaId: string,
     ): WorkbookSurfaceRecordChangeResult => {
-      if (
-        viewSchemaId !== hostsViewSchemaId &&
-        viewSchemaId !== identitiesViewSchemaId
-      ) {
-        return { kind: "refresh_required" };
+      const plan = planEntityLiveEventPatch({
+        hostRows: hostRowsRef.current,
+        identityRows: identityRowsRef.current,
+        payload,
+        viewSchemaId,
+      });
+      if (plan.kind === "refresh_required") return plan;
+      if (plan.kind === "stale_noop") return { kind: "stale" };
+      const next = [...plan.rows];
+      if (plan.entityType === "host") {
+        hostRowsRef.current = next;
+        setHostRows(next);
+      } else {
+        identityRowsRef.current = next;
+        setIdentityRows(next);
       }
-      const affected = payload.affected_views.find(
-        (view) => view.view_schema_id === viewSchemaId,
-      );
-      if (
-        affected?.change_kind !== "patch" ||
-        affected.patch_cells === undefined
-      ) {
-        return { kind: "refresh_required" };
-      }
-      const contract =
-        viewSchemaId === hostsViewSchemaId ? hostsContract : identitiesContract;
-      let patch: ReturnType<typeof normalizeViewRowPatchV1>;
-      try {
-        patch = normalizeViewRowPatchV1(
-          contract,
-          affected.patch_cells,
-          "record_changed patch_cells",
-        );
-      } catch {
-        return { kind: "refresh_required" };
-      }
-      if (patch.recordId !== payload.record_id) {
-        return { kind: "refresh_required" };
-      }
-
-      const entityType =
-        viewSchemaId === hostsViewSchemaId ? "host" : "identity";
-      const rowsRef = entityType === "host" ? hostRowsRef : identityRowsRef;
-      const current = rowsRef.current;
-      const existing = current.find((row) => row.recordId === patch.recordId);
-      if (existing === undefined) return { kind: "refresh_required" };
-      if (existing.rowVersion >= patch.rowVersion) return { kind: "stale" };
-      const next = current.map((row) =>
-        row.recordId === patch.recordId
-          ? entityRowFromApi(
-              applyWorkbookQueryRowPatch(row.rawRow, patch),
-              entityType,
-            )
-          : row,
-      );
-      rowsRef.current = next;
-      if (entityType === "host") setHostRows(next);
-      else setIdentityRows(next);
       return { kind: "applied" };
     },
     [],

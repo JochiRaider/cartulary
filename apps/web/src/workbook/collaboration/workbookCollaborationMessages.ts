@@ -74,12 +74,6 @@ export function buildWorkbookPresenceUpdateMessage(
   };
 }
 
-export function isRecordChangedMessage(
-  message: IncidentCollaborationMessage,
-): message is RecordChangedMessage {
-  return message.type === "record_changed";
-}
-
 export function buildMentionActionPayload(
   mention: MentionActionMentionLike,
   action: MentionResolutionAction,

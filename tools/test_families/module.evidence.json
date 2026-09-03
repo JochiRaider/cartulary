@@ -351,7 +351,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/adapters/createTimelineActionAdapters.test.ts",
         "titles": [
-          "creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty"
+          "creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty",
+          "fails Evidence materialization closed before any Timeline mutation"
         ]
       },
       "evidence_class": "unit",

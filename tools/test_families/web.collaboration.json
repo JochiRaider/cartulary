@@ -3,6 +3,33 @@
   "owner_id": "web.collaboration",
   "rows": [
     {
+      "row_id": "web.collaboration.regression.incident_collaboration_session_plan_lr07",
+      "owner_id": "web.collaboration",
+      "family_id": "web.collaboration.regression",
+      "collaborator_ids": [
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/collaboration/incidentCollaborationSessionPlan.test.ts",
+        "titles": [
+          "incident collaboration session plan classifies handshake, heartbeat, and terminal messages exactly",
+          "incident collaboration session plan deduplicates, detects gaps, and suppresses replay while resetting"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72",
       "owner_id": "web.collaboration",
       "family_id": "web.collaboration.regression",
@@ -58,6 +85,37 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.collaboration.regression.workbook_collaboration_transition_models_lr07",
+      "owner_id": "web.collaboration",
+      "family_id": "web.collaboration.regression",
+      "collaborator_ids": [
+        "module.collaboration",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/collaboration/workbookCollaborationTransitionModels.test.ts",
+        "titles": [
+          "Workbook collaboration transition models plans ordered protected-state, reset, role, closure, and disposal invalidation",
+          "Workbook collaboration transition models projects presence as an exact keyed collection and rejects malformed snapshots",
+          "Workbook collaboration transition models rejects stale recovery settlement and caps coalesced presence publication",
+          "Workbook collaboration transition models routes the closed event family without interpreting ignored message owners",
+          "Workbook collaboration transition models settles only the current reset subject"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8",
       "owner_id": "web.collaboration",
       "family_id": "web.collaboration.regression",
@@ -71,12 +129,15 @@
       "selector": {
         "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
         "titles": [
+          "WorkbookCollaborationCoordinator cancels late authorization recovery when the incident closes",
           "WorkbookCollaborationCoordinator clears protected owners again when recovery confirms incident access loss",
           "WorkbookCollaborationCoordinator confirms access loss without replay and rejects late recovery after disposal",
           "WorkbookCollaborationCoordinator disposes shell projections without disposing the borrowed mutation runtime",
           "WorkbookCollaborationCoordinator keeps base and saved-view presence exact, keyed, sorted, and self-free",
           "WorkbookCollaborationCoordinator recovers authorization through the injected port and keeps role downgrades read-only",
           "WorkbookCollaborationCoordinator refreshes invalidations and resets before releasing replay",
+          "WorkbookCollaborationCoordinator rejects duplicate transactions and reconciles an inactive surface on registration",
+          "WorkbookCollaborationCoordinator retries reset refresh and settles only after synchronization succeeds",
           "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.assessments.v1 renderer port",
           "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.hosts.v1 renderer port",
           "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.notes.v1 renderer port",

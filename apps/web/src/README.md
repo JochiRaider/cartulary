@@ -88,6 +88,7 @@ Timeline and extension effects.
 | File | Responsibility |
 | --- | --- |
 | `collaboration/IncidentCollaborationSession.tsx` | Incident-scoped WebSocket provider for hello/resume, private resume state, one sequence high-water mark, reconnect, heartbeat, safe decoding, presence publication, reset, revocation, and closure events. |
+| `collaboration/incidentCollaborationSessionPlan.ts` | Pure decoded-message plan for handshake, heartbeat, replay de-duplication, sequence gaps, reset suppression, and terminal session outcomes. |
 | `collaboration/IncidentCollaborationSession.test.tsx` | Tests for single-socket lifetime, surface presence changes, replay deduplication/gaps, heartbeat, and unknown-message safety. |
 
 ## `extensions/`
@@ -641,10 +642,13 @@ owner-specific semantic outcomes to Timeline controllers.
 | File | Responsibility |
 | --- | --- |
 | `workbook/timeline/adapters/createTimelineActionAdapters.test.ts` | Characterizes history, record action, mention, and Evidence attachment protocol boundaries. |
+| `workbook/timeline/adapters/createTimelineBulkTagCommandAdapter.ts` | Owns the exact Timeline bulk-tag request, transaction identity, and response-row validation boundary. |
 | `workbook/timeline/adapters/createTimelineEvidenceAttachmentAdapter.ts` | Creates an uploaded Evidence object and row, then links it to Timeline with stable transaction identity. |
 | `workbook/timeline/adapters/createTimelineHistoryAdapter.ts` | Loads validated record history and executes delete, restore, and rollback operations. |
-| `workbook/timeline/adapters/createTimelineMentionAdapter.ts` | Creates mention target entities and resolves mention actions through generated operations. |
+| `workbook/timeline/adapters/createTimelineMentionEntityCreationAdapter.ts` | Creates a host or identity from a validated Timeline mention through an exact generated operation. |
+| `workbook/timeline/adapters/createTimelineMentionResolutionAdapter.ts` | Resolves one versioned entity-mention action and validates its exact source and mention response identities. |
 | `workbook/timeline/adapters/createTimelineRecordActionAdapter.ts` | Executes and normalizes Timeline review and supersede actions. |
+| `workbook/timeline/adapters/createTimelineRelatedRecordCommandAdapter.ts` | Creates one inspector-related record and performs the Evidence-only source-row link through exact commands. |
 | `workbook/timeline/adapters/createTimelineRowMutationEditorAdapter.ts` | Translates semantic row-mutation editor commands into grid and continuity operations. |
 | `workbook/timeline/adapters/createTimelineScalarGridCommitAdapter.ts` | Adapts Grid Adapter scalar commits to the Timeline scalar-save command and exact settlement promise. |
 | `workbook/timeline/adapters/createTimelineSocketTransactionAdapter.ts` | Adapts Timeline accepted/action transaction tracking to the shell-lifetime runtime ledger. |
@@ -747,22 +751,30 @@ by visual coordinates.
 | --- | --- |
 | `workbook/timeline/models/timelineAcceptedMutationEffects.ts` | Pure post-acceptance selection, notice, created-row, and continuity effect planning. |
 | `workbook/timeline/models/timelineAcceptedProjection.ts` | Pure accepted-row replacement, insertion, and bottom-draft projection. |
+| `workbook/timeline/models/timelineBulkTagPlan.test.ts` | Covers authorization, capability, stable selection, current versions, partial rejection, and stale settlement. |
+| `workbook/timeline/models/timelineBulkTagPlan.ts` | Pure current-page stable-target validation and subject-keyed bulk-tag settlement policy. |
 | `workbook/timeline/models/timelineClipboardPastePlan.ts` | Pure Timeline paste authority, shape, field, surface, and stable-target admission policy. |
 | `workbook/timeline/models/timelineCollectionPresentation.ts` | Discriminated relationship/tag collection items, overflow identity, and accessible hidden labels. |
 | `workbook/timeline/models/timelineCommittedVersionLedger.ts` | Monotonic committed row/version high-water ledger with reference-preserving acceptance. |
 | `workbook/timeline/models/timelineConflictState.ts` | Timeline-local same-field and grouped-paste conflict state types. |
 | `workbook/timeline/models/timelineControllerPorts.ts` | Neutral capability-port, row-store, committed-record-idle, context-menu-position, and replay contracts shared by isolated Timeline controllers. |
 | `workbook/timeline/models/timelineDiscardedReconciliation.ts` | Pure discarded-unit reconciliation that reapplies later same-row work in FIFO order. |
+| `workbook/timeline/models/timelineEvidenceAttachmentPlan.test.ts` | Covers Evidence action authorization, capability, surface, selection, identity, and dispatchability checks. |
+| `workbook/timeline/models/timelineEvidenceAttachmentPlan.ts` | Pure selected-target revalidation for Evidence materialization and Timeline linking. |
 | `workbook/timeline/models/timelineFieldRegistry.ts` | Exhaustive Timeline scalar, collection, readonly, inspector, and focus binding registry. |
 | `workbook/timeline/models/timelineHistoryModel.ts` | Timeline row-history normalization, pending-action labels, and history operation helpers. |
 | `workbook/timeline/models/timelineLayoutPolicy.ts` | Pure Timeline grouping labels and base/expanded column-width policy. |
 | `workbook/timeline/models/timelineLoadMachine.test.ts` | Exhaustive load-subject, lifecycle, mutation-race, retry-bound, failure, access-loss, and obligation-join transition evidence. |
 | `workbook/timeline/models/timelineLoadMachine.ts` | Pure incident/surface/query/generation/mutation-epoch/source-obligation transitions with explicit load effects. |
+| `workbook/timeline/models/timelineMentionActionPlan.test.ts` | Covers Mention source/version refresh, typed target validation, access loss, surface changes, and entity-create admission. |
+| `workbook/timeline/models/timelineMentionActionPlan.ts` | Pure Mention creation/resolution admission over exact source, item, target type, surface, capability, and authorization state. |
 | `workbook/timeline/models/timelineMutationDriverPlans.ts` | Pure Timeline replay admission, settlement, discard, and accepted-projection decisions. |
 | `workbook/timeline/models/timelineMutationIntents.ts` | Exact scalar, collection-action, and draft-create mutation intent construction. |
 | `workbook/timeline/models/timelineMutationModels.test.ts` | Pure intent, deduplication, acceptance, discard, version-ledger, and discriminated-collection evidence. |
 | `workbook/timeline/models/timelineMutationQueueAdmission.ts` | Pure scalar/collection no-op, conflict, duplicate, and exact queue-admission decisions. |
 | `workbook/timeline/models/timelinePendingSaves.ts` | Timeline-local pending signature, replay-order, and serial-save references. |
+| `workbook/timeline/models/timelineRelatedRecordWorkflow.test.ts` | Covers current subject/surface/capability/version admission and stale workflow settlement. |
+| `workbook/timeline/models/timelineRelatedRecordWorkflow.ts` | Pure subject-keyed Timeline related-record submission and completion admission. |
 | `workbook/timeline/models/timelineRowModel.ts` | Timeline row envelope decoding, normalization, materialization, and sparse-patch application. |
 | `workbook/timeline/models/timelineRowsModel.ts` | Timeline row collection helpers and row-state utilities. |
 | `workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts` | Characterizes canonical related-row/Indicator feature tuples and fail-closed rejection of altered or unsupported tuples. |
@@ -795,9 +807,10 @@ or transport coordinates.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/timeline/ports/TimelineBulkTagCommandPort.ts` | Exact semantic multi-row tag assignment capability. |
 | `workbook/timeline/ports/TimelineEvidenceAttachmentPort.ts` | Semantic file attachment and Timeline row outcomes. |
 | `workbook/timeline/ports/TimelineHistoryPort.ts` | Semantic history query, delete/restore, and rollback capabilities. |
-| `workbook/timeline/ports/TimelineMentionPort.ts` | Semantic mention entity creation and resolution capabilities. |
+| `workbook/timeline/ports/TimelineMentionPort.ts` | Separate semantic mention entity-creation and resolution capabilities. |
 | `workbook/timeline/ports/TimelineRecordActionPort.ts` | Semantic Timeline review and supersede capability. |
 
 ### `workbook/collaboration/`
@@ -808,8 +821,15 @@ composition; these modules do not import authorization transport.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/collaboration/WorkbookCollaborationCoordinator.ts` | Sole shell-lifetime interpreter for incident collaboration events, exact sheet presence, ordered typed cleanup, injected authorization recovery, and active-surface reconciliation. |
-| `workbook/collaboration/workbookCollaborationMessages.ts` | Workbook presence, live-row message, self-origin filtering, and mention-action payload helpers. |
+| `workbook/collaboration/WorkbookCollaborationCoordinator.ts` | Sole shell-lifetime effect coordinator for decoded collaboration plans, injected timing, authorization recovery, reset settlement, and active-surface reconciliation. |
+| `workbook/collaboration/workbookAuthorizationRecoveryMachine.ts` | Pure generation-keyed authorization recovery, retry, role, and stale-settlement transitions. |
+| `workbook/collaboration/workbookCollaborationEventPlan.ts` | Pure closed routing from session events to Workbook-owned effects. |
+| `workbook/collaboration/workbookCollaborationInvalidationPlan.ts` | Pure ordered invalidation plans for reset, authorization, role, closure, and disposal transitions. |
+| `workbook/collaboration/workbookCollaborationResetMachine.ts` | Pure session-and-surface-keyed reset admission model. |
+| `workbook/collaboration/workbookCollaborationTiming.ts` | Clock and cancellable scheduler capabilities used by the coordinator effect shell. |
+| `workbook/collaboration/workbookPresenceProjection.ts` | Pure exact-key presence snapshot/delta projection and active-sheet derivation. |
+| `workbook/collaboration/workbookPresencePublicationMachine.ts` | Pure bounded debounce and stale-callback rejection for outgoing presence. |
+| `workbook/collaboration/workbookCollaborationMessages.ts` | Workbook presence and Mention action payload helpers. |
 | `workbook/collaboration/workbookSurfacePort.ts` | Active-surface identity and live-row reconciliation capabilities. |
 | `workbook/collaboration/useWorkbookCollaborationCoordinator.ts` | React external-store subscription, Strict Mode-safe lifetime lease, and collaboration-session adapter for the coordinator. |
 | `workbook/collaboration/WorkbookCollaborationCoordinator.test.ts` | Tests for presence, reset, cleanup ordering, authorization recovery, role downgrade, access loss, and late-work rejection. |

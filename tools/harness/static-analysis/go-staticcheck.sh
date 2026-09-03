@@ -6,7 +6,7 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
-STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/tmp/toolbin/staticcheck-v0.7.0}"
+STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/tmp/toolbin/staticcheck-v0.8.0-rc.1}"
 STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-}"
 
 # shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh

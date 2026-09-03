@@ -5,9 +5,9 @@ import {
 } from "../../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import {
+  createWorkbookPendingQueueModel,
   type PendingReplayKind,
   type PendingReplayUnitState,
-  WorkbookPendingQueueModel,
 } from "../utils/workbookPendingQueue";
 import { createWorkbookPendingMutationAdapter } from "./createWorkbookPendingMutationAdapter";
 
@@ -21,7 +21,7 @@ function pendingUnit(
 ): PendingReplayUnitState {
   const clientTxnId = `txn-${kind}`;
   const unitIncidentId = overrides.incidentId ?? incidentId;
-  const queue = new WorkbookPendingQueueModel({
+  const queue = createWorkbookPendingQueueModel({
     clientInstanceId: "client-instance",
     incidentId: unitIncidentId,
   });

@@ -1,5 +1,7 @@
 import type {
+  AttachBlobToEvidenceRecordRequest,
   CollectionActionsV1,
+  CreateObjectBlobSlotRequest,
   CreateRecordLinkedNoteRequest,
   CreateViewRowRequest,
   PatchRecordRequest,
@@ -13,6 +15,10 @@ import type {
  * projections and proves unknown values through the request decoders.
  */
 export type WorkbookProtocolCollectionActions = CollectionActionsV1;
+export type WorkbookProtocolAttachBlobRequest =
+  AttachBlobToEvidenceRecordRequest;
+export type WorkbookProtocolCreateObjectBlobSlotRequest =
+  CreateObjectBlobSlotRequest;
 export type WorkbookProtocolCreateLinkedNoteRequest =
   CreateRecordLinkedNoteRequest;
 export type WorkbookProtocolCreateViewRowRequest = CreateViewRowRequest;

@@ -1,8 +1,5 @@
 import type {
   ApplyWorkbookBulkMutationRequest,
-  AttachBlobToEvidenceRecordRequest,
-  CreateObjectBlobSlotRequest,
-  CreateViewRowRequest,
   IssueEvidenceDownloadHandleRequest,
   IssueEvidencePreviewHandleRequest,
   MergeEntityRecordRequest,
@@ -11,33 +8,24 @@ import type {
   SupersedeRecordRequest,
   SupersedeRecordResponse,
 } from "@cartulary/protocol-ts/http";
-import {
-  resolvePublicEvidenceHandleHref,
-  uploadEvidenceObjectBlobTarget,
-} from "../../services/workbookEvidence";
-import {
-  createWorkbookOperationExecutor,
-  type WorkbookOperationExecutor,
-} from "../adapters/workbookOperationExecutor";
+import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence";
+import type { WorkbookOperationExecutor } from "../adapters/workbookOperationContract";
+import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
+import { createGenericMutationCommandPort } from "../features/generic/createGenericMutationCommandPort";
+import { buildGenericCreateRequest } from "../features/generic/genericCreateRequestBuilder";
 import { normalizeRecordHistoryData } from "../inspector/workbookRecordHistoryModel";
 import { buildAssessmentCreatePayload } from "../models/assessmentWorkbookModel";
 import {
-  buildGenericCreatePayload,
-  extractEmailFromPartyText,
-} from "../models/genericWorkbookModel";
-import {
   buildPatchRecordRequest,
-  decodeCreateRecordLinkedNoteRequest,
   decodeCreateViewRowRequest,
 } from "../models/workbookRequestDecoders";
 import {
   assessmentsViewSchemaId,
-  evidenceViewSchemaId,
-  partiesViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import { buildAttachedEvidencePatchRequest } from "../timeline/adapters/timelineEvidenceRequestBuilders";
+import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
 import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
@@ -47,13 +35,10 @@ import type {
   EntityCreateOutcome,
   EntityMergeOutcome,
   EntityPatchOutcome,
-  GenericMutationOutcome,
   GenericViewMutationAccepted,
   RecordLifecycleAccepted,
   TaskLifecycleOutcome,
-  TimelineBulkMutationOutcome,
-  TimelineRelatedEvidenceLinked,
-  TimelineRelatedRecordCreated,
+  TimelineFillOutcome,
   WorkbookMutationCommandPorts,
 } from "./workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
@@ -105,7 +90,7 @@ async function executeTimelineBulkMutation(options: {
   readonly incidentId: string;
   readonly input: ApplyWorkbookBulkMutationRequest;
   readonly operations: WorkbookOperationExecutor;
-}): Promise<TimelineBulkMutationOutcome> {
+}): Promise<TimelineFillOutcome> {
   if (
     options.input.client_txn_id === "" ||
     options.input.targets.length === 0
@@ -145,66 +130,6 @@ async function executeTimelineBulkMutation(options: {
     };
   } catch {
     return retryableOperationFailure();
-  }
-}
-
-function normalizeTimelineRelatedCreateOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: GenericViewMutationAccepted["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-  expectedViewSchemaId: string,
-): WorkbookOperationOutcome<TimelineRelatedRecordCreated> {
-  if (outcome.kind === "rejected") return outcome;
-  const data = outcome.value.data;
-  if (data.view_schema_id !== expectedViewSchemaId) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: data.change_set_id,
-      recordId: data.row.record_id,
-      viewSchemaId: data.view_schema_id,
-    },
-  };
-}
-
-function normalizeTimelineRelatedLinkOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: GenericViewMutationAccepted["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-  expectedRecordId: string,
-): WorkbookOperationOutcome<TimelineRelatedEvidenceLinked> {
-  if (outcome.kind === "rejected") return outcome;
-  const data = outcome.value.data;
-  if (
-    data.view_schema_id !== timelineViewSchemaId ||
-    data.row.record_id !== expectedRecordId
-  ) {
-    return invalidOperationContract();
-  }
-  try {
-    return {
-      kind: "accepted",
-      value: {
-        changeSetId: data.change_set_id,
-        row: normalizeTimelineFullRow(
-          data.row,
-          "related evidence link response row",
-        ),
-        viewSchemaId: data.view_schema_id,
-      },
-    };
-  } catch {
-    return invalidOperationContract();
   }
 }
 
@@ -382,26 +307,6 @@ function normalizeDecisionSupersedeOutcome(
   };
 }
 
-function normalizeGenericMutationOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: GenericViewMutationAccepted["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-): GenericMutationOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: outcome.value.data.change_set_id,
-      row: outcome.value.data.row,
-      viewSchemaId: outcome.value.data.view_schema_id,
-    },
-  };
-}
-
 function createId(
   transactionIds: SecureTransactionIdPort,
   prefix: string,
@@ -529,27 +434,7 @@ export function createWorkbookMutationCommandPorts(
           return clientTxnId;
         },
       },
-      bulk: {
-        async assignTag(input) {
-          const clientTxnId = createId(
-            context.transactionIds,
-            "timeline-client",
-          );
-          if (clientTxnId === null) return operationIdentityFailure();
-          const targets = timelineBulkTargets(input.targets);
-          if (targets === null) return invalidOperationPayload();
-          return executeTimelineBulkMutation({
-            input: {
-              client_txn_id: clientTxnId,
-              kind: "multi_row_tag_assignment_v1",
-              tag_name: input.tagName,
-              targets,
-              view_schema_id: timelineViewSchemaId,
-            },
-            incidentId: context.incidentId,
-            operations,
-          });
-        },
+      fill: {
         async fillDown(input) {
           const clientTxnId = createId(
             context.transactionIds,
@@ -581,178 +466,21 @@ export function createWorkbookMutationCommandPorts(
           return { clientTxnId, outcome };
         },
       },
-      related: {
-        async createRelatedRecord(input) {
-          const clientTxnId = createId(
-            context.transactionIds,
-            `timeline-create-related-${input.featureGroupKey}`,
-          );
-          if (clientTxnId === null) return operationIdentityFailure();
-          const request = buildGenericCreatePayload(
-            input.contract,
-            { ...input.draft },
-            clientTxnId,
-          );
-          const decodedRequest = decodeCreateViewRowRequest(
-            input.contract,
-            request,
-          );
-          if (decodedRequest === null) return invalidOperationPayload();
-          try {
-            const outcome = await operations.execute({
-              operationID: "createViewRow",
-              pathParameters: {
-                incident_id: context.incidentId,
-                view_schema_id: input.contract.viewSchemaId,
-              },
-              request: decodedRequest,
-            });
-            return normalizeTimelineRelatedCreateOutcome(
-              outcome,
-              input.contract.viewSchemaId,
-            );
-          } catch {
-            return retryableOperationFailure();
-          }
-        },
-        async linkCreatedEvidence(input) {
-          const clientTxnId = createId(
-            context.transactionIds,
-            "timeline-link-created-evidence",
-          );
-          if (clientTxnId === null) return operationIdentityFailure();
-          const request = buildAttachedEvidencePatchRequest(
-            input.sourceRow,
-            input.createdRecordId,
-            clientTxnId,
-          );
-          if (request === null || input.sourceRow.recordId === null) {
-            return {
-              kind: "rejected",
-              failure: {
-                kind: "stale_target",
-                message:
-                  "Created evidence, but the selected row version is stale.",
-              },
-            };
-          }
-          try {
-            const outcome = await operations.execute({
-              operationID: "patchRecord",
-              pathParameters: { record_id: input.sourceRow.recordId },
-              request,
-            });
-            return normalizeTimelineRelatedLinkOutcome(
-              outcome,
-              input.sourceRow.recordId,
-            );
-          } catch {
-            return retryableOperationFailure();
-          }
-        },
-      },
+      related: createTimelineRelatedRecordCommandAdapter({
+        createClientTxnId: (prefix) => createId(context.transactionIds, prefix),
+        incidentId: context.incidentId,
+        operations,
+      }),
     },
-    generic: {
-      canCreateRecord(input) {
-        return (
-          buildGenericCreatePayload(
-            input.contract,
-            { ...input.draft },
-            "validation-only",
-          ) !== null
-        );
-      },
-      createRecord(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          `generic-create-${input.contract.viewSchemaId}`,
-        );
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        const payload = buildGenericCreatePayload(
-          input.contract,
-          { ...input.draft },
-          clientTxnId,
-        );
-        const request = decodeCreateViewRowRequest(input.contract, payload);
-        if (request === null) return Promise.resolve(invalidOperationPayload());
-        if (input.linkedNoteSourceRecordId === "") {
-          return operations
-            .execute({
-              operationID: "createViewRow",
-              pathParameters: {
-                incident_id: context.incidentId,
-                view_schema_id: input.contract.viewSchemaId,
-              },
-              request,
-            })
-            .then(normalizeGenericMutationOutcome);
-        }
-        const linkedNoteRequest = decodeCreateRecordLinkedNoteRequest(request);
-        return linkedNoteRequest === null
-          ? Promise.resolve(invalidOperationPayload())
-          : operations
-              .execute({
-                operationID: "createRecordLinkedNote",
-                pathParameters: {
-                  record_id: input.linkedNoteSourceRecordId,
-                },
-                request: linkedNoteRequest,
-              })
-              .then(normalizeGenericMutationOutcome);
-      },
-      patchRecord(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          `${input.purpose}-${input.viewSchemaId}`,
-        );
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        const request = buildPatchRecordRequest({
-          baseRowVersion: input.baseRowVersion,
-          changes: input.changes,
-          clientTxnId,
-          viewSchemaId: input.viewSchemaId,
-        });
-        if (request === null) return Promise.resolve(invalidOperationPayload());
-        return operations
-          .execute({
-            operationID: "patchRecord",
-            pathParameters: { record_id: input.recordId },
-            request,
-          })
-          .then(normalizeGenericMutationOutcome);
-      },
-      createPartyFromText(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          `party-from-text-${input.originViewSchemaId}`,
-        );
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        const email = extractEmailFromPartyText(input.rawText);
-        const payload = {
-          client_txn_id: clientTxnId,
-          "party.display_name": input.rawText,
-          "party.party_kind": "person",
-          ...(email === null ? {} : { "party.primary_email": email }),
-        } satisfies CreateViewRowRequest;
-        return operations
-          .execute({
-            operationID: "createViewRow",
-            pathParameters: {
-              incident_id: context.incidentId,
-              view_schema_id: partiesViewSchemaId,
-            },
-            request: payload,
-          })
-          .then(normalizeGenericMutationOutcome);
-      },
-    },
+    generic: createGenericMutationCommandPort({
+      incidentId: context.incidentId,
+      operations,
+      transactionIds: context.transactionIds,
+    }),
     entity: {
       canCreateRecord(input) {
         return (
-          buildGenericCreatePayload(
+          buildGenericCreateRequest(
             input.contract,
             { ...input.draft },
             "validation-only",
@@ -766,7 +494,7 @@ export function createWorkbookMutationCommandPorts(
         );
         if (clientTxnId === null)
           return Promise.resolve(operationIdentityFailure());
-        const payload = buildGenericCreatePayload(
+        const payload = buildGenericCreateRequest(
           input.contract,
           { ...input.draft },
           clientTxnId,
@@ -868,98 +596,12 @@ export function createWorkbookMutationCommandPorts(
       },
     },
     evidence: {
-      async attach(input) {
-        const createClientTxnId = createId(
-          context.transactionIds,
-          "evidence-blob",
-        );
-        const attachClientTxnId = createId(
-          context.transactionIds,
-          "evidence-attach",
-        );
-        const availableClientTxnId = createId(
-          context.transactionIds,
-          "evidence-available",
-        );
-        if (
-          createClientTxnId === null ||
-          attachClientTxnId === null ||
-          availableClientTxnId === null
-        ) {
-          return operationIdentityFailure();
-        }
-        if (input.file.size <= 0) return invalidOperationPayload();
-        const createBlob = await operations.execute({
-          operationID: "createObjectBlobSlot",
-          request: {
-            incident_id: context.incidentId,
-            client_txn_id: createClientTxnId,
-            byte_size: input.file.size,
-            filename_hint: input.file.name || null,
-            content_type_hint: input.file.type || null,
-          } satisfies CreateObjectBlobSlotRequest,
-        });
-        if (createBlob.kind === "rejected") return createBlob;
-        const upload = await uploadEvidenceObjectBlobTarget(
-          context.apiBase,
-          createBlob.value.data.upload_target,
-          input.file,
-        );
-        if (upload.kind === "rejected") {
-          return {
-            kind: "rejected",
-            failure: {
-              kind: upload.retryable ? "retryable" : "terminal",
-              message: upload.message,
-            },
-          };
-        }
-        const objectBlobId = createBlob.value.data.object_blob_id;
-        const attach = await operations.execute({
-          operationID: "attachBlobToEvidenceRecord",
-          pathParameters: { record_id: input.evidenceRecordId },
-          request: {
-            object_blob_id: objectBlobId,
-            base_row_version: input.baseRowVersion,
-            client_txn_id: attachClientTxnId,
-          } satisfies AttachBlobToEvidenceRecordRequest,
-        });
-        if (attach.kind === "rejected") return attach;
-        if (
-          attach.value.data.row.record_id !== input.evidenceRecordId ||
-          attach.value.data.object_blob_id !== objectBlobId
-        ) {
-          return invalidOperationContract();
-        }
-        const available = await operations.execute({
-          operationID: "patchRecord",
-          pathParameters: { record_id: input.evidenceRecordId },
-          request: {
-            view_schema_id: evidenceViewSchemaId,
-            base_row_version: attach.value.data.row.row_version,
-            client_txn_id: availableClientTxnId,
-            changes: [
-              {
-                field_key: "evidence.lifecycle_state",
-                value: "available",
-              },
-            ],
-          } satisfies PatchRecordRequest,
-        });
-        if (available.kind === "rejected") return available;
-        if (
-          available.value.data.view_schema_id !== evidenceViewSchemaId ||
-          available.value.data.row.record_id !== input.evidenceRecordId ||
-          available.value.data.row.cells["evidence.lifecycle_state"]?.value !==
-            "available"
-        ) {
-          return invalidOperationContract();
-        }
-        return {
-          kind: "accepted",
-          value: { evidenceRecordId: input.evidenceRecordId },
-        };
-      },
+      ...createEvidenceAttachmentPort({
+        apiBase: context.apiBase,
+        incidentId: context.incidentId,
+        operations,
+        transactionIds: context.transactionIds,
+      }),
       async issueHandle(input) {
         const operationID =
           input.kind === "preview"

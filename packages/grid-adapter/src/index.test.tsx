@@ -12,18 +12,20 @@ import {
 } from "@testing-library/react";
 import { type ChangeEvent, createRef, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assertGridRows } from "./core";
+import {
+  assertGridRows,
+  type GridEditorRenderContext,
+  type SemanticDataGridProps,
+} from "./core";
 import { SemanticDataGrid as SemanticDataGridDomUnit } from "./domUnitBinding";
 import {
   type GridColumn,
   type GridDataRow,
   type GridDensity,
-  type GridEditorRenderContext,
   type GridHandle,
   type GridSortEntry,
   GridViewport,
   SemanticDataGrid,
-  type SemanticDataGridProps,
 } from "./index";
 import { SemanticDataGrid as SemanticDataGridTestSupport } from "./test-support";
 

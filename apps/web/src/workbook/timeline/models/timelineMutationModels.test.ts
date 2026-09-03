@@ -4,7 +4,7 @@ import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { planTimelineAcceptedMutationEffects } from "./timelineAcceptedMutationEffects";
 import { projectAcceptedTimelineRow } from "./timelineAcceptedProjection";
 import { projectTimelineCollectionPresentation } from "./timelineCollectionPresentation";
-import { TimelineCommittedVersionLedger } from "./timelineCommittedVersionLedger";
+import { createTimelineCommittedVersionLedger } from "./timelineCommittedVersionLedger";
 import type { TimelineReplayContext } from "./timelineControllerPorts";
 import { reconcileDiscardedTimelineUnit } from "./timelineDiscardedReconciliation";
 import { timelineFieldBinding } from "./timelineFieldRegistry";
@@ -192,7 +192,7 @@ describe("Timeline mutation models", () => {
   });
 
   it("maintains committed row versions as a monotonic reference-preserving ledger", () => {
-    const ledger = new TimelineCommittedVersionLedger();
+    const ledger = createTimelineCommittedVersionLedger();
     const versionFour = savedRow("timeline-1", 4);
     const accepted = ledger.accept(versionFour, [versionFour]);
     expect(accepted).toMatchObject({

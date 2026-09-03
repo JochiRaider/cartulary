@@ -15,6 +15,11 @@ import {
   workbookSavedViewsResource,
 } from "../models/workbookSavedViewControl";
 import {
+  acceptWorkbookSavedViewPage,
+  startWorkbookSavedViewPagination,
+  workbookSavedViewPaginationIsCurrent,
+} from "../models/workbookSavedViewPaginationMachine";
+import {
   fallbackIdentityAfterSavedViewDelete,
   removeSavedViewList,
   savedViewConfigurationIsModified,
@@ -461,19 +466,24 @@ export function useWorkbookSavedViewController({
 
   useEffect(() => {
     const controller = new AbortController();
+    const subjectGeneration = contextVersionRef.current;
+    let pagination = startWorkbookSavedViewPagination(subjectGeneration);
     setLoadState({ kind: "loading" });
-    const nextSavedViews: SavedViewResource[] = [];
-    const seenCursors = new Set<string>();
-    const seenSavedViewIds = new Set<string>();
     const loadSavedViews = async () => {
-      let cursorToken: string | null = null;
-      do {
+      while (true) {
         const result = await savedViewPort.listPage({
-          cursorToken,
+          cursorToken: pagination.nextCursor,
           limit: 100,
           signal: controller.signal,
         });
-        if (controller.signal.aborted || result.kind === "aborted") {
+        if (
+          controller.signal.aborted ||
+          result.kind === "aborted" ||
+          !workbookSavedViewPaginationIsCurrent(
+            pagination,
+            contextVersionRef.current,
+          )
+        ) {
           return;
         }
         if (result.kind === "rejected") {
@@ -487,40 +497,26 @@ export function useWorkbookSavedViewController({
           });
           return;
         }
-        for (const savedView of result.value.savedViews) {
-          if (seenSavedViewIds.has(savedView.saved_view_id)) {
-            setSavedViews([]);
-            setLoadState({
-              kind: "unavailable",
-              message: "Saved-view listing returned a duplicate resource.",
-            });
-            return;
-          }
-          seenSavedViewIds.add(savedView.saved_view_id);
-          nextSavedViews.push(savedView);
+        const pagePlan = acceptWorkbookSavedViewPage(pagination, result.value);
+        if (pagePlan.kind === "invalid") {
+          setSavedViews([]);
+          setLoadState({ kind: "unavailable", message: pagePlan.message });
+          return;
         }
-        cursorToken = result.value.nextCursor;
-        if (cursorToken !== null) {
-          if (seenCursors.has(cursorToken)) {
-            setSavedViews([]);
-            setLoadState({
-              kind: "unavailable",
-              message: "Saved-view listing returned a cyclic cursor.",
-            });
-            return;
-          }
-          seenCursors.add(cursorToken);
+        if (pagePlan.kind === "complete") {
+          setSavedViews([...pagePlan.savedViews]);
+          setLoadState({ kind: "ready" });
+          return;
         }
-      } while (cursorToken !== null);
-
-      if (!controller.signal.aborted) {
-        setSavedViews(nextSavedViews);
-        setLoadState({ kind: "ready" });
+        pagination = pagePlan.machine;
       }
     };
     void loadSavedViews();
     return () => {
       controller.abort();
+      if (contextVersionRef.current === subjectGeneration) {
+        contextVersionRef.current += 1;
+      }
     };
   }, [onIncidentAccessLost, savedViewPort]);
 

@@ -1,3 +1,4 @@
+import { sheetRefKey } from "../../../shared/sheetRef";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import { useTimelineGridEnvironment } from "./useTimelineGridEnvironment";
 import { useTimelineInspectorStateComposition } from "./useTimelineInspectorStateComposition";
@@ -93,11 +94,17 @@ export function useTimelineWorkbookComposition({
   });
   const workflow = useTimelineInspectorWorkflowComposition({
     activeSheetRef: mutation.ports.activeSheetRef,
+    knownEntityTypes: new Map(
+      Object.values(runtime.entities.index).map((entity) => [
+        entity.recordId,
+        entity.entityType,
+      ]),
+    ),
     foundation: {
       evidenceAttachmentPort: foundation.ports.evidenceAttachment,
       historyPort: foundation.ports.history,
       loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
-      mentionPort: foundation.ports.mention,
+      mentionPorts: foundation.ports.mentions,
       rows: foundation.snapshot.rows,
       rowsRef: foundation.refs.rows,
       selectedMentionRef: foundation.snapshot.mentions.selectedMentionRef,
@@ -167,6 +174,7 @@ export function useTimelineWorkbookComposition({
         foundation.commands.editor.activateCollectionInput,
       activeCollectionInputKey:
         foundation.snapshot.editor.activeCollectionInputKey,
+      bulkTagPort: foundation.ports.bulkTag,
       clipboardPastePort: foundation.ports.clipboardPaste,
       deactivateCollectionInput:
         foundation.commands.editor.deactivateCollectionInput,
@@ -205,6 +213,7 @@ export function useTimelineWorkbookComposition({
       setOpen: inspector.commands.setOpen,
     },
     interactionMode: runtime.layout.snapshot.interactionMode,
+    loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
     mutation: {
       applyClipboardResponseRows:
         mutation.commands.save.applyClipboardResponseRows,
@@ -226,6 +235,7 @@ export function useTimelineWorkbookComposition({
     },
     queryState: foundation.snapshot.query.queryState,
     role: runtime.incident.currentRole,
+    surfaceKey: sheetRefKey(mutation.ports.activeSheetRef),
     workflow: {
       handleTimelineGridContextKeyDown:
         workflow.commands.rowInteractions.handleTimelineGridContextKeyDown,

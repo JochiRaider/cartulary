@@ -729,7 +729,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineCreateRelatedWorkflow.test.tsx",
         "titles": [
-          "useTimelineCreateRelatedWorkflow finishes captured Evidence effects without overwriting a reopened workflow"
+          "useTimelineCreateRelatedWorkflow discards a stale Evidence continuation without overwriting a reopened workflow"
         ]
       },
       "evidence_class": "unit",
@@ -1888,6 +1888,35 @@
           "Workbook saved-view adapter projects create, patch, and delete requests with CSRF and accepted correlations",
           "Workbook saved-view adapter projects explicit paging and returns only correlated saved-view resources",
           "Workbook saved-view adapter rejects mismatched mutation acknowledgements and system-view mutation locally"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbook_startup_admission_machine_lr06",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/startup/workbookStartupAdmissionMachine.test.ts",
+        "titles": [
+          "Workbook startup admission machine discards inconsistent selected identities without changing state",
+          "Workbook startup admission machine keys admission by incident, canonical query, generation, selection, and availability",
+          "Workbook startup admission machine plans base, saved-view, extension, and availability outcomes exactly"
         ]
       },
       "evidence_class": "unit",
@@ -3948,7 +3977,7 @@
           "semantic mutation command ports normalizes entity create and patch results",
           "semantic mutation command ports normalizes generic same-field conflicts before they reach controllers",
           "semantic mutation command ports normalizes task lifecycle and decision supersede into owner-specific outcomes",
-          "semantic mutation command ports own exact Timeline, generic, entity, assessment, and coordination request identities and payloads",
+          "semantic mutation command ports owns exact generic, entity, assessment, and coordination request identities and payloads",
           "semantic mutation command ports validates generated Workbook operation responses and contains public failures"
         ]
       },

@@ -18,10 +18,10 @@ See [Project status](#project-status) below for how far implementation has progr
 Pinned repo-control toolchain and Go tool versions are declared in
 `tools/toolchain_pins.json`. The values below are informational:
 
-- Go `1.26` with toolchain `go1.26.5`
+- Go `1.27` with toolchain `go1.27.1`
 - Node.js `24.15.0`
 - pnpm `10.33.0`
-- Staticcheck `v0.7.0`
+- Staticcheck `v0.8.0-rc.1`
 - Govulncheck `v1.3.0`
 - Gosec `v2.26.1`
 - ShellCheck `0.11.0`

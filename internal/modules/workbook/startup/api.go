@@ -130,24 +130,16 @@ func DecodeUserPreferencesPutRequest(reader io.Reader) (UserPreferencesPutReques
 }
 
 func ParseExplicitSheetRef(query url.Values) ([]byte, *httpapi.APIError) {
-	viewSchemaID := strings.TrimSpace(query.Get("view_schema_id"))
 	sheetRefKind := strings.TrimSpace(query.Get("sheet_ref_kind"))
 	sheetRefID := strings.TrimSpace(query.Get("sheet_ref_id"))
 	extensionProfileID := strings.TrimSpace(query.Get("extension_profile_id"))
-	hasViewSchema := viewSchemaID != ""
 	hasSheetRef := sheetRefKind != "" || sheetRefID != "" || extensionProfileID != ""
-	if hasViewSchema && hasSheetRef {
-		return nil, invalidStartupRequest("sheet_ref", "ambiguous_explicit_sheet_ref")
-	}
 	for key := range query {
 		switch key {
-		case "view_schema_id", "sheet_ref_kind", "sheet_ref_id", "extension_profile_id":
+		case "sheet_ref_kind", "sheet_ref_id", "extension_profile_id":
 		default:
 			return nil, invalidStartupRequest(key, "unknown_field")
 		}
-	}
-	if hasViewSchema {
-		return canonicalStartupSheetRef(SheetRef{Kind: "view_schema", ID: viewSchemaID})
 	}
 	if !hasSheetRef {
 		return nil, nil

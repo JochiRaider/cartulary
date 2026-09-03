@@ -155,6 +155,15 @@ describe("workbook startup model", () => {
 
     expect(
       workbookStartupQueryFromURLParams(
+        new URLSearchParams({ view_schema_id: hostsViewSchemaId }),
+      ),
+    ).toEqual({
+      sheetRefId: hostsViewSchemaId,
+      sheetRefKind: "view_schema",
+    });
+
+    expect(
+      workbookStartupQueryFromURLParams(
         new URLSearchParams({
           ignored: "not-forwarded",
           sheet_ref_id: savedViewId,

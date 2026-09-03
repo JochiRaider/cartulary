@@ -16,7 +16,10 @@ import {
   rowFromApi,
 } from "./models/timelineRowModel";
 import type { DismissedMention } from "./models/workbookMentionChips";
-import type { TimelineMentionPort } from "./ports/TimelineMentionPort";
+import type {
+  TimelineMentionEntityCreationPort,
+  TimelineMentionResolutionPort,
+} from "./ports/TimelineMentionPort";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const recordId = "11111111-1111-4111-8111-111111111111";
@@ -75,13 +78,15 @@ function controller({
   rowsRef = { current: [mentionRow()] },
   waitRow = mentionRow({ mentionRowVersion: 9, rowVersion: 5 }),
 }: {
-  readonly portResult: Awaited<ReturnType<TimelineMentionPort["resolve"]>>;
+  readonly portResult: Awaited<
+    ReturnType<TimelineMentionResolutionPort["resolve"]>
+  >;
   readonly rowsRef?: { current: ReturnType<typeof mentionRow>[] };
   readonly waitRow?: ReturnType<typeof mentionRow>;
 }) {
   let queuedWork: (() => Promise<void>) | null = null;
   const resolve = vi
-    .fn<TimelineMentionPort["resolve"]>()
+    .fn<TimelineMentionResolutionPort["resolve"]>()
     .mockResolvedValue(portResult);
   const loadRows = vi.fn(
     async (options: { afterProjectionCommit?: () => void }) => {
@@ -90,6 +95,11 @@ function controller({
   );
   const setDismissedMentions = vi.fn();
   const mocks = {
+    actionContext: {
+      authorized: true,
+      capabilityAvailable: true,
+      surfaceKey: "view_schema:cartulary.view.timeline.v2",
+    },
     beginSave: vi.fn(),
     beginViewportContinuity: vi.fn(() => 41),
     clearViewportContinuity: vi.fn(),
@@ -98,9 +108,13 @@ function controller({
     }),
     finishSave: vi.fn(),
     loadRows,
-    mentionPort: {
-      createEntity: vi.fn<TimelineMentionPort["createEntity"]>(),
-      resolve,
+    knownEntityTypes: new Map([[resolvedRecordId, "host" as const]]),
+    mentionPorts: {
+      entityCreation: {
+        createEntity:
+          vi.fn<TimelineMentionEntityCreationPort["createEntity"]>(),
+      },
+      resolution: { resolve },
     },
     nextClientTxnId: vi.fn(() => "txn-undo"),
     requireViewportContinuitySourceRecord: vi.fn(),

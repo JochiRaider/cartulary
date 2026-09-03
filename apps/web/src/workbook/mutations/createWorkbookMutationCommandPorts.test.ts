@@ -186,7 +186,7 @@ describe("semantic mutation command ports", () => {
     );
   });
 
-  it("own exact Timeline, generic, entity, assessment, and coordination request identities and payloads", async () => {
+  it("owns exact generic, entity, assessment, and coordination request identities and payloads", async () => {
     const fetchMock = vi.fn(async () => successResponse());
     vi.stubGlobal("fetch", fetchMock);
     const commands = createWorkbookMutationCommandPorts({
@@ -197,10 +197,6 @@ describe("semantic mutation command ports", () => {
       },
     });
 
-    await commands.timeline.bulk.assignTag({
-      tagName: "triaged",
-      targets: [{ recordId: "timeline-1", baseRowVersion: 3 }],
-    });
     await commands.generic.patchRecord({
       baseRowVersion: 4,
       changes: [{ field_key: "task.title", value: "Updated" }],
@@ -234,13 +230,6 @@ describe("semantic mutation command ports", () => {
     });
 
     expect(requestBodies(fetchMock)).toEqual([
-      {
-        view_schema_id: "cartulary.view.timeline.v2",
-        client_txn_id: "timeline-client-id",
-        kind: "multi_row_tag_assignment_v1",
-        tag_name: "triaged",
-        targets: [{ record_id: "timeline-1", base_row_version: 3 }],
-      },
       {
         view_schema_id: "cartulary.view.tasks.v1",
         base_row_version: 4,

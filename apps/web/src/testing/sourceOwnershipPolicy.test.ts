@@ -76,7 +76,7 @@ describe("frontend source ownership policy", () => {
     );
   });
 
-  it("keeps transaction identity and mutation wire intents behind Workbook command assembly", () => {
+  it("centralizes transaction identity and confines wire intents to owner-local command modules", () => {
     const workbookRoot = path.join(repoRoot, "apps/web/src/workbook");
     const productionPaths = liveTypeScriptPaths(workbookRoot).filter(
       (sourcePath) =>
@@ -91,17 +91,21 @@ describe("frontend source ownership policy", () => {
       "apps/web/src/workbook/mutations/secureTransactionId.ts",
     ]);
 
-    const presentationRoots = [
+    const featureAndPresentationRoots = [
       path.join(workbookRoot, "components"),
       path.join(workbookRoot, "features"),
     ];
-    const presentationWireIntents = presentationRoots
+    const ownerLocalWireIntents = featureAndPresentationRoots
       .flatMap(liveTypeScriptPaths)
       .filter((sourcePath) => {
         const source = readFileSync(path.join(repoRoot, sourcePath), "utf8");
         return source.includes("client_txn_id");
       });
-    expect(presentationWireIntents).toEqual([]);
+    expect(ownerLocalWireIntents).toEqual([
+      "apps/web/src/workbook/features/evidence/createEvidenceAttachmentPort.ts",
+      "apps/web/src/workbook/features/generic/createGenericMutationCommandPort.ts",
+      "apps/web/src/workbook/features/generic/genericCreateRequestBuilder.ts",
+    ]);
   });
 
   it("keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation", () => {

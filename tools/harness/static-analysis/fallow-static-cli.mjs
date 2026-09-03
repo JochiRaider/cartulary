@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import ts from "typescript";
 
 import {
   repoRoot,
@@ -25,6 +26,7 @@ import {
   toolSummaryPath,
 } from "../output/index.mjs";
 import {
+  buildBlockingPackageSurfaceConfig,
   buildResolvedFallowConfig,
   defaultFallowReachabilityOwnerPath,
 } from "./fallow-reachability.mjs";
@@ -254,6 +256,108 @@ function hasUsableFallowOutput(run) {
   }
 }
 
+function resolveTypeScriptModule(entrypoint, specifier) {
+  const base = path.resolve(path.dirname(entrypoint), specifier);
+  const candidates = [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    path.join(base, "index.ts"),
+    path.join(base, "index.tsx"),
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+function manualEntrypointExportBindings(policy) {
+  const bindings = new Map();
+  for (const packageSurface of policy.packages) {
+    const entrypoint = path.join(repoRoot, packageSurface.entrypoint);
+    const sourceFile = ts.createSourceFile(
+      entrypoint,
+      readFileSync(entrypoint, "utf8"),
+      ts.ScriptTarget.Latest,
+      true,
+      entrypoint.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    );
+    for (const statement of sourceFile.statements) {
+      if (!ts.isExportDeclaration(statement)) {
+        const isExported = ts.canHaveModifiers(statement) &&
+          (ts.getModifiers(statement) ?? []).some(
+            (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+          );
+        if (!isExported) continue;
+        const declarationNames = ts.isVariableStatement(statement)
+          ? statement.declarationList.declarations.flatMap((declaration) =>
+              ts.isIdentifier(declaration.name) ? [declaration.name.text] : [],
+            )
+          : "name" in statement && statement.name && ts.isIdentifier(statement.name)
+            ? [statement.name.text]
+            : [];
+        for (const symbol of declarationNames) {
+          bindings.set(`${packageSurface.entrypoint}\u0000${symbol}`, {
+            entrypoint: packageSurface.entrypoint,
+            package_name: packageSurface.package_name,
+            public_symbol: symbol,
+            source_symbol: symbol,
+          });
+        }
+        continue;
+      }
+      if (!statement.exportClause || !ts.isNamedExports(statement.exportClause)) {
+        throw new Error(
+          `${packageSurface.entrypoint} must not use wildcard or namespace exports`,
+        );
+      }
+      if (!statement.moduleSpecifier || !ts.isStringLiteral(statement.moduleSpecifier)) {
+        continue;
+      }
+      const specifier = statement.moduleSpecifier.text;
+      if (!specifier.startsWith(".")) continue;
+      const resolved = resolveTypeScriptModule(entrypoint, specifier);
+      if (resolved === null) {
+        throw new Error(
+          `${packageSurface.entrypoint} cannot resolve re-export ${specifier}`,
+        );
+      }
+      const sourcePath = repoRel(resolved);
+      if (sourcePath.includes("/generated/")) continue;
+      for (const element of statement.exportClause.elements) {
+        const sourceSymbol = (element.propertyName ?? element.name).text;
+        bindings.set(`${sourcePath}\u0000${sourceSymbol}`, {
+          entrypoint: packageSurface.entrypoint,
+          package_name: packageSurface.package_name,
+          public_symbol: element.name.text,
+          source_symbol: sourceSymbol,
+        });
+      }
+    }
+  }
+  return bindings;
+}
+
+export function collectBlockingPackageSurfaceFindings(report, policy) {
+  const bindings = manualEntrypointExportBindings(policy);
+  return policy.rules.flatMap((rule) =>
+    (report?.[rule] ?? [])
+      .flatMap((finding) => {
+        const sourceSymbol = finding.export_name ?? finding.name ?? "";
+        const binding = bindings.get(`${finding.path}\u0000${sourceSymbol}`);
+        return binding === undefined
+          ? []
+          : [
+              {
+                entrypoint: binding.entrypoint,
+                package_name: binding.package_name,
+                path: finding.path,
+                rule,
+                source_symbol: binding.source_symbol,
+                symbol: binding.public_symbol,
+              },
+            ];
+      }),
+  );
+}
+
 function failureReasonForRuns(runs) {
   const combined = runs.map((run) => {
     const stderr = existsSync(run.stderrFile) ? readFileSync(run.stderrFile, "utf8") : "";
@@ -297,6 +401,7 @@ function makeToolSummary({ identity, status, startedAt, durationMs, summaryArtif
 }
 
 async function main() {
+  process.umask(0o077);
   const startedAt = nowUTC();
   const startedMs = monotonicMs();
   const identity = resolveRetainedArtifactIdentity(target, process.env, {
@@ -346,12 +451,32 @@ async function main() {
       });
     }
     const resolvedConfigRel = repoRel(resolvedConfig);
+    const packageSurfaceConfig = path.join(
+      reportRoot,
+      "package-surface-fallowrc.json",
+    );
+    secureWriteFile(
+      packageSurfaceConfig,
+      `${JSON.stringify(
+        buildBlockingPackageSurfaceConfig({
+          config: reachability.config,
+          owner: reachability.owner,
+        }),
+        null,
+        2,
+      )}\n`,
+    );
+    const packageSurfaceConfigRel = repoRel(packageSurfaceConfig);
 
     const deadCodeJSON = path.join(reportRoot, "dead-code.json");
     const deadCodeSARIF = path.join(reportRoot, "dead-code.sarif");
     const deadCodeMarkdown = path.join(reportRoot, "dead-code.md");
     const dupesJSON = path.join(reportRoot, "dupes.json");
     const healthJSON = path.join(reportRoot, "health.json");
+    const packageSurfaceJSON = path.join(
+      reportRoot,
+      "package-surface-dead-code.json",
+    );
 
     runs.push(...await runFallowBatch([
       {
@@ -420,6 +545,22 @@ async function main() {
         ],
         outputFile: healthJSON,
       },
+      {
+        reportRoot,
+        name: "package-surface-dead-code",
+        args: [
+          "dead-code",
+          "--config",
+          packageSurfaceConfigRel,
+          "--format",
+          "json",
+          "--quiet",
+          "--no-cache",
+          "--output-file",
+          packageSurfaceJSON,
+        ],
+        outputFile: packageSurfaceJSON,
+      },
     ]));
 
     for (const run of runs) {
@@ -469,8 +610,16 @@ async function main() {
     }
 
     const reports = runs
-      .filter((run) => run.outputFile.endsWith(".json"))
+      .filter(
+        (run) =>
+          run.outputFile.endsWith(".json") &&
+          run.name !== "package-surface-dead-code",
+      )
       .map(reportFromRun);
+    const packageSurfaceFindings = collectBlockingPackageSurfaceFindings(
+      readJSON(packageSurfaceJSON),
+      reachability.owner.blocking_package_surfaces,
+    );
     const totals = {
       reports: reports.length,
       issue_count: 0,
@@ -497,6 +646,8 @@ async function main() {
       ["dead_code_markdown", repoRel(deadCodeMarkdown), "markdown"],
       ["dupes_json", repoRel(dupesJSON), "json"],
       ["health_json", repoRel(healthJSON), "json"],
+      ["package_surface_config", repoRel(packageSurfaceConfig), "json"],
+      ["package_surface_dead_code", repoRel(packageSurfaceJSON), "json"],
     ];
     const fallowArtifacts = artifactFiles.map(([role, artifactPath, kind]) =>
       fallowArtifactRef(role, artifactPath, kind),
@@ -529,6 +680,19 @@ async function main() {
           base_config_path: ".fallowrc.json",
           resolved_config_path: repoRel(resolvedConfig),
           stats: reachability.stats,
+          package_surface: {
+            blocking: true,
+            failure_on_issues: true,
+            finding_count: packageSurfaceFindings.length,
+            findings: packageSurfaceFindings,
+            packages: reachability.owner.blocking_package_surfaces.packages.map(
+              (entry) => ({
+                entrypoint: entry.entrypoint,
+                package_name: entry.package_name,
+              }),
+            ),
+            report_path: repoRel(packageSurfaceJSON),
+          },
         },
       },
     };
@@ -541,6 +705,30 @@ async function main() {
         fileArtifactRef(role, artifactPath, kind),
       ),
     );
+
+    if (packageSurfaceFindings.length > 0) {
+      const failures = packageSurfaceFindings.map((finding) => ({
+        target,
+        label: `${finding.package_name}:${finding.symbol}`,
+        failure_class: "product",
+        failure_reason: "policy_violation",
+        headline: `unused manual package export ${finding.symbol}`,
+        artifact: repoRel(packageSurfaceJSON),
+      }));
+      makeToolSummary({
+        identity,
+        status: "fail",
+        startedAt,
+        durationMs: monotonicMs() - startedMs,
+        summaryArtifacts,
+        logArtifacts,
+        failures,
+        warnings,
+        failureClass: "product",
+        failureReason: "policy_violation",
+      });
+      return 1;
+    }
 
     makeToolSummary({
       identity,

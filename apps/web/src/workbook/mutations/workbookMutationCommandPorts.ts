@@ -1,5 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import type { WorkbookOperationResponse } from "../adapters/workbookOperationExecutor";
+import type { WorkbookOperationResponse } from "../adapters/workbookOperationContract";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
 import type {
   RecordHistoryData,
@@ -133,23 +133,16 @@ export interface TimelineMutationIdentityPort {
   createConflictRecoveryId(): string;
 }
 
-export type TimelineBulkMutationAccepted = {
+export type TimelineFillAccepted = {
   readonly affectedRowCount: number;
   readonly changeSetId: string | null;
   readonly conflictCount: number;
 };
 
-export type TimelineBulkMutationOutcome =
-  WorkbookOperationOutcome<TimelineBulkMutationAccepted>;
+export type TimelineFillOutcome =
+  WorkbookOperationOutcome<TimelineFillAccepted>;
 
-export interface TimelineBulkMutationPort {
-  assignTag(input: {
-    readonly tagName: string;
-    readonly targets: readonly {
-      readonly recordId: string;
-      readonly baseRowVersion: number;
-    }[];
-  }): Promise<TimelineBulkMutationOutcome>;
+export interface TimelineFillMutationPort {
   fillDown(input: {
     readonly fieldKey: string;
     readonly onClientTxnId: (clientTxnId: string) => void;
@@ -160,7 +153,7 @@ export interface TimelineBulkMutationPort {
     }[];
   }): Promise<{
     readonly clientTxnId: string | null;
-    readonly outcome: TimelineBulkMutationOutcome;
+    readonly outcome: TimelineFillOutcome;
   }>;
 }
 
@@ -189,7 +182,7 @@ export interface TimelineRelatedRecordPort {
 }
 
 export type TimelineMutationCommandPorts = {
-  readonly bulk: TimelineBulkMutationPort;
+  readonly fill: TimelineFillMutationPort;
   readonly identity: TimelineMutationIdentityPort;
   readonly related: TimelineRelatedRecordPort;
 };

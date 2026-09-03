@@ -123,7 +123,7 @@ function sourceObligationsEqual(
   );
 }
 
-export function timelineLoadIdentitiesEqual(
+function timelineLoadIdentitiesEqual(
   left: TimelineLoadIdentity,
   right: TimelineLoadIdentity,
 ): boolean {

@@ -2,13 +2,13 @@ import { timelineScalarBindings } from "./timelineFieldRegistry";
 import type { WorkbookRow } from "./timelineRowModel";
 import { decideWorkbookRecordFreshness } from "./workbookRecordFreshness";
 
-export type TimelineCommittedRowAcceptance = {
+type TimelineCommittedRowAcceptance = {
   readonly accepted: boolean;
   readonly row: WorkbookRow;
   readonly stale: boolean;
 };
 
-export function committedTimelineProjection(row: WorkbookRow): WorkbookRow {
+function committedTimelineProjection(row: WorkbookRow): WorkbookRow {
   const scalarValuesAreCommitted = timelineScalarBindings.every(
     (binding) => row.values[binding.key] === row.committedValues[binding.key],
   );
@@ -51,78 +51,68 @@ export function committedTimelineProjection(row: WorkbookRow): WorkbookRow {
   };
 }
 
-export class TimelineCommittedVersionLedger {
-  readonly #rows = new Map<string, WorkbookRow>();
-  readonly #versions = new Map<string, number>();
-  #epoch = 0;
+export function createTimelineCommittedVersionLedger() {
+  const rows = new Map<string, WorkbookRow>();
+  const versions = new Map<string, number>();
+  let epoch = 0;
 
-  currentEpoch() {
-    return this.#epoch;
-  }
-
-  knownVersion(recordId: string) {
-    return this.#versions.get(recordId);
-  }
-
-  isStale(recordId: string, rowVersion: number) {
-    return decideWorkbookRecordFreshness(
+  const currentEpoch = () => epoch;
+  const knownVersion = (recordId: string) => versions.get(recordId);
+  const isStale = (recordId: string, rowVersion: number) =>
+    decideWorkbookRecordFreshness(
       { recordId, rowVersion },
-      this.knownVersion(recordId),
+      knownVersion(recordId),
     ).stale;
-  }
-
-  current(
+  const current = (
     recordId: string,
     visibleRows: readonly WorkbookRow[],
-  ): WorkbookRow | null {
-    const cached = this.#rows.get(recordId);
+  ): WorkbookRow | null => {
+    const cached = rows.get(recordId);
     if (cached !== undefined) return cached;
     const visible = visibleRows.find(
       (candidate) =>
         candidate.recordId === recordId && candidate.rowVersion !== null,
     );
     return visible === undefined ? null : committedTimelineProjection(visible);
-  }
-
-  accept(
+  };
+  const accept = (
     row: WorkbookRow,
     visibleRows: readonly WorkbookRow[],
-  ): TimelineCommittedRowAcceptance {
+  ): TimelineCommittedRowAcceptance => {
     if (row.recordId === null || row.rowVersion === null) {
       return { row, accepted: false, stale: false };
     }
     const recordId = row.recordId;
     const rowVersion = row.rowVersion;
     const committed = committedTimelineProjection(row);
-    const currentVersion = this.knownVersion(recordId);
+    const currentVersion = knownVersion(recordId);
     if (decideWorkbookRecordFreshness(committed, currentVersion).stale) {
       return {
-        row: this.current(recordId, visibleRows) ?? committed,
+        row: current(recordId, visibleRows) ?? committed,
         accepted: false,
         stale: true,
       };
     }
-    if (currentVersion !== rowVersion) this.#epoch += 1;
-    this.#versions.set(recordId, rowVersion);
-    this.#rows.set(recordId, committed);
+    if (currentVersion !== rowVersion) epoch += 1;
+    versions.set(recordId, rowVersion);
+    rows.set(recordId, committed);
     return { row: committed, accepted: true, stale: false };
-  }
-
-  acceptVersion(
+  };
+  const acceptVersion = (
     recordId: string,
     rowVersion: number,
     visibleRows: readonly WorkbookRow[],
-  ) {
-    if (this.isStale(recordId, rowVersion)) {
+  ) => {
+    if (isStale(recordId, rowVersion)) {
       return { accepted: false, stale: true };
     }
-    const existing = this.current(recordId, visibleRows);
+    const existing = current(recordId, visibleRows);
     if (existing === null) {
-      if (this.knownVersion(recordId) !== rowVersion) this.#epoch += 1;
-      this.#versions.set(recordId, rowVersion);
+      if (knownVersion(recordId) !== rowVersion) epoch += 1;
+      versions.set(recordId, rowVersion);
       return { accepted: true, stale: false };
     }
-    const accepted = this.accept(
+    const accepted = accept(
       {
         ...existing,
         rowVersion,
@@ -134,28 +124,38 @@ export class TimelineCommittedVersionLedger {
       visibleRows,
     );
     return { accepted: accepted.accepted, stale: accepted.stale };
-  }
-
-  latest(
+  };
+  const latest = (
     recordId: string,
     visibleRows: readonly WorkbookRow[],
-  ): WorkbookRow | null {
+  ): WorkbookRow | null => {
     const visibleRow = visibleRows.find(
       (candidate) => candidate.recordId === recordId,
     );
-    const knownVersion = this.knownVersion(recordId);
+    const currentVersion = knownVersion(recordId);
     if (
       visibleRow?.rowVersion !== null &&
       visibleRow?.rowVersion !== undefined &&
-      (knownVersion === undefined || visibleRow.rowVersion >= knownVersion)
+      (currentVersion === undefined || visibleRow.rowVersion >= currentVersion)
     ) {
-      return this.accept(visibleRow, visibleRows).row;
+      return accept(visibleRow, visibleRows).row;
     }
-    const committedRow = this.#rows.get(recordId);
+    const committedRow = rows.get(recordId);
     return committedRow?.rowVersion !== null &&
       committedRow?.rowVersion !== undefined &&
-      (knownVersion === undefined || committedRow.rowVersion >= knownVersion)
+      (currentVersion === undefined ||
+        committedRow.rowVersion >= currentVersion)
       ? committedRow
       : null;
-  }
+  };
+
+  return {
+    accept,
+    acceptVersion,
+    current,
+    currentEpoch,
+    isStale,
+    knownVersion,
+    latest,
+  };
 }

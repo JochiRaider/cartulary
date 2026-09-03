@@ -676,10 +676,6 @@ const value = {
       "error_code": "invalid_startup_request",
       "reason_codes": [
         {
-          "code": "ambiguous_explicit_sheet_ref",
-          "summary": "The request supplies both legacy view_schema_id and general sheet_ref launch selectors."
-        },
-        {
           "code": "missing_required_field",
           "summary": "A required workbook startup query selector member is absent or empty."
         },

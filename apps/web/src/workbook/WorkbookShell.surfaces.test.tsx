@@ -87,11 +87,9 @@ import {
   waitForWorkbookRows,
 } from "../testing/timelineWorkbookTestSupport";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
+import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
 import { useGenericPartyLinkWorkflow } from "./features/parties/useGenericPartyLinkWorkflow";
-import {
-  buildGenericCreatePayload,
-  buildGenericPatchChange,
-} from "./models/genericWorkbookModel";
+import { buildGenericPatchChange } from "./models/genericWorkbookModel";
 import {
   assessmentsViewSchemaId,
   commLogViewSchemaId,
@@ -2154,9 +2152,9 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining(
-          `/workbook-startup?view_schema_id=${encodeURIComponent(
+          `/workbook-startup?sheet_ref_id=${encodeURIComponent(
             "cartulary.view.unknown.v1",
-          )}`,
+          )}&sheet_ref_kind=view_schema`,
         ),
         expect.objectContaining({ credentials: "include" }),
       );
@@ -4209,10 +4207,10 @@ describe("generic workbook mutation payloads", () => {
     const evidence = requireViewContract(evidenceViewSchemaId);
 
     expect(
-      buildGenericCreatePayload(evidence, {}, "txn-evidence-missing"),
+      buildGenericCreateRequest(evidence, {}, "txn-evidence-missing"),
     ).toBeNull();
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         evidence,
         {
           "evidence.title": " Endpoint package ",

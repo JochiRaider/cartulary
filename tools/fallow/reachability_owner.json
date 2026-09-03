@@ -3,6 +3,27 @@
   "base_config": {
     "path": ".fallowrc.json"
   },
+  "blocking_package_surfaces": {
+    "packages": [
+      {
+        "package_name": "@cartulary/grid-adapter",
+        "entrypoint": "packages/grid-adapter/src/index.tsx",
+        "own_test_globs": [
+          "packages/grid-adapter/src/**/*.test.ts",
+          "packages/grid-adapter/src/**/*.test.tsx"
+        ]
+      },
+      {
+        "package_name": "@cartulary/ui-contracts",
+        "entrypoint": "packages/ui-contracts/src/index.ts",
+        "own_test_globs": [
+          "packages/ui-contracts/src/**/*.test.ts",
+          "packages/ui-contracts/src/**/*.test.tsx"
+        ]
+      }
+    ],
+    "rules": ["unused_exports", "unused_types"]
+  },
   "task_surface": {
     "owner_path": "tools/task_surface_owner.json",
     "script_extensions": [".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"],

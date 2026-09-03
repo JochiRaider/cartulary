@@ -129,9 +129,12 @@ func TestWorkbookPreferencesPutDecodersRejectInvalidPayloads(t *testing.T) {
 }
 
 func TestWorkbookStartupExplicitSheetRefParser(t *testing.T) {
-	viewSchemaRef, apiErr := workbookstartup.ParseExplicitSheetRef(url.Values{"view_schema_id": []string{" cartulary.view.timeline.v2 "}})
+	viewSchemaRef, apiErr := workbookstartup.ParseExplicitSheetRef(url.Values{
+		"sheet_ref_kind": []string{"view_schema"},
+		"sheet_ref_id":   []string{" cartulary.view.timeline.v2 "},
+	})
 	if apiErr != nil {
-		t.Fatalf("parse view_schema_id selector: %v", apiErr)
+		t.Fatalf("parse canonical view-schema selector: %v", apiErr)
 	}
 	if string(viewSchemaRef) != `{"kind":"view_schema","id":"cartulary.view.timeline.v2"}` {
 		t.Fatalf("unexpected explicit view schema ref: %s", viewSchemaRef)
@@ -160,12 +163,18 @@ func TestWorkbookStartupExplicitSheetRefParser(t *testing.T) {
 		t.Fatalf("unexpected explicit extension workspace ref: %s", extensionRef)
 	}
 
-	_, apiErr = workbookstartup.ParseExplicitSheetRef(url.Values{
-		"view_schema_id": []string{"cartulary.view.timeline.v2"},
-		"sheet_ref_kind": []string{"view_schema"},
-		"sheet_ref_id":   []string{"cartulary.view.hosts.v1"},
-	})
-	requireStartupAPIError(t, apiErr, http.StatusBadRequest, "invalid_startup_request", "sheet_ref", "ambiguous_explicit_sheet_ref")
+	for _, legacyQuery := range []url.Values{
+		{"view_schema_id": []string{"cartulary.view.timeline.v2"}},
+		{"view_schema_id": []string{""}},
+		{
+			"view_schema_id": []string{"cartulary.view.timeline.v2"},
+			"sheet_ref_kind": []string{"view_schema"},
+			"sheet_ref_id":   []string{"cartulary.view.hosts.v1"},
+		},
+	} {
+		_, apiErr = workbookstartup.ParseExplicitSheetRef(legacyQuery)
+		requireStartupAPIError(t, apiErr, http.StatusBadRequest, "invalid_startup_request", "view_schema_id", "unknown_field")
+	}
 
 	_, apiErr = workbookstartup.ParseExplicitSheetRef(url.Values{
 		"sheet_ref_kind": []string{"extension_workspace"},

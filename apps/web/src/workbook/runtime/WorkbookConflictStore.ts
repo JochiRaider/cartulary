@@ -18,7 +18,7 @@ export type WorkbookConflictRegistration = {
 };
 
 /** Owns conflict drafts, refresh callbacks, and panel activation state. */
-export class WorkbookConflictStore {
+class WorkbookConflictState {
   readonly #entries = new Map<string, WorkbookConflictEntry>();
   readonly #refreshByKey = new Map<string, WorkbookConflictRefresh>();
   #panelDismissed = false;
@@ -99,3 +99,32 @@ export class WorkbookConflictStore {
     return conflict;
   }
 }
+
+export function createWorkbookConflictStore() {
+  const state = new WorkbookConflictState();
+  return {
+    get size() {
+      return state.size;
+    },
+    get panelOpen() {
+      return state.panelOpen;
+    },
+    entries: () => state.entries(),
+    get: (key: string) => state.get(key),
+    register: (registration: WorkbookConflictRegistration) =>
+      state.register(registration),
+    replace: (entry: WorkbookConflictEntry) => state.replace(entry),
+    setRefresh: (key: string, refresh: WorkbookConflictRefresh) =>
+      state.setRefresh(key, refresh),
+    refresh: (key: string) => state.refresh(key),
+    updateDraft: (key: string, mergedDraft: string) =>
+      state.updateDraft(key, mergedDraft),
+    clear: (key: string) => state.clear(key),
+    activate: () => state.activate(),
+    dismiss: (key: string) => state.dismiss(key),
+  };
+}
+
+export type WorkbookConflictStore = ReturnType<
+  typeof createWorkbookConflictStore
+>;

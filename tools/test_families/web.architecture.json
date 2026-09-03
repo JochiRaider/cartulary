@@ -111,8 +111,8 @@
         "file": "apps/web/src/testing/sourceOwnershipPolicy.test.ts",
         "titles": [
           "frontend source ownership policy accounts for every live TypeScript path exactly once without Markdown input",
-          "frontend source ownership policy keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation",
-          "frontend source ownership policy keeps transaction identity and mutation wire intents behind Workbook command assembly"
+          "frontend source ownership policy centralizes transaction identity and confines wire intents to owner-local command modules",
+          "frontend source ownership policy keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation"
         ]
       },
       "evidence_class": "static",

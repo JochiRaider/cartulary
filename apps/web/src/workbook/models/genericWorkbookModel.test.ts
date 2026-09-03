@@ -4,8 +4,8 @@ import {
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
+import { buildGenericCreateRequest } from "../features/generic/genericCreateRequestBuilder";
 import {
-  buildGenericCreatePayload,
   buildGenericPatchChange,
   collectionItemLabels,
   extractEmailFromPartyText,
@@ -103,10 +103,10 @@ describe("genericWorkbookModel", () => {
     });
 
     expect(
-      buildGenericCreatePayload(evidence, {}, "txn-evidence-missing"),
+      buildGenericCreateRequest(evidence, {}, "txn-evidence-missing"),
     ).toBeNull();
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         evidence,
         { "evidence.collector_party_id": "party-1" },
         "txn-evidence-reference-only",
@@ -116,7 +116,7 @@ describe("genericWorkbookModel", () => {
       "Endpoint package",
     );
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         evidence,
         {
           "evidence.title": " Endpoint package ",
@@ -132,7 +132,7 @@ describe("genericWorkbookModel", () => {
       "evidence.collector_party_id": null,
     });
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         evidence,
         {
           "evidence.title": "Endpoint package",
@@ -152,7 +152,7 @@ describe("genericWorkbookModel", () => {
     const indicators = requireViewContract(indicatorsViewSchemaId);
 
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         indicators,
         {
           "indicator.indicator_type": "ipv4_addr",
@@ -168,7 +168,7 @@ describe("genericWorkbookModel", () => {
       "indicator.display_value": "203.0.113.7",
     });
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         indicators,
         {
           "indicator.indicator_type": "file_hash",
@@ -225,7 +225,7 @@ describe("genericWorkbookModel", () => {
       }),
     ).toBe(false);
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         hosts,
         {
           "host.aliases": "VPN Gateway",
@@ -234,7 +234,7 @@ describe("genericWorkbookModel", () => {
       ),
     ).toBeNull();
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         hosts,
         {
           "host.location": "Datacenter A",
@@ -243,7 +243,7 @@ describe("genericWorkbookModel", () => {
       ),
     ).toBeNull();
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         hosts,
         {
           "host.hostname": " GATEWAY-01 ",
@@ -274,7 +274,7 @@ describe("genericWorkbookModel", () => {
     });
 
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         identities,
         {
           "identity.mfa_state": "enabled",
@@ -283,7 +283,7 @@ describe("genericWorkbookModel", () => {
       ),
     ).toBeNull();
     expect(
-      buildGenericCreatePayload(
+      buildGenericCreateRequest(
         identities,
         {
           "identity.email": " alex.analyst@example.test ",

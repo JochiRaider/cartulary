@@ -457,8 +457,10 @@ describe("web E2E semantic support policy", () => {
   it("retains deliberate invalid view-schema probes as explicit negative coverage", () => {
     const source = readFileSync(join(e2eRoot, "workbook.spec.ts"), "utf8");
 
-    expect(source).toContain('"?view_schema_id=cartulary.view.unknown.v1"');
-    expect(source).toContain("invalidExplicitStartup.selected_view_schema_id");
+    expect(source).toContain(
+      "workbook-startup?view_schema_id=cartulary.view.unknown.v1",
+    );
+    expect(source).toContain('reason_code: "unknown_field"');
   });
 
   it("requires current view-schema identities to come from the view-contract facade", () => {

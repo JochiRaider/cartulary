@@ -5,7 +5,7 @@ import type {
 } from "@cartulary/grid-adapter";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useCallback } from "react";
-import type { TimelineBulkMutationPort } from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineFillMutationPort } from "../../mutations/workbookMutationCommandPorts";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import { timelineScalarBindingForField } from "../models/timelineFieldRegistry";
 import {
@@ -142,7 +142,7 @@ export function useTimelineFillController({
     readonly showLoading: false;
     readonly viewportContinuityToken: number;
   }) => Promise<void>;
-  readonly port: Pick<TimelineBulkMutationPort, "fillDown">;
+  readonly port: TimelineFillMutationPort;
   readonly resolvePendingSocketTxn: (
     clientTxnId: string | null | undefined,
   ) => unknown;

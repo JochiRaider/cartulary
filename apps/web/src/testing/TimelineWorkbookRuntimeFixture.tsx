@@ -15,7 +15,11 @@ import { createWorkbookClipboardPasteAdapter } from "../workbook/adapters/create
 import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookViewQueryAdapter } from "../workbook/adapters/createWorkbookViewQueryAdapter";
-import { WorkbookCollaborationCoordinator } from "../workbook/collaboration/WorkbookCollaborationCoordinator";
+import { createWorkbookCollaborationCoordinator } from "../workbook/collaboration/WorkbookCollaborationCoordinator";
+import {
+  systemWorkbookCollaborationClock,
+  systemWorkbookCollaborationScheduler,
+} from "../workbook/collaboration/workbookCollaborationTiming";
 import { WorkbookEditRecoveryPanel } from "../workbook/components/WorkbookEditRecoveryPanel";
 import { WorkbookQueueOverflowNotice } from "../workbook/components/WorkbookQueueOverflowNotice";
 import { WorkbookSameFieldConflictResolver } from "../workbook/components/WorkbookSameFieldConflictResolver";
@@ -233,21 +237,22 @@ export function TimelineWorkbookRuntimeFixture({
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
-  const [collaborationProjection] = useState(
-    () =>
-      new WorkbookCollaborationCoordinator({
-        authorizationRecovery: createAppAuthorizationRecoveryPort(),
-        continuityInvalidation: () => undefined,
-        evidenceInvalidation: () => undefined,
-        extensionInvalidation: () => undefined,
-        incidentId,
-        initialSheetRef: sheetRef,
-        inspectorInvalidation: () => undefined,
-        mutationRuntime,
-        onAuthorizationRecovered: () => undefined,
-        onIncidentAccessLost,
-        queryInvalidation: () => undefined,
-      }),
+  const [collaborationProjection] = useState(() =>
+    createWorkbookCollaborationCoordinator({
+      authorizationRecovery: createAppAuthorizationRecoveryPort(),
+      clock: systemWorkbookCollaborationClock,
+      continuityInvalidation: () => undefined,
+      evidenceInvalidation: () => undefined,
+      extensionInvalidation: () => undefined,
+      incidentId,
+      initialSheetRef: sheetRef,
+      inspectorInvalidation: () => undefined,
+      mutationRuntime,
+      onAuthorizationRecovered: () => undefined,
+      onIncidentAccessLost,
+      queryInvalidation: () => undefined,
+      scheduler: systemWorkbookCollaborationScheduler,
+    }),
   );
 
   return (

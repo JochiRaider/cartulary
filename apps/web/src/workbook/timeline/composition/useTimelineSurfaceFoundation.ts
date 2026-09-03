@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { createTimelineBulkTagCommandAdapter } from "../adapters/createTimelineBulkTagCommandAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "../adapters/createTimelineEvidenceAttachmentAdapter";
 import { createTimelineHistoryAdapter } from "../adapters/createTimelineHistoryAdapter";
-import { createTimelineMentionAdapter } from "../adapters/createTimelineMentionAdapter";
+import { createTimelineMentionEntityCreationAdapter } from "../adapters/createTimelineMentionEntityCreationAdapter";
+import { createTimelineMentionResolutionAdapter } from "../adapters/createTimelineMentionResolutionAdapter";
 import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRecordActionAdapter";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
@@ -39,13 +41,28 @@ export function useTimelineSurfaceFoundation({
     () => createTimelineRecordActionAdapter({ apiBase }),
     [apiBase],
   );
-  const mentionPort = useMemo(
-    () => createTimelineMentionAdapter({ apiBase, incidentId }),
+  const mentionPorts = useMemo(
+    () => ({
+      entityCreation: createTimelineMentionEntityCreationAdapter({
+        apiBase,
+        incidentId,
+      }),
+      resolution: createTimelineMentionResolutionAdapter({ apiBase }),
+    }),
     [apiBase, incidentId],
   );
   const evidenceAttachmentPort = useMemo(
     () =>
       createTimelineEvidenceAttachmentAdapter({
+        apiBase,
+        createClientTxnId: mutationCommands.identity.createLogicalActionId,
+        incidentId,
+      }),
+    [apiBase, incidentId, mutationCommands.identity],
+  );
+  const bulkTagPort = useMemo(
+    () =>
+      createTimelineBulkTagCommandAdapter({
         apiBase,
         createClientTxnId: mutationCommands.identity.createLogicalActionId,
         incidentId,
@@ -112,10 +129,11 @@ export function useTimelineSurfaceFoundation({
       },
     },
     ports: {
+      bulkTag: bulkTagPort,
       clipboardPaste,
       evidenceAttachment: evidenceAttachmentPort,
       history: historyPort,
-      mention: mentionPort,
+      mentions: mentionPorts,
       recordActions: recordActionPort,
     },
     refs: {

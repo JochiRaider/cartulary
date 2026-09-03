@@ -1,3 +1,4 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useMemo } from "react";
 import { sheetRefKey } from "../../../shared/sheetRef";
 import { useIncidentMemberReferenceOptions } from "../../hooks/useOwnerReferenceOptions";
@@ -7,6 +8,7 @@ import {
   workbookInspectorStateIsOpen,
 } from "../../models/workbookInspectorModel";
 import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineCreateRelatedWorkflow } from "../hooks/useTimelineCreateRelatedWorkflow";
 import { useTimelineEvidenceAttach } from "../hooks/useTimelineEvidenceAttach";
@@ -35,11 +37,12 @@ type InspectorRowInteractionsInput = Parameters<
 type MentionInput = Parameters<typeof useTimelineMentionActions>[0];
 
 type TimelineInspectorWorkflowCompositionInput = {
+  readonly knownEntityTypes: ReadonlyMap<string, "host" | "identity">;
   readonly foundation: {
     readonly evidenceAttachmentPort: EvidenceInput["evidenceAttachmentPort"];
     readonly historyPort: HistoryInput["historyPort"];
     readonly loadAccessLost: boolean;
-    readonly mentionPort: MentionInput["mentionPort"];
+    readonly mentionPorts: MentionInput["mentionPorts"];
     readonly rows: InspectorLifecycleInput["rows"];
     readonly rowsRef: MentionInput["rowsRef"];
     readonly selectedMentionRef: InspectorLifecycleInput["selectedMentionRef"];
@@ -129,6 +132,7 @@ type TimelineInspectorWorkflowCompositionInput = {
 
 export function useTimelineInspectorWorkflowComposition({
   activeSheetRef,
+  knownEntityTypes,
   foundation,
   grid,
   incident,
@@ -138,6 +142,14 @@ export function useTimelineInspectorWorkflowComposition({
   onIncidentAccessLost,
   onRefreshEntities,
 }: TimelineInspectorWorkflowCompositionInput) {
+  const actionContext = {
+    authorized:
+      !foundation.loadAccessLost &&
+      (incident.currentRole === "editor" ||
+        incident.currentRole === "reviewer" ||
+        incident.currentRole === "admin"),
+    surfaceKey: sheetRefKey(activeSheetRef),
+  };
   const {
     beginWorkflow,
     cancelWorkflow,
@@ -145,6 +157,7 @@ export function useTimelineInspectorWorkflowComposition({
     updateWorkflowDraft,
     workflow: createRelatedWorkflow,
   } = useTimelineCreateRelatedWorkflow({
+    actionContext,
     applyAcceptedRowMutation: mutation.applyAcceptedRowMutation,
     currentUserId: incident.currentUserId,
     loadRows: mutation.loadRows,
@@ -250,13 +263,18 @@ export function useTimelineInspectorWorkflowComposition({
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   });
   const mentions = useTimelineMentionActions({
+    actionContext: {
+      ...actionContext,
+      capabilityAvailable: timelineMentionCapabilityAvailable,
+    },
     beginSave: mutation.commands.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     enqueueSaveWork: mutation.commands.enqueueSaveWork,
     finishSave: mutation.commands.finishSave,
     loadRows: mutation.loadRows,
-    mentionPort: foundation.mentionPort,
+    knownEntityTypes,
+    mentionPorts: foundation.mentionPorts,
     nextClientTxnId: mutation.commands.nextClientTxnId,
     onRefreshEntities,
     requireViewportContinuitySourceRecord:
@@ -270,6 +288,11 @@ export function useTimelineInspectorWorkflowComposition({
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   });
   const evidence = useTimelineEvidenceAttach({
+    actionContext: {
+      ...actionContext,
+      capabilityAvailable: timelineEvidenceCapabilityAvailable,
+      selectedRowKey: inspector.selection.selectedRow?.key ?? null,
+    },
     applyAcceptedRowMutation: mutation.applyAcceptedRowMutation,
     beginSave: mutation.commands.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
@@ -330,3 +353,13 @@ export function useTimelineInspectorWorkflowComposition({
     },
   };
 }
+
+const timelineContract = requireViewContract(timelineViewSchemaId);
+const timelineMentionCapabilityAvailable =
+  timelineContract.inspectorConfig.featureGroups.some(
+    (group) => group.featureGroupKey === "entity_mentions.resolve",
+  );
+const timelineEvidenceCapabilityAvailable =
+  timelineContract.inspectorConfig.featureGroups.some(
+    (group) => group.featureGroupKey === "evidence.attach_blob",
+  );
