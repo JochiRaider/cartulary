@@ -330,13 +330,14 @@ specific surface.
 | `workbook/hooks/useIncidentControlsDrawer.ts` | Incident controls drawer state, selection, and focus restoration. |
 | `workbook/hooks/useOwnerReferenceOptions.ts` | Resolves only the active bounded-context policy's reference requirements through the generic broker. |
 | `workbook/hooks/useWorkbookIncidentIdentity.ts` | Resolves incident identity/loading state for the workbook shell. |
-| `workbook/hooks/useWorkbookPendingGridFocus.ts` | Restores the requested first grid target after a surface transition. |
 | `workbook/hooks/useWorkbookProjectionRefreshController.test.tsx` | Direct tests for initial and sheet-triggered projection refresh ownership. |
 | `workbook/hooks/useWorkbookProjectionRefreshController.ts` | Initial session/entity and sheet-triggered projection refresh coordinator. |
 | `workbook/hooks/useWorkbookQueryController.test.tsx` | Direct tests for exact-view-schema query-state isolation. |
 | `workbook/hooks/useWorkbookQueryController.ts` | Schema-keyed query/filter controller and active query-control adapter. |
 | `workbook/hooks/useWorkbookSavedViewController.test.tsx` | Direct tests for saved-view loading and selection precedence. |
 | `workbook/hooks/useWorkbookSavedViewController.ts` | Saved-view list, CRUD, persistence, and active-selection controller. |
+| `workbook/hooks/useWorkbookSemanticGridFocus.test.tsx` | Direct tests for semantic grid-entry focus order, lifecycle readiness, and stale-request handling. |
+| `workbook/hooks/useWorkbookSemanticGridFocus.ts` | Resolves generation-keyed grid-entry requests through the mounted semantic grid handle. |
 | `workbook/hooks/useWorkbookShellRuntime.ts` | Thin shell runtime facade composing startup, saved-view, and query controllers. |
 | `workbook/hooks/useWorkbookStartupController.test.tsx` | Direct tests for workbook selection, focus intent, versioning, and URL state. |
 | `workbook/hooks/useWorkbookStartupController.ts` | Startup/sheet identity, URL history, focus intent, and workbook-preference controller. |
@@ -392,6 +393,7 @@ app.
 | `workbook/models/evidenceLifecycleViewModel.ts` | Evidence lifecycle display/count view-model helpers. |
 | `workbook/models/genericWorkbookModel.ts` | Generic system-view create/edit payload, enum, validation, and row-label helpers. |
 | `workbook/models/workbookContractRows.ts` | Contract-backed row normalization and grid-column materialization helpers for workbook surfaces. |
+| `workbook/models/workbookGridEntryFocus.ts` | Generation-keyed grid-entry focus request and exact-acknowledgement model. |
 | `workbook/models/workbookGridState.ts` | Contract-grid load-state presentation and incident-role interaction-mode helpers. |
 | `workbook/models/workbookIncidentIdentity.ts` | Incident identity normalization and loading-state model. |
 | `workbook/models/workbookInspectorModel.ts` | Pure inspector state machine for default-closed state, semantic subjects, active panels, no-row state, and invalidation generations. |

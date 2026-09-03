@@ -69,7 +69,6 @@ import {
 import { WorkbookPresenceSummary } from "./components/WorkbookStatusStrip";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
-import { useWorkbookPendingGridFocus } from "./hooks/useWorkbookPendingGridFocus";
 import { useWorkbookProjectionRefreshController } from "./hooks/useWorkbookProjectionRefreshController";
 import { useWorkbookShellRuntime } from "./hooks/useWorkbookShellRuntime";
 import { useWorkbookLayoutFacade } from "./layout/useWorkbookLayoutFacade";
@@ -394,7 +393,7 @@ function WorkbookShellContent({
     genericQueryState,
     hostQueryState,
     identityQueryState,
-    pendingGridFocusSurface,
+    gridEntryFocusRequest,
     savedViews,
     sheetReloadToken,
     startupSheetRef,
@@ -402,6 +401,8 @@ function WorkbookShellContent({
     timelineQueryState,
   } = workbookRuntime.snapshot;
   const {
+    acknowledgeGridEntryFocus,
+    cancelGridEntryFocus,
     createSavedView,
     deleteSavedView,
     duplicateSavedView,
@@ -412,7 +413,6 @@ function WorkbookShellContent({
     setGenericQueryState,
     setHostQueryState,
     setIdentityQueryState,
-    setPendingGridFocusSurface,
     setTimelineQueryState,
     setWorkbookDefaultSheetRef,
     setWorkbookHomeSheetRef,
@@ -522,9 +522,9 @@ function WorkbookShellContent({
     setContinuityInvalidationGeneration,
   ] = useState(0);
   const continuityInvalidation = useCallback(() => {
-    setPendingGridFocusSurface(() => null);
+    cancelGridEntryFocus();
     setContinuityInvalidationGeneration((current) => current + 1);
-  }, [setPendingGridFocusSurface]);
+  }, [cancelGridEntryFocus]);
   const evidenceInvalidation = useCallback(() => {
     setEvidenceInvalidationGeneration((current) => current + 1);
   }, []);
@@ -703,12 +703,6 @@ function WorkbookShellContent({
     loadGenericSurface,
     loadSessionRole,
     sheetReloadToken,
-  });
-
-  useWorkbookPendingGridFocus({
-    pendingGridFocusSurface,
-    setPendingGridFocusSurface,
-    surface,
   });
 
   const activeSurfaceIsBuiltIn = requiredBuiltInWorkbookSurfaceIds.some(
@@ -1117,6 +1111,10 @@ function WorkbookShellContent({
               <WorkbookSurfacesFacade
                 collaboration={{ projection: collaborationProjection }}
                 continuity={{ resetKey: continuityResetKey }}
+                gridEntryFocus={{
+                  acknowledge: acknowledgeGridEntryFocus,
+                  request: gridEntryFocusRequest,
+                }}
                 incident={{
                   apiBase,
                   currentIncidentRole,

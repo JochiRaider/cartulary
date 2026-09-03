@@ -2,6 +2,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
+import type { WorkbookGridEntryFocusOwner } from "../../models/workbookGridEntryFocus";
 import type {
   FilterDraft,
   WorkbookQueryState,
@@ -47,6 +48,7 @@ export type TimelineWorkbookSurfaceRuntime = {
   readonly pendingMutationPort: WorkbookPendingMutationPort;
   readonly mutationCommands: TimelineMutationCommandPorts;
   readonly indicatorWorkflow: IndicatorWorkflowPort;
+  readonly gridEntryFocus: WorkbookGridEntryFocusOwner;
   readonly incident: {
     readonly id: string;
     readonly apiBase: string | undefined;

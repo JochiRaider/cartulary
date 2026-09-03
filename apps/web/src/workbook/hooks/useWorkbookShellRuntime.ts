@@ -45,19 +45,16 @@ export function useWorkbookShellRuntime({
     preferencePort,
     surfaceSelectionVersionRef,
   });
-  const {
-    pendingGridFocusSurface,
-    sheetReloadToken,
-    startupSheetRef,
-    surface,
-  } = startupController.snapshot;
+  const { gridEntryFocusRequest, sheetReloadToken, startupSheetRef, surface } =
+    startupController.snapshot;
   const { params } = startupController.refs;
   const {
+    acknowledgeGridEntryFocus,
     applyStartupIdentity,
     applyWorkbookIdentity,
+    cancelGridEntryFocus,
     selectExtensionWorkspace,
     selectWorkbookSurface,
-    setPendingGridFocusSurface,
     setWorkbookDefaultSheetRef,
     setWorkbookHomeSheetRef,
   } = startupController.commands;
@@ -157,12 +154,13 @@ export function useWorkbookShellRuntime({
 
   return {
     commands: {
+      acknowledgeGridEntryFocus,
+      cancelGridEntryFocus,
       createSavedView,
       deleteSavedView,
       duplicateSavedView,
       selectWorkbookSurface,
       selectExtensionWorkspace,
-      setPendingGridFocusSurface,
       setWorkbookDefaultSheetRef,
       setWorkbookHomeSheetRef,
       setAssessmentQueryState,
@@ -183,7 +181,7 @@ export function useWorkbookShellRuntime({
       genericQueryState,
       hostQueryState,
       identityQueryState,
-      pendingGridFocusSurface,
+      gridEntryFocusRequest,
       savedViews,
       sheetReloadToken,
       startupSheetRef,

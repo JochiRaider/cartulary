@@ -197,6 +197,14 @@ never mixes source, catalog, verification, or profile digests.
   selector builders, where the canonical registry validates them.
 - `packages/grid-adapter` owns the shared grid integration boundary; application
   code does not import the underlying grid library directly.
+- The adapter's package-private semantic kernel is the single policy owner for
+  capability admission, effective interaction mode, semantic and data-state
+  precedence, navigation, edit entry, range transitions, clipboard and fill
+  planning, sorting, grouping projection, and bulk-selection transitions. Its
+  modules are deterministic and DOM-free: they do not import React, browser
+  APIs, timers, `react-data-grid`, or vendor coordinates. Production and
+  `./test-support` bindings execute closed kernel decisions through narrow
+  effect ports; neither binding may re-decide semantic policy.
 - `packages/ui-contracts` owns cross-runtime selector/test-ID construction,
   semantic DOM contracts, stable shared accessibility names, and the authored
   facade for generated design tokens and token-derived presentation values. It
@@ -216,7 +224,7 @@ Grid evidence uses the following ownership split:
 
 | Postcondition | Required implementation/evidence boundary |
 | --- | --- |
-| Stable identities, visible semantic positions, state precedence, callback payloads, and target rejection | Deterministic grid-adapter policy tests; the lightweight `./test-support` fake may share these policies and must retain consumer-contract parity. |
+| Stable identities, capability admission, visible semantic positions, state precedence, navigation, edit entry, range/clipboard/fill/sort/grouping/selection decisions, callback payloads, and target rejection | Deterministic package-private kernel tests plus one parameterized behavioral contract suite against both bindings. The lightweight `./test-support` fake must consume the same policies and retain consumer-contract parity. |
 | Workbook mutation submission, reconciliation, messaging, and decoded clipboard dispatch | Application tests that explicitly mock `@cartulary/grid-adapter` with `@cartulary/grid-adapter/test-support`. |
 | Non-virtualized DOM rendering needed to isolate a package-local unit postcondition | The immutable package-private DOM-unit binding, imported only by `packages/grid-adapter` test files. It is support evidence, not a production-path claim. |
 | RDG callbacks and lifecycle, virtualization, frozen columns, scrolling, offscreen semantic focus/targeting, and vendor choreography | The production root binding in package-local integration tests or live browser rows. The fake and DOM-unit binding cannot verify these postconditions. |
@@ -251,6 +259,12 @@ Production virtualization is an immutable root-component binding. Runtime code,
 application tests, shared setup files, the root facade, and `./test-support` must not
 import or expose the package-private DOM-unit binding. There is no mutable diagnostic
 setter, environment switch, storage switch, or consumer prop.
+
+The dual-binding contract covers only observable semantic behavior. A successful
+semantic focus transition publishes `onActiveCellChange` exactly once; a same-anchor
+no-op or failed focus publishes nothing. Vendor lifecycle, virtualization, frozen
+columns, offscreen scrolling, and pointer choreography remain production-root-only
+evidence and must not be emulated by `./test-support`.
 
 Extension-gated frontend code consumes the explicit serving-epoch availability
 projection returned by production APIs. It does not infer claims from route probes,

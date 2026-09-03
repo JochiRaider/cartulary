@@ -42,6 +42,7 @@ import type {
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
 import { useEntityWorkbookInspectorComposition } from "../features/entities/useEntityWorkbookInspectorComposition";
+import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import {
   type WorkbookInspectorErrorPresentation,
   type WorkbookInspectorFeedback,
@@ -74,6 +75,7 @@ import {
   workbookContractColumns,
   workbookGridRows,
 } from "../models/workbookContractRows";
+import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
@@ -112,6 +114,7 @@ export type EntityWorkbookSurfaceProps = {
   continuityResetKey: string;
   entityType: EntityRow["entityType"];
   inspectorResetKey: string;
+  gridEntryFocus: WorkbookGridEntryFocusOwner;
   queryControls?: ReactNode | undefined;
   savedViewSelector?: ReactNode | undefined;
   layout: WorkbookSurfaceLayoutOwner;
@@ -177,6 +180,7 @@ export function EntityWorkbookSurface({
   continuityResetKey,
   entityType,
   inspectorResetKey,
+  gridEntryFocus,
   queryControls,
   savedViewSelector,
   layout,
@@ -390,6 +394,17 @@ export function EntityWorkbookSurface({
     rowCount: entityGridRows.length,
     surfaceLabel: contract.title,
   });
+  const gridEntryDraftFieldKeys = useMemo(
+    () =>
+      entityDraftRow === undefined
+        ? []
+        : visibleEntityAnchorColumns
+            .filter((column) =>
+              createFields.some((field) => field.fieldKey === column.fieldKey),
+            )
+            .map((column) => column.fieldKey),
+    [createFields, entityDraftRow, visibleEntityAnchorColumns],
+  );
   useEffect(
     () =>
       mutationRuntime.registerSurface(
@@ -693,6 +708,15 @@ export function EntityWorkbookSurface({
         },
       };
     });
+  const registerGridHandle = useWorkbookSemanticGridFocus({
+    dataRows: entityGridRows,
+    dataState,
+    draftFieldKeys: gridEntryDraftFieldKeys,
+    focusOwner: gridEntryFocus,
+    gridHandleRef,
+    visibleColumns: entityColumns,
+    viewSchemaId: surface,
+  });
   const entityActionsColumn: GridActionsColumn<EntityRow> = {
     headerTestId: gridActionsHeaderTestId(surface),
     label: "",
@@ -794,7 +818,7 @@ export function EntityWorkbookSurface({
           testId={gridShellTestId(surface)}
         >
           <SemanticDataGrid
-            ref={gridHandleRef}
+            ref={registerGridHandle}
             activeRowIdentity={
               selectedRecordId === null
                 ? null

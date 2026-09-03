@@ -24,6 +24,7 @@ function TimelineWorkbookContent({
         index: runtime.entities.index,
       },
       indicatorWorkflow: runtime.indicatorWorkflow,
+      gridEntryFocus: runtime.gridEntryFocus,
       layout: runtime.layout,
       onActivateConflict: runtime.onActivateConflict,
       queryControls: {

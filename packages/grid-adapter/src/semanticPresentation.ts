@@ -22,19 +22,13 @@ import {
   gridSurfaceIdentityKey,
 } from "./core";
 
-export type GridVendorPosition = {
-  readonly idx: number;
-  readonly rowIdx: number;
-};
-
-export type GridSemanticPositionMap = {
+export type GridSemanticCoordinateModel = {
   readonly fieldKeys: readonly string[];
-  readonly positions: ReadonlyMap<string, GridVendorPosition>;
   readonly rowIdentities: readonly GridRowIdentity[];
   readonly surface: GridSurfaceIdentity;
 };
 
-export type GridSemanticPresentationModel<Row> = GridSemanticPositionMap & {
+export type GridSemanticPresentationModel<Row> = GridSemanticCoordinateModel & {
   readonly allowCreateRows: boolean;
   readonly columns: readonly GridColumn<Row>[];
   readonly dataRows: readonly GridDataRow<Row>[];
@@ -98,12 +92,11 @@ export function isCoreRecordRow<Row>(
   return row.rowIdentity.kind === "core_record";
 }
 
-export function emptySemanticPositionMap(
+export function emptySemanticCoordinateModel(
   surface: GridSurfaceIdentity,
-): GridSemanticPositionMap {
+): GridSemanticCoordinateModel {
   return {
     fieldKeys: [],
-    positions: new Map(),
     rowIdentities: [],
     surface,
   };
@@ -113,7 +106,7 @@ export function emptySemanticPresentationModel<Row>(
   surface: GridSurfaceIdentity,
 ): GridSemanticPresentationModel<Row> {
   return {
-    ...emptySemanticPositionMap(surface),
+    ...emptySemanticCoordinateModel(surface),
     allowCreateRows: false,
     columns: [],
     dataRows: [],
@@ -148,64 +141,54 @@ export function sameGridCellRange(
   );
 }
 
-export function buildSemanticPositionMap<Row>({
-  columnKeys,
+export function semanticPresentationContainsAnchor(
+  model: GridSemanticCoordinateModel,
+  anchor: GridCellAnchor,
+): boolean {
+  return (
+    gridSurfaceIdentitiesEqual(model.surface, anchor.surface) &&
+    model.fieldKeys.includes(anchor.fieldKey) &&
+    model.rowIdentities.some((identity) =>
+      gridRowIdentitiesEqual(identity, anchor.rowIdentity),
+    )
+  );
+}
+
+export function buildSemanticCoordinateModel<Row>({
   dataRows,
   fieldKeys,
-  rowIndexes,
   surface,
 }: {
-  readonly columnKeys: readonly string[];
   readonly dataRows: readonly GridDataRow<Row>[];
   readonly fieldKeys: readonly string[];
-  readonly rowIndexes?: ReadonlyMap<string, number> | undefined;
   readonly surface: GridSurfaceIdentity;
-}): GridSemanticPositionMap {
-  const positions = new Map<string, GridVendorPosition>();
-  const columnIndexes = new Map(
-    columnKeys.map((columnKey, index) => [columnKey, index]),
-  );
-  const rowIdentities: GridRowIdentity[] = [];
-  for (const [fallbackRowIdx, row] of dataRows.entries()) {
-    const rowKey = gridRowIdentityKey(row.rowIdentity);
-    const rowIdx = rowIndexes?.get(rowKey) ?? fallbackRowIdx;
-    if (rowIdx < 0) continue;
-    rowIdentities.push(row.rowIdentity);
-    for (const fieldKey of fieldKeys) {
-      const idx = columnIndexes.get(fieldKey);
-      if (idx === undefined) continue;
-      const anchor = { fieldKey, rowIdentity: row.rowIdentity, surface };
-      positions.set(gridAnchorKey(anchor), { idx, rowIdx });
-    }
-  }
-  return { fieldKeys, positions, rowIdentities, surface };
+}): GridSemanticCoordinateModel {
+  return {
+    fieldKeys,
+    rowIdentities: dataRows.map((row) => row.rowIdentity),
+    surface,
+  };
 }
 
 export function buildSemanticPresentationModel<Row>({
   allowCreateRows,
   columns,
-  columnKeys,
   dataRows,
   fieldKeys,
   grouping = null,
-  rowIndexes,
   surface,
 }: {
   readonly allowCreateRows: boolean;
   readonly columns: readonly GridColumn<Row>[];
-  readonly columnKeys: readonly string[];
   readonly dataRows: readonly GridDataRow<Row>[];
   readonly fieldKeys: readonly string[];
   readonly grouping?: GridSemanticGroupingModel<Row> | null | undefined;
-  readonly rowIndexes?: ReadonlyMap<string, number> | undefined;
   readonly surface: GridSurfaceIdentity;
 }): GridSemanticPresentationModel<Row> {
   return {
-    ...buildSemanticPositionMap({
-      columnKeys,
+    ...buildSemanticCoordinateModel({
       dataRows,
       fieldKeys,
-      rowIndexes,
       surface,
     }),
     allowCreateRows,
@@ -247,7 +230,7 @@ export function buildSemanticGroupBuckets<Row>(
 }
 
 export function moveSemanticAnchor(
-  positionMap: GridSemanticPositionMap,
+  positionMap: GridSemanticCoordinateModel,
   anchor: GridCellAnchor,
   columnDelta: number,
   rowDelta: number,
@@ -266,69 +249,6 @@ export function moveSemanticAnchor(
   ) {
     return null;
   }
-  return { fieldKey, rowIdentity, surface: positionMap.surface };
-}
-
-export function navigateSemanticAnchor(
-  positionMap: GridSemanticPositionMap,
-  anchor: GridCellAnchor,
-  intent: {
-    readonly ctrlOrMetaKey: boolean;
-    readonly key:
-      | "ArrowDown"
-      | "ArrowLeft"
-      | "ArrowRight"
-      | "ArrowUp"
-      | "End"
-      | "Home"
-      | "PageDown"
-      | "PageUp";
-    readonly pageSize: number;
-  },
-): GridCellAnchor | null {
-  const columnIndex = positionMap.fieldKeys.indexOf(anchor.fieldKey);
-  const rowIndex = positionMap.rowIdentities.findIndex((identity) =>
-    gridRowIdentitiesEqual(identity, anchor.rowIdentity),
-  );
-  if (columnIndex < 0 || rowIndex < 0) return null;
-  let nextColumnIndex = columnIndex;
-  let nextRowIndex = rowIndex;
-  switch (intent.key) {
-    case "ArrowDown":
-      nextRowIndex += 1;
-      break;
-    case "ArrowLeft":
-      nextColumnIndex -= 1;
-      break;
-    case "ArrowRight":
-      nextColumnIndex += 1;
-      break;
-    case "ArrowUp":
-      nextRowIndex -= 1;
-      break;
-    case "PageDown":
-      nextRowIndex = Math.min(
-        positionMap.rowIdentities.length - 1,
-        rowIndex + intent.pageSize,
-      );
-      break;
-    case "PageUp":
-      nextRowIndex = Math.max(0, rowIndex - intent.pageSize);
-      break;
-    case "Home":
-      nextColumnIndex = 0;
-      if (intent.ctrlOrMetaKey) nextRowIndex = 0;
-      break;
-    case "End":
-      nextColumnIndex = positionMap.fieldKeys.length - 1;
-      if (intent.ctrlOrMetaKey) {
-        nextRowIndex = positionMap.rowIdentities.length - 1;
-      }
-      break;
-  }
-  const fieldKey = positionMap.fieldKeys[nextColumnIndex];
-  const rowIdentity = positionMap.rowIdentities[nextRowIndex];
-  if (fieldKey === undefined || rowIdentity === undefined) return null;
   return { fieldKey, rowIdentity, surface: positionMap.surface };
 }
 
@@ -481,7 +401,7 @@ export function resolveVisibleGridCellRange<Row>({
 }: {
   readonly columns: readonly SemanticDataGridProps<Row>["columns"][number][];
   readonly dataRows: readonly GridDataRow<Row>[];
-  readonly positionMap: GridSemanticPositionMap;
+  readonly positionMap: GridSemanticCoordinateModel;
   readonly range: GridCellRange;
 }) {
   if (
@@ -530,7 +450,7 @@ export function resolveVisibleGridCellRange<Row>({
 }
 
 export function gridCellRangeContains(
-  positionMap: GridSemanticPositionMap,
+  positionMap: GridSemanticCoordinateModel,
   range: GridCellRange | null,
   anchor: GridCellAnchor,
 ): boolean {

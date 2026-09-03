@@ -43,6 +43,7 @@ import type {
 import { useGenericWorkbookInspectorComposition } from "../features/generic/useGenericWorkbookInspectorComposition";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
+import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -61,6 +62,7 @@ import {
   workbookContractColumns,
   workbookGridRows,
 } from "../models/workbookContractRows";
+import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
@@ -90,6 +92,7 @@ export type ContractWorkbookSurfaceProps = {
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentPort: WorkbookIncidentPort;
   readonly inspectorResetKey: string;
+  readonly gridEntryFocus: WorkbookGridEntryFocusOwner;
   readonly queryControls?: ReactNode | undefined;
   readonly savedViewSelector?: ReactNode | undefined;
   readonly layout: WorkbookSurfaceLayoutOwner;
@@ -115,6 +118,7 @@ export function ContractWorkbookSurface({
   currentUserId,
   incidentPort,
   inspectorResetKey,
+  gridEntryFocus,
   queryControls,
   savedViewSelector,
   layout,
@@ -610,6 +614,26 @@ export function ContractWorkbookSurface({
     rowCount: gridRecordRows.length,
     surfaceLabel: contract.title,
   });
+  const gridEntryDraftFieldKeys = useMemo(
+    () =>
+      gridDraftRow === undefined
+        ? []
+        : visibleAnchorColumns
+            .filter((column) =>
+              createFields.some((field) => field.fieldKey === column.fieldKey),
+            )
+            .map((column) => column.fieldKey),
+    [createFields, gridDraftRow, visibleAnchorColumns],
+  );
+  const registerGridHandle = useWorkbookSemanticGridFocus({
+    dataRows: gridRecordRows,
+    dataState,
+    draftFieldKeys: gridEntryDraftFieldKeys,
+    focusOwner: gridEntryFocus,
+    gridHandleRef,
+    visibleColumns: columns,
+    viewSchemaId: surface,
+  });
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
@@ -624,7 +648,7 @@ export function ContractWorkbookSurface({
           testId={gridShellTestId(surface)}
         >
           <SemanticDataGrid
-            ref={gridHandleRef}
+            ref={registerGridHandle}
             actionsColumn={rowActionsColumn}
             columns={columns}
             columnWidths={layoutState.columnWidths}

@@ -28,6 +28,7 @@ import type {
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
 import { useAssessmentWorkbookInspectorComposition } from "../features/assessments/useAssessmentWorkbookInspectorComposition";
+import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
@@ -38,6 +39,7 @@ import { assessmentColumnWidth } from "../models/assessmentWorkbookModel";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import { genericCellLabel } from "../models/genericWorkbookModel";
 import { workbookGridRows } from "../models/workbookContractRows";
+import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import {
   type WorkbookQueryLoadState,
   workbookGridDataState,
@@ -68,6 +70,7 @@ export type AssessmentWorkbookSurfaceProps = {
   currentIncidentRole: WorkbookIncidentRole | null;
   currentUserId: string | null;
   inspectorResetKey: string;
+  gridEntryFocus: WorkbookGridEntryFocusOwner;
   queryControls?: ReactNode | undefined;
   savedViewSelector?: ReactNode | undefined;
   hostRows: EntityRow[];
@@ -93,6 +96,7 @@ export function AssessmentWorkbookSurface({
   currentIncidentRole,
   currentUserId,
   inspectorResetKey,
+  gridEntryFocus,
   queryControls,
   savedViewSelector,
   hostRows,
@@ -293,6 +297,14 @@ export function AssessmentWorkbookSurface({
       ),
     }),
   );
+  const registerGridHandle = useWorkbookSemanticGridFocus({
+    dataRows: gridRows,
+    dataState,
+    focusOwner: gridEntryFocus,
+    gridHandleRef,
+    visibleColumns: columns,
+    viewSchemaId: assessmentsViewSchemaId,
+  });
 
   function openStandaloneDraft() {
     inspectorContinuityTokenRef.current = assessmentFocus.port.capture();
@@ -341,7 +353,7 @@ export function AssessmentWorkbookSurface({
           testId={gridShellTestId(assessmentsViewSchemaId)}
         >
           <SemanticDataGrid
-            ref={gridHandleRef}
+            ref={registerGridHandle}
             activeRowIdentity={
               selectedAssessmentRecordId === null
                 ? null

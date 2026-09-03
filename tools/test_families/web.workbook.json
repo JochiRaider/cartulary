@@ -1411,6 +1411,88 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.useworkbookstartupcontroller_zfocus_generation_b7471bc8f0",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookStartupController.test.tsx",
+        "titles": [
+          "useWorkbookStartupController uses monotonic generations and exact acknowledgement for repeated selections"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.useworkbookstartupcontroller_zfocus_selection_b7471bc8f1",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookStartupController.test.tsx",
+        "titles": [
+          "useWorkbookStartupController cancels an older request before every base or extension selection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.useworkbookstartupcontroller_zsemantic_grid_focus_6f31bf7e92",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookSemanticGridFocus.test.tsx",
+        "titles": [
+          "useWorkbookSemanticGridFocus does nothing after unmount and has no deferred retry",
+          "useWorkbookSemanticGridFocus falls back to the root for empty rows",
+          "useWorkbookSemanticGridFocus falls back to the root for no visible fields",
+          "useWorkbookSemanticGridFocus falls back to the root for presentation-ineligible grouped rows",
+          "useWorkbookSemanticGridFocus focuses the first registered writable draft field and acknowledges once",
+          "useWorkbookSemanticGridFocus ignores a wrong surface and retries when the matching surface mounts",
+          "useWorkbookSemanticGridFocus keeps the request pending when every focus command fails",
+          "useWorkbookSemanticGridFocus treats a virtualized offscreen anchor as successful through GridHandle",
+          "useWorkbookSemanticGridFocus tries committed rows and visible fields in semantic order",
+          "useWorkbookSemanticGridFocus uses only the newest generation when mounting follows a rapid switch",
+          "useWorkbookSemanticGridFocus waits through busy data and retries from the ready state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.workbook_history_presentation_model_af6496ddc4",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

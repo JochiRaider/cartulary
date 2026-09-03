@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import { isSheetRef } from "../../shared/sheetRef";
+import type {
+  WorkbookGridEntryFocusAcknowledgement,
+  WorkbookGridEntryFocusRequest,
+} from "../models/workbookGridEntryFocus";
 import { baseSurfaceIdentityForViewSchemaId } from "../models/workbookSavedViewRuntime";
 import {
   knownWorkbookViewSchemaId,
@@ -49,15 +53,35 @@ export function useWorkbookStartupController({
       : { kind: "view_schema", id: initialViewSchemaId };
   });
   const [sheetReloadToken, setSheetReloadToken] = useState(0);
-  const [pendingGridFocusSurface, setPendingGridFocusSurface] = useState<
-    string | null
-  >(null);
+  const gridEntryFocusGenerationRef = useRef(0);
+  const [gridEntryFocusRequest, setGridEntryFocusRequest] =
+    useState<WorkbookGridEntryFocusRequest>({ kind: "idle" });
+
+  const cancelGridEntryFocus = useCallback(() => {
+    setGridEntryFocusRequest((current) =>
+      current.kind === "idle" ? current : { kind: "idle" },
+    );
+  }, []);
+
+  const acknowledgeGridEntryFocus = useCallback(
+    (acknowledgement: WorkbookGridEntryFocusAcknowledgement) => {
+      setGridEntryFocusRequest((current) =>
+        current.kind === "pending" &&
+        current.viewSchemaId === acknowledgement.viewSchemaId &&
+        current.generation === acknowledgement.generation
+          ? { kind: "idle" }
+          : current,
+      );
+    },
+    [],
+  );
 
   const applyWorkbookIdentity = useCallback(
     (
       identity: WorkbookIdentity,
       options: ApplyWorkbookIdentityOptions = {},
     ) => {
+      cancelGridEntryFocus();
       if (options.bumpSelectionVersion !== false) {
         surfaceSelectionVersionRef.current += 1;
       }
@@ -66,13 +90,18 @@ export function useWorkbookStartupController({
       }
       setStartupSheetRef({ ...identity.sheetRef });
       if (options.focusFirstGridTarget && identity.viewSchemaId !== null) {
-        setPendingGridFocusSurface(identity.viewSchemaId);
+        gridEntryFocusGenerationRef.current += 1;
+        setGridEntryFocusRequest({
+          generation: gridEntryFocusGenerationRef.current,
+          kind: "pending",
+          viewSchemaId: identity.viewSchemaId,
+        });
       }
       if (options.reloadSheet) {
         setSheetReloadToken((current) => current + 1);
       }
     },
-    [surfaceSelectionVersionRef],
+    [cancelGridEntryFocus, surfaceSelectionVersionRef],
   );
 
   const selectWorkbookSurface = useCallback(
@@ -155,17 +184,18 @@ export function useWorkbookStartupController({
 
   return {
     commands: {
+      acknowledgeGridEntryFocus,
       applyStartupIdentity,
       applyWorkbookIdentity,
+      cancelGridEntryFocus,
       selectExtensionWorkspace,
       selectWorkbookSurface,
-      setPendingGridFocusSurface,
       setWorkbookDefaultSheetRef,
       setWorkbookHomeSheetRef,
     },
     refs: { params },
     snapshot: {
-      pendingGridFocusSurface,
+      gridEntryFocusRequest,
       sheetReloadToken,
       startupSheetRef,
       surface,

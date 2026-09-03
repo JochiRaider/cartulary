@@ -13,6 +13,7 @@ import { EntityWorkbookSurface } from "../components/EntityWorkbookSurface";
 import { ContractWorkbookSurface } from "../components/GenericWorkbookSurface";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import type { EntityRow } from "../models/entityWorkbookModel";
+import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
 import type { WorkbookQueryLoadState } from "../models/workbookGridState";
 import {
   defaultFilterDraft,
@@ -37,6 +38,7 @@ export type WorkbookSurfacesFacadeProps = {
   readonly continuity: {
     readonly resetKey: string;
   };
+  readonly gridEntryFocus: WorkbookGridEntryFocusOwner;
   readonly incident: {
     readonly apiBase?: string | undefined;
     readonly currentIncidentRole: WorkbookIncidentRole | null;
@@ -107,6 +109,7 @@ export type WorkbookSurfacesFacadeProps = {
 export function WorkbookSurfacesFacade({
   collaboration,
   continuity,
+  gridEntryFocus,
   incident,
   inspector,
   layout,
@@ -212,6 +215,7 @@ export function WorkbookSurfacesFacade({
             refresh: loadEntities,
           },
           layout,
+          gridEntryFocus,
           onActivateConflict,
           onIncidentAccessLost,
         }}
@@ -233,6 +237,7 @@ export function WorkbookSurfacesFacade({
         entityIndex={entityIndex}
         entityType={isHosts ? "host" : "identity"}
         inspectorResetKey={inspectorResetKey}
+        gridEntryFocus={gridEntryFocus}
         layout={layout}
         mutationRuntime={mutationRuntime}
         mutationCommands={mutationCommands.entity}
@@ -276,6 +281,7 @@ export function WorkbookSurfacesFacade({
         hostRows={hostRows}
         identityRows={identityRows}
         inspectorResetKey={inspectorResetKey}
+        gridEntryFocus={gridEntryFocus}
         layout={layout}
         mutationRuntime={mutationRuntime}
         mutationCommands={mutationCommands.assessment}
@@ -310,6 +316,7 @@ export function WorkbookSurfacesFacade({
       currentUserId={currentUserId}
       incidentPort={incidentPort}
       inspectorResetKey={inspectorResetKey}
+      gridEntryFocus={gridEntryFocus}
       loadState={genericLoadState}
       layout={layout}
       mutationRuntime={mutationRuntime}

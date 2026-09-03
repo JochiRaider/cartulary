@@ -45,6 +45,10 @@ import type {
 } from "../workbook/timeline/models/timelineWorkbookSurfaceRuntime";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
+const idleGridEntryFocus = {
+  acknowledge: () => undefined,
+  request: { kind: "idle" as const },
+};
 
 export type TimelineWorkbookRuntimeFixtureProps = {
   readonly incidentId?: string | undefined;
@@ -252,6 +256,7 @@ export function TimelineWorkbookRuntimeFixture({
           pendingMutationPort,
           mutationCommands: mutationCommands.timeline,
           indicatorWorkflow: mutationCommands.indicators,
+          gridEntryFocus: idleGridEntryFocus,
           incident: {
             id: incidentId,
             apiBase,

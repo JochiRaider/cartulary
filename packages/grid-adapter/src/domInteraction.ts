@@ -1,34 +1,4 @@
-import type {
-  GridCellAnchor,
-  GridNavigationKey,
-  GridSurfaceIdentity,
-} from "./core";
-
-export function isSemanticNavigationKey(
-  key: string,
-): key is Exclude<GridNavigationKey, "Enter" | "Tab"> {
-  return (
-    key === "ArrowDown" ||
-    key === "ArrowLeft" ||
-    key === "ArrowRight" ||
-    key === "ArrowUp" ||
-    key === "End" ||
-    key === "Home" ||
-    key === "PageDown" ||
-    key === "PageUp"
-  );
-}
-
-export function isPrintableGridEntry(event: {
-  readonly altKey: boolean;
-  readonly ctrlKey: boolean;
-  readonly key: string;
-  readonly metaKey: boolean;
-}): boolean {
-  return (
-    event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey
-  );
-}
+import type { GridCellAnchor, GridSurfaceIdentity } from "./core";
 
 export function isInteractiveCellActionTarget(target: EventTarget): boolean {
   return (
@@ -67,10 +37,10 @@ export function semanticAnchorFromDomTarget(
   const fieldKey = content?.getAttribute("data-grid-field-key");
   const recordId = row?.getAttribute("data-grid-record-id");
   if (
-    fieldKey === null ||
     fieldKey === undefined ||
-    recordId === null ||
-    recordId === undefined
+    fieldKey === null ||
+    recordId === undefined ||
+    recordId === null
   ) {
     return null;
   }

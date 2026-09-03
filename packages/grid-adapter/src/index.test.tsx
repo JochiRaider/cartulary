@@ -18,6 +18,7 @@ import {
   type GridColumn,
   type GridDataRow,
   type GridDensity,
+  type GridEditorRenderContext,
   type GridHandle,
   type GridSortEntry,
   GridViewport,
@@ -51,6 +52,11 @@ const columns: readonly GridColumn<HarnessRow>[] = [
 ];
 
 const testSurface = { kind: "view_schema", viewSchemaId: "test.view" } as const;
+
+const semanticContractBindings = [
+  { Grid: SemanticDataGridDomUnit, name: "production DOM-unit" },
+  { Grid: SemanticDataGridTestSupport, name: "test-support" },
+] as const;
 
 function decodeTestClipboard(rawText: string) {
   return { kind: "scalar" as const, rawText, value: rawText };
@@ -117,6 +123,403 @@ describe("grid-adapter", () => {
         },
       ]),
     ).toThrow(/duplicate semantic row identity/i);
+  });
+
+  it("runs identity, state, grouping, sorting, and selection through both semantic bindings", async () => {
+    for (const { Grid, name } of semanticContractBindings) {
+      const onSelectedRecordIdsChange = vi.fn();
+      const onSortChange = vi.fn();
+      const contractColumns: readonly GridColumn<HarnessRow>[] = [
+        {
+          fieldKey: "label",
+          headerTestId: `contract-label-header-${name}`,
+          label: "Label",
+          renderCell: ({ row }) => row.label,
+          sortableFieldKey: "label",
+        },
+        {
+          fieldKey: "state",
+          label: "State",
+          renderCell: ({ row }) => row.state,
+        },
+      ];
+      const contractRows: readonly GridDataRow<HarnessRow>[] = [
+        {
+          data: { label: "Alpha", state: "open" },
+          kind: "data",
+          mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+          rowIdentity: { kind: "core_record", recordId: "contract-1" },
+          testId: `contract-row-${name}`,
+        },
+      ];
+      const view = render(
+        <Grid
+          activeRowIdentity={{
+            kind: "core_record",
+            recordId: "contract-1",
+          }}
+          columns={contractColumns}
+          coreRecordBulkSelection={{
+            onSelectedRecordIdsChange,
+            selectedRecordIds: new Set(),
+          }}
+          dataRows={contractRows}
+          dataState={{ kind: "stale_error", message: "Refresh failed." }}
+          getCellState={({ anchor }) =>
+            anchor.fieldKey === "label" ? { conflicted: true } : {}
+          }
+          grouping={{
+            fieldKey: "state",
+            formatLabel: (value) => (value === null ? null : String(value)),
+            getTestId: () => `contract-group-${name}`,
+            getValue: (row) => row.state,
+          }}
+          onSortChange={onSortChange}
+          surface={testSurface}
+        />,
+      );
+
+      expect(await screen.findByTestId(`contract-group-${name}`)).toBeTruthy();
+      const row = screen.getByTestId(`contract-row-${name}`);
+      expect(row.getAttribute("data-grid-row-identity-kind")).toBe(
+        "core_record",
+      );
+      expect(row.getAttribute("data-grid-record-id")).toBe("contract-1");
+      expect(row.getAttribute("aria-current")).toBe("true");
+      const labelCell = row.querySelector<HTMLElement>(
+        '[role="gridcell"][data-grid-field-key="label"], [data-grid-field-key="label"]',
+      );
+      expect(
+        labelCell?.closest<HTMLElement>('[role="gridcell"]')?.dataset
+          .gridPrimaryState ?? labelCell?.dataset.gridPrimaryState,
+      ).toBe("conflicted");
+      fireEvent.click(screen.getByTestId(`contract-label-header-${name}`));
+      expect(onSortChange).toHaveBeenCalledWith([
+        { direction: "asc", fieldKey: "label" },
+      ]);
+      fireEvent.click(
+        screen.getByRole("checkbox", { name: "Select record contract-1" }),
+      );
+      expect(onSelectedRecordIdsChange).toHaveBeenCalledWith(
+        new Set(["contract-1"]),
+      );
+      expect(
+        screen.getByText(
+          "Refresh failed. Previously loaded rows may be stale.",
+        ),
+      ).toBeTruthy();
+
+      view.unmount();
+      cleanup();
+    }
+  });
+
+  it("runs fail-closed capability admission through both semantic bindings", () => {
+    for (const { Grid, name } of semanticContractBindings) {
+      const onFillCells = vi.fn();
+      const onPaste = vi.fn();
+      const unsafeExtensionProps = {
+        actionsColumn: {
+          label: "Unsafe actions",
+          renderCell: () => <button type="button">Unsafe action</button>,
+        },
+        allowPasteCreateRows: true,
+        clipboardPaste: { decode: decodeTestClipboard, onPaste },
+        columns: [
+          {
+            contractWritable: true,
+            editor: {
+              commit: async () => ({ kind: "accepted" as const }),
+              initialDraftValue: (row: HarnessRow) => row.label,
+              renderEditor: ({
+                focusTargetRef,
+              }: GridEditorRenderContext<HarnessRow>) => (
+                <input
+                  aria-label={`Unsafe editor ${name}`}
+                  ref={focusTargetRef}
+                />
+              ),
+            },
+            fieldKey: "label",
+            label: "Label",
+            renderCell: ({ row }: { readonly row: HarnessRow }) => row.label,
+          },
+        ],
+        coreRecordBulkSelection: {
+          onSelectedRecordIdsChange: vi.fn(),
+          selectedRecordIds: new Set<string>(),
+        },
+        dataRows: [
+          {
+            data: { label: "Extension row", state: "accepted" },
+            kind: "data" as const,
+            rowIdentity: {
+              extensionProfileId: "network_flow_activity",
+              kind: "extension_resource" as const,
+              resourceId: "contract-extension-1",
+              resourceKind: "accepted_flow_row",
+            },
+          },
+        ],
+        draftRow: {
+          data: { label: "Unsafe draft", state: "draft" },
+          kind: "draft" as const,
+        },
+        interactionMode: { kind: "editable" as const },
+        onFillCells,
+        surface: {
+          extensionProfileId: "network_flow_activity",
+          gridSchemaId: "network_flow.accepted_rows.v1",
+          kind: "extension_grid" as const,
+          workspaceKey: "contract-workspace",
+        },
+      } as unknown as SemanticDataGridProps<HarnessRow>;
+      expect(() => render(<Grid {...unsafeExtensionProps} />)).toThrow(
+        /cannot enable Core mutation/i,
+      );
+      cleanup();
+    }
+  });
+
+  it("runs active-cell, navigation, range, copy, paste, fill, and handle behavior through both semantic bindings", async () => {
+    for (const { Grid, name } of semanticContractBindings) {
+      const handle = createRef<GridHandle>();
+      const onActiveCellChange = vi.fn();
+      const onCellRangeChange = vi.fn();
+      const onCopyCell = vi.fn();
+      const onFillCells = vi.fn();
+      const onPaste = vi.fn();
+      const interactiveColumns: readonly GridColumn<HarnessRow>[] = [
+        {
+          contractWritable: true,
+          editor: {
+            commit: async () => ({ kind: "accepted" }),
+            initialDraftValue: (row) => row.label,
+            renderEditor: ({ focusTargetRef }) => (
+              <input
+                aria-label={`Contract label editor ${name}`}
+                ref={focusTargetRef}
+              />
+            ),
+          },
+          fieldKey: "label",
+          getClipboardValue: (row) => row.label,
+          label: "Label",
+          renderCell: ({ row }) => row.label,
+        },
+        {
+          fieldKey: "state",
+          getClipboardValue: (row) => row.state,
+          label: "State",
+          renderCell: ({ row }) => row.state,
+        },
+      ];
+      const interactiveRows: readonly GridDataRow<HarnessRow>[] = [
+        {
+          data: { label: "Alpha", state: "open" },
+          kind: "data",
+          mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+          rowIdentity: { kind: "core_record", recordId: "contract-1" },
+        },
+        {
+          data: { label: "Beta", state: "reviewed" },
+          kind: "data",
+          mutationIdentity: { kind: "core_row_version", baseRowVersion: 2 },
+          rowIdentity: { kind: "core_record", recordId: "contract-2" },
+        },
+      ];
+      const view = render(
+        <Grid
+          ref={handle}
+          clipboardPaste={{ decode: decodeTestClipboard, onPaste }}
+          columns={interactiveColumns}
+          dataRows={interactiveRows}
+          onActiveCellChange={onActiveCellChange}
+          onCellRangeChange={onCellRangeChange}
+          onCopyCell={onCopyCell}
+          onFillCells={onFillCells}
+          surface={testSurface}
+        />,
+      );
+      const alpha = gridAnchor("contract-1", "label");
+      const alphaState = gridAnchor("contract-1", "state");
+      const beta = gridAnchor("contract-2", "label");
+
+      expect(handle.current?.focusAnchor(alpha)).toBe(true);
+      expect(onActiveCellChange).toHaveBeenCalledTimes(1);
+      expect(handle.current?.focusAnchor(alpha)).toBe(true);
+      expect(onActiveCellChange).toHaveBeenCalledTimes(1);
+      expect(handle.current?.moveFocus(alpha, { key: "ArrowRight" })).toEqual(
+        alphaState,
+      );
+      expect(onActiveCellChange).toHaveBeenCalledTimes(2);
+      expect(handle.current?.focusAnchor(alpha)).toBe(true);
+
+      const alphaCell = screen
+        .getByText("Alpha")
+        .closest<HTMLElement>('[role="gridcell"]');
+      if (alphaCell === null) throw new Error(`Missing ${name} Alpha cell`);
+      fireEvent.mouseDown(alphaCell);
+      fireEvent.keyDown(alphaCell, { key: "ArrowDown", shiftKey: true });
+      await waitFor(() =>
+        expect(onCellRangeChange).toHaveBeenCalledWith({
+          end: beta,
+          start: alpha,
+        }),
+      );
+      const betaCell = screen
+        .getByText("Beta")
+        .closest<HTMLElement>('[role="gridcell"]');
+      if (betaCell === null) throw new Error(`Missing ${name} Beta cell`);
+      const setClipboardData = vi.fn();
+      fireEvent.copy(betaCell, {
+        clipboardData: { setData: setClipboardData },
+      });
+      expect(setClipboardData).toHaveBeenCalledWith(
+        "text/plain",
+        "Alpha\nBeta",
+      );
+      expect(onCopyCell).toHaveBeenCalledWith(
+        expect.objectContaining({ anchor: beta }),
+      );
+
+      fireEvent.keyDown(betaCell, { ctrlKey: true, key: "d" });
+      await waitFor(() => expect(onFillCells).toHaveBeenCalledTimes(1));
+      expect(onFillCells).toHaveBeenCalledWith(
+        expect.objectContaining({
+          range: { end: beta, start: alpha },
+          targets: [expect.objectContaining(beta)],
+        }),
+      );
+      fireEvent.paste(betaCell, {
+        clipboardData: { getData: () => "Gamma" },
+      });
+      expect(onPaste).toHaveBeenCalledWith(
+        expect.objectContaining({ target: expect.objectContaining(beta) }),
+      );
+      expect(
+        handle.current?.planPasteTargets(alpha, {
+          columnCount: 1,
+          rowCount: 2,
+        }),
+      ).toEqual(
+        expect.objectContaining({
+          columns: ["label"],
+          rowTargets: expect.any(Array),
+        }),
+      );
+      expect(handle.current?.focusRoot()).toBe(true);
+      expect(document.activeElement).toBe(handle.current?.getScrollElement());
+
+      view.unmount();
+      cleanup();
+    }
+  });
+
+  it("runs editor outcomes and draft focus through both semantic bindings", async () => {
+    for (const { Grid, name } of semanticContractBindings) {
+      const handle = createRef<GridHandle>();
+      const commit = vi
+        .fn()
+        .mockResolvedValueOnce({
+          kind: "validation_error",
+          message: "Correct the contract value.",
+        })
+        .mockResolvedValueOnce({ kind: "accepted" });
+      const view = render(
+        <Grid
+          ref={handle}
+          columns={[
+            {
+              contractWritable: true,
+              editor: {
+                commit,
+                initialDraftValue: (row: HarnessRow) => row.label,
+                renderEditor: (context) => (
+                  <div>
+                    <input
+                      aria-label={`Contract editor ${name}`}
+                      ref={context.focusTargetRef}
+                      value={String(context.draftValue)}
+                      onChange={(event) =>
+                        context.setDraftValue(event.currentTarget.value)
+                      }
+                    />
+                    <button type="button" onClick={() => void context.commit()}>
+                      Save contract value
+                    </button>
+                    {context.outcome?.kind === "validation_error" ? (
+                      <span>{context.outcome.message}</span>
+                    ) : null}
+                  </div>
+                ),
+              },
+              fieldKey: "label",
+              label: "Label",
+              renderCell: ({ row }) => row.label,
+              renderDraftCell: ({ focusTargetRef }) => (
+                <input
+                  aria-label={`Contract draft ${name}`}
+                  ref={focusTargetRef}
+                />
+              ),
+            },
+          ]}
+          dataRows={[
+            {
+              data: { label: "Alpha", state: "open" },
+              kind: "data",
+              mutationIdentity: {
+                kind: "core_row_version",
+                baseRowVersion: 1,
+              },
+              rowIdentity: { kind: "core_record", recordId: "contract-1" },
+            },
+          ]}
+          draftRow={{
+            data: { label: "", state: "open" },
+            kind: "draft",
+          }}
+          surface={testSurface}
+        />,
+      );
+      const anchor = gridAnchor("contract-1", "label");
+
+      expect(handle.current?.focusDraftCell("label")).toBe(true);
+      expect(document.activeElement).toBe(
+        screen.getByRole("textbox", { name: `Contract draft ${name}` }),
+      );
+      expect(handle.current?.activateEdit(anchor)).toBe(true);
+      expect(
+        handle.current?.activateEdit({
+          ...anchor,
+          fieldKey: "missing",
+        }),
+      ).toBe(false);
+      expect(
+        await screen.findByRole("textbox", { name: `Contract editor ${name}` }),
+      ).toBeTruthy();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Save contract value" }),
+      );
+      expect(
+        (await screen.findAllByText("Correct the contract value.")).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getByRole("textbox", { name: `Contract editor ${name}` }),
+      ).toBeTruthy();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Save contract value" }),
+      );
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("textbox", { name: `Contract editor ${name}` }),
+        ).toBeNull(),
+      );
+
+      view.unmount();
+      cleanup();
+    }
   });
 
   it("renders, selects, and focuses extension resources without Core identities", async () => {
@@ -471,10 +874,14 @@ describe("grid-adapter", () => {
     const labelAnchor = gridAnchor("record-stateful", "label");
     const stateAnchor = gridAnchor("record-stateful", "state");
     expect(supportHandle.current?.focusAnchor(labelAnchor)).toBe(true);
+    expect(onSupportActiveCellChange).toHaveBeenCalledTimes(1);
     expect(onSupportActiveCellChange).toHaveBeenLastCalledWith(labelAnchor);
+    expect(supportHandle.current?.focusAnchor(labelAnchor)).toBe(true);
+    expect(onSupportActiveCellChange).toHaveBeenCalledTimes(1);
     expect(
       supportHandle.current?.moveFocus(labelAnchor, { key: "ArrowRight" }),
     ).toEqual(stateAnchor);
+    expect(onSupportActiveCellChange).toHaveBeenCalledTimes(2);
     expect(onSupportActiveCellChange).toHaveBeenLastCalledWith(stateAnchor);
     expect(
       supportHandle.current?.planPasteTargets(labelAnchor, {

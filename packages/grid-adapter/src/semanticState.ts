@@ -49,40 +49,9 @@ export function resolveGridSemanticState(
   label: string,
 ): GridResolvedSemanticState {
   const invalid = input.invalid === false ? undefined : input.invalid;
-  const primary: GridSemanticPrimaryState = input.conflicted
-    ? "conflicted"
-    : invalid !== undefined
-      ? "invalid"
-      : input.pending
-        ? "pending"
-        : input.active
-          ? "active"
-          : input.bulkSelected
-            ? "bulk-selected"
-            : input.readOnlyOrDerived
-              ? "read-only"
-              : "saved";
-  const markers: GridSemanticMarker[] = [];
-  const descriptions: string[] = [];
-
-  if (primary === "conflicted") {
-    const accessibleLabel = `Conflict on ${label}`;
-    markers.push({ accessibleLabel, glyph: "!", kind: "conflicted" });
-    descriptions.push(accessibleLabel);
-  } else if (primary === "invalid" && invalid !== undefined) {
-    const accessibleLabel = `Invalid ${label}: ${invalid.message}`;
-    markers.push({ accessibleLabel, glyph: "×", kind: "invalid" });
-    descriptions.push(accessibleLabel);
-  } else if (primary === "pending") {
-    const accessibleLabel = `Pending ${label}`;
-    markers.push({ accessibleLabel, glyph: "…", kind: "pending" });
-    descriptions.push(accessibleLabel);
-  } else if (primary === "read-only") {
-    const accessibleLabel = `Read-only ${label}`;
-    markers.push({ accessibleLabel, glyph: "◇", kind: "read-only" });
-    descriptions.push(accessibleLabel);
-  }
-
+  const primary = resolvePrimaryState(input, invalid !== undefined);
+  const markers = primaryMarker(primary, invalid?.message, label);
+  const descriptions = markers.map((marker) => marker.accessibleLabel);
   if (input.stale) {
     const accessibleLabel = `Stale ${label}; refresh required`;
     markers.push({ accessibleLabel, glyph: "↻", kind: "stale" });
@@ -98,19 +67,68 @@ export function resolveGridSemanticState(
       descriptions.length === 0 ? undefined : descriptions.join(". "),
     markers,
     primary,
-    stateIds: [
-      primary,
-      ...(input.active && primary !== "active" ? ["active"] : []),
-      ...(input.bulkSelected && primary !== "bulk-selected"
-        ? ["bulk-selected"]
-        : []),
-      ...(input.inspectorActive ? ["inspector-active"] : []),
-      ...(input.readOnlyOrDerived && primary !== "read-only"
-        ? ["read-only"]
-        : []),
-      ...(input.stale ? ["stale"] : []),
-    ],
+    stateIds: resolveStateIds(input, primary),
   };
+}
+
+function resolvePrimaryState(
+  input: GridSemanticStateInput,
+  invalid: boolean,
+): GridSemanticPrimaryState {
+  const ordered: readonly [boolean | undefined, GridSemanticPrimaryState][] = [
+    [input.conflicted, "conflicted"],
+    [invalid, "invalid"],
+    [input.pending, "pending"],
+    [input.active, "active"],
+    [input.bulkSelected, "bulk-selected"],
+    [input.readOnlyOrDerived, "read-only"],
+  ];
+  return ordered.find(([enabled]) => enabled === true)?.[1] ?? "saved";
+}
+
+function primaryMarker(
+  primary: GridSemanticPrimaryState,
+  invalidMessage: string | undefined,
+  label: string,
+): GridSemanticMarker[] {
+  if (primary === "conflicted") {
+    return [marker(`Conflict on ${label}`, "!", "conflicted")];
+  }
+  if (primary === "invalid" && invalidMessage !== undefined) {
+    return [marker(`Invalid ${label}: ${invalidMessage}`, "×", "invalid")];
+  }
+  if (primary === "pending") {
+    return [marker(`Pending ${label}`, "…", "pending")];
+  }
+  if (primary === "read-only") {
+    return [marker(`Read-only ${label}`, "◇", "read-only")];
+  }
+  return [];
+}
+
+function marker(
+  accessibleLabel: string,
+  glyph: string,
+  kind: GridSemanticMarker["kind"],
+): GridSemanticMarker {
+  return { accessibleLabel, glyph, kind };
+}
+
+function resolveStateIds(
+  input: GridSemanticStateInput,
+  primary: GridSemanticPrimaryState,
+): readonly string[] {
+  const stateIds: string[] = [primary];
+  if (input.active && primary !== "active") stateIds.push("active");
+  if (input.bulkSelected && primary !== "bulk-selected") {
+    stateIds.push("bulk-selected");
+  }
+  if (input.inspectorActive) stateIds.push("inspector-active");
+  if (input.readOnlyOrDerived && primary !== "read-only") {
+    stateIds.push("read-only");
+  }
+  if (input.stale) stateIds.push("stale");
+  return stateIds;
 }
 
 export function gridSemanticStateClassNames(

@@ -1,13 +1,14 @@
-// biome-ignore-all lint/a11y/noNoninteractiveElementToInteractiveRole: The test grid intentionally preserves RDG role attributes for selector compatibility.
+// biome-ignore-all lint/a11y/noNoninteractiveElementToInteractiveRole: The deterministic test grid preserves the public semantic role surface.
 // biome-ignore-all lint/a11y/noRedundantRoles: Explicit roles keep workbook tests independent of native accessibility-role inference.
-// biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer mirrors RDG's query surface, not a production interaction model.
+// biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer provides semantic selector compatibility, not production interaction mechanics.
 import { gridScrollportClassName } from "@cartulary/ui-contracts";
 import {
+  type ClipboardEvent,
   type FocusEvent,
   type ForwardedRef,
-  Fragment,
   forwardRef,
   type KeyboardEvent,
+  type MutableRefObject,
   type ReactElement,
   type ReactNode,
   type RefAttributes,
@@ -20,16 +21,22 @@ import {
 
 import {
   assertGridRows,
+  type GridActionsColumn,
   type GridCellAnchor,
+  type GridCellRange,
   type GridColumn,
+  type GridCoreRecordBulkSelection,
   type GridDataRow,
+  type GridDraftRow,
   type GridEditCommitOutcome,
   type GridEditorAdapter,
   type GridEditorFocusTarget,
   type GridHandle,
-  type GridNavigationKey,
+  type GridInteractionMode,
+  type GridRowGutter,
   type GridRowIdentity,
   type GridSemanticStateInput,
+  type GridSortEntry,
   type GridViewportProps,
   gridRowIdentitiesEqual,
   gridRowIdentityKey,
@@ -37,14 +44,37 @@ import {
   gridUnassignedGroupLabel,
   type SemanticDataGridProps,
 } from "./core";
+import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
+import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
+import {
+  planSemanticCopy,
+  planSemanticFillFromRange,
+  planSemanticPaste,
+} from "./semanticClipboardPolicy";
+import { resolveGridDataStatePresentation } from "./semanticDataState";
+import {
+  decideSemanticGridKey,
+  normalizeGridKey,
+  type SemanticGridDecision,
+} from "./semanticKeyboardPolicy";
 import {
   buildSemanticGroupBuckets,
   buildSemanticPresentationModel,
   gridAnchorKey,
-  gridClipboardInputDimensions,
   navigateSemanticPresentation,
   planSemanticPasteTargets,
+  sameGridCellAnchor,
+  sameGridCellRange,
+  semanticPresentationContainsAnchor,
+  semanticTarget,
 } from "./semanticPresentation";
+import {
+  nextSemanticSort,
+  resolveSemanticBulkSelection,
+  type SemanticBulkSelectionState,
+  toggleAllSemanticRecords,
+  toggleSemanticRecordRange,
+} from "./semanticSelectionPolicy";
 import {
   gridSemanticStateClassNames,
   mergeGridSemanticState,
@@ -56,6 +86,280 @@ function coreRecordId<Row>(row: GridDataRow<Row>): string | null {
   return row.rowIdentity.kind === "core_record"
     ? row.rowIdentity.recordId
     : null;
+}
+
+type TestActiveEditor = {
+  readonly fieldKey: string;
+  readonly rowIdentity: GridRowIdentity;
+};
+
+type TestPresentationRow<Row> =
+  | {
+      readonly gridRow: GridDataRow<Row>;
+      readonly key: string;
+      readonly kind: "data";
+    }
+  | {
+      readonly groupLabel: string | null;
+      readonly key: string;
+      readonly kind: "group";
+      readonly testId: string | undefined;
+    };
+
+function buildTestPresentationRows<Row>(
+  dataRows: readonly GridDataRow<Row>[],
+  grouping: SemanticDataGridProps<Row>["grouping"],
+): readonly TestPresentationRow<Row>[] {
+  if (grouping === null || grouping === undefined) {
+    return dataRows.map((gridRow) => ({
+      gridRow,
+      key: gridRowIdentityKey(gridRow.rowIdentity),
+      kind: "data",
+    }));
+  }
+  return buildSemanticGroupBuckets(dataRows, grouping).flatMap((bucket) => [
+    {
+      groupLabel: bucket.label,
+      key: `group:${grouping.fieldKey}:${bucket.id}`,
+      kind: "group" as const,
+      testId: grouping.getTestId?.(
+        grouping.fieldKey,
+        bucket.value,
+        bucket.label,
+      ),
+    },
+    ...bucket.rows.map((gridRow) => ({
+      gridRow,
+      key: gridRowIdentityKey(gridRow.rowIdentity),
+      kind: "data" as const,
+    })),
+  ]);
+}
+
+function useTestSupportFocus<Row>(
+  presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>,
+  cellElements: MutableRefObject<Map<string, HTMLTableCellElement>>,
+  onActiveCellChange: ((anchor: GridCellAnchor | null) => void) | undefined,
+) {
+  const activeCellRef = useRef<GridCellAnchor | null>(null);
+  const publishActiveCell = useCallback(
+    (anchor: GridCellAnchor | null) => {
+      const transition = decideSemanticActiveCellTransition(
+        activeCellRef.current,
+        anchor,
+      );
+      if (transition.kind === "no_change") return;
+      activeCellRef.current = transition.anchor;
+      onActiveCellChange?.(transition.anchor);
+    },
+    [onActiveCellChange],
+  );
+  const focusSemanticAnchor = useCallback(
+    (anchor: GridCellAnchor) => {
+      if (!semanticPresentationContainsAnchor(presentation, anchor))
+        return false;
+      const element = cellElements.current.get(gridAnchorKey(anchor));
+      if (element === undefined) return false;
+      element.focus();
+      return document.activeElement === element;
+    },
+    [cellElements, presentation],
+  );
+  return { focusSemanticAnchor, publishActiveCell };
+}
+
+function useTestSupportRange(
+  controlledRange: GridCellRange | null | undefined,
+  onRangeChange: ((range: GridCellRange | null) => void) | undefined,
+) {
+  const rangeRef = useRef<GridCellRange | null>(controlledRange ?? null);
+  if (controlledRange !== undefined) rangeRef.current = controlledRange;
+  const updateRange = useCallback(
+    (next: GridCellRange | null) => {
+      if (sameGridCellRange(rangeRef.current, next)) return;
+      rangeRef.current = next;
+      onRangeChange?.(next);
+    },
+    [onRangeChange],
+  );
+  return { rangeRef, updateRange };
+}
+
+function useTestSupportGridHandle<Row>({
+  activeEditor,
+  cellElements,
+  columns,
+  dataRows,
+  draftFocusTargets,
+  editable,
+  focusSemanticAnchor,
+  presentation,
+  ref,
+  scrollElement,
+  setActiveEditor,
+  surface,
+}: {
+  readonly activeEditor: TestActiveEditor | null;
+  readonly cellElements: MutableRefObject<Map<string, HTMLTableCellElement>>;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly dataRows: readonly GridDataRow<Row>[];
+  readonly draftFocusTargets: MutableRefObject<
+    Map<string, GridEditorFocusTarget>
+  >;
+  readonly editable: boolean;
+  readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly ref: ForwardedRef<GridHandle>;
+  readonly scrollElement: MutableRefObject<HTMLDivElement | null>;
+  readonly setActiveEditor: (editor: TestActiveEditor | null) => void;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+}): void {
+  useImperativeHandle(
+    ref,
+    () => ({
+      activateEdit: (anchor) => {
+        const row = dataRows.find((candidate) =>
+          gridRowIdentitiesEqual(candidate.rowIdentity, anchor.rowIdentity),
+        );
+        if (
+          !editable ||
+          row === undefined ||
+          semanticTarget(row, anchor.fieldKey, columns, surface) === null
+        ) {
+          return false;
+        }
+        setActiveEditor({
+          fieldKey: anchor.fieldKey,
+          rowIdentity: anchor.rowIdentity,
+        });
+        return true;
+      },
+      cancelEdit: (anchor) => {
+        if (!activeEditorsEqual(activeEditor, anchor, surface)) return false;
+        setActiveEditor(null);
+        return true;
+      },
+      focusAnchor: focusSemanticAnchor,
+      focusDraftCell: (fieldKey) =>
+        focusTestDraftCell(draftFocusTargets.current, fieldKey),
+      focusRoot: () => focusTestRoot(scrollElement.current),
+      getScrollElement: () => scrollElement.current,
+      getAnchorRect: (anchor) =>
+        testAnchorRect(cellElements.current, surface, anchor),
+      isAnchorRendered: (anchor) =>
+        semanticPresentationContainsAnchor(presentation, anchor),
+      moveFocus: (current, intent) => {
+        const next = navigateSemanticPresentation(
+          presentation,
+          current,
+          intent,
+        );
+        return next !== null && focusSemanticAnchor(next) ? next : null;
+      },
+      planPasteTargets: (current, dimensions) =>
+        planSemanticPasteTargets(presentation, current, dimensions),
+      scrollToAnchor: (anchor) =>
+        semanticPresentationContainsAnchor(presentation, anchor),
+    }),
+    [
+      activeEditor,
+      cellElements,
+      columns,
+      dataRows,
+      draftFocusTargets,
+      editable,
+      focusSemanticAnchor,
+      presentation,
+      scrollElement,
+      setActiveEditor,
+      surface,
+    ],
+  );
+}
+
+function activeEditorsEqual(
+  activeEditor: TestActiveEditor | null,
+  anchor: GridCellAnchor,
+  surface: SemanticDataGridProps<unknown>["surface"],
+): boolean {
+  return (
+    activeEditor !== null &&
+    activeEditor.fieldKey === anchor.fieldKey &&
+    gridRowIdentitiesEqual(activeEditor.rowIdentity, anchor.rowIdentity) &&
+    gridSurfaceIdentitiesEqual(surface, anchor.surface)
+  );
+}
+
+function focusTestRoot(element: HTMLDivElement | null): boolean {
+  if (element === null) return false;
+  element.focus();
+  return document.activeElement === element;
+}
+
+function createTestSupportSemanticState<Row>({
+  activeRowIdentity,
+  bulkSelection,
+  dataState,
+  editable,
+  getCellState,
+  getRowState,
+  rows,
+  surface,
+}: Pick<
+  SemanticDataGridProps<Row>,
+  "activeRowIdentity" | "dataState" | "getCellState" | "getRowState" | "surface"
+> & {
+  readonly bulkSelection: SemanticDataGridProps<Row>["coreRecordBulkSelection"];
+  readonly editable: boolean;
+  readonly rows: readonly GridDataRow<Row>[];
+}) {
+  const bulkSelectionState =
+    bulkSelection === undefined
+      ? null
+      : resolveSemanticBulkSelection(
+          rows,
+          bulkSelection.selectedRecordIds,
+          bulkSelection.isRecordSelectable,
+        );
+  const rowStateFor = (row: GridDataRow<Row>): GridSemanticStateInput =>
+    mergeGridSemanticState(getRowState?.(row), {
+      bulkSelected:
+        row.rowIdentity.kind === "core_record" &&
+        bulkSelection?.selectedRecordIds.has(row.rowIdentity.recordId) === true,
+      inspectorActive:
+        activeRowIdentity !== null &&
+        activeRowIdentity !== undefined &&
+        gridRowIdentitiesEqual(row.rowIdentity, activeRowIdentity),
+      readOnlyOrDerived: !editable,
+      saved: true,
+      stale: dataState?.kind === "stale_error",
+    });
+  const cellStateFor = (row: GridDataRow<Row>, column: GridColumn<Row>) => {
+    const rowState = rowStateFor(row);
+    return mergeGridSemanticState(
+      getCellState?.({
+        anchor: {
+          fieldKey: column.fieldKey,
+          rowIdentity: row.rowIdentity,
+          surface,
+        },
+        mutationIdentity: row.mutationIdentity,
+        row: row.data,
+      }),
+      {
+        bulkSelected: rowState.bulkSelected,
+        inspectorActive: rowState.inspectorActive,
+        pending: false,
+        readOnlyOrDerived:
+          !editable ||
+          column.contractWritable !== true ||
+          column.editor === undefined,
+        saved: true,
+        stale: false,
+      },
+    );
+  };
+  return { bulkSelectionState, cellStateFor, rowStateFor };
 }
 
 export type {
@@ -128,12 +432,826 @@ export function GridViewport({
   );
 }
 
+function TestGridHeader<Row>({
+  actionsColumn,
+  bulkSelection,
+  bulkSelectionState,
+  columns,
+  onSelectAll,
+  onSortChange,
+  rowGutter,
+  sort,
+}: {
+  readonly actionsColumn: GridActionsColumn<Row> | undefined;
+  readonly bulkSelection: GridCoreRecordBulkSelection<Row> | undefined;
+  readonly bulkSelectionState: SemanticBulkSelectionState<Row> | null;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly onSelectAll: () => void;
+  readonly onSortChange: ((sort: readonly GridSortEntry[]) => void) | undefined;
+  readonly rowGutter: GridRowGutter | undefined;
+  readonly sort: readonly GridSortEntry[];
+}) {
+  return (
+    <thead>
+      <tr role="row">
+        {bulkSelection === undefined ? null : (
+          <th role="columnheader" scope="col">
+            <input
+              aria-label="Select all records on this page"
+              checked={bulkSelectionState?.allSelected === true}
+              disabled={bulkSelectionState?.selectableIds.length === 0}
+              ref={(node) => {
+                if (node !== null) {
+                  node.indeterminate =
+                    bulkSelectionState?.partiallySelected === true;
+                }
+              }}
+              readOnly
+              type="checkbox"
+              onClick={onSelectAll}
+            />
+          </th>
+        )}
+        {rowGutter === undefined ? null : (
+          <th role="columnheader" scope="col">
+            <span data-testid={rowGutter.headerTestId}>
+              {rowGutter.label ?? ""}
+            </span>
+          </th>
+        )}
+        {columns.map((column) => (
+          <TestGridColumnHeader
+            column={column}
+            key={column.fieldKey}
+            onSortChange={onSortChange}
+            sort={sort}
+          />
+        ))}
+        {actionsColumn === undefined ? null : (
+          <th role="columnheader" scope="col">
+            <span>{actionsColumn.label}</span>
+          </th>
+        )}
+      </tr>
+    </thead>
+  );
+}
+
+function TestGridColumnHeader<Row>({
+  column,
+  onSortChange,
+  sort,
+}: {
+  readonly column: GridColumn<Row>;
+  readonly onSortChange: ((sort: readonly GridSortEntry[]) => void) | undefined;
+  readonly sort: readonly GridSortEntry[];
+}) {
+  const canToggleSort =
+    onSortChange !== undefined &&
+    column.sortableFieldKey !== null &&
+    column.sortableFieldKey !== undefined &&
+    !column.sortDisabled;
+  const fieldKey = column.sortableFieldKey ?? column.fieldKey;
+  const sortState = sort.find((entry) => entry.fieldKey === fieldKey);
+  return (
+    <th role="columnheader" scope="col">
+      <button
+        data-grid-field-key={column.fieldKey}
+        data-testid={column.headerTestId}
+        disabled={!canToggleSort}
+        title={column.sortDisabledReason ?? undefined}
+        type="button"
+        onClick={(event) =>
+          onSortChange?.(
+            nextSemanticSort(sort, fieldKey, event.ctrlKey || event.metaKey),
+          )
+        }
+      >
+        <span>{column.label}</span>
+        {canToggleSort ? (
+          <span>
+            {sortState === undefined
+              ? "Sort"
+              : sortState.direction === "asc"
+                ? "Asc"
+                : "Desc"}
+          </span>
+        ) : null}
+      </button>
+    </th>
+  );
+}
+
+function TestGridBody<Row>({
+  actionsColumn,
+  activeEditor,
+  bulkSelection,
+  bulkSelectionState,
+  cellElements,
+  cellStateFor,
+  clipboardPaste,
+  columns,
+  draftFocusTargets,
+  draftRow,
+  editable,
+  focusSemanticAnchor,
+  interactionMode,
+  onCopyCell,
+  onFillCells,
+  onSelectRecord,
+  onSelectRow,
+  pendingRangeEnd,
+  presentation,
+  publishActiveCell,
+  rangeRef,
+  renderedRows,
+  rowGutter,
+  rowStateFor,
+  setActiveEditor,
+  setKeyboardAnnouncement,
+  surface,
+  totalColumnCount,
+  updateRange,
+}: {
+  readonly actionsColumn: GridActionsColumn<Row> | undefined;
+  readonly activeEditor: TestActiveEditor | null;
+  readonly bulkSelection: GridCoreRecordBulkSelection<Row> | undefined;
+  readonly bulkSelectionState: SemanticBulkSelectionState<Row> | null;
+  readonly cellElements: MutableRefObject<Map<string, HTMLTableCellElement>>;
+  readonly cellStateFor: (
+    row: GridDataRow<Row>,
+    column: GridColumn<Row>,
+  ) => GridSemanticStateInput;
+  readonly clipboardPaste: SemanticDataGridProps<Row>["clipboardPaste"];
+  readonly columns: readonly GridColumn<Row>[];
+  readonly draftFocusTargets: MutableRefObject<
+    Map<string, GridEditorFocusTarget>
+  >;
+  readonly draftRow: GridDraftRow<Row> | undefined;
+  readonly editable: boolean;
+  readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly interactionMode: GridInteractionMode;
+  readonly onCopyCell: SemanticDataGridProps<Row>["onCopyCell"];
+  readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
+  readonly onSelectRecord: (row: GridDataRow<Row>, shiftKey: boolean) => void;
+  readonly onSelectRow: ((rowIdentity: GridRowIdentity) => void) | undefined;
+  readonly pendingRangeEnd: MutableRefObject<GridCellAnchor | null>;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly publishActiveCell: (anchor: GridCellAnchor | null) => void;
+  readonly rangeRef: MutableRefObject<GridCellRange | null>;
+  readonly renderedRows: readonly TestPresentationRow<Row>[];
+  readonly rowGutter: GridRowGutter | undefined;
+  readonly rowStateFor: (row: GridDataRow<Row>) => GridSemanticStateInput;
+  readonly setActiveEditor: (editor: TestActiveEditor | null) => void;
+  readonly setKeyboardAnnouncement: (announcement: string) => void;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+  readonly totalColumnCount: number;
+  readonly updateRange: (range: GridCellRange | null) => void;
+}) {
+  return (
+    <tbody>
+      {renderedRows.map((row) =>
+        row.kind === "group" ? (
+          <TestGridGroupRow
+            groupLabel={row.groupLabel}
+            key={row.key}
+            testId={row.testId}
+            totalColumnCount={totalColumnCount}
+          />
+        ) : (
+          <TestGridDataRow
+            actionsColumn={actionsColumn}
+            activeEditor={activeEditor}
+            bulkSelection={bulkSelection}
+            bulkSelectionState={bulkSelectionState}
+            cellElements={cellElements}
+            cellStateFor={cellStateFor}
+            clipboardPaste={clipboardPaste}
+            columns={columns}
+            editable={editable}
+            focusSemanticAnchor={focusSemanticAnchor}
+            gridRow={row.gridRow}
+            interactionMode={interactionMode}
+            key={row.key}
+            onCopyCell={onCopyCell}
+            onFillCells={onFillCells}
+            onSelectRecord={onSelectRecord}
+            onSelectRow={onSelectRow}
+            pendingRangeEnd={pendingRangeEnd}
+            presentation={presentation}
+            publishActiveCell={publishActiveCell}
+            rangeRef={rangeRef}
+            rowGutter={rowGutter}
+            rowState={rowStateFor(row.gridRow)}
+            setActiveEditor={setActiveEditor}
+            setKeyboardAnnouncement={setKeyboardAnnouncement}
+            surface={surface}
+            updateRange={updateRange}
+          />
+        ),
+      )}
+      {draftRow === undefined ? null : (
+        <TestGridDraftRow
+          actionsColumn={actionsColumn}
+          bulkSelection={bulkSelection}
+          columns={columns}
+          draftFocusTargets={draftFocusTargets}
+          draftRow={draftRow}
+          rowGutter={rowGutter}
+          surface={surface}
+        />
+      )}
+    </tbody>
+  );
+}
+
+function TestGridGroupRow({
+  groupLabel,
+  testId,
+  totalColumnCount,
+}: {
+  readonly groupLabel: string | null;
+  readonly testId: string | undefined;
+  readonly totalColumnCount: number;
+}) {
+  return (
+    <tr role="row">
+      <td colSpan={totalColumnCount} role="gridcell">
+        <strong data-testid={testId}>
+          {groupLabel ?? gridUnassignedGroupLabel}
+        </strong>
+      </td>
+    </tr>
+  );
+}
+
+function TestGridDataRow<Row>({
+  actionsColumn,
+  activeEditor,
+  bulkSelection,
+  bulkSelectionState,
+  cellElements,
+  cellStateFor,
+  clipboardPaste,
+  columns,
+  editable,
+  focusSemanticAnchor,
+  gridRow,
+  interactionMode,
+  onCopyCell,
+  onFillCells,
+  onSelectRecord,
+  onSelectRow,
+  pendingRangeEnd,
+  presentation,
+  publishActiveCell,
+  rangeRef,
+  rowGutter,
+  rowState,
+  setActiveEditor,
+  setKeyboardAnnouncement,
+  surface,
+  updateRange,
+}: {
+  readonly actionsColumn: GridActionsColumn<Row> | undefined;
+  readonly activeEditor: TestActiveEditor | null;
+  readonly bulkSelection: GridCoreRecordBulkSelection<Row> | undefined;
+  readonly bulkSelectionState: SemanticBulkSelectionState<Row> | null;
+  readonly cellElements: MutableRefObject<Map<string, HTMLTableCellElement>>;
+  readonly cellStateFor: (
+    row: GridDataRow<Row>,
+    column: GridColumn<Row>,
+  ) => GridSemanticStateInput;
+  readonly clipboardPaste: SemanticDataGridProps<Row>["clipboardPaste"];
+  readonly columns: readonly GridColumn<Row>[];
+  readonly editable: boolean;
+  readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly gridRow: GridDataRow<Row>;
+  readonly interactionMode: GridInteractionMode;
+  readonly onCopyCell: SemanticDataGridProps<Row>["onCopyCell"];
+  readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
+  readonly onSelectRecord: (row: GridDataRow<Row>, shiftKey: boolean) => void;
+  readonly onSelectRow: ((rowIdentity: GridRowIdentity) => void) | undefined;
+  readonly pendingRangeEnd: MutableRefObject<GridCellAnchor | null>;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly publishActiveCell: (anchor: GridCellAnchor | null) => void;
+  readonly rangeRef: MutableRefObject<GridCellRange | null>;
+  readonly rowGutter: GridRowGutter | undefined;
+  readonly rowState: GridSemanticStateInput;
+  readonly setActiveEditor: (editor: TestActiveEditor | null) => void;
+  readonly setKeyboardAnnouncement: (announcement: string) => void;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+  readonly updateRange: (range: GridCellRange | null) => void;
+}) {
+  return (
+    <tr
+      {...testSemanticAttributes("row", rowState, "data row")}
+      data-grid-row-identity-kind={gridRow.rowIdentity.kind}
+      data-grid-record-id={coreRecordId(gridRow) ?? undefined}
+      data-testid={gridRow.testId}
+      role="row"
+      tabIndex={onSelectRow === undefined ? undefined : 0}
+      onClick={(event) => {
+        if (!isInteractiveTestTarget(event.target)) {
+          onSelectRow?.(gridRow.rowIdentity);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          (event.key === "Enter" || event.key === " ")
+        ) {
+          onSelectRow?.(gridRow.rowIdentity);
+        }
+      }}
+    >
+      {bulkSelection === undefined ? null : (
+        <td role="gridcell">
+          {gridRow.rowIdentity.kind !== "core_record" ||
+          bulkSelection.isRecordSelectable?.(gridRow) === false ? null : (
+            <input
+              aria-label={`Select record ${gridRow.rowIdentity.recordId}`}
+              checked={bulkSelection.selectedRecordIds.has(
+                gridRow.rowIdentity.recordId,
+              )}
+              disabled={bulkSelectionState === null}
+              readOnly
+              type="checkbox"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelectRecord(gridRow, event.shiftKey);
+              }}
+            />
+          )}
+        </td>
+      )}
+      {rowGutter === undefined ? null : (
+        <th
+          data-grid-field-key="__cartulary_row_gutter__"
+          data-testid={gridRow.gutterTestId}
+          scope="row"
+        >
+          {gridRow.gutterContent ?? gridRow.gutterLabel ?? ""}
+        </th>
+      )}
+      {columns.map((column) => (
+        <TestGridDataCell
+          activeEditor={activeEditor}
+          cellElements={cellElements}
+          cellState={cellStateFor(gridRow, column)}
+          clipboardPaste={clipboardPaste}
+          column={column}
+          columns={columns}
+          editable={editable}
+          focusSemanticAnchor={focusSemanticAnchor}
+          gridRow={gridRow}
+          interactionMode={interactionMode}
+          key={column.fieldKey}
+          onCopyCell={onCopyCell}
+          onFillCells={onFillCells}
+          pendingRangeEnd={pendingRangeEnd}
+          presentation={presentation}
+          publishActiveCell={publishActiveCell}
+          rangeRef={rangeRef}
+          setActiveEditor={setActiveEditor}
+          setKeyboardAnnouncement={setKeyboardAnnouncement}
+          surface={surface}
+          updateRange={updateRange}
+        />
+      ))}
+      {actionsColumn === undefined ? null : (
+        <td role="gridcell">{actionsColumn.renderCell(gridRow)}</td>
+      )}
+    </tr>
+  );
+}
+
+function TestGridDataCell<Row>({
+  activeEditor,
+  cellElements,
+  cellState,
+  clipboardPaste,
+  column,
+  columns,
+  editable,
+  focusSemanticAnchor,
+  gridRow,
+  interactionMode,
+  onCopyCell,
+  onFillCells,
+  pendingRangeEnd,
+  presentation,
+  publishActiveCell,
+  rangeRef,
+  setActiveEditor,
+  setKeyboardAnnouncement,
+  surface,
+  updateRange,
+}: {
+  readonly activeEditor: TestActiveEditor | null;
+  readonly cellElements: MutableRefObject<Map<string, HTMLTableCellElement>>;
+  readonly cellState: GridSemanticStateInput;
+  readonly clipboardPaste: SemanticDataGridProps<Row>["clipboardPaste"];
+  readonly column: GridColumn<Row>;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly editable: boolean;
+  readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly gridRow: GridDataRow<Row>;
+  readonly interactionMode: GridInteractionMode;
+  readonly onCopyCell: SemanticDataGridProps<Row>["onCopyCell"];
+  readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
+  readonly pendingRangeEnd: MutableRefObject<GridCellAnchor | null>;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly publishActiveCell: (anchor: GridCellAnchor | null) => void;
+  readonly rangeRef: MutableRefObject<GridCellRange | null>;
+  readonly setActiveEditor: (editor: TestActiveEditor | null) => void;
+  readonly setKeyboardAnnouncement: (announcement: string) => void;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+  readonly updateRange: (range: GridCellRange | null) => void;
+}) {
+  const anchor = {
+    fieldKey: column.fieldKey,
+    rowIdentity: gridRow.rowIdentity,
+    surface,
+  };
+  const semanticState = resolveGridSemanticState(cellState, column.label);
+  const editorActive = activeEditorsEqual(activeEditor, anchor, surface);
+  return (
+    <td
+      {...testSemanticAttributes("cell", cellState, column.label)}
+      data-grid-field-key={column.fieldKey}
+      role="gridcell"
+      tabIndex={-1}
+      ref={(element) => registerTestCell(cellElements.current, anchor, element)}
+      onCopy={(event) =>
+        handleTestCellCopy({
+          anchor,
+          columns,
+          dataRows: presentation.dataRows,
+          event,
+          onCopyCell,
+          presentation,
+          range: rangeRef.current,
+        })
+      }
+      onFocus={() => {
+        const preserveRange = sameGridCellAnchor(
+          pendingRangeEnd.current,
+          anchor,
+        );
+        pendingRangeEnd.current = null;
+        publishActiveCell(anchor);
+        if (!preserveRange) updateRange({ end: anchor, start: anchor });
+      }}
+      onMouseDown={() => {
+        publishActiveCell(anchor);
+        updateRange({ end: anchor, start: anchor });
+      }}
+      onClick={(event) => {
+        if (
+          canBeginTestEdit({
+            column,
+            editable,
+            eventTarget: event.target,
+            gridRow,
+            surface,
+          })
+        ) {
+          setActiveEditor({
+            fieldKey: column.fieldKey,
+            rowIdentity: gridRow.rowIdentity,
+          });
+        }
+      }}
+      onKeyDown={(event) =>
+        handleTestCellKeyDown({
+          anchor,
+          cell: event.currentTarget,
+          column,
+          editable,
+          event,
+          focusSemanticAnchor,
+          gridRow,
+          interactionMode,
+          onFillCells,
+          pendingRangeEnd,
+          presentation,
+          rangeRef,
+          setActiveEditor,
+          setKeyboardAnnouncement,
+          surface,
+          updateRange,
+        })
+      }
+      onPaste={(event) =>
+        handleTestCellPaste({
+          clipboardPaste,
+          columns,
+          editable,
+          event,
+          gridRow,
+          presentation,
+          surface,
+          updateRange,
+        })
+      }
+    >
+      {semanticState.markers.map((marker) => (
+        <span
+          aria-label={marker.accessibleLabel}
+          data-grid-state-marker={marker.kind}
+          key={marker.kind}
+          role="img"
+        >
+          {marker.glyph}
+        </span>
+      ))}
+      {editorActive &&
+      surface.kind === "view_schema" &&
+      gridRow.mutationIdentity !== undefined &&
+      column.editor !== undefined ? (
+        <TestGridEditor
+          adapter={column.editor}
+          row={gridRow.data}
+          target={{
+            fieldKey: column.fieldKey,
+            mutationIdentity: gridRow.mutationIdentity,
+            rowIdentity: gridRow.rowIdentity,
+            surface,
+          }}
+          onClose={() => setActiveEditor(null)}
+        />
+      ) : (
+        column.renderCell({ anchor, row: gridRow.data })
+      )}
+    </td>
+  );
+}
+
+function TestGridDraftRow<Row>({
+  actionsColumn,
+  bulkSelection,
+  columns,
+  draftFocusTargets,
+  draftRow,
+  rowGutter,
+  surface,
+}: {
+  readonly actionsColumn: GridActionsColumn<Row> | undefined;
+  readonly bulkSelection: GridCoreRecordBulkSelection<Row> | undefined;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly draftFocusTargets: MutableRefObject<
+    Map<string, GridEditorFocusTarget>
+  >;
+  readonly draftRow: GridDraftRow<Row>;
+  readonly rowGutter: GridRowGutter | undefined;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+}) {
+  return (
+    <tr
+      data-cartulary-grid-draft-row="true"
+      data-testid={draftRow.testId}
+      role="row"
+    >
+      {bulkSelection === undefined ? null : <td role="gridcell" />}
+      {rowGutter === undefined ? null : (
+        <th data-grid-field-key="__cartulary_row_gutter__" scope="row">
+          {draftRow.gutterContent ?? draftRow.gutterLabel ?? ""}
+        </th>
+      )}
+      {columns.map((column) => (
+        <td
+          data-grid-field-key={column.fieldKey}
+          key={column.fieldKey}
+          role="gridcell"
+        >
+          {surface.kind === "view_schema"
+            ? (column.renderDraftCell?.({
+                fieldKey: column.fieldKey,
+                focusTargetRef: createTestDraftFocusTargetRef(
+                  draftFocusTargets.current,
+                  column.fieldKey,
+                ),
+                row: draftRow.data,
+                surface,
+              }) ?? null)
+            : null}
+        </td>
+      ))}
+      {actionsColumn === undefined ? null : (
+        <td role="gridcell">{actionsColumn.renderDraftCell?.(draftRow)}</td>
+      )}
+    </tr>
+  );
+}
+
+function registerTestCell(
+  registry: Map<string, HTMLTableCellElement>,
+  anchor: GridCellAnchor,
+  element: HTMLTableCellElement | null,
+): void {
+  const key = gridAnchorKey(anchor);
+  if (element === null) registry.delete(key);
+  else registry.set(key, element);
+}
+
+function isInteractiveTestTarget(target: EventTarget): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      "a,button,input,select,textarea,[role='button'],[role='link']",
+    ) !== null
+  );
+}
+
+function canBeginTestEdit<Row>({
+  column,
+  editable,
+  eventTarget,
+  gridRow,
+  surface,
+}: {
+  readonly column: GridColumn<Row>;
+  readonly editable: boolean;
+  readonly eventTarget: EventTarget;
+  readonly gridRow: GridDataRow<Row>;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+}): boolean {
+  return (
+    editable &&
+    column.contractWritable === true &&
+    column.editor !== undefined &&
+    column.valueKind !== "collection" &&
+    semanticTarget(gridRow, column.fieldKey, [column], surface) !== null &&
+    !(
+      eventTarget instanceof Element &&
+      eventTarget.closest(
+        "button, a, input, select, textarea, [role='button'], [data-grid-prevent-cell-edit='true']",
+      ) !== null
+    )
+  );
+}
+
+function handleTestCellKeyDown<Row>({
+  anchor,
+  cell,
+  column,
+  editable,
+  event,
+  focusSemanticAnchor,
+  gridRow,
+  interactionMode,
+  onFillCells,
+  pendingRangeEnd,
+  presentation,
+  rangeRef,
+  setActiveEditor,
+  setKeyboardAnnouncement,
+  surface,
+  updateRange,
+}: {
+  readonly anchor: GridCellAnchor;
+  readonly cell: HTMLTableCellElement;
+  readonly column: GridColumn<Row>;
+  readonly editable: boolean;
+  readonly event: KeyboardEvent<HTMLTableCellElement>;
+  readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly gridRow: GridDataRow<Row>;
+  readonly interactionMode: GridInteractionMode;
+  readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
+  readonly pendingRangeEnd: MutableRefObject<GridCellAnchor | null>;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly rangeRef: MutableRefObject<GridCellRange | null>;
+  readonly setActiveEditor: (editor: TestActiveEditor | null) => void;
+  readonly setKeyboardAnnouncement: (announcement: string) => void;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+  readonly updateRange: (range: GridCellRange | null) => void;
+}): void {
+  if (event.key === "Enter" && event.target !== event.currentTarget) {
+    const next = navigateSemanticPresentation(presentation, anchor, {
+      key: "Enter",
+      shiftKey: event.shiftKey,
+    });
+    if (next !== null) focusSemanticAnchor(next);
+    return;
+  }
+  if (event.target !== event.currentTarget && event.key !== "Tab") return;
+  const decision = decideSemanticGridKey({
+    anchor,
+    column,
+    editable,
+    input: normalizeGridKey(event),
+    model: presentation,
+    pageSize: 10,
+    range: rangeRef.current,
+    readOnlyLabel:
+      interactionMode.kind === "read_only"
+        ? interactionMode.label
+        : "This workbook is read-only.",
+    row: gridRow,
+  });
+  if (
+    executeTestSemanticKeyDecision({
+      cell,
+      decision,
+      focusSemanticAnchor,
+      onFillCells,
+      pendingRangeEnd,
+      presentation,
+      setActiveEditor,
+      setKeyboardAnnouncement,
+      surface,
+      updateRange,
+    })
+  ) {
+    event.preventDefault();
+  }
+}
+
+function handleTestCellCopy<Row>({
+  anchor,
+  columns,
+  dataRows,
+  event,
+  onCopyCell,
+  presentation,
+  range,
+}: {
+  readonly anchor: GridCellAnchor;
+  readonly columns: readonly GridColumn<Row>[];
+  readonly dataRows: readonly GridDataRow<Row>[];
+  readonly event: ClipboardEvent<HTMLTableCellElement>;
+  readonly onCopyCell: SemanticDataGridProps<Row>["onCopyCell"];
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly range: GridCellRange | null;
+}): void {
+  const plan = planSemanticCopy({
+    anchor,
+    columns,
+    dataRows,
+    model: presentation,
+    range: range ?? { end: anchor, start: anchor },
+  });
+  if (plan === null) return;
+  event.clipboardData?.setData("text/plain", plan.text);
+  event.preventDefault();
+  onCopyCell?.(plan.intent);
+}
+
+function handleTestCellPaste<Row>({
+  clipboardPaste,
+  columns,
+  editable,
+  event,
+  gridRow,
+  presentation,
+  surface,
+  updateRange,
+}: {
+  readonly clipboardPaste: SemanticDataGridProps<Row>["clipboardPaste"];
+  readonly columns: readonly GridColumn<Row>[];
+  readonly editable: boolean;
+  readonly event: ClipboardEvent<HTMLTableCellElement>;
+  readonly gridRow: GridDataRow<Row>;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+  readonly updateRange: (range: GridCellRange | null) => void;
+}): void {
+  if (
+    !editable ||
+    clipboardPaste === undefined ||
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    event.target instanceof HTMLSelectElement
+  ) {
+    return;
+  }
+  const input = clipboardPaste.decode(
+    event.clipboardData?.getData("text/plain") ?? "",
+  );
+  const intent = planSemanticPaste({
+    input,
+    model: presentation,
+    target: semanticTarget(
+      gridRow,
+      event.currentTarget.dataset.gridFieldKey ?? "",
+      columns,
+      surface,
+    ),
+  });
+  if (intent === null) return;
+  event.preventDefault();
+  updateRange(intent.range);
+  clipboardPaste.onPaste(intent);
+}
+
 function useSemanticDataGridTestSupport<Row>(
   {
     accessibleLabel,
     activeRowIdentity = null,
     allowPasteCreateRows = false,
     actionsColumn,
+    cellRange: controlledCellRange,
     coreRecordBulkSelection,
     columns,
     dataState = { kind: "ready" },
@@ -145,6 +1263,9 @@ function useSemanticDataGridTestSupport<Row>(
     interactionMode,
     clipboardPaste,
     onActiveCellChange,
+    onCellRangeChange,
+    onCopyCell,
+    onFillCells,
     onSelectRow,
     onSortChange,
     dataRows,
@@ -154,179 +1275,73 @@ function useSemanticDataGridTestSupport<Row>(
   }: SemanticDataGridProps<Row>,
   ref: ForwardedRef<GridHandle>,
 ) {
-  const effectiveInteractionMode =
-    interactionMode ??
-    (surface.kind === "extension_grid"
-      ? { kind: "read_only" as const, label: "Read only" }
-      : { kind: "editable" as const });
-  const editable = effectiveInteractionMode.kind === "editable";
-  const effectiveBulkSelection = editable ? coreRecordBulkSelection : undefined;
-  const effectiveDraftRow = editable ? draftRow : undefined;
+  const capabilities = resolveSemanticGridCapabilities({
+    actionsColumn,
+    allowPasteCreateRows,
+    clipboardPaste,
+    coreRecordBulkSelection,
+    draftRow,
+    interactionMode,
+    onFillCells,
+    surface,
+  });
+  const effectiveInteractionMode = capabilities.interactionMode;
+  const editable = capabilities.editable;
+  const effectiveBulkSelection = capabilities.bulkSelection;
+  const effectiveDraftRow = capabilities.draftRow;
   const cellElements = useRef(new Map<string, HTMLTableCellElement>());
   const draftFocusTargets = useRef(new Map<string, GridEditorFocusTarget>());
   const scrollElement = useRef<HTMLDivElement>(null);
+  const pendingRangeEnd = useRef<GridCellAnchor | null>(null);
   const selectionAnchorRecordId = useRef<string | null>(null);
-  const [activeEditor, setActiveEditor] = useState<{
-    readonly fieldKey: string;
-    readonly rowIdentity: GridRowIdentity;
-  } | null>(null);
-  const renderedRows =
-    grouping === null || grouping === undefined
-      ? dataRows.map((gridRow) => ({
-          gridRow,
-          key: gridRowIdentityKey(gridRow.rowIdentity),
-          kind: "data" as const,
-        }))
-      : buildSemanticGroupBuckets(dataRows, grouping).flatMap((bucket) => [
-          {
-            groupLabel: bucket.label,
-            key: `group:${grouping.fieldKey}:${bucket.id}`,
-            kind: "group" as const,
-            testId: grouping.getTestId?.(
-              grouping.fieldKey,
-              bucket.value,
-              bucket.label,
-            ),
-          },
-          ...bucket.rows.map((gridRow) => ({
-            gridRow,
-            key: gridRowIdentityKey(gridRow.rowIdentity),
-            kind: "data" as const,
-          })),
-        ]);
+  const [activeEditor, setActiveEditor] = useState<TestActiveEditor | null>(
+    null,
+  );
+  const [keyboardAnnouncement, setKeyboardAnnouncement] = useState("");
+  const { rangeRef, updateRange } = useTestSupportRange(
+    controlledCellRange,
+    onCellRangeChange,
+  );
+  const renderedRows = buildTestPresentationRows(dataRows, grouping);
   const semanticPresentation = buildSemanticPresentationModel({
     allowCreateRows: allowPasteCreateRows && grouping === null,
     columns,
-    columnKeys: columns.map((column) => column.fieldKey),
     dataRows,
     fieldKeys: columns.map((column) => column.fieldKey),
     surface,
   });
-  const focusSemanticAnchor = useCallback(
-    (anchor: GridCellAnchor) => {
-      if (!semanticPresentation.positions.has(gridAnchorKey(anchor))) {
-        return false;
-      }
-      onActiveCellChange?.(anchor);
-      const element = cellElements.current.get(gridAnchorKey(anchor));
-      element?.focus();
-      return true;
-    },
-    [onActiveCellChange, semanticPresentation],
+  const { focusSemanticAnchor, publishActiveCell } = useTestSupportFocus(
+    semanticPresentation,
+    cellElements,
+    onActiveCellChange,
   );
-  useImperativeHandle(ref, () => {
-    return {
-      activateEdit: (anchor) => {
-        if (!gridSurfaceIdentitiesEqual(surface, anchor.surface)) return false;
-        setActiveEditor({
-          fieldKey: anchor.fieldKey,
-          rowIdentity: anchor.rowIdentity,
-        });
-        return true;
-      },
-      cancelEdit: (anchor) => {
-        if (
-          activeEditor === null ||
-          activeEditor.fieldKey !== anchor.fieldKey ||
-          !gridRowIdentitiesEqual(
-            activeEditor.rowIdentity,
-            anchor.rowIdentity,
-          ) ||
-          !gridSurfaceIdentitiesEqual(surface, anchor.surface)
-        ) {
-          return false;
-        }
-        setActiveEditor(null);
-        return true;
-      },
-      focusAnchor: focusSemanticAnchor,
-      focusDraftCell: (fieldKey) =>
-        focusTestDraftCell(draftFocusTargets.current, fieldKey),
-      focusRoot: () => {
-        const element = scrollElement.current;
-        if (element === null) return false;
-        element.focus();
-        return true;
-      },
-      getScrollElement: () => scrollElement.current,
-      getAnchorRect: (anchor) =>
-        testAnchorRect(cellElements.current, surface, anchor),
-      isAnchorRendered: (anchor) =>
-        semanticPresentation.positions.has(gridAnchorKey(anchor)),
-      moveFocus: (current, intent) => {
-        const next = navigateSemanticPresentation(
-          semanticPresentation,
-          current,
-          intent,
-        );
-        return next !== null && focusSemanticAnchor(next) ? next : null;
-      },
-      planPasteTargets: (current, dimensions) =>
-        planSemanticPasteTargets(semanticPresentation, current, dimensions),
-      scrollToAnchor: (anchor) =>
-        semanticPresentation.positions.has(gridAnchorKey(anchor)),
-    };
-  }, [activeEditor, focusSemanticAnchor, semanticPresentation, surface]);
+  useTestSupportGridHandle({
+    activeEditor,
+    cellElements,
+    columns,
+    dataRows,
+    draftFocusTargets,
+    editable,
+    focusSemanticAnchor,
+    presentation: semanticPresentation,
+    ref,
+    scrollElement,
+    setActiveEditor,
+    surface,
+  });
   assertGridRows(dataRows);
 
-  const selectableRows =
-    effectiveBulkSelection === undefined
-      ? []
-      : dataRows.filter(
-          (
-            row,
-          ): row is GridDataRow<Row> & {
-            readonly rowIdentity: Extract<
-              GridRowIdentity,
-              { readonly kind: "core_record" }
-            >;
-          } =>
-            row.rowIdentity.kind === "core_record" &&
-            effectiveBulkSelection.isRecordSelectable?.(row) !== false,
-        );
-  const selectableIds = selectableRows.map((row) => row.rowIdentity.recordId);
-  const selectedOnPage = selectableIds.filter((recordId) =>
-    effectiveBulkSelection?.selectedRecordIds.has(recordId),
-  );
-  const rowStateFor = (row: GridDataRow<Row>): GridSemanticStateInput =>
-    mergeGridSemanticState(getRowState?.(row), {
-      bulkSelected:
-        row.rowIdentity.kind === "core_record" &&
-        effectiveBulkSelection?.selectedRecordIds.has(
-          row.rowIdentity.recordId,
-        ) === true,
-      inspectorActive:
-        activeRowIdentity !== null &&
-        gridRowIdentitiesEqual(row.rowIdentity, activeRowIdentity),
-      readOnlyOrDerived: !editable,
-      saved: true,
-      stale: dataState.kind === "stale_error",
+  const { bulkSelectionState, cellStateFor, rowStateFor } =
+    createTestSupportSemanticState({
+      activeRowIdentity,
+      bulkSelection: effectiveBulkSelection,
+      dataState,
+      editable,
+      getCellState,
+      getRowState,
+      rows: dataRows,
+      surface,
     });
-  const cellStateFor = (row: GridDataRow<Row>, column: GridColumn<Row>) => {
-    const rowState = rowStateFor(row);
-    return mergeGridSemanticState(
-      getCellState?.({
-        anchor: {
-          fieldKey: column.fieldKey,
-          rowIdentity: row.rowIdentity,
-          surface,
-        },
-        mutationIdentity: row.mutationIdentity,
-        row: row.data,
-      }),
-      {
-        bulkSelected: rowState.bulkSelected,
-        inspectorActive: rowState.inspectorActive,
-        pending: false,
-        readOnlyOrDerived:
-          !editable ||
-          column.contractWritable !== true ||
-          column.editor === undefined,
-        saved: true,
-        stale: false,
-      },
-    );
-  };
 
   const totalColumnCount =
     columns.length +
@@ -358,519 +1373,195 @@ function useSemanticDataGridTestSupport<Row>(
             fillViewportInline ? { minWidth: 0, width: "100%" } : undefined
           }
         >
-          <thead>
-            <tr role="row">
-              {effectiveBulkSelection === undefined ? null : (
-                <th role="columnheader" scope="col">
-                  <input
-                    aria-label="Select all records on this page"
-                    checked={
-                      selectableIds.length > 0 &&
-                      selectedOnPage.length === selectableIds.length
-                    }
-                    disabled={selectableIds.length === 0}
-                    ref={(node) => {
-                      if (node !== null) {
-                        node.indeterminate =
-                          selectedOnPage.length > 0 &&
-                          selectedOnPage.length < selectableIds.length;
-                      }
-                    }}
-                    readOnly
-                    type="checkbox"
-                    onClick={() => {
-                      selectionAnchorRecordId.current = null;
-                      effectiveBulkSelection.onSelectedRecordIdsChange(
-                        selectedOnPage.length === selectableIds.length
-                          ? new Set()
-                          : new Set(selectableIds),
-                      );
-                    }}
-                  />
-                </th>
-              )}
-              {rowGutter === undefined ? null : (
-                <th role="columnheader" scope="col">
-                  <span data-testid={rowGutter.headerTestId}>
-                    {rowGutter.label ?? ""}
-                  </span>
-                </th>
-              )}
-              {columns.map((column) => {
-                const canToggleSort =
-                  onSortChange !== undefined &&
-                  column.sortableFieldKey !== null &&
-                  column.sortableFieldKey !== undefined &&
-                  !column.sortDisabled;
-                const sortState = sort.find(
-                  (entry) =>
-                    entry.fieldKey ===
-                    (column.sortableFieldKey ?? column.fieldKey),
+          <TestGridHeader
+            actionsColumn={actionsColumn}
+            bulkSelection={effectiveBulkSelection}
+            bulkSelectionState={bulkSelectionState}
+            columns={columns}
+            onSelectAll={() => {
+              selectionAnchorRecordId.current = null;
+              if (
+                effectiveBulkSelection !== undefined &&
+                bulkSelectionState !== null
+              ) {
+                effectiveBulkSelection.onSelectedRecordIdsChange(
+                  toggleAllSemanticRecords(bulkSelectionState),
                 );
-                return (
-                  <th key={column.fieldKey} role="columnheader" scope="col">
-                    <button
-                      data-grid-field-key={column.fieldKey}
-                      data-testid={column.headerTestId}
-                      disabled={!canToggleSort}
-                      title={column.sortDisabledReason ?? undefined}
-                      type="button"
-                      onClick={(event) => {
-                        const fieldKey =
-                          column.sortableFieldKey ?? column.fieldKey;
-                        const currentIndex = sort.findIndex(
-                          (entry) => entry.fieldKey === fieldKey,
-                        );
-                        const current = sort[currentIndex];
-                        const nextEntry =
-                          current === undefined
-                            ? { fieldKey, direction: "asc" as const }
-                            : current.direction === "asc"
-                              ? { fieldKey, direction: "desc" as const }
-                              : null;
-                        const additive = event.ctrlKey || event.metaKey;
-                        if (!additive) {
-                          onSortChange?.(nextEntry === null ? [] : [nextEntry]);
-                          return;
-                        }
-                        const next = sort.filter(
-                          (entry) => entry.fieldKey !== fieldKey,
-                        );
-                        onSortChange?.(
-                          nextEntry === null ? next : [...next, nextEntry],
-                        );
-                      }}
-                    >
-                      <span>{column.label}</span>
-                      {canToggleSort ? (
-                        <span>
-                          {sortState === undefined
-                            ? "Sort"
-                            : sortState.direction === "asc"
-                              ? "Asc"
-                              : "Desc"}
-                        </span>
-                      ) : null}
-                    </button>
-                  </th>
-                );
-              })}
-              {actionsColumn === undefined ? null : (
-                <th role="columnheader" scope="col">
-                  <span>{actionsColumn.label}</span>
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {renderedRows.length === 0 &&
-            effectiveDraftRow === undefined ? null : (
-              <Fragment>
-                {renderedRows.map((row) =>
-                  row.kind === "group" ? (
-                    <tr key={row.key} role="row">
-                      <td colSpan={totalColumnCount} role="gridcell">
-                        <strong data-testid={row.testId}>
-                          {row.groupLabel ?? gridUnassignedGroupLabel}
-                        </strong>
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr
-                      {...testSemanticAttributes(
-                        "row",
-                        rowStateFor(row.gridRow),
-                        "data row",
-                      )}
-                      data-grid-row-identity-kind={row.gridRow.rowIdentity.kind}
-                      data-grid-record-id={
-                        coreRecordId(row.gridRow) ?? undefined
-                      }
-                      data-testid={row.gridRow.testId}
-                      key={row.key}
-                      role="row"
-                      tabIndex={onSelectRow === undefined ? undefined : 0}
-                      onClick={(event) => {
-                        if (
-                          event.target instanceof Element &&
-                          event.target.closest(
-                            "a,button,input,select,textarea,[role='button'],[role='link']",
-                          ) !== null
-                        ) {
-                          return;
-                        }
-                        onSelectRow?.(row.gridRow.rowIdentity);
-                      }}
-                      onKeyDown={(
-                        event: KeyboardEvent<HTMLTableRowElement>,
-                      ) => {
-                        if (
-                          event.target === event.currentTarget &&
-                          (event.key === "Enter" || event.key === " ")
-                        ) {
-                          onSelectRow?.(row.gridRow.rowIdentity);
-                        }
-                      }}
-                    >
-                      {effectiveBulkSelection === undefined ? null : (
-                        <td role="gridcell">
-                          {row.gridRow.rowIdentity.kind !== "core_record" ||
-                          effectiveBulkSelection.isRecordSelectable?.(
-                            row.gridRow,
-                          ) === false ? null : (
-                            <input
-                              aria-label={`Select record ${row.gridRow.rowIdentity.recordId}`}
-                              checked={effectiveBulkSelection.selectedRecordIds.has(
-                                row.gridRow.rowIdentity.recordId,
-                              )}
-                              readOnly
-                              type="checkbox"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                const next = new Set(
-                                  effectiveBulkSelection.selectedRecordIds,
-                                );
-                                const anchorIndex = selectableRows.findIndex(
-                                  (candidate) =>
-                                    candidate.rowIdentity.recordId ===
-                                    selectionAnchorRecordId.current,
-                                );
-                                const rowIndex = selectableRows.findIndex(
-                                  (candidate) =>
-                                    candidate.rowIdentity.recordId ===
-                                    (coreRecordId(row.gridRow) ?? ""),
-                                );
-                                if (
-                                  event.shiftKey &&
-                                  anchorIndex >= 0 &&
-                                  rowIndex >= 0
-                                ) {
-                                  const start = Math.min(anchorIndex, rowIndex);
-                                  const end = Math.max(anchorIndex, rowIndex);
-                                  for (const candidate of selectableRows.slice(
-                                    start,
-                                    end + 1,
-                                  )) {
-                                    next.add(candidate.rowIdentity.recordId);
-                                  }
-                                } else if (
-                                  next.has(coreRecordId(row.gridRow) ?? "")
-                                ) {
-                                  next.delete(coreRecordId(row.gridRow) ?? "");
-                                } else {
-                                  next.add(coreRecordId(row.gridRow) ?? "");
-                                }
-                                selectionAnchorRecordId.current = coreRecordId(
-                                  row.gridRow,
-                                );
-                                effectiveBulkSelection.onSelectedRecordIdsChange(
-                                  next,
-                                );
-                              }}
-                            />
-                          )}
-                        </td>
-                      )}
-                      {rowGutter === undefined ? null : (
-                        <th
-                          data-grid-field-key="__cartulary_row_gutter__"
-                          data-testid={row.gridRow.gutterTestId}
-                          scope="row"
-                        >
-                          {row.gridRow.gutterContent ??
-                            row.gridRow.gutterLabel ??
-                            ""}
-                        </th>
-                      )}
-                      {columns.map((column) => {
-                        const semanticState = resolveGridSemanticState(
-                          cellStateFor(row.gridRow, column),
-                          column.label,
-                        );
-                        const anchor = {
-                          fieldKey: column.fieldKey,
-                          rowIdentity: row.gridRow.rowIdentity,
-                          surface,
-                        };
-                        return (
-                          <td
-                            {...testSemanticAttributes(
-                              "cell",
-                              cellStateFor(row.gridRow, column),
-                              column.label,
-                            )}
-                            data-grid-field-key={column.fieldKey}
-                            key={column.fieldKey}
-                            role="gridcell"
-                            tabIndex={-1}
-                            ref={(element) => {
-                              const key = gridAnchorKey(anchor);
-                              if (element === null) {
-                                cellElements.current.delete(key);
-                              } else {
-                                cellElements.current.set(key, element);
-                              }
-                            }}
-                            onFocus={() => onActiveCellChange?.(anchor)}
-                            onMouseDown={() => {
-                              onActiveCellChange?.(anchor);
-                            }}
-                            onClick={(event) => {
-                              if (
-                                !editable ||
-                                column.contractWritable !== true ||
-                                column.editor === undefined ||
-                                column.valueKind === "collection" ||
-                                (event.target instanceof Element &&
-                                  event.target.closest(
-                                    "button, a, input, select, textarea, [role='button'], [data-grid-prevent-cell-edit='true']",
-                                  ) !== null)
-                              ) {
-                                return;
-                              }
-                              setActiveEditor({
-                                fieldKey: column.fieldKey,
-                                rowIdentity: row.gridRow.rowIdentity,
-                              });
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Tab") {
-                                event.preventDefault();
-                                event.currentTarget.blur();
-                                return;
-                              }
-                              if (
-                                event.key === "Enter" &&
-                                event.target !== event.currentTarget
-                              ) {
-                                const next = navigateSemanticPresentation(
-                                  semanticPresentation,
-                                  anchor,
-                                  {
-                                    key: "Enter",
-                                    shiftKey: event.shiftKey,
-                                  },
-                                );
-                                if (next !== null) {
-                                  focusSemanticAnchor(next);
-                                }
-                                return;
-                              }
-                              if (
-                                event.target === event.currentTarget &&
-                                [
-                                  "ArrowDown",
-                                  "ArrowLeft",
-                                  "ArrowRight",
-                                  "ArrowUp",
-                                  "End",
-                                  "Home",
-                                  "PageDown",
-                                  "PageUp",
-                                ].includes(event.key)
-                              ) {
-                                const next = navigateSemanticPresentation(
-                                  semanticPresentation,
-                                  anchor,
-                                  {
-                                    ctrlOrMetaKey:
-                                      event.ctrlKey || event.metaKey,
-                                    key: event.key as GridNavigationKey,
-                                    pageSize: 10,
-                                    shiftKey: event.shiftKey,
-                                  },
-                                );
-                                if (
-                                  next !== null &&
-                                  focusSemanticAnchor(next)
-                                ) {
-                                  event.preventDefault();
-                                }
-                                return;
-                              }
-                              if (
-                                event.key !== "Enter" ||
-                                !editable ||
-                                column.contractWritable !== true ||
-                                column.editor === undefined ||
-                                column.valueKind === "collection"
-                              ) {
-                                return;
-                              }
-                              setActiveEditor({
-                                fieldKey: column.fieldKey,
-                                rowIdentity: row.gridRow.rowIdentity,
-                              });
-                            }}
-                            onPaste={(event) => {
-                              if (!editable || clipboardPaste === undefined)
-                                return;
-                              if (
-                                event.target instanceof HTMLInputElement ||
-                                event.target instanceof HTMLTextAreaElement ||
-                                event.target instanceof HTMLSelectElement
-                              ) {
-                                return;
-                              }
-                              const clipboardText =
-                                event.clipboardData?.getData("text/plain") ??
-                                "";
-                              const input =
-                                clipboardPaste.decode(clipboardText);
-                              const dimensions =
-                                gridClipboardInputDimensions(input);
-                              if (dimensions === null) return;
-                              const target = {
-                                fieldKey: column.fieldKey,
-                                rowIdentity: row.gridRow.rowIdentity,
-                                surface,
-                              };
-                              const targetResolution = planSemanticPasteTargets(
-                                semanticPresentation,
-                                target,
-                                dimensions,
-                              );
-                              if (targetResolution === null) return;
-                              event.preventDefault();
-                              if (row.gridRow.mutationIdentity === undefined) {
-                                return;
-                              }
-                              const mutationTarget = {
-                                fieldKey: column.fieldKey,
-                                mutationIdentity: row.gridRow.mutationIdentity,
-                                rowIdentity: row.gridRow.rowIdentity,
-                                surface,
-                              };
-                              const lastFieldKey =
-                                targetResolution.columns.at(-1) ??
-                                column.fieldKey;
-                              const lastRecordTarget =
-                                targetResolution.rowTargets
-                                  .filter(
-                                    (candidate) => candidate.kind === "record",
-                                  )
-                                  .at(-1);
-                              clipboardPaste.onPaste({
-                                input,
-                                range: {
-                                  start: target,
-                                  end:
-                                    lastRecordTarget === undefined
-                                      ? target
-                                      : {
-                                          fieldKey: lastFieldKey,
-                                          rowIdentity:
-                                            lastRecordTarget.rowIdentity,
-                                          surface,
-                                        },
-                                },
-                                target: mutationTarget,
-                                targetResolution,
-                              });
-                            }}
-                          >
-                            {semanticState.markers.map((marker) => (
-                              <span
-                                aria-label={marker.accessibleLabel}
-                                data-grid-state-marker={marker.kind}
-                                key={marker.kind}
-                                role="img"
-                              >
-                                {marker.glyph}
-                              </span>
-                            ))}
-                            {activeEditor?.fieldKey === column.fieldKey &&
-                            gridRowIdentitiesEqual(
-                              activeEditor.rowIdentity,
-                              row.gridRow.rowIdentity,
-                            ) &&
-                            surface.kind === "view_schema" &&
-                            row.gridRow.mutationIdentity !== undefined &&
-                            column.editor !== undefined ? (
-                              <TestGridEditor
-                                adapter={column.editor}
-                                row={row.gridRow.data}
-                                target={{
-                                  fieldKey: column.fieldKey,
-                                  mutationIdentity:
-                                    row.gridRow.mutationIdentity,
-                                  rowIdentity: row.gridRow.rowIdentity,
-                                  surface,
-                                }}
-                                onClose={() => setActiveEditor(null)}
-                              />
-                            ) : (
-                              column.renderCell({
-                                anchor,
-                                row: row.gridRow.data,
-                              })
-                            )}
-                          </td>
-                        );
-                      })}
-                      {actionsColumn === undefined ? null : (
-                        <td role="gridcell">
-                          {actionsColumn.renderCell(row.gridRow)}
-                        </td>
-                      )}
-                    </tr>
-                  ),
-                )}
-                {effectiveDraftRow === undefined ? null : (
-                  <tr
-                    data-cartulary-grid-draft-row="true"
-                    data-testid={effectiveDraftRow.testId}
-                    role="row"
-                  >
-                    {effectiveBulkSelection === undefined ? null : (
-                      <td role="gridcell" />
-                    )}
-                    {rowGutter === undefined ? null : (
-                      <th
-                        data-grid-field-key="__cartulary_row_gutter__"
-                        scope="row"
-                      >
-                        {effectiveDraftRow.gutterContent ??
-                          effectiveDraftRow.gutterLabel ??
-                          ""}
-                      </th>
-                    )}
-                    {columns.map((column) => {
-                      const focusTargetRef = createTestDraftFocusTargetRef(
-                        draftFocusTargets.current,
-                        column.fieldKey,
-                      );
-                      return (
-                        <td
-                          data-grid-field-key={column.fieldKey}
-                          key={column.fieldKey}
-                          role="gridcell"
-                        >
-                          {surface.kind === "view_schema"
-                            ? (column.renderDraftCell?.({
-                                fieldKey: column.fieldKey,
-                                focusTargetRef,
-                                row: effectiveDraftRow.data,
-                                surface,
-                              }) ?? null)
-                            : null}
-                        </td>
-                      );
-                    })}
-                    {actionsColumn === undefined ? null : (
-                      <td role="gridcell">
-                        {actionsColumn.renderDraftCell?.(effectiveDraftRow)}
-                      </td>
-                    )}
-                  </tr>
-                )}
-              </Fragment>
-            )}
-          </tbody>
+              }
+            }}
+            onSortChange={onSortChange}
+            rowGutter={rowGutter}
+            sort={sort}
+          />
+          <TestGridBody
+            actionsColumn={actionsColumn}
+            activeEditor={activeEditor}
+            bulkSelection={effectiveBulkSelection}
+            bulkSelectionState={bulkSelectionState}
+            cellElements={cellElements}
+            cellStateFor={cellStateFor}
+            clipboardPaste={clipboardPaste}
+            columns={columns}
+            draftFocusTargets={draftFocusTargets}
+            draftRow={effectiveDraftRow}
+            editable={editable}
+            focusSemanticAnchor={focusSemanticAnchor}
+            interactionMode={effectiveInteractionMode}
+            onCopyCell={onCopyCell}
+            onFillCells={onFillCells}
+            onSelectRecord={(gridRow, shiftKey) => {
+              const recordId = coreRecordId(gridRow);
+              if (
+                recordId === null ||
+                effectiveBulkSelection === undefined ||
+                bulkSelectionState === null
+              ) {
+                return;
+              }
+              const next = toggleSemanticRecordRange({
+                anchorRecordId: selectionAnchorRecordId.current,
+                recordId,
+                selectableRows: bulkSelectionState.selectableRows,
+                selectedRecordIds: effectiveBulkSelection.selectedRecordIds,
+                shiftKey,
+              });
+              selectionAnchorRecordId.current = recordId;
+              effectiveBulkSelection.onSelectedRecordIdsChange(next);
+            }}
+            onSelectRow={onSelectRow}
+            pendingRangeEnd={pendingRangeEnd}
+            presentation={semanticPresentation}
+            publishActiveCell={publishActiveCell}
+            rangeRef={rangeRef}
+            renderedRows={renderedRows}
+            rowGutter={rowGutter}
+            rowStateFor={rowStateFor}
+            setActiveEditor={setActiveEditor}
+            setKeyboardAnnouncement={setKeyboardAnnouncement}
+            surface={surface}
+            totalColumnCount={totalColumnCount}
+            updateRange={updateRange}
+          />
         </table>
       </div>
+      {keyboardAnnouncement === "" ? null : (
+        <span aria-live="assertive" role="alert">
+          {keyboardAnnouncement}
+        </span>
+      )}
     </>
   );
+}
+
+function executeTestSemanticKeyDecision<Row>({
+  cell,
+  decision,
+  focusSemanticAnchor,
+  onFillCells,
+  pendingRangeEnd,
+  presentation,
+  setActiveEditor,
+  setKeyboardAnnouncement,
+  surface,
+  updateRange,
+}: {
+  readonly cell: HTMLTableCellElement;
+  readonly decision: SemanticGridDecision;
+  readonly focusSemanticAnchor: (anchor: GridCellAnchor) => boolean;
+  readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
+  readonly pendingRangeEnd: MutableRefObject<GridCellAnchor | null>;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly setActiveEditor: (value: {
+    readonly fieldKey: string;
+    readonly rowIdentity: GridRowIdentity;
+  }) => void;
+  readonly setKeyboardAnnouncement: (value: string) => void;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+  readonly updateRange: (range: GridCellRange | null) => void;
+}): boolean {
+  switch (decision.kind) {
+    case "ignore":
+    case "copy":
+    case "paste":
+      return false;
+    case "reject":
+      setKeyboardAnnouncement(decision.announcement);
+      return true;
+    case "exit_grid":
+      cell.blur();
+      return true;
+    case "begin_edit":
+      setActiveEditor({
+        fieldKey: decision.seed.anchor.fieldKey,
+        rowIdentity: decision.seed.anchor.rowIdentity,
+      });
+      return true;
+    case "navigate":
+      return executeTestNavigateDecision(
+        decision,
+        focusSemanticAnchor,
+        pendingRangeEnd,
+        updateRange,
+      );
+    case "fill":
+      return executeTestFillDecision({
+        decision,
+        onFillCells,
+        presentation,
+        setKeyboardAnnouncement,
+        surface,
+        updateRange,
+      });
+  }
+}
+
+function executeTestNavigateDecision(
+  decision: Extract<SemanticGridDecision, { readonly kind: "navigate" }>,
+  focusSemanticAnchor: (anchor: GridCellAnchor) => boolean,
+  pendingRangeEnd: MutableRefObject<GridCellAnchor | null>,
+  updateRange: (range: GridCellRange | null) => void,
+): boolean {
+  if (decision.range !== null) pendingRangeEnd.current = decision.target;
+  const focused = focusSemanticAnchor(decision.target);
+  if (!focused) pendingRangeEnd.current = null;
+  if (focused && decision.range !== null) updateRange(decision.range);
+  return focused;
+}
+
+function executeTestFillDecision<Row>({
+  decision,
+  onFillCells,
+  presentation,
+  setKeyboardAnnouncement,
+  surface,
+  updateRange,
+}: {
+  readonly decision: Extract<SemanticGridDecision, { readonly kind: "fill" }>;
+  readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly setKeyboardAnnouncement: (value: string) => void;
+  readonly surface: SemanticDataGridProps<Row>["surface"];
+  readonly updateRange: (range: GridCellRange | null) => void;
+}): boolean {
+  const intent = planSemanticFillFromRange({
+    columns: presentation.columns,
+    dataRows: presentation.dataRows,
+    model: presentation,
+    range: decision.range,
+    surface,
+  });
+  if (intent === null) {
+    setKeyboardAnnouncement(
+      "Select a writable one-column range before using fill down.",
+    );
+    return true;
+  }
+  updateRange(intent.range);
+  onFillCells?.(intent);
+  setKeyboardAnnouncement(
+    `Filled ${intent.targets.length} cells from the top selected cell.`,
+  );
+  return true;
 }
 
 function createTestDraftFocusTargetRef(
@@ -1094,35 +1785,15 @@ function TestGridStatePresentation({
     SemanticDataGridProps<unknown>["interactionMode"]
   >;
 }) {
-  let message: string | null = null;
-  if (dataState.kind === "initial_loading") {
-    message = `Loading ${dataState.surfaceLabel}…`;
-  } else if (dataState.kind === "refreshing") {
-    message = `Refreshing ${dataState.surfaceLabel}…`;
-  } else if (dataState.kind === "empty") {
-    message = dataState.message;
-  } else if (dataState.kind === "filtered_empty") {
-    message = "No rows match the current filters.";
-  } else if (dataState.kind === "stale_error") {
-    message = `${dataState.message} Previously loaded rows may be stale.`;
-  } else if (dataState.kind === "unavailable") {
-    message = dataState.message;
-  } else if (dataState.kind === "permission_denied") {
-    message =
-      dataState.message ?? "You no longer have access to this workbook.";
-  }
-  const action =
-    "action" in dataState && dataState.action !== undefined
-      ? dataState.action
-      : undefined;
+  const presentation = resolveGridDataStatePresentation(dataState);
   return (
     <>
-      {message === null ? null : (
-        <div data-grid-data-state={dataState.kind} role="status">
-          {message}
-          {action === undefined ? null : (
-            <button type="button" onClick={action.onInvoke}>
-              {action.label}
+      {presentation === null ? null : (
+        <div data-grid-data-state={dataState.kind} role={presentation.role}>
+          {presentation.message}
+          {presentation.action === undefined ? null : (
+            <button type="button" onClick={presentation.action.onInvoke}>
+              {presentation.action.label}
             </button>
           )}
         </div>

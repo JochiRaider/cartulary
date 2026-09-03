@@ -10,6 +10,7 @@ import {
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useLayoutEffect, useMemo } from "react";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
+import { useWorkbookSemanticGridFocus } from "../../hooks/useWorkbookSemanticGridFocus";
 import { applyWorkbookLayoutToColumns } from "../../layout/workbookColumnLayout";
 import {
   type WorkbookQueryLoadState,
@@ -46,6 +47,7 @@ const timelineInspectorConfig = timelineContract.inspectorConfig;
 export type TimelineWorkbookPresentationRuntime = {
   readonly currentIncidentRole: TimelineWorkbookSurfaceRuntime["incident"]["currentRole"];
   readonly indicatorWorkflow: TimelineWorkbookSurfaceRuntime["indicatorWorkflow"];
+  readonly gridEntryFocus: TimelineWorkbookSurfaceRuntime["gridEntryFocus"];
   readonly entities: Pick<
     TimelineWorkbookSurfaceRuntime["entities"],
     "hosts" | "identities" | "index"
@@ -70,6 +72,7 @@ export function useTimelineWorkbookPresentation({
   const {
     currentIncidentRole,
     indicatorWorkflow,
+    gridEntryFocus,
     entities,
     layout,
     onActivateConflict,
@@ -131,7 +134,6 @@ export function useTimelineWorkbookPresentation({
     foundation.snapshot.mentions;
   const pendingQueueSnapshot = foundation.snapshot.pendingQueue;
   const editorDraftRegistry = foundation.refs.editorDraftRegistry;
-  const timelineGridHandleRef = grid.refs.gridHandle;
   const gridShellRef = grid.refs.gridShell;
   const timelineGridShellWidth = grid.snapshot.gridShellWidth;
   const { workbookFocusAnchor } = grid.snapshot;
@@ -421,6 +423,24 @@ export function useTimelineWorkbookPresentation({
     rowCount: timelineGridRows.length,
     surfaceLabel: timelineContract.title,
   });
+  const timelineDraftFieldKeys = useMemo(
+    () =>
+      timelineDraftRow === undefined
+        ? []
+        : visibleTimelineColumns
+            .filter((column) => column.renderDraftCell !== undefined)
+            .map((column) => column.fieldKey),
+    [timelineDraftRow, visibleTimelineColumns],
+  );
+  const registerTimelineGridHandle = useWorkbookSemanticGridFocus({
+    dataRows: timelineGridRows,
+    dataState: timelineDataState,
+    draftFieldKeys: timelineDraftFieldKeys,
+    focusOwner: gridEntryFocus,
+    gridHandleRef: grid.refs.gridHandle,
+    visibleColumns: visibleTimelineColumns,
+    viewSchemaId: timelineViewSchemaId,
+  });
   const handleActiveCellChange = useCallback(
     (anchor: GridCellAnchor | null) => {
       updateTimelineSurfaceFocusAnchor(
@@ -463,7 +483,7 @@ export function useTimelineWorkbookPresentation({
       onFillCells: handleFillCells,
       onSelectRecord: handleSelectRow,
       onSortChange: handleQuerySortChange,
-      ref: timelineGridHandleRef,
+      ref: registerTimelineGridHandle,
       rowGutter: timelineRowGutter,
       rows,
       shellRef: gridShellRef,

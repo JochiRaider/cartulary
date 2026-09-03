@@ -14,6 +14,7 @@ import {
   gridSurfaceIdentitiesEqual,
   isGridColumnEditable,
 } from "./core";
+import { buildRdgPresentationModel } from "./rdgPositionMap";
 import {
   buildSemanticGroupBuckets,
   buildSemanticPresentationModel,
@@ -110,7 +111,6 @@ function testSemanticModel<Row>({
   return buildSemanticPresentationModel({
     allowCreateRows,
     columns,
-    columnKeys: fieldKeys,
     dataRows,
     fieldKeys,
     surface,
@@ -757,7 +757,7 @@ describe("semantic grid policies", () => {
         renderEditor: () => null,
       },
     }));
-    const semanticPositions = buildSemanticPresentationModel({
+    const semanticPositions = buildRdgPresentationModel({
       allowCreateRows: false,
       columns: writableColumns,
       columnKeys: ["summary", "state"],

@@ -3646,3 +3646,443 @@ one owner-local capability and real workflow, one declared panel placement,
 semantic element refs, lifecycle/invalidation participation, and focused
 evidence. It must not add wildcard dispatch, a universal controller, a raw
 parallel subject, or selector-driven runtime behavior.
+
+## 86. Sixth successor authority and production-readiness baseline
+
+Sections 86-100 plan a grid-adapter production-readiness successor to the
+completed WI-29 through WI-34 iteration. Sections 1-85 remain historical
+evidence and MUST NOT be rewritten. WI-35 through WI-40 and C058 through C065
+are `PLANNED`; this documentation-only update does not authorize
+implementation.
+
+Core 03 and `docs/design.md` own observable grid interaction, focus,
+accessibility, continuity, and clipboard behavior. Core 01 and Core 04 retain
+their view-contract, mutation, authorization, and conformance boundaries. The
+frontend and development guides describe the private
+`@cartulary/grid-adapter` integration and verification boundary.
+`docs/domain.md` supplies vocabulary and owner navigation only.
+`docs/research/nlspec-spec.md` is advisory research: its completeness,
+conceptual-fidelity, define-once, and economy tests guide this plan without
+creating product authority.
+
+The planning baseline before this documentation edit is:
+
+- clean branch `main` at
+  `79d305265e433ef5d3eafb4750e319ec34fd5c3f`, equal to `origin/main`;
+- `packages/grid-adapter/src/SemanticDataGrid.tsx` at 1,996 lines, with
+  `useSemanticDataGrid` reported at 1,235 lines and `onCellKeyDown` at 189
+  lines;
+- `packages/grid-adapter/src/test-support.tsx` at 1,137 lines, with
+  `useSemanticDataGridTestSupport` reported at 744 lines;
+- retained owner-only-umask Fallow evidence at
+  `.cartulary/test-results/20260902T154039Z-p47269` reporting critical
+  production and test-support hooks plus high findings in semantic state,
+  navigation, editor entry, fill dispatch, and data-state presentation; and
+- `apps/web/src/workbook/hooks/useWorkbookPendingGridFocus.ts` as the only
+  production Workbook path that still imports `dataTestIdSelector`.
+
+The adopted owners already define the observable behavior required by this
+successor, so no normative or domain-vocabulary edit is expected. WI-35 MUST
+revalidate that conclusion against its execution commit. A genuine omission
+or contradiction blocks implementation until the owner corpus is corrected
+and adopted. A tracker/source mismatch is corrected in this handoff and is
+not, by itself, an owner contradiction.
+
+## 87. Sixth successor gap register and disposition rules
+
+| Gap | Current evidence | Required disposition |
+| --- | --- | --- |
+| G28 — Parallel semantic interaction policy | Production and test support independently assemble capability admission, state precedence, navigation, selection, edit, range, paste, fill, and data-state behavior. An unused parallel navigation primitive remains. | Establish one pure semantic interaction kernel with closed decisions, migrate both bindings, and delete duplicated or unused policy. |
+| G29 — Monolithic production binding | `useSemanticDataGrid` and its keyboard handler combine semantic policy, React state, DOM registries, RDG translation, editor lifecycle, pointer sequencing, clipboard behavior, grouping, and presentation. | Split cohesive internal controllers while leaving `SemanticDataGrid` as the thin production composition root and preserving structural virtualization. |
+| G30 — Test-support implementation drift | The lightweight fake contains a second 744-line interaction implementation and can emit an active-cell callback twice for one accepted focus transition. | Drive the fake from the shared kernel, retain only support-specific DOM/editor mechanics, and prove production/support contract parity. |
+| G31 — Selector-driven grid-entry focus | Workbook surface selection stores a nullable surface name and polls production DOM/test selectors to locate a focus target. | Replace it with a generation-keyed semantic focus request consumed by the mounted surface through the existing required `GridHandle`. |
+
+Prefer `REMOVE`, then `CONSOLIDATE`, `PRIVATIZE`, or `EXTRACT`. Do not add a
+second runtime, public compatibility facade, optional shim, wildcard
+dispatch, selector fallback, test-only production export, or Fallow
+suppression. Preserve public package exports only because they remain the
+correct private-workspace boundary, not merely because they already exist.
+
+## 88. G28 — One semantic interaction kernel
+
+Consolidate capability admission, effective interaction-mode resolution,
+semantic-state precedence, navigation, editor-entry decisions, active/range
+transitions, copy/paste/fill planning, bulk-selection projection, and
+data-state presentation into small pure models. The kernel may depend on
+Cartulary grid types, but it MUST NOT import React, DOM types,
+`react-data-grid`, timers, or vendor coordinates.
+
+Keyboard resolution uses a closed private decision family for ignored input,
+rejection/announcement, grid exit, edit entry, navigation, range extension,
+and fill. Side-effectful bindings execute those decisions; they do not
+re-decide policy. Semantic-state and data-state resolution likewise produce
+closed descriptors consumed by both renderers. Retain one navigation
+primitive over the canonical semantic presentation model and delete the
+unused parallel `navigateSemanticAnchor` path without an alias.
+
+This change belongs in implementation, package tests, architecture/static
+checks, and tracker documentation. It does not change the normative
+specification unless WI-35 finds an owner gap. Root package exports,
+`SemanticDataGridProps`, `GridHandle`, callback payloads, selectors, copied
+values, and accessible messages remain unchanged.
+
+The long-term benefit is a single deterministic extension point for future
+keyboard, editor, range, paste, fill, and semantic-state behavior. Leaving
+the gap unresolved lets the production binding and its test double accept
+different edits or targets and multiplies that risk with every new feature.
+
+Completion requires exhaustive decision tables, invalid identity and
+capability cases, reference-preserving no-op cases, exact state precedence
+and messages, navigation edges, editor seeds, range transitions, copy/paste
+and fill plans, and direct Fallow JSON inspection proving no high or critical
+finding or suppression in the shared policy units.
+
+## 89. G29 — Production binding decomposition
+
+Reduce `SemanticDataGrid` to validation, controller composition, RDG/Tree RDG
+selection, and final presentation. Extract cohesive private controllers for:
+
+- semantic element registration and restricted handle operations;
+- active-cell, range, and bulk-selection state;
+- editor seed/session and pointer-transition lifecycle;
+- clipboard copy/paste and fill execution;
+- RDG property and event translation;
+- grouping and row presentation; and
+- data-state, interaction-state, range, selection, and keyboard live regions.
+
+Each controller owns its state and exposes a narrow typed port. Do not replace
+the monolith with one mega-prop controller or shared mutable bag. Every
+side-effectful command rechecks the current semantic presentation, surface,
+row identity, field, mutation identity, and editor session at dispatch.
+
+Direct `react-data-grid` imports and vendor row/column coordinates remain
+inside the package. Production virtualization stays structurally enabled for
+rows and columns. The package-private non-virtualized DOM-unit binding remains
+test-only and is not re-exported from the root or `./test-support`. Preserve
+editor commit/cancel/rejection retention, pointer sequencing, focus and
+scroll behavior, sorting, grouping, copy, paste, fill, announcements, density,
+and render identity.
+
+This is an internal compile-breaking implementation and test refactor with no
+compatibility facade. Its long-term benefit is independent evolution of
+semantic policy and vendor choreography, including safer RDG upgrades.
+Leaving the gap unresolved permits a local interaction change to alter
+selection, mutation targeting, editing, or focus unintentionally.
+
+Completion requires production-only evidence for RDG callbacks and lifecycle,
+virtualization, frozen columns, offscreen focus and scrolling, pointer/editor
+sequencing, grouped rendering, stable row/editor identity, and large-grid DOM
+bounds. No production file under `packages/grid-adapter/src` may retain a high
+or critical Fallow finding or suppression.
+
+## 90. G30 — Contract-faithful test support
+
+Rebuild `@cartulary/grid-adapter/test-support` as a thin deterministic table
+renderer over the G28 kernel plus a small support-only DOM/editor controller.
+It MUST share capability admission, state resolution, grouping, navigation,
+range, paste/fill, sorting, selection projection, and data-state descriptors
+with production. It MUST NOT import `react-data-grid`, emulate virtualization,
+or be cited as proof of vendor lifecycle, scrolling, frozen-column, or
+offscreen behavior.
+
+Add one package-private behavioral contract suite executed against both the
+production DOM-unit binding and the support fake. Keep production-root tests
+for the postconditions that the DOM-unit binding cannot prove. Correct the
+support focus path so one accepted transition emits `onActiveCellChange`
+exactly once. Delete duplicated policy branches after parity tests exist.
+
+This change belongs in test-support implementation, shared contract tests,
+source ownership/test-catalog metadata where paths change, static analysis,
+and the tracker. Preserve the `./test-support` export surface and passive
+consumer selectors. No compatibility shim is warranted for incorrect
+support-only callback multiplicity.
+
+The long-term benefit is that application tests exercise the same semantic
+contract as production without pulling vendor mechanics into their scope.
+Leaving the gap unresolved allows Workbook or Network Flow tests to pass
+against behavior unavailable in production.
+
+Completion requires a dual-binding matrix for capability gating, identity,
+grouping, semantic state, sorting, bulk selection, editor entry and outcomes,
+keyboard navigation, ranges, paste/fill, draft focus, and every `GridHandle`
+method applicable to the DOM-unit boundary. Test-support files may retain no
+high or critical Fallow finding or suppression.
+
+## 91. G31 — Selector-free grid-entry focus
+
+Replace `pendingGridFocusSurface: string | null` with an exhaustive private
+`idle | pending` request state. A pending request carries the canonical
+`viewSchemaId` and a monotonic generation. Pass the current request and an
+exact-generation acknowledgement through `WorkbookSurfacesFacade` to the
+mounted Generic, Entity, Assessment, or Timeline owner.
+
+The active owner uses the existing required `GridHandle` in this order:
+
+1. focus the first registered recordless-draft field when a draft and primary
+   writable field are present;
+2. otherwise focus the first committed row's first visible semantic field
+   through `focusAnchor`; and
+3. otherwise focus the grid root after a terminal empty or read-only result.
+
+Wrong-surface and stale-generation work is a reference-preserving no-op.
+Every base-surface or extension-workspace selection cancels an older request
+before optionally installing a new one. Retry follows mounted-grid, row,
+column, draft, and data-state readiness changes; it MUST NOT use timers,
+global DOM queries, selector polling, or a new `GridHandle` method. An owner
+acknowledges only the exact generation it successfully focuses or resolves to
+the terminal root fallback.
+
+This change belongs in private Workbook state and interfaces, the four surface
+integrations, focus tests, architecture checks, and tracker documentation.
+`GridHandle`, package exports, and passive test IDs remain unchanged. The only
+observable change is deterministic semantic entry focus.
+
+The long-term benefit is lifecycle-safe focus independent of test
+instrumentation. Leaving the gap unresolved permits a selector rename or
+rapid surface switch to focus a stale or duplicate element.
+
+Completion requires draft, committed, empty, read-only, delayed-load,
+rapid-switch, extension-switch, unmount, wrong-surface, stale-generation,
+virtualized, and root-fallback cases. Searches must find no production
+Workbook `dataTestIdSelector`, selector-based focus recovery, or polling timer.
+
+## 92. Sixth successor workstream ledger and tracker protocol
+
+| Workstream | Status | Dependency | Binary exit condition |
+| --- | --- | --- | --- |
+| WI-35 — Rebaseline and characterize | DONE | Separate implementation authorization | Current authority, source, consumers, reports, and characterization are reconciled without an owner contradiction. |
+| WI-36 — Shared semantic kernel | DONE | WI-35 `DONE` | One pure closed-decision kernel serves production and support with no scoped high/critical policy finding. |
+| WI-37 — Production adapter decomposition | DONE | WI-36 `DONE` | The production root is cohesive, virtualization is unchanged, and package production paths have no high/critical finding. |
+| WI-38 — Test-support convergence | DONE | WI-37 `DONE` | The support fake consumes the shared contract, emits exact callbacks, and has no high/critical finding. |
+| WI-39 — Semantic grid-entry focus | DONE | WI-38 `DONE` | All four surface owners consume generation-keyed semantic focus and the last production Workbook selector path is gone. |
+| WI-40 — Final validation and handoff | DONE | WI-39 `DONE` | Ownership, focused, service-backed, terminal, static, visual, compatibility, rollback, and tracker evidence resolves C058-C065. |
+
+Only one workstream may be `IN_PROGRESS`. Immediately before a workstream,
+append a refreshed checkpoint and change only that row to `IN_PROGRESS`.
+Characterize behavior before deletion or replacement. After implementation
+and required evidence pass, append changed paths, decisions, commands, run
+roots, failure classifications, compatibility, rollback, residual risk, and
+the next action; then mark the workstream `DONE`. Update the tracker again
+before starting its successor. A failed required check leaves the workstream
+`IN_PROGRESS`. `BLOCKED` is reserved for an exact adopted-owner contradiction
+and must identify the conflicting clauses.
+
+## 93. WI-35 — Rebaseline and characterize
+
+Refresh repository and nested instructions, Core 01/Core 03/Core 04 and design
+clauses, domain vocabulary, branch/upstream/worktree, toolchain pins,
+generated-artifact policy, frontend source ownership, test catalogs/families,
+task guides, package exports, all production/support consumers, and retained
+evidence. Recount the production/support roots and re-inventory every
+capability gate, semantic-state resolver, navigation path, editor transition,
+range/copy/paste/fill path, bulk-selection projection, live-region mapping,
+handle implementation/double, and selector-driven focus path.
+
+Run fresh owner-only-umask `make frontend-fallow-static` and inspect its JSON
+directly. Record all package findings separately from unrelated repo-wide
+advisory findings. Add or strengthen characterization for the dual-binding
+contract, production vendor choreography, virtualization, focus entry, and
+support callback multiplicity before structural deletion.
+
+**Exit:** C058 is evidenced, owner text is sufficient, current metrics and
+consumers are recorded, and no owner contradiction remains. Update the
+tracker, mark WI-35 `DONE`, and separately checkpoint WI-36 `IN_PROGRESS`.
+
+## 94. WI-36 — Shared semantic kernel
+
+Add the pure closed-decision and presentation models first. Migrate production
+and test support to the shared capability, state, navigation, editor-entry,
+range, copy/paste/fill, selection, and data-state policies. Keep effects in
+their bindings. Delete the unused navigation primitive and duplicated policy
+only after public-behavior characterization passes.
+
+Run the focused `package.grid_adapter` slice plus frontend typecheck, unit,
+import-boundary, Biome, and owner-only-umask Fallow evidence. Inspect static
+JSON directly and search for React, DOM, timer, RDG, vendor-coordinate,
+suppression, compatibility-alias, and parallel-navigation leakage in the
+kernel.
+
+**Exit:** C059 passes; one pure kernel defines every shared semantic decision
+and its units contain no high or critical finding. Update the tracker and mark
+WI-36 `DONE` before opening WI-37.
+
+## 95. WI-37 — Production adapter decomposition
+
+Extract the registration/handle, active-range-selection, editor/pointer,
+clipboard/fill, vendor-binding, grouping, and live-region responsibilities as
+separate private units. Leave `SemanticDataGrid` as their thin composition
+root. Do not export internal controllers or move owner mutation behavior into
+the adapter.
+
+Run focused `package.grid_adapter`, `web.workbook`, `web.networkflow`,
+`web.architecture`, and `web.design` evidence plus the applicable service-backed
+Grid Adapter route. Run typecheck, unit, import boundaries, Biome,
+accessibility, measurement, stateful, and visual evidence. Prove structural
+production virtualization, private DOM-unit binding, stable row/editor
+identity, offscreen focus, pointer sequencing, grouping, and large-grid
+bounds. Inspect owner-only-umask Fallow JSON directly.
+
+**Exit:** C060 and the production portion of C063 pass; public exports and
+observable behavior are stable, and no production package path has a high or
+critical finding or suppression. Update the tracker and mark WI-37 `DONE`
+before WI-38.
+
+## 96. WI-38 — Test-support convergence
+
+Replace support-owned semantic decisions with the shared kernel, keep only the
+minimal table/DOM/editor mechanics, and run the dual-binding contract suite.
+Remove the duplicate active-cell notification and every obsolete branch. Do
+not import or mimic the RDG binding.
+
+Run focused `package.grid_adapter`, `web.workbook`, `web.networkflow`, and
+frontend-unit evidence, plus the support browser target, typecheck, import
+boundaries, Biome, and owner-only-umask Fallow. Inspect JSON directly. Search
+for RDG imports, copied decision logic, duplicate callbacks, optional shims,
+and support claims of virtualization or vendor lifecycle.
+
+**Exit:** C061 passes; the fake implements the shared semantic contract,
+support callbacks are exact, and no support path has a high or critical
+finding or suppression. Update the tracker and mark WI-38 `DONE` before
+WI-39.
+
+## 97. WI-39 — Semantic grid-entry focus
+
+Introduce the exhaustive generation-keyed request state, migrate the startup
+controller and shell/facade ports, and let Generic, Entity, Assessment, and
+Timeline resolve focus from their mounted semantic rows, fields, draft, and
+data state. Delete `useWorkbookPendingGridFocus.ts` after the new focus matrix
+passes.
+
+Run focused `web.workbook`, `web.architecture`, `web.design`,
+`module.workbook`, `module.timeline`, `module.entities`, `module.evidence`,
+`module.assessments`, and `module.indicators` evidence plus every applicable
+service-backed slice. Run typecheck, unit, import boundaries, Biome,
+accessibility, stateful, support, webserver-backed, and visual evidence.
+Inspect scoped Fallow JSON and run closure searches for production
+`dataTestIdSelector`, focus `querySelector`, retry timers, stale nullable focus
+state, and new grid-handle API.
+
+**Exit:** C062 and the focus portion of C063 pass; all four owner families use
+semantic entry focus and no production selector or polling fallback remains.
+Update the tracker and mark WI-39 `DONE` before WI-40.
+
+## 98. WI-40 — Final validation and handoff completion
+
+Reconcile `tools/frontend_source_ownership.json`, authored test families and
+catalogs, and every added, moved, or deleted path. Run `make generate` only if
+an authorized owner input requires it, then inspect every generated diff.
+Refresh task guides and run focused and declared service-backed slices for:
+
+```text
+package.grid_adapter
+web.workbook
+web.networkflow
+web.architecture
+web.design
+module.workbook
+module.timeline
+module.entities
+module.evidence
+module.assessments
+module.indicators
+module.networkflow
+```
+
+Run `make format`, then `make agent-finalize`. Supply `RESULTS_DIR` only for a
+genuine successful retained full warm run; otherwise record the required
+skip. Run the terminal matrix:
+
+```text
+make generate-drift
+make generated-artifact-policy-check
+make json-shape-check
+make frontend-typecheck
+make frontend-unit
+make frontend-import-boundary-check
+make lint-biome
+make browser-e2e-a11y
+make browser-e2e-measurement
+make browser-e2e-stateful
+make browser-e2e-support
+make browser-e2e-webserver-backed
+make browser-e2e-visual
+make test-fast
+```
+
+Run fresh owner-only-umask `make frontend-fallow-static`, inspect JSON
+directly, and require no high/critical package finding or suppression. Run
+closure searches for duplicate semantic policy, removed navigation and focus
+paths, selector fallback, optional shim, wildcard dispatch, test-only
+production export, vendor import outside the package, support-side RDG import,
+added TODO/FIXME, and added Markdown runtime dependency.
+
+No golden change is expected. If an intentional change is unavoidable, use
+only `make browser-e2e-visual-update`, manually review every changed image,
+and pass two ordinary visual runs after the final update. Finish with
+`make lint-markdown`, `git diff --check`, and `git diff --cached --check`.
+
+**Exit:** C058-C065 and WI-35 through WI-40 are `DONE`; all applicable
+evidence passes; generated and visual provenance is reviewed; compatibility,
+rollback, residual risk, deferrals, and the next extension seam are recorded;
+and no authorized sixth-successor work remains.
+
+## 99. Sixth successor validation and acceptance matrix
+
+| ID | Status | Acceptance statement | Required evidence |
+| --- | --- | --- | --- |
+| C058 | PASS | Authority, source, consumers, current reports, and characterization are reconciled without treating advisory material as product authority. | Owner inventory, Git/tool baseline, package/consumer inventory, direct Fallow JSON inspection, and WI-35 checkpoint. |
+| C059 | PASS | One pure semantic kernel defines shared capability, state, navigation, editor-entry, range, clipboard/fill, selection, and data-state decisions. | Exhaustive decision tables, invalid/no-op cases, removed-policy searches, and scoped static evidence. |
+| C060 | PASS | The production adapter is a cohesive vendor binding with structural virtualization and no high/critical package production finding. | Production-binding, RDG lifecycle, editor/pointer, grouping, offscreen focus, large-grid, browser, and Fallow evidence. |
+| C061 | PASS | Test support consumes the shared semantic contract, emits callbacks exactly once, and does not claim or import vendor mechanics. | Dual-binding parity matrix, support consumer tests, import searches, and scoped static evidence. |
+| C062 | PASS | Grid-entry focus is generation-keyed, surface-owned, semantic, and independent of selectors and polling. | Draft/committed/empty/read-only/race/fallback matrix plus closure searches. |
+| C063 | PASS | Public grid-adapter and test-support exports, `GridHandle`, virtualization, callbacks, passive selectors, copy, accessibility text, and ordinary visuals remain compatible except for deterministic focus and corrected support callback multiplicity. | Type/API comparison, package and consumer tests, browser evidence, compatibility record, and reviewed visual provenance. |
+| C064 | PASS | Ownership, catalogs, generated provenance, architecture boundaries, and static closure cover every added, moved, and removed path. | Authored metadata reconciliation, generated diff inspection, import/selector/suppression searches, and final Fallow JSON. |
+| C065 | PASS | Every applicable focused, service-backed, terminal, Markdown, and diff gate passes and WI-35 through WI-40 are `DONE`. | Final checkpoint ledger with commands, run roots, failures, skips, rollback, residual risk, and deferrals. |
+
+## 100. Sixth successor checkpoint, compatibility, rollback, and deferrals
+
+| Timestamp | State | Planning result | Verification and compatibility |
+| --- | --- | --- | --- |
+| `2026-09-02T17:05:14-04:00` | WI-35 through WI-40 and C058-C065 `PLANNED` | Appended sections 86-100 as a grid-adapter production-readiness successor. Preserved sections 1-85, selected one shared semantic kernel, decomposed production and support bindings, and generation-keyed the final selector-driven grid-entry focus path. The NLSpec research document was used only as advisory review guidance. Separate implementation authorization remains required. | Documentation-only change. No product, test, contract, generated, fixture, golden, route, payload, schema, authorization, persistence, dependency, domain vocabulary, or stored-data behavior changed. Documentation hygiene is recorded in the next checkpoint after the updated artifact is checked. |
+| `2026-09-02T17:08:21-04:00` | WI-35 through WI-40 and C058-C065 remain `PLANNED`; document update complete | `make lint-markdown` passed for the appended successor plan at `.cartulary/test-results/20260902T210755Z-p18506`; `git diff --check` and `git diff --cached --check` also passed. No implementation workstream was opened. | The handoff is the only tracked change. No product, test, contract, generated, fixture, golden, runtime metadata, route, payload, schema, authorization, persistence, dependency, domain vocabulary, or stored-data behavior changed. Final hygiene will be rerun after this checkpoint row so the recorded completion state is also checked. |
+| `2026-09-02T17:31:07-04:00` | WI-35 `IN_PROGRESS`; WI-36 through WI-40 and C058-C065 `PLANNED` | Received separate implementation authorization and opened only WI-35. Refreshed the repository procedure, adopted Core 03 and design owner boundary, domain navigation boundary, package surface, consumers, catalog and ownership inputs, generated-artifact policy, retained evidence, and local toolchain. Core 03/design already own the observable grid contract; `docs/domain.md` remains unchanged because the adapter and its bindings are implementation detail. | `main` remains at `79d305265e433ef5d3eafb4750e319ec34fd5c3f`, equal to `origin/main`. Before this transition the only worktree change was this user-authored handoff successor; Node v24.15.0, pnpm 10.33.0, Go 1.26.6, jq 1.8.1, and GNU Make 4.4.1 remain available. No product or generated artifact changed. Next: capture fresh owner-only-umask Fallow and focused characterization before structural replacement. |
+| `2026-09-02T17:35:08-04:00` | WI-35 `DONE`; C058 `PASS`; WI-36 through WI-40 remain `PLANNED` | Reconciled the exact root and `./test-support` package surface, unchanged `GridHandle`, production DOM-unit seam, Workbook/Network Flow consumers, frontend guide, source ownership, package catalog, generated policy, and existing package characterization. The duplicate support focus callback remains an identified expected-red condition for WI-38; no compatibility behavior was added. Direct Fallow JSON inventory contains the three expected critical monolith findings (`onCellKeyDown`, `useSemanticDataGrid`, and `useSemanticDataGridTestSupport`) and seven high adapter findings, with no scoped suppression. | PASS: `package.grid_adapter` 38/38 at `.cartulary/test-results/20260902T213319Z-p28819`; fresh owner-only-umask Fallow at `.cartulary/test-results/20260902T213240Z-p27988`. Existing tests characterize invalid identities, extension read-only behavior, data/semantic state, grouping, navigation, editing, ranges, clipboard/fill planning, sorting, selection, virtualization, focus, and public handles. WI-35 changed only the tracker. Compatibility is unchanged; rollback is this checkpoint and status transition. Residual structural risk moves to WI-36. |
+| `2026-09-02T17:35:09-04:00` | WI-36 `IN_PROGRESS`; WI-35 `DONE`; WI-37 through WI-40 `PLANNED` | Opened only the shared-semantic-kernel workstream after the WI-35 gate. | Next: add package-private DOM-free policy modules and exhaustive tests, migrate both bindings, then delete parallel navigation and mixed DOM policy. |
+| `2026-09-02T18:05:55-04:00` | WI-36 `DONE`; C059 `PASS`; WI-37 through WI-40 remain `PLANNED` | Added package-private capability, keyboard, clipboard/fill, data-state, selection/sort, semantic-state, and semantic-presentation policy units plus exhaustive decision-table evidence. Both bindings now consume the shared admission, mode, navigation/edit decision, paste, data-state, selection, and sort policies. Moved DOM focus/target helpers into `domInteraction.ts`, moved RDG coordinates into `rdgPositionMap.ts`, deleted `interactionPolicy.ts` and `navigateSemanticAnchor` without aliases, and updated the frontend implementation/testing guide. Added five authored Grid Adapter catalog rows; `make generate` changed only the declared execution-topology input digest. Direct source scans found no React, DOM/browser, timer, RDG, or vendor-coordinate dependency in kernel units. | PASS: format `.cartulary/test-results/20260902T220134Z-p52314`; typecheck `.cartulary/test-results/20260902T220219Z-p57156`; `package.grid_adapter` 43/43 `.cartulary/test-results/20260902T220232Z-p57586`; frontend unit 403/403 `.cartulary/test-results/20260902T220403Z-p7774`; import boundaries `.cartulary/test-results/20260902T220542Z-p45772`; Biome `.cartulary/test-results/20260902T220542Z-p45797`; generate `.cartulary/test-results/20260902T214815Z-p85064`; generation drift `.cartulary/test-results/20260902T220542Z-p45569`; owner-only-umask Fallow `.cartulary/test-results/20260902T220339Z-p6993`, with no high/critical kernel finding or suppression. Introduced and fixed: unsorted authored catalog at format `.cartulary/test-results/20260902T214806Z-p80927`; fill-range metadata compatibility at Grid Adapter `.cartulary/test-results/20260902T214833Z-p88105`; initial type errors `.cartulary/test-results/20260902T214416Z-p76458`, `.cartulary/test-results/20260902T215159Z-p43666`, and `.cartulary/test-results/20260902T220137Z-p56490`; support Tab bubbling at frontend unit `.cartulary/test-results/20260902T215514Z-p99188`; and test formatting at Biome `.cartulary/test-results/20260902T215738Z-p44533`. Public exports, payloads, `GridHandle`, virtualization, routes, persistence, dependencies, and stored data are unchanged. Rollback is source-only across the policy units, binding migrations, tests, guide, catalog, generated digest, and this row. Residual binding complexity moves to WI-37/WI-38. |
+| `2026-09-02T18:05:56-04:00` | WI-37 `IN_PROGRESS`; WI-35 and WI-36 `DONE`; WI-38 through WI-40 `PLANNED` | Opened only production-adapter decomposition after the C059 gate. | Next: extract narrow production controllers and presentation units, preserve the immutable virtualization seam, and eliminate the remaining production high/critical Fallow findings. |
+| `2026-09-02T18:32:45-04:00` | WI-37 `DONE`; C060 `PASS`; production portion of C063 `PASS`; WI-38 through WI-40 remain `PLANNED` | Reduced the production root to validation and composition around private range, bulk-selection, semantic-state, registration/handle, editor, paste, fill, pointer, RDG-position, grouping, and state/live-region units. Effectful paths revalidate semantic anchors, row mutation identities, writable editor capability, active editor sessions, and current presentation at dispatch. `SemanticDataGrid` retains structural production virtualization and the immutable private DOM-unit seam; root/test-support exports, `SemanticDataGridProps`, callback payloads, `GridHandle`, vendor containment, grouping, row/editor identity, focus, scroll, and rendering behavior are unchanged. Direct Fallow JSON has no high/critical production adapter finding or suppression; the sole remaining critical adapter finding is support-only and assigned to WI-38. | PASS: format `.cartulary/test-results/20260902T221621Z-p62400`; typecheck `.cartulary/test-results/20260902T221713Z-p67886`; `package.grid_adapter` 43/43 `.cartulary/test-results/20260902T221729Z-p68771`; `web.workbook` 145/145 `.cartulary/test-results/20260902T221837Z-p18273`; `web.networkflow` 38/38 `.cartulary/test-results/20260902T221837Z-p18283`; `web.architecture` 12/12 `.cartulary/test-results/20260902T221837Z-p18289`; `web.design` 15/15 `.cartulary/test-results/20260902T221837Z-p18309`; Grid Adapter service-backed 13/13 `.cartulary/test-results/20260902T222027Z-p86377`; frontend unit 403/403 `.cartulary/test-results/20260902T223151Z-p29117`; import boundaries `.cartulary/test-results/20260902T223151Z-p29131`; Biome `.cartulary/test-results/20260902T223151Z-p29157`; generation drift `.cartulary/test-results/20260902T223151Z-p28907`; accessibility 12/12 `.cartulary/test-results/20260902T222126Z-p31381`; measurement 22/22 `.cartulary/test-results/20260902T222255Z-p76296`; stateful 34/34 `.cartulary/test-results/20260902T222730Z-p34227`; ordinary visual 12/12 `.cartulary/test-results/20260902T222951Z-p83807`; Fallow `.cartulary/test-results/20260902T221642Z-p67055`. Introduced and fixed TypeScript failures: `.cartulary/test-results/20260902T221137Z-p51183`, `.cartulary/test-results/20260902T221632Z-p66603`; formatter dependency diagnostics: `.cartulary/test-results/20260902T221541Z-p53808`, `.cartulary/test-results/20260902T221603Z-p58128`. No image, manifest, or golden changed. Rollback is source-only across the production decomposition and its WI-36 policy prerequisites; no data/external rollback exists. Residual support complexity moves to WI-38. |
+| `2026-09-02T18:32:46-04:00` | WI-38 `IN_PROGRESS`; WI-35 through WI-37 `DONE`; WI-39 and WI-40 `PLANNED` | Opened only test-support convergence after the C060 gate. | Next: make the support renderer a thin binding over shared transitions, correct exact-once active-cell publication, add dual-binding parity evidence, and clear its remaining critical finding. |
+| `2026-09-02T19:14:29-04:00` | WI-38 `DONE`; C061 `PASS`; WI-39 and WI-40 remain `PLANNED` | Rebuilt `./test-support` as private table, header, row, cell, draft, editor, focus/handle, range, and event-translation units over the shared capability, active-cell, keyboard/navigation, semantic-state, grouping, sort/selection, copy/paste, and fill policies. Active-cell transitions now publish exactly once; same-anchor and failed focus operations publish nothing. A parameterized contract harness exercises production DOM-unit and support bindings for capability admission, identity, semantic/data state, grouping, sorting, selection, navigation, ranges, copy/paste/fill, editor outcomes, draft focus, and applicable `GridHandle` operations. Support retains no RDG import or vendor/virtualization claim. Authored Grid Adapter catalog titles and the generated topology digest were reconciled. | PASS: generate `.cartulary/test-results/20260902T230159Z-p42592`; format `.cartulary/test-results/20260902T231413Z-p81177`; generation drift `.cartulary/test-results/20260902T231417Z-p85270`; typecheck `.cartulary/test-results/20260902T230854Z-p42780`; `package.grid_adapter` 43/43 `.cartulary/test-results/20260902T231019Z-p49734`; `web.workbook` 145/145 `.cartulary/test-results/20260902T230802Z-p26391`; `web.networkflow` 38/38 `.cartulary/test-results/20260902T231019Z-p49740`; frontend unit 403/403 `.cartulary/test-results/20260902T231130Z-p2907`; Grid Adapter service-backed browser support 13/13 `.cartulary/test-results/20260902T231258Z-p36638`; import boundaries `.cartulary/test-results/20260902T230854Z-p42813`; Biome `.cartulary/test-results/20260902T230854Z-p42852`; owner-only-umask Fallow `.cartulary/test-results/20260902T230957Z-p48951`, whose direct JSON contains no high/critical support finding and no suppression. Introduced and fixed: support type failures `.cartulary/test-results/20260902T224539Z-p64428` and `.cartulary/test-results/20260902T225931Z-p30852`; a non-owner-only Fallow artifact `.cartulary/test-results/20260902T224621Z-p65234`; contract expectation failures `.cartulary/test-results/20260902T225543Z-p75927`, `.cartulary/test-results/20260902T225757Z-p25173`, and `.cartulary/test-results/20260902T230026Z-p36145`; support keyboard complexity `.cartulary/test-results/20260902T230854Z-p42859`; and a pointer-focus regression exposed by Workbook `.cartulary/test-results/20260902T230214Z-p45687` and isolated at `.cartulary/test-results/20260902T230556Z-p15428`. Restoring semantic publication without forcing pointer-down DOM focus preserved editor lifecycle while shared transition deduplication retained exact-once callbacks. Root/test-support exports, public props/payloads, `GridHandle`, passive selectors, production virtualization, routes, persistence, dependencies, and stored data are unchanged. Rollback is source-only across support units, dual-binding tests, catalog titles, generated digest, and this checkpoint. Residual focus-entry risk moves to WI-39. |
+| `2026-09-02T19:14:30-04:00` | WI-39 `IN_PROGRESS`; WI-35 through WI-38 `DONE`; WI-40 `PLANNED` | Opened only semantic grid-entry focus after the C061 gate. | Next: replace the selector/polling request with generation-keyed state and exact acknowledgement, integrate one semantic focus hook with Generic, Entity, Assessment, and Timeline, then delete the legacy focus hook. |
+| `2026-09-02T20:17:46-04:00` | WI-39 `DONE`; C062 and C063 `PASS`; WI-40 remains `PLANNED` | Replaced nullable `pendingGridFocusSurface` and its raw setter with the closed generation-keyed model in `workbookGridEntryFocus.ts`, monotonic request creation, cancel-first base/extension selection, and exact surface-plus-generation acknowledgement. Added `useWorkbookSemanticGridFocus.ts` and its direct matrix; wired its narrow owner port through startup, shell, runtime, facade, Generic, Entity, Assessment, and Timeline; updated the Timeline fixture, source ownership, Workbook catalog, generated topology digest, and source README; and deleted `useWorkbookPendingGridFocus.ts`. The hook waits for callback-ref mount readiness and non-busy data, tries writable draft fields first, then semantic rows and visible fields through `GridHandle.focusAnchor`, and finally the grid root. Searches find no legacy nullable state, deleted hook/navigation alias, focus selector, polling, or support RDG import; unrelated menu selectors and owner-local editor timers remain outside grid-entry focus. | PASS: focus rows `.cartulary/test-results/20260902T233150Z-p14555`; final frontend unit 406/406 `.cartulary/test-results/20260902T235942Z-p19072`; Timeline 53/53 `.cartulary/test-results/20260903T000643Z-p12918`; typecheck `.cartulary/test-results/20260903T000643Z-p13020`; import boundaries `.cartulary/test-results/20260903T000643Z-p13050`; Biome `.cartulary/test-results/20260903T000643Z-p13101`; generation drift `.cartulary/test-results/20260903T000643Z-p12784`; accessibility 12/12 `.cartulary/test-results/20260902T235555Z-p86061`; support 19/19 `.cartulary/test-results/20260902T235555Z-p86092`; stateful 34/34 `.cartulary/test-results/20260902T235942Z-p19147`; webserver-backed 60/60 `.cartulary/test-results/20260902T235942Z-p19150`; ordinary visual 12/12 `.cartulary/test-results/20260902T235942Z-p19169`; service-backed Workbook 39/39 `.cartulary/test-results/20260903T001139Z-p78484`, Timeline 30/30 `.cartulary/test-results/20260903T001139Z-p78488`, Entity 33/33 `.cartulary/test-results/20260903T001139Z-p78495`, Evidence 25/25 `.cartulary/test-results/20260903T001625Z-p46281`, Assessment 19/19 `.cartulary/test-results/20260903T001625Z-p46292`, and Indicator 8/8 `.cartulary/test-results/20260903T001625Z-p46298`; owner-only-umask Fallow `.cartulary/test-results/20260903T000543Z-p8786`, whose JSON has only six moderate adapter findings and no suppression. Introduced and fixed: type/test fixture gaps; catalog ID/title and ownership ASCII ordering at `.cartulary/test-results/20260902T232602Z-p93628`, `.cartulary/test-results/20260902T232644Z-p96774`, and `.cartulary/test-results/20260902T234011Z-p77193`; callback-ref render looping at `.cartulary/test-results/20260902T233537Z-p34879`; and Timeline autosave plus duplicate mount-attempt regressions at `.cartulary/test-results/20260902T234354Z-p83553` and `.cartulary/test-results/20260902T235555Z-p85856`. Public Grid Adapter exports and `GridHandle` are unchanged; the intentional behavior changes are deterministic grid-entry focus and the already-recorded exact-once support callback. No route, wire, authorization, persistence, dependency, generated public contract, golden, or stored data changed. Rollback is source-only across the focus model/hook/wiring/tests/metadata; residual risk is limited to final repository-wide validation. Next: open WI-40 and reconcile terminal evidence. |
+| `2026-09-02T20:17:47-04:00` | WI-40 `IN_PROGRESS`; WI-35 through WI-39 `DONE`; C058-C063 `PASS`; C064 and C065 `PLANNED` | Opened only final validation and handoff after the WI-39 gate. | Next: reconcile authored/generated ownership and catalog inputs, run the declared focused, service-backed, terminal, Fallow, closure, Markdown, and diff matrix, then close C064-C065 and the sixth-successor handoff. |
+| `2026-09-02T20:51:25-04:00` | WI-35 through WI-40 `DONE`; C058-C065 `PASS` | Reconciled every added, deleted, and moved implementation/test path against `tools/frontend_source_ownership.json`, the Grid Adapter and Workbook authored test families, source navigation, and generated topology provenance. `make generate` changed only the expected authored test-family digests in `tools/execution_topology_render_index.json`. Root and `./test-support` exports, `SemanticDataGridProps`, callback payloads, `GridHandle`, and production virtualization remain unchanged; `index.tsx`, `core.ts`, and `package.json` have no public-surface diff. Closure scans find no duplicate legacy policy path, removed navigation/focus name, grid-entry selector or timer, compatibility shim, wildcard dispatch, test-only production export, support RDG import, vendor import outside the adapter, added TODO/FIXME, or added Markdown runtime dependency. The pure kernel has no React, DOM, timer, RDG, or vendor-coordinate reference. Direct Fallow JSON reports six moderate adapter findings, zero high/critical adapter findings, and no suppression. No image, golden, or visual manifest changed. | PASS: generate `.cartulary/test-results/20260903T001841Z-p56658`; focused Grid Adapter 43/43 `.cartulary/test-results/20260903T001902Z-p59902`, Workbook 148/148 `p59909`, Network Flow 38/38 `p59930`, architecture 12/12 `p59946`, design 15/15 `.cartulary/test-results/20260903T001959Z-p6086`, module Workbook 68/68 `p6085`, Timeline 53/53 `p6096`, Entity 42/42 `p6110`, Evidence 36/36 `.cartulary/test-results/20260903T002445Z-p17876`, Assessment 28/28 `p17888`, Indicator 20/20 `p17879`, and module Network Flow 34/34 `p17894`; service-backed Grid Adapter 13/13 `.cartulary/test-results/20260903T002716Z-p86847`, design 15/15 `p86858`, Workbook 39/39 `p86867`, Timeline 30/30 `.cartulary/test-results/20260903T002930Z-p34094`, Entity 33/33 `p34101`, Evidence 25/25 `p34115`, Assessment 19/19 `.cartulary/test-results/20260903T003415Z-p93481`, Indicator 8/8 `p93486`, and Network Flow 28/28 `p93519`. Format passed at `.cartulary/test-results/20260903T003634Z-p13006`; `make agent-finalize` passed without `RESULTS_DIR` at `.cartulary/test-results/20260903T003642Z-p17179`, so retained-success maintenance was intentionally skipped rather than misclaimed. Terminal PASS: generation drift `.cartulary/test-results/20260903T003703Z-p20208`; generated-artifact policy `p20230`; JSON shape `p20250`; typecheck `p20480`; frontend unit 406/406 `.cartulary/test-results/20260903T003718Z-p24736`; import boundaries `p24752`; Biome `p24765`; accessibility 12/12 `.cartulary/test-results/20260903T003732Z-p26245`; measurement 22/22 `p26126`; stateful 34/34 `p26109`; support 19/19 `.cartulary/test-results/20260903T004210Z-p77910`; webserver-backed 60/60 `p77761`; ordinary visual 12/12 `p77763`; `test-fast` 458/458 `.cartulary/test-results/20260903T004800Z-p24252`; final owner-only-umask Fallow `.cartulary/test-results/20260903T004815Z-p25087`; and Markdown lint `.cartulary/test-results/20260903T005022Z-p27012`. WI-40 introduced no failure; all earlier resolved failures remain classified in their originating workstreams. Compatibility changes remain only deterministic grid-entry focus and corrected support-only callback multiplicity. Rollback is source-only and workstream-granular, with matching authored/generated metadata; no external/data rollback exists. Residual risk is the six accepted moderate adapter hotspots. Existing deferred Workbook controls, mutation-runtime decomposition, Timeline hotspots, dependency work, repository-wide static cleanup, and unrelated harness work remain out of scope. The next extension seam is one pure semantic decision, one narrow effect port, unchanged public grid contract where sufficient, shared support behavior when applicable, owner-local lifecycle/focus participation, and focused owner evidence. |
+
+No route, wire payload, schema, authorization, persistence, dependency,
+generated public contract, or stored-data migration is planned. Root
+`@cartulary/grid-adapter` and `./test-support` exports plus `GridHandle` remain
+unchanged. Internal file and type movement receives no compatibility alias,
+optional shim, selector fallback, wildcard dispatch, or parallel legacy path.
+Expected observable production change is limited to deterministic semantic
+grid-entry focus; support callback multiplicity is corrected to the shared
+exactly-once contract. Passive test IDs and ordinary visuals remain
+compatible.
+
+Rollback is source-only and workstream-granular. Authored ownership/catalog
+inputs and their generated outputs revert with the workstream that caused
+them. Any explicitly approved golden and its manifest entry revert with the
+responsible production or focus workstream. There is no data or external
+rollback.
+
+Deferred work remains `ActiveSurfaceSavedViewSelector`, the global Workbook
+keyboard mapper, `WorkbookGridControls`, `WorkbookShellContent`, the Workbook
+mutation runtime and application-owned paste execution, Timeline replay/load/
+mutation hotspots and unrelated casts, repository-wide Fallow cleanup,
+dependencies, and unrelated harness cleanup. They may be recorded as
+advisory but MUST NOT expand WI-35 through WI-40.
+
+The post-successor extension seam is one pure semantic decision, one narrow
+production effect port, the unchanged public grid contract when sufficient,
+the shared support contract where applicable, owner-local lifecycle/focus
+participation, and focused evidence. It must not add vendor leakage,
+selector-driven runtime behavior, or a second semantic policy implementation.

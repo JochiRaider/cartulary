@@ -28,9 +28,56 @@ function StartupControllerHarness() {
       >
         Select Hosts
       </button>
+      <button
+        onClick={() =>
+          controller.commands.selectWorkbookSurface(
+            "cartulary.view.timeline.v2",
+          )
+        }
+        type="button"
+      >
+        Select Timeline Without Focus
+      </button>
+      <button
+        onClick={() =>
+          controller.commands.selectExtensionWorkspace({
+            extension_profile_id: "cartulary.extension.network_flow.v1",
+            kind: "extension_workspace",
+            workspace_key: "network-analysis",
+          })
+        }
+        type="button"
+      >
+        Select Extension
+      </button>
+      <button
+        onClick={() => {
+          const request = controller.snapshot.gridEntryFocusRequest;
+          if (request.kind === "pending") {
+            controller.commands.acknowledgeGridEntryFocus({
+              generation: request.generation,
+              viewSchemaId: request.viewSchemaId,
+            });
+          }
+        }}
+        type="button"
+      >
+        Acknowledge Current
+      </button>
+      <button
+        onClick={() =>
+          controller.commands.acknowledgeGridEntryFocus({
+            generation: 1,
+            viewSchemaId: "cartulary.view.hosts.v1",
+          })
+        }
+        type="button"
+      >
+        Acknowledge Generation One
+      </button>
       <output aria-label="startup-controller-state">
         {JSON.stringify({
-          focus: controller.snapshot.pendingGridFocusSurface,
+          focus: controller.snapshot.gridEntryFocusRequest,
           sheetRef: controller.snapshot.startupSheetRef,
           surface: controller.snapshot.surface,
           version: selectionVersionRef.current,
@@ -55,7 +102,11 @@ describe("useWorkbookStartupController", () => {
         screen.getByLabelText("startup-controller-state").textContent ?? "{}",
       ),
     ).toEqual({
-      focus: "cartulary.view.hosts.v1",
+      focus: {
+        generation: 1,
+        kind: "pending",
+        viewSchemaId: "cartulary.view.hosts.v1",
+      },
       sheetRef: { kind: "view_schema", id: "cartulary.view.hosts.v1" },
       surface: "cartulary.view.hosts.v1",
       version: 1,
@@ -63,5 +114,67 @@ describe("useWorkbookStartupController", () => {
     expect(window.location.search).toContain(
       "view_schema_id=cartulary.view.hosts.v1",
     );
+  });
+
+  it("uses monotonic generations and exact acknowledgement for repeated selections", () => {
+    render(<StartupControllerHarness />);
+    const selectHosts = screen.getByRole("button", { name: "Select Hosts" });
+
+    fireEvent.click(selectHosts);
+    fireEvent.click(selectHosts);
+    expect(
+      JSON.parse(
+        screen.getByLabelText("startup-controller-state").textContent ?? "{}",
+      ).focus,
+    ).toEqual({
+      generation: 2,
+      kind: "pending",
+      viewSchemaId: "cartulary.view.hosts.v1",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Acknowledge Generation One" }),
+    );
+    expect(
+      JSON.parse(
+        screen.getByLabelText("startup-controller-state").textContent ?? "{}",
+      ).focus,
+    ).toEqual({
+      generation: 2,
+      kind: "pending",
+      viewSchemaId: "cartulary.view.hosts.v1",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Acknowledge Current" }),
+    );
+    expect(
+      JSON.parse(
+        screen.getByLabelText("startup-controller-state").textContent ?? "{}",
+      ).focus,
+    ).toEqual({ kind: "idle" });
+  });
+
+  it("cancels an older request before every base or extension selection", () => {
+    render(<StartupControllerHarness />);
+    const selectHosts = screen.getByRole("button", { name: "Select Hosts" });
+
+    fireEvent.click(selectHosts);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select Timeline Without Focus" }),
+    );
+    expect(
+      JSON.parse(
+        screen.getByLabelText("startup-controller-state").textContent ?? "{}",
+      ).focus,
+    ).toEqual({ kind: "idle" });
+
+    fireEvent.click(selectHosts);
+    fireEvent.click(screen.getByRole("button", { name: "Select Extension" }));
+    expect(
+      JSON.parse(
+        screen.getByLabelText("startup-controller-state").textContent ?? "{}",
+      ).focus,
+    ).toEqual({ kind: "idle" });
   });
 });

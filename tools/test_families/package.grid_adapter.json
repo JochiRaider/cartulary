@@ -615,6 +615,126 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.grid_adapter.regression.core_verifies_a_surface_valid_capability_admissi_33749dc7a6",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "titles": [
+          "shared semantic grid kernel admits only surface-valid capabilities and derives one effective mode"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_verifies_b_every_grid_data_state_branch_thr_a380db8f73",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "titles": [
+          "shared semantic grid kernel resolves every data-state branch through one precedence table"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_verifies_c_closed_semantic_keyboard_decisio_23d2a0e429",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "titles": [
+          "shared semantic grid kernel returns closed keyboard decisions for edit, rejection, exit, navigation, range, fill, and ignore"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_verifies_d_semantic_copy_paste_and_fill_pla_bb3dff1073",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "titles": [
+          "shared semantic grid kernel plans copy, paste, and fill without binding coordinates or effects"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.core_verifies_e_sorting_and_bulk_selection_with_35401b075c",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "titles": [
+          "shared semantic grid kernel plans sorting and bulk selection with reference-preserving rejected transitions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.grid_adapter.regression.index_suite_d804ef9789",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",
@@ -648,6 +768,10 @@
           "grid-adapter renders the production DataGrid with bounded fixed-height row output",
           "grid-adapter renders, selects, and focuses extension resources without Core identities",
           "grid-adapter retains semantic editor drafts for validation outcomes and closes only after acceptance",
+          "grid-adapter runs active-cell, navigation, range, copy, paste, fill, and handle behavior through both semantic bindings",
+          "grid-adapter runs editor outcomes and draft focus through both semantic bindings",
+          "grid-adapter runs fail-closed capability admission through both semantic bindings",
+          "grid-adapter runs identity, state, grouping, sorting, and selection through both semantic bindings",
           "grid-adapter selects density token variables explicitly for every supported mode",
           "grid-adapter shows the delayed loading message once per active generation and cancels it on terminal state",
           "grid-adapter survives jsdom layout measurement when row pending state rerenders the RDG grid",
