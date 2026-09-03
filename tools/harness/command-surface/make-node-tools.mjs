@@ -153,7 +153,7 @@ export const makeNodeTools = {
   "task-surface-report": {
     inputs: ["TASK_SURFACE_REPORT_ARGS"],
     script: "./tools/harness/generated-artifacts/task-surface-report-cli.mjs",
-    usage: "usage: make task-surface-report [TASK_SURFACE_REPORT_ARGS=--all]",
+    usage: "usage: make task-surface-report [TASK_SURFACE_REPORT_ARGS='--all|--check|--check --all']",
     buildArgs(env) {
       return splitPassthrough(value(env, "TASK_SURFACE_REPORT_ARGS"), "TASK_SURFACE_REPORT_ARGS");
     },

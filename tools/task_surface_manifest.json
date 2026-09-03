@@ -944,7 +944,8 @@
         },
         {
           "target": "task-surface-report",
-          "description": "print the root Make task-surface inventory"
+          "usage": "TASK_SURFACE_REPORT_ARGS='--check --all'",
+          "description": "inspect or validate the root Make task-surface inventory"
         },
         {
           "target": "target-plan",
@@ -13462,7 +13463,8 @@
         "tools/release-evidence/generate-sbom-license-evidence.mjs",
         "tools/release-evidence/validate-cyclonedx.mjs",
         "tools/release-evidence/validate-license-report.mjs",
-        "tools/release-evidence/validate-release-sbom.mjs"
+        "tools/release-evidence/validate-release-sbom.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "command_id": "cartulary.harness.command.release_inventory_artifacts.v1",
       "target_class": "internal_helper",

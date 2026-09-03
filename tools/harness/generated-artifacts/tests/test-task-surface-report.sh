@@ -111,7 +111,15 @@ import { pathToFileURL } from "node:url";
 
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
-const { collectTaskSurfaceManifestErrors, helpAllLines, renderTaskSurfaceMake, renderTaskSurfaceMakeRuntime } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
+const {
+  collectTaskSurfaceManifestErrors,
+  helpAllLines,
+  makeRecipeEntries,
+  renderTaskSurfaceMake,
+  renderTaskSurfaceMakeRuntime,
+  requiredRecipeBackingScripts,
+  workGraphRunnerScript,
+} = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
 assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v15", "task surface schema must be v15");
 assert.deepEqual(
   manifest.global_inputs.map((input) => input.name),
@@ -160,6 +168,28 @@ assert.deepEqual(
   manifest.targets.map((target) => target.name).filter((target) => !manifest.make_recipes[target]),
   [],
   "every Make target must have a generated recipe",
+);
+const targetByName = new Map(manifest.targets.map((target) => [target.name, target]));
+for (const recipe of makeRecipeEntries(manifest)) {
+  for (const script of requiredRecipeBackingScripts(recipe)) {
+    assert.ok(
+      targetByName.get(recipe.target)?.backing_scripts?.includes(script),
+      `${recipe.target} must declare recipe-required backing script ${script}`,
+    );
+  }
+}
+const missingGraphRunnerManifest = structuredClone(manifest);
+const releaseInventoryTarget = missingGraphRunnerManifest.targets.find(
+  (target) => target.name === "release-inventory-artifacts",
+);
+releaseInventoryTarget.backing_scripts = releaseInventoryTarget.backing_scripts.filter(
+  (script) => script !== workGraphRunnerScript,
+);
+assert.ok(
+  collectTaskSurfaceManifestErrors(missingGraphRunnerManifest).includes(
+    `release-inventory-artifacts.backing_scripts must declare recipe-required script ${workGraphRunnerScript}`,
+  ),
+  "graph-entry recipes must fail semantic validation when their dispatcher is undeclared",
 );
 assert.equal(manifest.make_recipes.help.type, "print_help", "help must be generated as print_help");
 assert.equal(manifest.make_recipes["help-all"].scope, "all", "help-all must print exhaustive help");
@@ -464,6 +494,23 @@ writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 missing_script_output="$(assert_fails "missing backing script" run_report_copy)"
 assert_contains "$missing_script_output" "backing script missing: tools/harness/generated-artifacts/tests/missing-task-surface-helper.mjs" "missing backing script output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
+"$NODE_BIN" - "$manifest_copy" <<'EOF'
+const { readFileSync, writeFileSync } = require("node:fs");
+const manifestPath = process.argv[2];
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+const target = manifest.targets.find((entry) => entry.name === "release-inventory-artifacts");
+target.backing_scripts = target.backing_scripts.filter(
+  (script) => script !== "tools/harness/scheduler/work-graph/runner-cli.mjs",
+);
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+missing_graph_runner_output="$(assert_fails "missing graph-entry dispatcher" run_report_copy)"
+assert_contains "$missing_graph_runner_output" "release-inventory-artifacts.backing_scripts must declare recipe-required script tools/harness/scheduler/work-graph/runner-cli.mjs" "missing graph-entry dispatcher semantic output"
+assert_contains "$missing_graph_runner_output" "release-inventory-artifacts references tools/harness/scheduler/work-graph/runner-cli.mjs" "missing graph-entry dispatcher rendered output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

@@ -250,7 +250,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'                                      ROLE=module-author OWNER=<owner-id> recommend what to run' \
 	'  make author-test-row-id' \
 	'                                      FAMILY_ID=<owner.family> CLAIM=<semantic-claim> SELECTOR_KEY=<stable-selector-key> derive a stable semantic test-catalog row ID' \
-	'  make task-surface-report            print the root Make task-surface inventory' \
+	'  make task-surface-report' \
+	'                                      TASK_SURFACE_REPORT_ARGS='"'"'--check --all'"'"' inspect or validate the root Make task-surface inventory' \
 	'  make target-plan' \
 	'                                      TARGET=backend-unit explain backend Go execution families; use explain-target for Make targets' \
 	'  make target-plan-json               emit deterministic backend target plan JSON' \

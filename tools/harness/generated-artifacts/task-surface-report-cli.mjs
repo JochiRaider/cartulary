@@ -11,6 +11,7 @@ import {
   harnessCheckEntries,
   helpTiers,
   makeRecipeEntries,
+  renderTaskSurfaceMake,
   taskSurfaceMakeDensity,
   taskSurfaceSchemaID,
 } from "./task-surface/index.mjs";
@@ -65,6 +66,7 @@ function main() {
   const catalogTargetPartitions = collectCatalogTargetPartitions(manifest);
   const errors = validateTaskSurface({
     authoredMake,
+    generatedMake,
     helpEntries,
     manifest,
     authoredGeneratedRecipeBlocks,
@@ -354,6 +356,7 @@ function collectCatalogTargetPartitions(taskSurface) {
 
 function validateTaskSurface({
   authoredMake,
+  generatedMake,
   helpEntries,
   manifest,
   authoredGeneratedRecipeBlocks,
@@ -381,6 +384,9 @@ function validateTaskSurface({
   }
   errors.push(...collectTaskSurfaceManifestErrors(manifest));
   errors.push(...collectTaskSurfaceMakeDensityErrors(manifest));
+  if (generatedMake !== renderTaskSurfaceMake(manifest)) {
+    errors.push("tools/task_surface.generated.mk is stale; run make generate");
+  }
   for (const recipe of makeRecipeEntries(manifest)) {
     if (authoredGeneratedRecipeBlocks.has(recipe.target)) {
       errors.push(`generated Make recipe target ${recipe.target} must not be hand-defined in Makefile`);

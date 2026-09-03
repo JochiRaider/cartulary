@@ -3,7 +3,7 @@ import path from "node:path";
 import { hasMakeNodeTool } from "../../command-surface/make-node-tools.mjs";
 import { collectExplicitSummaryProjectionErrors, loadSummaryTopologyContext, resolveSummaryGroups } from "../../execution/summary-topology.mjs";
 import {
-  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntries, harnessTierChecks, helpTiers, makeRecipeEntries, nonCanonicalPublicMakeVariables, readJSON, repoRoot, restrictedInternalMakeVariables, sequenceDefinition, summaryEntryMap, targetEntries, targetEntryMap, taskSurfaceSchemaID,
+  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntries, harnessTierChecks, helpTiers, makeRecipeEntries, nonCanonicalPublicMakeVariables, readJSON, repoRoot, requiredRecipeBackingScripts, restrictedInternalMakeVariables, sequenceDefinition, summaryEntryMap, targetEntries, targetEntryMap, taskSurfaceSchemaID,
 } from "./model.mjs";
 import {
   validateCompactHelp,
@@ -736,6 +736,20 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
     manifest.sequences,
     manifest.make_recipes,
   );
+  for (const recipe of makeRecipeEntries(manifest)) {
+    const target = targets.get(recipe.target);
+    if (!target) continue;
+    const declaredScripts = new Set(
+      Array.isArray(target.backing_scripts) ? target.backing_scripts : [],
+    );
+    for (const script of requiredRecipeBackingScripts(recipe)) {
+      if (!declaredScripts.has(script)) {
+        errors.push(
+          `${recipe.target}.backing_scripts must declare recipe-required script ${script}`,
+        );
+      }
+    }
+  }
   validateOutputPolicyRouting(errors, targets, manifest.make_recipes);
 
   return errors;
