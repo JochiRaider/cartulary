@@ -4,7 +4,7 @@ import type {
 } from "@cartulary/grid-adapter";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TimelineBulkMutationPort } from "../../mutations/workbookMutationCommandPorts";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineBulkTagPort = Pick<TimelineBulkMutationPort, "assignTag">;
 

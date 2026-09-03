@@ -4,23 +4,16 @@ import {
 } from "../utils/workbookEditRecoveryPresentation";
 import {
   type PendingReplayScope,
-  type PendingReplayUnitInput,
   type PendingReplayUnitState,
   WorkbookPendingQueueModel,
 } from "../utils/workbookPendingQueue";
 
-export type WorkbookMutableRef<T> = {
-  current: T;
-};
-
-export type WorkbookPendingQueueRuntime<TMeta> = {
+export type WorkbookPendingQueueRuntime = {
   model: WorkbookPendingQueueModel;
-  metaByUnitId: Map<string, TMeta>;
   refreshBlockedRecordIds: Map<string, number>;
   refreshInFlightCount: number;
   refreshReplayBlockAllCount: number;
   resetRefreshInFlight: boolean;
-  replayScheduled: boolean;
 };
 
 export type WorkbookPendingQueueSnapshot = {
@@ -39,43 +32,25 @@ export type WorkbookBlockedEditRecovery = {
   message: string;
 };
 
-export type WorkbookPendingReplayAdmissionRequest<TMeta> =
-  PendingReplayUnitInput & TMeta;
-
 export type WorkbookPendingRefreshBlockScope =
   | { kind: "all" }
   | { kind: "record"; recordId: string }
   | { kind: "none" };
 
-export type WorkbookPendingSavesRefs<TMeta> = {
-  readonly collectionKeyboardCommitRef: WorkbookMutableRef<Map<string, string>>;
-  readonly pendingOpsRef: WorkbookMutableRef<number>;
-  readonly pendingQueueRef: WorkbookMutableRef<
-    WorkbookPendingQueueRuntime<TMeta>
-  >;
-  readonly pendingReplayOrderRef: WorkbookMutableRef<number>;
-  readonly pendingReplayTimerRef: WorkbookMutableRef<number | null>;
-  readonly pendingSignaturesRef: WorkbookMutableRef<Map<string, string>>;
-  readonly pendingSocketTxnTimeoutsRef: WorkbookMutableRef<Map<string, number>>;
-  readonly saveQueueRef: WorkbookMutableRef<Promise<void>>;
-};
-
-export function createWorkbookPendingQueueRuntime<TMeta>(
+export function createWorkbookPendingQueueRuntime(
   scope: PendingReplayScope,
-): WorkbookPendingQueueRuntime<TMeta> {
+): WorkbookPendingQueueRuntime {
   return {
     model: new WorkbookPendingQueueModel(scope),
-    metaByUnitId: new Map(),
     refreshBlockedRecordIds: new Map(),
     refreshInFlightCount: 0,
     refreshReplayBlockAllCount: 0,
     resetRefreshInFlight: false,
-    replayScheduled: false,
   };
 }
 
-export function workbookPendingQueueSnapshot<TMeta>(
-  pending: WorkbookPendingQueueRuntime<TMeta>,
+export function workbookPendingQueueSnapshot(
+  pending: WorkbookPendingQueueRuntime,
 ): WorkbookPendingQueueSnapshot {
   const snapshot = pending.model.snapshot();
   return {
@@ -101,8 +76,8 @@ export function workbookPendingQueueSnapshot<TMeta>(
   };
 }
 
-export function refreshBlocksWorkbookPendingRecord<TMeta>(
-  pending: WorkbookPendingQueueRuntime<TMeta>,
+export function refreshBlocksWorkbookPendingRecord(
+  pending: WorkbookPendingQueueRuntime,
   recordId: string | null,
 ): boolean {
   if (pending.resetRefreshInFlight !== true) {
@@ -114,15 +89,15 @@ export function refreshBlocksWorkbookPendingRecord<TMeta>(
   return recordId !== null && pending.refreshBlockedRecordIds.has(recordId);
 }
 
-export function refreshBlocksWorkbookPendingUnit<TMeta>(
-  pending: WorkbookPendingQueueRuntime<TMeta>,
+export function refreshBlocksWorkbookPendingUnit(
+  pending: WorkbookPendingQueueRuntime,
   unit: PendingReplayUnitState,
 ): boolean {
   return refreshBlocksWorkbookPendingRecord(pending, unit.recordId);
 }
 
-export function beginWorkbookPendingRefreshBlock<TMeta>(
-  pending: WorkbookPendingQueueRuntime<TMeta>,
+export function beginWorkbookPendingRefreshBlock(
+  pending: WorkbookPendingQueueRuntime,
   scope: WorkbookPendingRefreshBlockScope,
 ): void {
   pending.refreshInFlightCount += 1;
@@ -137,8 +112,8 @@ export function beginWorkbookPendingRefreshBlock<TMeta>(
   pending.resetRefreshInFlight = pending.refreshInFlightCount > 0;
 }
 
-export function finishWorkbookPendingRefreshBlock<TMeta>(
-  pending: WorkbookPendingQueueRuntime<TMeta>,
+export function finishWorkbookPendingRefreshBlock(
+  pending: WorkbookPendingQueueRuntime,
   scope: WorkbookPendingRefreshBlockScope,
 ): void {
   pending.refreshInFlightCount = Math.max(0, pending.refreshInFlightCount - 1);

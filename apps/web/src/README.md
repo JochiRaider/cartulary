@@ -228,7 +228,7 @@ internals.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/WorkbookShell.tsx` | Workbook shell coordinator. Composes surfaces, saved-view/query controls, incident controls, generic surfaces, assessment/entity support, and Timeline entrypoints. |
+| `workbook/WorkbookShell.tsx` | Route-facing Workbook composition over incident-scoped lifecycle and presentation owners. |
 | `workbook/WorkbookShell.assessments.test.tsx` | Assessment workbook behavior tests. |
 | `workbook/WorkbookShell.autosave.test.tsx` | Timeline mutation autosave and pending-save characterization. |
 | `workbook/WorkbookShell.grid.test.tsx` | Timeline mutation grid/create behavior characterization. |
@@ -251,13 +251,19 @@ internals.
 
 Workbook adapters are the private generated-protocol boundary. Composition
 creates incident-bound adapters once and injects semantic ports into query,
-startup, saved-view, preference, incident, and pending-mutation consumers.
-Generated DTOs, HTTP status codes, envelopes, routes, and transport failures do
+startup, saved-view, preference, incident, paste, and pending-mutation
+consumers. The private clipboard port deliberately carries generated request
+vocabulary and typed result rows/conflicts so surface owners can validate and
+decode them; HTTP status codes, envelopes, routes, and transport failures do
 not escape this directory.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/adapters/WorkbookClipboardPastePort.ts` | Exact private generated-vocabulary transport capability shared by paste-capable Workbook surface owners. |
+| `workbook/adapters/createWorkbookClipboardPasteAdapter.ts` | Executes the sole generated clipboard-paste operation with secure transaction identity and exact response-surface validation. |
+| `workbook/adapters/createWorkbookClipboardPasteAdapter.test.ts` | Tests exact request projection, raw typed results, invalid input, response correlation, secure-ID failure, and transport containment. |
 | `workbook/adapters/workbookOperationExecutor.ts` | Executes the closed Workbook operation-ID set and converts validated success/error envelopes to semantic outcomes. |
+| `workbook/adapters/workbookProtocolTypes.ts` | Private type-only projection of the exact generated Workbook request vocabulary; prevents protocol imports from leaking into owner models, controllers, or runtime code. |
 | `workbook/adapters/workbookAdapterResult.ts` | Normalizes operation outcomes into shared semantic port results. |
 | `workbook/adapters/createWorkbookViewQueryAdapter.ts` | Executes one abortable Workbook query boundary with exact incident/schema correlation and contract-row normalization. |
 | `workbook/adapters/createWorkbookViewQueryAdapter.test.ts` | Tests projected query requests, aborts, malformed responses, and cross-context rejection. |
@@ -278,22 +284,36 @@ workflow logic.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/models/workbookClipboardPaste.ts` | Exact generated paste-capable view parser plus bounded column/target constructors and semantic surface validation. |
+| `workbook/models/entityClipboardPastePlan.ts` | Pure Entity scalar-versus-batch paste planning with current-record, writable-field, grouping, create-capability, and exact-surface admission. |
+| `workbook/models/entityClipboardPastePlan.test.ts` | Tests Entity scalar routing, exact-origin all-create requests, and fail-closed target/authority handling. |
 | `workbook/components/ActiveSurfaceSavedViewSelector.tsx` | Saved-view selector for the active workbook surface. |
 | `workbook/components/AssessmentWorkbookSurface.tsx` | Assessment presentation facade for rows, support selection, and semantic assessment commands. |
 | `workbook/components/EntityWorkbookSurface.tsx` | Hosts and Identities presentation facade over entity query, mutation, inspector, and continuity owners. |
+| `workbook/features/entities/useEntityClipboardPasteController.ts` | Executes pure Entity paste plans through scalar mutation or the shared exact clipboard transport, then projects owner-local feedback and refresh. |
 | `workbook/components/GenericMutationControl.tsx` | Generic row mutation controls for system-view surfaces. |
 | `workbook/components/GenericWorkbookSurface.tsx` | Common contract-backed grid presentation. Domain mutation execution is injected through named owner command ports. |
 | `workbook/components/IncidentControlsDrawer.tsx` | Shell-level incident controls drawer presentation and focus boundary. |
 | `workbook/components/WorkbookRecordCandidatePicker.tsx` | Shared semantic record-candidate selection control for owner workflows. |
 | `workbook/components/SystemViewSwitcher.tsx` | System-view switcher UI and grouped surface navigation. |
 | `workbook/components/WorkbookConflictResolver.tsx` | Common typed conflict resolver and recovery presentation for every writable Base renderer. |
+| `workbook/components/WorkbookActiveQueryChips.tsx` | Responsive canonical group/sort/filter chip presentation over semantic command descriptors. |
+| `workbook/components/WorkbookActiveSurfaceFrame.tsx` | Active-surface recovery boundary and mutually exclusive blocked/overflow/conflict presentation. |
+| `workbook/components/WorkbookActiveSurfacePresentation.tsx` | Exact built-in or extension renderer selection with lazy extension lifecycle binding. |
+| `workbook/components/WorkbookColumnsControl.tsx` | Registered-focus semantic column visibility, ordering, and reset menu. |
+| `workbook/components/WorkbookFiltersControl.tsx` | Registered-focus filter draft dialog with exact field/value parsing and invalid-draft feedback. |
 | `workbook/components/WorkbookGridEditorControl.tsx` | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
-| `workbook/components/WorkbookGridControls.tsx` | Reusable workbook grid filter/sort/grouping control shell. |
+| `workbook/components/WorkbookGridControls.tsx` | Active-surface query-control composition over one transient reducer and semantic command port. |
+| `workbook/components/WorkbookGroupControl.tsx` | Exact contract-declared grouping selector. |
+| `workbook/components/WorkbookIncidentControlsPresentation.tsx` | Incident-controls drawer content and lazy Import Assistant renderer selection. |
+| `workbook/components/WorkbookSortControl.tsx` | Complete ordered-sort add, direction, priority, removal, and limit menu. |
 | `workbook/inspector/presentation/` | Stateless inspector shell, section, semantic action, history, confirmation, and technical-detail presentation. |
 | `workbook/components/WorkbookPresenceMarkers.tsx` | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
 | `workbook/components/WorkbookRelationshipChip.tsx` | Shared relationship-chip presentation over an explicit label, state, detail, selector identity, selection, and command model. |
 | `workbook/components/WorkbookViewBar.tsx` | Shared saved-view, query, inspector, and create control composition. |
 | `workbook/components/WorkbookShellSlots.tsx` | Stable shell slot IDs, labels, and layout slot helpers. |
+| `workbook/components/WorkbookShellTopBar.tsx` | Responsive built-in/system-surface navigation, registered menu focus, incident identity, presence, and account presentation. |
+| `workbook/components/WorkbookShellViewBarControls.tsx` | Saved-view and query-control projections over the shell runtime's narrow snapshot and command boundary. |
 | `workbook/components/WorkbookStatusStrip.tsx` | Status strip presentation for save/load/selection state. |
 
 ### `workbook/surfaces/`
@@ -315,6 +335,16 @@ view models for Workbook surfaces. It performs no transport.
 | --- | --- |
 | `workbook/evidence/evidenceAccessPresentation.ts` | Evidence access message severity and live-region presentation mapping. |
 | `workbook/evidence/evidenceAccessPresentation.test.ts` | Tests for blocking and non-blocking Evidence live-region outcomes. |
+
+### `workbook/focus/`
+
+Workbook overlay focus is coordinated through registered semantic item refs.
+It must not depend on selector discovery, animation frames, or timing delays.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/focus/useRegisteredOverlayNavigation.ts` | Registered-ref opening focus, enabled-item traversal, Escape handling, and trigger/fallback restoration for workbook menus and overlays. |
+| `workbook/focus/useRegisteredOverlayNavigation.test.tsx` | Focus opening, traversal, disabled-item skipping, close, subject-change, and restoration tests. |
 
 ### `workbook/hooks/`
 
@@ -338,7 +368,14 @@ specific surface.
 | `workbook/hooks/useWorkbookSavedViewController.ts` | Saved-view list, CRUD, persistence, and active-selection controller. |
 | `workbook/hooks/useWorkbookSemanticGridFocus.test.tsx` | Direct tests for semantic grid-entry focus order, lifecycle readiness, and stale-request handling. |
 | `workbook/hooks/useWorkbookSemanticGridFocus.ts` | Resolves generation-keyed grid-entry requests through the mounted semantic grid handle. |
-| `workbook/hooks/useWorkbookShellRuntime.ts` | Thin shell runtime facade composing startup, saved-view, and query controllers. |
+| `workbook/hooks/useWorkbookAuthorizationState.ts` | Incident authorization subject and explicit session-role recovery lifecycle. |
+| `workbook/hooks/useWorkbookCollaborationLifecycle.ts` | Collaboration invalidation, session projection, and exact active-surface registration. |
+| `workbook/hooks/useWorkbookExtensionAvailability.test.tsx` | Effect-owned discovery and controller subject-lifetime tests. |
+| `workbook/hooks/useWorkbookExtensionAvailability.ts` | Shell-lifetime extension controller, effect-owned discovery, invalidation, and render revision. |
+| `workbook/hooks/useWorkbookRecoveryFocus.ts` | Deterministic focus transfer across blocked-edit, overflow, and same-field conflict recovery. |
+| `workbook/hooks/useWorkbookShellInfrastructure.ts` | Incident-scoped adapters, registry-owned mutation runtime, command ports, and disposable reference broker. |
+| `workbook/hooks/useWorkbookShellRuntime.ts` | Startup, saved-view, query, and layout-state composition facade. |
+| `workbook/hooks/useWorkbookSurfaceQueries.ts` | Surface query loading, invalidation, facade projection, and collaboration port selection. |
 | `workbook/hooks/useWorkbookStartupController.test.tsx` | Direct tests for workbook selection, focus intent, versioning, and URL state. |
 | `workbook/hooks/useWorkbookStartupController.ts` | Startup/sheet identity, URL history, focus intent, and workbook-preference controller. |
 
@@ -394,12 +431,15 @@ app.
 | `workbook/models/genericWorkbookModel.ts` | Generic system-view create/edit payload, enum, validation, and row-label helpers. |
 | `workbook/models/workbookContractRows.ts` | Contract-backed row normalization and grid-column materialization helpers for workbook surfaces. |
 | `workbook/models/workbookGridEntryFocus.ts` | Generation-keyed grid-entry focus request and exact-acknowledgement model. |
+| `workbook/models/workbookGridQueryControls.ts` | Pure query-control projection, closure-free command descriptors, exact controlled-value parsers, ordered-sort commands, and surface-keyed transient reducer. |
+| `workbook/models/workbookShellPresentation.ts` | Pure account, active-system-surface, and Network Analysis presentation decisions. |
 | `workbook/models/workbookGridState.ts` | Contract-grid load-state presentation and incident-role interaction-mode helpers. |
 | `workbook/models/workbookIncidentIdentity.ts` | Incident identity normalization and loading-state model. |
 | `workbook/models/workbookInspectorModel.ts` | Pure inspector state machine for default-closed state, semantic subjects, active panels, no-row state, and invalidation generations. |
 | `workbook/models/workbookQuery.ts` | Workbook query, filter, sort, grouping, and request-building helpers. |
 | `workbook/models/workbookReferenceOptions.ts` | Reference option normalization and lookup helpers. |
 | `workbook/models/workbookRelationshipChip.ts` | Cross-surface relationship-chip presentation contract with no Timeline interpretation. |
+| `workbook/models/workbookRequestDecoders.ts` | Fail-closed exact create, patch, linked-note, and collection-action request decoders with exhaustive generated action coverage. |
 | `workbook/models/workbookSavedViewRuntime.ts` | Saved-view runtime selection, dirty-state, and command helpers. |
 | `workbook/models/workbookSavedViews.ts` | Saved-view resource normalization and payload helpers. |
 | `workbook/models/workbookStartup.ts` | Workbook startup candidate, selected sheet reference, and fallback resolution helpers. |
@@ -462,6 +502,8 @@ They must not perform transport or authorization.
 | `workbook/policies/coordinationSurfacePolicies.ts` | Parties, Tasks, Decisions, Communications, Handoff, Status Review, and Lessons policy owner. |
 | `workbook/policies/entitiesObservationsSurfacePolicies.ts` | Hosts, Identities, and Indicators policy owner. |
 | `workbook/policies/evidenceSurfacePolicies.ts` | Evidence policy owner. |
+| `workbook/policies/workbookApplicationShortcuts.ts` | Pure capability-gated Workbook application shortcuts for quick link, Evidence preview, History, and inspector close. |
+| `workbook/policies/workbookApplicationShortcuts.test.ts` | Exhaustive application-shortcut admission and event-consumption tests. |
 | `workbook/policies/workbookSurfaceOwnershipPolicy.test.ts` | Static policy-purity, owner-completeness, and common-surface boundary checks. |
 | `workbook/policies/workbookSurfacePolicy.ts` | Pure `WorkbookSurfacePolicy` types, immutable defaults, and stable reference declarations. |
 
@@ -598,13 +640,15 @@ owner-specific semantic outcomes to Timeline controllers.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/timeline/adapters/createTimelineActionAdapters.test.ts` | Characterizes history, record action, mention, clipboard, and Evidence attachment protocol boundaries. |
-| `workbook/timeline/adapters/createTimelineClipboardPasteAdapter.ts` | Executes generated clipboard-paste operations and normalizes rows and sanitized conflicts. |
+| `workbook/timeline/adapters/createTimelineActionAdapters.test.ts` | Characterizes history, record action, mention, and Evidence attachment protocol boundaries. |
 | `workbook/timeline/adapters/createTimelineEvidenceAttachmentAdapter.ts` | Creates an uploaded Evidence object and row, then links it to Timeline with stable transaction identity. |
 | `workbook/timeline/adapters/createTimelineHistoryAdapter.ts` | Loads validated record history and executes delete, restore, and rollback operations. |
 | `workbook/timeline/adapters/createTimelineMentionAdapter.ts` | Creates mention target entities and resolves mention actions through generated operations. |
 | `workbook/timeline/adapters/createTimelineRecordActionAdapter.ts` | Executes and normalizes Timeline review and supersede actions. |
 | `workbook/timeline/adapters/createTimelineRowMutationEditorAdapter.ts` | Translates semantic row-mutation editor commands into grid and continuity operations. |
+| `workbook/timeline/adapters/createTimelineScalarGridCommitAdapter.ts` | Adapts Grid Adapter scalar commits to the Timeline scalar-save command and exact settlement promise. |
+| `workbook/timeline/adapters/createTimelineSocketTransactionAdapter.ts` | Adapts Timeline accepted/action transaction tracking to the shell-lifetime runtime ledger. |
+| `workbook/timeline/adapters/timelineProjectionCommitAdapter.ts` | Sole synchronous projection-commit boundary used when focus or continuity must observe the committed Timeline row tree. |
 
 #### `workbook/timeline/bulk/`
 
@@ -635,6 +679,7 @@ port without owning WebSocket transport, sequencing, or authorization policy.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/timeline/components/TimelineCollectionCell.tsx` | Focused relationship/tag summary, overflow, and collection-draft cell presentation over discriminated models. |
 | `workbook/timeline/components/TimelineDraftRowActions.tsx` | Timeline draft-row create and evidence-attachment actions. |
 | `workbook/timeline/components/TimelineEvidencePanel.test.tsx` | Tests for Timeline evidence panel behavior. |
 | `workbook/timeline/components/TimelineEvidencePanel.tsx` | Timeline inspector evidence panel and evidence actions UI. |
@@ -651,7 +696,7 @@ port without owning WebSocket transport, sequencing, or authorization policy.
 | `workbook/timeline/components/TimelineWorkbookRendererTypes.ts` | Private renderer command and output types shared by the Timeline renderer workstreams. |
 | `workbook/timeline/components/TimelineWorkbookRenderers.tsx` | Stable private facade composing scalar, collection, and column renderer owners. |
 | `workbook/timeline/components/TimelineWorkbookStyles.ts` | Timeline-specific style constants shared by Timeline workbook components. |
-| `workbook/timeline/components/useTimelineCollectionRenderer.tsx` | Timeline collection draft, relationship/tag chip, overflow, and conflict-adjacent rendering. |
+| `workbook/timeline/components/useTimelineCollectionRenderer.tsx` | Narrow renderer factory that binds Timeline collection commands to the focused collection-cell component. |
 | `workbook/timeline/components/useTimelineColumnAssembly.tsx` | Timeline contract column ordering, widths, editors, clipboard values, and evidence/read-only cell assembly. |
 | `workbook/timeline/components/useTimelineScalarRenderers.tsx` | Timeline scalar grid/inspector controls, read cells, presence, and conflict markers. |
 
@@ -685,12 +730,12 @@ by visual coordinates.
 | `workbook/timeline/hooks/useTimelineKeyboardController.ts` | Owns Timeline scalar/collection editor keys, grid navigation/range commands, work-area shortcuts, event consumption, and focus priority. |
 | `workbook/timeline/hooks/useTimelineMentionActions.ts` | Coordinates semantic Timeline mention resolution, entity creation, undo/review actions, and inspector updates. |
 | `workbook/timeline/hooks/useTimelineMentions.ts` | Coordinates Timeline mention-resolution state and actions. |
-| `workbook/timeline/hooks/useTimelineMutationCommands.ts` | Coordinates Timeline scalar, relationship, review, and supersede outcomes with pending-save admission and lifecycle callbacks. |
+| `workbook/timeline/hooks/useTimelineMutationCommands.ts` | Applies pure scalar/collection admission plans, publishes optimistic rows, and queues exact Timeline owner envelopes. |
 | `workbook/timeline/hooks/useTimelineMutationRuntimeBindings.ts` | Lifecycle-registers concrete Timeline refresh, conflict-application, focus-restoration, and blocked-edit-discard commands with the workbook mutation runtime. |
-| `workbook/timeline/hooks/useTimelinePendingReplayController.ts` | Coordinates semantic pending-save replay admission, socket transaction tracking, runtime draining, and retry scheduling. |
+| `workbook/timeline/hooks/useTimelineMutationDriver.ts` | Registers the exact Timeline row driver and applies owner-local admission, revalidation, settlement, conflict, discard, and accepted-result plans. |
 | `workbook/timeline/hooks/useTimelinePendingSaves.ts` | Coordinates Timeline pending-save queue runtime and replay admission. |
 | `workbook/timeline/hooks/useTimelineRows.ts` | Owns Timeline row state, the stable row ref, initial draft row, monotonic draft allocation, and semantic replace/update commands. |
-| `workbook/timeline/hooks/useTimelineRowsLoader.ts` | Coordinates semantic Timeline queries, aborts, runtime status, access loss, and row reconciliation callbacks. |
+| `workbook/timeline/hooks/useTimelineRowsLoader.ts` | Executes the pure load machine around exact query, freshness, local-draft hydration, created-row pinning, access-loss, and continuity boundaries. |
 | `workbook/timeline/hooks/useTimelineSaveStatePresentation.ts` | Coordinates Timeline save-state labels, pending queue snapshot publication, refresh blocking, runtime drain requests, and beforeunload warning state. |
 | `workbook/timeline/hooks/useTimelineConflictProjectionAdapter.ts` | Timeline render-state adapter for shell-owned same-field conflict registration, projection, and resolution. |
 | `workbook/timeline/hooks/useTimelineViewportContinuityController.ts` | Coordinates Timeline scroll snapshots, focus restoration, continuity tokens, and entity-refresh barriers. |
@@ -700,8 +745,25 @@ by visual coordinates.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/timeline/models/timelineAcceptedMutationEffects.ts` | Pure post-acceptance selection, notice, created-row, and continuity effect planning. |
+| `workbook/timeline/models/timelineAcceptedProjection.ts` | Pure accepted-row replacement, insertion, and bottom-draft projection. |
+| `workbook/timeline/models/timelineClipboardPastePlan.ts` | Pure Timeline paste authority, shape, field, surface, and stable-target admission policy. |
+| `workbook/timeline/models/timelineCollectionPresentation.ts` | Discriminated relationship/tag collection items, overflow identity, and accessible hidden labels. |
+| `workbook/timeline/models/timelineCommittedVersionLedger.ts` | Monotonic committed row/version high-water ledger with reference-preserving acceptance. |
+| `workbook/timeline/models/timelineConflictState.ts` | Timeline-local same-field and grouped-paste conflict state types. |
 | `workbook/timeline/models/timelineControllerPorts.ts` | Neutral capability-port, row-store, committed-record-idle, context-menu-position, and replay contracts shared by isolated Timeline controllers. |
+| `workbook/timeline/models/timelineDiscardedReconciliation.ts` | Pure discarded-unit reconciliation that reapplies later same-row work in FIFO order. |
+| `workbook/timeline/models/timelineFieldRegistry.ts` | Exhaustive Timeline scalar, collection, readonly, inspector, and focus binding registry. |
 | `workbook/timeline/models/timelineHistoryModel.ts` | Timeline row-history normalization, pending-action labels, and history operation helpers. |
+| `workbook/timeline/models/timelineLayoutPolicy.ts` | Pure Timeline grouping labels and base/expanded column-width policy. |
+| `workbook/timeline/models/timelineLoadMachine.test.ts` | Exhaustive load-subject, lifecycle, mutation-race, retry-bound, failure, access-loss, and obligation-join transition evidence. |
+| `workbook/timeline/models/timelineLoadMachine.ts` | Pure incident/surface/query/generation/mutation-epoch/source-obligation transitions with explicit load effects. |
+| `workbook/timeline/models/timelineMutationDriverPlans.ts` | Pure Timeline replay admission, settlement, discard, and accepted-projection decisions. |
+| `workbook/timeline/models/timelineMutationIntents.ts` | Exact scalar, collection-action, and draft-create mutation intent construction. |
+| `workbook/timeline/models/timelineMutationModels.test.ts` | Pure intent, deduplication, acceptance, discard, version-ledger, and discriminated-collection evidence. |
+| `workbook/timeline/models/timelineMutationQueueAdmission.ts` | Pure scalar/collection no-op, conflict, duplicate, and exact queue-admission decisions. |
+| `workbook/timeline/models/timelinePendingSaves.ts` | Timeline-local pending signature, replay-order, and serial-save references. |
+| `workbook/timeline/models/timelineRowModel.ts` | Timeline row envelope decoding, normalization, materialization, and sparse-patch application. |
 | `workbook/timeline/models/timelineRowsModel.ts` | Timeline row collection helpers and row-state utilities. |
 | `workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts` | Characterizes canonical related-row/Indicator feature tuples and fail-closed rejection of altered or unsupported tuples. |
 | `workbook/timeline/models/timelineWorkbookFeaturePolicy.ts` | Defines canonical Timeline inspector feature tuples and fail-closed semantic routing. |
@@ -709,12 +771,11 @@ by visual coordinates.
 | `workbook/timeline/models/timelineViewportContinuityModel.ts` | Timeline viewport continuity and entity-refresh barrier helpers. |
 | `workbook/timeline/models/workbookMentionChips.ts` | Mention chip state, relationship-field keys, and mention display helpers. |
 | `workbook/timeline/models/workbookRecordFreshness.ts` | Pure durable-identity and row-version freshness comparison leaf. |
-| `workbook/timeline/models/workbookTimelineModel.ts` | Timeline row model, field bindings, payload builders, normalization, patch intents, and display helpers. |
 | `workbook/timeline/models/timelineRowsModel.test.ts` | Tests for Timeline grid-row materialization. |
 | `workbook/timeline/models/timelineWorkbookRuntime.test.ts` | Deterministic lifecycle transition traces for load, refresh, save, conflict, and recovery state. |
 | `workbook/timeline/models/timelineViewportContinuityModel.test.ts` | Tests for viewport continuity and refresh barrier helpers. |
 | `workbook/timeline/models/workbookRecordFreshness.test.ts` | Tests for comparable and non-comparable row-version freshness decisions. |
-| `workbook/timeline/models/workbookTimelineModel.test.ts` | Tests for Timeline row, payload, binding, normalization, and display helpers. |
+| `workbook/timeline/models/timelineModelBoundaries.test.ts` | Tests for Timeline row, payload, binding, normalization, and display helpers. |
 
 #### `workbook/timeline/mutations/`
 
@@ -724,7 +785,7 @@ results through one high-water coordinator before presentation observes them.
 | File | Purpose |
 | --- | --- |
 | `workbook/timeline/mutations/useTimelineRowMutationCoordinator.test.tsx` | Characterizes accepted/stale action and mutation admission, query/action races, conflict state partitions, and committed-version high-water behavior. |
-| `workbook/timeline/mutations/useTimelineRowMutationCoordinator.ts` | Owns Timeline committed-row admission, query generations, save/conflict runtime projection, accepted-row application, record-idle barriers, and continuity sequencing. |
+| `workbook/timeline/mutations/useTimelineRowMutationCoordinator.ts` | Applies accepted/discarded plans and composes committed-version, conflict, transaction, save-state, collaboration, and continuity owners. |
 
 #### `workbook/timeline/ports/`
 
@@ -734,7 +795,6 @@ or transport coordinates.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/timeline/ports/TimelineClipboardPastePort.ts` | Semantic clipboard-paste request and normalized row/conflict outcomes. |
 | `workbook/timeline/ports/TimelineEvidenceAttachmentPort.ts` | Semantic file attachment and Timeline row outcomes. |
 | `workbook/timeline/ports/TimelineHistoryPort.ts` | Semantic history query, delete/restore, and rollback capabilities. |
 | `workbook/timeline/ports/TimelineMentionPort.ts` | Semantic mention entity creation and resolution capabilities. |
@@ -763,13 +823,23 @@ import Timeline implementation.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/runtime/WorkbookMutationRuntime.ts` | Owns the incident/client-scoped pending queue across Base surface mounts and dispatches through the injected shared pending-mutation port. |
+| `workbook/runtime/WorkbookMutationRuntime.ts` | Shell-lifetime facade over queue coordination, conflicts, surface registration, managed patches, retry, transaction settlement, and status projection. |
+| `workbook/runtime/WorkbookClientTransactionLedger.ts` | Bounded client-transaction identity retention and pending-queue settlement lookup. |
+| `workbook/runtime/WorkbookConflictStore.ts` | Conflict registration, compatible draft preservation, refresh commands, and panel state. |
+| `workbook/runtime/WorkbookManagedPatchDriver.ts` | Managed-patch admission, transport dispatch, settlement, local projection, conflict registration, and refresh. |
+| `workbook/runtime/WorkbookMutationDriverRegistry.ts` | Closed managed-patch/Timeline-row owner envelopes, exact driver registration, duplicate rejection, and absence-safe dispatch. |
+| `workbook/runtime/WorkbookRetryScheduler.ts` | Injected, single-flight retry scheduling and cancellation. |
+| `workbook/runtime/WorkbookRuntimeLifecycle.ts` | Listener lifetime, coalesced drain notification, and terminal disposal. |
+| `workbook/runtime/WorkbookSurfaceRegistry.ts` | Surface command registration, replacement-safe cleanup, and retained refresh debt. |
+| `workbook/runtime/workbookMutationStatusProjector.ts` | Pure queue/conflict/explicit-operation status and save-state projection. |
+| `workbook/runtime/workbookRuntimePorts.ts` | Clock and scheduler ports with the browser composition defaults. |
 | `workbook/runtime/workbookPendingMutationSettlement.ts` | Maps semantic mutation failures to common queue settlement outcomes. |
 | `workbook/runtime/workbookPendingReplayRuntime.ts` | Pending-replay runtime state, admission contracts, and refresh barriers. |
 | `workbook/runtime/workbookConflictModel.ts` | Same-field conflict parsing and common envelope types. |
 | `workbook/runtime/workbookLifecycleModel.ts` | Shared load, refresh, save, conflict, and recovery lifecycle reducer. |
 | `workbook/runtime/useWorkbookMutationRuntime.ts` | React external-store subscription hook for shell-owned workbook mutation state. |
 | `workbook/runtime/WorkbookMutationRuntime.test.ts` | Tests for shell-lifetime queue retention, autosave, refresh debt, conflicts, and mutation coordination. |
+| `workbook/runtime/WorkbookRuntimeResponsibilities.test.ts` | Deterministic tests for responsibility boundaries, injected time/scheduling, registration cleanup, conflict drafts, transaction settlement, and disposal. |
 | `workbook/runtime/workbookConflictModel.test.ts` | Tests for conflict parsing, queue entries, resolution payloads, and collection actions. |
 
 ### `workbook/continuity/`
@@ -794,7 +864,6 @@ under `timeline/` and not broad enough for `shared/`.
 | File | Responsibility |
 | --- | --- |
 | `workbook/utils/workbookClipboard.ts` | Clipboard grid-shape and paste helpers. |
-| `workbook/utils/workbookKeyboard.ts` | Workbook keyboard command mapping. |
 | `workbook/utils/workbookPendingQueue.ts` | Pending-save queue capacity, save-state, replay, conflict, and public-error helpers. |
 | `workbook/utils/workbookPresence.ts` | Presence input/type helpers and presence matching helpers. |
 | `workbook/utils/workbookRowReconciliation.ts` | Record-identity and row-version reconciliation that preserves unchanged row references. |
@@ -802,7 +871,6 @@ under `timeline/` and not broad enough for `shared/`.
 | `workbook/utils/workbookValueFormat.ts` | Grid/workbook value formatting helpers. |
 | `workbook/utils/GridAdapter.anchor.test.ts` | Workbook interaction grid-adapter anchor behavior tests. |
 | `workbook/utils/workbookClipboard.test.ts` | Tests for clipboard helpers. |
-| `workbook/utils/workbookKeyboard.test.ts` | Tests for keyboard command mapping. |
 | `workbook/utils/workbookPendingQueue.test.ts` | Tests for pending-queue helpers. |
 | `workbook/utils/workbookRowReconciliation.test.ts` | Tests for sparse row replacement, removal, drafts, and row-version reference reuse. |
 | `workbook/utils/workbookValueFormat.test.ts` | Tests for value formatting helpers. |

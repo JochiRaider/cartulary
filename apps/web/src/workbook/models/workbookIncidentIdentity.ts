@@ -12,14 +12,18 @@ export type WorkbookIncidentIdentity = {
   readonly tlp: string | null;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 export function normalizeIncidentIdentity(
   incidentId: string,
   value: unknown,
 ): WorkbookIncidentIdentity | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return null;
   }
-  const record = value as Record<string, unknown>;
+  const record = value;
   const incidentID =
     typeof record.incident_id === "string" ? record.incident_id : incidentId;
   if (

@@ -22,10 +22,8 @@ import {
   timelineRow,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import {
-  buildCreatePayload,
-  createDraftRow,
-} from "./timeline/models/workbookTimelineModel";
+import { buildCreatePayload } from "./timeline/models/timelineMutationIntents";
+import { createDraftRow } from "./timeline/models/timelineRowModel";
 
 vi.mock(
   "@cartulary/grid-adapter",

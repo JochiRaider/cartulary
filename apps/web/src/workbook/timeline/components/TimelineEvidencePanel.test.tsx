@@ -5,7 +5,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 
 const rowValues = {

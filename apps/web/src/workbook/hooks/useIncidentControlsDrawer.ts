@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { IncidentControlsSection } from "../../app/landingAdminTypes";
 import type {
   WorkbookAccountApplicationMenuProps,
@@ -53,21 +60,15 @@ export function useIncidentControlsDrawer(importAssistantAvailable = false) {
     useState<IncidentControlsSection>("summary");
   const returnFocusTargetRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  const deferFocus = useCallback((resolveTarget: () => HTMLElement | null) => {
-    window.setTimeout(() => {
-      resolveTarget()?.focus({ preventScroll: true });
-    }, 0);
-  }, []);
+  const restoreFocusOnCloseRef = useRef(false);
+  const previousDrawerSectionRef = useRef<IncidentControlsSection | null>(null);
 
   const closeDrawer = useCallback(
     (options: { readonly restoreTriggerFocus: boolean }) => {
+      restoreFocusOnCloseRef.current = options.restoreTriggerFocus;
       setDrawerSection(null);
-      if (options.restoreTriggerFocus) {
-        deferFocus(() => returnFocusTargetRef.current);
-      }
     },
-    [deferFocus],
+    [],
   );
 
   const openDrawer = useCallback(
@@ -76,18 +77,29 @@ export function useIncidentControlsDrawer(importAssistantAvailable = false) {
       returnFocusTarget?: HTMLElement | null,
     ) => {
       returnFocusTargetRef.current = returnFocusTarget ?? null;
+      restoreFocusOnCloseRef.current = false;
       setLastSection(section);
       setDrawerSection(section);
     },
     [],
   );
 
-  useEffect(() => {
-    if (drawerSection === null) {
+  useLayoutEffect(() => {
+    const previousDrawerSection = previousDrawerSectionRef.current;
+    previousDrawerSectionRef.current = drawerSection;
+    if (drawerSection !== null) {
+      closeButtonRef.current?.focus({ preventScroll: true });
       return;
     }
-    deferFocus(() => closeButtonRef.current);
-  }, [drawerSection, deferFocus]);
+    if (previousDrawerSection === null || !restoreFocusOnCloseRef.current) {
+      return;
+    }
+    restoreFocusOnCloseRef.current = false;
+    const returnFocusTarget = returnFocusTargetRef.current;
+    if (returnFocusTarget?.isConnected) {
+      returnFocusTarget.focus({ preventScroll: true });
+    }
+  }, [drawerSection]);
 
   useEffect(() => {
     if (

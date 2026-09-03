@@ -197,6 +197,29 @@ never mixes source, catalog, verification, or profile digests.
   selector builders, where the canonical registry validates them.
 - `packages/grid-adapter` owns the shared grid integration boundary; application
   code does not import the underlying grid library directly.
+- The shell-lifetime Workbook mutation runtime is the sole FIFO, transport,
+  retry, transaction-ledger, and lifecycle scheduler. Mutation owners register
+  one exact closed-envelope driver and keep payload revalidation, projection,
+  conflict, and discard plans owner-local. Missing drivers pause work; duplicate
+  registration fails closed without replacing the active driver.
+- Grid Adapter decodes clipboard text and plans semantic grid targets. Paste-capable
+  Workbook surface owners revalidate the active surface, authority, writable
+  fields, stable record identities, committed versions, grouping, and create
+  capability immediately before invoking the one private Workbook clipboard
+  transport. Timeline and Entity decode or apply typed results locally. Native
+  editor paste updates its editor draft and save command directly; it does not
+  synthesize or forward a grid clipboard event.
+- Timeline query loading is governed by a pure state machine keyed by incident,
+  semantic sheet, canonical query, request generation, accepted-mutation epoch,
+  and any source-version obligation. The controller interprets explicit request,
+  retry, commit, status/error, continuity, and protected-row-clearing effects;
+  synchronous React projection commits are isolated to one Timeline adapter.
+- Timeline mutation intent construction and queue admission are pure owner
+  models, while editor and Grid Adapter commits have separate adapters.
+  Accepted/discarded row changes are deterministic plans, and one monotonic
+  committed-version ledger supplies the row-version high-water mark.
+  Collection rendering consumes discriminated relationship/tag presentation
+  models without union-member downcasts.
 - The adapter's package-private semantic kernel is the single policy owner for
   capability admission, effective interaction mode, semantic and data-state
   precedence, navigation, edit entry, range transitions, clipboard and fill
@@ -213,6 +236,12 @@ never mixes source, catalog, verification, or profile digests.
   its aggregate root, `./core-http`, generated, internal, and filesystem paths
   are unsupported. The `packages/protocol-ts` and `packages/ui-contracts`
   generated roots are downstream artifacts and are never hand-edited.
+- Workbook generated request vocabulary enters through the private adapter
+  boundary only. Owner models, controllers, and runtimes consume its type-only
+  projection; unknown queued or constructed values cross to transport only
+  after exact request decoding. Generated union growth must fail compilation
+  until its exhaustive action registry and negative decoder evidence are
+  updated.
 - Runtime UI code consumes the resolved machine token registry projected through
   contract packages rather than parsing documentation. Human design authority
   remains in `docs/design.md`; executable token generation consumes

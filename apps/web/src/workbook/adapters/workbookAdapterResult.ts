@@ -14,13 +14,13 @@ export function invalidWorkbookAdapterResult<Accepted>(
 }
 
 export function normalizeWorkbookAdapterFailure<Accepted>(
-  outcome: WorkbookOperationOutcome<unknown>,
+  outcome: Extract<WorkbookOperationOutcome<never>, { kind: "rejected" }>,
   invalidMessage: string,
 ): WorkbookOperationOutcome<Accepted> {
   return outcome.kind === "rejected" &&
     outcome.failure.kind === "invalid_contract"
     ? invalidWorkbookAdapterResult(invalidMessage)
-    : (outcome as WorkbookOperationOutcome<Accepted>);
+    : outcome;
 }
 
 export function workbookAdapterCaughtResult<Accepted>(

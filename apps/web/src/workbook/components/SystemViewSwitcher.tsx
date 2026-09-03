@@ -4,13 +4,8 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
 } from "@cartulary/ui-contracts";
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useRef, useState } from "react";
+import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
 import { listSystemWorkbookSurfaceGroups } from "../models/workbookSurfaceRegistry";
 
 const systemWorkbookSurfaceGroups = listSystemWorkbookSurfaceGroups();
@@ -30,12 +25,7 @@ export function SystemViewSwitcher({
   readonly onSelect: (viewSchemaId: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const containerRef = useRef<HTMLFieldSetElement | null>(null);
-  const blurCloseTimerRef = useRef<number | null>(null);
-  const deferredFocusTimerRef = useRef<number | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const optionRefs = useRef(new Map<string, HTMLButtonElement>());
   const activeSystemEntryIndex = systemViewSwitcherEntries.findIndex(
     (entry) => entry.viewSchemaId === activeViewSchemaId,
   );
@@ -43,167 +33,30 @@ export function SystemViewSwitcher({
     activeSystemEntryIndex === -1
       ? null
       : (systemViewSwitcherEntries[activeSystemEntryIndex] ?? null);
+  const navigation = useRegisteredOverlayNavigation({
+    initialItemKey: activeSystemEntry?.viewSchemaId ?? null,
+    isOpen,
+    itemKeys: systemViewSwitcherEntries.map((entry) => entry.viewSchemaId),
+    onRequestClose: () => setIsOpen(false),
+    subjectKey: "system-view-switcher",
+    triggerRef,
+  });
 
-  const clearBlurCloseTimer = useCallback(() => {
-    if (blurCloseTimerRef.current !== null) {
-      window.clearTimeout(blurCloseTimerRef.current);
-      blurCloseTimerRef.current = null;
-    }
-  }, []);
-
-  const clearDeferredFocusTimer = useCallback(() => {
-    if (deferredFocusTimerRef.current !== null) {
-      window.clearTimeout(deferredFocusTimerRef.current);
-      deferredFocusTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(
-    () => () => {
-      clearBlurCloseTimer();
-      clearDeferredFocusTimer();
-    },
-    [clearBlurCloseTimer, clearDeferredFocusTimer],
-  );
-
-  const deferFocus = useCallback(
-    (focusTarget: () => HTMLElement | null) => {
-      clearDeferredFocusTimer();
-      deferredFocusTimerRef.current = window.setTimeout(() => {
-        deferredFocusTimerRef.current = null;
-        focusTarget()?.focus({ preventScroll: true });
-      }, 0);
-    },
-    [clearDeferredFocusTimer],
-  );
-
-  const focusOption = useCallback(
-    (index: number) => {
-      const entry = systemViewSwitcherEntries[index];
-      if (entry === undefined) {
-        return;
-      }
-      deferFocus(() => optionRefs.current.get(entry.viewSchemaId) ?? null);
-    },
-    [deferFocus],
-  );
-
-  const scheduleBlurClose = useCallback(() => {
-    clearBlurCloseTimer();
-    blurCloseTimerRef.current = window.setTimeout(() => {
-      blurCloseTimerRef.current = null;
-      const activeElement = document.activeElement;
-      if (
-        activeElement instanceof Node &&
-        containerRef.current?.contains(activeElement)
-      ) {
-        return;
-      }
-      setIsOpen(false);
-    }, 0);
-  }, [clearBlurCloseTimer]);
-
-  const openMenu = useCallback(() => {
-    clearBlurCloseTimer();
-    const nextIndex =
-      activeSystemEntryIndex === -1 ? 0 : activeSystemEntryIndex;
-    setActiveIndex(nextIndex);
+  const openMenu = () => {
+    navigation.prepareOpen(activeSystemEntry?.viewSchemaId ?? null);
     setIsOpen(true);
-    focusOption(nextIndex);
-  }, [activeSystemEntryIndex, clearBlurCloseTimer, focusOption]);
+  };
 
-  const closeMenu = useCallback(
-    (options: { readonly restoreTriggerFocus: boolean }) => {
-      clearBlurCloseTimer();
-      clearDeferredFocusTimer();
-      setIsOpen(false);
-      if (options.restoreTriggerFocus) {
-        deferFocus(() => triggerRef.current);
-      }
-    },
-    [clearBlurCloseTimer, clearDeferredFocusTimer, deferFocus],
-  );
-
-  const handleInternalPointerDown = useCallback(() => {
-    clearBlurCloseTimer();
-  }, [clearBlurCloseTimer]);
-
-  const moveOptionFocus = useCallback(
-    (nextIndex: number) => {
-      const optionCount = systemViewSwitcherEntries.length;
-      if (optionCount === 0) {
-        return;
-      }
-      const wrappedIndex = (nextIndex + optionCount) % optionCount;
-      setActiveIndex(wrappedIndex);
-      focusOption(wrappedIndex);
-    },
-    [focusOption],
-  );
-
-  const selectOption = useCallback(
-    (viewSchemaId: string) => {
-      if (viewSchemaId === "") {
-        return;
-      }
-      clearBlurCloseTimer();
-      clearDeferredFocusTimer();
-      setIsOpen(false);
-      onSelect(viewSchemaId);
-    },
-    [clearBlurCloseTimer, clearDeferredFocusTimer, onSelect],
-  );
-
-  const handleOptionKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
-      switch (event.key) {
-        case "ArrowDown":
-          event.preventDefault();
-          moveOptionFocus(index + 1);
-          break;
-        case "ArrowUp":
-          event.preventDefault();
-          moveOptionFocus(index - 1);
-          break;
-        case "Home":
-          event.preventDefault();
-          moveOptionFocus(0);
-          break;
-        case "End":
-          event.preventDefault();
-          moveOptionFocus(systemViewSwitcherEntries.length - 1);
-          break;
-        case "Escape":
-          event.preventDefault();
-          closeMenu({ restoreTriggerFocus: true });
-          break;
-        case "Enter":
-          event.preventDefault();
-          selectOption(systemViewSwitcherEntries[index]?.viewSchemaId ?? "");
-          break;
-        default:
-          break;
-      }
-    },
-    [closeMenu, moveOptionFocus, selectOption],
-  );
+  const selectOption = (viewSchemaId: string) => {
+    navigation.close({ restoreTriggerFocus: false });
+    onSelect(viewSchemaId);
+  };
 
   return (
     <fieldset
       aria-label="System view switcher"
-      ref={containerRef}
       style={systemViewSwitcherStyle}
-      onPointerDownCapture={handleInternalPointerDown}
-      onBlur={(event) => {
-        const nextFocus = event.relatedTarget;
-        if (
-          nextFocus instanceof Node &&
-          containerRef.current?.contains(nextFocus)
-        ) {
-          return;
-        }
-        scheduleBlurClose();
-      }}
+      onBlur={navigation.onOverlayBlur}
     >
       <button
         ref={triggerRef}
@@ -218,7 +71,7 @@ export function SystemViewSwitcher({
         type="button"
         onClick={() => {
           if (isOpen) {
-            closeMenu({ restoreTriggerFocus: false });
+            navigation.close({ restoreTriggerFocus: false });
             return;
           }
           openMenu();
@@ -230,7 +83,8 @@ export function SystemViewSwitcher({
           }
           if (event.key === "Escape" && isOpen) {
             event.preventDefault();
-            closeMenu({ restoreTriggerFocus: true });
+            event.stopPropagation();
+            navigation.close({ restoreTriggerFocus: true });
           }
         }}
       >
@@ -242,6 +96,11 @@ export function SystemViewSwitcher({
           id={systemViewSwitcherMenuTestId()}
           role="menu"
           style={systemViewSwitcherMenuStyle}
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.defaultPrevented || navigation.activeKey === null) return;
+            navigation.onItemKeyDown(event, navigation.activeKey);
+          }}
         >
           {systemWorkbookSurfaceGroups.map((group) => (
             <fieldset
@@ -254,20 +113,11 @@ export function SystemViewSwitcher({
                 {group.label}
               </legend>
               {group.entries.map((entry) => {
-                const optionIndex = systemViewSwitcherEntries.findIndex(
-                  (option) => option.viewSchemaId === entry.viewSchemaId,
-                );
                 const isSelected = entry.viewSchemaId === activeViewSchemaId;
                 return (
                   <button
                     key={entry.viewSchemaId}
-                    ref={(node) => {
-                      if (node === null) {
-                        optionRefs.current.delete(entry.viewSchemaId);
-                        return;
-                      }
-                      optionRefs.current.set(entry.viewSchemaId, node);
-                    }}
+                    ref={navigation.registerItem(entry.viewSchemaId)}
                     aria-checked={isSelected}
                     data-testid={systemViewSwitcherOptionTestId(
                       group.token,
@@ -281,7 +131,7 @@ export function SystemViewSwitcher({
                         ? systemViewSwitcherOptionSelectedStyle
                         : null),
                     }}
-                    tabIndex={optionIndex === activeIndex ? 0 : -1}
+                    tabIndex={navigation.tabIndexFor(entry.viewSchemaId)}
                     type="button"
                     onMouseDown={(event) => {
                       event.preventDefault();
@@ -290,7 +140,7 @@ export function SystemViewSwitcher({
                       selectOption(entry.viewSchemaId);
                     }}
                     onKeyDown={(event) => {
-                      handleOptionKeyDown(event, optionIndex);
+                      navigation.onItemKeyDown(event, entry.viewSchemaId);
                     }}
                   >
                     {entry.contract.title}

@@ -31,14 +31,14 @@ import {
   timelineRowGutterWidth,
 } from "../components/TimelineWorkbookStyles";
 import type { TimelineWorkbookCompositionResult } from "../composition/useTimelineWorkbookComposition";
-import { buildTimelineGridRows } from "../models/timelineRowsModel";
-import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import {
-  timelineGroupLabel,
   timelineObservationSourceFields,
   timelineRelationshipLabel,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineFieldRegistry";
+import { timelineGroupLabel } from "../models/timelineLayoutPolicy";
+import type { WorkbookRow } from "../models/timelineRowModel";
+import { buildTimelineGridRows } from "../models/timelineRowsModel";
+import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import { useTimelineInspectorPresentation } from "./useTimelineInspectorPresentation";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -213,8 +213,12 @@ export function useTimelineWorkbookPresentation({
   const { editingPresenceForCell, presenceForRow } = mutation.snapshot.presence;
   const { publishEditModePresence: handleEditModePresence } =
     mutation.commands.presence;
-  const { activeRowContextMenuRow, rowContextMenu } =
-    workflow.snapshot.rowInteractions;
+  const {
+    activeRowContextMenuRow,
+    rowContextMenu,
+    rowContextMenuFallbackFocusRef,
+    rowContextMenuReturnFocusRef,
+  } = workflow.snapshot.rowInteractions;
   const {
     closeRowContextMenu,
     handleSelectMention,
@@ -508,11 +512,13 @@ export function useTimelineWorkbookPresentation({
           ? null
           : {
               position: rowContextMenu.position,
+              fallbackFocusTargetRef: rowContextMenuFallbackFocusRef,
               replacementDraft:
                 activeRowContextMenuRow === null
                   ? ""
                   : (replacementDrafts[activeRowContextMenuRow.key] ?? ""),
               row: activeRowContextMenuRow,
+              returnFocusTargetRef: rowContextMenuReturnFocusRef,
               onClose: closeRowContextMenu,
               onInspectRow: openInspectorForRow,
               onMarkReviewed: (rowKey: string) => {

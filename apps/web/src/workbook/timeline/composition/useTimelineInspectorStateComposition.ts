@@ -12,8 +12,8 @@ import { useTimelineInspectorElementRegistry } from "../focus/timelineInspectorE
 import { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
 import { useTimelineInspectorSelection } from "../hooks/useTimelineInspectorSelection";
 import { selectTimelineInspectorHistorySubject } from "../models/timelineHistoryModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
 
 const timelineInspectorConfig =
   requireViewContract(timelineViewSchemaId).inspectorConfig;

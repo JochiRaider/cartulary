@@ -3,7 +3,7 @@ import type {
   TimelineCreateRequest,
 } from "@cartulary/protocol-ts/http";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 export function buildAttachedEvidenceCreateRequest(
   evidenceRecordId: string,

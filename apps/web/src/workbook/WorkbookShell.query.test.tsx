@@ -482,10 +482,11 @@ describe("workbook query controls", () => {
     );
     expect(sortMenu).toBeInstanceOf(HTMLElement);
     fireEvent.keyDown(sortMenu, { key: "End" });
+    const enabledSortActions = sortMenu.querySelectorAll(
+      '[role^="menuitem"]:not(:disabled)',
+    );
     expect(document.activeElement).toBe(
-      sortMenu.querySelectorAll('[role^="menuitem"]')[
-        sortMenu.querySelectorAll('[role^="menuitem"]').length - 1
-      ],
+      enabledSortActions[enabledSortActions.length - 1],
     );
     fireEvent.keyDown(sortMenu, { key: "Escape" });
     expect(

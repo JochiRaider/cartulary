@@ -104,10 +104,18 @@ function workbookQueryStateReducer(
   };
 }
 
-function resolveStateAction<T>(current: T, action: SetStateAction<T>): T {
-  return typeof action === "function"
-    ? (action as (current: T) => T)(current)
-    : action;
+function resolveQueryStateAction(
+  current: WorkbookQueryState,
+  action: SetStateAction<WorkbookQueryState>,
+): WorkbookQueryState {
+  return typeof action === "function" ? action(current) : action;
+}
+
+function resolveFilterDraftAction(
+  current: FilterDraft,
+  action: SetStateAction<FilterDraft>,
+): FilterDraft {
+  return typeof action === "function" ? action(current) : action;
 }
 
 export function useWorkbookQueryState(viewSchemaIds: readonly string[]) {
@@ -145,7 +153,7 @@ export function useWorkbookQueryState(viewSchemaIds: readonly string[]) {
     (viewSchemaId: string, action: SetStateAction<WorkbookQueryState>) => {
       updateEntry(viewSchemaId, (current) => ({
         ...current,
-        queryState: resolveStateAction(current.queryState, action),
+        queryState: resolveQueryStateAction(current.queryState, action),
       }));
     },
     [updateEntry],
@@ -155,7 +163,7 @@ export function useWorkbookQueryState(viewSchemaIds: readonly string[]) {
     (viewSchemaId: string, action: SetStateAction<FilterDraft>) => {
       updateEntry(viewSchemaId, (current) => ({
         ...current,
-        filterDraft: resolveStateAction(current.filterDraft, action),
+        filterDraft: resolveFilterDraftAction(current.filterDraft, action),
       }));
     },
     [updateEntry],

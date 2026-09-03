@@ -9,19 +9,23 @@ import {
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
   useEffect,
   useMemo,
   useRef,
 } from "react";
+import { useRegisteredOverlayNavigation } from "../../focus/useRegisteredOverlayNavigation";
 import { workbookViewportOverlayScrollableStyle } from "../../layout/workbookShellStyles";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import { actionButtonStyle, inputStyle } from "./TimelineWorkbookStyles";
 
 type TimelineRowContextMenuProps = {
   readonly position: TimelineRowContextMenuPosition;
   readonly replacementDraft: string;
+  readonly fallbackFocusTargetRef: RefObject<HTMLElement | null>;
+  readonly returnFocusTargetRef: RefObject<HTMLElement | null>;
   readonly row: WorkbookRow | null;
   readonly onClose: () => void;
   readonly onInspectRow: (recordId: string) => void;
@@ -34,6 +38,8 @@ type TimelineRowContextMenuProps = {
 export function TimelineRowContextMenu({
   position,
   replacementDraft,
+  fallbackFocusTargetRef,
+  returnFocusTargetRef,
   row,
   onClose,
   onInspectRow,
@@ -50,19 +56,25 @@ export function TimelineRowContextMenu({
     }),
     [position],
   );
-
-  useEffect(() => {
-    const menu = menuRef.current;
-    const firstAction = menu?.querySelector<HTMLButtonElement>(
-      "button:not(:disabled)",
-    );
-    firstAction?.focus({ preventScroll: true });
-  }, []);
+  const recordId = row?.recordId ?? null;
+  const itemKeys = ["inspect", "history", "mark-reviewed", "supersede"];
+  const navigation = useRegisteredOverlayNavigation({
+    fallbackFocusRef: fallbackFocusTargetRef,
+    initialItemKey: "inspect",
+    isOpen: recordId !== null,
+    itemKeys,
+    onRequestClose: onClose,
+    subjectKey: recordId ?? "unavailable",
+    triggerRef: returnFocusTargetRef,
+  });
 
   useEffect(() => {
     const closeForPointer = (event: PointerEvent) => {
       const menu = menuRef.current;
-      if (menu !== null && !menu.contains(event.target as Node | null)) {
+      if (
+        menu !== null &&
+        (!(event.target instanceof Node) || !menu.contains(event.target))
+      ) {
         onClose();
       }
     };
@@ -99,7 +111,7 @@ export function TimelineRowContextMenu({
     return null;
   }
 
-  const recordId = row.recordId;
+  const availableRecordId = row.recordId;
   const closeAfterAction = (action: () => void) => {
     action();
     onClose();
@@ -108,7 +120,10 @@ export function TimelineRowContextMenu({
   return (
     <div
       aria-label="Timeline row actions"
-      data-testid={workbookRowContextMenuTestId(timelineViewSchemaId, recordId)}
+      data-testid={workbookRowContextMenuTestId(
+        timelineViewSchemaId,
+        availableRecordId,
+      )}
       ref={menuRef}
       role="dialog"
       style={menuStyle}
@@ -116,55 +131,66 @@ export function TimelineRowContextMenu({
         event.preventDefault();
       }}
       onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
+        if (
+          !event.defaultPrevented &&
+          event.key === "Escape" &&
+          navigation.activeKey !== null
+        ) {
+          navigation.onItemKeyDown(event, navigation.activeKey);
         }
       }}
     >
       <button
-        data-testid={rowInspectButtonTestId(recordId)}
+        ref={navigation.registerItem("inspect")}
+        data-testid={rowInspectButtonTestId(availableRecordId)}
         style={timelineActionButtonStyle}
+        tabIndex={navigation.tabIndexFor("inspect")}
         type="button"
         onClick={() => {
           closeAfterAction(() => {
-            onInspectRow(recordId);
+            onInspectRow(availableRecordId);
           });
         }}
+        onKeyDown={(event) => navigation.onItemKeyDown(event, "inspect")}
       >
         Inspect
       </button>
       <button
-        data-testid={rowHistoryOpenButtonTestId(recordId)}
+        ref={navigation.registerItem("history")}
+        data-testid={rowHistoryOpenButtonTestId(availableRecordId)}
         style={timelineActionButtonStyle}
+        tabIndex={navigation.tabIndexFor("history")}
         type="button"
         onClick={() => {
           closeAfterAction(() => {
-            onOpenHistory(recordId);
+            onOpenHistory(availableRecordId);
           });
         }}
+        onKeyDown={(event) => navigation.onItemKeyDown(event, "history")}
       >
         History
       </button>
       <button
-        data-testid={timelineRowMarkReviewedButtonTestId(recordId)}
+        ref={navigation.registerItem("mark-reviewed")}
+        data-testid={timelineRowMarkReviewedButtonTestId(availableRecordId)}
         disabled={
           row.captureState === "reviewed" || row.captureState === "superseded"
         }
         style={timelineActionButtonStyle}
+        tabIndex={navigation.tabIndexFor("mark-reviewed")}
         type="button"
         onClick={() => {
           closeAfterAction(() => {
             onMarkReviewed(row.key);
           });
         }}
+        onKeyDown={(event) => navigation.onItemKeyDown(event, "mark-reviewed")}
       >
         Mark reviewed
       </button>
       <input
         aria-label="Replacement record id"
-        data-testid={timelineRowReplacementInputTestId(recordId)}
+        data-testid={timelineRowReplacementInputTestId(availableRecordId)}
         placeholder="Replacement record id"
         style={timelineReplacementInputStyle}
         type="text"
@@ -174,17 +200,20 @@ export function TimelineRowContextMenu({
         }}
       />
       <button
-        data-testid={timelineRowSupersedeButtonTestId(recordId)}
+        ref={navigation.registerItem("supersede")}
+        data-testid={timelineRowSupersedeButtonTestId(availableRecordId)}
         disabled={
           row.captureState === "superseded" || replacementDraft.trim() === ""
         }
         style={timelineActionButtonStyle}
+        tabIndex={navigation.tabIndexFor("supersede")}
         type="button"
         onClick={() => {
           closeAfterAction(() => {
             onSupersede(row.key);
           });
         }}
+        onKeyDown={(event) => navigation.onItemKeyDown(event, "supersede")}
       >
         Supersede
       </button>

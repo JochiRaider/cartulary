@@ -778,6 +778,25 @@ Workbook surfaces and test rows are not module-boundary authority. This guide fo
 | `presence UI`           | Header avatars, row-gutter indicators, same-cell editing hints                                                                      | MUST be keyed by stable identifiers rather than labels or row numbers                                                                                              |
 | `accessibility evidence` | Live keyboard, focus, accessible-name, ARIA, contrast, and state-communication assertions owned by the applicable product or adapter row | MAY reuse the admitted focus-continuity and marker-observer choreography in `/packages/test-utils`; direct owner assertions remain local, and runtime rendering remains owned by `/apps/web`, `/packages/grid-adapter`, and `/packages/ui` |
 
+The route-facing `WorkbookShell` composes cohesive incident-scoped owners: one
+registry-owned mutation runtime and adapter set, startup/saved-view/query state,
+surface query and collaboration registration, effect-owned extension discovery,
+recovery focus, top-bar navigation, and active renderer selection. Discovery
+updates and other controller mutations belong in lifecycle effects, never in
+render. Each extracted unit passes the narrow model or command port required by
+its concern; do not replace this composition with a universal shell state bag,
+duplicate registry/runtime, or public compatibility facade.
+
+The shell owns exactly one `WorkbookMutationRuntime` for its incident/client
+lifetime. Its facade coordinates private, cohesive status-projection, conflict,
+surface-registration, managed-patch, retry, client-transaction, and lifecycle
+units. Time and scheduling enter through injected ports so queue and retry
+behavior remain deterministic under test. Surface owners construct payload
+intent and accepted/rejected projection plans; the common runtime retains FIFO,
+capacity, retry/authentication gates, refresh debt, conflict, transaction, and
+terminal-disposal authority. Do not create a second runtime or owner-specific
+timer authority.
+
 ### 6.2 Workbook-surface rules
 
 The frontend baseline MUST preserve the five built-in tabs:
@@ -803,6 +822,28 @@ The workbook shell MUST also surface the pack-independent system views and workb
 For `comm_log`, `handoff`, `status_review`, and `lesson`, the canonical workbook-surface identity MUST remain the standardized `view_schema_id` surface. An implementation-owned `scope='system'` saved view bound to the same `view_schema_id` MAY exist as an additional preset surface, but it MUST remain a distinct saved-view object and MUST NOT replace the required base surface. All such surfaces MUST remain within the workbook shell.
 
 Saved-view scope MUST NOT be used as access control in the frontend. Scope affects discoverability and mutability of the saved-view configuration object only.
+
+The saved-view client boundary exposes an explicit `loading`, `ready`,
+`unavailable`, or `invalid_selection` resource rather than treating an empty
+array as every state. Its form and active operation are keyed by the exact
+surface and saved-view version. The anchored action dialog provides one
+in-place `Update view` path for name, scope, query, and layout; it revalidates
+surface, selection version, ownership, and incident role before dispatch and
+ignores a completion after that full subject changes. Rename and sharing are
+not separate client actions. System saved views remain duplicable but
+immutable through ordinary update and delete commands.
+
+Workbook view-bar query controls project the active contract, query, layout,
+and responsive band into closure-free semantic command descriptors. Sort,
+Group, Filters, Columns, and active-chip presentation consume that projection
+through one narrow command port; transient panel and draft state is keyed by
+the exact active surface. View-bar sorting owns explicit add, direction,
+priority movement, removal, duplicate rejection, and the eight-entry admission
+limit. Header sorting remains a separate Grid Adapter interaction. Controlled
+filter, grouping, and sort values are admitted only through exact declared-key
+parsers; an invalid filter draft remains visible with local feedback and is
+never submitted as canonical query state. Registered element refs own opening,
+keyboard traversal, Escape, and focus restoration for query overlays.
 
 ### 6.3 Startup-surface selection
 

@@ -41,10 +41,6 @@ function mergePort(
       failure: { kind: "terminal", message: "not used" },
     }),
     merge,
-    pasteCreate: async () => ({
-      kind: "rejected",
-      failure: { kind: "terminal", message: "not used" },
-    }),
     patchRecord: async () => ({
       kind: "rejected",
       failure: { kind: "terminal", message: "not used" },

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { WorkbookProtocolPatchRecordRequest } from "../../adapters/workbookProtocolTypes";
 import {
   type WorkbookInspectorLiveSubject,
   workbookInspectorSubjectsEqual,
@@ -16,6 +17,8 @@ type PartyLinkMutationOwner = {
   readonly rejectMutationFailure: (failure: WorkbookOperationFailure) => void;
   readonly setValidationError: (message: string) => void;
 };
+
+type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 
 export type GenericPartyLinkWorkflow = {
   readonly clearPartyBoth: () => Promise<void>;
@@ -49,7 +52,7 @@ export function useGenericPartyLinkWorkflow({
   readonly selectedRow: WorkbookQueryRow | null;
   readonly selectedSubject: WorkbookInspectorLiveSubject | null;
   readonly submitLinkPatch: (
-    changes: Array<Record<string, unknown>>,
+    changes: RecordPatchChange[],
     txnPrefix: string,
   ) => Promise<boolean>;
 }): GenericPartyLinkWorkflow {

@@ -5,7 +5,7 @@ import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDr
 import type {
   FocusFieldKey,
   TimelineScalarEditorSurface,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineFieldRegistry";
 import type {
   TimelineCollectionKeyDown,
   TimelineCollectionSave,

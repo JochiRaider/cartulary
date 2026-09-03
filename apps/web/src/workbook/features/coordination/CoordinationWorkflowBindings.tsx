@@ -2,13 +2,28 @@ import { coordinationWorkflowTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { genericRowLabel } from "../../models/genericWorkbookModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
-import type { CoordinationMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type {
+  CoordinationMutationCommandPort,
+  TaskLifecycleStatus,
+} from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import {
   type CoordinationWorkflowMutationPorts,
   useCoordinationWorkflowController,
 } from "./useCoordinationWorkflowController";
+
+function parseTaskLifecycleStatus(value: string): TaskLifecycleStatus | null {
+  switch (value) {
+    case "blocked":
+    case "canceled":
+    case "done":
+    case "in_progress":
+    case "open":
+      return value;
+  }
+  return null;
+}
 
 export function CoordinationWorkflowBindings({
   contract,
@@ -60,11 +75,10 @@ export function CoordinationWorkflowBindings({
           data-testid={coordinationWorkflowTestId("task-status")}
           style={selectStyle}
           value={workflow.lifecycle.status}
-          onChange={(event) =>
-            workflow.lifecycle.setStatus(
-              event.target.value as typeof workflow.lifecycle.status,
-            )
-          }
+          onChange={(event) => {
+            const status = parseTaskLifecycleStatus(event.target.value);
+            if (status !== null) workflow.lifecycle.setStatus(status);
+          }}
         >
           <option value="open">open</option>
           <option value="in_progress">in_progress</option>

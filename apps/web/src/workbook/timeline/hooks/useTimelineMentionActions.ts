@@ -5,6 +5,7 @@ import {
   workbookInspectorMessageFeedback,
   workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordRequirement,
@@ -14,7 +15,6 @@ import type {
   DismissedMention,
   InspectorMention,
 } from "../models/workbookMentionChips";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
 import type { TimelineMentionPort } from "../ports/TimelineMentionPort";
 
 type TimelineMentionViewportContinuityTarget =

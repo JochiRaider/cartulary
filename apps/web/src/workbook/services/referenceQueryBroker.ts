@@ -40,7 +40,7 @@ export interface ReferenceQueryBrokerPort {
 type InFlightReferenceQuery = {
   readonly controller: AbortController;
   consumerCount: number;
-  readonly promise: Promise<readonly WorkbookQueryRow[]>;
+  promise: Promise<readonly WorkbookQueryRow[]>;
   settled: boolean;
 };
 
@@ -102,12 +102,12 @@ class ReferenceQueryBroker implements ReferenceQueryBrokerPort {
     }
     const controller = new AbortController();
     const targetContract = requireViewContract(requirement.viewSchemaId);
-    const entry = {
+    const entry: InFlightReferenceQuery = {
       controller,
       consumerCount: 0,
       promise: Promise.resolve([]),
       settled: false,
-    } as InFlightReferenceQuery;
+    };
     const pending = this.#context.viewQuery
       .query({
         contract: targetContract,
@@ -133,7 +133,7 @@ class ReferenceQueryBroker implements ReferenceQueryBrokerPort {
           this.#inFlight.delete(key);
         }
       });
-    Object.assign(entry, { promise: pending });
+    entry.promise = pending;
     this.#inFlight.set(key, entry);
     return entry;
   }

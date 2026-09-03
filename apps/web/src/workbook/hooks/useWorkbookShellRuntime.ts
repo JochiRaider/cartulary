@@ -99,7 +99,8 @@ export function useWorkbookShellRuntime({
     savedViewPort,
     startupSheetRef,
   });
-  const { activeSavedViewModified, savedViews } = savedViewController.snapshot;
+  const { activeSavedViewModified, savedViewsResource } =
+    savedViewController.snapshot;
   const {
     createSavedView,
     deleteSavedView,
@@ -182,7 +183,7 @@ export function useWorkbookShellRuntime({
       hostQueryState,
       identityQueryState,
       gridEntryFocusRequest,
-      savedViews,
+      savedViewsResource,
       sheetReloadToken,
       startupSheetRef,
       surface,

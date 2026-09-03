@@ -11,11 +11,11 @@ import {
   timelineMentionForAutoResolutionNotice,
   useTimelineMentionActions,
 } from "./hooks/useTimelineMentionActions";
-import type { DismissedMention } from "./models/workbookMentionChips";
 import {
   normalizeTimelineFullRow,
   rowFromApi,
-} from "./models/workbookTimelineModel";
+} from "./models/timelineRowModel";
+import type { DismissedMention } from "./models/workbookMentionChips";
 import type { TimelineMentionPort } from "./ports/TimelineMentionPort";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);

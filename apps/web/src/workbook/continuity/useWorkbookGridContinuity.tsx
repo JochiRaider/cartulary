@@ -229,12 +229,19 @@ function continuityGridAnchor(
 }
 
 function isGridViewportSnapshot(value: unknown): value is GridViewportSnapshot {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  if (
+    !("focusTarget" in value) ||
+    !("scrollLeft" in value) ||
+    !("scrollTop" in value)
+  ) {
+    return false;
+  }
   return (
-    typeof value === "object" &&
-    value !== null &&
-    ((value as GridViewportSnapshot).focusTarget === null ||
-      (value as GridViewportSnapshot).focusTarget instanceof HTMLElement) &&
-    typeof (value as GridViewportSnapshot).scrollLeft === "number" &&
-    typeof (value as GridViewportSnapshot).scrollTop === "number"
+    (value.focusTarget === null || value.focusTarget instanceof HTMLElement) &&
+    typeof value.scrollLeft === "number" &&
+    typeof value.scrollTop === "number"
   );
 }

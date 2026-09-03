@@ -1,9 +1,15 @@
 import type { ViewContract } from "@cartulary/view-contracts";
+import type { WorkbookProtocolCreateViewRowRequest } from "../adapters/workbookProtocolTypes";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { enumValuesFor } from "./genericWorkbookModel";
 
 export type AssessmentSubjectType = "host" | "identity";
 export type AssessmentConfidenceBand = "unset" | "low" | "medium" | "high";
+type AssessmentCreateRequest = Extract<
+  WorkbookProtocolCreateViewRowRequest,
+  { readonly "assessment.subject_ref": string }
+>;
+type AssessmentState = AssessmentCreateRequest["assessment.assessment_state"];
 
 export type AssessmentCreateDraft = {
   assessedAt: string;
@@ -35,6 +41,16 @@ function isAssessmentSubjectType(
   value: string,
 ): value is AssessmentSubjectType {
   return value === "host" || value === "identity";
+}
+
+function isAssessmentState(value: string): value is AssessmentState {
+  return (
+    value === "unknown" ||
+    value === "suspected" ||
+    value === "confirmed" ||
+    value === "disproven" ||
+    value === "cleared"
+  );
 }
 
 export function assessmentColumnWidth(fieldKey: string): number {
@@ -122,7 +138,7 @@ export function confidenceScoreFromBand(
       return 55;
     case "high":
       return 85;
-    default:
+    case "unset":
       return null;
   }
 }
@@ -130,31 +146,19 @@ export function confidenceScoreFromBand(
 export function buildAssessmentCreatePayload(
   draft: AssessmentCreateDraft,
   clientTxnId: string,
-): (Record<string, unknown> & { readonly client_txn_id: string }) | null {
+): AssessmentCreateRequest | null {
   const subjectRecordId = normalizedAssessmentValue(draft.subjectRecordId);
   const assessmentState = normalizedAssessmentValue(draft.assessmentState);
   const rationale = normalizedAssessmentValue(draft.rationale);
-  if (subjectRecordId === "" || assessmentState === "" || rationale === "") {
+  if (
+    subjectRecordId === "" ||
+    !isAssessmentState(assessmentState) ||
+    rationale === ""
+  ) {
     return null;
   }
 
-  const payload: Record<string, unknown> & { readonly client_txn_id: string } =
-    {
-      client_txn_id: clientTxnId,
-      "assessment.subject_ref": subjectRecordId,
-      "assessment.subject_type": draft.subjectType,
-      "assessment.assessment_state": assessmentState,
-      "assessment.confidence_score": confidenceScoreFromBand(
-        draft.confidenceBand,
-      ),
-      "assessment.rationale": rationale,
-    };
-
   const assessedAt = normalizedAssessmentValue(draft.assessedAt);
-  if (assessedAt !== "") {
-    payload["assessment.assessed_at"] = assessedAt;
-  }
-
   const supportRecordIds = Array.from(
     new Set(
       draft.supportRecordIds
@@ -162,17 +166,32 @@ export function buildAssessmentCreatePayload(
         .filter((recordId) => recordId !== ""),
     ),
   );
-  if (supportRecordIds.length > 0) {
-    payload["assessment.support_refs"] = {
-      kind: "collection_actions_v1",
-      actions: supportRecordIds.map((recordId) => ({
-        op: "add_record_ref",
-        linked_record_id: recordId,
-      })),
-    };
-  }
-
-  return payload;
+  const [firstSupportRecordId, ...remainingSupportRecordIds] = supportRecordIds;
+  return {
+    ...(assessedAt === "" ? {} : { "assessment.assessed_at": assessedAt }),
+    "assessment.assessment_state": assessmentState,
+    "assessment.confidence_score": confidenceScoreFromBand(
+      draft.confidenceBand,
+    ),
+    "assessment.rationale": rationale,
+    "assessment.subject_ref": subjectRecordId,
+    "assessment.subject_type": draft.subjectType,
+    ...(firstSupportRecordId === undefined
+      ? {}
+      : {
+          "assessment.support_refs": {
+            actions: [
+              { linked_record_id: firstSupportRecordId, op: "add_record_ref" },
+              ...remainingSupportRecordIds.map((recordId) => ({
+                linked_record_id: recordId,
+                op: "add_record_ref" as const,
+              })),
+            ],
+            kind: "collection_actions_v1" as const,
+          },
+        }),
+    client_txn_id: clientTxnId,
+  };
 }
 
 function normalizedAssessmentValue(value: unknown): string {

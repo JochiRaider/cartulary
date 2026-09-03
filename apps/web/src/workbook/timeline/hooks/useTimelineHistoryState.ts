@@ -11,7 +11,7 @@ import {
   workbookRecordHistoryRequestId,
 } from "../../inspector/workbookRecordHistoryModel";
 import { selectTimelineInspectorHistorySubject } from "../models/timelineHistoryModel";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 export function useTimelineHistoryState({
   draftRow,

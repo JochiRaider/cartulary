@@ -143,10 +143,16 @@ describe("workbook surface ownership policy", () => {
   });
 
   it("keeps assessment semantics out of Timeline and vendor grid imports behind the adapter", () => {
-    const timelineModel = readFileSync(
-      path.join(workbookDirectory, "timeline/models/workbookTimelineModel.ts"),
-      "utf8",
-    );
+    const timelineModel = [
+      "timeline/models/timelineFieldRegistry.ts",
+      "timeline/models/timelineLayoutPolicy.ts",
+      "timeline/models/timelineMutationIntents.ts",
+      "timeline/models/timelineRowModel.ts",
+    ]
+      .map((modelPath) =>
+        readFileSync(path.join(workbookDirectory, modelPath), "utf8"),
+      )
+      .join("\n");
     for (const assessmentOwnedSymbol of [
       "AssessmentApiRow",
       "AssessmentConfidenceBand",
@@ -171,7 +177,7 @@ describe("workbook surface ownership policy", () => {
       );
       expect(source, assessmentOwnedFile).not.toContain("react-data-grid");
       expect(source, assessmentOwnedFile).not.toContain(
-        "timeline/models/workbookTimelineModel",
+        "timeline/models/timeline",
       );
     }
   });

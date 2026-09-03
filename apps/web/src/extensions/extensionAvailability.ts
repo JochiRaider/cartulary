@@ -315,7 +315,7 @@ export class ExtensionAvailabilityController {
     }
   }
 
-  setDiscovery(profiles: readonly ExtensionDiscoveryProfile[]) {
+  setDiscovery(profiles: readonly ExtensionDiscoveryProfile[]): boolean {
     const next = profiles.map((profile) => ({
       ...profile,
       route_families: [...profile.route_families],
@@ -327,6 +327,7 @@ export class ExtensionAvailabilityController {
     if (changed) {
       this.invalidate();
     }
+    return changed;
   }
 
   reserve(): ExtensionAvailabilityTag | null {

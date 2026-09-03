@@ -7,7 +7,7 @@ import {
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
-import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
+import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 

@@ -2,27 +2,33 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
-  applyViewRowPatch,
-  buildCollectionPatchIntent,
-  buildExpandedTimelineColumnWidths,
-  buildScalarPatchIntent,
-  createDraftRowForKey,
   inputFocusKey,
-  normalizeTimelineFullRow,
-  normalizeTimelinePatchCells,
-  readTimelineCellValue,
-  readTimelineTagItems,
-  rowFromApi,
-  timelineColumnWidth,
   timelineFieldBinding,
-  timelineGroupLabel,
   timelineInspectorBindings,
   timelineObservationSourceFields,
   timelineRelationshipLabel,
   timelineScalarBindings,
   timelineVisibleBindings,
+} from "./timelineFieldRegistry";
+import {
+  buildExpandedTimelineColumnWidths,
+  timelineColumnWidth,
+  timelineGroupLabel,
+} from "./timelineLayoutPolicy";
+import {
+  buildCollectionPatchIntent,
+  buildScalarPatchIntent,
+} from "./timelineMutationIntents";
+import {
+  applyViewRowPatch,
+  createDraftRowForKey,
+  normalizeTimelineFullRow,
+  normalizeTimelinePatchCells,
+  readTimelineCellValue,
+  readTimelineTagItems,
+  rowFromApi,
   validateTimelineViewSchemaId,
-} from "./workbookTimelineModel";
+} from "./timelineRowModel";
 
 const timelineWidthFieldKeys = [
   "timeline.date_entered_text",

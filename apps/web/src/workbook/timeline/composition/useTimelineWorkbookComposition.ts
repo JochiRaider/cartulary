@@ -13,6 +13,7 @@ export function useTimelineWorkbookComposition({
 }) {
   const foundation = useTimelineSurfaceFoundation({
     apiBase: runtime.incident.apiBase,
+    clipboardPaste: runtime.clipboardPaste,
     incidentId: runtime.incident.id,
     mutationCommands: runtime.mutationCommands,
     mutationRuntime: runtime.mutationRuntime,
@@ -85,7 +86,6 @@ export function useTimelineWorkbookComposition({
     mutationCommands: runtime.mutationCommands,
     mutationRuntime: runtime.mutationRuntime,
     onIncidentAccessLost: runtime.onIncidentAccessLost,
-    pendingMutationPort: runtime.pendingMutationPort,
     query: {
       queryState: foundation.snapshot.query.queryState,
       viewQuery: runtime.query.viewQuery,
@@ -170,7 +170,6 @@ export function useTimelineWorkbookComposition({
       clipboardPastePort: foundation.ports.clipboardPaste,
       deactivateCollectionInput:
         foundation.commands.editor.deactivateCollectionInput,
-      editorDraftRegistry: foundation.refs.editorDraftRegistry,
       pendingSavesRefs: foundation.refs.pendingSaves,
       recordTiming: foundation.commands.recordTiming,
       rows: foundation.snapshot.rows,
@@ -215,7 +214,6 @@ export function useTimelineWorkbookComposition({
       finishSave: mutation.commands.save.finishSave,
       loadRows: mutation.commands.query.loadRows,
       mutationCommands: runtime.mutationCommands,
-      nextClientTxnId: mutation.commands.identity.nextClientTxnId,
       queueCollectionSave: mutation.commands.mutation.queueCollectionSave,
       queueScalarSave: mutation.commands.mutation.queueScalarSave,
       registerSameFieldConflict:

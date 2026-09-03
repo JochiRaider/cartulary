@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { createTimelineClipboardPasteAdapter } from "../adapters/createTimelineClipboardPasteAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "../adapters/createTimelineEvidenceAttachmentAdapter";
 import { createTimelineHistoryAdapter } from "../adapters/createTimelineHistoryAdapter";
 import { createTimelineMentionAdapter } from "../adapters/createTimelineMentionAdapter";
@@ -10,11 +9,11 @@ import { useTimelineMentions } from "../hooks/useTimelineMentions";
 import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import { useTimelineRows } from "../hooks/useTimelineRows";
 import { useTimelineWorkbookRuntime } from "../hooks/useTimelineWorkbookRuntime";
-import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 
 type TimelineSurfaceFoundationInput = {
   readonly apiBase: string | undefined;
+  readonly clipboardPaste: TimelineWorkbookSurfaceRuntime["clipboardPaste"];
   readonly incidentId: string;
   readonly mutationCommands: TimelineWorkbookSurfaceRuntime["mutationCommands"];
   readonly mutationRuntime: TimelineWorkbookSurfaceRuntime["mutationRuntime"];
@@ -26,6 +25,7 @@ type TimelineSurfaceFoundationInput = {
 
 export function useTimelineSurfaceFoundation({
   apiBase,
+  clipboardPaste,
   incidentId,
   mutationCommands,
   mutationRuntime,
@@ -41,10 +41,6 @@ export function useTimelineSurfaceFoundation({
   );
   const mentionPort = useMemo(
     () => createTimelineMentionAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
-  const clipboardPastePort = useMemo(
-    () => createTimelineClipboardPasteAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
   const evidenceAttachmentPort = useMemo(
@@ -69,7 +65,7 @@ export function useTimelineSurfaceFoundation({
   >(null);
   const rows = useTimelineRows();
   const mentions = useTimelineMentions();
-  const pendingSaves = useTimelinePendingSaves<PendingReplayRuntimeMeta>({
+  const pendingSaves = useTimelinePendingSaves({
     mutationRuntime,
   });
   const editorDraftRegistry =
@@ -116,7 +112,7 @@ export function useTimelineSurfaceFoundation({
       },
     },
     ports: {
-      clipboardPaste: clipboardPastePort,
+      clipboardPaste,
       evidenceAttachment: evidenceAttachmentPort,
       history: historyPort,
       mention: mentionPort,

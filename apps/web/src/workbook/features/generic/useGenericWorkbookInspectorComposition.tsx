@@ -14,12 +14,14 @@ import {
   useState,
 } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import type { WorkbookProtocolPatchRecordRequest } from "../../adapters/workbookProtocolTypes";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { workbookInspectorLocalErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
+
 import {
   buildWorkbookInspectorSubject,
   type WorkbookInspectorSubject,
@@ -44,6 +46,8 @@ import { useEvidenceWorkbookBindings } from "../evidence/useEvidenceWorkbookBind
 import type { IndicatorInspectorHandler } from "../indicators/indicatorInspectorHandlers";
 import { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
 import { GenericWorkbookInspectorPresentation } from "./GenericWorkbookInspectorPresentation";
+
+type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 
 export function useGenericWorkbookInspectorComposition({
   canCreateRows,
@@ -277,7 +281,7 @@ export function useGenericWorkbookInspectorComposition({
     await mutation.completeGenericMutation();
   };
   const submitPartyLinkPatch = async (
-    changes: Array<Record<string, unknown>>,
+    changes: RecordPatchChange[],
     purpose: string,
   ) => {
     if (selectedEdit.row === null) {

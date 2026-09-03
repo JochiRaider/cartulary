@@ -66,11 +66,9 @@ export function WorkbookSurfaceLayout({
     }
     if (!inspectorOpen && inspectorWasOpenRef.current) {
       const returnFocus = returnFocusRef.current;
-      window.requestAnimationFrame(() => {
-        if (returnFocus?.isConnected) {
-          returnFocus.focus({ preventScroll: true });
-        }
-      });
+      if (returnFocus?.isConnected) {
+        returnFocus.focus({ preventScroll: true });
+      }
       returnFocusRef.current = null;
     }
     inspectorWasOpenRef.current = inspectorOpen;
@@ -188,6 +186,7 @@ export function WorkbookSurfaceLayout({
       <section
         aria-label={workAreaAriaLabel}
         style={workAreaStyle}
+        tabIndex={-1}
         onContextMenu={onWorkAreaContextMenu}
         onKeyDownCapture={onWorkAreaKeyDown}
       >

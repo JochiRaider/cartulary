@@ -15,6 +15,7 @@ import {
   relationshipItemsTestId,
   relationshipOverflowButtonTestId,
   rowCellTestId,
+  rowHistoryOpenButtonTestId,
   rowInspectButtonTestId,
   saveStateTestId,
   timelineCollectionInputTestId,
@@ -115,7 +116,7 @@ describe("support workbook helpers", () => {
       {
         itemRef: "mention-host-auto",
         entityType: "host",
-        itemKind: "resolved_ref",
+        itemKind: "resolved_ref" as const,
         displayText: "VPN Gateway",
         rawText: " vpn   gateway ",
         resolvedRecordId: "20000000-0000-4000-8000-000000000602",
@@ -129,7 +130,7 @@ describe("support workbook helpers", () => {
       {
         itemRef: "mention-host-manual",
         entityType: "host",
-        itemKind: "resolved_ref",
+        itemKind: "resolved_ref" as const,
         displayText: "WS-023",
         rawText: "WS-023",
         resolvedRecordId: "20000000-0000-4000-8000-000000000603",
@@ -197,7 +198,7 @@ describe("support workbook helpers", () => {
           {
             itemRef: "mention-identity-manual",
             entityType: "identity" as const,
-            itemKind: "resolved_ref",
+            itemKind: "resolved_ref" as const,
             displayText: "Alex Analyst",
             rawText: "alex.analyst@example.test",
             resolvedRecordId: "20000000-0000-4000-8000-000000000604",
@@ -218,7 +219,7 @@ describe("support workbook helpers", () => {
           {
             itemRef: "mention-host-auto",
             entityType: "host" as const,
-            itemKind: "resolved_ref",
+            itemKind: "resolved_ref" as const,
             displayText: "VPN Gateway",
             rawText: " vpn   gateway ",
             resolvedRecordId: "20000000-0000-4000-8000-000000000602",
@@ -422,11 +423,16 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       ),
     );
     expect(contextMenu.getAttribute("role")).toBe("dialog");
-    expect(
+    const inspectButton = screen.getByTestId(
+      rowInspectButtonTestId("20000000-0000-4000-8000-000000000601"),
+    );
+    expect(document.activeElement).toBe(inspectButton);
+    fireEvent.keyDown(inspectButton, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(
       screen.getByTestId(
-        rowInspectButtonTestId("20000000-0000-4000-8000-000000000601"),
+        rowHistoryOpenButtonTestId("20000000-0000-4000-8000-000000000601"),
       ),
-    ).toBeTruthy();
+    );
     const replacementInput = screen.getByTestId(
       timelineRowReplacementInputTestId("20000000-0000-4000-8000-000000000601"),
     );
@@ -453,7 +459,6 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         ),
       ).toBeNull();
     });
-
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     const reopenedContextMenu = await screen.findByTestId(
       workbookRowContextMenuTestId(
@@ -473,6 +478,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         ),
       ).toBeNull();
     });
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("Timeline row interaction layer"),
+    );
   });
 
   it("opens Timeline row actions from the keyboard and ignores draft rows", async () => {
@@ -519,14 +527,17 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     );
     summaryCell.focus();
     fireEvent.keyDown(summaryCell, { key: "F10", shiftKey: true });
-    expect(
-      await screen.findByTestId(
-        workbookRowContextMenuTestId(
-          timelineViewSchemaId,
-          "20000000-0000-4000-8000-000000000601",
-        ),
+    await screen.findByTestId(
+      workbookRowContextMenuTestId(
+        timelineViewSchemaId,
+        "20000000-0000-4000-8000-000000000601",
       ),
-    ).toBeTruthy();
+    );
+    expect(document.activeElement).toBe(
+      screen.getByTestId(
+        rowInspectButtonTestId("20000000-0000-4000-8000-000000000601"),
+      ),
+    );
   });
 
   it("renders auto-resolved chips distinctly from manual resolved chips", async () => {

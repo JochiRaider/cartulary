@@ -70,7 +70,7 @@ describe("WorkbookMutationRuntime", () => {
       message:
         "This edit remains local because a secure transaction ID could not be created.",
     });
-    expect(runtime.pending().model.snapshot().units).toEqual([]);
+    expect(runtime.pendingQueue().model.snapshot().units).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -203,7 +203,7 @@ describe("WorkbookMutationRuntime", () => {
       viewSchemaId: timelineViewSchemaId,
     });
 
-    expect(runtime.pending().model.snapshot().units).toHaveLength(1);
+    expect(runtime.pendingQueue().model.snapshot().units).toHaveLength(1);
     expect(
       runtime.visibleEdit(
         timelineViewSchemaId,

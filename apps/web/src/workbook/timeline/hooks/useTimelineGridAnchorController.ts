@@ -13,7 +13,7 @@ import type {
 } from "../../continuity/workbookContinuityPort";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineReadonlyRef<T> = {
   readonly current: T;
@@ -67,6 +67,43 @@ function resolveDraftTimelinePasteTargets({
   };
 }
 
+type TimelinePasteDimensions = {
+  readonly columnCount: number;
+  readonly rowCount: number;
+};
+
+function timelinePasteDimensions(
+  input: GridClipboardInput,
+): TimelinePasteDimensions | null {
+  return input.kind === "table"
+    ? {
+        columnCount: input.values[0]?.length ?? 0,
+        rowCount: input.values.length,
+      }
+    : null;
+}
+
+function savedTimelinePasteResolution({
+  dimensions,
+  fieldKey,
+  gridHandle,
+  recordId,
+}: {
+  readonly dimensions: TimelinePasteDimensions;
+  readonly fieldKey: string;
+  readonly gridHandle: GridHandle | null;
+  readonly recordId: string;
+}): TimelinePasteTargetResolution | null {
+  const anchor: GridCellAnchor = {
+    fieldKey,
+    rowIdentity: { kind: "core_record", recordId },
+    surface: { kind: "view_schema", viewSchemaId: timelineViewSchemaId },
+  };
+  const targetResolution =
+    gridHandle?.planPasteTargets(anchor, dimensions) ?? null;
+  return targetResolution === null ? null : { anchor, targetResolution };
+}
+
 export function useTimelineGridAnchorController({
   continuityPort,
   gridHandleRef,
@@ -89,22 +126,20 @@ export function useTimelineGridAnchorController({
 }) {
   const restoreTimelineFocusAnchor = useCallback(
     (anchor: GridCellAnchor | WorkbookContinuityAnchor): boolean => {
-      const semanticAnchor: WorkbookContinuityAnchor | null =
-        "rowIdentity" in anchor
-          ? anchor.rowIdentity.kind === "core_record"
-            ? {
-                fieldKey: anchor.fieldKey,
-                recordId: anchor.rowIdentity.recordId,
-                viewSchemaId:
-                  anchor.surface.kind === "view_schema"
-                    ? anchor.surface.viewSchemaId
-                    : timelineViewSchemaId,
-              }
-            : null
-          : anchor;
-      return semanticAnchor === null
-        ? gridHandleRef.current?.focusAnchor(anchor as GridCellAnchor) === true
-        : continuityPort.focus(semanticAnchor);
+      if (!("rowIdentity" in anchor)) {
+        return continuityPort.focus(anchor);
+      }
+      if (anchor.rowIdentity.kind !== "core_record") {
+        return gridHandleRef.current?.focusAnchor(anchor) === true;
+      }
+      return continuityPort.focus({
+        fieldKey: anchor.fieldKey,
+        recordId: anchor.rowIdentity.recordId,
+        viewSchemaId:
+          anchor.surface.kind === "view_schema"
+            ? anchor.surface.viewSchemaId
+            : timelineViewSchemaId,
+      });
     },
     [continuityPort, gridHandleRef],
   );
@@ -139,14 +174,8 @@ export function useTimelineGridAnchorController({
       fieldKey: string,
       input: GridClipboardInput,
     ): TimelinePasteTargetResolution | null => {
-      if (input.kind !== "table") {
-        return null;
-      }
-
-      const dimensions = {
-        columnCount: input.values[0]?.length ?? 0,
-        rowCount: input.values.length,
-      };
+      const dimensions = timelinePasteDimensions(input);
+      if (dimensions === null) return null;
       const row = rowsRef.current.find((candidate) => candidate.key === rowKey);
       const isDraftTarget =
         row?.recordId === null ||
@@ -167,29 +196,17 @@ export function useTimelineGridAnchorController({
       }
 
       const recordId = row?.recordId;
-      if (recordId === undefined || recordId === null) {
-        return null;
-      }
-
-      const anchor = {
+      if (recordId === undefined || recordId === null) return null;
+      const resolution = savedTimelinePasteResolution({
+        dimensions,
         fieldKey,
-        rowIdentity: { kind: "core_record" as const, recordId },
-        surface: {
-          kind: "view_schema" as const,
-          viewSchemaId: timelineViewSchemaId,
-        },
-      };
-      const targetResolution =
-        gridHandleRef.current?.planPasteTargets(anchor, dimensions) ?? null;
-      if (targetResolution === null) {
-        return null;
-      }
+        gridHandle: gridHandleRef.current,
+        recordId,
+      });
+      if (resolution === null) return null;
 
-      updateTimelineSurfaceFocusAnchor(
-        anchor.rowIdentity.recordId,
-        anchor.fieldKey,
-      );
-      return { anchor, targetResolution };
+      updateTimelineSurfaceFocusAnchor(recordId, fieldKey);
+      return resolution;
     },
     [
       gridHandleRef,

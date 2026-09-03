@@ -4,7 +4,7 @@ import {
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
 import type { RefCallback } from "react";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import {
   bodyStyle,
   inputStyle,

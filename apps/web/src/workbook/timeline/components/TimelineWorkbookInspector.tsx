@@ -17,8 +17,8 @@ import { WorkbookInspectorDeclaredPanelList } from "../../inspector/WorkbookInsp
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import type { InspectorMention } from "../models/workbookMentionChips";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
 import {
   type MentionEntityOption,
   TimelineMentionsPanel,

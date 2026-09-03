@@ -10,18 +10,17 @@ import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraf
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
 import { useTimelinePendingSaves } from "../hooks/useTimelinePendingSaves";
 import { reconcileCommittedRowsWithLocalDrafts } from "../hooks/useTimelineRowsLoader";
-import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
+import { inputFocusKey } from "../models/timelineFieldRegistry";
+import {
+  createDraftRow,
+  normalizeTimelineFullRow,
+  rowFromApi,
+  type WorkbookRow,
+} from "../models/timelineRowModel";
 import type {
   AutoResolutionNotice,
   DismissedMention,
 } from "../models/workbookMentionChips";
-import {
-  createDraftRow,
-  inputFocusKey,
-  normalizeTimelineFullRow,
-  rowFromApi,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
 import { useTimelineRowMutationCoordinator } from "./useTimelineRowMutationCoordinator";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -102,7 +101,7 @@ function renderCoordinator(
       const [, setDismissedMentionsByRow] = useState<
         Record<string, DismissedMention[]>
       >({});
-      const pending = useTimelinePendingSaves<PendingReplayRuntimeMeta>({
+      const pending = useTimelinePendingSaves({
         mutationRuntime: runtime,
       });
       const editorDraftRegistry =
@@ -337,10 +336,8 @@ describe("useTimelineRowMutationCoordinator", () => {
     });
 
     expect(
-      result.current.coordinator.ports.queryAdmission.committedRowsChangedSince(
-        queryStartEpoch,
-      ),
-    ).toBe(true);
+      result.current.coordinator.ports.queryAdmission.currentMutationEpoch(),
+    ).toBeGreaterThan(queryStartEpoch);
     expect(
       result.current.coordinator.ports.queryAdmission.knownTimelineRowVersion(
         recordId,
@@ -356,6 +353,18 @@ describe("useTimelineRowMutationCoordinator", () => {
     const pending = {
       ...initial,
       pendingSignature: "pending-signature",
+      rawRow:
+        initial.rawRow === null
+          ? null
+          : {
+              ...initial.rawRow,
+              cells: {
+                ...initial.rawRow.cells,
+                "timeline.activity_synopsis_text": {
+                  value: "optimistic value",
+                },
+              },
+            },
       values: { ...initial.values, activitySynopsisText: "optimistic value" },
     };
     const { result, unmount } = renderCoordinator(runtime, [pending]);
@@ -366,6 +375,9 @@ describe("useTimelineRowMutationCoordinator", () => {
         );
       expect(committed?.pendingSignature).toBeNull();
       expect(committed?.values.activitySynopsisText).toBe("committed value");
+      expect(
+        committed?.rawRow?.cells["timeline.activity_synopsis_text"]?.value,
+      ).toBe("committed value");
       result.current.coordinator.commands.registerSameFieldConflict(
         {
           base_row_version: 5,

@@ -45,6 +45,15 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
       const [state, setState] = useState(() => emptyWorkbookQueryState());
       return useTimelineSurfaceFoundation({
         apiBase,
+        clipboardPaste: {
+          paste: async () => ({
+            clientTxnId: null,
+            outcome: {
+              kind: "rejected",
+              failure: { kind: "terminal", message: "not used" },
+            },
+          }),
+        },
         incidentId: "incident-1",
         mutationCommands,
         mutationRuntime,

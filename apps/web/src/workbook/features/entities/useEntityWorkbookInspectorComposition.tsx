@@ -306,6 +306,13 @@ export function useEntityWorkbookInspectorComposition({
       );
       return;
     }
+    const [firstAction, ...remainingActions] = actions;
+    if (firstAction === undefined) {
+      setMutationError(
+        workbookInspectorLocalErrorPresentation("invalid_mutation_payload"),
+      );
+      return;
+    }
     const aliasFieldKey =
       entityType === "host" ? "host.aliases" : "identity.aliases";
     const finishMutation = mutationRuntime.beginExplicitMutation();
@@ -317,7 +324,10 @@ export function useEntityWorkbookInspectorComposition({
         changes: [
           {
             field_key: aliasFieldKey,
-            action_payload: { kind: "collection_actions_v1", actions },
+            action_payload: {
+              actions: [firstAction, ...remainingActions],
+              kind: "collection_actions_v1",
+            },
           },
         ],
         purpose: `entity-alias-${selectedEntity.recordId}`,

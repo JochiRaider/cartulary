@@ -226,7 +226,15 @@ export function workbookRecordHistoryReducer(
         : initialWorkbookRecordHistoryState(event.subject);
     case "clear":
       return initialWorkbookRecordHistoryState();
-    default:
+    case "cancel":
+    case "feedback_cleared":
+    case "load_accepted":
+    case "load_rejected":
+    case "load_requested":
+    case "operation_accepted":
+    case "operation_rejected":
+    case "preview":
+    case "submit":
       return reduceHistoryPhase(state, event);
   }
 }
@@ -263,7 +271,13 @@ function reduceIdleHistory(
       return state.feedback === undefined
         ? state
         : { ...state, feedback: undefined };
-    default:
+    case "cancel":
+    case "load_accepted":
+    case "load_rejected":
+    case "operation_accepted":
+    case "operation_rejected":
+    case "preview":
+    case "submit":
       return state;
   }
 }
@@ -279,7 +293,12 @@ function reduceLoadingHistory(
       return reduceHistoryLoadAccepted(state, event);
     case "load_rejected":
       return reduceHistoryLoadRejected(state, event);
-    default:
+    case "cancel":
+    case "feedback_cleared":
+    case "operation_accepted":
+    case "operation_rejected":
+    case "preview":
+    case "submit":
       return state;
   }
 }
@@ -303,7 +322,10 @@ function reduceReadyHistory(
       return state.feedback === undefined
         ? state
         : { ...state, feedback: undefined };
-    default:
+    case "load_accepted":
+    case "load_rejected":
+    case "operation_accepted":
+    case "operation_rejected":
       return state;
   }
 }
@@ -326,7 +348,12 @@ function reduceSubmittingHistory(
             subject: state.subject,
           }
         : state;
-    default:
+    case "cancel":
+    case "feedback_cleared":
+    case "load_accepted":
+    case "load_rejected":
+    case "preview":
+    case "submit":
       return state;
   }
 }

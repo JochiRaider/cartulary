@@ -1,22 +1,38 @@
-import type { GridNavigationIntent } from "@cartulary/grid-adapter";
+import type {
+  GridNavigationIntent,
+  GridNavigationKey,
+} from "@cartulary/grid-adapter";
 import {
-  mapWorkbookKeyboardCommand,
-  type WorkbookKeyboardEventLike,
-} from "../../utils/workbookKeyboard";
+  decideWorkbookApplicationShortcut,
+  type WorkbookApplicationShortcutEvent,
+} from "../../policies/workbookApplicationShortcuts";
 import type {
   RowValues,
   TimelineScalarEditorSurface,
-  WorkbookRow,
-} from "./workbookTimelineModel";
+} from "./timelineFieldRegistry";
+import type { WorkbookRow } from "./timelineRowModel";
 
 export type TimelineEditorKeyboardIntent =
-  | { readonly kind: "none"; readonly preventDefault: boolean }
-  | { readonly kind: "restore_prior_grid_focus"; readonly preventDefault: true }
-  | { readonly kind: "close_inspector"; readonly preventDefault: true }
+  | {
+      readonly kind: "none";
+      readonly preventDefault: boolean;
+      readonly stopPropagation: boolean;
+    }
+  | {
+      readonly kind: "restore_prior_grid_focus";
+      readonly preventDefault: true;
+      readonly stopPropagation: true;
+    }
+  | {
+      readonly kind: "close_inspector";
+      readonly preventDefault: true;
+      readonly stopPropagation: true;
+    }
   | {
       readonly kind: "navigate";
       readonly navigation: GridNavigationIntent;
       readonly preventDefault: true;
+      readonly stopPropagation: true;
     }
   | {
       readonly kind: "save";
@@ -24,7 +40,43 @@ export type TimelineEditorKeyboardIntent =
       readonly preserveInputFocus: boolean;
       readonly preventDefault: true;
       readonly recordBlankRowTiming: boolean;
+      readonly stopPropagation: true;
     };
+
+export type TimelineKeyboardEvent = WorkbookApplicationShortcutEvent;
+
+const timelineEditorNavigationKeys = new Set<string>([
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "Enter",
+  "Tab",
+]);
+
+const noTimelineEditorIntent = {
+  kind: "none",
+  preventDefault: false,
+  stopPropagation: false,
+} as const;
+
+function timelineEditorNavigationIntent(
+  event: TimelineKeyboardEvent,
+): GridNavigationIntent | null {
+  if (
+    event.altKey === true ||
+    event.ctrlKey === true ||
+    event.metaKey === true ||
+    !isTimelineEditorNavigationKey(event.key)
+  ) {
+    return null;
+  }
+  return { key: event.key, shiftKey: event.shiftKey === true };
+}
+
+function isTimelineEditorNavigationKey(key: string): key is GridNavigationKey {
+  return timelineEditorNavigationKeys.has(key);
+}
 
 export function mapTimelineScalarEditorIntent({
   event,
@@ -34,7 +86,7 @@ export function mapTimelineScalarEditorIntent({
   priorTimelineGridAnchor,
   surface,
 }: {
-  readonly event: WorkbookKeyboardEventLike;
+  readonly event: TimelineKeyboardEvent;
   readonly focusField: keyof RowValues;
   readonly hasCommittedAnchor: boolean;
   readonly inspectorCanClose: boolean;
@@ -46,61 +98,87 @@ export function mapTimelineScalarEditorIntent({
     event.key === "Escape" &&
     priorTimelineGridAnchor
   ) {
-    return { kind: "restore_prior_grid_focus", preventDefault: true };
+    return {
+      kind: "restore_prior_grid_focus",
+      preventDefault: true,
+      stopPropagation: true,
+    };
   }
-  const command = mapWorkbookKeyboardCommand(event, {
-    closeInspector: hasCommittedAnchor && inspectorCanClose,
-    mode: "editor",
+  const applicationShortcut = decideWorkbookApplicationShortcut(event, {
+    capabilities: {
+      closeInspector: hasCommittedAnchor && inspectorCanClose,
+      history: false,
+      linkedEvidence: false,
+      quickLink: false,
+    },
+    focusOwner: "editor",
+    previewableEvidenceCount: 0,
     rowKind: hasCommittedAnchor ? "committed" : "draft",
+    selectionIdentity: hasCommittedAnchor ? "timeline-editor-row" : null,
   });
-  if (command.kind === "close-inspector") {
-    return { kind: "close_inspector", preventDefault: true };
+  if (applicationShortcut.kind === "close_inspector") {
+    return {
+      kind: "close_inspector",
+      preventDefault: true,
+      stopPropagation: true,
+    };
   }
-  if (command.kind !== "navigate") {
-    return { kind: "none", preventDefault: command.preventDefault };
-  }
+  const navigation = timelineEditorNavigationIntent(event);
+  if (navigation === null) return noTimelineEditorIntent;
   if (
     surface === "grid" &&
-    command.intent.shiftKey &&
-    command.intent.key.startsWith("Arrow")
+    navigation.shiftKey &&
+    navigation.key.startsWith("Arrow")
   ) {
-    return { kind: "none", preventDefault: true };
+    return {
+      kind: "none",
+      preventDefault: true,
+      stopPropagation: true,
+    };
   }
   if (!hasCommittedAnchor) {
-    return command.intent.key === "Enter" || command.intent.key === "Tab"
+    return navigation.key === "Enter" || navigation.key === "Tab"
       ? {
           kind: "save",
           navigateAfterSave: null,
           preserveInputFocus: true,
           preventDefault: true,
           recordBlankRowTiming:
-            command.intent.key === "Enter" &&
+            navigation.key === "Enter" &&
             focusField === "activitySynopsisText" &&
             surface === "grid",
+          stopPropagation: true,
         }
-      : { kind: "none", preventDefault: true };
+      : {
+          kind: "none",
+          preventDefault: true,
+          stopPropagation: true,
+        };
   }
-  if (surface === "grid" && command.intent.key === "Tab") {
+  if (surface === "grid" && navigation.key === "Tab") {
     return {
       kind: "save",
       navigateAfterSave: null,
       preserveInputFocus: false,
       preventDefault: true,
       recordBlankRowTiming: false,
+      stopPropagation: true,
     };
   }
-  return command.intent.key === "Enter" || command.intent.key === "Tab"
+  return navigation.key === "Enter" || navigation.key === "Tab"
     ? {
         kind: "save",
-        navigateAfterSave: command.intent,
+        navigateAfterSave: navigation,
         preserveInputFocus: false,
         preventDefault: true,
         recordBlankRowTiming: false,
+        stopPropagation: true,
       }
     : {
         kind: "navigate",
-        navigation: command.intent,
+        navigation,
         preventDefault: true,
+        stopPropagation: true,
       };
 }
 
@@ -109,56 +187,78 @@ export function mapTimelineCollectionEditorIntent({
   hasCommittedAnchor,
   inspectorCanClose,
 }: {
-  readonly event: WorkbookKeyboardEventLike;
+  readonly event: TimelineKeyboardEvent;
   readonly hasCommittedAnchor: boolean;
   readonly inspectorCanClose: boolean;
 }): TimelineEditorKeyboardIntent {
-  const command = mapWorkbookKeyboardCommand(event, {
-    closeInspector: hasCommittedAnchor && inspectorCanClose,
-    mode: "editor",
+  const applicationShortcut = decideWorkbookApplicationShortcut(event, {
+    capabilities: {
+      closeInspector: hasCommittedAnchor && inspectorCanClose,
+      history: false,
+      linkedEvidence: false,
+      quickLink: false,
+    },
+    focusOwner: "editor",
+    previewableEvidenceCount: 0,
     rowKind: hasCommittedAnchor ? "committed" : "draft",
+    selectionIdentity: hasCommittedAnchor ? "timeline-editor-row" : null,
   });
-  if (command.kind === "close-inspector") {
-    return { kind: "close_inspector", preventDefault: true };
+  if (applicationShortcut.kind === "close_inspector") {
+    return {
+      kind: "close_inspector",
+      preventDefault: true,
+      stopPropagation: true,
+    };
   }
-  if (command.kind !== "navigate") {
-    return { kind: "none", preventDefault: command.preventDefault };
-  }
-  if (command.intent.shiftKey && command.intent.key.startsWith("Arrow")) {
-    return { kind: "none", preventDefault: true };
+  const navigation = timelineEditorNavigationIntent(event);
+  if (navigation === null) return noTimelineEditorIntent;
+  if (navigation.shiftKey && navigation.key.startsWith("Arrow")) {
+    return {
+      kind: "none",
+      preventDefault: true,
+      stopPropagation: true,
+    };
   }
   if (!hasCommittedAnchor) {
-    return command.intent.key === "Enter" || command.intent.key === "Tab"
+    return navigation.key === "Enter" || navigation.key === "Tab"
       ? {
           kind: "save",
           navigateAfterSave: null,
           preserveInputFocus: false,
           preventDefault: true,
           recordBlankRowTiming: false,
+          stopPropagation: true,
         }
-      : { kind: "none", preventDefault: true };
+      : {
+          kind: "none",
+          preventDefault: true,
+          stopPropagation: true,
+        };
   }
-  if (command.intent.key === "Tab") {
+  if (navigation.key === "Tab") {
     return {
       kind: "save",
       navigateAfterSave: null,
       preserveInputFocus: false,
       preventDefault: true,
       recordBlankRowTiming: false,
+      stopPropagation: true,
     };
   }
-  return command.intent.key === "Enter"
+  return navigation.key === "Enter"
     ? {
         kind: "save",
-        navigateAfterSave: command.intent,
+        navigateAfterSave: navigation,
         preserveInputFocus: false,
         preventDefault: true,
         recordBlankRowTiming: false,
+        stopPropagation: true,
       }
     : {
         kind: "navigate",
-        navigation: command.intent,
+        navigation,
         preventDefault: true,
+        stopPropagation: true,
       };
 }
 
@@ -178,16 +278,24 @@ type TimelineKeyboardRow = {
 };
 
 export type TimelineWorkAreaInspectorIntent<Row extends TimelineKeyboardRow> =
-  | { readonly kind: "none" }
+  | {
+      readonly kind: "none";
+      readonly preventDefault: false;
+      readonly stopPropagation: false;
+    }
   | {
       readonly kind: "open_panel";
       readonly panelId: "evidence" | "history";
+      readonly preventDefault: true;
       readonly row: Row;
+      readonly stopPropagation: true;
     }
   | {
       readonly itemRef: string | null;
       readonly kind: "quick_link";
+      readonly preventDefault: true;
       readonly row: Row;
+      readonly stopPropagation: true;
     };
 
 export function mapTimelineWorkAreaInspectorIntent<
@@ -197,37 +305,66 @@ export function mapTimelineWorkAreaInspectorIntent<
   fieldKey,
   row,
 }: {
-  readonly event: WorkbookKeyboardEventLike;
+  readonly event: TimelineKeyboardEvent;
   readonly fieldKey: string | undefined;
   readonly row: Row | null;
 }): TimelineWorkAreaInspectorIntent<Row> {
   const recordId = row?.recordId ?? null;
-  const command = mapWorkbookKeyboardCommand(event, {
-    cell:
-      fieldKey === undefined
-        ? null
-        : {
-            linkResolveCapability:
-              fieldKey === "timeline.host_refs" ||
-              fieldKey === "timeline.identity_refs",
-          },
-    inspectorGroups: ["evidence", "history"],
-    mode: "grid_navigation",
-    committedRowIdentity: recordId,
+  const command = decideWorkbookApplicationShortcut(event, {
+    capabilities: {
+      closeInspector: false,
+      history: true,
+      linkedEvidence: true,
+      quickLink:
+        fieldKey === "timeline.host_refs" ||
+        fieldKey === "timeline.identity_refs",
+    },
+    focusOwner: "grid_navigation",
     previewableEvidenceCount: 0,
     rowKind: recordId === null ? "none" : "committed",
+    selectionIdentity: recordId,
   });
-  if (row === null || recordId === null) return { kind: "none" };
-  if (command.kind === "open-history") {
-    return { kind: "open_panel", panelId: "history", row };
+  if (row === null || recordId === null) {
+    return {
+      kind: "none",
+      preventDefault: false,
+      stopPropagation: false,
+    };
   }
-  if (command.kind === "preview-linked-evidence") {
-    return { kind: "open_panel", panelId: "evidence", row };
+  if (command.kind === "open_history") {
+    return {
+      kind: "open_panel",
+      panelId: "history",
+      preventDefault: true,
+      row,
+      stopPropagation: true,
+    };
   }
-  if (command.kind !== "quick-link") return { kind: "none" };
+  if (command.kind === "preview_linked_evidence") {
+    return {
+      kind: "open_panel",
+      panelId: "evidence",
+      preventDefault: true,
+      row,
+      stopPropagation: true,
+    };
+  }
+  if (command.kind !== "quick_link") {
+    return {
+      kind: "none",
+      preventDefault: false,
+      stopPropagation: false,
+    };
+  }
   const mention = [
     ...row.collectionValues.hostRefs,
     ...row.collectionValues.identityRefs,
   ].find((item) => item.itemKind !== "resolved_ref");
-  return { itemRef: mention?.itemRef ?? null, kind: "quick_link", row };
+  return {
+    itemRef: mention?.itemRef ?? null,
+    kind: "quick_link",
+    preventDefault: true,
+    row,
+    stopPropagation: true,
+  };
 }

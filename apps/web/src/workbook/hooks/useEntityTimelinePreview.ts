@@ -12,7 +12,7 @@ import {
   normalizeTimelineFullRow,
   rowFromApi,
   type WorkbookRow,
-} from "../timeline/models/workbookTimelineModel";
+} from "../timeline/models/timelineRowModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 

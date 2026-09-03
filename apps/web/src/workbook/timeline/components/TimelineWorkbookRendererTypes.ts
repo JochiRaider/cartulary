@@ -3,11 +3,7 @@ import type {
   GridEditCommitOutcome,
   GridEditorFocusTarget,
 } from "@cartulary/grid-adapter";
-import type {
-  ClipboardEvent as ReactClipboardEvent,
-  KeyboardEvent as ReactKeyboardEvent,
-  ReactNode,
-} from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import type {
   CollectionDraftKey,
   CollectionFieldKey,
@@ -16,8 +12,8 @@ import type {
   TimelineCollectionBinding,
   TimelineScalarBinding,
   TimelineScalarEditorSurface,
-  WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineFieldRegistry";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 export type TimelineEntityIndex = Record<string, { label: string }>;
 
@@ -36,10 +32,10 @@ export type TimelineScalarKeyCommit = (
 ) => void;
 
 export type TimelineScalarPasteCommit = (
-  event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   rowKey: string,
   field: keyof RowValues,
   surface: TimelineScalarEditorSurface,
+  value: string,
 ) => void;
 
 export type TimelineScalarGridCommit = (

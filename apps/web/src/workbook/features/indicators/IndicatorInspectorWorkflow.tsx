@@ -45,6 +45,36 @@ type IndicatorParsedType = Exclude<
   IndicatorObservation["parsed_indicator_type"],
   null
 >;
+
+function parseIndicatorType(value: string): "" | IndicatorParsedType | null {
+  switch (value) {
+    case "":
+    case "domain_name":
+    case "email_addr":
+    case "ipv4_addr":
+    case "ipv6_addr":
+    case "process_name":
+    case "registry_key":
+    case "sha256":
+    case "text":
+    case "url":
+      return value;
+  }
+  return null;
+}
+
+function parseIndicatorLifecycleState(
+  value: string,
+): IndicatorLifecycleState | null {
+  switch (value) {
+    case "active":
+    case "benign":
+    case "false_positive":
+    case "retired":
+      return value;
+  }
+  return null;
+}
 type IndicatorCommittedMutation =
   | IndicatorMutationAccepted<IndicatorObservation>
   | IndicatorMutationAccepted<IndicatorStateInterval>;
@@ -397,9 +427,10 @@ export function IndicatorInspectorWorkflow({
             Parsed type (optional)
             <select
               value={parsedType}
-              onChange={(event) =>
-                setParsedType(event.target.value as "" | IndicatorParsedType)
-              }
+              onChange={(event) => {
+                const value = parseIndicatorType(event.target.value);
+                if (value !== null) setParsedType(value);
+              }}
             >
               <option value="">Infer from selected text</option>
               {indicatorTypes.map((indicatorType) => (
@@ -439,9 +470,10 @@ export function IndicatorInspectorWorkflow({
             State
             <select
               value={lifecycleState}
-              onChange={(event) =>
-                setLifecycleState(event.target.value as IndicatorLifecycleState)
-              }
+              onChange={(event) => {
+                const value = parseIndicatorLifecycleState(event.target.value);
+                if (value !== null) setLifecycleState(value);
+              }}
             >
               {lifecycleStates.map((state) => (
                 <option key={state} value={state}>

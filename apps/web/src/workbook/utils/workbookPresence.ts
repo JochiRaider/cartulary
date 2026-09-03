@@ -64,23 +64,33 @@ function comparePresenceRecord(left: PresenceRecord, right: PresenceRecord) {
 }
 
 export function isPresenceRecord(value: unknown): value is PresenceRecord {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
-  const record = value as Record<string, unknown>;
-  const sheetRef = record.sheet_ref;
+  if (
+    !("connection_id" in value) ||
+    !("display_name" in value) ||
+    !("expires_at" in value) ||
+    !("mode" in value) ||
+    !("observed_at" in value) ||
+    !("sheet_ref" in value) ||
+    !("user_id" in value)
+  ) {
+    return false;
+  }
+  const sheetRef = value.sheet_ref;
   return (
-    typeof record.connection_id === "string" &&
-    typeof record.user_id === "string" &&
-    typeof record.display_name === "string" &&
-    typeof record.mode === "string" &&
-    (record.mode === "viewing" ||
-      record.mode === "editing" ||
-      record.mode === "idle") &&
-    typeof record.observed_at === "string" &&
-    typeof record.expires_at === "string" &&
+    typeof value.connection_id === "string" &&
+    typeof value.user_id === "string" &&
+    typeof value.display_name === "string" &&
+    typeof value.mode === "string" &&
+    (value.mode === "viewing" ||
+      value.mode === "editing" ||
+      value.mode === "idle") &&
+    typeof value.observed_at === "string" &&
+    typeof value.expires_at === "string" &&
     isSheetRef(sheetRef) &&
-    (record.record_id === undefined || typeof record.record_id === "string") &&
-    (record.field_key === undefined || typeof record.field_key === "string")
+    (!("record_id" in value) || typeof value.record_id === "string") &&
+    (!("field_key" in value) || typeof value.field_key === "string")
   );
 }

@@ -196,6 +196,12 @@ async function dispatchClipboardText(
     if (element instanceof HTMLElement) {
       element.focus({ preventScroll: true });
     }
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement
+    ) {
+      element.setSelectionRange(0, element.value.length);
+    }
     const data = new DataTransfer();
     data.setData("text/plain", String(text));
     element.dispatchEvent(

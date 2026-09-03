@@ -61,13 +61,17 @@ const startupSources = new Set<string>([
 ]);
 const pointerSources = new Set<string>(["default", "home"]);
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function isRejectedReference(
   value: unknown,
 ): value is WorkbookStartupRejectedReference {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return false;
   }
-  const record = value as Record<string, unknown>;
+  const record = value;
   if (isSheetRef(record)) {
     return true;
   }
@@ -117,10 +121,10 @@ function nullableStartupSavedView(
   if (value === null || value === undefined) {
     return null;
   }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return undefined;
   }
-  return { ...(value as Record<string, unknown>) };
+  return { ...value };
 }
 
 function selectedViewSchemaIdFor(
@@ -215,10 +219,10 @@ export function resolveWorkbookStartupFallback(input: {
 export function normalizeWorkbookStartupSelection(
   value: unknown,
 ): WorkbookStartupSelection | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return null;
   }
-  const record = value as Record<string, unknown>;
+  const record = value;
   const selectedSheetRef = record.selected_sheet_ref;
   if (!isSheetRef(selectedSheetRef) || !isStartupSource(record.source)) {
     return null;
@@ -257,10 +261,10 @@ export function normalizeWorkbookStartupSelection(
   }
   const clearedPointers: WorkbookStartupClearedPointer[] = [];
   for (const pointer of record.cleared_pointers) {
-    if (!pointer || typeof pointer !== "object" || Array.isArray(pointer)) {
+    if (!isRecord(pointer)) {
       return null;
     }
-    const raw = pointer as Record<string, unknown>;
+    const raw = pointer;
     if (
       !isPointerSource(raw.source) ||
       !isRejectedReference(raw.sheet_ref) ||

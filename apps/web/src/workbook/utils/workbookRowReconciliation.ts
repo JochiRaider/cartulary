@@ -30,12 +30,12 @@ export function reconcileWorkbookRecordRows<Row extends RecordIdentity>(
 }
 
 function shallowEqualRecord<Row extends object>(left: Row, right: Row) {
-  const leftRecord = left as Record<string, unknown>;
-  const rightRecord = right as Record<string, unknown>;
-  const leftKeys = Object.keys(leftRecord);
-  const rightKeys = Object.keys(rightRecord);
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
   return (
     leftKeys.length === rightKeys.length &&
-    leftKeys.every((key) => Object.is(leftRecord[key], rightRecord[key]))
+    leftKeys.every((key) =>
+      Object.is(Reflect.get(left, key), Reflect.get(right, key)),
+    )
   );
 }

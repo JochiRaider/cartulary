@@ -1,30 +1,35 @@
 import {
-  savedViewActionMenuTestId,
-  savedViewActionMenuTriggerTestId,
-  savedViewCreateButtonTestId,
-  savedViewDeleteButtonTestId,
-  savedViewDuplicateButtonTestId,
-  savedViewManageSharingButtonTestId,
   savedViewModifiedTestId,
-  savedViewNameInputTestId,
   savedViewOptionTestId,
-  savedViewRenameButtonTestId,
-  savedViewResetButtonTestId,
-  savedViewScopeSelectTestId,
   savedViewSelectorTestId,
-  savedViewSetDefaultButtonTestId,
-  savedViewSetHomeButtonTestId,
   savedViewStatusTestId,
-  savedViewUpdateButtonTestId,
 } from "@cartulary/ui-contracts";
-import { MoreHorizontal } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from "react";
 import type { SheetRef } from "../../shared/sheetRef";
+import {
+  type SavedViewActionIntent,
+  useActiveSurfaceSavedViewActions,
+} from "../hooks/useActiveSurfaceSavedViewActions";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
-  canMutateSavedView,
-  type SavedViewResource,
-} from "../models/workbookSavedViews";
+  type ActiveSurfaceSavedViewProjection,
+  createSavedViewControlState,
+  projectActiveSurfaceSavedViews,
+  reduceSavedViewControl,
+  type SavedViewControlEvent,
+  type SavedViewSurfaceControlState,
+  savedViewSurfaceControlState,
+  type WorkbookSavedViewsResource,
+} from "../models/workbookSavedViewControl";
+import type { SavedViewResource } from "../models/workbookSavedViews";
+import { SavedViewActionPanel } from "./SavedViewActionPanel";
 
 export function ActiveSurfaceSavedViewSelector({
   activeViewSchemaId,
@@ -32,7 +37,7 @@ export function ActiveSurfaceSavedViewSelector({
   currentIncidentRole,
   currentUserId,
   isModified = false,
-  savedViews,
+  savedViewsResource,
   selectedSheetRef,
   onCreateSavedView,
   onDeleteSavedView,
@@ -49,7 +54,7 @@ export function ActiveSurfaceSavedViewSelector({
   readonly currentIncidentRole: string | null;
   readonly currentUserId: string | null;
   readonly isModified?: boolean | undefined;
-  readonly savedViews: readonly SavedViewResource[];
+  readonly savedViewsResource: WorkbookSavedViewsResource;
   readonly selectedSheetRef: SheetRef;
   readonly onCreateSavedView: (input: {
     readonly displayName: string;
@@ -72,417 +77,362 @@ export function ActiveSurfaceSavedViewSelector({
     },
   ) => Promise<SavedViewResource>;
 }) {
+  const projection = useMemo(
+    () =>
+      projectActiveSurfaceSavedViews(
+        savedViewsResource,
+        activeViewSchemaId,
+        selectedSheetRef,
+      ),
+    [activeViewSchemaId, savedViewsResource, selectedSheetRef],
+  );
+  const [state, dispatch] = useReducer(
+    reduceSavedViewControl,
+    createSavedViewControlState(
+      activeViewSchemaId,
+      projection.selectedSavedView,
+    ),
+  );
+  const control = savedViewSurfaceControlState(
+    state,
+    activeViewSchemaId,
+    projection.selectedSavedView,
+  );
+  const selectorRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    dispatch({
+      type: "activate",
+      surface: activeViewSchemaId,
+      selectedSavedView: projection.selectedSavedView,
+    });
+  }, [activeViewSchemaId, projection.selectedSavedView]);
+
+  useInvalidSavedViewFallback({
+    activeViewSchemaId,
+    dispatch,
+    onSelectBaseSurface,
+    savedViewsResource,
+  });
+
+  const { runAction } = useActiveSurfaceSavedViewActions({
+    activeViewSchemaId,
+    currentIncidentRole,
+    currentUserId,
+    dispatch,
+    isModified,
+    ports: {
+      create: onCreateSavedView,
+      delete: onDeleteSavedView,
+      duplicate: onDuplicateSavedView,
+      reset: onResetToSavedView,
+      setDefault: onSetDefaultSheetRef,
+      setHome: onSetHomeSheetRef,
+      update: onUpdateSavedView,
+    },
+    projection,
+  });
+
+  return (
+    <SavedViewControlPresentation
+      activeViewSchemaId={activeViewSchemaId}
+      chromeMode={chromeMode}
+      control={control}
+      currentIncidentRole={currentIncidentRole}
+      currentUserId={currentUserId}
+      dispatch={dispatch}
+      isModified={isModified}
+      onSelectBaseSurface={onSelectBaseSurface}
+      onSelectSavedView={onSelectSavedView}
+      projection={projection}
+      runAction={runAction}
+      selectorRef={selectorRef}
+    />
+  );
+}
+
+function useInvalidSavedViewFallback({
+  activeViewSchemaId,
+  dispatch,
+  onSelectBaseSurface,
+  savedViewsResource,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly dispatch: Dispatch<SavedViewControlEvent>;
+  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly savedViewsResource: WorkbookSavedViewsResource;
+}) {
+  const handledSelectionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (savedViewsResource.kind !== "invalid_selection") {
+      handledSelectionRef.current = null;
+      return;
+    }
+    const invalidKey = `${activeViewSchemaId}:${savedViewsResource.selectedSavedViewId}`;
+    if (handledSelectionRef.current === invalidKey) return;
+    handledSelectionRef.current = invalidKey;
+    dispatch({
+      type: "publish_notice",
+      surface: activeViewSchemaId,
+      message:
+        "The selected saved view is no longer available. Showing the base surface.",
+    });
+    onSelectBaseSurface(activeViewSchemaId);
+  }, [activeViewSchemaId, dispatch, onSelectBaseSurface, savedViewsResource]);
+}
+
+function SavedViewControlPresentation({
+  activeViewSchemaId,
+  chromeMode,
+  control,
+  currentIncidentRole,
+  currentUserId,
+  dispatch,
+  isModified,
+  onSelectBaseSurface,
+  onSelectSavedView,
+  projection,
+  runAction,
+  selectorRef,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly chromeMode: WorkbookChromeMode;
+  readonly control: SavedViewSurfaceControlState;
+  readonly currentIncidentRole: string | null;
+  readonly currentUserId: string | null;
+  readonly dispatch: Dispatch<SavedViewControlEvent>;
+  readonly isModified: boolean;
+  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
+  readonly projection: ActiveSurfaceSavedViewProjection;
+  readonly runAction: (intent: SavedViewActionIntent) => void;
+  readonly selectorRef: RefObject<HTMLSelectElement | null>;
+}) {
   const condensedControls = chromeMode !== "base";
   const compactControls =
     chromeMode === "compact_desktop" ||
     chromeMode === "below_supported_minimum";
-  const [displayName, setDisplayName] = useState("Saved view");
-  const [scope, setScope] = useState<"private" | "shared">("private");
-  const [status, setStatus] = useState("");
-  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
-  const activeSavedViews = useMemo(
-    () =>
-      savedViews.filter(
-        (savedView) => savedView.view_schema_id === activeViewSchemaId,
-      ),
-    [activeViewSchemaId, savedViews],
-  );
-  const groupedSavedViews = useMemo(
-    () => ({
-      private: activeSavedViews.filter(
-        (savedView) => savedView.scope === "private",
-      ),
-      shared: activeSavedViews.filter(
-        (savedView) => savedView.scope === "shared",
-      ),
-      system: activeSavedViews.filter(
-        (savedView) => savedView.scope === "system",
-      ),
-    }),
-    [activeSavedViews],
-  );
-  const selectedSavedViewId =
-    selectedSheetRef.kind === "saved_view" &&
-    activeSavedViews.some(
-      (savedView) => savedView.saved_view_id === selectedSheetRef.id,
-    )
-      ? selectedSheetRef.id
-      : "";
-  const selectedSavedView =
-    activeSavedViews.find(
-      (savedView) => savedView.saved_view_id === selectedSavedViewId,
-    ) ?? null;
-  const selectedSavedViewName =
-    selectedSavedView?.display_name ?? "Unsaved view";
-  const selectedSavedViewMutable = canMutateSavedView(
-    selectedSavedView,
-    currentUserId,
-    currentIncidentRole,
-  );
-  const trimmedDisplayName = displayName.trim();
-  const canSetDefault = currentIncidentRole === "admin";
-
-  useEffect(() => {
-    if (selectedSavedView === null) {
-      setDisplayName("Saved view");
-      setScope("private");
-      return;
-    }
-    setDisplayName(selectedSavedView.display_name);
-    setScope(selectedSavedView.scope === "shared" ? "shared" : "private");
-  }, [selectedSavedView]);
-
-  const runSavedViewAction = async (
-    action: () => Promise<void> | void,
-    successMessage: string,
-  ) => {
-    setStatus("");
-    try {
-      await action();
-      setStatus(successMessage);
-      setIsActionMenuOpen(false);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Saved view failed.");
-    }
-  };
-
   return (
     <div
       style={{
         ...savedViewControlGroupStyle,
         ...(condensedControls ? condensedSavedViewControlGroupStyle : null),
-        ...(!condensedControls && selectedSavedView !== null
+        ...(!condensedControls && projection.selectedSavedView !== null
           ? selectedBaseSavedViewControlGroupStyle
           : null),
         ...(compactControls ? compactSavedViewControlGroupStyle : null),
       }}
     >
-      <label
-        style={{
-          ...savedViewSelectorFrameStyle,
-          ...(condensedControls || selectedSavedView !== null
-            ? condensedSavedViewSelectorFrameStyle
-            : null),
-        }}
-      >
-        {condensedControls ? null : (
-          <span style={savedViewSelectorLabelStyle}>View:</span>
-        )}
-        <select
-          aria-label="Saved view"
-          data-active-view-schema-id={activeViewSchemaId}
-          data-selected-saved-view-id={selectedSavedViewId}
-          data-selected-sheet-ref-kind={
-            selectedSavedViewId === "" ? "view_schema" : "saved_view"
-          }
-          data-testid={savedViewSelectorTestId(activeViewSchemaId)}
-          style={{
-            ...savedViewSelectStyle,
-            ...(condensedControls ? compactSavedViewSelectStyle : null),
-            ...(!condensedControls && selectedSavedView !== null
-              ? allocatedBaseSavedViewSelectStyle
-              : null),
-          }}
-          title={selectedSavedViewName}
-          value={selectedSavedViewId}
-          onChange={(event) => {
-            const nextSavedViewId = event.currentTarget.value;
-            setStatus("");
-            if (nextSavedViewId === "") {
-              onSelectBaseSurface(activeViewSchemaId);
-              return;
-            }
-            const savedView = activeSavedViews.find(
-              (candidate) => candidate.saved_view_id === nextSavedViewId,
-            );
-            if (savedView !== undefined) {
-              onSelectSavedView(savedView);
-            }
-          }}
-        >
-          <option value="">Unsaved view</option>
-          <SavedViewOptionGroup
-            activeViewSchemaId={activeViewSchemaId}
-            label="Private"
-            savedViews={groupedSavedViews.private}
-          />
-          <SavedViewOptionGroup
-            activeViewSchemaId={activeViewSchemaId}
-            label="Shared"
-            savedViews={groupedSavedViews.shared}
-          />
-          <SavedViewOptionGroup
-            activeViewSchemaId={activeViewSchemaId}
-            label="System"
-            savedViews={groupedSavedViews.system}
-          />
-        </select>
-      </label>
-      {selectedSavedView !== null && isModified ? (
-        <span
-          data-testid={savedViewModifiedTestId(activeViewSchemaId)}
-          style={{
-            ...modifiedBadgeStyle,
-            ...(condensedControls || selectedSavedView !== null
-              ? condensedModifiedBadgeStyle
-              : null),
-            ...(compactControls ? compactModifiedBadgeStyle : null),
-          }}
-          title="Saved view modified"
-        >
-          Modified
-        </span>
-      ) : null}
-      <div style={actionMenuFrameStyle}>
-        <button
-          aria-controls={
-            isActionMenuOpen
-              ? savedViewActionMenuTestId(activeViewSchemaId)
-              : undefined
-          }
-          aria-expanded={isActionMenuOpen}
-          aria-haspopup="menu"
-          aria-label="Saved view actions"
-          data-testid={savedViewActionMenuTriggerTestId(activeViewSchemaId)}
-          style={iconButtonStyle}
-          type="button"
-          onClick={() => {
-            setIsActionMenuOpen((current) => !current);
-          }}
-        >
-          <MoreHorizontal aria-hidden="true" size={16} />
-        </button>
-        {isActionMenuOpen ? (
-          <div
-            data-testid={savedViewActionMenuTestId(activeViewSchemaId)}
-            id={savedViewActionMenuTestId(activeViewSchemaId)}
-            role="menu"
-            style={actionMenuStyle}
-          >
-            <label style={menuLabelStyle}>
-              Name
-              <input
-                aria-label="Saved view name"
-                data-testid={savedViewNameInputTestId(activeViewSchemaId)}
-                style={inputStyle}
-                type="text"
-                value={displayName}
-                onChange={(event) => {
-                  setDisplayName(event.currentTarget.value);
-                }}
-              />
-            </label>
-            <label style={menuLabelStyle}>
-              Scope
-              <select
-                aria-label="Saved view scope"
-                data-testid={savedViewScopeSelectTestId(activeViewSchemaId)}
-                style={inputStyle}
-                value={scope}
-                onChange={(event) => {
-                  setScope(
-                    event.currentTarget.value === "shared"
-                      ? "shared"
-                      : "private",
-                  );
-                }}
-              >
-                <option value="private">Private</option>
-                <option value="shared">Shared</option>
-              </select>
-            </label>
-            <button
-              data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
-              disabled={trimmedDisplayName === ""}
-              role="menuitem"
-              style={menuActionStyle}
-              type="button"
-              onClick={() => {
-                void runSavedViewAction(async () => {
-                  await onCreateSavedView({
-                    displayName: trimmedDisplayName,
-                    scope,
-                  });
-                }, "Saved view created.");
-              }}
-            >
-              Save as new view
-            </button>
-            {selectedSavedView ? (
-              <>
-                <button
-                  data-testid={savedViewUpdateButtonTestId(
-                    activeViewSchemaId,
-                    selectedSavedView.saved_view_id,
-                  )}
-                  disabled={!selectedSavedViewMutable}
-                  role="menuitem"
-                  style={menuActionStyle}
-                  title={
-                    selectedSavedViewMutable
-                      ? undefined
-                      : "Only the owner or incident administrator can update this view."
-                  }
-                  type="button"
-                  onClick={() => {
-                    void runSavedViewAction(async () => {
-                      await onUpdateSavedView(selectedSavedView, {
-                        displayName:
-                          trimmedDisplayName || selectedSavedView.display_name,
-                        scope,
-                      });
-                    }, "Saved view updated.");
-                  }}
-                >
-                  Update view
-                </button>
-                <button
-                  data-testid={savedViewDuplicateButtonTestId(
-                    activeViewSchemaId,
-                    selectedSavedView.saved_view_id,
-                  )}
-                  role="menuitem"
-                  style={menuActionStyle}
-                  type="button"
-                  onClick={() => {
-                    void runSavedViewAction(async () => {
-                      await onDuplicateSavedView(selectedSavedView);
-                    }, "Saved view duplicated.");
-                  }}
-                >
-                  Duplicate
-                </button>
-                <button
-                  data-testid={savedViewRenameButtonTestId(
-                    activeViewSchemaId,
-                    selectedSavedView.saved_view_id,
-                  )}
-                  disabled={
-                    !selectedSavedViewMutable || trimmedDisplayName === ""
-                  }
-                  role="menuitem"
-                  style={menuActionStyle}
-                  type="button"
-                  onClick={() => {
-                    void runSavedViewAction(async () => {
-                      await onUpdateSavedView(selectedSavedView, {
-                        displayName: trimmedDisplayName,
-                        scope,
-                      });
-                    }, "Saved view renamed.");
-                  }}
-                >
-                  Rename
-                </button>
-                <button
-                  data-testid={savedViewManageSharingButtonTestId(
-                    activeViewSchemaId,
-                    selectedSavedView.saved_view_id,
-                  )}
-                  disabled={!selectedSavedViewMutable}
-                  role="menuitem"
-                  style={menuActionStyle}
-                  type="button"
-                  onClick={() => {
-                    void runSavedViewAction(async () => {
-                      await onUpdateSavedView(selectedSavedView, {
-                        displayName:
-                          trimmedDisplayName || selectedSavedView.display_name,
-                        scope,
-                      });
-                    }, "Saved view sharing updated.");
-                  }}
-                >
-                  Manage sharing
-                </button>
-                <button
-                  data-testid={savedViewResetButtonTestId(
-                    activeViewSchemaId,
-                    selectedSavedView.saved_view_id,
-                  )}
-                  disabled={!isModified}
-                  role="menuitem"
-                  style={menuActionStyle}
-                  type="button"
-                  onClick={() => {
-                    void runSavedViewAction(() => {
-                      onResetToSavedView(selectedSavedView);
-                    }, "Saved configuration restored.");
-                  }}
-                >
-                  Reset to saved configuration
-                </button>
-                <button
-                  data-testid={savedViewDeleteButtonTestId(
-                    activeViewSchemaId,
-                    selectedSavedView.saved_view_id,
-                  )}
-                  disabled={!selectedSavedViewMutable}
-                  role="menuitem"
-                  style={dangerMenuActionStyle}
-                  type="button"
-                  onClick={() => {
-                    void runSavedViewAction(async () => {
-                      await onDeleteSavedView(selectedSavedView);
-                    }, "Saved view deleted.");
-                  }}
-                >
-                  Delete
-                </button>
-              </>
-            ) : null}
-            <button
-              data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
-              role="menuitem"
-              style={menuActionStyle}
-              type="button"
-              onClick={() => {
-                void runSavedViewAction(
-                  onSetHomeSheetRef,
-                  "Home view updated.",
-                );
-              }}
-            >
-              Set as my home
-            </button>
-            <button
-              data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
-              disabled={!canSetDefault}
-              role="menuitem"
-              style={menuActionStyle}
-              title={
-                canSetDefault
-                  ? undefined
-                  : "Only incident administrators can set the incident default."
-              }
-              type="button"
-              onClick={() => {
-                void runSavedViewAction(
-                  onSetDefaultSheetRef,
-                  "Default view updated.",
-                );
-              }}
-            >
-              Set as incident default
-            </button>
-          </div>
-        ) : null}
-      </div>
-      <span
-        aria-live="polite"
-        data-testid={savedViewStatusTestId(activeViewSchemaId)}
-        style={{
-          ...savedViewStatusStyle,
-          ...(condensedControls || selectedSavedView !== null
-            ? condensedSavedViewStatusStyle
-            : null),
-          ...(status === "" ? emptySavedViewStatusStyle : null),
-        }}
-        title={status || undefined}
-      >
-        {status}
-      </span>
+      <SavedViewSelectionField
+        activeViewSchemaId={activeViewSchemaId}
+        condensedControls={condensedControls}
+        dispatch={dispatch}
+        onSelectBaseSurface={onSelectBaseSurface}
+        onSelectSavedView={onSelectSavedView}
+        projection={projection}
+        selectorRef={selectorRef}
+      />
+      <SavedViewModifiedBadge
+        activeViewSchemaId={activeViewSchemaId}
+        compactControls={compactControls}
+        condensedControls={condensedControls}
+        isModified={isModified}
+        selectedSavedView={projection.selectedSavedView}
+      />
+      <SavedViewActionPanel
+        activeViewSchemaId={activeViewSchemaId}
+        control={control}
+        currentIncidentRole={currentIncidentRole}
+        currentUserId={currentUserId}
+        dispatch={dispatch}
+        fallbackFocusRef={selectorRef}
+        isModified={isModified}
+        resourceKind={projection.resourceKind}
+        runAction={runAction}
+        selectedSavedView={projection.selectedSavedView}
+      />
+      <SavedViewStatus
+        activeViewSchemaId={activeViewSchemaId}
+        compact={condensedControls || projection.selectedSavedView !== null}
+        control={control}
+        resourceMessage={projection.resourceMessage}
+      />
     </div>
+  );
+}
+
+function SavedViewSelectionField({
+  activeViewSchemaId,
+  condensedControls,
+  dispatch,
+  onSelectBaseSurface,
+  onSelectSavedView,
+  projection,
+  selectorRef,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly condensedControls: boolean;
+  readonly dispatch: Dispatch<SavedViewControlEvent>;
+  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
+  readonly projection: ActiveSurfaceSavedViewProjection;
+  readonly selectorRef: RefObject<HTMLSelectElement | null>;
+}) {
+  const disabled =
+    projection.resourceKind === "loading" ||
+    projection.resourceKind === "unavailable";
+  return (
+    <label
+      style={{
+        ...savedViewSelectorFrameStyle,
+        ...(condensedControls || projection.selectedSavedView !== null
+          ? condensedSavedViewSelectorFrameStyle
+          : null),
+      }}
+    >
+      {condensedControls ? null : (
+        <span style={savedViewSelectorLabelStyle}>View:</span>
+      )}
+      <select
+        ref={selectorRef}
+        aria-label="Saved view"
+        aria-busy={projection.resourceKind === "loading" || undefined}
+        data-active-view-schema-id={activeViewSchemaId}
+        data-resource-kind={projection.resourceKind}
+        data-selected-saved-view-id={projection.selectedSavedViewId}
+        data-selected-sheet-ref-kind={
+          projection.selectedSavedViewId === "" ? "view_schema" : "saved_view"
+        }
+        data-testid={savedViewSelectorTestId(activeViewSchemaId)}
+        disabled={disabled}
+        style={{
+          ...savedViewSelectStyle,
+          ...(condensedControls ? compactSavedViewSelectStyle : null),
+          ...(!condensedControls && projection.selectedSavedView !== null
+            ? allocatedBaseSavedViewSelectStyle
+            : null),
+        }}
+        title={projection.selectedSavedView?.display_name ?? "Unsaved view"}
+        value={projection.selectedSavedViewId}
+        onChange={(event) => {
+          selectSavedView({
+            activeViewSchemaId,
+            dispatch,
+            nextSavedViewId: event.currentTarget.value,
+            onSelectBaseSurface,
+            onSelectSavedView,
+            projection,
+          });
+        }}
+      >
+        <option value="">
+          {projection.resourceKind === "loading"
+            ? "Loading saved views…"
+            : "Unsaved view"}
+        </option>
+        <SavedViewOptionGroup
+          activeViewSchemaId={activeViewSchemaId}
+          label="Private"
+          savedViews={projection.privateSavedViews}
+        />
+        <SavedViewOptionGroup
+          activeViewSchemaId={activeViewSchemaId}
+          label="Shared"
+          savedViews={projection.sharedSavedViews}
+        />
+        <SavedViewOptionGroup
+          activeViewSchemaId={activeViewSchemaId}
+          label="System"
+          savedViews={projection.systemSavedViews}
+        />
+      </select>
+    </label>
+  );
+}
+
+function selectSavedView({
+  activeViewSchemaId,
+  dispatch,
+  nextSavedViewId,
+  onSelectBaseSurface,
+  onSelectSavedView,
+  projection,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly dispatch: Dispatch<SavedViewControlEvent>;
+  readonly nextSavedViewId: string;
+  readonly onSelectBaseSurface: (viewSchemaId: string) => void;
+  readonly onSelectSavedView: (savedView: SavedViewResource) => void;
+  readonly projection: ActiveSurfaceSavedViewProjection;
+}) {
+  dispatch({ type: "clear_feedback", surface: activeViewSchemaId });
+  if (nextSavedViewId === "") {
+    onSelectBaseSurface(activeViewSchemaId);
+    return;
+  }
+  const savedView = projection.savedViews.find(
+    (candidate) => candidate.saved_view_id === nextSavedViewId,
+  );
+  if (savedView !== undefined) onSelectSavedView(savedView);
+}
+
+function SavedViewModifiedBadge({
+  activeViewSchemaId,
+  compactControls,
+  condensedControls,
+  isModified,
+  selectedSavedView,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly compactControls: boolean;
+  readonly condensedControls: boolean;
+  readonly isModified: boolean;
+  readonly selectedSavedView: SavedViewResource | null;
+}) {
+  if (selectedSavedView === null || !isModified) return null;
+  return (
+    <span
+      data-testid={savedViewModifiedTestId(activeViewSchemaId)}
+      style={{
+        ...modifiedBadgeStyle,
+        ...(condensedControls || selectedSavedView !== null
+          ? condensedModifiedBadgeStyle
+          : null),
+        ...(compactControls ? compactModifiedBadgeStyle : null),
+      }}
+      title="Saved view modified"
+    >
+      Modified
+    </span>
+  );
+}
+
+function SavedViewStatus({
+  activeViewSchemaId,
+  compact,
+  control,
+  resourceMessage,
+}: {
+  readonly activeViewSchemaId: string;
+  readonly compact: boolean;
+  readonly control: SavedViewSurfaceControlState;
+  readonly resourceMessage: string | null;
+}) {
+  const status = control.feedback?.message ?? resourceMessage ?? "";
+  return (
+    <span
+      aria-live={control.feedback?.kind === "error" ? "assertive" : "polite"}
+      data-feedback-kind={control.feedback?.kind}
+      data-testid={savedViewStatusTestId(activeViewSchemaId)}
+      style={{
+        ...savedViewStatusStyle,
+        ...(compact ? condensedSavedViewStatusStyle : null),
+        ...(status === "" ? emptySavedViewStatusStyle : null),
+      }}
+      title={status || undefined}
+    >
+      {status}
+    </span>
   );
 }
 
@@ -495,9 +445,7 @@ function SavedViewOptionGroup({
   readonly label: string;
   readonly savedViews: readonly SavedViewResource[];
 }) {
-  if (savedViews.length === 0) {
-    return null;
-  }
+  if (savedViews.length === 0) return null;
   return (
     <optgroup label={label}>
       {savedViews.map((savedView) => (
@@ -553,9 +501,7 @@ const condensedSavedViewSelectorFrameStyle = {
   maxInlineSize: "100%",
 };
 
-const compactSavedViewControlGroupStyle = {
-  gap: "0.15rem",
-};
+const compactSavedViewControlGroupStyle = { gap: "0.15rem" };
 
 const savedViewSelectorLabelStyle = {
   margin: 0,
@@ -614,69 +560,7 @@ const condensedModifiedBadgeStyle = {
   textOverflow: "ellipsis",
 };
 
-const compactModifiedBadgeStyle = {
-  maxInlineSize: "1.75rem",
-};
-
-const actionMenuFrameStyle = {
-  position: "relative" as const,
-  display: "inline-flex",
-  flex: "0 0 auto",
-};
-
-const iconButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  inlineSize: "1.9rem",
-  blockSize: "1.9rem",
-  borderRadius: "var(--ct-rounded-xs)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-ink)",
-  cursor: "pointer",
-};
-
-const actionMenuStyle = {
-  position: "absolute" as const,
-  zIndex: 22,
-  insetBlockStart: "calc(100% + 0.35rem)",
-  insetInlineStart: 0,
-  display: "grid",
-  gap: "0.35rem",
-  inlineSize: "min(22rem, 86vw)",
-  maxBlockSize: "28rem",
-  overflowY: "auto" as const,
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-md)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-popover)",
-  padding: "0.55rem",
-};
-
-const menuLabelStyle = {
-  display: "grid",
-  gap: "0.25rem",
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.82rem",
-};
-
-const menuActionStyle = {
-  border: 0,
-  borderRadius: "var(--ct-rounded-xs)",
-  background: "transparent",
-  color: "var(--ct-colors-ink)",
-  cursor: "pointer",
-  font: "inherit",
-  padding: "0.45rem 0.5rem",
-  textAlign: "left" as const,
-};
-
-const dangerMenuActionStyle = {
-  ...menuActionStyle,
-  color: "var(--ct-colors-semantic-conflict)",
-  fontWeight: 700,
-};
+const compactModifiedBadgeStyle = { maxInlineSize: "1.75rem" };
 
 const savedViewStatusStyle = {
   color: "var(--ct-colors-ink-muted)",

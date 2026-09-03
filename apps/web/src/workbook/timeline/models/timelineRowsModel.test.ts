@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import type { WorkbookRow } from "./timelineRowModel";
 import {
   buildTimelineGridRows,
   ensureTimelineDraftRow,
 } from "./timelineRowsModel";
-import type { WorkbookRow } from "./workbookTimelineModel";
 
 function workbookRow(
   key: string,

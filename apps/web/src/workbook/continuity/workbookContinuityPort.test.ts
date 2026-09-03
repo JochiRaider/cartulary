@@ -29,7 +29,7 @@ describe("WorkbookContinuityPort", () => {
     const supersededToken = port.capture();
     const token = port.capture();
 
-    expect(token).toMatch(/^workbook-continuity-\d+$/);
+    expect(token).not.toBe(supersededToken);
     expect(port.restore(supersededToken)).toBe(false);
     expect(port.snapshot().anchor).toEqual(anchor());
     expect(port.restore(token)).toBe(true);

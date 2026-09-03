@@ -115,7 +115,6 @@ describe("Timeline workbook grid coverage", () => {
         }),
       }),
     );
-
     const { container } = render(
       <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
@@ -970,6 +969,28 @@ describe("Timeline workbook grid coverage", () => {
         }),
       }),
     );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "10000000-0000-4000-8000-000000000001",
+        view_schema_id: timelineViewSchemaId,
+        rows: [
+          timelineRow({
+            recordId: "20000000-0000-4000-8000-000000000002",
+            rowVersion: 3,
+            summary: "Alpha",
+            captureState: "rough",
+            hasEvidence: false,
+          }),
+          timelineRow({
+            recordId: "20000000-0000-4000-8000-000000000001",
+            rowVersion: 8,
+            summary: "Filtered anchor",
+            captureState: "enriched",
+            hasEvidence: false,
+          }),
+        ],
+      }),
+    );
 
     const { container } = render(
       <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
@@ -1082,7 +1103,7 @@ describe("Timeline workbook grid coverage", () => {
     fireEvent.blur(summaryInput);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(5);
+      expect(fetchMock).toHaveBeenCalledTimes(6);
     });
     expect(
       String(requireFetchCall(fetchMock, 4, "timeline patch request #4")[0]),

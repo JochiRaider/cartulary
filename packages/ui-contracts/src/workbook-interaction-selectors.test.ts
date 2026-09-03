@@ -83,11 +83,9 @@ import {
   savedViewDeleteButtonTestId,
   savedViewDuplicateButtonTestId,
   savedViewFamilySelector,
-  savedViewManageSharingButtonTestId,
   savedViewModifiedTestId,
   savedViewNameInputTestId,
   savedViewOptionTestId,
-  savedViewRenameButtonTestId,
   savedViewResetButtonTestId,
   savedViewScopeSelectTestId,
   savedViewSelectorTestId,
@@ -372,17 +370,6 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     );
     expect(savedViewModifiedTestId("cartulary.view.hosts.v1")).toBe(
       "saved-view-modified-cartulary.view.hosts.v1",
-    );
-    expect(
-      savedViewRenameButtonTestId("cartulary.view.hosts.v1", "saved/view 1"),
-    ).toBe("saved-view-rename-cartulary.view.hosts.v1-saved%2Fview%201");
-    expect(
-      savedViewManageSharingButtonTestId(
-        "cartulary.view.hosts.v1",
-        "saved/view 1",
-      ),
-    ).toBe(
-      "saved-view-manage-sharing-cartulary.view.hosts.v1-saved%2Fview%201",
     );
     expect(
       savedViewResetButtonTestId("cartulary.view.hosts.v1", "saved/view 1"),

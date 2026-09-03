@@ -2,7 +2,12 @@ import type {
   GridCellAnchor,
   GridNavigationIntent,
 } from "@cartulary/grid-adapter";
-import { type KeyboardEvent as ReactKeyboardEvent, useCallback } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useLayoutEffect,
+  useState,
+} from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
 import {
   type WorkbookInspectorFeedback,
@@ -13,19 +18,19 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { TimelineScalarSaveOptions } from "../models/timelineControllerPorts";
 import {
-  mapTimelineCollectionEditorIntent,
-  mapTimelineScalarEditorIntent,
-  mapTimelineWorkAreaInspectorIntent,
-  type TimelineEditorKeyboardIntent,
-} from "../models/timelineKeyboardIntentModel";
-import {
   type CollectionDraftKey,
   type CollectionFieldKey,
   type RowValues,
   type TimelineScalarEditorSurface,
   timelineScalarBindings,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineFieldRegistry";
+import {
+  mapTimelineCollectionEditorIntent,
+  mapTimelineScalarEditorIntent,
+  mapTimelineWorkAreaInspectorIntent,
+  type TimelineEditorKeyboardIntent,
+} from "../models/timelineKeyboardIntentModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type QueueScalarSave = (
   rowKey: string,
@@ -207,6 +212,14 @@ export function useTimelineKeyboardController({
     readonly current: WorkbookContinuityAnchor | null;
   };
 }) {
+  const [pendingInspectorFocus, setPendingInspectorFocus] = useState<{
+    readonly identity: {
+      readonly recordId: string;
+      readonly rowVersion: number;
+      readonly viewSchemaId: string;
+    };
+    readonly section: "evidence" | "history";
+  } | null>(null);
   const closeInspectorFromEditor = useCallback(
     (anchor: GridCellAnchor | null) => {
       if (anchor === null) return false;
@@ -253,6 +266,7 @@ export function useTimelineKeyboardController({
         surface,
       });
       if (intent.preventDefault) event.preventDefault();
+      if (intent.stopPropagation) event.stopPropagation();
       executeScalarEditorIntent({
         anchor,
         closeInspector: closeInspectorFromEditor,
@@ -299,6 +313,7 @@ export function useTimelineKeyboardController({
           rowHistory.phase !== "idle",
       });
       if (intent.preventDefault) event.preventDefault();
+      if (intent.stopPropagation) event.stopPropagation();
       if (intent.kind === "close_inspector") {
         closeInspectorFromEditor(anchor);
         return;
@@ -338,12 +353,19 @@ export function useTimelineKeyboardController({
         rowVersion: row.rowVersion,
         viewSchemaId: timelineViewSchemaId,
       };
-      window.requestAnimationFrame(() => {
-        elementRegistry.focusPanel(identity, section);
-      });
+      setPendingInspectorFocus({ identity, section });
     },
-    [elementRegistry],
+    [],
   );
+
+  useLayoutEffect(() => {
+    if (pendingInspectorFocus === null) return;
+    elementRegistry.focusPanel(
+      pendingInspectorFocus.identity,
+      pendingInspectorFocus.section,
+    );
+    setPendingInspectorFocus(null);
+  }, [elementRegistry, pendingInspectorFocus]);
 
   const onWorkAreaKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -368,8 +390,8 @@ export function useTimelineKeyboardController({
       });
       if (intent.kind === "none") return;
 
-      event.preventDefault();
-      event.stopPropagation();
+      if (intent.preventDefault) event.preventDefault();
+      if (intent.stopPropagation) event.stopPropagation();
       const recordId = intent.row.recordId;
       if (recordId === null) return;
       if (intent.kind === "open_panel" && intent.panelId === "history") {

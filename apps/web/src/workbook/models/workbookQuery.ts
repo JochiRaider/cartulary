@@ -2,6 +2,7 @@ import {
   resolveHeaderSortFieldKey,
   type ViewContract,
 } from "@cartulary/view-contracts";
+import type { WorkbookProtocolQueryViewRequest } from "../adapters/workbookProtocolTypes";
 
 export type WorkbookFilter = {
   readonly arg: Record<string, unknown>;
@@ -210,8 +211,8 @@ export function removeFilterField(
 export function buildQueryRequest(
   contract: ViewContract,
   state: WorkbookQueryState,
-): Record<string, unknown> {
-  const request: Record<string, unknown> = {};
+): WorkbookProtocolQueryViewRequest {
+  const request: WorkbookProtocolQueryViewRequest = {};
   const sort = normalizeSortForRequest(contract, state);
   if (sort.length > 0) {
     request.sort = sort.map((entry) => ({
@@ -221,7 +222,7 @@ export function buildQueryRequest(
   }
   const filters = normalizeFiltersForWire(contract, state);
   if (filters.length > 0) {
-    request.filters = filters;
+    request.filters = [...filters];
   }
   if (state.groupBy && contract.groupableFieldMap[state.groupBy]) {
     request.group_by = state.groupBy;

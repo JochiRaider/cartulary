@@ -12,7 +12,7 @@ const validConflict = {
   base_row_version: 3,
   base_value: "base",
   client_value: "local",
-  conflict_resolution_class: "text_compare_merge",
+  conflict_resolution_class: "text_compare_merge" as const,
   conflict_token: "token-1",
   current_row_version: 4,
   field_key: "timeline.activity_synopsis_text",
@@ -71,10 +71,14 @@ describe("workbookConflictModel", () => {
     });
   });
 
-  it("falls unknown classes back to atomic replacement", () => {
-    expect(workbookConflictResolutionClass("future_class")).toBe(
-      "atomic_replace",
-    );
+  it("rejects unknown conflict resolution classes", () => {
+    expect(workbookConflictResolutionClass("future_class")).toBeNull();
+    expect(
+      parseSameFieldConflictFields({
+        ...validConflict,
+        conflict_resolution_class: "future_class",
+      }),
+    ).toBeNull();
   });
 
   it("starts text merge from the saved value and never the suggestion", () => {

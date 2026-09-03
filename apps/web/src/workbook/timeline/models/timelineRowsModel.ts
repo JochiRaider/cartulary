@@ -6,12 +6,9 @@ import {
 } from "@cartulary/ui-contracts";
 import type { ReactNode } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { inputFocusKey } from "./timelineFieldRegistry";
+import { createDraftRow, type WorkbookRow } from "./timelineRowModel";
 import type { WorkbookVersionedRecord } from "./workbookRecordFreshness";
-import {
-  createDraftRow,
-  inputFocusKey,
-  type WorkbookRow,
-} from "./workbookTimelineModel";
 
 type TimelineGridRows = {
   readonly draftRow?: GridDraftRow<WorkbookRow> | undefined;

@@ -2,7 +2,10 @@ import {
   publicErrorCode,
   publicErrorStatusText,
 } from "../../shared/publicError";
-import { parseSameFieldConflictFields } from "../runtime/workbookConflictModel";
+import {
+  parseSameFieldConflictFields,
+  type SameFieldConflictFields,
+} from "../runtime/workbookConflictModel";
 import { workbookEditRecoveryPresentation } from "./workbookEditRecoveryPresentation";
 
 export const pendingReplayCapacity = 64;
@@ -111,14 +114,7 @@ export type PendingReplayPublicError = {
   details?: Record<string, unknown>;
 };
 
-export type PendingReplayPublicSameFieldConflict = Record<string, unknown> & {
-  base_row_version: number;
-  conflict_resolution_class: string;
-  conflict_token: string;
-  current_row_version: number;
-  field_key: string;
-  record_id: string;
-};
+export type PendingReplayPublicSameFieldConflict = SameFieldConflictFields;
 
 export type PendingReplayPublicResult =
   | {
@@ -351,6 +347,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function errorCodeWithReason(
+  error: Readonly<Record<string, unknown>>,
+): string | null {
+  const code = error.code;
+  if (typeof code !== "string" || code.trim() === "") return null;
+  const details = error.details;
+  if (!isRecord(details)) return code;
+  const reason = details.reason_code;
+  return typeof reason === "string" && reason.trim() !== ""
+    ? `${code}: ${reason}`
+    : code;
+}
+
 function publicErrorMessageFromPayload(payload: unknown): string {
   if (!isRecord(payload) || !isRecord(payload.error)) {
     return "Request failed.";
@@ -369,18 +378,7 @@ function publicErrorMessageFromPayload(payload: unknown): string {
   if (message !== "Request failed.") {
     return message;
   }
-  if (typeof error.code === "string" && error.code.trim() !== "") {
-    const details = error.details;
-    if (
-      isRecord(details) &&
-      typeof details.reason_code === "string" &&
-      details.reason_code.trim() !== ""
-    ) {
-      return `${error.code}: ${details.reason_code}`;
-    }
-    return error.code;
-  }
-  return "Request failed.";
+  return errorCodeWithReason(error) ?? "Request failed.";
 }
 
 function parsePendingReplayPublicConflict(
@@ -450,6 +448,12 @@ function stableJSONValue(value: unknown): unknown {
   if (!isRecord(value)) {
     return value;
   }
+  return stableJSONRecord(value);
+}
+
+function stableJSONRecord(
+  value: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
   const output: Record<string, unknown> = {};
   for (const key of Object.keys(value).sort()) {
     output[key] = stableJSONValue(value[key]);
@@ -460,7 +464,7 @@ function stableJSONValue(value: unknown): unknown {
 function cloneJSONRecord(
   value: Record<string, unknown>,
 ): Record<string, unknown> {
-  return stableJSONValue(value) as Record<string, unknown>;
+  return stableJSONRecord(value);
 }
 
 function cloneVisibleEdit(
@@ -584,7 +588,7 @@ function canonicalizePendingReplayChanges(
     : [];
   return rawChanges
     .map((change) => {
-      const canonical = stableJSONValue(change) as Record<string, unknown>;
+      const canonical = stableJSONRecord(change);
       return {
         ...canonical,
         field_key: typeof change.field_key === "string" ? change.field_key : "",
@@ -985,9 +989,7 @@ function sameFieldConflictAnchor(
   error: PendingReplayPublicError,
   viewSchemaId: string,
 ): PendingReplaySameFieldConflict | null {
-  const conflict = parseSameFieldConflictFields(
-    error.conflict,
-  ) as PendingReplayPublicSameFieldConflict | null;
+  const conflict = parseSameFieldConflictFields(error.conflict);
   if (conflict === null) {
     return null;
   }

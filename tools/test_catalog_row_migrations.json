@@ -45,6 +45,15 @@
         "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
       ],
       "reason": "The retired informative row combined two small-fixture surrogates; AC-043 now requires four independent release-tier product predicates."
+    },
+    {
+      "retired_row_id": "module.workbook.frontend.keyboard_command_mapping_covers_arrow_keys_enter_936238eee1",
+      "replacement_row_ids": [
+        "module.timeline.frontend.timeline_editor_and_work_area_keyboard_decisions_0b1dcd0588",
+        "module.workbook.frontend.workbook_application_shortcuts_are_explicit_capa_39a6d43e21",
+        "web.workbook.regression.registered_workbook_overlay_navigation_focuses_t_8d7c1faa31"
+      ],
+      "reason": "The retired mapper mixed Grid Adapter navigation, Timeline editor behavior, Workbook application shortcuts, and focus side effects. Exact Timeline and Workbook policies plus the registered overlay-focus primitive now prove each authority independently."
     }
   ]
 }

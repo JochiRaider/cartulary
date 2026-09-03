@@ -24,15 +24,13 @@ import {
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
+import type { LocalConflictState } from "../models/timelineConflictState";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import {
   buildInspectorMentions,
   type DismissedMention,
 } from "../models/workbookMentionChips";
-import type {
-  LocalConflictState,
-  WorkbookRow,
-} from "../models/workbookTimelineModel";
 
 type TimelineRowsRef = {
   readonly current: readonly WorkbookRow[];
@@ -127,6 +125,17 @@ export function useTimelineInspectorRowInteractions({
 }) {
   const [rowContextMenu, setRowContextMenu] =
     useState<TimelineRowContextMenuState | null>(null);
+  const [pendingMentionFocus, setPendingMentionFocus] = useState<{
+    readonly identity: {
+      readonly recordId: string;
+      readonly rowVersion: number;
+      readonly viewSchemaId: string;
+    };
+    readonly itemRef: string;
+    readonly sourceRecordId: string;
+  } | null>(null);
+  const rowContextMenuFallbackFocusRef = useRef<HTMLElement | null>(null);
+  const rowContextMenuReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const handleSelectRow = useCallback(
     (recordId: string) => {
@@ -164,11 +173,16 @@ export function useTimelineInspectorRowInteractions({
   );
 
   const openTimelineRowContextMenu = useCallback(
-    (row: WorkbookRow, position: TimelineRowContextMenuPosition) => {
+    (
+      row: WorkbookRow,
+      position: TimelineRowContextMenuPosition,
+      returnFocusTarget: HTMLElement | null,
+    ) => {
       if (row.recordId === null) {
         return;
       }
       handleSelectRow(row.recordId);
+      rowContextMenuReturnFocusRef.current = returnFocusTarget;
       setRowContextMenu({
         position,
         recordId: row.recordId,
@@ -185,10 +199,17 @@ export function useTimelineInspectorRowInteractions({
       }
       event.preventDefault();
       event.stopPropagation();
-      openTimelineRowContextMenu(row, {
-        x: event.clientX,
-        y: event.clientY,
-      });
+      rowContextMenuFallbackFocusRef.current = event.currentTarget;
+      openTimelineRowContextMenu(
+        row,
+        {
+          x: event.clientX,
+          y: event.clientY,
+        },
+        event.target instanceof HTMLElement
+          ? event.target
+          : event.currentTarget,
+      );
     },
     [openTimelineRowContextMenu, timelineRowForEventTarget],
   );
@@ -217,10 +238,15 @@ export function useTimelineInspectorRowInteractions({
       const fallbackRect = event.currentTarget.getBoundingClientRect();
       event.preventDefault();
       event.stopPropagation();
-      openTimelineRowContextMenu(row, {
-        x: targetRect ? targetRect.left + 12 : fallbackRect.left + 16,
-        y: targetRect ? targetRect.top + 12 : fallbackRect.top + 16,
-      });
+      rowContextMenuFallbackFocusRef.current = event.currentTarget;
+      openTimelineRowContextMenu(
+        row,
+        {
+          x: targetRect ? targetRect.left + 12 : fallbackRect.left + 16,
+          y: targetRect ? targetRect.top + 12 : fallbackRect.top + 16,
+        },
+        targetElement ?? event.currentTarget,
+      );
     },
     [openTimelineRowContextMenu, timelineRowForEventTarget],
   );
@@ -256,25 +282,19 @@ export function useTimelineInspectorRowInteractions({
       setSelectedMentionRef(itemRef);
       setInspectorMessage(null);
       setIsInspectorOpen(true);
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          if (rowVersion === null || elementRegistry.containsActiveElement()) {
-            return;
-          }
-          elementRegistry.focusMention(
-            {
-              recordId: rowRecordId,
-              rowVersion,
-              viewSchemaId: timelineViewSchemaId,
-            },
-            rowRecordId,
-            itemRef,
-          );
+      if (rowVersion !== null) {
+        setPendingMentionFocus({
+          identity: {
+            recordId: rowRecordId,
+            rowVersion,
+            viewSchemaId: timelineViewSchemaId,
+          },
+          itemRef,
+          sourceRecordId: rowRecordId,
         });
-      });
+      }
     },
     [
-      elementRegistry,
       rowsRef,
       setInspectorMessage,
       setIsInspectorOpen,
@@ -282,6 +302,17 @@ export function useTimelineInspectorRowInteractions({
       setSelectedRowId,
     ],
   );
+
+  useLayoutEffect(() => {
+    if (pendingMentionFocus === null) return;
+    setPendingMentionFocus(null);
+    if (elementRegistry.containsActiveElement()) return;
+    elementRegistry.focusMention(
+      pendingMentionFocus.identity,
+      pendingMentionFocus.sourceRecordId,
+      pendingMentionFocus.itemRef,
+    );
+  }, [elementRegistry, pendingMentionFocus]);
 
   return {
     commands: {
@@ -297,6 +328,8 @@ export function useTimelineInspectorRowInteractions({
     snapshot: {
       activeRowContextMenuRow,
       rowContextMenu,
+      rowContextMenuFallbackFocusRef,
+      rowContextMenuReturnFocusRef,
       selectedRowId,
     },
   };

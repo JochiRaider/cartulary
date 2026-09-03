@@ -5,8 +5,8 @@ import type {
 import type {
   FocusFieldKey,
   TimelineScalarEditorSurface,
-  WorkbookRow,
-} from "./workbookTimelineModel";
+} from "./timelineFieldRegistry";
+import type { WorkbookRow } from "./timelineRowModel";
 
 export type TimelineMutableRef<T> = {
   current: T;
@@ -62,7 +62,7 @@ export type TimelineRowMutationEditorPort = {
   }) => void;
 };
 
-export type PendingReplayRuntimeMeta = {
+export type TimelineReplayContext = {
   focusField: FocusFieldKey;
   focusKey: string;
   surface: TimelineScalarEditorSurface;

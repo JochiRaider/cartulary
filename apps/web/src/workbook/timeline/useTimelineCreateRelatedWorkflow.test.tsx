@@ -13,7 +13,7 @@ import type {
 } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import { useTimelineCreateRelatedWorkflow } from "./hooks/useTimelineCreateRelatedWorkflow";
-import type { WorkbookRow } from "./models/workbookTimelineModel";
+import type { WorkbookRow } from "./models/timelineRowModel";
 
 const timeline = requireViewContract(timelineViewSchemaId);
 const evidence = requireViewContract(evidenceViewSchemaId);

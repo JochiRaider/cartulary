@@ -11,7 +11,7 @@ import {
   normalizeTimelineFullRow,
   rowFromApi,
   type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 import { useTimelineBulkTagController } from "./useTimelineBulkTagController";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);

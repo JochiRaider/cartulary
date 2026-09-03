@@ -1,5 +1,6 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
+import type { WorkbookClipboardPastePort } from "../../adapters/WorkbookClipboardPastePort";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type { WorkbookGridEntryFocusOwner } from "../../models/workbookGridEntryFocus";
@@ -12,7 +13,6 @@ import type {
   TimelineMutationCommandPorts,
 } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../../ports/WorkbookIncidentPort";
-import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -45,7 +45,7 @@ export type TimelineWorkbookSurfaceRuntime = {
   readonly attachCollaborationSession: boolean;
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly pendingMutationPort: WorkbookPendingMutationPort;
+  readonly clipboardPaste: WorkbookClipboardPastePort;
   readonly mutationCommands: TimelineMutationCommandPorts;
   readonly indicatorWorkflow: IndicatorWorkflowPort;
   readonly gridEntryFocus: WorkbookGridEntryFocusOwner;

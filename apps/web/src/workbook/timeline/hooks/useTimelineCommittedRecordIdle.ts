@@ -1,14 +1,11 @@
 import { useCallback } from "react";
-import {
-  refreshBlocksWorkbookPendingRecord,
-  type WorkbookPendingSavesRefs,
-} from "../../runtime/workbookPendingReplayRuntime";
+import { refreshBlocksWorkbookPendingRecord } from "../../runtime/workbookPendingReplayRuntime";
 import type {
-  PendingReplayRuntimeMeta,
   TimelineCommittedRecordIdleResult,
   TimelineMutableRef,
 } from "../models/timelineControllerPorts";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineCommittedRecordIdleOptions = {
   readonly fallbackRowVersion?: number | null | undefined;
@@ -30,7 +27,7 @@ export function useTimelineCommittedRecordIdle({
   readonly loadRows: (options: {
     readonly showLoading: boolean;
   }) => Promise<void>;
-  readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
+  readonly pendingSavesRefs: TimelinePendingSavesRefs;
 }) {
   return useCallback(
     async (

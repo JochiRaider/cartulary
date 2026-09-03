@@ -6,15 +6,15 @@ import {
   type WorkbookPendingQueueRuntime,
   type WorkbookPendingQueueSnapshot,
   type WorkbookPendingRefreshBlockScope,
-  type WorkbookPendingSavesRefs,
   workbookPendingQueueSnapshot,
 } from "../../runtime/workbookPendingReplayRuntime";
 import {
   deriveWorkbookSaveState,
   type WorkbookSaveStateConflictAnchor,
 } from "../../utils/workbookPendingQueue";
+import type { LocalConflictState } from "../models/timelineConflictState";
 import type { TimelineMutableRef } from "../models/timelineControllerPorts";
-import type { LocalConflictState } from "../models/workbookTimelineModel";
+import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 
 type TimelineSaveStateLabel = "Conflict" | "Saved" | "Syncing";
 
@@ -26,7 +26,7 @@ function saveStateConflictAnchorsFromLocalConflicts(
   return Object.values(conflicts).map((entry) => ({ ...entry.anchor }));
 }
 
-export function useTimelineSaveStatePresentation<TMeta>({
+export function useTimelineSaveStatePresentation({
   conflictQueue,
   conflictQueueRef,
   mutationRuntime,
@@ -40,12 +40,12 @@ export function useTimelineSaveStatePresentation<TMeta>({
   >;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
-  readonly pendingSavesRefs: WorkbookPendingSavesRefs<TMeta>;
+  readonly pendingSavesRefs: TimelinePendingSavesRefs;
   readonly setPendingQueueSnapshot: TimelineSetState<WorkbookPendingQueueSnapshot>;
 }) {
   const computeSaveStatePresentation = useCallback(
     (
-      pending: WorkbookPendingQueueRuntime<TMeta>,
+      pending: WorkbookPendingQueueRuntime,
       conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
     ) => {
       const snapshot = pending.model.snapshot();
@@ -67,7 +67,7 @@ export function useTimelineSaveStatePresentation<TMeta>({
 
   const publishSaveStatePresentation = useCallback(
     (
-      pending: WorkbookPendingQueueRuntime<TMeta>,
+      pending: WorkbookPendingQueueRuntime,
       conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
     ) => {
       const presentation = computeSaveStatePresentation(pending, conflicts);

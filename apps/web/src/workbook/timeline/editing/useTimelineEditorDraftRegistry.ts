@@ -6,8 +6,8 @@ import {
   type TimelineScalarEditorSurface,
   timelineScalarBindings,
   timelineScalarEditorSurfaces,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineFieldRegistry";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineScalarEditorIdentity = {
   readonly field: keyof RowValues;

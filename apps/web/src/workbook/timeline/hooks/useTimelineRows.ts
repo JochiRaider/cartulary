@@ -1,9 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { TimelineRowStoreCommands } from "../models/timelineControllerPorts";
-import {
-  createDraftRow,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+import { createDraftRow, type WorkbookRow } from "../models/timelineRowModel";
 
 export function useTimelineRows() {
   const [rows, setRows] = useState<WorkbookRow[]>(() => [createDraftRow(1)]);

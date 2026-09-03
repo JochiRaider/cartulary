@@ -104,6 +104,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.activesurfacesavedviewselector_resource_action_focus_a103000001",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/ActiveSurfaceSavedViewSelector.test.tsx",
+        "titles": [
+          "ActiveSurfaceSavedViewSelector admits only one action and ignores its completion after a surface switch",
+          "ActiveSurfaceSavedViewSelector falls back from an invalid selection with inline notice",
+          "ActiveSurfaceSavedViewSelector renders explicit loading and unavailable feedback",
+          "ActiveSurfaceSavedViewSelector revalidates owner and role before update dispatch",
+          "ActiveSurfaceSavedViewSelector uses a labelled dialog, removes redundant actions, and restores focus on Escape"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.assessmentworkbookmodel_keeps_assessment_column_e8493a2ec0",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -466,6 +496,65 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.grid_controls_component_a104000002",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/components/WorkbookGridControls.test.tsx",
+        "titles": [
+          "WorkbookGridControls exposes add, direction, priority, boundary, removal, and limit recovery actions",
+          "WorkbookGridControls keeps column commands available when every data column is hidden",
+          "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
+          "WorkbookGridControls parses filter controls exactly and restores focus on Escape"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.grid_controls_model_a104000001",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookGridQueryControls.test.ts",
+        "titles": [
+          "workbookGridQueryControls executes the complete ordered-sort lifecycle with reference-preserving no-ops",
+          "workbookGridQueryControls keeps transient drafts surface-keyed and closes the inactive surface",
+          "workbookGridQueryControls parses controlled values exactly and rejects malformed filter drafts",
+          "workbookGridQueryControls projects closure-free semantic chips in canonical responsive order",
+          "workbookGridQueryControls rejects a ninth or duplicate sort and recovers admission after removal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_create_related_workflow_stale_results_31f0cbe2d1",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -560,6 +649,36 @@
           "ReferenceQueryBroker binds incident and authorization generation at construction",
           "ReferenceQueryBroker deduplicates in-flight work while keeping shared-consumer cancellation local",
           "ReferenceQueryBroker keeps identical queries isolated between Workbook broker instances"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.registered_workbook_overlay_navigation_focuses_t_8d7c1faa31",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/focus/useRegisteredOverlayNavigation.test.tsx",
+        "titles": [
+          "closes on subject change and restores to a registered fallback",
+          "closes without restoring when focus leaves the registered surface",
+          "focuses on open, wraps, skips disabled items, and restores on Escape",
+          "keeps a programmatically focused overlay root inside the focus boundary",
+          "restores through the fallback when closing unmounts the navigation owner"
         ]
       },
       "evidence_class": "unit",
@@ -829,6 +948,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.timeline_mutation_driver_plans_7f34b61c90",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineMutationDriverPlans.test.ts",
+        "titles": [
+          "Timeline mutation driver plans admits only the exact current owner unit with a committed patch version",
+          "Timeline mutation driver plans keeps Timeline owner queue context across surface remounts",
+          "Timeline mutation driver plans makes stale accepted projection and discard effects explicit",
+          "Timeline mutation driver plans pauses for authentication, terminal, and conflict gates",
+          "Timeline mutation driver plans projects every rejected settlement into an explicit driver action"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.timeline_presence_derivation_and_publication_eb6a4ede0e",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -843,6 +992,34 @@
           "useTimelinePresenceController clears the local draft on surface or authorization lifecycle reset without publishing",
           "useTimelinePresenceController derives row and editing-cell markers only from stable record and field identities",
           "useTimelinePresenceController publishes coherent viewing and editing transitions and keeps selection from overriding an edit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_row_action_overlay_opens_from_pointer_a_d6ad456872",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline",
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
+        "titles": [
+          "opens Timeline row actions from the committed row context menu",
+          "opens Timeline row actions from the keyboard and ignores draft rows"
         ]
       },
       "evidence_class": "unit",
@@ -1284,6 +1461,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.useworkbookextensionavailability_lifecycle_a105000001",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookExtensionAvailability.test.tsx",
+        "titles": [
+          "useWorkbookExtensionAvailability mutates discovery after render and preserves one controller per subject"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.useworkbookinspectorcoordinator_suite_13c01816cc",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1371,8 +1572,11 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookSavedViewController.test.tsx",
         "titles": [
           "useWorkbookSavedViewController accumulates explicit pages without publishing a partial list",
+          "useWorkbookSavedViewController admits only one mutation action at a time",
           "useWorkbookSavedViewController fails closed on cyclic cursors and duplicate resources",
+          "useWorkbookSavedViewController ignores a late accepted mutation after the active surface changes",
           "useWorkbookSavedViewController owns saved-view loading and query/identity precedence",
+          "useWorkbookSavedViewController publishes an invalid-selection resource only after complete loading",
           "useWorkbookSavedViewController rejects a late create after the incident-bound port is replaced",
           "useWorkbookSavedViewController routes semantic access loss and publishes no rejected list state"
         ]
@@ -2003,6 +2207,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.workbooksavedviewcontrol_resource_reducer_parser_a103000002",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookSavedViewControl.test.ts",
+        "titles": [
+          "workbookSavedViewControl keeps form state surface-keyed and ignores stale action completion",
+          "workbookSavedViewControl parses only the editable scope vocabulary",
+          "workbookSavedViewControl projects loading, unavailable, invalid, and surface-filtered ready resources"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.workbooksavedviewruntime_derives_runtime_query_s_8d12bb6335",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2566,7 +2798,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
-          "keyboard and grid anchor coverage dispatches multi-row CSV pasted into the draft Time cell as create-row targets"
+          "keyboard and grid anchor coverage keeps multi-row text in the native draft editor path without grid clipboard transport"
         ]
       },
       "evidence_class": "unit",
@@ -3245,7 +3477,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel builds scalar, collection, and evidence payloads"
         ]
@@ -3269,7 +3501,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel expands Timeline columns only when the shell has surplus width"
         ]
@@ -3293,7 +3525,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel exposes Timeline bindings and focus keys without component-local field maps"
         ]
@@ -3317,7 +3549,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel normalizes rows, tag collections, grouping, and sparse live patches"
         ]
@@ -3341,7 +3573,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel uses the full measured Timeline grid width when distributing surplus pixels"
         ]
@@ -3514,7 +3746,7 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
-          "workbookConflictModel falls unknown classes back to atomic replacement"
+          "workbookConflictModel rejects unknown conflict resolution classes"
         ]
       },
       "evidence_class": "unit",
@@ -3607,6 +3839,94 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.workbookz_mutation_runtime_paste_adapter_a108000001",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createWorkbookClipboardPasteAdapter.test.ts",
+        "titles": [
+          "createWorkbookClipboardPasteAdapter fails closed before transport for invalid targets and secure-ID failure",
+          "createWorkbookClipboardPasteAdapter rejects a mismatched response surface and contains transport failure",
+          "createWorkbookClipboardPasteAdapter sends one exact generated request and preserves typed rows and conflicts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_mutation_runtime_paste_model_a108000002",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookClipboardPaste.test.ts",
+        "titles": [
+          "workbookClipboardPaste constructs only bounded non-empty generated columns and targets",
+          "workbookClipboardPaste parses exactly the generated paste-capable view identities",
+          "workbookClipboardPaste rejects any target planned for another surface"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_mutation_runtime_responsibilities_a106000001",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookRuntimeResponsibilities.test.ts",
+        "titles": [
+          "Workbook runtime responsibilities coalesces lifecycle scheduling and permanently closes on disposal",
+          "Workbook runtime responsibilities pauses owner work without a driver and rejects duplicate registration",
+          "Workbook runtime responsibilities preserves compatible conflict drafts and tracks transaction settlement",
+          "Workbook runtime responsibilities projects save state from explicit queue, conflict, and surface facts",
+          "Workbook runtime responsibilities retains refresh debt and ignores cleanup from a replaced registration",
+          "Workbook runtime responsibilities runs at most one retry and supports deterministic cancellation",
+          "Workbook runtime responsibilities uses injected time and cancels a pending transport retry on disposal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.workbookz_mutation_runtime_semantic_command_ports_7b2f1d02a4",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3625,7 +3945,7 @@
         "file": "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.test.ts",
         "titles": [
           "semantic mutation command ports keeps secure transaction identity failure local without transport",
-          "semantic mutation command ports normalizes entity create, patch, and paste results and rejects malformed success contracts",
+          "semantic mutation command ports normalizes entity create and patch results",
           "semantic mutation command ports normalizes generic same-field conflicts before they reach controllers",
           "semantic mutation command ports normalizes task lifecycle and decision supersede into owner-specific outcomes",
           "semantic mutation command ports own exact Timeline, generic, entity, assessment, and coordination request identities and payloads",

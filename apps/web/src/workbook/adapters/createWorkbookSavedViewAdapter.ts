@@ -11,6 +11,10 @@ import {
 } from "./workbookAdapterResult";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function correlatedSavedView(
   value: unknown,
   incidentId: string,
@@ -20,10 +24,10 @@ function correlatedSavedView(
     readonly viewSchemaId?: string;
   } = {},
 ): SavedViewResource | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return null;
   }
-  const resource = value as Record<string, unknown>;
+  const resource = value;
   if (
     resource.incident_id !== incidentId ||
     (options.savedViewId !== undefined &&

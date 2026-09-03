@@ -12,11 +12,9 @@ import {
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
-import {
-  type WorkbookViewQueryPort,
-  workbookViewQueryFailureIsAccessLoss,
-} from "./WorkbookViewQueryPort";
+import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 import {
   abortLatestQuery,
   beginLatestQuery,
@@ -72,7 +70,7 @@ export function useAssessmentSurfaceQuery({
     }
     if (result.kind === "rejected") {
       const message = result.failure.message;
-      if (workbookViewQueryFailureIsAccessLoss(result.failure)) {
+      if (workbookOperationFailureIsAccessLoss(result.failure)) {
         onIncidentAccessLost?.();
         rowsRef.current = [];
         acceptedRowCountRef.current = 0;

@@ -11,11 +11,9 @@ import {
   type WorkbookQueryLoadState,
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
+import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
-import {
-  type WorkbookViewQueryPort,
-  workbookViewQueryFailureIsAccessLoss,
-} from "./WorkbookViewQueryPort";
+import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 import {
   abortLatestQuery,
   beginLatestQuery,
@@ -88,7 +86,7 @@ export function useGenericSurfaceQuery({
     }
     if (result.kind === "rejected") {
       const message = result.failure.message;
-      if (workbookViewQueryFailureIsAccessLoss(result.failure)) {
+      if (workbookOperationFailureIsAccessLoss(result.failure)) {
         onIncidentAccessLost?.();
         clearRows();
         setLoadState({ kind: "permission_denied", message });

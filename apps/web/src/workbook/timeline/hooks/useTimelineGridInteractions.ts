@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { useWorkbookGridContinuity } from "../../continuity/useWorkbookGridContinuity";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineMutableRef<T> = {
   current: T;

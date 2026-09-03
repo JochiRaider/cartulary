@@ -531,7 +531,7 @@ describe("semantic mutation command ports", () => {
     });
   });
 
-  it("normalizes entity create, patch, and paste results and rejects malformed success contracts", async () => {
+  it("normalizes entity create and patch results", async () => {
     const recordId = "00000000-0000-4000-8000-000000000210";
     const viewMutation = {
       data: {
@@ -551,26 +551,6 @@ describe("semantic mutation command ports", () => {
       )
       .mockResolvedValueOnce(
         new Response(JSON.stringify(viewMutation), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: {
-              change_set_id: "00000000-0000-4000-8000-000000000311",
-              conflicts: [],
-              rows: [viewMutation.data.row],
-              view_schema_id: hostsViewSchemaId,
-            },
-            meta: { request_id: "request-paste" },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { rows: [] } }), {
           status: 200,
           headers: { "content-type": "application/json" },
         }),
@@ -603,33 +583,6 @@ describe("semantic mutation command ports", () => {
     ).resolves.toMatchObject({
       kind: "accepted",
       value: { row: { record_id: recordId }, viewSchemaId: hostsViewSchemaId },
-    });
-    const pasteInput = {
-      clipboardText: "Pasted host",
-      columns: ["host.display_name"],
-      format: "tsv",
-      startFieldKey: "host.display_name",
-      targetCount: 1,
-      viewSchemaId: hostsViewSchemaId,
-    } as const;
-    await expect(
-      commands.entity.pasteCreate(pasteInput),
-    ).resolves.toMatchObject({
-      kind: "accepted",
-      value: {
-        rows: [{ record_id: recordId }],
-        viewSchemaId: hostsViewSchemaId,
-      },
-    });
-    await expect(
-      commands.entity.pasteCreate(pasteInput),
-    ).resolves.toMatchObject({
-      kind: "rejected",
-      failure: {
-        kind: "invalid_contract",
-        message: "The server returned an invalid public contract response.",
-        presentation: { family: "unknown_future_error" },
-      },
     });
   });
 });

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type {
   LocalConflictState,
   PasteConflictGroupState,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineConflictState";
 
 type TimelineMutableRef<T> = {
   current: T;

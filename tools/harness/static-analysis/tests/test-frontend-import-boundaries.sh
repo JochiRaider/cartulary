@@ -782,7 +782,7 @@ mkdir -p \
   "$blocked_assessment_timeline_root/apps/web/src/workbook/components" \
   "$blocked_assessment_timeline_root/apps/web/src/workbook/timeline/models"
 cat >"$blocked_assessment_timeline_root/apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx" <<'TS'
-import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
+import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 
 export const leaked = normalizeTimelineFullRow;
 TS
@@ -795,7 +795,7 @@ mkdir -p \
   "$allowed_assessment_candidate_root/apps/web/src/workbook/hooks" \
   "$allowed_assessment_candidate_root/apps/web/src/workbook/timeline/models"
 cat >"$allowed_assessment_candidate_root/apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts" <<'TS'
-import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
+import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 
 export const candidateAdapter = normalizeTimelineFullRow;
 TS

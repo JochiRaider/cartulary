@@ -1,7 +1,5 @@
-declare const workbookContinuityTokenBrand: unique symbol;
-
-export type WorkbookContinuityToken = string & {
-  readonly [workbookContinuityTokenBrand]: true;
+export type WorkbookContinuityToken = {
+  readonly sequence: number;
 };
 
 export type WorkbookContinuityAnchor = {
@@ -63,8 +61,7 @@ export function createWorkbookContinuityPort(
       if (disposed) {
         throw new Error("Workbook continuity port is disposed.");
       }
-      const token =
-        `workbook-continuity-${nextToken}` as WorkbookContinuityToken;
+      const token: WorkbookContinuityToken = { sequence: nextToken };
       nextToken += 1;
       captures.clear();
       captures.set(token, {

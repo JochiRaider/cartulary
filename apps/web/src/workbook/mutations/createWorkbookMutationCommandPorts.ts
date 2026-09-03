@@ -2,12 +2,10 @@ import type {
   ApplyWorkbookBulkMutationRequest,
   AttachBlobToEvidenceRecordRequest,
   CreateObjectBlobSlotRequest,
-  CreateRecordLinkedNoteRequest,
   CreateViewRowRequest,
   IssueEvidenceDownloadHandleRequest,
   IssueEvidencePreviewHandleRequest,
   MergeEntityRecordRequest,
-  PasteWorkbookClipboardRequest,
   PatchRecordRequest,
   RollbackRecordRequest,
   SupersedeRecordRequest,
@@ -28,6 +26,11 @@ import {
   extractEmailFromPartyText,
 } from "../models/genericWorkbookModel";
 import {
+  buildPatchRecordRequest,
+  decodeCreateRecordLinkedNoteRequest,
+  decodeCreateViewRowRequest,
+} from "../models/workbookRequestDecoders";
+import {
   assessmentsViewSchemaId,
   evidenceViewSchemaId,
   partiesViewSchemaId,
@@ -35,7 +38,7 @@ import {
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { buildAttachedEvidencePatchRequest } from "../timeline/adapters/timelineEvidenceRequestBuilders";
-import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
+import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
@@ -43,7 +46,6 @@ import type {
   DecisionSupersedeOutcome,
   EntityCreateOutcome,
   EntityMergeOutcome,
-  EntityPasteOutcome,
   EntityPatchOutcome,
   GenericMutationOutcome,
   GenericViewMutationAccepted,
@@ -258,30 +260,6 @@ function normalizeEntityPatchOutcome(
   };
 }
 
-function normalizeEntityPasteOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id?: string | undefined;
-      readonly rows: readonly GenericViewMutationAccepted["row"][];
-      readonly view_schema_id: string;
-    };
-  }>,
-  expectedViewSchemaId: string,
-): EntityPasteOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  if (outcome.value.data.view_schema_id !== expectedViewSchemaId) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: outcome.value.data.change_set_id ?? null,
-      rows: outcome.value.data.rows,
-      viewSchemaId: outcome.value.data.view_schema_id,
-    },
-  };
-}
-
 function normalizeEntityMergeOutcome(
   outcome: WorkbookOperationOutcome<{
     readonly data: {
@@ -435,6 +413,26 @@ function createId(
   }
 }
 
+function timelineBulkTargets(
+  targets: readonly {
+    readonly baseRowVersion: number;
+    readonly recordId: string;
+  }[],
+): ApplyWorkbookBulkMutationRequest["targets"] | null {
+  const [firstTarget, ...remainingTargets] = targets;
+  if (firstTarget === undefined) return null;
+  return [
+    {
+      base_row_version: firstTarget.baseRowVersion,
+      record_id: firstTarget.recordId,
+    },
+    ...remainingTargets.map((target) => ({
+      base_row_version: target.baseRowVersion,
+      record_id: target.recordId,
+    })),
+  ];
+}
+
 export function createWorkbookMutationCommandPorts(
   context: CommandContext,
 ): WorkbookMutationCommandPorts {
@@ -492,7 +490,7 @@ export function createWorkbookMutationCommandPorts(
               client_txn_id: clientTxnId,
               reason: input.reason,
               target: input.target,
-            } as unknown as RollbackRecordRequest,
+            } satisfies RollbackRecordRequest,
           });
           return normalizeRecordLifecycleOutcome(outcome, input.recordId);
         } catch {
@@ -538,17 +536,15 @@ export function createWorkbookMutationCommandPorts(
             "timeline-client",
           );
           if (clientTxnId === null) return operationIdentityFailure();
+          const targets = timelineBulkTargets(input.targets);
+          if (targets === null) return invalidOperationPayload();
           return executeTimelineBulkMutation({
             input: {
               client_txn_id: clientTxnId,
               kind: "multi_row_tag_assignment_v1",
               tag_name: input.tagName,
-              targets: input.targets.map((target) => ({
-                record_id: target.recordId,
-                base_row_version: target.baseRowVersion,
-              })) as ApplyWorkbookBulkMutationRequest["targets"],
-              view_schema_id:
-                timelineViewSchemaId as ApplyWorkbookBulkMutationRequest["view_schema_id"],
+              targets,
+              view_schema_id: timelineViewSchemaId,
             },
             incidentId: context.incidentId,
             operations,
@@ -566,18 +562,18 @@ export function createWorkbookMutationCommandPorts(
             };
           }
           input.onClientTxnId(clientTxnId);
+          const targets = timelineBulkTargets(input.targets);
+          if (targets === null) {
+            return { clientTxnId, outcome: invalidOperationPayload() };
+          }
           const outcome = await executeTimelineBulkMutation({
             input: {
               client_txn_id: clientTxnId,
               field_key: input.fieldKey,
               kind: "fill_down_v1",
-              targets: input.targets.map((target) => ({
-                record_id: target.recordId,
-                base_row_version: target.baseRowVersion,
-              })) as ApplyWorkbookBulkMutationRequest["targets"],
+              targets,
               value: input.value,
-              view_schema_id:
-                timelineViewSchemaId as ApplyWorkbookBulkMutationRequest["view_schema_id"],
+              view_schema_id: timelineViewSchemaId,
             },
             incidentId: context.incidentId,
             operations,
@@ -597,7 +593,11 @@ export function createWorkbookMutationCommandPorts(
             { ...input.draft },
             clientTxnId,
           );
-          if (request === null) return invalidOperationPayload();
+          const decodedRequest = decodeCreateViewRowRequest(
+            input.contract,
+            request,
+          );
+          if (decodedRequest === null) return invalidOperationPayload();
           try {
             const outcome = await operations.execute({
               operationID: "createViewRow",
@@ -605,7 +605,7 @@ export function createWorkbookMutationCommandPorts(
                 incident_id: context.incidentId,
                 view_schema_id: input.contract.viewSchemaId,
               },
-              request: request as CreateViewRowRequest,
+              request: decodedRequest,
             });
             return normalizeTimelineRelatedCreateOutcome(
               outcome,
@@ -640,7 +640,7 @@ export function createWorkbookMutationCommandPorts(
             const outcome = await operations.execute({
               operationID: "patchRecord",
               pathParameters: { record_id: input.sourceRow.recordId },
-              request: request as PatchRecordRequest,
+              request,
             });
             return normalizeTimelineRelatedLinkOutcome(
               outcome,
@@ -674,25 +674,30 @@ export function createWorkbookMutationCommandPorts(
           { ...input.draft },
           clientTxnId,
         );
-        if (payload === null) return Promise.resolve(invalidOperationPayload());
-        return input.linkedNoteSourceRecordId === ""
-          ? operations
-              .execute({
-                operationID: "createViewRow",
-                pathParameters: {
-                  incident_id: context.incidentId,
-                  view_schema_id: input.contract.viewSchemaId,
-                },
-                request: payload as CreateViewRowRequest,
-              })
-              .then(normalizeGenericMutationOutcome)
+        const request = decodeCreateViewRowRequest(input.contract, payload);
+        if (request === null) return Promise.resolve(invalidOperationPayload());
+        if (input.linkedNoteSourceRecordId === "") {
+          return operations
+            .execute({
+              operationID: "createViewRow",
+              pathParameters: {
+                incident_id: context.incidentId,
+                view_schema_id: input.contract.viewSchemaId,
+              },
+              request,
+            })
+            .then(normalizeGenericMutationOutcome);
+        }
+        const linkedNoteRequest = decodeCreateRecordLinkedNoteRequest(request);
+        return linkedNoteRequest === null
+          ? Promise.resolve(invalidOperationPayload())
           : operations
               .execute({
                 operationID: "createRecordLinkedNote",
                 pathParameters: {
                   record_id: input.linkedNoteSourceRecordId,
                 },
-                request: payload as CreateRecordLinkedNoteRequest,
+                request: linkedNoteRequest,
               })
               .then(normalizeGenericMutationOutcome);
       },
@@ -703,16 +708,18 @@ export function createWorkbookMutationCommandPorts(
         );
         if (clientTxnId === null)
           return Promise.resolve(operationIdentityFailure());
+        const request = buildPatchRecordRequest({
+          baseRowVersion: input.baseRowVersion,
+          changes: input.changes,
+          clientTxnId,
+          viewSchemaId: input.viewSchemaId,
+        });
+        if (request === null) return Promise.resolve(invalidOperationPayload());
         return operations
           .execute({
             operationID: "patchRecord",
             pathParameters: { record_id: input.recordId },
-            request: {
-              view_schema_id: input.viewSchemaId,
-              base_row_version: input.baseRowVersion,
-              client_txn_id: clientTxnId,
-              changes: input.changes,
-            } as PatchRecordRequest,
+            request,
           })
           .then(normalizeGenericMutationOutcome);
       },
@@ -723,15 +730,13 @@ export function createWorkbookMutationCommandPorts(
         );
         if (clientTxnId === null)
           return Promise.resolve(operationIdentityFailure());
-        const payload: Record<string, unknown> & {
-          readonly client_txn_id: string;
-        } = {
+        const email = extractEmailFromPartyText(input.rawText);
+        const payload = {
           client_txn_id: clientTxnId,
           "party.display_name": input.rawText,
           "party.party_kind": "person",
-        };
-        const email = extractEmailFromPartyText(input.rawText);
-        if (email !== null) payload["party.primary_email"] = email;
+          ...(email === null ? {} : { "party.primary_email": email }),
+        } satisfies CreateViewRowRequest;
         return operations
           .execute({
             operationID: "createViewRow",
@@ -739,7 +744,7 @@ export function createWorkbookMutationCommandPorts(
               incident_id: context.incidentId,
               view_schema_id: partiesViewSchemaId,
             },
-            request: payload as CreateViewRowRequest,
+            request: payload,
           })
           .then(normalizeGenericMutationOutcome);
       },
@@ -766,7 +771,8 @@ export function createWorkbookMutationCommandPorts(
           { ...input.draft },
           clientTxnId,
         );
-        if (payload === null) return Promise.resolve(invalidOperationPayload());
+        const request = decodeCreateViewRowRequest(input.contract, payload);
+        if (request === null) return Promise.resolve(invalidOperationPayload());
         return operations
           .execute({
             operationID: "createViewRow",
@@ -774,7 +780,7 @@ export function createWorkbookMutationCommandPorts(
               incident_id: context.incidentId,
               view_schema_id: input.contract.viewSchemaId,
             },
-            request: payload as CreateViewRowRequest,
+            request,
           })
           .then((outcome) =>
             normalizeEntityCreateOutcome(outcome, input.contract.viewSchemaId),
@@ -787,16 +793,18 @@ export function createWorkbookMutationCommandPorts(
         );
         if (clientTxnId === null)
           return Promise.resolve(operationIdentityFailure());
+        const request = buildPatchRecordRequest({
+          baseRowVersion: input.baseRowVersion,
+          changes: input.changes,
+          clientTxnId,
+          viewSchemaId: input.viewSchemaId,
+        });
+        if (request === null) return Promise.resolve(invalidOperationPayload());
         return operations
           .execute({
             operationID: "patchRecord",
             pathParameters: { record_id: input.recordId },
-            request: {
-              view_schema_id: input.viewSchemaId,
-              base_row_version: input.baseRowVersion,
-              client_txn_id: clientTxnId,
-              changes: input.changes,
-            } as PatchRecordRequest,
+            request,
           })
           .then((outcome) =>
             normalizeEntityPatchOutcome(
@@ -804,55 +812,6 @@ export function createWorkbookMutationCommandPorts(
               input.recordId,
               input.viewSchemaId,
             ),
-          );
-      },
-      pasteCreate(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          `${input.viewSchemaId}-paste`,
-        );
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        const [firstColumn, ...remainingColumns] = input.columns;
-        const format =
-          input.format === "auto" ||
-          input.format === "csv" ||
-          input.format === "tsv"
-            ? input.format
-            : null;
-        if (
-          firstColumn === undefined ||
-          input.targetCount < 1 ||
-          format === null
-        ) {
-          return Promise.resolve(invalidOperationPayload());
-        }
-        const request: PasteWorkbookClipboardRequest = {
-          view_schema_id:
-            input.viewSchemaId as PasteWorkbookClipboardRequest["view_schema_id"],
-          client_txn_id: clientTxnId,
-          clipboard_text: input.clipboardText,
-          format,
-          start_field_key: input.startFieldKey,
-          columns: [firstColumn, ...remainingColumns],
-          targets: [
-            { kind: "create" },
-            ...Array.from({ length: input.targetCount - 1 }, () => ({
-              kind: "create" as const,
-            })),
-          ],
-        };
-        return operations
-          .execute({
-            operationID: "pasteWorkbookClipboard",
-            pathParameters: {
-              incident_id: context.incidentId,
-              view_schema_id: input.viewSchemaId,
-            },
-            request,
-          })
-          .then((outcome) =>
-            normalizeEntityPasteOutcome(outcome, input.viewSchemaId),
           );
       },
       merge(input) {
@@ -871,7 +830,7 @@ export function createWorkbookMutationCommandPorts(
               loser_base_row_version: input.loserBaseRowVersion,
               client_txn_id: clientTxnId,
               reason: input.reason,
-            } as MergeEntityRecordRequest,
+            } satisfies MergeEntityRecordRequest,
           })
           .then((outcome) =>
             normalizeEntityMergeOutcome(
@@ -903,7 +862,7 @@ export function createWorkbookMutationCommandPorts(
               incident_id: context.incidentId,
               view_schema_id: assessmentsViewSchemaId,
             },
-            request: payload as CreateViewRowRequest,
+            request: payload,
           })
           .then(normalizeAssessmentCreateOutcome);
       },

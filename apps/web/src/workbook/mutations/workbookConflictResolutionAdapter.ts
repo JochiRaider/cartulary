@@ -1,7 +1,5 @@
-import {
-  createWorkbookOperationExecutor,
-  type WorkbookOperationExecution,
-} from "../adapters/workbookOperationExecutor";
+import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import type { WorkbookProtocolResolveConflictRequest } from "../adapters/workbookProtocolTypes";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 export type WorkbookResolvedMutation = {
@@ -13,7 +11,7 @@ export async function executeWorkbookConflictResolution(input: {
   readonly apiBase: string | undefined;
   readonly conflictToken: string;
   readonly recordId: string;
-  readonly request: Readonly<Record<string, unknown>>;
+  readonly request: WorkbookProtocolResolveConflictRequest;
 }): Promise<WorkbookOperationOutcome<WorkbookResolvedMutation>> {
   try {
     const outcome = await createWorkbookOperationExecutor({
@@ -24,8 +22,7 @@ export async function executeWorkbookConflictResolution(input: {
         conflict_token: input.conflictToken,
         record_id: input.recordId,
       },
-      request:
-        input.request as unknown as WorkbookOperationExecution<"resolveRecordSameFieldConflict">["request"],
+      request: input.request,
     });
     if (outcome.kind === "rejected") return outcome;
     return {

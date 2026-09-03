@@ -105,30 +105,6 @@ export function savedViewModifiedTestId(viewSchemaId: string): StableTestId {
   return stableTestId(viewScopedTestId("saved-view-modified", viewSchemaId));
 }
 
-export function savedViewRenameButtonTestId(
-  viewSchemaId: string,
-  savedViewId: string,
-): StableTestId {
-  return stableTestId(
-    `${viewScopedTestId("saved-view-rename", viewSchemaId)}-${encodeSelectorSegment(
-      savedViewId,
-      "saved_view_id",
-    )}`,
-  );
-}
-
-export function savedViewManageSharingButtonTestId(
-  viewSchemaId: string,
-  savedViewId: string,
-): StableTestId {
-  return stableTestId(
-    `${viewScopedTestId(
-      "saved-view-manage-sharing",
-      viewSchemaId,
-    )}-${encodeSelectorSegment(savedViewId, "saved_view_id")}`,
-  );
-}
-
 export function savedViewResetButtonTestId(
   viewSchemaId: string,
   savedViewId: string,

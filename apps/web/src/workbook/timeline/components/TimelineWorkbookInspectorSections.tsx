@@ -10,13 +10,15 @@ import type {
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import {
-  readTimelineCellValue,
   type TimelineCollectionBinding,
   type TimelineScalarBinding,
   timelineCollectionBindings,
   timelineInspectorBindings,
+} from "../models/timelineFieldRegistry";
+import {
+  readTimelineCellValue,
   type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 import { TimelineHistoryPanel } from "./TimelineHistoryPanel";
 import {

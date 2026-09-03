@@ -9,6 +9,7 @@ import {
 } from "../../continuity/gridViewportContinuity";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import { timelineScalarBindings } from "../models/timelineFieldRegistry";
 import {
   advanceTimelineContinuityRender,
   beginTimelineContinuityLifecycle,
@@ -22,7 +23,6 @@ import {
   timelineContinuityRequirementsSettled,
   transitionTimelineContinuity,
 } from "../models/timelineViewportContinuityModel";
-import { timelineScalarBindings } from "../models/workbookTimelineModel";
 
 type TimelineMutableRef<T> = {
   current: T;

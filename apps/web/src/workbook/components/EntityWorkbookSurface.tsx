@@ -1,6 +1,5 @@
 import {
   type GridActionsColumn,
-  type GridCellPasteIntent,
   type GridColumn,
   type GridDataRow,
   type GridDraftRow,
@@ -31,6 +30,7 @@ import {
   useState,
 } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
+import type { WorkbookClipboardPastePort } from "../adapters/WorkbookClipboardPastePort";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import {
@@ -41,6 +41,7 @@ import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
+import { useEntityClipboardPasteController } from "../features/entities/useEntityClipboardPasteController";
 import { useEntityWorkbookInspectorComposition } from "../features/entities/useEntityWorkbookInspectorComposition";
 import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFocus";
 import {
@@ -48,8 +49,6 @@ import {
   type WorkbookInspectorFeedback,
   workbookInspectorErrorPresentation,
   workbookInspectorLocalErrorPresentation,
-  workbookInspectorMessageFeedback,
-  workbookInspectorOperationFailureFeedback,
 } from "../inspector/workbookInspectorErrorModel";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
@@ -111,6 +110,7 @@ const identitiesContract = requireViewContract(identitiesViewSchemaId);
 type WorkbookMutationSaveState = "Syncing" | "Saved" | "Conflict";
 
 export type EntityWorkbookSurfaceProps = {
+  readonly clipboardPaste: WorkbookClipboardPastePort;
   continuityResetKey: string;
   entityType: EntityRow["entityType"];
   inspectorResetKey: string;
@@ -177,6 +177,7 @@ function entityCellContent(
 }
 
 export function EntityWorkbookSurface({
+  clipboardPaste: clipboardPastePort,
   continuityResetKey,
   entityType,
   inspectorResetKey,
@@ -511,102 +512,29 @@ export function EntityWorkbookSurface({
     },
     [contract, mutationRuntime, rows],
   );
-  const handleEntityPaste = useCallback(
-    async (intent: GridCellPasteIntent) => {
-      const clipboardText = intent.input.rawText;
-      const targetResolution = intent.targetResolution;
-      const values =
-        intent.input.kind === "scalar"
-          ? [[intent.input.value]]
-          : intent.input.values;
-      if (
-        targetResolution === undefined ||
-        targetResolution.columns.length === 0 ||
-        targetResolution.rowTargets.length !== values.length
-      ) {
-        setMutationError(
-          workbookInspectorLocalErrorPresentation(
-            "Paste targets are incomplete or incompatible.",
-          ),
-        );
-        return;
-      }
-      if (values.length === 1 && values[0]?.length === 1) {
-        const rowTarget = targetResolution.rowTargets[0];
-        if (rowTarget?.kind !== "record") {
-          setMutationError(
-            workbookInspectorLocalErrorPresentation(
-              "Scalar paste requires an existing record target.",
-            ),
-          );
-          return;
-        }
-        const outcome = await commitGridEdit(
-          targetResolution.columns[0] ?? intent.target.fieldKey,
-          values[0]?.[0] ?? "",
-          {
-            baseRowVersion: rowTarget.mutationIdentity.baseRowVersion,
-            recordId: rowTarget.rowIdentity.recordId,
-          },
-        );
-        if (outcome.kind !== "accepted") {
-          setMutationError(
-            workbookInspectorLocalErrorPresentation(outcome.message),
-          );
-        }
-        return;
-      }
-      if (grouping !== null) {
-        setMutationError(
-          workbookInspectorLocalErrorPresentation(
-            "Rectangular entity creation paste is unavailable while grouped.",
-          ),
-        );
-        return;
-      }
-      if (!canCreateRows) {
-        setMutationError(
-          workbookInspectorLocalErrorPresentation(
-            "Row creation is unavailable in the current view mode.",
-          ),
-        );
-        return;
-      }
-      setEntityActionFeedback(null);
-      const result = await mutationCommands.pasteCreate({
-        clipboardText,
-        columns: targetResolution.columns,
-        format: intent.input.kind === "table" ? intent.input.format : "csv",
-        startFieldKey: intent.target.fieldKey,
-        targetCount: targetResolution.rowTargets.length,
-        viewSchemaId: contract.viewSchemaId,
-      });
-      if (result.kind === "rejected") {
-        setEntityActionFeedback(
-          workbookInspectorOperationFailureFeedback(result.failure),
-        );
-        return;
-      }
-      const firstRow = result.value.rows[0];
-      await onRefreshEntities();
-      if (firstRow) setSelectedRecordId(firstRow.record_id);
-      setEntityActionFeedback(
-        workbookInspectorMessageFeedback(
-          `Paste applied to ${result.value.rows.length} ${entityType === "host" ? "host" : "identity"} row${result.value.rows.length === 1 ? "" : "s"}.`,
-          "none",
-        ),
-      );
-    },
-    [
-      commitGridEdit,
-      canCreateRows,
-      contract.viewSchemaId,
-      entityType,
-      grouping,
-      mutationCommands,
-      onRefreshEntities,
-    ],
+  const writablePasteFieldKeys = useMemo(
+    () =>
+      new Set(
+        contract.fields
+          .filter((field) => field.gridEditable)
+          .map((field) => field.fieldKey),
+      ),
+    [contract.fields],
   );
+  const { handlePaste: handleEntityPaste } = useEntityClipboardPasteController({
+    canCreateRows,
+    clipboardPaste: clipboardPastePort,
+    commitGridEdit,
+    entityType,
+    grouped: grouping !== null,
+    onRefreshEntities,
+    rows,
+    setActionFeedback: setEntityActionFeedback,
+    setMutationError,
+    setSelectedRecordId,
+    viewSchemaId: contract.viewSchemaId,
+    writableFieldKeys: writablePasteFieldKeys,
+  });
   const clipboardPaste = useMemo(
     () =>
       workbookClipboardPasteContract((intent) => {

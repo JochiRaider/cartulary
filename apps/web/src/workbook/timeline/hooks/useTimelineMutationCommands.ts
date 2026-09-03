@@ -1,36 +1,36 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import { startTransition, useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type {
-  WorkbookPendingReplayAdmissionRequest,
-  WorkbookPendingSavesRefs,
-} from "../../runtime/workbookPendingReplayRuntime";
-import {
-  buildStableMutationSignature,
-  type PendingReplayUnitInput,
-} from "../../utils/workbookPendingQueue";
+import type { PendingReplayUnitInput } from "../../utils/workbookPendingQueue";
+import { createTimelineScalarGridCommitAdapter } from "../adapters/createTimelineScalarGridCommitAdapter";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import type { LocalConflictState } from "../models/timelineConflictState";
 import type {
-  PendingReplayRuntimeMeta,
   TimelineMutableRef,
   TimelineRowStoreCommands,
   TimelineScalarSaveOptions,
 } from "../models/timelineControllerPorts";
 import {
-  buildCollectionPatchIntent,
-  buildCreatePayload,
-  buildScalarPatchIntent,
   type CollectionDraftKey,
   type CollectionFieldKey,
-  createDraftRowForKey,
   type FocusFieldKey,
   inputFocusKey,
-  type LocalConflictState,
   type RowValues,
   type TimelineScalarEditorSurface,
-  timelineScalarBindings,
+  timelineScalarBindingForValueKey,
+} from "../models/timelineFieldRegistry";
+import type { TimelinePendingReplayAdmission } from "../models/timelineMutationDriverPlans";
+import {
+  decideTimelineCollectionCommit,
+  planTimelineCollectionMutation,
+  planTimelineScalarMutation,
+  type TimelineMutationAdmission,
+} from "../models/timelineMutationQueueAdmission";
+import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
+import {
+  createDraftRowForKey,
   type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 import type {
   TimelineRecordActionAccepted,
   TimelineRecordActionPort,
@@ -55,6 +55,58 @@ function isCollectionDraftKey(
   field: FocusFieldKey,
 ): field is CollectionDraftKey {
   return field === "hostRefs" || field === "identityRefs" || field === "tags";
+}
+
+function resolveScalarSaveSnapshot({
+  currentValue,
+  editorDraftRegistry,
+  focusField,
+  rowKey,
+  rows,
+  surface,
+}: {
+  readonly currentValue: string | undefined;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
+  readonly focusField: keyof RowValues;
+  readonly rowKey: string;
+  readonly rows: readonly WorkbookRow[];
+  readonly surface: TimelineScalarEditorSurface;
+}) {
+  const row =
+    rows.find((candidate) => candidate.key === rowKey) ??
+    createDraftRowForKey(rowKey);
+  if (row === null) return null;
+  const focusKey = inputFocusKey(row.key, focusField, surface);
+  return {
+    focusKey,
+    row: editorDraftRegistry.materializeRow(row, {
+      field: focusField,
+      value:
+        currentValue ?? editorDraftRegistry.draftValueForFocusKey(focusKey),
+    }),
+  };
+}
+
+function settleUnadmittedScalarMutation({
+  admission,
+  deleteDraft,
+  onSettled,
+}: {
+  readonly admission: Exclude<TimelineMutationAdmission, { kind: "admit" }>;
+  readonly deleteDraft: () => void;
+  readonly onSettled: ((outcome: GridEditCommitOutcome) => void) | undefined;
+}) {
+  switch (admission.kind) {
+    case "rejected":
+      onSettled?.(admission.outcome);
+      return;
+    case "accepted_no_change":
+      deleteDraft();
+      onSettled?.({ kind: "accepted" });
+      return;
+    case "accepted_duplicate":
+      onSettled?.({ kind: "accepted" });
+  }
 }
 
 export function useTimelineMutationCommands({
@@ -95,7 +147,7 @@ export function useTimelineMutationCommands({
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly enqueuePendingReplayUnit: (
-    unit: WorkbookPendingReplayAdmissionRequest<PendingReplayRuntimeMeta>,
+    unit: TimelinePendingReplayAdmission,
     onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
   ) => void;
   readonly finishSave: (result: "Conflict" | "Saved" | "Syncing") => void;
@@ -103,7 +155,7 @@ export function useTimelineMutationCommands({
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
   readonly loadRows: LoadRowsForMutation;
   readonly nextClientTxnId: () => string;
-  readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
+  readonly pendingSavesRefs: TimelinePendingSavesRefs;
   readonly recordActionPort: TimelineRecordActionPort;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
@@ -113,7 +165,7 @@ export function useTimelineMutationCommands({
     recordId: string,
   ) => Promise<CommittedRecordIdle | null>;
 }) {
-  const { updateRows } = rowStoreCommands;
+  const { replaceRows } = rowStoreCommands;
   const [replacementDrafts, setReplacementDrafts] = useState<
     Record<string, string>
   >({});
@@ -162,39 +214,35 @@ export function useTimelineMutationCommands({
         rowKey,
         mutationSignature,
       );
-      startTransition(() => {
-        updateRows((current) => {
-          const nextRows = current.map((row) =>
-            row.key === rowKey
-              ? {
-                  ...row,
-                  pendingSignature: mutationSignature,
-                  rawRow:
-                    visibleEdit === undefined || row.rawRow === null
-                      ? row.rawRow
-                      : {
-                          ...row.rawRow,
-                          cells: {
-                            ...row.rawRow.cells,
-                            [visibleEdit.fieldKey]: {
-                              ...row.rawRow.cells[visibleEdit.fieldKey],
-                              value: visibleEdit.value,
-                            },
-                          },
+      const nextRows = rowsRef.current.map((row) =>
+        row.key === rowKey
+          ? {
+              ...row,
+              pendingSignature: mutationSignature,
+              rawRow:
+                visibleEdit === undefined || row.rawRow === null
+                  ? row.rawRow
+                  : {
+                      ...row.rawRow,
+                      cells: {
+                        ...row.rawRow.cells,
+                        [visibleEdit.fieldKey]: {
+                          ...row.rawRow.cells[visibleEdit.fieldKey],
+                          value: visibleEdit.value,
                         },
-                  values: isCollectionDraftKey(focusField)
-                    ? row.values
-                    : {
-                        ...row.values,
-                        [focusField]: rowSnapshot.values[focusField],
                       },
-                }
-              : row,
-          );
-          rowsRef.current = nextRows;
-          return nextRows;
-        });
-      });
+                    },
+              values: isCollectionDraftKey(focusField)
+                ? row.values
+                : {
+                    ...row.values,
+                    [focusField]: rowSnapshot.values[focusField],
+                  },
+            }
+          : row,
+      );
+      rowsRef.current = nextRows;
+      replaceRows(nextRows);
 
       enqueuePendingReplayUnit(
         {
@@ -235,8 +283,8 @@ export function useTimelineMutationCommands({
       enqueuePendingReplayUnit,
       incidentId,
       pendingSavesRefs,
+      replaceRows,
       rowsRef,
-      updateRows,
     ],
   );
 
@@ -248,77 +296,47 @@ export function useTimelineMutationCommands({
       currentValue?: string,
       onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
     ) => {
-      const requestedRowSnapshot = rowsRef.current.find(
-        (candidate) => candidate.key === rowKey,
-      );
-      const rowSnapshot =
-        requestedRowSnapshot ?? createDraftRowForKey(rowKey) ?? undefined;
-      const effectiveRowKey = rowSnapshot?.key ?? rowKey;
-      const focusKey = inputFocusKey(
-        effectiveRowKey,
+      const resolved = resolveScalarSaveSnapshot({
+        currentValue,
+        editorDraftRegistry,
         focusField,
-        options.surface,
-      );
-      const snapshot =
-        rowSnapshot === undefined
-          ? undefined
-          : editorDraftRegistry.materializeRow(rowSnapshot, {
-              field: focusField,
-              value:
-                currentValue ??
-                editorDraftRegistry.draftValueForFocusKey(focusKey),
-            });
-      if (!snapshot) {
+        rowKey,
+        rows: rowsRef.current,
+        surface: options.surface,
+      });
+      if (resolved === null) {
         onSettled?.({
           kind: "stale_target",
           message: "The timeline row is no longer available.",
         });
         return;
       }
-      const binding = timelineScalarBindings.find(
-        (candidate) => candidate.key === focusField,
-      );
-      if (
-        snapshot.recordId !== null &&
-        binding &&
-        conflictQueueRef.current[`${snapshot.recordId}:${binding.fieldKey}`]
-      ) {
-        onSettled?.({
-          kind: "conflict",
-          message: "Resolve the existing field conflict before editing.",
+      const { focusKey, row: snapshot } = resolved;
+      const effectiveRowKey = snapshot.key;
+      const binding = timelineScalarBindingForValueKey(focusField);
+      const clientTxnId = nextClientTxnId();
+      const admission = planTimelineScalarMutation({
+        allowZeroFieldCreate: options.allowZeroFieldCreate === true,
+        clientTxnId,
+        focusField,
+        hasConflict:
+          snapshot.recordId !== null &&
+          conflictQueueRef.current[
+            `${snapshot.recordId}:${binding.fieldKey}`
+          ] !== undefined,
+        pendingSignature:
+          pendingSavesRefs.pendingSignaturesRef.current.get(effectiveRowKey),
+        row: snapshot,
+      });
+      if (admission.kind !== "admit") {
+        settleUnadmittedScalarMutation({
+          admission,
+          deleteDraft: () =>
+            editorDraftRegistry.deleteDraftForFocusKey(focusKey),
+          onSettled,
         });
         return;
       }
-
-      const clientTxnId = nextClientTxnId();
-      const payload =
-        snapshot.recordId === null
-          ? buildCreatePayload(snapshot, clientTxnId, {
-              allowZeroFieldCreate: options.allowZeroFieldCreate === true,
-            })
-          : buildScalarPatchIntent(snapshot, clientTxnId);
-      if (payload === null) {
-        editorDraftRegistry.deleteDraftForFocusKey(focusKey);
-        onSettled?.({ kind: "accepted" });
-        return;
-      }
-
-      const mutationSignature = buildStableMutationSignature(payload);
-      if (
-        pendingSavesRefs.pendingSignaturesRef.current.get(effectiveRowKey) ===
-        mutationSignature
-      ) {
-        onSettled?.({ kind: "accepted" });
-        return;
-      }
-      const visibleEdit =
-        binding === undefined
-          ? undefined
-          : {
-              rowKey: effectiveRowKey,
-              fieldKey: binding.fieldKey,
-              value: snapshot.values[focusField],
-            };
       const viewportContinuityToken = beginViewportContinuity(
         options.preserveInputFocus
           ? {
@@ -339,14 +357,17 @@ export function useTimelineMutationCommands({
         detectAutoResolution: false,
         focusField,
         focusKey,
-        mutationSignature,
-        payloadIntent: payload,
+        mutationSignature: admission.mutationSignature,
+        payloadIntent: admission.payloadIntent,
         promoteToCommittedRowInspect: false,
         rowKey: effectiveRowKey,
         surface: options.surface,
         rowSnapshot: snapshot,
         viewportContinuityToken,
-        visibleEdit,
+        visibleEdit: {
+          rowKey: effectiveRowKey,
+          ...admission.visibleEdit,
+        },
         onSettled,
       });
     },
@@ -361,25 +382,8 @@ export function useTimelineMutationCommands({
     ],
   );
 
-  const commitScalarGridEdit = useCallback(
-    (
-      rowKey: string,
-      focusField: keyof RowValues,
-      currentValue: string,
-    ): Promise<GridEditCommitOutcome> =>
-      new Promise((resolve) => {
-        queueScalarSave(
-          rowKey,
-          focusField,
-          {
-            continueOnFreshDraft: false,
-            preserveInputFocus: false,
-            surface: "grid",
-          },
-          currentValue,
-          resolve,
-        );
-      }),
+  const commitScalarGridEdit = useMemo(
+    () => createTimelineScalarGridCommitAdapter(queueScalarSave),
     [queueScalarSave],
   );
 
@@ -402,17 +406,20 @@ export function useTimelineMutationCommands({
         draftValueOverride ?? rowSnapshot.collectionDrafts[focusField];
       const priorKeyboardCommitValue =
         pendingSavesRefs.collectionKeyboardCommitRef.current.get(focusKey);
-      if (source === "blur") {
+      const commitDecision = decideTimelineCollectionCommit({
+        draftValue,
+        priorKeyboardCommitValue,
+        source,
+      });
+      if (commitDecision.nextKeyboardCommitValue === null) {
         pendingSavesRefs.collectionKeyboardCommitRef.current.delete(focusKey);
-        if (priorKeyboardCommitValue === draftValue) {
-          return;
-        }
       } else {
         pendingSavesRefs.collectionKeyboardCommitRef.current.set(
           focusKey,
-          draftValue,
+          commitDecision.nextKeyboardCommitValue,
         );
       }
+      if (!commitDecision.admit) return;
       const snapshot =
         rowSnapshot.recordId === null
           ? rowSnapshot
@@ -430,21 +437,15 @@ export function useTimelineMutationCommands({
       const effectiveSnapshot =
         editorDraftRegistry.materializeRow(collectionSnapshot);
       const clientTxnId = nextClientTxnId();
-      const payload =
-        snapshot.recordId === null
-          ? buildCreatePayload(effectiveSnapshot, clientTxnId)
-          : buildCollectionPatchIntent(fieldKey, draftValue, clientTxnId);
-      if (payload === null) {
-        return;
-      }
-
-      const mutationSignature = buildStableMutationSignature(payload);
-      if (
-        pendingSavesRefs.pendingSignaturesRef.current.get(rowKey) ===
-        mutationSignature
-      ) {
-        return;
-      }
+      const admission = planTimelineCollectionMutation({
+        clientTxnId,
+        draftValue,
+        effectiveRow: effectiveSnapshot,
+        fieldKey,
+        pendingSignature:
+          pendingSavesRefs.pendingSignaturesRef.current.get(rowKey),
+      });
+      if (admission.kind !== "admit") return;
       const viewportContinuityToken = beginViewportContinuity(
         snapshot.recordId === null
           ? {
@@ -461,18 +462,14 @@ export function useTimelineMutationCommands({
         detectAutoResolution: true,
         focusField,
         focusKey,
-        mutationSignature,
-        payloadIntent: payload,
+        mutationSignature: admission.mutationSignature,
+        payloadIntent: admission.payloadIntent,
         promoteToCommittedRowInspect: snapshot.recordId === null,
         rowKey,
         surface: "grid",
         rowSnapshot: effectiveSnapshot,
         viewportContinuityToken,
-        visibleEdit: {
-          rowKey,
-          fieldKey,
-          value: draftValue,
-        },
+        visibleEdit: { rowKey, ...admission.visibleEdit },
       });
     },
     [

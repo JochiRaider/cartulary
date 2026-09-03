@@ -76,7 +76,11 @@ export const WorkbookEditRecoveryPanel = forwardRef<
       tabIndex={-1}
       onBlurCapture={(event) => {
         if (transitionGuardRef.current) return;
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        const relatedTarget = event.relatedTarget;
+        if (
+          !(relatedTarget instanceof Node) ||
+          !event.currentTarget.contains(relatedTarget)
+        ) {
           onFocusWithinChange(false);
         }
       }}

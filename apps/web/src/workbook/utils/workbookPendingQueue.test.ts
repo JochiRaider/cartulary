@@ -137,7 +137,7 @@ function sameFieldConflictError(options: {
       conflict_token: options.conflictToken,
       record_id: options.recordId,
       field_key: options.fieldKey,
-      conflict_resolution_class: "text_compare_merge",
+      conflict_resolution_class: "text_compare_merge" as const,
       base_row_version: options.baseRowVersion ?? 1,
       current_row_version: options.currentRowVersion ?? 2,
       client_value: "local draft",
@@ -251,7 +251,7 @@ describe("pending queue unit model", () => {
         },
       }),
     );
-    const pasteCreateAdmission = expectAccepted(
+    const pasteCreationAdmission = expectAccepted(
       queue.admit(
         createUnit({
           clientTxnId: "txn-paste-create",
@@ -296,8 +296,8 @@ describe("pending queue unit model", () => {
         ? patchAdmission.identity.changes.map((change) => change.field_key)
         : [],
     ).toEqual(["timeline.activity_synopsis_text", "timeline.capture_state"]);
-    expect(pasteCreateAdmission.source).toBe("paste");
-    expect(pasteCreateAdmission.identity.kind).toBe("create");
+    expect(pasteCreationAdmission.source).toBe("paste");
+    expect(pasteCreationAdmission.identity.kind).toBe("create");
     expect(pastePatchAdmission.source).toBe("paste");
     expect(pastePatchAdmission.identity.kind).toBe("patch");
     const snapshot = queue.snapshot();

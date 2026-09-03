@@ -1,8 +1,5 @@
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import type {
-  TimelineApiRow,
-  WorkbookRow,
-} from "../models/workbookTimelineModel";
+import type { TimelineApiRow, WorkbookRow } from "../models/timelineRowModel";
 
 export type TimelineEvidenceAttachmentAccepted = {
   readonly evidenceRecordId: string;

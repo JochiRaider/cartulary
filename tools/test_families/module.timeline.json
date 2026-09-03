@@ -723,8 +723,7 @@
         "titles": [
           "derives history routes and rejects target-inconsistent history responses",
           "normalizes Timeline review outcomes and fails closed on supersede replacement drift",
-          "owns entity mention creation and resolution transport behind semantic outcomes",
-          "validates Timeline clipboard rows and sanitized same-field conflicts"
+          "owns entity mention creation and resolution transport behind semantic outcomes"
         ]
       },
       "evidence_class": "unit",
@@ -766,6 +765,64 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.frontend.timeline_clipboard_paste_plan_a108000003",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineClipboardPastePlan.test.ts",
+        "titles": [
+          "timelineClipboardPastePlan admits exact editable mixed batches",
+          "timelineClipboardPastePlan fails closed for authority, grouping, field, shape, and surface drift",
+          "timelineClipboardPastePlan matches dispatch targets to the final record identities and versions",
+          "timelineClipboardPastePlan matches only stable fields, surfaces, row identities, and create positions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_editor_and_work_area_keyboard_decisions_0b1dcd0588",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineKeyboardIntentModel.test.ts",
+        "titles": [
+          "maps collection save, navigation, and close intent",
+          "maps scalar navigation without performing focus or save effects",
+          "maps work-area shortcuts to semantic panel and mention intent"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.frontend.timeline_editor_draft_registry_0de7a147c1",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -784,6 +841,68 @@
           "Timeline editor draft registry keeps grid and inspector drafts distinct and clears only submitted values",
           "Timeline editor draft registry materializes invalid scalar text across authoritative row replacement",
           "Timeline editor draft registry owns semantic editor registration, unregistration, and row removal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_load_machine_a109000001",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineLoadMachine.test.ts",
+        "titles": [
+          "Timeline load machine ignores retry and exhaustion effects from a superseded complete subject",
+          "Timeline load machine joins a satisfied obligation and otherwise retries exactly twice",
+          "Timeline load machine keys subjects by incident, surface, query, generation, mutation epoch, and source obligation",
+          "Timeline load machine publishes failures, clears protected state on access loss, and terminates exhausted retries",
+          "Timeline load machine publishes initial and refresh starts and commits only the complete active subject",
+          "Timeline load machine resets a changed subject and preserves state for an equal subject",
+          "Timeline load machine tracks accepted mutations and refuses a pre-mutation success"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_mutation_models_a110000001",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineMutationModels.test.ts",
+        "titles": [
+          "Timeline mutation models admits exact scalar and collection intents and deduplicates keyboard blur",
+          "Timeline mutation models discriminates relationship and tag presentation without union downcasts",
+          "Timeline mutation models maintains committed row versions as a monotonic reference-preserving ledger",
+          "Timeline mutation models projects accepted draft replacement and its deterministic continuation",
+          "Timeline mutation models reconciles discarded units from committed state and reapplies later FIFO work"
         ]
       },
       "evidence_class": "unit",

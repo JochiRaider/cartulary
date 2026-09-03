@@ -21,7 +21,7 @@ type MentionChipAnchor = {
 export type CollectionItem = {
   itemRef: string;
   entityType: "host" | "identity";
-  itemKind: "resolved_ref" | "unresolved_mention" | string;
+  itemKind: "resolved_ref" | "unresolved_mention";
   displayText: string;
   rawText: string;
   resolvedRecordId: string | null;
@@ -174,8 +174,115 @@ export function reconcileDismissedMentionsForRow(
   return next;
 }
 
-function safeEntityType(value: unknown): "host" | "identity" {
-  return value === "identity" ? "identity" : "host";
+function parseEntityType(value: unknown): "host" | "identity" | null {
+  return value === "host" || value === "identity" ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+type CollectionItemIdentity = Pick<
+  CollectionItem,
+  "entityType" | "itemKind" | "itemRef"
+>;
+
+function decodeCollectionItemIdentity(
+  value: Readonly<Record<string, unknown>>,
+): CollectionItemIdentity | null {
+  const itemRef = value.item_ref;
+  const entityType = parseEntityType(value.entity_type);
+  const itemKind = value.item_kind;
+  if (
+    typeof itemRef !== "string" ||
+    itemRef.trim() === "" ||
+    entityType === null ||
+    (itemKind !== "resolved_ref" && itemKind !== "unresolved_mention")
+  ) {
+    return null;
+  }
+  return { entityType, itemKind, itemRef };
+}
+
+function collectionItemText(value: Readonly<Record<string, unknown>>): {
+  readonly displayText: string;
+  readonly rawText: string;
+} {
+  const rawText = typeof value.raw_text === "string" ? value.raw_text : "";
+  return {
+    displayText:
+      typeof value.display_text === "string" ? value.display_text : rawText,
+    rawText,
+  };
+}
+
+function collectionItemResolvedRecordId(
+  value: Readonly<Record<string, unknown>>,
+): string | null {
+  const resolvedRecordId =
+    typeof value.resolved_record_id === "string" &&
+    value.resolved_record_id.trim() !== ""
+      ? value.resolved_record_id
+      : null;
+  return resolvedRecordId;
+}
+
+function collectionItemTargetIsValid(
+  identity: CollectionItemIdentity,
+  rawText: string,
+  resolvedRecordId: string | null,
+): boolean {
+  if (identity.itemKind === "resolved_ref") {
+    return resolvedRecordId !== null;
+  }
+  return rawText.trim() !== "";
+}
+
+function collectionItemMetadata(
+  value: Readonly<Record<string, unknown>>,
+): Pick<
+  CollectionItem,
+  | "autoResolved"
+  | "confidence"
+  | "matchedAliasText"
+  | "mentionRowVersion"
+  | "provenance"
+  | "resolutionMethod"
+> {
+  const confidence = value.confidence;
+  const mentionRowVersion = value.mention_row_version;
+  return {
+    autoResolved: value.auto_resolved === true,
+    confidence: typeof confidence === "number" ? confidence : null,
+    matchedAliasText:
+      typeof value.matched_alias_text === "string"
+        ? value.matched_alias_text
+        : null,
+    mentionRowVersion:
+      typeof mentionRowVersion === "number" ? mentionRowVersion : null,
+    provenance: typeof value.provenance === "string" ? value.provenance : null,
+    resolutionMethod:
+      typeof value.resolution_method === "string"
+        ? value.resolution_method
+        : null,
+  };
+}
+
+function decodeCollectionItem(value: unknown): CollectionItem | null {
+  if (!isRecord(value)) return null;
+  const identity = decodeCollectionItemIdentity(value);
+  if (identity === null) return null;
+  const text = collectionItemText(value);
+  const resolvedRecordId = collectionItemResolvedRecordId(value);
+  if (!collectionItemTargetIsValid(identity, text.rawText, resolvedRecordId)) {
+    return null;
+  }
+  return {
+    ...collectionItemMetadata(value),
+    ...identity,
+    ...text,
+    resolvedRecordId,
+  };
 }
 
 function entityMentionIdFromItemRef(itemRef: string): string | null {
@@ -282,49 +389,7 @@ export function readCollectionItems(
       ? raw.items
       : [];
   return value
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
-      const object = item as Record<string, unknown>;
-      const confidenceValue = object.confidence;
-      const mentionRowVersion = object.mention_row_version;
-      return {
-        itemRef:
-          typeof object.item_ref === "string" ? object.item_ref : "unknown",
-        entityType: safeEntityType(object.entity_type),
-        itemKind:
-          typeof object.item_kind === "string"
-            ? object.item_kind
-            : "unresolved_mention",
-        displayText:
-          typeof object.display_text === "string"
-            ? object.display_text
-            : typeof object.raw_text === "string"
-              ? object.raw_text
-              : "",
-        rawText: typeof object.raw_text === "string" ? object.raw_text : "",
-        resolvedRecordId:
-          typeof object.resolved_record_id === "string"
-            ? object.resolved_record_id
-            : null,
-        mentionRowVersion:
-          typeof mentionRowVersion === "number" ? mentionRowVersion : null,
-        resolutionMethod:
-          typeof object.resolution_method === "string"
-            ? object.resolution_method
-            : null,
-        autoResolved: object.auto_resolved === true,
-        provenance:
-          typeof object.provenance === "string" ? object.provenance : null,
-        confidence:
-          typeof confidenceValue === "number" ? confidenceValue : null,
-        matchedAliasText:
-          typeof object.matched_alias_text === "string"
-            ? object.matched_alias_text
-            : null,
-      } satisfies CollectionItem;
-    })
+    .map(decodeCollectionItem)
     .filter((item): item is CollectionItem => item !== null);
 }
 

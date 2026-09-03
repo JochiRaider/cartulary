@@ -128,15 +128,16 @@ function validatedWorkbookInspectorSubject({
     normalizedLabel === "" ||
     normalizedSurfaceLabel === "" ||
     normalizedViewSchemaId === "" ||
+    typeof rowVersion !== "number" ||
     !Number.isInteger(rowVersion) ||
-    (rowVersion ?? 0) <= 0
+    rowVersion <= 0
   ) {
     return null;
   }
   const context = {
     label: normalizedLabel,
     recordId: normalizedRecordId,
-    rowVersion: rowVersion as number,
+    rowVersion,
     surfaceLabel: normalizedSurfaceLabel,
     viewSchemaId: normalizedViewSchemaId,
   };

@@ -1,10 +1,10 @@
-import type {
-  CreateViewRowRequest,
-  CreateViewRowResponse,
-  PatchRecordRequest,
-} from "@cartulary/protocol-ts/http";
+import type { CreateViewRowResponse } from "@cartulary/protocol-ts/http";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
+import {
+  buildPatchRecordRequest,
+  decodeCreateViewRowRequest,
+} from "../models/workbookRequestDecoders";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type {
@@ -78,6 +78,17 @@ function executeCreate(
   if (unit.recordId !== null) {
     return Promise.resolve(invalidMutationResult<CreateViewRowResponse>());
   }
+  const contract = contractForUnit(unit);
+  const request =
+    contract === null
+      ? null
+      : decodeCreateViewRowRequest(contract, {
+          ...unit.payloadIntent,
+          client_txn_id: unit.clientTxnId,
+        });
+  if (request === null) {
+    return Promise.resolve(invalidMutationResult<CreateViewRowResponse>());
+  }
   options.recordTiming?.("pending_fetch_request", { kind: unit.kind });
   return operations.execute({
     observeTransport: observedTransport(unit, options.recordTiming),
@@ -86,10 +97,7 @@ function executeCreate(
       incident_id: options.incidentId,
       view_schema_id: unit.viewSchemaId,
     },
-    request: {
-      ...unit.payloadIntent,
-      client_txn_id: unit.clientTxnId,
-    } as CreateViewRowRequest,
+    request,
   });
 }
 
@@ -107,16 +115,20 @@ function executePatch(
   ) {
     return Promise.resolve(staleTargetResult());
   }
+  const request = buildPatchRecordRequest({
+    baseRowVersion: committedRowVersion,
+    changes: unit.identity.changes,
+    clientTxnId: unit.clientTxnId,
+    viewSchemaId: unit.viewSchemaId,
+  });
+  if (request === null) {
+    return Promise.resolve(invalidMutationResult<CreateViewRowResponse>());
+  }
   return operations.execute({
     observeTransport: observedTransport(unit, options.recordTiming),
     operationID: "patchRecord",
     pathParameters: { record_id: unit.recordId },
-    request: {
-      base_row_version: committedRowVersion,
-      changes: unit.identity.changes,
-      client_txn_id: unit.clientTxnId,
-      view_schema_id: unit.viewSchemaId,
-    } as PatchRecordRequest,
+    request,
   });
 }
 

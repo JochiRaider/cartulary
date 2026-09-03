@@ -6,7 +6,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   normalizeTimelineFullRow,
   rowFromApi,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 import {
   createTimelineEditorDraftRegistry,
   useTimelineEditorDraftRegistry,

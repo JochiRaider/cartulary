@@ -12,11 +12,13 @@ import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDr
 import {
   inputFocusKey,
   type RowValues,
-  readTimelineCellValue,
   type TimelineScalarBinding,
   type TimelineScalarEditorSurface,
+} from "../models/timelineFieldRegistry";
+import {
+  readTimelineCellValue,
   type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 import { TimelineScalarEditor } from "./TimelineScalarEditor";
 import type {
   RegisterTimelineInput,

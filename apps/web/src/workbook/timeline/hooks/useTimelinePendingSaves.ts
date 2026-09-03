@@ -1,41 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
-  type WorkbookPendingQueueRuntime,
   type WorkbookPendingQueueSnapshot,
   workbookPendingQueueSnapshot,
 } from "../../runtime/workbookPendingReplayRuntime";
+import { timelinePendingSavesRefsFor } from "../models/timelinePendingSaves";
 
-export function useTimelinePendingSaves<TMeta>({
+export function useTimelinePendingSaves({
   mutationRuntime,
 }: {
   readonly mutationRuntime: WorkbookMutationRuntime;
 }) {
-  const pendingOpsRef = useRef(0);
-  const pendingSignaturesRef = useRef(new Map<string, string>());
-  const collectionKeyboardCommitRef = useRef(new Map<string, string>());
-  const pendingSocketTxnTimeoutsRef = useRef(new Map<string, number>());
-  const saveQueueRef = useRef(Promise.resolve());
-  const sharedPendingRuntime = mutationRuntime.pending<TMeta>();
-  const pendingQueueRef =
-    useRef<WorkbookPendingQueueRuntime<TMeta>>(sharedPendingRuntime);
-  if (pendingQueueRef.current !== sharedPendingRuntime) {
-    pendingQueueRef.current = sharedPendingRuntime;
-  }
-  const pendingReplayOrderRef = useRef(1);
-  const pendingReplayTimerRef = useRef<number | null>(null);
-  const refs = useMemo(
-    () => ({
-      collectionKeyboardCommitRef,
-      pendingOpsRef,
-      pendingQueueRef,
-      pendingReplayOrderRef,
-      pendingReplayTimerRef,
-      pendingSignaturesRef,
-      pendingSocketTxnTimeoutsRef,
-      saveQueueRef,
-    }),
-    [],
+  const sharedPendingRuntime = mutationRuntime.pendingQueue();
+  const refs = timelinePendingSavesRefsFor(
+    mutationRuntime,
+    sharedPendingRuntime,
   );
   const [pendingQueueSnapshot, setPendingQueueSnapshot] =
     useState<WorkbookPendingQueueSnapshot>(() =>

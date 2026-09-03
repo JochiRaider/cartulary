@@ -1,5 +1,6 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookOperationResponse } from "../adapters/workbookOperationExecutor";
+import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
 import type {
   RecordHistoryData,
   RecordHistoryRollbackTarget,
@@ -9,7 +10,7 @@ import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type {
   TimelineApiRow,
   WorkbookRow,
-} from "../timeline/models/workbookTimelineModel";
+} from "../timeline/models/timelineRowModel";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 export type GenericViewMutationAccepted = {
@@ -17,6 +18,8 @@ export type GenericViewMutationAccepted = {
   readonly row: WorkbookQueryRow;
   readonly viewSchemaId: string;
 };
+
+type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 
 export type GenericMutationOutcome =
   WorkbookOperationOutcome<GenericViewMutationAccepted>;
@@ -56,16 +59,9 @@ export type EntityPatchAccepted = {
   readonly viewSchemaId: string;
 };
 
-export type EntityPasteAccepted = {
-  readonly changeSetId: string | null;
-  readonly rows: readonly WorkbookQueryRow[];
-  readonly viewSchemaId: string;
-};
-
 export type EntityCreateOutcome =
   WorkbookOperationOutcome<EntityCreateAccepted>;
 export type EntityPatchOutcome = WorkbookOperationOutcome<EntityPatchAccepted>;
-export type EntityPasteOutcome = WorkbookOperationOutcome<EntityPasteAccepted>;
 
 export type EntityMergeAccepted = {
   readonly changeSetId: string;
@@ -210,7 +206,7 @@ export interface GenericMutationCommandPort {
   }): Promise<GenericMutationOutcome>;
   patchRecord(input: {
     readonly baseRowVersion: number;
-    readonly changes: readonly Record<string, unknown>[];
+    readonly changes: readonly RecordPatchChange[];
     readonly purpose: string;
     readonly recordId: string;
     readonly viewSchemaId: string;
@@ -232,19 +228,11 @@ export interface EntityMutationCommandPort {
   }): Promise<EntityCreateOutcome>;
   patchRecord(input: {
     readonly baseRowVersion: number;
-    readonly changes: readonly Record<string, unknown>[];
+    readonly changes: readonly RecordPatchChange[];
     readonly purpose: string;
     readonly recordId: string;
     readonly viewSchemaId: string;
   }): Promise<EntityPatchOutcome>;
-  pasteCreate(input: {
-    readonly clipboardText: string;
-    readonly columns: readonly string[];
-    readonly format: string;
-    readonly startFieldKey: string;
-    readonly targetCount: number;
-    readonly viewSchemaId: string;
-  }): Promise<EntityPasteOutcome>;
   merge(input: {
     readonly loserBaseRowVersion: number;
     readonly loserRecordId: string;

@@ -14,11 +14,9 @@ import { useTimelineFillController } from "../bulk/useTimelineFillController";
 import { useTimelineClipboardPasteController } from "../hooks/useTimelineClipboardPasteController";
 import { useTimelineKeyboardController } from "../hooks/useTimelineKeyboardController";
 import type { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
+import { timelineScalarBindingForField } from "../models/timelineFieldRegistry";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
-import {
-  timelineScalarBindingForField,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
@@ -34,9 +32,8 @@ type TimelineInteractionCompositionInput = {
   readonly foundation: {
     readonly activateCollectionInput: (focusKey: string) => void;
     readonly activeCollectionInputKey: string | null;
-    readonly clipboardPastePort: ClipboardInput["timelineClipboardPaste"];
+    readonly clipboardPastePort: ClipboardInput["clipboardPaste"];
     readonly deactivateCollectionInput: (focusKey: string) => void;
-    readonly editorDraftRegistry: ClipboardInput["editorDraftRegistry"];
     readonly pendingSavesRefs: ClipboardInput["pendingSavesRefs"];
     readonly recordTiming: KeyboardInput["recordTiming"];
     readonly rows: readonly WorkbookRow[];
@@ -81,7 +78,6 @@ type TimelineInteractionCompositionInput = {
     readonly finishSave: ClipboardInput["finishSave"];
     readonly loadRows: ClipboardInput["loadRows"];
     readonly mutationCommands: TimelineWorkbookSurfaceRuntime["mutationCommands"];
-    readonly nextClientTxnId: ClipboardInput["nextClientTxnId"];
     readonly queueCollectionSave: KeyboardInput["queueCollectionSave"];
     readonly queueScalarSave: KeyboardInput["queueScalarSave"];
     readonly registerSameFieldConflict: ClipboardInput["registerSameFieldConflict"];
@@ -118,9 +114,10 @@ export function useTimelineInteractionComposition({
   role,
   workflow,
 }: TimelineInteractionCompositionInput) {
-  const canBulkTag =
+  const canEdit =
     interactionMode.kind === "editable" &&
     (role === "editor" || role === "reviewer" || role === "admin");
+  const canBulkTag = canEdit;
   const refreshRowsForBulkTag = useCallback(
     () => mutation.loadRows({ showLoading: false }),
     [mutation.loadRows],
@@ -176,11 +173,13 @@ export function useTimelineInteractionComposition({
     applyResponseRows: mutation.applyClipboardResponseRows,
     beginSave: mutation.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
+    canCreateRows: canEdit,
     clearViewportContinuity: grid.clearViewportContinuity,
-    editorDraftRegistry: foundation.editorDraftRegistry,
+    clipboardPaste: foundation.clipboardPastePort,
+    editable: canEdit,
     finishSave: mutation.finishSave,
+    grouped: queryState.groupBy !== null,
     loadRows: mutation.loadRows,
-    nextClientTxnId: mutation.nextClientTxnId,
     pendingSavesRefs: foundation.pendingSavesRefs,
     queueScalarSave: mutation.queueScalarSave,
     registerSameFieldConflict: mutation.registerSameFieldConflict,
@@ -189,8 +188,8 @@ export function useTimelineInteractionComposition({
       grid.resolveTimelinePasteTargetResolution,
     restoreTimelineFocusAnchor: grid.restoreTimelineFocusAnchor,
     setActiveConflictKey: mutation.setActiveConflictKey,
+    setError: foundation.setRefreshError,
     setPasteConflictGroup: mutation.setPasteConflictGroup,
-    timelineClipboardPaste: foundation.clipboardPastePort,
     trackPendingSocketTxn: mutation.trackPendingSocketTxn,
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   }).commands;

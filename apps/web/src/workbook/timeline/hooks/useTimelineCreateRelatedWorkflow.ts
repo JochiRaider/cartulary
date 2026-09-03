@@ -25,7 +25,7 @@ import type {
   TimelineRelatedEvidenceLinked,
   TimelineRelatedRecordPort,
 } from "../../mutations/workbookMutationCommandPorts";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 export function useTimelineCreateRelatedWorkflow({
   applyAcceptedRowMutation,

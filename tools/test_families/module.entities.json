@@ -249,6 +249,35 @@
       ]
     },
     {
+      "row_id": "module.entities.frontend_unit.entity_clipboard_paste_plan_a108000004",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.frontend_unit",
+      "collaborator_ids": [
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityClipboardPastePlan.test.ts",
+        "titles": [
+          "entity clipboard paste plan builds an all-create batch while proving source targets are current",
+          "entity clipboard paste plan fails closed for stale targets, grouping, and unavailable fields",
+          "entity clipboard paste plan keeps scalar paste on the existing-record mutation path"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.entities.frontend_unit.entity_surface_query_owner_8826ee00f6",
       "owner_id": "module.entities",
       "family_id": "module.entities.frontend_unit",
@@ -291,6 +320,7 @@
         "file": "apps/web/src/workbook/WorkbookShell.mentionChips.test.ts",
         "titles": [
           "preserves closed mention chip states by stable identifiers and field keys",
+          "rejects malformed and unknown relationship collection members",
           "retains dismissed evidence through stale projections and prunes it only after a newer restore version"
         ]
       },

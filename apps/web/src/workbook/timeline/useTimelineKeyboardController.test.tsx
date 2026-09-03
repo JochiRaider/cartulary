@@ -10,7 +10,7 @@ import { useTimelineKeyboardController } from "./hooks/useTimelineKeyboardContro
 import {
   normalizeTimelineFullRow,
   rowFromApi,
-} from "./models/workbookTimelineModel";
+} from "./models/timelineRowModel";
 
 const recordId = "11111111-1111-4111-8111-111111111111";
 const summaryFieldKey = "timeline.activity_synopsis_text";
@@ -148,6 +148,7 @@ describe("useTimelineKeyboardController", () => {
       ),
     );
     expect(enter.preventDefault).toHaveBeenCalledOnce();
+    expect(enter.stopPropagation).toHaveBeenCalledOnce();
     expect(calls).toEqual(["save-scalar", "navigate-Enter-false"]);
     expect(mocks.queueScalarSave).toHaveBeenCalledWith(
       "row-key",
@@ -187,6 +188,7 @@ describe("useTimelineKeyboardController", () => {
       ),
     );
     expect(range.preventDefault).toHaveBeenCalledOnce();
+    expect(range.stopPropagation).toHaveBeenCalledOnce();
     expect(calls).toEqual([]);
 
     const draftController = controller({
@@ -228,6 +230,7 @@ describe("useTimelineKeyboardController", () => {
       ),
     );
     expect(unavailable.preventDefault).not.toHaveBeenCalled();
+    expect(unavailable.stopPropagation).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
 
     const focusAnchor = {
@@ -251,6 +254,7 @@ describe("useTimelineKeyboardController", () => {
       ),
     );
     expect(escapeEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(escapeEvent.stopPropagation).toHaveBeenCalledOnce();
     expect(
       inspectorController.mocks.restoreTimelineFocusAnchor,
     ).toHaveBeenCalledWith(focusAnchor);
@@ -269,6 +273,8 @@ describe("useTimelineKeyboardController", () => {
         "hostRefs",
       ),
     );
+    expect(enter.preventDefault).toHaveBeenCalledOnce();
+    expect(enter.stopPropagation).toHaveBeenCalledOnce();
     expect(calls).toEqual(["save-collection", "navigate-Enter-false"]);
     expect(mocks.queueCollectionSave).toHaveBeenCalledWith(
       "row-key",
@@ -291,6 +297,8 @@ describe("useTimelineKeyboardController", () => {
         "hostRefs",
       ),
     );
+    expect(escapeEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(escapeEvent.stopPropagation).toHaveBeenCalledOnce();
     expect(calls).toEqual([
       "row-null",
       "mention-null",
@@ -314,16 +322,11 @@ describe("useTimelineKeyboardController", () => {
       ),
     );
     expect(quickLink.preventDefault).not.toHaveBeenCalled();
+    expect(quickLink.stopPropagation).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
   });
 
   it("owns work-area shortcuts and leaves controls, menus, dialogs, and unavailable actions unconsumed", () => {
-    const animationFrame = vi
-      .spyOn(window, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        callback(0);
-        return 1;
-      });
     const target = document.createElement("div");
     target.dataset.gridFieldKey = "timeline.host_refs";
     const row = workbookRow();
@@ -395,6 +398,5 @@ describe("useTimelineKeyboardController", () => {
     expect(unavailable.preventDefault).not.toHaveBeenCalled();
     expect(unavailable.stopPropagation).not.toHaveBeenCalled();
     expect(mocks.setSelectedMentionRef).not.toHaveBeenCalled();
-    animationFrame.mockRestore();
   });
 });

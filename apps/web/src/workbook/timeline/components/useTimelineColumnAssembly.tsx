@@ -9,13 +9,15 @@ import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecyc
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import { timelineVisibleBindings } from "../models/timelineFieldRegistry";
 import {
   buildExpandedTimelineColumnWidths,
-  readTimelineCellValue,
   timelineColumnWidth,
-  timelineVisibleBindings,
+} from "../models/timelineLayoutPolicy";
+import {
+  readTimelineCellValue,
   type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 import type {
   RenderTimelineCollectionInput,
   RenderTimelineGridEditor,

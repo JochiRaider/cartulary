@@ -17,14 +17,13 @@ export function stringifyGridValue(value: unknown): string {
   ) {
     return value.items
       .map((item) => {
-        if (!item || typeof item !== "object") {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
           return null;
         }
-        const object = item as Record<string, unknown>;
-        return typeof object.display_text === "string"
-          ? object.display_text
-          : typeof object.raw_text === "string"
-            ? object.raw_text
+        return "display_text" in item && typeof item.display_text === "string"
+          ? item.display_text
+          : "raw_text" in item && typeof item.raw_text === "string"
+            ? item.raw_text
             : null;
       })
       .filter((item): item is string => item !== null)

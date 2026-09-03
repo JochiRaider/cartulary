@@ -206,7 +206,7 @@ export function useAssessmentCreationController({
         if (generationRef.current !== generation) return;
         setDraft(
           initialAssessmentDraft(assessmentsContract, {
-            subjectType: submittedDraft.subjectType as AssessmentSubjectType,
+            subjectType: submittedDraft.subjectType,
             subjectRecordId: submittedDraft.subjectRecordId,
           }),
         );

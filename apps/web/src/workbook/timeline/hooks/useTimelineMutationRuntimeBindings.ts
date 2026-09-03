@@ -4,10 +4,8 @@ import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendin
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineRowMutationEditorPort } from "../models/timelineControllerPorts";
-import {
-  normalizeTimelineFullRow,
-  timelineScalarBindingForField,
-} from "../models/workbookTimelineModel";
+import { timelineScalarBindingForField } from "../models/timelineFieldRegistry";
+import { normalizeTimelineFullRow } from "../models/timelineRowModel";
 
 function normalizeResolvedTimelineMutation(input: {
   readonly expectedRecordId: string;

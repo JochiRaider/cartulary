@@ -12,7 +12,7 @@ import {
   type TimelineViewportContinuityRequest,
   useTimelineViewportContinuityController,
 } from "../hooks/useTimelineViewportContinuityController";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineRowsRef = {
   readonly current: readonly WorkbookRow[];

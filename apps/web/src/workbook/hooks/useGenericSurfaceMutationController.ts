@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
 import {
   type WorkbookInspectorErrorPresentation,
   workbookInspectorErrorPresentation,
@@ -12,10 +13,11 @@ import type { WorkbookOperationFailure } from "../mutations/workbookOperationOut
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 
 type GenericMutationSaveState = "Syncing" | "Saved" | "Conflict";
+type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 
 type GenericPatchMutationRequest = {
   readonly baseRowVersion: number;
-  readonly changes: readonly Record<string, unknown>[];
+  readonly changes: readonly RecordPatchChange[];
   readonly purpose: string;
   readonly recordId: string;
   readonly viewSchemaId: string;

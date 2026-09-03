@@ -1,8 +1,13 @@
+import type {
+  WorkbookProtocolCollectionActions,
+  WorkbookProtocolResolveConflictRequest,
+} from "../adapters/workbookProtocolTypes";
+
 export type WorkbookSameFieldConflictPayload = {
   conflict_token: string;
   record_id: string;
   field_key: string;
-  conflict_resolution_class: string;
+  conflict_resolution_class: WorkbookConflictResolutionClass;
   base_row_version: number;
   current_row_version: number;
   client_value: unknown;
@@ -24,10 +29,10 @@ type WorkbookCollectionValue = {
   readonly items: readonly Record<string, unknown>[];
 };
 
-export type WorkbookCollectionActions = {
-  readonly kind: "collection_actions_v1";
-  readonly actions: readonly Record<string, unknown>[];
-};
+export type WorkbookCollectionActions = WorkbookProtocolCollectionActions;
+
+type WorkbookCollectionAction =
+  WorkbookProtocolCollectionActions["actions"][number];
 
 export type WorkbookConflictEntry = {
   readonly key: string;
@@ -49,15 +54,15 @@ export type WorkbookConflictResolutionKind =
   | "use_unsaved";
 
 export function workbookConflictResolutionClass(
-  value: string,
-): WorkbookConflictResolutionClass {
+  value: unknown,
+): WorkbookConflictResolutionClass | null {
   switch (value) {
+    case "atomic_replace":
     case "collection_review":
     case "text_compare_merge":
       return value;
-    default:
-      return "atomic_replace";
   }
+  return null;
 }
 
 export function workbookConflictQueueKey(
@@ -82,15 +87,13 @@ export function workbookConflictEntry({
   return {
     key: workbookConflictQueueKey(conflict),
     conflict,
-    resolutionClass: workbookConflictResolutionClass(
-      conflict.conflict_resolution_class,
-    ),
+    resolutionClass: conflict.conflict_resolution_class,
     origin: { viewSchemaId, surfaceLabel, rowLabel },
     focusKey,
     localValue: conflict.client_value,
     mergedDraft:
-      workbookConflictResolutionClass(conflict.conflict_resolution_class) ===
-        "text_compare_merge" && typeof conflict.server_value === "string"
+      conflict.conflict_resolution_class === "text_compare_merge" &&
+      typeof conflict.server_value === "string"
         ? conflict.server_value
         : "",
   };
@@ -99,19 +102,22 @@ export function workbookConflictEntry({
 function isWorkbookCollectionValue(
   value: unknown,
 ): value is WorkbookCollectionValue {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return false;
   }
-  const candidate = value as Record<string, unknown>;
   return (
-    candidate.kind === "collection_value_v1" &&
-    typeof candidate.ordered === "boolean" &&
-    Array.isArray(candidate.items) &&
-    candidate.items.every(
+    value.kind === "collection_value_v1" &&
+    typeof value.ordered === "boolean" &&
+    Array.isArray(value.items) &&
+    value.items.every(
       (item) =>
         item !== null && typeof item === "object" && !Array.isArray(item),
     )
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function collectionItemIdentity(item: Record<string, unknown>): string {
@@ -123,70 +129,108 @@ function collectionItemIdentity(item: Record<string, unknown>): string {
 
 function removeCollectionItemAction(
   item: Record<string, unknown>,
-): Record<string, unknown> | null {
+): WorkbookCollectionAction | null {
   if (typeof item.item_ref !== "string" || item.item_ref === "") {
     return null;
   }
-  const op = (() => {
-    switch (item.item_kind) {
-      case "alias":
-        return "remove_alias";
-      case "party_ref":
-        return "remove_party_ref";
-      case "record_ref":
-      case "resolved_ref":
-        return "remove_record_ref";
-      case "risk_ref":
-        return "remove_risk_ref";
-      case "tag":
-        return "remove_tag";
-      default:
-        return null;
-    }
-  })();
-  return op === null ? null : { op, item_ref: item.item_ref };
+  switch (item.item_kind) {
+    case "alias":
+      return { item_ref: item.item_ref, op: "remove_alias" };
+    case "party_ref":
+      return { item_ref: item.item_ref, op: "remove_party_ref" };
+    case "record_ref":
+    case "resolved_ref":
+      return { item_ref: item.item_ref, op: "remove_record_ref" };
+    case "risk_ref":
+      return { item_ref: item.item_ref, op: "remove_risk_ref" };
+    case "tag":
+      return { item_ref: item.item_ref, op: "remove_tag" };
+  }
+  return null;
+}
+
+type WorkbookCollectionItemKind =
+  | "alias"
+  | "party_ref"
+  | "record_ref"
+  | "resolved_ref"
+  | "risk_ref"
+  | "tag"
+  | "unresolved_mention";
+
+function actionFromStringProperty(
+  item: Record<string, unknown>,
+  property: string,
+  build: (value: string) => WorkbookCollectionAction,
+): WorkbookCollectionAction | null {
+  const value = item[property];
+  return typeof value === "string" ? build(value) : null;
+}
+
+function resolvedReferenceAction(
+  item: Record<string, unknown>,
+): WorkbookCollectionAction | null {
+  const recordId =
+    typeof item.resolved_record_id === "string"
+      ? item.resolved_record_id
+      : item.linked_record_id;
+  return typeof recordId === "string"
+    ? { op: "add_record_ref", linked_record_id: recordId }
+    : null;
+}
+
+const collectionItemActionBuilders = {
+  alias: (item: Record<string, unknown>) =>
+    actionFromStringProperty(item, "alias_text", (aliasText) => ({
+      alias_text: aliasText,
+      op: "add_alias",
+    })),
+  party_ref: (item: Record<string, unknown>) =>
+    actionFromStringProperty(item, "party_id", (partyId) => ({
+      op: "add_party_ref",
+      party_id: partyId,
+    })),
+  record_ref: (item: Record<string, unknown>) =>
+    actionFromStringProperty(item, "linked_record_id", (recordId) => ({
+      linked_record_id: recordId,
+      op: "add_record_ref",
+    })),
+  resolved_ref: resolvedReferenceAction,
+  risk_ref: (item: Record<string, unknown>) =>
+    actionFromStringProperty(item, "risk_ref_text", (riskRefText) => ({
+      op: "add_risk_ref",
+      risk_ref_text: riskRefText,
+    })),
+  tag: (item: Record<string, unknown>) =>
+    actionFromStringProperty(item, "display_text", (tagName) => ({
+      op: "add_tag",
+      tag_name: tagName,
+    })),
+  unresolved_mention: (item: Record<string, unknown>) =>
+    actionFromStringProperty(item, "raw_text", (rawText) => ({
+      op: "add_token",
+      raw_text: rawText,
+    })),
+} satisfies Readonly<
+  Record<
+    WorkbookCollectionItemKind,
+    (item: Record<string, unknown>) => WorkbookCollectionAction | null
+  >
+>;
+
+function isWorkbookCollectionItemKind(
+  value: string,
+): value is WorkbookCollectionItemKind {
+  return Object.hasOwn(collectionItemActionBuilders, value);
 }
 
 function addCollectionItemAction(
   item: Record<string, unknown>,
-): Record<string, unknown> | null {
-  switch (item.item_kind) {
-    case "alias":
-      return typeof item.alias_text === "string"
-        ? { op: "add_alias", alias_text: item.alias_text }
-        : null;
-    case "party_ref":
-      return typeof item.party_id === "string"
-        ? { op: "add_party_ref", party_id: item.party_id }
-        : null;
-    case "record_ref":
-      return typeof item.linked_record_id === "string"
-        ? { op: "add_record_ref", linked_record_id: item.linked_record_id }
-        : null;
-    case "resolved_ref": {
-      const recordId =
-        typeof item.resolved_record_id === "string"
-          ? item.resolved_record_id
-          : item.linked_record_id;
-      return typeof recordId === "string"
-        ? { op: "add_record_ref", linked_record_id: recordId }
-        : null;
-    }
-    case "risk_ref":
-      return typeof item.risk_ref_text === "string"
-        ? { op: "add_risk_ref", risk_ref_text: item.risk_ref_text }
-        : null;
-    case "tag":
-      return typeof item.display_text === "string"
-        ? { op: "add_tag", tag_name: item.display_text }
-        : null;
-    case "unresolved_mention":
-      return typeof item.raw_text === "string"
-        ? { op: "add_token", raw_text: item.raw_text }
-        : null;
-    default:
-      return null;
-  }
+): WorkbookCollectionAction | null {
+  const itemKind = item.item_kind;
+  return typeof itemKind === "string" && isWorkbookCollectionItemKind(itemKind)
+    ? collectionItemActionBuilders[itemKind](item)
+    : null;
 }
 
 export function collectionActionsAgainstSaved(
@@ -205,17 +249,21 @@ export function collectionActionsAgainstSaved(
   const savedIdentities = new Set(
     savedValue.items.map((item) => collectionItemIdentity(item)),
   );
-  const actions = [
+  const actions: WorkbookCollectionAction[] = [
     ...savedValue.items
       .filter((item) => !finalIdentities.has(collectionItemIdentity(item)))
       .map(removeCollectionItemAction),
     ...finalValue.items
       .filter((item) => !savedIdentities.has(collectionItemIdentity(item)))
       .map(addCollectionItemAction),
-  ].filter((action): action is Record<string, unknown> => action !== null);
-  return actions.length === 0
+  ].filter((action): action is WorkbookCollectionAction => action !== null);
+  const [firstAction, ...remainingActions] = actions;
+  return firstAction === undefined
     ? null
-    : { kind: "collection_actions_v1", actions };
+    : {
+        actions: [firstAction, ...remainingActions],
+        kind: "collection_actions_v1",
+      };
 }
 
 export function buildWorkbookConflictResolutionPayload({
@@ -226,18 +274,19 @@ export function buildWorkbookConflictResolutionPayload({
   readonly clientTxnId: string;
   readonly entry: WorkbookConflictEntry;
   readonly resolutionKind: WorkbookConflictResolutionKind;
-}): Record<string, unknown> | null {
-  const body: Record<string, unknown> = {
+}): WorkbookProtocolResolveConflictRequest | null {
+  const base = {
     conflict_token: entry.conflict.conflict_token,
     resolution_kind: resolutionKind,
     client_txn_id: clientTxnId,
-  };
+  } satisfies Omit<WorkbookProtocolResolveConflictRequest, "resolved_value">;
   if (resolutionKind === "keep_saved") {
-    return body;
+    return base;
   }
   if (resolutionKind === "use_unsaved") {
-    body.resolved_value = entry.localValue;
-    return body;
+    return typeof entry.localValue === "string" || entry.localValue === null
+      ? { ...base, resolved_value: entry.localValue }
+      : null;
   }
   if (entry.resolutionClass === "collection_review") {
     const actions = collectionActionsAgainstSaved(
@@ -247,16 +296,14 @@ export function buildWorkbookConflictResolutionPayload({
     if (actions === null) {
       return null;
     }
-    body.resolved_value = actions;
-    return body;
+    return { ...base, resolved_value: actions };
   }
-  body.resolved_value = entry.mergedDraft;
-  return body;
+  return { ...base, resolved_value: entry.mergedDraft };
 }
 
 export type SameFieldConflictFields = Record<string, unknown> & {
   base_row_version: number;
-  conflict_resolution_class: string;
+  conflict_resolution_class: WorkbookConflictResolutionClass;
   conflict_token: string;
   current_row_version: number;
   field_key: string;
@@ -266,10 +313,13 @@ export type SameFieldConflictFields = Record<string, unknown> & {
 export function parseSameFieldConflictFields(
   conflict: unknown,
 ): SameFieldConflictFields | null {
-  if (!conflict || typeof conflict !== "object") {
+  if (!isRecord(conflict)) {
     return null;
   }
-  const object = conflict as Record<string, unknown>;
+  const object = conflict;
+  const resolutionClass = workbookConflictResolutionClass(
+    object.conflict_resolution_class,
+  );
   if (
     typeof object.conflict_token !== "string" ||
     object.conflict_token.trim() === "" ||
@@ -277,14 +327,21 @@ export function parseSameFieldConflictFields(
     object.record_id.trim() === "" ||
     typeof object.field_key !== "string" ||
     object.field_key.trim() === "" ||
-    typeof object.conflict_resolution_class !== "string" ||
-    object.conflict_resolution_class.trim() === "" ||
+    resolutionClass === null ||
     typeof object.base_row_version !== "number" ||
     typeof object.current_row_version !== "number"
   ) {
     return null;
   }
-  return object as SameFieldConflictFields;
+  return {
+    ...object,
+    base_row_version: object.base_row_version,
+    conflict_resolution_class: resolutionClass,
+    conflict_token: object.conflict_token,
+    current_row_version: object.current_row_version,
+    field_key: object.field_key,
+    record_id: object.record_id,
+  };
 }
 
 export function parseSameFieldConflictPayload(

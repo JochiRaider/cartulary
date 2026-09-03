@@ -1,6 +1,7 @@
 import type {
   InspectorConfig,
   InspectorFeatureGroup,
+  InspectorRouteBindingOwner,
 } from "@cartulary/view-contracts";
 import {
   admitCanonicalInspectorFeature,
@@ -76,6 +77,28 @@ function contextualCapability(
   return null;
 }
 
+const recordHistoryActionsByOwner = {
+  current_row_projection: null,
+  entity_mention_resolve_route: null,
+  evidence_attach_blob_route: null,
+  evidence_download_handle_route: null,
+  evidence_preview_handle_route: null,
+  indicator_lifecycle_route: null,
+  indicator_observations_route: null,
+  record_delete_route: "delete",
+  record_history_route: null,
+  record_mark_reviewed_route: null,
+  record_merge_route: null,
+  record_patch_route: null,
+  record_restore_route: "restore",
+  record_rollback_route: "rollback",
+  record_supersede_route: null,
+  view_query_route: null,
+  view_row_create_route: null,
+} satisfies Readonly<
+  Record<InspectorRouteBindingOwner, InspectorRecordHistoryAction | null>
+>;
+
 function recordHistoryAction(
   featureGroup: InspectorFeatureGroup,
 ): InspectorRecordHistoryAction | null {
@@ -85,14 +108,5 @@ function recordHistoryAction(
   ) {
     return null;
   }
-  switch (featureGroup.routeBinding.owner) {
-    case "record_delete_route":
-      return "delete";
-    case "record_restore_route":
-      return "restore";
-    case "record_rollback_route":
-      return "rollback";
-    default:
-      return null;
-  }
+  return recordHistoryActionsByOwner[featureGroup.routeBinding.owner];
 }

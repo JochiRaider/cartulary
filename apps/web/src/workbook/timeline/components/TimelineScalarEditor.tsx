@@ -12,7 +12,7 @@ import type {
   FocusFieldKey,
   RowValues,
   TimelineScalarEditorSurface,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineFieldRegistry";
 import { inputStyle } from "./TimelineWorkbookStyles";
 
 export function TimelineScalarEditor({
@@ -80,10 +80,10 @@ export function TimelineScalarEditor({
     surface: TimelineScalarEditorSurface,
   ) => void;
   readonly onPasteCommit: (
-    event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
     rowKey: string,
     field: keyof RowValues,
     surface: TimelineScalarEditorSurface,
+    value: string,
   ) => void;
   readonly registerInput: (
     rowKey: string,
@@ -189,7 +189,15 @@ export function TimelineScalarEditor({
     event: ReactClipboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     if (readOnly) return;
-    onPasteCommit(event, rowKey, field, surface);
+    const currentValue = event.currentTarget.value;
+    const start = event.currentTarget.selectionStart ?? currentValue.length;
+    const end = event.currentTarget.selectionEnd ?? start;
+    const pastedValue = event.clipboardData?.getData("text/plain") ?? "";
+    const nextValue = `${currentValue.slice(0, start)}${pastedValue}${currentValue.slice(end)}`;
+    event.preventDefault();
+    setEditorValue(nextValue);
+    onDraftChange(rowKey, field, surface, nextValue);
+    onPasteCommit(rowKey, field, surface, nextValue);
     event.stopPropagation();
   };
   const handleCopy = (

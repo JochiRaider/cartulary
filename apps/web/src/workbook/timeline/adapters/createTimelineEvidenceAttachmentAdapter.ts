@@ -12,7 +12,7 @@ import {
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import { normalizeTimelineFullRow } from "../models/workbookTimelineModel";
+import { normalizeTimelineFullRow } from "../models/timelineRowModel";
 import type {
   TimelineEvidenceAttachmentAccepted,
   TimelineEvidenceAttachmentPort,

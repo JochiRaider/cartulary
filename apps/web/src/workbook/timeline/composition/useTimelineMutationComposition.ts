@@ -7,34 +7,32 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import type { SheetRef } from "../../../shared/sheetRef";
+import { type SheetRef, sheetRefKey } from "../../../shared/sheetRef";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { buildQueryRequest } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
-import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
-import type {
-  WorkbookPendingQueueSnapshot,
-  WorkbookPendingSavesRefs,
-} from "../../runtime/workbookPendingReplayRuntime";
+import type { WorkbookPendingQueueSnapshot } from "../../runtime/workbookPendingReplayRuntime";
 import { useTimelineCollaborationBindings } from "../collaboration/useTimelineCollaborationBindings";
 import { useTimelinePresenceController } from "../collaboration/useTimelinePresenceController";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineCommittedRecordIdle } from "../hooks/useTimelineCommittedRecordIdle";
 import { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
+import { useTimelineMutationDriver } from "../hooks/useTimelineMutationDriver";
 import { useTimelineMutationRuntimeBindings } from "../hooks/useTimelineMutationRuntimeBindings";
-import { useTimelinePendingReplayController } from "../hooks/useTimelinePendingReplayController";
 import { useTimelineRowsLoader } from "../hooks/useTimelineRowsLoader";
 import type { TimelineViewportContinuityTarget } from "../hooks/useTimelineViewportContinuityController";
 import type {
-  PendingReplayRuntimeMeta,
   TimelineMutableRef,
   TimelineRowMutationEditorPort,
   TimelineRowStoreCommands,
 } from "../models/timelineControllerPorts";
+import { inputFocusKey } from "../models/timelineFieldRegistry";
+import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordEvidence,
@@ -44,10 +42,6 @@ import type {
   DismissedMention,
 } from "../models/workbookMentionChips";
 import { reconcileDismissedMentionsForRow } from "../models/workbookMentionChips";
-import {
-  inputFocusKey,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
 import { useTimelineRowMutationCoordinator } from "../mutations/useTimelineRowMutationCoordinator";
 import type { TimelineRecordActionPort } from "../ports/TimelineRecordActionPort";
 
@@ -61,7 +55,7 @@ type TimelineMutationCompositionInput = {
     readonly nextDraftIndex: () => number;
     readonly loadAccessLost: boolean;
     readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
-    readonly pendingSavesRefs: WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>;
+    readonly pendingSavesRefs: TimelinePendingSavesRefs;
     readonly recordActionPort: TimelineRecordActionPort;
     readonly recordWorkbookTiming: (
       name: string,
@@ -117,7 +111,6 @@ type TimelineMutationCompositionInput = {
   readonly mutationCommands: TimelineMutationCommandPorts;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly onIncidentAccessLost: (() => void) | undefined;
-  readonly pendingMutationPort: WorkbookPendingMutationPort;
   readonly query: {
     readonly queryState: WorkbookQueryState;
     readonly viewQuery: WorkbookViewQueryPort;
@@ -133,15 +126,24 @@ export function useTimelineMutationComposition({
   mutationCommands,
   mutationRuntime,
   onIncidentAccessLost,
-  pendingMutationPort,
   query,
 }: TimelineMutationCompositionInput) {
+  const timelineQueryIdentity = useMemo(
+    () => JSON.stringify(buildQueryRequest(timelineContract, query.queryState)),
+    [query.queryState],
+  );
+  const timelineSurfaceIdentity = sheetRefKey(incident.sheetRef);
+  const timelineLoadIdentity = useMemo(
+    () => ({
+      incidentId: incident.id,
+      queryIdentity: timelineQueryIdentity,
+      surfaceIdentity: timelineSurfaceIdentity,
+    }),
+    [incident.id, timelineQueryIdentity, timelineSurfaceIdentity],
+  );
   const createdRowPresentationScopeKey = useMemo(
-    () =>
-      `${incident.continuityResetKey}:${JSON.stringify(
-        buildQueryRequest(timelineContract, query.queryState),
-      )}`,
-    [incident.continuityResetKey, query.queryState],
+    () => `${incident.continuityResetKey}:${timelineQueryIdentity}`,
+    [incident.continuityResetKey, timelineQueryIdentity],
   );
   const rowMutations = useTimelineRowMutationCoordinator({
     advanceViewportContinuity: grid.advanceViewportContinuity,
@@ -208,16 +210,17 @@ export function useTimelineMutationComposition({
     advanceViewportContinuity: grid.advanceViewportContinuity,
     beginRefreshInFlight: rowMutations.commands.beginRefreshInFlight,
     beginTimelineRowsLoad: queryAdmission.beginLoad,
-    committedRowsChangedSince: queryAdmission.committedRowsChangedSince,
     currentCreatedRowPresentationRecordId:
       queryAdmission.currentCreatedRowPresentationRecordId,
     currentCommittedTimelineRow: queryAdmission.currentCommittedTimelineRow,
+    currentMutationEpoch: queryAdmission.currentMutationEpoch,
     finishRefreshInFlight: rowMutations.commands.finishRefreshInFlight,
     failViewportContinuity: grid.failViewportContinuity,
     hasLoadedRows: queryAdmission.hasLoadedRows,
     isCurrentLoadSequence: queryAdmission.isCurrentLoadSequence,
     knownTimelineRowVersion: queryAdmission.knownTimelineRowVersion,
     markRowsLoaded: queryAdmission.markRowsLoaded,
+    loadIdentity: timelineLoadIdentity,
     nextDraftIndex: foundation.nextDraftIndex,
     onIncidentAccessLost,
     pendingSavesRefs: foundation.pendingSavesRefs,
@@ -272,7 +275,7 @@ export function useTimelineMutationComposition({
     void loadRows({ showLoading: true });
   }, [incident.reloadToken, loadRows]);
 
-  const replay = useTimelinePendingReplayController({
+  const replay = useTimelineMutationDriver({
     applyAcceptedRowMutation: rowMutations.commands.applyAcceptedRowMutation,
     clearSubmittedScalarEditorDraftValuesForRow:
       foundation.editorDraftRegistry.clearSubmittedRow,
@@ -307,14 +310,11 @@ export function useTimelineMutationComposition({
     reconcileDiscardedPendingUnit:
       rowMutations.commands.reconcileDiscardedPendingUnit,
     recordWorkbookTiming: foundation.recordWorkbookTiming,
-    resolvePendingSocketTxn: rowMutations.commands.resolvePendingSocketTxn,
     rowsRef: foundation.rowsRef,
     requestAuthorizationRecovery:
       collaboration.commands.requestAuthorizationRecovery,
     setRefreshError: foundation.setRefreshError,
     rowStoreCommands: foundation.rowStoreCommands,
-    pendingMutationPort,
-    trackPendingSocketTxn: rowMutations.commands.trackPendingSocketTxn,
   });
   useTimelineMutationRuntimeBindings({
     applyAcceptedRowMutation: rowMutations.commands.applyAcceptedRowMutation,

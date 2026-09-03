@@ -23,7 +23,7 @@ import { useTimelineGridEnvironment } from "./composition/useTimelineGridEnviron
 import { useTimelineInspectorStateComposition } from "./composition/useTimelineInspectorStateComposition";
 import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";
 import { useTimelineHistoryActions } from "./hooks/useTimelineHistoryActions";
-import { createDraftRow } from "./models/workbookTimelineModel";
+import { createDraftRow } from "./models/timelineRowModel";
 import type { TimelineHistoryPort } from "./ports/TimelineHistoryPort";
 
 it("useTimelineGridEnvironment owns rounded measurement and observer cleanup", () => {
@@ -77,7 +77,7 @@ it("useTimelineGridEnvironment owns rounded measurement and observer cleanup", (
 });
 
 it("useTimelineInspectorStateComposition preserves continuity and resets selection lifecycle", () => {
-  const token = "continuity-1" as WorkbookContinuityToken;
+  const token: WorkbookContinuityToken = { sequence: 1 };
   const capture = vi.fn(() => token);
   const restore = vi.fn(() => true);
   const continuity: WorkbookContinuityPort = {

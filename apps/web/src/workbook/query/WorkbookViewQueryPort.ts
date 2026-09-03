@@ -2,8 +2,6 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
 
-export { workbookOperationFailureIsAccessLoss as workbookViewQueryFailureIsAccessLoss } from "../ports/WorkbookPortResult";
-
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 
 export type WorkbookViewQueryAccepted = {

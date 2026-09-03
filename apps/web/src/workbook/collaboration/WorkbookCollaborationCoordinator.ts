@@ -48,10 +48,14 @@ export type WorkbookCollaborationSnapshot = {
 };
 
 function recordValue(value: unknown): Record<string, unknown> {
-  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
+  if (isRecord(value)) {
+    return value;
   }
   return {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 /**

@@ -1175,34 +1175,6 @@
       ]
     },
     {
-      "row_id": "module.workbook.frontend.keyboard_command_mapping_covers_arrow_keys_enter_936238eee1",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.frontend",
-      "collaborator_ids": [
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/utils/workbookKeyboard.test.ts",
-        "titles": [
-          "does not consume application shortcuts outside committed grid navigation",
-          "fails closed when optional shortcut actions are unavailable",
-          "maps required workbook keys without hidden paste macro behavior"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
       "row_id": "module.workbook.frontend.sorted_and_filtered_paste_translation_uses_stabl_d4950d24ba",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.frontend",
@@ -1330,6 +1302,34 @@
           "focuses stable record_id and field_key anchors through the consumer handle",
           "rejects invalid row, field, surface, and recordless targets",
           "resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.workbook.frontend.workbook_application_shortcuts_are_explicit_capa_39a6d43e21",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/policies/workbookApplicationShortcuts.test.ts",
+        "titles": [
+          "does not claim Grid Adapter or native paste and navigation keys",
+          "does not consume an unavailable command",
+          "returns explicit commands and consumption decisions"
         ]
       },
       "evidence_class": "unit",
@@ -1862,6 +1862,35 @@
         "file": "apps/web/src/services/clientTransactionIdPolicy.test.ts",
         "titles": [
           "keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.workbook.frontend_unit.workbook_request_boundaries_fail_closed_a120000001",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.frontend_unit",
+      "collaborator_ids": [
+        "web.architecture",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/workbookRequestDecoders.test.ts",
+        "titles": [
+          "constructs exact create, linked-note, collection, and patch requests",
+          "fails closed on malformed and future create or collection members",
+          "rejects empty, ambiguous, and malformed patch changes"
         ]
       },
       "evidence_class": "unit",

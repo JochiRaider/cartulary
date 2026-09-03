@@ -5,6 +5,10 @@ import {
   type ViewContract,
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
+import type {
+  WorkbookProtocolCollectionActions,
+  WorkbookProtocolPatchRecordRequest,
+} from "../adapters/workbookProtocolTypes";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 import {
@@ -13,11 +17,16 @@ import {
 } from "./workbookSurfaceRegistration";
 
 export type GenericCollectionMode = "add" | "remove";
+type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 export type GenericCreatePayload = Record<string, unknown> & {
   readonly client_txn_id: string;
 };
 
 const invalidGenericPayloadValue = Symbol("invalid generic payload value");
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
 
 export type PartyLinkPair = {
   key: string;
@@ -118,7 +127,7 @@ export function buildGenericPatchChange(
   rawValue: string,
   collectionMode: GenericCollectionMode = "add",
   viewSchemaId?: string,
-): Record<string, unknown> | null {
+): RecordPatchChange | null {
   const value = normalizeValue(rawValue);
   if (field.writeKind === "action_payload") {
     const actionPayload = buildGenericCollectionActions(
@@ -192,7 +201,7 @@ function buildGenericCollectionActions(
   field: ViewFieldContract,
   rawValue: string,
   mode: GenericCollectionMode,
-): Record<string, unknown> | null {
+): WorkbookProtocolCollectionActions | null {
   const tokens = splitDraftValues(rawValue);
   if (tokens.length === 0) {
     return null;
@@ -201,32 +210,39 @@ function buildGenericCollectionActions(
     requireWorkbookSurfaceRegistration(viewSchemaId).policy.collectionActions[
       field.fieldKey
     ] ?? "record";
-  const actions = tokens.map((value) => {
-    if (actionKind === "tag") {
+  const actions: Array<WorkbookProtocolCollectionActions["actions"][number]> =
+    tokens.map((value) => {
+      if (actionKind === "tag") {
+        return mode === "remove"
+          ? { op: "remove_tag", item_ref: value }
+          : { op: "add_tag", tag_name: value };
+      }
+      if (actionKind === "alias") {
+        return mode === "remove"
+          ? { op: "remove_alias", item_ref: value }
+          : { op: "add_alias", alias_text: value };
+      }
+      if (actionKind === "party") {
+        return mode === "remove"
+          ? { op: "remove_party_ref", item_ref: value }
+          : { op: "add_party_ref", party_id: value };
+      }
+      if (actionKind === "risk") {
+        return mode === "remove"
+          ? { op: "remove_risk_ref", item_ref: value }
+          : { op: "add_risk_ref", risk_ref_text: value };
+      }
       return mode === "remove"
-        ? { op: "remove_tag", item_ref: value }
-        : { op: "add_tag", tag_name: value };
-    }
-    if (actionKind === "alias") {
-      return mode === "remove"
-        ? { op: "remove_alias", item_ref: value }
-        : { op: "add_alias", alias_text: value };
-    }
-    if (actionKind === "party") {
-      return mode === "remove"
-        ? { op: "remove_party_ref", item_ref: value }
-        : { op: "add_party_ref", party_id: value };
-    }
-    if (actionKind === "risk") {
-      return mode === "remove"
-        ? { op: "remove_risk_ref", item_ref: value }
-        : { op: "add_risk_ref", risk_ref_text: value };
-    }
-    return mode === "remove"
-      ? { op: "remove_record_ref", item_ref: value }
-      : { op: "add_record_ref", linked_record_id: value };
-  });
-  return { kind: "collection_actions_v1", actions };
+        ? { op: "remove_record_ref", item_ref: value }
+        : { op: "add_record_ref", linked_record_id: value };
+    });
+  const [firstAction, ...remainingActions] = actions;
+  return firstAction === undefined
+    ? null
+    : {
+        actions: [firstAction, ...remainingActions],
+        kind: "collection_actions_v1",
+      };
 }
 
 function viewSchemaIdForField(fieldKey: string): string {
@@ -361,8 +377,8 @@ export function genericCellLabel(value: unknown): string {
   if (typeof value === "boolean") {
     return value ? "Yes" : "No";
   }
-  if (typeof value === "object" && value !== null && "items" in value) {
-    const items = (value as { items?: unknown }).items;
+  if (isRecord(value)) {
+    const items = value.items;
     if (Array.isArray(items)) {
       const labels = collectionItemLabels(items);
       if (labels.length > 0) {
@@ -394,10 +410,10 @@ export function genericCellLabelForField(
 
 export function collectionItemLabels(items: readonly unknown[]): string[] {
   return items.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
+    if (!isRecord(item)) {
       return [];
     }
-    const raw = item as Record<string, unknown>;
+    const raw = item;
     const candidates = [
       raw.display_text,
       raw.alias_text,
@@ -574,18 +590,18 @@ export function genericCollectionItems(
   fieldKey: string,
 ): Array<{ itemRef: string; displayText: string }> {
   const value = row.cells[fieldKey]?.value;
-  if (!value || typeof value !== "object" || !("items" in value)) {
+  if (!isRecord(value)) {
     return [];
   }
-  const rawItems = (value as { items?: unknown }).items;
+  const rawItems = value.items;
   if (!Array.isArray(rawItems)) {
     return [];
   }
   return rawItems.flatMap((item) => {
-    if (!item || typeof item !== "object") {
+    if (!isRecord(item)) {
       return [];
     }
-    const raw = item as Record<string, unknown>;
+    const raw = item;
     const itemRef = typeof raw.item_ref === "string" ? raw.item_ref : "";
     if (itemRef === "") {
       return [];
@@ -609,30 +625,29 @@ export function isMultilineGenericField(field: ViewFieldContract): boolean {
   );
 }
 
+function genericErrorReason(
+  error: Readonly<Record<string, unknown>>,
+): string | null {
+  const details = error.details;
+  if (!isRecord(details)) return null;
+  const reason = details.reason_code;
+  return typeof reason === "string" ? reason : null;
+}
+
+function genericErrorRecord(payload: unknown): Record<string, unknown> | null {
+  if (!isRecord(payload)) return null;
+  return isRecord(payload.error) ? payload.error : null;
+}
+
 function parseGenericErrorBase(payload: unknown): string {
-  if (!payload || typeof payload !== "object" || !("error" in payload)) {
-    return "Request failed.";
+  const error = genericErrorRecord(payload);
+  if (error === null) return "Request failed.";
+  const code = error.code;
+  if (typeof code === "string") {
+    const reason = genericErrorReason(error);
+    return reason === null ? code : `${code}: ${reason}`;
   }
-  const error = payload.error;
-  if (!error || typeof error !== "object") {
-    return "Request failed.";
-  }
-  if ("code" in error && typeof error.code === "string") {
-    if (
-      "details" in error &&
-      error.details &&
-      typeof error.details === "object" &&
-      "reason_code" in error.details &&
-      typeof error.details.reason_code === "string"
-    ) {
-      return `${error.code}: ${error.details.reason_code}`;
-    }
-    return error.code;
-  }
-  if ("message" in error && typeof error.message === "string") {
-    return error.message;
-  }
-  return "Request failed.";
+  return typeof error.message === "string" ? error.message : "Request failed.";
 }
 
 export function parseMutationError(payload: unknown): string {

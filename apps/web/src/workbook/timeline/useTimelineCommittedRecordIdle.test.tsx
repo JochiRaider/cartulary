@@ -1,13 +1,10 @@
 import { renderHook } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import {
-  createWorkbookPendingQueueRuntime,
-  type WorkbookPendingSavesRefs,
-} from "../runtime/workbookPendingReplayRuntime";
+import { createWorkbookPendingQueueRuntime } from "../runtime/workbookPendingReplayRuntime";
 import { useTimelineCommittedRecordIdle } from "./hooks/useTimelineCommittedRecordIdle";
-import type { PendingReplayRuntimeMeta } from "./models/timelineControllerPorts";
+import type { TimelinePendingSavesRefs } from "./models/timelinePendingSaves";
 
-function pendingSavesRefs(): WorkbookPendingSavesRefs<PendingReplayRuntimeMeta> {
+function pendingSavesRefs(): TimelinePendingSavesRefs {
   return {
     collectionKeyboardCommitRef: { current: new Map() },
     pendingOpsRef: { current: 0 },
@@ -18,9 +15,8 @@ function pendingSavesRefs(): WorkbookPendingSavesRefs<PendingReplayRuntimeMeta> 
       }),
     },
     pendingReplayOrderRef: { current: 1 },
-    pendingReplayTimerRef: { current: null },
+    replayContextByUnitId: new Map(),
     pendingSignaturesRef: { current: new Map() },
-    pendingSocketTxnTimeoutsRef: { current: new Map() },
     saveQueueRef: { current: Promise.resolve() },
   };
 }

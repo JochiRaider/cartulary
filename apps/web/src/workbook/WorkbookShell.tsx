@@ -1,35 +1,10 @@
-import {
-  networkAnalysisTestId,
-  surfaceTabTestId,
-  workbookActiveSurfaceFocusTargetTestId,
-  workbookIncidentIdentityTestId,
-  workbookResponsiveBandTestId,
-  workbookShellReadyTestId,
-  workbookSurfacesMenuOptionTestId,
-  workbookSurfacesMenuTestId,
-  workbookSurfacesMenuTriggerTestId,
-} from "@cartulary/ui-contracts";
-import { requireViewContract } from "@cartulary/view-contracts";
-import {
-  lazy,
-  type ReactNode,
-  Suspense,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { workbookShellReadyTestId } from "@cartulary/ui-contracts";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   IncidentCollaborationSession,
   useIncidentCollaborationSession,
 } from "../collaboration/IncidentCollaborationSession";
-import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
-import {
-  ExtensionAvailabilityController,
-  type ExtensionDiscoveryProfile,
-} from "../extensions/extensionAvailability";
+import type { ExtensionDiscoveryProfile } from "../extensions/extensionAvailability";
 import {
   importProfileId,
   importRouteFamily,
@@ -38,103 +13,57 @@ import {
   networkFlowActivityProfileId,
 } from "../extensions/extensionWorkspaceIdentities";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
-import { sheetRefKey } from "../shared/sheetRef";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
   WorkbookIncidentControlsRendererProps,
-  WorkbookIncidentRole,
   WorkbookIncidentSnapshot,
 } from "../shared/workbookShellContracts";
-import { createWorkbookIncidentAdapter } from "./adapters/createWorkbookIncidentAdapter";
-import { createWorkbookPendingMutationAdapter } from "./adapters/createWorkbookPendingMutationAdapter";
-import { createWorkbookPreferenceAdapter } from "./adapters/createWorkbookPreferenceAdapter";
-import { createWorkbookSavedViewAdapter } from "./adapters/createWorkbookSavedViewAdapter";
-import { createWorkbookStartupAdapter } from "./adapters/createWorkbookStartupAdapter";
-import { createWorkbookViewQueryAdapter } from "./adapters/createWorkbookViewQueryAdapter";
-import { useWorkbookCollaborationCoordinatorSession } from "./collaboration/useWorkbookCollaborationCoordinator";
-import { WorkbookCollaborationCoordinator } from "./collaboration/WorkbookCollaborationCoordinator";
-import type { WorkbookActiveSurfacePort } from "./collaboration/workbookSurfacePort";
-import { ActiveSurfaceSavedViewSelector } from "./components/ActiveSurfaceSavedViewSelector";
-import { IncidentControlsDrawer } from "./components/IncidentControlsDrawer";
-import { SystemViewSwitcher } from "./components/SystemViewSwitcher";
-import { WorkbookEditRecoveryPanel } from "./components/WorkbookEditRecoveryPanel";
-import { WorkbookGridControls } from "./components/WorkbookGridControls";
-import { WorkbookQueueOverflowNotice } from "./components/WorkbookQueueOverflowNotice";
-import { WorkbookSameFieldConflictResolver } from "./components/WorkbookSameFieldConflictResolver";
+import { WorkbookActiveSurfaceFrame } from "./components/WorkbookActiveSurfaceFrame";
+import { WorkbookActiveSurfacePresentation } from "./components/WorkbookActiveSurfacePresentation";
+import { WorkbookIncidentControlsPresentation } from "./components/WorkbookIncidentControlsPresentation";
+import { workbookShellId } from "./components/WorkbookShellSlots";
+import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import {
-  WorkbookShellSlotRegion,
-  workbookShellId,
-} from "./components/WorkbookShellSlots";
-import { WorkbookPresenceSummary } from "./components/WorkbookStatusStrip";
+  WorkbookShellQueryControls,
+  WorkbookShellSavedViewControl,
+} from "./components/WorkbookShellViewBarControls";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
+import { useWorkbookAuthorizationState } from "./hooks/useWorkbookAuthorizationState";
+import { useWorkbookCollaborationLifecycle } from "./hooks/useWorkbookCollaborationLifecycle";
+import {
+  useWorkbookExtensionAvailability,
+  useWorkbookExtensionFallback,
+} from "./hooks/useWorkbookExtensionAvailability";
 import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
 import { useWorkbookProjectionRefreshController } from "./hooks/useWorkbookProjectionRefreshController";
-import { useWorkbookShellRuntime } from "./hooks/useWorkbookShellRuntime";
+import { useWorkbookRecoveryFocus } from "./hooks/useWorkbookRecoveryFocus";
+import {
+  useWorkbookReferenceQueryBroker,
+  useWorkbookShellInfrastructure,
+} from "./hooks/useWorkbookShellInfrastructure";
+import { useWorkbookSurfaceQueries } from "./hooks/useWorkbookSurfaceQueries";
 import { useWorkbookLayoutFacade } from "./layout/useWorkbookLayoutFacade";
 import type { AccountDensityMode } from "./layout/workbookDensity";
 import {
-  activeSystemViewTitleStyle,
-  currentUserChipStyle,
-  currentUserSlotStyle,
   panelStyle,
-  shellActiveSurfaceStyle,
-  shellContentNoticeStyle,
   shellContentRegionStyle,
-  shellIncidentIdentityStyle,
-  shellIncidentTitleStyle,
-  shellTopBarActionsStyle,
-  shellTopBarStyle,
-  shellTopBarUnsupportedStyle,
-  shellTopBarValueStyle,
-  surfaceMenuTriggerStyle,
-  surfacesMenuFrameStyle,
-  surfacesMenuItemSelectedStyle,
-  surfacesMenuItemStyle,
-  surfacesMenuStyle,
-  surfaceTabActiveStyle,
-  surfaceTabStyle,
-  systemViewSlotStyle,
-  tabStripStyle,
 } from "./layout/workbookShellStyles";
 import { workbookGridInteractionMode } from "./models/workbookGridState";
 import type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
 import {
-  assessmentsViewSchemaId,
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-  requiredBuiltInWorkbookSurfaceIds,
-  timelineViewSchemaId,
-} from "./models/workbookSurfaceRegistry";
-import { createWorkbookMutationCommandPorts } from "./mutations/createWorkbookMutationCommandPorts";
-import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
-import { useAssessmentSurfaceQuery } from "./query/useAssessmentSurfaceQuery";
-import { useEntitySurfaceQuery } from "./query/useEntitySurfaceQuery";
-import { useGenericSurfaceQuery } from "./query/useGenericSurfaceQuery";
-import { useWorkbookMutationRuntime } from "./runtime/useWorkbookMutationRuntime";
-import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
+  isNetworkAnalysisSheetRef,
+  workbookAccountPresentation,
+  workbookActiveSystemSurfaceTitle,
+} from "./models/workbookShellPresentation";
+import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
-import {
-  createReferenceQueryBroker,
-  type ReferenceQueryBrokerPort,
-} from "./services/referenceQueryBroker";
-import { WorkbookSurfacesFacade } from "./surfaces/WorkbookSurfacesFacade";
-import { displayInitials } from "./utils/workbookPresence";
+import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
 
 export type {
   WorkbookAccountApplicationMenuProps,
   WorkbookIncidentControlsRendererProps,
 };
-
-type IncidentRole = WorkbookIncidentRole;
-
-function recordWorkbookPendingMutationTiming(
-  name: string,
-  details: Readonly<Record<string, unknown>> = {},
-) {
-  if (typeof performance === "undefined") return;
-  performance.mark(`cartulary.workbook.${name}`, { detail: details });
-}
 
 type WorkbookShellProps = {
   authorizationRecovery: AuthorizationRecoveryPort;
@@ -162,42 +91,7 @@ type WorkbookShellContentProps = WorkbookShellProps & {
   mutationRuntimeRegistry: WorkbookMutationRuntimeRegistry;
 };
 
-type ExtensionWorkspaceRendererProps = {
-  readonly apiBase: string | undefined;
-  readonly currentIncidentRole: IncidentRole | null;
-  readonly incidentId: string;
-  readonly onIncidentAccessLost: (() => void) | undefined;
-};
-
-function extensionWorkspaceRegistryKey(
-  extensionProfileId: string,
-  workspaceKey: string,
-): string {
-  return `${extensionProfileId}:${workspaceKey}`;
-}
-
-const extensionWorkspaceRenderers: Readonly<
-  Record<string, (props: ExtensionWorkspaceRendererProps) => ReactNode>
-> = {
-  [extensionWorkspaceRegistryKey(
-    networkFlowActivityProfileId,
-    networkAnalysisWorkspaceKey,
-  )]: (props) => (
-    <Suspense fallback={null}>
-      <LazyNetworkFlowFeature {...props} />
-    </Suspense>
-  ),
-};
-
-const LazyNetworkFlowFeature = lazy(async () => {
-  const feature = await import("./features/NetworkFlowFeature");
-  return { default: feature.NetworkFlowFeature };
-});
-
-const LazyImportAssistantFeature = lazy(async () => {
-  const feature = await import("./features/ImportAssistantFeature");
-  return { default: feature.ImportAssistantFeature };
-});
+const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 
 function WorkbookShellContent({
   authorizationRecovery,
@@ -208,1013 +102,293 @@ function WorkbookShellContent({
   accountApplicationMenu,
   currentUserLabel,
   initialIncidentIdentity,
-  extensionProfiles = [],
+  extensionProfiles = noExtensionProfiles,
   onIncidentSnapshot,
   onIncidentAccessLost,
   renderIncidentControls,
   mutationRuntimeRegistry,
 }: WorkbookShellContentProps) {
   const collaborationSession = useIncidentCollaborationSession();
-  const extensionAvailability = useMemo(
-    () =>
-      new ExtensionAvailabilityController({
-        clientInstanceId: collaborationSession.clientInstanceId,
-        incidentId,
-      }),
-    [collaborationSession.clientInstanceId, incidentId],
-  );
-  const [extensionAvailabilityRevision, setExtensionAvailabilityRevision] =
-    useState(0);
-  extensionAvailability.setDiscovery(extensionProfiles);
-  const handleExtensionAvailabilityChange = useCallback(() => {
-    setExtensionAvailabilityRevision((current) => current + 1);
-  }, []);
-  const transactionIds = useMemo(createBrowserSecureTransactionIdPort, []);
-  const pendingMutationPort = useMemo(
-    () =>
-      createWorkbookPendingMutationAdapter({
-        apiBase,
-        incidentId,
-        recordTiming: recordWorkbookPendingMutationTiming,
-      }),
-    [apiBase, incidentId],
-  );
-  const mutationRuntime = useMemo(
-    () =>
-      mutationRuntimeRegistry.acquire(
-        {
-          clientInstanceId: collaborationSession.clientInstanceId,
-          incidentId,
-        },
-        () =>
-          new WorkbookMutationRuntime(
-            {
-              clientInstanceId: collaborationSession.clientInstanceId,
-              incidentId,
-            },
-            transactionIds,
-            pendingMutationPort,
-          ),
-      ),
-    [
-      collaborationSession.clientInstanceId,
-      incidentId,
-      pendingMutationPort,
-      transactionIds,
-      mutationRuntimeRegistry,
-    ],
-  );
-  const mutationCommands = useMemo(
-    () =>
-      createWorkbookMutationCommandPorts({
-        apiBase,
-        incidentId,
-        transactionIds,
-      }),
-    [apiBase, incidentId, transactionIds],
-  );
-  const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
-  const activeSurfaceFocusTargetRef = useRef<HTMLElement | null>(null);
-  const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
-  const overflowNoticeRef = useRef<HTMLElement | null>(null);
-  const sameFieldSummaryRef = useRef<HTMLDivElement | null>(null);
-  const conflictInvokerRef = useRef<HTMLButtonElement | null>(null);
-  const recoveryFocusOwnedRef = useRef(false);
-  const previousRecoveryTargetKeyRef = useRef<string | null>(null);
-  const recoveryTargetKey =
-    mutationSnapshot.blockedEdit !== null
-      ? `blocked:${mutationSnapshot.blockedEdit.unitId}`
-      : mutationSnapshot.overflowMessage !== null
-        ? "overflow"
-        : null;
-  const onRecoveryFocusWithinChange = useCallback((focused: boolean) => {
-    recoveryFocusOwnedRef.current = focused;
-  }, []);
-  const focusSameFieldSummary = useCallback(() => {
-    sameFieldSummaryRef.current?.focus({ preventScroll: true });
-  }, []);
-  const activateConflictStatus = useCallback(
-    (invoker: HTMLButtonElement) => {
-      conflictInvokerRef.current = invoker;
-      if (mutationSnapshot.blockedEdit !== null) {
-        recoveryFocusOwnedRef.current = true;
-        editRecoveryPanelRef.current?.focus({ preventScroll: true });
-        return;
-      }
-      if (mutationSnapshot.overflowMessage !== null) {
-        recoveryFocusOwnedRef.current = true;
-        overflowNoticeRef.current?.focus({ preventScroll: true });
-        return;
-      }
-      if (mutationSnapshot.conflicts.length === 0) return;
-      mutationRuntime.activateConflict();
-      window.requestAnimationFrame(() => {
-        focusSameFieldSummary();
-      });
-    },
-    [focusSameFieldSummary, mutationRuntime, mutationSnapshot],
-  );
-  const conflictStatusActivation =
-    mutationSnapshot.blockedEdit !== null ||
-    mutationSnapshot.overflowMessage !== null ||
-    mutationSnapshot.conflicts.length > 0
-      ? activateConflictStatus
-      : undefined;
-
-  useLayoutEffect(() => {
-    const previousTarget = previousRecoveryTargetKeyRef.current;
-    previousRecoveryTargetKeyRef.current = recoveryTargetKey;
-    if (
-      previousTarget === null ||
-      previousTarget === recoveryTargetKey ||
-      !recoveryFocusOwnedRef.current
-    ) {
-      return;
-    }
-    if (recoveryTargetKey !== null) {
-      const nextTarget =
-        mutationSnapshot.blockedEdit !== null
-          ? editRecoveryPanelRef.current
-          : overflowNoticeRef.current;
-      nextTarget?.focus({ preventScroll: true });
-      return;
-    }
-    recoveryFocusOwnedRef.current = false;
-    if (mutationSnapshot.conflictPanelOpen) {
-      focusSameFieldSummary();
-      return;
-    }
-    const invoker = conflictInvokerRef.current;
-    if (invoker?.isConnected && !invoker.disabled) {
-      invoker.focus({ preventScroll: true });
-      return;
-    }
-    activeSurfaceFocusTargetRef.current?.focus({ preventScroll: true });
-  }, [
-    mutationSnapshot.blockedEdit,
-    mutationSnapshot.conflictPanelOpen,
-    focusSameFieldSummary,
-    recoveryTargetKey,
-  ]);
-  const surfaceSelectionVersionRef = useRef(0);
-  const incidentPort = useMemo(
-    () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
-  const preferencePort = useMemo(
-    () => createWorkbookPreferenceAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
-  const startupPort = useMemo(
-    () => createWorkbookStartupAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
-  const savedViewPort = useMemo(
-    () => createWorkbookSavedViewAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
-  const workbookRuntime = useWorkbookShellRuntime({
+  const extensionLifecycle = useWorkbookExtensionAvailability({
+    clientInstanceId: collaborationSession.clientInstanceId,
+    incidentId,
+    profiles: extensionProfiles,
+  });
+  const infrastructure = useWorkbookShellInfrastructure({
+    apiBase,
+    clientInstanceId: collaborationSession.clientInstanceId,
+    extensionAvailability: extensionLifecycle.controller,
+    incidentId,
+    mutationRuntimeRegistry,
+    onExtensionAvailabilityChange: extensionLifecycle.publishChange,
+    onIncidentAccessLost,
+  });
+  const { commands, snapshot } = infrastructure.workbookRuntime;
+  const authorization = useWorkbookAuthorizationState({
+    accountUserId: account?.user_id,
+    authorizationRecovery,
     incidentId,
     onIncidentAccessLost,
-    surfaceSelectionVersionRef,
-    extensionAvailability,
-    onExtensionAvailabilityChange: handleExtensionAvailabilityChange,
-    preferencePort,
-    savedViewPort,
-    startupPort,
   });
-  const {
-    activeContract,
-    activeLayoutControls,
-    activeLayoutState,
-    activeQueryControls,
-    activeSavedViewModified,
-    assessmentQueryState,
-    genericQueryState,
-    hostQueryState,
-    identityQueryState,
-    gridEntryFocusRequest,
-    savedViews,
-    sheetReloadToken,
-    startupSheetRef,
-    surface,
-    timelineQueryState,
-  } = workbookRuntime.snapshot;
-  const {
-    acknowledgeGridEntryFocus,
-    cancelGridEntryFocus,
-    createSavedView,
-    deleteSavedView,
-    duplicateSavedView,
-    selectSavedView,
-    selectExtensionWorkspace,
-    selectWorkbookSurface,
-    setAssessmentQueryState,
-    setGenericQueryState,
-    setHostQueryState,
-    setIdentityQueryState,
-    setTimelineQueryState,
-    setWorkbookDefaultSheetRef,
-    setWorkbookHomeSheetRef,
-    updateSavedView,
-  } = workbookRuntime.commands;
-  const networkAnalysisRef = networkAnalysisSheetRef();
-  const networkAnalysisActive =
-    startupSheetRef.kind === "extension_workspace" &&
-    startupSheetRef.extension_profile_id === networkFlowActivityProfileId &&
-    startupSheetRef.workspace_key === networkAnalysisWorkspaceKey;
-  const [currentUserId, setCurrentUserId] = useState<string | null>(
-    () => account?.user_id ?? null,
-  );
-  const [currentIncidentRole, setCurrentIncidentRole] =
-    useState<IncidentRole | null>(null);
-  const authorizationGeneration = `${currentUserId ?? "anonymous"}:${currentIncidentRole ?? "none"}`;
-  const viewQuery = useMemo(
-    () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
-  const referenceQueryBroker = useMemo<ReferenceQueryBrokerPort>(
-    () =>
-      createReferenceQueryBroker({
-        authorizationGeneration,
-        viewQuery,
-      }),
-    [authorizationGeneration, viewQuery],
-  );
-  useEffect(
-    () => () => {
-      referenceQueryBroker.dispose();
-    },
-    [referenceQueryBroker],
+  const referenceQueryBroker = useWorkbookReferenceQueryBroker(
+    authorization.authorizationGeneration,
+    infrastructure.viewQuery,
   );
   const { incidentIdentity, incidentIdentityError } =
     useWorkbookIncidentIdentity({
-      incidentPort,
+      incidentPort: infrastructure.incidentPort,
       incidentId,
       initialIncidentIdentity,
       onIncidentAccessLost,
       onIncidentSnapshot,
     });
-  const [surfacesMenuOpen, setSurfacesMenuOpen] = useState(false);
-  const surfacesMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const importAssistantAvailable = extensionAvailability.isRouteAvailable(
-    importProfileId,
-    importRouteFamily,
-  );
-  const {
-    accountIncidentControls,
-    activeMenuItem: activeIncidentControlsMenuItem,
-    closeButtonRef: incidentControlsCloseButtonRef,
-    closeDrawer: closeIncidentControlsDrawer,
-    drawerSection: incidentControlsDrawerSection,
-  } = useIncidentControlsDrawer(importAssistantAvailable);
-  const genericSurfaceActive =
-    surface !== timelineViewSchemaId &&
-    surface !== hostsViewSchemaId &&
-    surface !== identitiesViewSchemaId &&
-    surface !== assessmentsViewSchemaId;
-  const {
-    applyRecordChanged: applyGenericRecordChanged,
-    invalidate: invalidateGenericQuery,
-    loadState: genericLoadState,
-    refresh: loadGenericSurface,
-    rows: genericRows,
-  } = useGenericSurfaceQuery({
-    active: genericSurfaceActive,
-    contract: activeContract,
-    onIncidentAccessLost,
-    queryState: genericQueryState,
-    viewQuery,
-    viewSchemaId: surface,
-  });
-  const {
-    applyRecordChanged: applyAssessmentRecordChanged,
-    invalidate: invalidateAssessmentQuery,
-    loadState: assessmentLoadState,
-    refresh: loadAssessmentSurface,
-    rows: assessmentRows,
-  } = useAssessmentSurfaceQuery({
-    active: surface === assessmentsViewSchemaId,
-    onIncidentAccessLost,
-    queryState: assessmentQueryState,
-    viewQuery,
-  });
-  const {
-    applyRecordChanged: applyEntityRecordChanged,
-    invalidate: invalidateEntityQuery,
-    entityIndex,
-    hostRows,
-    identityRows,
-    loadState: entityLoadState,
-    refresh: loadEntities,
-  } = useEntitySurfaceQuery({
-    hostQueryState,
-    identityQueryState,
-    onIncidentAccessLost,
-    viewQuery,
-  });
-  const [evidenceInvalidationGeneration, setEvidenceInvalidationGeneration] =
-    useState(0);
-  const [inspectorInvalidationGeneration, setInspectorInvalidationGeneration] =
-    useState(0);
-  const [
-    continuityInvalidationGeneration,
-    setContinuityInvalidationGeneration,
-  ] = useState(0);
-  const continuityInvalidation = useCallback(() => {
-    cancelGridEntryFocus();
-    setContinuityInvalidationGeneration((current) => current + 1);
-  }, [cancelGridEntryFocus]);
-  const evidenceInvalidation = useCallback(() => {
-    setEvidenceInvalidationGeneration((current) => current + 1);
-  }, []);
-  const inspectorInvalidation = useCallback(() => {
-    setInspectorInvalidationGeneration((current) => current + 1);
-  }, []);
-  const extensionInvalidation = useCallback(() => {
-    extensionAvailability.invalidate();
-    handleExtensionAvailabilityChange();
-  }, [extensionAvailability, handleExtensionAvailabilityChange]);
-  const queryInvalidation = useCallback(
-    (reason: Parameters<typeof invalidateGenericQuery>[0]) => {
-      invalidateGenericQuery(reason);
-      invalidateAssessmentQuery(reason);
-      invalidateEntityQuery(reason);
+  const queries = useWorkbookSurfaceQueries({
+    activeContract: snapshot.activeContract,
+    assessment: {
+      setState: commands.setAssessmentQueryState,
+      state: snapshot.assessmentQueryState,
     },
-    [invalidateAssessmentQuery, invalidateEntityQuery, invalidateGenericQuery],
-  );
-  const onAuthorizationRecovered = useCallback(
-    (result: { readonly role: IncidentRole; readonly userId: string }) => {
-      setCurrentUserId(result.userId || null);
-      setCurrentIncidentRole(result.role);
+    generic: {
+      setState: commands.setGenericQueryState,
+      state: snapshot.genericQueryState,
     },
-    [],
-  );
-  const collaborationProjection = useMemo(
-    () =>
-      new WorkbookCollaborationCoordinator({
-        authorizationRecovery,
-        continuityInvalidation,
-        evidenceInvalidation,
-        extensionInvalidation,
-        incidentId,
-        initialSheetRef: {
-          kind: "view_schema",
-          id: timelineViewSchemaId,
-        },
-        inspectorInvalidation,
-        mutationRuntime,
-        onAuthorizationRecovered,
-        onIncidentAccessLost,
-        queryInvalidation,
-      }),
-    [
-      authorizationRecovery,
-      continuityInvalidation,
-      evidenceInvalidation,
-      extensionInvalidation,
-      incidentId,
-      inspectorInvalidation,
-      mutationRuntime,
-      onAuthorizationRecovered,
-      onIncidentAccessLost,
-      queryInvalidation,
-    ],
-  );
-  const collaborationSnapshot = useWorkbookCollaborationCoordinatorSession({
-    projection: collaborationProjection,
-    session: collaborationSession,
-    sheetRef: startupSheetRef,
+    hosts: {
+      setState: commands.setHostQueryState,
+      state: snapshot.hostQueryState,
+    },
+    identities: {
+      setState: commands.setIdentityQueryState,
+      state: snapshot.identityQueryState,
+    },
+    onIncidentAccessLost,
+    referenceBroker: referenceQueryBroker,
+    sheetRef: snapshot.startupSheetRef,
+    surface: snapshot.surface,
+    timeline: {
+      setState: commands.setTimelineQueryState,
+      state: snapshot.timelineQueryState,
+    },
+    viewQuery: infrastructure.viewQuery,
   });
-  const activeLoaderSurfacePort =
-    useMemo<WorkbookActiveSurfacePort | null>(() => {
-      if (
-        startupSheetRef.kind === "extension_workspace" ||
-        surface === timelineViewSchemaId
-      ) {
-        return null;
-      }
-      const refresh =
-        surface === assessmentsViewSchemaId
-          ? loadAssessmentSurface
-          : surface === hostsViewSchemaId || surface === identitiesViewSchemaId
-            ? loadEntities
-            : loadGenericSurface;
-      const entitySurface =
-        surface === hostsViewSchemaId || surface === identitiesViewSchemaId;
-      const assessmentSurface = surface === assessmentsViewSchemaId;
-      return {
-        identity: {
-          sheetRef: startupSheetRef,
-          viewSchemaId: surface,
-        },
-        applyRecordChanged: (payload) =>
-          entitySurface
-            ? applyEntityRecordChanged(payload, surface)
-            : assessmentSurface
-              ? applyAssessmentRecordChanged(payload)
-              : applyGenericRecordChanged(payload),
-        invalidate: entitySurface
-          ? invalidateEntityQuery
-          : assessmentSurface
-            ? invalidateAssessmentQuery
-            : invalidateGenericQuery,
-        refresh: async () => {
-          await refresh();
-        },
-      };
-    }, [
-      applyAssessmentRecordChanged,
-      applyEntityRecordChanged,
-      invalidateAssessmentQuery,
-      invalidateEntityQuery,
-      invalidateGenericQuery,
-      applyGenericRecordChanged,
-      loadAssessmentSurface,
-      loadEntities,
-      loadGenericSurface,
-      startupSheetRef,
-      surface,
-    ]);
-  useEffect(() => {
-    if (activeLoaderSurfacePort === null) return;
-    return collaborationProjection.registerActiveSurface(
-      activeLoaderSurfacePort,
-    );
-  }, [activeLoaderSurfacePort, collaborationProjection]);
+  const collaboration = useWorkbookCollaborationLifecycle({
+    activeSurfacePort: queries.activeSurfacePort,
+    authorizationRecovery,
+    cancelGridEntryFocus: commands.cancelGridEntryFocus,
+    collaborationSession,
+    extensionInvalidation: extensionLifecycle.invalidate,
+    incidentId,
+    mutationRuntime: infrastructure.mutationRuntime,
+    onAuthorizationRecovered: authorization.acceptRecoveredAuthorization,
+    onIncidentAccessLost,
+    queryInvalidation: queries.invalidateAll,
+    sheetRef: snapshot.startupSheetRef,
+    sheetReloadToken: snapshot.sheetReloadToken,
+    surface: snapshot.surface,
+  });
   const interactionMode = workbookGridInteractionMode(
     incidentIdentity?.status,
-    currentIncidentRole,
+    authorization.currentIncidentRole,
   );
   const workbookLayout = useWorkbookLayoutFacade({
     accountDensityMode,
     columnCommands: {
-      onColumnHiddenChange: activeLayoutControls.onColumnHiddenChange,
-      onColumnMove: activeLayoutControls.onColumnMove,
-      onColumnReorder: activeLayoutControls.onColumnReorder,
-      onColumnWidthChange: activeLayoutControls.onColumnWidthChange,
-      onResetColumns: activeLayoutControls.onResetColumns,
+      onColumnHiddenChange: snapshot.activeLayoutControls.onColumnHiddenChange,
+      onColumnMove: snapshot.activeLayoutControls.onColumnMove,
+      onColumnReorder: snapshot.activeLayoutControls.onColumnReorder,
+      onColumnWidthChange: snapshot.activeLayoutControls.onColumnWidthChange,
+      onResetColumns: snapshot.activeLayoutControls.onResetColumns,
     },
-    columnState: activeLayoutState,
+    columnState: snapshot.activeLayoutState,
     incidentClosed: incidentIdentity?.status === "closed",
     interactionMode,
-    viewSchemaId: surface,
+    viewSchemaId: snapshot.surface,
   });
-  const responsiveBand = workbookLayout.shell.chromeMode;
-  useEffect(() => {
-    if (account?.user_id) {
-      setCurrentUserId(account.user_id);
-    }
-  }, [account?.user_id]);
+  useWorkbookProjectionRefreshController({
+    loadAssessmentSurface: queries.refreshProjection.assessment,
+    loadEntities: queries.refreshProjection.entities,
+    loadGenericSurface: queries.refreshProjection.generic,
+    loadSessionRole: authorization.loadSessionRole,
+    sheetReloadToken: snapshot.sheetReloadToken,
+  });
 
-  const networkFlowActivityAvailable = extensionAvailability.isRenderable({
+  const networkAnalysisRef = useMemo(networkAnalysisSheetRef, []);
+  const networkAnalysisActive = isNetworkAnalysisSheetRef(
+    snapshot.startupSheetRef,
+  );
+  const networkAnalysisAvailable = extensionLifecycle.controller.isRenderable({
     extensionProfileId: networkFlowActivityProfileId,
     workspaceKey: networkAnalysisWorkspaceKey,
   });
-
-  useEffect(() => {
-    if (!networkFlowActivityAvailable && networkAnalysisActive) {
-      selectWorkbookSurface(timelineViewSchemaId);
-    }
-  }, [
-    networkAnalysisActive,
-    networkFlowActivityAvailable,
-    selectWorkbookSurface,
-  ]);
-
-  const loadSessionRole = useCallback(async () => {
-    const result = await authorizationRecovery.recover({
-      incidentId,
-      signal: new AbortController().signal,
-    });
-    if (result.kind !== "authorized") {
-      setCurrentUserId(null);
-      setCurrentIncidentRole("");
-      onIncidentAccessLost?.();
-      return;
-    }
-    setCurrentUserId(result.userId || null);
-    setCurrentIncidentRole(result.role);
-  }, [authorizationRecovery, incidentId, onIncidentAccessLost]);
-
-  useWorkbookProjectionRefreshController({
-    loadAssessmentSurface,
-    loadEntities,
-    loadGenericSurface,
-    loadSessionRole,
-    sheetReloadToken,
+  const selectTimelineFallback = useCallback(() => {
+    commands.selectWorkbookSurface(timelineViewSchemaId);
+  }, [commands.selectWorkbookSurface]);
+  useWorkbookExtensionFallback({
+    active: networkAnalysisActive,
+    available: networkAnalysisAvailable,
+    onFallback: selectTimelineFallback,
   });
 
-  const activeSurfaceIsBuiltIn = requiredBuiltInWorkbookSurfaceIds.some(
-    (viewSchemaId) => viewSchemaId === surface,
-  );
-  const activeSystemSurfaceTitle =
-    activeSurfaceIsBuiltIn || networkAnalysisActive
-      ? null
-      : activeContract.title;
-  const incidentKeyLabel = incidentIdentity?.incident_key ?? "Incident";
-  const incidentTitleLabel = incidentIdentity?.title ?? "Loading incident";
-  const accountDisplayName =
-    account?.display_name ?? currentUserLabel ?? "Unknown user";
-  const accountTitle = account
-    ? `${account.display_name}${account.is_deployment_admin ? " (deployment administrator)" : ""}`
-    : accountDisplayName;
-
-  const activeSavedViewSelector = networkAnalysisActive ? null : (
-    <ActiveSurfaceSavedViewSelector
-      activeViewSchemaId={surface}
-      chromeMode={responsiveBand}
-      currentIncidentRole={currentIncidentRole}
-      currentUserId={currentUserId}
-      isModified={activeSavedViewModified}
-      onCreateSavedView={createSavedView}
-      onDeleteSavedView={deleteSavedView}
-      onDuplicateSavedView={duplicateSavedView}
-      onResetToSavedView={selectSavedView}
-      onSelectBaseSurface={selectWorkbookSurface}
-      onSelectSavedView={selectSavedView}
-      onSetDefaultSheetRef={setWorkbookDefaultSheetRef}
-      onSetHomeSheetRef={setWorkbookHomeSheetRef}
-      onUpdateSavedView={updateSavedView}
-      savedViews={savedViews}
-      selectedSheetRef={startupSheetRef}
-    />
-  );
-  const activeViewBarQueryControls =
-    networkAnalysisActive ||
-    responsiveBand === "below_supported_minimum" ? null : (
-      <WorkbookGridControls
-        chromeMode={responsiveBand}
-        contract={activeQueryControls.contract}
-        filterDraft={activeQueryControls.filterDraft}
-        layoutState={activeLayoutState}
-        onApplyFilter={activeQueryControls.onApplyFilter}
-        onClearAll={activeQueryControls.onClearAll}
-        onFilterDraftChange={activeQueryControls.onFilterDraftChange}
-        onGroupByChange={activeQueryControls.onGroupByChange}
-        onColumnHiddenChange={activeLayoutControls.onColumnHiddenChange}
-        onColumnMove={activeLayoutControls.onColumnMove}
-        onResetColumns={activeLayoutControls.onResetColumns}
-        onRemoveFilter={activeQueryControls.onRemoveFilter}
-        onSortChange={activeQueryControls.onSortChange}
-        queryState={activeQueryControls.queryState}
-        surface={activeQueryControls.surface}
-      />
-    );
-  const workbookAccountApplicationMenu = accountApplicationMenu?.({
-    currentIncidentRole,
-    incidentControls: accountIncidentControls,
-  });
-  const incidentControlsDrawer =
-    incidentControlsDrawerSection ===
-    null ? null : incidentControlsDrawerSection === "import-assistant" &&
-      importAssistantAvailable ? (
-      <Suspense fallback={<p role="status">Loading import assistant…</p>}>
-        <LazyImportAssistantFeature
-          apiBase={apiBase}
-          availability={extensionAvailability}
-          currentIncidentRole={currentIncidentRole}
-          incidentId={incidentId}
-          onNavigateToView={(viewSchemaId) => {
-            selectWorkbookSurface(viewSchemaId, {
-              focusFirstGridTarget: true,
-            });
-            closeIncidentControlsDrawer({
-              restoreTriggerFocus: false,
-            });
-          }}
-        />
-      </Suspense>
-    ) : (
-      (renderIncidentControls?.({
-        activeSection: incidentControlsDrawerSection,
-        apiBase,
-        currentIncidentRole,
-        incidentId,
-        onIncidentAccessLost,
-        onIncidentSnapshot,
-        onSessionRoleChange: loadSessionRole,
-      }) ?? null)
-    );
-  const inspectorResetKey = `${surface}:${sheetRefKey(startupSheetRef)}:${sheetReloadToken}:${inspectorInvalidationGeneration}:${evidenceInvalidationGeneration}`;
-  const continuityResetKey = `${surface}:${sheetRefKey(startupSheetRef)}:${sheetReloadToken}:${continuityInvalidationGeneration}`;
-  const activeExtensionWorkspace = (() => {
-    if (startupSheetRef.kind !== "extension_workspace") {
-      return null;
-    }
-    if (
-      !extensionAvailability.isRenderable({
-        extensionProfileId: startupSheetRef.extension_profile_id,
-        workspaceKey: startupSheetRef.workspace_key,
-      })
-    ) {
-      return (
-        <p style={shellContentNoticeStyle}>
-          This extension workspace is not currently available.
-        </p>
-      );
-    }
-    const renderer =
-      extensionWorkspaceRenderers[
-        extensionWorkspaceRegistryKey(
-          startupSheetRef.extension_profile_id,
-          startupSheetRef.workspace_key,
-        )
-      ];
-    if (!renderer) {
-      return (
-        <p style={shellContentNoticeStyle}>
-          This extension workspace is not available in this client.
-        </p>
-      );
-    }
-    const lifecycleKey = `${extensionAvailability.currentTag()?.epochId ?? "disabled"}:${extensionAvailabilityRevision}`;
-    return (
-      <ExtensionAvailabilityProvider
-        controller={extensionAvailability}
-        key={lifecycleKey}
-      >
-        {renderer({
-          apiBase,
-          currentIncidentRole,
-          incidentId,
-          onIncidentAccessLost,
-        })}
-      </ExtensionAvailabilityProvider>
-    );
-  })();
   const selectBaseWorkbookSurface = useCallback(
     (
       viewSchemaId: string,
       options: { readonly focusFirstGridTarget?: boolean } = {},
     ) => {
-      selectWorkbookSurface(viewSchemaId, options);
+      commands.selectWorkbookSurface(viewSchemaId, options);
     },
-    [selectWorkbookSurface],
+    [commands.selectWorkbookSurface],
+  );
+  const activeSurfaceFocusRef = useRef<HTMLElement | null>(null);
+  const recoveryFocus = useWorkbookRecoveryFocus({
+    activeSurfaceRef: activeSurfaceFocusRef,
+    runtime: infrastructure.mutationRuntime,
+    snapshot: infrastructure.mutationSnapshot,
+  });
+  const importAssistantAvailable =
+    extensionLifecycle.controller.isRouteAvailable(
+      importProfileId,
+      importRouteFamily,
+    );
+  const incidentControls = useIncidentControlsDrawer(importAssistantAvailable);
+  const accountApplication = accountApplicationMenu?.({
+    currentIncidentRole: authorization.currentIncidentRole,
+    incidentControls: incidentControls.accountIncidentControls,
+  });
+  const accountPresentation = workbookAccountPresentation(
+    account,
+    currentUserLabel,
+  );
+  const activeSystemSurfaceTitle = workbookActiveSystemSurfaceTitle(
+    snapshot.surface,
+    snapshot.activeContract.title,
+    networkAnalysisActive,
+  );
+  const activeSavedViewSelector = (
+    <WorkbookShellSavedViewControl
+      chromeMode={workbookLayout.shell.chromeMode}
+      currentIncidentRole={authorization.currentIncidentRole}
+      currentUserId={authorization.currentUserId}
+      networkAnalysisActive={networkAnalysisActive}
+      runtime={infrastructure.workbookRuntime}
+    />
+  );
+  const activeViewBarQueryControls = (
+    <WorkbookShellQueryControls
+      chromeMode={workbookLayout.shell.chromeMode}
+      networkAnalysisActive={networkAnalysisActive}
+      runtime={infrastructure.workbookRuntime}
+    />
+  );
+  const facadeProps: WorkbookSurfacesFacadeProps = {
+    collaboration: { projection: collaboration.projection },
+    continuity: { resetKey: collaboration.continuityResetKey },
+    gridEntryFocus: {
+      acknowledge: commands.acknowledgeGridEntryFocus,
+      request: snapshot.gridEntryFocusRequest,
+    },
+    incident: {
+      apiBase,
+      currentIncidentRole: authorization.currentIncidentRole,
+      currentUserId: authorization.currentUserId,
+      incidentPort: infrastructure.incidentPort,
+      incidentId,
+      onIncidentAccessLost,
+    },
+    inspector: { resetKey: collaboration.inspectorResetKey },
+    layout: workbookLayout.surface,
+    mutations: {
+      clipboardPaste: infrastructure.clipboardPastePort,
+      commands: infrastructure.mutationCommands,
+      onActivateConflict: recoveryFocus.activate,
+      runtime: infrastructure.mutationRuntime,
+    },
+    queries: queries.facadeQueries,
+    viewState: {
+      activeContract: snapshot.activeContract,
+      queryControls: activeViewBarQueryControls,
+      savedViewSelector: activeSavedViewSelector,
+      sheetRef: snapshot.startupSheetRef,
+      sheetReloadToken: snapshot.sheetReloadToken,
+      surface: snapshot.surface,
+    },
+  };
+  const activeContent = (
+    <WorkbookActiveSurfacePresentation
+      extension={{
+        availability: extensionLifecycle.controller,
+        revision: extensionLifecycle.revision,
+      }}
+      extensionRenderer={{
+        apiBase,
+        currentIncidentRole: authorization.currentIncidentRole,
+        incidentId,
+        onIncidentAccessLost,
+      }}
+      sheetRef={snapshot.startupSheetRef}
+      surface={facadeProps}
+    />
   );
 
   return (
     <section
       aria-label="Workbook shell"
-      data-active-view-schema-id={surface}
+      data-active-view-schema-id={snapshot.surface}
       data-testid={workbookShellReadyTestId()}
       data-workbook-shell-id={workbookShellId}
       style={panelStyle}
     >
-      <WorkbookShellSlotRegion
-        slot="top-bar"
-        style={{
-          ...shellTopBarStyle,
-          ...(responsiveBand === "below_supported_minimum"
-            ? shellTopBarUnsupportedStyle
-            : null),
+      <WorkbookShellTopBar
+        account={{
+          applicationMenu: accountApplication,
+          displayName: accountPresentation.displayName,
+          title: accountPresentation.title,
         }}
-        viewSchemaId={surface}
-      >
-        <div
-          data-testid={workbookIncidentIdentityTestId()}
-          style={shellIncidentIdentityStyle}
-          title={
-            incidentIdentity === null
-              ? (incidentIdentityError ?? "Loading incident")
-              : `${incidentIdentity.incident_key} ${incidentIdentity.title}`
+        activeSurfaceFocusRef={activeSurfaceFocusRef}
+        activeSystemSurfaceTitle={activeSystemSurfaceTitle}
+        collaboration={collaboration.snapshot}
+        incidentIdentity={incidentIdentity}
+        incidentIdentityError={incidentIdentityError}
+        layout={workbookLayout.shell}
+        networkAnalysisActive={networkAnalysisActive}
+        networkAnalysisAvailable={networkAnalysisAvailable}
+        onSelectNetworkAnalysis={() => {
+          if (networkAnalysisRef.kind === "extension_workspace") {
+            commands.selectExtensionWorkspace(networkAnalysisRef);
           }
-        >
-          <strong style={shellTopBarValueStyle}>{incidentKeyLabel}</strong>
-          <span style={shellIncidentTitleStyle}>{incidentTitleLabel}</span>
-        </div>
-        <span
-          aria-hidden="true"
-          data-testid={workbookResponsiveBandTestId()}
-          data-workbook-block-mode={workbookLayout.shell.blockMode}
-          data-workbook-responsive-band={responsiveBand}
-          hidden
-        />
-        {responsiveBand === "base" ? (
-          <nav aria-label="Built-in workbook surfaces" style={tabStripStyle}>
-            {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
-              const contract = requireViewContract(viewSchemaID);
-              return (
-                <button
-                  aria-current={
-                    !networkAnalysisActive && surface === viewSchemaID
-                      ? "page"
-                      : undefined
-                  }
-                  key={viewSchemaID}
-                  data-testid={surfaceTabTestId(viewSchemaID)}
-                  data-view-schema-id={viewSchemaID}
-                  data-workbook-tab-index={String(
-                    requiredBuiltInWorkbookSurfaceIds.indexOf(viewSchemaID),
-                  )}
-                  style={{
-                    ...surfaceTabStyle,
-                    ...(surface === viewSchemaID && !networkAnalysisActive
-                      ? surfaceTabActiveStyle
-                      : null),
-                  }}
-                  type="button"
-                  onClick={() => {
-                    selectBaseWorkbookSurface(viewSchemaID);
-                  }}
-                >
-                  {contract.title}
-                </button>
-              );
-            })}
-          </nav>
-        ) : (
-          <div style={surfacesMenuFrameStyle}>
-            <button
-              aria-controls={
-                surfacesMenuOpen ? workbookSurfacesMenuTestId() : undefined
-              }
-              aria-expanded={surfacesMenuOpen}
-              aria-haspopup="menu"
-              data-testid={workbookSurfacesMenuTriggerTestId()}
-              ref={surfacesMenuTriggerRef}
-              style={surfaceMenuTriggerStyle}
-              type="button"
-              onClick={() => {
-                setSurfacesMenuOpen((current) => !current);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "ArrowDown") return;
-                event.preventDefault();
-                setSurfacesMenuOpen(true);
-                window.requestAnimationFrame(() => {
-                  document
-                    .getElementById(workbookSurfacesMenuTestId())
-                    ?.querySelector<HTMLElement>('[role="menuitemradio"]')
-                    ?.focus({ preventScroll: true });
-                });
-              }}
-            >
-              Surfaces
-            </button>
-            {surfacesMenuOpen ? (
-              <div
-                data-testid={workbookSurfacesMenuTestId()}
-                id={workbookSurfacesMenuTestId()}
-                role="menu"
-                style={surfacesMenuStyle}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setSurfacesMenuOpen(false);
-                    surfacesMenuTriggerRef.current?.focus({
-                      preventScroll: true,
-                    });
-                    return;
-                  }
-                  if (
-                    event.key !== "ArrowDown" &&
-                    event.key !== "ArrowUp" &&
-                    event.key !== "Home" &&
-                    event.key !== "End"
-                  ) {
-                    return;
-                  }
-                  const items = Array.from(
-                    event.currentTarget.querySelectorAll<HTMLElement>(
-                      '[role="menuitemradio"]',
-                    ),
-                  );
-                  if (items.length === 0) return;
-                  const activeIndex =
-                    document.activeElement instanceof HTMLElement
-                      ? items.indexOf(document.activeElement)
-                      : -1;
-                  let nextIndex = 0;
-                  if (event.key === "End") {
-                    nextIndex = items.length - 1;
-                  } else if (event.key === "ArrowUp") {
-                    nextIndex =
-                      activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
-                  } else if (event.key === "ArrowDown") {
-                    nextIndex =
-                      activeIndex < 0 || activeIndex === items.length - 1
-                        ? 0
-                        : activeIndex + 1;
-                  }
-                  event.preventDefault();
-                  items[nextIndex]?.focus({ preventScroll: true });
-                }}
-              >
-                {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
-                  const contract = requireViewContract(viewSchemaID);
-                  const isSelected =
-                    !networkAnalysisActive && surface === viewSchemaID;
-                  return (
-                    <button
-                      key={viewSchemaID}
-                      aria-checked={isSelected}
-                      data-testid={workbookSurfacesMenuOptionTestId(
-                        viewSchemaID,
-                      )}
-                      data-view-schema-id={viewSchemaID}
-                      role="menuitemradio"
-                      style={{
-                        ...surfacesMenuItemStyle,
-                        ...(isSelected ? surfacesMenuItemSelectedStyle : null),
-                      }}
-                      type="button"
-                      onClick={() => {
-                        setSurfacesMenuOpen(false);
-                        selectBaseWorkbookSurface(viewSchemaID);
-                      }}
-                    >
-                      {contract.title}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-        )}
-        <div style={systemViewSlotStyle}>
-          {networkFlowActivityAvailable ? (
-            <button
-              aria-current={networkAnalysisActive ? "page" : undefined}
-              data-testid={networkAnalysisTestId("tab")}
-              style={{
-                ...surfaceTabStyle,
-                ...(networkAnalysisActive ? surfaceTabActiveStyle : null),
-              }}
-              type="button"
-              onClick={() => {
-                if (networkAnalysisRef.kind === "extension_workspace") {
-                  selectExtensionWorkspace(networkAnalysisRef);
-                }
-              }}
-            >
-              Network Analysis
-            </button>
-          ) : null}
-          <SystemViewSwitcher
-            activeViewSchemaId={surface}
-            onSelect={(viewSchemaId) => {
-              selectWorkbookSurface(viewSchemaId, {
-                focusFirstGridTarget: true,
-              });
-            }}
-          />
-          {activeSystemSurfaceTitle ? (
-            <span style={activeSystemViewTitleStyle}>
-              {activeSystemSurfaceTitle}
-            </span>
-          ) : null}
-        </div>
-        <div style={shellTopBarActionsStyle}>
-          {responsiveBand === "base" || responsiveBand === "narrow_desktop" ? (
-            <WorkbookPresenceSummary
-              records={collaborationSnapshot.activeSheetPresenceRecords}
-            />
-          ) : null}
-          <div style={currentUserSlotStyle}>
-            {workbookAccountApplicationMenu ?? (
-              <span style={currentUserChipStyle} title={accountTitle}>
-                {displayInitials(accountDisplayName)}
-              </span>
-            )}
-          </div>
-        </div>
-      </WorkbookShellSlotRegion>
-
+        }}
+        onSelectSurface={selectBaseWorkbookSurface}
+        surface={snapshot.surface}
+      />
       <div style={shellContentRegionStyle}>
-        <section
-          aria-label="Active workbook surface focus target"
-          data-testid={workbookActiveSurfaceFocusTargetTestId()}
-          ref={activeSurfaceFocusTargetRef}
-          style={shellActiveSurfaceStyle}
-          tabIndex={-1}
-        >
-          <div
-            aria-hidden={
-              mutationSnapshot.blockedEdit === null &&
-              mutationSnapshot.overflowMessage === null &&
-              mutationSnapshot.conflictPanelOpen
-                ? true
-                : undefined
-            }
-            inert={
-              mutationSnapshot.blockedEdit === null &&
-              mutationSnapshot.overflowMessage === null &&
-              mutationSnapshot.conflictPanelOpen
-                ? true
-                : undefined
-            }
-            style={{ display: "contents" }}
-          >
-            {activeExtensionWorkspace ?? (
-              <WorkbookSurfacesFacade
-                collaboration={{ projection: collaborationProjection }}
-                continuity={{ resetKey: continuityResetKey }}
-                gridEntryFocus={{
-                  acknowledge: acknowledgeGridEntryFocus,
-                  request: gridEntryFocusRequest,
-                }}
-                incident={{
-                  apiBase,
-                  currentIncidentRole,
-                  currentUserId,
-                  incidentPort,
-                  incidentId,
-                  onIncidentAccessLost,
-                }}
-                inspector={{ resetKey: inspectorResetKey }}
-                layout={workbookLayout.surface}
-                mutations={{
-                  commands: mutationCommands,
-                  onActivateConflict: conflictStatusActivation,
-                  pending: pendingMutationPort,
-                  runtime: mutationRuntime,
-                }}
-                queries={{
-                  assessment: {
-                    loadState: assessmentLoadState,
-                    refresh: loadAssessmentSurface,
-                    rows: assessmentRows,
-                    setState: setAssessmentQueryState,
-                    state: assessmentQueryState,
-                  },
-                  entities: {
-                    hosts: {
-                      rows: hostRows,
-                      setState: setHostQueryState,
-                      state: hostQueryState,
-                    },
-                    identities: {
-                      rows: identityRows,
-                      setState: setIdentityQueryState,
-                      state: identityQueryState,
-                    },
-                    index: entityIndex,
-                    loadState: entityLoadState,
-                    refresh: loadEntities,
-                  },
-                  generic: {
-                    loadState: genericLoadState,
-                    refresh: loadGenericSurface,
-                    rows: genericRows,
-                    setState: setGenericQueryState,
-                    state: genericQueryState,
-                  },
-                  referenceBroker: referenceQueryBroker,
-                  viewQuery,
-                  timeline: {
-                    setState: setTimelineQueryState,
-                    state: timelineQueryState,
-                  },
-                }}
-                viewState={{
-                  activeContract,
-                  queryControls: activeViewBarQueryControls,
-                  savedViewSelector: activeSavedViewSelector,
-                  sheetRef: startupSheetRef,
-                  sheetReloadToken,
-                  surface,
-                }}
-              />
-            )}
-          </div>
-          {mutationSnapshot.blockedEdit !== null ? (
-            <WorkbookEditRecoveryPanel
-              blockedEdit={mutationSnapshot.blockedEdit}
-              key={mutationSnapshot.blockedEdit.unitId}
-              onDiscard={() => mutationRuntime.discardBlockedEdit()}
-              onFocusWithinChange={onRecoveryFocusWithinChange}
-              onRetry={() => mutationRuntime.retryBlockedEdit()}
-              ref={editRecoveryPanelRef}
-            />
-          ) : mutationSnapshot.overflowMessage !== null ? (
-            <WorkbookQueueOverflowNotice
-              message={mutationSnapshot.overflowMessage}
-              onFocusWithinChange={onRecoveryFocusWithinChange}
-              ref={overflowNoticeRef}
-            />
-          ) : (
-            <WorkbookSameFieldConflictResolver
-              apiBase={apiBase}
-              focusSummary={focusSameFieldSummary}
-              mutationRuntime={mutationRuntime}
-              onActivateOrigin={selectBaseWorkbookSurface}
-              snapshot={mutationSnapshot}
-              summaryRef={sameFieldSummaryRef}
-            />
-          )}
-        </section>
-
-        {incidentControlsDrawerSection !== null ? (
-          <IncidentControlsDrawer
-            activeMenuItem={activeIncidentControlsMenuItem}
-            closeButtonRef={incidentControlsCloseButtonRef}
-            onClose={closeIncidentControlsDrawer}
-          >
-            {incidentControlsDrawer}
-          </IncidentControlsDrawer>
-        ) : null}
+        <WorkbookActiveSurfaceFrame
+          activeContent={activeContent}
+          activeSurfaceRef={activeSurfaceFocusRef}
+          apiBase={apiBase}
+          focus={recoveryFocus}
+          mutationRuntime={infrastructure.mutationRuntime}
+          mutationSnapshot={infrastructure.mutationSnapshot}
+          onActivateOrigin={selectBaseWorkbookSurface}
+        />
+        <WorkbookIncidentControlsPresentation
+          activeMenuItem={incidentControls.activeMenuItem}
+          apiBase={apiBase}
+          availability={extensionLifecycle.controller}
+          closeButtonRef={incidentControls.closeButtonRef}
+          currentIncidentRole={authorization.currentIncidentRole}
+          importAssistantAvailable={importAssistantAvailable}
+          incidentId={incidentId}
+          onClose={incidentControls.closeDrawer}
+          onIncidentAccessLost={onIncidentAccessLost}
+          onIncidentSnapshot={onIncidentSnapshot}
+          onNavigateToView={(viewSchemaId) => {
+            commands.selectWorkbookSurface(viewSchemaId, {
+              focusFirstGridTarget: true,
+            });
+            incidentControls.closeDrawer({ restoreTriggerFocus: false });
+          }}
+          onSessionRoleChange={authorization.loadSessionRole}
+          renderIncidentControls={renderIncidentControls}
+          section={incidentControls.drawerSection}
+        />
       </div>
     </section>
   );

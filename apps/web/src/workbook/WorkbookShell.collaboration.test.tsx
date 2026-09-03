@@ -733,7 +733,7 @@ describe("workbook collaboration coverage", () => {
     }
     expect(
       runtime
-        .pending()
+        .pendingQueue()
         .model.snapshot()
         .units.map((unit) => unit.recordId),
     ).toEqual([

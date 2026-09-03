@@ -96,10 +96,13 @@ export function moveWorkbookColumn(
     return current;
   }
   const nextOrder = [...current.columnOrder];
-  [nextOrder[index], nextOrder[nextIndex]] = [
-    nextOrder[nextIndex] as string,
-    nextOrder[index] as string,
-  ];
+  const currentFieldKey = nextOrder[index];
+  const adjacentFieldKey = nextOrder[nextIndex];
+  if (currentFieldKey === undefined || adjacentFieldKey === undefined) {
+    return current;
+  }
+  nextOrder[index] = adjacentFieldKey;
+  nextOrder[nextIndex] = currentFieldKey;
   return resolveWorkbookLayoutState(contract, {
     ...current,
     columnOrder: nextOrder,

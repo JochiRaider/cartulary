@@ -71,6 +71,16 @@ type SavedViewControllerOptions = Parameters<
   typeof useWorkbookSavedViewController
 >[0];
 
+function loadedSavedViews(
+  resource: ReturnType<
+    typeof useWorkbookSavedViewController
+  >["snapshot"]["savedViewsResource"],
+) {
+  return resource.kind === "ready" || resource.kind === "invalid_selection"
+    ? resource.savedViews
+    : [];
+}
+
 function controllerOptions(
   port: WorkbookSavedViewPort,
   overrides: Partial<SavedViewControllerOptions> = {},
@@ -113,22 +123,19 @@ function SavedViewControllerHarness({
     savedViewPort,
     startupSheetRef: { kind: "view_schema", id: savedView.view_schema_id },
   });
+  const loaded = loadedSavedViews(controller.snapshot.savedViewsResource);
   return (
     <>
       <button
-        disabled={controller.snapshot.savedViews.length === 0}
+        disabled={loaded.length === 0}
         onClick={() =>
-          controller.commands.selectSavedView(
-            controller.snapshot.savedViews[0] ?? savedView,
-          )
+          controller.commands.selectSavedView(loaded[0] ?? savedView)
         }
         type="button"
       >
         Select Saved View
       </button>
-      <output aria-label="saved-view-count">
-        {controller.snapshot.savedViews.length}
-      </output>
+      <output aria-label="saved-view-count">{loaded.length}</output>
     </>
   );
 }
@@ -199,7 +206,9 @@ describe("useWorkbookSavedViewController", () => {
     );
 
     await waitFor(() => expect(listPage).toHaveBeenCalledTimes(2));
-    expect(result.current.snapshot.savedViews).toEqual([]);
+    expect(result.current.snapshot.savedViewsResource).toEqual({
+      kind: "loading",
+    });
     await act(async () => {
       secondPage.resolve({
         kind: "accepted",
@@ -209,7 +218,9 @@ describe("useWorkbookSavedViewController", () => {
     });
     await waitFor(() =>
       expect(
-        result.current.snapshot.savedViews.map((view) => view.saved_view_id),
+        loadedSavedViews(result.current.snapshot.savedViewsResource).map(
+          (view) => view.saved_view_id,
+        ),
       ).toEqual(["saved-1", "saved-2"]),
     );
     expect(listPage.mock.calls.map(([input]) => input.cursorToken)).toEqual([
@@ -235,7 +246,12 @@ describe("useWorkbookSavedViewController", () => {
     );
 
     await waitFor(() => expect(listPage).toHaveBeenCalledTimes(2));
-    expect(result.current.snapshot.savedViews).toEqual([]);
+    await waitFor(() =>
+      expect(result.current.snapshot.savedViewsResource).toEqual({
+        kind: "unavailable",
+        message: "Saved-view listing returned a duplicate resource.",
+      }),
+    );
   });
 
   it("rejects a late create after the incident-bound port is replaced", async () => {
@@ -267,7 +283,85 @@ describe("useWorkbookSavedViewController", () => {
         "Saved-view create was superseded.",
       );
     });
-    expect(result.current.snapshot.savedViews).toEqual([]);
+    await waitFor(() =>
+      expect(result.current.snapshot.savedViewsResource).toEqual({
+        kind: "ready",
+        savedViews: [],
+      }),
+    );
+  });
+
+  it("admits only one mutation action at a time", async () => {
+    const pendingCreate =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["create"]>>>();
+    const port = emptySavedViewPort({
+      create: vi.fn(() => pendingCreate.promise),
+    });
+    const { result } = renderHook(() =>
+      useWorkbookSavedViewController(controllerOptions(port)),
+    );
+
+    let firstPromise!: ReturnType<
+      typeof result.current.commands.createSavedView
+    >;
+    let secondPromise!: ReturnType<
+      typeof result.current.commands.createSavedView
+    >;
+    act(() => {
+      firstPromise = result.current.commands.createSavedView({
+        displayName: "First",
+        scope: "private",
+      });
+      secondPromise = result.current.commands.createSavedView({
+        displayName: "Second",
+        scope: "private",
+      });
+    });
+    await expect(secondPromise).rejects.toThrow(
+      "Another saved-view action is already in progress.",
+    );
+    await act(async () => {
+      pendingCreate.resolve({ kind: "accepted", value: savedView });
+      await firstPromise;
+    });
+  });
+
+  it("ignores a late accepted mutation after the active surface changes", async () => {
+    const pendingCreate =
+      deferred<Awaited<ReturnType<WorkbookSavedViewPort["create"]>>>();
+    const port = emptySavedViewPort({
+      create: vi.fn(() => pendingCreate.promise),
+    });
+    const applyWorkbookIdentity = vi.fn();
+    const initialActiveViewSchemaId: string = savedView.view_schema_id;
+    const { result, rerender } = renderHook(
+      ({ activeViewSchemaId }: { readonly activeViewSchemaId: string }) =>
+        useWorkbookSavedViewController(
+          controllerOptions(port, {
+            activeContract: requireViewContract(activeViewSchemaId),
+            applyWorkbookIdentity,
+          }),
+        ),
+      { initialProps: { activeViewSchemaId: initialActiveViewSchemaId } },
+    );
+
+    let createPromise!: ReturnType<
+      typeof result.current.commands.createSavedView
+    >;
+    act(() => {
+      createPromise = result.current.commands.createSavedView({
+        displayName: "Late surface create",
+        scope: "private",
+      });
+    });
+    rerender({ activeViewSchemaId: "cartulary.view.evidence.v1" });
+    await act(async () => {
+      pendingCreate.resolve({ kind: "accepted", value: savedView });
+      await expect(createPromise).rejects.toThrow(
+        "Saved-view create was superseded.",
+      );
+    });
+    expect(applyWorkbookIdentity).not.toHaveBeenCalled();
   });
 
   it("routes semantic access loss and publishes no rejected list state", async () => {
@@ -288,6 +382,30 @@ describe("useWorkbookSavedViewController", () => {
     );
 
     await waitFor(() => expect(onIncidentAccessLost).toHaveBeenCalledOnce());
-    expect(result.current.snapshot.savedViews).toEqual([]);
+    expect(result.current.snapshot.savedViewsResource).toEqual({
+      kind: "unavailable",
+      message: "Saved views are unavailable.",
+    });
+  });
+
+  it("publishes an invalid-selection resource only after complete loading", async () => {
+    const { result } = renderHook(() =>
+      useWorkbookSavedViewController(
+        controllerOptions(savedViewPort, {
+          startupSheetRef: { kind: "saved_view", id: "missing-saved-view" },
+        }),
+      ),
+    );
+
+    expect(result.current.snapshot.savedViewsResource).toEqual({
+      kind: "loading",
+    });
+    await waitFor(() =>
+      expect(result.current.snapshot.savedViewsResource).toEqual({
+        kind: "invalid_selection",
+        savedViews: [savedView],
+        selectedSavedViewId: "missing-saved-view",
+      }),
+    );
   });
 });

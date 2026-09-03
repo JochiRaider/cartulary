@@ -1,7 +1,4 @@
-import type {
-  QueryWorkbookViewRequest,
-  QueryWorkbookViewResponse,
-} from "@cartulary/protocol-ts/http";
+import type { QueryWorkbookViewResponse } from "@cartulary/protocol-ts/http";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { buildQueryRequest } from "../models/workbookQuery";
 import type {
@@ -47,10 +44,7 @@ export function createWorkbookViewQueryAdapter(options: {
             incident_id: options.incidentId,
             view_schema_id: viewSchemaId,
           },
-          request: buildQueryRequest(
-            input.contract,
-            input.queryState,
-          ) as QueryWorkbookViewRequest,
+          request: buildQueryRequest(input.contract, input.queryState),
           signal: input.signal,
         });
       } catch (error) {

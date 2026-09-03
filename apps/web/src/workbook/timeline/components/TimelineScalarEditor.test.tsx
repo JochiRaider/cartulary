@@ -7,6 +7,7 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
   const onBlurCommit = vi.fn();
   const onDraftChange = vi.fn();
   const onEditModeChange = vi.fn();
+  const onPasteCommit = vi.fn();
   const registerInput = vi.fn();
   const dataTestId = timelineScalarEditorTestId({
     fieldKey: "timeline.activity_synopsis_text",
@@ -24,7 +25,7 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
     onFocusAnchor: vi.fn(),
     onFocusRecord: vi.fn(),
     onKeyCommit: vi.fn(),
-    onPasteCommit: vi.fn(),
+    onPasteCommit,
     presenceFieldKey: "timeline.activity_synopsis_text",
     registerInput,
     rowKey: "record-1",
@@ -59,6 +60,26 @@ it("TimelineScalarEditor preserves controlled draft read-only presence and commi
     "timeline.activity_synopsis_text",
     false,
   );
+
+  fireEvent.focus(input);
+  input.setSelectionRange(0, input.value.length);
+  const pasteEvent = new Event("paste", {
+    bubbles: true,
+    cancelable: true,
+  });
+  Object.defineProperty(pasteEvent, "clipboardData", {
+    value: { getData: () => "Native paste" },
+  });
+  fireEvent(input, pasteEvent);
+  expect(pasteEvent.defaultPrevented).toBe(true);
+  expect(input.value).toBe("Native paste");
+  expect(onPasteCommit).toHaveBeenCalledWith(
+    "record-1",
+    "activitySynopsisText",
+    "grid",
+    "Native paste",
+  );
+  fireEvent.blur(input);
 
   rerender(
     <TimelineScalarEditor {...props} draftValue="Controlled" readOnly />,

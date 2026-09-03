@@ -18,13 +18,17 @@ export type SavedViewResource = {
   saved_view_version: number;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 export function normalizeSavedViewResource(
   value: unknown,
 ): SavedViewResource | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return null;
   }
-  const record = value as Record<string, unknown>;
+  const record = value;
   if (
     typeof record.saved_view_id !== "string" ||
     typeof record.view_schema_id !== "string" ||

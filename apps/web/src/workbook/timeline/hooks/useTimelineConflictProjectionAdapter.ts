@@ -12,18 +12,20 @@ import {
 } from "../../runtime/workbookConflictModel";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type {
+  LocalConflictState,
+  SameFieldConflictPayload,
+} from "../models/timelineConflictState";
+import type {
   TimelineMutableRef,
   TimelineRowStoreCommands,
 } from "../models/timelineControllerPorts";
 import {
   type FocusFieldKey,
   inputFocusKey,
-  type LocalConflictState,
-  type SameFieldConflictPayload,
   type TimelineScalarEditorSurface,
   timelineScalarBindingForField,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineFieldRegistry";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 /**
  * Timeline adapter for the shell-owned conflict queue.

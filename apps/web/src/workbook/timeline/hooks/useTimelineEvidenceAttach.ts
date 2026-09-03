@@ -4,7 +4,7 @@ import {
   workbookInspectorMessageFeedback,
   workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { TimelineApiRow, WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineEvidenceAttachmentPort } from "../ports/TimelineEvidenceAttachmentPort";
 
 type TimelineEvidenceViewportContinuityTarget =
@@ -29,7 +29,7 @@ export function useTimelineEvidenceAttach({
   readonly applyAcceptedRowMutation: (
     rowKey: string,
     mutation: {
-      readonly row: import("../models/workbookTimelineModel").TimelineApiRow;
+      readonly row: TimelineApiRow;
       readonly viewSchemaId: string;
     },
     options?: {

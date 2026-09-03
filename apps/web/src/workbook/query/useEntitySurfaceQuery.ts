@@ -17,11 +17,9 @@ import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
 import { reconcileWorkbookRecordRows } from "../utils/workbookRowReconciliation";
-import {
-  type WorkbookViewQueryPort,
-  workbookViewQueryFailureIsAccessLoss,
-} from "./WorkbookViewQueryPort";
+import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 import {
   abortLatestQuery,
   beginLatestQuery,
@@ -99,7 +97,7 @@ export function useEntitySurfaceQuery({
     );
     if (rejected?.kind === "rejected") {
       const message = rejected.failure.message;
-      if (workbookViewQueryFailureIsAccessLoss(rejected.failure)) {
+      if (workbookOperationFailureIsAccessLoss(rejected.failure)) {
         onIncidentAccessLost?.();
         hostRowsRef.current = [];
         identityRowsRef.current = [];

@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
+import type { WorkbookClipboardPastePort } from "../adapters/WorkbookClipboardPastePort";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import { AssessmentWorkbookSurface } from "../components/AssessmentWorkbookSurface";
 import { EntityWorkbookSurface } from "../components/EntityWorkbookSurface";
@@ -24,7 +25,6 @@ import {
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
-import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
@@ -52,11 +52,11 @@ export type WorkbookSurfacesFacadeProps = {
   };
   readonly layout: WorkbookSurfaceLayoutOwner;
   readonly mutations: {
+    readonly clipboardPaste: WorkbookClipboardPastePort;
     readonly commands: WorkbookMutationCommandPorts;
     readonly onActivateConflict:
       | ((invoker: HTMLButtonElement) => void)
       | undefined;
-    readonly pending: WorkbookPendingMutationPort;
     readonly runtime: WorkbookMutationRuntime;
   };
   readonly queries: {
@@ -144,7 +144,6 @@ export function WorkbookSurfacesFacade({
   const {
     commands: mutationCommands,
     onActivateConflict,
-    pending: pendingMutationPort,
     runtime: mutationRuntime,
   } = mutations;
   const { projection: collaborationProjection } = collaboration;
@@ -184,7 +183,7 @@ export function WorkbookSurfacesFacade({
           attachCollaborationSession: false,
           collaborationProjection,
           mutationRuntime,
-          pendingMutationPort,
+          clipboardPaste: mutations.clipboardPaste,
           mutationCommands: mutationCommands.timeline,
           indicatorWorkflow: mutationCommands.indicators,
           incident: {
@@ -240,6 +239,7 @@ export function WorkbookSurfacesFacade({
         gridEntryFocus={gridEntryFocus}
         layout={layout}
         mutationRuntime={mutationRuntime}
+        clipboardPaste={mutations.clipboardPaste}
         mutationCommands={mutationCommands.entity}
         onActivateConflict={onActivateConflict}
         recordMutationCommands={mutationCommands.records}

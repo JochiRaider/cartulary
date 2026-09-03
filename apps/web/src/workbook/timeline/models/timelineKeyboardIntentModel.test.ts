@@ -16,7 +16,11 @@ describe("Timeline keyboard intent mapping", () => {
         priorTimelineGridAnchor: true,
         surface: "inspector",
       }),
-    ).toEqual({ kind: "restore_prior_grid_focus", preventDefault: true });
+    ).toEqual({
+      kind: "restore_prior_grid_focus",
+      preventDefault: true,
+      stopPropagation: true,
+    });
     expect(
       mapTimelineScalarEditorIntent({
         event: { key: "ArrowRight", shiftKey: true },
@@ -26,7 +30,11 @@ describe("Timeline keyboard intent mapping", () => {
         priorTimelineGridAnchor: false,
         surface: "grid",
       }),
-    ).toEqual({ kind: "none", preventDefault: true });
+    ).toEqual({
+      kind: "none",
+      preventDefault: true,
+      stopPropagation: true,
+    });
     expect(
       mapTimelineScalarEditorIntent({
         event: { key: "Tab" },
@@ -40,6 +48,8 @@ describe("Timeline keyboard intent mapping", () => {
       kind: "save",
       navigateAfterSave: null,
       preserveInputFocus: false,
+      preventDefault: true,
+      stopPropagation: true,
     });
     expect(
       mapTimelineScalarEditorIntent({
@@ -53,7 +63,9 @@ describe("Timeline keyboard intent mapping", () => {
     ).toMatchObject({
       kind: "save",
       preserveInputFocus: true,
+      preventDefault: true,
       recordBlankRowTiming: true,
+      stopPropagation: true,
     });
   });
 
@@ -67,6 +79,8 @@ describe("Timeline keyboard intent mapping", () => {
     ).toMatchObject({
       kind: "save",
       navigateAfterSave: { key: "Enter", shiftKey: false },
+      preventDefault: true,
+      stopPropagation: true,
     });
     expect(
       mapTimelineCollectionEditorIntent({
@@ -78,6 +92,7 @@ describe("Timeline keyboard intent mapping", () => {
       kind: "navigate",
       navigation: { key: "ArrowDown", shiftKey: false },
       preventDefault: true,
+      stopPropagation: true,
     });
     expect(
       mapTimelineCollectionEditorIntent({
@@ -85,7 +100,11 @@ describe("Timeline keyboard intent mapping", () => {
         hasCommittedAnchor: true,
         inspectorCanClose: true,
       }),
-    ).toEqual({ kind: "close_inspector", preventDefault: true });
+    ).toEqual({
+      kind: "close_inspector",
+      preventDefault: true,
+      stopPropagation: true,
+    });
   });
 
   it("maps work-area shortcuts to semantic panel and mention intent", () => {
@@ -108,20 +127,36 @@ describe("Timeline keyboard intent mapping", () => {
         fieldKey: "timeline.activity_synopsis_text",
         row,
       }),
-    ).toEqual({ kind: "open_panel", panelId: "history", row });
+    ).toEqual({
+      kind: "open_panel",
+      panelId: "history",
+      preventDefault: true,
+      row,
+      stopPropagation: true,
+    });
     expect(
       mapTimelineWorkAreaInspectorIntent({
         event: { ctrlKey: true, key: "k" },
         fieldKey: "timeline.host_refs",
         row,
       }),
-    ).toEqual({ itemRef: "mention-1", kind: "quick_link", row });
+    ).toEqual({
+      itemRef: "mention-1",
+      kind: "quick_link",
+      preventDefault: true,
+      row,
+      stopPropagation: true,
+    });
     expect(
       mapTimelineWorkAreaInspectorIntent({
         event: { ctrlKey: true, key: "k" },
         fieldKey: "timeline.activity_synopsis_text",
         row,
       }),
-    ).toEqual({ kind: "none" });
+    ).toEqual({
+      kind: "none",
+      preventDefault: false,
+      stopPropagation: false,
+    });
   });
 });

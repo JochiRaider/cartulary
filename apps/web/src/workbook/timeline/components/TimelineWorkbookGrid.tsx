@@ -33,7 +33,7 @@ import {
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 

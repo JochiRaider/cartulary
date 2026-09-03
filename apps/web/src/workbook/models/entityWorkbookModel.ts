@@ -29,6 +29,10 @@ export type EntityAlias = {
   aliasText: string;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 export type MergePlanLine = {
   label: string;
   outcome: string;
@@ -52,9 +56,15 @@ export type EntityMergePlan = {
   dependencySummary: string;
 };
 
+type MergeIdentifierField = {
+  readonly identifierClass: string;
+  readonly key: string;
+  readonly label: string;
+};
+
 const mergeIdentifierFields: Record<
   EntityRow["entityType"],
-  Array<{ key: string; label: string; identifierClass: string }>
+  readonly MergeIdentifierField[]
 > = {
   host: [
     {
@@ -193,14 +203,14 @@ export function entityRowFromApi(
       !("items" in raw) ||
       !Array.isArray(raw.items)
     ) {
-      return [] as EntityAlias[];
+      return [];
     }
     return raw.items
       .map((item) => {
-        if (!item || typeof item !== "object") {
+        if (!isRecord(item)) {
           return null;
         }
-        const object = item as Record<string, unknown>;
+        const object = item;
         if (
           object.item_kind !== "alias" ||
           typeof object.item_ref !== "string" ||
@@ -265,10 +275,10 @@ function readReusableIdentifiers(
   }
   return raw.items
     .map((item) => {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
+      if (!isRecord(item)) {
         return null;
       }
-      const object = item as Record<string, unknown>;
+      const object = item;
       const itemRef = readNonEmptyString(object.item_ref);
       const identifierClass = readNonEmptyString(object.identifier_class);
       const rawValue = readNonEmptyString(object.raw_value);
@@ -333,6 +343,37 @@ function entityIdentifierSignatures(row: EntityRow): Set<string> {
   return signatures;
 }
 
+function identifierValue(row: EntityRow, fieldKey: string): string {
+  return (
+    row.identifiers.find((identifier) => identifier.key === fieldKey)?.value ??
+    ""
+  );
+}
+
+function mergeIdentifierPlanLine(
+  field: MergeIdentifierField,
+  survivor: EntityRow,
+  loser: EntityRow,
+  survivorSignatures: ReadonlySet<string>,
+): MergePlanLine | null {
+  const survivorValue = identifierValue(survivor, field.key);
+  const loserValue = identifierValue(loser, field.key);
+  if (survivorValue === "" && loserValue === "") return null;
+  if (survivorValue === "") {
+    return { label: field.label, outcome: `Promote ${loserValue}` };
+  }
+  if (loserValue === "") return null;
+  const duplicate = survivorSignatures.has(
+    identifierSignature(field.identifierClass, loserValue),
+  );
+  return {
+    label: field.label,
+    outcome: duplicate
+      ? `Duplicate no-op ${loserValue}`
+      : `Carry as reusable ${loserValue}`,
+  };
+}
+
 export function buildMergePlan(
   survivor: EntityRow,
   loser: EntityRow,
@@ -341,38 +382,13 @@ export function buildMergePlan(
   const identifierLines: MergePlanLine[] = mergeIdentifierFields[
     survivor.entityType
   ].flatMap((field) => {
-    const survivorValue =
-      survivor.identifiers.find((identifier) => identifier.key === field.key)
-        ?.value ?? "";
-    const loserValue =
-      loser.identifiers.find((identifier) => identifier.key === field.key)
-        ?.value ?? "";
-    if (survivorValue === "" && loserValue === "") {
-      return [];
-    }
-    if (survivorValue === "" && loserValue !== "") {
-      return [{ label: field.label, outcome: `Promote ${loserValue}` }];
-    }
-    const loserSignature = identifierSignature(
-      field.identifierClass,
-      loserValue,
+    const line = mergeIdentifierPlanLine(
+      field,
+      survivor,
+      loser,
+      survivorIdentifierSignatures,
     );
-    if (
-      survivorValue !== "" &&
-      loserValue !== "" &&
-      survivorIdentifierSignatures.has(loserSignature)
-    ) {
-      return [{ label: field.label, outcome: `Duplicate no-op ${loserValue}` }];
-    }
-    if (survivorValue !== "" && loserValue !== "") {
-      return [
-        {
-          label: field.label,
-          outcome: `Carry as reusable ${loserValue}`,
-        },
-      ];
-    }
-    return [];
+    return line === null ? [] : [line];
   });
   const loserReusableIdentifierLines = loser.reusableIdentifiers.map(
     (identifier) => {

@@ -27,10 +27,8 @@ import {
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import {
-  buildCreatePayload,
-  createDraftRow,
-} from "./timeline/models/workbookTimelineModel";
+import { buildCreatePayload } from "./timeline/models/timelineMutationIntents";
+import { createDraftRow } from "./timeline/models/timelineRowModel";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -95,13 +93,15 @@ describe("Timeline workbook payload coverage", () => {
       draftRowCreateButtonTestId(),
     );
     fireEvent.mouseDown(createButton);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
     fireEvent.mouseDown(createButton);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.mouseDown(createButton);
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(extractTimelineJSONBody(fetchMock, 1)).toEqual({
       client_txn_id: expect.any(String),

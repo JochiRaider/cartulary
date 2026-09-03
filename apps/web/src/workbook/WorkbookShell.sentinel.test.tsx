@@ -30,7 +30,6 @@ import {
   cleanupTimelineWorkbookTestGlobals,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
-  focusReadyGridScalarInput,
   gridScalarInput,
   installTimelineWorkbookTestGlobals,
   successEnvelope,
@@ -695,6 +694,18 @@ describe("keyboard and grid anchor coverage", () => {
         rows: existingRows,
       }),
     );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        change_set_id: "30000000-0000-4000-8000-000000000001",
+        row: timelineRow({
+          recordId: "20000000-0000-4000-8000-000000000010",
+          rowVersion: 1,
+          occurredAt: "2026-06-14,test1,host2",
+          captureState: "rough",
+        }),
+        view_schema_id: timelineViewSchemaId,
+      }),
+    );
 
     const { container } = render(
       <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
@@ -714,25 +725,24 @@ describe("keyboard and grid anchor coverage", () => {
       },
     });
     fireEvent(draftTime, pasteEvent);
-    expect(pasteEvent.defaultPrevented).toBe(false);
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(pasteEvent.defaultPrevented).toBe(true);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      fetchMock.mock.calls.some(([request]) =>
+        String(request).endsWith("/clipboard-paste"),
+      ),
+    ).toBe(false);
   });
 
-  it("dispatches multi-row CSV pasted into the draft Time cell as create-row targets", async () => {
+  it("keeps multi-row text in the native draft editor path without grid clipboard transport", async () => {
+    const clipboardText = "2026-06-14,test1,host1\n2026-06-15,test2,host2";
     const createdRows = [
       timelineRow({
         recordId: "20000000-0000-4000-8000-000000000001",
         rowVersion: 1,
-        occurredAt: "2026-06-14",
-        summary: "test1",
-        captureState: "rough",
-      }),
-      timelineRow({
-        recordId: "20000000-0000-4000-8000-000000000002",
-        rowVersion: 1,
-        occurredAt: "2026-06-15",
-        summary: "test2",
+        occurredAt: clipboardText,
         captureState: "rough",
       }),
     ];
@@ -745,26 +755,16 @@ describe("keyboard and grid anchor coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        view_schema_id: timelineViewSchemaId,
         change_set_id: "30000000-0000-4000-8000-000000000001",
-        rows: createdRows,
-        conflicts: [],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
+        row: createdRows[0],
         view_schema_id: timelineViewSchemaId,
-        rows: createdRows,
       }),
     );
-
     render(
       <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await screen.findByTestId(saveStateTestId());
 
-    const clipboardText = "2026-06-14,test1,host1\n2026-06-15,test2,host2";
     const draftTime = screen.getByTestId(
       draftCellTestId("timeline.activity_utc_text"),
     );
@@ -777,20 +777,15 @@ describe("keyboard and grid anchor coverage", () => {
     expect(pasteEvent.defaultPrevented).toBe(true);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    expect(draftTime).not.toHaveProperty("value", clipboardText);
+    expect(
+      fetchMock.mock.calls.some(([request]) =>
+        String(request).endsWith("/clipboard-paste"),
+      ),
+    ).toBe(false);
     expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
-      view_schema_id: timelineViewSchemaId,
-      clipboard_text: clipboardText,
-      format: "csv",
-      start_field_key: "timeline.activity_utc_text",
-      columns: [
-        "timeline.activity_utc_text",
-        "timeline.activity_local_text",
-        "timeline.raw_activity_text",
-      ],
-      targets: [{ kind: "create" }, { kind: "create" }],
+      "timeline.activity_utc_text": clipboardText,
     });
   });
 
@@ -894,13 +889,17 @@ describe("keyboard and grid anchor coverage", () => {
       "20000000-0000-4000-8000-000000000002",
     ]);
 
-    const summary = gridScalarInput(
-      container,
-      "20000000-0000-4000-8000-000000000001",
-      "timeline.activity_synopsis_text",
-    ) as HTMLInputElement;
-    summary.focus();
-    fireEvent.paste(summary, {
+    const summaryCell = screen.getByTestId(
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000001",
+        "timeline.activity_synopsis_text",
+      ),
+    );
+    const summaryGridCell = summaryCell.closest('[role="gridcell"]');
+    expect(summaryGridCell).toBeTruthy();
+    fireEvent.mouseDown(summaryGridCell as HTMLElement);
+    (summaryGridCell as HTMLElement).focus();
+    fireEvent.paste(summaryGridCell as HTMLElement, {
       clipboardData: {
         getData: () => '"Alpha, one",host-one\nBeta,host-two\nGamma,host-three',
       },
@@ -1041,12 +1040,17 @@ describe("keyboard and grid anchor coverage", () => {
       "20000000-0000-4000-8000-000000000002",
     ]);
 
-    const summary = (await focusReadyGridScalarInput({
-      container,
-      fieldKey: "timeline.activity_synopsis_text",
-      recordId: "20000000-0000-4000-8000-000000000001",
-    })) as HTMLInputElement;
-    fireEvent.paste(summary, {
+    const summaryCell = screen.getByTestId(
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000001",
+        "timeline.activity_synopsis_text",
+      ),
+    );
+    const summaryGridCell = summaryCell.closest('[role="gridcell"]');
+    expect(summaryGridCell).toBeTruthy();
+    fireEvent.mouseDown(summaryGridCell as HTMLElement);
+    (summaryGridCell as HTMLElement).focus();
+    fireEvent.paste(summaryGridCell as HTMLElement, {
       clipboardData: {
         getData: () => "Client first\nClient second\nCreated after conflicts",
       },

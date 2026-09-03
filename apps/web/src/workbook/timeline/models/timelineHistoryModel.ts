@@ -8,7 +8,7 @@ import {
   workbookRecordHistoryLoadedData,
 } from "../../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { WorkbookRow } from "./workbookTimelineModel";
+import type { WorkbookRow } from "./timelineRowModel";
 
 const timelineInspectorConfig =
   requireViewContract(timelineViewSchemaId).inspectorConfig;

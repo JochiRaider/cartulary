@@ -3,6 +3,7 @@ import {
   buildInspectorMentions,
   type CollectionItem,
   type DismissedMention,
+  readCollectionItems,
   reconcileDismissedMentionsForRow,
 } from "./timeline/models/workbookMentionChips";
 
@@ -15,7 +16,7 @@ describe("browser.entity-linking mention chip state model", () => {
           {
             itemRef: "entity_mention:11111111-1111-4111-8111-111111111111",
             entityType: "host" as const,
-            itemKind: "unresolved_mention",
+            itemKind: "unresolved_mention" as const,
             displayText: "WS-023?",
             rawText: " WS-023? ",
             resolvedRecordId: null,
@@ -29,7 +30,7 @@ describe("browser.entity-linking mention chip state model", () => {
           {
             itemRef: "entity_mention:22222222-2222-4222-8222-222222222222",
             entityType: "host" as const,
-            itemKind: "resolved_ref",
+            itemKind: "resolved_ref" as const,
             displayText: "Server 02",
             rawText: "server-02",
             resolvedRecordId: "host-2",
@@ -43,7 +44,7 @@ describe("browser.entity-linking mention chip state model", () => {
           {
             itemRef: "entity_mention:33333333-3333-4333-8333-333333333333",
             entityType: "host" as const,
-            itemKind: "resolved_ref",
+            itemKind: "resolved_ref" as const,
             displayText: "VPN Gateway",
             rawText: " vpn   gateway ",
             resolvedRecordId: "host-3",
@@ -59,7 +60,7 @@ describe("browser.entity-linking mention chip state model", () => {
           {
             itemRef: "entity_mention:44444444-4444-4444-8444-444444444444",
             entityType: "identity" as const,
-            itemKind: "resolved_ref",
+            itemKind: "resolved_ref" as const,
             displayText: "Alex Analyst",
             rawText: " alex.analyst@example.test ",
             resolvedRecordId: "identity-4",
@@ -230,7 +231,7 @@ describe("browser.entity-linking mention chip state model", () => {
     const activeAtVersion = (mentionRowVersion: number): CollectionItem => ({
       itemRef,
       entityType: "host",
-      itemKind: "unresolved_mention",
+      itemKind: "unresolved_mention" as const,
       displayText: "WS-023?",
       rawText: "WS-023?",
       resolvedRecordId: null,
@@ -261,5 +262,40 @@ describe("browser.entity-linking mention chip state model", () => {
         },
       }),
     ).toEqual({});
+  });
+
+  it("rejects malformed and unknown relationship collection members", () => {
+    expect(
+      readCollectionItems(
+        {
+          cells: {
+            "timeline.host_refs": {
+              value: {
+                items: [
+                  {
+                    entity_type: "host",
+                    item_kind: "future_relationship_member",
+                    item_ref: "future-1",
+                    raw_text: "future",
+                  },
+                  {
+                    entity_type: "host",
+                    item_kind: "resolved_ref",
+                    item_ref: "missing-target",
+                  },
+                  {
+                    entity_type: "unknown",
+                    item_kind: "unresolved_mention",
+                    item_ref: "wrong-entity",
+                    raw_text: "unknown",
+                  },
+                ],
+              },
+            },
+          },
+        },
+        "timeline.host_refs",
+      ),
+    ).toEqual([]);
   });
 });

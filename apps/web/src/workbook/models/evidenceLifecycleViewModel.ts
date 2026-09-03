@@ -100,11 +100,6 @@ export type EvidenceCountDisplayViewModel = {
   readonly stateKey: EvidenceCountDisplayStateKey;
 };
 
-const evidenceRecordLifecycleStateSet = new Set<string>(
-  evidenceRecordLifecycleStates,
-);
-const objectBlobUploadStateSet = new Set<string>(objectBlobUploadStates);
-
 export function buildEvidenceLifecycleViewModel(
   input: EvidenceLifecycleViewModelInput,
 ): EvidenceLifecycleViewModel {
@@ -422,22 +417,24 @@ function inconsistentViewModel(
 function normalizeEvidenceRecordLifecycleState(
   value: unknown,
 ): EvidenceRecordLifecycleState | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  return evidenceRecordLifecycleStateSet.has(value)
-    ? (value as EvidenceRecordLifecycleState)
+  return value === "requested" ||
+    value === "pending_receipt" ||
+    value === "received" ||
+    value === "available" ||
+    value === "quarantined" ||
+    value === "released"
+    ? value
     : null;
 }
 
 function normalizeObjectBlobUploadState(
   value: unknown,
 ): ObjectBlobUploadState | null {
-  if (typeof value !== "string" || value.trim() === "") {
-    return null;
-  }
-  return objectBlobUploadStateSet.has(value)
-    ? (value as ObjectBlobUploadState)
+  return value === "pending" ||
+    value === "available" ||
+    value === "failed" ||
+    value === "quarantined"
+    ? value
     : null;
 }
 
@@ -473,8 +470,7 @@ function readReasonCode(details: unknown): string | null {
   ) {
     return null;
   }
-  const reasonCode = (details as { readonly reason_code?: unknown })
-    .reason_code;
+  const reasonCode = details.reason_code;
   return typeof reasonCode === "string" && reasonCode.trim() !== ""
     ? reasonCode
     : null;

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
 import type { SheetRef } from "../shared/sheetRef";
+import { createWorkbookClipboardPasteAdapter } from "../workbook/adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookViewQueryAdapter } from "../workbook/adapters/createWorkbookViewQueryAdapter";
@@ -119,7 +120,7 @@ export function TimelineWorkbookRuntimeFixture({
   hostEntities = [],
   identityEntities = [],
   entityIndex = {},
-  currentIncidentRole = "",
+  currentIncidentRole = "editor",
   density = "compact",
   layoutState: providedLayoutState,
   onColumnHiddenChange,
@@ -181,6 +182,11 @@ export function TimelineWorkbookRuntimeFixture({
       incidentId,
     });
     return {
+      clipboardPaste: createWorkbookClipboardPasteAdapter({
+        apiBase,
+        incidentId,
+        transactionIds,
+      }),
       mutationRuntime: new WorkbookMutationRuntime(
         {
           clientInstanceId: "timeline-runtime-fixture",
@@ -194,11 +200,9 @@ export function TimelineWorkbookRuntimeFixture({
         incidentId,
         transactionIds,
       }),
-      pendingMutationPort,
     };
   });
-  const { mutationCommands, mutationRuntime, pendingMutationPort } =
-    runtimeAssembly;
+  const { clipboardPaste, mutationCommands, mutationRuntime } = runtimeAssembly;
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
   const overflowNoticeRef = useRef<HTMLElement | null>(null);
@@ -251,9 +255,9 @@ export function TimelineWorkbookRuntimeFixture({
       <TimelineWorkbook
         runtime={{
           attachCollaborationSession: true,
+          clipboardPaste,
           collaborationProjection,
           mutationRuntime,
-          pendingMutationPort,
           mutationCommands: mutationCommands.timeline,
           indicatorWorkflow: mutationCommands.indicators,
           gridEntryFocus: idleGridEntryFocus,

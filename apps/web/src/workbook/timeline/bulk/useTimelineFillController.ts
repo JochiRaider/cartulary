@@ -7,11 +7,11 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import { useCallback } from "react";
 import type { TimelineBulkMutationPort } from "../../mutations/workbookMutationCommandPorts";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
+import { timelineScalarBindingForField } from "../models/timelineFieldRegistry";
 import {
   readTimelineCellValue,
-  timelineScalarBindingForField,
   type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 
 export const timelineFillRejectedMessage =
   "Fill was rejected because one or more targets are unavailable or stale.";

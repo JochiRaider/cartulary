@@ -10,7 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   useRef,
 } from "react";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/timelineRowModel";
 import { actionButtonStyle } from "./TimelineWorkbookStyles";
 
 export function DraftRowCreateButton({

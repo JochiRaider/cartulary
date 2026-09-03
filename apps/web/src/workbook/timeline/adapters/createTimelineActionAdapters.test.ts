@@ -8,11 +8,7 @@ import {
   hostsViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import {
-  createDraftRowForKey,
-  rowFromApi,
-} from "../models/workbookTimelineModel";
-import { createTimelineClipboardPasteAdapter } from "./createTimelineClipboardPasteAdapter";
+import { createDraftRowForKey, rowFromApi } from "../models/timelineRowModel";
 import { createTimelineEvidenceAttachmentAdapter } from "./createTimelineEvidenceAttachmentAdapter";
 import { createTimelineHistoryAdapter } from "./createTimelineHistoryAdapter";
 import { createTimelineMentionAdapter } from "./createTimelineMentionAdapter";
@@ -300,96 +296,6 @@ it("owns entity mention creation and resolution transport behind semantic outcom
     client_txn_id: "txn-resolve",
     resolved_record_id: replacementRecordId,
   });
-});
-
-it("validates Timeline clipboard rows and sanitized same-field conflicts", async () => {
-  const conflict = {
-    base_row_version: 2,
-    client_value: "client",
-    conflict_resolution_class: "text_compare_merge",
-    conflict_token: "conflict-token",
-    current_row_version: 3,
-    field_key: "timeline.activity_synopsis_text",
-    record_id: recordId,
-    server_value: "server",
-  };
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce(
-      successEnvelope({
-        change_set_id: changeSetId,
-        conflicts: [conflict],
-        rows: [
-          timelineRow({
-            captureState: "enriched",
-            recordId,
-            rowVersion: 3,
-          }),
-        ],
-        view_schema_id: timelineViewSchemaId,
-      }),
-    )
-    .mockResolvedValueOnce(
-      successEnvelope({
-        conflicts: [{ ...conflict, client_value: undefined }],
-        rows: [],
-        view_schema_id: timelineViewSchemaId,
-      }),
-    );
-  vi.stubGlobal("fetch", fetchMock);
-  const clipboard = createTimelineClipboardPasteAdapter({
-    apiBase: undefined,
-    incidentId,
-  });
-  const input = {
-    clientTxnId: "txn-paste",
-    clipboardText: "client",
-    columns: ["timeline.activity_synopsis_text"],
-    format: "tsv" as const,
-    startFieldKey: "timeline.activity_synopsis_text",
-    targets: [{ kind: "record" as const, recordId, baseRowVersion: 2 }],
-  };
-
-  await expect(
-    clipboard.paste({ ...input, columns: [] }),
-  ).resolves.toMatchObject({
-    kind: "rejected",
-    failure: { kind: "validation" },
-  });
-  await expect(
-    clipboard.paste({ ...input, targets: [] }),
-  ).resolves.toMatchObject({
-    kind: "rejected",
-    failure: { kind: "validation" },
-  });
-
-  await expect(clipboard.paste(input)).resolves.toMatchObject({
-    kind: "accepted",
-    value: {
-      conflicts: [{ conflict_token: "conflict-token" }],
-      rows: [{ record_id: recordId, row_version: 3 }],
-    },
-  });
-  await expect(clipboard.paste(input)).resolves.toMatchObject({
-    kind: "rejected",
-    failure: { kind: "invalid_contract" },
-  });
-  expect(requestBody(fetchMock, 0)).toEqual({
-    client_txn_id: "txn-paste",
-    clipboard_text: "client",
-    columns: ["timeline.activity_synopsis_text"],
-    format: "tsv",
-    start_field_key: "timeline.activity_synopsis_text",
-    targets: [
-      {
-        base_row_version: 2,
-        kind: "record",
-        record_id: recordId,
-      },
-    ],
-    view_schema_id: timelineViewSchemaId,
-  });
-  expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
 it("creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty", async () => {

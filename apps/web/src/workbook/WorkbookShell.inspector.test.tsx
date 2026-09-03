@@ -365,14 +365,14 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           captureState: "rough",
           hostRefs: [
             {
-              item_kind: "unresolved_ref",
+              item_kind: "unresolved_mention",
               item_ref: "host-ref-1",
               raw_text: "wide-host-token-1",
               entity_type: "host",
               resolution_status: "unresolved",
             },
             {
-              item_kind: "unresolved_ref",
+              item_kind: "unresolved_mention",
               item_ref: "host-ref-2",
               raw_text: "wide-host-token-2",
               entity_type: "host",
@@ -381,7 +381,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           ],
           identityRefs: [
             {
-              item_kind: "unresolved_ref",
+              item_kind: "unresolved_mention",
               item_ref: "identity-ref-1",
               raw_text: "wide-identity-token",
               entity_type: "identity",
@@ -479,7 +479,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
   it("Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh.", async () => {
     const stableRelationship = {
-      item_kind: "unresolved_ref",
+      item_kind: "unresolved_mention",
       item_ref: "rel_ref_workbook_interaction_stable",
       raw_text: "Workbook inspector visible host label",
       entity_type: "host",

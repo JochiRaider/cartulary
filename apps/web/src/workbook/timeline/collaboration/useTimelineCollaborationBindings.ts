@@ -16,7 +16,7 @@ import {
   rowFromApi,
   type TimelinePatchCells,
   type WorkbookRow,
-} from "../models/workbookTimelineModel";
+} from "../models/timelineRowModel";
 
 export type TimelineCollaborationProjection = Pick<
   WorkbookCollaborationCoordinator,
