@@ -413,6 +413,7 @@
         "apps/web/src/workbook/models/workbookSurfaceRegistration.ts",
         "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
         "apps/web/src/workbook/models/workbookSurfaceRegistry.ts",
+        "apps/web/src/workbook/models/workbookViewBarWorkingSet.ts",
         "apps/web/src/workbook/mutations/createIndicatorWorkflowPort.test.ts",
         "apps/web/src/workbook/mutations/createIndicatorWorkflowPort.ts",
         "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.test.ts",

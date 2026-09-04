@@ -49,7 +49,7 @@ export function selectWorkbookBlockMode(
 export function workbookQueryChipCapacity(
   chromeMode: WorkbookChromeMode,
 ): number {
-  if (chromeMode === "base") return 8;
-  if (chromeMode === "narrow_desktop") return 6;
+  if (chromeMode === "base") return 3;
+  if (chromeMode === "narrow_desktop") return 2;
   return 0;
 }

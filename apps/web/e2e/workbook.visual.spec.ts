@@ -62,6 +62,8 @@ import {
   rowHistoryRollbackConfirmButtonTestId,
   rowHistoryRollbackPreviewTestId,
   rowPresenceMarkerTestId,
+  savedViewActionMenuTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewModifiedTestId,
   savedViewSelectorTestId,
   savedViewStatusTestId,
@@ -76,10 +78,13 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
   workbookAddRowButtonTestId,
+  workbookColumnsMenuTestId,
+  workbookColumnsMenuTriggerTestId,
   workbookConflictControlTestId,
   workbookConflictResolverTestId,
   workbookEditRecoveryDiscardButtonTestId,
   workbookEditRecoveryTestId,
+  workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
   workbookFocusAnchorTestId,
   workbookInlineDraftRowTestId,
@@ -88,6 +93,7 @@ import {
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookPresenceSummaryTestId,
+  workbookQueryOverflowEntryTestId,
   workbookResponsiveBandTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
@@ -1088,7 +1094,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       page.getByTestId(
         workbookViewBarQueryControlsTestId(timelineViewSchemaId),
       ),
-    ).toHaveAttribute("data-hidden-query-chip-count", "1");
+    ).toHaveAttribute("data-hidden-query-chip-count", "6");
 
     await page.setViewportSize({ width: 1024, height: 720 });
     await expect(
@@ -1098,17 +1104,20 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       page.getByTestId(
         workbookViewBarQueryControlsTestId(timelineViewSchemaId),
       ),
-    ).toHaveAttribute("data-query-chip-capacity", "6");
+    ).toHaveAttribute("data-query-chip-capacity", "2");
     await expect(
       page.getByTestId(
         workbookViewBarQueryControlsTestId(timelineViewSchemaId),
       ),
-    ).toHaveAttribute("data-hidden-query-chip-count", "3");
+    ).toHaveAttribute("data-hidden-query-chip-count", "7");
     await expect(
       page.getByTestId(
         workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       ),
-    ).toHaveAttribute("aria-label", "Filters, 3 hidden");
+    ).toHaveAttribute(
+      "aria-label",
+      "Filters, 0 active filters, 7 hidden query entries",
+    );
     await assertViewportVisualRegression(
       page,
       "incident-directory-narrow-desktop-workbook-shell",
@@ -1132,7 +1141,10 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       page.getByTestId(
         workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       ),
-    ).toHaveAttribute("aria-label", "Filters, 9 hidden");
+    ).toHaveAttribute(
+      "aria-label",
+      "Filters, 0 active filters, 9 hidden query entries",
+    );
     await expect(
       page
         .getByTestId(workbookShellSlotTestId("status-strip"))
@@ -2554,6 +2566,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
   test("Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.", async ({
     page,
   }) => {
+    test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     const longSavedViewName =
       "browser.saved-view-query visual layout resilience with a deliberately long selected saved-view name";
@@ -2676,6 +2689,35 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
     ).toHaveText("Default view updated.");
 
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-saved-view-clean",
+    );
+
+    const savedViewActionTrigger = page.getByTestId(
+      savedViewActionMenuTriggerTestId(timelineViewSchemaId),
+    );
+    await savedViewActionTrigger.click();
+    await expect(
+      page.getByTestId(savedViewActionMenuTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-saved-view-actions",
+    );
+    await page.keyboard.press("Escape");
+
+    await sortTrigger.click();
+    await expect(sortMenu).toBeVisible();
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-ordered-maximum-sort",
+    );
+    await page.keyboard.press("Escape");
+
     await applyFilterChip(
       page,
       timelineViewSchemaId,
@@ -2693,22 +2735,25 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     );
     await expect(queryControls).toHaveAttribute(
       "data-query-chip-capacity",
-      "8",
+      "3",
     );
     await expect(queryControls).toHaveAttribute(
       "data-hidden-query-chip-count",
-      "3",
+      "8",
     );
     await expect(
       queryControls
         .getByRole("toolbar", { name: "Active query chips" })
-        .locator("button[title]"),
-    ).toHaveCount(8);
+        .locator("button[data-query-entry-key]"),
+    ).toHaveCount(3);
     await expect(
       page.getByTestId(
         workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
       ),
-    ).toHaveAttribute("aria-label", "Filters, 3 hidden");
+    ).toHaveAttribute(
+      "aria-label",
+      "Filters, 2 active filters, 8 hidden query entries",
+    );
     await expect(
       page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
     ).toBeVisible();
@@ -2721,8 +2766,109 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     });
     await assertViewportVisualRegression(
       page,
+      "workbook-view-bar-saved-view-modified",
+    );
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-maximum-pressure-base",
+    );
+    await assertViewportVisualRegression(
+      page,
       "workbook-query-saved-view-query-controls",
     );
+
+    const filterTrigger = page.getByTestId(
+      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+    );
+    await filterTrigger.click();
+    const filterPanel = page.getByTestId(
+      workbookFilterPopoverTestId(timelineViewSchemaId),
+    );
+    await filterPanel
+      .getByTestId(
+        workbookQueryOverflowEntryTestId(
+          timelineViewSchemaId,
+          "filter",
+          "timeline.tags",
+        ),
+      )
+      .click();
+    await expect(filterPanel).toHaveAttribute("aria-label", "Edit filter");
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-filter-editing-overflow",
+    );
+    await page.keyboard.press("Escape");
+
+    await page
+      .getByTestId(workbookColumnsMenuTriggerTestId(timelineViewSchemaId))
+      .click();
+    await expect(
+      page.getByTestId(workbookColumnsMenuTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-long-columns",
+    );
+    await page.keyboard.press("Escape");
+
+    await page.setViewportSize({ width: 1024, height: 720 });
+    await expect(queryControls).toHaveAttribute(
+      "data-query-chip-capacity",
+      "2",
+    );
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-maximum-pressure-narrow",
+    );
+    await page.setViewportSize({ width: 768, height: 640 });
+    await expect(queryControls).toHaveAttribute(
+      "data-query-chip-capacity",
+      "0",
+    );
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-maximum-pressure-compact",
+    );
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    await expect(
+      page.getByTestId(workbookResponsiveBandTestId()),
+    ).toHaveAttribute(
+      "data-workbook-responsive-band",
+      "below_supported_minimum",
+    );
+    await expect(
+      page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(workbookAddRowButtonTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await assertViewportVisualRegression(page, "workbook-view-bar-zoom-200");
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+
+    const textSpacingStyle = await page.addStyleTag({
+      content: `
+        * {
+          line-height: 1.5 !important;
+          letter-spacing: 0.12em !important;
+          word-spacing: 0.16em !important;
+        }
+        p { margin-block-end: 2em !important; }
+      `,
+    });
+    await assertViewportVisualRegression(
+      page,
+      "workbook-view-bar-text-spacing",
+    );
+    await textSpacingStyle.evaluate((element) => {
+      element.parentNode?.removeChild(element);
+    });
 
     const emptyIncidentId = await createIncident(
       page,
@@ -5077,7 +5223,24 @@ async function installFeP6EvidenceAccessVisualStyle(page: Page) {
 async function prepareVisualRegressionState(page: Page) {
   const responsiveBand = page.getByTestId(workbookResponsiveBandTestId());
   if ((await responsiveBand.count()) > 0) {
-    const viewportWidth = page.viewportSize()?.width ?? 0;
+    const viewportWidth = await page.evaluate(() => {
+      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+      const rootWidth = document.documentElement.clientWidth;
+      const zoomValue =
+        document.documentElement.style.zoom ||
+        getComputedStyle(document.documentElement).zoom;
+      const parsedZoom = Number.parseFloat(zoomValue);
+      const zoomScale =
+        !Number.isFinite(parsedZoom) || parsedZoom <= 0
+          ? 1
+          : zoomValue.trim().endsWith("%")
+            ? parsedZoom / 100
+            : parsedZoom;
+      const zoomAdjustedWidth = viewportWidth / zoomScale;
+      return rootWidth > 0
+        ? Math.min(zoomAdjustedWidth, rootWidth)
+        : zoomAdjustedWidth;
+    });
     const expectedBand =
       viewportWidth >= 1280
         ? "base"

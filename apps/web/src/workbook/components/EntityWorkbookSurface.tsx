@@ -102,7 +102,10 @@ import {
   type WorkbookConflictActivation,
   WorkbookSurfaceStatusStrip,
 } from "./WorkbookStatusStrip";
-import { WorkbookViewBar } from "./WorkbookViewBar";
+import {
+  WorkbookViewBar,
+  type WorkbookViewBarWorkingSetBinding,
+} from "./WorkbookViewBar";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
@@ -115,8 +118,7 @@ export type EntityWorkbookSurfaceProps = {
   entityType: EntityRow["entityType"];
   inspectorResetKey: string;
   gridEntryFocus: WorkbookGridEntryFocusOwner;
-  queryControls?: ReactNode | undefined;
-  savedViewSelector?: ReactNode | undefined;
+  viewBarWorkingSet: WorkbookViewBarWorkingSetBinding;
   layout: WorkbookSurfaceLayoutOwner;
   onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   queryState: WorkbookQueryState;
@@ -182,8 +184,7 @@ export function EntityWorkbookSurface({
   entityType,
   inspectorResetKey,
   gridEntryFocus,
-  queryControls,
-  savedViewSelector,
+  viewBarWorkingSet,
   layout,
   rows,
   queryState,
@@ -807,8 +808,7 @@ export function EntityWorkbookSurface({
         <WorkbookViewBar
           addRowDisabled={!canCreateRows}
           chromeMode={chromeMode}
-          queryControls={queryControls}
-          savedViewControls={savedViewSelector}
+          workingSet={viewBarWorkingSet}
           onAddRow={focusEntityDraft}
           onInspectorToggle={() => {
             inspectorContinuityTokenRef.current = entityFocus.port.capture();

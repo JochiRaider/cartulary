@@ -2,7 +2,6 @@ import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
   type Dispatch,
-  type ReactNode,
   type SetStateAction,
   useCallback,
   useMemo,
@@ -65,7 +64,6 @@ export type TimelineWorkbookRuntimeFixtureProps = {
   readonly renderInlineQueryControls?: boolean | undefined;
   readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly incidentClosed?: boolean | undefined;
-  readonly savedViewSelector?: ReactNode | undefined;
   readonly showStatusPresence?: boolean | undefined;
   readonly filterDraft?: FilterDraft | undefined;
   readonly onFilterDraftChange?:
@@ -115,7 +113,6 @@ export function TimelineWorkbookRuntimeFixture({
   renderInlineQueryControls = true,
   chromeMode = "base",
   incidentClosed = false,
-  savedViewSelector,
   showStatusPresence = true,
   filterDraft: providedFilterDraft,
   onFilterDraftChange,
@@ -284,8 +281,7 @@ export function TimelineWorkbookRuntimeFixture({
             filterDraft: providedFilterDraft ?? filterDraft,
             setFilterDraft: onFilterDraftChange ?? setFilterDraft,
             renderInlineControls: renderInlineQueryControls,
-            savedViewSelector,
-            viewBarQueryControls: undefined,
+            viewBarWorkingSet: null,
           },
           entities: {
             hosts: hostEntities,

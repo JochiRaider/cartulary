@@ -1,4 +1,5 @@
 import { gridGroupingSelectTestId } from "@cartulary/ui-contracts";
+import { type RefObject, useEffect } from "react";
 import {
   parseDeclaredGroupField,
   type WorkbookGridQueryCommand,
@@ -10,39 +11,40 @@ import {
 } from "./workbookGridControlStyles";
 
 export function WorkbookGroupControl({
-  compact,
-  constrained,
+  isOpen,
+  onClose,
   onCommand,
+  onToggle,
   projection,
+  returnFocusRef,
   selectedFieldKey,
   surface,
+  triggerRef,
 }: {
-  readonly compact: boolean;
-  readonly constrained: boolean;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
   readonly onCommand: (command: WorkbookGridQueryCommand) => void;
+  readonly onToggle: () => void;
   readonly projection: WorkbookGridQueryControlProjection;
+  readonly returnFocusRef: RefObject<HTMLElement | null>;
   readonly selectedFieldKey: string | null;
   readonly surface: string;
+  readonly triggerRef: RefObject<HTMLSelectElement | null>;
 }) {
+  useEffect(() => {
+    if (isOpen) triggerRef.current?.focus();
+  }, [isOpen, triggerRef]);
   const declaredFields = projection.groupOptions.map(
     (option) => option.fieldKey,
   );
   return (
-    <label
-      style={{
-        ...groupControlStyle,
-        ...(constrained ? constrainedGroupControlStyle : null),
-        ...(compact ? condensedGroupControlStyle : null),
-      }}
-    >
+    <label style={groupControlStyle}>
       <span style={immutableControlLabelStyle}>Group:</span>
       <select
+        ref={triggerRef}
         aria-label="Group rows"
         data-testid={gridGroupingSelectTestId(surface)}
-        style={{
-          ...groupSelectStyle,
-          ...(constrained ? constrainedGroupSelectStyle : null),
-        }}
+        style={groupSelectStyle}
         title={projection.activeGroupLabel}
         value={selectedFieldKey ?? ""}
         onChange={(event) => {
@@ -55,6 +57,19 @@ export function WorkbookGroupControl({
             kind: "group_set",
             fieldKey: parsed.kind === "none" ? null : parsed.fieldKey,
           });
+          onClose();
+        }}
+        onClick={onToggle}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && isOpen) {
+            event.preventDefault();
+            onClose();
+            queueMicrotask(() => {
+              const preferred = returnFocusRef.current;
+              if (preferred?.isConnected) preferred.focus();
+              else triggerRef.current?.focus();
+            });
+          }
         }}
       >
         <option value="">None</option>
@@ -73,11 +88,6 @@ const groupSelectStyle = {
   minInlineSize: "5.75rem",
   maxInlineSize: "7rem",
 };
-const constrainedGroupSelectStyle = {
-  inlineSize: "100%",
-  minInlineSize: 0,
-  maxInlineSize: "100%",
-};
 const groupControlStyle = {
   display: "inline-flex",
   gap: "0.25rem",
@@ -87,9 +97,3 @@ const groupControlStyle = {
   whiteSpace: "nowrap" as const,
   minWidth: 0,
 };
-const constrainedGroupControlStyle = {
-  display: "grid",
-  gridTemplateColumns: "max-content minmax(0, 1fr)",
-  minInlineSize: 0,
-};
-const condensedGroupControlStyle = { maxInlineSize: "5.75rem" };

@@ -1,10 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import {
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-  useState,
-} from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { WorkbookClipboardPastePort } from "../adapters/WorkbookClipboardPastePort";
@@ -12,6 +7,7 @@ import type { WorkbookCollaborationCoordinator } from "../collaboration/Workbook
 import { AssessmentWorkbookSurface } from "../components/AssessmentWorkbookSurface";
 import { EntityWorkbookSurface } from "../components/EntityWorkbookSurface";
 import { ContractWorkbookSurface } from "../components/GenericWorkbookSurface";
+import type { WorkbookViewBarWorkingSetBinding } from "../components/WorkbookViewBar";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
@@ -98,11 +94,10 @@ export type WorkbookSurfacesFacadeProps = {
   };
   readonly viewState: {
     readonly activeContract: ViewContract;
-    readonly queryControls?: ReactNode | undefined;
-    readonly savedViewSelector?: ReactNode | undefined;
     readonly sheetRef: SheetRef;
     readonly sheetReloadToken: number;
     readonly surface: string;
+    readonly viewBarWorkingSet: WorkbookViewBarWorkingSetBinding;
   };
 };
 
@@ -127,11 +122,10 @@ export function WorkbookSurfacesFacade({
   } = incident;
   const {
     activeContract,
-    queryControls,
-    savedViewSelector,
     sheetRef,
     sheetReloadToken,
     surface,
+    viewBarWorkingSet,
   } = viewState;
   const {
     assessment,
@@ -204,8 +198,7 @@ export function WorkbookSurfacesFacade({
             filterDraft: timelineFilterDraft,
             setFilterDraft: setTimelineFilterDraft,
             renderInlineControls: false,
-            savedViewSelector,
-            viewBarQueryControls: queryControls,
+            viewBarWorkingSet,
           },
           entities: {
             hosts: hostRows,
@@ -263,9 +256,8 @@ export function WorkbookSurfacesFacade({
           );
         }}
         queryState={isHosts ? hostQueryState : identityQueryState}
-        queryControls={queryControls}
+        viewBarWorkingSet={viewBarWorkingSet}
         rows={isHosts ? hostRows : identityRows}
-        savedViewSelector={savedViewSelector}
         viewQuery={viewQuery}
       />
     );
@@ -300,8 +292,7 @@ export function WorkbookSurfacesFacade({
           );
         }}
         queryState={assessmentQueryState}
-        queryControls={queryControls}
-        savedViewSelector={savedViewSelector}
+        viewBarWorkingSet={viewBarWorkingSet}
         viewQuery={viewQuery}
       />
     );
@@ -336,9 +327,8 @@ export function WorkbookSurfacesFacade({
         );
       }}
       queryState={genericQueryState}
-      queryControls={queryControls}
+      viewBarWorkingSet={viewBarWorkingSet}
       rows={genericRows}
-      savedViewSelector={savedViewSelector}
     />
   );
 }

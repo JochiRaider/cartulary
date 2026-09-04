@@ -21,7 +21,6 @@ import {
 import type { ViewContract } from "@cartulary/view-contracts";
 import {
   type CSSProperties,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -83,7 +82,10 @@ import {
   type WorkbookConflictActivation,
   WorkbookSurfaceStatusStrip,
 } from "./WorkbookStatusStrip";
-import { WorkbookViewBar } from "./WorkbookViewBar";
+import {
+  WorkbookViewBar,
+  type WorkbookViewBarWorkingSetBinding,
+} from "./WorkbookViewBar";
 
 export type ContractWorkbookSurfaceProps = {
   readonly contract: ViewContract;
@@ -93,8 +95,7 @@ export type ContractWorkbookSurfaceProps = {
   readonly incidentPort: WorkbookIncidentPort;
   readonly inspectorResetKey: string;
   readonly gridEntryFocus: WorkbookGridEntryFocusOwner;
-  readonly queryControls?: ReactNode | undefined;
-  readonly savedViewSelector?: ReactNode | undefined;
+  readonly viewBarWorkingSet: WorkbookViewBarWorkingSetBinding;
   readonly layout: WorkbookSurfaceLayoutOwner;
   readonly loadState: WorkbookQueryLoadState;
   readonly mutationRuntime: WorkbookMutationRuntime;
@@ -119,8 +120,7 @@ export function ContractWorkbookSurface({
   incidentPort,
   inspectorResetKey,
   gridEntryFocus,
-  queryControls,
-  savedViewSelector,
+  viewBarWorkingSet,
   layout,
   loadState,
   mutationRuntime,
@@ -706,8 +706,7 @@ export function ContractWorkbookSurface({
         <WorkbookViewBar
           addRowDisabled={!canCreateRows}
           chromeMode={chromeMode}
-          queryControls={queryControls}
-          savedViewControls={savedViewSelector}
+          workingSet={viewBarWorkingSet}
           onAddRow={focusDraftRow}
           onInspectorToggle={() => {
             inspectorContinuityTokenRef.current = genericFocus.port.capture();

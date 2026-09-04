@@ -8,7 +8,6 @@ import {
   gridDraftRowSelector,
   gridFillHandleSelector,
   gridFilterApplyTestId,
-  gridFilterChipTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
@@ -28,6 +27,10 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   workbookAddRowButtonTestId,
+  workbookColumnsMenuTestId,
+  workbookColumnsMenuTriggerTestId,
+  workbookFilterClearButtonTestId,
+  workbookFilterOperatorTestId,
   workbookGridDensityMetrics,
   workbookGridRowHeightPx,
   workbookInlineDraftRowTestId,
@@ -36,11 +39,14 @@ import {
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookLayoutMetrics,
+  workbookQueryEntryTestId,
+  workbookQueryOverflowEntryTestId,
   workbookRowActionMenuButtonTestId,
   workbookRowContextMenuTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
   workbookShellSlotTestId,
+  workbookSortAppliedEntryTestId,
 } from "./index";
 
 describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
@@ -142,8 +148,18 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
     expect(rowCellTestId(originalRow.recordId, originalField.fieldKey)).toBe(
       rowCellTestId(renamedRow.recordId, renamedField.fieldKey),
     );
-    expect(gridFilterChipTestId("cartulary.view.timeline.v2", "status")).toBe(
-      gridFilterChipTestId("cartulary.view.timeline.v2", "status"),
+    expect(
+      workbookQueryEntryTestId(
+        "cartulary.view.timeline.v2",
+        "filter",
+        "status",
+      ),
+    ).toBe(
+      workbookQueryEntryTestId(
+        "cartulary.view.timeline.v2",
+        "filter",
+        "status",
+      ),
     );
     expect(gridFilterFieldTestId("cartulary.view.timeline.v2")).toBe(
       "cartulary.view.timeline.v2-filter-field",
@@ -293,16 +309,36 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
       gridFilterFieldTestId(viewSchemaId),
       gridFilterValueTestId(viewSchemaId),
       gridFilterApplyTestId(viewSchemaId),
-      gridFilterChipTestId(viewSchemaId, "timeline.capture_state"),
+      workbookQueryEntryTestId(
+        viewSchemaId,
+        "filter",
+        "timeline.capture_state",
+      ),
+      workbookQueryOverflowEntryTestId(
+        viewSchemaId,
+        "sort",
+        "timeline.activity_sort_ts",
+      ),
+      workbookSortAppliedEntryTestId(viewSchemaId, "timeline.activity_sort_ts"),
+      workbookFilterOperatorTestId(viewSchemaId),
+      workbookFilterClearButtonTestId(viewSchemaId),
+      workbookColumnsMenuTriggerTestId(viewSchemaId),
+      workbookColumnsMenuTestId(viewSchemaId),
     ]).toEqual([
       "cartulary.view.timeline.v2-filter-field",
       "cartulary.view.timeline.v2-filter-value",
       "cartulary.view.timeline.v2-filter-apply",
-      "cartulary.view.timeline.v2-filter-chip-timeline.capture_state",
+      "cartulary.view.timeline.v2-query-entry-filter-timeline.capture_state",
+      "cartulary.view.timeline.v2-query-overflow-sort-timeline.activity_sort_ts",
+      "cartulary.view.timeline.v2-sort-applied-timeline.activity_sort_ts",
+      "cartulary.view.timeline.v2-filter-operator",
+      "cartulary.view.timeline.v2-filter-clear",
+      "cartulary.view.timeline.v2-columns-menu-trigger",
+      "cartulary.view.timeline.v2-columns-menu",
     ]);
-    expect(() => gridFilterChipTestId(viewSchemaId, "Capture state")).toThrow(
-      "Invalid field_key selector token: Capture state",
-    );
+    expect(() =>
+      workbookQueryEntryTestId(viewSchemaId, "filter", "Capture state"),
+    ).toThrow("Invalid field_key selector token: Capture state");
     expect(() => gridFilterApplyTestId("timeline")).toThrow(
       "Invalid view_schema_id selector token: timeline",
     );

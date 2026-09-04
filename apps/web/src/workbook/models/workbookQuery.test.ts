@@ -11,11 +11,13 @@ import {
 } from "../layout/workbookColumnLayout";
 import {
   applyFilterDraft,
+  buildFilterFromDraft,
   buildQueryRequest,
   cycleWorkbookSortField,
   defaultFilterDraft,
   emptyWorkbookQueryState,
   filterChipLabel,
+  filterDraftFromFilter,
   filterInputMode,
   toggleSortField,
   updateGroupBy,
@@ -26,11 +28,67 @@ import {
 } from "./workbookSurfaceQueryRuntime";
 
 describe("workbookQuery", () => {
+  it("builds every declared filter operator without losing argument shape", () => {
+    const filters = [
+      buildFilterFromDraft({
+        booleanValue: "",
+        fieldKey: "eq",
+        op: "eq",
+        operandKind: "null",
+        value: "",
+        valueType: "string",
+        values: "",
+      }),
+      buildFilterFromDraft({
+        fieldKey: "range",
+        lowerKind: "gt",
+        lowerValue: "1",
+        op: "range",
+        upperKind: "lte",
+        upperValue: "9",
+      }),
+      buildFilterFromDraft({
+        fieldKey: "any",
+        op: "contains_any",
+        values: "b, a",
+      }),
+      buildFilterFromDraft({
+        fieldKey: "all",
+        op: "contains_all",
+        values: "b, a",
+      }),
+      buildFilterFromDraft({ fieldKey: "prefix", op: "prefix", value: "pre" }),
+      buildFilterFromDraft({
+        fieldKey: "text",
+        op: "full_text",
+        query: "one  two",
+      }),
+    ];
+    expect(filters).toEqual([
+      { arg: { value: null }, fieldKey: "eq", op: "eq" },
+      { arg: { gt: "1", lte: "9" }, fieldKey: "range", op: "range" },
+      { arg: { values: ["a", "b"] }, fieldKey: "any", op: "contains_any" },
+      { arg: { values: ["a", "b"] }, fieldKey: "all", op: "contains_all" },
+      { arg: { value: "pre" }, fieldKey: "prefix", op: "prefix" },
+      { arg: { query: "one  two" }, fieldKey: "text", op: "full_text" },
+    ]);
+    expect(
+      filters.map((filter) => filter && filterDraftFromFilter(filter).op),
+    ).toEqual([
+      "eq",
+      "range",
+      "contains_any",
+      "contains_all",
+      "prefix",
+      "full_text",
+    ]);
+  });
+
   it("builds tag and boolean filters from the client-local draft state", () => {
     const state = applyFilterDraft(emptyWorkbookQueryState(), {
-      booleanValue: "",
       fieldKey: "timeline.tags",
-      value: "phish, c2",
+      op: "contains_any",
+      values: "phish, c2",
     });
 
     expect(state.filters).toEqual([
@@ -47,7 +105,11 @@ describe("workbookQuery", () => {
       applyFilterDraft(emptyWorkbookQueryState(), {
         booleanValue: "true",
         fieldKey: "timeline.has_evidence",
+        op: "eq",
+        operandKind: "value",
         value: "",
+        valueType: "boolean",
+        values: "",
       }).filters,
     ).toEqual([
       {

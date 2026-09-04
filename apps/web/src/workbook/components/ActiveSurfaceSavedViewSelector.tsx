@@ -29,26 +29,10 @@ import {
   type WorkbookSavedViewsResource,
 } from "../models/workbookSavedViewControl";
 import type { SavedViewResource } from "../models/workbookSavedViews";
+import { visuallyHiddenStyle } from "../utils/workbookStyles";
 import { SavedViewActionPanel } from "./SavedViewActionPanel";
 
-export function ActiveSurfaceSavedViewSelector({
-  activeViewSchemaId,
-  chromeMode,
-  currentIncidentRole,
-  currentUserId,
-  isModified = false,
-  savedViewsResource,
-  selectedSheetRef,
-  onCreateSavedView,
-  onDeleteSavedView,
-  onDuplicateSavedView,
-  onResetToSavedView,
-  onSelectBaseSurface,
-  onSelectSavedView,
-  onSetDefaultSheetRef,
-  onSetHomeSheetRef,
-  onUpdateSavedView,
-}: {
+export type ActiveSurfaceSavedViewSelectorProps = {
   readonly activeViewSchemaId: string;
   readonly chromeMode: WorkbookChromeMode;
   readonly currentIncidentRole: string | null;
@@ -76,7 +60,26 @@ export function ActiveSurfaceSavedViewSelector({
       readonly scope: "private" | "shared";
     },
   ) => Promise<SavedViewResource>;
-}) {
+};
+
+export function ActiveSurfaceSavedViewSelector({
+  activeViewSchemaId,
+  chromeMode,
+  currentIncidentRole,
+  currentUserId,
+  isModified = false,
+  savedViewsResource,
+  selectedSheetRef,
+  onCreateSavedView,
+  onDeleteSavedView,
+  onDuplicateSavedView,
+  onResetToSavedView,
+  onSelectBaseSurface,
+  onSelectSavedView,
+  onSetDefaultSheetRef,
+  onSetHomeSheetRef,
+  onUpdateSavedView,
+}: ActiveSurfaceSavedViewSelectorProps) {
   const projection = useMemo(
     () =>
       projectActiveSurfaceSavedViews(
@@ -234,8 +237,7 @@ function SavedViewControlPresentation({
       />
       <SavedViewModifiedBadge
         activeViewSchemaId={activeViewSchemaId}
-        compactControls={compactControls}
-        condensedControls={condensedControls}
+        condensed={condensedControls}
         isModified={isModified}
         selectedSavedView={projection.selectedSavedView}
       />
@@ -278,6 +280,7 @@ function SavedViewSelectionField({
   readonly projection: ActiveSurfaceSavedViewProjection;
   readonly selectorRef: RefObject<HTMLSelectElement | null>;
 }) {
+  const descriptionId = `${savedViewSelectorTestId(activeViewSchemaId)}-description`;
   const disabled =
     projection.resourceKind === "loading" ||
     projection.resourceKind === "unavailable";
@@ -296,6 +299,7 @@ function SavedViewSelectionField({
       <select
         ref={selectorRef}
         aria-label="Saved view"
+        aria-describedby={descriptionId}
         aria-busy={projection.resourceKind === "loading" || undefined}
         data-active-view-schema-id={activeViewSchemaId}
         data-resource-kind={projection.resourceKind}
@@ -346,6 +350,11 @@ function SavedViewSelectionField({
           savedViews={projection.systemSavedViews}
         />
       </select>
+      <span id={descriptionId} style={visuallyHiddenStyle}>
+        {projection.selectedSavedView === null
+          ? "Base surface configuration"
+          : `Selected saved view ${projection.selectedSavedView.display_name}, ${projection.selectedSavedView.scope} scope`}
+      </span>
     </label>
   );
 }
@@ -378,14 +387,12 @@ function selectSavedView({
 
 function SavedViewModifiedBadge({
   activeViewSchemaId,
-  compactControls,
-  condensedControls,
+  condensed,
   isModified,
   selectedSavedView,
 }: {
   readonly activeViewSchemaId: string;
-  readonly compactControls: boolean;
-  readonly condensedControls: boolean;
+  readonly condensed: boolean;
   readonly isModified: boolean;
   readonly selectedSavedView: SavedViewResource | null;
 }) {
@@ -395,10 +402,7 @@ function SavedViewModifiedBadge({
       data-testid={savedViewModifiedTestId(activeViewSchemaId)}
       style={{
         ...modifiedBadgeStyle,
-        ...(condensedControls || selectedSavedView !== null
-          ? condensedModifiedBadgeStyle
-          : null),
-        ...(compactControls ? compactModifiedBadgeStyle : null),
+        ...(condensed ? visuallyHiddenStyle : null),
       }}
       title="Saved view modified"
     >
@@ -482,9 +486,9 @@ const condensedSavedViewControlGroupStyle = {
 };
 
 const selectedBaseSavedViewControlGroupStyle = {
-  flex: "0 1 clamp(10rem, 20vw, 18rem)",
-  inlineSize: "clamp(10rem, 20vw, 18rem)",
-  maxInlineSize: "clamp(10rem, 20vw, 18rem)",
+  flex: "0 1 var(--ct-layout-viewBarSavedViewMaxInlineSize)",
+  inlineSize: "var(--ct-layout-viewBarSavedViewMaxInlineSize)",
+  maxInlineSize: "var(--ct-layout-viewBarSavedViewMaxInlineSize)",
 };
 
 const savedViewSelectorFrameStyle = {
@@ -526,7 +530,7 @@ const inputStyle = {
 const savedViewSelectStyle = {
   ...inputStyle,
   appearance: "auto" as const,
-  inlineSize: "min(18rem, 36vw)",
+  inlineSize: "min(var(--ct-layout-viewBarSavedViewMaxInlineSize), 36vw)",
   minInlineSize: "10rem",
 };
 
@@ -553,15 +557,6 @@ const modifiedBadgeStyle = {
   whiteSpace: "nowrap" as const,
 };
 
-const condensedModifiedBadgeStyle = {
-  maxInlineSize: "3rem",
-  minInlineSize: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
-
-const compactModifiedBadgeStyle = { maxInlineSize: "1.75rem" };
-
 const savedViewStatusStyle = {
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.78rem",
@@ -571,12 +566,7 @@ const savedViewStatusStyle = {
   whiteSpace: "nowrap" as const,
 };
 
-const condensedSavedViewStatusStyle = {
-  contain: "inline-size",
-  flex: "1 1 0",
-  inlineSize: 0,
-  minInlineSize: 0,
-};
+const condensedSavedViewStatusStyle = visuallyHiddenStyle;
 
 const emptySavedViewStatusStyle = {
   flex: "0 0 0",

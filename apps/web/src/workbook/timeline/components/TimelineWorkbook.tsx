@@ -29,8 +29,7 @@ function TimelineWorkbookContent({
       onActivateConflict: runtime.onActivateConflict,
       queryControls: {
         renderInlineControls: runtime.query.renderInlineControls,
-        savedViewSelector: runtime.query.savedViewSelector,
-        viewBarQueryControls: runtime.query.viewBarQueryControls,
+        viewBarWorkingSet: runtime.query.viewBarWorkingSet,
       },
     },
   });

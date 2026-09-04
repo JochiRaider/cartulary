@@ -1,4 +1,3 @@
-import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { WorkbookViewBar } from "../../components/WorkbookViewBar";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import type { TimelineWorkbookPresentationModel } from "./useTimelineWorkbookPresentation";
@@ -22,14 +21,6 @@ export function TimelineWorkbookViewBarRegion({
     <WorkbookViewBar
       addRowDisabled={model.addRowDisabled}
       chromeMode={model.chromeMode}
-      queryControls={
-        model.inlineQuery === null ? (
-          model.viewBarQueryControls
-        ) : (
-          <WorkbookGridControls {...model.inlineQuery} />
-        )
-      }
-      savedViewControls={model.savedViewControls}
       supplementalControls={
         bulk === null ? undefined : (
           <fieldset style={bulkActionFieldsetStyle}>
@@ -72,6 +63,7 @@ export function TimelineWorkbookViewBarRegion({
       onAddRow={model.onAddRow}
       onInspectorToggle={model.onInspectorToggle}
       surface={model.surface}
+      workingSet={model.workingSet ?? undefined}
     />
   );
 }

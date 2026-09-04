@@ -19,7 +19,6 @@ import {
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import {
   defaultFilterDraft,
-  emptyWorkbookQueryState,
   removeFilterField,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -56,7 +55,7 @@ export type TimelineWorkbookPresentationRuntime = {
   readonly onActivateConflict: TimelineWorkbookSurfaceRuntime["onActivateConflict"];
   readonly queryControls: Pick<
     TimelineWorkbookSurfaceRuntime["query"],
-    "renderInlineControls" | "savedViewSelector" | "viewBarQueryControls"
+    "renderInlineControls" | "viewBarWorkingSet"
   >;
 };
 
@@ -78,11 +77,8 @@ export function useTimelineWorkbookPresentation({
     onActivateConflict,
     queryControls,
   } = runtime;
-  const {
-    renderInlineControls: renderInlineQueryControls,
-    savedViewSelector,
-    viewBarQueryControls,
-  } = queryControls;
+  const { renderInlineControls: renderInlineQueryControls, viewBarWorkingSet } =
+    queryControls;
   const {
     hosts: hostEntities,
     identities: identityEntities,
@@ -408,7 +404,9 @@ export function useTimelineWorkbookPresentation({
           ? { kind: "stale_error", message: visibleRefreshError }
           : { kind: "ready" };
   const handleClearFilters = useCallback(() => {
-    setQueryState(emptyWorkbookQueryState());
+    setQueryState((current) =>
+      current.filters.length === 0 ? current : { ...current, filters: [] },
+    );
     setFilterDraft(defaultFilterDraft(timelineContract));
   }, [setFilterDraft, setQueryState]);
   const handleRetry = useCallback(() => {
@@ -564,31 +562,31 @@ export function useTimelineWorkbookPresentation({
               selectedCount: selectedTimelineRecordIds.size,
               tagName: bulkTagName,
             },
-      inlineQuery: renderInlineQueryControls
+      workingSet: renderInlineQueryControls
         ? {
-            chromeMode,
-            contract: timelineContract,
-            defaultFilterPopoverOpen: true,
-            filterDraft,
-            layoutState,
-            onApplyFilter: applyQueryFilter,
-            onClearAll: handleClearFilters,
-            onColumnHiddenChange: handleColumnHiddenChange,
-            onColumnMove: handleColumnMove,
-            onFilterDraftChange: setFilterDraft,
-            onGroupByChange: handleQueryGroupByChange,
-            onRemoveFilter: handleRemoveFilter,
-            onResetColumns: handleResetColumns,
-            onSortChange: handleQuerySortChange,
-            queryState,
-            surface: timelineViewSchemaId,
+            savedView: viewBarWorkingSet?.savedView ?? null,
+            query: {
+              contract: timelineContract,
+              defaultFilterPopoverOpen: true,
+              filterDraft,
+              layoutState,
+              onApplyFilter: applyQueryFilter,
+              onClearFilters: handleClearFilters,
+              onColumnHiddenChange: handleColumnHiddenChange,
+              onColumnMove: handleColumnMove,
+              onFilterDraftChange: setFilterDraft,
+              onGroupByChange: handleQueryGroupByChange,
+              onRemoveFilter: handleRemoveFilter,
+              onResetColumns: handleResetColumns,
+              onSortChange: handleQuerySortChange,
+              queryState,
+              surface: timelineViewSchemaId,
+            },
           }
-        : null,
+        : viewBarWorkingSet,
       onAddRow: focusDraftRow,
       onInspectorToggle: handleInspectorToggle,
-      savedViewControls: savedViewSelector,
       surface: timelineViewSchemaId,
-      viewBarQueryControls,
     },
   };
 }

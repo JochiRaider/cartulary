@@ -1,12 +1,12 @@
 import {
   gridFilterApplyTestId,
-  gridFilterChipTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
   gridSortHeaderTestId,
   rowCellTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookQueryEntryTestId,
 } from "@cartulary/ui-contracts";
 
 import {
@@ -26,7 +26,9 @@ export async function assertActiveFilterChipVisible(
   surface: string,
   fieldKey: string,
 ) {
-  const chip = page.getByTestId(gridFilterChipTestId(surface, fieldKey));
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(surface, "filter", fieldKey),
+  );
   if (!(await isLocatorVisible(chip))) {
     throw new Error(
       `Expected active filter chip for ${fieldKey} on ${surface} to be visible`,
@@ -113,7 +115,18 @@ export async function removeFilterChip(
   surface: string,
   fieldKey: string,
 ) {
-  await page.getByTestId(gridFilterChipTestId(surface, fieldKey)).click();
+  const chip = page.getByTestId(
+    workbookQueryEntryTestId(surface, "filter", fieldKey),
+  );
+  const evaluate = requireEvaluate(
+    chip,
+    `removeFilterChip(${surface}) requires locator.evaluate() support`,
+  );
+  await evaluate((element) => {
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Delete" }),
+    );
+  });
 }
 
 export async function changeGrouping(

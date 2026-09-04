@@ -1,9 +1,10 @@
 import {
+  workbookSortAppliedEntryTestId,
   workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
   workbookSortOptionTestId,
 } from "@cartulary/ui-contracts";
-import { useMemo, useRef } from "react";
+import { type RefObject, useMemo } from "react";
 import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
 import {
   type WorkbookGridQueryCommand,
@@ -12,8 +13,6 @@ import {
 } from "../models/workbookGridQueryControls";
 import {
   controlButtonStyle,
-  dynamicControlValueStyle,
-  immutableControlLabelStyle,
   menuFrameStyle,
   menuItemSelectedStyle,
   menuItemStyle,
@@ -27,7 +26,10 @@ export function WorkbookSortControl({
   onCommand,
   onToggle,
   projection,
+  returnFocusRef,
+  requestedFieldKey,
   surface,
+  triggerRef,
 }: {
   readonly constrained: boolean;
   readonly isOpen: boolean;
@@ -35,26 +37,27 @@ export function WorkbookSortControl({
   readonly onCommand: (command: WorkbookGridQueryCommand) => void;
   readonly onToggle: () => void;
   readonly projection: WorkbookGridQueryControlProjection;
+  readonly returnFocusRef: RefObject<HTMLElement | null>;
+  readonly requestedFieldKey: string | null;
   readonly surface: string;
+  readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const itemKeys = useMemo(() => sortControlItemKeys(projection), [projection]);
-  const initialKey = itemKeys[0] ?? null;
+  const requestedKey =
+    requestedFieldKey === null ? null : `${requestedFieldKey}:direction`;
+  const initialKey =
+    requestedKey !== null && itemKeys.includes(requestedKey)
+      ? requestedKey
+      : (itemKeys[0] ?? null);
   const navigation = useRegisteredOverlayNavigation({
     initialItemKey: initialKey,
     isOpen,
     itemKeys,
     onRequestClose: onClose,
-    subjectKey: surface,
+    preferredReturnFocusRef: returnFocusRef,
+    subjectKey: `${surface}:${requestedFieldKey ?? "trigger"}`,
     triggerRef,
   });
-  const triggerLabel =
-    projection.activeSortLabel === null
-      ? "Sort"
-      : `Sort: ${projection.activeSortLabel}`;
-  const selectedByField = new Map(
-    projection.sortEntries.map((entry) => [entry.fieldKey, entry]),
-  );
   const atLimit = projection.sortEntries.length >= workbookOrderedSortLimit;
 
   return (
@@ -69,10 +72,13 @@ export function WorkbookSortControl({
         aria-controls={isOpen ? workbookSortMenuTestId(surface) : undefined}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        aria-label={triggerLabel}
+        aria-label={
+          projection.sortEntries.length === 0
+            ? "Sort, no user sorts"
+            : `Sort, ${projection.sortEntries.length} applied`
+        }
         data-testid={workbookSortMenuTriggerTestId(surface)}
         style={sortControlButtonStyle}
-        title={triggerLabel}
         type="button"
         onClick={() => {
           if (!isOpen) navigation.prepareOpen(initialKey);
@@ -86,12 +92,7 @@ export function WorkbookSortControl({
           if (!isOpen) onToggle();
         }}
       >
-        <span style={immutableControlLabelStyle}>Sort</span>
-        {projection.activeSortLabel === null ? null : (
-          <span aria-hidden="true" style={dynamicControlValueStyle}>
-            : {projection.activeSortLabel}
-          </span>
-        )}
+        Sort
       </button>
       {isOpen ? (
         <div
@@ -99,7 +100,7 @@ export function WorkbookSortControl({
           data-testid={workbookSortMenuTestId(surface)}
           id={workbookSortMenuTestId(surface)}
           role="menu"
-          style={menuStyle}
+          style={sortMenuStyle}
           tabIndex={-1}
           onBlur={navigation.onOverlayBlur}
           onKeyDown={(event) => {
@@ -107,68 +108,99 @@ export function WorkbookSortControl({
             navigation.onItemKeyDown(event, navigation.activeKey);
           }}
         >
-          {projection.sortableFields.map((field) => {
-            const selected = selectedByField.get(field.fieldKey);
-            const primaryKey = `${field.fieldKey}:primary`;
-            return (
-              <div key={field.fieldKey} role="none" style={sortRowStyle}>
-                <button
-                  ref={navigation.registerItem(primaryKey)}
-                  aria-checked={selected !== undefined}
-                  aria-label={
-                    selected === undefined
-                      ? `Add sort ${field.label}`
-                      : `Set ${field.label} ${selected.direction === "asc" ? "descending" : "ascending"}`
-                  }
-                  data-testid={workbookSortOptionTestId(
+          <fieldset style={sectionStyle}>
+            <legend>Applied sorts</legend>
+            {projection.sortEntries.length === 0 ? (
+              <span style={emptyStateStyle}>No user sort override.</span>
+            ) : (
+              projection.sortEntries.map((entry) => (
+                <div
+                  key={entry.fieldKey}
+                  data-testid={workbookSortAppliedEntryTestId(
                     surface,
-                    field.fieldKey,
+                    entry.fieldKey,
                   )}
-                  disabled={selected === undefined && atLimit}
-                  role="menuitemcheckbox"
-                  style={{
-                    ...menuItemStyle,
-                    ...(selected === undefined ? null : menuItemSelectedStyle),
-                  }}
-                  tabIndex={navigation.tabIndexFor(primaryKey)}
-                  type="button"
-                  onClick={() => {
-                    onCommand(
-                      selected === undefined
-                        ? { kind: "sort_add", fieldKey: field.fieldKey }
-                        : {
-                            kind: "sort_set_direction",
-                            fieldKey: field.fieldKey,
-                            direction:
-                              selected.direction === "asc" ? "desc" : "asc",
-                          },
-                    );
-                  }}
-                  onKeyDown={(event) => {
-                    navigation.onItemKeyDown(event, primaryKey);
-                  }}
+                  role="none"
+                  style={sortRowStyle}
                 >
-                  {selected === undefined
-                    ? `Add sort: ${field.label}`
-                    : `${selected.priority}. ${field.label}: ${selected.direction}`}
-                </button>
-                {selected === undefined ? null : (
+                  <button
+                    ref={navigation.registerItem(`${entry.fieldKey}:direction`)}
+                    aria-checked="true"
+                    aria-label={`Set ${entry.label} ${
+                      entry.direction === "asc" ? "descending" : "ascending"
+                    }`}
+                    data-testid={workbookSortOptionTestId(
+                      surface,
+                      entry.fieldKey,
+                    )}
+                    role="menuitemcheckbox"
+                    style={{ ...menuItemStyle, ...menuItemSelectedStyle }}
+                    tabIndex={navigation.tabIndexFor(
+                      `${entry.fieldKey}:direction`,
+                    )}
+                    type="button"
+                    onClick={() => {
+                      onCommand({
+                        kind: "sort_set_direction",
+                        fieldKey: entry.fieldKey,
+                        direction: entry.direction === "asc" ? "desc" : "asc",
+                      });
+                    }}
+                    onKeyDown={(event) => {
+                      navigation.onItemKeyDown(
+                        event,
+                        `${entry.fieldKey}:direction`,
+                      );
+                    }}
+                  >
+                    {entry.priority}. {entry.label}: {entry.direction}
+                  </button>
                   <SortEntryActions
-                    entry={selected}
+                    entry={entry}
                     navigation={navigation}
                     onCommand={onCommand}
                     sortCount={projection.sortEntries.length}
                   />
-                )}
-              </div>
-            );
-          })}
-          {atLimit ? (
-            <p role="status" style={sortLimitStyle}>
-              Remove a sort before adding another. The limit is{" "}
-              {workbookOrderedSortLimit}.
-            </p>
-          ) : null}
+                </div>
+              ))
+            )}
+          </fieldset>
+          <fieldset style={sectionStyle}>
+            <legend>Add sort</legend>
+            {projection.unusedSortableFields.map((field) => {
+              const itemKey = `${field.fieldKey}:add`;
+              return (
+                <button
+                  key={field.fieldKey}
+                  ref={navigation.registerItem(itemKey)}
+                  aria-label={`Add sort ${field.label}`}
+                  data-testid={workbookSortOptionTestId(
+                    surface,
+                    field.fieldKey,
+                  )}
+                  disabled={atLimit}
+                  role="menuitem"
+                  style={menuItemStyle}
+                  tabIndex={navigation.tabIndexFor(itemKey)}
+                  type="button"
+                  onClick={() => {
+                    onCommand({ kind: "sort_add", fieldKey: field.fieldKey });
+                  }}
+                  onKeyDown={(event) => {
+                    navigation.onItemKeyDown(event, itemKey);
+                  }}
+                >
+                  {field.label}
+                </button>
+              );
+            })}
+            {atLimit ? (
+              <p role="status" style={sortLimitStyle}>
+                Remove a sort before adding another. The limit is{" "}
+                {workbookOrderedSortLimit}.
+              </p>
+            ) : null}
+          </fieldset>
         </div>
       ) : null}
     </div>
@@ -238,7 +270,6 @@ function SortActionButton({
       disabled={disabled}
       role="menuitem"
       tabIndex={navigation.tabIndexFor(itemKey)}
-      title={label}
       type="button"
       onClick={() => {
         onCommand(
@@ -251,9 +282,7 @@ function SortActionButton({
               },
         );
       }}
-      onKeyDown={(event) => {
-        navigation.onItemKeyDown(event, itemKey);
-      }}
+      onKeyDown={(event) => navigation.onItemKeyDown(event, itemKey)}
     >
       {action === "earlier" ? "↑" : action === "later" ? "↓" : "×"}
     </button>
@@ -263,38 +292,43 @@ function SortActionButton({
 function sortControlItemKeys(
   projection: WorkbookGridQueryControlProjection,
 ): readonly string[] {
-  const selected = new Set(
-    projection.sortEntries.map((entry) => entry.fieldKey),
-  );
-  return projection.sortableFields.flatMap((field) => [
-    `${field.fieldKey}:primary`,
-    ...(selected.has(field.fieldKey)
-      ? [
-          `${field.fieldKey}:earlier`,
-          `${field.fieldKey}:later`,
-          `${field.fieldKey}:remove`,
-        ]
-      : []),
-  ]);
+  return [
+    ...projection.sortEntries.flatMap((entry) => [
+      `${entry.fieldKey}:direction`,
+      `${entry.fieldKey}:earlier`,
+      `${entry.fieldKey}:later`,
+      `${entry.fieldKey}:remove`,
+    ]),
+    ...projection.unusedSortableFields.map((field) => `${field.fieldKey}:add`),
+  ];
 }
 
-const sortMenuFrameStyle = { ...menuFrameStyle, maxInlineSize: "8rem" };
-const constrainedSortMenuFrameStyle = { minInlineSize: "3.75rem" };
-const sortControlButtonStyle = {
-  ...controlButtonStyle,
-  inlineSize: "100%",
-  maxInlineSize: "100%",
-  minInlineSize: 0,
-  overflow: "hidden",
+const sortMenuFrameStyle = { ...menuFrameStyle, flex: "0 0 auto" };
+const constrainedSortMenuFrameStyle = { minInlineSize: "max-content" };
+const sortControlButtonStyle = { ...controlButtonStyle, flex: "0 0 auto" };
+const sortMenuStyle = {
+  ...menuStyle,
+  inlineSize: "min(var(--ct-layout-viewBarOverlayMaxInlineSize), 92vw)",
+};
+const sectionStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+};
+const emptyStateStyle = {
+  color: "var(--ct-colors-ink-muted)",
+  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
 };
 const sortRowStyle = {
   display: "grid",
   gridTemplateColumns: "minmax(10rem, 1fr) auto",
   alignItems: "center",
 };
-const sortActionsStyle = { display: "inline-flex", gap: "0.15rem" };
+const sortActionsStyle = {
+  display: "inline-flex",
+  gap: "var(--ct-spacing-xxs)",
+};
 const sortLimitStyle = {
-  margin: "0.3rem 0 0",
+  margin: "var(--ct-spacing-xs) 0 0",
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.78rem",
 };

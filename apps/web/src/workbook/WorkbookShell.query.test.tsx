@@ -10,6 +10,8 @@ import {
   gridGroupRowTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookQueryEntryTestId,
+  workbookQueryOverflowEntryTestId,
   workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
   workbookViewBarQueryControlsTestId,
@@ -74,7 +76,11 @@ describe("workbook query controls", () => {
     const filtered = applyFilterDraft(grouped, {
       booleanValue: "",
       fieldKey: "timeline.capture_state",
+      op: "eq",
+      operandKind: "value",
       value: "reviewed",
+      valueType: "string",
+      values: "",
     });
 
     const request = buildQueryRequest(contract, filtered);
@@ -131,7 +137,11 @@ describe("workbook query controls", () => {
     const filtered = applyFilterDraft(grouped, {
       booleanValue: "",
       fieldKey: "timeline.capture_state",
+      op: "eq",
+      operandKind: "value",
       value: "reviewed",
+      valueType: "string",
+      values: "",
     });
 
     expect(
@@ -221,12 +231,16 @@ describe("workbook query controls", () => {
     const withStateFilter = applyFilterDraft(withGroup, {
       booleanValue: "",
       fieldKey: "timeline.capture_state",
+      op: "eq",
+      operandKind: "value",
       value: "reviewed",
+      valueType: "string",
+      values: "",
     });
     const withTagFilter = applyFilterDraft(withStateFilter, {
-      booleanValue: "",
       fieldKey: "timeline.tags",
-      value: "zeta, alpha, alpha",
+      op: "contains_any",
+      values: "zeta, alpha, alpha",
     });
 
     expect(buildQueryRequest(contract, withTagFilter)).toMatchObject({
@@ -433,33 +447,33 @@ describe("workbook query controls", () => {
       workbookViewBarQueryControlsTestId(timelineViewSchemaId),
     );
     expect(queryControls.style.overflow).toBe("visible");
-    expect(queryControls.getAttribute("data-query-chip-capacity")).toBe("8");
+    expect(queryControls.getAttribute("data-query-chip-capacity")).toBe("3");
     expect(queryControls.getAttribute("data-hidden-query-chip-count")).toBe(
-      "3",
+      "8",
     );
 
     const expectedOrderedLabels = [
-      "Group: Capture State",
+      "Group by Capture State",
       ...queryState.sort.map(
-        (sort) =>
-          `Sort: ${contract.fieldMap[sort.fieldKey]?.label ?? sort.fieldKey} ${sort.direction}`,
+        (sort, index) =>
+          `Sort ${index + 1}, ${contract.fieldMap[sort.fieldKey]?.label ?? sort.fieldKey}, ${sort.direction === "asc" ? "ascending" : "descending"}`,
       ),
-      "Capture State: reviewed",
-      `Tags: ${longTagToken}`,
+      "Filter 1, Capture State, equals reviewed",
+      `Filter 2, Tags, contains any ${longTagToken}`,
     ];
     expect(
       screen
         .getByRole("toolbar", { name: "Active query chips" })
-        .querySelectorAll("button[title]").length,
-    ).toBe(8);
+        .querySelectorAll("button[data-query-entry-key]").length,
+    ).toBe(3);
     expect(
       Array.from(
         screen
           .getByRole("toolbar", { name: "Active query chips" })
-          .querySelectorAll<HTMLButtonElement>("button[title]"),
-        (button) => button.title,
+          .querySelectorAll<HTMLButtonElement>("button[data-query-entry-key]"),
+        (button) => button.getAttribute("aria-label"),
       ),
-    ).toEqual(expectedOrderedLabels.slice(0, 8));
+    ).toEqual(expectedOrderedLabels.slice(0, 3));
 
     const grouping = screen.getByTestId(
       gridGroupingSelectTestId(timelineViewSchemaId),
@@ -505,7 +519,7 @@ describe("workbook query controls", () => {
       screen
         .getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId))
         .getAttribute("aria-label"),
-    ).toBe("Filters, 3 hidden");
+    ).toBe("Filters, 2 active filters, 8 hidden query entries");
     expect(
       screen.getByTestId(workbookFilterPopoverTestId(timelineViewSchemaId)),
     ).toBeInstanceOf(HTMLElement);
@@ -518,20 +532,31 @@ describe("workbook query controls", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Remove Capture State: reviewed, hidden from the view bar",
+        name: "Remove Filter 1, Capture State, equals reviewed",
       }),
     );
     expect(onRemoveFilter).toHaveBeenCalledWith("timeline.capture_state");
 
     expect(
-      screen.getByRole("button", {
-        name: `Remove Tags: ${longTagToken}, hidden from the view bar`,
-      }).textContent,
+      screen.getByTestId(
+        workbookQueryOverflowEntryTestId(
+          timelineViewSchemaId,
+          "filter",
+          "timeline.tags",
+        ),
+      ).textContent,
     ).toContain(longTagToken);
 
-    const groupChip = screen.getByTitle("Group: Capture State");
+    const groupChip = screen.getByTestId(
+      workbookQueryEntryTestId(
+        timelineViewSchemaId,
+        "group",
+        "timeline.capture_state",
+      ),
+    );
     expect(groupChip).toBeInstanceOf(HTMLButtonElement);
-    const groupChipLabel = groupChip.firstElementChild;
+    expect(groupChip.getAttribute("aria-label")).toBe("Group by Capture State");
+    const groupChipLabel = groupChip.lastElementChild;
     expect(groupChipLabel).toBeInstanceOf(HTMLElement);
     expect((groupChipLabel as HTMLElement).style.textOverflow).toBe("ellipsis");
     expect((groupChipLabel as HTMLElement).style.overflow).toBe("hidden");
@@ -571,19 +596,19 @@ describe("workbook query controls", () => {
       workbookViewBarQueryControlsTestId(timelineViewSchemaId),
     );
     expect(narrowQueryControls.getAttribute("data-query-chip-capacity")).toBe(
-      "6",
+      "2",
     );
     expect(
       narrowQueryControls.getAttribute("data-hidden-query-chip-count"),
-    ).toBe("5");
+    ).toBe("9");
     expect(
       Array.from(
         screen
           .getByRole("toolbar", { name: "Active query chips" })
-          .querySelectorAll<HTMLButtonElement>("button[title]"),
-        (button) => button.title,
+          .querySelectorAll<HTMLButtonElement>("button[data-query-entry-key]"),
+        (button) => button.getAttribute("aria-label"),
       ),
-    ).toEqual(expectedOrderedLabels.slice(0, 6));
+    ).toEqual(expectedOrderedLabels.slice(0, 2));
 
     rerender(
       <WorkbookGridControls
@@ -616,8 +641,16 @@ describe("workbook query controls", () => {
       screen
         .getByTestId(workbookFilterPopoverTriggerTestId(timelineViewSchemaId))
         .getAttribute("aria-label"),
-    ).toBe("Filters, 11 hidden");
-    expect(screen.queryByTitle("Group: Capture State")).toBeNull();
+    ).toBe("Filters, 2 active filters, 11 hidden query entries");
+    expect(
+      screen.queryByTestId(
+        workbookQueryEntryTestId(
+          timelineViewSchemaId,
+          "group",
+          "timeline.capture_state",
+        ),
+      ),
+    ).toBeNull();
     fireEvent.click(
       screen.getByTestId(
         workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
@@ -627,7 +660,7 @@ describe("workbook query controls", () => {
       screen.getAllByRole("button", {
         name: /hidden from the view bar/,
       }),
-    ).toHaveLength(11);
+    ).toHaveLength(9);
   });
 
   it("drops non-discovery keys before building query request bodies", () => {
@@ -882,9 +915,9 @@ describe("workbook query controls", () => {
     const contract = requireViewContract("cartulary.view.notes.v1");
 
     const filtered = applyFilterDraft(emptyWorkbookQueryState(), {
-      booleanValue: "",
       fieldKey: "note.full_text",
-      value: "shell alpha shell",
+      op: "full_text",
+      query: "shell alpha shell",
     });
 
     expect(buildQueryRequest(contract, filtered)).toEqual({

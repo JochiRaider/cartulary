@@ -1,9 +1,6 @@
-import {
-  gridFilterChipTestId,
-  workbookViewBarQueryControlsTestId,
-} from "@cartulary/ui-contracts";
+import { workbookViewBarQueryControlsTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
-import { useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
@@ -12,23 +9,29 @@ import {
   projectWorkbookGridQueryControls,
   reduceWorkbookGridControlsTransientState,
   type WorkbookGridQueryCommand,
+  type WorkbookGridQueryControlProjection,
   workbookGridSurfaceTransientState,
 } from "../models/workbookGridQueryControls";
-import type { FilterDraft, WorkbookQueryState } from "../models/workbookQuery";
+import {
+  clearFilterDraftValue,
+  type FilterDraft,
+  filterDraftFromFilter,
+  type WorkbookQueryState,
+} from "../models/workbookQuery";
 import { WorkbookActiveQueryChips } from "./WorkbookActiveQueryChips";
 import { WorkbookColumnsControl } from "./WorkbookColumnsControl";
 import { WorkbookFiltersControl } from "./WorkbookFiltersControl";
 import { WorkbookGroupControl } from "./WorkbookGroupControl";
 import { WorkbookSortControl } from "./WorkbookSortControl";
 
-type WorkbookGridControlsProps = {
+export type WorkbookGridControlsProps = {
   readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly contract: ViewContract;
   readonly defaultFilterPopoverOpen?: boolean | undefined;
   readonly filterDraft: FilterDraft;
   readonly layoutState: WorkbookResolvedLayoutState;
   readonly onApplyFilter: (draft: FilterDraft) => void;
-  readonly onClearAll?: (() => void) | undefined;
+  readonly onClearFilters?: (() => void) | undefined;
   readonly onFilterDraftChange: (draft: FilterDraft) => void;
   readonly onGroupByChange: (groupBy: string | null) => void;
   readonly onColumnHiddenChange: (fieldKey: string, hidden: boolean) => void;
@@ -40,6 +43,7 @@ type WorkbookGridControlsProps = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
+  readonly subjectKey?: string | undefined;
   readonly surface: string;
 };
 
@@ -50,7 +54,7 @@ export function WorkbookGridControls({
   filterDraft,
   layoutState,
   onApplyFilter,
-  onClearAll,
+  onClearFilters,
   onFilterDraftChange,
   onGroupByChange,
   onColumnHiddenChange,
@@ -59,19 +63,26 @@ export function WorkbookGridControls({
   onRemoveFilter,
   onSortChange,
   queryState,
+  subjectKey: suppliedSubjectKey,
   surface,
 }: WorkbookGridControlsProps) {
+  const subjectKey = suppliedSubjectKey ?? surface;
+  const queryEntryRefs = useRef(new Map<string, HTMLButtonElement>());
+  const queryEntryReturnFocusRef = useRef<HTMLElement | null>(null);
+  const sortTriggerRef = useRef<HTMLButtonElement>(null);
+  const groupTriggerRef = useRef<HTMLSelectElement>(null);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const [transientState, dispatch] = useReducer(
     reduceWorkbookGridControlsTransientState,
     createWorkbookGridControlsTransientState(
-      surface,
+      subjectKey,
       filterDraft,
       defaultFilterPopoverOpen,
     ),
   );
   const surfaceState = workbookGridSurfaceTransientState(
     transientState,
-    surface,
+    subjectKey,
     filterDraft,
   );
   const projection = useMemo(
@@ -79,15 +90,14 @@ export function WorkbookGridControls({
       projectWorkbookGridQueryControls({
         chromeMode,
         contract,
-        filterChipTestId: (fieldKey) => gridFilterChipTestId(surface, fieldKey),
         layoutState,
         queryState,
       }),
-    [chromeMode, contract, layoutState, queryState, surface],
+    [chromeMode, contract, layoutState, queryState],
   );
   const commandPorts: WorkbookGridCommandPorts = {
     contract,
-    onClearAll,
+    onClearFilters,
     onColumnHiddenChange,
     onColumnMove,
     onGroupByChange,
@@ -100,24 +110,51 @@ export function WorkbookGridControls({
     executeWorkbookGridQueryCommand(command, commandPorts);
   };
   const closePanel = () => {
-    dispatch({ type: "close_panel", surface });
+    dispatch({ type: "close_panel", subjectKey });
   };
   const closeFilterPanel = () => {
-    dispatch({ type: "change_filter_draft", surface, filterDraft });
+    dispatch({ type: "change_filter_draft", subjectKey, filterDraft });
     closePanel();
   };
 
   useEffect(() => {
     dispatch({
-      type: "activate_surface",
+      type: "activate_subject",
       filterDraft,
-      surface,
+      subjectKey,
     });
-  }, [filterDraft, surface]);
+  }, [filterDraft, subjectKey]);
 
   useEffect(() => {
-    dispatch({ type: "sync_filter_draft", filterDraft, surface });
-  }, [filterDraft, surface]);
+    dispatch({ type: "sync_filter_draft", filterDraft, subjectKey });
+  }, [filterDraft, subjectKey]);
+
+  const activateQueryChip = (
+    chip: WorkbookGridQueryControlProjection["chips"][number],
+    invokingElement?: HTMLButtonElement,
+  ) => {
+    queryEntryReturnFocusRef.current = invokingElement ?? null;
+    if (chip.identity.kind === "filter") {
+      const filter = queryState.filters.find(
+        (candidate) => candidate.fieldKey === chip.identity.fieldKey,
+      );
+      if (filter === undefined) return;
+      dispatch({
+        type: "edit_filter",
+        activeEntryKey: chip.key,
+        fieldKey: filter.fieldKey,
+        filterDraft: filterDraftFromFilter(filter),
+        subjectKey,
+      });
+      return;
+    }
+    dispatch({
+      type: "edit_query_entry",
+      activeEntryKey: chip.key,
+      panel: chip.identity.kind,
+      subjectKey,
+    });
+  };
 
   return (
     <fieldset
@@ -137,18 +174,33 @@ export function WorkbookGridControls({
         onClose={closePanel}
         onCommand={onCommand}
         onToggle={() => {
-          dispatch({ type: "toggle_panel", panel: "sort", surface });
+          queryEntryReturnFocusRef.current = null;
+          dispatch({ type: "toggle_panel", panel: "sort", subjectKey });
         }}
         projection={projection}
+        returnFocusRef={queryEntryReturnFocusRef}
+        requestedFieldKey={
+          surfaceState.openPanel === "sort" &&
+          surfaceState.activeEntryKey?.startsWith("sort:")
+            ? surfaceState.activeEntryKey.slice("sort:".length)
+            : null
+        }
         surface={surface}
+        triggerRef={sortTriggerRef}
       />
       <WorkbookGroupControl
-        compact={chromeMode !== "base"}
-        constrained={chromeMode !== "base" || projection.hiddenChips.length > 0}
+        isOpen={surfaceState.openPanel === "group"}
+        onClose={closePanel}
         onCommand={onCommand}
+        onToggle={() => {
+          queryEntryReturnFocusRef.current = null;
+          dispatch({ type: "toggle_panel", panel: "group", subjectKey });
+        }}
         projection={projection}
+        returnFocusRef={queryEntryReturnFocusRef}
         selectedFieldKey={queryState.groupBy}
         surface={surface}
+        triggerRef={groupTriggerRef}
       />
       <WorkbookFiltersControl
         contract={contract}
@@ -160,42 +212,81 @@ export function WorkbookGridControls({
           onApplyFilter(draft);
           dispatch({
             type: "complete_filter",
-            filterDraft: clearAppliedDraftValue(draft),
-            surface,
+            filterDraft: clearFilterDraftValue(draft),
+            subjectKey,
           });
         }}
         onChangeDraft={(draft) => {
           dispatch({
             type: "change_filter_draft",
             filterDraft: draft,
-            surface,
+            subjectKey,
           });
         }}
         onClose={closeFilterPanel}
         onCommand={onCommand}
+        editingFieldKey={surfaceState.editingFilterFieldKey}
+        onEditFilter={(fieldKey) => {
+          const filter = queryState.filters.find(
+            (candidate) => candidate.fieldKey === fieldKey,
+          );
+          if (filter === undefined) return;
+          dispatch({
+            type: "edit_filter",
+            activeEntryKey: `filter:${fieldKey}`,
+            fieldKey,
+            filterDraft: filterDraftFromFilter(filter),
+            subjectKey,
+          });
+        }}
+        onEditQueryEntry={activateQueryChip}
         onToggle={() => {
+          queryEntryReturnFocusRef.current = null;
           if (surfaceState.openPanel !== "filters") {
-            dispatch({ type: "change_filter_draft", surface, filterDraft });
+            dispatch({
+              type: "change_filter_draft",
+              subjectKey,
+              filterDraft,
+            });
           }
-          dispatch({ type: "toggle_panel", panel: "filters", surface });
+          dispatch({ type: "toggle_panel", panel: "filters", subjectKey });
         }}
         projection={projection}
+        returnFocusRef={queryEntryReturnFocusRef}
         surface={surface}
+        triggerRef={filterTriggerRef}
       />
       <WorkbookColumnsControl
         isOpen={surfaceState.openPanel === "columns"}
         onClose={closePanel}
         onCommand={onCommand}
         onToggle={() => {
-          dispatch({ type: "toggle_panel", panel: "columns", surface });
+          queryEntryReturnFocusRef.current = null;
+          dispatch({ type: "toggle_panel", panel: "columns", subjectKey });
         }}
         projection={projection}
         surface={surface}
       />
       <WorkbookActiveQueryChips
+        activeKey={surfaceState.rovingEntryKey}
         condensed={chromeMode !== "base"}
+        entryRefs={queryEntryRefs}
+        onActivate={activateQueryChip}
         onCommand={onCommand}
+        onFallbackFocus={(chip) => {
+          const trigger =
+            chip.identity.kind === "sort"
+              ? sortTriggerRef.current
+              : chip.identity.kind === "group"
+                ? groupTriggerRef.current
+                : filterTriggerRef.current;
+          if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+        }}
+        onRovingEntryChange={(entryKey) => {
+          dispatch({ type: "set_roving_entry", entryKey, subjectKey });
+        }}
         projection={projection}
+        surface={surface}
       />
     </fieldset>
   );
@@ -204,7 +295,7 @@ export function WorkbookGridControls({
 type WorkbookGridCommandPorts = Pick<
   WorkbookGridControlsProps,
   | "contract"
-  | "onClearAll"
+  | "onClearFilters"
   | "onColumnHiddenChange"
   | "onColumnMove"
   | "onGroupByChange"
@@ -237,8 +328,8 @@ function executeWorkbookGridQueryCommand(
     case "filter_remove":
       ports.onRemoveFilter(command.fieldKey);
       return;
-    case "query_clear":
-      ports.onClearAll?.();
+    case "filters_clear":
+      ports.onClearFilters?.();
       return;
     case "column_set_hidden":
       ports.onColumnHiddenChange(command.fieldKey, command.hidden);
@@ -250,10 +341,6 @@ function executeWorkbookGridQueryCommand(
       ports.onResetColumns();
       return;
   }
-}
-
-function clearAppliedDraftValue(current: FilterDraft): FilterDraft {
-  return { ...current, booleanValue: "", value: "" };
 }
 
 function queryControlsStyleFor(
@@ -274,7 +361,7 @@ function queryControlsStyleFor(
 const queryControlsStyle = {
   display: "grid",
   gridTemplateColumns:
-    "max-content max-content minmax(0, max-content) max-content minmax(5.5rem, 1fr)",
+    "max-content max-content max-content max-content minmax(0, 1fr)",
   alignItems: "center",
   gap: "0.35rem",
   inlineSize: "100%",
@@ -289,13 +376,15 @@ const queryControlsStyle = {
   overflow: "visible",
 };
 const constrainedBaseQueryControlsStyle = {
-  gridTemplateColumns: "5.5rem 8rem max-content max-content minmax(0, 1fr)",
+  gridTemplateColumns:
+    "max-content max-content max-content max-content minmax(0, 1fr)",
 };
 const condensedQueryControlsStyle = {
-  columnGap: "0.25rem",
-  gridTemplateColumns: "3.75rem 5.75rem max-content max-content minmax(0, 1fr)",
+  columnGap: "var(--ct-spacing-xs)",
+  gridTemplateColumns:
+    "max-content max-content max-content max-content minmax(0, 1fr)",
 };
 const compactQueryControlsStyle = {
-  columnGap: "0.05rem",
-  gridTemplateColumns: "3.75rem 4.5rem max-content max-content 0",
+  columnGap: "var(--ct-spacing-xxs)",
+  gridTemplateColumns: "max-content max-content max-content max-content 0",
 };

@@ -88,6 +88,83 @@ export function workbookSortOptionTestId(
   );
 }
 
+export type WorkbookQueryEntryKind = "filter" | "group" | "sort";
+
+export function workbookQueryEntryTestId(
+  viewSchemaId: string,
+  kind: WorkbookQueryEntryKind,
+  fieldKey: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(
+      viewSchemaId,
+      `query-entry-${requireClosedToken(
+        ["filter", "group", "sort"] as const,
+        kind,
+        "workbook query entry kind",
+      )}-${requireFieldKey(fieldKey)}`,
+    ),
+  );
+}
+
+export function workbookSortAppliedEntryTestId(
+  viewSchemaId: string,
+  fieldKey: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(viewSchemaId, `sort-applied-${requireFieldKey(fieldKey)}`),
+  );
+}
+
+export function workbookGroupMenuTriggerTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "group-menu-trigger"));
+}
+
+export function workbookGroupMenuTestId(viewSchemaId: string): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "group-menu"));
+}
+
+export function workbookColumnsMenuTriggerTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "columns-menu-trigger"));
+}
+
+export function workbookColumnsMenuTestId(viewSchemaId: string): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "columns-menu"));
+}
+
+export function workbookFilterOperatorTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "filter-operator"));
+}
+
+export function workbookFilterClearButtonTestId(
+  viewSchemaId: string,
+): StableTestId {
+  return stableTestId(viewFirstTestId(viewSchemaId, "filter-clear"));
+}
+
+export function workbookQueryOverflowEntryTestId(
+  viewSchemaId: string,
+  kind: WorkbookQueryEntryKind,
+  fieldKey: string,
+): StableTestId {
+  return stableTestId(
+    viewFirstTestId(
+      viewSchemaId,
+      `query-overflow-${requireClosedToken(
+        ["filter", "group", "sort"] as const,
+        kind,
+        "workbook query entry kind",
+      )}-${requireFieldKey(fieldKey)}`,
+    ),
+  );
+}
+
 export function workbookFilterPopoverTriggerTestId(
   viewSchemaId: string,
 ): StableTestId {

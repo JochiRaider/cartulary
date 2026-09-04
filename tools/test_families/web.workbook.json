@@ -508,11 +508,13 @@
       "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/components/WorkbookGridControls.test.tsx",
-        "titles": [
+      "titles": [
           "WorkbookGridControls exposes add, direction, priority, boundary, removal, and limit recovery actions",
+          "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
-          "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
-          "WorkbookGridControls parses filter controls exactly and restores focus on Escape"
+        "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
+        "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
+        "WorkbookGridControls parses filter controls exactly and restores focus on Escape"
         ]
       },
       "evidence_class": "unit",
@@ -539,10 +541,13 @@
         "file": "apps/web/src/workbook/models/workbookGridQueryControls.test.ts",
         "titles": [
           "workbookGridQueryControls executes the complete ordered-sort lifecycle with reference-preserving no-ops",
-          "workbookGridQueryControls keeps transient drafts surface-keyed and closes the inactive surface",
           "workbookGridQueryControls parses controlled values exactly and rejects malformed filter drafts",
           "workbookGridQueryControls projects closure-free semantic chips in canonical responsive order",
-          "workbookGridQueryControls rejects a ninth or duplicate sort and recovers admission after removal"
+          "workbookGridQueryControls projects deterministic semantic slots at maximum query pressure",
+          "workbookGridQueryControls projects one closure-free working set across saved-view, query, layout, and focus state",
+          "workbookGridQueryControls rejects a ninth or duplicate sort and recovers admission after removal",
+          "workbookGridQueryControls resets the pure presentation seam when its semantic subject changes",
+          "workbookGridQueryControls scopes transient drafts to a subject and closes stale panels"
         ]
       },
       "evidence_class": "unit",
@@ -2126,6 +2131,7 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookQuery.test.ts",
         "titles": [
+          "workbookQuery builds every declared filter operator without losing argument shape",
           "workbookQuery builds tag and boolean filters from the client-local draft state",
           "workbookQuery describes filter chip labels from contract metadata",
           "workbookQuery initializes filter drafts from the contract and resolves input modes",
@@ -2204,10 +2210,10 @@
       "selector": {
         "file": "apps/web/src/workbook/layout/workbookResponsiveLayout.test.ts",
         "titles": [
-          "workbook responsive layout model caps visible query chips in base mode at 8",
+          "workbook responsive layout model caps visible query chips in base mode at 3",
           "workbook responsive layout model caps visible query chips in below_supported_minimum mode at 0",
           "workbook responsive layout model caps visible query chips in compact_desktop mode at 0",
-          "workbook responsive layout model caps visible query chips in narrow_desktop mode at 6",
+          "workbook responsive layout model caps visible query chips in narrow_desktop mode at 2",
           "workbook responsive layout model keeps wide chrome in base mode across short heights at 1280 CSS px",
           "workbook responsive layout model keeps wide chrome in base mode across short heights at 1440 CSS px",
           "workbook responsive layout model selects block mode from height 639",

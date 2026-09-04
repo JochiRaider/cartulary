@@ -2,8 +2,11 @@ import {
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
+  workbookColumnsMenuTriggerTestId,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookQueryEntryTestId,
+  workbookSortAppliedEntryTestId,
   workbookSortMenuTestId,
   workbookSortMenuTriggerTestId,
   workbookSortOptionTestId,
@@ -32,6 +35,104 @@ afterEach(() => {
 });
 
 describe("WorkbookGridControls", () => {
+  it("opens a focused filter chip for editing instead of removing it", () => {
+    const contract = requireViewContract(timelineSurface);
+    const onRemoveFilter = vi.fn();
+    render(
+      <WorkbookGridControls
+        contract={contract}
+        filterDraft={defaultFilterDraft(contract)}
+        layoutState={defaultWorkbookLayoutState(contract)}
+        onApplyFilter={vi.fn()}
+        onColumnHiddenChange={vi.fn()}
+        onColumnMove={vi.fn()}
+        onFilterDraftChange={vi.fn()}
+        onGroupByChange={vi.fn()}
+        onRemoveFilter={onRemoveFilter}
+        onResetColumns={vi.fn()}
+        onSortChange={vi.fn()}
+        queryState={{
+          filters: [
+            {
+              arg: { values: ["alpha"] },
+              fieldKey: "timeline.tags",
+              op: "contains_any",
+            },
+          ],
+          groupBy: null,
+          sort: [],
+        }}
+        surface={timelineSurface}
+      />,
+    );
+
+    const chip = screen.getByTestId(
+      workbookQueryEntryTestId(timelineSurface, "filter", "timeline.tags"),
+    );
+    fireEvent.click(chip);
+    expect(onRemoveFilter).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId(workbookFilterPopoverTestId(timelineSurface)),
+    ).toBeInstanceOf(HTMLElement);
+    expect(
+      (
+        screen.getByTestId(
+          gridFilterFieldTestId(timelineSurface),
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("timeline.tags");
+    fireEvent.keyDown(
+      screen.getByTestId(workbookFilterPopoverTestId(timelineSurface)),
+      { key: "Escape" },
+    );
+    expect(document.activeElement).toBe(chip);
+  });
+
+  it("gives the active-query region one Tab stop with roving navigation", () => {
+    const contract = requireViewContract(timelineSurface);
+    const onRemoveFilter = vi.fn();
+    render(
+      <WorkbookGridControls
+        contract={contract}
+        filterDraft={defaultFilterDraft(contract)}
+        layoutState={defaultWorkbookLayoutState(contract)}
+        onApplyFilter={vi.fn()}
+        onColumnHiddenChange={vi.fn()}
+        onColumnMove={vi.fn()}
+        onFilterDraftChange={vi.fn()}
+        onGroupByChange={vi.fn()}
+        onRemoveFilter={onRemoveFilter}
+        onResetColumns={vi.fn()}
+        onSortChange={vi.fn()}
+        queryState={{
+          filters: [
+            {
+              arg: { values: ["alpha"] },
+              fieldKey: "timeline.tags",
+              op: "contains_any",
+            },
+          ],
+          groupBy: "timeline.capture_state",
+          sort: [{ direction: "desc", fieldKey: "timeline.activity_sort_ts" }],
+        }}
+        surface={timelineSurface}
+      />,
+    );
+    const chips = Array.from(
+      screen
+        .getByRole("toolbar", { name: "Active query chips" })
+        .querySelectorAll<HTMLButtonElement>("button[data-query-entry-key]"),
+    );
+    expect(chips.map((chip) => chip.tabIndex)).toEqual([0, -1, -1]);
+    chips[0]?.focus();
+    fireEvent.keyDown(chips[0] as HTMLButtonElement, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(chips[1]);
+    fireEvent.keyDown(chips[1] as HTMLButtonElement, { key: "End" });
+    expect(document.activeElement).toBe(chips[2]);
+    fireEvent.keyDown(chips[2] as HTMLButtonElement, { key: "Delete" });
+    expect(onRemoveFilter).toHaveBeenCalledWith("timeline.tags");
+  });
+
   it("exposes add, direction, priority, boundary, removal, and limit recovery actions", () => {
     const contract = requireViewContract(timelineSurface);
     const sortable = contract.fields
@@ -71,11 +172,18 @@ describe("WorkbookGridControls", () => {
     ).toBeInstanceOf(HTMLElement);
 
     const firstOption = screen.getByTestId(
-      workbookSortOptionTestId(timelineSurface, first),
+      workbookSortAppliedEntryTestId(timelineSurface, first),
     );
-    expect(firstOption.textContent).toBe(`1. ${firstLabel}: asc`);
-    fireEvent.click(firstOption);
-    expect(firstOption.textContent).toBe(`1. ${firstLabel}: desc`);
+    expect(firstOption.textContent).toContain(`1. ${firstLabel}: asc`);
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", {
+        name: `Set ${firstLabel} descending`,
+      }),
+    );
+    expect(
+      screen.getByTestId(workbookSortAppliedEntryTestId(timelineSurface, first))
+        .textContent,
+    ).toContain(`1. ${firstLabel}: desc`);
     expect(
       (
         screen.getByRole("menuitem", {
@@ -87,15 +195,23 @@ describe("WorkbookGridControls", () => {
       screen.getByRole("menuitem", { name: `Move ${firstLabel} later` }),
     );
     expect(
-      screen.getByTestId(workbookSortOptionTestId(timelineSurface, second))
-        .textContent,
-    ).toBe(`1. ${secondLabel}: asc`);
+      screen.getByTestId(
+        workbookSortAppliedEntryTestId(timelineSurface, second),
+      ).textContent,
+    ).toContain(`1. ${secondLabel}: asc`);
     fireEvent.click(
       screen.getByRole("menuitem", { name: `Remove ${firstLabel} sort` }),
     );
-    expect((ninthOption as HTMLButtonElement).disabled).toBe(false);
-    fireEvent.click(ninthOption);
-    expect(ninthOption.getAttribute("aria-checked")).toBe("true");
+    const recoveredNinthOption = screen.getByTestId(
+      workbookSortOptionTestId(timelineSurface, ninth),
+    );
+    expect((recoveredNinthOption as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(recoveredNinthOption);
+    expect(
+      screen.getByTestId(
+        workbookSortAppliedEntryTestId(timelineSurface, ninth),
+      ),
+    ).toBeInstanceOf(HTMLElement);
   });
 
   it("keeps invalid drafts visible, excludes them from apply, and resets panels by surface", () => {
@@ -104,7 +220,11 @@ describe("WorkbookGridControls", () => {
     const invalidDraft: FilterDraft = {
       booleanValue: "",
       fieldKey: "Capture State",
+      op: "eq",
+      operandKind: "value",
       value: "reviewed",
+      valueType: "string",
+      values: "",
     };
     const common = {
       contract,
@@ -182,7 +302,11 @@ describe("WorkbookGridControls", () => {
     expect(onApplyFilter).toHaveBeenCalledWith({
       booleanValue: "false",
       fieldKey: "timeline.has_evidence",
+      op: "eq",
+      operandKind: "value",
       value: "",
+      valueType: "boolean",
+      values: "",
     });
 
     fireEvent.click(trigger);
@@ -216,7 +340,9 @@ describe("WorkbookGridControls", () => {
         surface={timelineSurface}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(
+      screen.getByTestId(workbookColumnsMenuTriggerTestId(timelineSurface)),
+    );
     const visibilityItems = screen.getAllByRole("menuitemcheckbox");
     expect(visibilityItems).toHaveLength(layout.columnOrder.length);
     expect(
@@ -272,8 +398,8 @@ function StatefulGridControls() {
       filterDraft={filterDraft}
       layoutState={layoutState}
       onApplyFilter={() => undefined}
-      onClearAll={() => {
-        setQueryState(emptyWorkbookQueryState());
+      onClearFilters={() => {
+        setQueryState((current) => ({ ...current, filters: [] }));
       }}
       onColumnHiddenChange={() => undefined}
       onColumnMove={() => undefined}

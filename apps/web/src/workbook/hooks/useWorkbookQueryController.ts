@@ -9,6 +9,7 @@ import {
 import type { SheetRef } from "../../shared/sheetRef";
 import {
   applyFilterDraft,
+  clearFilterDraftValue,
   defaultFilterDraft,
   type FilterDraft,
   removeFilterField,
@@ -35,7 +36,7 @@ type WorkbookActiveQueryControls = {
   readonly contract: ViewContract;
   readonly filterDraft: FilterDraft;
   readonly onApplyFilter: (draft: FilterDraft) => void;
-  readonly onClearAll: () => void;
+  readonly onClearFilters: () => void;
   readonly onFilterDraftChange: Dispatch<SetStateAction<FilterDraft>>;
   readonly onGroupByChange: (groupBy: string | null) => void;
   readonly onRemoveFilter: (fieldKey: string) => void;
@@ -43,14 +44,6 @@ type WorkbookActiveQueryControls = {
   readonly queryState: WorkbookQueryState;
   readonly surface: string;
 };
-
-function clearAppliedFilterDraft(current: FilterDraft): FilterDraft {
-  return {
-    ...current,
-    booleanValue: "",
-    value: "",
-  };
-}
 
 export function useWorkbookQueryController({
   startupSheetRef,
@@ -152,9 +145,14 @@ export function useWorkbookQueryController({
       filterDraft: activeEntry.filterDraft,
       onApplyFilter: (draft) => {
         setActiveQueryState((current) => applyFilterDraft(current, draft));
-        setActiveFilterDraft(clearAppliedFilterDraft);
+        setActiveFilterDraft(clearFilterDraftValue);
       },
-      onClearAll: () => resetSurfaceQuery(surface),
+      onClearFilters: () => {
+        setActiveQueryState((current) =>
+          current.filters.length === 0 ? current : { ...current, filters: [] },
+        );
+        setActiveFilterDraft(defaultFilterDraft(activeContract));
+      },
       onFilterDraftChange: setActiveFilterDraft,
       onGroupByChange: (groupBy) => {
         setActiveQueryState((current) =>
@@ -176,7 +174,6 @@ export function useWorkbookQueryController({
     activeContract,
     activeEntry,
     makeQuerySetter,
-    resetSurfaceQuery,
     setFilterDraftForSurface,
     surface,
   ]);

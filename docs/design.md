@@ -919,9 +919,9 @@ Design contract. Active chip placement MUST use this deterministic algorithm:
 place_active_chips(band, chips):
   ordered = [group chips by applied order] + [sort chips by applied order] + [filter chips by normalized query order]
   if band == base:
-    inline_capacity = 8
+    inline_capacity = 3
   else if band == narrow_desktop:
-    inline_capacity = 6
+    inline_capacity = 2
   else if band == compact_desktop:
     inline_capacity = 0
   else:
@@ -933,6 +933,17 @@ place_active_chips(band, chips):
   else: overflow_control = "Filters" with accessible name "Filters, " + length(overflow_chips) + " hidden"
   return inline_chips, overflow_control
 ```
+
+Design contract. Each inline active-query chip MUST preserve a visible,
+non-truncating semantic identity token before any flexible detail text: `G` for
+the active group, `S<priority>` for an applied sort, and
+`F<normalized-position>` for an applied filter. Sort detail includes field and
+direction; filter detail includes field, operator, and value. Flexible detail
+MAY truncate, but the complete semantic description MUST remain available by
+keyboard, pointer, and accessible name through a focus/hover disclosure and the
+chip's operable editor path. A browser `title` alone is insufficient. The
+capacity values above are presentation slots, not query limits; all remaining
+entries remain available through the ordered `Filters` overflow path.
 
 Design contract. Secondary status-message truncation MUST preserve the full accessible text. Visible truncation uses the first 40 Unicode scalar values followed by `…` in `narrow_desktop`; visible truncation uses the first 24 Unicode scalar values followed by `…` in `compact_desktop` only when a visible secondary summary is rendered. If no secondary message exists, no empty announcement is emitted.
 
@@ -984,6 +995,11 @@ part of the query-control sequence.
 | Create action | Visible only when owner behavior permits creation. | Draft-row creation active. | Owner validation remains local to the draft. | Cancels only the active uncommitted draft. | 8 |
 
 Design contract. Active chips MUST render in this order: group chip, sort chips in applied order, then filter chips in normalized query order.
+
+Design contract. Activating a group or sort chip opens its owning View-bar
+editor at that applied entry. Activating a filter chip opens its filter editor
+with the exact current field, operator, and argument. Activation MUST NOT remove
+an entry; `Delete` performs the chip's clear or remove operation.
 
 Design contract. The View bar MUST expose a keyboard-accessible `Columns` control that lists semantic field labels, reports visibility, supports show or hide, move earlier or later, and reset, and remains usable when every data column is hidden. Pointer header drag MAY provide the same reorder operation as a convenience but MUST NOT be the only reorder mechanism. Adapter-private structural columns are excluded from this control and from saved layout.
 

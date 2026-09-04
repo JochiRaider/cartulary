@@ -2027,8 +2027,8 @@ describe("WorkbookShell surface selection", () => {
     const defaultButton = screen.getByTestId(
       savedViewSetDefaultButtonTestId(timelineViewSchemaId),
     );
-    expect(createButton.parentElement).toBe(homeButton.parentElement);
-    expect(defaultButton.parentElement).toBe(createButton.parentElement);
+    expect(createButton.parentElement).not.toBe(homeButton.parentElement);
+    expect(defaultButton.parentElement).toBe(homeButton.parentElement);
 
     fireEvent.click(homeButton);
     await waitFor(() => {

@@ -15,7 +15,7 @@ import {
   requireViewContract,
   resolveHeaderSortFieldKey,
 } from "@cartulary/view-contracts";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
@@ -60,7 +60,10 @@ import {
   type WorkbookConflictActivation,
   WorkbookSurfaceStatusStrip,
 } from "./WorkbookStatusStrip";
-import { WorkbookViewBar } from "./WorkbookViewBar";
+import {
+  WorkbookViewBar,
+  type WorkbookViewBarWorkingSetBinding,
+} from "./WorkbookViewBar";
 
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 
@@ -71,8 +74,7 @@ export type AssessmentWorkbookSurfaceProps = {
   currentUserId: string | null;
   inspectorResetKey: string;
   gridEntryFocus: WorkbookGridEntryFocusOwner;
-  queryControls?: ReactNode | undefined;
-  savedViewSelector?: ReactNode | undefined;
+  viewBarWorkingSet: WorkbookViewBarWorkingSetBinding;
   hostRows: EntityRow[];
   identityRows: EntityRow[];
   layout: WorkbookSurfaceLayoutOwner;
@@ -97,8 +99,7 @@ export function AssessmentWorkbookSurface({
   currentUserId,
   inspectorResetKey,
   gridEntryFocus,
-  queryControls,
-  savedViewSelector,
+  viewBarWorkingSet,
   hostRows,
   identityRows,
   layout,
@@ -422,8 +423,7 @@ export function AssessmentWorkbookSurface({
         <WorkbookViewBar
           addRowDisabled={!canCreate}
           chromeMode={chromeMode}
-          queryControls={queryControls}
-          savedViewControls={savedViewSelector}
+          workingSet={viewBarWorkingSet}
           onAddRow={() => {
             openStandaloneDraft();
           }}

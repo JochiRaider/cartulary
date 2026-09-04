@@ -27,26 +27,26 @@ import {
 } from "../models/workbookSavedViews";
 
 type SavedViewActionControlKey =
-  | "name"
-  | "scope"
   | "create"
-  | "update"
-  | "duplicate"
-  | "reset"
   | "delete"
+  | "duplicate"
+  | "name"
+  | "reset"
+  | "scope"
+  | "set_default"
   | "set_home"
-  | "set_default";
+  | "update";
 
 const savedViewActionControlKeys: readonly SavedViewActionControlKey[] = [
   "name",
   "scope",
   "create",
   "update",
-  "duplicate",
   "reset",
-  "delete",
+  "duplicate",
   "set_home",
   "set_default",
+  "delete",
 ];
 
 export function SavedViewActionPanel({
@@ -92,6 +92,7 @@ export function SavedViewActionPanel({
       dispatch({ type: "close_panel", surface: activeViewSchemaId });
     },
     subjectKey: `${activeViewSchemaId}:${control.selectionKey}`,
+    trapTab: true,
     triggerRef,
   });
 
@@ -116,7 +117,8 @@ export function SavedViewActionPanel({
       </button>
       {control.panelOpen ? (
         <div
-          aria-labelledby={titleId}
+          aria-busy={actionPending || undefined}
+          aria-label="Saved view"
           data-testid={panelId}
           id={panelId}
           role="dialog"
@@ -124,136 +126,173 @@ export function SavedViewActionPanel({
           tabIndex={-1}
           onBlur={navigation.onOverlayBlur}
           onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              navigation.onItemKeyDown(event, navigation.activeKey ?? "name");
-            }
+            if (navigation.activeKey === null) return;
+            navigation.onItemKeyDown(event, navigation.activeKey);
           }}
         >
           <strong id={titleId} style={panelTitleStyle}>
-            Saved view
+            {selectedSavedView === null
+              ? "Unsaved view configuration"
+              : `Saved view: ${selectedSavedView.display_name}`}
           </strong>
-          <label style={panelLabelStyle}>
-            Name
-            <input
-              ref={navigation.registerItem("name")}
-              aria-label="Saved view name"
-              data-testid={savedViewNameInputTestId(activeViewSchemaId)}
-              disabled={actionPending}
-              style={inputStyle}
-              type="text"
-              value={control.displayName}
-              onChange={(event) => {
-                dispatch({
-                  type: "change_name",
-                  surface: activeViewSchemaId,
-                  displayName: event.currentTarget.value,
-                });
-              }}
-            />
-          </label>
-          <label style={panelLabelStyle}>
-            Scope
-            <select
-              ref={navigation.registerItem("scope")}
-              aria-label="Saved view scope"
-              data-testid={savedViewScopeSelectTestId(activeViewSchemaId)}
-              disabled={actionPending}
-              style={inputStyle}
-              value={control.scope}
-              onChange={(event) => {
-                const scope = parseSavedViewEditableScope(
-                  event.currentTarget.value,
-                );
-                if (scope === null) return;
-                dispatch({
-                  type: "change_scope",
-                  surface: activeViewSchemaId,
-                  scope,
-                });
-              }}
-            >
-              <option value="private">Private</option>
-              <option value="shared">Shared</option>
-            </select>
-          </label>
-          <button
-            ref={navigation.registerItem("create")}
-            data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
-            disabled={
-              !resourceReady || actionPending || trimmedDisplayName === ""
-            }
-            style={panelActionStyle}
-            type="button"
-            onClick={() => {
-              runAction({
-                kind: "create",
-                displayName: trimmedDisplayName,
-                scope: control.scope,
-              });
-            }}
-          >
-            Save as new view
-          </button>
-          {selectedSavedView === null ? null : (
-            <>
-              <button
-                ref={navigation.registerItem("update")}
-                data-testid={savedViewUpdateButtonTestId(
-                  activeViewSchemaId,
-                  selectedSavedView.saved_view_id,
-                )}
-                disabled={
-                  actionPending ||
-                  !selectedSavedViewMutable ||
-                  trimmedDisplayName === ""
-                }
-                style={panelActionStyle}
-                title={
-                  selectedSavedViewMutable
-                    ? undefined
-                    : "Only the owner or incident administrator can update this view."
-                }
-                type="button"
-                onClick={() => {
-                  runAction({
-                    kind: "update",
-                    displayName: trimmedDisplayName,
-                    scope: control.scope,
+          <section aria-label="Saved view configuration" style={sectionStyle}>
+            <label style={panelLabelStyle}>
+              Name
+              <input
+                ref={navigation.registerItem("name")}
+                aria-label="Saved view name"
+                data-testid={savedViewNameInputTestId(activeViewSchemaId)}
+                disabled={actionPending}
+                style={inputStyle}
+                type="text"
+                value={control.displayName}
+                onChange={(event) => {
+                  dispatch({
+                    type: "change_name",
+                    surface: activeViewSchemaId,
+                    displayName: event.currentTarget.value,
+                  });
+                }}
+              />
+            </label>
+            <label style={panelLabelStyle}>
+              Scope
+              <select
+                ref={navigation.registerItem("scope")}
+                aria-label="Saved view scope"
+                data-testid={savedViewScopeSelectTestId(activeViewSchemaId)}
+                disabled={actionPending}
+                style={inputStyle}
+                value={control.scope}
+                onChange={(event) => {
+                  const scope = parseSavedViewEditableScope(
+                    event.currentTarget.value,
+                  );
+                  if (scope === null) return;
+                  dispatch({
+                    type: "change_scope",
+                    surface: activeViewSchemaId,
+                    scope,
                   });
                 }}
               >
-                Update view
-              </button>
-              <button
-                ref={navigation.registerItem("duplicate")}
-                data-testid={savedViewDuplicateButtonTestId(
-                  activeViewSchemaId,
-                  selectedSavedView.saved_view_id,
-                )}
-                disabled={actionPending}
-                style={panelActionStyle}
-                type="button"
-                onClick={() => {
-                  runAction({ kind: "duplicate" });
-                }}
-              >
-                Duplicate
-              </button>
-              <button
-                ref={navigation.registerItem("reset")}
-                data-testid={savedViewResetButtonTestId(
-                  activeViewSchemaId,
-                  selectedSavedView.saved_view_id,
-                )}
-                disabled={actionPending || !isModified}
-                style={panelActionStyle}
-                type="button"
-                onClick={() => {
-                  runAction({ kind: "reset" });
-                }}
-              >
-                Reset to saved configuration
-              </button>
+                <option value="private">Private</option>
+                <option value="shared">Shared</option>
+              </select>
+            </label>
+          </section>
+          <section aria-label="Save as new view" style={sectionStyle}>
+            <strong style={sectionTitleStyle}>Create</strong>
+            <button
+              ref={navigation.registerItem("create")}
+              data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
+              disabled={
+                !resourceReady || actionPending || trimmedDisplayName === ""
+              }
+              style={
+                selectedSavedViewMutable ? panelActionStyle : primaryActionStyle
+              }
+              type="button"
+              onClick={() => {
+                runAction({
+                  kind: "create",
+                  displayName: trimmedDisplayName,
+                  scope: control.scope,
+                });
+              }}
+            >
+              Save current configuration as new view
+            </button>
+          </section>
+          {selectedSavedView === null ? null : (
+            <>
+              <section aria-label="Selected view actions" style={sectionStyle}>
+                <strong style={sectionTitleStyle}>Selected view</strong>
+                <button
+                  ref={navigation.registerItem("update")}
+                  data-testid={savedViewUpdateButtonTestId(
+                    activeViewSchemaId,
+                    selectedSavedView.saved_view_id,
+                  )}
+                  disabled={
+                    actionPending ||
+                    !selectedSavedViewMutable ||
+                    trimmedDisplayName === ""
+                  }
+                  style={
+                    selectedSavedViewMutable
+                      ? primaryActionStyle
+                      : panelActionStyle
+                  }
+                  type="button"
+                  onClick={() => {
+                    runAction({
+                      kind: "update",
+                      displayName: trimmedDisplayName,
+                      scope: control.scope,
+                    });
+                  }}
+                >
+                  Update selected view
+                </button>
+                <button
+                  ref={navigation.registerItem("reset")}
+                  data-testid={savedViewResetButtonTestId(
+                    activeViewSchemaId,
+                    selectedSavedView.saved_view_id,
+                  )}
+                  disabled={actionPending || !isModified}
+                  style={panelActionStyle}
+                  type="button"
+                  onClick={() => runAction({ kind: "reset" })}
+                >
+                  Reset to saved configuration
+                </button>
+              </section>
+              <section aria-label="Duplicate view" style={sectionStyle}>
+                <strong style={sectionTitleStyle}>Duplicate</strong>
+                <button
+                  ref={navigation.registerItem("duplicate")}
+                  data-testid={savedViewDuplicateButtonTestId(
+                    activeViewSchemaId,
+                    selectedSavedView.saved_view_id,
+                  )}
+                  disabled={actionPending}
+                  style={panelActionStyle}
+                  type="button"
+                  onClick={() => runAction({ kind: "duplicate" })}
+                >
+                  Duplicate selected view
+                </button>
+              </section>
+            </>
+          )}
+          <section aria-label="Startup view references" style={sectionStyle}>
+            <strong style={sectionTitleStyle}>Startup</strong>
+            <button
+              ref={navigation.registerItem("set_home")}
+              data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
+              disabled={actionPending}
+              style={panelActionStyle}
+              type="button"
+              onClick={() => runAction({ kind: "set_home" })}
+            >
+              Set as my home
+            </button>
+            <button
+              ref={navigation.registerItem("set_default")}
+              data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
+              disabled={actionPending || currentIncidentRole !== "admin"}
+              style={panelActionStyle}
+              type="button"
+              onClick={() => runAction({ kind: "set_default" })}
+            >
+              Set as incident default
+            </button>
+          </section>
+          {selectedSavedView === null ? null : (
+            <section aria-label="Delete saved view" style={dangerSectionStyle}>
+              <strong style={sectionTitleStyle}>Delete</strong>
               <button
                 ref={navigation.registerItem("delete")}
                 data-testid={savedViewDeleteButtonTestId(
@@ -263,43 +302,12 @@ export function SavedViewActionPanel({
                 disabled={actionPending || !selectedSavedViewMutable}
                 style={dangerPanelActionStyle}
                 type="button"
-                onClick={() => {
-                  runAction({ kind: "delete" });
-                }}
+                onClick={() => runAction({ kind: "delete" })}
               >
-                Delete
+                Delete selected view
               </button>
-            </>
+            </section>
           )}
-          <button
-            ref={navigation.registerItem("set_home")}
-            data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
-            disabled={actionPending}
-            style={panelActionStyle}
-            type="button"
-            onClick={() => {
-              runAction({ kind: "set_home" });
-            }}
-          >
-            Set as my home
-          </button>
-          <button
-            ref={navigation.registerItem("set_default")}
-            data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
-            disabled={actionPending || currentIncidentRole !== "admin"}
-            style={panelActionStyle}
-            title={
-              currentIncidentRole === "admin"
-                ? undefined
-                : "Only incident administrators can set the incident default."
-            }
-            type="button"
-            onClick={() => {
-              runAction({ kind: "set_default" });
-            }}
-          >
-            Set as incident default
-          </button>
         </div>
       ) : null}
     </div>
@@ -314,17 +322,15 @@ const inputStyle = {
   borderRadius: "var(--ct-component-text-input-rounded)",
   border: "var(--ct-component-text-input-border)",
   background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.42rem 0.55rem",
+  padding: "var(--ct-component-text-input-padding)",
   font: "inherit",
   color: "var(--ct-component-text-input-textColor)",
 };
-
 const actionPanelFrameStyle = {
   position: "relative" as const,
   display: "inline-flex",
   flex: "0 0 auto",
 };
-
 const iconButtonStyle = {
   display: "inline-flex",
   alignItems: "center",
@@ -337,47 +343,64 @@ const iconButtonStyle = {
   color: "var(--ct-colors-ink)",
   cursor: "pointer",
 };
-
 const actionPanelStyle = {
   position: "absolute" as const,
   zIndex: 22,
-  insetBlockStart: "calc(100% + 0.35rem)",
+  insetBlockStart: "calc(100% + var(--ct-spacing-xs))",
   insetInlineStart: 0,
   display: "grid",
-  gap: "0.35rem",
-  inlineSize: "min(22rem, 86vw)",
-  maxBlockSize: "28rem",
+  gap: "var(--ct-spacing-sm)",
+  inlineSize: "min(var(--ct-layout-viewBarOverlayMaxInlineSize), 92vw)",
+  maxBlockSize: "70dvh",
   overflowY: "auto" as const,
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-md)",
   background: "var(--ct-colors-surface-1)",
   boxShadow: "var(--ct-elevation-popover)",
-  padding: "0.55rem",
+  padding: "var(--ct-spacing-sm)",
 };
-
 const panelTitleStyle = {
   color: "var(--ct-colors-ink)",
   fontSize: "0.9rem",
+  overflowWrap: "anywhere" as const,
 };
-
+const sectionStyle = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+  borderBlockStart: "var(--ct-border-hairline)",
+  paddingBlockStart: "var(--ct-spacing-sm)",
+};
+const dangerSectionStyle = {
+  ...sectionStyle,
+  borderColor: "var(--ct-colors-semantic-conflict)",
+};
+const sectionTitleStyle = {
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "0.78rem",
+};
 const panelLabelStyle = {
   display: "grid",
-  gap: "0.25rem",
+  gap: "var(--ct-spacing-xs)",
   color: "var(--ct-colors-ink-muted)",
   fontSize: "0.82rem",
 };
-
 const panelActionStyle = {
-  border: 0,
+  border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-xs)",
   background: "transparent",
   color: "var(--ct-colors-ink)",
   cursor: "pointer",
   font: "inherit",
-  padding: "0.45rem 0.5rem",
+  padding: "var(--ct-component-button-secondary-padding)",
   textAlign: "left" as const,
 };
-
+const primaryActionStyle = {
+  ...panelActionStyle,
+  borderColor: "var(--ct-colors-accent-active)",
+  background: "var(--ct-colors-accent)",
+  color: "var(--ct-colors-on-accent)",
+  fontWeight: 700,
+};
 const dangerPanelActionStyle = {
   ...panelActionStyle,
   color: "var(--ct-colors-semantic-conflict)",

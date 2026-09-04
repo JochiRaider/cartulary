@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   applyFilterDraft,
+  clearFilterDraftValue,
   type FilterDraft,
   replaceWorkbookSort,
   updateGroupBy,
@@ -30,21 +31,13 @@ type TimelineWorkbookRuntimeInput = {
   readonly setQueryState: WorkbookQueryStateSetter;
 };
 
-function clearAppliedTimelineFilterDraft(current: FilterDraft): FilterDraft {
-  return {
-    ...current,
-    booleanValue: "",
-    value: "",
-  };
-}
-
 function applyTimelineFilterDraftToQuery(
   setQueryState: WorkbookQueryStateSetter,
   setFilterDraft: FilterDraftSetter,
   draft: FilterDraft,
 ): void {
   setQueryState((current) => applyFilterDraft(current, draft));
-  setFilterDraft(clearAppliedTimelineFilterDraft);
+  setFilterDraft(clearFilterDraftValue);
 }
 
 export function useTimelineWorkbookRuntime({

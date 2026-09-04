@@ -30,7 +30,9 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   isOpen,
   itemKeys,
   onRequestClose,
+  preferredReturnFocusRef,
   subjectKey,
+  trapTab = false,
   triggerRef,
 }: {
   readonly fallbackFocusRef?: RefObject<HTMLElement | null> | undefined;
@@ -38,7 +40,9 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   readonly isOpen: boolean;
   readonly itemKeys: readonly Key[];
   readonly onRequestClose: () => void;
+  readonly preferredReturnFocusRef?: RefObject<HTMLElement | null> | undefined;
   readonly subjectKey: string;
+  readonly trapTab?: boolean | undefined;
   readonly triggerRef: RefObject<HTMLElement | null>;
 }): RegisteredOverlayNavigation<Key> {
   const [activeKey, setActiveKey] = useState<Key | null>(null);
@@ -75,6 +79,15 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   }, []);
 
   const restoreTriggerFocus = useCallback(() => {
+    const preferred = preferredReturnFocusRef?.current;
+    if (
+      preferred?.isConnected &&
+      !preferred.hasAttribute("disabled") &&
+      preferred.getAttribute("aria-disabled") !== "true"
+    ) {
+      preferred.focus({ preventScroll: true });
+      if (document.activeElement === preferred) return;
+    }
     const trigger = triggerRef.current;
     if (trigger?.isConnected) {
       trigger.focus({ preventScroll: true });
@@ -84,7 +97,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     if (fallback?.isConnected) {
       fallback.focus({ preventScroll: true });
     }
-  }, [fallbackFocusRef, triggerRef]);
+  }, [fallbackFocusRef, preferredReturnFocusRef, triggerRef]);
 
   const close = useCallback(
     (options: { readonly restoreTriggerFocus: boolean }) => {
@@ -162,8 +175,10 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     onItemKeyDown: (event, itemKey) => {
       const decision = registeredOverlayKeyDecision(
         event.key,
+        event.shiftKey,
         itemKey,
         eligibleKeys(),
+        trapTab,
       );
       if (decision.kind === "none") return;
       event.preventDefault();
@@ -195,10 +210,26 @@ type RegisteredOverlayKeyDecision<Key extends string> =
 
 function registeredOverlayKeyDecision<Key extends string>(
   key: string,
+  shiftKey: boolean,
   itemKey: Key,
   eligibleKeys: readonly Key[],
+  trapTab: boolean,
 ): RegisteredOverlayKeyDecision<Key> {
   if (key === "Escape") return { kind: "close" };
+  if (key === "Tab" && trapTab && eligibleKeys.length > 0) {
+    const currentIndex = eligibleKeys.indexOf(itemKey);
+    const targetIndex = shiftKey
+      ? currentIndex <= 0
+        ? eligibleKeys.length - 1
+        : currentIndex - 1
+      : currentIndex < 0 || currentIndex === eligibleKeys.length - 1
+        ? 0
+        : currentIndex + 1;
+    const target = eligibleKeys[targetIndex];
+    return target === undefined
+      ? { kind: "none" }
+      : { kind: "focus", itemKey: target };
+  }
   if (!isOverlayNavigationKey(key) || eligibleKeys.length === 0) {
     return { kind: "none" };
   }

@@ -7,8 +7,16 @@ import type { WorkbookProtocolQueryViewRequest } from "../adapters/workbookProto
 export type WorkbookFilter = {
   readonly arg: Record<string, unknown>;
   readonly fieldKey: string;
-  readonly op: string;
+  readonly op: WorkbookFilterOperator;
 };
+
+export type WorkbookFilterOperator =
+  | "contains_all"
+  | "contains_any"
+  | "eq"
+  | "full_text"
+  | "prefix"
+  | "range";
 
 export type WorkbookSortEntry = {
   readonly direction: "asc" | "desc";
@@ -24,7 +32,7 @@ export type WorkbookQueryState = {
 export type WorkbookSavedViewFilterJson = {
   readonly arg: Record<string, unknown>;
   readonly field_key: string;
-  readonly op: string;
+  readonly op: WorkbookFilterOperator;
 };
 
 export type WorkbookSavedViewQueryJson = {
@@ -62,11 +70,39 @@ export type WorkbookSavedViewLayoutJson = {
   readonly layout_schema_id: "cartulary.layout.v1";
 };
 
-export type FilterDraft = {
-  readonly booleanValue: "" | "false" | "true";
-  readonly fieldKey: string;
-  readonly value: string;
-};
+export type FilterDraft =
+  | {
+      readonly booleanValue: "" | "false" | "true";
+      readonly fieldKey: string;
+      readonly op: "eq";
+      readonly operandKind: "null" | "value" | "values";
+      readonly value: string;
+      readonly valueType: "boolean" | "number" | "string";
+      readonly values: string;
+    }
+  | {
+      readonly fieldKey: string;
+      readonly lowerKind: "gt" | "gte";
+      readonly lowerValue: string;
+      readonly op: "range";
+      readonly upperKind: "lt" | "lte";
+      readonly upperValue: string;
+    }
+  | {
+      readonly fieldKey: string;
+      readonly op: "contains_all" | "contains_any";
+      readonly values: string;
+    }
+  | {
+      readonly fieldKey: string;
+      readonly op: "prefix";
+      readonly value: string;
+    }
+  | {
+      readonly fieldKey: string;
+      readonly op: "full_text";
+      readonly query: string;
+    };
 
 export type FilterInputMode =
   | "boolean"
@@ -85,11 +121,143 @@ export function emptyWorkbookQueryState(): WorkbookQueryState {
 
 export function defaultFilterDraft(contract: ViewContract): FilterDraft {
   const [fieldKey] = contract.filterFields;
-  return {
-    booleanValue: "",
-    fieldKey: fieldKey ?? "",
-    value: "",
-  };
+  return filterDraftForField(contract, fieldKey ?? "");
+}
+
+export function filterDraftForField(
+  contract: ViewContract,
+  fieldKey: string,
+  requestedOperator?: WorkbookFilterOperator,
+): FilterDraft {
+  const field = contract.fieldMap[fieldKey];
+  const allowed = field?.filterOps.filter(isWorkbookFilterOperator) ?? [];
+  const op =
+    requestedOperator !== undefined && allowed.includes(requestedOperator)
+      ? requestedOperator
+      : (allowed[0] ?? "eq");
+  switch (op) {
+    case "range":
+      return {
+        fieldKey,
+        lowerKind: "gte",
+        lowerValue: "",
+        op,
+        upperKind: "lte",
+        upperValue: "",
+      };
+    case "contains_all":
+    case "contains_any":
+      return { fieldKey, op, values: "" };
+    case "prefix":
+      return { fieldKey, op, value: "" };
+    case "full_text":
+      return { fieldKey, op, query: "" };
+    case "eq":
+      return {
+        booleanValue: "",
+        fieldKey,
+        op,
+        operandKind: "value",
+        value: "",
+        valueType:
+          filterInputMode(fieldKey) === "boolean" ? "boolean" : "string",
+        values: "",
+      };
+  }
+}
+
+export function filterDraftFromFilter(filter: WorkbookFilter): FilterDraft {
+  switch (filter.op) {
+    case "range":
+      return {
+        fieldKey: filter.fieldKey,
+        lowerKind: "gt" in filter.arg ? "gt" : "gte",
+        lowerValue: String(filter.arg.gt ?? filter.arg.gte ?? ""),
+        op: "range",
+        upperKind: "lt" in filter.arg ? "lt" : "lte",
+        upperValue: String(filter.arg.lt ?? filter.arg.lte ?? ""),
+      };
+    case "contains_all":
+    case "contains_any":
+      return {
+        fieldKey: filter.fieldKey,
+        op: filter.op,
+        values: Array.isArray(filter.arg.values)
+          ? filter.arg.values.map(String).join(", ")
+          : "",
+      };
+    case "prefix":
+      return {
+        fieldKey: filter.fieldKey,
+        op: "prefix",
+        value: typeof filter.arg.value === "string" ? filter.arg.value : "",
+      };
+    case "full_text":
+      return {
+        fieldKey: filter.fieldKey,
+        op: "full_text",
+        query: typeof filter.arg.query === "string" ? filter.arg.query : "",
+      };
+    case "eq": {
+      const values = Array.isArray(filter.arg.values)
+        ? filter.arg.values.map(String).join(", ")
+        : "";
+      const rawValue = filter.arg.value;
+      return {
+        booleanValue:
+          typeof rawValue === "boolean"
+            ? (String(rawValue) as "false" | "true")
+            : "",
+        fieldKey: filter.fieldKey,
+        op: "eq",
+        operandKind: Array.isArray(filter.arg.values)
+          ? "values"
+          : rawValue === null
+            ? "null"
+            : "value",
+        value:
+          typeof rawValue === "string" || typeof rawValue === "number"
+            ? String(rawValue)
+            : "",
+        valueType:
+          typeof rawValue === "boolean"
+            ? "boolean"
+            : typeof rawValue === "number"
+              ? "number"
+              : "string",
+        values,
+      };
+    }
+  }
+}
+
+export function clearFilterDraftValue(draft: FilterDraft): FilterDraft {
+  switch (draft.op) {
+    case "eq":
+      return { ...draft, booleanValue: "", value: "", values: "" };
+    case "range":
+      return { ...draft, lowerValue: "", upperValue: "" };
+    case "contains_all":
+    case "contains_any":
+      return { ...draft, values: "" };
+    case "prefix":
+      return { ...draft, value: "" };
+    case "full_text":
+      return { ...draft, query: "" };
+  }
+}
+
+export function isWorkbookFilterOperator(
+  value: string,
+): value is WorkbookFilterOperator {
+  return (
+    value === "eq" ||
+    value === "range" ||
+    value === "contains_any" ||
+    value === "contains_all" ||
+    value === "prefix" ||
+    value === "full_text"
+  );
 }
 
 export function toggleSortField(
@@ -421,6 +589,7 @@ function savedViewFiltersFromQueryJson(
     if (
       typeof entry.field_key !== "string" ||
       typeof entry.op !== "string" ||
+      !isWorkbookFilterOperator(entry.op) ||
       !contract.filterableFieldMap[entry.field_key]
     ) {
       continue;
@@ -582,85 +751,75 @@ function canonicalColumnWidths(
     }));
 }
 
-function buildFilterFromDraft(draft: FilterDraft): WorkbookFilter | null {
-  const mode = filterInputMode(draft.fieldKey);
+export function buildFilterFromDraft(
+  draft: FilterDraft,
+): WorkbookFilter | null {
   if (draft.fieldKey === "") {
     return null;
   }
-  if (mode === "boolean") {
-    if (draft.booleanValue === "") {
-      return null;
+  switch (draft.op) {
+    case "eq": {
+      if (draft.operandKind === "null") {
+        return { arg: { value: null }, fieldKey: draft.fieldKey, op: "eq" };
+      }
+      if (draft.operandKind === "values") {
+        const values = canonicalStringValues(draft.values.split(/[\n,]/u));
+        return values.length === 0
+          ? null
+          : { arg: { values }, fieldKey: draft.fieldKey, op: "eq" };
+      }
+      if (draft.valueType === "boolean") {
+        return draft.booleanValue === ""
+          ? null
+          : {
+              arg: { value: draft.booleanValue === "true" },
+              fieldKey: draft.fieldKey,
+              op: "eq",
+            };
+      }
+      const value = draft.value.trim();
+      if (value === "") return null;
+      if (draft.valueType === "number") {
+        const numberValue = Number(value);
+        return Number.isFinite(numberValue)
+          ? { arg: { value: numberValue }, fieldKey: draft.fieldKey, op: "eq" }
+          : null;
+      }
+      return { arg: { value }, fieldKey: draft.fieldKey, op: "eq" };
     }
-    return {
-      fieldKey: draft.fieldKey,
-      op: "eq",
-      arg: {
-        value: draft.booleanValue === "true",
-      },
-    };
-  }
-
-  const trimmed = draft.value.trim();
-  if (trimmed === "") {
-    return null;
-  }
-
-  if (draft.fieldKey === "note.full_text") {
-    return {
-      fieldKey: draft.fieldKey,
-      op: "full_text",
-      arg: { query: trimmed },
-    };
-  }
-
-  if (mode === "tagset") {
-    const values = canonicalStringValues(trimmed.split(/[\n,]/u));
-    if (values.length < 1) {
-      return null;
-    }
-    return {
-      fieldKey: draft.fieldKey,
-      op: "contains_any",
-      arg: { values },
-    };
-  }
-
-  if (mode === "date" || mode === "timestamp") {
-    const range = parseRange(trimmed);
-    if (range !== null) {
+    case "range": {
+      const lower = draft.lowerValue.trim();
+      const upper = draft.upperValue.trim();
+      if (lower === "" && upper === "") return null;
       return {
+        arg: {
+          ...(lower === "" ? {} : { [draft.lowerKind]: lower }),
+          ...(upper === "" ? {} : { [draft.upperKind]: upper }),
+        },
         fieldKey: draft.fieldKey,
         op: "range",
-        arg: range,
       };
     }
+    case "contains_all":
+    case "contains_any": {
+      const values = canonicalStringValues(draft.values.split(/[\n,]/u));
+      return values.length === 0
+        ? null
+        : { arg: { values }, fieldKey: draft.fieldKey, op: draft.op };
+    }
+    case "prefix": {
+      const value = draft.value.trim();
+      return value === ""
+        ? null
+        : { arg: { value }, fieldKey: draft.fieldKey, op: "prefix" };
+    }
+    case "full_text": {
+      const query = draft.query.trim();
+      return query === ""
+        ? null
+        : { arg: { query }, fieldKey: draft.fieldKey, op: "full_text" };
+    }
   }
-
-  return {
-    fieldKey: draft.fieldKey,
-    op: "eq",
-    arg: { value: trimmed },
-  };
-}
-
-function parseRange(value: string): Record<string, string> | null {
-  const [rawStart, rawEnd, ...rest] = value.split("..");
-  if (rest.length > 0 || rawStart === undefined || rawEnd === undefined) {
-    return null;
-  }
-  const start = rawStart.trim();
-  const end = rawEnd.trim();
-  if (start === "" && end === "") {
-    return null;
-  }
-  const range: Record<string, string> = {};
-  if (start !== "") {
-    range.gte = start;
-  }
-  if (end !== "") {
-    range.lte = end;
-  }
-  return Object.keys(range).length < 1 ? null : range;
 }
 
 function stringifyFilterValue(filter: WorkbookFilter): string {

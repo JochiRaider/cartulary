@@ -39,8 +39,8 @@ describe("workbook responsive layout model", () => {
   });
 
   it.each([
-    ["base", 8],
-    ["narrow_desktop", 6],
+    ["base", 3],
+    ["narrow_desktop", 2],
     ["compact_desktop", 0],
     ["below_supported_minimum", 0],
   ] as const)("caps visible query chips in %s mode at %i", (chromeMode, expectedCapacity) => {

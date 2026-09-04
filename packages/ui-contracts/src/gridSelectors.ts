@@ -68,16 +68,6 @@ export function gridSortHeaderTestId(
   return viewFirstTestId(viewSchemaId, `sort-${requireFieldKey(fieldKey)}`);
 }
 
-export function gridFilterChipTestId(
-  viewSchemaId: string,
-  fieldKey: string,
-): string {
-  return viewFirstTestId(
-    viewSchemaId,
-    `filter-chip-${requireFieldKey(fieldKey)}`,
-  );
-}
-
 export function gridFilterFieldTestId(viewSchemaId: string): string {
   return viewFirstTestId(viewSchemaId, "filter-field");
 }

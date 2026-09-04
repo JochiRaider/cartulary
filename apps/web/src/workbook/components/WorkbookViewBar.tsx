@@ -5,6 +5,22 @@ import {
 import { Plus, SlidersHorizontal } from "lucide-react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
+import {
+  ActiveSurfaceSavedViewSelector,
+  type ActiveSurfaceSavedViewSelectorProps,
+} from "./ActiveSurfaceSavedViewSelector";
+import {
+  WorkbookGridControls,
+  type WorkbookGridControlsProps,
+} from "./WorkbookGridControls";
+
+export type WorkbookViewBarWorkingSetBinding = {
+  readonly query: Omit<WorkbookGridControlsProps, "chromeMode"> | null;
+  readonly savedView: Omit<
+    ActiveSurfaceSavedViewSelectorProps,
+    "chromeMode"
+  > | null;
+};
 
 type WorkbookViewBarProps = {
   readonly addRowDisabled?: boolean | undefined;
@@ -13,10 +29,9 @@ type WorkbookViewBarProps = {
   readonly inspectorButtonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onAddRow?: (() => void) | undefined;
   readonly onInspectorToggle?: (() => void) | undefined;
-  readonly queryControls?: ReactNode | undefined;
-  readonly savedViewControls?: ReactNode | undefined;
   readonly supplementalControls?: ReactNode | undefined;
   readonly surface: string;
+  readonly workingSet?: WorkbookViewBarWorkingSetBinding | undefined;
 };
 
 export function WorkbookViewBar({
@@ -26,47 +41,38 @@ export function WorkbookViewBar({
   inspectorButtonRef,
   onAddRow,
   onInspectorToggle,
-  queryControls,
-  savedViewControls,
   supplementalControls,
   surface,
+  workingSet,
 }: WorkbookViewBarProps) {
+  const compactActions =
+    chromeMode === "compact_desktop" ||
+    chromeMode === "below_supported_minimum";
   return (
     <section
       aria-label="Workbook query and action controls"
+      data-chrome-mode={chromeMode}
       style={viewBarStyle}
     >
       <div style={controlRailStyle}>
-        {savedViewControls !== undefined && savedViewControls !== null ? (
-          <div
-            style={
-              chromeMode === "base"
-                ? baseAllocationStyle
-                : savedViewAllocationStyle
-            }
-          >
-            {savedViewControls}
+        {workingSet?.savedView ? (
+          <div style={savedViewAllocationStyleFor(chromeMode)}>
+            <ActiveSurfaceSavedViewSelector
+              {...workingSet.savedView}
+              chromeMode={chromeMode}
+            />
           </div>
         ) : null}
-        {queryControls !== undefined && queryControls !== null ? (
-          <div
-            style={
-              chromeMode === "base" ? baseAllocationStyle : queryAllocationStyle
-            }
-          >
-            {queryControls}
+        {workingSet?.query ? (
+          <div style={queryAllocationStyle}>
+            <WorkbookGridControls
+              {...workingSet.query}
+              chromeMode={chromeMode}
+            />
           </div>
         ) : null}
         {supplementalControls !== undefined && supplementalControls !== null ? (
-          <div
-            style={
-              chromeMode === "base"
-                ? baseAllocationStyle
-                : supplementalAllocationStyle
-            }
-          >
-            {supplementalControls}
-          </div>
+          <div style={supplementalAllocationStyle}>{supplementalControls}</div>
         ) : null}
       </div>
       <div style={rightRailStyle}>
@@ -76,23 +82,26 @@ export function WorkbookViewBar({
             data-testid={workbookInspectorToggleTestId(surface)}
             ref={inspectorButtonRef}
             style={toolbarButtonStyle}
+            title={compactActions ? "Open inspector" : undefined}
             type="button"
             onClick={onInspectorToggle}
           >
             <SlidersHorizontal aria-hidden="true" size={16} />
-            Inspector
+            {compactActions ? null : "Inspector"}
           </button>
         ) : null}
         {onAddRow ? (
           <button
+            aria-label={addRowLabel}
             data-testid={workbookAddRowButtonTestId(surface)}
             disabled={addRowDisabled}
             style={primaryToolbarButtonStyle}
+            title={compactActions ? addRowLabel : undefined}
             type="button"
             onClick={onAddRow}
           >
             <Plus aria-hidden="true" size={16} />
-            {addRowLabel}
+            {compactActions ? null : addRowLabel}
           </button>
         ) : null}
       </div>
@@ -151,20 +160,26 @@ const controlRailStyle = {
   overflow: "visible",
 } satisfies CSSProperties;
 
-const savedViewAllocationStyle = {
-  display: "flex",
-  alignItems: "center",
-  flex: "0 1 clamp(10rem, 20vw, 18rem)",
-  inlineSize: "clamp(10rem, 20vw, 18rem)",
-  maxInlineSize: "clamp(10rem, 20vw, 18rem)",
-  minInlineSize: "min-content",
-  overflow: "visible",
-} satisfies CSSProperties;
-
-const baseAllocationStyle = {
-  display: "contents",
-  overflow: "visible",
-} satisfies CSSProperties;
+function savedViewAllocationStyleFor(
+  chromeMode: WorkbookChromeMode,
+): CSSProperties {
+  if (chromeMode === "below_supported_minimum") return { display: "none" };
+  const inlineSize =
+    chromeMode === "base"
+      ? "min(var(--ct-layout-viewBarSavedViewMaxInlineSize), 24vw)"
+      : chromeMode === "narrow_desktop"
+        ? "10rem"
+        : "9rem";
+  return {
+    display: "flex",
+    alignItems: "center",
+    flex: `0 1 ${inlineSize}`,
+    inlineSize,
+    maxInlineSize: "var(--ct-layout-viewBarSavedViewMaxInlineSize)",
+    minInlineSize: 0,
+    overflow: "visible",
+  };
+}
 
 const queryAllocationStyle = {
   display: "flex",

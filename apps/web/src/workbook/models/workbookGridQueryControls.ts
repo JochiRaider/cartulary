@@ -1,16 +1,17 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
+import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
-  type WorkbookChromeMode,
-  workbookQueryChipCapacity,
-} from "../layout/workbookResponsiveLayout";
-import {
+  buildFilterFromDraft,
   type FilterDraft,
-  filterChipLabel,
-  filterInputMode,
   type WorkbookQueryState,
   type WorkbookSortEntry,
 } from "./workbookQuery";
+import {
+  projectWorkbookQueryEntries,
+  queryEntryCapacity,
+  type WorkbookQueryEntryDescriptor,
+} from "./workbookViewBarWorkingSet";
 
 export const workbookOrderedSortLimit = 8;
 
@@ -29,7 +30,7 @@ export type WorkbookGridQueryCommand =
   | { readonly kind: "sort_remove"; readonly fieldKey: string }
   | { readonly kind: "group_set"; readonly fieldKey: string | null }
   | { readonly kind: "filter_remove"; readonly fieldKey: string }
-  | { readonly kind: "query_clear" }
+  | { readonly kind: "filters_clear" }
   | {
       readonly kind: "column_set_hidden";
       readonly fieldKey: string;
@@ -53,11 +54,9 @@ export type WorkbookSortCommand = Extract<
   }
 >;
 
-export type WorkbookQueryChip = {
-  readonly command: WorkbookGridQueryCommand;
-  readonly key: string;
+export type WorkbookQueryChip = WorkbookQueryEntryDescriptor & {
   readonly label: string;
-  readonly testId?: string | undefined;
+  readonly removeCommand: WorkbookGridQueryCommand;
 };
 
 export type WorkbookSortControlEntry = {
@@ -89,65 +88,96 @@ export type WorkbookGridQueryControlProjection = {
     readonly fieldKey: string;
     readonly label: string;
   }[];
+  readonly unusedSortableFields: readonly {
+    readonly fieldKey: string;
+    readonly label: string;
+  }[];
   readonly visibleChipCapacity: number;
   readonly visibleChips: readonly WorkbookQueryChip[];
 };
 
-export type WorkbookGridControlPanel = "columns" | "filters" | "sort";
+export type WorkbookGridControlPanel = "columns" | "filters" | "group" | "sort";
 
 export type WorkbookGridSurfaceTransientState = {
+  readonly activeEntryKey: string | null;
+  readonly editingFilterFieldKey: string | null;
   readonly filterDraft: FilterDraft;
   readonly openPanel: WorkbookGridControlPanel | null;
+  readonly rovingEntryKey: string | null;
 };
 
 export type WorkbookGridControlsTransientState = {
-  readonly activeSurface: string;
-  readonly surfaces: ReadonlyMap<string, WorkbookGridSurfaceTransientState>;
+  readonly subjectKey: string;
+  readonly value: WorkbookGridSurfaceTransientState;
 };
 
 export type WorkbookGridControlsTransientEvent =
   | {
-      readonly type: "activate_surface";
+      readonly type: "activate_subject";
       readonly filterDraft: FilterDraft;
-      readonly surface: string;
+      readonly subjectKey: string;
     }
   | {
       readonly type: "sync_filter_draft";
       readonly filterDraft: FilterDraft;
-      readonly surface: string;
+      readonly subjectKey: string;
     }
   | {
       readonly type: "toggle_panel";
       readonly panel: WorkbookGridControlPanel;
-      readonly surface: string;
+      readonly subjectKey: string;
     }
-  | { readonly type: "close_panel"; readonly surface: string }
+  | { readonly type: "close_panel"; readonly subjectKey: string }
   | {
       readonly type: "change_filter_draft";
       readonly filterDraft: FilterDraft;
-      readonly surface: string;
+      readonly subjectKey: string;
     }
   | {
       readonly type: "complete_filter";
       readonly filterDraft: FilterDraft;
-      readonly surface: string;
+      readonly subjectKey: string;
+    }
+  | {
+      readonly activeEntryKey: string;
+      readonly filterDraft: FilterDraft;
+      readonly fieldKey: string;
+      readonly subjectKey: string;
+      readonly type: "edit_filter";
+    }
+  | {
+      readonly activeEntryKey: string;
+      readonly panel: "group" | "sort";
+      readonly subjectKey: string;
+      readonly type: "edit_query_entry";
+    }
+  | {
+      readonly activeEntryKey: string | null;
+      readonly subjectKey: string;
+      readonly type: "set_active_entry";
+    }
+  | {
+      readonly entryKey: string | null;
+      readonly subjectKey: string;
+      readonly type: "set_roving_entry";
     };
 
 export function projectWorkbookGridQueryControls({
   chromeMode,
   contract,
-  filterChipTestId,
   layoutState,
   queryState,
 }: {
   readonly chromeMode: WorkbookChromeMode;
   readonly contract: ViewContract;
-  readonly filterChipTestId: (fieldKey: string) => string;
   readonly layoutState: WorkbookResolvedLayoutState;
   readonly queryState: WorkbookQueryState;
 }): WorkbookGridQueryControlProjection {
-  const chips = projectQueryChips(contract, queryState, filterChipTestId);
-  const visibleChipCapacity = workbookQueryChipCapacity(chromeMode);
+  const chips = projectQueryChips(contract, queryState);
+  const visibleChipCapacity = queryEntryCapacity(chromeMode);
+  const selectedSortFields = new Set(
+    queryState.sort.map((entry) => entry.fieldKey),
+  );
   return {
     activeGroupLabel: fieldLabel(contract, queryState.groupBy) ?? "None",
     activeSortLabel: fieldLabel(contract, queryState.sort[0]?.fieldKey ?? null),
@@ -165,6 +195,12 @@ export function projectWorkbookGridQueryControls({
     })),
     sortableFields: contract.fields.flatMap((field) =>
       contract.sortableFieldMap[field.fieldKey]
+        ? [{ fieldKey: field.fieldKey, label: field.label }]
+        : [],
+    ),
+    unusedSortableFields: contract.fields.flatMap((field) =>
+      contract.sortableFieldMap[field.fieldKey] &&
+      !selectedSortFields.has(field.fieldKey)
         ? [{ fieldKey: field.fieldKey, label: field.label }]
         : [],
     ),
@@ -193,7 +229,7 @@ export function applyWorkbookSortCommand(
 
 export function parseWorkbookBooleanDraftValue(
   value: string,
-): FilterDraft["booleanValue"] | null {
+): "" | "false" | "true" | null {
   return value === "" || value === "false" || value === "true" ? value : null;
 }
 
@@ -225,40 +261,48 @@ export function validateFilterDraft(
   if (parseDeclaredFieldKey(draft.fieldKey, contract.filterFields) === null) {
     return { kind: "invalid", message: "Select a supported filter field." };
   }
-  const missing =
-    filterInputMode(draft.fieldKey) === "boolean"
-      ? draft.booleanValue === ""
-      : draft.value.trim() === "";
-  return missing
+  if (!contract.fieldMap[draft.fieldKey]?.filterOps.includes(draft.op)) {
+    return {
+      kind: "invalid",
+      message: "Select a supported operator for this field.",
+    };
+  }
+  return buildFilterFromDraft(draft) === null
     ? { kind: "invalid", message: "Enter a value before applying this filter." }
     : { kind: "valid" };
 }
 
 export function createWorkbookGridControlsTransientState(
-  surface: string,
+  subjectKey: string,
   filterDraft: FilterDraft,
   defaultFilterPopoverOpen: boolean,
 ): WorkbookGridControlsTransientState {
   return {
-    activeSurface: surface,
-    surfaces: new Map([
-      [
-        surface,
-        {
-          filterDraft,
-          openPanel: defaultFilterPopoverOpen ? "filters" : null,
-        },
-      ],
-    ]),
+    subjectKey,
+    value: {
+      activeEntryKey: null,
+      editingFilterFieldKey: null,
+      filterDraft,
+      openPanel: defaultFilterPopoverOpen ? "filters" : null,
+      rovingEntryKey: null,
+    },
   };
 }
 
 export function workbookGridSurfaceTransientState(
   state: WorkbookGridControlsTransientState,
-  surface: string,
+  subjectKey: string,
   filterDraft: FilterDraft,
 ): WorkbookGridSurfaceTransientState {
-  return state.surfaces.get(surface) ?? { filterDraft, openPanel: null };
+  return state.subjectKey === subjectKey
+    ? state.value
+    : {
+        activeEntryKey: null,
+        editingFilterFieldKey: null,
+        filterDraft,
+        openPanel: null,
+        rovingEntryKey: null,
+      };
 }
 
 export function reduceWorkbookGridControlsTransientState(
@@ -266,33 +310,75 @@ export function reduceWorkbookGridControlsTransientState(
   event: WorkbookGridControlsTransientEvent,
 ): WorkbookGridControlsTransientState {
   switch (event.type) {
-    case "activate_surface":
-      return activateSurface(state, event);
+    case "activate_subject":
+      return state.subjectKey === event.subjectKey
+        ? state
+        : createWorkbookGridControlsTransientState(
+            event.subjectKey,
+            event.filterDraft,
+            false,
+          );
     case "sync_filter_draft":
-      return updateSurface(state, event.surface, (current) =>
+      return updateTransient(state, event.subjectKey, (current) =>
         current.openPanel === "filters"
           ? current
           : { ...current, filterDraft: event.filterDraft },
       );
     case "toggle_panel":
-      return updateSurface(state, event.surface, (current) => ({
+      return updateTransient(state, event.subjectKey, (current) => ({
         ...current,
+        activeEntryKey: null,
+        editingFilterFieldKey: null,
         openPanel: current.openPanel === event.panel ? null : event.panel,
       }));
     case "close_panel":
-      return updateSurface(state, event.surface, (current) =>
-        current.openPanel === null ? current : { ...current, openPanel: null },
+      return updateTransient(state, event.subjectKey, (current) =>
+        current.openPanel === null && current.activeEntryKey === null
+          ? current
+          : {
+              ...current,
+              activeEntryKey: null,
+              editingFilterFieldKey: null,
+              openPanel: null,
+            },
       );
     case "change_filter_draft":
-      return updateSurface(state, event.surface, (current) => ({
+      return updateTransient(state, event.subjectKey, (current) => ({
         ...current,
         filterDraft: event.filterDraft,
       }));
     case "complete_filter":
-      return updateSurface(state, event.surface, (current) => ({
+      return updateTransient(state, event.subjectKey, (current) => ({
         ...current,
+        activeEntryKey: null,
+        editingFilterFieldKey: null,
         filterDraft: event.filterDraft,
         openPanel: null,
+      }));
+    case "edit_filter":
+      return updateTransient(state, event.subjectKey, (current) => ({
+        ...current,
+        activeEntryKey: event.activeEntryKey,
+        editingFilterFieldKey: event.fieldKey,
+        filterDraft: event.filterDraft,
+        openPanel: "filters",
+      }));
+    case "edit_query_entry":
+      return updateTransient(state, event.subjectKey, (current) => ({
+        ...current,
+        activeEntryKey: event.activeEntryKey,
+        editingFilterFieldKey: null,
+        openPanel: event.panel,
+      }));
+    case "set_active_entry":
+      return updateTransient(state, event.subjectKey, (current) => ({
+        ...current,
+        activeEntryKey: event.activeEntryKey,
+      }));
+    case "set_roving_entry":
+      return updateTransient(state, event.subjectKey, (current) => ({
+        ...current,
+        rovingEntryKey: event.entryKey,
       }));
   }
 }
@@ -300,34 +386,17 @@ export function reduceWorkbookGridControlsTransientState(
 function projectQueryChips(
   contract: ViewContract,
   queryState: WorkbookQueryState,
-  filterChipTestId: (fieldKey: string) => string,
 ): readonly WorkbookQueryChip[] {
-  const groupChip: readonly WorkbookQueryChip[] =
-    queryState.groupBy === null
-      ? []
-      : [
-          {
-            command: { kind: "group_set", fieldKey: null },
-            key: `group:${queryState.groupBy}`,
-            label: `Group: ${fieldLabel(contract, queryState.groupBy) ?? queryState.groupBy}`,
-          },
-        ];
-  const sortChips = queryState.sort.map(
-    (entry): WorkbookQueryChip => ({
-      command: { kind: "sort_remove", fieldKey: entry.fieldKey },
-      key: `sort:${entry.fieldKey}`,
-      label: `Sort: ${fieldLabel(contract, entry.fieldKey) ?? entry.fieldKey} ${entry.direction}`,
-    }),
-  );
-  const filterChips = queryState.filters.map(
-    (filter): WorkbookQueryChip => ({
-      command: { kind: "filter_remove", fieldKey: filter.fieldKey },
-      key: `filter:${filter.fieldKey}`,
-      label: filterChipLabel(contract, filter),
-      testId: filterChipTestId(filter.fieldKey),
-    }),
-  );
-  return [...groupChip, ...sortChips, ...filterChips];
+  return projectWorkbookQueryEntries(contract, queryState).map((entry) => ({
+    ...entry,
+    label: `${entry.token} ${entry.detail}`,
+    removeCommand:
+      entry.identity.kind === "group"
+        ? { kind: "group_set", fieldKey: null }
+        : entry.identity.kind === "sort"
+          ? { kind: "sort_remove", fieldKey: entry.identity.fieldKey }
+          : { kind: "filter_remove", fieldKey: entry.identity.fieldKey },
+  }));
 }
 
 function projectColumns(
@@ -401,44 +470,16 @@ function removeSortField(
   return index < 0 ? sort : [...sort.slice(0, index), ...sort.slice(index + 1)];
 }
 
-function activateSurface(
+function updateTransient(
   state: WorkbookGridControlsTransientState,
-  event: Extract<
-    WorkbookGridControlsTransientEvent,
-    { readonly type: "activate_surface" }
-  >,
-): WorkbookGridControlsTransientState {
-  if (state.activeSurface === event.surface) return state;
-  const surfaces = new Map(state.surfaces);
-  const previous = surfaces.get(state.activeSurface);
-  if (previous !== undefined && previous.openPanel !== null) {
-    surfaces.set(state.activeSurface, { ...previous, openPanel: null });
-  }
-  const current = surfaces.get(event.surface);
-  surfaces.set(
-    event.surface,
-    current ?? {
-      filterDraft: event.filterDraft,
-      openPanel: null,
-    },
-  );
-  return { activeSurface: event.surface, surfaces };
-}
-
-function updateSurface(
-  state: WorkbookGridControlsTransientState,
-  surface: string,
+  subjectKey: string,
   update: (
     current: WorkbookGridSurfaceTransientState,
   ) => WorkbookGridSurfaceTransientState,
 ): WorkbookGridControlsTransientState {
-  const current = state.surfaces.get(surface);
-  if (current === undefined) return state;
-  const next = update(current);
-  if (next === current) return state;
-  const surfaces = new Map(state.surfaces);
-  surfaces.set(surface, next);
-  return { ...state, surfaces };
+  if (state.subjectKey !== subjectKey) return state;
+  const next = update(state.value);
+  return next === state.value ? state : { ...state, value: next };
 }
 
 function fieldLabel(

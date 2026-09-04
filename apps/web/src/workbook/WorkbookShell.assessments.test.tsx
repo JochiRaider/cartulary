@@ -2,7 +2,6 @@ import {
   assessmentCreateControlTestId,
   assessmentCreatePanelTestId,
   gridFilterApplyTestId,
-  gridFilterChipTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridSavedRowsSelector,
@@ -14,6 +13,7 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorToggleTestId,
+  workbookQueryEntryTestId,
 } from "@cartulary/ui-contracts";
 import {
   cleanup,
@@ -585,13 +585,15 @@ describe("Assessment workbook surface", () => {
     expect(screen.queryByTestId(assessmentCreatePanelTestId())).toBeNull();
     expect(createAttempt).toBe(0);
 
-    fireEvent.click(
+    fireEvent.keyDown(
       screen.getByTestId(
-        gridFilterChipTestId(
+        workbookQueryEntryTestId(
           assessmentsViewSchemaId,
+          "filter",
           "assessment.assessment_state",
         ),
       ),
+      { key: "Delete" },
     );
     const restoredOriginalCell = await screen.findByTestId(
       rowCellTestId(
@@ -862,13 +864,15 @@ describe("Assessment workbook surface", () => {
     applyAssessmentStateFilter("disproven");
     await expectAssessmentRecordIds(["00000000-0000-4000-8000-000000000304"]);
 
-    fireEvent.click(
+    fireEvent.keyDown(
       screen.getByTestId(
-        gridFilterChipTestId(
+        workbookQueryEntryTestId(
           assessmentsViewSchemaId,
+          "filter",
           "assessment.assessment_state",
         ),
       ),
+      { key: "Delete" },
     );
     applyAssessmentStateFilter("cleared");
     await expectAssessmentRecordIds(["00000000-0000-4000-8000-000000000302"]);

@@ -1,3 +1,7 @@
+import {
+  workbookColumnsMenuTestId,
+  workbookColumnsMenuTriggerTestId,
+} from "@cartulary/ui-contracts";
 import { useMemo, useRef } from "react";
 import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
 import type {
@@ -52,9 +56,10 @@ export function WorkbookColumnsControl({
     <div style={fixedMenuFrameStyle}>
       <button
         ref={triggerRef}
-        aria-controls={isOpen ? `${surface}-column-menu` : undefined}
+        aria-controls={isOpen ? workbookColumnsMenuTestId(surface) : undefined}
         aria-expanded={isOpen}
         aria-haspopup="menu"
+        data-testid={workbookColumnsMenuTriggerTestId(surface)}
         style={controlButtonStyle}
         type="button"
         onClick={() => {
@@ -74,9 +79,10 @@ export function WorkbookColumnsControl({
       {isOpen ? (
         <div
           aria-label="Column controls"
-          id={`${surface}-column-menu`}
+          data-testid={workbookColumnsMenuTestId(surface)}
+          id={workbookColumnsMenuTestId(surface)}
           role="menu"
-          style={menuStyle}
+          style={columnsMenuStyle}
           tabIndex={-1}
           onBlur={navigation.onOverlayBlur}
           onKeyDown={(event) => {
@@ -190,4 +196,10 @@ const columnMenuRowStyle = {
   display: "grid",
   gridTemplateColumns: "minmax(10rem, 1fr) 2rem 2rem",
   alignItems: "center",
+};
+const columnsMenuStyle = {
+  ...menuStyle,
+  insetInlineStart: "auto",
+  insetInlineEnd: 0,
+  inlineSize: "min(var(--ct-layout-viewBarOverlayMaxInlineSize), 92vw)",
 };

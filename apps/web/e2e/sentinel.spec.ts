@@ -19,7 +19,6 @@ import {
   genericEditRecordSelectTestId,
   genericEditValueTestId,
   genericWorkbookTestId,
-  gridFilterChipTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridScrollportSelector,
@@ -44,6 +43,7 @@ import {
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookQueryEntryTestId,
   workbookShellReadyTestId,
   workbookShellSlotTestId,
   workbookViewBarQueryControlsTestId,
@@ -2102,7 +2102,11 @@ test("coordination workbook workflows stay native", async ({
   );
   await expect(
     page.getByTestId(
-      gridFilterChipTestId(handoffViewSchemaId, "handoff.ack_state"),
+      workbookQueryEntryTestId(
+        handoffViewSchemaId,
+        "filter",
+        "handoff.ack_state",
+      ),
     ),
   ).toContainText("acknowledged");
   await removeFilterChip(page, handoffViewSchemaId, "handoff.ack_state");
@@ -2193,8 +2197,9 @@ test("coordination workbook workflows stay native", async ({
   );
   await expect(
     page.getByTestId(
-      gridFilterChipTestId(
+      workbookQueryEntryTestId(
         statusReviewViewSchemaId,
+        "filter",
         "status_review.next_report_day",
       ),
     ),
@@ -2265,7 +2270,11 @@ test("coordination workbook workflows stay native", async ({
   );
   await expect(
     page.getByTestId(
-      gridFilterChipTestId(lessonViewSchemaId, "lesson.closure_state"),
+      workbookQueryEntryTestId(
+        lessonViewSchemaId,
+        "filter",
+        "lesson.closure_state",
+      ),
     ),
   ).toContainText("closed");
 });
@@ -2355,7 +2364,11 @@ test("optional standardized surfaces are workbook-native when exposed", async ({
   );
   await expect(
     page.getByTestId(
-      gridFilterChipTestId(findingsViewSchemaId, "finding.confidence_band"),
+      workbookQueryEntryTestId(
+        findingsViewSchemaId,
+        "filter",
+        "finding.confidence_band",
+      ),
     ),
   ).toContainText("high");
   await page
@@ -2406,8 +2419,9 @@ test("optional standardized surfaces are workbook-native when exposed", async ({
   );
   await expect(
     page.getByTestId(
-      gridFilterChipTestId(
+      workbookQueryEntryTestId(
         investigativeQueriesViewSchemaId,
+        "filter",
         "investigative_query.platform",
       ),
     ),

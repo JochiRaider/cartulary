@@ -30,7 +30,6 @@ import {
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
   gridFilterApplyTestId,
-  gridFilterChipTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
@@ -103,6 +102,9 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorToggleTestId,
+  workbookQueryEntryTestId,
+  workbookQueryOverflowEntryTestId,
+  workbookResponsiveBandTestId,
   workbookShellReadyTestId,
   workbookShellSlotLabel,
   workbookShellSlots,
@@ -591,7 +593,7 @@ async function expectTextSpacingViewBarResilience(
       );
       const chipButtons = Array.from(
         controls.querySelectorAll<HTMLButtonElement>(
-          '[role="toolbar"][aria-label="Active query chips"] button[title]',
+          '[role="toolbar"][aria-label="Active query chips"] button[data-query-entry-key]',
         ),
       ).filter((button) => button.getBoundingClientRect().width > 0);
       const orderedControls: ReadonlyArray<readonly [string, HTMLElement]> = [
@@ -1914,7 +1916,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
       page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
     ).toBeVisible();
     await page
-      .getByRole("dialog", { name: "Draft filters" })
+      .getByTestId(workbookFilterPopoverTestId(timelineViewSchemaId))
       .getByRole("button", { name: "Cancel" })
       .click();
     await expect(
@@ -3311,7 +3313,11 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       "timeline.capture_state",
     );
     const filterChip = page.getByTestId(
-      gridFilterChipTestId(timelineViewSchemaId, "timeline.capture_state"),
+      workbookQueryEntryTestId(
+        timelineViewSchemaId,
+        "filter",
+        "timeline.capture_state",
+      ),
     );
     await expectVisibleFocus(filterChip);
 
@@ -3344,12 +3350,9 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     await expect(sortMenuTrigger).toBeFocused();
     await expect(sortMenuTrigger).toHaveAttribute(
       "aria-label",
-      "Sort: Activity Synopsis",
+      "Sort, 8 applied",
     );
-    await expect(sortMenuTrigger).toHaveAttribute(
-      "title",
-      "Sort: Activity Synopsis",
-    );
+    await expect(sortMenuTrigger).not.toHaveAttribute("title");
 
     await openFilterPopover(page, timelineViewSchemaId);
     await filterField.selectOption("timeline.tags");
@@ -3444,14 +3447,14 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     );
     await expect(queryControls).toHaveAttribute(
       "data-hidden-query-chip-count",
-      "3",
+      "8",
     );
     const filterTrigger = page.getByTestId(
       workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
     );
     await expect(filterTrigger).toHaveAttribute(
       "aria-label",
-      "Filters, 3 hidden",
+      "Filters, 2 active filters, 8 hidden query entries",
     );
     await expectVisibleFocus(filterTrigger);
     await filterTrigger.press("Enter");
@@ -3464,15 +3467,19 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       workbookFilterPopoverTestId(timelineViewSchemaId),
     );
     await expect(
-      filterPopover.getByRole("button", {
-        name: new RegExp(longTagToken),
-      }),
+      filterPopover.getByTestId(
+        workbookQueryOverflowEntryTestId(
+          timelineViewSchemaId,
+          "filter",
+          "timeline.tags",
+        ),
+      ),
     ).toContainText(longTagToken);
     await filterPopover.press("Escape");
     await expect(filterPopover).toHaveCount(0);
     await expect(filterTrigger).toBeFocused();
 
-    await page.addStyleTag({
+    const textSpacingStyle = await page.addStyleTag({
       content: `
         * {
           line-height: 1.5 !important;
@@ -3485,15 +3492,15 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       `,
     });
     await expectTextSpacingViewBarResilience(page, {
-      capacity: 8,
+      capacity: 3,
       height: 900,
-      hiddenCount: 3,
+      hiddenCount: 8,
       width: 1440,
     });
     await expectTextSpacingViewBarResilience(page, {
-      capacity: 6,
+      capacity: 2,
       height: 720,
-      hiddenCount: 5,
+      hiddenCount: 9,
       width: 1024,
     });
     await expectTextSpacingViewBarResilience(page, {
@@ -3508,7 +3515,35 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     await expectVisibleFocus(
       page.getByTestId(workbookAddRowButtonTestId(timelineViewSchemaId)),
     );
+    await textSpacingStyle.evaluate((element) => {
+      element.parentNode?.removeChild(element);
+    });
     await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    await expect(
+      page.getByTestId(workbookResponsiveBandTestId()),
+    ).toHaveAttribute(
+      "data-workbook-responsive-band",
+      "below_supported_minimum",
+    );
+    await expect(
+      page.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(workbookAddRowButtonTestId(timelineViewSchemaId)),
+    ).toBeVisible();
+    const zoomedDocumentGeometry = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(zoomedDocumentGeometry.scrollWidth).toBeLessThanOrEqual(
+      zoomedDocumentGeometry.clientWidth + 1,
+    );
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
     await groupingSelect.selectOption("timeline.capture_state");
     await expect(reviewedGroup).toBeVisible();
 
@@ -4220,7 +4255,11 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       "task.priority",
     );
     const priorityChip = page.getByTestId(
-      gridFilterChipTestId(taskRequestsViewSchemaId, "task.priority"),
+      workbookQueryEntryTestId(
+        taskRequestsViewSchemaId,
+        "filter",
+        "task.priority",
+      ),
     );
     await expect(priorityChip).toContainText("urgent");
     await expectVisibleFocus(priorityChip);
@@ -4298,7 +4337,11 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       savedViewStatusTestId(taskRequestsViewSchemaId),
       gridFilterFieldTestId(taskRequestsViewSchemaId),
       gridFilterApplyTestId(taskRequestsViewSchemaId),
-      gridFilterChipTestId(taskRequestsViewSchemaId, "task.priority"),
+      workbookQueryEntryTestId(
+        taskRequestsViewSchemaId,
+        "filter",
+        "task.priority",
+      ),
       gridGroupingSelectTestId(taskRequestsViewSchemaId),
       gridSortHeaderTestId(taskRequestsViewSchemaId, "task.title"),
       rowCellTestId(urgentTask.record_id, "task.title"),

@@ -1,6 +1,5 @@
 import {
   gridFilterApplyTestId,
-  gridFilterChipTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
@@ -9,6 +8,7 @@ import {
   gridSortHeaderTestId,
   rowCellTestId,
   workbookFilterPopoverTriggerTestId,
+  workbookQueryEntryTestId,
 } from "@cartulary/ui-contracts";
 import { describe, expect, it, vi } from "vitest";
 
@@ -106,8 +106,8 @@ export function registerActionSuite() {
         workbookFilterPopoverTriggerTestId(surface),
         gridFilterValueTestId(surface),
         gridFilterApplyTestId(surface),
-        gridFilterChipTestId(surface, "timeline.capture_state"),
-        gridFilterChipTestId(surface, "timeline.capture_state"),
+        workbookQueryEntryTestId(surface, "filter", "timeline.capture_state"),
+        workbookQueryEntryTestId(surface, "filter", "timeline.capture_state"),
         gridGroupingSelectTestId(surface),
       ]);
       expect(selected[gridFilterFieldTestId(surface)]).toBe(

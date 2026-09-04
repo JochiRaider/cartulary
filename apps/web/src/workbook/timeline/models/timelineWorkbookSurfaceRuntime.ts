@@ -1,7 +1,8 @@
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookClipboardPastePort } from "../../adapters/WorkbookClipboardPastePort";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
+import type { WorkbookViewBarWorkingSetBinding } from "../../components/WorkbookViewBar";
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type { WorkbookGridEntryFocusOwner } from "../../models/workbookGridEntryFocus";
 import type {
@@ -67,8 +68,7 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly filterDraft: FilterDraft;
     readonly setFilterDraft: Dispatch<SetStateAction<FilterDraft>>;
     readonly renderInlineControls: boolean;
-    readonly savedViewSelector: ReactNode | undefined;
-    readonly viewBarQueryControls: ReactNode | undefined;
+    readonly viewBarWorkingSet: WorkbookViewBarWorkingSetBinding | null;
   };
   readonly entities: {
     readonly hosts: readonly TimelineWorkbookEntityRow[];

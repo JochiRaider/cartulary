@@ -24,10 +24,7 @@ import { WorkbookActiveSurfacePresentation } from "./components/WorkbookActiveSu
 import { WorkbookIncidentControlsPresentation } from "./components/WorkbookIncidentControlsPresentation";
 import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
-import {
-  WorkbookShellQueryControls,
-  WorkbookShellSavedViewControl,
-} from "./components/WorkbookShellViewBarControls";
+import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useWorkbookAuthorizationState } from "./hooks/useWorkbookAuthorizationState";
 import { useWorkbookCollaborationLifecycle } from "./hooks/useWorkbookCollaborationLifecycle";
@@ -262,22 +259,14 @@ function WorkbookShellContent({
     snapshot.activeContract.title,
     networkAnalysisActive,
   );
-  const activeSavedViewSelector = (
-    <WorkbookShellSavedViewControl
-      chromeMode={workbookLayout.shell.chromeMode}
-      currentIncidentRole={authorization.currentIncidentRole}
-      currentUserId={authorization.currentUserId}
-      networkAnalysisActive={networkAnalysisActive}
-      runtime={infrastructure.workbookRuntime}
-    />
-  );
-  const activeViewBarQueryControls = (
-    <WorkbookShellQueryControls
-      chromeMode={workbookLayout.shell.chromeMode}
-      networkAnalysisActive={networkAnalysisActive}
-      runtime={infrastructure.workbookRuntime}
-    />
-  );
+  const viewBarWorkingSet = workbookShellViewBarWorkingSet({
+    chromeMode: workbookLayout.shell.chromeMode,
+    currentIncidentRole: authorization.currentIncidentRole,
+    currentUserId: authorization.currentUserId,
+    incidentId,
+    networkAnalysisActive,
+    runtime: infrastructure.workbookRuntime,
+  });
   const facadeProps: WorkbookSurfacesFacadeProps = {
     collaboration: { projection: collaboration.projection },
     continuity: { resetKey: collaboration.continuityResetKey },
@@ -304,8 +293,7 @@ function WorkbookShellContent({
     queries: queries.facadeQueries,
     viewState: {
       activeContract: snapshot.activeContract,
-      queryControls: activeViewBarQueryControls,
-      savedViewSelector: activeSavedViewSelector,
+      viewBarWorkingSet,
       sheetRef: snapshot.startupSheetRef,
       sheetReloadToken: snapshot.sheetReloadToken,
       surface: snapshot.surface,

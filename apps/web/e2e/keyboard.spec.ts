@@ -358,7 +358,7 @@ async function readWorkbookViewBarGeometry(page: Page) {
       );
       const chipButtons = Array.from(
         queryControls.querySelectorAll<HTMLButtonElement>(
-          '[role="toolbar"][aria-label="Active query chips"] button[title]',
+          '[role="toolbar"][aria-label="Active query chips"] button[data-query-entry-key]',
         ),
       );
       const controls: ReadonlyArray<readonly [string, HTMLElement]> = [
@@ -830,7 +830,7 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   ).toHaveValue(longQuerySavedView.saved_view_id);
   await expect(
     page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
-  ).toHaveAttribute("data-hidden-query-chip-count", "1");
+  ).toHaveAttribute("data-hidden-query-chip-count", "6");
   await expect(page.locator('[data-grid-data-state="refreshing"]')).toHaveCount(
     0,
   );
@@ -865,14 +865,14 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   ).toHaveCount(0);
 
   const baseGeometry = await expectWorkbookViewBarGeometry(page, {
-    capacity: 8,
-    hiddenCount: 1,
+    capacity: 3,
+    hiddenCount: 6,
     label: "base 1440x900",
   });
   await page.setViewportSize({ width: 1440, height: 720 });
   const baseShortGeometry = await expectWorkbookViewBarGeometry(page, {
-    capacity: 8,
-    hiddenCount: 1,
+    capacity: 3,
+    hiddenCount: 6,
     label: "base 1440x720",
   });
   expect(baseShortGeometry.filter).toEqual(baseGeometry.filter);
@@ -880,14 +880,14 @@ test("keeps the incident workbook inside the browser viewport and delegates over
 
   await page.setViewportSize({ width: 1024, height: 720 });
   const narrowGeometry = await expectWorkbookViewBarGeometry(page, {
-    capacity: 6,
-    hiddenCount: 3,
+    capacity: 2,
+    hiddenCount: 7,
     label: "narrow 1024x720",
   });
   await page.setViewportSize({ width: 1024, height: 640 });
   const narrowShortGeometry = await expectWorkbookViewBarGeometry(page, {
-    capacity: 6,
-    hiddenCount: 3,
+    capacity: 2,
+    hiddenCount: 7,
     label: "narrow 1024x640",
   });
   expect(narrowShortGeometry.filter).toEqual(narrowGeometry.filter);
@@ -966,7 +966,7 @@ test("keeps the incident workbook inside the browser viewport and delegates over
   ).toHaveAttribute("data-workbook-responsive-band", "narrow_desktop");
   await expect(
     page.getByTestId(workbookViewBarQueryControlsTestId(timelineViewSchemaId)),
-  ).toHaveAttribute("data-query-chip-capacity", "6");
+  ).toHaveAttribute("data-query-chip-capacity", "2");
   await expect(
     page.getByTestId(timelineMutationSubstrateReadyTestId()),
   ).toHaveAttribute("data-inspector-layout", "right_overlay");
