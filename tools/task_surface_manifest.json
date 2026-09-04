@@ -208,6 +208,11 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "postgres-baseline-reset",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
         "target": "db-up",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
@@ -743,6 +748,11 @@
           "target": "db-reset",
           "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
           "description": "preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset"
+        },
+        {
+          "target": "postgres-baseline-reset",
+          "usage": "CARTULARY_CLEANUP_DRY_RUN=1 POSTGRES_BASELINE_PROFILE=dev",
+          "description": "preview or replace only the selected dev or MVP PostgreSQL volume baseline; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset"
         },
         {
           "target": "services-up",
@@ -1344,6 +1354,29 @@
         "bash",
         "./tools/harness/readiness/dev-services.sh",
         "db-reset"
+      ]
+    },
+    "postgres-baseline-reset": {
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "$(NODE_BIN)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "GO": "$(GO)",
+        "CONFIG_FILE": "$(CONFIG_FILE)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
+        "NODE_BIN": "$(NODE_BIN)",
+        "POSTGRES_BASELINE_PROFILE": "$(POSTGRES_BASELINE_PROFILE)",
+        "CARTULARY_CLEANUP_DRY_RUN": "$(CARTULARY_CLEANUP_DRY_RUN)",
+        "CARTULARY_DESTRUCTIVE_CONFIRM": "$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"
+      },
+      "command": [
+        "bash",
+        "./tools/harness/readiness/postgres-baseline-reset.sh"
       ]
     },
     "services-up": {
@@ -3648,6 +3681,135 @@
       }
     },
     {
+      "name": "postgres-baseline-reset",
+      "backing_scripts": [
+        "tools/harness/readiness/postgres-baseline-reset.sh"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 6,
+          "stdout_bytes": 1600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.postgres_baseline_reset.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "destructive_safety",
+          "owner_section": "Section 13"
+        },
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "service_start",
+          "owner_section": "Section 11",
+          "ownership_mode": "local_dev",
+          "lifecycle_machine": "service lifecycle from Section 11"
+        },
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "CARTULARY_CLEANUP_DRY_RUN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "exact_1_bool",
+            "default": false,
+            "empty_string": "false",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "CARTULARY_DESTRUCTIVE_CONFIRM",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "postgres-baseline-reset"
+            ],
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "none"
+          },
+          {
+            "name": "POSTGRES_BASELINE_PROFILE",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "dev",
+              "mvp"
+            ],
+            "default": "dev",
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
       "name": "services-up",
       "backing_scripts": [
         "tools/harness/readiness/dev-services.sh"
@@ -5724,8 +5886,11 @@
     {
       "name": "benchmark-claim-check",
       "backing_scripts": [
+        "contracts/claim-publication/benchmark-profile-registry.v1.json",
+        "tools/harness/contract/index.mjs",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/release-evidence/check-benchmark-claim.mjs"
+        "tools/release-evidence/check-benchmark-claim.mjs",
+        "tools/schemas/cartulary.benchmark_profile_registry.v1.schema.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13860,7 +14025,10 @@
     {
       "name": "harness-smoke-benchmark-claim-check",
       "backing_scripts": [
-        "tools/release-evidence/tests/test-benchmark-claim-check.sh"
+        "contracts/claim-publication/benchmark-profile-registry.v1.json",
+        "tools/release-evidence/check-benchmark-claim.mjs",
+        "tools/release-evidence/tests/test-benchmark-claim-check.sh",
+        "tools/schemas/cartulary.benchmark_profile_registry.v1.schema.json"
       ]
     },
     {

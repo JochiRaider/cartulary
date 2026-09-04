@@ -50,6 +50,8 @@ root_body="$work_dir/root.html"
 asset_body="$work_dir/asset.bin"
 ready_body="$work_dir/readyz.json"
 container_id=""
+legacy_postgres_volume="${project}_legacy-postgres-v16"
+postgres_image="docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
 
 compose() {
   docker compose --project-name "$project" --env-file "$work_dir/.env" -f "$compose_file" "$@"
@@ -70,6 +72,7 @@ cleanup() {
     docker rm "$container_id" >/dev/null 2>&1 || true
   fi
   compose down -v --remove-orphans >/dev/null 2>&1 || true
+  docker volume rm "$legacy_postgres_volume" >/dev/null 2>&1 || true
   docker rmi "$image" >/dev/null 2>&1 || true
   rm -rf "$work_dir"
   exit "$status"
@@ -80,6 +83,7 @@ sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" 
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"
 cp "$PACKAGE_DIR/bootstrap-admin.json.example" "$work_dir/bootstrap-admin.json"
 cp "$PACKAGE_DIR/revisions-conflict-token-key-ring.json.example" "$work_dir/revisions-conflict-token-key-ring.json"
+cp "$PACKAGE_DIR/postgres-provision.sh" "$work_dir/postgres-provision.sh"
 cat >"$work_dir/.env" <<EOF
 CARTULARY_IMAGE=${image}
 CARTULARY_HTTP_PORT=${port}
@@ -88,6 +92,9 @@ CARTULARY_PUBLIC_ORIGIN=${public_origin}
 POSTGRES_DB=cartulary
 POSTGRES_USER=cartulary
 POSTGRES_PASSWORD=cartulary-postgres-smoke-password
+CARTULARY_POSTGRES_MIGRATION_PASSWORD=cartulary-migration-smoke-password
+CARTULARY_POSTGRES_RUNTIME_PASSWORD=cartulary-runtime-smoke-password
+CARTULARY_POSTGRES_RECOVERY_PASSWORD=cartulary-recovery-smoke-password
 
 CARTULARY_AUTH_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 CARTULARY_RECOVERY_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
@@ -96,6 +103,11 @@ CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE=cmV2aXNpb25zLXRva2VuLWtleS1tYXR
 CARTULARY_S3_PRIMARY_ACCESS_KEY_ID=cartulary-local
 CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY=cartulary-local-secret
 CARTULARY_S3_PRIMARY_BUCKET=cartulary-mvp-smoke
+CARTULARY_S3_RESTORE_VERIFY_ENDPOINT=seaweedfs-s3:8333
+CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID=cartulary-local
+CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY=cartulary-local-secret
+CARTULARY_S3_RESTORE_VERIFY_BUCKET=cartulary-mvp-smoke-restore
+CARTULARY_S3_RESTORE_VERIFY_SECURE=false
 EOF
 
 compose build app >/dev/null
@@ -115,6 +127,18 @@ done
 if grep -Eq '(^|/)(node|npm|pnpm|vite)(/|$)|(^|/)node_modules(/|$)|(^|/)apps/web(/|$)|(^|/)db/migrations(/|$)' "$image_listing"; then
   fail "runtime image contains forbidden Node/Vite/source-tree paths"
 fi
+
+docker volume create --label "com.docker.compose.project=${project}" --label "com.docker.compose.volume=legacy-postgres-v16" "$legacy_postgres_volume" >/dev/null
+docker run --rm --entrypoint sh -v "${legacy_postgres_volume}:/var/lib/postgresql" "$postgres_image" -c \
+  'mkdir -p /var/lib/postgresql/18/docker && printf "16\n" >/var/lib/postgresql/18/docker/PG_VERSION'
+if docker run --rm \
+  -e PGDATA=/var/lib/postgresql/18/docker \
+  -e POSTGRES_PASSWORD=unused-legacy-fixture \
+  -v "${legacy_postgres_volume}:/var/lib/postgresql" \
+  "$postgres_image" >"$work_dir/legacy-postgres.stdout" 2>"$work_dir/legacy-postgres.stderr"; then
+  fail "PostgreSQL 18 accepted a synthetic PostgreSQL 16 data directory"
+fi
+docker volume rm "$legacy_postgres_volume" >/dev/null
 
 compose up -d --build app >/dev/null
 
@@ -195,7 +219,12 @@ assert_bind_mount_not_from_source_tree() {
   done < <(docker inspect -f '{{range .Mounts}}{{println .Type "|" .Source "|" .Destination}}{{end}}' "$id")
 }
 
-assert_volume_mount postgres /var/lib/postgresql/data
+assert_volume_mount postgres /var/lib/postgresql
+# shellcheck disable=SC2016 # Expand PGDATA inside the Compose container, not this shell.
+effective_pgdata="$(compose exec -T postgres sh -c 'printf %s "$PGDATA"')"
+[[ "$effective_pgdata" == "/var/lib/postgresql/18/docker" ]] || fail "postgres PGDATA was $effective_pgdata"
+server_facts="$(compose exec -T postgres psql -U cartulary -d cartulary -Atc "SELECT current_setting('server_version_num'), current_setting('data_checksums');")"
+[[ "$server_facts" == "180006|on" ]] || fail "postgres engine admission facts were not exact 18.6/checksums-on"
 assert_volume_mount seaweedfs-s3 /data
 assert_volume_mount app /var/lib/cartulary/backups
 assert_volume_mount app /var/lib/cartulary/reference-packs

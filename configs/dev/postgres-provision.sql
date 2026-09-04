@@ -1,5 +1,7 @@
 \set ON_ERROR_STOP on
 
+SET password_encryption = 'scram-sha-256';
+
 DO $cartulary_roles$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_schema_owner') THEN
@@ -56,37 +58,44 @@ SELECT format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', routine.oid::pg_catal
     ON dependency.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
    AND dependency.objid = routine.oid
    AND dependency.deptype = 'e'
-  JOIN pg_catalog.pg_extension AS extension
+ JOIN pg_catalog.pg_extension AS extension
     ON extension.oid = dependency.refobjid
  WHERE extension.extname IN ('pgcrypto', 'citext')
  ORDER BY routine.oid::pg_catalog.regprocedure::text
 \gexec
 
-SELECT format('REVOKE USAGE ON TYPE %s FROM PUBLIC', extension_type.oid::pg_catalog.regtype)
+SELECT format('REVOKE USAGE ON TYPE %I.%I FROM PUBLIC', type_namespace.nspname, extension_type.typname)
   FROM pg_catalog.pg_type AS extension_type
+  JOIN pg_catalog.pg_namespace AS type_namespace
+    ON type_namespace.oid = extension_type.typnamespace
   JOIN pg_catalog.pg_depend AS dependency
     ON dependency.classid = 'pg_catalog.pg_type'::pg_catalog.regclass
    AND dependency.objid = extension_type.oid
    AND dependency.deptype = 'e'
-  JOIN pg_catalog.pg_extension AS extension
+ JOIN pg_catalog.pg_extension AS extension
     ON extension.oid = dependency.refobjid
  WHERE extension.extname IN ('pgcrypto', 'citext')
- ORDER BY extension_type.oid::pg_catalog.regtype::text
+   AND extension_type.typelem = 0
+ ORDER BY type_namespace.nspname, extension_type.typname
 \gexec
 
 SELECT format(
-           'GRANT USAGE ON TYPE %s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery',
-           extension_type.oid::pg_catalog.regtype
+           'GRANT USAGE ON TYPE %I.%I TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery',
+           type_namespace.nspname,
+           extension_type.typname
        )
   FROM pg_catalog.pg_type AS extension_type
+  JOIN pg_catalog.pg_namespace AS type_namespace
+    ON type_namespace.oid = extension_type.typnamespace
   JOIN pg_catalog.pg_depend AS dependency
     ON dependency.classid = 'pg_catalog.pg_type'::pg_catalog.regclass
    AND dependency.objid = extension_type.oid
    AND dependency.deptype = 'e'
-  JOIN pg_catalog.pg_extension AS extension
+ JOIN pg_catalog.pg_extension AS extension
     ON extension.oid = dependency.refobjid
  WHERE extension.extname IN ('pgcrypto', 'citext')
- ORDER BY extension_type.oid::pg_catalog.regtype::text
+   AND extension_type.typelem = 0
+ ORDER BY type_namespace.nspname, extension_type.typname
 \gexec
 
 SELECT format(

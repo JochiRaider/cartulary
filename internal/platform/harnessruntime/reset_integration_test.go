@@ -137,7 +137,7 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	}
 	t.Cleanup(runtimePool.Close)
 	bootstrapSettings := bootstrap.Settings{ManifestPath: cfg.Bootstrap.FirstAdminManifestPath}
-	if err := bootstrap.Preflight(ctx, bootstrapSettings, runtimePool); err != nil {
+	if err := bootstrap.Preflight(ctx, bootstrapSettings, runtimePool.Pool()); err != nil {
 		t.Fatalf("bootstrap reset fixture: %v", err)
 	}
 	recoveryPool, err := postgres.Setup(ctx, postgres.Settings{
@@ -159,7 +159,7 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	beforeGooseVersions := requireSQLCount(t, db, `SELECT COUNT(*) FROM goose_db_version`)
 	beforeLineage := requireSQLCount(t, db, `SELECT COUNT(*) FROM schema_migration_lineage`)
 	seedTestRuntimeResetRows(t, db)
-	result, err := ResetDatabase(ctx, recoveryPool, func(ctx context.Context, tx pgx.Tx) error {
+	result, err := ResetDatabase(ctx, recoveryPool.Pool(), func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
 	})
 	if err != nil {
@@ -210,7 +210,7 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	if _, err := lockTransaction.ExecContext(ctx, `LOCK TABLE incidents IN ACCESS SHARE MODE`); err != nil {
 		t.Fatalf("hold reset-conflicting table lock: %v", err)
 	}
-	_, err = ResetDatabase(ctx, contentionRecovery, func(ctx context.Context, tx pgx.Tx) error {
+	_, err = ResetDatabase(ctx, contentionRecovery.Pool(), func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
 	})
 	var contentionFailure *DatabaseResetFailure

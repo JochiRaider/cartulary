@@ -14,6 +14,8 @@ psql \
   --set migration_password="$CARTULARY_POSTGRES_MIGRATION_PASSWORD" \
   --set runtime_password="$CARTULARY_POSTGRES_RUNTIME_PASSWORD" \
   --set recovery_password="$CARTULARY_POSTGRES_RECOVERY_PASSWORD" <<'SQL'
+SET password_encryption = 'scram-sha-256';
+
 SELECT format('CREATE ROLE cartulary_schema_owner NOLOGIN')
  WHERE NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_schema_owner')
 \gexec
@@ -68,25 +70,29 @@ SELECT format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', procedure.oid::pg_cat
  ORDER BY procedure.oid::pg_catalog.regprocedure::text
 \gexec
 
-SELECT format('REVOKE USAGE ON TYPE %s FROM PUBLIC', extension_type.oid::pg_catalog.regtype)
+SELECT format('REVOKE USAGE ON TYPE %I.%I FROM PUBLIC', type_namespace.nspname, extension_type.typname)
   FROM pg_catalog.pg_type AS extension_type
+  JOIN pg_catalog.pg_namespace AS type_namespace ON type_namespace.oid = extension_type.typnamespace
   JOIN pg_catalog.pg_depend AS dependency
     ON dependency.classid = 'pg_catalog.pg_type'::pg_catalog.regclass
    AND dependency.objid = extension_type.oid
    AND dependency.deptype = 'e'
   JOIN pg_catalog.pg_extension AS extension ON extension.oid = dependency.refobjid
  WHERE extension.extname IN ('pgcrypto', 'citext')
- ORDER BY extension_type.oid::pg_catalog.regtype::text
+   AND extension_type.typelem = 0
+ ORDER BY type_namespace.nspname, extension_type.typname
 \gexec
-SELECT format('GRANT USAGE ON TYPE %s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', extension_type.oid::pg_catalog.regtype)
+SELECT format('GRANT USAGE ON TYPE %I.%I TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', type_namespace.nspname, extension_type.typname)
   FROM pg_catalog.pg_type AS extension_type
+  JOIN pg_catalog.pg_namespace AS type_namespace ON type_namespace.oid = extension_type.typnamespace
   JOIN pg_catalog.pg_depend AS dependency
     ON dependency.classid = 'pg_catalog.pg_type'::pg_catalog.regclass
    AND dependency.objid = extension_type.oid
    AND dependency.deptype = 'e'
   JOIN pg_catalog.pg_extension AS extension ON extension.oid = dependency.refobjid
  WHERE extension.extname IN ('pgcrypto', 'citext')
- ORDER BY extension_type.oid::pg_catalog.regtype::text
+   AND extension_type.typelem = 0
+ ORDER BY type_namespace.nspname, extension_type.typname
 \gexec
 SELECT format('GRANT EXECUTE ON FUNCTION %s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', procedure.oid::pg_catalog.regprocedure)
   FROM pg_catalog.pg_proc AS procedure

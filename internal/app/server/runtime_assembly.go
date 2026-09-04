@@ -79,7 +79,7 @@ import (
 type Options struct {
 	Env                       map[string]string
 	HTTP                      httpapi.Options
-	Postgres                  *pgxpool.Pool
+	Postgres                  postgres.AdmittedPool
 	ObjectStore               objectstore.Store
 	Now                       func() time.Time
 	ObserveJobs               func(*jobs.Manager, *jobs.TransactionService, *jobs.Runner, *pgxpool.Pool)
@@ -162,8 +162,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 
-	postgresPool := options.Postgres
-	if postgresPool == nil {
+	postgresAdmission := options.Postgres
+	if postgresAdmission == nil {
 		postgresSettings, settingsErr := postgres.ResolveSettings(configassembly.PostgresBinding(normalizedCfg), postgres.PurposeRuntime, options.Env)
 		if settingsErr != nil {
 			runtime.Close()
@@ -174,10 +174,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("setup postgres: %w", err)
 		}
-		postgresPool = pool
+		postgresAdmission = pool
 		if pool != nil {
 			runtime.own(pool.Close)
 		}
+	}
+	var postgresPool *pgxpool.Pool
+	if postgresAdmission != nil {
+		postgresPool = postgresAdmission.Pool()
 	}
 	lease, leaseErr := dependencies.acquireApplicationProcessLease(
 		ctx,

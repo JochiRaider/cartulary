@@ -21,6 +21,7 @@
           "TestMigrateRunnerDBOpenFailure",
           "TestMigrateRunnerPrintsMigrationRemediationReport",
           "TestMigrateRunnerPrintsSafeMigrationReason",
+          "TestMigrateRunnerPrintsSafePostgresAdmissionReason",
           "TestMigrateRunnerRejectsUnsupportedGrammarBeforeConfiguration",
           "TestMigrateRunnerRunPassesContextToMigration"
         ]

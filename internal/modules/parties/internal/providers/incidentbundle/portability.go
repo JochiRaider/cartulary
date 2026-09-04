@@ -50,6 +50,13 @@ type preparedPartyImport struct {
 	rows          []partyPortableRow
 }
 
+type partyActiveKeyClaim struct {
+	incidentID      uuid.UUID
+	keyKind         string
+	normalizedValue string
+	recordID        uuid.UUID
+}
+
 func exportIncidentBundleFiles(
 	ctx context.Context,
 	q incidentportability.Queryer,
@@ -236,23 +243,6 @@ SELECT EXISTS (
 
 	var lifecycleInvalid bool
 	if err := tx.QueryRow(ctx, `
-WITH expected_claims AS (
-    SELECT incident_id, key_kind, normalized_value, party_record_id
-      FROM parties_expected_active_key_claims_v1(NULL::uuid)
-     WHERE incident_id = $1
-), claim_difference AS (
-    (SELECT * FROM expected_claims
-     EXCEPT
-     SELECT incident_id, key_kind, normalized_value, party_record_id
-       FROM party_active_key_claims
-      WHERE incident_id = $1)
-    UNION ALL
-    (SELECT incident_id, key_kind, normalized_value, party_record_id
-       FROM party_active_key_claims
-      WHERE incident_id = $1
-     EXCEPT
-     SELECT * FROM expected_claims)
-)
 SELECT EXISTS (
     SELECT 1
       FROM parties
@@ -263,8 +253,6 @@ SELECT EXISTS (
                'person', 'team', 'organization', 'distribution_list', 'other'
            )
        )
-    UNION ALL
-    SELECT 1 FROM claim_difference
 )`, importContext.IncidentID).Scan(&lifecycleInvalid); err != nil {
 		return err
 	}
@@ -297,6 +285,13 @@ SELECT EXISTS (
 			!optionalPartyStringEqual(actual.Notes, expected.Notes) {
 			return descriptor.DeclaredFailure("parties.normalization_exact")
 		}
+	}
+	claimsValid, err := partyActiveKeyClaimsValidTx(ctx, tx, importContext.IncidentID, actualRows)
+	if err != nil {
+		return err
+	}
+	if !claimsValid {
+		return descriptor.DeclaredFailure("parties.identity_lifecycle")
 	}
 	return nil
 }
@@ -437,6 +432,103 @@ SELECT record_id, incident_id, display_name, party_kind,
 		result = append(result, row)
 	}
 	return result, rows.Err()
+}
+
+func partyActiveKeyClaimsValidTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	partyRows []partyPortableRow,
+) (bool, error) {
+	activeRecordRows, err := tx.Query(ctx, `
+SELECT record_id
+  FROM records
+ WHERE incident_id = $1
+   AND record_type = 'party'
+   AND deleted_at IS NULL`, incidentID)
+	if err != nil {
+		return false, err
+	}
+	activeRecordIDs := make(map[uuid.UUID]struct{})
+	for activeRecordRows.Next() {
+		var recordID uuid.UUID
+		if err := activeRecordRows.Scan(&recordID); err != nil {
+			activeRecordRows.Close()
+			return false, err
+		}
+		activeRecordIDs[recordID] = struct{}{}
+	}
+	if err := activeRecordRows.Err(); err != nil {
+		activeRecordRows.Close()
+		return false, err
+	}
+	activeRecordRows.Close()
+
+	expected := make(map[partyActiveKeyClaim]struct{})
+	for _, row := range partyRows {
+		if _, active := activeRecordIDs[row.RecordID]; !active {
+			continue
+		}
+		for _, candidate := range []struct {
+			fieldKey string
+			keyKind  string
+			value    *string
+		}{
+			{fieldKey: "party.primary_email", keyKind: "primary_email", value: row.PrimaryEmail},
+			{fieldKey: "party.external_ref", keyKind: "external_ref", value: row.ExternalRef},
+		} {
+			admitted, admissionErr := policy.AdmitStored(candidate.fieldKey, candidate.value)
+			if admissionErr != nil {
+				return false, nil
+			}
+			normalizedValue, present := admitted.ExactMatchClaimValue()
+			if !present {
+				continue
+			}
+			expected[partyActiveKeyClaim{
+				incidentID:      incidentID,
+				keyKind:         candidate.keyKind,
+				normalizedValue: normalizedValue,
+				recordID:        row.RecordID,
+			}] = struct{}{}
+		}
+	}
+
+	claimRows, err := tx.Query(ctx, `
+SELECT incident_id, key_kind, normalized_value, party_record_id
+  FROM party_active_key_claims
+ WHERE incident_id = $1`, incidentID)
+	if err != nil {
+		return false, err
+	}
+	actual := make(map[partyActiveKeyClaim]struct{})
+	for claimRows.Next() {
+		var claim partyActiveKeyClaim
+		if err := claimRows.Scan(
+			&claim.incidentID,
+			&claim.keyKind,
+			&claim.normalizedValue,
+			&claim.recordID,
+		); err != nil {
+			claimRows.Close()
+			return false, err
+		}
+		actual[claim] = struct{}{}
+	}
+	if err := claimRows.Err(); err != nil {
+		claimRows.Close()
+		return false, err
+	}
+	claimRows.Close()
+	if len(expected) != len(actual) {
+		return false, nil
+	}
+	for claim := range expected {
+		if _, present := actual[claim]; !present {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func optionalPartyStringEqual(left, right *string) bool {

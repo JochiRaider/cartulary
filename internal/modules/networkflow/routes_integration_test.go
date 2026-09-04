@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
@@ -996,7 +997,21 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	}
 	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminID, projection)
 	networkFlowJobID := seedRestoredNetworkFlowGraphJob(t, harness, incidentID, adminID, projection)
-	restoreParticipant, err := recoveryassembly.NewGraphProjectionRestoreParticipant(harness.Pool)
+	recoveryDSN, err := harness.Database.DSNForPurpose(postgres.PurposeRecovery)
+	if err != nil {
+		t.Fatalf("resolve Recovery-purpose DSN: %v", err)
+	}
+	recoveryHandle, err := postgres.Setup(context.Background(), postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          recoveryDSN,
+		Purpose:      postgres.PurposeRecovery,
+		ExpectedRole: "cartulary_recovery",
+	})
+	if err != nil {
+		t.Fatalf("open admitted Recovery-purpose pool: %v", err)
+	}
+	t.Cleanup(recoveryHandle.Close)
+	restoreParticipant, err := recoveryassembly.NewGraphProjectionRestoreParticipant(recoveryHandle.Pool())
 	if err != nil {
 		t.Fatalf("construct active saved-graph restore participant: %v", err)
 	}

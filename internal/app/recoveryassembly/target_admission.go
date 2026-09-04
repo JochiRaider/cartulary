@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 )
 
@@ -24,10 +23,11 @@ func AcquireTargetServingAdmission(
 	acquireTimeout time.Duration,
 	lossDetection time.Duration,
 ) (application.TargetServingAdmission, error) {
-	concretePool, ok := pool.(*pgxpool.Pool)
-	if !ok || concretePool == nil {
-		return nil, fmt.Errorf("restore target serving lease requires a concrete PostgreSQL pool")
+	admitted, ok := pool.(postgres.AdmittedPool)
+	if !ok || admitted == nil || admitted.Pool() == nil {
+		return nil, fmt.Errorf("restore target serving lease requires an admitted PostgreSQL pool")
 	}
+	concretePool := admitted.Pool()
 	admission, err := processlease.AcquireRecoveryTarget(
 		ctx,
 		concretePool,

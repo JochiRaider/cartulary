@@ -60,7 +60,7 @@ func TestProductionDDLObjectManifestContract(t *testing.T) {
 	}
 	if manifest.SchemaID != "cartulary.schema_object_ownership_manifest.v2" ||
 		manifest.MigrationRoot != "db/migrations" ||
-		manifest.SupportedPostgresMajor != 16 ||
+		manifest.SupportedPostgresMajor != 18 ||
 		manifest.GooseLedger != "public.goose_db_version" ||
 		manifest.LineageRelation != "public.schema_migration_lineage" ||
 		len(manifest.ApplicationSchemas) != 1 || manifest.ApplicationSchemas[0] != "public" {
@@ -242,7 +242,9 @@ WITH extension_objects AS (
     FROM pg_catalog.pg_constraint AS constraint_row
     JOIN pg_catalog.pg_class AS relation ON relation.oid = constraint_row.conrelid
     JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
-    WHERE namespace.nspname = 'public' AND relation.relname <> 'goose_db_version'
+    WHERE namespace.nspname = 'public'
+      AND relation.relname <> 'goose_db_version'
+      AND constraint_row.contype <> 'n'
     UNION ALL
     SELECT 'index', 'public.' || index_relation.relname
     FROM pg_catalog.pg_index AS index_state
@@ -277,9 +279,10 @@ SELECT kind, qualified_name FROM managed ORDER BY kind, qualified_name
 
 func assertCatalogStructuralFacts(t testing.TB, db *sql.DB, manifest schemaObjectManifest) {
 	t.Helper()
-	var major int
-	if err := db.QueryRowContext(context.Background(), `SELECT current_setting('server_version_num')::integer / 10000`).Scan(&major); err != nil || major != 16 {
-		t.Fatalf("PostgreSQL major = %d, want 16: %v", major, err)
+	var version int
+	var checksums string
+	if err := db.QueryRowContext(context.Background(), `SELECT current_setting('server_version_num')::integer, current_setting('data_checksums')::text`).Scan(&version, &checksums); err != nil || version != platformpostgres.RequiredServerVersionNum || checksums != "on" {
+		t.Fatalf("PostgreSQL admission facts = %d/%s, want %d/on: %v", version, checksums, platformpostgres.RequiredServerVersionNum, err)
 	}
 	var invalidConstraints int
 	if err := db.QueryRowContext(context.Background(), `SELECT count(*) FROM pg_catalog.pg_constraint AS constraint_row JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = constraint_row.connamespace WHERE namespace.nspname = 'public' AND NOT constraint_row.convalidated`).Scan(&invalidConstraints); err != nil || invalidConstraints != 0 {

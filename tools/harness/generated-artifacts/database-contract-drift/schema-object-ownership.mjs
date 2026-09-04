@@ -144,8 +144,8 @@ function validateManifestShape(manifest, label, migrationAllocation) {
   assertRequiredKeys(manifest, manifestKeys, label);
   requireSchemaID(manifest, schemaID, label);
   requireRepoRelativePath(manifest.migration_root, `${label}.migration_root`);
-  if (requireInteger(manifest.supported_postgres_major, `${label}.supported_postgres_major`) !== 16) {
-    throw new Error(`${label}.supported_postgres_major must be 16`);
+  if (requireInteger(manifest.supported_postgres_major, `${label}.supported_postgres_major`) !== 18) {
+    throw new Error(`${label}.supported_postgres_major must be 18`);
   }
   const schemas = requireStringArray(manifest.application_schemas, `${label}.application_schemas`, { nonEmpty: true });
   if (schemas.length !== 1 || schemas[0] !== "public") throw new Error(`${label}.application_schemas must be exactly public`);

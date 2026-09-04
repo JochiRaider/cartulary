@@ -46,6 +46,8 @@
       "selector": {
         "package": "./internal/platform/postgres",
         "tests": [
+          "TestAdmissionErrorRedactsUnderlyingFailure",
+          "TestAdmissionFactsRequireExactEngineAndSecurityPosture",
           "TestPostgresDiagnosticsAreOpaque",
           "TestPostgresFilesystemCredentialSafety",
           "TestPostgresPurposeContracts",

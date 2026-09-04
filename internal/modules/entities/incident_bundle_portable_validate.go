@@ -7,7 +7,16 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
+
+type entityActiveIdentifierClaim struct {
+	incidentID      uuid.UUID
+	entityType      string
+	identifierType  string
+	normalizedValue string
+	recordID        uuid.UUID
+}
 
 func validatePreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared preparedEntityImport, importContext sourceport.ImportContext) error {
 	if tx == nil || !prepared.binding.matches(importContext) || importContext.Attributions == nil {
@@ -33,6 +42,10 @@ func validatePreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared pre
 	if err != nil {
 		return entitySourceFailure(entitySameIncident)
 	}
+	actualEnvelopes, err := loadEntityPortableEnvelopes(ctx, tx, importContext.IncidentID)
+	if err != nil {
+		return entitySourceFailure(entityEnvelopeTypeScope)
+	}
 
 	var failures []entityFailureCandidate
 	comparePortableHosts(prepared.hosts, actualHosts, &failures)
@@ -43,27 +56,136 @@ func validatePreparedEntityImportTx(ctx context.Context, tx pgx.Tx, prepared pre
 	if !entityAttributionsEqual(prepared, importContext) {
 		failures = append(failures, entityFailure(entitySourceIdentity, hostsBundlePath, "", importContext.IncidentID))
 	}
-	var claimsValid bool
-	if err := tx.QueryRow(ctx, `
-WITH expected AS (
-    SELECT expected.incident_id, expected.entity_type, expected.identifier_type,
-           expected.normalized_value, expected.record_id
-      FROM entities_expected_active_identifier_claims_v1(NULL::uuid) AS expected
-     WHERE expected.incident_id = $1
-), actual AS (
-    SELECT incident_id, entity_type, identifier_type, normalized_value, record_id
-      FROM entity_active_identifier_claims
-     WHERE incident_id = $1
-), difference AS (
-    (SELECT * FROM expected EXCEPT SELECT * FROM actual)
-    UNION ALL
-    (SELECT * FROM actual EXCEPT SELECT * FROM expected)
-)
-SELECT NOT EXISTS (SELECT 1 FROM difference)
-`, importContext.IncidentID).Scan(&claimsValid); err != nil || !claimsValid {
+	claimsValid, err := entityActiveIdentifierClaimsValidTx(
+		ctx,
+		tx,
+		importContext.IncidentID,
+		actualHosts,
+		actualIdentities,
+		actualPreserved,
+		actualEnvelopes,
+	)
+	if err != nil || !claimsValid {
 		failures = append(failures, entityFailure(entityUnique, preservedIDsBundlePath, "", importContext.IncidentID))
 	}
 	return selectedEntityFailure(failures)
+}
+
+func entityActiveIdentifierClaimsValidTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	hosts []portableHostRow,
+	identities []portableIdentityRow,
+	preserved []portablePreservedIdentifierRow,
+	envelopes map[uuid.UUID]entityPortableEnvelope,
+) (bool, error) {
+	expected := make(map[entityActiveIdentifierClaim]struct{})
+	add := func(recordID uuid.UUID, entityType, identifierType string, rawValue *string) bool {
+		if rawValue == nil {
+			return true
+		}
+		normalizedValue, admitted := fieldnorm.NormalizeIdentifier(identifierType, *rawValue)
+		if !admitted {
+			return false
+		}
+		expected[entityActiveIdentifierClaim{
+			incidentID:      incidentID,
+			entityType:      entityType,
+			identifierType:  identifierType,
+			normalizedValue: normalizedValue,
+			recordID:        recordID,
+		}] = struct{}{}
+		return true
+	}
+	hostStates := make(map[uuid.UUID]string, len(hosts))
+	for _, row := range hosts {
+		hostStates[row.RecordID] = row.State
+		envelope, present := envelopes[row.RecordID]
+		if !present || envelope.recordType != "host" || envelope.deletedAt != nil ||
+			(row.State != "stub" && row.State != "canonical") {
+			continue
+		}
+		if !add(row.RecordID, "host", "aad_device_id", row.AADDeviceID) ||
+			!add(row.RecordID, "host", "fqdn", row.FQDN) ||
+			!add(row.RecordID, "host", "hostname", row.Hostname) {
+			return false, nil
+		}
+	}
+	identityStates := make(map[uuid.UUID]string, len(identities))
+	for _, row := range identities {
+		identityStates[row.RecordID] = row.State
+		envelope, present := envelopes[row.RecordID]
+		if !present || envelope.recordType != "identity" || envelope.deletedAt != nil ||
+			(row.State != "stub" && row.State != "canonical") {
+			continue
+		}
+		if !add(row.RecordID, "identity", "aad_object_id", row.AADObjectID) ||
+			!add(row.RecordID, "identity", "sid", row.SID) ||
+			!add(row.RecordID, "identity", "upn", row.UPN) ||
+			!add(row.RecordID, "identity", "email", row.Email) ||
+			!add(row.RecordID, "identity", "sam_account_name", row.SAMAccountName) {
+			return false, nil
+		}
+	}
+	for _, row := range preserved {
+		envelope, present := envelopes[row.RecordID]
+		if !present || envelope.recordType != row.EntityType || envelope.deletedAt != nil ||
+			row.DeletedAt != nil || row.Classification != "exact_match_reuse" {
+			continue
+		}
+		state := hostStates[row.RecordID]
+		if row.EntityType == "identity" {
+			state = identityStates[row.RecordID]
+		}
+		if state != "stub" && state != "canonical" {
+			continue
+		}
+		expected[entityActiveIdentifierClaim{
+			incidentID:      incidentID,
+			entityType:      row.EntityType,
+			identifierType:  row.IdentifierType,
+			normalizedValue: row.NormalizedValue,
+			recordID:        row.RecordID,
+		}] = struct{}{}
+	}
+
+	claimRows, err := tx.Query(ctx, `
+SELECT incident_id, entity_type, identifier_type, normalized_value, record_id
+  FROM entity_active_identifier_claims
+ WHERE incident_id = $1`, incidentID)
+	if err != nil {
+		return false, err
+	}
+	actual := make(map[entityActiveIdentifierClaim]struct{})
+	for claimRows.Next() {
+		var claim entityActiveIdentifierClaim
+		if err := claimRows.Scan(
+			&claim.incidentID,
+			&claim.entityType,
+			&claim.identifierType,
+			&claim.normalizedValue,
+			&claim.recordID,
+		); err != nil {
+			claimRows.Close()
+			return false, err
+		}
+		actual[claim] = struct{}{}
+	}
+	if err := claimRows.Err(); err != nil {
+		claimRows.Close()
+		return false, err
+	}
+	claimRows.Close()
+	if len(expected) != len(actual) {
+		return false, nil
+	}
+	for claim := range expected {
+		if _, present := actual[claim]; !present {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func comparePortableHosts(expected, actual []portableHostRow, failures *[]entityFailureCandidate) {

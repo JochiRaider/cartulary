@@ -33,7 +33,7 @@ func TestPostgresPurposeConnectionsEstablishExactIdentity_Integration(t *testing
 				ExpectedRole: test.role,
 			}
 
-			db, err := postgres.OpenSQL(settings)
+			db, err := postgres.OpenSQL(ctx, settings)
 			if err != nil {
 				t.Fatalf("open stdlib purpose connection: %v", err)
 			}
@@ -88,18 +88,16 @@ func TestPostgresEffectiveRoleMismatchClosesConnection_Integration(t *testing.T)
 		ExpectedRole: "cartulary_runtime",
 	}
 
-	db, err := postgres.OpenSQL(settings)
-	if err != nil {
-		t.Fatal(err)
+	db, err := postgres.OpenSQL(context.Background(), settings)
+	if db != nil {
+		defer db.Close()
 	}
-	defer db.Close()
-	err = db.PingContext(context.Background())
 	var configurationErr *postgres.ConfigurationError
 	if !errors.As(err, &configurationErr) || configurationErr.Reason() != postgres.ReasonEffectiveRoleMismatch {
 		t.Fatalf("effective-role mismatch = %T %v", err, err)
 	}
-	if _, queryErr := db.ExecContext(context.Background(), `SELECT 1`); queryErr == nil {
-		t.Fatal("mismatched connection became usable")
+	if db != nil {
+		t.Fatal("eager mismatch returned a usable database handle")
 	}
 }
 

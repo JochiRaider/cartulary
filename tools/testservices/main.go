@@ -1905,7 +1905,7 @@ func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapMa
 	defer pool.Close()
 
 	bootstrapSettings := bootstrap.Settings{ManifestPath: bootstrapManifest}
-	return harnessruntime.ResetDatabase(ctx, pool, func(ctx context.Context, tx pgx.Tx) error {
+	return harnessruntime.ResetDatabase(ctx, pool.Pool(), func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
 	})
 }

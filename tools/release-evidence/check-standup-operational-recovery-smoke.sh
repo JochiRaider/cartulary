@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/deploy/mvp"
@@ -86,11 +87,20 @@ trap cleanup EXIT
 
 sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" >"$compose_file"
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"
+cp "$PACKAGE_DIR/postgres-provision.sh" "$work_dir/postgres-provision.sh"
+chmod 0755 "$work_dir/postgres-provision.sh"
 cp "$PACKAGE_DIR/bootstrap-admin.json.example" "$work_dir/bootstrap-admin.json"
 cp "$PACKAGE_DIR/revisions-conflict-token-key-ring.json.example" "$work_dir/revisions-conflict-token-key-ring.json"
 cp "$PACKAGE_DIR/restore-verification-target.toml.example" "$work_dir/restore-verification-target.toml"
 cp "$PACKAGE_DIR/restore-verification-target.marker.json.example" "$work_dir/restore-verification-target.marker.json.example"
+chmod 0644 \
+  "$work_dir/config.toml" \
+  "$work_dir/bootstrap-admin.json" \
+  "$work_dir/revisions-conflict-token-key-ring.json" \
+  "$work_dir/restore-verification-target.toml" \
+  "$work_dir/restore-verification-target.marker.json.example"
 mkdir -p "$work_dir/runtime/restore-verification-target"
+chmod 0777 "$work_dir/runtime/restore-verification-target"
 
 cat >"$work_dir/.env" <<EOF
 CARTULARY_IMAGE=${image}
@@ -154,7 +164,7 @@ CARTULARY_MVP_DIR="$work_dir" \
 
 compose run --rm --no-deps \
   --entrypoint /usr/local/bin/cartulary-operator \
-  app backup inspect latest \
+  recovery-operator backup inspect latest \
   --source-config-file /etc/cartulary/config.toml >"$latest_json"
 
 "$NODE" - "$capture_json" "$latest_json" <<'EOF'

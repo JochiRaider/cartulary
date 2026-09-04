@@ -5,74 +5,25 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateSchemaSync } from "../harness/contract/index.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
 
-const benchmarkManifestSchemaID = "cartulary.benchmark_manifest.v1";
-const benchmarkProfileID = "cartulary.perf.desktop_ref.v1";
+const benchmarkProfileRegistrySchemaID =
+  "cartulary.benchmark_profile_registry.v1";
+const benchmarkProfileRegistryPath = path.join(
+  repoRoot,
+  "contracts",
+  "claim-publication",
+  "benchmark-profile-registry.v1.json",
+);
 const defaultBenchmarkManifestPath = path.join(
   repoRoot,
   ".cartulary",
   "benchmark",
   "benchmark_manifest.json",
 );
-
-const exactProfileValues = {
-  benchmark_manifest_schema_id: benchmarkManifestSchemaID,
-  benchmark_profile_id: benchmarkProfileID,
-  browser_engine: "chromium",
-  browser_build: "134.0.6998.35",
-  browser_mode: "headed",
-  browser_extensions: "none",
-  browser_viewport_css_px: "1440x900",
-  browser_device_scale_factor: 1,
-  browser_zoom_percent: 100,
-  client_runner_id: "aws.ec2.c7i.2xlarge",
-  client_os_image_id: "cartulary.bench.ubuntu_24_04_client.2026q1",
-  client_reserved_vcpu: 8,
-  client_reserved_memory_gib: 16,
-  client_power_mode: "performance",
-  app_runner_id: "aws.ec2.c7i.2xlarge",
-  app_os_image_id: "cartulary.bench.ubuntu_24_04_app.2026q1",
-  app_reserved_vcpu: 8,
-  app_reserved_memory_gib: 16,
-  postgres_runner_id: "aws.ec2.i4i.2xlarge",
-  postgres_os_image_id: "cartulary.bench.ubuntu_24_04_postgres.2026q1",
-  postgres_reserved_vcpu: 8,
-  postgres_reserved_memory_gib: 32,
-  postgres_storage_class: "instance_store_nvme",
-  object_store_runner_id: "aws.ec2.c7i.xlarge",
-  object_store_os_image_id: "cartulary.bench.ubuntu_24_04_object.2026q1",
-  object_store_reserved_vcpu: 4,
-  object_store_reserved_memory_gib: 8,
-  object_store_storage_class: "gp3_ssd",
-  client_to_app_link_mbps: 1000,
-  client_to_app_rtt_ms_max: 2,
-  client_to_app_loss_percent: 0,
-  client_to_app_jitter_ms_max: 1,
-  app_to_postgres_rtt_ms_max: 1,
-  app_to_object_store_rtt_ms_max: 1,
-  traffic_trace_id: "cartulary.perf.live_updates_25sessions.v1",
-  seed: 20260405,
-  warmup_passes: 1,
-  authenticated_session_state: "complete",
-  incident_open_state: "open",
-  surface_warm_state: "loaded",
-  benchmark_harness_id: "cartulary.bench.harness.playwright.v1",
-  benchmark_harness_version: "2026.04.0",
-};
-
-const requiredFields = [
-  ...Object.keys(exactProfileValues),
-  "criterion_ids",
-  "measurement_predicate_ids",
-  "fixture_ids",
-  "run_started_at",
-  "run_completed_at",
-  "sample_count",
-  "artifact_bundle_sha256",
-  "security_controls_state",
-];
 
 const p95MeasurementPredicates = new Set([
   "perf.timeline_summary_selection_down.v1",
@@ -94,6 +45,7 @@ const requiredSecurityControls = [
 ];
 
 function main() {
+  const exactProfileValues = loadCurrentBenchmarkProfile();
   const manifestPath = resolveManifestPath();
   if (!existsSync(manifestPath)) {
     if (manifestPath === defaultBenchmarkManifestPath) {
@@ -104,7 +56,11 @@ function main() {
   }
   const manifest = readJSON(manifestPath);
   const manifestDir = path.dirname(manifestPath);
-  const errors = validateBenchmarkManifest(manifest, manifestDir);
+  const errors = validateBenchmarkManifest(
+    manifest,
+    manifestDir,
+    exactProfileValues,
+  );
 
   if (errors.length > 0) {
     for (const error of errors) {
@@ -114,6 +70,60 @@ function main() {
   }
 
   console.log(`benchmark claim manifest valid: ${path.relative(repoRoot, manifestPath)}`);
+}
+
+function loadCurrentBenchmarkProfile() {
+  const registry = readJSON(benchmarkProfileRegistryPath);
+  validateSchemaSync(benchmarkProfileRegistrySchemaID, registry);
+  const errors = validateBenchmarkProfileRegistry(registry);
+  if (errors.length > 0) {
+    throw new Error(`benchmark profile registry invalid: ${errors.join("; ")}`);
+  }
+  const current = registry.profiles.find(
+    (profile) => profile.benchmark_profile_id === registry.current_profile_id,
+  );
+  const { claim_status: _claimStatus, ...exactProfileValues } = current;
+  return exactProfileValues;
+}
+
+export function validateBenchmarkProfileRegistry(registry) {
+  const errors = [];
+  if (registry === null || typeof registry !== "object" || Array.isArray(registry)) {
+    return ["registry must be an object"];
+  }
+  if (!Array.isArray(registry.profiles)) {
+    return ["profiles must be an array"];
+  }
+
+  const profileIDs = registry.profiles.map(
+    (profile) => profile?.benchmark_profile_id,
+  );
+  if (new Set(profileIDs).size !== profileIDs.length) {
+    errors.push("benchmark_profile_id values must be unique");
+  }
+  const sortedProfileIDs = [...profileIDs].sort((left, right) =>
+    String(left).localeCompare(String(right)),
+  );
+  if (JSON.stringify(profileIDs) !== JSON.stringify(sortedProfileIDs)) {
+    errors.push("profiles must be sorted by benchmark_profile_id");
+  }
+
+  const currentProfiles = registry.profiles.filter(
+    (profile) => profile?.claim_status === "current",
+  );
+  if (currentProfiles.length !== 1) {
+    errors.push("registry must contain exactly one current profile");
+  }
+  if (
+    currentProfiles.length === 1 &&
+    currentProfiles[0].benchmark_profile_id !== registry.current_profile_id
+  ) {
+    errors.push("current_profile_id must identify the current profile");
+  }
+  if (!profileIDs.includes(registry.current_profile_id)) {
+    errors.push("current_profile_id must identify a registered profile");
+  }
+  return errors;
 }
 
 function resolveManifestPath() {
@@ -132,8 +142,23 @@ function readJSON(file) {
   }
 }
 
-function validateBenchmarkManifest(manifest, manifestDir) {
+export function validateBenchmarkManifest(
+  manifest,
+  manifestDir,
+  exactProfileValues,
+) {
   const errors = [];
+  const requiredFields = [
+    ...Object.keys(exactProfileValues),
+    "criterion_ids",
+    "measurement_predicate_ids",
+    "fixture_ids",
+    "run_started_at",
+    "run_completed_at",
+    "sample_count",
+    "artifact_bundle_sha256",
+    "security_controls_state",
+  ];
 
   if (manifest.claim_bearing === false) {
     errors.push("claim_bearing=false is ordinary measurement metadata, not a benchmark claim");
@@ -278,9 +303,14 @@ function resolveRelativePath(value, baseDir) {
   return path.join(repoRoot, value);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`benchmark claim check failed: ${error.message}`);
-  process.exit(1);
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`benchmark claim check failed: ${error.message}`);
+    process.exit(1);
+  }
 }

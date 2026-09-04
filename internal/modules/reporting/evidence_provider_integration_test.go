@@ -33,7 +33,7 @@ func TestReportingEvidenceProviderRedaction_Integration(t *testing.T) {
 
 	// This schema mutation is intentionally local to the dedicated test database.
 	// It proves that future Evidence columns remain private by construction.
-	if _, err := harness.Pool.Exec(context.Background(), `ALTER TABLE evidence ADD COLUMN future_private text`); err != nil {
+	if _, err := harness.DB.ExecContext(context.Background(), `ALTER TABLE evidence ADD COLUMN future_private text`); err != nil {
 		t.Fatalf("add future Evidence fixture column: %v", err)
 	}
 

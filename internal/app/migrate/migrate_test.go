@@ -69,7 +69,7 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 	}
 
 	openCalled := false
-	runner.openSQL = func(settings postgres.Settings) (*sql.DB, error) {
+	runner.openSQL = func(context.Context, postgres.Settings) (*sql.DB, error) {
 		openCalled = true
 		return nil, nil
 	}
@@ -100,7 +100,7 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	runner.stderr = stderr
 
 	migrateCalled := false
-	runner.openSQL = func(settings postgres.Settings) (*sql.DB, error) {
+	runner.openSQL = func(context.Context, postgres.Settings) (*sql.DB, error) {
 		return nil, errors.New("dsn rejected")
 	}
 	runner.apply = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
@@ -116,6 +116,22 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	}
 	if output := stderr.String(); output != "migration_operation_failed\n" {
 		t.Fatalf("unexpected safe db-open failure: %q", output)
+	}
+}
+
+func TestMigrateRunnerPrintsSafePostgresAdmissionReason(t *testing.T) {
+	stderr := &bytes.Buffer{}
+	runner := newTestMigrateRunner(t)
+	runner.stderr = stderr
+	runner.openSQL = func(ctx context.Context, _ postgres.Settings) (*sql.DB, error) {
+		return postgres.OpenSQL(ctx, postgres.Settings{})
+	}
+
+	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
+		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
+	}
+	if output := stderr.String(); output != postgres.ReasonPurposeUnknown+"\n" {
+		t.Fatalf("unexpected safe admission stderr: %q", output)
 	}
 }
 
@@ -232,7 +248,7 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		loadConfig: func() (configassembly.Loaded, error) {
 			return loaded, nil
 		},
-		openSQL: func(settings postgres.Settings) (*sql.DB, error) {
+		openSQL: func(_ context.Context, settings postgres.Settings) (*sql.DB, error) {
 			return db, nil
 		},
 		apply: func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {

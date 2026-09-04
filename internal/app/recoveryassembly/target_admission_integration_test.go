@@ -10,13 +10,28 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestTargetServingAdmissionCancelsOnLeaseLoss_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
 	testDB := harness.PrepareIsolatedDatabaseT(t, "recovery-target-admission-loss")
-	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	adminPool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adminPool.Close()
+	recoveryDSN, err := testDB.DSNForPurpose(postgres.PurposeRecovery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool, err := postgres.Setup(context.Background(), postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          recoveryDSN,
+		Purpose:      postgres.PurposeRecovery,
+		ExpectedRole: "cartulary_recovery",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +51,7 @@ func TestTargetServingAdmissionCancelsOnLeaseLoss_Integration(t *testing.T) {
 		t.Fatalf("parse serving lease backend identity: %v", err)
 	}
 	var terminated bool
-	if err := pool.QueryRow(context.Background(), `SELECT pg_terminate_backend($1)`, backendPID).Scan(&terminated); err != nil {
+	if err := adminPool.QueryRow(context.Background(), `SELECT pg_terminate_backend($1)`, backendPID).Scan(&terminated); err != nil {
 		t.Fatalf("terminate serving lease backend: %v", err)
 	}
 	if !terminated {

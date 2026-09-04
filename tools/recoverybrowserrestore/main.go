@@ -36,6 +36,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
@@ -136,12 +137,17 @@ func run() error {
 	if err := seedDeploymentAdmin(ctx, sourcePool, sourceAdminEmail, sourceAdminPassword); err != nil {
 		return err
 	}
+	sourceAdmission, err := admitRuntimePostgres(ctx, sourceDSN)
+	if err != nil {
+		return fmt.Errorf("admit source postgres: %w", err)
+	}
+	defer sourceAdmission.Close()
 	sourceConfig, err := targetConfig(sourceRoot, "", sourceTokenEnv)
 	if err != nil {
 		return fmt.Errorf("load source configuration: %w", err)
 	}
 	sourceRuntime, err := server.NewRuntime(ctx, sourceConfig, server.Options{
-		Postgres:    sourcePool,
+		Postgres:    sourceAdmission,
 		ObjectStore: sourceObjectStore,
 		Env:         sourceTokenEnv,
 	})
@@ -284,8 +290,15 @@ func run() error {
 		_ = targetObjectStore.Close()
 		return fmt.Errorf("restore source and target claim postures differ: source=%v target=%v", sourceClaims, targetClaims)
 	}
+	targetAdmission, err := admitRuntimePostgres(ctx, targetDSN)
+	if err != nil {
+		targetPool.Close()
+		_ = targetObjectStore.Close()
+		return fmt.Errorf("admit target postgres: %w", err)
+	}
+	defer targetAdmission.Close()
 	runtime, err := server.NewRuntime(ctx, cfg, server.Options{
-		Postgres:    targetPool,
+		Postgres:    targetAdmission,
 		ObjectStore: targetObjectStore,
 		Env:         targetTokenEnv,
 	})
@@ -359,6 +372,15 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return server.Shutdown(shutdownCtx)
+}
+
+func admitRuntimePostgres(ctx context.Context, dsn string) (postgres.AdmittedPool, error) {
+	return postgres.Setup(ctx, postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          dsn,
+		Purpose:      postgres.PurposeRuntime,
+		ExpectedRole: "cartulary_runtime",
+	})
 }
 
 func startRuntimeServer(handler http.Handler, activatePublication func() error) (*http.Server, string, error) {

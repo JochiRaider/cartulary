@@ -1015,6 +1015,7 @@ If the repository exposes a root `Makefile`, it SHOULD remain the stable human-f
 | `make db-up`         | Start local Postgres and the S3-compatible object store                                                      |
 | `make db-migrate`    | Apply local database migrations without resetting the database or object storage                              |
 | `make db-reset`      | Recreate the database and run migrations                                                                     |
+| `make postgres-baseline-reset POSTGRES_BASELINE_PROFILE=dev\|mvp` | Dry-run or perform one closed-profile PostgreSQL major-baseline replacement |
 | `make dev`           | Start the Go server and Vite dev server                                                                      |
 | `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
 | `make generated-artifact-policy-check` | Verify generated source markers and authored lint-scope exclusions                          |
@@ -1148,6 +1149,21 @@ is unset, the command derives the matching local Compose credential for the
 unmarked-nonzero, or contaminated database is not an upgrade source. Reset it
 with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`; v2 defines no data
 bridge, export/import transition, legacy dual read, or compatibility alias.
+
+The ordinary development service is exact PostgreSQL 18.6 from
+`docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2`.
+It mounts the versioned `postgres-data-v18` volume at
+`/var/lib/postgresql`, sets `PGDATA=/var/lib/postgresql/18/docker`, and creates
+the cluster with data checksums plus SCRAM host authentication. A PostgreSQL 16
+volume is disposable state, not an upgrade source. Preview the bounded reset
+with
+`CARTULARY_CLEANUP_DRY_RUN=1 make postgres-baseline-reset POSTGRES_BASELINE_PROFILE=dev`;
+perform it only after inspecting the targets, using
+`CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset make postgres-baseline-reset POSTGRES_BASELINE_PROFILE=dev`.
+The `mvp` profile selects only the known MVP Compose project. Other profiles,
+arbitrary Compose files or volume names, ambiguous labels, and in-use volumes
+are rejected. The reset preserves object-store, backup, reference-pack,
+temporary, and export volumes.
 
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary and accepts `OPERATOR_BIN=<path>` for its output path; scheduled operator scenario tests consume only harness-injected `CARTULARY_OPERATOR_BIN`. The production deployable MUST NOT depend on the Vite dev server.
 
@@ -1491,7 +1507,7 @@ The implementation baseline MUST use canonical import-unit vocabulary rather tha
 The smallest useful deployment remains:
 
 - one application container,
-- one Postgres service,
+- one exact PostgreSQL 18.6 service admitted with data checksums enabled,
 - one SeaweedFS S3-compatible object-storage service in default disconnected deployments.
 
 On-prem and cloud deployments MAY swap the backing services for managed equivalents as long as the same behavioral contracts hold.
@@ -1606,7 +1622,9 @@ For claimed Reference Pack deployments, every `/api/v1/reference-packs/*` endpoi
 
 The implementation baseline remains:
 
-- Postgres base backup plus WAL archiving or equivalent for structured state,
+- logical structured-state capture in
+  `cartulary.postgres_snapshot_artifact.v2`, without a source-engine field or a
+  cross-engine portability claim,
 - object-storage snapshot or versioning for blobs and optional generated artifacts,
 - projection tables rebuilt after restore as needed,
 - backup execution, restore execution, and restore verification remain deployment-local operator-facing concerns; the current profile defines no public `/api/v1/backups*`, `/api/v1/restores*`, or `/api/v1/restore-verifications*` route family and no workbook-surface equivalent.
@@ -1634,6 +1652,14 @@ CLI output handling should be strict:
 Deployment-owned schedulers may use systemd timers, cron, Kubernetes CronJobs, container jobs, or another local orchestration mechanism. The application must not grow a browser scheduler, editable backup cadence setting, `Backup now` HTTP action, or common-job route for current-profile backup creation. Scheduling examples must invoke the deployment-local operator command or a package-local wrapper for that command often enough to satisfy the 24-hour retained-success requirement.
 
 Deployment examples should keep source and target configs physically distinct. Restore and verification targets should use fresh database and object-store bindings, explicit target markers, and service-manager or deployment-local checks proving target listeners are not serving traffic before mutation. A timed-out target remains not-ready and should be reinitialized, not retried in place.
+
+For the current baseline, source and target database access crosses the
+platform PostgreSQL admission boundary. Restore accepts only a pristine exact
+PostgreSQL 18.6 target with data checksums enabled and the expected
+purpose-specific login/role, and admission must complete before the first
+restore mutation. Valid v2 logical artifacts remain readable; PostgreSQL 16
+physical state, WAL, cluster directories, and compatibility modes are not
+Recovery inputs.
 
 Operational backup baseline:
 
@@ -1747,7 +1773,7 @@ These fixtures are implementation-facing test anchors mirrored from owner criter
 | Local or CI engineering run             | Core 04 behavioral thresholds plus this guide's harness mirror | Informative implementation-facing validation                                                                                              |
 | Public timed or fixture-sensitive claim | Core 05                                                        | Claim-bearing only when the benchmark profile, benchmark manifest, measurement predicate, and underlying implementation claim all conform |
 
-Unless an owner criterion declares another benchmark profile explicitly, the current claim-bearing benchmark profile is `cartulary.perf.desktop_ref.v1`. Unless a publication criterion says otherwise, `reference incident` means Fixture A.
+Unless an owner criterion declares another benchmark profile explicitly, the current claim-bearing benchmark profile is `cartulary.perf.desktop_ref.v2`. The registry retains `cartulary.perf.desktop_ref.v1` as immutable historical identity, but v1 evidence cannot satisfy a new claim. Unless a publication criterion says otherwise, `reference incident` means Fixture A.
 
 **Fixture A: large-grid incident**
 
@@ -1790,7 +1816,7 @@ This guide rewrite is complete only when all of the following are true:
 15. Coordination-surface sections state that the standardized `view_schema_id` surface is mandatory and that any `scope='system'` saved view over the same schema is additive only.
 16. Repo-fact sections that depend on live repository control files, including package inventory, the monorepo tree, task surface, and contributor-procedure owner, are explicitly marked as pending repo-control revalidation or independently revalidated.
 17. Deployment runtime-root coverage includes `backup storage`, the deployment section includes first-deployment-admin bootstrap and `deployment_admin` boundary notes, and the backup or restore text states that backup, restore, and restore verification remain deployment-local operator-facing concerns rather than public workbook route families.
-18. Section 14 explicitly distinguishes implementation-facing harness mirrors from Core 05 claim-bearing publication requirements, names Core 05 as the owner for benchmark-profile and reproducibility rules, and mirrors the current fixture qualifiers plus `cartulary.perf.desktop_ref.v1`.
+18. Section 14 explicitly distinguishes implementation-facing harness mirrors from Core 05 claim-bearing publication requirements, names Core 05 as the owner for benchmark-profile and reproducibility rules, and mirrors the current fixture qualifiers plus `cartulary.perf.desktop_ref.v2` while preserving v1 as historical identity.
 19. `/packages/grid-adapter` appears in the monorepo tree and workspace package ownership table.
 20. The frontend architecture states that only `/packages/grid-adapter` may import `react-data-grid` directly.
 21. The controlled-state mapping table covers RDG rows, row keys, row changes, selection, sorting, column widths, active cell/edit mode, scroll position, group expansion, copy, paste, drag fill, renderers, editors, and treegrid grouping.

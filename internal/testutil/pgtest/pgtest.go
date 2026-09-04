@@ -33,7 +33,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
 
-const postgresImage = "postgres:16-alpine"
+const postgresImage = "docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
 
 const (
 	postgresPortMappingTimeout        = 15 * time.Second
@@ -151,6 +151,7 @@ var (
 	createDatabaseFn          = createDatabase
 	dropOwnedDatabaseFn       = postgrescleanup.DropOwnedDatabase
 	markTemplateDBFn          = markTemplateDatabase
+	openMigrationDatabaseFn   = OpenPurposeDatabase
 )
 
 func Start(t testing.TB) *Harness {
@@ -225,9 +226,11 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		Image:        postgresImage,
 		ExposedPorts: []string{"5432/tcp"},
 		Env: map[string]string{
-			"POSTGRES_DB":       "postgres",
-			"POSTGRES_USER":     "cartulary",
-			"POSTGRES_PASSWORD": "cartulary",
+			"PGDATA":               "/var/lib/postgresql/18/docker",
+			"POSTGRES_DB":          "postgres",
+			"POSTGRES_USER":        "cartulary",
+			"POSTGRES_PASSWORD":    "cartulary",
+			"POSTGRES_INITDB_ARGS": "--data-checksums --auth-host=scram-sha-256",
 		},
 		WaitingFor: postgresPortWaitStrategy(),
 	}
@@ -442,7 +445,10 @@ func isNonRetryablePostgresReadinessError(err error) bool {
 		strings.Contains(lower, "role") && strings.Contains(lower, "does not exist") ||
 		strings.Contains(lower, "database") && strings.Contains(lower, "does not exist") ||
 		strings.Contains(lower, "no pg_hba.conf entry") ||
-		strings.Contains(lower, "invalid connection")
+		strings.Contains(lower, "invalid connection") ||
+		strings.Contains(lower, postgres.ReasonServerVersionMismatch) ||
+		strings.Contains(lower, postgres.ReasonDataChecksumsDisabled) ||
+		strings.Contains(lower, postgres.ReasonAdmissionFailed)
 }
 
 func (h *Harness) AdminDSN() string {
@@ -698,7 +704,7 @@ func (h *Harness) migrationDatabaseT(t testing.TB, apply func(context.Context, *
 		}
 	})
 
-	openedDB, err := OpenPurposeDatabase(testDB.DSN, postgres.PurposeMigration)
+	openedDB, err := openMigrationDatabaseFn(testDB.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatalf("open migration scratch database: %v", err)
 	}
@@ -1113,7 +1119,21 @@ func pingAdminDSN(ctx context.Context, dsn string) error {
 		return err
 	}
 	defer db.Close()
-	return db.PingContext(ctx)
+	if err := db.PingContext(ctx); err != nil {
+		return err
+	}
+	var version int
+	var checksums string
+	if err := db.QueryRowContext(ctx, `SELECT current_setting('server_version_num')::integer, current_setting('data_checksums')::text`).Scan(&version, &checksums); err != nil {
+		return errors.New(postgres.ReasonAdmissionFailed)
+	}
+	if version != postgres.RequiredServerVersionNum {
+		return errors.New(postgres.ReasonServerVersionMismatch)
+	}
+	if checksums != "on" {
+		return errors.New(postgres.ReasonDataChecksumsDisabled)
+	}
+	return nil
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string, templateDB string) error {
@@ -1156,7 +1176,7 @@ func OpenPurposeDatabase(dsn string, purpose postgres.Purpose) (*sql.DB, error) 
 	if err != nil {
 		return nil, err
 	}
-	return postgres.OpenSQL(postgres.Settings{
+	return postgres.OpenSQL(context.Background(), postgres.Settings{
 		BindingKind:  "managed_service",
 		DSN:          selectedDSN,
 		Purpose:      purpose,
@@ -1267,19 +1287,22 @@ END
 $extension_acl$;
 DO $extension_type_acl$
 DECLARE
-    extension_type pg_catalog.regtype;
+    extension_type text;
 BEGIN
     FOR extension_type IN
-        SELECT candidate.oid::pg_catalog.regtype
+        SELECT format('%%I.%%I', type_namespace.nspname, candidate.typname)
           FROM pg_catalog.pg_type AS candidate
+          JOIN pg_catalog.pg_namespace AS type_namespace
+            ON type_namespace.oid = candidate.typnamespace
           JOIN pg_catalog.pg_depend AS dependency
             ON dependency.classid = 'pg_catalog.pg_type'::pg_catalog.regclass
            AND dependency.objid = candidate.oid
            AND dependency.deptype = 'e'
-          JOIN pg_catalog.pg_extension AS extension
+         JOIN pg_catalog.pg_extension AS extension
             ON extension.oid = dependency.refobjid
          WHERE extension.extname IN ('pgcrypto', 'citext')
-         ORDER BY candidate.oid::pg_catalog.regtype::text
+           AND candidate.typelem = 0
+         ORDER BY type_namespace.nspname, candidate.typname
     LOOP
         EXECUTE format('REVOKE USAGE ON TYPE %%s FROM PUBLIC', extension_type);
         EXECUTE format('GRANT USAGE ON TYPE %%s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', extension_type);

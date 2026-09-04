@@ -87,7 +87,7 @@ Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
 Authored migration history is append-only by default. Existing numbered migrations MUST be treated as potentially applied and shared unless an operator supplies applied-version evidence and the relevant owner explicitly authorizes a rewrite, rename, squash, reset, or rebaseline. Ordinary remediation MUST use a new forward migration or a migration-runner preflight when a historical boundary needs better diagnostics but the historical SQL bytes must remain stable.
 
-When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v2`; its immutable boundary is version `29`, and its current repository head is version `37`. A database with v1 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v2 upgrade source. Repository migration tooling MUST reject it before executing v2 DDL with boundary `prod_ddl_rebaseline_v2`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1.`
+When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v2`; its immutable boundary is version `29`, and its current repository head is version `40`. A database with v1 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v2 upgrade source. Repository migration tooling MUST reject it before executing v2 DDL with boundary `prod_ddl_rebaseline_v2`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1.`
 
 The v2 transition is pre-production and reset-only. The current profile defines no export/import transition, row transformation, data bridge, migration 62, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable v1 source. A requirement to preserve database content blocks the v2 rebaseline and requires a separately adopted data-migration contract. Version `30` is the first permissible later forward migration after the v2 line.
 
@@ -170,10 +170,11 @@ Verified by: AC-537
 **REQ-01-661**
 The immutable Production DDL Rebaseline v2 baseline MUST contain exactly 29
 contiguous authored SQL migrations, versions `1..29`. The current source MUST
-contain exactly 37 contiguous authored SQL migrations: that immutable baseline
-plus owner-approved additive migrations `30..37`. It MUST use the application schema
+contain exactly 40 contiguous authored SQL migrations: that immutable baseline
+plus owner-approved additive migrations `30..40`. It MUST use the application schema
 `public`, Goose ledger `public.goose_db_version`, and lineage relation
-`public.schema_migration_lineage` on PostgreSQL major 16. The exact filenames,
+`public.schema_migration_lineage` on exact PostgreSQL 18.6, identified by
+`server_version_num=180006`, with data checksums enabled. The exact filenames,
 bytes, hashes, order, physical object allocation, dependencies, FK coverage,
 routine classes, and per-purpose access classes MUST be authored machine
 contracts downstream of the applicable logical owners; Core 02 MUST NOT own

@@ -234,6 +234,10 @@ The manifest path points to deployment-local configuration read during startup. 
 
 #### Example 3: disconnected container mounts
 
+This preserved exploratory example is historical. Its PostgreSQL child-data
+mount is not current operator guidance; the current baseline uses the
+versioned parent mount and explicit `PGDATA` owned by Core 04.
+
 ```yaml
 services:
   app:
@@ -382,6 +386,10 @@ flowchart LR
 ```
 
 #### Example 6: illustrative `benchmark_manifest.json`
+
+This preserved v1 manifest is historical evidence and cannot satisfy a new
+claim. Core 05 and the benchmark-profile registry identify the current
+claim-bearing profile.
 
 ```json
 {

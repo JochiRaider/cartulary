@@ -70,7 +70,7 @@ done
 if ! compose exec -T postgres psql -U "${POSTGRES_USER:-cartulary}" -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '${target_db}'" | grep -qx "1"; then
   compose exec -T postgres createdb -U "${POSTGRES_USER:-cartulary}" "$target_db"
 fi
-compose exec -T -e "PGDATABASE=${target_db}" postgres /docker-entrypoint-initdb.d/010-cartulary-provision.sh
+compose exec -T -e "PGDATABASE=${target_db}" postgres /docker-entrypoint-initdb.d/010-cartulary-provision.sh >/dev/null
 
 compose run --rm --no-deps \
   --volume "${TARGET_CONFIG_HOST}:${TARGET_CONFIG_CONTAINER}:ro" \
@@ -99,6 +99,7 @@ object_binding_sha256="$(printf '%s' "$object_binding_identity" | sha256sum | aw
 issued_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 expires_at="$(date -u -d '+23 hours' '+%Y-%m-%dT%H:%M:%SZ')"
 mkdir -p "${TARGET_ROOT_HOST}/backups"
+chmod 0755 "${TARGET_ROOT_HOST}/backups"
 printf '%s\n' "$target_generation_id" >"${TARGET_ROOT_HOST}/backups/restore-target-generation"
 printf '{"schema_id":"cartulary.restore_target_marker.v2","purpose":"restore_verification_target","target_generation_id":"%s","binding_digests":{"database_sha256":"%s","object_store_sha256":"%s"},"issued_at":"%s","expires_at":"%s"}\n' \
   "$target_generation_id" \

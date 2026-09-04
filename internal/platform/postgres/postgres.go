@@ -3,11 +3,13 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 
@@ -34,6 +36,11 @@ const (
 	ReasonSelectedCredentialMissing          = "postgres_binding_missing"
 	ReasonSelectedCredentialInvalid          = "postgres_binding_invalid"
 	ReasonEffectiveRoleMismatch              = "postgres_effective_role_mismatch"
+	ReasonServerVersionMismatch              = "postgres_server_version_mismatch"
+	ReasonDataChecksumsDisabled              = "postgres_data_checksums_disabled"
+	ReasonAdmissionFailed                    = "postgres_admission_failed"
+
+	RequiredServerVersionNum = 180006
 )
 
 type Purpose uint8
@@ -184,7 +191,63 @@ func ResolveSettings(binding Binding, purpose Purpose, env map[string]string) (S
 
 var _ func(Binding, Purpose, map[string]string) (Settings, error) = ResolveSettings
 
-func Setup(ctx context.Context, settings Settings) (*pgxpool.Pool, error) {
+// AdmittedPool is an opaque pool handle whose constructor establishes the
+// complete purpose, server-version, and checksum admission contract before it
+// returns. Its private marker prevents callers from wrapping an unadmitted
+// raw pool.
+type AdmittedPool interface {
+	DB
+	Close()
+	Pool() *pgxpool.Pool
+	Acquire(context.Context) (*pgxpool.Conn, error)
+	Reset()
+	admittedPool()
+}
+
+type admittedPool struct {
+	pool *pgxpool.Pool
+}
+
+func (*admittedPool) admittedPool() {}
+
+func (pool *admittedPool) Pool() *pgxpool.Pool {
+	if pool == nil {
+		return nil
+	}
+	return pool.pool
+}
+
+func (pool *admittedPool) Close() {
+	if pool != nil && pool.pool != nil {
+		pool.pool.Close()
+	}
+}
+
+func (pool *admittedPool) Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error) {
+	return pool.pool.Exec(ctx, sql, arguments...)
+}
+
+func (pool *admittedPool) Query(ctx context.Context, sql string, arguments ...any) (pgx.Rows, error) {
+	return pool.pool.Query(ctx, sql, arguments...)
+}
+
+func (pool *admittedPool) QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row {
+	return pool.pool.QueryRow(ctx, sql, arguments...)
+}
+
+func (pool *admittedPool) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	return pool.pool.BeginTx(ctx, options)
+}
+
+func (pool *admittedPool) Acquire(ctx context.Context) (*pgxpool.Conn, error) {
+	return pool.pool.Acquire(ctx)
+}
+
+func (pool *admittedPool) Reset() {
+	pool.pool.Reset()
+}
+
+func Setup(ctx context.Context, settings Settings) (AdmittedPool, error) {
 	if !validSettingsPurpose(settings) {
 		return nil, configurationError(ReasonPurposeUnknown)
 	}
@@ -195,12 +258,18 @@ func Setup(ctx context.Context, settings Settings) (*pgxpool.Pool, error) {
 	poolConfig.AfterConnect = connectionInitializer(settings, poolConfig.ConnConfig.User)
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		return nil, configurationError(ReasonEffectiveRoleMismatch)
+		return nil, admittedConnectionError(err)
 	}
-	return pool, nil
+	connection, err := pool.Acquire(ctx)
+	if err != nil {
+		pool.Close()
+		return nil, admittedConnectionError(err)
+	}
+	connection.Release()
+	return &admittedPool{pool: pool}, nil
 }
 
-func OpenSQL(settings Settings) (*sql.DB, error) {
+func OpenSQL(ctx context.Context, settings Settings) (*sql.DB, error) {
 	if !validSettingsPurpose(settings) {
 		return nil, configurationError(ReasonPurposeUnknown)
 	}
@@ -209,6 +278,10 @@ func OpenSQL(settings Settings) (*sql.DB, error) {
 		return nil, configurationError(ReasonSelectedCredentialInvalid)
 	}
 	db := stdlib.OpenDB(*config, stdlib.OptionAfterConnect(connectionInitializer(settings, config.User)))
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, admittedConnectionError(err)
+	}
 	return db, nil
 }
 
@@ -259,16 +332,45 @@ func connectionInitializer(settings Settings, expectedSessionUser string) func(c
 		if _, err := connection.Exec(ctx, "SET ROLE "+contract.role); err != nil {
 			return configurationError(ReasonEffectiveRoleMismatch)
 		}
-		var sessionUser string
-		var currentUser string
-		if err := connection.QueryRow(ctx, "SELECT session_user::text, current_user::text").Scan(&sessionUser, &currentUser); err != nil {
-			return configurationError(ReasonEffectiveRoleMismatch)
+		facts := admissionFacts{}
+		if err := connection.QueryRow(ctx, `
+SELECT session_user::text,
+       current_user::text,
+       current_setting('server_version_num')::integer,
+       current_setting('data_checksums')::text
+`).Scan(&facts.sessionUser, &facts.currentUser, &facts.serverVersionNum, &facts.dataChecksums); err != nil {
+			return configurationError(ReasonAdmissionFailed)
 		}
-		if sessionUser != expectedSessionUser || currentUser != contract.role {
-			return configurationError(ReasonEffectiveRoleMismatch)
-		}
-		return nil
+		return validateAdmissionFacts(facts, expectedSessionUser, contract.role)
 	}
+}
+
+type admissionFacts struct {
+	sessionUser      string
+	currentUser      string
+	serverVersionNum int
+	dataChecksums    string
+}
+
+func validateAdmissionFacts(facts admissionFacts, expectedSessionUser string, expectedRole string) error {
+	if facts.sessionUser != expectedSessionUser || facts.currentUser != expectedRole {
+		return configurationError(ReasonEffectiveRoleMismatch)
+	}
+	if facts.serverVersionNum != RequiredServerVersionNum {
+		return configurationError(ReasonServerVersionMismatch)
+	}
+	if facts.dataChecksums != "on" {
+		return configurationError(ReasonDataChecksumsDisabled)
+	}
+	return nil
+}
+
+func admittedConnectionError(err error) error {
+	var configurationErr *ConfigurationError
+	if errors.As(err, &configurationErr) {
+		return configurationErr
+	}
+	return configurationError(ReasonAdmissionFailed)
 }
 
 func decodeDSNFile(payload []byte) (string, bool) {

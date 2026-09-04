@@ -16,7 +16,7 @@ import (
 type migrateRunner struct {
 	stderr     io.Writer
 	loadConfig func() (configassembly.Loaded, error)
-	openSQL    func(postgres.Settings) (*sql.DB, error)
+	openSQL    func(context.Context, postgres.Settings) (*sql.DB, error)
 	apply      func(context.Context, *sql.DB, *database_migrations.Source) error
 	source     func() (*database_migrations.Source, error)
 }
@@ -48,6 +48,11 @@ func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 	}
 
 	if err := runner.run(ctx); err != nil {
+		var postgresFailure *postgres.ConfigurationError
+		if errors.As(err, &postgresFailure) {
+			_, _ = fmt.Fprintln(runner.stderr, postgresFailure.Reason())
+			return 1
+		}
 		var remediation database_migrations.RemediationReporter
 		if errors.As(err, &remediation) {
 			_, _ = io.WriteString(runner.stderr, remediation.RemediationReportJSON())
@@ -81,7 +86,7 @@ func (runner migrateRunner) run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("resolve postgres settings: %w", err)
 	}
-	db, err := runner.openSQL(settings)
+	db, err := runner.openSQL(ctx, settings)
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}

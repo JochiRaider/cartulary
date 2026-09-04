@@ -50,12 +50,13 @@ Profiles: claim_publication
 Verified by: PC-001, PC-002
 
 **REQ-05-007**
-Unless a criterion declares another benchmark profile explicitly, the current claim-bearing benchmark profile is `cartulary.perf.desktop_ref.v1`.
+Unless a criterion declares another benchmark profile explicitly, the current claim-bearing benchmark profile is `cartulary.perf.desktop_ref.v2`.
 Profiles: claim_publication
 Verified by: PC-002
 
 **REQ-05-008**
-`cartulary.perf.desktop_ref.v1` MUST be a closed benchmark-profile object with these exact values:
+`cartulary.perf.desktop_ref.v1` is the immutable historical PostgreSQL 16
+benchmark-profile object with these exact values:
 
 - `browser.engine='chromium'`
 - `browser.build='134.0.6998.35'`
@@ -98,7 +99,8 @@ Verified by: PC-002
 - `benchmark_harness_id='cartulary.bench.harness.playwright.v1'`
 - `benchmark_harness_version='2026.04.0'`
 
-Claim-bearing publication MUST compare this benchmark environment by exact value match. `Equivalent hardware`, `equivalent browser`, `similar LAN`, or similar open-ended language is non-conformant for claim-bearing publication.
+Retained historical publication evidence MUST compare this benchmark environment
+by exact value match and MUST NOT be reinterpreted as current evidence.
 Profiles: claim_publication
 Verified by: PC-002
 
@@ -167,6 +169,20 @@ Additional benchmark profiles MAY be defined later, but they are informative onl
 Profiles: claim_publication
 Verified by: PC-002
 
+**REQ-05-014**
+`cartulary.perf.desktop_ref.v2` MUST be a closed benchmark-profile object with
+all exact values of `cartulary.perf.desktop_ref.v1` except
+`benchmark_profile_id='cartulary.perf.desktop_ref.v2'` and
+`postgres_os_image_id='cartulary.bench.ubuntu_24_04_postgres_18_6.2026q3'`.
+The machine projection MUST identify exactly one current profile, preserve v1
+as historical, reject duplicate or unknown profile identities, and prevent a
+historical profile from satisfying a current claim. Claim-bearing publication
+MUST compare every current-profile field by exact value match. `Equivalent
+hardware`, `equivalent browser`, `similar LAN`, or similar open-ended language
+is non-conformant for claim-bearing publication.
+Profiles: claim_publication
+Verified by: PC-002
+
 ## 5. Publication claim manifest
 
 The manifest below defines the companion-local publication claim without redefining implementation claim boundaries.
@@ -179,8 +195,8 @@ Definition of Done:
 
 - **PC-001**: A claim-bearing timed or fixture-sensitive result is non-conformant if no `benchmark_manifest` exists, if `benchmark_profile_id` is missing, or if any required field in `cartulary.benchmark_manifest.v1` is absent.
   - Verifies: REQ-05-003, REQ-05-006, REQ-05-009
-- **PC-002**: A claim-bearing timed or fixture-sensitive result is non-conformant if the emitted benchmark profile, browser build, browser mode, runner IDs, storage classes, network values, `traffic_trace_id`, `seed`, `warmup_passes`, or declared warm state differ from `cartulary.perf.desktop_ref.v1`; such a run MAY be reported only as informative.
-  - Verifies: REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-013
+- **PC-002**: A current claim-bearing timed or fixture-sensitive result is non-conformant if it names the historical `cartulary.perf.desktop_ref.v1` profile or if the emitted benchmark profile, browser build, browser mode, runner IDs, storage classes, network values, `traffic_trace_id`, `seed`, `warmup_passes`, or declared warm state differ from `cartulary.perf.desktop_ref.v2`; such a run MAY be reported only as informative.
+  - Verifies: REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-014
 - **PC-003**: For each timed or fixture-sensitive criterion in the current profile, the result binds to an exact current Core 04 `measurement_predicate_id` and fixture ID and preserves their start state, action, stop predicate, threshold, and sampling mode without local reinterpretation.
   - Verifies: REQ-05-004..REQ-05-005, REQ-05-011..REQ-05-012
 - **PC-004**: A claim-bearing benchmark run is non-conformant if authentication, session handling, CSRF protection, sanitization, safe-preview restrictions, or integrity checks are disabled, or if a claim-bearing visible-state result is produced from headless browser mode.

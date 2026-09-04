@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 CHECKER="$ROOT_DIR/tools/release-evidence/check-benchmark-claim.mjs"
+REGISTRY="$ROOT_DIR/contracts/claim-publication/benchmark-profile-registry.v1.json"
 cleanup_paths=()
 
 cleanup() {
@@ -88,7 +89,7 @@ writeFileSync(
   `${JSON.stringify(
     {
       benchmark_manifest_schema_id: "cartulary.benchmark_manifest.v1",
-      benchmark_profile_id: "cartulary.perf.desktop_ref.v1",
+      benchmark_profile_id: "cartulary.perf.desktop_ref.v2",
       criterion_ids: ["AC-043"],
       measurement_predicate_ids: ["perf.typing_ack.v1"],
       fixture_ids: ["fixture_a"],
@@ -112,7 +113,7 @@ writeFileSync(
       app_reserved_vcpu: 8,
       app_reserved_memory_gib: 16,
       postgres_runner_id: "aws.ec2.i4i.2xlarge",
-      postgres_os_image_id: "cartulary.bench.ubuntu_24_04_postgres.2026q1",
+      postgres_os_image_id: "cartulary.bench.ubuntu_24_04_postgres_18_6.2026q3",
       postgres_reserved_vcpu: 8,
       postgres_reserved_memory_gib: 32,
       postgres_storage_class: "instance_store_nvme",
@@ -172,6 +173,16 @@ mutate_manifest "$missing_profile" 'delete manifest.benchmark_profile_id;'
 missing_profile_output="$(assert_fails "missing benchmark profile" "$NODE_BIN" "$CHECKER" "$missing_profile")"
 assert_contains "$missing_profile_output" "missing required field benchmark_profile_id" "missing benchmark profile output"
 
+historical_profile="$tmp_dir/historical-profile.json"
+mutate_manifest "$historical_profile" 'manifest.benchmark_profile_id = "cartulary.perf.desktop_ref.v1"; manifest.postgres_os_image_id = "cartulary.bench.ubuntu_24_04_postgres.2026q1";'
+historical_profile_output="$(assert_fails "historical benchmark profile" "$NODE_BIN" "$CHECKER" "$historical_profile")"
+assert_contains "$historical_profile_output" 'benchmark_profile_id must equal "cartulary.perf.desktop_ref.v2"' "historical benchmark profile output"
+
+unknown_profile="$tmp_dir/unknown-profile.json"
+mutate_manifest "$unknown_profile" 'manifest.benchmark_profile_id = "cartulary.perf.desktop_ref.v3";'
+unknown_profile_output="$(assert_fails "unknown benchmark profile" "$NODE_BIN" "$CHECKER" "$unknown_profile")"
+assert_contains "$unknown_profile_output" 'benchmark_profile_id must equal "cartulary.perf.desktop_ref.v2"' "unknown benchmark profile output"
+
 low_samples="$tmp_dir/low-samples.json"
 mutate_manifest "$low_samples" 'manifest.sample_count = 99;'
 low_samples_output="$(assert_fails "low sample count" "$NODE_BIN" "$CHECKER" "$low_samples")"
@@ -196,3 +207,36 @@ ordinary_measurement="$tmp_dir/ordinary-measurement.json"
 mutate_manifest "$ordinary_measurement" 'manifest.claim_bearing = false;'
 ordinary_output="$(assert_fails "ordinary measurement cannot pass claim check" "$NODE_BIN" "$CHECKER" "$ordinary_measurement")"
 assert_contains "$ordinary_output" "ordinary measurement metadata" "ordinary measurement output"
+
+"$NODE_BIN" --input-type=module - "$CHECKER" "$REGISTRY" <<'EOF'
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const [checkerPath, registryPath] = process.argv.slice(2);
+const { validateBenchmarkProfileRegistry } = await import(pathToFileURL(checkerPath));
+const registry = JSON.parse(readFileSync(registryPath, "utf8"));
+const clone = () => structuredClone(registry);
+
+function requireError(candidate, expected) {
+  const errors = validateBenchmarkProfileRegistry(candidate);
+  if (!errors.some((error) => error.includes(expected))) {
+    throw new Error(`expected registry error ${JSON.stringify(expected)}, got ${JSON.stringify(errors)}`);
+  }
+}
+
+const duplicate = clone();
+duplicate.profiles[1].benchmark_profile_id = duplicate.profiles[0].benchmark_profile_id;
+requireError(duplicate, "must be unique");
+
+const multipleCurrent = clone();
+multipleCurrent.profiles[0].claim_status = "current";
+requireError(multipleCurrent, "exactly one current profile");
+
+const malformed = clone();
+malformed.profiles = null;
+requireError(malformed, "profiles must be an array");
+
+const missingCurrent = clone();
+missingCurrent.current_profile_id = "cartulary.perf.desktop_ref.v999";
+requireError(missingCurrent, "registered profile");
+EOF

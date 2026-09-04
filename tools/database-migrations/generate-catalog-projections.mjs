@@ -120,7 +120,7 @@ const entries = [
 const manifest = {
   schema_id: "cartulary.schema_object_ownership_manifest.v2",
   migration_root: "db/migrations",
-  supported_postgres_major: 16,
+  supported_postgres_major: 18,
   application_schemas: ["public"],
   goose_ledger: "public.goose_db_version",
   lineage_relation: "public.schema_migration_lineage",

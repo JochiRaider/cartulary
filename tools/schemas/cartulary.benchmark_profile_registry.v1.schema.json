@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.benchmark_profile_registry.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "current_profile_id",
+    "profiles"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.benchmark_profile_registry.v1"
+    },
+    "current_profile_id": {
+      "type": "string",
+      "pattern": "^cartulary\\.perf\\.[a-z0-9_]+\\.v[1-9][0-9]*$"
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark_manifest_schema_id",
+        "benchmark_profile_id",
+        "claim_status",
+        "browser_engine",
+        "browser_build",
+        "browser_mode",
+        "browser_extensions",
+        "browser_viewport_css_px",
+        "browser_device_scale_factor",
+        "browser_zoom_percent",
+        "client_runner_id",
+        "client_os_image_id",
+        "client_reserved_vcpu",
+        "client_reserved_memory_gib",
+        "client_power_mode",
+        "app_runner_id",
+        "app_os_image_id",
+        "app_reserved_vcpu",
+        "app_reserved_memory_gib",
+        "postgres_runner_id",
+        "postgres_os_image_id",
+        "postgres_reserved_vcpu",
+        "postgres_reserved_memory_gib",
+        "postgres_storage_class",
+        "object_store_runner_id",
+        "object_store_os_image_id",
+        "object_store_reserved_vcpu",
+        "object_store_reserved_memory_gib",
+        "object_store_storage_class",
+        "client_to_app_link_mbps",
+        "client_to_app_rtt_ms_max",
+        "client_to_app_loss_percent",
+        "client_to_app_jitter_ms_max",
+        "app_to_postgres_rtt_ms_max",
+        "app_to_object_store_rtt_ms_max",
+        "traffic_trace_id",
+        "seed",
+        "warmup_passes",
+        "authenticated_session_state",
+        "incident_open_state",
+        "surface_warm_state",
+        "benchmark_harness_id",
+        "benchmark_harness_version"
+      ],
+      "properties": {
+        "benchmark_manifest_schema_id": {
+          "const": "cartulary.benchmark_manifest.v1"
+        },
+        "benchmark_profile_id": {
+          "type": "string",
+          "pattern": "^cartulary\\.perf\\.[a-z0-9_]+\\.v[1-9][0-9]*$"
+        },
+        "claim_status": {
+          "enum": [
+            "current",
+            "historical"
+          ]
+        },
+        "browser_engine": { "type": "string", "minLength": 1 },
+        "browser_build": { "type": "string", "minLength": 1 },
+        "browser_mode": { "type": "string", "minLength": 1 },
+        "browser_extensions": { "type": "string", "minLength": 1 },
+        "browser_viewport_css_px": { "type": "string", "minLength": 1 },
+        "browser_device_scale_factor": { "type": "number", "exclusiveMinimum": 0 },
+        "browser_zoom_percent": { "type": "number", "exclusiveMinimum": 0 },
+        "client_runner_id": { "type": "string", "minLength": 1 },
+        "client_os_image_id": { "type": "string", "minLength": 1 },
+        "client_reserved_vcpu": { "type": "integer", "minimum": 1 },
+        "client_reserved_memory_gib": { "type": "integer", "minimum": 1 },
+        "client_power_mode": { "type": "string", "minLength": 1 },
+        "app_runner_id": { "type": "string", "minLength": 1 },
+        "app_os_image_id": { "type": "string", "minLength": 1 },
+        "app_reserved_vcpu": { "type": "integer", "minimum": 1 },
+        "app_reserved_memory_gib": { "type": "integer", "minimum": 1 },
+        "postgres_runner_id": { "type": "string", "minLength": 1 },
+        "postgres_os_image_id": { "type": "string", "minLength": 1 },
+        "postgres_reserved_vcpu": { "type": "integer", "minimum": 1 },
+        "postgres_reserved_memory_gib": { "type": "integer", "minimum": 1 },
+        "postgres_storage_class": { "type": "string", "minLength": 1 },
+        "object_store_runner_id": { "type": "string", "minLength": 1 },
+        "object_store_os_image_id": { "type": "string", "minLength": 1 },
+        "object_store_reserved_vcpu": { "type": "integer", "minimum": 1 },
+        "object_store_reserved_memory_gib": { "type": "integer", "minimum": 1 },
+        "object_store_storage_class": { "type": "string", "minLength": 1 },
+        "client_to_app_link_mbps": { "type": "number", "exclusiveMinimum": 0 },
+        "client_to_app_rtt_ms_max": { "type": "number", "minimum": 0 },
+        "client_to_app_loss_percent": { "type": "number", "minimum": 0 },
+        "client_to_app_jitter_ms_max": { "type": "number", "minimum": 0 },
+        "app_to_postgres_rtt_ms_max": { "type": "number", "minimum": 0 },
+        "app_to_object_store_rtt_ms_max": { "type": "number", "minimum": 0 },
+        "traffic_trace_id": { "type": "string", "minLength": 1 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "warmup_passes": { "type": "integer", "minimum": 0 },
+        "authenticated_session_state": { "type": "string", "minLength": 1 },
+        "incident_open_state": { "type": "string", "minLength": 1 },
+        "surface_warm_state": { "type": "string", "minLength": 1 },
+        "benchmark_harness_id": { "type": "string", "minLength": 1 },
+        "benchmark_harness_version": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

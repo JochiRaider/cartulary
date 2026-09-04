@@ -637,7 +637,10 @@
         "package": "./internal/testutil/performancefixturelifecycle",
         "tests": [
           "TestArtifactsAreImmutableAndRedacted",
-          "TestOwnedNamesAreDeterministicAndBounded"
+          "TestOwnedNamesAreDeterministicAndBounded",
+          "TestWaitForNoTemplateConnectionsAllowsOnlyBoundedOwnedDrain",
+          "TestWaitForNoTemplateConnectionsHonorsDrainDeadline",
+          "TestWaitForNoTemplateConnectionsRejectsUnownedConnectionImmediately"
         ]
       },
       "evidence_class": "unit",

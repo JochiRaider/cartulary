@@ -106,44 +106,62 @@ func requireNoConnections(ctx context.Context, adminDSN string, name string, own
 	return waitForNoTemplateConnections(
 		drainContext,
 		owned,
-		func(queryContext context.Context) ([]uint32, error) {
-			rows, err := admin.QueryContext(queryContext, `SELECT pid FROM pg_stat_activity WHERE datname = $1 ORDER BY pid`, name)
+		func(queryContext context.Context) ([]templateConnection, error) {
+			rows, err := admin.QueryContext(queryContext, `SELECT pid, leader_pid, backend_type FROM pg_stat_activity WHERE datname = $1 ORDER BY pid`, name)
 			if err != nil {
 				return nil, err
 			}
 			defer rows.Close()
-			var pids []uint32
+			var connections []templateConnection
 			for rows.Next() {
 				var pid uint32
-				if err := rows.Scan(&pid); err != nil {
+				var leaderPID sql.NullInt64
+				var backendType string
+				if err := rows.Scan(&pid, &leaderPID, &backendType); err != nil {
 					return nil, err
 				}
-				pids = append(pids, pid)
+				connection := templateConnection{pid: pid, backendType: backendType}
+				if leaderPID.Valid && leaderPID.Int64 > 0 {
+					connection.leaderPID = uint32(leaderPID.Int64)
+				}
+				connections = append(connections, connection)
 			}
-			return pids, rows.Err()
+			return connections, rows.Err()
 		},
 		performanceFixtureDrainPoll,
 	)
 }
 
+type templateConnection struct {
+	pid         uint32
+	leaderPID   uint32
+	backendType string
+}
+
 func waitForNoTemplateConnections(
 	ctx context.Context,
 	owned *ownedConnectionPIDs,
-	observe func(context.Context) ([]uint32, error),
+	observe func(context.Context) ([]templateConnection, error),
 	retryDelay time.Duration,
 ) error {
 	for {
-		pids, err := observe(ctx)
+		connections, err := observe(ctx)
 		if err != nil {
 			return fmt.Errorf("inspect performance fixture template connections: %w", err)
 		}
-		if len(pids) == 0 {
+		if len(connections) == 0 {
 			return nil
 		}
-		for _, pid := range pids {
-			if !owned.Contains(pid) {
-				return fmt.Errorf("performance fixture template has %d unowned open connection(s)", len(pids))
+		unowned := 0
+		for _, connection := range connections {
+			if connection.backendType == "client backend" &&
+				!owned.Contains(connection.pid) &&
+				!owned.Contains(connection.leaderPID) {
+				unowned++
 			}
+		}
+		if unowned > 0 {
+			return fmt.Errorf("performance fixture template has %d unowned open connection(s)", unowned)
 		}
 		timer := time.NewTimer(retryDelay)
 		select {

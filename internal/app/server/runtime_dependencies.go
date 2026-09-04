@@ -20,7 +20,7 @@ import (
 
 type runtimeDependencies struct {
 	newJobsManager                 func(jobs.ManagerOptions) (*jobs.Manager, error)
-	setupPostgres                  func(context.Context, postgres.Settings) (*pgxpool.Pool, error)
+	setupPostgres                  func(context.Context, postgres.Settings) (postgres.AdmittedPool, error)
 	ensureSchemaReady              func(context.Context, *pgxpool.Pool, *database_migrations.Source) error
 	setupObjectStore               func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error)
 	runBootstrap                   func(context.Context, bootstrap.Settings, *pgxpool.Pool) error

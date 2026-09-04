@@ -52,8 +52,8 @@ func TestPlatformSettingsProjection_Unit(t *testing.T) {
 
 func TestPlatformAdapterConstructorSignatures_Unit(t *testing.T) {
 	var (
-		_ func(context.Context, postgres.Settings) (*pgxpool.Pool, error)                                     = postgres.Setup
-		_ func(postgres.Settings) (*sql.DB, error)                                                            = postgres.OpenSQL
+		_ func(context.Context, postgres.Settings) (postgres.AdmittedPool, error)                             = postgres.Setup
+		_ func(context.Context, postgres.Settings) (*sql.DB, error)                                           = postgres.OpenSQL
 		_ func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error) = objectstore.Setup
 		_ func(context.Context, objectstore.Settings) (objectstore.EnsureBucketResult, error)                 = objectstore.EnsureBucket
 		_ func(context.Context, bootstrap.Settings, *pgxpool.Pool) error                                      = bootstrap.Preflight

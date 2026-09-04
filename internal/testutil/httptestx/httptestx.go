@@ -167,7 +167,7 @@ type ServerOptions struct {
 	Env              map[string]string
 	Dependencies     httpapi.DependencySet
 	AdditionalRoutes []httpapi.RouteRegistrar
-	Postgres         *pgxpool.Pool
+	Postgres         postgres.AdmittedPool
 	ObjectStore      objectstore.Store
 	TestRouteMode    TestRouteMode
 }

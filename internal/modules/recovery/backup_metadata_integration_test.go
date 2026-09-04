@@ -20,7 +20,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testing.T) {
@@ -29,8 +31,24 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 		t,
 		"backup_restore-i-10-01-metadata",
 	)
-	store := recovery.NewStore(harness.Pool)
 	ctx := context.Background()
+	sourceDB := &pgtest.TestDatabase{DSN: harness.Pool.Config().ConnConfig.ConnString()}
+	recoveryDSN, err := sourceDB.DSNForPurpose(postgres.PurposeRecovery)
+	if err != nil {
+		t.Fatalf("resolve source Recovery DSN: %v", err)
+	}
+	recoveryAdmission, err := postgres.Setup(ctx, postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          recoveryDSN,
+		Purpose:      postgres.PurposeRecovery,
+		ExpectedRole: "cartulary_recovery",
+	})
+	if err != nil {
+		t.Fatalf("open admitted source Recovery pool: %v", err)
+	}
+	t.Cleanup(recoveryAdmission.Close)
+	recoveryPool := recoveryAdmission.Pool()
+	store := recovery.NewStore(recoveryPool)
 	backupStorage, err := recoveryassembly.NewBackupStorage(
 		harness.Server.Config.Roots.BackupStorage.BindingKind,
 		harness.Server.Config.Roots.BackupStorage.Path,
@@ -75,14 +93,14 @@ INSERT INTO object_blobs (
 `, objectBlobID, incidentID, adminUserID, objectKey, int64(len(objectPayload)), objectSHA, asTime(t, "2026-05-22T13:00:00Z"), asTime(t, "2026-05-22T12:00:00Z")); err != nil {
 		t.Fatalf("insert source durable object blob row: %v", err)
 	}
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, harness.Pool)
+	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, recoveryPool)
 	if err != nil {
 		t.Fatalf("capture postgres snapshot artifact: %v", err)
 	}
 	if !bytes.Contains(postgresArtifact, []byte("backup_restore-i-10-01")) {
 		t.Fatalf("postgres snapshot artifact does not contain seeded incident data: %s", postgresArtifact)
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidence.NewRecoveryProvider(harness.Pool))
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, evidence.NewRecoveryProvider(recoveryPool))
 	if err != nil {
 		t.Fatalf("index source blob storage refs: %v", err)
 	}
@@ -164,7 +182,7 @@ INSERT INTO object_blobs (
 		t.Fatalf("latest SeaweedFS backup manifest does not prove the durable blob: %#v", decodedObjectManifest)
 	}
 
-	reopenedStore := recovery.NewStore(harness.Pool)
+	reopenedStore := recovery.NewStore(recoveryPool)
 	targetDB := runtimeHarness.Postgres.PrepareIsolatedDatabaseT(t, "backup_restore-i-10-01-service-backed-target")
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
 	if err != nil {

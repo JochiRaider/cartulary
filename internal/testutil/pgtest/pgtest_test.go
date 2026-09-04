@@ -15,6 +15,7 @@ import (
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
@@ -184,9 +185,9 @@ func TestPostgresContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
 func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 	stubOwnedPostgresStartup(t)
 
-	var gotLabels map[string]string
+	var gotRequest testcontainers.ContainerRequest
 	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
-		gotLabels = req.Labels
+		gotRequest = req.ContainerRequest
 		return fakePostgresContainer{
 			host: "127.0.0.1",
 			port: network.MustParsePort("5432/tcp"),
@@ -198,8 +199,15 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 	if _, err := StartOwnedWithLabels(context.Background(), labels); err != nil {
 		t.Fatalf("start labeled postgres: %v", err)
 	}
-	if gotLabels["cartulary.test"] != "suite" {
-		t.Fatalf("container labels not applied: %#v", gotLabels)
+	if gotRequest.Labels["cartulary.test"] != "suite" {
+		t.Fatalf("container labels not applied: %#v", gotRequest.Labels)
+	}
+	if gotRequest.Image != postgresImage || ContainerImage() != postgresImage {
+		t.Fatalf("postgres image mismatch: request=%q exported=%q want=%q", gotRequest.Image, ContainerImage(), postgresImage)
+	}
+	if gotRequest.Env["PGDATA"] != "/var/lib/postgresql/18/docker" ||
+		gotRequest.Env["POSTGRES_INITDB_ARGS"] != "--data-checksums --auth-host=scram-sha-256" {
+		t.Fatalf("postgres initialization environment mismatch: %#v", gotRequest.Env)
 	}
 }
 
@@ -737,10 +745,12 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 	oldCreate := createDatabaseFn
 	oldDrop := dropOwnedDatabaseFn
 	oldMigrate := migrateDatabaseFn
+	oldOpen := openMigrationDatabaseFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
 		dropOwnedDatabaseFn = oldDrop
 		migrateDatabaseFn = oldMigrate
+		openMigrationDatabaseFn = oldOpen
 	})
 
 	var scratchName string
@@ -755,6 +765,9 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 	}
 	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		return nil
+	}
+	openMigrationDatabaseFn = func(string, postgres.Purpose) (*sql.DB, error) {
+		return sql.Open("pgx", "postgres://fixture/unused")
 	}
 
 	harness := &Harness{
@@ -784,10 +797,12 @@ func TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase(t *testing.T
 	oldCreate := createDatabaseFn
 	oldDrop := dropOwnedDatabaseFn
 	oldMigrate := applyMigrationsThrough
+	oldOpen := openMigrationDatabaseFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
 		dropOwnedDatabaseFn = oldDrop
 		applyMigrationsThrough = oldMigrate
+		openMigrationDatabaseFn = oldOpen
 	})
 
 	var scratchName string
@@ -802,6 +817,9 @@ func TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase(t *testing.T
 	}
 	applyMigrationsThrough = func(ctx context.Context, db *sql.DB, version int64) error {
 		return nil
+	}
+	openMigrationDatabaseFn = func(string, postgres.Purpose) (*sql.DB, error) {
+		return sql.Open("pgx", "postgres://fixture/unused")
 	}
 
 	harness := &Harness{

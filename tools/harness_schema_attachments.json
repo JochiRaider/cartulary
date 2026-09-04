@@ -23,6 +23,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.benchmark_profile_registry.v1",
+      "path": "tools/schemas/cartulary.benchmark_profile_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Core 05 benchmark profile registry",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.browser_e2e_batch_manifest.v11",
       "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v11.schema.json",
       "classification": "public_contract",

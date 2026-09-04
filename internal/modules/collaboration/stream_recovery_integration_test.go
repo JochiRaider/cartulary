@@ -293,7 +293,7 @@ SELECT max(intent.dispatch_state),
 			false,
 			clockNow.Add(36*time.Second),
 		)
-		if _, err := pool.Exec(ctx, `
+		if _, err := harness.DB.ExecContext(ctx, `
 CREATE OR REPLACE FUNCTION cartulary_test_fail_requeue_intent_update()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -305,7 +305,7 @@ $function$
 `); err != nil {
 			t.Fatalf("install requeue rollback function: %v", err)
 		}
-		if _, err := pool.Exec(ctx, `
+		if _, err := harness.DB.ExecContext(ctx, `
 CREATE TRIGGER cartulary_test_fail_requeue_intent_update
 BEFORE UPDATE ON collaboration_event_intents
 FOR EACH ROW EXECUTE FUNCTION cartulary_test_fail_requeue_intent_update()
@@ -313,8 +313,8 @@ FOR EACH ROW EXECUTE FUNCTION cartulary_test_fail_requeue_intent_update()
 			t.Fatalf("install requeue rollback trigger: %v", err)
 		}
 		defer func() {
-			_, _ = pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_intent_update ON collaboration_event_intents`)
-			_, _ = pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_intent_update()`)
+			_, _ = harness.DB.ExecContext(context.Background(), `DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_intent_update ON collaboration_event_intents`)
+			_, _ = harness.DB.ExecContext(context.Background(), `DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_intent_update()`)
 		}()
 		if _, err := requeueCollaborationIncident(recovery, ctx, incidentID, clockNow.Add(37*time.Second)); requeueFailureKind(err) != collaboration.RequeueFailureTransaction {
 			t.Fatal("injected intent reset failure unexpectedly committed")
@@ -349,7 +349,7 @@ SELECT cursor.failure_count, cursor.quarantined_at, intent.attempt_count
 			false,
 			clockNow.Add(38*time.Second),
 		)
-		if _, err := pool.Exec(ctx, `
+		if _, err := harness.DB.ExecContext(ctx, `
 CREATE OR REPLACE FUNCTION cartulary_test_fail_requeue_journal_insert()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -364,7 +364,7 @@ $function$
 `); err != nil {
 			t.Fatalf("install requeue journal rollback function: %v", err)
 		}
-		if _, err := pool.Exec(ctx, `
+		if _, err := harness.DB.ExecContext(ctx, `
 CREATE TRIGGER cartulary_test_fail_requeue_journal_insert
 BEFORE INSERT ON deployment_admin_audit_events
 FOR EACH ROW EXECUTE FUNCTION cartulary_test_fail_requeue_journal_insert()
@@ -372,8 +372,8 @@ FOR EACH ROW EXECUTE FUNCTION cartulary_test_fail_requeue_journal_insert()
 			t.Fatalf("install requeue journal rollback trigger: %v", err)
 		}
 		defer func() {
-			_, _ = pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_journal_insert ON deployment_admin_audit_events`)
-			_, _ = pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_journal_insert()`)
+			_, _ = harness.DB.ExecContext(context.Background(), `DROP TRIGGER IF EXISTS cartulary_test_fail_requeue_journal_insert ON deployment_admin_audit_events`)
+			_, _ = harness.DB.ExecContext(context.Background(), `DROP FUNCTION IF EXISTS cartulary_test_fail_requeue_journal_insert()`)
 		}()
 		if _, err := requeueCollaborationIncident(recovery, ctx, incidentID, clockNow.Add(39*time.Second)); requeueFailureKind(err) != collaboration.RequeueFailureTransaction {
 			t.Fatalf("injected journal failure result = %v", err)

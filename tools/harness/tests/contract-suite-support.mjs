@@ -443,8 +443,8 @@ const generalCases = [
     name: "current target roster and public surface are exact",
     acceptance_ids: ["TH-HARNESS-AC-001"],
     run() {
-      assert.equal(taskSurface.targets.length, 149);
-      assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 101);
+      assert.equal(taskSurface.targets.length, 150);
+      assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 102);
     },
   },
   {

@@ -1481,8 +1481,9 @@ These criteria provide direct runtime-family verification for substantive base-p
   than partially registering behavior.
   - Verifies: REQ-01-660
 - **AC-542**: Production DDL Rebaseline v2 evidence proves that one pristine
-  PostgreSQL 16 database applies the immutable versions `1..29` and the
-  owner-approved additive versions `30..34` under lineage
+  exact PostgreSQL 18.6 database with `server_version_num=180006` and data
+  checksums enabled applies the immutable versions `1..29` and the
+  owner-approved additive versions `30..40` under lineage
   `cartulary.prod_ddl_rebaseline.v2`; v1, foreign, unmarked-nonzero, and
   contaminated states fail before v2 DDL with remediation-report schema v1,
   boundary `prod_ddl_rebaseline_v2`, reason `historical_migration_lineage`, and
@@ -3512,7 +3513,10 @@ The resolver failure precedence and reason codes are closed:
 4. unselected current locator present: `cross_purpose_postgres_binding_present`, without value access;
 5. selected locator absent: `postgres_binding_missing`;
 6. selected value empty, unreadable, malformed, oversized, or otherwise invalid: `postgres_binding_invalid`;
-7. required role identity not established: `postgres_effective_role_mismatch`.
+7. required role identity not established: `postgres_effective_role_mismatch`;
+8. server version differs from exact integer `180006`: `postgres_server_version_mismatch`;
+9. data checksums are not `on`: `postgres_data_checksums_disabled`;
+10. engine admission cannot read or validate safe server facts: `postgres_admission_failed`.
 
 The repeated `postgres_binding_invalid` reason intentionally hides whether the
 failure arose from deployment structure or secret content. If multiple
@@ -3552,8 +3556,9 @@ other fixed role. Fixed roles MUST NOT be members of one another.
 and Goose metadata; extension-managed objects are the only ownership
 exception. Runtime and Recovery MUST own no object. Every newly created or
 recycled physical connection MUST execute `SET ROLE` for its required fixed
-role and verify its deployment login as `session_user` and its fixed role as
-`current_user` before entering a pool or becoming caller-usable. A failing
+role and verify its deployment login as `session_user`, its fixed role as
+`current_user`, exact `server_version_num=180006`, and `data_checksums=on`
+before entering a pool or becoming caller-usable. A failing
 connection MUST be closed. One-time pool initialization is insufficient, and
 pgx pool and `database/sql` construction MUST share one identity-establishment
 implementation.
@@ -3614,9 +3619,15 @@ privilege on `public`. Default privileges for objects created by
 access to runtime or Recovery. Each migration MUST issue explicit
 manifest-matching grants. Existing ACLs are not inferred from defaults.
 
-Every environment's administrator or harness provisioning MUST create the
-roles and login memberships, database grants, `public` ownership, and exact
-PostgreSQL 16 prerequisites `pgcrypto` 1.3 and `citext` 1.6 in `public`. After
+Every environment's administrator or harness provisioning MUST create a fresh
+exact PostgreSQL 18.6 cluster with `server_version_num=180006`, data checksums
+enabled, host authentication restricted to SCRAM-SHA-256, and a parent volume
+mounted at `/var/lib/postgresql` with
+`PGDATA=/var/lib/postgresql/18/docker`. It MUST create the roles and login
+memberships, database grants, `public` ownership, and exact prerequisites
+`pgcrypto` 1.3 and `citext` 1.6 in `public`. Existing PostgreSQL 16 data
+directories are unsupported and MUST NOT be attached, translated, or retained
+as rollback state. After
 extension installation it MUST revoke extension-object `PUBLIC` privileges and
 grant only manifest-declared extension routine/type access. Cartulary
 application DDL MUST create no role, login, credential, schema, or extension.

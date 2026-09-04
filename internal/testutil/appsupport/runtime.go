@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -32,6 +33,7 @@ type Runtime struct {
 
 type ServerHarness struct {
 	Server                    *httptestx.Server
+	Database                  *pgtest.TestDatabase
 	DB                        *sql.DB
 	Pool                      *pgxpool.Pool
 	ObjectStore               objectstore.Store
@@ -249,7 +251,8 @@ func (r *Runtime) startServer(
 		env[key] = value
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-	pool := openServerPool(t, testDB)
+	admittedPool := openServerPool(t, testDB)
+	pool := admittedPool.Pool()
 	var incidentCreateCommitFault *IncidentCreateCommitFaultCapability
 	if options.IncidentCreateCommitFault {
 		var err error
@@ -263,7 +266,7 @@ func (r *Runtime) startServer(
 		Env:              env,
 		Dependencies:     options.Dependencies,
 		AdditionalRoutes: append([]httpapi.RouteRegistrar(nil), options.AdditionalRoutes...),
-		Postgres:         pool,
+		Postgres:         admittedPool,
 		ObjectStore:      store,
 		TestRouteMode:    options.TestRouteMode,
 	})
@@ -273,9 +276,18 @@ func (r *Runtime) startServer(
 	return harness
 }
 
-func openServerPool(t testing.TB, testDB *pgtest.TestDatabase) *pgxpool.Pool {
+func openServerPool(t testing.TB, testDB *pgtest.TestDatabase) postgres.AdmittedPool {
 	t.Helper()
-	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	dsn, err := testDB.DSNForPurpose(postgres.PurposeRuntime)
+	if err != nil {
+		t.Fatalf("resolve postgres runtime DSN: %v", err)
+	}
+	pool, err := postgres.Setup(context.Background(), postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          dsn,
+		Purpose:      postgres.PurposeRuntime,
+		ExpectedRole: "cartulary_runtime",
+	})
 	if err != nil {
 		t.Fatalf("open postgres pool: %v", err)
 	}
@@ -300,6 +312,7 @@ func serverHarnessForDatabase(
 	})
 	return &ServerHarness{
 		Server:              server,
+		Database:            testDB,
 		DB:                  db,
 		Pool:                pool,
 		ObjectStore:         store,

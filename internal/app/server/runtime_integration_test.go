@@ -75,11 +75,9 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "single-active-process")
-	pool, err := pgxpool.New(ctx, testDB.DSN)
-	if err != nil {
-		t.Fatalf("open single-active postgres pool: %v", err)
-	}
-	defer pool.Close()
+	admittedPool := openAdmittedRuntimePool(t, ctx, testDB)
+	pool := admittedPool.Pool()
+	defer admittedPool.Close()
 
 	s3Harness := s3test.Start(t)
 	bucket := s3Harness.BootstrapBucketT(t, "single-active-process")
@@ -117,7 +115,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		t.Fatalf("acquire restore admission fixture: %v", err)
 	}
 	defer restoreAdmission.Close()
-	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store}); err == nil {
+	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store}); err == nil {
 		blockedRuntime.Close()
 		t.Fatal("server runtime started while restore held the exclusive serving lease")
 	} else if !errors.Is(err, processlease.ErrRecoveryServingLeaseActive) {
@@ -127,7 +125,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		t.Fatalf("release restore admission fixture: %v", err)
 	}
 
-	first, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
+	first, err := NewRuntime(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store})
 	if err != nil {
 		t.Fatalf("start first single-active runtime: %v", err)
 	}
@@ -145,7 +143,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	}
 
 	counters, dependencies := installStartupCounters()
-	if second, secondErr := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: pool, ObjectStore: store}, dependencies); secondErr == nil {
+	if second, secondErr := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store}, dependencies); secondErr == nil {
 		second.Close()
 		first.Close()
 		t.Fatal("overlapping application runtime acquired the deployment-global lease")
@@ -175,7 +173,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	}
 	first.Close()
 
-	later, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
+	later, err := NewRuntime(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store})
 	if err != nil {
 		t.Fatalf("orderly release did not permit later acquisition: %v", err)
 	}
@@ -186,11 +184,8 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "all-optional-profiles-unclaimed")
-	pool, err := pgxpool.New(ctx, testDB.DSN)
-	if err != nil {
-		t.Fatalf("open all-unclaimed postgres pool: %v", err)
-	}
-	defer pool.Close()
+	admittedPool := openAdmittedRuntimePool(t, ctx, testDB)
+	defer admittedPool.Close()
 	store, err := objectstore.NewFilesystemStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("open all-unclaimed object store: %v", err)
@@ -210,7 +205,7 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 	var jobTransactions *jobs.TransactionService
 	networkFlowCleanupComposed := false
 	runtime, err := NewRuntime(ctx, cfg, Options{
-		Postgres:    pool,
+		Postgres:    admittedPool,
 		ObjectStore: store,
 		ObserveJobs: func(_ *jobs.Manager, transactions *jobs.TransactionService, _ *jobs.Runner, _ *pgxpool.Pool) {
 			jobTransactions = transactions
@@ -272,11 +267,8 @@ func TestCollaborationDispatcherStartupLossUsesWebSocketLifecycle_Integration(t 
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "collaboration-dispatcher-startup-loss")
-	pool, err := pgxpool.New(ctx, testDB.DSN)
-	if err != nil {
-		t.Fatalf("open dispatcher-loss postgres pool: %v", err)
-	}
-	defer pool.Close()
+	admittedPool := openAdmittedRuntimePool(t, ctx, testDB)
+	defer admittedPool.Close()
 	store, err := objectstore.NewFilesystemStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("open dispatcher-loss object store: %v", err)
@@ -301,7 +293,7 @@ func TestCollaborationDispatcherStartupLossUsesWebSocketLifecycle_Integration(t 
 		collaborationRuntime, err = newCollaborationRuntime(options)
 		return collaborationRuntime, err
 	}
-	runtime, err := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: pool, ObjectStore: store}, dependencies)
+	runtime, err := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store}, dependencies)
 	if err != nil {
 		t.Fatalf("compose dispatcher-loss runtime: %v", err)
 	}
@@ -612,11 +604,9 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 	t.Run("startup failure leaves a borrowed postgres pool open", func(t *testing.T) {
 		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-borrowed-postgres")
-		pool, err := pgxpool.New(context.Background(), testDB.DSN)
-		if err != nil {
-			t.Fatalf("open borrowed postgres pool: %v", err)
-		}
-		defer pool.Close()
+		admittedPool := openAdmittedRuntimePool(t, context.Background(), testDB)
+		pool := admittedPool.Pool()
+		defer admittedPool.Close()
 
 		bucket := BucketName("bootstrap-borrowed-postgres")
 		defer func() {
@@ -627,7 +617,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 		cfg := BindPostgres(t, RuntimeConfig(t), env)
-		if _, err := NewRuntime(context.Background(), cfg, Options{Env: env, Postgres: pool}); err == nil {
+		if _, err := NewRuntime(context.Background(), cfg, Options{Env: env, Postgres: admittedPool}); err == nil {
 			t.Fatal("expected missing bootstrap manifest to fail startup")
 		}
 		if err := pool.Ping(context.Background()); err != nil {
@@ -868,6 +858,24 @@ func openSQL(t testing.TB, dsn string) *sql.DB {
 		t.Fatalf("open postgres sql handle: %v", err)
 	}
 	return db
+}
+
+func openAdmittedRuntimePool(t testing.TB, ctx context.Context, testDB *pgtest.TestDatabase) postgres.AdmittedPool {
+	t.Helper()
+	dsn, err := testDB.DSNForPurpose(postgres.PurposeRuntime)
+	if err != nil {
+		t.Fatalf("resolve runtime postgres DSN: %v", err)
+	}
+	pool, err := postgres.Setup(ctx, postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          dsn,
+		Purpose:      postgres.PurposeRuntime,
+		ExpectedRole: "cartulary_runtime",
+	})
+	if err != nil {
+		t.Fatalf("open admitted runtime postgres pool: %v", err)
+	}
+	return pool
 }
 
 func requireCountSQL(t testing.TB, db *sql.DB, query string, want int) {

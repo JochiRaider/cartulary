@@ -69,6 +69,15 @@ The final image contains only `cartulary-server`, `cartulary-migrate`, and `cart
 
 The `app` service depends on healthy Postgres, successful migration, and successful object-store initialization. Starting `app` is the normal package path:
 
+The packaged database baseline is exact PostgreSQL 18.6 from
+`docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2`.
+Compose mounts the versioned `cartulary-postgres-data-v18` volume at the
+PostgreSQL parent directory `/var/lib/postgresql`, while the server stores the
+cluster under `PGDATA=/var/lib/postgresql/18/docker`. Initialization enables
+data checksums and SCRAM host authentication; platform admission rejects a
+different server patch, checksums-off cluster, or wrong-purpose login before
+startup work proceeds.
+
 ```sh
 docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml up -d app
 ```
@@ -103,7 +112,7 @@ Use `docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml 
 
 The package persists state in Docker-managed named volumes:
 
-- `cartulary-postgres-data`
+- `cartulary-postgres-data-v18`
 - `cartulary-seaweedfs-data`
 - `cartulary-backups`
 - `cartulary-reference-packs`
@@ -114,9 +123,51 @@ These roots are persistent package storage, not source-tree runtime paths.
 
 The image pre-creates the app runtime-root mount targets as non-root-owned directories so Docker named volumes are writable by the non-root app process.
 
+## PostgreSQL Baseline Reset
+
+The PostgreSQL 18 cutover is fresh-only. PostgreSQL 16 package state is
+disposable and has no `pg_upgrade`, dump/restore transition, dual-version, or
+in-place rollback path. From the repository root, inspect the exact package
+service and Compose-labeled PostgreSQL volumes without changing anything:
+
+```sh
+CARTULARY_CLEANUP_DRY_RUN=1 make postgres-baseline-reset POSTGRES_BASELINE_PROFILE=mvp
+```
+
+After verifying the listed project, service, and volumes, perform the reset
+only with the exact confirmation token:
+
+```sh
+CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset \
+  make postgres-baseline-reset POSTGRES_BASELINE_PROFILE=mvp
+```
+
+The reset rejects arbitrary profiles, Compose files, volume names, ambiguous
+labels, and in-use targets. It stops only the selected project's PostgreSQL
+service, deletes only its labeled legacy/current PostgreSQL volumes, preserves
+SeaweedFS, backup, reference-pack, temporary, and export volumes, then starts,
+provisions, migrates, and admits the exact PostgreSQL 18.6 baseline through
+migration 40. Ordinary `db-reset` remains a database-only reset inside the
+existing cluster and is not a major-version cutover command.
+
+Before the PostgreSQL 18.6 cluster accepts writes, rollback may recreate a
+fresh PostgreSQL 16 cluster from the old source/configuration. After the first
+18.6 write, rollback means discarding the PostgreSQL 18 volume; never attach it
+to PostgreSQL 16 or downgrade it in place. Supported recovery thereafter is a
+Cartulary logical Recovery artifact restored into a pristine admitted 18.6
+target.
+
 ## Operational Recovery
 
 Backup creation and restore verification run through `cartulary-operator` inside the package image using the Core logical commands. They require `CARTULARY_RECOVERY_MASTER_KEY`; recovery CLI invocation is deployment-local operator behavior and is not authorized through a runtime `deployment_admin`.
+
+The PostgreSQL payload remains the logical
+`cartulary.postgres_snapshot_artifact.v2` format. Existing valid v2 artifacts
+remain readable on a pristine admitted PostgreSQL 18.6 target; the artifact
+does not promise cross-engine portability and does not carry a source-engine
+field. Target engine, checksum, and purpose-role admission completes before the
+first restore mutation. A rejected or interrupted target remains non-serving
+and must be cleaned or reinitialized before reuse.
 
 Manual backup creation:
 
@@ -232,7 +283,8 @@ It builds and runs the MVP Compose package, creates a backup, inspects latest me
   `CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN` resolves to the package Postgres
   service. A `prod_ddl_rebaseline_v2` remediation report requires destroying
   and recreating the database; v1 and contaminated databases are not upgrade
-  sources.
+  sources. A server-version or checksum admission error requires a fresh exact
+  PostgreSQL 18.6 baseline, not a compatibility override.
 - If browser WebSocket requests fail with HTTP 403, verify `CARTULARY_PUBLIC_ORIGIN` exactly matches the browser origin used to reach the app.
 - If startup reports a `revisions_conflict_token_*` diagnostic, verify the key-ring mount, exact manifest schema, one-active-key rotation state, unique IDs and secret references, and the 32-byte unpadded-base64url secret. Startup intentionally fails before listeners when this credential is unavailable.
 - If backup creation fails, inspect the script stderr and confirm the configured deployment admin is active, the app service can be stopped and restarted, and `CARTULARY_RECOVERY_MASTER_KEY` matches existing encrypted backup artifacts.

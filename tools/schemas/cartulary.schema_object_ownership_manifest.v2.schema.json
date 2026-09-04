@@ -16,7 +16,7 @@
   "properties": {
     "schema_id": { "const": "cartulary.schema_object_ownership_manifest.v2" },
     "migration_root": { "const": "db/migrations" },
-    "supported_postgres_major": { "const": 16 },
+    "supported_postgres_major": { "const": 18 },
     "application_schemas": { "const": ["public"] },
     "goose_ledger": { "const": "public.goose_db_version" },
     "lineage_relation": { "const": "public.schema_migration_lineage" },

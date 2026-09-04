@@ -14,6 +14,7 @@
   db-up \
   db-migrate \
   db-reset \
+  postgres-baseline-reset \
   services-up \
   services-down \
   test-services-session-up \
@@ -193,6 +194,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
 	'  make db-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset' \
+	'  make postgres-baseline-reset' \
+	'                                      CARTULARY_CLEANUP_DRY_RUN=1 POSTGRES_BASELINE_PROFILE=dev preview or replace only the selected dev or MVP PostgreSQL volume baseline; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset' \
 	'  make services-up                    start local Postgres and SeaweedFS S3, then wait until ready' \
 	'  make services-down' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or stop local Postgres and SeaweedFS S3 while preserving named volumes' \
@@ -424,6 +427,14 @@ db-reset:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness; fi
 	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-reset}" $(RUN_STEP_SCRIPT) "db-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" CARTULARY_DESTRUCTIVE_CONFIRM="$(if \
 	  $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)" bash ./tools/harness/readiness/dev-services.sh db-reset
+
+postgres-baseline-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+postgres-baseline-reset:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,postgres-baseline-reset)
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory go-toolchain-readiness; fi
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-postgres-baseline-reset}" $(RUN_STEP_SCRIPT) "postgres-baseline-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN POSTGRES_BASELINE_PROFILE)" GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" \
+	  GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)" bash ./tools/harness/readiness/postgres-baseline-reset.sh
 
 services-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 services-up:

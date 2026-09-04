@@ -42,7 +42,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	}
 
 	var postgresCalls int
-	dependencies.setupPostgres = func(ctx context.Context, settings postgres.Settings) (*pgxpool.Pool, error) {
+	dependencies.setupPostgres = func(ctx context.Context, settings postgres.Settings) (postgres.AdmittedPool, error) {
 		postgresCalls++
 		return nil, nil
 	}
