@@ -1,9 +1,13 @@
 // biome-ignore-all lint/a11y/noNoninteractiveElementToInteractiveRole: The deterministic test grid preserves the public semantic role surface.
 // biome-ignore-all lint/a11y/noRedundantRoles: Explicit roles keep workbook tests independent of native accessibility-role inference.
 // biome-ignore-all lint/a11y/useFocusableInteractive: This test renderer provides semantic selector compatibility, not production interaction mechanics.
-import { gridScrollportClassName } from "@cartulary/ui-contracts";
+import {
+  gridScrollportClassName,
+  workbookGridRowHeightPx,
+} from "@cartulary/ui-contracts";
 import {
   type ClipboardEvent,
+  type CSSProperties,
   type FocusEvent,
   type ForwardedRef,
   forwardRef,
@@ -18,6 +22,8 @@ import {
   useRef,
   useState,
 } from "react";
+
+import "./styles.css";
 
 import {
   assertGridRows,
@@ -44,6 +50,7 @@ import {
   gridUnassignedGroupLabel,
   type SemanticDataGridProps,
 } from "./core";
+import { GridOperationalStatePlane } from "./GridOperationalStatePlane";
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
 import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
 import {
@@ -51,7 +58,11 @@ import {
   planSemanticFillFromRange,
   planSemanticPaste,
 } from "./semanticClipboardPolicy";
-import { resolveGridDataStatePresentation } from "./semanticDataState";
+import {
+  gridDataStateBlocksInteraction,
+  gridDataStatePresentsAuthorizedRows,
+  gridDataStatePresentsDraft,
+} from "./semanticDataState";
 import {
   decideSemanticGridKey,
   normalizeGridKey,
@@ -1255,7 +1266,8 @@ function useSemanticDataGridTestSupport<Row>(
     coreRecordBulkSelection,
     columns,
     dataState = { kind: "ready" },
-    draftRow,
+    density = "default",
+    draftRow: ownerDraftRow,
     fillViewportInline = false,
     getCellState,
     getRowState,
@@ -1268,7 +1280,7 @@ function useSemanticDataGridTestSupport<Row>(
     onFillCells,
     onSelectRow,
     onSortChange,
-    dataRows,
+    dataRows: ownerDataRows,
     rowGutter,
     sort = [],
     surface,
@@ -1280,7 +1292,7 @@ function useSemanticDataGridTestSupport<Row>(
     allowPasteCreateRows,
     clipboardPaste,
     coreRecordBulkSelection,
-    draftRow,
+    draftRow: ownerDraftRow,
     interactionMode,
     onFillCells,
     surface,
@@ -1288,7 +1300,12 @@ function useSemanticDataGridTestSupport<Row>(
   const effectiveInteractionMode = capabilities.interactionMode;
   const editable = capabilities.editable;
   const effectiveBulkSelection = capabilities.bulkSelection;
-  const effectiveDraftRow = capabilities.draftRow;
+  const dataRows = gridDataStatePresentsAuthorizedRows(dataState)
+    ? ownerDataRows
+    : [];
+  const effectiveDraftRow = gridDataStatePresentsDraft(dataState)
+    ? capabilities.draftRow
+    : undefined;
   const cellElements = useRef(new Map<string, HTMLTableCellElement>());
   const draftFocusTargets = useRef(new Map<string, GridEditorFocusTarget>());
   const scrollElement = useRef<HTMLDivElement>(null);
@@ -1329,7 +1346,7 @@ function useSemanticDataGridTestSupport<Row>(
     setActiveEditor,
     surface,
   });
-  assertGridRows(dataRows);
+  assertGridRows(ownerDataRows);
 
   const { bulkSelectionState, cellStateFor, rowStateFor } =
     createTestSupportSemanticState({
@@ -1350,106 +1367,127 @@ function useSemanticDataGridTestSupport<Row>(
     (actionsColumn === undefined ? 0 : 1);
 
   return (
-    <>
-      <TestGridStatePresentation
-        dataState={dataState}
-        interactionMode={effectiveInteractionMode}
-      />
+    <div
+      className="cartulary-grid-state-frame"
+      style={
+        {
+          "--cartulary-grid-state-row-height": `${workbookGridRowHeightPx(density)}px`,
+          "--cartulary-grid-state-draft-inset":
+            editable && effectiveDraftRow !== undefined
+              ? `${workbookGridRowHeightPx(density)}px`
+              : "0px",
+        } as CSSProperties
+      }
+    >
       <div
-        className={gridScrollportClassName()}
-        ref={scrollElement}
-        style={fillViewportInline ? { minWidth: 0, width: "100%" } : undefined}
-        tabIndex={-1}
+        className="cartulary-grid-binding-content"
+        inert={gridDataStateBlocksInteraction(dataState) ? true : undefined}
       >
-        <table
-          aria-label={accessibleLabel}
-          aria-busy={
-            dataState.kind === "initial_loading" ||
-            dataState.kind === "refreshing"
-          }
-          aria-readonly={!editable}
-          role="grid"
+        <div
+          className={gridScrollportClassName()}
+          ref={scrollElement}
           style={
             fillViewportInline ? { minWidth: 0, width: "100%" } : undefined
           }
+          tabIndex={-1}
         >
-          <TestGridHeader
-            actionsColumn={actionsColumn}
-            bulkSelection={effectiveBulkSelection}
-            bulkSelectionState={bulkSelectionState}
-            columns={columns}
-            onSelectAll={() => {
-              selectionAnchorRecordId.current = null;
-              if (
-                effectiveBulkSelection !== undefined &&
-                bulkSelectionState !== null
-              ) {
-                effectiveBulkSelection.onSelectedRecordIdsChange(
-                  toggleAllSemanticRecords(bulkSelectionState),
-                );
-              }
-            }}
-            onSortChange={onSortChange}
-            rowGutter={rowGutter}
-            sort={sort}
-          />
-          <TestGridBody
-            actionsColumn={actionsColumn}
-            activeEditor={activeEditor}
-            bulkSelection={effectiveBulkSelection}
-            bulkSelectionState={bulkSelectionState}
-            cellElements={cellElements}
-            cellStateFor={cellStateFor}
-            clipboardPaste={clipboardPaste}
-            columns={columns}
-            draftFocusTargets={draftFocusTargets}
-            draftRow={effectiveDraftRow}
-            editable={editable}
-            focusSemanticAnchor={focusSemanticAnchor}
-            interactionMode={effectiveInteractionMode}
-            onCopyCell={onCopyCell}
-            onFillCells={onFillCells}
-            onSelectRecord={(gridRow, shiftKey) => {
-              const recordId = coreRecordId(gridRow);
-              if (
-                recordId === null ||
-                effectiveBulkSelection === undefined ||
-                bulkSelectionState === null
-              ) {
-                return;
-              }
-              const next = toggleSemanticRecordRange({
-                anchorRecordId: selectionAnchorRecordId.current,
-                recordId,
-                selectableRows: bulkSelectionState.selectableRows,
-                selectedRecordIds: effectiveBulkSelection.selectedRecordIds,
-                shiftKey,
-              });
-              selectionAnchorRecordId.current = recordId;
-              effectiveBulkSelection.onSelectedRecordIdsChange(next);
-            }}
-            onSelectRow={onSelectRow}
-            pendingRangeEnd={pendingRangeEnd}
-            presentation={semanticPresentation}
-            publishActiveCell={publishActiveCell}
-            rangeRef={rangeRef}
-            renderedRows={renderedRows}
-            rowGutter={rowGutter}
-            rowStateFor={rowStateFor}
-            setActiveEditor={setActiveEditor}
-            setKeyboardAnnouncement={setKeyboardAnnouncement}
-            surface={surface}
-            totalColumnCount={totalColumnCount}
-            updateRange={updateRange}
-          />
-        </table>
+          <table
+            aria-label={accessibleLabel}
+            aria-busy={
+              dataState.kind === "initial_loading" ||
+              dataState.kind === "refreshing"
+            }
+            aria-readonly={!editable}
+            role="grid"
+            style={
+              fillViewportInline ? { minWidth: 0, width: "100%" } : undefined
+            }
+          >
+            <TestGridHeader
+              actionsColumn={actionsColumn}
+              bulkSelection={effectiveBulkSelection}
+              bulkSelectionState={bulkSelectionState}
+              columns={columns}
+              onSelectAll={() => {
+                selectionAnchorRecordId.current = null;
+                if (
+                  effectiveBulkSelection !== undefined &&
+                  bulkSelectionState !== null
+                ) {
+                  effectiveBulkSelection.onSelectedRecordIdsChange(
+                    toggleAllSemanticRecords(bulkSelectionState),
+                  );
+                }
+              }}
+              onSortChange={onSortChange}
+              rowGutter={rowGutter}
+              sort={sort}
+            />
+            <TestGridBody
+              actionsColumn={actionsColumn}
+              activeEditor={activeEditor}
+              bulkSelection={effectiveBulkSelection}
+              bulkSelectionState={bulkSelectionState}
+              cellElements={cellElements}
+              cellStateFor={cellStateFor}
+              clipboardPaste={clipboardPaste}
+              columns={columns}
+              draftFocusTargets={draftFocusTargets}
+              draftRow={effectiveDraftRow}
+              editable={editable}
+              focusSemanticAnchor={focusSemanticAnchor}
+              interactionMode={effectiveInteractionMode}
+              onCopyCell={onCopyCell}
+              onFillCells={onFillCells}
+              onSelectRecord={(gridRow, shiftKey) => {
+                const recordId = coreRecordId(gridRow);
+                if (
+                  recordId === null ||
+                  effectiveBulkSelection === undefined ||
+                  bulkSelectionState === null
+                ) {
+                  return;
+                }
+                const next = toggleSemanticRecordRange({
+                  anchorRecordId: selectionAnchorRecordId.current,
+                  recordId,
+                  selectableRows: bulkSelectionState.selectableRows,
+                  selectedRecordIds: effectiveBulkSelection.selectedRecordIds,
+                  shiftKey,
+                });
+                selectionAnchorRecordId.current = recordId;
+                effectiveBulkSelection.onSelectedRecordIdsChange(next);
+              }}
+              onSelectRow={onSelectRow}
+              pendingRangeEnd={pendingRangeEnd}
+              presentation={semanticPresentation}
+              publishActiveCell={publishActiveCell}
+              rangeRef={rangeRef}
+              renderedRows={renderedRows}
+              rowGutter={rowGutter}
+              rowStateFor={rowStateFor}
+              setActiveEditor={setActiveEditor}
+              setKeyboardAnnouncement={setKeyboardAnnouncement}
+              surface={surface}
+              totalColumnCount={totalColumnCount}
+              updateRange={updateRange}
+            />
+          </table>
+        </div>
       </div>
+      <GridOperationalStatePlane
+        accessibleLabel={accessibleLabel}
+        dataState={dataState}
+        focusRoot={() => focusTestRoot(scrollElement.current)}
+        interactionMode={effectiveInteractionMode}
+        surface={surface}
+      />
       {keyboardAnnouncement === "" ? null : (
         <span aria-live="assertive" role="alert">
           {keyboardAnnouncement}
         </span>
       )}
-    </>
+    </div>
   );
 }
 
@@ -1774,35 +1812,4 @@ function testSemanticAttributes(
     "data-grid-primary-state": state.primary,
     "data-grid-semantic-states": state.stateIds.join(" "),
   } as const;
-}
-
-function TestGridStatePresentation({
-  dataState,
-  interactionMode,
-}: {
-  readonly dataState: NonNullable<SemanticDataGridProps<unknown>["dataState"]>;
-  readonly interactionMode: NonNullable<
-    SemanticDataGridProps<unknown>["interactionMode"]
-  >;
-}) {
-  const presentation = resolveGridDataStatePresentation(dataState);
-  return (
-    <>
-      {presentation === null ? null : (
-        <div data-grid-data-state={dataState.kind} role={presentation.role}>
-          {presentation.message}
-          {presentation.action === undefined ? null : (
-            <button type="button" onClick={presentation.action.onInvoke}>
-              {presentation.action.label}
-            </button>
-          )}
-        </div>
-      )}
-      {interactionMode.kind === "read_only" ? (
-        <div data-grid-interaction-mode="read_only" role="status">
-          {interactionMode.label}
-        </div>
-      ) : null}
-    </>
-  );
 }

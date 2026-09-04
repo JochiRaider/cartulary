@@ -23,6 +23,17 @@ const expectedFamilies = Object.freeze([
   "evidence_preview_blocked",
   "unknown_future_error",
 ]);
+const expectedGridDataStates = Object.freeze([
+  "ready",
+  "initial_loading",
+  "refreshing",
+  "empty",
+  "filtered_empty",
+  "stale_error",
+  "unavailable",
+  "permission_denied",
+]);
+const expectedGridInteractionModes = Object.freeze(["editable", "read_only"]);
 
 export class DesignPresentationValidationError extends Error {
   constructor(message) {
@@ -64,10 +75,33 @@ export function loadDesignPresentationDocument(filePath) {
       `${filePath}: error_presentations must contain every current family exactly once`,
     );
   }
+  assertExactRows(
+    filePath,
+    "grid_data_state_presentations",
+    projection.grid_data_state_presentations.map((entry) => entry.state),
+    expectedGridDataStates,
+  );
+  assertExactRows(
+    filePath,
+    "grid_interaction_mode_presentations",
+    projection.grid_interaction_mode_presentations.map((entry) => entry.mode),
+    expectedGridInteractionModes,
+  );
   return {
     inputSha256: createHash("sha256").update(inputBytes).digest("hex"),
     projection,
   };
+}
+
+function assertExactRows(filePath, field, actual, expected) {
+  if (
+    new Set(actual).size !== expected.length ||
+    expected.some((identity) => !actual.includes(identity))
+  ) {
+    throw new DesignPresentationValidationError(
+      `${filePath}: ${field} must contain every current identity exactly once`,
+    );
+  }
 }
 
 export function renderDesignPresentationTypeScript(document) {
@@ -80,6 +114,41 @@ export function renderDesignPresentationTypeScript(document) {
       locus: entry.locus,
       retention: entry.retention,
     })),
+    gridDataStatePresentations:
+      document.projection.grid_data_state_presentations.map((entry) => ({
+        actionRule: entry.action_rule,
+        blocking: entry.blocking,
+        draftRetention: entry.draft_retention,
+        focusEffect: entry.focus_effect,
+        live: entry.live,
+        message: entry.message,
+        messageStrategy: entry.message_strategy,
+        placement: entry.placement,
+        posture: entry.posture,
+        role: entry.role,
+        rowRetention: entry.row_retention,
+        state: entry.state,
+      })),
+    gridInteractionModePresentations:
+      document.projection.grid_interaction_mode_presentations.map((entry) => ({
+        focusEffect: entry.focus_effect,
+        live: entry.live,
+        messageStrategy: entry.message_strategy,
+        mode: entry.mode,
+        posture: entry.posture,
+        role: entry.role,
+        visible: entry.visible,
+      })),
+    gridStateComposition: {
+      coDisplayInteractionMode:
+        document.projection.grid_state_composition.co_display_interaction_mode,
+      liveRegionRule:
+        document.projection.grid_state_composition.live_region_rule,
+      primary: document.projection.grid_state_composition.primary,
+      suppressInteractionForDataStates:
+        document.projection.grid_state_composition
+          .suppress_interaction_for_data_states,
+    },
     initialLoading: {
       announceOncePerGeneration:
         document.projection.initial_loading.announce_once_per_generation,
@@ -109,6 +178,10 @@ export function renderDesignPresentationTypeScript(document) {
     "",
     "export type CartularyErrorPresentation = (typeof cartularyDesignPresentation.errorPresentations)[number];",
     "export type CartularyErrorFamily = CartularyErrorPresentation[\"family\"];",
+    "export type CartularyGridDataStatePresentation = (typeof cartularyDesignPresentation.gridDataStatePresentations)[number];",
+    "export type CartularyGridDataState = CartularyGridDataStatePresentation[\"state\"];",
+    "export type CartularyGridInteractionModePresentation = (typeof cartularyDesignPresentation.gridInteractionModePresentations)[number];",
+    "export type CartularyGridInteractionMode = CartularyGridInteractionModePresentation[\"mode\"];",
     "export type CartularyStatusSecondaryKind = (typeof cartularyDesignPresentation.statusSecondaryPriority)[number];",
     "",
   ].join("\n");

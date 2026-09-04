@@ -114,7 +114,9 @@
         "file": "packages/ui-contracts/src/design-presentation.test.ts",
         "titles": [
           "design presentation projection contains every closed error family exactly once",
-          "design presentation projection exports the adopted loading and transient timing rules"
+          "design presentation projection contains every closed grid data state exactly once",
+          "design presentation projection exports the adopted loading and transient timing rules",
+          "design presentation projection projects interaction state independently with one composition rule"
         ]
       },
       "evidence_class": "unit",

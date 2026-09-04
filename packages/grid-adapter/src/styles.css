@@ -12,6 +12,114 @@
   min-inline-size: 0;
 }
 
+.cartulary-grid-state-frame {
+  block-size: 100%;
+  inline-size: 100%;
+  isolation: isolate;
+  min-block-size: 0;
+  min-inline-size: 0;
+  position: relative;
+}
+
+.cartulary-grid-binding-content {
+  block-size: 100%;
+  inline-size: 100%;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.cartulary-grid-operational-state-plane {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  inset-block-end: 0.5rem;
+  inset-inline: 0.5rem;
+  justify-content: flex-end;
+  max-block-size: calc(100% - 1rem);
+  min-inline-size: 0;
+  overflow: auto;
+  pointer-events: none;
+  position: absolute;
+  z-index: 6;
+}
+
+.cartulary-grid-operational-state-content {
+  align-items: center;
+  background: var(--ct-colors-surface-2);
+  border: var(--ct-border-hairline);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ct-spacing-sm);
+  inline-size: fit-content;
+  max-inline-size: min(100%, 48rem);
+  min-inline-size: 0;
+  padding: var(--ct-spacing-sm) var(--ct-spacing-md);
+}
+
+.cartulary-grid-operational-state-content > [role] {
+  display: flex;
+  flex: 1 1 18rem;
+  flex-wrap: wrap;
+  gap: var(--ct-spacing-xs) var(--ct-spacing-sm);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.cartulary-grid-operational-state-content button {
+  background: var(--ct-colors-surface-3);
+  border: var(--ct-border-hairline);
+  color: var(--ct-colors-ink);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  padding: var(--ct-spacing-xs) var(--ct-spacing-sm);
+  pointer-events: auto;
+}
+
+.cartulary-grid-operational-state-content button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.cartulary-grid-operational-state-content button:focus-visible {
+  outline: var(--ct-component-focus-ring-border);
+  outline-offset: var(--ct-component-focus-ring-offset);
+}
+
+.cartulary-grid-operational-state-plane[data-grid-data-state="empty"],
+.cartulary-grid-operational-state-plane[data-grid-data-state="filtered_empty"] {
+  align-items: flex-start;
+  background: var(--ct-colors-surface-1);
+  inset-block-end: var(--cartulary-grid-state-draft-inset, 0px);
+  inset-block-start: var(--cartulary-grid-state-row-height, 32px);
+  justify-content: center;
+  padding-block-start: var(--ct-spacing-lg);
+}
+
+.cartulary-grid-operational-state-plane[data-grid-blocking="true"] {
+  align-items: center;
+  background: var(--ct-colors-surface-1);
+  inset-block-end: 0;
+  inset-block-start: var(--cartulary-grid-state-row-height, 32px);
+  justify-content: center;
+  padding: var(--ct-spacing-md);
+}
+
+.cartulary-grid-operational-state-plane[data-grid-posture="caution"]
+  .cartulary-grid-operational-state-content {
+  border-color: var(--ct-colors-semantic-caution);
+}
+
+.cartulary-grid-operational-state-plane[data-grid-posture="error"]
+  .cartulary-grid-operational-state-content {
+  border-color: var(--ct-colors-semantic-conflict);
+}
+
+.cartulary-grid-interaction-state {
+  color: var(--ct-colors-ink-muted);
+  font-weight: 700;
+}
+
 .cartulary-grid .rdg-cell-drag-handle {
   background-color: var(--ct-colors-accent);
 }

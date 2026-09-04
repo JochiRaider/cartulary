@@ -89,6 +89,8 @@ export function useNetworkFlowGraphController({
   const [contributorPageIndex, setContributorPageIndex] = useState(0);
   const [contributorLoadState, setContributorLoadState] =
     useState<NetworkFlowQueryLoadState>("idle");
+  const [contributorError, setContributorError] =
+    useState<NetworkFlowRequestError | null>(null);
   const [contributorLoadGenerationKey, setContributorLoadGenerationKey] =
     useState(0);
   const graphControllerRef = useRef<AbortController | null>(null);
@@ -156,6 +158,7 @@ export function useNetworkFlowGraphController({
       setPageIndex: setContributorPageIndex,
       setPaging: setContributorPaging,
     });
+    setContributorError(null);
     if (!enabled || tableScope === null || validationMessage !== null) {
       setGraph(null);
       setGraphLoadState("idle");
@@ -276,6 +279,7 @@ export function useNetworkFlowGraphController({
       setContributorLoadState(
         contributorPagingRef.current === null ? "loading" : "refreshing",
       );
+      setContributorError(null);
       try {
         const result = await queryNetworkFlowContributors({
           availability,
@@ -298,6 +302,7 @@ export function useNetworkFlowGraphController({
         );
         setContributorPaging(nextPaging);
         setContributorLoadState("ready");
+        setContributorError(null);
         onError(null);
       } catch (caught) {
         if (
@@ -313,17 +318,18 @@ export function useNetworkFlowGraphController({
         if (isNetworkFlowAuthorizationLoss(requestError)) {
           onIncidentAccessLost?.();
         }
-        if (
+        const clearProtectedContributors =
           isNetworkFlowProtectedStateLoss(requestError) ||
-          requestError.code === "network_flow_graph_query_stale"
-        ) {
+          requestError.code === "network_flow_graph_query_stale";
+        if (clearProtectedContributors) {
           setGraph(null);
           setSelectionState(null);
+          contributorPagingRef.current = null;
+          setContributors([]);
+          setContributorPaging(null);
         }
-        contributorPagingRef.current = null;
-        setContributors([]);
-        setContributorPaging(null);
         setContributorLoadState("error");
+        setContributorError(requestError);
         onError(requestError);
       }
     },
@@ -344,6 +350,7 @@ export function useNetworkFlowGraphController({
       setPageIndex: setContributorPageIndex,
       setPaging: setContributorPaging,
     });
+    setContributorError(null);
     contributorHistoryRef.current = [];
     contributorPageIndexRef.current = 0;
     contributorPagingRef.current = null;
@@ -455,6 +462,7 @@ export function useNetworkFlowGraphController({
       setPageIndex: setContributorPageIndex,
       setPaging: setContributorPaging,
     });
+    setContributorError(null);
   }, []);
   const markGraphStale = useCallback(() => {
     setGraph(null);
@@ -466,6 +474,7 @@ export function useNetworkFlowGraphController({
       setPageIndex: setContributorPageIndex,
       setPaging: setContributorPaging,
     });
+    setContributorError(null);
   }, []);
 
   return {
@@ -476,6 +485,7 @@ export function useNetworkFlowGraphController({
       contributorPaging !== null,
     canPreviousContributorPage: contributorPageIndex > 0,
     clearGraph,
+    contributorError,
     contributorLoadState,
     contributorLoadGenerationKey,
     contributorPageNumber: contributorPageIndex + 1,

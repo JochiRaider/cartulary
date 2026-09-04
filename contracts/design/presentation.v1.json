@@ -9,6 +9,146 @@
     "announce_once_per_generation": true,
     "retry_on_delay": false
   },
+  "grid_data_state_presentations": [
+    {
+      "state": "ready",
+      "placement": "none",
+      "blocking": false,
+      "posture": "neutral",
+      "live": "none",
+      "role": "none",
+      "focus_effect": "preserve_focus",
+      "row_retention": "show_current_authorized",
+      "draft_retention": "show_owner_draft",
+      "message_strategy": "none",
+      "message": null,
+      "action_rule": "none"
+    },
+    {
+      "state": "initial_loading",
+      "placement": "grid_body_blocking",
+      "blocking": true,
+      "posture": "progress",
+      "live": "polite",
+      "role": "status",
+      "focus_effect": "no_automatic_move",
+      "row_retention": "show_none",
+      "draft_retention": "hide_owner_draft",
+      "message_strategy": "loading_surface",
+      "message": "Loading {surface_label}…",
+      "action_rule": "none"
+    },
+    {
+      "state": "refreshing",
+      "placement": "grid_body_compact",
+      "blocking": false,
+      "posture": "progress",
+      "live": "polite",
+      "role": "status",
+      "focus_effect": "preserve_selection_scroll_and_focus",
+      "row_retention": "retain_previously_authorized",
+      "draft_retention": "show_owner_draft",
+      "message_strategy": "refreshing_surface",
+      "message": "Refreshing {surface_label}…",
+      "action_rule": "none"
+    },
+    {
+      "state": "empty",
+      "placement": "grid_body_compact",
+      "blocking": false,
+      "posture": "neutral",
+      "live": "polite",
+      "role": "status",
+      "focus_effect": "no_automatic_move",
+      "row_retention": "show_none",
+      "draft_retention": "show_owner_draft",
+      "message_strategy": "owner_message",
+      "message": null,
+      "action_rule": "owner_optional_create"
+    },
+    {
+      "state": "filtered_empty",
+      "placement": "grid_body_compact",
+      "blocking": false,
+      "posture": "neutral",
+      "live": "polite",
+      "role": "status",
+      "focus_effect": "return_to_grid_after_action_replacement",
+      "row_retention": "show_none",
+      "draft_retention": "show_owner_draft",
+      "message_strategy": "design_message",
+      "message": "No rows match the current filters.",
+      "action_rule": "clear_filters"
+    },
+    {
+      "state": "stale_error",
+      "placement": "grid_body_compact",
+      "blocking": false,
+      "posture": "caution",
+      "live": "assertive",
+      "role": "alert",
+      "focus_effect": "preserve_selection_scroll_and_focus",
+      "row_retention": "retain_previously_authorized",
+      "draft_retention": "show_owner_draft",
+      "message_strategy": "owner_message_with_design_suffix",
+      "message": "Previously loaded rows may be stale.",
+      "action_rule": "owner_optional_retry"
+    },
+    {
+      "state": "unavailable",
+      "placement": "grid_body_blocking",
+      "blocking": true,
+      "posture": "error",
+      "live": "assertive",
+      "role": "alert",
+      "focus_effect": "do_not_focus_action_automatically",
+      "row_retention": "show_none",
+      "draft_retention": "hide_owner_draft",
+      "message_strategy": "owner_message",
+      "message": null,
+      "action_rule": "owner_optional_retry"
+    },
+    {
+      "state": "permission_denied",
+      "placement": "grid_body_blocking",
+      "blocking": true,
+      "posture": "error",
+      "live": "assertive",
+      "role": "alert",
+      "focus_effect": "authenticated_root_recovery",
+      "row_retention": "show_none",
+      "draft_retention": "clear_protected_draft",
+      "message_strategy": "owner_message_or_design_fallback",
+      "message": "You no longer have access to this workbook.",
+      "action_rule": "none"
+    }
+  ],
+  "grid_interaction_mode_presentations": [
+    {
+      "mode": "editable",
+      "visible": false,
+      "posture": "neutral",
+      "live": "none",
+      "role": "none",
+      "focus_effect": "preserve_focus",
+      "message_strategy": "none"
+    },
+    {
+      "mode": "read_only",
+      "visible": true,
+      "posture": "neutral",
+      "live": "polite",
+      "role": "status",
+      "focus_effect": "preserve_focus",
+      "message_strategy": "owner_label"
+    }
+  ],
+  "grid_state_composition": {
+    "primary": "data_state",
+    "co_display_interaction_mode": "read_only",
+    "suppress_interaction_for_data_states": ["permission_denied"],
+    "live_region_rule": "single_highest_priority_atomic_message"
+  },
   "transient_confirmation": {
     "visible_unpaused_ms": 5000,
     "live": "polite",

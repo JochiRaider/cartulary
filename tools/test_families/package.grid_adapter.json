@@ -830,7 +830,7 @@
           "scenario_7cccaae77bac"
         ],
         "titles": [
-          "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures."
+          "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures."
         ]
       },
       "evidence_class": "visual",

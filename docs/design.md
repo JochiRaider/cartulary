@@ -324,7 +324,7 @@ MUST consume `contracts/design/tokens.v1.json` and MUST NOT read, stat, hash, or
 otherwise depend on this file or another path under `docs/`. Human review MUST
 establish that the machine projection faithfully implements this design owner.
 
-Design contract. `contracts/design/presentation.v1.json` is the corresponding documentation-free projection for the observable presentation values in §§10.1, 10.6, 10.7, and 10.8. Its schema ID is `cartulary.design_presentation.v1`. It MUST project the exact loading delay and sentence, transient-confirmation timing, status-secondary priority, and closed error-family rows without adding a presentation family or alternate value. Executable consumers MUST use the generated package facade and MUST NOT parse this document.
+Design contract. `contracts/design/presentation.v1.json` is the corresponding documentation-free projection for the observable presentation values in §§10.1, 10.6, 10.7, 10.8, 12.3, and 12.8. Its schema ID is `cartulary.design_presentation.v1`. It MUST project the exact loading delay and sentence, transient-confirmation timing, status-secondary priority, closed error-family rows, closed grid data-state rows, interaction-mode rows, and their composition rule without adding a presentation family or alternate value. Executable consumers MUST use the generated package facade and MUST NOT parse this document.
 
 ### 3.2 Token registry schema contract
 
@@ -1562,9 +1562,30 @@ Design contract. Empty grids MUST distinguish successful empty query, no permiss
 | Surface unavailable | Error with retry or repair path if owner behavior exposes one. | No design-local repair route. |
 | Loading | Pending state. | No fake rows. |
 
-Design contract. Background refresh and stale-refresh failure MUST preserve prior authorized rows and communicate `Refreshing` or stale status in a status region. Permission or incident-access loss MUST clear protected rows rather than presenting them as stale. Closed incidents MUST retain read and copy affordances, display the exact lifecycle text `Closed, read-only`, and omit or disable every mutation entry point.
+Design contract. Background refresh and stale-refresh failure MUST preserve prior authorized rows and communicate `Refreshing` or stale status in a status region. D-VFIX-014 captures background refresh, stale failure, and unavailable initial load through one production Workbook scenario. Permission or incident-access loss MUST clear protected rows rather than presenting them as stale. Closed incidents MUST retain read and copy affordances, display the exact lifecycle text `Closed, read-only`, and omit or disable every mutation entry point.
 
 Design contract. Grid state announcements use polite live regions for loading, refreshing, selection count, and saved-state changes. Validation, conflicts, authorization loss, and rejected bulk operations use assertive announcements when immediate action is required. Announcements MUST not duplicate ordinary focused-control names.
+
+Design contract. The Grid Adapter presentation projection for the closed Core
+03 data-state vocabulary is exhaustive:
+
+| Data state | Placement | Blocking | Posture and live behavior | Row and draft posture | Message and action rule | Focus effect |
+| --- | --- | --- | --- | --- | --- | --- |
+| `ready` | None. | No. | Neutral; no data-state announcement. | Show current authorized rows and owner draft. | No data-state message or action. | Preserve focus. |
+| `initial_loading` | Blocking grid body below valid headers. | Yes. | Progress; polite. | Present no committed rows and hide the owner draft until replacement. | `Loading <surface label>…`, then the §10.6 delayed sentence; no action. | No automatic move. |
+| `refreshing` | Compact grid-body state. | No. | Progress; polite. | Retain previously authorized rows and owner draft. | `Refreshing <surface label>…`; no action. | Preserve selection, scroll, and focus. |
+| `empty` | Compact grid-body state. | No. | Neutral; polite. | Present no committed rows and keep the owner draft. | Owner message; owner-optional create action. | No automatic move; an activated create action uses the existing owner path. |
+| `filtered_empty` | Compact grid-body state. | No. | Neutral; polite. | Present no matching rows and keep the applied query and owner draft. | `No rows match the current filters.`; `Clear filters`. | Return to the grid after the activated action replaces the state. |
+| `stale_error` | Compact grid-body state. | No. | Caution; assertive. | Retain previously authorized rows and owner draft. | Owner message plus `Previously loaded rows may be stale.`; owner-optional Retry. | Preserve selection, scroll, and focus until activation. |
+| `unavailable` | Blocking grid body below valid headers. | Yes. | Error; assertive. | Present no committed rows and hide the owner draft until replacement. | Owner message; owner-optional Retry. | Do not focus Retry automatically. |
+| `permission_denied` | Blocking transient before authenticated-root recovery. | Yes. | Restrained error; assertive. | Present no rows or draft; the application owner clears protected materialization. | Safe owner message or design fallback; no local action. | Authenticated-root recovery owns final focus. |
+
+Design contract. `editable` has no persistent interaction-state message.
+`read_only` is a neutral, non-blocking, polite owner-labeled state that
+preserves focus and co-displays through the same physical grid state plane.
+The data state remains primary. `permission_denied` suppresses the read-only
+co-display, and each compound state uses one highest-priority atomic live
+message rather than competing data and interaction announcements.
 
 Design contract. Toasts MUST NOT carry critical unresolved state as the only visible location. Critical unresolved state MUST also appear in the relevant row, cell, inspector section, or status strip.
 
@@ -1710,9 +1731,9 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 | `D-VFIX-009` | Component state matrix sample. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | None. | `selector:[data-design-fixture='components']` | Required component states render and pass §14.3. |
 | `D-VFIX-010` | Narrow desktop shell. | `1024x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Built-in tabs collapse to `Surfaces`; required controls remain reachable. |
 | `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Chips move to `Filters`; presence moves to status strip. |
-| `D-VFIX-012` | Successful empty query. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='empty-state']` | Empty state distinguishes filtered empty and successful empty. |
-| `D-VFIX-013` | Delayed initial-loading state after the same generation reaches `2,000ms`. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='delayed-loading']` | Exact delayed sentence is visible, no retry is present, and the grid remains busy. |
-| `D-VFIX-014` | Representative local validation, transaction recovery, stale refresh, permission loss, and evidence-preview-blocked loci. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs, error details. | `selector:[data-design-fixture='error-presentation']` | Each family appears at the §10.8 locus with its required focus and live-region posture. |
+| `D-VFIX-012` | Successful, filtered, responsive, density, and read-only empty query states. | `1280x720 CSS px` plus declared responsive captures | `{layout.zoomDefault}` plus `200%` | `{density.compact-mode}`, `{density.default-mode}`, and `{density.comfortable-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='empty-state']` | Production Workbook and shared Network Analysis grids distinguish filtered empty from successful empty, preserve the owned draft only when authorized, and keep their state regions within the grid work area. |
+| `D-VFIX-013` | Immediate and delayed initial-loading states for one held production generation. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='delayed-loading']` | Immediate owner-label copy precedes the exact delayed sentence at `2,000ms`; neither phase offers Retry or presents records. |
+| `D-VFIX-014` | Stale refresh with retained authorized rows and unavailable initial load without rows. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='error-presentation']` | One production Playwright scenario captures both §10.8 grid loci, their distinct row-retention postures, owner-authorized Retry, focus preservation, and live priority; permission loss is separately proven as a transient clear-before-navigation behavior. |
 
 Design contract. The authored machine projection of this registry MUST use
 schema version `cartulary.frontend_visual_fixture_registry.v5`. A current

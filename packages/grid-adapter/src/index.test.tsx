@@ -715,9 +715,163 @@ describe("grid-adapter", () => {
     ).toBeTruthy();
   });
 
+  it("applies the same closed operational-state retention and composition policy in production and test support", () => {
+    for (const { Grid, name } of semanticContractBindings) {
+      const labelColumn = columns[0];
+      const stateColumn = columns[1];
+      if (labelColumn === undefined || stateColumn === undefined) {
+        throw new Error("Operational-state fixture requires two columns.");
+      }
+      const ownerRow: GridDataRow<HarnessRow> = {
+        data: { label: "Authorized", state: "saved" },
+        kind: "data",
+        mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+        rowIdentity: {
+          kind: "core_record",
+          recordId: `operational-${name}`,
+        },
+        testId: `operational-row-${name}`,
+      };
+      const operationalColumns: readonly GridColumn<HarnessRow>[] = [
+        {
+          ...labelColumn,
+          renderDraftCell: ({ focusTargetRef }) => (
+            <input aria-label={`Draft label ${name}`} ref={focusTargetRef} />
+          ),
+        },
+        stateColumn,
+      ];
+      const operationalProps = {
+        columns: operationalColumns,
+        dataRows: [ownerRow],
+        draftRow: {
+          data: { label: "", state: "" },
+          kind: "draft" as const,
+          testId: `operational-draft-${name}`,
+        },
+        surface: testSurface,
+      };
+      const onCreate = vi.fn();
+      const view = render(
+        <Grid
+          {...operationalProps}
+          dataState={{
+            action: { label: "Add row", onInvoke: onCreate },
+            kind: "empty",
+            message: "Query completed with no records.",
+          }}
+        />,
+      );
+
+      expect(screen.getByText("Query completed with no records.")).toBeTruthy();
+      expect(screen.queryByTestId(`operational-row-${name}`)).toBeNull();
+      expect(screen.getByTestId(`operational-draft-${name}`)).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Add row" })).toBeTruthy();
+
+      view.rerender(
+        <Grid
+          {...operationalProps}
+          dataState={{
+            generationKey: "initial-1",
+            kind: "initial_loading",
+            surfaceLabel: "Records",
+          }}
+          interactionMode={{ kind: "read_only", label: "Closed, read-only" }}
+        />,
+      );
+      expect(screen.getByText("Loading Records…")).toBeTruthy();
+      expect(screen.getByText("Closed, read-only")).toBeTruthy();
+      expect(screen.queryByTestId(`operational-row-${name}`)).toBeNull();
+      expect(screen.queryByTestId(`operational-draft-${name}`)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+
+      const onClearFilters = vi.fn();
+      view.rerender(
+        <Grid
+          {...operationalProps}
+          dataState={{
+            action: {
+              label: "Clear filters",
+              onInvoke: onClearFilters,
+            },
+            kind: "filtered_empty",
+          }}
+        />,
+      );
+      expect(
+        screen.getByText("No rows match the current filters."),
+      ).toBeTruthy();
+      expect(screen.queryByTestId(`operational-row-${name}`)).toBeNull();
+      expect(screen.getByTestId(`operational-draft-${name}`)).toBeTruthy();
+
+      view.rerender(
+        <Grid
+          {...operationalProps}
+          dataState={{ kind: "refreshing", surfaceLabel: "Records" }}
+        />,
+      );
+      expect(screen.getByText("Refreshing Records…")).toBeTruthy();
+      expect(screen.getByTestId(`operational-row-${name}`)).toBeTruthy();
+      expect(screen.getByTestId(`operational-draft-${name}`)).toBeTruthy();
+
+      view.rerender(
+        <Grid
+          {...operationalProps}
+          dataState={{ kind: "stale_error", message: "Refresh failed." }}
+        />,
+      );
+      expect(screen.getByRole("alert").textContent).toContain(
+        "Previously loaded rows may be stale.",
+      );
+      expect(screen.getByTestId(`operational-row-${name}`)).toBeTruthy();
+
+      view.rerender(
+        <Grid
+          {...operationalProps}
+          dataState={{ kind: "unavailable", message: "Records unavailable." }}
+        />,
+      );
+      expect(screen.getByText("Records unavailable.")).toBeTruthy();
+      expect(screen.queryByTestId(`operational-row-${name}`)).toBeNull();
+      expect(screen.queryByTestId(`operational-draft-${name}`)).toBeNull();
+      expect(
+        screen
+          .getByRole("grid")
+          .closest(".cartulary-grid-binding-content")
+          ?.hasAttribute("inert"),
+      ).toBe(true);
+
+      view.rerender(
+        <Grid
+          {...operationalProps}
+          dataState={{ kind: "permission_denied" }}
+          interactionMode={{ kind: "read_only", label: "Closed, read-only" }}
+        />,
+      );
+      expect(
+        screen.getByText("You no longer have access to this workbook."),
+      ).toBeTruthy();
+      expect(screen.queryByText("Closed, read-only")).toBeNull();
+      expect(screen.queryByRole("button")).toBeNull();
+
+      view.rerender(
+        <Grid
+          {...operationalProps}
+          dataState={{ kind: "ready" }}
+          interactionMode={{ kind: "read_only", label: "Closed, read-only" }}
+        />,
+      );
+      expect(screen.getByText("Closed, read-only")).toBeTruthy();
+      expect(screen.getByTestId(`operational-row-${name}`)).toBeTruthy();
+
+      view.unmount();
+      cleanup();
+    }
+  });
+
   it("shows the delayed loading message once per active generation and cancels it on terminal state", () => {
     vi.useFakeTimers();
-    const { rerender } = render(
+    const { rerender, unmount } = render(
       <SemanticDataGrid
         surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         columns={columns}
@@ -741,6 +895,20 @@ describe("grid-adapter", () => {
         columns={columns}
         dataRows={[]}
         dataState={{
+          generationKey: "generation-1",
+          kind: "initial_loading",
+          surfaceLabel: "Records",
+        }}
+      />,
+    );
+    expect(screen.getByText("Still loading this surface")).toBeTruthy();
+
+    rerender(
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
+        columns={columns}
+        dataRows={[]}
+        dataState={{
           generationKey: "generation-2",
           kind: "initial_loading",
           surfaceLabel: "Records",
@@ -748,6 +916,23 @@ describe("grid-adapter", () => {
       />,
     );
     expect(screen.getByText("Loading Records…")).toBeTruthy();
+    rerender(
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "other.view" }}
+        columns={columns}
+        dataRows={[]}
+        dataState={{
+          generationKey: "generation-2",
+          kind: "initial_loading",
+          surfaceLabel: "Records",
+        }}
+      />,
+    );
+    expect(screen.getByText("Loading Records…")).toBeTruthy();
+    act(() => vi.advanceTimersByTime(1999));
+    expect(screen.queryByText("Still loading this surface")).toBeNull();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText("Still loading this surface")).toBeTruthy();
     rerender(
       <SemanticDataGrid
         surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
@@ -758,7 +943,35 @@ describe("grid-adapter", () => {
     );
     act(() => vi.advanceTimersByTime(2000));
     expect(screen.queryByText("Still loading this surface")).toBeNull();
+    unmount();
+    render(
+      <SemanticDataGridTestSupport
+        surface={{ kind: "view_schema", viewSchemaId: "support.view" }}
+        columns={columns}
+        dataRows={[]}
+        dataState={{
+          generationKey: "support-generation",
+          kind: "initial_loading",
+          surfaceLabel: "Support records",
+        }}
+      />,
+    );
+    expect(screen.getByText("Loading Support records…")).toBeTruthy();
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByText("Still loading this surface")).toBeTruthy();
     vi.useRealTimers();
+  });
+
+  it("returns focus to the semantic grid root when an activated state action is replaced without owner focus", async () => {
+    render(<OperationalActionReplacementHarness />);
+    const clearFilters = screen.getByRole("button", { name: "Clear filters" });
+    clearFilters.focus();
+    fireEvent.click(clearFilters);
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("grid")),
+    );
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
   });
 
   it("compiles semantic row and cell state into private classes, markers, and ARIA", async () => {
@@ -2752,3 +2965,25 @@ describe("grid-adapter", () => {
     expect(screen.getByTestId("pending-grid-shell")).toBeTruthy();
   });
 });
+
+function OperationalActionReplacementHarness() {
+  const [ready, setReady] = useState(false);
+  return (
+    <SemanticDataGrid
+      columns={columns}
+      dataRows={[]}
+      dataState={
+        ready
+          ? { kind: "ready" }
+          : {
+              action: {
+                label: "Clear filters",
+                onInvoke: () => setReady(true),
+              },
+              kind: "filtered_empty",
+            }
+      }
+      surface={testSurface}
+    />
+  );
+}

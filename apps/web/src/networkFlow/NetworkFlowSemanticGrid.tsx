@@ -30,6 +30,10 @@ import type {
 } from "../services/networkFlowContractAdapter";
 import { NetworkFlowButton, NetworkFlowChoice } from "./NetworkFlowControls";
 import {
+  isNetworkFlowProtectedStateLoss,
+  type NetworkFlowRequestError,
+} from "./networkFlowErrors";
+import {
   compileNetworkFlowColumns,
   localizedNetworkFlowDiagnosticMessage,
   type NetworkFlowGridSchemaId,
@@ -45,6 +49,7 @@ import { useNetworkFlowGridLayout } from "./useNetworkFlowGridLayout";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 
 export function NetworkFlowAcceptedGrid({
+  error,
   filtered,
   loadGenerationKey = 0,
   loadState,
@@ -56,6 +61,7 @@ export function NetworkFlowAcceptedGrid({
   sort,
   onSelectionChange,
 }: {
+  readonly error: NetworkFlowRequestError | null;
   readonly filtered: boolean;
   readonly loadGenerationKey?: string | number | undefined;
   readonly loadState: NetworkFlowQueryLoadState;
@@ -90,18 +96,19 @@ export function NetworkFlowAcceptedGrid({
       ),
     [],
   );
+  const dataState = networkFlowGridDataState({
+    error,
+    filtered,
+    itemCount: rows.length,
+    loadGenerationKey,
+    loadState,
+    onResetQuery,
+    onRetry,
+    surfaceLabel: "accepted Network Flow rows",
+  });
   return (
     <NetworkFlowGridFrame
       columnsControl={layout}
-      dataState={networkFlowGridDataState({
-        filtered,
-        itemCount: rows.length,
-        loadGenerationKey,
-        loadState,
-        onResetQuery,
-        onRetry,
-        surfaceLabel: "accepted Network Flow rows",
-      })}
       gridSchemaId="network_flow.accepted_rows.v1"
       onSelectionChange={onSelectionChange}
       resetKey={resetKey}
@@ -122,15 +129,7 @@ export function NetworkFlowAcceptedGrid({
           columns={columns}
           columnWidths={layout.columnWidths}
           dataRows={dataRows}
-          dataState={networkFlowGridDataState({
-            filtered,
-            itemCount: rows.length,
-            loadGenerationKey,
-            loadState,
-            onResetQuery,
-            onRetry,
-            surfaceLabel: "accepted Network Flow rows",
-          })}
+          dataState={dataState}
           density="default"
           fillViewportInline
           interactionMode={{
@@ -173,6 +172,7 @@ export function NetworkFlowAcceptedGrid({
 
 export function NetworkFlowRejectedGrid({
   diagnostics,
+  error,
   filtered,
   loadGenerationKey = 0,
   loadState,
@@ -181,6 +181,7 @@ export function NetworkFlowRejectedGrid({
   resetKey,
 }: {
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
+  readonly error: NetworkFlowRequestError | null;
   readonly filtered: boolean;
   readonly loadGenerationKey?: string | number | undefined;
   readonly loadState: NetworkFlowQueryLoadState;
@@ -202,18 +203,19 @@ export function NetworkFlowRejectedGrid({
     diagnostics,
     networkFlowDiagnosticsForGrid,
   );
+  const dataState = networkFlowGridDataState({
+    error,
+    filtered,
+    itemCount: diagnostics.length,
+    loadGenerationKey,
+    loadState,
+    onResetQuery,
+    onRetry,
+    surfaceLabel: "rejected-row diagnostics",
+  });
   return (
     <NetworkFlowGridFrame
       columnsControl={layout}
-      dataState={networkFlowGridDataState({
-        filtered,
-        itemCount: diagnostics.length,
-        loadGenerationKey,
-        loadState,
-        onResetQuery,
-        onRetry,
-        surfaceLabel: "rejected-row diagnostics",
-      })}
       gridSchemaId="network_flow.rejected_rows.v1"
       resetKey={resetKey}
       rows={diagnostics}
@@ -233,15 +235,7 @@ export function NetworkFlowRejectedGrid({
           columns={columns}
           columnWidths={layout.columnWidths}
           dataRows={dataRows}
-          dataState={networkFlowGridDataState({
-            filtered,
-            itemCount: diagnostics.length,
-            loadGenerationKey,
-            loadState,
-            onResetQuery,
-            onRetry,
-            surfaceLabel: "rejected-row diagnostics",
-          })}
+          dataState={dataState}
           density="default"
           fillViewportInline
           interactionMode={{
@@ -262,12 +256,14 @@ export function NetworkFlowRejectedGrid({
 
 export function NetworkFlowContributorGrid({
   contributors,
+  error,
   loadGenerationKey = 0,
   loadState,
   onRetry,
   tables,
 }: {
   readonly contributors: readonly NetworkFlowContributor[];
+  readonly error: NetworkFlowRequestError | null;
   readonly loadGenerationKey?: string | number | undefined;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onRetry: () => void;
@@ -309,6 +305,16 @@ export function NetworkFlowContributorGrid({
     }),
     [tableNames],
   );
+  const dataState = networkFlowGridDataState({
+    error,
+    filtered: false,
+    itemCount: contributors.length,
+    loadGenerationKey,
+    loadState,
+    onResetQuery: () => undefined,
+    onRetry,
+    surfaceLabel: "graph contributors",
+  });
   return (
     <div style={gridFrameStyle}>
       <ColumnLayoutControls control={layout} />
@@ -322,15 +328,7 @@ export function NetworkFlowContributorGrid({
           columns={columns}
           columnWidths={layout.columnWidths}
           dataRows={dataRows}
-          dataState={networkFlowGridDataState({
-            filtered: false,
-            itemCount: contributors.length,
-            loadGenerationKey,
-            loadState,
-            onResetQuery: () => undefined,
-            onRetry,
-            surfaceLabel: "graph contributors",
-          })}
+          dataState={dataState}
           density="default"
           fillViewportInline
           grouping={grouping}
@@ -352,7 +350,6 @@ export function NetworkFlowContributorGrid({
 function NetworkFlowGridFrame<Row extends object>({
   children,
   columnsControl,
-  dataState,
   gridSchemaId,
   onSelectionChange,
   resetKey,
@@ -366,7 +363,6 @@ function NetworkFlowGridFrame<Row extends object>({
     readonly onCellRangeChange: (range: GridCellRange | null) => void;
   }) => React.ReactNode;
   readonly columnsControl: ReturnType<typeof useNetworkFlowGridLayout>;
-  readonly dataState: GridDataState;
   readonly gridSchemaId: Exclude<
     NetworkFlowGridSchemaId,
     "network_flow.graph_contributors.v1"
@@ -545,11 +541,6 @@ function NetworkFlowGridFrame<Row extends object>({
           />
         )}
       </div>
-      <span aria-live="polite" style={visuallyHiddenStyle}>
-        {dataState.kind === "ready"
-          ? "Network Flow grid ready"
-          : dataState.kind}
-      </span>
     </div>
   );
 }
@@ -760,6 +751,7 @@ function useStableGridProjection<Owner, Row>(
 }
 
 function networkFlowGridDataState(options: {
+  readonly error: NetworkFlowRequestError | null;
   readonly filtered: boolean;
   readonly itemCount: number;
   readonly loadGenerationKey: string | number;
@@ -779,16 +771,27 @@ function networkFlowGridDataState(options: {
     return { kind: "refreshing", surfaceLabel: options.surfaceLabel };
   }
   if (options.loadState === "error") {
+    if (
+      options.error !== null &&
+      isNetworkFlowProtectedStateLoss(options.error)
+    ) {
+      return { kind: "permission_denied", message: options.error.message };
+    }
+    const action =
+      options.error === null || options.error.retryable
+        ? { label: "Retry", onInvoke: options.onRetry }
+        : undefined;
     return options.itemCount > 0
       ? {
           kind: "stale_error",
-          message: "Refresh failed. Previously loaded rows may be stale.",
-          action: { label: "Retry", onInvoke: options.onRetry },
+          message: options.error?.message ?? "Refresh failed.",
+          action,
         }
       : {
           kind: "unavailable",
-          message: "Network Flow rows are unavailable.",
-          action: { label: "Retry", onInvoke: options.onRetry },
+          message:
+            options.error?.message ?? "Network Flow rows are unavailable.",
+          action,
         };
   }
   if (options.itemCount === 0) {

@@ -144,9 +144,33 @@ export function useTimelineGridEnvironment({
     [],
   );
   const focusDraftRow = useCallback(() => {
-    timelineGridHandleRef.current?.focusDraftCell(
-      "timeline.activity_synopsis_text",
-    );
+    const focusExistingDraft = () => {
+      const firstDraftColumn = timelineAnchorColumnsRef.current.find(
+        (column) => column.renderDraftCell !== undefined,
+      );
+      if (firstDraftColumn === undefined) {
+        return false;
+      }
+      return (
+        timelineGridHandleRef.current?.focusDraftCell(
+          firstDraftColumn.fieldKey,
+        ) === true
+      );
+    };
+    window.setTimeout(() => {
+      const focused = focusExistingDraft();
+      window.requestAnimationFrame(() => {
+        const activeElement = document.activeElement;
+        if (
+          focused &&
+          activeElement !== document.body &&
+          activeElement?.isConnected === true
+        ) {
+          return;
+        }
+        focusExistingDraft();
+      });
+    }, 0);
   }, []);
   return {
     commands: {

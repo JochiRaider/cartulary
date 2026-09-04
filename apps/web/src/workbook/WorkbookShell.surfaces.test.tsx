@@ -1291,7 +1291,12 @@ describe("WorkbookShell surface selection", () => {
 
   it("selects required built-in and system view surfaces by view_schema_id", async () => {
     scenario.genericRowsByView[indicatorsViewSchemaId] = [
-      indicatorRow("indicator-1", 1, "ipv4_addr", "203.0.113.42"),
+      indicatorRow(
+        "24000000-0000-4000-8000-000000000001",
+        1,
+        "ipv4_addr",
+        "203.0.113.42",
+      ),
     ];
 
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);

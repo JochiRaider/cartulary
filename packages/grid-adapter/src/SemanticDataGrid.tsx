@@ -1,5 +1,4 @@
 import {
-  cartularyDesignPresentation,
   gridScrollportClassName,
   workbookGridDensityMetrics,
   workbookGridRowHeightPx,
@@ -67,6 +66,7 @@ import {
   editorSeedForTarget,
   type PendingEditorSeed,
 } from "./editorSessionPolicy";
+import { GridOperationalStatePlane } from "./GridOperationalStatePlane";
 import {
   compileGridColumns,
   type GridCompiledBulkSelection,
@@ -89,7 +89,11 @@ import {
   planSemanticFillFromRange,
   planSemanticPaste,
 } from "./semanticClipboardPolicy";
-import { resolveGridDataStatePresentation } from "./semanticDataState";
+import {
+  gridDataStateBlocksInteraction,
+  gridDataStatePresentsAuthorizedRows,
+  gridDataStatePresentsDraft,
+} from "./semanticDataState";
 import {
   decideSemanticGridKey,
   normalizeGridKey,
@@ -699,7 +703,7 @@ function useSemanticDataGrid<Row>(
     columnWidths,
     dataState = { kind: "ready" },
     density = "default",
-    draftRow,
+    draftRow: ownerDraftRow,
     fillViewportInline = false,
     getCellState,
     getRowState,
@@ -712,11 +716,17 @@ function useSemanticDataGrid<Row>(
     onFillCells,
     onSelectRow,
     onSortChange,
-    dataRows,
+    dataRows: ownerDataRows,
     rowGutter,
     sort = [],
     surface,
   } = props;
+  const dataRows = gridDataStatePresentsAuthorizedRows(dataState)
+    ? ownerDataRows
+    : [];
+  const draftRow = gridDataStatePresentsDraft(dataState)
+    ? ownerDraftRow
+    : undefined;
   const capabilities = resolveSemanticGridCapabilities(props);
   const effectiveInteractionMode = capabilities.interactionMode;
   const editable = capabilities.editable;
@@ -757,7 +767,7 @@ function useSemanticDataGrid<Row>(
     vendorHandle,
     semanticCellElementsRef,
   );
-  assertGridRows(dataRows);
+  assertGridRows(ownerDataRows);
 
   const handleSemanticPaste = useGridPasteController({
     clipboardPaste,
@@ -1286,10 +1296,13 @@ function useSemanticDataGrid<Row>(
 
   return (
     <GridBindingFrame
+      accessibleLabel={accessibleLabel}
       bulkSelectionEnabled={coreRecordBulkSelection !== undefined}
       columns={columns}
       dataRows={dataRows}
       dataState={dataState}
+      density={density}
+      draftVisible={editable && draftRow !== undefined}
       interactionMode={effectiveInteractionMode}
       keyboardAnnouncement={keyboardAnnouncement}
       onDoubleClickCapture={onDoubleClickCapture}
@@ -1297,6 +1310,8 @@ function useSemanticDataGrid<Row>(
       positionMap={semanticPresentationRef.current}
       range={cellRange}
       selectedRecordCount={selectedRows.size}
+      surface={surface}
+      focusRoot={() => focusGridRoot(vendorHandle.current?.element ?? null)}
     >
       <ProductionGridBinding
         density={density}
@@ -1346,11 +1361,15 @@ function ProductionGridBinding<Row>({
 }
 
 function GridBindingFrame<Row>({
+  accessibleLabel,
   bulkSelectionEnabled,
   children,
   columns,
   dataRows,
   dataState,
+  density,
+  draftVisible,
+  focusRoot,
   interactionMode,
   keyboardAnnouncement,
   onDoubleClickCapture,
@@ -1358,12 +1377,17 @@ function GridBindingFrame<Row>({
   positionMap,
   range,
   selectedRecordCount,
+  surface,
 }: {
+  readonly accessibleLabel: string | undefined;
   readonly bulkSelectionEnabled: boolean;
   readonly children: ReactElement;
   readonly columns: readonly SemanticDataGridProps<Row>["columns"][number][];
   readonly dataRows: readonly GridDataRow<Row>[];
   readonly dataState: NonNullable<SemanticDataGridProps<Row>["dataState"]>;
+  readonly density: GridDensity;
+  readonly draftVisible: boolean;
+  readonly focusRoot: () => boolean;
   readonly interactionMode: NonNullable<
     SemanticDataGridProps<Row>["interactionMode"]
   >;
@@ -1375,18 +1399,35 @@ function GridBindingFrame<Row>({
   readonly positionMap: GridSemanticPresentationModel<Row>;
   readonly range: GridCellRange | null;
   readonly selectedRecordCount: number;
+  readonly surface: GridSurfaceIdentity;
 }) {
+  const blocking = gridDataStateBlocksInteraction(dataState);
   return (
     <div
       className="cartulary-grid-state-frame"
-      style={gridStateFrameStyle}
+      style={
+        {
+          "--cartulary-grid-state-row-height": `${workbookGridRowHeightPx(density)}px`,
+          "--cartulary-grid-state-draft-inset": draftVisible
+            ? `${workbookGridRowHeightPx(density)}px`
+            : "0px",
+        } as CSSProperties
+      }
       onDoubleClickCapture={onDoubleClickCapture}
       onMouseDownCapture={onMouseDownCapture}
     >
-      {children}
-      <GridStatePresentation
+      <div
+        className="cartulary-grid-binding-content"
+        inert={blocking ? true : undefined}
+      >
+        {children}
+      </div>
+      <GridOperationalStatePlane
+        accessibleLabel={accessibleLabel}
         dataState={dataState}
+        focusRoot={focusRoot}
         interactionMode={interactionMode}
+        surface={surface}
       />
       {bulkSelectionEnabled ? (
         <span
@@ -1619,119 +1660,6 @@ function GridRangeAnnouncement<Row>({
   );
 }
 
-function GridStatePresentation({
-  dataState,
-  interactionMode,
-}: {
-  readonly dataState: NonNullable<SemanticDataGridProps<unknown>["dataState"]>;
-  readonly interactionMode: NonNullable<
-    SemanticDataGridProps<unknown>["interactionMode"]
-  >;
-}) {
-  const delayedInitialLoading = useDelayedInitialLoading(dataState);
-  const presentation = resolveGridDataStatePresentation(
-    dataState,
-    delayedInitialLoading
-      ? cartularyDesignPresentation.initialLoading.message
-      : undefined,
-  );
-  return (
-    <>
-      {presentation === null ? null : (
-        <div
-          aria-live={presentation.live}
-          className={`cartulary-grid-state cartulary-grid-state-${dataState.kind}`}
-          data-grid-data-state={dataState.kind}
-          role={presentation.role}
-          style={{
-            ...gridStateStyle,
-            ...(presentation.blocking ? gridBlockingStateStyle : null),
-          }}
-        >
-          <span>{presentation.message}</span>
-          {presentation.action === undefined ? null : (
-            <button
-              style={gridStateActionStyle}
-              type="button"
-              onClick={presentation.action.onInvoke}
-            >
-              {presentation.action.label}
-            </button>
-          )}
-        </div>
-      )}
-      {interactionMode.kind === "read_only" ? (
-        <div
-          aria-live="polite"
-          className="cartulary-grid-interaction-state"
-          data-grid-interaction-mode="read_only"
-          role="status"
-          style={gridInteractionStateStyle}
-        >
-          {interactionMode.label}
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-function useDelayedInitialLoading(
-  state: NonNullable<SemanticDataGridProps<unknown>["dataState"]>,
-): boolean {
-  const [delayed, setDelayed] = useState(false);
-  const generationKey =
-    state.kind === "initial_loading" ? state.generationKey : null;
-  useEffect(() => {
-    setDelayed(false);
-    if (generationKey === null) return;
-    const timeout = window.setTimeout(() => {
-      setDelayed(true);
-    }, cartularyDesignPresentation.initialLoading.delayMs);
-    return () => window.clearTimeout(timeout);
-  }, [generationKey]);
-  return delayed;
-}
-
-const gridStateFrameStyle = {
-  blockSize: "100%",
-  minBlockSize: 0,
-  position: "relative",
-} satisfies CSSProperties;
-
-const gridStateStyle = {
-  alignItems: "center",
-  background: "var(--ct-colors-surface-2)",
-  border: "var(--ct-border-hairline)",
-  display: "flex",
-  gap: "0.75rem",
-  insetBlockStart: "0.5rem",
-  insetInline: "0.5rem",
-  justifyContent: "space-between",
-  padding: "0.65rem 0.8rem",
-  pointerEvents: "none",
-  position: "absolute",
-  zIndex: 5,
-} satisfies CSSProperties;
-
-const gridStateActionStyle = {
-  pointerEvents: "auto",
-} satisfies CSSProperties;
-
-const gridBlockingStateStyle = {
-  insetBlock: 0,
-  justifyContent: "center",
-} satisfies CSSProperties;
-
-const gridInteractionStateStyle = {
-  background: "var(--ct-colors-surface-3)",
-  border: "var(--ct-border-hairline)",
-  insetBlockEnd: "0.5rem",
-  insetInlineEnd: "0.5rem",
-  padding: "0.35rem 0.55rem",
-  position: "absolute",
-  zIndex: 4,
-} satisfies CSSProperties;
-
 function SemanticDataGridInner<Row>(
   props: SemanticDataGridProps<Row>,
   ref: ForwardedRef<GridHandle>,
@@ -1798,28 +1726,41 @@ function focusSemanticCellAfterRender(
     cell.focus({ preventScroll: true });
     return cell;
   };
-  window.setTimeout(() => {
+  const restoreWhenRegistered = (
+    remainingFrames: number,
+    previouslyFocusedCell: HTMLElement | null,
+  ) => {
     const activeElement = document.activeElement;
     const registeredCell = cellElements.get(gridAnchorKey(anchor))?.cell;
     if (
       activeElement !== invocationActiveElement &&
       activeElement !== document.body &&
+      activeElement?.isConnected === true &&
+      activeElement !== previouslyFocusedCell &&
       activeElement !== registeredCell
     ) {
       return;
     }
     const focusedCell = focusRegisteredCell();
-    // Focusing away from an inspector/editor may synchronously publish its
-    // final clean draft and replace the rendered cell. Re-resolve once after
-    // that render, but never reclaim focus after the user has moved to a
-    // different live control.
-    window.setTimeout(() => {
-      const activeElement = document.activeElement;
-      if (activeElement !== focusedCell && activeElement !== document.body) {
-        return;
-      }
-      focusRegisteredCell();
-    }, 0);
+    if (
+      focusedCell !== null &&
+      focusedCell === previouslyFocusedCell &&
+      document.activeElement === focusedCell
+    ) {
+      return;
+    }
+    if (remainingFrames > 0) {
+      window.requestAnimationFrame(() => {
+        restoreWhenRegistered(remainingFrames - 1, focusedCell);
+      });
+    }
+  };
+  window.setTimeout(() => {
+    // Horizontal virtualization and an inspector/editor close can each defer
+    // registration by more than one task. Re-resolve for a bounded number of
+    // paint frames, but never reclaim focus after the user moves to another
+    // connected control.
+    restoreWhenRegistered(8, null);
   }, 0);
 }
 

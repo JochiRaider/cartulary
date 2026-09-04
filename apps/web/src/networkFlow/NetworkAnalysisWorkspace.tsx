@@ -625,6 +625,7 @@ function NetworkAnalysisWorkspaceContent({
                 contributorLoadGenerationKey={
                   graphController.contributorLoadGenerationKey
                 }
+                contributorError={graphController.contributorError}
                 contributorPageNumber={graphController.contributorPageNumber}
                 contributors={graphController.contributors}
                 firstContributor={graphController.firstContributor}
@@ -675,6 +676,7 @@ function NetworkAnalysisWorkspaceContent({
             canNext={rejectedRowsController.canNext}
             canPrevious={rejectedRowsController.canPrevious}
             diagnostics={rejectedRowsController.diagnostics}
+            error={rejectedRowsController.error}
             loadGenerationKey={rejectedRowsController.loadGenerationKey}
             loadState={rejectedRowsController.loadState}
             notice={rejectedRowsController.notice}
@@ -699,6 +701,7 @@ function NetworkAnalysisWorkspaceContent({
             canPrevious={rowsController.canPrevious}
             loadGenerationKey={rowsController.loadGenerationKey}
             loadState={rowsController.loadState}
+            error={rowsController.error}
             notice={rowsController.notice}
             pageNumber={rowsController.pageNumber}
             query={rowsController.query}
@@ -1185,6 +1188,7 @@ function RowsPanel({
   canLink,
   canNext,
   canPrevious,
+  error,
   loadState,
   loadGenerationKey,
   notice,
@@ -1204,6 +1208,7 @@ function RowsPanel({
   readonly canLink: boolean;
   readonly canNext: boolean;
   readonly canPrevious: boolean;
+  readonly error: NetworkFlowRequestError | null;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly loadGenerationKey: string | number;
   readonly notice: string | null;
@@ -1247,6 +1252,7 @@ function RowsPanel({
         </div>
       ) : null}
       <NetworkFlowAcceptedGrid
+        error={error}
         filtered={query.filters.length > 0 || query.timeWindow !== null}
         loadGenerationKey={loadGenerationKey}
         loadState={loadState}
@@ -1276,6 +1282,7 @@ function RejectedRowsPanel({
   canNext,
   canPrevious,
   diagnostics,
+  error,
   loadState,
   loadGenerationKey,
   notice,
@@ -1290,6 +1297,7 @@ function RejectedRowsPanel({
   readonly canNext: boolean;
   readonly canPrevious: boolean;
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
+  readonly error: NetworkFlowRequestError | null;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly loadGenerationKey: string | number;
   readonly notice: string | null;
@@ -1310,6 +1318,7 @@ function RejectedRowsPanel({
       <PanelHeader table={activeTable} />
       <NetworkFlowRejectedGrid
         diagnostics={diagnostics}
+        error={error}
         filtered={
           query.errorCodes.length > 0 ||
           query.fieldKeys.length > 0 ||
@@ -1392,6 +1401,7 @@ function GraphPanel({
   canPreviousContributorPage,
   contributorLoadState,
   contributorLoadGenerationKey,
+  contributorError,
   contributorPageNumber,
   contributors,
   firstContributor,
@@ -1424,6 +1434,7 @@ function GraphPanel({
   readonly canPreviousContributorPage: boolean;
   readonly contributorLoadState: NetworkFlowQueryLoadState;
   readonly contributorLoadGenerationKey: string | number;
+  readonly contributorError: NetworkFlowRequestError | null;
   readonly contributorPageNumber: number;
   readonly contributors: readonly NetworkFlowContributor[];
   readonly firstContributor: NetworkFlowContributor | null;
@@ -1937,6 +1948,7 @@ function GraphPanel({
           </div>
           <NetworkFlowContributorGrid
             contributors={contributors}
+            error={contributorError}
             loadGenerationKey={contributorLoadGenerationKey}
             loadState={contributorLoadState}
             tables={tables}

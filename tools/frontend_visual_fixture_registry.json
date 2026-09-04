@@ -436,6 +436,7 @@
       "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
       "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-immediate-initial-loading-linux.png",
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png"
       ],
       "seed_id": "visual.seed.delayed_initial_loading",
@@ -474,13 +475,15 @@
     },
     {
       "fixture_id": "visual.fixture.error_presentation_loci",
-      "fixture_title": "Representative error-presentation loci",
+      "fixture_title": "Production grid refresh and error-presentation loci",
       "design_contract_id": "D-VFIX-014",
       "status": "current",
       "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
-      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-error-presentation-loci-linux.png",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-stale-refresh-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-error-presentation-loci-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-background-refresh-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-stale-refresh-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-grid-unavailable-initial-load-linux.png"
       ],
       "seed_id": "visual.seed.error_presentation_loci",
       "viewport_css_px": "1280x720",
@@ -498,15 +501,15 @@
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Each representative locus declares preserved focus or its exact destination; fixture injection does not move focus."
+        "description": "Background refresh and stale failure preserve grid focus; unavailable initial load does not automatically focus Retry."
       },
       "editor_state": {
         "kind": "fixture_specific",
-        "description": "Local validation retains the synthetic draft; other loci contain no active editor."
+        "description": "Background refresh and stale failure retain the authorized draft while unavailable initial load suppresses it."
       },
       "inspector_state": {
-        "kind": "fixture_specific",
-        "description": "Evidence-preview blocked is inspector-local while the other representative families occupy their declared cell, grid, panel, or root loci."
+        "kind": "closed",
+        "description": "Both production error states occupy the active grid locus with the Inspector closed."
       },
       "dynamic_masks": [],
       "no_dynamic_regions": true,
@@ -520,7 +523,7 @@
       "fixture_id": "visual.fixture.drag_fill_handle",
       "fixture_title": "Drag-fill handle",
       "status": "current",
-      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
@@ -618,7 +621,15 @@
       "playwright_scenario_title": "Capture saved-view selector, active chips, grouped result, group row, default/startup state indicator, and empty successful query fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png",
       "golden_artifacts": [
-        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png"
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-successful-query-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-filtered-empty-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-narrow-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-compact-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-zoom-200-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-text-spacing-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-compact-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-density-comfortable-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-query-empty-closed-read-only-linux.png"
       ],
       "seed_id": "visual.seed.empty_successful_query",
       "viewport_css_px": "1280x720",
@@ -754,7 +765,7 @@
       "fixture_id": "visual.fixture.frozen_column",
       "fixture_title": "Frozen column",
       "status": "current",
-      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
@@ -895,7 +906,7 @@
       "fixture_id": "visual.fixture.resize_handle",
       "fixture_title": "Resize handle",
       "status": "current",
-      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"
@@ -1178,7 +1189,7 @@
       "fixture_id": "visual.fixture.tree_group_row",
       "fixture_title": "Tree/group row",
       "status": "current",
-      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.",
+      "playwright_scenario_title": "Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.",
       "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png",
       "golden_artifacts": [
         "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-adapter-fixtures-linux.png"

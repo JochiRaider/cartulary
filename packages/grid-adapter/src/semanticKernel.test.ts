@@ -15,7 +15,12 @@ import {
   planSemanticFillFromRange,
   planSemanticPaste,
 } from "./semanticClipboardPolicy";
-import { resolveGridDataStatePresentation } from "./semanticDataState";
+import {
+  gridDataStatePresentsAuthorizedRows,
+  gridDataStatePresentsDraft,
+  resolveGridDataStatePresentation,
+  resolveGridInteractionModePresentation,
+} from "./semanticDataState";
 import {
   decideSemanticGridKey,
   normalizeGridKey,
@@ -102,15 +107,29 @@ describe("shared semantic grid kernel", () => {
   });
 
   it("resolves every data-state branch through one precedence table", () => {
-    const states: readonly [GridDataState, string | null, boolean][] = [
-      [{ kind: "ready" }, null, false],
+    const states: readonly [
+      GridDataState,
+      string | null,
+      boolean,
+      boolean,
+      boolean,
+    ][] = [
+      [{ kind: "ready" }, null, false, true, true],
       [
         { generationKey: 1, kind: "initial_loading", surfaceLabel: "Rows" },
         "Loading Rows…",
         true,
+        false,
+        false,
       ],
-      [{ kind: "refreshing", surfaceLabel: "Rows" }, "Refreshing Rows…", false],
-      [{ kind: "empty", message: "No rows." }, "No rows.", false],
+      [
+        { kind: "refreshing", surfaceLabel: "Rows" },
+        "Refreshing Rows…",
+        false,
+        true,
+        true,
+      ],
+      [{ kind: "empty", message: "No rows." }, "No rows.", false, false, true],
       [
         {
           action: { label: "Clear", onInvoke: vi.fn() },
@@ -118,30 +137,61 @@ describe("shared semantic grid kernel", () => {
         },
         "No rows match the current filters.",
         false,
+        false,
+        true,
       ],
       [
         { kind: "stale_error", message: "Failed." },
         "Failed. Previously loaded rows may be stale.",
         false,
+        true,
+        true,
       ],
-      [{ kind: "unavailable", message: "Offline." }, "Offline.", true],
+      [
+        { kind: "unavailable", message: "Offline." },
+        "Offline.",
+        true,
+        false,
+        false,
+      ],
       [
         { kind: "permission_denied" },
         "You no longer have access to this workbook.",
         true,
+        false,
+        false,
       ],
     ];
-    for (const [state, message, blocking] of states) {
+    for (const [
+      state,
+      message,
+      blocking,
+      presentsRows,
+      presentsDraft,
+    ] of states) {
       const resolved = resolveGridDataStatePresentation(state);
-      expect(resolved?.message ?? null).toBe(message);
-      expect(resolved?.blocking ?? false).toBe(blocking);
+      expect(resolved.message).toBe(message);
+      expect(resolved.blocking).toBe(blocking);
+      expect(resolved.semanticStateId).toBe(state.kind);
+      expect(gridDataStatePresentsAuthorizedRows(state)).toBe(presentsRows);
+      expect(gridDataStatePresentsDraft(state)).toBe(presentsDraft);
     }
     expect(
       resolveGridDataStatePresentation(
         { generationKey: 1, kind: "initial_loading", surfaceLabel: "Rows" },
-        "Still loading",
-      )?.message,
-    ).toBe("Still loading");
+        "delayed",
+      ).message,
+    ).toBe("Still loading this surface");
+    expect(
+      resolveGridInteractionModePresentation({
+        kind: "read_only",
+        label: "Closed, read-only",
+      }),
+    ).toMatchObject({
+      live: "polite",
+      message: "Closed, read-only",
+      visible: true,
+    });
   });
 
   it("returns closed keyboard decisions for edit, rejection, exit, navigation, range, fill, and ignore", () => {

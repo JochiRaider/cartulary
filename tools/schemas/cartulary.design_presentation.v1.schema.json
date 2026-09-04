@@ -9,6 +9,9 @@
     "owner_id",
     "verification_id",
     "initial_loading",
+    "grid_data_state_presentations",
+    "grid_interaction_mode_presentations",
+    "grid_state_composition",
     "transient_confirmation",
     "status_secondary_priority",
     "error_presentations"
@@ -27,6 +30,143 @@
         "live": { "const": "polite" },
         "announce_once_per_generation": { "const": true },
         "retry_on_delay": { "const": false }
+      }
+    },
+    "grid_data_state_presentations": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "placement",
+          "blocking",
+          "posture",
+          "live",
+          "role",
+          "focus_effect",
+          "row_retention",
+          "draft_retention",
+          "message_strategy",
+          "message",
+          "action_rule"
+        ],
+        "properties": {
+          "state": {
+            "enum": [
+              "ready",
+              "initial_loading",
+              "refreshing",
+              "empty",
+              "filtered_empty",
+              "stale_error",
+              "unavailable",
+              "permission_denied"
+            ]
+          },
+          "placement": {
+            "enum": ["none", "grid_body_compact", "grid_body_blocking"]
+          },
+          "blocking": { "type": "boolean" },
+          "posture": { "enum": ["neutral", "progress", "caution", "error"] },
+          "live": { "enum": ["none", "polite", "assertive"] },
+          "role": { "enum": ["none", "status", "alert"] },
+          "focus_effect": {
+            "enum": [
+              "preserve_focus",
+              "no_automatic_move",
+              "preserve_selection_scroll_and_focus",
+              "return_to_grid_after_action_replacement",
+              "do_not_focus_action_automatically",
+              "authenticated_root_recovery"
+            ]
+          },
+          "row_retention": {
+            "enum": [
+              "show_current_authorized",
+              "show_none",
+              "retain_previously_authorized"
+            ]
+          },
+          "draft_retention": {
+            "enum": [
+              "show_owner_draft",
+              "hide_owner_draft",
+              "clear_protected_draft"
+            ]
+          },
+          "message_strategy": {
+            "enum": [
+              "none",
+              "loading_surface",
+              "refreshing_surface",
+              "owner_message",
+              "design_message",
+              "owner_message_with_design_suffix",
+              "owner_message_or_design_fallback"
+            ]
+          },
+          "message": {
+            "type": ["string", "null"]
+          },
+          "action_rule": {
+            "enum": [
+              "none",
+              "owner_optional_create",
+              "clear_filters",
+              "owner_optional_retry"
+            ]
+          }
+        }
+      }
+    },
+    "grid_interaction_mode_presentations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "visible",
+          "posture",
+          "live",
+          "role",
+          "focus_effect",
+          "message_strategy"
+        ],
+        "properties": {
+          "mode": { "enum": ["editable", "read_only"] },
+          "visible": { "type": "boolean" },
+          "posture": { "const": "neutral" },
+          "live": { "enum": ["none", "polite"] },
+          "role": { "enum": ["none", "status"] },
+          "focus_effect": { "const": "preserve_focus" },
+          "message_strategy": { "enum": ["none", "owner_label"] }
+        }
+      }
+    },
+    "grid_state_composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary",
+        "co_display_interaction_mode",
+        "suppress_interaction_for_data_states",
+        "live_region_rule"
+      ],
+      "properties": {
+        "primary": { "const": "data_state" },
+        "co_display_interaction_mode": { "const": "read_only" },
+        "suppress_interaction_for_data_states": {
+          "const": ["permission_denied"]
+        },
+        "live_region_rule": {
+          "const": "single_highest_priority_atomic_message"
+        }
       }
     },
     "transient_confirmation": {

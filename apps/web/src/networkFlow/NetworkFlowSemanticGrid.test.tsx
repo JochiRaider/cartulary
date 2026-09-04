@@ -11,9 +11,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NetworkFlowAcceptedGrid } from "./NetworkFlowSemanticGrid";
 import type { NetworkFlowRow } from "./networkFlowClient";
+import { NetworkFlowRequestError } from "./networkFlowErrors";
 
 describe("NetworkFlowSemanticGrid accessibility", () => {
   afterEach(cleanup);
@@ -66,6 +67,80 @@ describe("NetworkFlowSemanticGrid accessibility", () => {
     expect(screen.getByText("Source IP column moved earlier.")).toBeTruthy();
     await user.click(screen.getByTestId(networkAnalysisTestId("layout-reset")));
   });
+
+  it("maps typed protected-state loss to permission denial without retaining rows or inventing Retry", () => {
+    const protectedError = new NetworkFlowRequestError({
+      code: "authorization_denied",
+      retryAction: "do_not_retry",
+      retryable: false,
+      safeMessage: "You no longer have access to this incident.",
+      status: 403,
+    });
+    render(
+      <div style={{ blockSize: 480, inlineSize: 1200 }}>
+        <NetworkFlowAcceptedGrid
+          error={protectedError}
+          filtered={false}
+          loadState="error"
+          resetKey="access-lost"
+          rows={[flowRow("protected-row", 1)]}
+          sort={[]}
+          onResetQuery={() => undefined}
+          onRetry={() => undefined}
+          onSelectionChange={() => undefined}
+          onSortChange={() => undefined}
+        />
+      </div>,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "You no longer have access to this incident.",
+    );
+    expect(
+      screen.queryByTestId(
+        networkAnalysisRowCellTestId("protected-row", "network_flow.src_ip"),
+      ),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("retains authorized rows for a retryable stale refresh failure", async () => {
+    const onRetry = vi.fn();
+    const refreshError = new NetworkFlowRequestError({
+      code: "network_flow_query_failed",
+      retryAction: "retry_with_backoff",
+      retryable: true,
+      safeMessage: "Network Flow refresh failed.",
+      status: 503,
+    });
+    render(
+      <div style={{ blockSize: 480, inlineSize: 1200 }}>
+        <NetworkFlowAcceptedGrid
+          error={refreshError}
+          filtered={false}
+          loadState="error"
+          resetKey="stale-refresh"
+          rows={[flowRow("retained-row", 1)]}
+          sort={[]}
+          onResetQuery={() => undefined}
+          onRetry={onRetry}
+          onSelectionChange={() => undefined}
+          onSortChange={() => undefined}
+        />
+      </div>,
+    );
+
+    expect(
+      screen.getByTestId(
+        networkAnalysisRowCellTestId("retained-row", "network_flow.src_ip"),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Network Flow refresh failed. Previously loaded rows may be stale.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
 });
 
 function renderGrid(rows: readonly NetworkFlowRow[]) {
@@ -76,6 +151,7 @@ function grid(rows: readonly NetworkFlowRow[], resetKey = "stable-query") {
   return (
     <div style={{ blockSize: 480, inlineSize: 1200 }}>
       <NetworkFlowAcceptedGrid
+        error={null}
         filtered={false}
         loadState="ready"
         resetKey={resetKey}

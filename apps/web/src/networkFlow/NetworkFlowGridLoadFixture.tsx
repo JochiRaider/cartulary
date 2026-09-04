@@ -125,6 +125,7 @@ export function NetworkFlowGridLoadFixture() {
       <div style={gridHostStyle}>
         {surface === "accepted" ? (
           <NetworkFlowAcceptedGrid
+            error={null}
             filtered={false}
             loadState="ready"
             resetKey="supported-load-fixture"
@@ -139,6 +140,7 @@ export function NetworkFlowGridLoadFixture() {
         {surface === "rejected" ? (
           <NetworkFlowRejectedGrid
             diagnostics={diagnostics}
+            error={null}
             filtered={false}
             loadState="ready"
             resetKey="supported-load-fixture"
@@ -149,6 +151,7 @@ export function NetworkFlowGridLoadFixture() {
         {surface === "contributors" ? (
           <NetworkFlowContributorGrid
             contributors={contributors}
+            error={null}
             loadState="ready"
             tables={tables}
             onRetry={() => undefined}

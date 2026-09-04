@@ -657,6 +657,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.networkflowsemanticgrid_operational_state_policy_94cf786881",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [
+        "package.grid_adapter"
+      ],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
+        "titles": [
+          "NetworkFlowSemanticGrid accessibility maps typed protected-state loss to permission denial without retaining rows or inventing Retry",
+          "NetworkFlowSemanticGrid accessibility retains authorized rows for a retryable stale refresh failure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.networkflowsemanticgrid_restores_semantic_focus_5fbb80e46c",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",

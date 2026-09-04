@@ -57,9 +57,15 @@ export {
 } from "./applicationSelectors";
 export {
   type CartularyErrorPresentation,
+  type CartularyGridDataState,
+  type CartularyGridDataStatePresentation,
+  type CartularyGridInteractionMode,
+  type CartularyGridInteractionModePresentation,
   type CartularyStatusSecondaryKind,
   cartularyDesignPresentation,
   cartularyErrorPresentation,
+  cartularyGridDataStatePresentation,
+  cartularyGridInteractionModePresentation,
 } from "./designPresentation";
 export {
   type CartularyDesignTokenVarName,

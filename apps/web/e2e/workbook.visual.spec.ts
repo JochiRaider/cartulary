@@ -118,6 +118,7 @@ import {
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { gridSavedRows } from "./pages/workbookInspector";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   driveRealTimelineSummaryConflict,
   focusRemoteTimelineCellAndWaitForPresence,
@@ -203,6 +204,13 @@ type FrontendVisualFixtureRegistry = {
   owner_id: string;
   schema_id: string;
   verification_id: string;
+};
+
+type VisualAccountDensity = "compact" | "comfortable" | "default" | null;
+
+type VisualAccountPreferences = {
+  readonly density_mode: VisualAccountDensity;
+  readonly preferences_version: number;
 };
 
 const expectedFrontendVisualFixtureIds = [
@@ -1417,7 +1425,7 @@ test.describe("workbook visual evidence", () => {
 });
 
 test.describe("browser.grid-interaction visual readiness", () => {
-  test("Capture frozen column, resize handle, fill-down handle, edit cell, group outline row, and empty successful query grid-adapter fixtures.", async ({
+  test("Capture frozen column, resize handle, fill-down handle, edit cell, and group outline row grid-adapter fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1448,7 +1456,6 @@ test.describe("browser.grid-interaction visual readiness", () => {
       "visual.fixture.drag_fill_handle",
       "visual.fixture.edit_cell",
       "visual.fixture.tree_group_row",
-      "visual.fixture.empty_successful_query",
     ]) {
       await expect(
         fixture.locator(`[data-fixture-id='${fixtureId}']`),
@@ -1639,6 +1646,24 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
     await expect(
       page.getByRole("button", { name: "Create timeline row" }),
     ).toBeVisible();
+    const successfulEmptyState = page
+      .getByTestId(gridShellTestId(timelineViewSchemaId))
+      .locator('[data-grid-data-state="empty"]');
+    await expect(successfulEmptyState).toBeVisible();
+    await expect(successfulEmptyState).toContainText(
+      "No Timeline records have been added.",
+    );
+    await expect(
+      successfulEmptyState.getByRole("button", { name: "Add row" }),
+    ).toBeVisible();
+    await successfulEmptyState.getByRole("button", { name: "Add row" }).click();
+    await expect
+      .poll(() =>
+        page
+          .getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId))
+          .evaluate((row) => row.contains(document.activeElement)),
+      )
+      .toBe(true);
     await assertWorkbookGridVisualRegression(
       page,
       "timeline-mutation-empty-timeline-query",
@@ -2901,9 +2926,149 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       .evaluate((element) => {
         element.setAttribute("data-design-fixture", "empty-state");
       });
+    const emptyState = page
+      .getByTestId(gridShellTestId(timelineViewSchemaId))
+      .locator('[data-grid-data-state="empty"]');
+    await expect(emptyState).toContainText(
+      "No Timeline records have been added.",
+    );
+    await expect(
+      emptyState.getByRole("button", { name: "Add row" }),
+    ).toBeVisible();
     await assertWorkbookGridVisualRegression(
       page,
       "workbook-query-empty-successful-query",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
+    );
+
+    await applyFilterChip(
+      page,
+      timelineViewSchemaId,
+      "timeline.capture_state",
+      "reviewed",
+    );
+    await assertActiveFilterChipVisible(
+      page,
+      timelineViewSchemaId,
+      "timeline.capture_state",
+    );
+    const filteredEmptyState = page
+      .getByTestId(gridShellTestId(timelineViewSchemaId))
+      .locator('[data-grid-data-state="filtered_empty"]');
+    await expect(filteredEmptyState).toContainText(
+      "No rows match the current filters.",
+    );
+    await expect(
+      filteredEmptyState.getByRole("button", { name: "Clear filters" }),
+    ).toBeVisible();
+    await assertWorkbookGridVisualRegression(
+      page,
+      "workbook-query-filtered-empty",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
+    );
+    await filteredEmptyState
+      .getByRole("button", { name: "Clear filters" })
+      .click();
+    await expect(emptyState).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .getByTestId(gridShellTestId(timelineViewSchemaId))
+          .locator('[role="grid"]')
+          .evaluate((grid) => grid === document.activeElement),
+      )
+      .toBe(true);
+
+    await page.setViewportSize({ width: 1024, height: 720 });
+    await assertWorkbookGridVisualRegression(
+      page,
+      "workbook-query-empty-narrow",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
+    );
+    await page.setViewportSize({ width: 768, height: 640 });
+    await assertWorkbookGridVisualRegression(
+      page,
+      "workbook-query-empty-compact",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
+    );
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    await assertViewportVisualRegression(page, "workbook-query-empty-zoom-200");
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+    const emptyTextSpacingStyle = await page.addStyleTag({
+      content: `
+        * {
+          line-height: 1.5 !important;
+          letter-spacing: 0.12em !important;
+          word-spacing: 0.16em !important;
+        }
+        p { margin-block-end: 2em !important; }
+      `,
+    });
+    await assertViewportVisualRegression(
+      page,
+      "workbook-query-empty-text-spacing",
+    );
+    await emptyTextSpacingStyle.evaluate((element) => {
+      element.parentNode?.removeChild(element);
+    });
+
+    const originalDensity = (await readVisualAccountPreferences(page))
+      .density_mode;
+    try {
+      for (const density of ["compact", "comfortable"] as const) {
+        await setVisualAccountDensity(page, density);
+        await page.reload();
+        const densityGrid = page.getByTestId(
+          gridShellTestId(timelineViewSchemaId),
+        );
+        await expect(densityGrid).toContainText(
+          "No Timeline records have been added.",
+        );
+        await densityGrid.evaluate((element) => {
+          element.setAttribute("data-design-fixture", "empty-state");
+        });
+        await assertWorkbookGridVisualRegression(
+          page,
+          `workbook-query-empty-density-${density}`,
+          timelineViewSchemaId,
+          { scroll: { top: 0, left: "left" } },
+        );
+      }
+    } finally {
+      await setVisualAccountDensity(page, originalDensity);
+      await page.reload();
+    }
+
+    await closeIncidentForVisual(page, emptyIncidentId);
+    await page.reload();
+    await expect(
+      page.getByText("Closed, read-only", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+    ).toContainText("No Timeline records have been added.");
+    await expect(
+      page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+    ).toHaveCount(0);
+    const closedEmptyState = page
+      .getByTestId(gridShellTestId(timelineViewSchemaId))
+      .locator('[data-grid-data-state="empty"]');
+    await expect(closedEmptyState.getByRole("button")).toHaveCount(0);
+    await expect(
+      page.getByTestId(workbookAddRowButtonTestId(timelineViewSchemaId)),
+    ).toBeDisabled();
+    await assertWorkbookGridVisualRegression(
+      page,
+      "workbook-query-empty-closed-read-only",
       timelineViewSchemaId,
       { scroll: { top: 0, left: "left" } },
     );
@@ -3976,31 +4141,223 @@ test.describe("browser.design-readiness visual readiness", () => {
     await expect(fixture).toBeVisible();
     await assertVisualRegression(page, "design-exposed-theme-states", fixture);
 
-    await injectDelayedLoadingVisualFixture(page);
-    const delayedLoading = page.locator(
-      "[data-design-fixture='delayed-loading']",
-    );
-    await expect(delayedLoading).toContainText("Still loading this surface");
-    await expect(delayedLoading.getByRole("button")).toHaveCount(0);
-    await assertVisualRegression(
+    const loadingIncidentId = await createIncident(
       page,
-      "design-delayed-initial-loading",
-      delayedLoading,
+      uniqueIncidentKey("VISUALDESIGNLOADING"),
+      "browser.design-readiness production grid loading states",
+    );
+    const heldInitialQuery = await holdBrowserApiRequest(page, {
+      method: "POST",
+      path: `/api/v1/incidents/${loadingIncidentId}/views/${timelineViewSchemaId}/query`,
+    });
+    try {
+      await page.goto(`/?incident_id=${loadingIncidentId}`);
+      await heldInitialQuery.waitForHit;
+      const loadingGrid = page.getByTestId(
+        gridShellTestId(timelineViewSchemaId),
+      );
+      await expect(loadingGrid).toBeVisible();
+      await loadingGrid.evaluate((element) => {
+        element.setAttribute("data-design-fixture", "delayed-loading");
+      });
+      const initialLoading = loadingGrid.locator(
+        '[data-grid-data-state="initial_loading"]',
+      );
+      await expect(initialLoading).toContainText("Loading Timeline…");
+      await expect(initialLoading.getByRole("button")).toHaveCount(0);
+      await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(0);
+      await expect(
+        page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+      ).toHaveCount(0);
+      await assertWorkbookGridVisualRegression(
+        page,
+        "design-immediate-initial-loading",
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
+
+      await expect(initialLoading).toContainText("Still loading this surface");
+      await expect(initialLoading.getByRole("button")).toHaveCount(0);
+      await assertWorkbookGridVisualRegression(
+        page,
+        "design-delayed-initial-loading",
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
+    } finally {
+      heldInitialQuery.release();
+      await heldInitialQuery.dispose();
+    }
+
+    const staleIncidentId = await createIncident(
+      page,
+      uniqueIncidentKey("VISUALDESIGNSTALE"),
+      "browser.design-readiness production stale grid state",
+    );
+    const staleRow = await createViewRow(
+      page,
+      staleIncidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("VISUALDESIGNSTALE-ROW"),
+        "timeline.activity_utc_text": "2026-05-31T12:00:00Z",
+        "timeline.activity_synopsis_text":
+          "Previously authorized row retained during stale refresh",
+      },
+    );
+    await page.goto(`/?incident_id=${staleIncidentId}`);
+    await expect(
+      page.getByTestId(gridRowTestId(timelineViewSchemaId, staleRow.record_id)),
+    ).toBeVisible();
+    const staleQueryPattern = `**/api/v1/incidents/${staleIncidentId}/views/${timelineViewSchemaId}/query`;
+    let resolveStaleQueryHit: () => void = () => undefined;
+    let releaseStaleQuery: () => void = () => undefined;
+    const staleQueryHit = new Promise<void>((resolve) => {
+      resolveStaleQueryHit = resolve;
+    });
+    const staleQueryRelease = new Promise<void>((resolve) => {
+      releaseStaleQuery = resolve;
+    });
+    const staleQueryFailure = async (route: Route) => {
+      if (route.request().method().toUpperCase() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      resolveStaleQueryHit();
+      await staleQueryRelease;
+      await failWorkbookVisualQuery(route);
+    };
+    await page.route(staleQueryPattern, staleQueryFailure);
+    try {
+      await applyFilterChip(
+        page,
+        timelineViewSchemaId,
+        "timeline.capture_state",
+        "reviewed",
+      );
+      await staleQueryHit;
+      const refreshingState = page.locator(
+        '[data-grid-data-state="refreshing"]',
+      );
+      await expect(refreshingState).toBeVisible();
+      await expect(refreshingState).toContainText("Refreshing Timeline…");
+      await expect(refreshingState.getByRole("button")).toHaveCount(0);
+      await expect(
+        page.getByTestId(
+          gridRowTestId(timelineViewSchemaId, staleRow.record_id),
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+      ).toBeVisible();
+      await page
+        .getByTestId(gridShellTestId(timelineViewSchemaId))
+        .evaluate((element) => {
+          element.setAttribute("data-design-fixture", "error-presentation");
+        });
+      await assertWorkbookGridVisualRegression(
+        page,
+        "design-grid-background-refresh",
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
+
+      releaseStaleQuery();
+      const staleState = page.locator('[data-grid-data-state="stale_error"]');
+      await expect(staleState).toBeVisible();
+      await expect(staleState).toContainText("Workbook view load failed.");
+      await expect(staleState).toContainText(
+        "Previously loaded rows may be stale.",
+      );
+      await expect(
+        staleState.getByRole("button", { name: "Retry" }),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(
+          gridRowTestId(timelineViewSchemaId, staleRow.record_id),
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+      ).toBeVisible();
+      await page
+        .getByTestId(gridShellTestId(timelineViewSchemaId))
+        .evaluate((element) => {
+          element.setAttribute("data-design-fixture", "error-presentation");
+        });
+      await assertWorkbookGridVisualRegression(
+        page,
+        "design-grid-stale-refresh",
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
+    } finally {
+      releaseStaleQuery();
+      await page.unroute(staleQueryPattern, staleQueryFailure);
+    }
+    await closeIncidentForVisual(page, staleIncidentId);
+    await page.reload();
+    await expect(
+      page.getByText("Closed, read-only", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(gridRowTestId(timelineViewSchemaId, staleRow.record_id)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+    ).toHaveCount(0);
+    await assertWorkbookGridVisualRegression(
+      page,
+      "design-grid-closed-read-only-rows",
+      timelineViewSchemaId,
+      { scroll: { top: 0, left: "left" } },
     );
 
-    await injectErrorPresentationVisualFixture(page);
-    const errorPresentation = page.locator(
-      "[data-design-fixture='error-presentation']",
-    );
-    await expect(errorPresentation).toBeVisible();
-    await expect(errorPresentation.locator("[data-error-locus]")).toHaveCount(
-      5,
-    );
-    await assertVisualRegression(
+    const unavailableIncidentId = await createIncident(
       page,
-      "design-error-presentation-loci",
-      errorPresentation,
+      uniqueIncidentKey("VISUALDESIGNUNAVAILABLE"),
+      "browser.design-readiness production unavailable grid state",
     );
+    const unavailableQueryPattern = `**/api/v1/incidents/${unavailableIncidentId}/views/${timelineViewSchemaId}/query`;
+    const unavailableQueryFailure = async (route: Route) => {
+      if (route.request().method().toUpperCase() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      await failWorkbookVisualQuery(route);
+    };
+    await page.route(unavailableQueryPattern, unavailableQueryFailure);
+    try {
+      await page.goto(`/?incident_id=${unavailableIncidentId}`);
+      const unavailableGrid = page.getByTestId(
+        gridShellTestId(timelineViewSchemaId),
+      );
+      const unavailableState = unavailableGrid.locator(
+        '[data-grid-data-state="unavailable"]',
+      );
+      await expect(unavailableState).toBeVisible();
+      await expect(unavailableState).toContainText(
+        "Workbook view load failed.",
+      );
+      await expect(
+        unavailableState.getByRole("button", { name: "Retry" }),
+      ).toBeVisible();
+      await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(0);
+      await expect(
+        page.getByTestId(workbookInlineDraftRowTestId(timelineViewSchemaId)),
+      ).toHaveCount(0);
+      await unavailableGrid.evaluate((element) => {
+        element.setAttribute("data-design-fixture", "error-presentation");
+      });
+      await assertWorkbookGridVisualRegression(
+        page,
+        "design-grid-unavailable-initial-load",
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
+    } finally {
+      await page.unroute(unavailableQueryPattern, unavailableQueryFailure);
+    }
   });
 });
 
@@ -4303,6 +4660,61 @@ async function fulfillAuthVisualJSON(
   });
 }
 
+async function failWorkbookVisualQuery(route: Route) {
+  await route.abort("failed");
+}
+
+async function closeIncidentForVisual(page: Page, incidentId: string) {
+  const incidentResponse = await page.request.get(
+    `${apiBase}/api/v1/incidents/${incidentId}`,
+  );
+  expect(incidentResponse.ok()).toBeTruthy();
+  const incident = (await incidentResponse.json()) as {
+    data: { incident_version: number };
+  };
+  const response = await page.request.post(
+    `${apiBase}/api/v1/incidents/${incidentId}/close`,
+    {
+      data: {
+        base_incident_version: incident.data.incident_version,
+        client_txn_id: uniqueTxn("visual-grid-state-close-incident"),
+        reason: "Visual read-only state evidence",
+      },
+      headers: await csrfHeaders(page),
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
+async function readVisualAccountPreferences(
+  page: Page,
+): Promise<VisualAccountPreferences> {
+  const response = await page.request.get(
+    `${apiBase}/api/v1/account/preferences`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return ((await response.json()) as { data: VisualAccountPreferences }).data;
+}
+
+async function setVisualAccountDensity(
+  page: Page,
+  densityMode: VisualAccountDensity,
+) {
+  const current = await readVisualAccountPreferences(page);
+  const response = await page.request.put(
+    `${apiBase}/api/v1/account/preferences`,
+    {
+      data: {
+        base_preferences_version: current.preferences_version,
+        client_txn_id: uniqueTxn("visual-grid-state-density"),
+        density_mode: densityMode,
+      },
+      headers: await csrfHeaders(page),
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+}
+
 async function fulfillAuthVisualError(
   route: Route,
   options: {
@@ -4493,7 +4905,7 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         inset: var(--ct-spacing-xl);
         box-sizing: border-box;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 20rem;
+        grid-template-columns: minmax(0, 1fr);
         gap: var(--ct-spacing-md);
         overflow: hidden;
         background: var(--ct-colors-canvas);
@@ -4617,36 +5029,6 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
         color: var(--ct-colors-ink);
       }
 
-      .grid-interaction-grid-fixture-side {
-        display: grid;
-        grid-template-rows: auto 1fr;
-        gap: var(--ct-spacing-sm);
-        min-width: 0;
-      }
-
-      .grid-interaction-grid-fixture-caption {
-        margin: 0;
-        color: var(--ct-colors-ink-muted);
-        font-family: var(--ct-typography-metadata-fontFamily);
-        font-size: var(--ct-typography-metadata-fontSize);
-      }
-
-      .grid-interaction-grid-fixture-empty {
-        display: grid;
-        place-items: center;
-        min-height: 16rem;
-        border: var(--ct-border-hairline);
-        border-radius: var(--ct-rounded-md);
-        background: var(--ct-colors-surface-1);
-        color: var(--ct-colors-ink-muted);
-        text-align: center;
-      }
-
-      .grid-interaction-grid-fixture-empty strong {
-        display: block;
-        margin-block-end: var(--ct-spacing-xs);
-        color: var(--ct-colors-ink);
-      }
     `,
     html: `
       <div class="grid-interaction-grid-fixture-table" role="grid" aria-label="Adapter fixture grid">
@@ -4675,12 +5057,6 @@ async function injectFeP3GridAdapterVisualFixture(page: Page) {
           <div class="grid-interaction-grid-fixture-cell" role="gridcell">clean</div>
         </div>
       </div>
-      <aside class="grid-interaction-grid-fixture-side" aria-label="Empty successful query fixture">
-        <p class="grid-interaction-grid-fixture-caption">Adapter-owned visual states only. Row-gutter presence remains browser.collaboration and grouped-result query ownership remains browser.saved-view-query.</p>
-        <div class="grid-interaction-grid-fixture-empty" data-fixture-id="visual.fixture.empty_successful_query">
-          <span><strong>No rows match this query</strong>Successful empty result</span>
-        </div>
-      </aside>
     `,
   });
 }
@@ -4910,166 +5286,6 @@ async function injectExposedThemeVisualFixture(page: Page) {
         <input class="theme-input" value="Readonly token input" readonly />
         <div class="theme-grid-cell">Grid cell typography and default density</div>
       </div>
-    `,
-  });
-}
-
-async function injectDelayedLoadingVisualFixture(page: Page) {
-  await injectDesignFixture(page, {
-    ariaLabel: "Delayed initial-loading state",
-    fixtureName: "delayed-loading",
-    missingMainMessage: "Expected workbook shell main before loading fixture",
-    styleText: `
-      [data-design-fixture='delayed-loading'] {
-        position: fixed;
-        inset: var(--ct-spacing-xl);
-        box-sizing: border-box;
-        display: grid;
-        place-items: center;
-        background: var(--ct-colors-canvas);
-        color: var(--ct-colors-ink);
-        border: var(--ct-border-strong);
-        border-radius: var(--ct-rounded-lg);
-        box-shadow: var(--ct-elevation-panel);
-        font-family: var(--ct-typography-ui-fontFamily);
-        z-index: 1001;
-      }
-
-      .delayed-loading-card {
-        display: grid;
-        justify-items: center;
-        gap: var(--ct-spacing-sm);
-        min-inline-size: 24rem;
-        padding: var(--ct-spacing-xl);
-        background: var(--ct-colors-surface-1);
-        border: var(--ct-border-hairline);
-        border-radius: var(--ct-rounded-md);
-      }
-
-      .delayed-loading-spinner {
-        inline-size: var(--ct-component-icon-inline-size);
-        block-size: var(--ct-component-icon-inline-size);
-        border: var(--ct-border-strong);
-        border-inline-start-color: var(--ct-colors-accent);
-        border-radius: var(--ct-rounded-pill);
-      }
-
-      .delayed-loading-card strong {
-        font-family: var(--ct-typography-surface-title-fontFamily);
-        font-size: var(--ct-typography-surface-title-fontSize);
-      }
-
-      .delayed-loading-card span {
-        color: var(--ct-colors-ink-muted);
-      }
-    `,
-    html: `
-      <div class="delayed-loading-card" role="status" aria-live="polite">
-        <span class="delayed-loading-spinner" aria-hidden="true"></span>
-        <strong>Still loading this surface</strong>
-        <span>Timeline remains busy for this request generation.</span>
-      </div>
-    `,
-  });
-}
-
-async function injectErrorPresentationVisualFixture(page: Page) {
-  await injectDesignFixture(page, {
-    ariaLabel: "Representative error-presentation loci",
-    fixtureName: "error-presentation",
-    missingMainMessage: "Expected workbook shell main before error fixture",
-    styleText: `
-      [data-design-fixture='error-presentation'] {
-        position: fixed;
-        inset: var(--ct-spacing-xl);
-        box-sizing: border-box;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: var(--ct-spacing-md);
-        overflow: hidden;
-        background: var(--ct-colors-canvas);
-        color: var(--ct-colors-ink);
-        border: var(--ct-border-strong);
-        border-radius: var(--ct-rounded-lg);
-        padding: var(--ct-spacing-lg);
-        box-shadow: var(--ct-elevation-panel);
-        font-family: var(--ct-typography-ui-fontFamily);
-        z-index: 1002;
-      }
-
-      .error-locus-title {
-        grid-column: 1 / -1;
-        margin: 0;
-        font-family: var(--ct-typography-surface-title-fontFamily);
-        font-size: var(--ct-typography-surface-title-fontSize);
-      }
-
-      [data-error-locus] {
-        display: grid;
-        align-content: start;
-        gap: var(--ct-spacing-xs);
-        min-width: 0;
-        padding: var(--ct-spacing-md);
-        background: var(--ct-colors-surface-1);
-        border: var(--ct-border-hairline);
-        border-inline-start: var(--ct-border-strong);
-        border-inline-start-color: var(--ct-colors-semantic-conflict);
-        border-radius: var(--ct-rounded-md);
-      }
-
-      [data-error-locus='permission-loss'] {
-        grid-column: 1 / -1;
-        border-inline-start-color: var(--ct-colors-semantic-destructive);
-      }
-
-      [data-error-locus] strong,
-      [data-error-locus] p {
-        margin: 0;
-      }
-
-      [data-error-locus] p {
-        color: var(--ct-colors-ink-muted);
-      }
-
-      .error-locus-actions {
-        display: flex;
-        gap: var(--ct-spacing-xs);
-      }
-
-      .error-locus-actions button {
-        border: var(--ct-component-button-secondary-border);
-        border-radius: var(--ct-component-button-secondary-rounded);
-        background: var(--ct-component-button-secondary-backgroundColor);
-        color: var(--ct-component-button-secondary-textColor);
-        padding: var(--ct-component-button-secondary-padding);
-      }
-    `,
-    html: `
-      <h2 class="error-locus-title">Typed error families at their recovery loci</h2>
-      <section data-error-locus="local-validation" role="alert">
-        <strong>Cell validation</strong>
-        <p>Committed value retained · local draft “09:7x” retained</p>
-        <div class="error-locus-actions"><button type="button">Correct value</button><button type="button">Cancel draft</button></div>
-      </section>
-      <section data-error-locus="client-transaction-conflict" role="alert">
-        <strong>Queued edit needs recovery</strong>
-        <p>Blocked edit and later FIFO edits retained</p>
-        <div class="error-locus-actions"><button type="button">Retry with a new request ID</button><button type="button">Discard blocked edit</button></div>
-      </section>
-      <section data-error-locus="stale-refresh" role="alert">
-        <strong>Refresh paused</strong>
-        <p>Previously authorized rows, selection, and focus retained</p>
-        <div class="error-locus-actions"><button type="button">Retry</button></div>
-      </section>
-      <section data-error-locus="evidence-preview-blocked" role="status">
-        <strong>Evidence preview blocked</strong>
-        <p>Authorized metadata retained · preview bytes unavailable</p>
-        <div class="error-locus-actions"><button type="button">Download</button></div>
-      </section>
-      <section data-error-locus="permission-loss" role="alert">
-        <strong>Incident access changed</strong>
-        <p>Protected workbook materialization cleared · authenticated root focused</p>
-      </section>
     `,
   });
 }
@@ -6368,6 +6584,25 @@ if (
     ).toBeVisible();
     await page.getByTestId(networkAnalysisTestId("mapping-apply")).click();
     await expect(mappingDialog).toHaveCount(0);
+    await page.getByLabel("Endpoint IP value").fill("203.0.113.255");
+    await page
+      .getByTestId(networkAnalysisTestId("accepted-query-apply"))
+      .click();
+    const networkFilteredEmpty = page
+      .getByTestId(networkAnalysisTestId("accepted-grid"))
+      .locator('[data-grid-data-state="filtered_empty"]');
+    await expect(networkFilteredEmpty).toBeVisible();
+    await expect(networkFilteredEmpty).toContainText(
+      "No rows match the current filters.",
+    );
+    await assertVisualRegression(
+      page,
+      "network-flow-analysis-filtered-empty-grid",
+      page.getByTestId(networkAnalysisTestId("accepted-grid")),
+    );
+    await networkFilteredEmpty
+      .getByRole("button", { name: "Clear filters" })
+      .click();
     await page
       .getByRole("gridcell", { name: /Source IP:/u })
       .first()
