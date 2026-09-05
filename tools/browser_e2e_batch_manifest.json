@@ -349,7 +349,8 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
-            "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d"
+            "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d",
+            "module.timeline.browser.collection_chips_disclose_exact_members_without_9dfb945466"
           ],
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"
@@ -986,7 +987,8 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
-            "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d"
+            "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d",
+            "module.timeline.browser.collection_chips_disclose_exact_members_without_9dfb945466"
           ],
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"

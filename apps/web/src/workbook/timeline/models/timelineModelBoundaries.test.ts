@@ -80,7 +80,8 @@ function timelineRow(cells: Record<string, { value: unknown }> = {}) {
         value: {
           items: [
             { raw_text: "credential_access", item_ref: "tag-1" },
-            { display_text: "lateral_movement" },
+            { display_text: "lateral_movement", item_ref: "tag-2" },
+            { display_text: "invalid missing identity" },
             { raw_text: "" },
           ],
         },

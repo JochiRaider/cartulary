@@ -274,6 +274,13 @@ describe("browser.entity-linking mention chip state model", () => {
                 items: [
                   {
                     entity_type: "host",
+                    item_kind: "unresolved_mention",
+                    item_ref: "contradictory-target",
+                    raw_text: "raw",
+                    resolved_record_id: "host-1",
+                  },
+                  {
+                    entity_type: "host",
                     item_kind: "future_relationship_member",
                     item_ref: "future-1",
                     raw_text: "future",

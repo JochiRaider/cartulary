@@ -26,6 +26,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { LocalConflictState } from "../models/timelineConflictState";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
+import type { CollectionFieldKey } from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import {
   buildInspectorMentions,
@@ -133,6 +134,7 @@ export function useTimelineInspectorRowInteractions({
     };
     readonly itemRef: string;
     readonly sourceRecordId: string;
+    readonly fieldKey?: CollectionFieldKey;
   } | null>(null);
   const rowContextMenuFallbackFocusRef = useRef<HTMLElement | null>(null);
   const rowContextMenuReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -303,20 +305,82 @@ export function useTimelineInspectorRowInteractions({
     ],
   );
 
+  const handleInspectCollection = useCallback(
+    (recordId: string, fieldKey: CollectionFieldKey, itemRef: string) => {
+      const row = rowsRef.current.find(
+        (candidate) => candidate.recordId === recordId,
+      );
+      if (row?.rowVersion == null) return;
+      const items =
+        fieldKey === "timeline.tags"
+          ? row.collectionValues.tags
+          : fieldKey === "timeline.host_refs"
+            ? row.collectionValues.hostRefs
+            : row.collectionValues.identityRefs;
+      if (!items.some((item) => item.itemRef === itemRef)) return;
+      setSelectedRowId(recordId);
+      if (fieldKey !== "timeline.tags") setSelectedMentionRef(itemRef);
+      setInspectorMessage(null);
+      setIsInspectorOpen(true);
+      setPendingMentionFocus({
+        identity: {
+          recordId,
+          rowVersion: row.rowVersion,
+          viewSchemaId: timelineViewSchemaId,
+        },
+        itemRef,
+        sourceRecordId: recordId,
+        fieldKey,
+      });
+    },
+    [
+      rowsRef,
+      setSelectedRowId,
+      setSelectedMentionRef,
+      setInspectorMessage,
+      setIsInspectorOpen,
+    ],
+  );
+
   useLayoutEffect(() => {
     if (pendingMentionFocus === null) return;
-    setPendingMentionFocus(null);
-    if (elementRegistry.containsActiveElement()) return;
-    elementRegistry.focusMention(
-      pendingMentionFocus.identity,
-      pendingMentionFocus.sourceRecordId,
-      pendingMentionFocus.itemRef,
+    const row = rowsRef.current.find(
+      (candidate) =>
+        candidate.recordId === pendingMentionFocus.identity.recordId,
     );
-  }, [elementRegistry, pendingMentionFocus]);
+    if (
+      selectedRowId !== pendingMentionFocus.identity.recordId ||
+      row?.rowVersion !== pendingMentionFocus.identity.rowVersion
+    ) {
+      setPendingMentionFocus(null);
+      return;
+    }
+    if (pendingMentionFocus.fieldKey !== undefined) {
+      if (
+        elementRegistry.focusCollectionItem(
+          pendingMentionFocus.identity,
+          pendingMentionFocus.fieldKey,
+          pendingMentionFocus.itemRef,
+        )
+      )
+        setPendingMentionFocus(null);
+      return;
+    }
+    if (
+      elementRegistry.containsActiveElement() ||
+      elementRegistry.focusMention(
+        pendingMentionFocus.identity,
+        pendingMentionFocus.sourceRecordId,
+        pendingMentionFocus.itemRef,
+      )
+    )
+      setPendingMentionFocus(null);
+  });
 
   return {
     commands: {
       closeRowContextMenu,
+      handleInspectCollection,
       handleSelectMention,
       handleSelectRow,
       handleTimelineGridContextKeyDown,

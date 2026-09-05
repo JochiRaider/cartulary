@@ -258,6 +258,41 @@ describe("useTimelineMentionActions auto-resolution undo", () => {
         ],
       }),
     ).toEqual({});
+
+    const rowsRef = { current: [mentionRow()] };
+    const dismissed = controller({ portResult: accepted, rowsRef });
+    dismissed.resolve.mockImplementation(async () => {
+      const committed = mentionRow({ rowVersion: 6 });
+      rowsRef.current = [
+        {
+          ...committed,
+          collectionValues: {
+            ...committed.collectionValues,
+            hostRefs: [],
+          },
+        },
+      ];
+      return accepted;
+    });
+    const mention = timelineMentionForAutoResolutionNotice(
+      rowsRef.current,
+      notice,
+    );
+    if (mention === null) throw new Error("Expected current mention");
+    act(() =>
+      dismissed.result.current.submitMentionAction(mention, "dismiss_item"),
+    );
+    await act(async () => dismissed.getQueuedWork()?.());
+    expect(dismissed.mocks.finishSave).toHaveBeenLastCalledWith("Saved");
+    const appendDismissed = dismissed.setDismissedMentions.mock.calls[0]?.[0];
+    expect(typeof appendDismissed).toBe("function");
+    expect(appendDismissed({})[recordId]).toEqual([
+      expect.objectContaining({
+        itemRef,
+        mentionRowVersion: 10,
+        rawText: " latest raw text ",
+      }),
+    ]);
   });
 
   it("no-ops missing items and retains the existing rejection conflict path", async () => {

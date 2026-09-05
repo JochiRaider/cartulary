@@ -36,12 +36,14 @@ export function timelinePendingQueueMessage(
 
 export function TimelineWorkbookNotices({
   autoResolutionNotices,
+  canManageMentions,
   entityIndex,
   inspectorOpen = false,
   onReviewAutoResolution,
   onUndoAutoResolution,
   pendingQueueSnapshot,
 }: {
+  readonly canManageMentions: boolean;
   readonly autoResolutionNotices: readonly AutoResolutionNotice[];
   readonly entityIndex: Record<string, { label: string }>;
   readonly inspectorOpen?: boolean | undefined;
@@ -89,16 +91,18 @@ export function TimelineWorkbookNotices({
             .
           </p>
           <div style={inlineButtonRowStyle}>
-            <button
-              data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
-              style={secondaryActionButtonStyle}
-              type="button"
-              onClick={() => {
-                onUndoAutoResolution(notice);
-              }}
-            >
-              Undo
-            </button>
+            {canManageMentions ? (
+              <button
+                data-testid={autoResolutionUndoButtonTestId(notice.itemRef)}
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={() => {
+                  onUndoAutoResolution(notice);
+                }}
+              >
+                Undo
+              </button>
+            ) : null}
             <button
               data-testid={autoResolutionReviewButtonTestId(notice.itemRef)}
               style={secondaryActionButtonStyle}

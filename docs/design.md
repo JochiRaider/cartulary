@@ -1168,6 +1168,8 @@ Design contract. Relationship cells that mix unresolved mention tokens and canon
 
 Design contract. Collection cells MAY display compact summaries under the capacity rules in §7.5. Omission behavior: hidden collection members in compact display are conformant only when an inspectable expansion path is present and the accessible name reports the hidden count.
 
+Design contract. Compact Timeline relationship and tag collections use one inline item in every supported density and layout band. Additional items use a keyboard- and pointer-operable `+N` disclosure into the owning row's Relationships inspector, targeting the specific collection. The inspector exposes the complete collection without applying the grid's one-item capacity. Required state markers and the overflow control do not truncate; flexible labels may truncate within the shared row box. Recordless draft input remains local, fully inspectable text and does not require saving to inspect. This collection capacity does not change the active-query chip capacities in §7.5.
+
 ### 9.4 Auto-resolution disclosure
 
 Design contract. If a value is auto-resolved, the user MUST be able to tell it was auto-resolved, inspect the match reason when `alias_text` is present in `chip_state_input_v1`, and correct it through the same surface or inspector.

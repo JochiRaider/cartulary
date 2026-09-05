@@ -10,7 +10,6 @@ import type {
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import {
-  type TimelineCollectionBinding,
   type TimelineScalarBinding,
   timelineCollectionBindings,
   timelineInspectorBindings,
@@ -21,6 +20,7 @@ import {
 } from "../models/timelineRowModel";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
 import { TimelineHistoryPanel } from "./TimelineHistoryPanel";
+import type { RenderTimelineCollectionInput } from "./TimelineWorkbookRendererTypes";
 import {
   bodyStyle,
   inspectorActionStackStyle,
@@ -64,10 +64,7 @@ export function useTimelineWorkbookInspectorSections({
     item: RecordHistoryItem,
     action: "change_set" | "history_entry" | "row_restore",
   ) => void;
-  readonly renderTimelineCollectionInput: (
-    row: WorkbookRow,
-    binding: TimelineCollectionBinding,
-  ) => ReactNode;
+  readonly renderTimelineCollectionInput: RenderTimelineCollectionInput;
   readonly renderTimelineInspectorEditor: (
     row: WorkbookRow,
     binding: TimelineScalarBinding,
@@ -102,7 +99,7 @@ export function useTimelineWorkbookInspectorSections({
     (row: WorkbookRow) => (
       <div style={inspectorActionStackStyle}>
         {timelineCollectionBindings.map((binding) =>
-          renderTimelineCollectionInput(row, binding),
+          renderTimelineCollectionInput(row, binding, undefined, "inspector"),
         )}
       </div>
     ),

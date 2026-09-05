@@ -73,6 +73,42 @@
       ]
     },
     {
+      "row_id": "module.timeline.browser.collection_chips_disclose_exact_members_without_9dfb945466",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.entities",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/mentions.resolve.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_310d75a63fd2"
+        ],
+        "titles": [
+          "collection chips disclose exact members without edits across keyboard and display profiles"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser",
@@ -547,6 +583,65 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.frontend.collection_inspection_focuses_only_live_semantic_40e7d15084",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/focus/timelineInspectorElementRegistry.test.ts",
+        "titles": [
+          "timeline inspector element registry clears registrations on lifecycle, generation, subject, and version changes",
+          "timeline inspector element registry focuses only panels and mentions for the captured canonical subject",
+          "timeline inspector element registry rejects disconnected, hidden, and disabled elements",
+          "timeline inspector element registry targets complete collection members and restores only live semantic triggers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.collection_inspection_preserves_draft_text_and_s_f5c8c4c211",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/components/TimelineCollectionCell.test.tsx",
+        "titles": [
+          "Timeline collection inspection keeps complete mention details readable when management capability is lost",
+          "Timeline collection inspection keeps recordless draft text local and registers independent editor surfaces",
+          "Timeline collection inspection targets hidden tags without editing or committing pending text"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_binds_timeline_colu_539c620379",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -868,7 +963,8 @@
           "Timeline editor draft registry invalidates drafts when the schema identity changes",
           "Timeline editor draft registry keeps grid and inspector drafts distinct and clears only submitted values",
           "Timeline editor draft registry materializes invalid scalar text across authoritative row replacement",
-          "Timeline editor draft registry owns semantic editor registration, unregistration, and row removal"
+          "Timeline editor draft registry owns semantic editor registration, unregistration, and row removal",
+          "Timeline editor draft registry retains collection text across refresh and clears only the submitted version"
         ]
       },
       "evidence_class": "unit",

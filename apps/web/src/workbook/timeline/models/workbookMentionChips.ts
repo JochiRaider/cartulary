@@ -1,14 +1,11 @@
-import type { WorkbookRelationshipChipPresentation } from "../../models/workbookRelationshipChip";
+import type {
+  WorkbookRelationshipChipPresentation,
+  WorkbookRelationshipChipState,
+} from "../../models/workbookRelationshipChip";
 
 export type RelationshipFieldKey =
   | "timeline.host_refs"
   | "timeline.identity_refs";
-
-type MentionChipState =
-  | "unresolved"
-  | "resolved"
-  | "auto_resolved"
-  | "dismissed";
 
 type MentionChipAnchor = {
   recordId: string;
@@ -52,7 +49,7 @@ export type DismissedMention = {
 
 export type InspectorMention = DismissedMention & {
   status: "unresolved" | "resolved" | "dismissed";
-  chipState: MentionChipState;
+  chipState: WorkbookRelationshipChipState;
   anchor: MentionChipAnchor;
   sourceKind: "entity_mention";
   isActiveRelationshipValue: boolean;
@@ -89,10 +86,11 @@ export function relationshipItemLabel(
 
 function mentionChipStateForItem(
   item: CollectionItem | InspectorMention,
-): MentionChipState {
-  if ("chipState" in item) return item.chipState;
-  if (item.itemKind !== "resolved_ref") return "unresolved";
-  if (item.autoResolved) return "auto_resolved";
+): WorkbookRelationshipChipState {
+  if ("status" in item && item.status === "dismissed") return "dismissed";
+  if (item.resolvedRecordId === null) return "unresolved";
+  if (item.autoResolved || item.resolutionMethod === "auto_match")
+    return "auto_resolved";
   return "resolved";
 }
 
@@ -100,21 +98,61 @@ export function timelineRelationshipChipPresentation({
   entityIndex,
   item,
   selected = false,
+  sourceRecordId = null,
 }: {
   readonly entityIndex: Record<string, { label: string }>;
   readonly item: CollectionItem | InspectorMention;
   readonly selected?: boolean;
+  readonly sourceRecordId?: string | null;
 }): WorkbookRelationshipChipPresentation {
   const state = mentionChipStateForItem(item);
-  const accessibleDetail =
-    state === "resolved" && item.resolutionMethod === "explicit_resolve_route"
-      ? "manual resolution"
-      : state === "auto_resolved" && item.matchedAliasText
-        ? `matched ${item.matchedAliasText}`
-        : undefined;
+  const previousTargetId =
+    "priorTargetEntityRecordId" in item ? item.priorTargetEntityRecordId : null;
   return {
-    ...(accessibleDetail === undefined ? {} : { accessibleDetail }),
-    label: relationshipItemLabel(item, entityIndex),
+    entityType: item.entityType,
+    source: {
+      kind: "entity_mention",
+      recordId: "rowRecordId" in item ? item.rowRecordId : sourceRecordId,
+      fieldKey:
+        "fieldKey" in item
+          ? item.fieldKey
+          : item.entityType === "host"
+            ? "timeline.host_refs"
+            : "timeline.identity_refs",
+      itemRef: item.itemRef,
+    },
+    rawText: item.rawText,
+    targetRecordId: state === "dismissed" ? null : item.resolvedRecordId,
+    previousTarget: previousTargetId
+      ? {
+          recordId: previousTargetId,
+          label: entityIndex[previousTargetId]?.label ?? item.displayText,
+        }
+      : null,
+    resolution: {
+      method:
+        state === "unresolved"
+          ? null
+          : state === "auto_resolved" || item.resolutionMethod === "auto_match"
+            ? "auto"
+            : item.resolutionMethod === "explicit_resolve_route" ||
+                item.resolutionMethod === "resolve_item" ||
+                item.resolutionMethod === "add_resolved_ref"
+              ? "manual"
+              : item.resolutionMethod === "legacy_import"
+                ? "import"
+                : item.resolutionMethod === "system"
+                  ? "system"
+                  : null,
+      sourceMethod: item.resolutionMethod,
+      provenance: item.provenance,
+      confidence: item.confidence,
+      matchedAliasText: item.matchedAliasText,
+    },
+    label:
+      state === "unresolved" || state === "dismissed"
+        ? item.rawText
+        : relationshipItemLabel(item, entityIndex),
     selected,
     selectorIdentity: item.itemRef,
     state,
@@ -235,7 +273,7 @@ function collectionItemTargetIsValid(
   if (identity.itemKind === "resolved_ref") {
     return resolvedRecordId !== null;
   }
-  return rawText.trim() !== "";
+  return rawText.trim() !== "" && resolvedRecordId === null;
 }
 
 function collectionItemMetadata(
@@ -253,13 +291,20 @@ function collectionItemMetadata(
   const mentionRowVersion = value.mention_row_version;
   return {
     autoResolved: value.auto_resolved === true,
-    confidence: typeof confidence === "number" ? confidence : null,
+    confidence:
+      typeof confidence === "number" && Number.isFinite(confidence)
+        ? confidence
+        : null,
     matchedAliasText:
       typeof value.matched_alias_text === "string"
         ? value.matched_alias_text
         : null,
     mentionRowVersion:
-      typeof mentionRowVersion === "number" ? mentionRowVersion : null,
+      typeof mentionRowVersion === "number" &&
+      Number.isSafeInteger(mentionRowVersion) &&
+      mentionRowVersion > 0
+        ? mentionRowVersion
+        : null,
     provenance: typeof value.provenance === "string" ? value.provenance : null,
     resolutionMethod:
       typeof value.resolution_method === "string"
@@ -314,27 +359,6 @@ function mentionChipAnchor({
   };
 }
 
-function mentionChipState({
-  autoResolved,
-  itemKind,
-  status,
-}: {
-  autoResolved: boolean;
-  itemKind: string;
-  status: "unresolved" | "resolved" | "dismissed";
-}): MentionChipState {
-  if (status === "dismissed") {
-    return "dismissed";
-  }
-  if (status === "unresolved" || itemKind !== "resolved_ref") {
-    return "unresolved";
-  }
-  if (autoResolved) {
-    return "auto_resolved";
-  }
-  return "resolved";
-}
-
 function activeInspectorMention(
   rowRecordId: string,
   fieldKey: RelationshipFieldKey,
@@ -354,11 +378,7 @@ function activeInspectorMention(
     resolutionMethod: item.resolutionMethod,
     autoResolved: item.autoResolved,
     status,
-    chipState: mentionChipState({
-      autoResolved: item.autoResolved,
-      itemKind: item.itemKind,
-      status,
-    }),
+    chipState: mentionChipStateForItem(item),
     anchor: mentionChipAnchor({
       recordId: rowRecordId,
       fieldKey,

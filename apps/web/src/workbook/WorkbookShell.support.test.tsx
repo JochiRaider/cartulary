@@ -604,9 +604,12 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     if (!autoChip || !manualChip) {
       throw new Error("Expected relationship chips to render in the inspector");
     }
-    expect(autoChip.textContent).toContain("Auto");
-    expect(manualChip.textContent).not.toContain("Auto");
-    expect(manualChip.textContent).toContain("Manual");
+    expect(autoChip.textContent).toContain("auto");
+    expect(manualChip.textContent).not.toContain("auto");
+    fireEvent.click(
+      screen.getByTestId(mentionItemTestId("mention-identity-manual")),
+    );
+    expect(screen.getByText("Manual")).toBeTruthy();
   });
 
   it("preserves continuity when resolving a mention to an existing entity", async () => {
@@ -746,7 +749,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
               "timeline.host_refs",
             ),
           )
-          .querySelector('[aria-label^="Resolved WS-023"]'),
+          .querySelector('[aria-label^="Resolved host: WS-023"]'),
       ).toBeTruthy();
     });
   });
@@ -1645,9 +1648,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       />,
     );
 
-    await openTimelineInspectorFromContext(
-      "20000000-0000-4000-8000-000000000601",
-    );
+    fireEvent.click(await screen.findByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Hosts" }));
+    fireEvent.keyDown(screen.getByRole("menu", { name: "Column controls" }), {
+      key: "Escape",
+    });
     const overflowButton = await screen.findByTestId(
       relationshipOverflowButtonTestId(
         "20000000-0000-4000-8000-000000000601",
@@ -1672,6 +1677,8 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         ),
       );
     });
+    fireEvent.click(screen.getByRole("button", { name: "Close inspector" }));
+    await waitFor(() => expect(document.activeElement).toBe(overflowButton));
   });
 
   it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
@@ -1706,7 +1713,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     expect(
       screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     ).toBeTruthy();
-    expect(screen.getAllByText("Dismissed").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/dismissed/i).length).toBeGreaterThanOrEqual(2);
 
     const restoreScroll = setTimelineGridScroll(360, 90);
     fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
@@ -1727,7 +1734,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
               "timeline.host_refs",
             ),
           )
-          .querySelector('[aria-label="Unresolved WS-023"]'),
+          .querySelector('[aria-label="Unresolved host mention: WS-023"]'),
       ).toBeTruthy();
     });
   });
@@ -1813,7 +1820,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
       ).toBeTruthy();
     });
-    expect(screen.getAllByText("Dismissed").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/dismissed/i).length).toBeGreaterThanOrEqual(2);
   });
 
   it("reveals a vertically clipped inspect action through dismiss and restore continuity", async () => {
@@ -1904,7 +1911,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
               "timeline.host_refs",
             ),
           )
-          .querySelector('[aria-label="Unresolved WS-023"]'),
+          .querySelector('[aria-label="Unresolved host mention: WS-023"]'),
       ).toBeTruthy();
     });
   });

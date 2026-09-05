@@ -129,7 +129,7 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   await expect(
     page
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
-      .getByLabel("Resolved WS-023"),
+      .getByLabel("Resolved host: WS-023"),
   ).toBeVisible();
   const initialTimelineRows = await queryViewRows(
     page,
@@ -169,10 +169,8 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
     page.getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey)),
   ).toContainText("No items");
   await expect(
-    page
-      .getByTestId(mentionItemTestId(String(seededMention.item_ref)))
-      .getByLabel("Dismissed WS-023?"),
-  ).toBeVisible();
+    page.getByTestId(mentionItemTestId(String(seededMention.item_ref))),
+  ).toHaveAccessibleName("Dismissed mention: WS-023?");
   await expectTimelineMutationContinuity(
     page,
     row.record_id,
@@ -215,12 +213,12 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   await expect(
     page
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
-      .getByLabel("Unresolved WS-023?"),
+      .getByLabel("Unresolved host mention: WS-023?"),
   ).toBeVisible();
   await expect(
     page
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
-      .getByLabel(/^Resolved WS-023$/),
+      .getByLabel(/^Resolved host: WS-023$/),
   ).toHaveCount(0);
   await expectTimelineMutationContinuity(
     page,

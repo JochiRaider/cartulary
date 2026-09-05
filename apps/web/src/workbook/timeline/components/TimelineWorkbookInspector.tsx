@@ -144,7 +144,8 @@ export function TimelineWorkbookInspector({
   const relationships =
     liveRow === null ? null : (
       <TimelineMentionsPanel
-        canManageMentions={canManageMentions}
+        sourceRecordId={liveRow.recordId}
+        canManageMentions={canManageMentions && !incidentClosed}
         entityIndex={entityIndex}
         getRelationshipLabel={getRelationshipLabel}
         hostEntities={hostEntities}
@@ -152,6 +153,7 @@ export function TimelineWorkbookInspector({
         inspectorMentions={inspectorMentions}
         relationshipEditors={renderRelationshipEditors(liveRow)}
         registerMention={elementRegistry.registerMention}
+        registerCollectionItem={elementRegistry.registerCollectionItem}
         onResolveTargetChange={onResolveTargetChange}
         onSelectMention={onSelectMention}
         onSetInspectorMessage={onSetInspectorMessage}

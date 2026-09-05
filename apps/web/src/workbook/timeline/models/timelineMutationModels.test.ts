@@ -246,6 +246,12 @@ describe("Timeline mutation models", () => {
             displayText: "credential-access",
             rawText: "credential-access",
           },
+          {
+            itemRef: "tag-2",
+            itemKind: "tag",
+            displayText: "hidden tag Ω",
+            rawText: "hidden tag Ω",
+          },
         ],
       },
     };
@@ -267,6 +273,9 @@ describe("Timeline mutation models", () => {
       }),
     ).toMatchObject({
       kind: "tag",
+      hiddenItemCount: 1,
+      overflowRecordId: row.recordId,
+      firstHiddenItemRef: "tag-2",
       visibleItems: [
         { kind: "tag", itemRef: "tag-1", displayText: "credential-access" },
       ],

@@ -282,6 +282,7 @@ describe("useTimelineKeyboardController", () => {
       "hostRefs",
       "host mention",
       "keyboard",
+      "grid",
     );
 
     calls.length = 0;

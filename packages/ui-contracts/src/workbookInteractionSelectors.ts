@@ -309,8 +309,14 @@ export function draftRowCreateButtonTestId(): string {
 export function relationshipItemsTestId(
   recordId: string,
   fieldKey: string,
+  surface: "grid" | "inspector" = "inspector",
 ): string {
-  return timelineCollectionFieldControlTestId(recordId, fieldKey, "items");
+  const identity = timelineCollectionFieldControlTestId(
+    recordId,
+    fieldKey,
+    "items",
+  );
+  return surface === "grid" ? `${identity}-grid` : identity;
 }
 
 export function relationshipOverflowButtonTestId(
@@ -327,8 +333,14 @@ export function draftRelationshipItemsTestId(fieldKey: string): string {
 export function timelineCollectionInputTestId(
   recordId: string,
   fieldKey: string,
+  surface: "grid" | "inspector" = "inspector",
 ): string {
-  return timelineCollectionFieldControlTestId(recordId, fieldKey, "input");
+  const identity = timelineCollectionFieldControlTestId(
+    recordId,
+    fieldKey,
+    "input",
+  );
+  return surface === "grid" ? `${identity}-grid` : identity;
 }
 
 export function draftTimelineCollectionInputTestId(fieldKey: string): string {

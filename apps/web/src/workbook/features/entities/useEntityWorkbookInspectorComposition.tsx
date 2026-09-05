@@ -27,7 +27,10 @@ import {
 } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
-import { WorkbookRelationshipChip } from "../../components/WorkbookRelationshipChip";
+import {
+  WorkbookRelationshipChip,
+  WorkbookRelationshipChipDetails,
+} from "../../components/WorkbookRelationshipChip";
 import { useEntityTimelinePreview } from "../../hooks/useEntityTimelinePreview";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
@@ -713,13 +716,25 @@ function EntityRelationships(props: EntityRelationshipsProps) {
                   {row.collectionValues[
                     props.entityType === "host" ? "hostRefs" : "identityRefs"
                   ].map((item) => (
-                    <WorkbookRelationshipChip
-                      key={item.itemRef}
-                      presentation={timelineRelationshipChipPresentation({
-                        entityIndex: props.entityIndex,
-                        item,
-                      })}
-                    />
+                    <details key={item.itemRef}>
+                      <summary>
+                        <WorkbookRelationshipChip
+                          expanded
+                          presentation={timelineRelationshipChipPresentation({
+                            entityIndex: props.entityIndex,
+                            item,
+                            sourceRecordId: row.recordId,
+                          })}
+                        />
+                      </summary>
+                      <WorkbookRelationshipChipDetails
+                        presentation={timelineRelationshipChipPresentation({
+                          entityIndex: props.entityIndex,
+                          item,
+                          sourceRecordId: row.recordId,
+                        })}
+                      />
+                    </details>
                   ))}
                 </div>
               </article>

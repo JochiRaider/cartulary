@@ -430,6 +430,12 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     expect(
       timelineCollectionInputTestId("record-1", "timeline.host_refs"),
     ).toBe("row-record-1-timeline.host_refs-input");
+    expect(
+      timelineCollectionInputTestId("record-1", "timeline.host_refs", "grid"),
+    ).toBe("row-record-1-timeline.host_refs-input-grid");
+    expect(
+      relationshipItemsTestId("record-1", "timeline.host_refs", "grid"),
+    ).toBe("row-record-1-timeline.host_refs-items-grid");
     expect(draftTimelineCollectionInputTestId("timeline.host_refs")).toBe(
       "draft-row-timeline.host_refs-input",
     );

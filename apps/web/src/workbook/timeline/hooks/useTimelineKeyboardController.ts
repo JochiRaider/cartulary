@@ -45,6 +45,7 @@ type QueueCollectionSave = (
   draftKey: CollectionDraftKey,
   currentValue?: string,
   source?: "keyboard" | "blur",
+  surface?: TimelineScalarEditorSurface,
 ) => void;
 
 function executeScalarEditorIntent({
@@ -181,7 +182,10 @@ export function useTimelineKeyboardController({
     rowKey: string,
     fieldKey: string,
   ) => GridCellAnchor | null;
-  readonly elementRegistry: TimelineInspectorElementRegistry;
+  readonly elementRegistry: Pick<
+    TimelineInspectorElementRegistry,
+    "focusPanel"
+  >;
   readonly handleTimelineGridContextKeyDown: (
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => void;
@@ -302,7 +306,15 @@ export function useTimelineKeyboardController({
       rowKey: string,
       fieldKey: CollectionFieldKey,
       draftKey: CollectionDraftKey,
+      surface: TimelineScalarEditorSurface = "grid",
     ) => {
+      if (
+        surface === "inspector" &&
+        (event.key === "Tab" || event.key.startsWith("Arrow"))
+      ) {
+        event.stopPropagation();
+        return;
+      }
       const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
       const intent = mapTimelineCollectionEditorIntent({
         event,
@@ -329,8 +341,13 @@ export function useTimelineKeyboardController({
         draftKey,
         event.currentTarget.value,
         "keyboard",
+        surface,
       );
-      if (intent.navigateAfterSave !== null && anchor !== null) {
+      if (
+        surface === "grid" &&
+        intent.navigateAfterSave !== null &&
+        anchor !== null
+      ) {
         navigateTimelineFocusAnchor(anchor, intent.navigateAfterSave);
       }
     },

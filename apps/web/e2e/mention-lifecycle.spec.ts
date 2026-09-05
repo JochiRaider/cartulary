@@ -150,7 +150,7 @@ test(exactScenarioTitle, async ({ page }) => {
   const manualResolvedChip = page
     .getByTestId(relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey))
     .getByTestId(relationshipChipTestId(String(manualMention.item_ref)));
-  await expect(manualResolvedChip).toContainText("Manual");
+  await expect(page.getByText("Manual", { exact: true })).toBeVisible();
   await expect(manualResolvedChip).not.toContainText("Auto");
   await page
     .getByTestId(mentionItemTestId(String(manualMention.item_ref)))
@@ -198,10 +198,8 @@ test(exactScenarioTitle, async ({ page }) => {
     ),
   ).toContainText("No items");
   await expect(
-    page
-      .getByTestId(mentionItemTestId(String(manualMention.item_ref)))
-      .getByLabel(`Dismissed ${manualRawText}`),
-  ).toBeVisible();
+    page.getByTestId(mentionItemTestId(String(manualMention.item_ref))),
+  ).toHaveAccessibleName(`Dismissed mention: ${manualRawText}`);
   const manualDismissedRow = await refreshedTimelineRow(
     page,
     incidentId,
@@ -233,7 +231,7 @@ test(exactScenarioTitle, async ({ page }) => {
       .getByTestId(
         relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey),
       )
-      .getByLabel(`Unresolved ${manualRawText}`),
+      .getByLabel(`Unresolved host mention: ${manualRawText}`),
   ).toBeVisible();
   const manualRestoredRow = await refreshedTimelineRow(
     page,
@@ -261,7 +259,9 @@ test(exactScenarioTitle, async ({ page }) => {
       relationshipItemsTestId(autoCorrectionRow.record_id, hostRefsFieldKey),
     )
     .getByTestId(relationshipChipTestId(String(autoCorrectionItem.item_ref)));
-  await expect(autoCorrectionChip).toContainText("Auto");
+  await expect(
+    autoCorrectionChip.getByText("auto", { exact: true }),
+  ).toBeVisible();
   const autoCorrectionNotice = page.getByTestId(
     autoResolutionNoticeTestId(String(autoCorrectionItem.item_ref)),
   );
@@ -319,7 +319,7 @@ test(exactScenarioTitle, async ({ page }) => {
   expect(correctionEnvelope.data.entity_mention.resolution_status).toBe(
     "resolved",
   );
-  await expect(autoCorrectionChip).toContainText("Manual");
+  await expect(page.getByText("Manual", { exact: true })).toBeVisible();
   await expect(autoCorrectionChip).not.toContainText("Auto");
   await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     autoRawText,
@@ -407,7 +407,7 @@ test(exactScenarioTitle, async ({ page }) => {
       .getByTestId(
         relationshipItemsTestId(autoUndoRow.record_id, hostRefsFieldKey),
       )
-      .getByLabel(`Unresolved ${autoRawText}`),
+      .getByLabel(`Unresolved host mention: ${autoRawText}`),
   ).toBeVisible();
 });
 

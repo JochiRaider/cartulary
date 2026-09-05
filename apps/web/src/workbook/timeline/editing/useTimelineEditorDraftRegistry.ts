@@ -4,6 +4,7 @@ import {
   inputFocusKey,
   type RowValues,
   type TimelineScalarEditorSurface,
+  timelineCollectionBindings,
   timelineScalarBindings,
   timelineScalarEditorSurfaces,
 } from "../models/timelineFieldRegistry";
@@ -101,7 +102,19 @@ export function createTimelineEditorDraftRegistry() {
         forgetFocusKeyIfUnused(rowKey, focusKey);
       }
     },
-    clearSubmittedRow(rowKey: string, submittedValues: RowValues) {
+    clearSubmittedRow(
+      rowKey: string,
+      submittedValues: RowValues,
+      submittedCollections?: Partial<WorkbookRow["collectionDrafts"]>,
+    ) {
+      for (const binding of timelineCollectionBindings) {
+        const focusKey = inputFocusKey(rowKey, binding.draftKey, "grid");
+        if (
+          submittedCollections !== undefined &&
+          draftValues.get(focusKey) === submittedCollections[binding.draftKey]
+        )
+          draftValues.delete(focusKey);
+      }
       for (const binding of timelineScalarBindings) {
         for (const surface of timelineScalarEditorSurfaces) {
           const focusKey = inputFocusKey(rowKey, binding.key, surface);
@@ -130,7 +143,7 @@ export function createTimelineEditorDraftRegistry() {
         }
       }
     },
-    draftValue(identity: TimelineScalarEditorIdentity) {
+    draftValue(identity: TimelineInputIdentity) {
       return draftValueForFocusKey(
         inputFocusKey(identity.rowKey, identity.field, identity.surface),
       );
@@ -170,7 +183,21 @@ export function createTimelineEditorDraftRegistry() {
         nextValues ??= { ...row.values };
         nextValues[binding.key] = draftValue;
       }
-      return nextValues === null ? row : { ...row, values: nextValues };
+      let collections = row.collectionDrafts;
+      for (const binding of timelineCollectionBindings) {
+        const value = draftValueForFocusKey(
+          inputFocusKey(row.key, binding.draftKey, "grid"),
+        );
+        if (value !== undefined && value !== collections[binding.draftKey])
+          collections = { ...collections, [binding.draftKey]: value };
+      }
+      return nextValues === null && collections === row.collectionDrafts
+        ? row
+        : {
+            ...row,
+            values: nextValues ?? row.values,
+            collectionDrafts: collections,
+          };
     },
     registerInput(
       identity: TimelineInputIdentity,
@@ -194,7 +221,7 @@ export function createTimelineEditorDraftRegistry() {
         if (!rowKeys.has(rowKey)) clearRow(rowKey);
       }
     },
-    setDraft(identity: TimelineScalarEditorIdentity, value: string) {
+    setDraft(identity: TimelineInputIdentity, value: string) {
       const focusKey = inputFocusKey(
         identity.rowKey,
         identity.field,

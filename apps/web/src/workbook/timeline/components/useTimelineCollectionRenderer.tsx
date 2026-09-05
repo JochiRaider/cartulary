@@ -1,5 +1,11 @@
 import { useCallback } from "react";
-import type { TimelineCollectionBinding } from "../models/timelineFieldRegistry";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
+import type {
+  CollectionFieldKey,
+  TimelineCollectionBinding,
+  TimelineScalarEditorSurface,
+} from "../models/timelineFieldRegistry";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { TimelineCollectionCell } from "./TimelineCollectionCell";
 import type {
@@ -14,15 +20,15 @@ export function useTimelineCollectionRenderer({
   activeCollectionInputKey,
   deactivateCollectionInput,
   entityIndex,
+  editorDraftRegistry,
+  elementRegistry,
+  handleInspectCollection,
   handleCollectionInputChange,
   handleCollectionKeyDown,
-  handleSelectMention,
   handleSelectRow,
-  openInspectorForRow,
   queueCollectionSave,
   readOnly,
   registerInput,
-  resolveInputElement,
   timelineBindingLabel,
   updateTimelineSurfaceFocusAnchor,
 }: {
@@ -30,20 +36,22 @@ export function useTimelineCollectionRenderer({
   readonly activeCollectionInputKey: string | null;
   readonly deactivateCollectionInput: (focusKey: string) => void;
   readonly entityIndex: TimelineEntityIndex;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
+  readonly elementRegistry: TimelineInspectorElementRegistry;
+  readonly handleInspectCollection: (
+    recordId: string,
+    fieldKey: CollectionFieldKey,
+    itemRef: string,
+  ) => void;
   readonly handleCollectionInputChange: (
     focusKey: string,
     value: string,
   ) => void;
   readonly handleCollectionKeyDown: TimelineCollectionKeyDown;
-  readonly handleSelectMention: (recordId: string, itemRef: string) => void;
   readonly handleSelectRow: (recordId: string) => void;
-  readonly openInspectorForRow: (recordId: string) => void;
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
   readonly registerInput: RegisterTimelineInput;
-  readonly resolveInputElement: (
-    focusKey: string,
-  ) => HTMLInputElement | HTMLTextAreaElement | null;
   readonly timelineBindingLabel: (fieldKey: string) => string;
   readonly updateTimelineSurfaceFocusAnchor: (
     recordId: string | null,
@@ -55,8 +63,26 @@ export function useTimelineCollectionRenderer({
       row: WorkbookRow,
       binding: TimelineCollectionBinding,
       focusTargetRef?: (element: HTMLInputElement | null) => void,
+      surface: TimelineScalarEditorSurface = "grid",
     ) => (
       <TimelineCollectionCell
+        surface={surface}
+        isInspectionControlTarget={elementRegistry.isInspectionControlTarget}
+        registerCollectionItem={elementRegistry.registerCollectionItem}
+        registerTrigger={elementRegistry.registerCollectionTrigger}
+        rememberReturnFocus={elementRegistry.rememberCollectionReturnFocus}
+        handleInspectCollection={handleInspectCollection}
+        retainedDraft={editorDraftRegistry.draftValue({
+          rowKey: row.key,
+          field: binding.draftKey,
+          surface: "grid",
+        })}
+        retainDraft={(value) =>
+          editorDraftRegistry.setDraft(
+            { rowKey: row.key, field: binding.draftKey, surface: "grid" },
+            value,
+          )
+        }
         activateCollectionInput={activateCollectionInput}
         activeCollectionInputKey={activeCollectionInputKey}
         binding={binding}
@@ -65,14 +91,11 @@ export function useTimelineCollectionRenderer({
         {...(focusTargetRef === undefined ? {} : { focusTargetRef })}
         handleCollectionInputChange={handleCollectionInputChange}
         handleCollectionKeyDown={handleCollectionKeyDown}
-        handleSelectMention={handleSelectMention}
         handleSelectRow={handleSelectRow}
         label={timelineBindingLabel(binding.fieldKey)}
-        openInspectorForRow={openInspectorForRow}
         queueCollectionSave={queueCollectionSave}
         readOnly={readOnly}
         registerInput={registerInput}
-        resolveInputElement={resolveInputElement}
         row={row}
         updateTimelineSurfaceFocusAnchor={updateTimelineSurfaceFocusAnchor}
       />
@@ -82,15 +105,15 @@ export function useTimelineCollectionRenderer({
       activeCollectionInputKey,
       deactivateCollectionInput,
       entityIndex,
+      editorDraftRegistry,
+      elementRegistry,
+      handleInspectCollection,
       handleCollectionInputChange,
       handleCollectionKeyDown,
-      handleSelectMention,
       handleSelectRow,
-      openInspectorForRow,
       queueCollectionSave,
       readOnly,
       registerInput,
-      resolveInputElement,
       timelineBindingLabel,
       updateTimelineSurfaceFocusAnchor,
     ],

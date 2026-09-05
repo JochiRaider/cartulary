@@ -289,6 +289,7 @@ export function useTimelineWorkbookComposition({
       },
       ports: {
         elements: inspector.ports.elements,
+        restoreFocus: inspector.ports.restoreFocus,
       },
       snapshot: inspector.snapshot,
     },

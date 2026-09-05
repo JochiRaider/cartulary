@@ -355,7 +355,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     expect((draftEvidenceInput as HTMLInputElement).type).toBe("file");
   });
 
-  it("renders Timeline collection cells compactly until inline edit activation", async () => {
+  it("renders complete Timeline collections and local inputs in the inspector", async () => {
     fetchMock.mockResolvedValueOnce(
       timelineRowsEnvelope([
         timelineRow({
@@ -421,9 +421,8 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ),
     );
     expect(hostItems.textContent).toContain("wide-host-token-1");
-    expect(hostItems.textContent).toContain("+1");
-    expect(hostItems.style.flexWrap).toBe("nowrap");
-    expect(hostItems.style.overflow).toBe("hidden");
+    expect(hostItems.textContent).toContain("wide-host-token-2");
+    expect(hostItems.querySelectorAll("button")).toHaveLength(2);
 
     const identityItems = screen.getByTestId(
       relationshipItemsTestId(
@@ -440,24 +439,8 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ),
     );
     expect(tagItems.textContent).toContain("tag-one");
-    expect(tagItems.textContent).toContain("+2");
-
-    for (const fieldKey of [
-      "timeline.host_refs",
-      "timeline.identity_refs",
-      "timeline.tags",
-    ] as const) {
-      expect(
-        screen
-          .getByTestId(
-            timelineCollectionInputTestId(
-              "20000000-0000-4000-8000-000000000001",
-              fieldKey,
-            ),
-          )
-          .getAttribute("placeholder"),
-      ).toBeNull();
-    }
+    expect(tagItems.textContent).toContain("tag-two");
+    expect(tagItems.textContent).toContain("tag-three");
 
     for (const [fieldKey, placeholder] of [
       ["timeline.host_refs", "Add hosts token"],
@@ -470,10 +453,8 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           fieldKey,
         ),
       ) as HTMLInputElement;
-      fireEvent.click(input.parentElement as HTMLElement);
-      await waitFor(() => {
-        expect(input.getAttribute("placeholder")).toBe(placeholder);
-      });
+      expect(input.getAttribute("placeholder")).toBe(placeholder);
+      expect(input.tabIndex).toBe(0);
     }
   });
 

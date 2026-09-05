@@ -1,122 +1,93 @@
 import { relationshipChipTestId } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
-import type { WorkbookRelationshipChipPresentation } from "../models/workbookRelationshipChip";
-import { visuallyHiddenStyle } from "../utils/workbookStyles";
+import type { CSSProperties, KeyboardEvent, RefCallback } from "react";
+import {
+  relationshipChipAccessibleName,
+  type WorkbookRelationshipChipPresentation,
+} from "../models/workbookRelationshipChip";
 
 export function WorkbookRelationshipChip({
   presentation,
+  elementRef,
+  onKeyDown,
+  tabIndex = 0,
+  expanded = false,
+  decorative = false,
 }: {
   readonly presentation: WorkbookRelationshipChipPresentation;
+  readonly elementRef?: RefCallback<HTMLButtonElement> | undefined;
+  readonly onKeyDown?:
+    | ((event: KeyboardEvent<HTMLButtonElement>) => void)
+    | undefined;
+  readonly tabIndex?: number | undefined;
+  readonly expanded?: boolean | undefined;
+  readonly decorative?: boolean | undefined;
 }) {
-  const {
-    accessibleDetail,
-    label,
-    onSelect,
-    selected,
-    selectorIdentity,
-    state,
-  } = presentation;
-  const isResolved = state === "resolved" || state === "auto_resolved";
-  const isDismissed = state === "dismissed";
-  const isAutoResolved = state === "auto_resolved";
+  const { label, onSelect, selected, selectorIdentity, state } = presentation;
   const chipStyle = {
     ...workbookRelationshipChipBaseStyle,
-    ...(isDismissed
+    ...(expanded ? null : { paddingBlock: 0 }),
+    ...(state === "dismissed"
       ? dismissedChipStyle
-      : isResolved
-        ? isAutoResolved
-          ? autoResolvedChipStyle
-          : resolvedChipStyle
-        : unresolvedChipStyle),
+      : state === "auto_resolved"
+        ? autoResolvedChipStyle
+        : state === "resolved"
+          ? resolvedChipStyle
+          : unresolvedChipStyle),
     ...(selected ? selectedChipStyle : null),
   };
-  const stateLabel =
-    state === "auto_resolved"
-      ? "Auto-resolved"
-      : state === "dismissed"
-        ? "Dismissed"
-        : state === "resolved"
-          ? "Resolved"
-          : "Unresolved";
-  const accessibleLabel = `${stateLabel} ${label}${
-    accessibleDetail === undefined ? "" : `; ${accessibleDetail}`
-  }`;
+  const marker =
+    state === "unresolved"
+      ? "?"
+      : state === "auto_resolved"
+        ? "auto"
+        : state === "dismissed"
+          ? "dismissed"
+          : null;
   const content = (
-    <WorkbookRelationshipChipContent
-      detail={accessibleDetail}
-      label={label}
-      state={state}
-    />
+    <>
+      {marker === null ? null : (
+        <span aria-hidden="true" style={chipStateMarkerStyle}>
+          {marker}
+        </span>
+      )}
+      <span style={expanded ? expandedChipLabelStyle : chipLabelStyle}>
+        {label}
+      </span>
+    </>
   );
-
+  const accessibleName = relationshipChipAccessibleName(presentation);
   return onSelect === undefined ? (
     <span
-      aria-label={accessibleLabel}
+      aria-label={decorative ? undefined : accessibleName}
       data-relationship-chip="true"
       data-testid={relationshipChipTestId(selectorIdentity)}
       role="note"
       style={chipStyle}
-      title={label}
     >
       {content}
     </span>
   ) : (
     <button
-      aria-label={accessibleLabel}
+      aria-label={accessibleName}
+      aria-pressed={selected}
       data-relationship-chip="true"
       data-testid={relationshipChipTestId(selectorIdentity)}
-      tabIndex={0}
+      ref={elementRef}
+      tabIndex={tabIndex}
       style={chipStyle}
-      title={label}
       type="button"
-      onClick={onSelect}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        if (event.key !== "Escape" && event.key !== "Tab")
+          event.stopPropagation();
+      }}
     >
       {content}
     </button>
-  );
-}
-
-function WorkbookRelationshipChipContent({
-  detail,
-  label,
-  state,
-}: {
-  readonly detail?: string | undefined;
-  readonly label: string;
-  readonly state: WorkbookRelationshipChipPresentation["state"];
-}) {
-  const manual = state === "resolved" && detail === "manual resolution";
-  const stateMarker =
-    state === "auto_resolved"
-      ? "A"
-      : manual
-        ? "M"
-        : state === "resolved"
-          ? "R"
-          : state === "dismissed"
-            ? "D"
-            : "!";
-  const stateText =
-    state === "auto_resolved"
-      ? "Auto"
-      : manual
-        ? "Manual"
-        : state === "resolved"
-          ? "Resolved"
-          : state === "dismissed"
-            ? "Dismissed"
-            : "Unresolved";
-
-  return (
-    <>
-      <span aria-hidden="true" style={chipStateMarkerStyle}>
-        {stateMarker}
-      </span>
-      <span style={chipLabelStyle}>{label}</span>
-      <span data-density-role="narrow-metadata" style={visuallyHiddenStyle}>
-        {stateText}
-      </span>
-    </>
   );
 }
 
@@ -135,6 +106,69 @@ export const workbookRelationshipChipBaseStyle = {
   overflowWrap: "normal" as const,
   whiteSpace: "nowrap" as const,
 };
+
+export function WorkbookRelationshipChipDetails({
+  presentation,
+}: {
+  readonly presentation: WorkbookRelationshipChipPresentation;
+}) {
+  const resolutionLabels = {
+    manual: "Manual",
+    auto: "Automatic",
+    import: "Imported",
+    system: "System",
+  } as const;
+  const entries = [
+    ["Entity type", presentation.entityType],
+    ["Source text", presentation.rawText],
+    [
+      "Status",
+      presentation.state === "auto_resolved"
+        ? "Auto-resolved"
+        : presentation.state,
+    ],
+    [
+      "Target",
+      presentation.targetRecordId === null ? "None" : presentation.label,
+    ],
+    ...(presentation.previousTarget === null
+      ? []
+      : [["Prior target", presentation.previousTarget.label]]),
+    [
+      "Resolution",
+      presentation.resolution.method === null
+        ? "Not available"
+        : resolutionLabels[presentation.resolution.method],
+    ],
+    ...(presentation.resolution.matchedAliasText === null
+      ? []
+      : [["Matched alias", presentation.resolution.matchedAliasText]]),
+    ...(presentation.resolution.provenance === null
+      ? []
+      : [["Provenance", presentation.resolution.provenance]]),
+    ...(presentation.resolution.confidence === null
+      ? []
+      : [["Confidence", String(presentation.resolution.confidence)]]),
+  ];
+  return (
+    <dl style={{ margin: 0, display: "grid", gap: "0.4rem", minWidth: 0 }}>
+      {entries.map(([term, value]) => (
+        <div key={term}>
+          <dt style={{ color: "var(--ct-colors-ink-muted)" }}>{term}</dt>
+          <dd
+            style={{
+              margin: 0,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 const unresolvedChipStyle = {
   border: "1px dashed var(--ct-colors-semantic-caution)",
@@ -168,12 +202,8 @@ const chipStateMarkerStyle = {
   display: "inline-grid",
   placeItems: "center",
   flex: "0 0 auto",
-  inlineSize: "1.05rem",
-  blockSize: "1.05rem",
-  borderRadius: "var(--ct-rounded-pill)",
-  border: "var(--ct-border-hairline)",
   fontFamily: "var(--ct-typography-mono-fontFamily)",
-  fontSize: "0.62rem",
+  fontSize: "inherit",
   fontWeight: 700,
   lineHeight: 1,
 } satisfies CSSProperties;
@@ -183,4 +213,10 @@ const chipLabelStyle = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
+const expandedChipLabelStyle = {
+  minWidth: 0,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
 } satisfies CSSProperties;

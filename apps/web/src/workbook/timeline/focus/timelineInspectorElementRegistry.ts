@@ -34,15 +34,60 @@ export function createTimelineInspectorElementRegistry(
   let scope = initialScope;
   let root: HTMLElement | null = null;
   const panels = new Map<InspectorPanelId, TimelineInspectorElement>();
+  const triggers = new Map<string, HTMLElement>();
+  let returnTarget: { readonly recordId: string; readonly key: string } | null =
+    null;
+  const collections = new Map<string, HTMLElement>();
+  const collectionKey = (
+    recordId: string,
+    fieldKey: string,
+    itemRef: string | null,
+  ) => JSON.stringify([recordId, fieldKey, itemRef]);
   const mentions = new Map<string, MentionElementRegistration>();
 
   const clear = () => {
     panels.clear();
     mentions.clear();
+    collections.clear();
     root = null;
   };
 
   return {
+    isInspectionControlTarget(target: EventTarget | null) {
+      if (!(target instanceof Node)) return false;
+      return (
+        [...triggers.values()].some((element) => element.contains(target)) ||
+        [...mentions.values()].some(({ element }) => element.contains(target))
+      );
+    },
+    registerCollectionTrigger(
+      recordId: string,
+      fieldKey: string,
+      itemRef: string | null,
+      element: HTMLElement | null,
+    ) {
+      const key = collectionKey(recordId, fieldKey, itemRef);
+      if (element === null) triggers.delete(key);
+      else triggers.set(key, element);
+    },
+    rememberCollectionReturnFocus(
+      recordId: string,
+      fieldKey: string,
+      itemRef: string | null,
+    ) {
+      returnTarget = {
+        recordId,
+        key: collectionKey(recordId, fieldKey, itemRef),
+      };
+    },
+    restoreCollectionReturnFocus() {
+      const element =
+        returnTarget === null ? undefined : triggers.get(returnTarget.key);
+      returnTarget = null;
+      if (!isUsableInspectorElement(element)) return false;
+      element.focus({ preventScroll: true });
+      return document.activeElement === element;
+    },
     containsActiveElement() {
       const activeElement = document.activeElement;
       if (!(activeElement instanceof HTMLElement)) return false;
@@ -53,6 +98,34 @@ export function createTimelineInspectorElementRegistry(
           element.contains(activeElement),
         )
       );
+    },
+    registerCollectionItem(
+      recordId: string,
+      fieldKey: string,
+      itemRef: string,
+      element: HTMLElement | null,
+    ) {
+      const key = collectionKey(recordId, fieldKey, itemRef);
+      if (element === null) {
+        collections.delete(key);
+        return;
+      }
+      if (scope.subject?.kind === "live" && scope.subject.recordId === recordId)
+        collections.set(key, element);
+    },
+    focusCollectionItem(
+      identity: TimelineInspectorFocusIdentity,
+      fieldKey: string,
+      itemRef: string,
+    ) {
+      if (!scopeMatchesIdentity(scope, identity)) return false;
+      const element = collections.get(
+        collectionKey(identity.recordId, fieldKey, itemRef),
+      );
+      if (!isUsableInspectorElement(element)) return false;
+      element.focus({ preventScroll: true });
+      element.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      return document.activeElement === element;
     },
     focusMention(
       identity: TimelineInspectorFocusIdentity,
@@ -115,6 +188,16 @@ export function createTimelineInspectorElementRegistry(
       root = scope.subject === null ? null : element;
     },
     updateScope(nextScope: TimelineInspectorElementScope) {
+      if (scope.lifecycleKey !== nextScope.lifecycleKey) {
+        triggers.clear();
+        returnTarget = null;
+      }
+      if (
+        nextScope.subject !== null &&
+        returnTarget !== null &&
+        nextScope.subject.recordId !== returnTarget.recordId
+      )
+        returnTarget = null;
       if (
         scope.lifecycleKey !== nextScope.lifecycleKey ||
         scope.invalidationGeneration !== nextScope.invalidationGeneration ||

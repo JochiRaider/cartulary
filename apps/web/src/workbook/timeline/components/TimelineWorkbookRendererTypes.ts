@@ -57,6 +57,7 @@ export type TimelineCollectionSave = (
   focusField: CollectionDraftKey,
   draftValueOverride?: string,
   source?: "keyboard" | "blur",
+  surface?: TimelineScalarEditorSurface,
 ) => void;
 
 export type TimelineCollectionKeyDown = (
@@ -64,6 +65,7 @@ export type TimelineCollectionKeyDown = (
   rowKey: string,
   fieldKey: CollectionFieldKey,
   draftKey: CollectionDraftKey,
+  surface?: TimelineScalarEditorSurface,
 ) => void;
 
 export type RenderTimelineCollectionInput = (
@@ -72,6 +74,7 @@ export type RenderTimelineCollectionInput = (
   focusTargetRef?:
     | ((element: GridEditorFocusTarget | null) => void)
     | undefined,
+  surface?: TimelineScalarEditorSurface,
 ) => ReactNode;
 
 export type RenderTimelineGridEditor = (

@@ -60,6 +60,53 @@ describe("timeline inspector element registry", () => {
     );
   });
 
+  it("targets complete collection members and restores only live semantic triggers", () => {
+    const registry = createTimelineInspectorElementRegistry(
+      scope(subject("record-1", 3)),
+    );
+    const target = document.createElement("span");
+    target.tabIndex = -1;
+    const trigger = document.createElement("button");
+    document.body.append(target, trigger);
+    const identity = { recordId: "record-1", rowVersion: 3, viewSchemaId };
+    registry.registerCollectionItem(
+      "record-1",
+      "timeline.tags",
+      "tag-2",
+      target,
+    );
+    expect(
+      registry.focusCollectionItem(identity, "timeline.tags", "tag-2"),
+    ).toBe(true);
+    expect(document.activeElement).toBe(target);
+    expect(
+      registry.focusCollectionItem(identity, "timeline.host_refs", "tag-2"),
+    ).toBe(false);
+    expect(
+      registry.focusCollectionItem(
+        { ...identity, rowVersion: 4 },
+        "timeline.tags",
+        "tag-2",
+      ),
+    ).toBe(false);
+    registry.registerCollectionTrigger(
+      "record-1",
+      "timeline.tags",
+      null,
+      trigger,
+    );
+    registry.rememberCollectionReturnFocus("record-1", "timeline.tags", null);
+    registry.updateScope(scope(null));
+    expect(registry.restoreCollectionReturnFocus()).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+    registry.rememberCollectionReturnFocus("record-1", "timeline.tags", null);
+    registry.updateScope(scope(subject("record-2", 1)));
+    expect(registry.restoreCollectionReturnFocus()).toBe(false);
+    registry.rememberCollectionReturnFocus("record-1", "timeline.tags", null);
+    trigger.remove();
+    expect(registry.restoreCollectionReturnFocus()).toBe(false);
+  });
+
   it("clears registrations on lifecycle, generation, subject, and version changes", () => {
     const registry = createTimelineInspectorElementRegistry(
       scope(subject("record-1", 3)),

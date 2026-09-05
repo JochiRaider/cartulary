@@ -51,6 +51,7 @@ import {
   publicErrorCodeTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
+  relationshipOverflowButtonTestId,
   rowCellTestId,
   rowHistoryActionTestId,
   rowHistoryDeleteButtonTestId,
@@ -158,6 +159,10 @@ import { installIncidentSocketMonitor } from "./support/transport/incidentSocket
 import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
 import { injectDesignFixture } from "./support/visual/fixtures";
+import {
+  expectCollectionControlPainted,
+  showTimelineCollectionColumns,
+} from "./support/workbook/collections";
 import { fetchRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
@@ -1722,13 +1727,14 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
     await maskIncidentIdentity(page, incidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
+    await showTimelineCollectionColumns(page, ["Hosts", "Identities", "Tags"]);
     await openTimelineInspector(page, unresolvedRow.record_id);
     await expect(
       page
         .getByTestId(
           relationshipItemsTestId(unresolvedRow.record_id, hostRefsFieldKey),
         )
-        .getByLabel(`Unresolved ${unresolvedRawText}`),
+        .getByLabel(`Unresolved host mention: ${unresolvedRawText}`),
     ).toBeVisible();
     await openTimelineInspector(page, resolvedRow.record_id);
     await expect(
@@ -1749,11 +1755,9 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
     await expect(
       page
-        .getByTestId(
-          relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey),
-        )
-        .getByTestId(relationshipChipTestId(String(manualMention.item_ref))),
-    ).toContainText("Manual");
+        .getByTestId(timelineInspectorTestId())
+        .getByText("Manual", { exact: true }),
+    ).toBeVisible();
 
     const autoEnvelope = await addRelationshipTokenViaUI(
       page,
@@ -1771,8 +1775,11 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
           relationshipItemsTestId(autoRow.record_id, hostRefsFieldKey),
         )
         .getByTestId(relationshipChipTestId(String(autoItem.item_ref))),
-    ).toContainText("Auto");
+    ).toContainText("auto");
 
+    await page.reload();
+    await maskIncidentIdentity(page, incidentId);
+    await showTimelineCollectionColumns(page);
     await openTimelineInspector(page, dismissedRow.record_id);
     await page
       .getByTestId(mentionItemTestId(String(dismissedMention.item_ref)))
@@ -1783,10 +1790,8 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
     await page.getByTestId(mentionDismissButtonTestId()).click();
     await expect(
-      page
-        .getByTestId(mentionItemTestId(String(dismissedMention.item_ref)))
-        .getByLabel(`Dismissed ${dismissedRawText}`),
-    ).toBeVisible();
+      page.getByTestId(mentionItemTestId(String(dismissedMention.item_ref))),
+    ).toHaveAccessibleName(`Dismissed mention: ${dismissedRawText}`);
 
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
@@ -1799,8 +1804,34 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     ).toBeVisible();
     await scrollVisualAnchorToScrollContainerTop(page, dismissedMentionItem, {
-      clipTopPixels: 7,
+      clipTopPixels: -8,
     });
+    await expectCollectionControlPainted(
+      dismissedMentionItem.getByText("dismissed", { exact: true }),
+    );
+    await expectCollectionControlPainted(
+      page
+        .getByTestId(
+          relationshipItemsTestId(
+            unresolvedRow.record_id,
+            hostRefsFieldKey,
+            "grid",
+          ),
+        )
+        .getByText("?", { exact: true }),
+    );
+    await expectCollectionControlPainted(
+      page
+        .getByTestId(
+          relationshipItemsTestId(autoRow.record_id, hostRefsFieldKey, "grid"),
+        )
+        .getByText("auto", { exact: true }),
+    );
+    await expect(
+      page
+        .getByTestId(timelineInspectorTestId())
+        .getByText("Manual", { exact: true }),
+    ).toBeVisible();
     await blurActiveElement(page);
     const chipFixture = page.locator("main.cartulary-shell").first();
     await chipFixture.evaluate((element) => {
@@ -1837,7 +1868,15 @@ test.describe("workbook visual evidence", () => {
         client_txn_id: uniqueTxn("VISUALENTITYLINKINGAUX-UNRESOLVED"),
         "timeline.activity_utc_text": "2026-07-15T12:00:00Z",
         "timeline.activity_synopsis_text": "Unresolved mention visual row",
-        [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
+        [hostRefsFieldKey]: collectionActionsPayload([
+          "WS-023?",
+          "Hidden host Ω 東京",
+        ]),
+        "timeline.tags": tagActionsPayload([
+          "triage",
+          "Hidden tag Ω 東京",
+          "Evidence follow-up",
+        ]),
       },
     );
     const resolvedRow = await createViewRow(
@@ -1854,13 +1893,14 @@ test.describe("workbook visual evidence", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
+    await showTimelineCollectionColumns(page, ["Hosts", "Identities", "Tags"]);
     await openTimelineInspector(page, unresolvedRow.record_id);
     await expect(
       page
         .getByTestId(
           relationshipItemsTestId(unresolvedRow.record_id, hostRefsFieldKey),
         )
-        .getByLabel("Unresolved WS-023?"),
+        .getByLabel("Unresolved host mention: WS-023?"),
     ).toBeVisible();
     await openTimelineInspector(page, resolvedRow.record_id);
     await expect(
@@ -1868,15 +1908,53 @@ test.describe("workbook visual evidence", () => {
         .getByTestId(
           relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
         )
-        .getByLabel(/^Resolved WS-023$/u),
+        .getByLabel(/^Resolved host: WS-023$/u),
     ).toBeVisible();
 
+    await page
+      .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+      .click();
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await expectCollectionControlPainted(
+      page.getByTestId(
+        relationshipOverflowButtonTestId(
+          unresolvedRow.record_id,
+          hostRefsFieldKey,
+        ),
+      ),
+    );
+    await expectCollectionControlPainted(
+      page.getByTestId(
+        relationshipOverflowButtonTestId(
+          unresolvedRow.record_id,
+          "timeline.tags",
+        ),
+      ),
+    );
+    await page
+      .getByTestId(
+        relationshipOverflowButtonTestId(
+          unresolvedRow.record_id,
+          "timeline.tags",
+        ),
+      )
+      .click();
+    const tags = page.getByTestId(
+      relationshipItemsTestId(unresolvedRow.record_id, "timeline.tags"),
+    );
+    await expect(tags.getByRole("note")).toHaveCount(3);
+    await tags.scrollIntoViewIfNeeded();
+    for (const tag of await tags.getByRole("note").all())
+      await expectCollectionControlPainted(tag);
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
     await blurActiveElement(page);
-    await assertWorkbookGridVisualRegression(
+    await assertViewportVisualRegression(
       page,
       "record-relationships-mention-chips",
-      timelineViewSchemaId,
-      { scroll: { top: 0, left: "left" } },
     );
   });
 

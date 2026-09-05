@@ -18,6 +18,7 @@ export function WorkbookSurfaceLayout({
   chromeMode = "base",
   inspector,
   onRequestInspectorClose,
+  restoreInspectorFocus,
   onRequestPreviewClose,
   primaryGrid,
   statusStrip,
@@ -34,6 +35,7 @@ export function WorkbookSurfaceLayout({
   readonly inspector?: ReactNode | undefined;
   readonly onRequestPreviewClose?: (() => void) | undefined;
   readonly onRequestInspectorClose?: (() => void) | undefined;
+  readonly restoreInspectorFocus?: (() => boolean) | undefined;
   readonly primaryGrid: ReactNode;
   readonly statusStrip: ReactNode;
   readonly testId?: string | undefined;
@@ -60,6 +62,8 @@ export function WorkbookSurfaceLayout({
   } | null>(null);
   const inspectorWasOpenRef = useRef(false);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const restoreInspectorFocusRef = useRef(restoreInspectorFocus);
+  restoreInspectorFocusRef.current = restoreInspectorFocus;
 
   useLayoutEffect(() => {
     if (inspectorOpen && !inspectorWasOpenRef.current) {
@@ -70,7 +74,7 @@ export function WorkbookSurfaceLayout({
     }
     if (!inspectorOpen && inspectorWasOpenRef.current) {
       const returnFocus = returnFocusRef.current;
-      if (returnFocus?.isConnected) {
+      if (!restoreInspectorFocusRef.current?.() && returnFocus?.isConnected) {
         returnFocus.focus({ preventScroll: true });
       }
       returnFocusRef.current = null;

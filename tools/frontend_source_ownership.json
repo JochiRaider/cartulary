@@ -503,6 +503,7 @@
         "apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.ts",
         "apps/web/src/workbook/timeline/collaboration/useTimelinePresenceController.test.tsx",
         "apps/web/src/workbook/timeline/collaboration/useTimelinePresenceController.ts",
+        "apps/web/src/workbook/timeline/components/TimelineCollectionCell.test.tsx",
         "apps/web/src/workbook/timeline/components/TimelineCollectionCell.tsx",
         "apps/web/src/workbook/timeline/components/TimelineDraftRowActions.tsx",
         "apps/web/src/workbook/timeline/components/TimelineEvidencePanel.test.tsx",

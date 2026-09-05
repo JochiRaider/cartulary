@@ -182,6 +182,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.collection_overflow_opens_exact_inspector_subjec_4e8cde0bd5",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
+        "titles": [
+          "opens the Relationships inspector from compact relationship overflow"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.entityworkbookmodel_builds_merge_plans_without_c_6b84a1bd7f",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2822,7 +2846,7 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
-          "browser.inspector-history inspector and row-local action coverage renders Timeline collection cells compactly until inline edit activation"
+          "browser.inspector-history inspector and row-local action coverage renders complete Timeline collections and local inputs in the inspector"
         ]
       },
       "evidence_class": "unit",

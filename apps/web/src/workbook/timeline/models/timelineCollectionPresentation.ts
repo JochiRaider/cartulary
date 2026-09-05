@@ -26,6 +26,7 @@ export type TimelineTagPresentationItem = {
 export type TimelineCollectionPresentation =
   | {
       readonly kind: "relationship";
+      readonly items: readonly TimelineRelationshipPresentationItem[];
       readonly visibleItems: readonly TimelineRelationshipPresentationItem[];
       readonly hiddenItemCount: number;
       readonly hiddenLabels: readonly string[];
@@ -34,21 +35,27 @@ export type TimelineCollectionPresentation =
     }
   | {
       readonly kind: "tag";
+      readonly items: readonly TimelineTagPresentationItem[];
       readonly visibleItems: readonly TimelineTagPresentationItem[];
       readonly hiddenItemCount: number;
       readonly hiddenLabels: readonly string[];
-      readonly firstHiddenItemRef: null;
-      readonly overflowRecordId: null;
+      readonly firstHiddenItemRef: string | null;
+      readonly overflowRecordId: string | null;
     };
 
 function relationshipPresentationItem(
   item: CollectionItem,
   entityIndex: TimelineCollectionEntityIndex,
+  sourceRecordId: string | null,
 ): TimelineRelationshipPresentationItem {
   return {
     kind: "relationship",
     itemRef: item.itemRef,
-    chip: timelineRelationshipChipPresentation({ entityIndex, item }),
+    chip: timelineRelationshipChipPresentation({
+      entityIndex,
+      item,
+      sourceRecordId,
+    }),
   };
 }
 
@@ -73,10 +80,11 @@ export function projectTimelineCollectionPresentation({
 }): TimelineCollectionPresentation {
   if (binding.collectionKind === "relationship") {
     const items = row.collectionValues[binding.draftKey].map((item) =>
-      relationshipPresentationItem(item, entityIndex),
+      relationshipPresentationItem(item, entityIndex, row.recordId),
     );
     return {
       kind: "relationship",
+      items,
       visibleItems: items.slice(0, 1),
       hiddenItemCount: Math.max(0, items.length - 1),
       hiddenLabels: items.slice(1).map((item) => item.chip.label),
@@ -87,10 +95,11 @@ export function projectTimelineCollectionPresentation({
   const items = row.collectionValues.tags.map(tagPresentationItem);
   return {
     kind: "tag",
+    items,
     visibleItems: items.slice(0, 1),
     hiddenItemCount: Math.max(0, items.length - 1),
     hiddenLabels: items.slice(1).map((item) => item.displayText),
-    firstHiddenItemRef: null,
-    overflowRecordId: null,
+    firstHiddenItemRef: items[1]?.itemRef ?? null,
+    overflowRecordId: row.recordId,
   };
 }

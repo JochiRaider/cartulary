@@ -184,6 +184,10 @@ import {
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { safelyRemoveRoute as safeUnroute } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import {
+  expectCollectionControlPainted,
+  showTimelineCollectionColumns,
+} from "./support/workbook/collections";
 import { fetchRecordHistory } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
@@ -2714,28 +2718,28 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       );
     }
 
+    await showTimelineCollectionColumns(page);
     await openTimelineInspector(page, unresolvedRow.record_id);
-    const unresolvedChip = page
-      .getByTestId(
-        relationshipItemsTestId(unresolvedRow.record_id, hostRefsFieldKey),
-      )
-      .getByTestId(relationshipChipTestId(String(unresolvedMention.item_ref)));
+    const unresolvedChip = page.getByTestId(
+      mentionItemTestId(String(unresolvedMention.item_ref)),
+    );
     await expect(unresolvedChip).toHaveAttribute(
       "aria-label",
-      `Unresolved ${unresolvedRawText}`,
+      `Unresolved host mention: ${unresolvedRawText}`,
     );
-    await expect(unresolvedChip).toContainText("Unresolved");
+    await unresolvedChip.scrollIntoViewIfNeeded();
+    await expectCollectionControlPainted(
+      unresolvedChip.getByText("?", { exact: true }),
+    );
     await expectVisibleFocus(unresolvedChip);
 
     await openTimelineInspector(page, resolvedRow.record_id);
-    const resolvedChip = page
-      .getByTestId(
-        relationshipItemsTestId(resolvedRow.record_id, hostRefsFieldKey),
-      )
-      .getByTestId(relationshipChipTestId(String(resolvedMention.item_ref)));
+    const resolvedChip = page.getByTestId(
+      mentionItemTestId(String(resolvedMention.item_ref)),
+    );
     await expect(resolvedChip).toHaveAttribute(
       "aria-label",
-      /^Resolved a11y.entity-linking Resolved Target$/u,
+      /^Resolved host: a11y.entity-linking Resolved Target$/u,
     );
     await expect(resolvedChip).toContainText("Resolved");
     await expectVisibleFocus(resolvedChip);
@@ -2762,16 +2766,18 @@ test.describe("browser.entity-linking accessibility readiness", () => {
     await expectVisibleFocus(resolveButton);
     await resolveButton.click();
 
-    const manualChip = page
-      .getByTestId(
-        relationshipItemsTestId(manualRow.record_id, hostRefsFieldKey),
-      )
-      .getByTestId(relationshipChipTestId(String(manualMention.item_ref)));
+    const manualChip = page.getByTestId(
+      mentionItemTestId(String(manualMention.item_ref)),
+    );
     await expect(manualChip).toHaveAttribute(
       "aria-label",
-      /^Resolved .*manual resolution/u,
+      /^Resolved host: a11y.entity-linking Manual Target$/u,
     );
-    await expect(manualChip).toContainText("Manual");
+    await expect(
+      page
+        .getByTestId(timelineInspectorTestId())
+        .getByText("Manual", { exact: true }),
+    ).toBeVisible();
     await expectVisibleFocus(manualChip);
     await expectVisibleFocus(page.getByTestId(mentionDismissButtonTestId()));
     await expectVisibleFocus(
@@ -2788,14 +2794,17 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       collectionItems(autoEnvelope.data.row, hostRefsFieldKey),
       autoRawText,
     );
-    const autoChip = page
-      .getByTestId(relationshipItemsTestId(autoRow.record_id, hostRefsFieldKey))
-      .getByTestId(relationshipChipTestId(String(autoItem.item_ref)));
+    const autoChip = page.getByTestId(
+      mentionItemTestId(String(autoItem.item_ref)),
+    );
     await expect(autoChip).toHaveAttribute(
       "aria-label",
       /^Auto-resolved .*matched/u,
     );
-    await expect(autoChip).toContainText("Auto");
+    await autoChip.scrollIntoViewIfNeeded();
+    await expectCollectionControlPainted(
+      autoChip.getByText("auto", { exact: true }),
+    );
     await expectVisibleFocus(autoChip);
     const autoNotice = page.getByTestId(
       autoResolutionNoticeTestId(String(autoItem.item_ref)),
@@ -2815,12 +2824,18 @@ test.describe("browser.entity-linking accessibility readiness", () => {
       .getByTestId(mentionResolveTargetSelectTestId())
       .selectOption(manualTarget.record_id);
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+    await expect(
+      page.getByTestId(mentionItemTestId(String(dismissedMention.item_ref))),
+    ).toHaveAccessibleName("Resolved host: a11y.entity-linking Manual Target");
     await page.getByTestId(mentionDismissButtonTestId()).click();
     const dismissedMentionItem = page
       .getByTestId(timelineInspectorTestId())
-      .getByRole("button", { name: `Dismissed ${dismissedRawText}` });
+      .getByRole("button", { name: `Dismissed mention: ${dismissedRawText}` });
     await expect(dismissedMentionItem).toBeVisible();
-    await expect(dismissedMentionItem).toContainText("Dismissed");
+    await dismissedMentionItem.scrollIntoViewIfNeeded();
+    await expectCollectionControlPainted(
+      dismissedMentionItem.getByText("dismissed", { exact: true }),
+    );
     await expectVisibleFocus(dismissedMentionItem);
     await expectVisibleFocus(
       page.getByTestId(mentionRestoreUnresolvedButtonTestId()),
@@ -4126,8 +4141,14 @@ test.describe("browser.inspector-history accessibility readiness", () => {
 
     const relationshipChip = page
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
-      .getByTestId(relationshipChipTestId(String(hostItem.item_ref)));
-    await expect(relationshipChip).toContainText("Unresolved");
+      .getByTestId(mentionItemTestId(String(hostItem.item_ref)));
+    await expect(relationshipChip).toHaveAccessibleName(
+      "Unresolved host mention: a11y.inspector-history host",
+    );
+    await relationshipChip.scrollIntoViewIfNeeded();
+    await expectCollectionControlPainted(
+      relationshipChip.getByText("?", { exact: true }),
+    );
     await expectVisibleFocus(relationshipChip);
 
     await expectVisibleFocus(detailsEditor);

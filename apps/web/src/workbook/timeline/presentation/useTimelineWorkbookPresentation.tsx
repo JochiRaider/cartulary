@@ -217,6 +217,7 @@ export function useTimelineWorkbookPresentation({
   } = workflow.snapshot.rowInteractions;
   const {
     closeRowContextMenu,
+    handleInspectCollection,
     handleSelectMention,
     handleSelectRow,
     handleTimelineGridContextMenu,
@@ -245,6 +246,8 @@ export function useTimelineWorkbookPresentation({
     activateCollectionInput,
     activateConflictCell,
     activeCollectionInputKey,
+    elementRegistry: inspector.ports.elements,
+    handleInspectCollection,
     commitScalarGridEdit,
     conflictQueue,
     deactivateCollectionInput,
@@ -258,9 +261,7 @@ export function useTimelineWorkbookPresentation({
     handleEditModePresence,
     handleKeyDown,
     handlePaste,
-    handleSelectMention,
     handleSelectRow,
-    openInspectorForRow,
     queueCollectionSave,
     readOnly: interactionMode.kind === "read_only",
     rowGutterWidth: timelineRowGutterWidth,
@@ -498,6 +499,7 @@ export function useTimelineWorkbookPresentation({
     layout: {
       chromeMode,
       onRequestInspectorClose: closeInspector,
+      restoreInspectorFocus: inspector.ports.restoreFocus,
       onWorkAreaContextMenu: handleTimelineGridContextMenu,
       onWorkAreaKeyDown: handleTimelineWorkAreaKeyDown,
       testId: timelineMutationSubstrateReadyTestId(),
@@ -529,6 +531,10 @@ export function useTimelineWorkbookPresentation({
               },
             },
       notices: {
+        canManageMentions:
+          canManageMentions &&
+          !incidentClosed &&
+          interactionMode.kind !== "read_only",
         autoResolutionNotices,
         entityIndex,
         inspectorOpen: isInspectorOpen,

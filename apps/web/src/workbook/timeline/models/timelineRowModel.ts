@@ -117,8 +117,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function readTimelineTagItems(row: TimelineApiRow): TagCollectionItem[] {
   const raw = row.cells["timeline.tags"]?.value;
   const value = isRecord(raw) && Array.isArray(raw.items) ? raw.items : [];
-  return value.flatMap((item, index) => {
-    if (!isRecord(item)) return [];
+  return value.flatMap((item) => {
+    if (
+      !isRecord(item) ||
+      typeof item.item_ref !== "string" ||
+      item.item_ref.trim() === ""
+    )
+      return [];
     const rawText =
       typeof item.raw_text === "string"
         ? item.raw_text
@@ -128,10 +133,7 @@ export function readTimelineTagItems(row: TimelineApiRow): TagCollectionItem[] {
     if (rawText === "") return [];
     return [
       {
-        itemRef:
-          typeof item.item_ref === "string"
-            ? item.item_ref
-            : `tag-item-${index}:${rawText}`,
+        itemRef: item.item_ref,
         itemKind: typeof item.item_kind === "string" ? item.item_kind : "tag",
         displayText:
           typeof item.display_text === "string" ? item.display_text : rawText,

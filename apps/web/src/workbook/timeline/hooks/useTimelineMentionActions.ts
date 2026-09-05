@@ -347,6 +347,20 @@ async function dispatchMentionResolution(
       subject,
     });
     if (settlementPlan.kind === "dispatch") return result.value;
+    // A refresh can project the accepted dismissal before its response settles.
+    // The action's permission, surface and live source checks still apply;
+    // absence from that source's active collection is the expected result.
+    if (
+      plan.request.action === "dismiss_item" &&
+      settlementPlan.reason === "mention_missing" &&
+      latest.rowsRef.current.some(
+        (row) =>
+          row.recordId === result.value.sourceRecord.recordId &&
+          row.rowVersion !== null &&
+          row.rowVersion >= result.value.sourceRecord.rowVersion,
+      )
+    )
+      return result.value;
     latest.resolvePendingSocketTxn(clientTxnId);
     return null;
   }

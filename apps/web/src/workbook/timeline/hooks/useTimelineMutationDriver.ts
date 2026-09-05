@@ -125,6 +125,7 @@ export function useTimelineMutationDriver({
   readonly clearSubmittedScalarEditorDraftValuesForRow: (
     rowKey: string,
     submittedValues: RowValues,
+    submittedCollections?: Partial<WorkbookRow["collectionDrafts"]>,
   ) => void;
   readonly clearViewportContinuity: (token: number) => void;
   readonly conflictQueueRef: TimelineMutableRef<Record<string, unknown>>;
@@ -647,6 +648,14 @@ export function useTimelineMutationDriver({
         clearSubmittedScalarEditorDraftValuesForRow(
           unit.rowKey,
           meta.rowSnapshot.values,
+          meta.rowSnapshot.recordId === null
+            ? meta.rowSnapshot.collectionDrafts
+            : isCollectionDraftKey(meta.focusField)
+              ? {
+                  [meta.focusField]:
+                    meta.rowSnapshot.collectionDrafts[meta.focusField],
+                }
+              : undefined,
         );
         const clearActiveCollectionFocusKey =
           meta.surface === "grid" && isCollectionDraftKey(meta.focusField)

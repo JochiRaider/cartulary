@@ -5,18 +5,23 @@ import {
   mentionResolveExistingButtonTestId,
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
+  relationshipItemsTestId,
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useRef } from "react";
 import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
-import { WorkbookRelationshipChip } from "../../components/WorkbookRelationshipChip";
+import {
+  WorkbookRelationshipChip,
+  WorkbookRelationshipChipDetails,
+} from "../../components/WorkbookRelationshipChip";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import { relationshipChipAccessibleName } from "../../models/workbookRelationshipChip";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import {
   type InspectorMention,
-  relationshipItemLabel,
   timelineRelationshipChipPresentation,
 } from "../models/workbookMentionChips";
 import {
@@ -32,16 +37,10 @@ export type MentionEntityOption = {
   readonly recordId: string;
 };
 
-type MentionStatus = InspectorMention["status"];
-
-const mentionStatuses = [
-  "unresolved",
-  "resolved",
-  "dismissed",
-] as const satisfies readonly MentionStatus[];
-
 type TimelineMentionsPanelProps = {
+  readonly sourceRecordId: string | null;
   readonly canManageMentions: boolean;
+  readonly registerCollectionItem: TimelineInspectorElementRegistry["registerCollectionItem"];
   readonly entityIndex: Record<string, { label: string }>;
   readonly getRelationshipLabel: (
     fieldKey: InspectorMention["fieldKey"],
@@ -69,7 +68,9 @@ type TimelineMentionsPanelProps = {
 };
 
 export function TimelineMentionsPanel({
+  sourceRecordId,
   canManageMentions,
+  registerCollectionItem,
   entityIndex,
   getRelationshipLabel,
   hostEntities,
@@ -88,6 +89,8 @@ export function TimelineMentionsPanel({
   return (
     <>
       <MentionGroups
+        sourceRecordId={sourceRecordId}
+        registerCollectionItem={registerCollectionItem}
         entityIndex={entityIndex}
         inspectorMentions={inspectorMentions}
         relationshipEditors={relationshipEditors}
@@ -115,72 +118,130 @@ export function TimelineMentionsPanel({
 }
 
 function MentionGroups({
+  sourceRecordId,
   entityIndex,
   inspectorMentions,
   relationshipEditors,
   registerMention,
+  registerCollectionItem,
   onSelectMention,
   selectedMention,
 }: {
+  readonly sourceRecordId: string | null;
   readonly entityIndex: Record<string, { label: string }>;
   readonly inspectorMentions: readonly InspectorMention[];
   readonly relationshipEditors?: ReactNode;
   readonly registerMention: TimelineMentionsPanelProps["registerMention"];
+  readonly registerCollectionItem: TimelineInspectorElementRegistry["registerCollectionItem"];
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly selectedMention: InspectorMention | null;
 }) {
+  const buttons = useRef(new Map<string, HTMLButtonElement>());
+  const renderMention = (
+    item: InspectorMention,
+    items: readonly InspectorMention[],
+  ) => {
+    const presentation = timelineRelationshipChipPresentation({
+      entityIndex,
+      item,
+      selected: selectedMention?.itemRef === item.itemRef,
+    });
+    return (
+      <button
+        key={item.itemRef}
+        type="button"
+        data-testid={mentionItemTestId(item.itemRef)}
+        aria-label={relationshipChipAccessibleName(presentation)}
+        aria-pressed={presentation.selected}
+        ref={(element) => {
+          registerMention(item.rowRecordId, item.itemRef, element);
+          registerCollectionItem(
+            item.rowRecordId,
+            item.fieldKey,
+            item.itemRef,
+            element,
+          );
+          if (element === null) buttons.current.delete(item.itemRef);
+          else buttons.current.set(item.itemRef, element);
+        }}
+        style={{
+          ...mentionListButtonStyle,
+          ...(presentation.selected ? mentionListButtonSelectedStyle : null),
+        }}
+        onClick={() => onSelectMention(item.rowRecordId, item.itemRef)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            const index = items.findIndex(
+              (candidate) => candidate.itemRef === item.itemRef,
+            );
+            const next = items[index + (event.key === "ArrowLeft" ? -1 : 1)];
+            if (next)
+              buttons.current.get(next.itemRef)?.focus({ preventScroll: true });
+            event.preventDefault();
+          }
+          if (event.key !== "Tab" && event.key !== "Escape")
+            event.stopPropagation();
+        }}
+      >
+        <WorkbookRelationshipChip
+          expanded
+          decorative
+          presentation={presentation}
+        />
+      </button>
+    );
+  };
   return (
     <div
       data-testid={timelineInspectorSectionTestId("relationships")}
       style={inspectorSectionStyle}
     >
       {relationshipEditors}
-      <div style={mentionGroupStyle}>
-        {mentionStatuses.map((status) => {
-          const group = inspectorMentions.filter(
-            (item) => item.status === status,
+      {(["timeline.host_refs", "timeline.identity_refs"] as const).map(
+        (fieldKey) => {
+          const items = inspectorMentions.filter(
+            (item) => item.fieldKey === fieldKey,
           );
+          const active = items.filter((item) => item.isActiveRelationshipValue);
+          const dismissed = items.filter((item) => item.status === "dismissed");
+          const recordId = sourceRecordId;
           return (
-            <div key={status} style={mentionGroupColumnStyle}>
-              <p data-density-role="narrow-metadata" style={groupLabelStyle}>
-                {statusLabel(status)}
+            <section
+              key={fieldKey}
+              aria-label={
+                fieldKey === "timeline.host_refs"
+                  ? "Host mentions"
+                  : "Identity mentions"
+              }
+              style={mentionGroupColumnStyle}
+            >
+              <p style={groupLabelStyle}>
+                {fieldKey === "timeline.host_refs" ? "Hosts" : "Identities"}
               </p>
-              {group.length > 0 ? (
-                group.map((item) => (
-                  <button
-                    key={item.itemRef}
-                    data-testid={mentionItemTestId(item.itemRef)}
-                    ref={(element) =>
-                      registerMention(item.rowRecordId, item.itemRef, element)
-                    }
-                    tabIndex={0}
-                    style={{
-                      ...mentionListButtonStyle,
-                      ...(selectedMention?.itemRef === item.itemRef
-                        ? mentionListButtonSelectedStyle
-                        : null),
-                    }}
-                    type="button"
-                    onClick={() => {
-                      onSelectMention(item.rowRecordId, item.itemRef);
-                    }}
-                  >
-                    <WorkbookRelationshipChip
-                      presentation={timelineRelationshipChipPresentation({
-                        entityIndex,
-                        item,
-                        selected: selectedMention?.itemRef === item.itemRef,
-                      })}
-                    />
-                  </button>
-                ))
-              ) : (
-                <span style={emptyRelationshipStyle}>None</span>
-              )}
-            </div>
+              <div
+                data-testid={
+                  recordId === null
+                    ? undefined
+                    : relationshipItemsTestId(recordId, fieldKey)
+                }
+                style={mentionGroupColumnStyle}
+              >
+                {active.length === 0 ? (
+                  <span>No items</span>
+                ) : (
+                  active.map((item) => renderMention(item, active))
+                )}
+              </div>
+              {dismissed.length > 0 ? (
+                <div style={mentionGroupColumnStyle}>
+                  <p style={groupLabelStyle}>Dismissed</p>
+                  {dismissed.map((item) => renderMention(item, dismissed))}
+                </div>
+              ) : null}
+            </section>
           );
-        })}
-      </div>
+        },
+      )}
     </div>
   );
 }
@@ -220,30 +281,17 @@ function SelectedMentionSection({
     <section style={inspectorSectionStyle}>
       <h3 style={sectionTitleStyle}>Selected mention</h3>
       <p style={selectedMentionTextStyle}>
-        <strong>{selectedMention.rawText}</strong>
+        {getRelationshipLabel(selectedMention.fieldKey)}
       </p>
-      <dl style={detailListStyle}>
-        <div>
-          <dt style={detailTermStyle}>Field</dt>
-          <dd style={detailValueStyle}>
-            {getRelationshipLabel(selectedMention.fieldKey)}
-          </dd>
-        </div>
-        <div>
-          <dt style={detailTermStyle}>Status</dt>
-          <dd style={detailValueStyle}>{selectedMention.status}</dd>
-        </div>
-        <div>
-          <dt style={detailTermStyle}>Target</dt>
-          <dd style={detailValueStyle}>
-            {selectedMention.resolvedRecordId
-              ? relationshipItemLabel(selectedMention, entityIndex)
-              : "None"}
-          </dd>
-        </div>
-      </dl>
+      <WorkbookRelationshipChipDetails
+        presentation={timelineRelationshipChipPresentation({
+          entityIndex,
+          item: selectedMention,
+          selected: true,
+        })}
+      />
 
-      {selectedMention.status === "unresolved" ? (
+      {selectedMention.status === "unresolved" && canManageMentions ? (
         <div style={inspectorActionStackStyle}>
           <ResolveTargetSelect
             label="Resolve to existing"
@@ -368,7 +416,7 @@ function SelectedMentionSection({
         </div>
       ) : null}
 
-      {selectedMention.status === "dismissed" ? (
+      {selectedMention.status === "dismissed" && canManageMentions ? (
         <div style={inlineButtonRowStyle}>
           <button
             data-testid={mentionRestoreUnresolvedButtonTestId()}
@@ -420,27 +468,9 @@ function ResolveTargetSelect({
   );
 }
 
-function statusLabel(status: MentionStatus) {
-  return status === "dismissed"
-    ? "Dismissed"
-    : status === "resolved"
-      ? "Resolved"
-      : "Unresolved";
-}
-
 const selectStyle = {
   ...inputStyle,
   appearance: "auto",
-} satisfies CSSProperties;
-
-const emptyRelationshipStyle = {
-  color: "var(--ct-colors-ink-tertiary)",
-  fontSize: "0.9rem",
-} satisfies CSSProperties;
-
-const mentionGroupStyle = {
-  display: "grid",
-  gap: "0.75rem",
 } satisfies CSSProperties;
 
 const mentionGroupColumnStyle = {
@@ -471,26 +501,9 @@ const mentionListButtonSelectedStyle = {
   outlineOffset: "2px",
 } satisfies CSSProperties;
 
-const detailListStyle = {
-  display: "grid",
-  gap: "0.75rem",
-  margin: 0,
-} satisfies CSSProperties;
-
 const selectedMentionTextStyle = {
   margin: 0,
   overflowWrap: "anywhere",
-} satisfies CSSProperties;
-
-const detailTermStyle = {
-  fontSize: "0.75rem",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: "var(--ct-colors-ink-muted)",
-} satisfies CSSProperties;
-
-const detailValueStyle = {
-  margin: "0.2rem 0 0",
 } satisfies CSSProperties;
 
 const inlineButtonRowStyle = {

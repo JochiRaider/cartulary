@@ -2,7 +2,9 @@ import type { ViewContract } from "@cartulary/view-contracts";
 import { useCallback } from "react";
 import type { PresenceRecord } from "../../utils/workbookPresence";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
+import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type {
+  CollectionFieldKey,
   FocusFieldKey,
   TimelineScalarEditorSurface,
 } from "../models/timelineFieldRegistry";
@@ -29,6 +31,8 @@ export function useTimelineWorkbookRenderers({
   conflictQueue,
   commitScalarGridEdit,
   editorDraftRegistry,
+  elementRegistry,
+  handleInspectCollection,
   editingPresenceForCell,
   entityIndex,
   gridShellWidth,
@@ -38,9 +42,7 @@ export function useTimelineWorkbookRenderers({
   handleEditModePresence,
   handleKeyDown,
   handlePaste,
-  handleSelectMention,
   handleSelectRow,
-  openInspectorForRow,
   queueCollectionSave,
   readOnly,
   rowGutterWidth,
@@ -54,6 +56,12 @@ export function useTimelineWorkbookRenderers({
   readonly conflictQueue: Record<string, { readonly key: string }>;
   readonly commitScalarGridEdit: TimelineScalarGridCommit;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
+  readonly elementRegistry: TimelineInspectorElementRegistry;
+  readonly handleInspectCollection: (
+    recordId: string,
+    fieldKey: CollectionFieldKey,
+    itemRef: string,
+  ) => void;
   readonly editingPresenceForCell: (
     recordId: string | null,
     fieldKey: string,
@@ -73,9 +81,7 @@ export function useTimelineWorkbookRenderers({
   ) => void;
   readonly handleKeyDown: TimelineScalarKeyCommit;
   readonly handlePaste: TimelineScalarPasteCommit;
-  readonly handleSelectMention: (recordId: string, itemRef: string) => void;
   readonly handleSelectRow: (recordId: string) => void;
-  readonly openInspectorForRow: (recordId: string) => void;
   readonly queueCollectionSave: TimelineCollectionSave;
   readonly readOnly: boolean;
   readonly rowGutterWidth: number;
@@ -123,18 +129,18 @@ export function useTimelineWorkbookRenderers({
     updateTimelineSurfaceFocusAnchor,
   });
   const renderTimelineCollectionInput = useTimelineCollectionRenderer({
+    editorDraftRegistry,
+    elementRegistry,
+    handleInspectCollection,
     activateCollectionInput,
     activeCollectionInputKey,
     entityIndex,
     handleCollectionInputChange,
     handleCollectionKeyDown,
-    handleSelectMention,
     handleSelectRow,
-    openInspectorForRow,
     queueCollectionSave,
     readOnly,
     registerInput,
-    resolveInputElement: editorDraftRegistry.inputElementForFocusKey,
     deactivateCollectionInput,
     timelineBindingLabel,
     updateTimelineSurfaceFocusAnchor,

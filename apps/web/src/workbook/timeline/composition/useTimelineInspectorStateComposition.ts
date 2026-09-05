@@ -56,6 +56,12 @@ export function useTimelineInspectorStateComposition({
     rowHistory: history.snapshot.rowHistory,
     selectedRow,
   });
+  const restoreFocus = () => {
+    const token = inspectorContinuityTokenRef.current;
+    inspectorContinuityTokenRef.current = null;
+    if (elementRegistry.restoreCollectionReturnFocus()) return true;
+    return token !== null && continuity.restore(token);
+  };
   const coordinator = useWorkbookInspectorCoordinator({
     actionPorts: {
       resetOwnerState: ({ scope }) => {
@@ -65,13 +71,7 @@ export function useTimelineInspectorStateComposition({
           selection.commands.setSelectedRowId(null);
         }
       },
-      restoreFocus: () => {
-        const token = inspectorContinuityTokenRef.current;
-        inspectorContinuityTokenRef.current = null;
-        if (token !== null) {
-          continuity.restore(token);
-        }
-      },
+      restoreFocus,
     },
     config: timelineInspectorConfig,
     lifecycleKey: inspectorResetKey,
@@ -102,7 +102,7 @@ export function useTimelineInspectorStateComposition({
       selectRow: selection.commands.setSelectedRowId,
       setOpen,
     },
-    ports: { elements: elementRegistry },
+    ports: { elements: elementRegistry, restoreFocus },
     refs: {
       continuityToken: inspectorContinuityTokenRef,
     },

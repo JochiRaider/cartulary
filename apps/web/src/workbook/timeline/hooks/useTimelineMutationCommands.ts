@@ -394,8 +394,10 @@ export function useTimelineMutationCommands({
       focusField: CollectionDraftKey,
       draftValueOverride?: string,
       source: "keyboard" | "blur" = "blur",
+      surface: TimelineScalarEditorSurface = "grid",
     ) => {
-      const focusKey = inputFocusKey(rowKey, focusField, "grid");
+      const focusKey = inputFocusKey(rowKey, focusField, surface);
+      const commitKey = inputFocusKey(rowKey, focusField, "grid");
       const rowSnapshot = rowsRef.current.find(
         (candidate) => candidate.key === rowKey,
       );
@@ -405,17 +407,17 @@ export function useTimelineMutationCommands({
       const draftValue =
         draftValueOverride ?? rowSnapshot.collectionDrafts[focusField];
       const priorKeyboardCommitValue =
-        pendingSavesRefs.collectionKeyboardCommitRef.current.get(focusKey);
+        pendingSavesRefs.collectionKeyboardCommitRef.current.get(commitKey);
       const commitDecision = decideTimelineCollectionCommit({
         draftValue,
         priorKeyboardCommitValue,
         source,
       });
       if (commitDecision.nextKeyboardCommitValue === null) {
-        pendingSavesRefs.collectionKeyboardCommitRef.current.delete(focusKey);
+        pendingSavesRefs.collectionKeyboardCommitRef.current.delete(commitKey);
       } else {
         pendingSavesRefs.collectionKeyboardCommitRef.current.set(
-          focusKey,
+          commitKey,
           commitDecision.nextKeyboardCommitValue,
         );
       }
@@ -466,7 +468,7 @@ export function useTimelineMutationCommands({
         payloadIntent: admission.payloadIntent,
         promoteToCommittedRowInspect: snapshot.recordId === null,
         rowKey,
-        surface: "grid",
+        surface,
         rowSnapshot: effectiveSnapshot,
         viewportContinuityToken,
         visibleEdit: { rowKey, ...admission.visibleEdit },

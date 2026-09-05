@@ -171,6 +171,38 @@ describe("Timeline editor draft registry", () => {
     expect(registry.inputElementForFocusKey(focusKey)).toBeNull();
   });
 
+  it("retains collection text across refresh and clears only the submitted version", () => {
+    const registry = createTimelineEditorDraftRegistry();
+    const identity = {
+      field: "tags" as const,
+      rowKey: recordId,
+      surface: "grid" as const,
+    };
+    registry.setDraft(identity, "  pending Ω  ");
+    const submitted = registry.materializeRow(committedRow());
+    expect(submitted.collectionDrafts.tags).toBe("  pending Ω  ");
+    registry.clearSubmittedRow(recordId, submitted.values);
+    expect(registry.draftValue(identity)).toBe("  pending Ω  ");
+    registry.clearSubmittedRow(recordId, submitted.values, { hostRefs: "" });
+    expect(registry.draftValue(identity)).toBe("  pending Ω  ");
+    registry.setDraft(identity, "newer text");
+    registry.clearSubmittedRow(
+      recordId,
+      submitted.values,
+      submitted.collectionDrafts,
+    );
+    expect(registry.materializeRow(committedRow()).collectionDrafts.tags).toBe(
+      "newer text",
+    );
+    const accepted = registry.materializeRow(committedRow());
+    registry.clearSubmittedRow(
+      recordId,
+      accepted.values,
+      accepted.collectionDrafts,
+    );
+    expect(registry.draftValue(identity)).toBeUndefined();
+  });
+
   it("invalidates drafts when the schema identity changes", () => {
     const { result, rerender } = renderHook(
       ({ schemaKey }) => useTimelineEditorDraftRegistry(schemaKey),
