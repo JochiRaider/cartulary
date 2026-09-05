@@ -1,3 +1,4 @@
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import {
   type WorkbookConflictEntry,
@@ -9,6 +10,7 @@ export type WorkbookConflictRefresh = () => Promise<
 >;
 
 export type WorkbookConflictRegistration = {
+  readonly sheetRef?: SheetRef | undefined;
   readonly conflict: Parameters<typeof workbookConflictEntry>[0]["conflict"];
   readonly focusKey?: string | null | undefined;
   readonly refresh?: WorkbookConflictRefresh | undefined;

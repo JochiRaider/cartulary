@@ -1,17 +1,19 @@
 import {
-  genericWorkbookTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useId } from "react";
 import {
   emptyPresenceScope,
   type PresenceScope,
 } from "../collaboration/workbookPresencePresentation";
 import { WorkbookContinuityAnchorStatus } from "../continuity/useWorkbookGridContinuity";
 import type { WorkbookContinuityAnchor } from "../continuity/workbookContinuityPort";
+import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
+import type { WorkbookStatusPresentation } from "../runtime/workbookMutationStatusProjector";
 import { displayInitials } from "../utils/workbookPresence";
+import type { WorkbookStatusAction } from "../utils/workbookStatusSecondary";
 import {
   presenceAvatarStyle,
   presenceEmptyStyle,
@@ -20,134 +22,101 @@ import {
   statusStripItemStyle,
   statusStripPresenceStyle,
   statusStripSecondaryItemStyle,
+  visuallyHiddenStyle,
 } from "../utils/workbookStyles";
 import { presenceAccessibleLabel } from "./WorkbookPresenceMarkers";
 
-export type WorkbookStatusSaveState = "Syncing" | "Saved" | "Conflict";
-export type WorkbookConflictActivation = (invoker: HTMLButtonElement) => void;
+export type WorkbookConflictActivation = (
+  invoker: HTMLButtonElement,
+  action: WorkbookStatusAction,
+) => void;
 
+/** Visible status is a projection. Save announcements belong to the shell host. */
 export function WorkbookStatusStrip({
-  presence,
-  saveState,
-  saveStateSecondaryMessage,
-  showPresence = true,
-  onActivateConflict,
-  workbookFocusAnchor,
-}: {
-  readonly presence: PresenceScope;
-  readonly inFlightCount: number;
-  readonly queuedCount: number;
-  readonly saveState: WorkbookStatusSaveState;
-  readonly saveStateSecondaryMessage: string | null;
-  readonly showPresence?: boolean | undefined;
-  readonly onActivateConflict?: WorkbookConflictActivation | undefined;
-  readonly workbookFocusAnchor: WorkbookContinuityAnchor | null;
-}) {
-  return (
-    <>
-      <span style={statusStripItemStyle}>
-        <span aria-hidden="true" style={statusIconStyle(saveState)} />
-        {saveState === "Conflict" && onActivateConflict !== undefined ? (
-          <button
-            aria-label="Open conflict recovery"
-            data-testid={saveStateActionButtonTestId()}
-            style={statusStripActionButtonStyle}
-            type="button"
-            onClick={(event) => onActivateConflict(event.currentTarget)}
-          >
-            <strong
-              aria-live="polite"
-              aria-label="Save state"
-              data-density-role="narrow-metadata"
-              data-testid={saveStateTestId()}
-              role="status"
-            >
-              {saveState}
-            </strong>
-          </button>
-        ) : (
-          <strong
-            aria-live="polite"
-            aria-label="Save state"
-            data-density-role="narrow-metadata"
-            data-testid={saveStateTestId()}
-            role="status"
-          >
-            {saveState}
-          </strong>
-        )}
-      </span>
-      {saveStateSecondaryMessage !== null ? (
-        <span style={statusStripSecondaryItemStyle}>
-          {saveStateSecondaryMessage}
-        </span>
-      ) : null}
-      {showPresence ? <WorkbookPresenceSummary records={presence} /> : null}
-      <WorkbookContinuityAnchorStatus anchor={workbookFocusAnchor} />
-    </>
-  );
-}
-
-export function WorkbookSurfaceStatusStrip({
   presence = emptyPresenceScope,
-  mutationError = null,
-  mutationState,
-  onActivateConflict,
+  status,
+  chromeMode,
   showPresence = true,
+  onActivateConflict,
   workbookFocusAnchor,
 }: {
   readonly presence?: PresenceScope | undefined;
-  readonly mutationError?: string | null | undefined;
-  readonly mutationState: WorkbookStatusSaveState;
-  readonly onActivateConflict?: WorkbookConflictActivation | undefined;
+  readonly status: WorkbookStatusPresentation;
+  readonly chromeMode: WorkbookChromeMode;
   readonly showPresence?: boolean | undefined;
+  readonly onActivateConflict?: WorkbookConflictActivation | undefined;
   readonly workbookFocusAnchor: WorkbookContinuityAnchor | null;
 }) {
+  const detailId = useId();
+  const primaryDescriptionId = useId();
+  const message = status.secondary?.message ?? null;
+  const action = status.action;
+  const canActivate = action !== null && onActivateConflict !== undefined;
+  const label = (
+    <strong data-density-role="narrow-metadata" data-testid={saveStateTestId()}>
+      {status.primaryLabel}
+    </strong>
+  );
+  const narrowText =
+    message === null
+      ? null
+      : Array.from(message).slice(0, 40).join("") +
+        (Array.from(message).length > 40 ? "…" : "");
+  const showSecondary =
+    chromeMode !== "below_supported_minimum" && message !== null;
   return (
     <>
-      <span style={statusStripItemStyle}>
-        <span aria-hidden="true" style={statusIconStyle(mutationState)} />
-        {mutationState === "Conflict" && onActivateConflict !== undefined ? (
+      <span style={{ ...statusStripItemStyle, flex: "0 0 auto" }}>
+        <span aria-hidden="true" style={statusIconStyle(status.primaryLabel)} />
+        {canActivate ? (
           <button
-            aria-label="Open conflict recovery"
+            aria-label={
+              status.primaryLabel === "Conflict"
+                ? "Open conflict recovery"
+                : "Open save status details"
+            }
+            aria-describedby={`${primaryDescriptionId}${showSecondary ? ` ${detailId}` : ""}`}
             data-testid={saveStateActionButtonTestId()}
             style={statusStripActionButtonStyle}
             type="button"
-            onClick={(event) => onActivateConflict(event.currentTarget)}
+            onClick={(event) => onActivateConflict(event.currentTarget, action)}
           >
-            <strong
-              aria-live="polite"
-              aria-label="Save state"
-              data-density-role="narrow-metadata"
-              data-testid={saveStateTestId()}
-              role="status"
-            >
-              {mutationState}
-            </strong>
+            {label}
           </button>
         ) : (
-          <strong
-            aria-live="polite"
-            aria-label="Save state"
-            data-density-role="narrow-metadata"
-            data-testid={saveStateTestId()}
-            role="status"
-          >
-            {mutationState}
-          </strong>
+          label
         )}
+        {canActivate ? (
+          <span id={primaryDescriptionId} style={visuallyHiddenStyle}>
+            {status.primaryLabel}
+            {status.unresolvedConflictCount > 0
+              ? `. ${status.unresolvedConflictCount} unresolved`
+              : ""}
+          </span>
+        ) : null}
       </span>
-      {mutationError ? (
+      {showSecondary ? (
         <span
-          aria-live="polite"
-          data-testid={genericWorkbookTestId("mutation-error")}
-          role="status"
-          style={surfaceStatusStripErrorStyle}
+          id={detailId}
+          style={
+            chromeMode === "compact_desktop"
+              ? visuallyHiddenStyle
+              : statusStripSecondaryItemStyle
+          }
         >
-          {mutationError}
+          {chromeMode === "narrow_desktop" ? (
+            <>
+              <span aria-hidden="true">{narrowText}</span>
+              <span style={visuallyHiddenStyle}>{message}</span>
+            </>
+          ) : (
+            message
+          )}
         </span>
       ) : null}
-      {showPresence ? <WorkbookPresenceSummary records={presence} /> : null}
+      {showPresence && chromeMode !== "below_supported_minimum" ? (
+        <WorkbookPresenceSummary records={presence} />
+      ) : null}
       <WorkbookContinuityAnchorStatus anchor={workbookFocusAnchor} />
     </>
   );
@@ -192,15 +161,6 @@ export function WorkbookPresenceSummary({
     </div>
   );
 }
-
-const surfaceStatusStripErrorStyle = {
-  minWidth: 0,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap" as const,
-  color: "var(--ct-colors-semantic-conflict)",
-  fontWeight: 700,
-};
 
 const statusStripActionButtonStyle = {
   appearance: "none",

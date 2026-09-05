@@ -22,9 +22,11 @@ import type {
 import { WorkbookActiveSurfaceFrame } from "./components/WorkbookActiveSurfaceFrame";
 import { WorkbookActiveSurfacePresentation } from "./components/WorkbookActiveSurfacePresentation";
 import { WorkbookIncidentControlsPresentation } from "./components/WorkbookIncidentControlsPresentation";
+import { WorkbookSaveAnnouncements } from "./components/WorkbookSaveAnnouncements";
 import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
+import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useWorkbookAuthorizationState } from "./hooks/useWorkbookAuthorizationState";
 import { useWorkbookCollaborationLifecycle } from "./hooks/useWorkbookCollaborationLifecycle";
@@ -55,6 +57,7 @@ import {
 } from "./models/workbookShellPresentation";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
+import { projectWorkbookStatusForSurface } from "./runtime/workbookMutationStatusProjector";
 import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
 
 export type {
@@ -235,10 +238,15 @@ function WorkbookShellContent({
     [commands.selectWorkbookSurface],
   );
   const activeSurfaceFocusRef = useRef<HTMLElement | null>(null);
+  const activeStatus = projectWorkbookStatusForSurface(
+    infrastructure.mutationSnapshot,
+    snapshot.startupSheetRef,
+  );
   const recoveryFocus = useWorkbookRecoveryFocus({
     activeSurfaceRef: activeSurfaceFocusRef,
     runtime: infrastructure.mutationRuntime,
-    snapshot: infrastructure.mutationSnapshot,
+    snapshot: activeStatus,
+    onSessionRecovery: authorization.loadSessionRole,
   });
   const importAssistantAvailable =
     extensionLifecycle.controller.isRouteAvailable(
@@ -306,6 +314,15 @@ function WorkbookShellContent({
         revision: extensionLifecycle.revision,
       }}
       extensionRenderer={{
+        workbookStatus: (
+          <WorkbookStatusStrip
+            status={activeStatus}
+            chromeMode={workbookLayout.shell.chromeMode}
+            showPresence={false}
+            onActivateConflict={recoveryFocus.activate}
+            workbookFocusAnchor={null}
+          />
+        ),
         apiBase,
         currentIncidentRole: authorization.currentIncidentRole,
         incidentId,
@@ -324,6 +341,7 @@ function WorkbookShellContent({
       data-workbook-shell-id={workbookShellId}
       style={panelStyle}
     >
+      <WorkbookSaveAnnouncements runtime={infrastructure.mutationRuntime} />
       <WorkbookShellTopBar
         account={{
           applicationMenu: accountApplication,
@@ -353,7 +371,7 @@ function WorkbookShellContent({
           apiBase={apiBase}
           focus={recoveryFocus}
           mutationRuntime={infrastructure.mutationRuntime}
-          mutationSnapshot={infrastructure.mutationSnapshot}
+          mutationSnapshot={activeStatus}
           onActivateOrigin={selectBaseWorkbookSurface}
         />
         <WorkbookIncidentControlsPresentation

@@ -39,6 +39,7 @@ export function TimelineWorkbookInspectorRegion({
         model.selectedRow?.recordId &&
         model.selectedRow.rowVersion !== null ? (
           <IndicatorInspectorWorkflow
+            beginMutation={model.beginMutation}
             action={model.indicatorInspectorHandler.action}
             port={model.indicatorWorkflow}
             rowVersion={model.selectedRow.rowVersion}

@@ -1,4 +1,5 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
@@ -30,6 +31,7 @@ type WorkbookManagedPatchRequestContext = {
   readonly rowLabel: string;
   readonly surfaceLabel: string;
   readonly viewSchemaId: string;
+  readonly sheetRef?: SheetRef | undefined;
 };
 
 type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
@@ -44,10 +46,12 @@ export type WorkbookQueuedPatchRequest = {
   readonly rowLabel: string;
   readonly surfaceLabel: string;
   readonly viewSchemaId: string;
+  readonly sheetRef?: SheetRef | undefined;
 };
 
 type WorkbookManagedPatchDriverOptions = {
   readonly clock: WorkbookClockPort;
+  readonly beginMutationReport: () => () => void;
   readonly conflicts: WorkbookConflictStore;
   readonly drivers: WorkbookMutationDriverRegistry;
   readonly emit: () => void;
@@ -115,6 +119,11 @@ class WorkbookManagedPatchDriverState
       coalesceKey: `${request.viewSchemaId}:${request.recordId}`,
       enqueueOrder: this.#options.clock.now(),
       operationClass: "hot_path",
+      presentationHint: {
+        ...(request.sheetRef === undefined
+          ? {}
+          : { sheetRef: request.sheetRef }),
+      },
       visibleEdit: {
         rowKey: request.recordId,
         fieldKey: request.fieldKey,
@@ -149,6 +158,7 @@ class WorkbookManagedPatchDriverState
       localValue: request.localValue,
       rowLabel: request.rowLabel,
       surfaceLabel: request.surfaceLabel,
+      sheetRef: request.sheetRef,
       viewSchemaId: request.viewSchemaId,
     });
     this.#options.emit();
@@ -213,7 +223,12 @@ class WorkbookManagedPatchDriverState
       this.#requestContextByUnitId.delete(settlement.unit.id);
       this.#options.drivers.release(settlement.unit.id);
       this.#clearVisibleEditsForUnit(settlement.unit, meta.viewSchemaId);
-      await this.#options.surfaces.refresh(meta.viewSchemaId);
+      const finishReport = this.#options.beginMutationReport();
+      try {
+        await this.#options.surfaces.refresh(meta.viewSchemaId);
+      } finally {
+        finishReport();
+      }
     }
     this.#options.emit();
     this.#options.requestDrain();
@@ -316,6 +331,7 @@ class WorkbookManagedPatchDriverState
       focusKey: meta.focusKey,
       rowLabel: meta.rowLabel,
       surfaceLabel: meta.surfaceLabel,
+      sheetRef: meta.sheetRef,
       viewSchemaId: meta.viewSchemaId,
     });
     this.#options.conflicts.setRefresh(entry.key, async () => {

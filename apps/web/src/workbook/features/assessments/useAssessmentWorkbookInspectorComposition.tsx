@@ -125,6 +125,7 @@ export function useAssessmentWorkbookInspectorComposition({
     [],
   );
   const related = useInspectorCreateRelatedWorkflow({
+    beginMutation,
     currentUserId,
     mutationCommands: relatedMutationCommands,
     onCreated: onRefreshAssessmentRows,
@@ -199,6 +200,7 @@ export function useAssessmentWorkbookInspectorComposition({
         reject: creation.commands.rejectStart,
       }}
       history={{
+        beginMutation,
         actions: recordHistoryActions,
         canMutate:
           canCreate &&

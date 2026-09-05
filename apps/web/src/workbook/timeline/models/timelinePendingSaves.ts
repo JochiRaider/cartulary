@@ -6,7 +6,6 @@ import type {
 
 export type TimelinePendingSavesRefs = {
   readonly collectionKeyboardCommitRef: TimelineMutableRef<Map<string, string>>;
-  readonly pendingOpsRef: TimelineMutableRef<number>;
   readonly pendingQueueRef: TimelineMutableRef<WorkbookPendingQueueRuntime>;
   readonly pendingReplayOrderRef: TimelineMutableRef<number>;
   readonly replayContextByUnitId: Map<string, TimelineReplayContext>;
@@ -28,7 +27,6 @@ export function timelinePendingSavesRefsFor(
   }
   const refs: TimelinePendingSavesRefs = {
     collectionKeyboardCommitRef: { current: new Map() },
-    pendingOpsRef: { current: 0 },
     pendingQueueRef: { current: pendingQueue },
     pendingReplayOrderRef: { current: 1 },
     replayContextByUnitId: new Map(),

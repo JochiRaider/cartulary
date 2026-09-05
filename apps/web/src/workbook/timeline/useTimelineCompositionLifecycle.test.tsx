@@ -199,7 +199,6 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
         trace.push("history:request");
         return workbookRecordHistoryRequestId(2);
       },
-      beginSave: () => trace.push("save:begin"),
       beginViewportContinuity: () => {
         trace.push("viewport:begin");
         return 41;
@@ -214,7 +213,6 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
         trace.push("save:enqueue");
         queuedWork = work;
       },
-      finishSave: (state) => trace.push(`save:finish:${state}`),
       historyPort,
       loadRows: async () => {
         trace.push("rows:load");
@@ -251,7 +249,6 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
     "history:submit",
     "txn:next",
     "viewport:begin",
-    "save:begin",
     "save:enqueue",
     "record:idle",
     "socket:track",
@@ -265,6 +262,5 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
     "version:5",
     "history:load_accepted",
     "rows:load",
-    "save:finish:Saved",
   ]);
 });

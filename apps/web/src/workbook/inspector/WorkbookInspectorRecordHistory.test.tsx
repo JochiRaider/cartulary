@@ -52,6 +52,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     const rollbackAccepted = vi.fn(async () => undefined);
     render(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -138,6 +139,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     const restoreAccepted = vi.fn();
     render(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -201,6 +203,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     const newerRollbackAccepted = vi.fn(async () => undefined);
     const { rerender } = render(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -231,6 +234,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     );
     rerender(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -267,6 +271,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     render(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -328,6 +333,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     render(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -384,6 +390,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     const { rerender } = render(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}
@@ -407,6 +414,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     fireEvent.click(await screen.findByTestId(rowHistoryRestoreButtonTestId()));
     rerender(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate={false}
         commands={commands}
@@ -445,6 +453,7 @@ describe("WorkbookInspectorRecordHistory", () => {
     };
     render(
       <WorkbookInspectorRecordHistory
+        beginMutation={() => vi.fn()}
         actions={new Set(["delete", "restore", "rollback"])}
         canMutate
         commands={commands}

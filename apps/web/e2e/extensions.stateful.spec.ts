@@ -1,11 +1,17 @@
 import {
   networkAnalysisTestId,
+  saveStateTestId,
   surfaceTabTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 
 import { expect, test } from "./fixtures";
+import {
+  createTimelineRow,
+  editTimelineSummary,
+  installPatchController,
+} from "./support/collaboration/replay";
 import {
   expectNetworkFlowRuntimeProfile,
   openNetworkFlowIncident,
@@ -83,19 +89,63 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
     window.sessionStorage.getItem("cartulary.client_instance_id"),
   );
   expect(clientInstanceID).toMatch(/^[0-9a-f-]{36}$/u);
-  await page.getByTestId(networkAnalysisTestId("tab")).click();
-  await expect(
-    page.getByTestId(networkAnalysisTestId("workspace")),
-  ).toBeVisible();
-  expect(networkFlowChunks).toHaveLength(1);
+  const row = await createTimelineRow(
+    page,
+    incidentId,
+    "Pending Base work across extension navigation",
+  );
+  await page.reload();
+  const patchController = await installPatchController(page);
+  const held = patchController.holdNextPatch({ recordId: row.record_id });
+  try {
+    await editTimelineSummary(page, row.record_id, "Retained Base work", {
+      expectValueAfterCommit: false,
+    });
+    await held.waitForHit;
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+    await page.getByTestId(networkAnalysisTestId("tab")).click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("workspace")),
+    ).toBeVisible();
+    expect(networkFlowChunks).toHaveLength(1);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
 
-  await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
-  await expect(
-    page.getByTestId(networkAnalysisTestId("workspace")),
-  ).toHaveCount(0);
-  expect(
-    await page.evaluate(() =>
-      window.sessionStorage.getItem("cartulary.client_instance_id"),
-    ),
-  ).toBe(clientInstanceID);
+    await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
+    await expect(
+      page.getByTestId(networkAnalysisTestId("workspace")),
+    ).toHaveCount(0);
+    expect(
+      await page.evaluate(() =>
+        window.sessionStorage.getItem("cartulary.client_instance_id"),
+      ),
+    ).toBe(clientInstanceID);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+    held.release();
+    await held.waitForCompletion;
+    try {
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    } catch (error) {
+      await test.info().attach("save-settlement-timing.json", {
+        body: JSON.stringify(
+          await page.evaluate(() =>
+            performance
+              .getEntriesByType("mark")
+              .filter((entry) =>
+                entry.name.startsWith("cartulary.workbook.pending_"),
+              )
+              .map((entry) => ({
+                ...entry.toJSON(),
+                detail: (entry as PerformanceMark).detail,
+              })),
+          ),
+        ),
+        contentType: "application/json",
+      });
+      throw error;
+    }
+  } finally {
+    held.release();
+    await held.waitForCompletion;
+    await patchController.dispose();
+  }
 });

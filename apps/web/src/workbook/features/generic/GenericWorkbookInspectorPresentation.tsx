@@ -111,7 +111,7 @@ function GenericWorkflow(props: GenericWorkflowProps) {
       {props.canCreateRows ? (
         <button
           data-testid={genericCreateSubmitTestId(props.contract.viewSchemaId)}
-          disabled={props.mutation.mutationState === "Syncing"}
+          disabled={props.mutation.mutationPending}
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() => void props.submitCreate()}
@@ -122,7 +122,7 @@ function GenericWorkflow(props: GenericWorkflowProps) {
       {props.subjectPresent ? (
         <CoordinationWorkflowBindings
           contract={props.contract}
-          disabled={props.mutation.mutationState === "Syncing"}
+          disabled={props.mutation.mutationPending}
           mutation={props.mutation}
           mutationCommands={props.mutationCommands.coordination}
           ownerBindings={props.ownerBindings}
@@ -176,7 +176,7 @@ type GenericDetailsProps = {
   readonly editableFields: readonly ViewFieldContract[];
   readonly editFieldKey: string;
   readonly editValue: string;
-  readonly mutationState: GenericSurfaceMutationController["mutationState"];
+  readonly mutationPending: GenericSurfaceMutationController["mutationPending"];
   readonly onSelectRecord: (recordId: string) => void;
   readonly referenceOptions: GenericReferenceOptions;
   readonly rows: readonly WorkbookQueryRow[];
@@ -250,7 +250,7 @@ function GenericDetails(props: GenericDetailsProps) {
       />
       <button
         data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
-        disabled={props.mutationState === "Syncing"}
+        disabled={props.mutationPending}
         style={actionButtonStyle}
         type="button"
         onClick={() => void props.submitEdit()}

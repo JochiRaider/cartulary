@@ -113,9 +113,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly commands: Pick<
       HistoryInput,
       | "acceptTimelineRecordVersion"
-      | "beginSave"
       | "enqueueSaveWork"
-      | "finishSave"
       | "nextClientTxnId"
       | "resolvePendingSocketTxn"
       | "trackPendingSocketTxn"
@@ -236,7 +234,6 @@ export function useTimelineInspectorWorkflowComposition({
     beginRowHistoryOperation:
       inspector.history.commands.beginRowHistoryOperation,
     beginRowHistoryRequest: inspector.history.commands.beginRowHistoryRequest,
-    beginSave: mutation.commands.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     currentHistoryRecordId: inspector.history.snapshot.currentHistoryRecordId,
@@ -246,7 +243,6 @@ export function useTimelineInspectorWorkflowComposition({
       inspector.history.snapshot.currentHistoryRowVersion,
     dispatchRowHistory: inspector.history.commands.dispatchRowHistory,
     enqueueSaveWork: mutation.commands.enqueueSaveWork,
-    finishSave: mutation.commands.finishSave,
     historyPort: foundation.historyPort,
     loadRows: mutation.loadRows,
     nextClientTxnId: mutation.commands.nextClientTxnId,
@@ -267,11 +263,9 @@ export function useTimelineInspectorWorkflowComposition({
       ...actionContext,
       capabilityAvailable: timelineMentionCapabilityAvailable,
     },
-    beginSave: mutation.commands.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     enqueueSaveWork: mutation.commands.enqueueSaveWork,
-    finishSave: mutation.commands.finishSave,
     loadRows: mutation.loadRows,
     knownEntityTypes,
     mentionPorts: foundation.mentionPorts,
@@ -294,12 +288,10 @@ export function useTimelineInspectorWorkflowComposition({
       selectedRowKey: inspector.selection.selectedRow?.key ?? null,
     },
     applyAcceptedRowMutation: mutation.applyAcceptedRowMutation,
-    beginSave: mutation.commands.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     enqueueSaveWork: mutation.commands.enqueueSaveWork,
     evidenceAttachmentPort: foundation.evidenceAttachmentPort,
-    finishSave: mutation.commands.finishSave,
     resolvePendingSocketTxn: mutation.commands.resolvePendingSocketTxn,
     rowsRef: foundation.rowsRef,
     setInspectorMessage: inspector.publishFeedback,

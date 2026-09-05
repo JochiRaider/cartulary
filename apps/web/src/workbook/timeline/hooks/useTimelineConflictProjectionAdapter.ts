@@ -4,6 +4,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
@@ -41,6 +42,7 @@ export function useTimelineConflictProjectionAdapter({
   conflictQueue,
   editorDraftRegistry,
   mutationRuntime,
+  sheetRef,
   rowsRef,
   setActiveConflictKey,
   setConflictQueueState,
@@ -55,6 +57,7 @@ export function useTimelineConflictProjectionAdapter({
   readonly conflictQueue: Record<string, LocalConflictState>;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly sheetRef: SheetRef;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
   readonly setActiveConflictKey: Dispatch<SetStateAction<string | null>>;
   readonly setConflictQueueState: (
@@ -71,6 +74,7 @@ export function useTimelineConflictProjectionAdapter({
       focusKey: string,
       surface: TimelineScalarEditorSurface,
       refresh?: (() => Promise<WorkbookOperationOutcome<unknown>>) | undefined,
+      originSheetRef: SheetRef = sheetRef,
     ) => {
       const queueKey = workbookConflictQueueKey(conflict);
       const binding = timelineScalarBindingForField(conflict.field_key);
@@ -80,6 +84,7 @@ export function useTimelineConflictProjectionAdapter({
         refresh,
         rowLabel: conflict.record_id,
         surfaceLabel: "Timeline",
+        sheetRef: originSheetRef,
         viewSchemaId: "cartulary.view.timeline.v2",
       });
       if (binding !== null && typeof conflict.client_value === "string") {
@@ -136,6 +141,7 @@ export function useTimelineConflictProjectionAdapter({
       acceptCommittedRow,
       editorDraftRegistry,
       mutationRuntime,
+      sheetRef,
       rowsRef,
       setActiveConflictKey,
       setConflictQueueState,

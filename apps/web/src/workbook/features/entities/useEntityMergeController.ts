@@ -67,6 +67,7 @@ function preconditionDetails(
 }
 
 export function useEntityMergeController({
+  beginMutation,
   canMerge,
   clearDrafts,
   lifecycleResetKey,
@@ -77,6 +78,7 @@ export function useEntityMergeController({
   rows,
   selectedEntity,
 }: {
+  readonly beginMutation: () => () => void;
   readonly canMerge: boolean;
   readonly clearDrafts: () => void;
   readonly lifecycleResetKey: string;
@@ -168,40 +170,46 @@ export function useEntityMergeController({
     const survivor = selectedEntity;
     setFeedback(null);
     setDetails([]);
-    const outcome = await mutationCommands.merge({
-      loserBaseRowVersion: loser.rowVersion,
-      loserRecordId: loser.recordId,
-      reason,
-      survivorBaseRowVersion: survivor.rowVersion,
-      survivorRecordId: survivor.recordId,
-    });
-    if (generationRef.current !== generation) return;
-    if (outcome.kind === "rejected") {
-      setFeedback(workbookInspectorOperationFailureFeedback(outcome.failure));
-      setDetails(
-        outcome.failure.kind === "validation"
-          ? preconditionDetails(outcome.failure.fields)
-          : [],
-      );
-      return;
-    }
+    const finish = beginMutation();
+    try {
+      const outcome = await mutationCommands.merge({
+        loserBaseRowVersion: loser.rowVersion,
+        loserRecordId: loser.recordId,
+        reason,
+        survivorBaseRowVersion: survivor.rowVersion,
+        survivorRecordId: survivor.recordId,
+      });
+      if (generationRef.current !== generation) return;
+      if (outcome.kind === "rejected") {
+        setFeedback(workbookInspectorOperationFailureFeedback(outcome.failure));
+        setDetails(
+          outcome.failure.kind === "validation"
+            ? preconditionDetails(outcome.failure.fields)
+            : [],
+        );
+        return;
+      }
 
-    admittedLifecycleKeyRef.current = `${lifecycleResetKey}:${canMerge}:${survivor.recordId}:${outcome.value.survivorRowVersion}`;
-    clearDrafts();
-    setDetails([]);
-    setFeedback(
-      workbookInspectorMessageFeedback(
-        `Merged ${loser.label} into ${survivor.label} (${outcome.value.recordType}).`,
-        "polite",
-      ),
-    );
-    await onRefreshEntities();
-    if (generationRef.current !== generation) return;
-    await loadSurvivorPreview(survivor.recordId);
-    if (generationRef.current !== generation) return;
-    retargetSurvivor(survivor.recordId);
-    setCandidateId("");
+      admittedLifecycleKeyRef.current = `${lifecycleResetKey}:${canMerge}:${survivor.recordId}:${outcome.value.survivorRowVersion}`;
+      clearDrafts();
+      setDetails([]);
+      setFeedback(
+        workbookInspectorMessageFeedback(
+          `Merged ${loser.label} into ${survivor.label} (${outcome.value.recordType}).`,
+          "polite",
+        ),
+      );
+      await onRefreshEntities();
+      if (generationRef.current !== generation) return;
+      await loadSurvivorPreview(survivor.recordId);
+      if (generationRef.current !== generation) return;
+      retargetSurvivor(survivor.recordId);
+      setCandidateId("");
+    } finally {
+      finish();
+    }
   }, [
+    beginMutation,
     canMerge,
     clearDrafts,
     lifecycleResetKey,

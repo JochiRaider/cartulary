@@ -72,8 +72,11 @@ describe("useEntityMergeController", () => {
     const onRefreshEntities = vi.fn(async () => undefined);
     const retargetSurvivor = vi.fn();
     const merge = vi.fn(async () => acceptedMerge());
+    const finishReport = vi.fn();
+    const beginMutation = vi.fn(() => finishReport);
     const { result } = renderHook(() =>
       useEntityMergeController({
+        beginMutation,
         canMerge: true,
         clearDrafts,
         lifecycleResetKey: "incident-1:authorized",
@@ -88,6 +91,8 @@ describe("useEntityMergeController", () => {
 
     act(() => result.current.commands.selectCandidate(loserId));
     await act(async () => result.current.commands.confirm());
+    expect(beginMutation).toHaveBeenCalledOnce();
+    expect(finishReport).toHaveBeenCalledOnce();
 
     expect(merge).toHaveBeenCalledWith({
       loserBaseRowVersion: 2,
@@ -124,6 +129,7 @@ describe("useEntityMergeController", () => {
     const { result, rerender } = renderHook(
       ({ lifecycleResetKey }: { lifecycleResetKey: string }) =>
         useEntityMergeController({
+          beginMutation: () => vi.fn(),
           canMerge: true,
           clearDrafts,
           lifecycleResetKey,

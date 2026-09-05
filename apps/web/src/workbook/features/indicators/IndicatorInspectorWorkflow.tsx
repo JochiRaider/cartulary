@@ -80,6 +80,7 @@ type IndicatorCommittedMutation =
   | IndicatorMutationAccepted<IndicatorStateInterval>;
 
 export function IndicatorInspectorWorkflow({
+  beginMutation,
   action,
   indicatorRecordId,
   onMutationCommitted,
@@ -90,6 +91,7 @@ export function IndicatorInspectorWorkflow({
 }: {
   readonly action: IndicatorInspectorAction | null;
   readonly indicatorRecordId?: string | undefined;
+  readonly beginMutation: () => () => void;
   readonly onMutationCommitted?:
     | ((mutation: IndicatorCommittedMutation) => Promise<void> | void)
     | undefined;
@@ -255,31 +257,36 @@ export function IndicatorInspectorWorkflow({
     }
     setBusy(true);
     setMessage(null);
-    const outcome = await port.createManualObservation({
-      baseRowVersion: rowVersion,
-      sourceFieldKey,
-      sourceRecordId,
-      spanStartByte: start,
-      spanEndByte: end,
-      ...(parsedType ? { parsedIndicatorType: parsedType } : {}),
-      ...(resolvedIndicatorID
-        ? { resolvedIndicatorRecordId: resolvedIndicatorID.trim() }
-        : {}),
-    });
-    setBusy(false);
-    if (outcome.kind === "rejected") {
-      setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
-      return;
+    const finish = beginMutation();
+    try {
+      const outcome = await port.createManualObservation({
+        baseRowVersion: rowVersion,
+        sourceFieldKey,
+        sourceRecordId,
+        spanStartByte: start,
+        spanEndByte: end,
+        ...(parsedType ? { parsedIndicatorType: parsedType } : {}),
+        ...(resolvedIndicatorID
+          ? { resolvedIndicatorRecordId: resolvedIndicatorID.trim() }
+          : {}),
+      });
+      setBusy(false);
+      if (outcome.kind === "rejected") {
+        setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
+        return;
+      }
+      const observation = outcome.value.resource;
+      setMessage(
+        workbookInspectorMessageFeedback(
+          `Observation ${observation.observation_id} created.`,
+          "polite",
+        ),
+      );
+      setObservations((current) => [observation, ...current]);
+      await onMutationCommitted?.(outcome.value);
+    } finally {
+      finish();
     }
-    const observation = outcome.value.resource;
-    setMessage(
-      workbookInspectorMessageFeedback(
-        `Observation ${observation.observation_id} created.`,
-        "polite",
-      ),
-    );
-    setObservations((current) => [observation, ...current]);
-    await onMutationCommitted?.(outcome.value);
   };
 
   const transitionObservation = async (
@@ -298,33 +305,38 @@ export function IndicatorInspectorWorkflow({
     }
     setBusy(true);
     setMessage(null);
-    const outcome = await port.transitionObservation({
-      action: transition,
-      baseRowVersion: observation.row_version,
-      observationId: observation.observation_id,
-      ...(transition === "resolve"
-        ? { resolvedIndicatorRecordId: target }
-        : {}),
-    });
-    setBusy(false);
-    if (outcome.kind === "rejected") {
-      setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
-      return;
+    const finish = beginMutation();
+    try {
+      const outcome = await port.transitionObservation({
+        action: transition,
+        baseRowVersion: observation.row_version,
+        observationId: observation.observation_id,
+        ...(transition === "resolve"
+          ? { resolvedIndicatorRecordId: target }
+          : {}),
+      });
+      setBusy(false);
+      if (outcome.kind === "rejected") {
+        setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
+        return;
+      }
+      setObservations((current) =>
+        current.map((candidate) =>
+          candidate.observation_id === outcome.value.resource.observation_id
+            ? outcome.value.resource
+            : candidate,
+        ),
+      );
+      setMessage(
+        workbookInspectorMessageFeedback(
+          `Observation ${outcome.value.resource.observation_id} updated.`,
+          "polite",
+        ),
+      );
+      await onMutationCommitted?.(outcome.value);
+    } finally {
+      finish();
     }
-    setObservations((current) =>
-      current.map((candidate) =>
-        candidate.observation_id === outcome.value.resource.observation_id
-          ? outcome.value.resource
-          : candidate,
-      ),
-    );
-    setMessage(
-      workbookInspectorMessageFeedback(
-        `Observation ${outcome.value.resource.observation_id} updated.`,
-        "polite",
-      ),
-    );
-    await onMutationCommitted?.(outcome.value);
   };
 
   const submitLifecycle = async (event: FormEvent) => {
@@ -356,30 +368,35 @@ export function IndicatorInspectorWorkflow({
     }
     setBusy(true);
     setMessage(null);
-    const outcome = await port.appendStateInterval({
-      assessor: assessor.trim() || null,
-      baseRowVersion: rowVersion,
-      confidence: parsedConfidence,
-      indicatorRecordId,
-      lifecycleState,
-      rationale: rationale.trim() || null,
-      supportRefs: [],
-      validFrom: new Date(validFrom).toISOString(),
-      validTo: validTo.trim() ? new Date(validTo).toISOString() : null,
-    });
-    setBusy(false);
-    if (outcome.kind === "rejected") {
-      setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
-      return;
+    const finish = beginMutation();
+    try {
+      const outcome = await port.appendStateInterval({
+        assessor: assessor.trim() || null,
+        baseRowVersion: rowVersion,
+        confidence: parsedConfidence,
+        indicatorRecordId,
+        lifecycleState,
+        rationale: rationale.trim() || null,
+        supportRefs: [],
+        validFrom: new Date(validFrom).toISOString(),
+        validTo: validTo.trim() ? new Date(validTo).toISOString() : null,
+      });
+      setBusy(false);
+      if (outcome.kind === "rejected") {
+        setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
+        return;
+      }
+      setIntervals((current) => [outcome.value.resource, ...current]);
+      setMessage(
+        workbookInspectorMessageFeedback(
+          `Lifecycle interval ${outcome.value.resource.interval_id} created.`,
+          "polite",
+        ),
+      );
+      await onMutationCommitted?.(outcome.value);
+    } finally {
+      finish();
     }
-    setIntervals((current) => [outcome.value.resource, ...current]);
-    setMessage(
-      workbookInspectorMessageFeedback(
-        `Lifecycle interval ${outcome.value.resource.interval_id} created.`,
-        "polite",
-      ),
-    );
-    await onMutationCommitted?.(outcome.value);
   };
 
   return (

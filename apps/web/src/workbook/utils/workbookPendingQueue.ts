@@ -2,6 +2,7 @@ import {
   publicErrorCode,
   publicErrorStatusText,
 } from "../../shared/publicError";
+import type { SheetRef } from "../../shared/sheetRef";
 import {
   parseSameFieldConflictFields,
   type SameFieldConflictFields,
@@ -29,6 +30,7 @@ export type PendingReplayScope = {
 };
 
 export type PendingReplayPresentationHint = {
+  sheetRef?: SheetRef;
   label?: string;
   recordType?: string;
   sortRank?: number;
@@ -151,6 +153,7 @@ export type PendingReplayPublicAnchor =
     };
 
 export type PendingReplaySameFieldConflict = {
+  sheetRef?: SheetRef;
   key: string;
   conflict_token: string;
   record_id: string;
@@ -480,7 +483,12 @@ function cloneVisibleEdit(
 function clonePresentationHint(
   value: PendingReplayPresentationHint,
 ): PendingReplayPresentationHint {
-  return { ...value };
+  return {
+    ...value,
+    ...(value.sheetRef === undefined
+      ? {}
+      : { sheetRef: { ...value.sheetRef } }),
+  };
 }
 
 function stableStringify(value: unknown): string {
@@ -770,6 +778,9 @@ function cloneConflict(
   value: PendingReplaySameFieldConflict,
 ): PendingReplaySameFieldConflict {
   return {
+    ...(value.sheetRef === undefined
+      ? {}
+      : { sheetRef: { ...value.sheetRef } }),
     key: value.key,
     conflict_token: value.conflict_token,
     record_id: value.record_id,
@@ -988,12 +999,14 @@ function failureAnchor(
 function sameFieldConflictAnchor(
   error: PendingReplayPublicError,
   viewSchemaId: string,
+  sheetRef?: SheetRef,
 ): PendingReplaySameFieldConflict | null {
   const conflict = parseSameFieldConflictFields(error.conflict);
   if (conflict === null) {
     return null;
   }
   return {
+    ...(sheetRef === undefined ? {} : { sheetRef: { ...sheetRef } }),
     key: sameFieldConflictQueueKey(conflict),
     conflict_token: conflict.conflict_token,
     record_id: conflict.record_id,
@@ -1299,7 +1312,11 @@ class WorkbookPendingQueueState {
     }
 
     if (result.error.code === "same_field_conflict") {
-      const conflict = sameFieldConflictAnchor(result.error, unit.viewSchemaId);
+      const conflict = sameFieldConflictAnchor(
+        result.error,
+        unit.viewSchemaId,
+        unit.presentationHint?.sheetRef,
+      );
       if (conflict !== null) {
         this.units = this.units.filter((candidate) => candidate !== unit);
         this.sameFieldConflicts.push(conflict);

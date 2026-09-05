@@ -197,6 +197,7 @@ import {
   clickTimelineRowAction,
   openTimelineInspector,
 } from "./support/workbook/rowMutations";
+import { observeSaveEvents, saveEvents } from "./support/workbook/saveStatus";
 
 type IncidentMembershipRecord = {
   membership_version: number;
@@ -1207,6 +1208,19 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
   await accountMenuTrigger.click();
 }
 
+async function expectWorkbookSavePresentation(page: Page) {
+  const primary = page.getByTestId(saveStateTestId());
+  await expect(primary).toBeVisible();
+  await expect(primary).not.toHaveAttribute("role");
+  await expect(primary).not.toHaveAttribute("aria-live");
+  await expect(
+    page.getByRole("status", { name: "Workbook save updates" }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("alert", { name: "Workbook save conflicts" }),
+  ).toHaveCount(1);
+}
+
 async function expectStatusRole(
   locator: Locator,
   options: { readonly visible?: boolean } = {},
@@ -1999,7 +2013,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
     ).toBeVisible();
 
     const saveState = page.getByTestId(saveStateTestId());
-    await expectStatusRole(saveState);
+    await expectWorkbookSavePresentation(page);
     await expect(saveState).toHaveText("Saved");
 
     await expectAllInteractiveControlsNamed(page);
@@ -2299,7 +2313,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
     );
     await betaSummary.fill("Beta accessibility active edit");
     await expect(betaSummary).toHaveValue("Beta accessibility active edit");
-    await expectStatusRole(page.getByTestId(saveStateTestId()));
+    await expectWorkbookSavePresentation(page);
 
     await expect(
       await mountedGridTarget(
@@ -2386,7 +2400,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expectStatusRole(page.getByTestId(saveStateTestId()));
+    await expectWorkbookSavePresentation(page);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await mountedGridCell(
       page,
@@ -2452,7 +2466,15 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       );
       await pendingSummary.press("Enter");
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-      await expectStatusRole(page.getByTestId(pendingQueueNoticeTestId()));
+      const pendingNotice = page.getByTestId(pendingQueueNoticeTestId());
+      await expect(pendingNotice).toBeVisible();
+      await expect(pendingNotice).not.toHaveAttribute("role");
+      await expect(
+        pendingNotice.locator('[aria-live], [role="status"]'),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("status", { name: "Workbook save updates" }),
+      ).toHaveText("Syncing changes");
       await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
         "1",
       );
@@ -3359,6 +3381,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
           page.getByTestId(workbookShellReadyTestId()),
         ).toBeVisible();
         await primarySocket.waitForAcceptedSocket();
+        await observeSaveEvents(page);
 
         const remoteSession = await openIncidentAsTrackedUserReady(
           browser,
@@ -3382,6 +3405,8 @@ test.describe("browser.collaboration accessibility readiness", () => {
           remotePage,
           socketMonitor: primarySocket,
         });
+
+        expect(await saveEvents(page)).toEqual([]);
 
         const presenceIds = [
           workbookPresenceSummaryTestId(),
@@ -3428,6 +3453,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
               }),
             ).toBe(true);
           }
+          expect(await saveEvents(page)).toEqual([]);
           await assertMarkerAnchoredToGridTarget({
             page,
             surface: timelineViewSchemaId,
@@ -3470,6 +3496,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
           );
           expect(response.ok()).toBeTruthy();
           await page.reload();
+          await observeSaveEvents(page);
         };
         try {
           for (const density of ["compact", "default", "comfortable"]) {
@@ -4575,7 +4602,7 @@ test.describe("browser.coordination-review accessibility readiness", () => {
     );
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expectCurrentIncidentRole(page, "admin");
-    await expectStatusRole(page.getByTestId(saveStateTestId()));
+    await expectWorkbookSavePresentation(page);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await expectTabTraversalAdvancesFrom(
       page,
@@ -4828,7 +4855,7 @@ test.describe("browser.design-readiness accessibility readiness", () => {
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-    await expectStatusRole(page.getByTestId(saveStateTestId()));
+    await expectWorkbookSavePresentation(page);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
     await mountedGridCell(

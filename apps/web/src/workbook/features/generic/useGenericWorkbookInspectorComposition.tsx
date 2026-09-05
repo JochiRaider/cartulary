@@ -163,9 +163,7 @@ export function useGenericWorkbookInspectorComposition({
   const ownerRecordActions = useEvidenceWorkbookBindings({
     mutationCommands: mutationCommands.evidence,
     mutation: {
-      beginMutation: mutation.beginMutation,
-      markMutationConflict: mutation.markMutationConflict,
-      markMutationSaved: mutation.markMutationSaved,
+      beginMutation: mutation.beginMutationReport,
     },
     onRefresh,
     ownerBindings,
@@ -200,6 +198,7 @@ export function useGenericWorkbookInspectorComposition({
       ? genericCollectionItems(selectedEdit.row, selectedEdit.field.fieldKey)
       : [];
   const createRelatedWorkflow = useInspectorCreateRelatedWorkflow({
+    beginMutation: mutation.beginMutationReport,
     currentUserId,
     mutationCommands: mutationCommands.timeline.related,
     onCreated: refreshReferenceOptions,
@@ -257,23 +256,27 @@ export function useGenericWorkbookInspectorComposition({
       mutation.setValidationError(genericCreateMinimumMessage(contract));
       return;
     }
-    mutation.beginMutation();
-    const result = await mutationCommands.generic.createRecord({
-      contract,
-      draft: createDraft,
-      linkedNoteSourceRecordId:
-        ownerBindings.includes("linked_note_create") &&
-        linkedNoteSourceRecordId !== ""
-          ? linkedNoteSourceRecordId
-          : "",
-    });
-    if (result.kind === "rejected") {
-      mutation.rejectMutationFailure(result.failure);
-      return;
+    const finish = mutation.beginMutation();
+    try {
+      const result = await mutationCommands.generic.createRecord({
+        contract,
+        draft: createDraft,
+        linkedNoteSourceRecordId:
+          ownerBindings.includes("linked_note_create") &&
+          linkedNoteSourceRecordId !== ""
+            ? linkedNoteSourceRecordId
+            : "",
+      });
+      if (result.kind === "rejected") {
+        mutation.rejectMutationFailure(result.failure);
+        return;
+      }
+      setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
+      setLinkedNoteSourceRecordId("");
+      await mutation.completeGenericMutation();
+    } finally {
+      finish();
     }
-    setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
-    setLinkedNoteSourceRecordId("");
-    await mutation.completeGenericMutation();
   };
   const submitEdit = async () => {
     if (selectedEdit.row === null || selectedEdit.field === null) {
@@ -292,16 +295,21 @@ export function useGenericWorkbookInspectorComposition({
       );
       return;
     }
-    const payload = await mutation.submitPatchMutation({
-      baseRowVersion: selectedEdit.row.row_version,
-      changes: [change],
-      purpose: "generic-patch",
-      recordId: selectedEdit.row.record_id,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) return;
-    setEditValue("");
-    await mutation.completeGenericMutation();
+    const finish = mutation.beginMutation();
+    try {
+      const payload = await mutation.submitPatchMutation({
+        baseRowVersion: selectedEdit.row.row_version,
+        changes: [change],
+        purpose: "generic-patch",
+        recordId: selectedEdit.row.record_id,
+        viewSchemaId: contract.viewSchemaId,
+      });
+      if (payload === null) return;
+      setEditValue("");
+      await mutation.completeGenericMutation();
+    } finally {
+      finish();
+    }
   };
   const submitPartyLinkPatch = async (
     changes: RecordPatchChange[],
@@ -311,20 +319,25 @@ export function useGenericWorkbookInspectorComposition({
       mutation.setValidationError("Select a row before changing a party link.");
       return false;
     }
-    const payload = await mutation.submitPatchMutation({
-      baseRowVersion: selectedEdit.row.row_version,
-      changes,
-      purpose,
-      recordId: selectedEdit.row.record_id,
-      viewSchemaId: contract.viewSchemaId,
-    });
-    if (payload === null) return false;
-    await mutation.completeGenericMutation();
-    return true;
+    const finish = mutation.beginMutation();
+    try {
+      const payload = await mutation.submitPatchMutation({
+        baseRowVersion: selectedEdit.row.row_version,
+        changes,
+        purpose,
+        recordId: selectedEdit.row.record_id,
+        viewSchemaId: contract.viewSchemaId,
+      });
+      if (payload === null) return false;
+      await mutation.completeGenericMutation();
+      return true;
+    } finally {
+      finish();
+    }
   };
   const party = useGenericPartyLinkWorkflow({
     mutation: {
-      beginMutation: mutation.beginMutation,
+      beginMutation: mutation.beginMutationReport,
       rejectMutationFailure: mutation.rejectMutationFailure,
       setValidationError: mutation.setValidationError,
     },
@@ -351,6 +364,7 @@ export function useGenericWorkbookInspectorComposition({
             ? null
             : ownerRecordActions.renderInspector(subjectRow),
         history: {
+          beginMutation: mutation.beginMutationReport,
           actions: recordHistoryActions,
           canMutate:
             interactionMode.kind === "editable" &&
@@ -439,7 +453,7 @@ export function useGenericWorkbookInspectorComposition({
         editableFields,
         editFieldKey,
         editValue,
-        mutationState: mutation.mutationState,
+        mutationPending: mutation.mutationPending,
         onSelectRecord,
         referenceOptions,
         rows,
@@ -451,7 +465,7 @@ export function useGenericWorkbookInspectorComposition({
         submitEdit,
       }}
       relationships={{
-        disabled: mutation.mutationState === "Syncing",
+        disabled: mutation.mutationPending,
         party,
         partyLinkPairs,
         referenceOptions,

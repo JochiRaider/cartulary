@@ -69,22 +69,26 @@ export function useCoordinationWorkflowController({
       blockedReason = reason;
     }
     const generation = generationRef.current;
-    mutation.beginMutation();
-    const result = await mutationCommands.updateTaskLifecycle({
-      baseRowVersion: target.row_version,
-      blockedReason,
-      recordId: target.record_id,
-      status: lifecycleStatus,
-    });
-    if (generationRef.current !== generation) return;
-    if (result.kind === "rejected") {
-      mutation.rejectMutationFailure(result.failure);
-      return;
+    const finish = mutation.beginMutation();
+    try {
+      const result = await mutationCommands.updateTaskLifecycle({
+        baseRowVersion: target.row_version,
+        blockedReason,
+        recordId: target.record_id,
+        status: lifecycleStatus,
+      });
+      if (generationRef.current !== generation) return;
+      if (result.kind === "rejected") {
+        mutation.rejectMutationFailure(result.failure);
+        return;
+      }
+      if (lifecycleStatus !== "blocked") {
+        setLifecycleBlockedReason("");
+      }
+      await mutation.completeGenericMutation();
+    } finally {
+      finish();
     }
-    if (lifecycleStatus !== "blocked") {
-      setLifecycleBlockedReason("");
-    }
-    await mutation.completeGenericMutation();
   }, [
     lifecycleBlockedReason,
     lifecycleRecordId,
@@ -110,20 +114,24 @@ export function useCoordinationWorkflowController({
       return;
     }
     const generation = generationRef.current;
-    mutation.beginMutation();
-    const result = await mutationCommands.supersedeDecision({
-      baseRowVersion: target.row_version,
-      reason,
-      replacementRecordId: supersedeReplacementId,
-      targetRecordId: target.record_id,
-    });
-    if (generationRef.current !== generation) return;
-    if (result.kind === "rejected") {
-      mutation.rejectMutationFailure(result.failure);
-      return;
+    const finish = mutation.beginMutation();
+    try {
+      const result = await mutationCommands.supersedeDecision({
+        baseRowVersion: target.row_version,
+        reason,
+        replacementRecordId: supersedeReplacementId,
+        targetRecordId: target.record_id,
+      });
+      if (generationRef.current !== generation) return;
+      if (result.kind === "rejected") {
+        mutation.rejectMutationFailure(result.failure);
+        return;
+      }
+      setSupersedeReason("");
+      await mutation.completeGenericMutation();
+    } finally {
+      finish();
     }
-    setSupersedeReason("");
-    await mutation.completeGenericMutation();
   }, [
     mutation,
     mutationCommands,

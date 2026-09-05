@@ -52,9 +52,7 @@ function defaults() {
   return {
     mutationCommands: { issueHandle: vi.fn(), attach: vi.fn() },
     mutation: {
-      beginMutation: vi.fn(),
-      markMutationConflict: vi.fn(),
-      markMutationSaved: vi.fn(),
+      beginMutation: vi.fn(() => vi.fn()),
     },
     onRefresh: vi.fn(),
     ownerBindings: ["evidence_lifecycle"] as const,
@@ -312,7 +310,9 @@ describe("Evidence workbook bindings", () => {
     expect(props.mutation.beginMutation).toHaveBeenCalledTimes(1);
     view.rerender(<Harness {...props} resetKey="surface-2" />);
     await act(async () => pending.resolve(rejected));
-    expect(props.mutation.markMutationConflict).toHaveBeenCalledTimes(1);
+    expect(
+      props.mutation.beginMutation.mock.results[0]?.value,
+    ).toHaveBeenCalledOnce();
     expect(screen.getByRole("alert").textContent).toBe("");
   });
 });

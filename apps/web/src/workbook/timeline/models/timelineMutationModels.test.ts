@@ -156,6 +156,7 @@ describe("Timeline mutation models", () => {
     const discarded = pendingPatch("discarded", 1, "discarded");
     const remaining = pendingPatch("remaining", 2, "retained");
     const context: TimelineReplayContext = {
+      sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
       focusField: "activitySynopsisText",
       focusKey: "timeline-1:activitySynopsisText:grid",
       surface: "grid",

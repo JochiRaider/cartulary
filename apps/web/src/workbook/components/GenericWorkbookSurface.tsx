@@ -86,7 +86,7 @@ import {
 } from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
-  WorkbookSurfaceStatusStrip,
+  WorkbookStatusStrip,
 } from "./WorkbookStatusStrip";
 import {
   WorkbookViewBar,
@@ -134,7 +134,7 @@ export function ContractWorkbookSurface({
   onActivateConflict,
   referenceQueryBroker,
   collaborationProjection,
-  sheetRef: _sheetRef,
+  sheetRef,
   onClearFilters,
   onIncidentAccessLost,
   onRefresh,
@@ -186,18 +186,13 @@ export function ContractWorkbookSurface({
     onRefresh,
     refreshReferenceOptions,
     surfaceLabel: contract.title,
+    sheetRef,
   });
-  const { mutationError, mutationState, setValidationError } =
-    mutationController;
-  const sharedMutation = useWorkbookMutationRuntime(
-    mutationRuntime,
-    contract.viewSchemaId,
-  );
+  const { mutationPending, setValidationError } = mutationController;
+  const sharedMutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
-  const presentedMutationState =
-    mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
 
   useEffect(() => {
     setCreateDraft((current) => {
@@ -255,6 +250,7 @@ export function ContractWorkbookSurface({
         };
       }
       return mutationRuntime.enqueuePatch({
+        sheetRef,
         baseRowVersion: target.baseRowVersion,
         changes: [change],
         fieldKey,
@@ -266,7 +262,7 @@ export function ContractWorkbookSurface({
         viewSchemaId: contract.viewSchemaId,
       });
     },
-    [contract, mutationRuntime, rows],
+    [contract, mutationRuntime, rows, sheetRef],
   );
   const visibleAnchorColumns = useMemo(
     () => applyWorkbookLayoutToColumns(contract, anchorColumns, layoutState),
@@ -600,7 +596,7 @@ export function ContractWorkbookSurface({
               ? undefined
               : genericCreateSubmitTestId(contract.viewSchemaId)
           }
-          disabled={mutationState === "Syncing"}
+          disabled={mutationPending}
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() => {
@@ -617,7 +613,7 @@ export function ContractWorkbookSurface({
   }, [
     contract.viewSchemaId,
     genericInspector,
-    mutationState,
+    mutationPending,
     surface,
     canCreateRows,
   ]);
@@ -724,12 +720,10 @@ export function ContractWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <WorkbookSurfaceStatusStrip
+        <WorkbookStatusStrip
           presence={collaboration.presence.header}
-          mutationError={
-            mutationError?.primaryMessage ?? sharedMutation.secondaryMessage
-          }
-          mutationState={presentedMutationState}
+          status={sharedMutation}
+          chromeMode={chromeMode}
           onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}
           workbookFocusAnchor={genericFocus.snapshot.anchor}

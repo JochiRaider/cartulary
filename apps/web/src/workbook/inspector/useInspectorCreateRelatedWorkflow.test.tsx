@@ -28,8 +28,11 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     expect(createTaskRequest).toBeDefined();
     if (createTaskRequest === undefined) return;
     const onFeedback = vi.fn();
+    const finishReport = vi.fn();
+    const beginMutation = vi.fn(() => finishReport);
     const { result } = renderHook(() =>
       useInspectorCreateRelatedWorkflow({
+        beginMutation,
         currentUserId: null,
         mutationCommands: relatedPort(async () => ({
           kind: "accepted",
@@ -47,6 +50,8 @@ describe("useInspectorCreateRelatedWorkflow", () => {
 
     act(() => result.current.commands.begin(createTaskRequest));
     await act(async () => result.current.commands.submit());
+    expect(beginMutation).toHaveBeenCalledOnce();
+    expect(finishReport).toHaveBeenCalledOnce();
 
     expect(onFeedback).toHaveBeenLastCalledWith({
       announcement: "none",
@@ -67,6 +72,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     const onFeedback = vi.fn();
     const { result } = renderHook(() =>
       useInspectorCreateRelatedWorkflow({
+        beginMutation: () => vi.fn(),
         currentUserId: null,
         mutationCommands,
         onCreated,
@@ -122,6 +128,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     const { result, rerender } = renderHook(
       ({ subject }) =>
         useInspectorCreateRelatedWorkflow({
+          beginMutation: () => vi.fn(),
           currentUserId: null,
           mutationCommands: relatedPort(() => pending.promise),
           onCreated: vi.fn(),

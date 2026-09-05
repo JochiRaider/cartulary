@@ -1,28 +1,22 @@
 import { useMemo, useSyncExternalStore } from "react";
-import { selectWorkbookStatusSecondary } from "../utils/workbookStatusSecondary";
-import type {
-  WorkbookMutationRuntime,
-  WorkbookMutationSnapshot,
-} from "./WorkbookMutationRuntime";
+import type { SheetRef } from "../../shared/sheetRef";
+import type { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
+import {
+  projectWorkbookStatusForSurface,
+  type WorkbookStatusPresentation,
+} from "./workbookMutationStatusProjector";
 
 export function useWorkbookMutationRuntime(
   runtime: WorkbookMutationRuntime,
-  activeSurfaceId?: string,
-): WorkbookMutationSnapshot {
+  activeSheetRef?: SheetRef,
+): WorkbookStatusPresentation {
   const snapshot = useSyncExternalStore(
     runtime.subscribe,
     runtime.getSnapshot,
     runtime.getSnapshot,
   );
-  return useMemo(() => {
-    if (activeSurfaceId === undefined) return snapshot;
-    return {
-      ...snapshot,
-      secondaryMessage:
-        selectWorkbookStatusSecondary(
-          snapshot.secondaryCandidates,
-          activeSurfaceId,
-        )?.message ?? null,
-    };
-  }, [activeSurfaceId, snapshot]);
+  return useMemo(
+    () => projectWorkbookStatusForSurface(snapshot, activeSheetRef),
+    [snapshot, activeSheetRef],
+  );
 }

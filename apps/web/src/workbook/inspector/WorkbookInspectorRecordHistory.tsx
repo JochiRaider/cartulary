@@ -28,12 +28,14 @@ import {
 import type { WorkbookRecordHistoryOwnerEffects } from "./workbookRecordHistoryOwnerEffects";
 
 export function WorkbookInspectorRecordHistory({
+  beginMutation,
   actions,
   canMutate,
   commands,
   ownerEffects,
   subject,
 }: {
+  readonly beginMutation: () => () => void;
   readonly actions: ReadonlySet<InspectorRecordHistoryAction>;
   readonly canMutate: boolean;
   readonly commands: RecordRouteCommandPort;
@@ -41,6 +43,7 @@ export function WorkbookInspectorRecordHistory({
   readonly subject: WorkbookInspectorSubject | null;
 }) {
   const controller = useWorkbookRecordHistoryController({
+    beginMutation,
     canMutate,
     commands,
     ownerEffects,

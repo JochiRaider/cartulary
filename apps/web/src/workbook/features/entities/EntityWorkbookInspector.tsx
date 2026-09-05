@@ -43,6 +43,7 @@ export function EntityWorkbookInspector({
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
   readonly feedbackTestId: string;
   readonly history: {
+    readonly beginMutation: () => () => void;
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
     readonly canMutate: boolean;
     readonly commands: RecordRouteCommandPort;
@@ -120,6 +121,7 @@ export function EntityWorkbookInspector({
           history:
             subject === null ? undefined : (
               <WorkbookInspectorRecordHistory
+                beginMutation={history.beginMutation}
                 actions={history.actions}
                 canMutate={history.canMutate}
                 commands={history.commands}

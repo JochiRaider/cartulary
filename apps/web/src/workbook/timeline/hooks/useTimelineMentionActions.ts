@@ -40,7 +40,7 @@ type TimelineMentionLoadRowsOptions = {
 
 type TimelineMentionActionsInput = {
   readonly actionContext: TimelineMentionActionContext;
-  readonly beginSave: () => void;
+
   readonly beginViewportContinuity: (
     target: TimelineMentionViewportContinuityTarget,
     options?: {
@@ -49,7 +49,6 @@ type TimelineMentionActionsInput = {
   ) => number;
   readonly clearViewportContinuity: (token: number) => void;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
-  readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
   readonly knownEntityTypes: ReadonlyMap<string, "host" | "identity">;
   readonly loadRows: (options: TimelineMentionLoadRowsOptions) => Promise<void>;
   readonly mentionPorts: TimelineMentionPorts;
@@ -107,7 +106,6 @@ export function useTimelineMentionActions(input: TimelineMentionActionsInput) {
       { kind: "row-inspect", recordId: subject.rowRecordId },
       { requirements: ["entity-refresh"] },
     );
-    current.beginSave();
     current.setInspectorMessage(null);
     current.enqueueSaveWork(() =>
       executeMentionEntityCreation({ inputRef, mention, subject, token }),
@@ -142,7 +140,6 @@ export function useTimelineMentionActions(input: TimelineMentionActionsInput) {
         kind: "row-inspect",
         recordId: subject.rowRecordId,
       });
-      current.beginSave();
       current.setInspectorMessage(null);
       current.enqueueSaveWork(() =>
         executeMentionResolution({
@@ -232,7 +229,6 @@ async function executeMentionEntityCreation(options: {
   );
   if (accepted === null) {
     options.inputRef.current.clearViewportContinuity(options.token);
-    options.inputRef.current.finishSave("Conflict");
     return;
   }
   await settleMentionProjection(
@@ -269,7 +265,6 @@ async function executeMentionResolution(options: {
   );
   if (accepted === null) {
     options.inputRef.current.clearViewportContinuity(options.token);
-    options.inputRef.current.finishSave("Conflict");
     return;
   }
   await settleMentionProjection(
@@ -382,18 +377,14 @@ async function settleMentionProjection(
     minimumRowVersion: accepted.sourceRecord.rowVersion,
   };
   input.requireViewportContinuitySourceRecord(token, requirement);
-  let projectionCommitted = false;
   await input.loadRows({
     afterProjectionCommit: () => {
       followUp?.();
-      projectionCommitted = true;
-      input.finishSave("Saved");
     },
     showLoading: false,
     sourceRecordRequirement: requirement,
     viewportContinuityToken: token,
   });
-  if (!projectionCommitted) input.finishSave("Conflict");
 }
 
 async function settleEntityRefresh(
@@ -492,7 +483,6 @@ function failMentionPlan(
 ): void {
   input.clearViewportContinuity(token);
   publishMentionPlanRejection(input, reason);
-  input.finishSave("Conflict");
 }
 
 function publishMentionPlanRejection(
@@ -517,7 +507,6 @@ function failMentionOperation(
 ): void {
   input.clearViewportContinuity(token);
   input.setInspectorMessage(workbookInspectorOperationFailureFeedback(failure));
-  input.finishSave("Conflict");
 }
 
 export function timelineMentionForAutoResolutionNotice(

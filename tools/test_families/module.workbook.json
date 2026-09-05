@@ -885,6 +885,45 @@
       ]
     },
     {
+      "row_id": "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-save-status.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "scenario_2eb8824d1e64",
+          "scenario_9407b0a0d492",
+          "scenario_f1110315ed98"
+        ],
+        "titles": [
+          "Keep a global FIFO blocker above concurrent local work and activate its existing recovery.",
+          "Keep queue overflow globally accessible after real editor admission reaches capacity.",
+          "Preserve save transitions and exact saved-view conflict scope across workbook surfaces."
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.browser_support",

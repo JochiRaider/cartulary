@@ -238,16 +238,12 @@ describe("useTimelineFillController", () => {
     const clearViewportContinuity = vi.fn(() =>
       sequence.push("clear-continuity"),
     );
-    const finishSave = vi.fn((result: string) =>
-      sequence.push(`finish-${result}`),
-    );
     const loadRows = vi.fn(async () => {
       sequence.push("refresh");
     });
     const restoreFocusAnchor = vi.fn(() => sequence.push("restore-focus"));
     const { result } = renderHook(() =>
       useTimelineFillController({
-        beginSave: () => sequence.push("begin-save"),
         beginViewportContinuity: () => {
           sequence.push("begin-continuity");
           return 17;
@@ -258,7 +254,6 @@ describe("useTimelineFillController", () => {
           sequence.push("enqueue");
           queuedWork = work;
         },
-        finishSave,
         getVisibleFieldKeys: () => new Set([summaryFieldKey]),
         groupBy: null,
         interactionMode: { kind: "editable" },
@@ -275,7 +270,7 @@ describe("useTimelineFillController", () => {
     );
 
     act(() => result.current.commands.onFillCells(fillIntent()));
-    expect(sequence).toEqual(["begin-continuity", "begin-save", "enqueue"]);
+    expect(sequence).toEqual(["begin-continuity", "enqueue"]);
     await act(async () => queuedWork?.());
     expect(fillDown).toHaveBeenNthCalledWith(1, {
       fieldKey: summaryFieldKey,
@@ -288,14 +283,12 @@ describe("useTimelineFillController", () => {
     });
     expect(sequence).toEqual([
       "begin-continuity",
-      "begin-save",
       "enqueue",
       "track-txn-accepted",
       "dispatch-accepted",
       "resolve-txn-accepted",
       "refresh",
       "restore-focus",
-      "finish-Saved",
     ]);
 
     sequence.length = 0;
@@ -303,13 +296,11 @@ describe("useTimelineFillController", () => {
     await act(async () => queuedWork?.());
     expect(sequence).toEqual([
       "begin-continuity",
-      "begin-save",
       "enqueue",
       "track-txn-rejected",
       "dispatch-rejected",
       "resolve-txn-rejected",
       "clear-continuity",
-      "finish-Conflict",
     ]);
     expect(setError).toHaveBeenCalledWith("Version conflict");
     expect(loadRows).toHaveBeenCalledOnce();

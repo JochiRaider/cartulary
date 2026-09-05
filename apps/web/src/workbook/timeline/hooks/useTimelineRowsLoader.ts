@@ -9,10 +9,7 @@ import {
   beginLatestQuery,
   type LatestQueryRuntime,
 } from "../../query/workbookLatestRequest";
-import type {
-  WorkbookPendingQueueRuntime,
-  WorkbookPendingRefreshBlockScope,
-} from "../../runtime/workbookPendingReplayRuntime";
+import type { WorkbookPendingRefreshBlockScope } from "../../runtime/workbookPendingReplayRuntime";
 import { reconcileWorkbookRecordRows } from "../../utils/workbookRowReconciliation";
 import { commitTimelineProjection } from "../adapters/timelineProjectionCommitAdapter";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
@@ -30,7 +27,6 @@ import {
   timelineFreshnessRetryLimit,
   transitionTimelineLoad,
 } from "../models/timelineLoadMachine";
-import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import {
   normalizeTimelineFullRow,
   rowFromApi,
@@ -61,7 +57,7 @@ type TimelineRowsLoaderInput = {
   ) => void;
   readonly beginRefreshInFlight: (
     scope: WorkbookPendingRefreshBlockScope,
-  ) => void;
+  ) => () => void;
   readonly beginTimelineRowsLoad: () => {
     readonly queryStartEpoch: number;
     readonly requestSequence: number;
@@ -73,9 +69,6 @@ type TimelineRowsLoaderInput = {
   readonly currentMutationEpoch: () => number;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly failViewportContinuity: (token: number) => void;
-  readonly finishRefreshInFlight: (
-    scope: WorkbookPendingRefreshBlockScope,
-  ) => void;
   readonly hasLoadedRows: () => boolean;
   readonly isCurrentLoadSequence: (requestSequence: number) => boolean;
   readonly knownTimelineRowVersion: (
@@ -85,7 +78,6 @@ type TimelineRowsLoaderInput = {
   readonly markRowsLoaded: () => void;
   readonly nextDraftIndex: () => number;
   readonly onIncidentAccessLost?: (() => void) | undefined;
-  readonly pendingSavesRefs: TimelinePendingSavesRefs;
   readonly pruneAutoResolutionNoticesForRows: (
     rows: readonly WorkbookRow[],
   ) => void;
@@ -93,9 +85,7 @@ type TimelineRowsLoaderInput = {
     dismissedMentionsByRow: Record<string, DismissedMention[]>,
     row: WorkbookRow,
   ) => Record<string, DismissedMention[]>;
-  readonly publishSaveStatePresentation: (
-    pending: WorkbookPendingQueueRuntime,
-  ) => void;
+  readonly publishSaveStatePresentation: () => void;
   readonly queryState: WorkbookQueryState;
   readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
@@ -191,7 +181,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
     currentMutationEpoch,
     editorDraftRegistry,
     failViewportContinuity,
-    finishRefreshInFlight,
     hasLoadedRows,
     isCurrentLoadSequence,
     knownTimelineRowVersion,
@@ -199,7 +188,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
     markRowsLoaded,
     nextDraftIndex,
     onIncidentAccessLost,
-    pendingSavesRefs,
     pruneAutoResolutionNoticesForRows,
     pruneDismissedMentionsForRow,
     publishSaveStatePresentation,
@@ -428,7 +416,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
           return next;
         });
         pruneAutoResolutionNoticesForRows(committedRows);
-        publishSaveStatePresentation(pendingSavesRefs.pendingQueueRef.current);
+        publishSaveStatePresentation();
         markRowsLoaded();
       }, options.viewportContinuityToken !== undefined);
       const sourceRecord = sourceEvidenceFromCommittedRows(
@@ -448,7 +436,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       editorDraftRegistry,
       markRowsLoaded,
       nextDraftIndex,
-      pendingSavesRefs,
       pruneAutoResolutionNoticesForRows,
       pruneDismissedMentionsForRow,
       publishSaveStatePresentation,
@@ -503,11 +490,11 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         }
         const retry = effects.find((effect) => effect.kind === "retry");
         if (retry !== undefined) {
-          beginRefreshInFlight(allRefreshScope);
+          const finishRefresh = beginRefreshInFlight(allRefreshScope);
           try {
             await loadTimelineRows(retryOptions(options, retry.retryDepth));
           } finally {
-            finishRefreshInFlight(allRefreshScope);
+            finishRefresh();
           }
           return;
         }
@@ -600,7 +587,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       commitAcceptedRows,
       currentMutationEpoch,
       dispatchLoadEvent,
-      finishRefreshInFlight,
       freshTimelineRowsForQueryResult,
       hasLoadedRows,
       isCurrentLoadSequence,

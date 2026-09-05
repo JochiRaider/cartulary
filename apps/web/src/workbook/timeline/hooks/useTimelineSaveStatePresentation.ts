@@ -1,164 +1,88 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { type SheetRef, sheetRefsEqual } from "../../../shared/sheetRef";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
   beginWorkbookPendingRefreshBlock,
   finishWorkbookPendingRefreshBlock,
-  type WorkbookPendingQueueRuntime,
   type WorkbookPendingQueueSnapshot,
   type WorkbookPendingRefreshBlockScope,
   workbookPendingQueueSnapshot,
 } from "../../runtime/workbookPendingReplayRuntime";
-import {
-  deriveWorkbookSaveState,
-  type WorkbookSaveStateConflictAnchor,
-} from "../../utils/workbookPendingQueue";
 import type { LocalConflictState } from "../models/timelineConflictState";
-import type { TimelineMutableRef } from "../models/timelineControllerPorts";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
-
-type TimelineSaveStateLabel = "Conflict" | "Saved" | "Syncing";
-
-type TimelineSetState<T> = (value: T) => void;
-
-function saveStateConflictAnchorsFromLocalConflicts(
-  conflicts: Record<string, LocalConflictState>,
-): WorkbookSaveStateConflictAnchor[] {
-  return Object.values(conflicts).map((entry) => ({ ...entry.anchor }));
-}
 
 export function useTimelineSaveStatePresentation({
   conflictQueue,
-  conflictQueueRef,
   mutationRuntime,
   pendingQueueSnapshot,
   pendingSavesRefs,
   setPendingQueueSnapshot,
+  sheetRef,
 }: {
   readonly conflictQueue: Record<string, LocalConflictState>;
-  readonly conflictQueueRef: TimelineMutableRef<
-    Record<string, LocalConflictState>
-  >;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
-  readonly setPendingQueueSnapshot: TimelineSetState<WorkbookPendingQueueSnapshot>;
+  readonly setPendingQueueSnapshot: (
+    snapshot: WorkbookPendingQueueSnapshot,
+  ) => void;
+  readonly sheetRef: SheetRef;
 }) {
-  const computeSaveStatePresentation = useCallback(
-    (
-      pending: WorkbookPendingQueueRuntime,
-      conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
-    ) => {
-      const snapshot = pending.model.snapshot();
-      return deriveWorkbookSaveState({
-        authPaused: snapshot.authPaused,
-        halted: snapshot.halted,
-        overflow: snapshot.overflow,
-        sameFieldConflicts: snapshot.sameFieldConflicts,
-        localDraftConflicts:
-          saveStateConflictAnchorsFromLocalConflicts(conflicts),
-        queuedCount: snapshot.queuedCount,
-        inFlightCount: snapshot.inFlightCount,
-        refreshPaused: pending.resetRefreshInFlight,
-        pendingMutationCount: pendingSavesRefs.pendingOpsRef.current,
-      });
-    },
-    [conflictQueueRef, pendingSavesRefs],
-  );
-
+  const originRef = useRef(sheetRef);
+  if (!sheetRefsEqual(originRef.current, sheetRef))
+    originRef.current = sheetRef;
+  const originSheetRef = originRef.current;
   const publishSaveStatePresentation = useCallback(
-    (
-      pending: WorkbookPendingQueueRuntime,
-      conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
-    ) => {
-      const presentation = computeSaveStatePresentation(pending, conflicts);
-      mutationRuntime.projectSurfaceSaveState("cartulary.view.timeline.v2", {
-        primaryLabel: presentation.primaryLabel,
-        secondaryMessage: presentation.secondaryMessage,
-      });
-      return presentation;
-    },
-    [computeSaveStatePresentation, conflictQueueRef, mutationRuntime],
+    () => mutationRuntime.notifyPendingChanged(),
+    [mutationRuntime],
   );
-
-  const publishPendingQueueState = useCallback(
-    (
-      conflicts: Record<string, LocalConflictState> = conflictQueueRef.current,
-    ) => {
-      const pending = pendingSavesRefs.pendingQueueRef.current;
-      setPendingQueueSnapshot(workbookPendingQueueSnapshot(pending));
-      publishSaveStatePresentation(pending, conflicts);
-    },
-    [
-      conflictQueueRef,
-      pendingSavesRefs,
-      publishSaveStatePresentation,
-      setPendingQueueSnapshot,
-    ],
-  );
+  const publishPendingQueueState = useCallback(() => {
+    setPendingQueueSnapshot(
+      workbookPendingQueueSnapshot(pendingSavesRefs.pendingQueueRef.current),
+    );
+    mutationRuntime.notifyPendingChanged();
+  }, [mutationRuntime, pendingSavesRefs, setPendingQueueSnapshot]);
   const beginRefreshInFlight = useCallback(
     (scope: WorkbookPendingRefreshBlockScope) => {
       const pending = pendingSavesRefs.pendingQueueRef.current;
       beginWorkbookPendingRefreshBlock(pending, scope);
+      const finishReport = mutationRuntime.beginRefreshStatus(originSheetRef);
       publishPendingQueueState();
+      let finished = false;
+      return () => {
+        if (finished) return;
+        finished = true;
+        finishWorkbookPendingRefreshBlock(pending, scope);
+        finishReport();
+        publishPendingQueueState();
+        mutationRuntime.requestDrain();
+      };
     },
-    [pendingSavesRefs, publishPendingQueueState],
+    [
+      mutationRuntime,
+      originSheetRef,
+      pendingSavesRefs,
+      publishPendingQueueState,
+    ],
   );
-
-  const finishRefreshInFlight = useCallback(
-    (scope: WorkbookPendingRefreshBlockScope) => {
-      const pending = pendingSavesRefs.pendingQueueRef.current;
-      finishWorkbookPendingRefreshBlock(pending, scope);
-      publishPendingQueueState();
-      mutationRuntime.requestDrain();
-    },
-    [mutationRuntime, pendingSavesRefs, publishPendingQueueState],
-  );
-  const beginSave = useCallback(() => {
-    pendingSavesRefs.pendingOpsRef.current += 1;
-    publishSaveStatePresentation(pendingSavesRefs.pendingQueueRef.current);
-  }, [pendingSavesRefs, publishSaveStatePresentation]);
-
-  const finishSave = useCallback(
-    (nextState: TimelineSaveStateLabel) => {
-      pendingSavesRefs.pendingOpsRef.current = Math.max(
-        0,
-        pendingSavesRefs.pendingOpsRef.current - 1,
-      );
-      if (nextState === "Conflict") {
-        mutationRuntime.projectSurfaceSaveState("cartulary.view.timeline.v2", {
-          primaryLabel: "Conflict",
-          secondaryMessage: "Conflict requires review.",
-        });
-        return;
-      }
-      publishSaveStatePresentation(pendingSavesRefs.pendingQueueRef.current);
-    },
-    [mutationRuntime, pendingSavesRefs, publishSaveStatePresentation],
-  );
-
-  useEffect(
-    () => () => {
-      mutationRuntime.clearSurfaceSaveState("cartulary.view.timeline.v2");
-    },
+  const beginSave = useCallback(
+    () => mutationRuntime.beginExplicitMutation(),
     [mutationRuntime],
   );
 
   useEffect(() => {
-    const hasUnsavedRuntimeWork =
-      pendingQueueSnapshot.queuedCount > 0 ||
-      pendingQueueSnapshot.inFlightCount > 0 ||
-      Object.keys(conflictQueue).length > 0;
-    if (!hasUnsavedRuntimeWork) {
+    if (
+      pendingQueueSnapshot.queuedCount + pendingQueueSnapshot.inFlightCount ===
+        0 &&
+      Object.keys(conflictQueue).length === 0
+    )
       return;
-    }
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", warnBeforeUnload);
-    };
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [
     conflictQueue,
     pendingQueueSnapshot.inFlightCount,
@@ -169,9 +93,6 @@ export function useTimelineSaveStatePresentation({
     commands: {
       beginRefreshInFlight,
       beginSave,
-      computeSaveStatePresentation,
-      finishRefreshInFlight,
-      finishSave,
       publishPendingQueueState,
       publishSaveStatePresentation,
     },

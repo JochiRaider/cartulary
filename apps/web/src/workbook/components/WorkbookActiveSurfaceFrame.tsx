@@ -3,7 +3,7 @@ import type { ReactNode, RefObject } from "react";
 import { shellActiveSurfaceStyle } from "../layout/workbookShellStyles";
 import type {
   WorkbookMutationRuntime,
-  WorkbookMutationSnapshot,
+  WorkbookStatusPresentation,
 } from "../runtime/WorkbookMutationRuntime";
 import { WorkbookEditRecoveryPanel } from "./WorkbookEditRecoveryPanel";
 import { WorkbookQueueOverflowNotice } from "./WorkbookQueueOverflowNotice";
@@ -14,6 +14,10 @@ type WorkbookActiveSurfaceFrameProps = {
   readonly activeSurfaceRef: RefObject<HTMLElement | null>;
   readonly apiBase: string | undefined;
   readonly focus: {
+    readonly resolverActivation: {
+      readonly conflictKey: string;
+      readonly sequence: number;
+    } | null;
     readonly editRecoveryPanelRef: RefObject<HTMLElement | null>;
     readonly focusSameFieldSummary: () => void;
     readonly onFocusWithinChange: (focused: boolean) => void;
@@ -21,7 +25,7 @@ type WorkbookActiveSurfaceFrameProps = {
     readonly sameFieldSummaryRef: RefObject<HTMLDivElement | null>;
   };
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly mutationSnapshot: WorkbookMutationSnapshot;
+  readonly mutationSnapshot: WorkbookStatusPresentation;
   readonly onActivateOrigin: (viewSchemaId: string) => void;
 };
 
@@ -35,10 +39,12 @@ export function WorkbookActiveSurfaceFrame({
   mutationSnapshot,
   onActivateOrigin,
 }: WorkbookActiveSurfaceFrameProps) {
+  const showBlocked =
+    mutationSnapshot.action?.kind === "transaction_recovery" ||
+    mutationSnapshot.action?.kind === "terminal_failure";
+  const showOverflow = mutationSnapshot.action?.kind === "overflow";
   const conflictOnly =
-    mutationSnapshot.blockedEdit === null &&
-    mutationSnapshot.overflowMessage === null &&
-    mutationSnapshot.conflictPanelOpen;
+    !showBlocked && !showOverflow && mutationSnapshot.conflictPanelOpen;
   return (
     <section
       aria-label="Active workbook surface focus target"
@@ -54,7 +60,7 @@ export function WorkbookActiveSurfaceFrame({
       >
         {activeContent}
       </div>
-      {mutationSnapshot.blockedEdit !== null ? (
+      {showBlocked && mutationSnapshot.blockedEdit !== null ? (
         <WorkbookEditRecoveryPanel
           blockedEdit={mutationSnapshot.blockedEdit}
           key={mutationSnapshot.blockedEdit.unitId}
@@ -63,7 +69,7 @@ export function WorkbookActiveSurfaceFrame({
           onRetry={() => mutationRuntime.retryBlockedEdit()}
           ref={focus.editRecoveryPanelRef}
         />
-      ) : mutationSnapshot.overflowMessage !== null ? (
+      ) : showOverflow && mutationSnapshot.overflowMessage !== null ? (
         <WorkbookQueueOverflowNotice
           message={mutationSnapshot.overflowMessage}
           onFocusWithinChange={focus.onFocusWithinChange}
@@ -71,6 +77,7 @@ export function WorkbookActiveSurfaceFrame({
         />
       ) : (
         <WorkbookSameFieldConflictResolver
+          activation={focus.resolverActivation}
           apiBase={apiBase}
           focusSummary={focus.focusSameFieldSummary}
           mutationRuntime={mutationRuntime}

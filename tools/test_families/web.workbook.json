@@ -655,7 +655,8 @@
         "file": "apps/web/src/workbook/inspector/useInspectorCreateRelatedWorkflow.test.tsx",
         "titles": [
           "useInspectorCreateRelatedWorkflow ignores a late accepted result after cancel and reopen while retaining the owner effect",
-          "useInspectorCreateRelatedWorkflow ignores a late rejection after a row-version retarget"
+          "useInspectorCreateRelatedWorkflow ignores a late rejection after a row-version retarget",
+          "useInspectorCreateRelatedWorkflow publishes related success as neutral non-announced feedback"
         ]
       },
       "evidence_class": "unit",
@@ -1949,6 +1950,36 @@
         "file": "apps/web/src/workbook/components/WorkbookRelationshipChip.test.tsx",
         "titles": [
           "WorkbookRelationshipChip preserves state details selectors and optional selection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.workbook_save_status_preserves_global_blockers_a_8d590e0883",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/workbookSaveStatus.test.tsx",
+        "titles": [
+          "Workbook save status announces each transition once across renders and shell remounts",
+          "Workbook save status does not erase pending Timeline work on surface unmount",
+          "Workbook save status keeps a global FIFO blocker explanation on another surface",
+          "Workbook save status keeps accepted writes pending through their required refresh",
+          "Workbook save status keeps both overlapping generic operations pending",
+          "Workbook save status keeps validation and accepted-refresh failure feedback out of primary status",
+          "Workbook save status leaves visible save labels outside independent live regions"
         ]
       },
       "evidence_class": "unit",
@@ -3532,10 +3563,10 @@
           "WorkbookShell surface selection keeps closed incidents readable while disabling grid mutation entry points",
           "WorkbookShell surface selection keeps entity merge review, confirmation, and dependent Timeline preview bound to stable record ids",
           "WorkbookShell surface selection keeps entity surface access loss routed through the shell access-lost callback",
-          "WorkbookShell surface selection keeps failed generic party-link mutations in Conflict",
           "WorkbookShell surface selection keeps generic surface access loss routed through the shell access-lost callback",
           "WorkbookShell surface selection keeps late surface fixture requests bound to the originating test scenario",
           "WorkbookShell surface selection keeps party-link mutations syncing until workbook and references refresh",
+          "WorkbookShell surface selection keeps rejected generic party-link feedback local",
           "WorkbookShell surface selection loads a direct Status Review URL with the active surface query result",
           "WorkbookShell surface selection mounts the matching entity inspector subject after deferred query hydration",
           "WorkbookShell surface selection opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger",

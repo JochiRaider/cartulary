@@ -1,5 +1,6 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { useCallback, useEffect, useRef } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import type { TimelineMutationIdentityPort } from "../../mutations/workbookMutationCommandPorts";
 import type {
   WorkbookOperationFailure,
@@ -101,6 +102,7 @@ export function useTimelineMutationDriver({
   loadRows,
   mutationCommands,
   mutationRuntime,
+  sheetRef,
   pendingSavesRefs,
   postMutationQueryRefreshRequired,
   publishPendingQueueState,
@@ -138,6 +140,7 @@ export function useTimelineMutationDriver({
     focusField: FocusFieldKey,
     surface: TimelineScalarEditorSurface,
     refresh: () => Promise<WorkbookOperationOutcome<unknown>>,
+    originSheetRef: SheetRef,
   ) => boolean;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
   readonly loadRows: (options: {
@@ -145,6 +148,7 @@ export function useTimelineMutationDriver({
   }) => Promise<void>;
   readonly mutationCommands: TimelineMutationIdentityPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly sheetRef: SheetRef;
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
   readonly postMutationQueryRefreshRequired: boolean;
   readonly publishPendingQueueState: () => void;
@@ -249,6 +253,7 @@ export function useTimelineMutationDriver({
         ...input
       } = unit;
       const meta: TimelineReplayContext = {
+        sheetRef,
         focusField,
         focusKey,
         surface,
@@ -258,7 +263,10 @@ export function useTimelineMutationDriver({
         promoteToCommittedRowInspect,
         viewportContinuityToken,
       };
-      const pendingInput: PendingReplayUnitInput = { ...input };
+      const pendingInput: PendingReplayUnitInput = {
+        ...input,
+        presentationHint: { ...input.presentationHint, sheetRef },
+      };
       const admission = pending.model.admit(pendingInput);
       if (admission.status === "duplicate") {
         if (onSettled !== undefined) {
@@ -313,6 +321,7 @@ export function useTimelineMutationDriver({
       clearPendingSignatureForUnit,
       clearViewportContinuity,
       mutationRuntime,
+      sheetRef,
       contextByUnitId,
       pendingSavesRefs,
       publishPendingQueueState,
@@ -537,6 +546,7 @@ export function useTimelineMutationDriver({
         meta.surface,
         () =>
           refreshTimelineConflict(settlement.unit, conflict.base_row_version),
+        meta.sheetRef,
       );
       if (!registered) {
         setRefreshError(failureMessage);

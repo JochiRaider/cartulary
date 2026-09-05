@@ -7,7 +7,11 @@ import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 import { WorkbookRetryScheduler } from "./WorkbookRetryScheduler";
 import { WorkbookRuntimeLifecycle } from "./WorkbookRuntimeLifecycle";
 import { WorkbookSurfaceRegistry } from "./WorkbookSurfaceRegistry";
-import { projectWorkbookMutationStatus } from "./workbookMutationStatusProjector";
+import { workbookConflictEntry } from "./workbookConflictModel";
+import {
+  projectWorkbookMutationStatus,
+  projectWorkbookStatusForSurface,
+} from "./workbookMutationStatusProjector";
 import { createWorkbookPendingQueueRuntime } from "./workbookPendingReplayRuntime";
 import type { WorkbookSchedulerPort } from "./workbookRuntimePorts";
 
@@ -48,29 +52,82 @@ describe("Workbook runtime responsibilities", () => {
       conflicts: [],
       explicitInFlightCount: 0,
       queue: pending.model.snapshot(),
-      surfaceSaveStates: new Map(),
     });
     expect(saved.primaryLabel).toBe("Saved");
 
+    const sheetRef = { kind: "saved_view" as const, id: "saved-1" };
+    const conflict = workbookConflictEntry({
+      sheetRef,
+      viewSchemaId: "surface-1",
+      rowLabel: "A row",
+      surfaceLabel: "Notes",
+      conflict: {
+        record_id: "record-1",
+        field_key: "field-1",
+        base_row_version: 2,
+        current_row_version: 3,
+        conflict_token: "private-token",
+        conflict_resolution_class: "text_compare_merge",
+        client_value: "Local",
+        server_value: "Saved",
+      },
+    });
+    const queue = pending.model.snapshot();
     const syncing = projectWorkbookMutationStatus({
       conflictPanelOpen: false,
       conflicts: [],
-      explicitInFlightCount: 0,
-      queue: pending.model.snapshot(),
-      surfaceSaveStates: new Map([
-        [
-          "surface-1",
-          { primaryLabel: "Syncing", secondaryMessage: "Refresh pending" },
-        ],
-      ]),
+      explicitInFlightCount: 2,
+      queue,
+      refreshes: [{ sheetRef, count: 1 }],
     });
     expect(syncing.primaryLabel).toBe("Syncing");
-    expect(syncing.secondaryMessage).toBe("Refresh pending");
-    expect(syncing.secondaryCandidates).toContainEqual({
-      kind: "refresh_paused",
-      message: "Refresh pending",
-      surfaceId: "surface-1",
+    expect(
+      projectWorkbookStatusForSurface(syncing, sheetRef).secondary?.kind,
+    ).toBe("refresh_paused");
+    const conflicting = projectWorkbookMutationStatus({
+      conflictPanelOpen: false,
+      conflicts: [conflict],
+      explicitInFlightCount: 2,
+      queue: {
+        ...queue,
+        sameFieldConflicts: [
+          {
+            ...conflict.conflict,
+            key: conflict.key,
+            base_row_version: 1,
+            sheetRef,
+          },
+        ],
+      },
     });
+    expect(conflicting.primaryLabel).toBe("Conflict");
+    expect(conflicting.unresolvedConflictCount).toBe(1);
+    const active = projectWorkbookStatusForSurface(conflicting, sheetRef);
+    expect(active.affectedConflictCount).toBe(1);
+    expect(active.secondary?.message).toBe(
+      "1 same-field conflict needs review.",
+    );
+    expect(active.action).toEqual({
+      kind: "same_field_resolver",
+      conflictKey: conflict.key,
+    });
+    const elsewhere = projectWorkbookStatusForSurface(conflicting, {
+      kind: "saved_view",
+      id: "saved-2",
+    });
+    expect(elsewhere.primaryLabel).toBe("Conflict");
+    expect(elsewhere.affectedConflictCount).toBe(0);
+    expect(elsewhere.secondary?.kind).toBe("queued_or_in_flight");
+    expect(elsewhere.action).toEqual(active.action);
+    const quiet = projectWorkbookMutationStatus({
+      conflictPanelOpen: false,
+      conflicts: [],
+      explicitInFlightCount: 0,
+      queue: { ...queue, authPaused: true },
+      refreshes: [{ sheetRef, count: 1 }],
+    });
+    expect(quiet.primaryLabel).toBe("Saved");
+    expect(quiet.secondaryCandidates).toEqual([]);
   });
 
   it("coalesces lifecycle scheduling and permanently closes on disposal", async () => {

@@ -29,6 +29,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { WorkbookClipboardPastePort } from "../adapters/WorkbookClipboardPastePort";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
@@ -106,7 +107,7 @@ import {
 } from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
-  WorkbookSurfaceStatusStrip,
+  WorkbookStatusStrip,
 } from "./WorkbookStatusStrip";
 import {
   WorkbookViewBar,
@@ -116,9 +117,8 @@ import {
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 
-type WorkbookMutationSaveState = "Syncing" | "Saved" | "Conflict";
-
 export type EntityWorkbookSurfaceProps = {
+  readonly sheetRef: SheetRef;
   readonly clipboardPaste: WorkbookClipboardPastePort;
   continuityResetKey: string;
   entityType: EntityRow["entityType"];
@@ -185,6 +185,7 @@ function entityCellContent(
 }
 
 export function EntityWorkbookSurface({
+  sheetRef,
   clipboardPaste: clipboardPastePort,
   continuityResetKey,
   entityType,
@@ -235,19 +236,11 @@ export function EntityWorkbookSurface({
     useState<WorkbookInspectorErrorPresentation | null>(null);
   const [entityActionFeedback, setEntityActionFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
-  const [mutationState, setMutationState] =
-    useState<WorkbookMutationSaveState>("Saved");
-  const sharedMutation = useWorkbookMutationRuntime(
-    mutationRuntime,
-    entityType === "host"
-      ? hostsContract.viewSchemaId
-      : identitiesContract.viewSchemaId,
-  );
+  const [mutationPending, setMutationPending] = useState(false);
+  const sharedMutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
-  const presentedMutationState =
-    mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
 
   const selectedEntity =
     rows.find((row) => row.recordId === selectedRecordId) ?? null;
@@ -352,6 +345,7 @@ export function EntityWorkbookSurface({
   });
   continuityPortRef.current = entityFocus.port;
   const entityInspector = useEntityWorkbookInspectorComposition({
+    sheetRef,
     canMerge,
     contract,
     currentIncidentRole,
@@ -365,7 +359,7 @@ export function EntityWorkbookSurface({
     mutationCommands,
     mutationError,
     mutationRuntime,
-    mutationState,
+    mutationPending,
     onClearSurfaceSelection: () => {
       continuityPortRef.current?.clear();
       setSelectedRecordId(null);
@@ -386,7 +380,7 @@ export function EntityWorkbookSurface({
     selectedEntity,
     setEntityActionFeedback,
     setMutationError,
-    setMutationState,
+    setMutationPending,
     setSelectedRecordId,
     viewQuery,
   });
@@ -505,6 +499,7 @@ export function EntityWorkbookSurface({
       }
       setMutationError(null);
       const outcome = mutationRuntime.enqueuePatch({
+        sheetRef,
         baseRowVersion: target.baseRowVersion,
         changes: [change],
         fieldKey,
@@ -524,7 +519,7 @@ export function EntityWorkbookSurface({
       }
       return outcome;
     },
-    [contract, mutationRuntime, rows],
+    [contract, mutationRuntime, rows, sheetRef],
   );
   const writablePasteFieldKeys = useMemo(
     () =>
@@ -535,7 +530,12 @@ export function EntityWorkbookSurface({
       ),
     [contract.fields],
   );
+  const beginMutation = useCallback(
+    () => mutationRuntime.beginExplicitMutation(),
+    [mutationRuntime],
+  );
   const { handlePaste: handleEntityPaste } = useEntityClipboardPasteController({
+    beginMutation,
     canCreateRows,
     clipboardPaste: clipboardPastePort,
     commitGridEdit,
@@ -673,7 +673,7 @@ export function EntityWorkbookSurface({
     renderDraftCell: () => (
       <button
         data-testid={genericCreateSubmitTestId(contract.viewSchemaId)}
-        disabled={mutationState === "Syncing"}
+        disabled={mutationPending}
         style={secondaryActionButtonStyle}
         type="button"
         onClick={() => {
@@ -730,7 +730,7 @@ export function EntityWorkbookSurface({
       );
       return;
     }
-    setMutationState("Syncing");
+    setMutationPending(true);
     setMutationError(null);
     const finishMutation = mutationRuntime.beginExplicitMutation();
     try {
@@ -739,14 +739,14 @@ export function EntityWorkbookSurface({
         draft: createDraft,
       });
       if (result.kind === "rejected") {
-        setMutationState("Conflict");
+        setMutationPending(false);
         setMutationError(workbookInspectorErrorPresentation(result.failure));
         return;
       }
       setCreateDraft(initialGenericCreateDraft(contract, null));
       await onRefreshEntities();
       setSelectedRecordId(result.value.row.record_id);
-      setMutationState("Saved");
+      setMutationPending(false);
     } finally {
       finishMutation();
     }
@@ -812,12 +812,10 @@ export function EntityWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <WorkbookSurfaceStatusStrip
+        <WorkbookStatusStrip
           presence={collaboration.presence.header}
-          mutationError={
-            mutationError?.primaryMessage ?? sharedMutation.secondaryMessage
-          }
-          mutationState={presentedMutationState}
+          status={sharedMutation}
+          chromeMode={chromeMode}
           onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}
           workbookFocusAnchor={entityFocus.snapshot.anchor}

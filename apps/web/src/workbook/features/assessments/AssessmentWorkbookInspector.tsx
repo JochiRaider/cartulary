@@ -49,6 +49,7 @@ export function AssessmentWorkbookInspector({
     readonly reject: (message: string) => void;
   };
   readonly history: {
+    readonly beginMutation: () => () => void;
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
     readonly canMutate: boolean;
     readonly commands: RecordRouteCommandPort;
@@ -132,6 +133,7 @@ export function AssessmentWorkbookInspector({
           history:
             subject === null ? undefined : (
               <WorkbookInspectorRecordHistory
+                beginMutation={history.beginMutation}
                 actions={history.actions}
                 canMutate={history.canMutate}
                 commands={history.commands}

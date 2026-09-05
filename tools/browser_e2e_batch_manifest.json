@@ -1659,6 +1659,28 @@
           ]
         },
         {
+          "name": "stateful-default-workbook-save-status",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "default",
+          "browser_session_group": "browser-stateful-default",
+          "selected_row_ids": [
+            "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-save-status.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
           "name": "stateful-default-workbook",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
@@ -2482,6 +2504,28 @@
           ],
           "specs": [
             "apps/web/e2e/timeline-public-route.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "stateful-default-workbook-save-status",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "default",
+          "browser_session_group": "browser-stateful-default",
+          "selected_row_ids": [
+            "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-save-status.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",

@@ -20,12 +20,14 @@ import {
 import type { WorkbookInspectorLiveRowBinding } from "./workbookInspectorSubject";
 
 export function useInspectorCreateRelatedWorkflow({
+  beginMutation,
   currentUserId,
   mutationCommands,
   onCreated,
   onFeedback,
   selectedSubject,
 }: {
+  readonly beginMutation: () => () => void;
   readonly currentUserId: string | null;
   readonly mutationCommands: TimelineRelatedRecordPort;
   readonly onCreated: () => Promise<void> | void;
@@ -144,38 +146,49 @@ export function useInspectorCreateRelatedWorkflow({
       workflowId: active.workflowId,
     });
     if (submitted?.workflowId !== active.workflowId) return;
-    const outcome = await mutationCommands.createRelatedRecord({
-      contract: active.targetContract,
-      draft: active.draft,
-      featureGroupKey: active.featureGroup.featureGroupKey,
-    });
-    if (outcome.kind === "rejected") {
-      dispatchWorkflow({
-        type: "reject",
-        workflowId: active.workflowId,
-        error:
-          outcome.failure.kind === "validation"
-            ? workbookInspectorLocalErrorPresentation(
-                genericCreateMinimumMessage(active.targetContract),
-              )
-            : workbookInspectorErrorPresentation(outcome.failure),
+    const finish = beginMutation();
+    try {
+      const outcome = await mutationCommands.createRelatedRecord({
+        contract: active.targetContract,
+        draft: active.draft,
+        featureGroupKey: active.featureGroup.featureGroupKey,
       });
-      return;
+      if (outcome.kind === "rejected") {
+        dispatchWorkflow({
+          type: "reject",
+          workflowId: active.workflowId,
+          error:
+            outcome.failure.kind === "validation"
+              ? workbookInspectorLocalErrorPresentation(
+                  genericCreateMinimumMessage(active.targetContract),
+                )
+              : workbookInspectorErrorPresentation(outcome.failure),
+        });
+        return;
+      }
+      if (workflowRef.current?.workflowId === active.workflowId) {
+        dispatchWorkflow({
+          type: "complete",
+          workflowId: active.workflowId,
+        });
+        onFeedback(
+          workbookInspectorMessageFeedback(
+            `Created ${active.targetContract.title} record ${outcome.value.recordId}.`,
+            "none",
+          ),
+        );
+      }
+      await onCreated();
+    } finally {
+      finish();
     }
-    if (workflowRef.current?.workflowId === active.workflowId) {
-      dispatchWorkflow({
-        type: "complete",
-        workflowId: active.workflowId,
-      });
-      onFeedback(
-        workbookInspectorMessageFeedback(
-          `Created ${active.targetContract.title} record ${outcome.value.recordId}.`,
-          "none",
-        ),
-      );
-    }
-    await onCreated();
-  }, [dispatchWorkflow, mutationCommands, onCreated, onFeedback]);
+  }, [
+    beginMutation,
+    dispatchWorkflow,
+    mutationCommands,
+    onCreated,
+    onFeedback,
+  ]);
 
   return {
     commands: { begin, cancel, submit, updateDraft },

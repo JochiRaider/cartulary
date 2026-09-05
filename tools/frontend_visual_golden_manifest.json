@@ -64,7 +64,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-compact-linux.png",
-      "sha256": "821cdcacc3e68c8c7885c82c15c059dc0d3041f6b378fa9f98752d3dd177e368"
+      "sha256": "aa306d1bceade8dec42d5e6e0318af4e3751e2d0c4143652a06ba5690476c177"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-conflict-resolver-linux.png",
@@ -88,7 +88,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-grid-syncing-strip-linux.png",
-      "sha256": "fc34327ca6570212bec36bbaf27893630979de69ed5b3c961c666ea8c3000e00"
+      "sha256": "8cde230f7a71a8665f33756780ce2dab6583e6a97bb1482a987decab0f340e50"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-presence-markers-linux.png",
@@ -168,15 +168,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
-      "sha256": "ee12f7145b3958fd97d90d0e70604a5b1733d81d08cda731a593a4feacb51d31"
+      "sha256": "2da397d8afe110953fd0fed35383b12846622641fb7e942dcbeca98527fcd674"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png",
-      "sha256": "503af6afe96f7071cfdc88023046c233551508335d129680948173ec647a242d"
+      "sha256": "9a2ca8f6a808da1a87664b9173e381083ffdab1b7cd09d2fc38c20096f2acc97"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png",
-      "sha256": "ec9568705589360d4535683d3a024049c3b823b232aeef823ddbd2854dd5c8b1"
+      "sha256": "452d41ecf93ded6f171f4317c1197f4babd6f918ac6df9b66c25a407b495135d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-filtered-empty-grid-linux.png",
@@ -184,23 +184,23 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
-      "sha256": "4be89a883e27d49744cd0bd0ce4ffd04f061fcd54a8d4765a2af7926563bf7a4"
+      "sha256": "21b9d35a92956420dcdcc06c363cb1a694d7c33cb0017283751684f560fa33e8"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",
-      "sha256": "a0fcea88e0406c82898bc8c6dafdcf295a3a7a9539b0d01d462c05f3e61d9124"
+      "sha256": "14f5fc17740ca5199069fc6c1191c7cf4c1d5cfed93971fb690883b5bccc7605"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png",
-      "sha256": "703866da59b0c75195e34dd103d70d752c645d4977e8f4593414932971709f74"
+      "sha256": "6b28e0def1a58ea8e0aca5c71b3662b317f2a5d3c6fde2f9800f1a9446d144ff"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
-      "sha256": "d939c30bdb197a50f48d7791928bc09da614e262e4aa05f58e04408a14d0830b"
+      "sha256": "82340d730d956d3a763d71fa309b3bab9fc5ecaf346fae37f9c7ab30454a7a7a"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",
-      "sha256": "f79fe48ad580be6860a593e023b97d10f0a67dc7ea65f18877c8f64f040ecf5f"
+      "sha256": "122e75d2ca6a7f4acabd21be03ef68f968850edb727199ecc979ae85b47098b2"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",
@@ -236,7 +236,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-syncing-strip-linux.png",
-      "sha256": "df6a75049af91ad9e933cecc52a1a7638b0bd7076a7829304f7cedc0845a08d2"
+      "sha256": "82795a541eee9894600de1f6712e151d9ac4d7cb29c51e8580d92a94436347eb"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-grid-timeline-default-linux.png",
@@ -256,7 +256,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-compact-linux.png",
-      "sha256": "165778c8454a6cff591a0147667fe79757c8c68959438b5a393d5dff79d9cf4f"
+      "sha256": "828022f83ae81938ead43ae18cf59af8cb58ba0872038019e11bfb7a86a9ed52"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-linux.png",
@@ -264,7 +264,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-mutation-transaction-recovery-panel-narrow-linux.png",
-      "sha256": "332b92fb4c65e236e9e1cfebec1f3d4e28eeaae751649a55540690261a34eb73"
+      "sha256": "0c64f1ead353554d216c6ee91eac51d1216b1187d83bf223904cec41ed171070"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-compact-actions-linux.png",

@@ -16,6 +16,7 @@ import {
   resolveHeaderSortFieldKey,
 } from "@cartulary/view-contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
@@ -64,7 +65,7 @@ import {
 } from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
-  WorkbookSurfaceStatusStrip,
+  WorkbookStatusStrip,
 } from "./WorkbookStatusStrip";
 import {
   WorkbookViewBar,
@@ -74,6 +75,7 @@ import {
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 
 export type AssessmentWorkbookSurfaceProps = {
+  readonly sheetRef: SheetRef;
   assessmentRows: WorkbookQueryRow[];
   continuityResetKey: string;
   currentIncidentRole: WorkbookIncidentRole | null;
@@ -99,6 +101,7 @@ export type AssessmentWorkbookSurfaceProps = {
 };
 
 export function AssessmentWorkbookSurface({
+  sheetRef,
   assessmentRows,
   continuityResetKey,
   currentIncidentRole,
@@ -142,10 +145,7 @@ export function AssessmentWorkbookSurface({
     null,
   );
   const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
-  const mutation = useWorkbookMutationRuntime(
-    mutationRuntime,
-    assessmentsViewSchemaId,
-  );
+  const mutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
@@ -428,10 +428,10 @@ export function AssessmentWorkbookSurface({
         </GridViewport>
       }
       statusStrip={
-        <WorkbookSurfaceStatusStrip
+        <WorkbookStatusStrip
           presence={collaboration.presence.header}
-          mutationError={mutation.secondaryMessage}
-          mutationState={mutation.primaryLabel}
+          status={mutation}
+          chromeMode={chromeMode}
           onActivateConflict={onActivateConflict}
           showPresence={showStatusPresence}
           workbookFocusAnchor={assessmentFocus.snapshot.anchor}

@@ -109,6 +109,7 @@ function renderCoordinator(
       const loadRows = async () => undefined;
       const nextDraftIndexRef = useRef(2);
       const coordinator = useTimelineRowMutationCoordinator({
+        sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
         advanceViewportContinuity,
         clearViewportContinuity,
         createdRowPresentationScopeKey,
@@ -162,6 +163,27 @@ afterEach(() => {
 });
 
 describe("useTimelineRowMutationCoordinator", () => {
+  it("settles accepted work after unmount without committing or focusing a detached projection", () => {
+    const runtime = runtimeFixture();
+    const { result, unmount, editorPort, advanceViewportContinuity } =
+      renderCoordinator(runtime, [timelineRow(1, "before")]);
+    const apply = result.current.coordinator.commands.applyAcceptedRowMutation;
+    unmount();
+    expect(
+      apply(
+        recordId,
+        {
+          row: timelineApiRow(2, "accepted after navigation"),
+          viewSchemaId: timelineViewSchemaId,
+        },
+        { viewportContinuityToken: 17 },
+      ),
+    ).toMatchObject({ rowVersion: 2 });
+    expect(editorPort.focusInput).not.toHaveBeenCalled();
+    expect(advanceViewportContinuity).not.toHaveBeenCalled();
+    runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
   it("reveals a committed draft row without restoring the pre-create scroll", () => {
     const runtime = runtimeFixture();
     const draft = createDraftRow(1);

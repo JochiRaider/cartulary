@@ -34,14 +34,13 @@ type TimelineEvidenceAttachInput = {
       viewportContinuityToken?: number;
     },
   ) => WorkbookRow;
-  readonly beginSave: () => void;
+
   readonly beginViewportContinuity: (
     target: TimelineEvidenceViewportContinuityTarget,
   ) => number;
   readonly clearViewportContinuity: (token: number) => void;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly evidenceAttachmentPort: TimelineEvidenceAttachmentPort;
-  readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
   readonly setInspectorMessage: (
@@ -70,7 +69,7 @@ export function useTimelineEvidenceAttach(input: TimelineEvidenceAttachInput) {
         rows: current.rowsRef.current,
       });
       if (initial.kind === "reject") {
-        publishUnavailableEvidenceTarget(current, false);
+        publishUnavailableEvidenceTarget(current);
         return;
       }
       const viewportContinuityToken = current.beginViewportContinuity(
@@ -78,7 +77,6 @@ export function useTimelineEvidenceAttach(input: TimelineEvidenceAttachInput) {
           ? { kind: "scroll-only" }
           : { kind: "row-inspect", recordId: initial.target.recordId },
       );
-      current.beginSave();
       current.setInspectorMessage(
         workbookInspectorMessageFeedback("Uploading evidence.", "none"),
       );
@@ -144,7 +142,6 @@ async function executeTimelineEvidenceAttachment(options: {
   if (settled.kind === "reject") {
     publishUnavailableEvidenceTarget(
       options.inputRef.current,
-      true,
       options.viewportContinuityToken,
     );
     return;
@@ -170,7 +167,6 @@ async function executeTimelineEvidenceAttachment(options: {
   options.inputRef.current.setInspectorMessage(
     workbookInspectorMessageFeedback("Evidence attached.", "none"),
   );
-  options.inputRef.current.finishSave("Saved");
 }
 
 async function currentEvidenceTarget(options: {
@@ -185,11 +181,7 @@ async function currentEvidenceTarget(options: {
     rows: input.rowsRef.current,
   });
   if (currentPlan.kind === "reject") {
-    publishUnavailableEvidenceTarget(
-      input,
-      true,
-      options.viewportContinuityToken,
-    );
+    publishUnavailableEvidenceTarget(input, options.viewportContinuityToken);
     return null;
   }
   if (currentPlan.target.recordId === null) return currentPlan.target;
@@ -203,17 +195,12 @@ async function currentEvidenceTarget(options: {
     rows: idle?.row === null || idle === null ? [] : [idle.row],
   });
   if (idlePlan.kind === "dispatch") return idlePlan.target;
-  publishUnavailableEvidenceTarget(
-    latest,
-    true,
-    options.viewportContinuityToken,
-  );
+  publishUnavailableEvidenceTarget(latest, options.viewportContinuityToken);
   return null;
 }
 
 function publishUnavailableEvidenceTarget(
   input: TimelineEvidenceAttachInput,
-  finish: boolean,
   viewportContinuityToken?: number,
 ): void {
   if (viewportContinuityToken !== undefined) {
@@ -225,7 +212,6 @@ function publishUnavailableEvidenceTarget(
       "none",
     ),
   );
-  if (finish) input.finishSave("Conflict");
 }
 
 function failEvidenceAttachment(
@@ -247,5 +233,4 @@ function failEvidenceAttachment(
           error: { primaryMessage: feedback.message, technicalFields: [] },
         },
   );
-  input.finishSave("Conflict");
 }

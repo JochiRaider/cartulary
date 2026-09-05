@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import { useWorkbookMutationRuntime } from "../../runtime/useWorkbookMutationRuntime";
@@ -129,6 +130,7 @@ function completeAcceptedContinuity({
  * query, fresh/replayed mutations, live patches, conflicts, and continuity.
  */
 export function useTimelineRowMutationCoordinator({
+  sheetRef,
   advanceViewportContinuity,
   clearActiveCollectionInputKey,
   clearViewportContinuity,
@@ -157,6 +159,7 @@ export function useTimelineRowMutationCoordinator({
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly editorPort: TimelineRowMutationEditorPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly sheetRef: SheetRef;
   readonly nextDraftIndex: () => number;
   readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
@@ -180,10 +183,17 @@ export function useTimelineRowMutationCoordinator({
     recordId: string | null;
     scopeKey: string;
   }>({ recordId: null, scopeKey: createdRowPresentationScopeKey });
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const conflicts = useTimelineConflicts({ conflictQueueRef });
   const commonMutationSnapshot = useWorkbookMutationRuntime(
     mutationRuntime,
-    timelineViewSchemaId,
+    sheetRef,
   );
   const { activeConflictKey, conflictQueue, pasteConflictGroup } =
     conflicts.snapshot;
@@ -196,11 +206,13 @@ export function useTimelineRowMutationCoordinator({
         .filter((entry) => entry.origin.viewSchemaId === timelineViewSchemaId)
         .map((entry) => entry.key),
     );
-    setConflictQueueState((current) =>
-      Object.fromEntries(
-        Object.entries(current).filter(([key]) => commonKeys.has(key)),
-      ),
-    );
+    setConflictQueueState((current) => {
+      const entries = Object.entries(current);
+      const retained = entries.filter(([key]) => commonKeys.has(key));
+      return retained.length === entries.length
+        ? current
+        : Object.fromEntries(retained);
+    });
     setActiveConflictKey((current) =>
       current !== null && commonKeys.has(current) ? current : null,
     );
@@ -212,7 +224,7 @@ export function useTimelineRowMutationCoordinator({
 
   const saveState = useTimelineSaveStatePresentation({
     conflictQueue,
-    conflictQueueRef,
+    sheetRef,
     mutationRuntime,
     pendingQueueSnapshot,
     pendingSavesRefs,
@@ -221,14 +233,12 @@ export function useTimelineRowMutationCoordinator({
   const {
     beginRefreshInFlight,
     beginSave,
-    finishRefreshInFlight,
-    finishSave,
     publishPendingQueueState,
     publishSaveStatePresentation,
   } = saveState.commands;
   useEffect(() => {
-    publishPendingQueueState(conflictQueue);
-  }, [conflictQueue, publishPendingQueueState]);
+    publishPendingQueueState();
+  }, [publishPendingQueueState]);
 
   const committedRows = useTimelineCommittedRows({ rowsRef });
   const {
@@ -278,6 +288,9 @@ export function useTimelineRowMutationCoordinator({
       });
       const accepted = acceptCommittedTimelineRow(rowFromApi(responseRow));
       const committed = accepted.row;
+      // The FIFO owns settlement after navigation. A detached projection has
+      // no React commit or viewport/focus effects to apply.
+      if (!mountedRef.current) return committed;
       let projection: TimelineAcceptedProjection | undefined;
       commitTimelineProjection(() => {
         updateRows((current) => {
@@ -374,10 +387,14 @@ export function useTimelineRowMutationCoordinator({
 
   const enqueueSaveWork = useCallback(
     (work: () => Promise<void>) => {
+      const finish = mutationRuntime.beginExplicitMutation();
       pendingSavesRefs.saveQueueRef.current =
-        pendingSavesRefs.saveQueueRef.current.catch(() => undefined).then(work);
+        pendingSavesRefs.saveQueueRef.current
+          .catch(() => undefined)
+          .then(work)
+          .finally(finish);
     },
-    [pendingSavesRefs],
+    [mutationRuntime, pendingSavesRefs],
   );
 
   const reconcileDiscardedPendingUnit = useCallback(
@@ -426,6 +443,7 @@ export function useTimelineRowMutationCoordinator({
   );
 
   const conflictProjection = useTimelineConflictProjectionAdapter({
+    sheetRef,
     acceptCommittedRow: acceptCommittedTimelineRow,
     activeConflictKey,
     conflictQueue,
@@ -482,8 +500,6 @@ export function useTimelineRowMutationCoordinator({
       beginSave,
       currentCommittedTimelineRow,
       enqueueSaveWork,
-      finishRefreshInFlight,
-      finishSave,
       hasLoadedRows,
       isCurrentLoadSequence,
       knownTimelineRowVersion,

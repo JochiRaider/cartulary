@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookClipboardPastePort } from "../../adapters/WorkbookClipboardPastePort";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
+import type { WorkbookConflictActivation } from "../../components/WorkbookStatusStrip";
 import type { WorkbookViewBarWorkingSetBinding } from "../../components/WorkbookViewBar";
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type { WorkbookGridEntryFocusOwner } from "../../models/workbookGridEntryFocus";
@@ -77,8 +78,6 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly refresh: (() => Promise<void> | void) | undefined;
   };
   readonly layout: WorkbookSurfaceLayoutOwner;
-  readonly onActivateConflict:
-    | ((invoker: HTMLButtonElement) => void)
-    | undefined;
+  readonly onActivateConflict: WorkbookConflictActivation | undefined;
   readonly onIncidentAccessLost: (() => void) | undefined;
 };

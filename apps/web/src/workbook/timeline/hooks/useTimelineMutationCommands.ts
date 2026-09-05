@@ -111,7 +111,6 @@ function settleUnadmittedScalarMutation({
 
 export function useTimelineMutationCommands({
   acceptTimelineActionResult,
-  beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
   clientInstanceId,
@@ -119,7 +118,6 @@ export function useTimelineMutationCommands({
   editorDraftRegistry,
   enqueueSaveWork,
   enqueuePendingReplayUnit,
-  finishSave,
   incidentId,
   latestCommittedTimelineRow,
   loadRows,
@@ -135,7 +133,7 @@ export function useTimelineMutationCommands({
   readonly acceptTimelineActionResult: (
     data: TimelineRecordActionAccepted,
   ) => void;
-  readonly beginSave: () => void;
+
   readonly beginViewportContinuity: (
     request: ViewportContinuityRequest,
   ) => number;
@@ -150,7 +148,7 @@ export function useTimelineMutationCommands({
     unit: TimelinePendingReplayAdmission,
     onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
   ) => void;
-  readonly finishSave: (result: "Conflict" | "Saved" | "Syncing") => void;
+
   readonly incidentId: string;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
   readonly loadRows: LoadRowsForMutation;
@@ -509,12 +507,10 @@ export function useTimelineMutationCommands({
         kind: "row-inspect",
         recordId,
       });
-      beginSave();
       enqueueSaveWork(async () => {
         const idleRecord = await waitForCommittedRecordIdle(recordId);
         if (idleRecord === null) {
           clearViewportContinuity(viewportContinuityToken);
-          finishSave("Conflict");
           return;
         }
         trackPendingSocketTxn(clientTxnId);
@@ -528,7 +524,6 @@ export function useTimelineMutationCommands({
         if (result.kind === "rejected") {
           resolvePendingSocketTxn(clientTxnId);
           clearViewportContinuity(viewportContinuityToken);
-          finishSave("Conflict");
           return;
         }
 
@@ -537,16 +532,13 @@ export function useTimelineMutationCommands({
           showLoading: false,
           viewportContinuityToken,
         });
-        finishSave("Saved");
       });
     },
     [
       acceptTimelineActionResult,
-      beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
       enqueueSaveWork,
-      finishSave,
       loadRows,
       nextClientTxnId,
       recordActionPort,

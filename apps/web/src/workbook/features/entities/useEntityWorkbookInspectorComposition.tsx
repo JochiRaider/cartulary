@@ -20,11 +20,13 @@ import {
   type Dispatch,
   type RefObject,
   type SetStateAction,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import {
@@ -67,9 +69,8 @@ import { timelineRelationshipChipPresentation } from "../../timeline/models/work
 import { EntityWorkbookInspector } from "./EntityWorkbookInspector";
 import { useEntityMergeController } from "./useEntityMergeController";
 
-type MutationSaveState = "Syncing" | "Saved" | "Conflict";
-
 export function useEntityWorkbookInspectorComposition({
+  sheetRef,
   canMerge,
   contract,
   currentIncidentRole,
@@ -83,7 +84,7 @@ export function useEntityWorkbookInspectorComposition({
   mutationCommands,
   mutationError,
   mutationRuntime,
-  mutationState,
+  mutationPending,
   onClearSurfaceSelection,
   onRefreshEntities,
   onResetOwnerState,
@@ -94,7 +95,7 @@ export function useEntityWorkbookInspectorComposition({
   selectedEntity,
   setEntityActionFeedback,
   setMutationError,
-  setMutationState,
+  setMutationPending,
   setSelectedRecordId,
   viewQuery,
 }: {
@@ -111,7 +112,8 @@ export function useEntityWorkbookInspectorComposition({
   readonly mutationCommands: EntityMutationCommandPort;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly mutationState: MutationSaveState;
+  readonly sheetRef: SheetRef;
+  readonly mutationPending: boolean;
   readonly onClearSurfaceSelection: () => void;
   readonly onRefreshEntities: () => Promise<void>;
   readonly onResetOwnerState: () => void;
@@ -126,7 +128,7 @@ export function useEntityWorkbookInspectorComposition({
   readonly setMutationError: Dispatch<
     SetStateAction<WorkbookInspectorErrorPresentation | null>
   >;
-  readonly setMutationState: Dispatch<SetStateAction<MutationSaveState>>;
+  readonly setMutationPending: Dispatch<SetStateAction<boolean>>;
   readonly setSelectedRecordId: Dispatch<SetStateAction<string | null>>;
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
@@ -152,7 +154,12 @@ export function useEntityWorkbookInspectorComposition({
         });
   const { clearTimelinePreview, loadTimelinePreview, timelinePreviewRows } =
     useEntityTimelinePreview({ entityType, viewQuery });
+  const beginMutation = useCallback(
+    () => mutationRuntime.beginExplicitMutation(),
+    [mutationRuntime],
+  );
   const merge = useEntityMergeController({
+    beginMutation,
     canMerge,
     clearDrafts: () => {
       setEditRecordId("");
@@ -208,6 +215,7 @@ export function useEntityWorkbookInspectorComposition({
     [inspectorConfig],
   );
   const related = useInspectorCreateRelatedWorkflow({
+    beginMutation,
     currentUserId,
     mutationCommands: relatedMutationCommands,
     onCreated: onRefreshEntities,
@@ -266,7 +274,7 @@ export function useEntityWorkbookInspectorComposition({
     }
     const finishMutation = mutationRuntime.beginExplicitMutation();
     try {
-      setMutationState("Syncing");
+      setMutationPending(true);
       setMutationError(null);
       const result = await mutationCommands.patchRecord({
         baseRowVersion: selectedEdit.row.rowVersion,
@@ -278,6 +286,7 @@ export function useEntityWorkbookInspectorComposition({
       if (result.kind === "rejected") {
         if (result.failure.kind === "same_field_conflict") {
           mutationRuntime.registerConflict({
+            sheetRef,
             conflict: result.failure.conflict,
             focusKey: `${selectedEdit.row.recordId}:${selectedEdit.field.fieldKey}`,
             rowLabel: selectedEdit.row.label,
@@ -285,13 +294,13 @@ export function useEntityWorkbookInspectorComposition({
             viewSchemaId: contract.viewSchemaId,
           });
         }
-        setMutationState("Conflict");
+        setMutationPending(false);
         setMutationError(workbookInspectorErrorPresentation(result.failure));
         return;
       }
       await onRefreshEntities();
       setSelectedRecordId(selectedEdit.row.recordId);
-      setMutationState("Saved");
+      setMutationPending(false);
     } finally {
       finishMutation();
     }
@@ -320,7 +329,7 @@ export function useEntityWorkbookInspectorComposition({
       entityType === "host" ? "host.aliases" : "identity.aliases";
     const finishMutation = mutationRuntime.beginExplicitMutation();
     try {
-      setMutationState("Syncing");
+      setMutationPending(true);
       setMutationError(null);
       const result = await mutationCommands.patchRecord({
         baseRowVersion: selectedEntity.rowVersion,
@@ -340,6 +349,7 @@ export function useEntityWorkbookInspectorComposition({
       if (result.kind === "rejected") {
         if (result.failure.kind === "same_field_conflict") {
           mutationRuntime.registerConflict({
+            sheetRef,
             conflict: result.failure.conflict,
             focusKey: `${selectedEntity.recordId}:${aliasFieldKey}`,
             rowLabel: selectedEntity.label,
@@ -347,14 +357,14 @@ export function useEntityWorkbookInspectorComposition({
             viewSchemaId: contract.viewSchemaId,
           });
         }
-        setMutationState("Conflict");
+        setMutationPending(false);
         setMutationError(workbookInspectorErrorPresentation(result.failure));
         return;
       }
       setAliasDraft("");
       await onRefreshEntities();
       setSelectedRecordId(selectedEntity.recordId);
-      setMutationState("Saved");
+      setMutationPending(false);
       requestAnimationFrame(() => aliasInputRef.current?.focus());
     } finally {
       finishMutation();
@@ -374,7 +384,7 @@ export function useEntityWorkbookInspectorComposition({
         editRecordId,
         editValue,
         mutationError,
-        mutationState,
+        mutationPending,
         referenceOptions,
         rows,
         selectedEdit,
@@ -393,6 +403,7 @@ export function useEntityWorkbookInspectorComposition({
         disabledTokens,
         feedbackTestId: entityMergeControlTestId("message"),
         history: {
+          beginMutation,
           actions: recordHistoryActions,
           canMutate:
             interactionMode.kind === "editable" &&
@@ -525,7 +536,7 @@ type EntityDetailsProps = {
   readonly editRecordId: string;
   readonly editValue: string;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
-  readonly mutationState: MutationSaveState;
+  readonly mutationPending: boolean;
   readonly referenceOptions: ReturnType<typeof emptyGenericReferenceOptions>;
   readonly rows: readonly EntityRow[];
   readonly selectedEdit: EntitySelectedEdit;
@@ -601,7 +612,7 @@ function EntityEditCell(props: EntityDetailsProps) {
         ) : null}
         <button
           data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
-          disabled={props.mutationState === "Syncing"}
+          disabled={props.mutationPending}
           style={actionButtonStyle}
           type="button"
           onClick={() => void props.submitEdit()}
@@ -627,7 +638,7 @@ function EntityAliases(props: EntityDetailsProps) {
             {alias.displayText}
             <button
               aria-label={`Remove alias ${alias.displayText}`}
-              disabled={props.mutationState === "Syncing"}
+              disabled={props.mutationPending}
               style={aliasRemoveButtonStyle}
               type="button"
               onClick={() =>
@@ -651,9 +662,7 @@ function EntityAliases(props: EntityDetailsProps) {
           onChange={(event) => props.setAliasDraft(event.target.value)}
         />
         <button
-          disabled={
-            props.mutationState === "Syncing" || props.aliasDraft.trim() === ""
-          }
+          disabled={props.mutationPending || props.aliasDraft.trim() === ""}
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() =>

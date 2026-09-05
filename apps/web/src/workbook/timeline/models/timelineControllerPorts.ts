@@ -2,6 +2,7 @@ import type {
   GridCellAnchor,
   GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
+import type { SheetRef } from "../../../shared/sheetRef";
 import type {
   FocusFieldKey,
   TimelineScalarEditorSurface,
@@ -63,6 +64,7 @@ export type TimelineRowMutationEditorPort = {
 };
 
 export type TimelineReplayContext = {
+  sheetRef: SheetRef;
   focusField: FocusFieldKey;
   focusKey: string;
   surface: TimelineScalarEditorSurface;

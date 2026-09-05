@@ -90,7 +90,6 @@ type TimelinePasteExecutionPorts = {
   readonly authority: () => TimelinePasteAuthority;
   readonly clearViewportContinuity: (token: number) => void;
   readonly clipboardPaste: WorkbookClipboardPastePort;
-  readonly finishSave: (nextState: "Conflict" | "Saved" | "Syncing") => void;
   readonly loadRows: TimelineLoadRowsForPaste;
   readonly registerSameFieldConflict: (
     conflict: SameFieldConflictPayload,
@@ -220,7 +219,6 @@ function rejectTimelinePaste(
   ports.clearViewportContinuity(viewportContinuityToken);
   if (paste.initial.anchor !== null) ports.restoreFocus(paste.initial.anchor);
   ports.setError(message);
-  ports.finishSave("Conflict");
 }
 
 function projectTimelinePasteConflicts(
@@ -364,7 +362,6 @@ async function executeTimelineGridPaste(
     viewportContinuityToken,
   });
   if (paste.initial.anchor !== null) ports.restoreFocus(paste.initial.anchor);
-  ports.finishSave(decoded.conflicts.length > 0 ? "Conflict" : "Saved");
 }
 
 export function useTimelineClipboardPasteController({
@@ -375,7 +372,6 @@ export function useTimelineClipboardPasteController({
   clearViewportContinuity,
   clipboardPaste,
   editable,
-  finishSave,
   grouped,
   loadRows,
   pendingSavesRefs,
@@ -391,7 +387,7 @@ export function useTimelineClipboardPasteController({
   waitForCommittedRecordIdle,
 }: {
   readonly applyResponseRows: (rows: readonly TimelineApiRow[]) => void;
-  readonly beginSave: () => void;
+  readonly beginSave: () => () => void;
   readonly beginViewportContinuity: (
     target:
       | { readonly kind: "input"; readonly focusKey: string }
@@ -402,7 +398,6 @@ export function useTimelineClipboardPasteController({
   readonly clearViewportContinuity: (token: number) => void;
   readonly clipboardPaste: WorkbookClipboardPastePort;
   readonly editable: boolean;
-  readonly finishSave: (nextState: "Conflict" | "Saved" | "Syncing") => void;
   readonly grouped: boolean;
   readonly loadRows: TimelineLoadRowsForPaste;
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
@@ -466,14 +461,13 @@ export function useTimelineClipboardPasteController({
               focusKey: inputFocusKey(paste.rowKey, paste.bindingKey, "grid"),
             },
       );
-      beginSave();
+      const finish = beginSave();
       setError(null);
       const ports: TimelinePasteExecutionPorts = {
         applyResponseRows,
         authority: () => authorityRef.current,
         clearViewportContinuity,
         clipboardPaste,
-        finishSave,
         loadRows,
         registerSameFieldConflict,
         resolvePendingSocketTxn,
@@ -490,7 +484,8 @@ export function useTimelineClipboardPasteController({
           .catch(() => undefined)
           .then(() =>
             executeTimelineGridPaste(paste, viewportContinuityToken, ports),
-          );
+          )
+          .finally(finish);
     },
     [
       applyResponseRows,
@@ -498,7 +493,6 @@ export function useTimelineClipboardPasteController({
       beginViewportContinuity,
       clearViewportContinuity,
       clipboardPaste,
-      finishSave,
       loadRows,
       pendingSavesRefs,
       registerSameFieldConflict,

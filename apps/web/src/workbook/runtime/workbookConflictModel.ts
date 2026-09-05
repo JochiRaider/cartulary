@@ -1,3 +1,4 @@
+import type { SheetRef } from "../../shared/sheetRef";
 import type {
   WorkbookProtocolCollectionActions,
   WorkbookProtocolResolveConflictRequest,
@@ -39,6 +40,7 @@ export type WorkbookConflictEntry = {
   readonly conflict: WorkbookSameFieldConflictPayload;
   readonly resolutionClass: WorkbookConflictResolutionClass;
   readonly origin: {
+    readonly sheetRef: SheetRef;
     readonly viewSchemaId: string;
     readonly surfaceLabel: string;
     readonly rowLabel: string;
@@ -77,18 +79,25 @@ export function workbookConflictEntry({
   rowLabel,
   surfaceLabel,
   viewSchemaId,
+  sheetRef,
 }: {
   readonly conflict: WorkbookSameFieldConflictPayload;
   readonly focusKey?: string | null | undefined;
   readonly rowLabel: string;
   readonly surfaceLabel: string;
   readonly viewSchemaId: string;
+  readonly sheetRef?: SheetRef | undefined;
 }): WorkbookConflictEntry {
   return {
     key: workbookConflictQueueKey(conflict),
     conflict,
     resolutionClass: conflict.conflict_resolution_class,
-    origin: { viewSchemaId, surfaceLabel, rowLabel },
+    origin: {
+      viewSchemaId,
+      surfaceLabel,
+      rowLabel,
+      sheetRef: sheetRef ?? { kind: "view_schema", id: viewSchemaId },
+    },
     focusKey,
     localValue: conflict.client_value,
     mergedDraft:

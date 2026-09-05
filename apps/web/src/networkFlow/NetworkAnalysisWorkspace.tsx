@@ -15,6 +15,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   type CSSProperties,
   useCallback,
@@ -104,6 +105,7 @@ type NetworkAnalysisMode = "rows" | "rejected" | "graph";
 type NetworkFlowGraphSurface = "explore" | "saved";
 
 export type NetworkAnalysisWorkspaceProps = {
+  readonly workbookStatus?: ReactNode;
   readonly apiBase?: string | undefined;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentId: string;
@@ -115,6 +117,7 @@ const graphVertexRenderLimit = 500;
 const graphEdgeRenderLimit = 1_000;
 
 function NetworkAnalysisWorkspaceContent({
+  workbookStatus,
   apiBase,
   currentIncidentRole,
   incidentId,
@@ -736,7 +739,18 @@ function NetworkAnalysisWorkspaceContent({
         data-testid={networkAnalysisTestId("status-strip")}
         style={statusStripStyle}
       >
-        <span aria-atomic="true" aria-live="polite" role="status">
+        {workbookStatus}
+        <span
+          style={{
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          aria-atomic="true"
+          aria-live="polite"
+          role="status"
+        >
           <span>
             {tableController.loadState === "loading"
               ? "Loading"

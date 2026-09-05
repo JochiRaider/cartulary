@@ -46,10 +46,7 @@ type RecordOperation = {
   readonly rowVersion: number;
   readonly state: EvidenceOperationState;
 };
-type MutationPorts = Pick<
-  GenericSurfaceMutationController,
-  "beginMutation" | "markMutationConflict" | "markMutationSaved"
->;
+type MutationPorts = Pick<GenericSurfaceMutationController, "beginMutation">;
 
 function titleFor(row: WorkbookQueryRow) {
   return (
@@ -383,7 +380,7 @@ export function useEvidenceWorkbookBindings(input: {
       }
       attachment.current = ticket.sequence;
       setAttaching(true);
-      current.mutation.beginMutation();
+      const finish = current.mutation.beginMutation();
       try {
         const outcome = await current.mutationCommands.attach({
           baseRowVersion: row.row_version,
@@ -398,20 +395,18 @@ export function useEvidenceWorkbookBindings(input: {
           });
           if (ticket.lifetime === lifetime.current)
             invalidateAccess(outcome.failure);
-          current.mutation.markMutationConflict();
           return;
         }
         publish(ticket, { kind: "accepted", operation: "attach" });
         if (ticket.lifetime === lifetime.current) await current.onRefresh();
-        current.mutation.markMutationSaved();
       } catch {
         publish(ticket, {
           kind: "rejected",
           operation: "attach",
           failure: unknownFailure,
         });
-        current.mutation.markMutationConflict();
       } finally {
+        finish();
         attachment.current = null;
         setAttaching(false);
       }

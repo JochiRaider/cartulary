@@ -120,13 +120,10 @@ export function TimelineWorkbookNotices({
       {pendingQueueMessage !== null ? (
         <div
           data-testid={pendingQueueNoticeTestId()}
-          role="status"
           style={pendingQueueNoticeCardStyle}
         >
           <strong style={pendingQueueTitleStyle}>Queued edits</strong>
-          <span aria-live="polite" style={noticeMessageStyle}>
-            {pendingQueueMessage}
-          </span>
+          <span style={noticeMessageStyle}>{pendingQueueMessage}</span>
           <span data-testid={pendingQueueCountTestId()} style={queueCountStyle}>
             Pending {pendingQueueCount}
           </span>

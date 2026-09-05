@@ -1307,7 +1307,9 @@ describe("WorkbookShell surface selection", () => {
     expect(workbookShell.style.blockSize).toBe("100%");
     expect(["0", "0px"]).toContain(workbookShell.style.minBlockSize);
     expect(workbookShell.style.overflow).toBe("hidden");
-    const shellContentRegion = workbookShell.children[1];
+    const shellContentRegion = screen.getByRole("region", {
+      name: "Active workbook surface focus target",
+    }).parentElement;
     expect(shellContentRegion).toBeInstanceOf(HTMLElement);
     if (!(shellContentRegion instanceof HTMLElement)) {
       throw new Error("Expected workbook shell content region to exist");
@@ -3022,7 +3024,7 @@ describe("WorkbookShell surface selection", () => {
     ]);
   });
 
-  it("keeps failed generic party-link mutations in Conflict", async () => {
+  it("keeps rejected generic party-link feedback local", async () => {
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: taskRequestsViewSchemaId },
       selected_view_schema_id: taskRequestsViewSchemaId,
@@ -3081,13 +3083,11 @@ describe("WorkbookShell surface selection", () => {
         base_row_version: 4,
         changes: [{ field_key: "task.requester_party_id", value: null }],
       });
-      expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
-        "Conflict",
-      );
+      expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect(
       screen.getAllByText("This row changed; refresh it before retrying."),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(screen.getByText("Public error code")).not.toBeNull();
     expect(screen.getAllByText("row_version_conflict")).toHaveLength(2);
   });
@@ -3130,7 +3130,7 @@ describe("WorkbookShell surface selection", () => {
     const { result } = renderHook(() =>
       useGenericPartyLinkWorkflow({
         mutation: {
-          beginMutation: vi.fn(),
+          beginMutation: vi.fn(() => vi.fn()),
           rejectMutationFailure,
           setValidationError,
         },

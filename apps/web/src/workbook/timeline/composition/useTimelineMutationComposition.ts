@@ -146,6 +146,7 @@ export function useTimelineMutationComposition({
     [incident.continuityResetKey, timelineQueryIdentity],
   );
   const rowMutations = useTimelineRowMutationCoordinator({
+    sheetRef: incident.sheetRef,
     advanceViewportContinuity: grid.advanceViewportContinuity,
     clearActiveCollectionInputKey: foundation.clearActiveCollectionInputKey,
     clearViewportContinuity: grid.clearViewportContinuity,
@@ -214,7 +215,6 @@ export function useTimelineMutationComposition({
       queryAdmission.currentCreatedRowPresentationRecordId,
     currentCommittedTimelineRow: queryAdmission.currentCommittedTimelineRow,
     currentMutationEpoch: queryAdmission.currentMutationEpoch,
-    finishRefreshInFlight: rowMutations.commands.finishRefreshInFlight,
     failViewportContinuity: grid.failViewportContinuity,
     hasLoadedRows: queryAdmission.hasLoadedRows,
     isCurrentLoadSequence: queryAdmission.isCurrentLoadSequence,
@@ -223,7 +223,6 @@ export function useTimelineMutationComposition({
     loadIdentity: timelineLoadIdentity,
     nextDraftIndex: foundation.nextDraftIndex,
     onIncidentAccessLost,
-    pendingSavesRefs: foundation.pendingSavesRefs,
     pruneAutoResolutionNoticesForRows:
       rowMutations.commands.pruneAutoResolutionNoticesForRows,
     pruneDismissedMentionsForRow: reconcileDismissedMentionsForRow,
@@ -276,6 +275,7 @@ export function useTimelineMutationComposition({
   }, [incident.reloadToken, loadRows]);
 
   const replay = useTimelineMutationDriver({
+    sheetRef: activeSheetRef,
     applyAcceptedRowMutation: rowMutations.commands.applyAcceptedRowMutation,
     clearSubmittedScalarEditorDraftValuesForRow:
       foundation.editorDraftRegistry.clearSubmittedRow,
@@ -287,12 +287,14 @@ export function useTimelineMutationComposition({
       focusField,
       surface,
       refresh,
+      originSheetRef,
     ) => {
       rowMutations.commands.registerSameFieldConflict(
         conflict,
         inputFocusKey(rowKey, focusField, surface),
         surface,
         refresh,
+        originSheetRef,
       );
       return true;
     },
@@ -338,7 +340,6 @@ export function useTimelineMutationComposition({
   const mutations = useTimelineMutationCommands({
     acceptTimelineActionResult:
       rowMutations.commands.acceptTimelineActionResult,
-    beginSave: rowMutations.commands.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     clientInstanceId: mutationRuntime.scope.clientInstanceId,
@@ -346,7 +347,6 @@ export function useTimelineMutationComposition({
     editorDraftRegistry: foundation.editorDraftRegistry,
     enqueueSaveWork: rowMutations.commands.enqueueSaveWork,
     enqueuePendingReplayUnit: replay.enqueuePendingReplayUnit,
-    finishSave: rowMutations.commands.finishSave,
     incidentId: incident.id,
     latestCommittedTimelineRow:
       rowMutations.commands.latestCommittedTimelineRow,

@@ -66,6 +66,7 @@ function LineComparison({
 }
 
 export function WorkbookSameFieldConflictResolver({
+  activation,
   apiBase,
   focusSummary,
   mutationRuntime,
@@ -73,6 +74,10 @@ export function WorkbookSameFieldConflictResolver({
   snapshot,
   summaryRef,
 }: {
+  readonly activation?: {
+    readonly conflictKey: string;
+    readonly sequence: number;
+  } | null;
   readonly apiBase?: string | undefined;
   readonly focusSummary: () => void;
   readonly mutationRuntime: WorkbookMutationRuntime;
@@ -84,6 +89,10 @@ export function WorkbookSameFieldConflictResolver({
   readonly summaryRef: RefObject<HTMLDivElement | null>;
 }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (activation !== undefined && activation !== null)
+      setActiveKey(activation.conflictKey);
+  }, [activation]);
   const conflict =
     snapshot.conflicts.find((entry) => entry.key === activeKey) ??
     snapshot.conflicts[0] ??

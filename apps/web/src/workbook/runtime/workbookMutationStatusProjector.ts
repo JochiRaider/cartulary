@@ -1,7 +1,24 @@
+import {
+  type SheetRef,
+  sheetRefKey,
+  sheetRefsEqual,
+} from "../../shared/sheetRef";
 import { workbookEditRecoveryPresentation } from "../utils/workbookEditRecoveryPresentation";
-import type { PendingQueueSnapshot } from "../utils/workbookPendingQueue";
-import type { WorkbookStatusSecondaryCandidate } from "../utils/workbookStatusSecondary";
-import type { WorkbookConflictEntry } from "./workbookConflictModel";
+import {
+  deriveWorkbookSaveState,
+  type PendingQueueSnapshot,
+} from "../utils/workbookPendingQueue";
+import {
+  selectWorkbookStatusSecondary,
+  type WorkbookStatusAction,
+  type WorkbookStatusSecondaryCandidate,
+} from "../utils/workbookStatusSecondary";
+import {
+  type WorkbookConflictEntry,
+  workbookConflictQueueKey,
+} from "./workbookConflictModel";
+
+export type WorkbookSaveLabel = "Conflict" | "Saved" | "Syncing";
 
 export type WorkbookMutationSnapshot = {
   readonly authPaused: boolean;
@@ -13,15 +30,23 @@ export type WorkbookMutationSnapshot = {
   readonly conflictPanelOpen: boolean;
   readonly conflicts: readonly WorkbookConflictEntry[];
   readonly explicitInFlightCount: number;
-  readonly primaryLabel: "Conflict" | "Saved" | "Syncing";
+  readonly queuedCount: number;
+  readonly inFlightCount: number;
+  readonly primaryLabel: WorkbookSaveLabel;
+  readonly unresolvedConflictCount: number;
   readonly overflowMessage: string | null;
-  readonly secondaryMessage: string | null;
   readonly secondaryCandidates: readonly WorkbookStatusSecondaryCandidate[];
 };
 
-export type WorkbookSurfaceSaveStateProjection = {
-  readonly primaryLabel: "Conflict" | "Saved" | "Syncing";
-  readonly secondaryMessage: string | null;
+export type WorkbookStatusPresentation = WorkbookMutationSnapshot & {
+  readonly affectedConflictCount: number;
+  readonly secondary: WorkbookStatusSecondaryCandidate | null;
+  readonly action: WorkbookStatusAction | null;
+};
+
+export type WorkbookRefreshStatusFact = {
+  readonly sheetRef: SheetRef;
+  readonly count: number;
 };
 
 type WorkbookMutationStatusInput = {
@@ -29,211 +54,174 @@ type WorkbookMutationStatusInput = {
   readonly conflicts: readonly WorkbookConflictEntry[];
   readonly explicitInFlightCount: number;
   readonly queue: PendingQueueSnapshot;
-  readonly surfaceSaveStates: ReadonlyMap<
-    string,
-    WorkbookSurfaceSaveStateProjection
-  >;
+  readonly refreshes?: readonly WorkbookRefreshStatusFact[];
 };
-
-function haltedCandidate(
-  queue: PendingQueueSnapshot,
-): WorkbookStatusSecondaryCandidate | null {
-  if (queue.halted === null) return null;
-  const haltedSurfaceId =
-    queue.units.find((unit) => unit.id === queue.halted?.unit_id)
-      ?.viewSchemaId ?? null;
-  if (haltedSurfaceId === null) return null;
-  return {
-    kind:
-      queue.halted.error_code === "client_txn_conflict"
-        ? "client_txn_conflict"
-        : "terminal_replay_failure",
-    message: queue.halted.message,
-    surfaceId: haltedSurfaceId,
-  };
-}
-
-function overflowCandidate(
-  queue: PendingQueueSnapshot,
-): WorkbookStatusSecondaryCandidate | null {
-  return queue.overflow?.view_schema_id === undefined
-    ? null
-    : {
-        kind: "queue_overflow",
-        message: queue.overflow.message,
-        surfaceId: queue.overflow.view_schema_id,
-      };
-}
-
-function queueConflictCandidates(
-  queue: PendingQueueSnapshot,
-): WorkbookStatusSecondaryCandidate[] {
-  return queue.sameFieldConflicts.flatMap((conflict) =>
-    conflict.view_schema_id === undefined
-      ? []
-      : [
-          {
-            kind: "same_field_conflict",
-            message:
-              queue.saveStatePresentation.secondaryMessage ??
-              "Same-field conflict requires review.",
-            surfaceId: conflict.view_schema_id,
-          },
-        ],
-  );
-}
-
-function localConflictCandidates(
-  conflicts: readonly WorkbookConflictEntry[],
-): WorkbookStatusSecondaryCandidate[] {
-  return conflicts.map((conflict) => ({
-    kind: "same_field_conflict",
-    message: "Same-field conflict requires review.",
-    surfaceId: conflict.origin.viewSchemaId,
-  }));
-}
-
-function queuedCandidates(
-  queue: PendingQueueSnapshot,
-): WorkbookStatusSecondaryCandidate[] {
-  return Array.from(
-    new Set(queue.units.map((unit) => unit.viewSchemaId)),
-    (surfaceId): WorkbookStatusSecondaryCandidate => ({
-      kind: queue.authPaused
-        ? "authentication_required"
-        : "queued_or_in_flight",
-      message: queue.authPaused
-        ? "Authentication is required before queued edits can replay."
-        : "Queued edits are waiting to replay.",
-      surfaceId,
-    }),
-  );
-}
-
-function surfaceCandidates(
-  surfaceSaveStates: WorkbookMutationStatusInput["surfaceSaveStates"],
-): WorkbookStatusSecondaryCandidate[] {
-  return Array.from(surfaceSaveStates).flatMap(([surfaceId, state]) =>
-    state.secondaryMessage === null
-      ? []
-      : [
-          {
-            kind:
-              state.primaryLabel === "Conflict"
-                ? "terminal_replay_failure"
-                : "refresh_paused",
-            message: state.secondaryMessage,
-            surfaceId,
-          },
-        ],
-  );
-}
-
-function secondaryCandidates({
-  conflicts,
-  queue,
-  surfaceSaveStates,
-}: Pick<
-  WorkbookMutationStatusInput,
-  "conflicts" | "queue" | "surfaceSaveStates"
->): WorkbookStatusSecondaryCandidate[] {
-  return [
-    haltedCandidate(queue),
-    overflowCandidate(queue),
-    ...queueConflictCandidates(queue),
-    ...localConflictCandidates(conflicts),
-    ...queuedCandidates(queue),
-    ...surfaceCandidates(surfaceSaveStates),
-  ].filter(
-    (candidate): candidate is WorkbookStatusSecondaryCandidate =>
-      candidate !== null,
-  );
-}
-
-function primaryLabel(
-  input: WorkbookMutationStatusInput,
-): WorkbookMutationSnapshot["primaryLabel"] {
-  const hasConflict =
-    input.conflicts.length > 0 ||
-    input.queue.halted !== null ||
-    input.queue.overflow !== null ||
-    input.queue.sameFieldConflicts.length > 0 ||
-    Array.from(input.surfaceSaveStates.values()).some(
-      (state) => state.primaryLabel === "Conflict",
-    );
-  if (hasConflict) return "Conflict";
-  const hasPending =
-    input.queue.queuedCount > 0 ||
-    input.queue.inFlightCount > 0 ||
-    input.explicitInFlightCount > 0 ||
-    Array.from(input.surfaceSaveStates.values()).some(
-      (state) => state.primaryLabel === "Syncing",
-    );
-  return hasPending ? "Syncing" : "Saved";
-}
-
-function projectedSecondaryMessage(
-  input: WorkbookMutationStatusInput,
-  projectedPrimaryLabel: WorkbookMutationSnapshot["primaryLabel"],
-): string | null {
-  if (
-    input.queue.saveStatePresentation.primaryLabel === projectedPrimaryLabel &&
-    input.queue.saveStatePresentation.secondaryMessage !== null
-  ) {
-    return input.queue.saveStatePresentation.secondaryMessage;
-  }
-  const surfaceMessage = Array.from(input.surfaceSaveStates.values()).find(
-    (state) => state.primaryLabel === projectedPrimaryLabel,
-  )?.secondaryMessage;
-  if (surfaceMessage !== undefined && surfaceMessage !== null) {
-    return surfaceMessage;
-  }
-  if (input.explicitInFlightCount === 0) return null;
-  const suffix = input.explicitInFlightCount === 1 ? "" : "s";
-  return `${input.explicitInFlightCount} explicit change${suffix} in flight`;
-}
 
 export function projectWorkbookMutationStatus({
   conflictPanelOpen,
   conflicts,
   explicitInFlightCount,
   queue,
-  surfaceSaveStates,
+  refreshes = [],
 }: WorkbookMutationStatusInput): WorkbookMutationSnapshot {
-  const input = {
-    conflictPanelOpen,
-    conflicts,
-    explicitInFlightCount,
-    queue,
-    surfaceSaveStates,
-  };
-  const projectedPrimaryLabel = primaryLabel(input);
-  const blockedEdit =
+  // The conflict store replaces an entry by its existing record/field key.
+  // Prefer that current entry over a queue report of an older token/version.
+  const storedKeys = new Set(conflicts.map((entry) => entry.key));
+  const queueConflicts = queue.sameFieldConflicts.filter(
+    (entry) => !storedKeys.has(entry.key),
+  );
+  const pendingCount =
+    queue.queuedCount + queue.inFlightCount + explicitInFlightCount;
+  const derived = deriveWorkbookSaveState({
+    queuedCount: queue.queuedCount,
+    inFlightCount: queue.inFlightCount,
+    pendingMutationCount: explicitInFlightCount,
+    authPaused: queue.authPaused && pendingCount > 0,
+    refreshPaused: pendingCount > 0 && refreshes.some((fact) => fact.count > 0),
+    halted: queue.halted,
+    overflow: queue.overflow,
+    sameFieldConflicts: queueConflicts,
+    localDraftConflicts: conflicts.map((entry) => entry.conflict),
+  });
+  const candidates: WorkbookStatusSecondaryCandidate[] = [];
+  const recovery =
     queue.halted === null
       ? null
       : workbookEditRecoveryPresentation({
           errorCode: queue.halted.error_code,
         });
+  const blockedEdit =
+    recovery === null || queue.halted === null
+      ? null
+      : {
+          ...recovery,
+          unitId: queue.halted.unit_id,
+        };
+  if (blockedEdit !== null)
+    candidates.push({
+      kind: blockedEdit.kind,
+      scope: { kind: "workbook" },
+      count: 1,
+      message: blockedEdit.message,
+      action: {
+        kind:
+          blockedEdit.kind === "client_txn_conflict"
+            ? "transaction_recovery"
+            : "terminal_failure",
+        unitId: blockedEdit.unitId,
+      },
+    });
+  const overflowMessage =
+    queue.overflow === null
+      ? null
+      : "The local pending queue is full. Existing queued edits are retained; the current edit remains unsaved local work.";
+  if (overflowMessage !== null)
+    candidates.push({
+      kind: "queue_overflow",
+      scope: { kind: "workbook" },
+      count: 1,
+      message: overflowMessage,
+      action: { kind: "overflow" },
+    });
+  const conflictGroups = new Map<
+    string,
+    { sheetRef: SheetRef; keys: Set<string>; firstKey: string }
+  >();
+  const addConflict = (sheetRef: SheetRef | undefined, key: string) => {
+    if (sheetRef === undefined) return;
+    const scopeKey = sheetRefKey(sheetRef);
+    let group = conflictGroups.get(scopeKey);
+    if (group === undefined) {
+      group = { sheetRef, keys: new Set(), firstKey: key };
+      conflictGroups.set(scopeKey, group);
+    }
+    group.keys.add(key);
+  };
+  for (const entry of conflicts) addConflict(entry.origin.sheetRef, entry.key);
+  for (const entry of queueConflicts)
+    addConflict(entry.sheetRef, workbookConflictQueueKey(entry));
+  for (const group of conflictGroups.values()) {
+    const count = group.keys.size;
+    candidates.push({
+      kind: "same_field_conflict",
+      scope: { kind: "surface", sheetRef: group.sheetRef },
+      count,
+      message:
+        count === 1
+          ? "1 same-field conflict needs review."
+          : `${count} same-field conflicts need review.`,
+      action: { kind: "same_field_resolver", conflictKey: group.firstKey },
+    });
+  }
+  if (queue.authPaused && pendingCount > 0)
+    candidates.push({
+      kind: "authentication_required",
+      scope: { kind: "workbook" },
+      count: pendingCount,
+      message: "Authentication is required before queued edits can replay.",
+      action: { kind: "session_recovery" },
+    });
+  if (pendingCount > 0) {
+    for (const refresh of refreshes) {
+      if (refresh.count <= 0) continue;
+      candidates.push({
+        kind: "refresh_paused",
+        scope: { kind: "surface", sheetRef: refresh.sheetRef },
+        count: refresh.count,
+        message: "Queued edits are waiting for workbook refresh.",
+        action: null,
+      });
+    }
+    candidates.push({
+      kind: "queued_or_in_flight",
+      scope: { kind: "workbook" },
+      count: pendingCount,
+      message:
+        queue.queuedCount > 0
+          ? "Queued edits are waiting to replay."
+          : "Workbook edits are syncing.",
+      action: null,
+    });
+  }
   return {
     authPaused: queue.authPaused,
-    blockedEdit:
-      blockedEdit === null || queue.halted === null
-        ? null
-        : {
-            kind: blockedEdit.kind,
-            message: blockedEdit.message,
-            unitId: queue.halted.unit_id,
-          },
+    blockedEdit,
     conflictPanelOpen,
     conflicts,
     explicitInFlightCount,
-    primaryLabel: projectedPrimaryLabel,
-    overflowMessage: queue.overflow?.message ?? null,
-    secondaryMessage: projectedSecondaryMessage(input, projectedPrimaryLabel),
-    secondaryCandidates: secondaryCandidates({
-      conflicts,
-      queue,
-      surfaceSaveStates,
-    }),
+    queuedCount: queue.queuedCount,
+    inFlightCount: queue.inFlightCount + explicitInFlightCount,
+    primaryLabel: derived.primaryLabel,
+    unresolvedConflictCount: derived.conflictAnchors.length,
+    overflowMessage,
+    secondaryCandidates: candidates,
+  };
+}
+
+export function projectWorkbookStatusForSurface(
+  snapshot: WorkbookMutationSnapshot,
+  sheetRef?: SheetRef,
+): WorkbookStatusPresentation {
+  const secondary = selectWorkbookStatusSecondary(
+    snapshot.secondaryCandidates,
+    sheetRef,
+  );
+  const affected = snapshot.secondaryCandidates.find(
+    (candidate) =>
+      candidate.kind === "same_field_conflict" &&
+      candidate.scope.kind === "surface" &&
+      sheetRef !== undefined &&
+      sheetRefsEqual(candidate.scope.sheetRef, sheetRef),
+  );
+  const firstConflict = snapshot.conflicts[0];
+  return {
+    ...snapshot,
+    affectedConflictCount: affected?.count ?? 0,
+    secondary,
+    action:
+      secondary?.action ??
+      (snapshot.primaryLabel === "Conflict" && firstConflict !== undefined
+        ? { kind: "same_field_resolver", conflictKey: firstConflict.key }
+        : null),
   };
 }

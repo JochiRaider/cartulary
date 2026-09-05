@@ -14,6 +14,7 @@ import {
 } from "../surfaces/WorkbookSurfacesFacade";
 
 type ExtensionWorkspaceRendererProps = {
+  readonly workbookStatus: ReactNode;
   readonly apiBase: string | undefined;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentId: string;

@@ -7,7 +7,6 @@ import type { TimelinePendingSavesRefs } from "./models/timelinePendingSaves";
 function pendingSavesRefs(): TimelinePendingSavesRefs {
   return {
     collectionKeyboardCommitRef: { current: new Map() },
-    pendingOpsRef: { current: 0 },
     pendingQueueRef: {
       current: createWorkbookPendingQueueRuntime({
         clientInstanceId: "client-1",

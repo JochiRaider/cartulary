@@ -1170,7 +1170,8 @@
           "useTimelineRowMutationCoordinator invalidates an in-flight query generation when an action advances the row",
           "useTimelineRowMutationCoordinator pins only the latest locally created row within its query presentation scope",
           "useTimelineRowMutationCoordinator prevents stale action and mutation results from regressing a live high-water row",
-          "useTimelineRowMutationCoordinator retains one query-scoped created row when a refresh omits it"
+          "useTimelineRowMutationCoordinator retains one query-scoped created row when a refresh omits it",
+          "useTimelineRowMutationCoordinator settles accepted work after unmount without committing or focusing a detached projection"
         ]
       },
       "evidence_class": "unit",

@@ -266,6 +266,8 @@ describe("WorkbookCollaborationCoordinator", () => {
   });
   it("renews one expiry task without rendering keepalive or refreshing queries", async () => {
     const fixture = projectionFixture();
+    const mutationBefore = fixture.mutationRuntime.getSnapshot();
+    expect(fixture.mutationRuntime.takeSaveAnnouncement()).toBeNull();
     const p = {
       ...presence("remote", {
         kind: "view_schema",
@@ -303,6 +305,8 @@ describe("WorkbookCollaborationCoordinator", () => {
     expect(fixture.queryInvalidation).not.toHaveBeenCalled();
     expect(fixture.mutationInvalidation).not.toHaveBeenCalled();
     expect(fixture.continuityInvalidation).not.toHaveBeenCalled();
+    expect(fixture.mutationRuntime.getSnapshot()).toBe(mutationBefore);
+    expect(fixture.mutationRuntime.takeSaveAnnouncement()).toBeNull();
     fixture.projection.dispose();
   });
 

@@ -100,13 +100,11 @@ function controller({
       capabilityAvailable: true,
       surfaceKey: "view_schema:cartulary.view.timeline.v2",
     },
-    beginSave: vi.fn(),
     beginViewportContinuity: vi.fn(() => 41),
     clearViewportContinuity: vi.fn(),
     enqueueSaveWork: vi.fn((work: () => Promise<void>) => {
       queuedWork = work;
     }),
-    finishSave: vi.fn(),
     loadRows,
     knownEntityTypes: new Map([[resolvedRecordId, "host" as const]]),
     mentionPorts: {
@@ -212,7 +210,6 @@ describe("useTimelineMentionActions auto-resolution undo", () => {
       kind: "row-inspect",
       recordId,
     });
-    expect(mocks.beginSave).toHaveBeenCalledOnce();
     expect(mocks.enqueueSaveWork).toHaveBeenCalledOnce();
 
     await act(async () => getQueuedWork()?.());
@@ -234,7 +231,6 @@ describe("useTimelineMentionActions auto-resolution undo", () => {
       sourceRecordRequirement: { recordId, minimumRowVersion: 6 },
       viewportContinuityToken: 41,
     });
-    expect(mocks.finishSave).toHaveBeenLastCalledWith("Saved");
     expect(mocks.clearViewportContinuity).not.toHaveBeenCalled();
 
     const updateDismissed = setDismissedMentions.mock.calls[0]?.[0];
@@ -283,7 +279,6 @@ describe("useTimelineMentionActions auto-resolution undo", () => {
       dismissed.result.current.submitMentionAction(mention, "dismiss_item"),
     );
     await act(async () => dismissed.getQueuedWork()?.());
-    expect(dismissed.mocks.finishSave).toHaveBeenLastCalledWith("Saved");
     const appendDismissed = dismissed.setDismissedMentions.mock.calls[0]?.[0];
     expect(typeof appendDismissed).toBe("function");
     expect(appendDismissed({})[recordId]).toEqual([
@@ -305,7 +300,6 @@ describe("useTimelineMentionActions auto-resolution undo", () => {
       rowsRef: { current: [] },
     });
     act(() => missing.result.current.handleUndoAutoResolutionNotice(notice));
-    expect(missing.mocks.beginSave).not.toHaveBeenCalled();
     expect(missing.resolve).not.toHaveBeenCalled();
 
     const active = controller({ portResult: rejected });
@@ -322,7 +316,6 @@ describe("useTimelineMentionActions auto-resolution undo", () => {
       },
       kind: "error",
     });
-    expect(active.mocks.finishSave).toHaveBeenLastCalledWith("Conflict");
     expect(active.mocks.loadRows).not.toHaveBeenCalled();
   });
 });

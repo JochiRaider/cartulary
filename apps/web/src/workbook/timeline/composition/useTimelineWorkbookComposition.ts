@@ -153,9 +153,7 @@ export function useTimelineWorkbookComposition({
       commands: {
         acceptTimelineRecordVersion:
           mutation.commands.save.acceptTimelineRecordVersion,
-        beginSave: mutation.commands.save.beginSave,
         enqueueSaveWork: mutation.commands.save.enqueueSaveWork,
-        finishSave: mutation.commands.save.finishSave,
         nextClientTxnId: mutation.commands.identity.nextClientTxnId,
         resolvePendingSocketTxn: mutation.commands.save.resolvePendingSocketTxn,
         trackPendingSocketTxn: mutation.commands.save.trackPendingSocketTxn,
@@ -220,7 +218,6 @@ export function useTimelineWorkbookComposition({
       beginSave: mutation.commands.save.beginSave,
       commitScalarGridEdit: mutation.commands.mutation.commitScalarGridEdit,
       enqueueSaveWork: mutation.commands.save.enqueueSaveWork,
-      finishSave: mutation.commands.save.finishSave,
       loadRows: mutation.commands.query.loadRows,
       mutationCommands: runtime.mutationCommands,
       queueCollectionSave: mutation.commands.mutation.queueCollectionSave,
@@ -299,6 +296,7 @@ export function useTimelineWorkbookComposition({
     },
     mutation: {
       commands: {
+        beginMutation: mutation.commands.save.beginSave,
         mutation: {
           changeReplacementDraft:
             mutation.commands.mutation.changeReplacementDraft,

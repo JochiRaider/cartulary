@@ -58,6 +58,7 @@ export function GenericWorkbookInspector({
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
   readonly evidenceContent: ReactNode;
   readonly history: {
+    readonly beginMutation: () => () => void;
     readonly actions: ReadonlySet<"delete" | "restore" | "rollback">;
     readonly canMutate: boolean;
     readonly commands: RecordRouteCommandPort;
@@ -112,6 +113,7 @@ export function GenericWorkbookInspector({
       {content}
       {subject?.kind === "live" && indicator?.handler?.panelId === panelId ? (
         <IndicatorInspectorWorkflow
+          beginMutation={history.beginMutation}
           action={indicator.handler.action}
           indicatorRecordId={indicator.recordId}
           port={indicator.port}
@@ -157,6 +159,7 @@ export function GenericWorkbookInspector({
           history:
             subject === null ? undefined : (
               <WorkbookInspectorRecordHistory
+                beginMutation={history.beginMutation}
                 actions={history.actions}
                 canMutate={history.canMutate}
                 commands={history.commands}

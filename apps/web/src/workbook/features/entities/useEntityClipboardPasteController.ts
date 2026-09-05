@@ -27,6 +27,7 @@ type CommitEntityGridEdit = (
 ) => Promise<GridEditCommitOutcome>;
 
 export function useEntityClipboardPasteController({
+  beginMutation,
   canCreateRows,
   clipboardPaste,
   commitGridEdit,
@@ -40,6 +41,7 @@ export function useEntityClipboardPasteController({
   viewSchemaId,
   writableFieldKeys,
 }: {
+  readonly beginMutation: () => () => void;
   readonly canCreateRows: boolean;
   readonly clipboardPaste: WorkbookClipboardPastePort;
   readonly commitGridEdit: CommitEntityGridEdit;
@@ -79,25 +81,31 @@ export function useEntityClipboardPasteController({
   const executeBatchPlan = useCallback(
     async (plan: Extract<EntityClipboardPastePlan, { kind: "batch" }>) => {
       setActionFeedback(null);
-      const { outcome } = await clipboardPaste.paste(plan.input);
-      if (outcome.kind === "rejected") {
+      const finish = beginMutation();
+      try {
+        const { outcome } = await clipboardPaste.paste(plan.input);
+        if (outcome.kind === "rejected") {
+          setActionFeedback(
+            workbookInspectorOperationFailureFeedback(outcome.failure),
+          );
+          return;
+        }
+        const firstRow = outcome.value.rows[0];
+        await onRefreshEntities();
+        if (firstRow !== undefined) setSelectedRecordId(firstRow.record_id);
+        const count = outcome.value.rows.length;
         setActionFeedback(
-          workbookInspectorOperationFailureFeedback(outcome.failure),
+          workbookInspectorMessageFeedback(
+            `Paste applied to ${count} ${entityType === "host" ? "host" : "identity"} row${count === 1 ? "" : "s"}.`,
+            "none",
+          ),
         );
-        return;
+      } finally {
+        finish();
       }
-      const firstRow = outcome.value.rows[0];
-      await onRefreshEntities();
-      if (firstRow !== undefined) setSelectedRecordId(firstRow.record_id);
-      const count = outcome.value.rows.length;
-      setActionFeedback(
-        workbookInspectorMessageFeedback(
-          `Paste applied to ${count} ${entityType === "host" ? "host" : "identity"} row${count === 1 ? "" : "s"}.`,
-          "none",
-        ),
-      );
     },
     [
+      beginMutation,
       clipboardPaste,
       entityType,
       onRefreshEntities,

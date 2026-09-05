@@ -110,12 +110,10 @@ export function planTimelineFill({
 }
 
 export function useTimelineFillController({
-  beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
   contract,
   enqueueSaveWork,
-  finishSave,
   groupBy,
   getVisibleFieldKeys,
   interactionMode,
@@ -127,14 +125,12 @@ export function useTimelineFillController({
   setError,
   trackPendingSocketTxn,
 }: {
-  readonly beginSave: () => void;
   readonly beginViewportContinuity: (request: {
     readonly kind: "scroll-only";
   }) => number;
   readonly clearViewportContinuity: (token: number) => void;
   readonly contract: ViewContract;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
-  readonly finishSave: (result: "Conflict" | "Saved" | "Syncing") => void;
   readonly getVisibleFieldKeys: () => ReadonlySet<string>;
   readonly groupBy: string | null;
   readonly interactionMode: GridInteractionMode;
@@ -169,7 +165,6 @@ export function useTimelineFillController({
       const viewportContinuityToken = beginViewportContinuity({
         kind: "scroll-only",
       });
-      beginSave();
       enqueueSaveWork(async () => {
         const result = await port.fillDown({
           fieldKey: plan.command.fieldKey,
@@ -181,7 +176,6 @@ export function useTimelineFillController({
         if (result.outcome.kind === "rejected") {
           clearViewportContinuity(viewportContinuityToken);
           setError(result.outcome.failure.message);
-          finishSave("Conflict");
           return;
         }
         await loadRows({
@@ -189,16 +183,13 @@ export function useTimelineFillController({
           viewportContinuityToken,
         });
         restoreFocusAnchor(plan.command.sourceAnchor);
-        finishSave("Saved");
       });
     },
     [
-      beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
       contract,
       enqueueSaveWork,
-      finishSave,
       getVisibleFieldKeys,
       groupBy,
       interactionMode,

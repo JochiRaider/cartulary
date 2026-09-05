@@ -1,4 +1,5 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
+import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import { executeWorkbookConflictResolution } from "../mutations/workbookConflictResolutionAdapter";
@@ -44,7 +45,7 @@ import {
 import {
   projectWorkbookMutationStatus,
   type WorkbookMutationSnapshot,
-  type WorkbookSurfaceSaveStateProjection,
+  type WorkbookRefreshStatusFact,
 } from "./workbookMutationStatusProjector";
 import {
   createWorkbookPendingQueueRuntime,
@@ -59,8 +60,14 @@ import {
 export type { WorkbookQueuedPatchRequest } from "./WorkbookManagedPatchDriver";
 export type {
   WorkbookMutationSnapshot,
-  WorkbookSurfaceSaveStateProjection,
+  WorkbookStatusPresentation,
 } from "./workbookMutationStatusProjector";
+
+export type WorkbookSaveAnnouncement = {
+  readonly sequence: number;
+  readonly priority: "polite" | "assertive";
+  readonly message: string;
+};
 
 export type WorkbookEditRecoveryActionResult =
   | { readonly ok: true }
@@ -94,12 +101,15 @@ export class WorkbookMutationRuntime {
   private readonly managedPatches: WorkbookManagedPatchDriver;
   private readonly retryScheduler: WorkbookRetryScheduler;
   private readonly surfaces: WorkbookSurfaceRegistry;
-  private readonly saveStateBySurface = new Map<
+  private readonly refreshStatusBySheet = new Map<
     string,
-    WorkbookSurfaceSaveStateProjection
+    WorkbookRefreshStatusFact
   >();
   private explicitInFlightCount = 0;
   private snapshot: WorkbookMutationSnapshot;
+  private saveAnnouncement: WorkbookSaveAnnouncement | null = null;
+  private announcementSequence = 0;
+  private announcedSequence = 0;
 
   constructor(
     scope: PendingReplayScope,
@@ -119,6 +129,7 @@ export class WorkbookMutationRuntime {
     this.retryScheduler = new WorkbookRetryScheduler(dependencies.scheduler);
     this.surfaces = new WorkbookSurfaceRegistry(() => this.emit());
     this.managedPatches = createWorkbookManagedPatchDriver({
+      beginMutationReport: () => this.beginExplicitMutation(),
       clock: dependencies.clock,
       conflicts: this.conflicts,
       drivers: this.drivers,
@@ -161,7 +172,7 @@ export class WorkbookMutationRuntime {
       conflicts: this.conflicts.entries(),
       explicitInFlightCount: this.explicitInFlightCount,
       queue: this.pendingRuntime.model.snapshot(),
-      surfaceSaveStates: this.saveStateBySurface,
+      refreshes: Array.from(this.refreshStatusBySheet.values()),
     });
   }
 
@@ -230,23 +241,27 @@ export class WorkbookMutationRuntime {
     };
   }
 
-  projectSurfaceSaveState(
-    viewSchemaId: string,
-    projection: WorkbookSurfaceSaveStateProjection,
-  ): void {
-    const current = this.saveStateBySurface.get(viewSchemaId);
-    if (
-      current?.primaryLabel === projection.primaryLabel &&
-      current.secondaryMessage === projection.secondaryMessage
-    ) {
-      return;
-    }
-    this.saveStateBySurface.set(viewSchemaId, { ...projection });
+  notifyPendingChanged(): void {
     this.emit();
   }
 
-  clearSurfaceSaveState(viewSchemaId: string): void {
-    if (this.saveStateBySurface.delete(viewSchemaId)) this.emit();
+  beginRefreshStatus(sheetRef: SheetRef): () => void {
+    const key = sheetRefKey(sheetRef);
+    const previous = this.refreshStatusBySheet.get(key);
+    this.refreshStatusBySheet.set(key, {
+      sheetRef,
+      count: (previous?.count ?? 0) + 1,
+    });
+    this.emit();
+    let finished = false;
+    return () => {
+      if (finished) return;
+      finished = true;
+      const count = (this.refreshStatusBySheet.get(key)?.count ?? 1) - 1;
+      if (count === 0) this.refreshStatusBySheet.delete(key);
+      else this.refreshStatusBySheet.set(key, { sheetRef, count });
+      this.emit();
+    };
   }
 
   enqueuePatch(request: WorkbookQueuedPatchRequest): GridEditCommitOutcome {
@@ -258,6 +273,7 @@ export class WorkbookMutationRuntime {
   }
 
   registerConflict({
+    sheetRef,
     conflict,
     focusKey = null,
     refresh,
@@ -266,6 +282,7 @@ export class WorkbookMutationRuntime {
     viewSchemaId,
   }: WorkbookConflictRegistration): WorkbookConflictEntry {
     const entry = this.conflicts.register({
+      sheetRef,
       conflict,
       focusKey,
       refresh,
@@ -396,6 +413,7 @@ export class WorkbookMutationRuntime {
             rowLabel: entry.origin.rowLabel,
             surfaceLabel: entry.origin.surfaceLabel,
             viewSchemaId: entry.origin.viewSchemaId,
+            sheetRef: entry.origin.sheetRef,
           });
           this.conflicts.replace({
             ...refreshedEntry,
@@ -473,8 +491,33 @@ export class WorkbookMutationRuntime {
     return this.ledger.settle(clientTxnId, this.pendingRuntime);
   }
 
+  /** Acknowledgement lives with the runtime so shell remounts cannot replay an event. */
+  takeSaveAnnouncement(): WorkbookSaveAnnouncement | null {
+    if (
+      this.saveAnnouncement === null ||
+      this.announcedSequence === this.saveAnnouncement.sequence
+    )
+      return null;
+    this.announcedSequence = this.saveAnnouncement.sequence;
+    return this.saveAnnouncement;
+  }
+
   private emit(): void {
+    const previousLabel = this.snapshot.primaryLabel;
     this.snapshot = this.calculateSnapshot();
+    if (this.snapshot.primaryLabel !== previousLabel) {
+      const label = this.snapshot.primaryLabel;
+      this.saveAnnouncement = {
+        sequence: ++this.announcementSequence,
+        priority: label === "Conflict" ? "assertive" : "polite",
+        message:
+          label === "Syncing"
+            ? "Syncing changes"
+            : label === "Conflict" && this.snapshot.unresolvedConflictCount > 0
+              ? `Conflict. ${this.snapshot.unresolvedConflictCount} unresolved`
+              : label,
+      };
+    }
     this.lifecycle.emit();
   }
 
@@ -504,6 +547,7 @@ export class WorkbookMutationRuntime {
       rowLabel: entry.origin.rowLabel,
       surfaceLabel: entry.origin.surfaceLabel,
       viewSchemaId: entry.origin.viewSchemaId,
+      sheetRef: entry.origin.sheetRef,
     });
     this.conflicts.replace({
       ...refreshedEntry,

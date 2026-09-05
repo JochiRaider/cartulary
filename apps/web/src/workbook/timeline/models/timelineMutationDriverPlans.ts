@@ -8,7 +8,7 @@ import type {
 import type { TimelineReplayContext } from "./timelineControllerPorts";
 
 export type TimelinePendingReplayAdmission = PendingReplayUnitInput &
-  TimelineReplayContext;
+  Omit<TimelineReplayContext, "sheetRef">;
 
 export type TimelineReplayAdmissionPlan =
   | { readonly kind: "dispatch"; readonly committedRowVersion: number | null }

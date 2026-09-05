@@ -56,6 +56,7 @@ describe("IndicatorInspectorWorkflow", () => {
 
     render(
       <IndicatorInspectorWorkflow
+        beginMutation={() => vi.fn()}
         action="indicator.observations.pivot"
         indicatorRecordId="50000000-0000-4000-8000-000000000001"
         port={port}
@@ -99,6 +100,7 @@ describe("IndicatorInspectorWorkflow", () => {
 
     render(
       <IndicatorInspectorWorkflow
+        beginMutation={() => vi.fn()}
         action="indicator.observations.pivot"
         indicatorRecordId="50000000-0000-4000-8000-000000000001"
         port={port}
@@ -138,6 +140,7 @@ describe("IndicatorInspectorWorkflow", () => {
 
     render(
       <IndicatorInspectorWorkflow
+        beginMutation={() => vi.fn()}
         action="indicator.observations.manage"
         onMutationCommitted={onMutationCommitted}
         port={port}

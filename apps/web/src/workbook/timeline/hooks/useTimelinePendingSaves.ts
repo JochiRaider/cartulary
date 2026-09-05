@@ -21,8 +21,13 @@ export function useTimelinePendingSaves({
       workbookPendingQueueSnapshot(sharedPendingRuntime),
     );
   useEffect(() => {
-    setPendingQueueSnapshot(workbookPendingQueueSnapshot(sharedPendingRuntime));
-  }, [sharedPendingRuntime]);
+    const update = () =>
+      setPendingQueueSnapshot(
+        workbookPendingQueueSnapshot(sharedPendingRuntime),
+      );
+    update();
+    return mutationRuntime.subscribe(update);
+  }, [mutationRuntime, sharedPendingRuntime]);
 
   return {
     commands: {

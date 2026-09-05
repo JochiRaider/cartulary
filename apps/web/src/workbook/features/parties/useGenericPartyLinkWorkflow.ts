@@ -13,7 +13,7 @@ import type { WorkbookOperationFailure } from "../../mutations/workbookOperation
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 
 type PartyLinkMutationOwner = {
-  readonly beginMutation: () => void;
+  readonly beginMutation: () => () => void;
   readonly rejectMutationFailure: (failure: WorkbookOperationFailure) => void;
   readonly setValidationError: (message: string) => void;
 };
@@ -141,16 +141,20 @@ export function useGenericPartyLinkWorkflow({
       mutation.setValidationError("Party text is empty.");
       return;
     }
-    mutation.beginMutation();
-    const created = await mutationCommands.createPartyFromText({
-      originViewSchemaId,
-      rawText,
-    });
-    if (created.kind === "rejected") {
-      mutation.rejectMutationFailure(created.failure);
-      return;
+    const finish = mutation.beginMutation();
+    try {
+      const created = await mutationCommands.createPartyFromText({
+        originViewSchemaId,
+        rawText,
+      });
+      if (created.kind === "rejected") {
+        mutation.rejectMutationFailure(created.failure);
+        return;
+      }
+      await submitCreatedPartyLink(created.value.row.record_id);
+    } finally {
+      finish();
     }
-    await submitCreatedPartyLink(created.value.row.record_id);
   }, [
     mutation,
     mutationCommands,

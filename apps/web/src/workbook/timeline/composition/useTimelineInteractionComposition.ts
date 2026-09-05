@@ -77,7 +77,6 @@ type TimelineInteractionCompositionInput = {
     readonly beginSave: ClipboardInput["beginSave"];
     readonly commitScalarGridEdit: MutationCommandOutput["commitScalarGridEdit"];
     readonly enqueueSaveWork: FillInput["enqueueSaveWork"];
-    readonly finishSave: ClipboardInput["finishSave"];
     readonly loadRows: ClipboardInput["loadRows"];
     readonly mutationCommands: TimelineWorkbookSurfaceRuntime["mutationCommands"];
     readonly queueCollectionSave: KeyboardInput["queueCollectionSave"];
@@ -186,7 +185,6 @@ export function useTimelineInteractionComposition({
     clearViewportContinuity: grid.clearViewportContinuity,
     clipboardPaste: foundation.clipboardPastePort,
     editable: canEdit,
-    finishSave: mutation.finishSave,
     grouped: queryState.groupBy !== null,
     loadRows: mutation.loadRows,
     pendingSavesRefs: foundation.pendingSavesRefs,
@@ -229,12 +227,10 @@ export function useTimelineInteractionComposition({
     [handleTimelineGridPaste],
   );
   const fill = useTimelineFillController({
-    beginSave: mutation.beginSave,
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     contract: timelineContract,
     enqueueSaveWork: mutation.enqueueSaveWork,
-    finishSave: mutation.finishSave,
     getVisibleFieldKeys: () =>
       new Set(
         grid.timelineAnchorColumnsRef.current.map((column) => column.fieldKey),

@@ -7,6 +7,7 @@ import type { WorkbookCollaborationCoordinator } from "../collaboration/Workbook
 import { AssessmentWorkbookSurface } from "../components/AssessmentWorkbookSurface";
 import { EntityWorkbookSurface } from "../components/EntityWorkbookSurface";
 import { ContractWorkbookSurface } from "../components/GenericWorkbookSurface";
+import type { WorkbookConflictActivation } from "../components/WorkbookStatusStrip";
 import type { WorkbookViewBarWorkingSetBinding } from "../components/WorkbookViewBar";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import type { EntityRow } from "../models/entityWorkbookModel";
@@ -50,9 +51,7 @@ export type WorkbookSurfacesFacadeProps = {
   readonly mutations: {
     readonly clipboardPaste: WorkbookClipboardPastePort;
     readonly commands: WorkbookMutationCommandPorts;
-    readonly onActivateConflict:
-      | ((invoker: HTMLButtonElement) => void)
-      | undefined;
+    readonly onActivateConflict: WorkbookConflictActivation | undefined;
     readonly runtime: WorkbookMutationRuntime;
   };
   readonly queries: {
@@ -222,6 +221,7 @@ export function WorkbookSurfacesFacade({
     const isHosts = registration.renderer === "entity_hosts";
     return (
       <EntityWorkbookSurface
+        sheetRef={sheetRef}
         key={activeContract.viewSchemaId}
         continuityResetKey={continuityResetKey}
         currentIncidentRole={currentIncidentRole}
@@ -266,6 +266,7 @@ export function WorkbookSurfacesFacade({
   if (registration.renderer === "assessment") {
     return (
       <AssessmentWorkbookSurface
+        sheetRef={sheetRef}
         assessmentRows={assessmentRows}
         currentIncidentRole={currentIncidentRole}
         currentUserId={currentUserId}

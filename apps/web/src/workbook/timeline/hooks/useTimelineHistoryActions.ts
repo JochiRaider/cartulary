@@ -40,14 +40,12 @@ export function useTimelineHistoryActions({
   activeHistoryLiveRecordId,
   beginRowHistoryOperation,
   beginRowHistoryRequest,
-  beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
   currentHistoryRecordId,
   currentHistoryRecordIdMatches,
   currentHistoryRowVersion,
   enqueueSaveWork,
-  finishSave,
   historyPort,
   loadRows,
   nextClientTxnId,
@@ -71,7 +69,7 @@ export function useTimelineHistoryActions({
   readonly activeHistoryLiveRecordId: string | null;
   readonly beginRowHistoryOperation: () => WorkbookRecordHistoryOperationId;
   readonly beginRowHistoryRequest: () => WorkbookRecordHistoryRequestId;
-  readonly beginSave: () => void;
+
   readonly beginViewportContinuity: (
     target: TimelineHistoryViewportContinuityTarget,
   ) => number;
@@ -80,7 +78,6 @@ export function useTimelineHistoryActions({
   readonly currentHistoryRecordIdMatches: (recordId: string) => boolean;
   readonly currentHistoryRowVersion: number | null;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
-  readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
   readonly historyPort: TimelineHistoryPort;
   readonly loadRows: (options: TimelineHistoryLoadRowsOptions) => Promise<void>;
   readonly nextClientTxnId: () => string;
@@ -232,7 +229,6 @@ export function useTimelineHistoryActions({
       const viewportContinuityToken = beginViewportContinuity(
         viewportContinuityTarget,
       );
-      beginSave();
       enqueueSaveWork(async () => {
         const idleRecord = await waitForCommittedRecordIdle(
           recordId,
@@ -250,7 +246,6 @@ export function useTimelineHistoryActions({
             operationId,
             type: "operation_rejected",
           });
-          finishSave("Conflict");
           return;
         }
         trackPendingSocketTxn(clientTxnId);
@@ -266,20 +261,16 @@ export function useTimelineHistoryActions({
             operationId,
             type: "operation_rejected",
           });
-          finishSave("Conflict");
           return;
         }
         await onSuccess(result.value, viewportContinuityToken);
-        finishSave("Saved");
       });
     },
     [
-      beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
       dispatchRowHistory,
       enqueueSaveWork,
-      finishSave,
       nextClientTxnId,
       resolvePendingSocketTxn,
       trackPendingSocketTxn,

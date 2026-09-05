@@ -16,7 +16,7 @@ const decisionRows: readonly WorkbookQueryRow[] = [
 
 function mutationPorts() {
   return {
-    beginMutation: vi.fn(),
+    beginMutation: vi.fn(() => vi.fn()),
     completeGenericMutation: vi.fn(async () => undefined),
     rejectMutationFailure: vi.fn(),
     setValidationError: vi.fn(),

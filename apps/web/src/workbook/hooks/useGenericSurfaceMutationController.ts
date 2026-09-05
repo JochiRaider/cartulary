@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
 import {
   type WorkbookInspectorErrorPresentation,
@@ -12,25 +13,20 @@ import type {
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 
-type GenericMutationSaveState = "Syncing" | "Saved" | "Conflict";
-type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
-
 type GenericPatchMutationRequest = {
   readonly baseRowVersion: number;
-  readonly changes: readonly RecordPatchChange[];
+  readonly changes: readonly WorkbookProtocolPatchRecordRequest["changes"][number][];
   readonly purpose: string;
   readonly recordId: string;
   readonly viewSchemaId: string;
 };
-
 export type GenericSurfaceMutationController = {
-  readonly beginMutation: () => void;
+  readonly beginMutation: () => () => void;
+  readonly beginMutationReport: () => () => void;
   readonly clearMutationError: () => void;
   readonly completeGenericMutation: () => Promise<void>;
-  readonly markMutationConflict: () => void;
-  readonly markMutationSaved: () => void;
   readonly mutationError: WorkbookInspectorErrorPresentation | null;
-  readonly mutationState: GenericMutationSaveState;
+  readonly mutationPending: boolean;
   readonly rejectMutationFailure: (failure: WorkbookOperationFailure) => void;
   readonly setValidationError: (message: string) => void;
   readonly submitPatchMutation: (
@@ -44,124 +40,90 @@ export function useGenericSurfaceMutationController({
   onRefresh,
   refreshReferenceOptions,
   surfaceLabel,
+  sheetRef,
 }: {
   readonly mutationCommands: GenericMutationCommandPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly onRefresh: () => Promise<void> | void;
   readonly refreshReferenceOptions: () => Promise<void> | void;
   readonly surfaceLabel: string;
+  readonly sheetRef: SheetRef;
 }): GenericSurfaceMutationController {
   const [mutationError, setMutationError] =
     useState<WorkbookInspectorErrorPresentation | null>(null);
-  const [mutationState, setMutationState] =
-    useState<GenericMutationSaveState>("Saved");
-  const finishExplicitMutationRef = useRef<(() => void) | null>(null);
-
+  const [pendingCount, setPendingCount] = useState(0);
+  const beginMutationReport = useCallback(
+    () => mutationRuntime.beginExplicitMutation(),
+    [mutationRuntime],
+  );
   const beginMutation = useCallback(() => {
-    finishExplicitMutationRef.current?.();
-    finishExplicitMutationRef.current = mutationRuntime.beginExplicitMutation();
-    setMutationState("Syncing");
+    const finish = beginMutationReport();
+    setPendingCount((count) => count + 1);
     setMutationError(null);
-  }, [mutationRuntime]);
-
-  const clearMutationError = useCallback(() => {
-    setMutationError(null);
-  }, []);
-
-  const markMutationSaved = useCallback(() => {
-    finishExplicitMutationRef.current?.();
-    finishExplicitMutationRef.current = null;
-    setMutationState("Saved");
-  }, []);
-
-  const markMutationConflict = useCallback(() => {
-    finishExplicitMutationRef.current?.();
-    finishExplicitMutationRef.current = null;
-    setMutationState("Conflict");
-  }, []);
-
+    let finished = false;
+    return () => {
+      if (finished) return;
+      finished = true;
+      finish();
+      setPendingCount((count) => count - 1);
+    };
+  }, [beginMutationReport]);
+  const clearMutationError = useCallback(() => setMutationError(null), []);
   const rejectMutationFailure = useCallback(
-    (failure: WorkbookOperationFailure) => {
-      finishExplicitMutationRef.current?.();
-      finishExplicitMutationRef.current = null;
-      setMutationState("Conflict");
-      setMutationError(workbookInspectorErrorPresentation(failure));
-    },
+    (failure: WorkbookOperationFailure) =>
+      setMutationError(workbookInspectorErrorPresentation(failure)),
     [],
   );
-
-  const setValidationError = useCallback((message: string) => {
-    setMutationError(workbookInspectorLocalErrorPresentation(message));
-  }, []);
-
+  const setValidationError = useCallback(
+    (message: string) =>
+      setMutationError(workbookInspectorLocalErrorPresentation(message)),
+    [],
+  );
   const completeGenericMutation = useCallback(async () => {
     try {
       await onRefresh();
       await refreshReferenceOptions();
-    } catch (error) {
-      finishExplicitMutationRef.current?.();
-      finishExplicitMutationRef.current = null;
-      setMutationState("Conflict");
+    } catch {
       setMutationError(
         workbookInspectorLocalErrorPresentation(
-          error instanceof Error ? error.message : "Workbook refresh failed.",
+          "The change was accepted, but the workbook could not be refreshed. Previously loaded rows may be stale.",
         ),
       );
-      return;
     }
-    finishExplicitMutationRef.current?.();
-    finishExplicitMutationRef.current = null;
-    setMutationState("Saved");
   }, [onRefresh, refreshReferenceOptions]);
-
   const submitPatchMutation = useCallback(
-    async ({
-      baseRowVersion,
-      changes,
-      purpose,
-      recordId,
-      viewSchemaId,
-    }: GenericPatchMutationRequest) => {
-      beginMutation();
-      const result = await mutationCommands.patchRecord({
-        baseRowVersion,
-        changes,
-        purpose,
-        recordId,
-        viewSchemaId,
-      });
+    async (request: GenericPatchMutationRequest) => {
+      const result = await mutationCommands.patchRecord(request);
       if (result.kind === "rejected") {
-        if (result.failure.kind === "same_field_conflict") {
+        if (result.failure.kind === "same_field_conflict")
           mutationRuntime.registerConflict({
             conflict: result.failure.conflict,
-            focusKey: `${recordId}:${result.failure.conflict.field_key}`,
-            rowLabel: recordId,
+            focusKey: `${request.recordId}:${result.failure.conflict.field_key}`,
+            rowLabel: request.recordId,
             surfaceLabel,
-            viewSchemaId,
+            viewSchemaId: request.viewSchemaId,
+            sheetRef,
           });
-        }
         rejectMutationFailure(result.failure);
         return null;
       }
       return result.value;
     },
     [
-      beginMutation,
       mutationCommands,
       mutationRuntime,
       rejectMutationFailure,
+      sheetRef,
       surfaceLabel,
     ],
   );
-
   return {
     beginMutation,
+    beginMutationReport,
     clearMutationError,
     completeGenericMutation,
-    markMutationConflict,
-    markMutationSaved,
     mutationError,
-    mutationState,
+    mutationPending: pendingCount > 0,
     rejectMutationFailure,
     setValidationError,
     submitPatchMutation,

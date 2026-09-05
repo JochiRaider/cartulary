@@ -33,11 +33,13 @@ import {
 import type { WorkbookRecordHistoryOwnerEffects } from "./workbookRecordHistoryOwnerEffects";
 
 export function useWorkbookRecordHistoryController({
+  beginMutation,
   canMutate,
   commands,
   ownerEffects,
   subject,
 }: {
+  readonly beginMutation: () => () => void;
   readonly canMutate: boolean;
   readonly commands: RecordRouteCommandPort;
   readonly ownerEffects: WorkbookRecordHistoryOwnerEffects;
@@ -172,60 +174,65 @@ export function useWorkbookRecordHistoryController({
     operationSequenceRef.current = operationId.value;
     const capturedOwnerEffects = ownerEffectsRef.current;
     dispatchHistory({ operationId, type: "submit" });
-    const outcome = await executeWorkbookRecordHistoryOperation(
-      commands,
-      pending,
-    );
-    if (outcome.kind === "rejected") {
-      dispatchHistory({
-        feedback: {
-          error: workbookInspectorErrorPresentation(outcome.failure),
-          kind: "error",
-        },
+    const finish = beginMutation();
+    try {
+      const outcome = await executeWorkbookRecordHistoryOperation(
+        commands,
+        pending,
+      );
+      if (outcome.kind === "rejected") {
+        dispatchHistory({
+          feedback: {
+            error: workbookInspectorErrorPresentation(outcome.failure),
+            kind: "error",
+          },
+          operationId,
+          type: "operation_rejected",
+        });
+        return;
+      }
+      const accepted = outcome.value;
+      if (
+        accepted.recordId !== pending.recordId ||
+        !Number.isInteger(accepted.rowVersion) ||
+        accepted.rowVersion <= 0
+      ) {
+        dispatchHistory({
+          feedback: workbookInspectorLocalErrorFeedback(
+            "The history operation returned an invalid record identity.",
+          ),
+          operationId,
+          type: "operation_rejected",
+        });
+        return;
+      }
+      await applyWorkbookRecordHistoryOwnerEffect(
+        capturedOwnerEffects,
+        pending,
+        accepted,
+      );
+      const completionFeedback = workbookRecordHistoryCompletionFeedback(
+        pending,
+        accepted,
+      );
+      const next = dispatchHistory({
+        feedback: completionFeedback,
         operationId,
-        type: "operation_rejected",
+        recordId: accepted.recordId,
+        rowVersion: accepted.rowVersion,
+        type: "operation_accepted",
       });
-      return;
+      if (
+        next.phase === "idle" &&
+        next.subject?.recordId === accepted.recordId &&
+        next.subject.rowVersion === accepted.rowVersion
+      ) {
+        await load(next.subject, completionFeedback);
+      }
+    } finally {
+      finish();
     }
-    const accepted = outcome.value;
-    if (
-      accepted.recordId !== pending.recordId ||
-      !Number.isInteger(accepted.rowVersion) ||
-      accepted.rowVersion <= 0
-    ) {
-      dispatchHistory({
-        feedback: workbookInspectorLocalErrorFeedback(
-          "The history operation returned an invalid record identity.",
-        ),
-        operationId,
-        type: "operation_rejected",
-      });
-      return;
-    }
-    await applyWorkbookRecordHistoryOwnerEffect(
-      capturedOwnerEffects,
-      pending,
-      accepted,
-    );
-    const completionFeedback = workbookRecordHistoryCompletionFeedback(
-      pending,
-      accepted,
-    );
-    const next = dispatchHistory({
-      feedback: completionFeedback,
-      operationId,
-      recordId: accepted.recordId,
-      rowVersion: accepted.rowVersion,
-      type: "operation_accepted",
-    });
-    if (
-      next.phase === "idle" &&
-      next.subject?.recordId === accepted.recordId &&
-      next.subject.rowVersion === accepted.rowVersion
-    ) {
-      await load(next.subject, completionFeedback);
-    }
-  }, [canMutate, commands, dispatchHistory, load]);
+  }, [beginMutation, canMutate, commands, dispatchHistory, load]);
 
   return {
     commands: {
