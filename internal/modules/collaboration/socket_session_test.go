@@ -244,7 +244,7 @@ func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
 	})
 	defer client.Close(wstest.StatusNormalClosure, "test_complete")
 
-	harness.Server.Clock.Advance(5 * time.Minute)
+	harness.Server.Clock.Advance(15 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := client.Send(ctx, platformws.Message{
@@ -265,7 +265,7 @@ func TestIncidentSocketHeartbeatIdleExpiry_Unit(t *testing.T) {
 		t.Fatalf("heartbeat must not slide session_expires_at: before=%s after=%s", before.SessionExpiresAt, afterHeartbeat.SessionExpiresAt)
 	}
 
-	harness.Server.Clock.Advance(26*time.Minute + time.Second)
+	harness.Server.Clock.Advance(30*time.Minute + time.Second)
 	incidentwstest.ExpectSessionRevoked(t, client, "session_expired")
 	afterExpiry := querySessionTiming(t, harness, sessionID)
 	if afterExpiry.RevokeReasonCode != "session_expired" {

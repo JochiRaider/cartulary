@@ -43,6 +43,10 @@ function manualTiming() {
       await Promise.resolve();
     },
     pendingTaskCount: () => tasks.size,
+    jumpBy: (durationMs: number) => {
+      nowMs += durationMs;
+    },
+    pendingCallbacks: () => Array.from(tasks.values(), (task) => task.run),
   };
 }
 
@@ -185,6 +189,184 @@ function presence(
 afterEach(() => vi.restoreAllMocks());
 
 describe("WorkbookCollaborationCoordinator", () => {
+  it("replaces removes and invalidates presence without stale callbacks restoring it", () => {
+    const fixture = projectionFixture();
+    const p = {
+      ...presence("remote", {
+        kind: "view_schema",
+        id: "cartulary.view.timeline.v2",
+      }),
+      observed_at: "1970-01-01T00:00:00Z",
+      expires_at: "1970-01-01T00:00:10Z",
+    };
+    const send = (type: string, payload: unknown) =>
+      fixture.emit({
+        kind: "message",
+        message: { ...serverEnvelope, type, payload },
+      } as IncidentCollaborationEvent);
+    send("presence_snapshot", { presences: [p] });
+    const oldExpiry = fixture.timing.pendingCallbacks()[0];
+    send("presence_delta", {
+      delta_kind: "upsert",
+      presence: { ...p, sheet_ref: { kind: "saved_view", id: "saved" } },
+    });
+    expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
+    fixture.projection.setActiveSheet({ kind: "saved_view", id: "saved" });
+    expect(fixture.projection.getSnapshot().presence.header.users).toHaveLength(
+      1,
+    );
+    send("presence_delta", {
+      delta_kind: "remove",
+      presence: { connection_id: "remote" },
+    });
+    oldExpiry?.();
+    expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
+    send("presence_snapshot", {
+      presences: [{ ...p, sheet_ref: { kind: "saved_view", id: "saved" } }],
+    });
+    fixture.projection.requestAuthorizationRecovery();
+    send("presence_snapshot", { presences: [p] });
+    oldExpiry?.();
+    expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
+    fixture.projection.dispose();
+  });
+
+  it("excludes the accepted connection before React session attachment catches up", () => {
+    const fixture = projectionFixture();
+    fixture.emit({
+      kind: "established",
+      messageType: "hello_ack",
+      payload: { connection_id: "accepted-connection" },
+    });
+    fixture.emit({
+      kind: "message",
+      message: {
+        ...serverEnvelope,
+        type: "presence_snapshot",
+        payload: {
+          presences: [
+            presence("accepted-connection", {
+              kind: "view_schema",
+              id: "cartulary.view.timeline.v2",
+            }),
+            presence("other-tab", {
+              kind: "view_schema",
+              id: "cartulary.view.timeline.v2",
+            }),
+          ],
+        },
+      },
+    } as IncidentCollaborationEvent);
+    expect(
+      fixture.projection
+        .getSnapshot()
+        .presence.header.users.map((user) => user.connection_id),
+    ).toEqual(["other-tab"]);
+    fixture.projection.dispose();
+  });
+  it("renews one expiry task without rendering keepalive or refreshing queries", async () => {
+    const fixture = projectionFixture();
+    const p = {
+      ...presence("remote", {
+        kind: "view_schema",
+        id: "cartulary.view.timeline.v2",
+      }),
+      observed_at: "1970-01-01T00:00:00Z",
+      expires_at: "1970-01-01T00:00:10Z",
+    };
+    const send = (payload: unknown) =>
+      fixture.emit({
+        kind: "message",
+        message: { ...serverEnvelope, type: "presence_delta", payload },
+      } as IncidentCollaborationEvent);
+    send({ delta_kind: "upsert", presence: p });
+    const before = fixture.projection.getSnapshot();
+    const notify = vi.fn();
+    fixture.projection.subscribe(notify);
+    const oldExpiry = fixture.timing.pendingCallbacks()[0];
+    await fixture.timing.advanceBy(5_000);
+    send({
+      delta_kind: "upsert",
+      presence: { ...p, expires_at: "1970-01-01T00:00:20Z" },
+    });
+    expect(fixture.projection.getSnapshot()).toBe(before);
+    expect(notify).not.toHaveBeenCalled();
+    expect(fixture.timing.pendingTaskCount()).toBe(1);
+    oldExpiry?.();
+    await fixture.timing.advanceBy(14_999);
+    expect(fixture.projection.getSnapshot().presence.header.users).toHaveLength(
+      1,
+    );
+    await fixture.timing.advanceBy(1);
+    expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
+    expect(fixture.timing.pendingTaskCount()).toBe(0);
+    expect(fixture.queryInvalidation).not.toHaveBeenCalled();
+    expect(fixture.mutationInvalidation).not.toHaveBeenCalled();
+    expect(fixture.continuityInvalidation).not.toHaveBeenCalled();
+    fixture.projection.dispose();
+  });
+
+  it("expires after a throttled clock jump and rejects old removal and disposal callbacks", () => {
+    const fixture = projectionFixture();
+    const p = {
+      ...presence("remote", {
+        kind: "view_schema",
+        id: "cartulary.view.timeline.v2",
+      }),
+      observed_at: "1970-01-01T00:00:00Z",
+      expires_at: "1970-01-01T00:00:10Z",
+    };
+    const event = {
+      kind: "message",
+      message: {
+        ...serverEnvelope,
+        type: "presence_snapshot",
+        payload: { presences: [p] },
+      },
+    } as IncidentCollaborationEvent;
+    fixture.emit(event);
+    const callbacks = fixture.timing.pendingCallbacks();
+    fixture.timing.jumpBy(10_000);
+    fixture.projection.refreshPresenceTime();
+    expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
+    for (const callback of callbacks) callback();
+    expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
+    const oldListener = fixture.session.subscribe.mock.calls[0]?.[0];
+    fixture.projection.dispose();
+    for (const callback of callbacks) callback();
+    oldListener?.(event);
+    expect(fixture.projection.getSnapshot().presence.header.users).toEqual([]);
+    expect(fixture.timing.pendingTaskCount()).toBe(0);
+  });
+
+  it("invalidates editing cleanup across cell and sheet changes", async () => {
+    const fixture = projectionFixture();
+    const oldEdit = fixture.projection.beginEditingPresence("row-a", "summary");
+    fixture.projection.publishFocusedCell("row-a", "summary");
+    await fixture.timing.advanceBy(150);
+    expect(fixture.session.publishPresence).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        mode: "editing",
+        record_id: "row-a",
+        field_key: "summary",
+      }),
+    );
+    fixture.projection.publishFocusedCell("row-b", "details");
+    oldEdit();
+    await fixture.timing.advanceBy(150);
+    expect(fixture.session.publishPresence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ mode: "viewing", record_id: "row-b" }),
+    );
+    const release = fixture.projection.beginEditingPresence("row-b", "details");
+    fixture.projection.setActiveSheet({ kind: "saved_view", id: "saved" });
+    release();
+    await fixture.timing.advanceBy(150);
+    expect(fixture.session.publishPresence).toHaveBeenLastCalledWith({
+      mode: "viewing",
+      sheet_ref: { kind: "saved_view", id: "saved" },
+    });
+    fixture.projection.dispose();
+  });
   it("keeps base and saved-view presence exact, keyed, sorted, and self-free", () => {
     const fixture = projectionFixture();
     fixture.emit({
@@ -218,7 +400,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     expect(
       fixture.projection
         .getSnapshot()
-        .activeSheetPresenceRecords.map((entry) => entry.connection_id),
+        .presence.header.users.map((entry) => entry.connection_id),
     ).toEqual(["a-connection", "z-connection"]);
 
     fixture.projection.setActiveSheet({
@@ -228,7 +410,7 @@ describe("WorkbookCollaborationCoordinator", () => {
     expect(
       fixture.projection
         .getSnapshot()
-        .activeSheetPresenceRecords.map((entry) => entry.connection_id),
+        .presence.header.users.map((entry) => entry.connection_id),
     ).toEqual(["saved-connection"]);
     fixture.projection.dispose();
   });

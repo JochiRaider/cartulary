@@ -5,8 +5,11 @@ import {
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import { useCallback } from "react";
-import { WorkbookCellPresenceMarker } from "../../components/WorkbookPresenceMarkers";
-import type { PresenceRecord } from "../../utils/workbookPresence";
+import type { PresenceScope } from "../../collaboration/workbookPresencePresentation";
+import {
+  WorkbookCellPresenceMarker,
+  WorkbookPresenceCellLayout,
+} from "../../components/WorkbookPresenceMarkers";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import {
@@ -51,7 +54,7 @@ export function useTimelineScalarRenderers({
   readonly editingPresenceForCell: (
     recordId: string | null,
     fieldKey: string,
-  ) => readonly PresenceRecord[];
+  ) => PresenceScope;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly handleBlur: TimelineScalarBlurCommit;
   readonly handleEditModePresence: (
@@ -120,7 +123,7 @@ export function useTimelineScalarRenderers({
         row.recordId === null ? null : `${row.recordId}:${binding.fieldKey}`;
       const localConflict =
         conflictKey === null ? undefined : conflictQueue[conflictKey];
-      return (
+      const content = (
         <>
           <TimelineScalarEditor
             key={inputFocusKey(row.key, binding.key, surface)}
@@ -177,9 +180,27 @@ export function useTimelineScalarRenderers({
           ) : null}
         </>
       );
+      return surface !== "grid" || row.recordId === null ? (
+        content
+      ) : (
+        <WorkbookPresenceCellLayout
+          editing
+          marker={
+            <WorkbookCellPresenceMarker
+              fieldKey={binding.fieldKey}
+              fieldLabel={label}
+              recordId={row.recordId}
+              presences={editingPresenceForCell(row.recordId, binding.fieldKey)}
+            />
+          }
+        >
+          {content}
+        </WorkbookPresenceCellLayout>
+      );
     },
     [
       conflictQueue,
+      editingPresenceForCell,
       editorDraftRegistry,
       handleBlur,
       handleEditModePresence,
@@ -231,7 +252,16 @@ export function useTimelineScalarRenderers({
         readTimelineCellValue(row.rawRow, binding.fieldKey),
       );
       return (
-        <>
+        <WorkbookPresenceCellLayout
+          marker={
+            <WorkbookCellPresenceMarker
+              fieldKey={binding.fieldKey}
+              fieldLabel={timelineBindingLabel(binding.fieldKey)}
+              presences={editingPresenceForCell(row.recordId, binding.fieldKey)}
+              recordId={row.recordId}
+            />
+          }
+        >
           <span
             data-testid={
               row.recordId === null
@@ -256,13 +286,7 @@ export function useTimelineScalarRenderers({
               Conflict
             </button>
           )}
-          <WorkbookCellPresenceMarker
-            fieldKey={binding.fieldKey}
-            fieldLabel={timelineBindingLabel(binding.fieldKey)}
-            presences={editingPresenceForCell(row.recordId, binding.fieldKey)}
-            recordId={row.recordId}
-          />
-        </>
+        </WorkbookPresenceCellLayout>
       );
     },
     [

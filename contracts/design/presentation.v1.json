@@ -2,6 +2,11 @@
   "schema_id": "cartulary.design_presentation.v1",
   "owner_id": "package.ui",
   "verification_id": "package.ui.verification.machine_owned_presentation",
+  "presence": {
+    "capacities": { "header": 5, "row": 3, "cell": 2 },
+    "mode_priority": { "editing": 1, "focused": 2, "viewing": 3, "idle": 4 },
+    "live": "none"
+  },
   "initial_loading": {
     "delay_ms": 2000,
     "message": "Still loading this surface",

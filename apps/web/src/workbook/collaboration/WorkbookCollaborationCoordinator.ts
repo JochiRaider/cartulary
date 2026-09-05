@@ -14,7 +14,6 @@ import type {
   WorkbookQueryInvalidationReason,
 } from "../lifecycle/workbookInvalidation";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import type { PresenceRecord } from "../utils/workbookPresence";
 import {
   beginWorkbookAuthorizationRecovery,
   completeWorkbookAuthorizationRecovery,
@@ -52,7 +51,15 @@ import type {
   WorkbookCollaborationScheduler,
 } from "./workbookCollaborationTiming";
 import {
-  activeWorkbookPresenceRecords,
+  emptyWorkbookPresence,
+  type PresenceScope,
+  presenceForCell,
+  presenceForRow,
+  projectWorkbookPresence,
+  samePresencePresentation,
+  type WorkbookPresencePresentation,
+} from "./workbookPresencePresentation";
+import {
   applyWorkbookPresenceDelta,
   clearWorkbookPresenceProjection,
   initialWorkbookPresenceProjection,
@@ -100,7 +107,7 @@ type WorkbookCollaborationSessionPort = {
 };
 
 export type WorkbookCollaborationSnapshot = {
-  readonly activeSheetPresenceRecords: readonly PresenceRecord[];
+  readonly presence: WorkbookPresencePresentation;
   readonly connectionId: string | null;
   readonly status: IncidentCollaborationStatus;
 };
@@ -161,6 +168,9 @@ class WorkbookCollaborationCoordinatorRuntime {
     (clientTxnId: string | null | undefined) => boolean
   >();
   private presenceProjection = initialWorkbookPresenceProjection();
+  private presenceExpiryTask: WorkbookCollaborationScheduledTask | null = null;
+  private presenceExpiryGeneration = 0;
+  private editorPresenceGeneration = 0;
   private presenceDraft: WorkbookPresenceDraft = {
     fieldKey: null,
     mode: "viewing",
@@ -175,6 +185,7 @@ class WorkbookCollaborationCoordinatorRuntime {
   private retainGeneration = 0;
   private session: WorkbookCollaborationSessionPort | null = null;
   private sessionGeneration = 0;
+  private establishedConnectionId: string | null = null;
   private sessionOwnerSubscribe:
     | WorkbookCollaborationSessionPort["subscribe"]
     | null = null;
@@ -186,7 +197,7 @@ class WorkbookCollaborationCoordinatorRuntime {
   ) {
     this.activeSheetRef = { ...options.initialSheetRef };
     this.snapshot = {
-      activeSheetPresenceRecords: [],
+      presence: emptyWorkbookPresence,
       connectionId: null,
       status: "disconnected",
     };
@@ -225,13 +236,28 @@ class WorkbookCollaborationCoordinatorRuntime {
   attachSession(session: WorkbookCollaborationSessionPort): () => void {
     if (this.disposed) return () => undefined;
     if (this.sessionOwnerSubscribe !== session.subscribe) {
+      this.establishedConnectionId = null;
       this.sessionGeneration += 1;
       this.sessionOwnerSubscribe = session.subscribe;
       this.cancelReset();
+      this.presenceProjection = clearWorkbookPresenceProjection(
+        this.presenceProjection,
+      );
+      this.cancelPresenceExpiry();
     }
     this.sessionUnsubscribe?.();
     this.session = session;
     this.sessionUnsubscribe = session.subscribe((event) => {
+      if (this.session !== session || this.disposed) return;
+      if (
+        event.kind === "established" &&
+        typeof event.payload.connection_id === "string"
+      ) {
+        this.establishedConnectionId = event.payload.connection_id;
+        this.presenceProjection = clearWorkbookPresenceProjection(
+          this.presenceProjection,
+        );
+      }
       this.handleEventPlan(planWorkbookCollaborationEvent(event));
     });
     this.emit();
@@ -241,12 +267,14 @@ class WorkbookCollaborationCoordinatorRuntime {
       this.sessionUnsubscribe?.();
       this.sessionUnsubscribe = null;
       this.session = null;
+      this.cancelPresenceExpiry();
     };
   }
 
   setActiveSheet(sheetRef: SheetRef): void {
     if (sheetRefKey(this.activeSheetRef) === sheetRefKey(sheetRef)) return;
     this.activeSheetRef = { ...sheetRef };
+    this.editorPresenceGeneration += 1;
     this.presenceDraft = {
       fieldKey: null,
       mode: "viewing",
@@ -301,6 +329,7 @@ class WorkbookCollaborationCoordinatorRuntime {
 
   publishPresence(presence: WorkbookPresenceDraft): void {
     if (this.disposed) return;
+    this.editorPresenceGeneration += 1;
     this.presenceDraft = { ...presence };
     if (!this.authorizationRecoveryMachine.authorizationConfirmed) return;
     const scheduled = scheduleWorkbookPresencePublication(
@@ -324,17 +353,49 @@ class WorkbookCollaborationCoordinatorRuntime {
     );
   }
 
+  publishFocusedCell(recordId: string | null, fieldKey: string | null): void {
+    if (
+      this.presenceDraft.mode === "editing" &&
+      this.presenceDraft.recordId === recordId &&
+      this.presenceDraft.fieldKey === fieldKey
+    )
+      return;
+    this.publishPresence({
+      recordId,
+      fieldKey: null,
+      mode: recordId === null ? "idle" : "viewing",
+    });
+  }
+
+  beginEditingPresence(recordId: string, fieldKey: string): () => void {
+    this.publishPresence({ recordId, fieldKey, mode: "editing" });
+    const generation = this.editorPresenceGeneration;
+    const sheet = sheetRefKey(this.activeSheetRef);
+    return () => {
+      if (
+        this.disposed ||
+        !this.authorizationRecoveryMachine.authorizationConfirmed ||
+        generation !== this.editorPresenceGeneration ||
+        sheet !== sheetRefKey(this.activeSheetRef)
+      )
+        return;
+      this.publishPresence({ recordId, fieldKey: null, mode: "viewing" });
+    };
+  }
+
   editingPresenceForCell(
     recordId: string | null,
     fieldKey: string,
-  ): readonly PresenceRecord[] {
-    if (recordId === null) return [];
-    return this.snapshot.activeSheetPresenceRecords.filter(
-      (presence) =>
-        presence.record_id === recordId &&
-        presence.field_key === fieldKey &&
-        presence.mode === "editing",
-    );
+  ): PresenceScope {
+    return presenceForCell(this.snapshot.presence, recordId, fieldKey);
+  }
+
+  presenceForRow(recordId: string | null): PresenceScope {
+    return presenceForRow(this.snapshot.presence, recordId);
+  }
+
+  refreshPresenceTime(): void {
+    if (!this.disposed) this.emit();
   }
 
   dispose(): void {
@@ -345,6 +406,7 @@ class WorkbookCollaborationCoordinatorRuntime {
     this.session = null;
     this.sessionOwnerSubscribe = null;
     this.cancelPresenceTask();
+    this.cancelPresenceExpiry();
     this.cancelReset();
     this.cancelAuthorizationWork();
     this.authorizationRecoveryMachine = terminateWorkbookAuthorizationRecovery(
@@ -359,21 +421,64 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private emit(): void {
-    const connectionId = this.session?.connectionId ?? null;
-    this.snapshot = {
-      activeSheetPresenceRecords: activeWorkbookPresenceRecords({
-        activeSheetRef: this.activeSheetRef,
-        connectionId,
-        projection: this.presenceProjection,
-      }),
+    const connectionId =
+      this.session === null
+        ? null
+        : (this.establishedConnectionId ?? this.session.connectionId);
+    const projected = projectWorkbookPresence({
+      activeSheetRef: this.activeSheetRef,
       connectionId,
-      status: this.session?.status ?? "disconnected",
+      records: this.presenceProjection.values(),
+      nowMs: this.options.clock.nowMs(),
+    });
+    this.cancelPresenceExpiry();
+    if (
+      !this.disposed &&
+      this.session !== null &&
+      projected.nextExpiryAtMs !== null
+    ) {
+      const generation = this.presenceExpiryGeneration;
+      this.presenceExpiryTask = this.options.scheduler.schedule(
+        projected.nextExpiryAtMs - this.options.clock.nowMs(),
+        () => {
+          if (this.disposed || generation !== this.presenceExpiryGeneration)
+            return;
+          this.presenceExpiryTask = null;
+          this.emit();
+        },
+      );
+    }
+    const status = this.session?.status ?? "disconnected";
+    const samePresence = samePresencePresentation(
+      this.snapshot.presence,
+      projected.presentation,
+    );
+    if (
+      samePresence &&
+      this.snapshot.connectionId === connectionId &&
+      this.snapshot.status === status
+    )
+      return;
+    this.snapshot = {
+      presence: samePresence ? this.snapshot.presence : projected.presentation,
+      connectionId,
+      status,
     };
     for (const listener of this.listeners) listener();
   }
 
+  private cancelPresenceExpiry(): void {
+    this.presenceExpiryGeneration += 1;
+    this.presenceExpiryTask?.cancel();
+    this.presenceExpiryTask = null;
+  }
+
   private publishPresenceNow(): void {
-    if (this.disposed) return;
+    if (
+      this.disposed ||
+      !this.authorizationRecoveryMachine.authorizationConfirmed
+    )
+      return;
     this.session?.publishPresence(
       buildWorkbookPresenceInput(this.presenceDraft, this.activeSheetRef),
     );
@@ -432,6 +537,8 @@ class WorkbookCollaborationCoordinatorRuntime {
         this.options.extensionInvalidation(effect.reason);
         return;
       case "presence":
+        this.editorPresenceGeneration += 1;
+        this.cancelPresenceTask();
         this.presenceProjection = clearWorkbookPresenceProjection(
           this.presenceProjection,
         );
@@ -721,9 +828,16 @@ export function createWorkbookCollaborationCoordinator(
     dispose: () => runtime.dispose(),
     editingPresenceForCell: (recordId: string | null, fieldKey: string) =>
       runtime.editingPresenceForCell(recordId, fieldKey),
+    presenceForRow: (recordId: string | null) =>
+      runtime.presenceForRow(recordId),
+    refreshPresenceTime: () => runtime.refreshPresenceTime(),
     getSnapshot: runtime.getSnapshot,
     publishPresence: (presence: WorkbookPresenceDraft) =>
       runtime.publishPresence(presence),
+    publishFocusedCell: (recordId: string | null, fieldKey: string | null) =>
+      runtime.publishFocusedCell(recordId, fieldKey),
+    beginEditingPresence: (recordId: string, fieldKey: string) =>
+      runtime.beginEditingPresence(recordId, fieldKey),
     registerActiveSurface: (port: WorkbookActiveSurfacePort) =>
       runtime.registerActiveSurface(port),
     registerClientTxnResolver: (

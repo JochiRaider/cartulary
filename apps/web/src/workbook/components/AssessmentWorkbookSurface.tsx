@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
+import { presenceForRow } from "../collaboration/workbookPresencePresentation";
 import {
   useWorkbookGridContinuity,
   WorkbookContinuityCell,
@@ -55,7 +56,12 @@ import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
+import {
+  WorkbookCellPresenceMarker,
+  WorkbookPresenceCellLayout,
+  WorkbookRowGutterContent,
+  workbookPresenceRowGutter,
+} from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
   WorkbookSurfaceStatusStrip,
@@ -180,12 +186,19 @@ export function AssessmentWorkbookSurface({
   const gridRows = useMemo<readonly GridDataRow<WorkbookQueryRow>[]>(
     () =>
       workbookGridRows({
+        renderGutter: (recordId, ordinal) => (
+          <WorkbookRowGutterContent
+            recordId={recordId}
+            ordinal={ordinal}
+            presences={presenceForRow(collaboration.presence, recordId)}
+          />
+        ),
         getRecordId: (row) => row.record_id,
         getRowVersion: (row) => row.row_version,
         rows: assessmentRows,
         surface: assessmentsViewSchemaId,
       }),
-    [assessmentRows],
+    [assessmentRows, collaboration.presence],
   );
   const grouping =
     useMemo<GridGroupingDescriptor<WorkbookQueryRow> | null>(() => {
@@ -284,16 +297,21 @@ export function AssessmentWorkbookSurface({
           recordId={row.record_id}
           viewSchemaId={assessmentsViewSchemaId}
         >
-          {genericCellLabel(row.cells[field.fieldKey]?.value)}
-          <WorkbookCellPresenceMarker
-            fieldKey={field.fieldKey}
-            fieldLabel={field.label}
-            presences={collaborationProjection.editingPresenceForCell(
-              row.record_id,
-              field.fieldKey,
-            )}
-            recordId={row.record_id}
-          />
+          <WorkbookPresenceCellLayout
+            marker={
+              <WorkbookCellPresenceMarker
+                fieldKey={field.fieldKey}
+                fieldLabel={field.label}
+                presences={collaborationProjection.editingPresenceForCell(
+                  row.record_id,
+                  field.fieldKey,
+                )}
+                recordId={row.record_id}
+              />
+            }
+          >
+            {genericCellLabel(row.cells[field.fieldKey]?.value)}
+          </WorkbookPresenceCellLayout>
         </WorkbookContinuityCell>
       ),
     }),
@@ -354,6 +372,7 @@ export function AssessmentWorkbookSurface({
           testId={gridShellTestId(assessmentsViewSchemaId)}
         >
           <SemanticDataGrid
+            rowGutter={workbookPresenceRowGutter}
             ref={registerGridHandle}
             activeRowIdentity={
               selectedAssessmentRecordId === null
@@ -386,11 +405,10 @@ export function AssessmentWorkbookSurface({
                   viewSchemaId: assessmentsViewSchemaId,
                 });
               }
-              collaborationProjection.publishPresence({
-                fieldKey: null,
-                mode: recordId === null ? "idle" : "viewing",
+              collaborationProjection.publishFocusedCell(
                 recordId,
-              });
+                anchor?.fieldKey ?? null,
+              );
             }}
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
@@ -411,7 +429,7 @@ export function AssessmentWorkbookSurface({
       }
       statusStrip={
         <WorkbookSurfaceStatusStrip
-          activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
+          presence={collaboration.presence.header}
           mutationError={mutation.secondaryMessage}
           mutationState={mutation.primaryLabel}
           onActivateConflict={onActivateConflict}

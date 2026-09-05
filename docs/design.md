@@ -1256,7 +1256,7 @@ Design contract. `presence_input_v1` MUST use the schema below before presence r
 | `connection_id` | stable ID string | yes | no | none | Validation fails. |
 | `user_id` | stable ID string | yes | no | none | Validation fails. |
 | `display_name` | string | yes | no | none | Validation fails. |
-| `mode` | `editing`, `focused`, `viewing`, or `idle` | yes | no | none | Validation fails. |
+| `mode` | `editing`, `viewing`, or `idle` | yes | no | none | Validation fails. |
 | `observed_at` | UTC instant | yes | no | none | Validation fails. |
 | `expires_at` | UTC instant | yes | no | none | Validation fails. |
 | `sheet_ref` | owner public shape | yes | no | none | Validation fails. |
@@ -1275,19 +1275,36 @@ Design contract. Presence MUST render at header, row, and cell levels according 
 | Row | 3 unique users | `+N` where `N` is hidden unique users. | Exact `record_id` match. |
 | Cell | 2 unique users | `+N` where `N` is hidden unique users. | Exact `record_id` and `field_key` match with `mode='editing'`. |
 
-Design contract. Presence ordering MUST use this algorithm:
+Core restatement. `focused` is not a public presence mode. Row focus is derived
+from a materialized `record_id`; same-cell editing additionally requires the
+matching writable `field_key` and `mode='editing'`. Owner: Core 01 §3.3.10 and
+Core 03 §4.3. For presentation priority and labels, `viewing` with a row anchor
+is `focused`; `idle` remains `idle`. Unknown wire modes are rejected.
+
+Design contract. Presence ordering MUST use this algorithm independently after
+exact sheet and row/cell scope matching and current-connection exclusion:
 
 ```pseudocode
 order_presence(presences, now):
   candidates = [p for p in presences where p.expires_at > now]
-  dedupe_key = p.user_id + ":" + p.mode + ":" + p.record_id + ":" + p.field_key
+  dedupe_key = tuple(p.user_id, p.mode, p.record_id, p.field_key)
   keep the candidate with latest observed_at for each dedupe_key
+       breaking ties by display_name Unicode NFC code-point ascending
+       then exact connection_id code-point ascending
   sort by mode_priority(editing=1, focused=2, viewing=3, idle=4)
        then observed_at descending
        then display_name Unicode NFC code-point ascending
        then connection_id ascending
   return sorted candidates
 ```
+
+Design contract. Normalization is for name comparison only and MUST NOT
+overwrite source names or stable identifiers. Compact display takes the first
+representative per exact `user_id` within that scope, then applies capacity.
+Header user collapse MUST NOT remove a connection from row/cell candidates.
+Renewal of expiry alone MUST NOT change observation ordering or imply new
+activity. Current-connection exclusion does not exclude other connections of
+the same account; presence is ambient, not an account/session directory.
 
 Design contract. If the same user has multiple visible presence states in one scope, the highest-priority mode wins for compact avatar display. Detailed expansion MAY list all non-expired connections. Omission behavior: omission of detailed expansion is conformant when compact display and overflow count remain correct.
 

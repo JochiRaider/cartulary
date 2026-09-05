@@ -5,13 +5,13 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
+import {
+  emptyPresenceScope,
+  type PresenceScope,
+} from "../collaboration/workbookPresencePresentation";
 import { WorkbookContinuityAnchorStatus } from "../continuity/useWorkbookGridContinuity";
 import type { WorkbookContinuityAnchor } from "../continuity/workbookContinuityPort";
-import {
-  displayInitials,
-  type PresenceRecord,
-  visiblePresence,
-} from "../utils/workbookPresence";
+import { displayInitials } from "../utils/workbookPresence";
 import {
   presenceAvatarStyle,
   presenceEmptyStyle,
@@ -21,19 +21,20 @@ import {
   statusStripPresenceStyle,
   statusStripSecondaryItemStyle,
 } from "../utils/workbookStyles";
+import { presenceAccessibleLabel } from "./WorkbookPresenceMarkers";
 
 export type WorkbookStatusSaveState = "Syncing" | "Saved" | "Conflict";
 export type WorkbookConflictActivation = (invoker: HTMLButtonElement) => void;
 
 export function WorkbookStatusStrip({
-  activeSheetPresenceRecords,
+  presence,
   saveState,
   saveStateSecondaryMessage,
   showPresence = true,
   onActivateConflict,
   workbookFocusAnchor,
 }: {
-  readonly activeSheetPresenceRecords: readonly PresenceRecord[];
+  readonly presence: PresenceScope;
   readonly inFlightCount: number;
   readonly queuedCount: number;
   readonly saveState: WorkbookStatusSaveState;
@@ -81,23 +82,21 @@ export function WorkbookStatusStrip({
           {saveStateSecondaryMessage}
         </span>
       ) : null}
-      {showPresence ? (
-        <WorkbookPresenceSummary records={activeSheetPresenceRecords} />
-      ) : null}
+      {showPresence ? <WorkbookPresenceSummary records={presence} /> : null}
       <WorkbookContinuityAnchorStatus anchor={workbookFocusAnchor} />
     </>
   );
 }
 
 export function WorkbookSurfaceStatusStrip({
-  activeSheetPresenceRecords = [],
+  presence = emptyPresenceScope,
   mutationError = null,
   mutationState,
   onActivateConflict,
   showPresence = true,
   workbookFocusAnchor,
 }: {
-  readonly activeSheetPresenceRecords?: readonly PresenceRecord[] | undefined;
+  readonly presence?: PresenceScope | undefined;
   readonly mutationError?: string | null | undefined;
   readonly mutationState: WorkbookStatusSaveState;
   readonly onActivateConflict?: WorkbookConflictActivation | undefined;
@@ -148,9 +147,7 @@ export function WorkbookSurfaceStatusStrip({
           {mutationError}
         </span>
       ) : null}
-      {showPresence ? (
-        <WorkbookPresenceSummary records={activeSheetPresenceRecords} />
-      ) : null}
+      {showPresence ? <WorkbookPresenceSummary records={presence} /> : null}
       <WorkbookContinuityAnchorStatus anchor={workbookFocusAnchor} />
     </>
   );
@@ -159,14 +156,14 @@ export function WorkbookSurfaceStatusStrip({
 export function WorkbookPresenceSummary({
   records,
 }: {
-  readonly records: readonly PresenceRecord[];
+  readonly records: PresenceScope;
 }) {
-  const visible = visiblePresence(records, 5);
+  const visible = records;
   return (
     <div
-      aria-label={`${records.length} collaborators present on this sheet`}
+      aria-label={presenceAccessibleLabel(records, "present on this sheet")}
       data-testid={workbookPresenceSummaryTestId()}
-      role="status"
+      role="img"
       style={statusStripPresenceStyle}
     >
       <span>Presence</span>
@@ -175,8 +172,8 @@ export function WorkbookPresenceSummary({
       ) : (
         visible.shown.map((presence) => (
           <span
-            key={presence.connection_id}
-            title={presence.display_name}
+            key={presence.user_id}
+            aria-hidden="true"
             style={presenceAvatarStyle}
           >
             {displayInitials(presence.display_name)}

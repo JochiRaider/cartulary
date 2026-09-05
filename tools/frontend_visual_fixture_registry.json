@@ -965,8 +965,11 @@
       "theme_id": "dark_graphite",
       "density_id": "default",
       "scroll_normalization": {
-        "kind": "top_left",
-        "anchor": "workbook-grid"
+        "kind": "cell_anchor",
+        "anchor": "timeline.activity_synopsis_text",
+        "row": "presence visual row",
+        "top": 0,
+        "trailing_context": "timeline.data_source_text"
       },
       "capture_scope": {
         "kind": "full_viewport"

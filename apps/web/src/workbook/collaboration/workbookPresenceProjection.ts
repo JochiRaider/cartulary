@@ -1,8 +1,6 @@
-import type { SheetRef } from "../../shared/sheetRef";
 import {
   isPresenceRecord,
   type PresenceRecord,
-  presenceMatchesSheet,
 } from "../utils/workbookPresence";
 
 export type WorkbookPresenceProjection = ReadonlyMap<string, PresenceRecord>;
@@ -63,21 +61,4 @@ export function clearWorkbookPresenceProjection(
   current: WorkbookPresenceProjection,
 ): WorkbookPresenceProjection {
   return current.size === 0 ? current : new Map();
-}
-
-export function activeWorkbookPresenceRecords(input: {
-  readonly activeSheetRef: SheetRef;
-  readonly connectionId: string | null;
-  readonly projection: WorkbookPresenceProjection;
-}): readonly PresenceRecord[] {
-  return Array.from(input.projection.values())
-    .filter((presence) => presenceMatchesSheet(presence, input.activeSheetRef))
-    .filter((presence) => presence.connection_id !== input.connectionId)
-    .sort((left, right) => {
-      if (left.display_name < right.display_name) return -1;
-      if (left.display_name > right.display_name) return 1;
-      if (left.connection_id < right.connection_id) return -1;
-      if (left.connection_id > right.connection_id) return 1;
-      return 0;
-    });
 }

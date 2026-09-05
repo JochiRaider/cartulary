@@ -31,6 +31,7 @@ import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
+import { presenceForRow } from "../collaboration/workbookPresencePresentation";
 import {
   useWorkbookGridContinuity,
   WorkbookContinuityCell,
@@ -77,7 +78,12 @@ import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker"
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { GenericMutationControl } from "./GenericMutationControl";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
-import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
+import {
+  WorkbookCellPresenceMarker,
+  WorkbookPresenceCellLayout,
+  WorkbookRowGutterContent,
+  workbookPresenceRowGutter,
+} from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
   WorkbookSurfaceStatusStrip,
@@ -368,12 +374,19 @@ export function ContractWorkbookSurface({
   const gridRecordRows = useMemo<readonly GridDataRow<WorkbookQueryRow>[]>(
     () =>
       workbookGridRows({
+        renderGutter: (recordId, ordinal) => (
+          <WorkbookRowGutterContent
+            recordId={recordId}
+            ordinal={ordinal}
+            presences={presenceForRow(collaboration.presence, recordId)}
+          />
+        ),
         getRecordId: (row: WorkbookQueryRow) => row.record_id,
         getRowVersion: (row: WorkbookQueryRow) => row.row_version,
         rows,
         surface,
       }),
-    [rows, surface],
+    [rows, surface, collaboration.presence],
   );
   const gridDraftRow = useMemo<GridDraftRow<WorkbookQueryRow> | undefined>(
     () =>
@@ -486,6 +499,7 @@ export function ContractWorkbookSurface({
         editor:
           field?.gridEditable === true
             ? workbookGridEditorAdapter({
+                collaboration: collaborationProjection,
                 commit: (draftValue, target) =>
                   commitGridEdit(field.fieldKey, draftValue, {
                     baseRowVersion: target.mutationIdentity.baseRowVersion,
@@ -538,24 +552,29 @@ export function ContractWorkbookSurface({
               recordId={row.record_id}
               viewSchemaId={contract.viewSchemaId}
             >
-              {genericCellLabelForField(
-                surface,
-                column.fieldKey,
-                mutationRuntime.visibleEdit(
-                  contract.viewSchemaId,
-                  row.record_id,
+              <WorkbookPresenceCellLayout
+                marker={
+                  <WorkbookCellPresenceMarker
+                    fieldKey={column.fieldKey}
+                    fieldLabel={field?.label ?? column.fieldKey}
+                    presences={collaborationProjection.editingPresenceForCell(
+                      row.record_id,
+                      column.fieldKey,
+                    )}
+                    recordId={row.record_id}
+                  />
+                }
+              >
+                {genericCellLabelForField(
+                  surface,
                   column.fieldKey,
-                ) ?? row.cells[column.fieldKey]?.value,
-              )}
-              <WorkbookCellPresenceMarker
-                fieldKey={column.fieldKey}
-                fieldLabel={field?.label ?? column.fieldKey}
-                presences={collaborationProjection.editingPresenceForCell(
-                  row.record_id,
-                  column.fieldKey,
+                  mutationRuntime.visibleEdit(
+                    contract.viewSchemaId,
+                    row.record_id,
+                    column.fieldKey,
+                  ) ?? row.cells[column.fieldKey]?.value,
                 )}
-                recordId={row.record_id}
-              />
+              </WorkbookPresenceCellLayout>
             </WorkbookContinuityCell>
           );
         },
@@ -659,6 +678,7 @@ export function ContractWorkbookSurface({
           testId={gridShellTestId(surface)}
         >
           <SemanticDataGrid
+            rowGutter={workbookPresenceRowGutter}
             ref={registerGridHandle}
             actionsColumn={rowActionsColumn}
             columns={columns}
@@ -688,11 +708,10 @@ export function ContractWorkbookSurface({
                   viewSchemaId: contract.viewSchemaId,
                 });
               }
-              collaborationProjection.publishPresence({
-                fieldKey: null,
-                mode: recordId === null ? "idle" : "viewing",
+              collaborationProjection.publishFocusedCell(
                 recordId,
-              });
+                anchor?.fieldKey ?? null,
+              );
             }}
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
@@ -706,7 +725,7 @@ export function ContractWorkbookSurface({
       }
       statusStrip={
         <WorkbookSurfaceStatusStrip
-          activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
+          presence={collaboration.presence.header}
           mutationError={
             mutationError?.primaryMessage ?? sharedMutation.secondaryMessage
           }

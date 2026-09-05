@@ -118,7 +118,7 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 	go s.readLoop(ctx, conn, incoming, readErrors)
 
 	lastInbound := s.now()
-	lastSent := s.now()
+	lastPing := s.now()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -179,13 +179,36 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 				lifecycleResult = "failed"
 				return
 			}
-			lastSent = s.now()
 		case message := <-incoming:
-			lastInbound = s.now()
+			now := s.now()
+			if !principal.Session.SessionExpiresAt.After(now) {
+				lifecycleResult = "canceled"
+				_ = s.authStore.RevokeSession(context.Background(), principal.Session.ID, "session_expired", now)
+				s.hub.RevokeSession(principal.Session.ID, "session_expired")
+				closed = s.writeSessionRevoked(ctx, conn, incidentID, "session_expired")
+				return
+			}
+			if now.Sub(lastInbound) >= protocol.HeartbeatTimeout {
+				lifecycleResult = "timeout"
+				_ = conn.Close(1008, heartbeatCloseReason)
+				closed = true
+				return
+			}
+			if _, apiErr := s.requireIncidentMembership(ctx, incidentID, principal.User.ID); apiErr != nil {
+				lifecycleResult = "canceled"
+				closed = s.writeSessionRevoked(ctx, conn, incidentID, "incident_access_revoked")
+				return
+			}
+			if terminal, terminalErr := s.incidentClosed(ctx, incidentID, principal.User.ID); terminalErr != nil || terminal {
+				lifecycleResult = "canceled"
+				closed = s.writeTerminalIncidentError(ctx, conn, incidentID, protocol.IncidentTerminalClosed)
+				return
+			}
 			if !s.handleClientMessage(ctx, conn, incidentID, connectionID, messages, principal, message) {
 				lifecycleResult = "rejected"
 				return
 			}
+			lastInbound = now
 		case err := <-readErrors:
 			lifecycleResult = "rejected"
 			s.closeForDecodeFailure(ctx, conn, incidentID, err, false)
@@ -202,18 +225,18 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 				}
 				return
 			}
-			if now.Sub(lastInbound) > protocol.HeartbeatTimeout {
+			if now.Sub(lastInbound) >= protocol.HeartbeatTimeout {
 				lifecycleResult = "timeout"
 				_ = conn.Close(1008, heartbeatCloseReason)
 				closed = true
 				return
 			}
-			if now.Sub(lastSent) >= protocol.HeartbeatInterval {
+			if heartbeatPingDue(now, lastInbound, lastPing) {
 				if s.writeMessage(ctx, conn, protocol.EphemeralMessage(incidentID, "ping", map[string]any{}, now)) != nil {
 					lifecycleResult = "failed"
 					return
 				}
-				lastSent = now
+				lastPing = now
 			}
 		}
 	}
@@ -222,6 +245,11 @@ func (s *routeService) handleIncidentSocket(w http.ResponseWriter, r *http.Reque
 type establishedSession struct {
 	ClientInstanceID   string
 	LiveAfterStreamSeq int64
+}
+
+// Outgoing traffic is not proof of peer liveness and cannot postpone a ping.
+func heartbeatPingDue(now, lastInbound, lastPing time.Time) bool {
+	return now.Sub(lastInbound) >= protocol.HeartbeatInterval && now.Sub(lastPing) >= protocol.HeartbeatInterval
 }
 
 func (s *routeService) establishSession(ctx context.Context, conn protocol.Socket, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, ownMessages <-chan protocol.Message, message protocol.Message) (establishedSession, error) {
@@ -345,6 +373,10 @@ func (s *routeService) handleClientMessage(ctx context.Context, conn protocol.So
 		if err := decodePayloadObject(message.Payload, &payload); err != nil {
 			s.writeInvalidLaterMessage(ctx, conn, incidentID, err.Error())
 			return false
+		}
+		now := s.now()
+		if presence, renewed := s.hub.RenewPresence(incidentID, connectionID, now); renewed {
+			s.hub.BroadcastPresenceDelta(incidentID, "upsert", presence, now, ownMessages)
 		}
 		return true
 	case "presence_update":

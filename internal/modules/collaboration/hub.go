@@ -138,6 +138,26 @@ func (h *hub) UpsertPresence(incidentID uuid.UUID, connectionID uuid.UUID, userI
 	return record
 }
 
+// RenewPresence changes only liveness, never the last published activity.
+// A late heartbeat cannot re-create a pruned, removed, or replaced connection.
+func (h *hub) RenewPresence(incidentID uuid.UUID, connectionID uuid.UUID, now time.Time) (protocol.PresenceRecord, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.prunePresenceLocked(incidentID, now)
+	record, ok := h.presences[incidentID][connectionID.String()]
+	if !ok {
+		return protocol.PresenceRecord{}, false
+	}
+	expiresAt := now.UTC().Add(protocol.PresenceTTL)
+	previousExpiry, err := time.Parse(time.RFC3339Nano, record.ExpiresAt)
+	if err != nil || !expiresAt.After(previousExpiry) {
+		return protocol.PresenceRecord{}, false
+	}
+	record.ExpiresAt = expiresAt.Format(time.RFC3339Nano)
+	h.presences[incidentID][connectionID.String()] = record
+	return record, true
+}
+
 func (h *hub) RemovePresence(incidentID uuid.UUID, connectionID uuid.UUID, now time.Time) (protocol.PresenceRecord, bool) {
 	if h == nil {
 		return protocol.PresenceRecord{}, false

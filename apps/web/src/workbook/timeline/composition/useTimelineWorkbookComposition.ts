@@ -314,8 +314,7 @@ export function useTimelineWorkbookComposition({
       },
       snapshot: {
         collaboration: {
-          activeSheetPresenceRecords:
-            mutation.snapshot.collaboration.activeSheetPresenceRecords,
+          presence: mutation.snapshot.collaboration.presence,
         },
         conflict: {
           commonMutationSnapshot:

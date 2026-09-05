@@ -1,4 +1,7 @@
-import { networkAnalysisTestId } from "@cartulary/ui-contracts";
+import {
+  networkAnalysisTestId,
+  workbookPresenceSummaryTestId,
+} from "@cartulary/ui-contracts";
 import type { Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -28,7 +31,7 @@ test("Network Flow unclaimed workspace remains unavailable", async ({
 test("Network Analysis claimed empty state exposes import entry", async ({
   page,
 }) => {
-  await openClaimedNetworkAnalysis(page, "NFAC002");
+  const incidentId = await openClaimedNetworkAnalysis(page, "NFAC002");
 
   await expect(
     page.getByTestId(networkAnalysisTestId("workspace")),
@@ -39,6 +42,30 @@ test("Network Analysis claimed empty state exposes import entry", async ({
   await expect(
     page.getByTestId(networkAnalysisTestId("import-trigger")),
   ).toHaveAttribute("data-network-flow-variant", "primary");
+  const duplicate = await page.context().newPage();
+  try {
+    await duplicate.goto(`/?incident_id=${incidentId}`);
+    await duplicate.getByTestId(networkAnalysisTestId("tab")).click();
+    await expect(
+      duplicate.getByTestId(networkAnalysisTestId("workspace")),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(workbookPresenceSummaryTestId()),
+    ).toHaveAccessibleName(/^1 collaborator present on this sheet/);
+    await expect(
+      page.getByRole("img", {
+        name: /^\d+ collaborators? (on this row|editing .+ on this row)/,
+      }),
+    ).toHaveCount(0);
+    await duplicate.goto(
+      `/?incident_id=${incidentId}&view_schema_id=cartulary.view.timeline.v2`,
+    );
+    await expect(
+      page.getByTestId(workbookPresenceSummaryTestId()),
+    ).toHaveAccessibleName(/^0 collaborators/);
+  } finally {
+    await duplicate.close();
+  }
 });
 
 test("Network Analysis import creates one inner table tab", async ({

@@ -1,6 +1,6 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useCallback } from "react";
-import type { PresenceRecord } from "../../utils/workbookPresence";
+import type { PresenceScope } from "../../collaboration/workbookPresencePresentation";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type {
@@ -65,7 +65,7 @@ export function useTimelineWorkbookRenderers({
   readonly editingPresenceForCell: (
     recordId: string | null,
     fieldKey: string,
-  ) => readonly PresenceRecord[];
+  ) => PresenceScope;
   readonly entityIndex: TimelineEntityIndex;
   readonly gridShellWidth: number;
   readonly handleBlur: TimelineScalarBlurCommit;

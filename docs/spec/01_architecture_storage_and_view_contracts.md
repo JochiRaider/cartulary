@@ -4347,6 +4347,17 @@ Profiles: base, snapshot_reporting
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-233
 
 **REQ-01-266**
+Presence `observed_at` is the server UTC instant of the last accepted presence
+publication through `hello`, `resume`, or `presence_update`. Heartbeat renewal
+MUST preserve that observation, published mode, and focus anchors. An accepted
+`pong` on a still-live connection MUST renew its existing presence expiry to
+the server receipt time plus `presence_ttl_ms` and publish the renewed full
+record through the existing ephemeral `presence_delta` upsert. Renewal MUST NOT
+restore a removed or expired connection record or count as qualifying session
+activity. Outgoing broadcasts MUST NOT suppress the heartbeat requests needed
+to establish continued inbound liveness. These rules do not change the
+heartbeat constants, public message shapes, or session-lifetime requirements.
+
 `presence_delta.payload` MUST include `delta_kind` and `presence`. `delta_kind` MUST be one of `upsert` or `remove`. On `upsert`, `presence` MUST be a full presence record. On `remove`, `presence.connection_id` MUST identify the removed record; other presence members MAY be repeated for convenience but MUST NOT be required.
 Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231

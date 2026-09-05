@@ -1,5 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import {
+  emptyWorkbookPresence,
+  projectWorkbookPresence,
+} from "../../collaboration/workbookPresencePresentation";
 import type { PresenceRecord } from "../../utils/workbookPresence";
 import { useTimelinePresenceController } from "./useTimelinePresenceController";
 
@@ -75,7 +79,15 @@ describe("useTimelinePresenceController", () => {
     const { result, rerender } = renderHook(
       ({ presenceRecords }) =>
         useTimelinePresenceController({
-          presenceRecords,
+          presence: projectWorkbookPresence({
+            records: presenceRecords,
+            activeSheetRef: {
+              kind: "view_schema",
+              id: "cartulary.view.timeline.v2",
+            },
+            connectionId: null,
+            nowMs: Date.parse("2026-08-14T12:00:00Z"),
+          }).presentation,
           publishPresence: vi.fn(),
           resetKey: "surface-1",
         }),
@@ -85,32 +97,33 @@ describe("useTimelinePresenceController", () => {
     expect(
       result.current.snapshot
         .presenceForRow(firstRecordId)
-        .map((record) => record.connection_id),
-    ).toEqual(["editing", "viewing", "wrong-field", "saved-view", "editing"]);
+        .users.map((record) => record.connection_id),
+    ).toEqual(["editing", "wrong-field", "viewing"]);
     expect(
       result.current.snapshot
         .editingPresenceForCell(firstRecordId, summaryFieldKey)
-        .map((record) => record.connection_id),
-    ).toEqual(["editing", "saved-view", "editing"]);
-    expect(result.current.snapshot.presenceForRow(null)).toEqual([]);
+        .users.map((record) => record.connection_id),
+    ).toEqual(["editing"]);
+    expect(result.current.snapshot.presenceForRow(null).users).toEqual([]);
     expect(
-      result.current.snapshot.editingPresenceForCell(null, summaryFieldKey),
+      result.current.snapshot.editingPresenceForCell(null, summaryFieldKey)
+        .users,
     ).toEqual([]);
 
     rerender({ presenceRecords: [...records].reverse() });
     expect(
       result.current.snapshot
         .editingPresenceForCell(firstRecordId, summaryFieldKey)
-        .map((record) => record.connection_id)
+        .users.map((record) => record.connection_id)
         .sort(),
-    ).toEqual(["editing", "editing", "saved-view"]);
+    ).toEqual(["editing"]);
   });
 
   it("publishes coherent viewing and editing transitions and keeps selection from overriding an edit", () => {
     const publishPresence = vi.fn();
     const { result } = renderHook(() =>
       useTimelinePresenceController({
-        presenceRecords: [],
+        presence: emptyWorkbookPresence,
         publishPresence,
         resetKey: "surface-1",
       }),
@@ -165,7 +178,7 @@ describe("useTimelinePresenceController", () => {
     const { result, rerender } = renderHook(
       ({ resetKey }) =>
         useTimelinePresenceController({
-          presenceRecords: [],
+          presence: emptyWorkbookPresence,
           publishPresence,
           resetKey,
         }),

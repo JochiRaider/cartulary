@@ -37,6 +37,7 @@ describe("WorkbookShell save-state status strip", () => {
   });
 
   it("renders derived secondary save-state detail inside the workbook status strip", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-06-02T12:00:00Z"));
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "10000000-0000-4000-8000-000000000001",
@@ -126,7 +127,6 @@ describe("WorkbookShell save-state status strip", () => {
             sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
             record_id: "20000000-0000-4000-8000-000000000501",
             mode: "viewing",
-            field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-06-02T12:00:00Z",
             expires_at: "2026-06-02T12:01:00Z",
           },

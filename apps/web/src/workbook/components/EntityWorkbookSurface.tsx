@@ -33,6 +33,7 @@ import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { WorkbookClipboardPastePort } from "../adapters/WorkbookClipboardPastePort";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
+import { presenceForRow } from "../collaboration/workbookPresencePresentation";
 import {
   useWorkbookGridContinuity,
   WorkbookContinuityCell,
@@ -97,7 +98,12 @@ import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { GenericMutationControl } from "./GenericMutationControl";
 import { workbookGridEditorAdapter } from "./WorkbookGridEditorControl";
-import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
+import {
+  WorkbookCellPresenceMarker,
+  WorkbookPresenceCellLayout,
+  WorkbookRowGutterContent,
+  workbookPresenceRowGutter,
+} from "./WorkbookPresenceMarkers";
 import {
   type WorkbookConflictActivation,
   WorkbookSurfaceStatusStrip,
@@ -294,12 +300,19 @@ export function EntityWorkbookSurface({
   const entityGridRows = useMemo<readonly GridDataRow<EntityRow>[]>(
     () =>
       workbookGridRows({
+        renderGutter: (recordId, ordinal) => (
+          <WorkbookRowGutterContent
+            recordId={recordId}
+            ordinal={ordinal}
+            presences={presenceForRow(collaboration.presence, recordId)}
+          />
+        ),
         getRecordId: (row: EntityRow) => row.recordId,
         getRowVersion: (row: EntityRow) => row.rowVersion,
         rows,
         surface,
       }),
-    [rows, surface],
+    [rows, surface, collaboration.presence],
   );
   const entityDraftRow = useMemo<GridDraftRow<EntityRow> | undefined>(
     () =>
@@ -563,6 +576,7 @@ export function EntityWorkbookSurface({
         editor:
           field?.gridEditable === true
             ? workbookGridEditorAdapter({
+                collaboration: collaborationProjection,
                 commit: (draftValue, target) =>
                   commitGridEdit(field.fieldKey, draftValue, {
                     baseRowVersion: target.mutationIdentity.baseRowVersion,
@@ -620,18 +634,23 @@ export function EntityWorkbookSurface({
               recordId={row.recordId}
               viewSchemaId={contract.viewSchemaId}
             >
-              {visibleEdit === undefined
-                ? entityCellContent(entityType, row, column.fieldKey)
-                : genericCellLabel(visibleEdit)}
-              <WorkbookCellPresenceMarker
-                fieldKey={column.fieldKey}
-                fieldLabel={field?.label ?? column.fieldKey}
-                presences={collaborationProjection.editingPresenceForCell(
-                  row.recordId,
-                  column.fieldKey,
-                )}
-                recordId={row.recordId}
-              />
+              <WorkbookPresenceCellLayout
+                marker={
+                  <WorkbookCellPresenceMarker
+                    fieldKey={column.fieldKey}
+                    fieldLabel={field?.label ?? column.fieldKey}
+                    presences={collaborationProjection.editingPresenceForCell(
+                      row.recordId,
+                      column.fieldKey,
+                    )}
+                    recordId={row.recordId}
+                  />
+                }
+              >
+                {visibleEdit === undefined
+                  ? entityCellContent(entityType, row, column.fieldKey)
+                  : genericCellLabel(visibleEdit)}
+              </WorkbookPresenceCellLayout>
             </WorkbookContinuityCell>
           );
         },
@@ -747,6 +766,7 @@ export function EntityWorkbookSurface({
           testId={gridShellTestId(surface)}
         >
           <SemanticDataGrid
+            rowGutter={workbookPresenceRowGutter}
             ref={registerGridHandle}
             activeRowIdentity={
               selectedRecordId === null
@@ -776,11 +796,10 @@ export function EntityWorkbookSurface({
                   viewSchemaId: contract.viewSchemaId,
                 });
               }
-              collaborationProjection.publishPresence({
-                fieldKey: null,
-                mode: recordId === null ? "idle" : "viewing",
+              collaborationProjection.publishFocusedCell(
                 recordId,
-              });
+                anchor?.fieldKey ?? null,
+              );
             }}
             onColumnReorder={onColumnReorder}
             onColumnWidthChange={onColumnWidthChange}
@@ -794,7 +813,7 @@ export function EntityWorkbookSurface({
       }
       statusStrip={
         <WorkbookSurfaceStatusStrip
-          activeSheetPresenceRecords={collaboration.activeSheetPresenceRecords}
+          presence={collaboration.presence.header}
           mutationError={
             mutationError?.primaryMessage ?? sharedMutation.secondaryMessage
           }

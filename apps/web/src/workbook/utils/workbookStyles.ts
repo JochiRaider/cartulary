@@ -88,7 +88,7 @@ export const presenceAvatarStyle = {
   borderRadius: "var(--ct-rounded-pill)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-semantic-presence-self)",
+  color: "var(--ct-colors-semantic-presence-other)",
   fontSize: "0.72rem",
   fontWeight: 700,
 } satisfies CSSProperties;

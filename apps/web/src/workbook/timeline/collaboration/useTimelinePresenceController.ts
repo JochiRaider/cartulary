@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollaborationMessages";
-import type { PresenceRecord } from "../../utils/workbookPresence";
+import {
+  presenceForCell,
+  presenceForRow as scopedRowPresence,
+  type WorkbookPresencePresentation,
+} from "../../collaboration/workbookPresencePresentation";
 
 const initialTimelinePresence: WorkbookPresenceDraft = {
   fieldKey: null,
@@ -9,11 +13,11 @@ const initialTimelinePresence: WorkbookPresenceDraft = {
 };
 
 export function useTimelinePresenceController({
-  presenceRecords,
+  presence,
   publishPresence,
   resetKey,
 }: {
-  readonly presenceRecords: readonly PresenceRecord[];
+  readonly presence: WorkbookPresencePresentation;
   readonly publishPresence: (presence: WorkbookPresenceDraft) => void;
   readonly resetKey: string | number;
 }) {
@@ -32,23 +36,13 @@ export function useTimelinePresenceController({
   }, [resetKey]);
 
   const presenceForRow = useCallback(
-    (recordId: string | null) =>
-      recordId === null
-        ? []
-        : presenceRecords.filter((presence) => presence.record_id === recordId),
-    [presenceRecords],
+    (recordId: string | null) => scopedRowPresence(presence, recordId),
+    [presence],
   );
   const editingPresenceForCell = useCallback(
     (recordId: string | null, fieldKey: string) =>
-      recordId === null
-        ? []
-        : presenceRecords.filter(
-            (presence) =>
-              presence.record_id === recordId &&
-              presence.field_key === fieldKey &&
-              presence.mode === "editing",
-          ),
-    [presenceRecords],
+      presenceForCell(presence, recordId, fieldKey),
+    [presence],
   );
   const publishViewingPresence = useCallback(
     (recordId: string) => {
@@ -64,6 +58,7 @@ export function useTimelinePresenceController({
   );
   const publishEditModePresence = useCallback(
     (recordId: string | null, fieldKey: string, editing: boolean) => {
+      if (!editing && currentPresenceRef.current.fieldKey !== fieldKey) return;
       const next = editing
         ? { fieldKey, mode: "editing" as const, recordId }
         : {
@@ -91,7 +86,7 @@ export function useTimelinePresenceController({
       currentPresenceRef,
       editingPresenceForCell,
       presenceForRow,
-      presenceRecords,
+      presence,
     },
   };
 }

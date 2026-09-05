@@ -1,6 +1,7 @@
 package collaboration
 
 import (
+	"context"
 	"reflect"
 	"sync"
 	"testing"
@@ -9,10 +10,76 @@ import (
 	"github.com/google/uuid"
 
 	collabprotocol "github.com/JochiRaider/cartulary/internal/modules/collaboration/protocol"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	collabtestprotocol "github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/protocoltest"
 )
 
 func TestPresenceReplayRevocationTransport(t *testing.T) {
+	t.Run("renewal preserves scopes and removal and expiry are final", func(t *testing.T) {
+		now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+		h := newHub("0.0.0+unknown")
+		incidentID, connectionID, userID := uuid.New(), uuid.New(), uuid.New()
+		input := collabprotocol.PresenceInput{SheetRef: map[string]string{"kind": "saved_view", "id": "saved-one"}, Mode: "editing", RecordID: stringPointer("row"), FieldKey: stringPointer("summary")}
+		initial := h.UpsertPresence(incidentID, connectionID, userID, "Analyst", input, now)
+		renewed, ok := h.RenewPresence(incidentID, connectionID, now.Add(15*time.Second))
+		if !ok {
+			t.Fatal("valid connection not renewed")
+		}
+		renewed.ExpiresAt = initial.ExpiresAt
+		if !reflect.DeepEqual(initial, renewed) {
+			t.Fatalf("renewal changed activity: %#v", renewed)
+		}
+		h.RemovePresence(incidentID, connectionID, now.Add(16*time.Second))
+		if _, ok := h.RenewPresence(incidentID, connectionID, now.Add(17*time.Second)); ok {
+			t.Fatal("removed presence restored")
+		}
+		h.UpsertPresence(incidentID, connectionID, userID, "Analyst", input, now)
+		if _, ok := h.RenewPresence(incidentID, connectionID, now.Add(collabprotocol.PresenceTTL)); ok {
+			t.Fatal("expired presence restored")
+		}
+	})
+	t.Run("outgoing broadcasts cannot starve heartbeat requests", func(t *testing.T) {
+		now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+		if heartbeatPingDue(now.Add(14*time.Second), now, now) {
+			t.Fatal("early heartbeat")
+		}
+		if !heartbeatPingDue(now.Add(15*time.Second), now, now) {
+			t.Fatal("missing heartbeat at boundary")
+		}
+		if heartbeatPingDue(now.Add(16*time.Second), now, now.Add(15*time.Second)) {
+			t.Fatal("repeated ping before interval")
+		}
+		if heartbeatPingDue(now.Add(16*time.Second), now.Add(15*time.Second), now) {
+			t.Fatal("inbound frame ignored")
+		}
+		if !heartbeatPingDue(now.Add(30*time.Second), now.Add(15*time.Second), now.Add(15*time.Second)) {
+			t.Fatal("renewal traffic suppressed next heartbeat")
+		}
+	})
+	t.Run("pong renews expiry without changing the published observation", func(t *testing.T) {
+		now := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+		incidentID, connectionID := uuid.New(), uuid.New()
+		h := newHub("0.0.0+unknown")
+		initial := h.UpsertPresence(incidentID, connectionID, uuid.New(), "Quiet Analyst", collabprotocol.PresenceInput{
+			SheetRef: map[string]string{"kind": "view_schema", "id": "cartulary.view.timeline.v2"}, Mode: "viewing",
+		}, now)
+		service := &routeService{hub: h, now: func() time.Time { return now.Add(15 * time.Second) }}
+		if !service.handleClientMessage(context.Background(), nil, incidentID, connectionID, nil, httpauth.Principal{}, collabprotocol.Message{
+			Type: "pong", Payload: collabtestprotocol.RawPayload(map[string]any{}),
+		}) {
+			t.Fatal("valid pong rejected")
+		}
+		snapshot := h.PresenceSnapshot(incidentID, now.Add(collabprotocol.PresenceTTL))
+		if len(snapshot) != 1 {
+			t.Fatalf("quiet connected presence expired: %#v", snapshot)
+		}
+		if snapshot[0].ObservedAt != initial.ObservedAt {
+			t.Fatal("heartbeat changed activity observation")
+		}
+		if snapshot[0].ExpiresAt != now.Add(15*time.Second+collabprotocol.PresenceTTL).Format(time.RFC3339Nano) {
+			t.Fatalf("heartbeat did not transmit renewed expiry: %#v", snapshot[0])
+		}
+	})
 	t.Run("presence snapshots are incident scoped sorted and expire", func(t *testing.T) {
 		hub := newHub("0.0.0+unknown")
 		incidentID := uuid.New()

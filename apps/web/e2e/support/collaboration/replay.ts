@@ -727,7 +727,7 @@ export async function focusRemoteTimelineCellAndWaitForPresence({
     await expect(rowMarker).toBeVisible();
     await expect(cellMarker).toBeVisible();
   } else {
-    await expect(rowMarker).toContainText(actorText);
+    await expect(rowMarker).toContainText(Array.from(actorText)[0] ?? "");
     await expect(cellMarker).toContainText(actorText);
   }
   return presenceMessage;

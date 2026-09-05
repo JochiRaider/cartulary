@@ -14,6 +14,7 @@ import {
   assertActiveFilterChipVisible,
   assertMarkerAnchoredToGridTarget,
   changeGrouping,
+  scrollGridCellIntoView,
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
@@ -1788,6 +1789,12 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       .getByTestId(mentionResolveTargetSelectTestId())
       .selectOption(manualTarget.record_id);
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
+    await expect(
+      page.getByTestId(mentionItemTestId(String(dismissedMention.item_ref))),
+    ).toHaveAccessibleName(
+      "Resolved host: visual.entity-linking Manual Target",
+    );
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     await page.getByTestId(mentionDismissButtonTestId()).click();
     await expect(
       page.getByTestId(mentionItemTestId(String(dismissedMention.item_ref))),
@@ -2546,7 +2553,93 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           socketMonitor: primarySocket,
           ...(index === 0 ? { actorText: remoteActor.actorText } : {}),
         });
+        if (index === 0) {
+          const duplicatePage = await remoteSession.page.context().newPage();
+          const duplicateSocket = installIncidentSocketMonitor(
+            duplicatePage,
+            incidentId,
+          );
+          await duplicatePage.goto(`/?incident_id=${incidentId}`);
+          await duplicateSocket.waitForAcceptedSocket();
+          await focusRemoteTimelineCellAndWaitForPresence({
+            fieldKey: "timeline.activity_synopsis_text",
+            primaryPage: page,
+            recordId: presenceRow.record_id,
+            remotePage: duplicatePage,
+            socketMonitor: primarySocket,
+          });
+        }
       }
+      const originalDensity = (await readVisualAccountPreferences(page))
+        .density_mode;
+      try {
+        for (const density of ["compact", "comfortable", "default"] as const) {
+          await setVisualAccountDensity(page, density);
+          await page.reload();
+          const spacing = await page.addStyleTag({
+            content:
+              "#root * { letter-spacing: 0.12em !important; line-height: 1.5 !important; word-spacing: 0.16em !important; }",
+          });
+          await scrollGridTargetIntoView({
+            page,
+            surface: timelineViewSchemaId,
+            targetTestId: cellPresenceMarkerTestId(
+              presenceRow.record_id,
+              "timeline.activity_synopsis_text",
+            ),
+          });
+          for (const id of [
+            rowPresenceMarkerTestId(presenceRow.record_id),
+            cellPresenceMarkerTestId(
+              presenceRow.record_id,
+              "timeline.activity_synopsis_text",
+            ),
+          ]) {
+            const marker = page.getByTestId(id);
+            await expect(marker).toHaveAccessibleName(/^6 collaborators/);
+            expect(
+              await marker.evaluate((element) => {
+                const cell = element
+                  .closest("[data-grid-field-key]")
+                  ?.getBoundingClientRect();
+                if (!cell) return false;
+                return Array.from(element.children).every((child) => {
+                  const rect = child.getBoundingClientRect();
+                  return (
+                    rect.left >= cell.left &&
+                    rect.right <= cell.right &&
+                    rect.top >= cell.top &&
+                    rect.bottom <= cell.bottom
+                  );
+                });
+              }),
+            ).toBe(true);
+          }
+          await spacing.evaluate((element) =>
+            element.parentNode?.removeChild(element),
+          );
+        }
+      } finally {
+        await setVisualAccountDensity(page, originalDensity);
+        await page.reload();
+        await maskIncidentIdentity(page, incidentId);
+      }
+      await scrollGridTargetIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        targetTestId: cellPresenceMarkerTestId(
+          presenceRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
+      });
+      // Include the neighboring field so the edited field's marker has visible
+      // context on both sides, rather than sitting against the viewport edge.
+      await scrollGridCellIntoView({
+        page,
+        surface: timelineViewSchemaId,
+        recordId: presenceRow.record_id,
+        cellKey: "timeline.data_source_text",
+      });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",
         markerTestId: rowPresenceMarkerTestId(presenceRow.record_id),
@@ -2584,11 +2677,25 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           ),
         ),
       ).toContainText("+4");
-      await assertWorkbookGridVisualRegression(
+      for (const testId of [
+        workbookPresenceSummaryTestId(),
+        rowPresenceMarkerTestId(presenceRow.record_id),
+        cellPresenceMarkerTestId(
+          presenceRow.record_id,
+          "timeline.activity_synopsis_text",
+        ),
+      ]) {
+        await expect(page.getByTestId(testId)).toBeInViewport({ ratio: 1 });
+        await expect(page.getByTestId(testId)).toHaveAccessibleName(
+          /^6 collaborators/,
+        );
+      }
+      await assertViewportVisualRegression(
         page,
         "collaboration-presence-markers",
-        timelineViewSchemaId,
-        { scroll: { top: 0, left: "left" } },
+        {
+          renderSurface: timelineViewSchemaId,
+        },
       );
     } finally {
       await Promise.all(
@@ -3649,11 +3756,22 @@ test.describe("workbook visual evidence", () => {
         ),
       });
 
-      await assertWorkbookGridVisualRegression(
+      await expect(
+        page.getByTestId(rowPresenceMarkerTestId(timelineRow.record_id)),
+      ).toBeInViewport({ ratio: 1 });
+      await expect(
+        page.getByTestId(
+          cellPresenceMarkerTestId(
+            timelineRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
+        ),
+      ).toBeInViewport({ ratio: 1 });
+      await assertVisualRegression(
         page,
         "collaboration-grid-presence-markers",
-        timelineViewSchemaId,
-        { scroll: { top: 0, left: "left" } },
+        page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+        { renderSurface: timelineViewSchemaId },
       );
     } finally {
       await remotePage?.context().close();
@@ -4573,7 +4691,9 @@ async function assertVisualRegression(
     name,
     "apps/web/e2e/workbook.visual.spec.ts#assertVisualRegression",
   );
-  await expect(locator).toHaveScreenshot(`${name}.png`, {
+  // Retain every comparison failure while collecting later capture intents for
+  // complete ordinary-run reconciliation before any golden refresh.
+  await expect.soft(locator).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
     ...(options.maxDiffPixels === undefined
@@ -4594,7 +4714,7 @@ async function assertViewportVisualRegression(
     name,
     "apps/web/e2e/workbook.visual.spec.ts#assertViewportVisualRegression",
   );
-  await expect(page).toHaveScreenshot(`${name}.png`, {
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
     fullPage: false,

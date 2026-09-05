@@ -11,6 +11,7 @@ import type {
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
+  assertMarkerAnchoredToGridTarget,
   pasteGridMatrix,
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
@@ -36,6 +37,7 @@ import {
   gridFilterValueTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
+  gridRowGutterTestId,
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
@@ -105,6 +107,7 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorToggleTestId,
+  workbookPresenceSummaryTestId,
   workbookQueryEntryTestId,
   workbookQueryOverflowEntryTestId,
   workbookResponsiveBandTestId,
@@ -3379,6 +3382,157 @@ test.describe("browser.collaboration accessibility readiness", () => {
           remotePage,
           socketMonitor: primarySocket,
         });
+
+        const presenceIds = [
+          workbookPresenceSummaryTestId(),
+          rowPresenceMarkerTestId(recordId),
+          cellPresenceMarkerTestId(recordId, "timeline.activity_synopsis_text"),
+        ] as const;
+        const checkPresenceGeometry = async (scrollPage = false) => {
+          await scrollGridCellIntoView({
+            page,
+            surface: timelineViewSchemaId,
+            recordId,
+            cellKey: "timeline.activity_synopsis_text",
+          });
+          await scrollGridTargetIntoView({
+            page,
+            surface: timelineViewSchemaId,
+            targetTestId: presenceIds[2],
+          });
+          for (const id of presenceIds) {
+            const marker = page.getByTestId(id);
+            if (scrollPage) await marker.scrollIntoViewIfNeeded();
+            await expect(marker).toBeInViewport({ ratio: 1 });
+            await expect(marker).toHaveAccessibleName(
+              /^1 collaborator .*Accessible Analyst editing/,
+            );
+            expect(
+              await marker.evaluate((element) => {
+                for (
+                  let node: Element | null = element;
+                  node;
+                  node = node.parentElement
+                ) {
+                  if (
+                    ["status", "alert", "log"].includes(
+                      node.getAttribute("role") ?? "",
+                    ) ||
+                    ["polite", "assertive"].includes(
+                      node.getAttribute("aria-live") ?? "",
+                    )
+                  )
+                    return false;
+                }
+                return true;
+              }),
+            ).toBe(true);
+          }
+          await assertMarkerAnchoredToGridTarget({
+            page,
+            surface: timelineViewSchemaId,
+            anchorKind: "row-gutter",
+            markerTestId: presenceIds[1],
+            targetTestId: gridRowGutterTestId(timelineViewSchemaId, recordId),
+          });
+          await assertMarkerAnchoredToGridTarget({
+            page,
+            surface: timelineViewSchemaId,
+            anchorKind: "cell",
+            markerTestId: presenceIds[2],
+            targetTestId: rowCellTestId(
+              recordId,
+              "timeline.activity_synopsis_text",
+            ),
+          });
+        };
+        const originalPreferences = (
+          await (
+            await page.request.get(`${apiBase}/api/v1/account/preferences`)
+          ).json()
+        ).data;
+        const setDensity = async (density: string) => {
+          const current = (
+            await (
+              await page.request.get(`${apiBase}/api/v1/account/preferences`)
+            ).json()
+          ).data;
+          const response = await page.request.put(
+            `${apiBase}/api/v1/account/preferences`,
+            {
+              headers: await csrfHeaders(page),
+              data: {
+                base_preferences_version: current.preferences_version,
+                client_txn_id: uniqueTxn("presence-density"),
+                density_mode: density,
+              },
+            },
+          );
+          expect(response.ok()).toBeTruthy();
+          await page.reload();
+        };
+        try {
+          for (const density of ["compact", "default", "comfortable"]) {
+            await setDensity(density);
+            for (const viewport of [
+              { width: 1440, height: 900 },
+              { width: 1024, height: 720 },
+              { width: 768, height: 640 },
+            ]) {
+              await page.setViewportSize(viewport);
+              await checkPresenceGeometry();
+            }
+            // Keep the effective viewport within the supported desktop band.
+            await page.setViewportSize({ width: 1600, height: 1440 });
+            await page.evaluate(() => {
+              document.documentElement.style.zoom = "200%";
+            });
+            // The existing CSS zoom exercise retains CSS viewport height;
+            // reach the responsive footer through normal document scrolling.
+            await checkPresenceGeometry(true);
+            await page.evaluate(() => {
+              document.documentElement.style.zoom = "";
+            });
+            await page.setViewportSize({ width: 1440, height: 900 });
+            const spacing = await page.addStyleTag({
+              content:
+                "#root * { letter-spacing: 0.12em !important; line-height: 1.5 !important; word-spacing: 0.16em !important; } #root p { margin-bottom: 2em !important; }",
+            });
+            await checkPresenceGeometry();
+            await spacing.evaluate((element) =>
+              element.parentNode?.removeChild(element),
+            );
+            await page
+              .getByTestId(
+                rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+              )
+              .click();
+            const editor = page.getByTestId(
+              timelineScalarEditorTestId({
+                fieldKey: "timeline.activity_synopsis_text",
+                recordId,
+                surface: "grid",
+              }),
+            );
+            await expect(editor).toBeFocused();
+            const editorBox = await editor.boundingBox();
+            const markerBox = await page
+              .getByTestId(presenceIds[2])
+              .boundingBox();
+            expect(editorBox).not.toBeNull();
+            expect(markerBox).not.toBeNull();
+            expect(
+              (editorBox?.x ?? 0) + (editorBox?.width ?? 0),
+            ).toBeLessThanOrEqual(markerBox?.x ?? 0);
+            await editor.press("Escape");
+          }
+        } finally {
+          await page.evaluate(() => {
+            document.documentElement.style.zoom = "";
+          });
+          await page.setViewportSize({ width: 1440, height: 900 });
+          await setDensity(originalPreferences.density_mode);
+        }
 
         const localConflictValue = `a11y_collaboration_local_${"L".repeat(96)}`;
         const savedConflictValue = `a11y_collaboration_saved_${"S".repeat(96)}`;

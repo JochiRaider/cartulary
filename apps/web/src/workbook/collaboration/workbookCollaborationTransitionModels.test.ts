@@ -17,7 +17,6 @@ import {
   workbookCollaborationResetIsCurrent,
 } from "./workbookCollaborationResetMachine";
 import {
-  activeWorkbookPresenceRecords,
   applyWorkbookPresenceDelta,
   initialWorkbookPresenceProjection,
   replaceWorkbookPresenceSnapshot,
@@ -134,13 +133,7 @@ describe("Workbook collaboration transition models", () => {
         presence("a", "Alpha"),
       ],
     });
-    expect(
-      activeWorkbookPresenceRecords({
-        activeSheetRef: { kind: "view_schema", id: "timeline" },
-        connectionId: "self",
-        projection: snapshot,
-      }).map((entry) => entry.connection_id),
-    ).toEqual(["a", "b"]);
+    expect(Array.from(snapshot.keys())).toEqual(["self", "b", "a"]);
     expect(
       replaceWorkbookPresenceSnapshot(snapshot, {
         presences: [presence("duplicate"), presence("duplicate")],

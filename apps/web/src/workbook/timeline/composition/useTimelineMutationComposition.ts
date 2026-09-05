@@ -325,7 +325,7 @@ export function useTimelineMutationComposition({
     mutationRuntime,
   });
   const presence = useTimelinePresenceController({
-    presenceRecords: collaboration.snapshot.activeSheetPresenceRecords,
+    presence: collaboration.snapshot.presence,
     publishPresence: collaboration.commands.publishPresence,
     resetKey: `${incident.continuityResetKey}:${
       foundation.loadAccessLost ? "access-lost" : "authorized"

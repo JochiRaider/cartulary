@@ -2,6 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { emptyWorkbookPresence } from "../../collaboration/workbookPresencePresentation";
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
@@ -42,7 +43,7 @@ function projectionFixture() {
   const publishPresence = vi.fn();
   const requestAuthorizationRecovery = vi.fn();
   const snapshot = {
-    activeSheetPresenceRecords: [],
+    presence: emptyWorkbookPresence,
     connectionId: "connection-1",
     status: "connected" as const,
   };

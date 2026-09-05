@@ -82,6 +82,7 @@ describe("workbook collaboration coverage", () => {
   }
 
   it("presence indicators render from keyed socket state without changing save-state", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-05-05T12:00:00Z"));
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         incident_id: "10000000-0000-4000-8000-000000000001",

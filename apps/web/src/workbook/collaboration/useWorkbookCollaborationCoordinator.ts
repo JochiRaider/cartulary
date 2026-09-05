@@ -32,5 +32,17 @@ export function useWorkbookCollaborationCoordinatorSession({
   useEffect(() => {
     projection.setActiveSheet(sheetRef);
   }, [projection, sheetRef]);
+  useEffect(() => {
+    const refresh = () => projection.refreshPresenceTime();
+    const visible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [projection]);
   return useWorkbookCollaborationCoordinator(projection);
 }

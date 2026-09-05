@@ -204,8 +204,7 @@ export function useTimelineWorkbookPresentation({
   const { commonMutationSnapshot, conflictQueue, getCellState } =
     mutation.snapshot.conflict;
   const { loadRows } = mutation.commands.query;
-  const activeSheetPresenceRecords =
-    mutation.snapshot.collaboration.activeSheetPresenceRecords;
+  const presence = mutation.snapshot.collaboration.presence.header;
   const { editingPresenceForCell, presenceForRow } = mutation.snapshot.presence;
   const { publishEditModePresence: handleEditModePresence } =
     mutation.commands.presence;
@@ -544,7 +543,7 @@ export function useTimelineWorkbookPresentation({
       },
     },
     status: {
-      activeSheetPresenceRecords,
+      presence,
       inFlightCount: pendingQueueSnapshot.inFlightCount,
       onActivateConflict,
       queuedCount: pendingQueueSnapshot.queuedCount,

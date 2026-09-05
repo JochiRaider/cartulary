@@ -368,9 +368,8 @@ export function IncidentCollaborationSession({
         }
       };
       socket.onclose = (event) => {
-        if (socketRef.current === socket) {
-          socketRef.current = null;
-        }
+        if (disposed || socketRef.current !== socket) return;
+        socketRef.current = null;
         if (
           event.code === 1008 &&
           (event.reason === "session_revoked" ||

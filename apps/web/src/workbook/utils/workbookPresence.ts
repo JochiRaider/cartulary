@@ -32,35 +32,8 @@ export function displayInitials(displayName: string) {
   }
   return parts
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
+    .map((part) => Array.from(part)[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-export function visiblePresence(
-  records: readonly PresenceRecord[],
-  limit: number,
-) {
-  const sorted = [...records].sort(comparePresenceRecord);
-  return {
-    shown: sorted.slice(0, limit),
-    overflow: Math.max(0, records.length - limit),
-  };
-}
-
-function comparePresenceRecord(left: PresenceRecord, right: PresenceRecord) {
-  const displayNameComparison = left.display_name.localeCompare(
-    right.display_name,
-    undefined,
-    { sensitivity: "base" },
-  );
-  if (displayNameComparison !== 0) {
-    return displayNameComparison;
-  }
-  const userIdComparison = left.user_id.localeCompare(right.user_id);
-  if (userIdComparison !== 0) {
-    return userIdComparison;
-  }
-  return left.connection_id.localeCompare(right.connection_id);
 }
 
 export function isPresenceRecord(value: unknown): value is PresenceRecord {
@@ -81,7 +54,9 @@ export function isPresenceRecord(value: unknown): value is PresenceRecord {
   const sheetRef = value.sheet_ref;
   return (
     typeof value.connection_id === "string" &&
+    value.connection_id.length > 0 &&
     typeof value.user_id === "string" &&
+    value.user_id.length > 0 &&
     typeof value.display_name === "string" &&
     typeof value.mode === "string" &&
     (value.mode === "viewing" ||
@@ -90,7 +65,13 @@ export function isPresenceRecord(value: unknown): value is PresenceRecord {
     typeof value.observed_at === "string" &&
     typeof value.expires_at === "string" &&
     isSheetRef(sheetRef) &&
-    (!("record_id" in value) || typeof value.record_id === "string") &&
-    (!("field_key" in value) || typeof value.field_key === "string")
+    (!("record_id" in value) ||
+      (typeof value.record_id === "string" && value.record_id.length > 0)) &&
+    (!("field_key" in value) ||
+      (typeof value.field_key === "string" &&
+        value.field_key.length > 0 &&
+        value.mode === "editing")) &&
+    (sheetRef.kind !== "extension_workspace" ||
+      (!("record_id" in value) && !("field_key" in value)))
   );
 }

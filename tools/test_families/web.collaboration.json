@@ -57,6 +57,66 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.collaboration.regression.presence_accessibility",
+      "owner_id": "web.collaboration",
+      "family_id": "web.collaboration.regression",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookPresence.test.tsx",
+        "titles": [
+          "Workbook presence keeps presence outside live announcements"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.collaboration.regression.presence_presentation",
+      "owner_id": "web.collaboration",
+      "family_id": "web.collaboration.regression",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/utils/workbookPresence.test.tsx",
+        "titles": [
+          "Workbook presence counts overflow at every capacity after duplicate state selection",
+          "Workbook presence counts unique users in compact displays",
+          "Workbook presence excludes expired records",
+          "Workbook presence keeps canonical connections and display identity stable across renewal",
+          "Workbook presence orders activity before display names",
+          "Workbook presence preserves exact sheet boundaries connection self exclusion and extension restrictions",
+          "Workbook presence rejects malformed times modes and anchors without accepting focused wire mode",
+          "Workbook presence selects users independently after row and cell matching",
+          "Workbook presence uses UTC precision NFC and code points with input independent ties"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472",
       "owner_id": "web.collaboration",
       "family_id": "web.collaboration.regression",
@@ -133,10 +193,15 @@
           "WorkbookCollaborationCoordinator clears protected owners again when recovery confirms incident access loss",
           "WorkbookCollaborationCoordinator confirms access loss without replay and rejects late recovery after disposal",
           "WorkbookCollaborationCoordinator disposes shell projections without disposing the borrowed mutation runtime",
+          "WorkbookCollaborationCoordinator excludes the accepted connection before React session attachment catches up",
+          "WorkbookCollaborationCoordinator expires after a throttled clock jump and rejects old removal and disposal callbacks",
+          "WorkbookCollaborationCoordinator invalidates editing cleanup across cell and sheet changes",
           "WorkbookCollaborationCoordinator keeps base and saved-view presence exact, keyed, sorted, and self-free",
           "WorkbookCollaborationCoordinator recovers authorization through the injected port and keeps role downgrades read-only",
           "WorkbookCollaborationCoordinator refreshes invalidations and resets before releasing replay",
           "WorkbookCollaborationCoordinator rejects duplicate transactions and reconciles an inactive surface on registration",
+          "WorkbookCollaborationCoordinator renews one expiry task without rendering keepalive or refreshing queries",
+          "WorkbookCollaborationCoordinator replaces removes and invalidates presence without stale callbacks restoring it",
           "WorkbookCollaborationCoordinator retries reset refresh and settles only after synchronization succeeds",
           "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.assessments.v1 renderer port",
           "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.hosts.v1 renderer port",

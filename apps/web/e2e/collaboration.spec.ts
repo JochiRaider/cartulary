@@ -28,7 +28,13 @@ import {
   workbookConflictSavedValueTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import { timelineViewSchemaId } from "@cartulary/view-contracts";
+import {
+  assessmentsViewSchemaId,
+  hostsViewSchemaId,
+  notesViewSchemaId,
+  requireViewContract,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { openIncidentAsTrackedUser } from "./pages/incidentDirectory";
@@ -62,6 +68,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { assertRecordFieldMutationAnchor } from "./support/workbook/mutationAnchors";
+import { createViewRow } from "./support/workbook/query";
 
 const presenceInteractionThresholdMs = 1000;
 
@@ -601,7 +608,9 @@ test("shows two analysts each other's workbook presence within the expected inte
   browser,
   page,
   sessionTracker,
+  workerAdminRequest,
 }, testInfo) => {
+  test.setTimeout(180_000);
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("COLLABORATION-PRESENCE"),
@@ -621,6 +630,9 @@ test("shows two analysts each other's workbook presence within the expected inte
     "collaboration-conflict presence base",
   );
   const recordId = requireRecordId(row);
+  const otherRecordId = requireRecordId(
+    await createTimelineRow(page, incidentId, "Other presence scope"),
+  );
   const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
   let remotePage: Page | null = null;
@@ -714,6 +726,284 @@ test("shows two analysts each other's workbook presence within the expected inte
       presenceInteractionThresholdMs,
     );
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    // A second tab shares the authenticated user, but has its own canonical
+    // connection and can represent that user on a different row.
+    const duplicatePage = await remotePage.context().newPage();
+    const duplicateSocket = installIncidentSocketMonitor(
+      duplicatePage,
+      incidentId,
+    );
+    await duplicatePage.goto(`/?incident_id=${incidentId}`);
+    await duplicateSocket.waitForAcceptedSocket();
+    await focusRemoteTimelineCellAndWaitForPresence({
+      actorText: "RA",
+      fieldKey,
+      primaryPage: page,
+      recordId: otherRecordId,
+      remotePage: duplicatePage,
+      socketMonitor: primarySocket,
+    });
+    const summary = page.getByTestId(workbookPresenceSummaryTestId());
+    await expect(summary).toHaveAccessibleName(
+      /^1 collaborator .*Remote Analyst/,
+    );
+    for (const id of [recordId, otherRecordId]) {
+      await expect(
+        page.getByTestId(rowPresenceMarkerTestId(id)),
+      ).toHaveAccessibleName(
+        /^1 collaborator on this row: Remote Analyst editing/,
+      );
+      await expect(
+        page.getByTestId(cellPresenceMarkerTestId(id, fieldKey)),
+      ).toHaveAccessibleName(
+        /^1 collaborator editing Activity Synopsis on this row: Remote Analyst editing/,
+      );
+    }
+    const liveAncestors = await summary.evaluate((element) => {
+      const live: string[] = [];
+      for (
+        let node: Element | null = element;
+        node;
+        node = node.parentElement
+      ) {
+        if (
+          ["status", "alert", "log"].includes(
+            node.getAttribute("role") ?? "",
+          ) ||
+          ["polite", "assertive"].includes(node.getAttribute("aria-live") ?? "")
+        ) {
+          live.push(node.outerHTML.slice(0, 200));
+        }
+      }
+      return live;
+    });
+    expect(liveAncestors).toEqual([]);
+
+    const connectionId =
+      remoteSession.acceptedSocket.message.payload.connection_id;
+    const published = presenceDelta.payload.presence as Record<string, unknown>;
+    expect(published.connection_id).toBe(connectionId);
+    const outboundPublications = remoteSession.socketMonitor
+      .sentMessages()
+      .filter((message) => message.type === "presence_update").length;
+    // No focus movement, publications, or synthetic time: observe real pongs
+    // for more than two server-advertised lifetimes on this same connection.
+    const ttlMs = Number(
+      remoteSession.acceptedSocket.message.payload.presence_ttl_ms,
+    );
+    expect(ttlMs).toBe(45_000);
+    const quietStart = primarySocket.messageCount();
+    const initialExpiry = Date.parse(String(published.expires_at));
+    let queryCount = 0;
+    page.on("request", (request) => {
+      if (request.url().includes("/query")) queryCount += 1;
+    });
+    const continuity = () =>
+      page.evaluate(() => ({
+        focus: document.activeElement?.getAttribute("data-testid"),
+        selected: Array.from(
+          document.querySelectorAll('[aria-selected="true"]'),
+        ).map((node) => node.getAttribute("data-testid")),
+        scroll: Array.from(document.querySelectorAll("*"))
+          .filter((node) => node.scrollLeft || node.scrollTop)
+          .map((node) => [
+            node.getAttribute("data-testid"),
+            node.scrollLeft,
+            node.scrollTop,
+          ]),
+      }));
+    const before = await continuity();
+    const renewed = await primarySocket.waitForMessage("presence_delta", {
+      startAt: quietStart,
+      timeoutMs: ttlMs * 2 + 25_000,
+      matches: (message) => {
+        const record = message.payload.presence as
+          | Record<string, unknown>
+          | undefined;
+        return (
+          record !== undefined &&
+          record.connection_id === connectionId &&
+          Date.parse(String(record.expires_at)) > initialExpiry + ttlMs * 2
+        );
+      },
+    });
+    const renewal = renewed.payload.presence as Record<string, unknown>;
+    expect({ ...renewal, expires_at: published.expires_at }).toEqual(published);
+    expect(remoteSession.socketMonitor.socketCount()).toBe(1);
+    expect(
+      remoteSession.socketMonitor
+        .sentMessages()
+        .filter((message) => message.type === "pong").length,
+    ).toBeGreaterThanOrEqual(6);
+    expect(
+      remoteSession.socketMonitor
+        .sentMessages()
+        .filter((message) => message.type === "presence_update").length,
+    ).toBe(outboundPublications);
+    expect(await continuity()).toEqual(before);
+    expect(queryCount).toBe(0);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(summary).toHaveAccessibleName(
+      /^1 collaborator .*Remote Analyst/,
+    );
+    await testInfo.attach("presence-quiet-renewal.json", {
+      body: JSON.stringify(
+        { published, renewal, ttlMs, outboundPublications, queryCount },
+        null,
+        2,
+      ),
+      contentType: "application/json",
+    });
+    await duplicatePage.close();
+    await expect(
+      page.getByTestId(rowPresenceMarkerTestId(otherRecordId)),
+    ).toHaveCount(0);
+    await expect(summary).toHaveAccessibleName(
+      /^1 collaborator .*Remote Analyst/,
+    );
+    await remotePage.reload();
+    await expect(
+      page.getByTestId(cellPresenceMarkerTestId(recordId, fieldKey)),
+    ).toHaveCount(0);
+    await expect(summary).toHaveAccessibleName(
+      /^1 collaborator .*Remote Analyst/,
+    );
+    const host = await createViewRow(page, incidentId, hostsViewSchemaId, {
+      client_txn_id: uniqueTxn("presence-host"),
+      "host.display_name": "Presence Host",
+      "host.hostname": "presence.example.test",
+    });
+    const note = await createViewRow(page, incidentId, notesViewSchemaId, {
+      client_txn_id: uniqueTxn("presence-note"),
+      "note.title": "Presence Note",
+    });
+    const assessment = await createViewRow(
+      page,
+      incidentId,
+      assessmentsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("presence-assessment"),
+        "assessment.subject_ref": host.record_id,
+        "assessment.subject_type": "host",
+        "assessment.assessment_state": "confirmed",
+        "assessment.confidence_score": 85,
+        "assessment.rationale": "Presence assessment",
+        "assessment.assessed_at": "2026-04-24T12:00:00Z",
+      },
+    );
+    for (const [surface, rowId, cellKey, writable] of [
+      [hostsViewSchemaId, host.record_id, "host.display_name", true],
+      [notesViewSchemaId, note.record_id, "note.title", true],
+      [
+        assessmentsViewSchemaId,
+        assessment.record_id,
+        "assessment.assessment_state",
+        false,
+      ],
+    ] as const) {
+      await page.goto(`/?incident_id=${incidentId}&view_schema_id=${surface}`);
+      await expect(summary).toHaveAccessibleName(/^0 collaborators/);
+      await remotePage.goto(
+        `/?incident_id=${incidentId}&view_schema_id=${surface}`,
+      );
+      for (const client of [page, remotePage]) {
+        await scrollGridCellIntoView({
+          page: client,
+          surface,
+          recordId: rowId,
+          cellKey,
+        });
+      }
+      await remotePage.getByTestId(rowCellTestId(rowId, cellKey)).click();
+      await expect(
+        page.getByTestId(rowPresenceMarkerTestId(rowId)),
+      ).toHaveAccessibleName(
+        new RegExp(
+          `^1 collaborator on this row: Remote Analyst ${writable ? "editing" : "focused"}`,
+        ),
+      );
+      if (writable) {
+        const fieldLabel = requireViewContract(surface).fields.find(
+          (field) => field.fieldKey === cellKey,
+        )?.label;
+        expect(fieldLabel).toBeDefined();
+        const editorFor = (client: Page) =>
+          client
+            .getByTestId(gridShellTestId(surface))
+            .getByRole("group", { name: `Edit ${fieldLabel}`, exact: true })
+            .getByRole("textbox");
+        const editor = editorFor(remotePage);
+        await expect(editor).toBeFocused();
+        await expect(
+          page.getByTestId(cellPresenceMarkerTestId(rowId, cellKey)),
+        ).toHaveAccessibleName(/^1 collaborator editing/);
+        await page.getByTestId(rowCellTestId(rowId, cellKey)).click();
+        await expect(editorFor(page)).toBeFocused();
+        await expect(editor).toBeFocused();
+        for (const client of [page, remotePage]) {
+          const input = editorFor(client);
+          const peer = client.getByTestId(
+            cellPresenceMarkerTestId(rowId, cellKey),
+          );
+          await expect(peer).toBeVisible();
+          expect(
+            await input.evaluate((element) => {
+              const rect = element.getBoundingClientRect();
+              const cell = element
+                .closest("[data-grid-field-key]")
+                ?.getBoundingClientRect();
+              return (
+                cell !== undefined &&
+                rect.left >= cell.left &&
+                rect.right <= cell.right &&
+                rect.top >= cell.top &&
+                rect.bottom <= cell.bottom
+              );
+            }),
+          ).toBe(true);
+          const inputBox = await input.boundingBox();
+          const peerBox = await peer.boundingBox();
+          expect(inputBox).not.toBeNull();
+          expect(peerBox).not.toBeNull();
+          expect(
+            (inputBox?.x ?? 0) + (inputBox?.width ?? 0),
+          ).toBeLessThanOrEqual(peerBox?.x ?? 0);
+        }
+        await editorFor(page).press("Escape");
+        await editor.press("Escape");
+        await expect(
+          page.getByTestId(cellPresenceMarkerTestId(rowId, cellKey)),
+        ).toHaveCount(0);
+      } else {
+        await expect(
+          page.getByTestId(cellPresenceMarkerTestId(rowId, cellKey)),
+        ).toHaveCount(0);
+      }
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    }
+    const revocationStart = remoteSession.socketMonitor.messageCount();
+    await revokeAllSessions(
+      workerAdminRequest,
+      remote.user_id,
+      "Presence lifecycle browser revocation",
+    );
+    const revoked = await remoteSession.socketMonitor.waitForMessage(
+      "session_revoked",
+      {
+        startAt: revocationStart,
+        timeoutMs: 25_000,
+      },
+    );
+    await remoteSession.socketMonitor.waitForClose(revoked.socketIndex, 25_000);
+    await expect(summary).toHaveAccessibleName(/^0 collaborators/);
+    await expect(
+      remotePage.getByRole("img", {
+        name: /^\d+ collaborators? (on this row|editing .+ on this row)/,
+      }),
+    ).toHaveCount(0);
+    await remotePage.reload();
+    await expect(remotePage.getByTestId(authTestId("shell"))).toBeVisible();
+    await expect(summary).toHaveAccessibleName(/^0 collaborators/);
   } finally {
     await remotePage?.context().close();
   }
@@ -1528,7 +1818,7 @@ async function waitForPresenceMarkerTiming(
   while (performance.now() <= deadline) {
     if (rowMarkerDurationMs === null) {
       lastRowText = await locatorText(rowMarker);
-      if (lastRowText.includes(options.actorText)) {
+      if (lastRowText.includes(Array.from(options.actorText)[0] ?? "")) {
         rowMarkerDurationMs = performance.now() - options.startedAtMs;
       }
     }

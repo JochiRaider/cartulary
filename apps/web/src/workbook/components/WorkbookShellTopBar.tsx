@@ -271,9 +271,7 @@ export function WorkbookShellTopBar({
       <div style={shellTopBarActionsStyle}>
         {layout.chromeMode === "base" ||
         layout.chromeMode === "narrow_desktop" ? (
-          <WorkbookPresenceSummary
-            records={collaboration.activeSheetPresenceRecords}
-          />
+          <WorkbookPresenceSummary records={collaboration.presence.header} />
         ) : null}
         <div style={currentUserSlotStyle}>
           {account.applicationMenu ?? (

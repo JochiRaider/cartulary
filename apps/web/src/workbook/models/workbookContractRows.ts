@@ -1,5 +1,9 @@
 import type { GridColumn, GridDataRow } from "@cartulary/grid-adapter";
-import { gridRowTestId, gridSortHeaderTestId } from "@cartulary/ui-contracts";
+import {
+  gridRowGutterTestId,
+  gridRowTestId,
+  gridSortHeaderTestId,
+} from "@cartulary/ui-contracts";
 import {
   type NormalizedViewRowV1,
   normalizeViewRowV1,
@@ -7,6 +11,7 @@ import {
   type ViewContract,
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
+import type { ReactNode } from "react";
 
 export type WorkbookViewApiCell = {
   value: unknown;
@@ -62,13 +67,17 @@ export function workbookGridRows<Row>({
   getRowVersion,
   rows,
   surface,
+  renderGutter,
 }: {
   readonly getRecordId: (row: Row) => string;
   readonly getRowVersion: (row: Row) => number;
   readonly rows: readonly Row[];
   readonly surface: string;
+  readonly renderGutter?:
+    | ((recordId: string, ordinal: string) => ReactNode)
+    | undefined;
 }): readonly GridDataRow<Row>[] {
-  return rows.map((row) => {
+  return rows.map((row, index) => {
     const recordId = getRecordId(row);
     return {
       kind: "data" as const,
@@ -78,6 +87,12 @@ export function workbookGridRows<Row>({
       },
       rowIdentity: { kind: "core_record" as const, recordId },
       data: row,
+      ...(renderGutter === undefined
+        ? {}
+        : {
+            gutterContent: renderGutter(recordId, String(index + 1)),
+            gutterTestId: gridRowGutterTestId(surface, recordId),
+          }),
       testId: gridRowTestId(surface, recordId),
     };
   });

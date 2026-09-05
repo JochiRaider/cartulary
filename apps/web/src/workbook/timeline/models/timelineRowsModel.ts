@@ -50,11 +50,11 @@ export function buildTimelineGridRows<TPresence>({
   renderSavedGutterContent,
   rows,
 }: {
-  readonly presenceForRow: (recordId: string | null) => readonly TPresence[];
+  readonly presenceForRow: (recordId: string | null) => TPresence;
   readonly renderDraftGutterContent: (row: WorkbookRow) => ReactNode;
   readonly renderSavedGutterContent: (input: {
     readonly ordinal: string;
-    readonly presences: readonly TPresence[];
+    readonly presences: TPresence;
     readonly recordId: string;
     readonly row: WorkbookRow;
   }) => ReactNode;

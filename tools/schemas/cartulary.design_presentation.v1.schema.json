@@ -8,6 +8,7 @@
     "schema_id",
     "owner_id",
     "verification_id",
+    "presence",
     "initial_loading",
     "grid_data_state_presentations",
     "grid_interaction_mode_presentations",
@@ -20,6 +21,16 @@
     "schema_id": { "const": "cartulary.design_presentation.v1" },
     "owner_id": { "const": "package.ui" },
     "verification_id": { "const": "package.ui.verification.machine_owned_presentation" },
+    "presence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capacities", "mode_priority", "live"],
+      "properties": {
+        "capacities": { "const": { "header": 5, "row": 3, "cell": 2 } },
+        "mode_priority": { "const": { "editing": 1, "focused": 2, "viewing": 3, "idle": 4 } },
+        "live": { "const": "none" }
+      }
+    },
     "initial_loading": {
       "type": "object",
       "additionalProperties": false,

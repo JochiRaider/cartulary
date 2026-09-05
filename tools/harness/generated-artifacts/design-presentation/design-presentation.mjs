@@ -106,6 +106,7 @@ function assertExactRows(filePath, field, actual, expected) {
 
 export function renderDesignPresentationTypeScript(document) {
   const source = {
+    presence: document.projection.presence,
     errorPresentations: document.projection.error_presentations.map((entry) => ({
       actions: entry.actions,
       family: entry.family,

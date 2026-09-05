@@ -4,15 +4,26 @@ import type {
   GridEditorAdapter,
 } from "@cartulary/grid-adapter";
 import type { ViewFieldContract } from "@cartulary/view-contracts";
-import type { KeyboardEvent } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useSyncExternalStore,
+} from "react";
+import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
 import { GenericMutationControl } from "./GenericMutationControl";
+import {
+  WorkbookCellPresenceMarker,
+  WorkbookPresenceCellLayout,
+} from "./WorkbookPresenceMarkers";
 
 export function workbookGridEditorAdapter<Row>({
   commit,
   field,
   readValue,
   referenceOptions,
+  collaboration,
 }: {
   readonly commit: (
     draftValue: string,
@@ -22,6 +33,7 @@ export function workbookGridEditorAdapter<Row>({
   readonly field: ViewFieldContract;
   readonly readValue: (row: Row) => unknown;
   readonly referenceOptions: GenericReferenceOptions;
+  readonly collaboration?: WorkbookCollaborationCoordinator | undefined;
 }): GridEditorAdapter<Row> {
   return {
     ...(field.clearable ? { clearDraftValue: "" } : {}),
@@ -44,12 +56,8 @@ export function workbookGridEditorAdapter<Row>({
           void context.commit();
         }
       };
-      return (
-        <fieldset
-          aria-label={`Edit ${field.label}`}
-          data-grid-editor-kind={workbookGridEditorKind(field)}
-          onKeyDown={commitOnEnter}
-        >
+      const content = (
+        <>
           <GenericMutationControl
             collectionMode="add"
             field={field}
@@ -78,10 +86,70 @@ export function workbookGridEditorAdapter<Row>({
           >
             Cancel
           </button>
+        </>
+      );
+      return (
+        <fieldset
+          aria-label={`Edit ${field.label}`}
+          data-grid-editor-kind={workbookGridEditorKind(field)}
+          onKeyDown={commitOnEnter}
+        >
+          {collaboration === undefined ||
+          context.target.rowIdentity.kind !== "core_record" ? (
+            content
+          ) : (
+            <WorkbookEditorPresence
+              collaboration={collaboration}
+              field={field}
+              recordId={context.target.rowIdentity.recordId}
+            >
+              {content}
+            </WorkbookEditorPresence>
+          )}
         </fieldset>
       );
     },
   };
+}
+
+function WorkbookEditorPresence({
+  children,
+  collaboration,
+  field,
+  recordId,
+}: {
+  readonly children: ReactNode;
+  readonly collaboration: WorkbookCollaborationCoordinator;
+  readonly field: ViewFieldContract;
+  readonly recordId: string;
+}) {
+  useEffect(
+    () => collaboration.beginEditingPresence(recordId, field.fieldKey),
+    [collaboration, field.fieldKey, recordId],
+  );
+  useSyncExternalStore(
+    collaboration.subscribe,
+    collaboration.getSnapshot,
+    collaboration.getSnapshot,
+  );
+  return (
+    <WorkbookPresenceCellLayout
+      editing
+      marker={
+        <WorkbookCellPresenceMarker
+          fieldKey={field.fieldKey}
+          fieldLabel={field.label}
+          recordId={recordId}
+          presences={collaboration.editingPresenceForCell(
+            recordId,
+            field.fieldKey,
+          )}
+        />
+      }
+    >
+      {children}
+    </WorkbookPresenceCellLayout>
+  );
 }
 
 export type WorkbookGridEditorKind =
