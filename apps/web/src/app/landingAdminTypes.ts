@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 import type { APIError } from "../services/browserApi";
 import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
+import type { IncidentCreationBinding } from "./incidentCreationModel";
 
 export type IncidentData = {
   incident_id: string;
@@ -119,27 +120,13 @@ export type AccountApplicationMenuProps = {
 
 export type IncidentLandingProps = {
   bootstrapState: AppBootstrapState;
-  createIncidentCurrentPhase: string;
-  createIncidentDescription: string;
-  createIncidentExternalCase: string;
-  createIncidentKey: string;
-  createIncidentSeverity: string;
-  createIncidentTitle: string;
-  createIncidentTLP: string;
+  creation: IncidentCreationBinding;
   error: APIError | null;
   hasMoreIncidents: boolean;
   incidents: IncidentData[];
   incidentSearch: string;
   incidentStatusFilter: IncidentStatusFilter;
   isRefreshing: boolean;
-  onCreate: () => Promise<void> | void;
-  onCreateIncidentCurrentPhaseChange: (value: string) => void;
-  onCreateIncidentDescriptionChange: (value: string) => void;
-  onCreateIncidentExternalCaseChange: (value: string) => void;
-  onCreateIncidentKeyChange: (value: string) => void;
-  onCreateIncidentSeverityChange: (value: string) => void;
-  onCreateIncidentTitleChange: (value: string) => void;
-  onCreateIncidentTLPChange: (value: string) => void;
   onLoadMore: () => Promise<void> | void;
   onOpenIncident: (incidentId: string) => void;
   onRefresh: () => Promise<void> | void;

@@ -112,29 +112,28 @@ export class IncidentDirectory {
     await this.page.getByTestId(incidentLandingTestId("refresh")).click();
   }
 
+  async openCreation() {
+    await this.open();
+    const form = this.page.getByRole("form", { name: "New incident" });
+    if (!(await form.isVisible())) {
+      await this.page
+        .getByTestId(incidentLandingTestId("create-open-button"))
+        .click();
+    }
+    const newIncident = form.getByRole("button", {
+      name: "New incident",
+      exact: true,
+    });
+    if (await newIncident.isVisible()) await newIncident.click();
+    await expect(form).toBeVisible();
+    return form;
+  }
+
   async createAndOpenIncident(incidentKey: string, title: string) {
-    const createOpenButton = this.page.getByTestId(
-      incidentLandingTestId("create-open-button"),
-    );
+    await this.openCreation();
     const incidentKeyInput = this.page.getByTestId(
       incidentLandingTestId("incident-key"),
     );
-    let lastOpenError: unknown = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        await this.open();
-        await expect(createOpenButton).toBeVisible({ timeout: 3_000 });
-        await createOpenButton.click();
-        await expect(incidentKeyInput).toBeVisible({ timeout: 3_000 });
-        lastOpenError = null;
-        break;
-      } catch (error) {
-        lastOpenError = error;
-      }
-    }
-    if (lastOpenError !== null) {
-      throw lastOpenError;
-    }
     await incidentKeyInput.fill(incidentKey);
     await this.page
       .getByTestId(incidentLandingTestId("incident-title"))

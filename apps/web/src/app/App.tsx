@@ -16,7 +16,6 @@ import {
 } from "react";
 import {
   type APIError,
-  clientTxnID,
   extractError,
   fetchJSON,
   publicErrorView,
@@ -52,6 +51,7 @@ import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
+import type { IncidentCreationController } from "./incidentCreationModel";
 import {
   IncidentDirectoryShell,
   LandingAdminShell,
@@ -69,8 +69,9 @@ import {
   ReferencePackAdminPanel,
   type ReferencePackJobResource,
 } from "./ReferencePackAdminPanel";
-import type { AppRouteState } from "./routeState";
+import type { AppRouteState, AppRouteWriteMode } from "./routeState";
 import { useAppRouteRuntime } from "./useAppRouteRuntime";
+import { useIncidentCreation } from "./useIncidentCreation";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
@@ -195,32 +196,27 @@ function extensionClaimed(
   );
 }
 
-function incidentCreateOptionalBody(fields: {
-  currentPhase: string;
-  description: string;
-  externalCase: string;
-  severity: string;
-  tlp: string;
-}) {
-  const body: Record<string, string> = {};
-  const optionalFields = [
-    ["description", fields.description],
-    ["severity", fields.severity],
-    ["tlp", fields.tlp],
-    ["current_phase", fields.currentPhase],
-    ["primary_external_case_ref", fields.externalCase],
-  ] as const;
-  for (const [field, raw] of optionalFields) {
-    const value = raw.trim();
-    if (value !== "") {
-      body[field] = value;
-    }
-  }
-  return body;
+function creationSessionIdentity(session: SessionData | null) {
+  return session === null
+    ? null
+    : `${session.user_id}:${session.authenticated_at}:${session.provider_type}`;
 }
 
 export function App({ readingProfile = "default", themeId }: AppProps = {}) {
-  const { commitRoute, route, routeRef } = useAppRouteRuntime();
+  const { commitRoute: publishRoute, route, routeRef } = useAppRouteRuntime();
+  const creationControllerRef = useRef<IncidentCreationController | null>(null);
+  const commitRoute = useCallback(
+    (next: AppRouteState, mode: AppRouteWriteMode) => {
+      creationControllerRef.current?.leaveSurface();
+      publishRoute(next, mode);
+    },
+    [publishRoute],
+  );
+  useEffect(() => {
+    const leaveCreation = () => creationControllerRef.current?.leaveSurface();
+    window.addEventListener("popstate", leaveCreation);
+    return () => window.removeEventListener("popstate", leaveCreation);
+  }, []);
   const workbookMutationRuntimeRegistry = useMemo(
     () => new WorkbookMutationRuntimeRegistry(),
     [],
@@ -231,13 +227,24 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     },
     [workbookMutationRuntimeRegistry],
   );
-  const [session, setSession] = useState<SessionData | null>(null);
+  const [session, publishSession] = useState<SessionData | null>(null);
+  const sessionRef = useRef<SessionData | null>(null);
+  const setSession = useCallback((next: SessionData | null) => {
+    if (
+      creationSessionIdentity(sessionRef.current) !==
+      creationSessionIdentity(next)
+    ) {
+      creationControllerRef.current?.setSession(creationSessionIdentity(next));
+    }
+    sessionRef.current = next;
+    publishSession(next);
+  }, []);
   const workbookAuthorizationRecovery = useMemo(
     () =>
       createAppAuthorizationRecoveryPort({
         onSessionRecovered: setSession,
       }),
-    [],
+    [setSession],
   );
   const [, setCredentialState] = useState<CredentialState | null>(null);
   const [accountPreferences, setAccountPreferences] =
@@ -343,17 +350,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const [incidentSearch, setIncidentSearch] = useState("");
   const [incidentStatusFilter, setIncidentStatusFilter] =
     useState<IncidentStatusFilter>("all");
-  const [createIncidentKey, setCreateIncidentKey] = useState("");
-  const [createIncidentTitle, setCreateIncidentTitle] = useState("");
-  const [createIncidentDescription, setCreateIncidentDescription] =
-    useState("");
-  const [createIncidentSeverity, setCreateIncidentSeverity] = useState("");
-  const [createIncidentTLP, setCreateIncidentTLP] = useState("");
-  const [createIncidentCurrentPhase, setCreateIncidentCurrentPhase] =
-    useState("");
-  const [createIncidentExternalCase, setCreateIncidentExternalCase] =
-    useState("");
-  const sessionRef = useRef(session);
   const incidentSearchRef = useRef(incidentSearch);
   const incidentStatusFilterRef = useRef(incidentStatusFilter);
   const lastLoadedIncidentDirectoryScopeRef = useRef<{
@@ -764,7 +760,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         setLandingRefreshState("failed");
       }
     },
-    [commitRoute],
+    [commitRoute, setSession],
   );
 
   const getCurrentRoute = useCallback(() => routeRef.current, [routeRef]);
@@ -925,6 +921,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     incidentsPaging.has_more,
     incidentsPaging.limit,
     incidentsPaging.next_cursor,
+    setSession,
   ]);
 
   const currentUserLabel = useMemo(() => {
@@ -1080,80 +1077,69 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     commitRoute(nextRoute, "push");
   }, [commitRoute]);
 
-  const handleCreateIncident = useCallback(async () => {
-    const incidentKey = createIncidentKey.trim();
-    const title = createIncidentTitle.trim();
-    if (incidentKey === "" || title === "") {
-      setLandingNotice("Incident key and title are required.");
-      return;
-    }
-
-    setLandingNotice(null);
+  const handleCreationSessionLost = useCallback(() => {
+    activeRefreshRef.current.controller?.abort();
+    activeRefreshRef.current.requestID += 1;
+    creationControllerRef.current?.setSession(null);
+    sessionRef.current = null;
+    setSession(null);
+    setCredentialState(null);
+    setAccountPreferences(null);
+    setCredentialError(null);
+    setIncidents([]);
+    setIncidentsPaging(emptyIncidentsPaging);
+    setExtensionProfiles([]);
+    setReferencePackJob(null);
     setError(null);
-    const response = await fetchJSON<{ data: IncidentData }>(
-      "/api/v1/incidents",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          client_txn_id: clientTxnID("landing-incident"),
-          incident_key: incidentKey,
-          title,
-          ...incidentCreateOptionalBody({
-            currentPhase: createIncidentCurrentPhase,
-            description: createIncidentDescription,
-            externalCase: createIncidentExternalCase,
-            severity: createIncidentSeverity,
-            tlp: createIncidentTLP,
-          }),
-        }),
-      },
-    );
-    if (!response.ok) {
-      const nextError = extractError(response.payload);
-      setError(nextError);
-      setAppBootstrapState(
-        isSessionRequiredError(response.status, nextError)
-          ? "revoked"
-          : isForbiddenError(response.status, nextError)
-            ? "forbidden"
-            : "public_error_envelope",
-      );
-      if (isSessionRequiredError(response.status, nextError)) {
-        setSession(null);
-        setCredentialState(null);
-        setAccountPreferences(null);
-        setCredentialError(null);
-        setIncidents([]);
-        setReferencePackJob(null);
-        setAuthPrompt(defaultRevokedSessionMessage);
+    setLandingNotice(null);
+    setLandingRefreshState("idle");
+    setAppBootstrapState("revoked");
+    setAuthPrompt(defaultRevokedSessionMessage);
+  }, [setSession]);
+
+  const creation = useIncidentCreation({
+    sessionIdentity: creationSessionIdentity(session),
+    sessionLost: handleCreationSessionLost,
+    openIncident: async (incident, signal, canNavigate) => {
+      if (!canNavigate()) return "cancelled";
+      const identity = creationSessionIdentity(sessionRef.current);
+      const result = await loadSession({ signal });
+      if (!canNavigate()) return "cancelled";
+      if (!result.ok) {
+        if (isSessionRequiredError(result.status, extractError(result.payload)))
+          handleCreationSessionLost();
+        return "unavailable";
       }
-      setLandingNotice("Incident create failed.");
-      return;
-    }
-
-    const incident = (response.payload as { data: IncidentData }).data;
-    setCreateIncidentKey("");
-    setCreateIncidentTitle("");
-    setCreateIncidentDescription("");
-    setCreateIncidentSeverity("");
-    setCreateIncidentTLP("");
-    setCreateIncidentCurrentPhase("");
-    setCreateIncidentExternalCase("");
-    setIncidents((current) => upsertIncident(current, incident));
-    setLandingNotice(null);
-    setError(null);
-    setAppBootstrapState("authenticated");
-    openIncident(incident.incident_id);
-  }, [
-    createIncidentCurrentPhase,
-    createIncidentDescription,
-    createIncidentExternalCase,
-    createIncidentKey,
-    createIncidentSeverity,
-    createIncidentTLP,
-    createIncidentTitle,
-    openIncident,
-  ]);
+      const nextSession = (result.payload as { data: SessionData }).data;
+      if (creationSessionIdentity(nextSession) !== identity) {
+        creationControllerRef.current?.setSession(
+          creationSessionIdentity(nextSession),
+        );
+        sessionRef.current = nextSession;
+        setSession(nextSession);
+        return "cancelled";
+      }
+      sessionRef.current = nextSession;
+      setSession(nextSession);
+      if (
+        !nextSession.memberships.some(
+          (membership) => membership.incident_id === incident.incident_id,
+        )
+      )
+        return "access_lost";
+      if (!canNavigate()) return "cancelled";
+      activeRefreshRef.current.controller?.abort();
+      activeRefreshRef.current.requestID += 1;
+      setLandingRefreshState("idle");
+      setIncidents((current) => upsertIncident(current, incident));
+      openIncident(incident.incident_id);
+      return "opened";
+    },
+  });
+  creationControllerRef.current = creation.controller;
+  useLayoutEffect(() => {
+    if (creation.state.open) suppressRootIncidentAutoOpenRef.current = true;
+  }, [creation.state.open]);
 
   const handleIncidentAccessLost = useCallback(() => {
     void refreshShell({
@@ -1188,7 +1174,10 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         currentIncidentRole={options.currentIncidentRole}
         currentUserLabel={currentUserLabel}
         incidentControls={options.incidentControls}
-        onOpenAccountSettings={setAccountSettingsPanel}
+        onOpenAccountSettings={(panel) => {
+          creationControllerRef.current?.leaveSurface();
+          setAccountSettingsPanel(panel);
+        }}
         onOpenDeploymentAdministration={() => {
           navigationFocusRequestRef.current = {
             destination: "deployment-administration",
@@ -1522,28 +1511,14 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             style={landingAdminPanelRegionStyle}
           >
             <IncidentLanding
+              creation={creation}
               bootstrapState={appBootstrapState}
-              createIncidentCurrentPhase={createIncidentCurrentPhase}
-              createIncidentDescription={createIncidentDescription}
-              createIncidentExternalCase={createIncidentExternalCase}
-              createIncidentKey={createIncidentKey}
-              createIncidentSeverity={createIncidentSeverity}
-              createIncidentTitle={createIncidentTitle}
-              createIncidentTLP={createIncidentTLP}
               error={error}
               hasMoreIncidents={incidentsPaging.has_more}
               incidents={incidents}
               incidentSearch={incidentSearch}
               incidentStatusFilter={incidentStatusFilter}
               isRefreshing={landingRefreshState === "loading"}
-              onCreate={handleCreateIncident}
-              onCreateIncidentCurrentPhaseChange={setCreateIncidentCurrentPhase}
-              onCreateIncidentDescriptionChange={setCreateIncidentDescription}
-              onCreateIncidentExternalCaseChange={setCreateIncidentExternalCase}
-              onCreateIncidentKeyChange={setCreateIncidentKey}
-              onCreateIncidentSeverityChange={setCreateIncidentSeverity}
-              onCreateIncidentTitleChange={setCreateIncidentTitle}
-              onCreateIncidentTLPChange={setCreateIncidentTLP}
               onLoadMore={handleLoadMoreIncidents}
               onOpenIncident={openIncident}
               onRefresh={() => {

@@ -187,6 +187,38 @@
       "sha256": "d24e0171cb08211e71bbb1ee13e9a6a10c890d30305031896b01773b16805e35"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-confirmed-handoff-failure-linux.png",
+      "sha256": "2715eb5c6b5c0848f59892b8efcc9c9c55d60b44cf092fbb5e87397f510fad56"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-expanded-details-linux.png",
+      "sha256": "fc46497cb37acf595c1f8b73cc02417ae7a2cb62899dcde9cf32f25b59b620c2"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-initial-linux.png",
+      "sha256": "9ed5b9f92b1a54985e5880ff228a244accaae411b11944441a6911fc0f58e847"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-pending-linux.png",
+      "sha256": "754515e6ffddfccc6381f57c482cf727d7d0160ff52970289c3807811366cf74"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-short-linux.png",
+      "sha256": "6ecfaeadfde6469f4f583c743978e5b14c661c97533e30113cef5f97948b9bae"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-text-spacing-linux.png",
+      "sha256": "1db48f2b383edd547e4f76c4639b9ef7764f6a4f92f484cf82bd097f88bf7ba6"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-recovery-zoom-linux.png",
+      "sha256": "74ee246ac90018ac7b3fd87f42917fcd77160c8bb46fac0af62ce5e40ebab9bd"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-create-required-errors-linux.png",
+      "sha256": "f12175c220ad11cafd778f8a1af30331356b5059b3e7591cea6eed74884cc60a"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-directory-compact-desktop-workbook-shell-linux.png",
       "sha256": "a36e959dede24603c72b1e7a965af35e285db8f72a0dc7a9498eb519f5763bd1"
     },

@@ -38,6 +38,9 @@ type ExtraRoute = {
 };
 
 export type IncidentResource = {
+  created_at?: string;
+  created_by_user_id?: string;
+  updated_by_user_id?: string | null;
   current_phase: string | null;
   description: string | null;
   closed_at?: string | null;
@@ -253,6 +256,12 @@ export function incidentResource(
     current_phase: null,
     primary_external_case_ref: null,
     incident_version: 1,
+    status: "active",
+    closed_at: null,
+    created_at: "2026-04-20T12:00:00Z",
+    updated_at: "2026-04-20T12:00:00Z",
+    created_by_user_id: sessionResource().user_id,
+    updated_by_user_id: sessionResource().user_id,
     ...overrides,
   };
 }

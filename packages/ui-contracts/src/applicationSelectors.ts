@@ -100,6 +100,8 @@ type DeploymentAdminSelector =
 
 type IncidentLandingSelector =
   | "create-current-phase"
+  | "create-form"
+  | "create-status"
   | "create-description"
   | "create-external-case"
   | "create-open-button"
@@ -290,6 +292,8 @@ const deploymentAdminTestIds = Object.freeze({
 
 const incidentLandingTestIds = Object.freeze({
   "create-current-phase": "landing-create-current-phase",
+  "create-form": "landing-create-form",
+  "create-status": "landing-create-status",
   "create-description": "landing-create-description",
   "create-external-case": "landing-create-external-case",
   "create-open-button": "landing-create-open-button",

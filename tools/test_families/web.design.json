@@ -39,6 +39,42 @@
       ]
     },
     {
+      "row_id": "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
+      "owner_id": "web.design",
+      "family_id": "web.design.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.incidents",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_incident_creation_accessibility"
+        ],
+        "titles": [
+          "a11y.incident-creation keyboard feedback and constrained recovery remain reachable"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666",
       "owner_id": "web.design",
       "family_id": "web.design.accessibility",
@@ -239,6 +275,43 @@
         ],
         "titles": [
           "Ensure the visual fixture matrix maps every design contract exactly once and retains implementation-only workbook, collaboration, evidence, entity, coordination, and grid-adapter fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
+      "owner_id": "web.design",
+      "family_id": "web.design.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "module.incidents",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_46ea092e7f2b"
+        ],
+        "titles": [
+          "Capture incident creation form validation pending recovery and confirmed handoff states."
         ]
       },
       "evidence_class": "visual",

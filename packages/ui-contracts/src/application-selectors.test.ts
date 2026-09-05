@@ -369,6 +369,8 @@ describe("@cartulary/ui-contracts application selectors", () => {
       ["incident-title", "landing-incident-title"],
       ["create-open-button", "landing-create-open-button"],
       ["create-submit-button", "landing-create-submit-button"],
+      ["create-form", "landing-create-form"],
+      ["create-status", "landing-create-status"],
       ["incidents-count", "landing-incidents-count"],
       ["loading", "landing-loading"],
       ["empty-state", "landing-empty-state"],

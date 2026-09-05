@@ -153,6 +153,11 @@ import {
   networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
+import {
+  expectCreationControlReachable,
+  openCreationPresentation,
+  responseBarrier,
+} from "./support/incidents/creation";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
@@ -6852,6 +6857,107 @@ if (
   });
 }
 
+test("Capture incident creation form validation pending recovery and confirmed handoff states.", async ({
+  workerAdminPage: page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const form = await openCreationPresentation(page);
+  const key = form.getByLabel("Incident key", { exact: true });
+  const title = form.getByLabel("Title", { exact: true });
+  await assertViewportVisualRegression(page, "incident-create-initial");
+  await key.press("Enter");
+  await expect(key).toHaveAttribute("aria-invalid", "true");
+  await assertViewportVisualRegression(page, "incident-create-required-errors");
+  await key.fill("IR-CREATION-PRESENTATION");
+  await title.fill(
+    "Incident investigation with a long title and retained operational context",
+  );
+  await form.locator("summary").click();
+  await form
+    .getByLabel("Description", { exact: true })
+    .fill(
+      "Initial report\nPreserve the investigation context while the operation is unresolved.",
+    );
+  await form.getByLabel("Severity", { exact: true }).fill("high");
+  await form
+    .getByLabel("TLP", { exact: true })
+    .selectOption("TLP:AMBER+STRICT");
+  await form.getByLabel("Current phase", { exact: true }).fill("triage");
+  await form
+    .getByLabel("External case", { exact: true })
+    .fill("CASE-" + "REFERENCE".repeat(10));
+  await page.setViewportSize({ width: 1024, height: 720 });
+  await expectCreationControlReachable(page, title);
+  await assertViewportVisualRegression(
+    page,
+    "incident-create-expanded-details",
+  );
+  const release = responseBarrier();
+  const requested = responseBarrier();
+  await page.route("**/api/v1/incidents", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    requested.release();
+    await release.promise;
+    await route.abort("failed");
+  });
+  await form.locator("summary").click();
+  await title.press("Enter");
+  await requested.promise;
+  await page.setViewportSize({ width: 768, height: 640 });
+  await expectCreationControlReachable(page, title);
+  await assertViewportVisualRegression(page, "incident-create-pending");
+  release.release();
+  const retry = form.getByRole("button", { name: "Retry creation" });
+  await expect(retry).toBeVisible();
+  await page.setViewportSize({ width: 640, height: 480 });
+  await expectCreationControlReachable(page, retry);
+  await assertViewportVisualRegression(page, "incident-create-recovery-short");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectCreationControlReachable(page, retry);
+  await assertViewportVisualRegression(page, "incident-create-recovery-zoom");
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await expectCreationControlReachable(page, retry);
+  await assertViewportVisualRegression(
+    page,
+    "incident-create-recovery-text-spacing",
+  );
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await page.unroute("**/api/v1/incidents");
+  await page.route("**/api/v1/auth/session", async (route) =>
+    route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "service_unavailable", status: 502, retryable: true },
+      }),
+    }),
+  );
+  // This request was blocked before reaching the server; replay is still exact.
+  await retry.click();
+  await expect(
+    page.getByTestId(incidentLandingTestId("create-status")),
+  ).toContainText("Incident created, but the workbook could not be opened");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expectCreationControlReachable(
+    page,
+    form.getByRole("button", { name: "Open created incident" }),
+  );
+  await assertViewportVisualRegression(
+    page,
+    "incident-create-confirmed-handoff-failure",
+  );
+});
+
 test("Capture account application menu root and nested Controls across contexts and constrained viewports.", async ({
   workerAdminPage: page,
   workerAdmin,
@@ -6881,6 +6987,16 @@ test("Capture account application menu root and nested Controls across contexts 
   await page
     .getByTestId(incidentLandingTestId("search"))
     .fill("Account menu navigation");
+  // Submit the fixture filter explicitly: initial directory refresh can still
+  // be settling when the heading receives focus, before debounced search runs.
+  const filteredDirectory = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      new URL(response.url()).searchParams.get("search") ===
+        "Account menu navigation",
+  );
+  await page.getByTestId(incidentLandingTestId("search")).press("Enter");
+  await filteredDirectory;
   await expect(
     page.getByTestId(incidentLandingTestId("incident-list")).getByRole("row"),
   ).toHaveCount(2);

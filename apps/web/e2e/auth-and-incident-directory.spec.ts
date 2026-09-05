@@ -43,6 +43,7 @@ import {
   enrollTotpViaBootstrap,
   generateTotpCode,
 } from "./support/auth/suiteAdmin";
+import { responseBarrier } from "./support/incidents/creation";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -696,6 +697,236 @@ test("creates an incident from the landing screen, lists it, and opens the workb
   await new IncidentDirectory(page).openIncident(incidentId);
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+});
+
+test("creates an incident with native keyboard submission and associated field errors", async ({
+  page,
+}) => {
+  const bodies: Record<string, unknown>[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/v1/incidents"
+    )
+      bodies.push(request.postDataJSON());
+  });
+  await new IncidentDirectory(page).goto();
+  const trigger = page.getByTestId(incidentLandingTestId("create-open-button"));
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const form = page.getByRole("form", { name: "New incident" });
+  const key = form.getByLabel("Incident key", { exact: true });
+  const title = form.getByLabel("Title", { exact: true });
+  await expect(key).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(key).toHaveAttribute("aria-invalid", "true");
+  await expect(key).toHaveAccessibleDescription("Incident key is required.");
+  await expect(title).toHaveAccessibleDescription("Title is required.");
+  expect(bodies).toHaveLength(0);
+  const incidentKey = uniqueIncidentKey("KEYBOARD-CREATE");
+  await page.keyboard.type(`  ${incidentKey}  `);
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("Keyboard incident creation");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  const description = form.getByLabel("Description", { exact: true });
+  await expect(description).toBeFocused();
+  await page.keyboard.type("First line");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Second line");
+  await expect(description).toHaveValue("First line\nSecond line");
+  expect(bodies).toHaveLength(0);
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("s".repeat(129));
+  const invalid = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/v1/incidents" &&
+      response.status() === 400,
+  );
+  await page.keyboard.press("Enter");
+  await invalid;
+  const severity = form.getByLabel("Severity", { exact: true });
+  await expect(severity).toHaveAttribute("aria-invalid", "true");
+  await expect(severity).toHaveAccessibleDescription(/shorter|Shorten/);
+  await expect(severity).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.type("high");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowDown");
+  await expect(form.getByLabel("TLP", { exact: true })).toHaveValue(
+    "TLP:CLEAR",
+  );
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("triage");
+  await page.keyboard.press("Tab");
+  await page.keyboard.type("CASE-CREATE");
+  const accepted = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/v1/incidents" &&
+      response.status() === 201,
+  );
+  await page.keyboard.press("Enter");
+  const response = await accepted;
+  const resource = (await response.json()).data;
+  await expect(page).toHaveURL(
+    new RegExp(`incident_id=${resource.incident_id}`),
+  );
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await expectCurrentIncidentRole(page, "Current incident role: admin");
+  expect(bodies[1]).toEqual({
+    client_txn_id: expect.any(String),
+    incident_key: `  ${incidentKey}  `,
+    title: "Keyboard incident creation",
+    description: "First line\nSecond line",
+    severity: "high",
+    tlp: "TLP:CLEAR",
+    current_phase: "triage",
+    primary_external_case_ref: "CASE-CREATE",
+  });
+  expect(resource).toMatchObject({
+    incident_key: incidentKey,
+    status: "active",
+    incident_version: 1,
+    closed_at: null,
+  });
+  expect(new URL(page.url()).searchParams.has("sheet_ref")).toBe(false);
+  await new IncidentDirectory(page).openCreation();
+  await key.fill(incidentKey);
+  await title.fill("Duplicate key");
+  await title.press("Enter");
+  await expect(key).toHaveAccessibleDescription(
+    "This incident key is already in use. Choose another key.",
+  );
+  await expect(key).toHaveAttribute("aria-invalid", "true");
+  await expect(title).toHaveValue("Duplicate key");
+});
+
+test("replays a committed incident after transport loss without duplicate dispatch or recreation", async ({
+  page,
+}) => {
+  const releaseResponse = responseBarrier();
+  const committed = responseBarrier();
+  const bodies: Record<string, unknown>[] = [];
+  let originalId = "";
+  await page.route("**/api/v1/incidents", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    bodies.push(route.request().postDataJSON());
+    const response = await route.fetch();
+    if (bodies.length === 1) {
+      expect(response.status()).toBe(201);
+      originalId = (await response.json()).data.incident_id;
+      committed.release();
+      await releaseResponse.promise;
+      await route.abort("failed");
+    } else {
+      expect(response.status()).toBe(200);
+      expect((await response.json()).data.incident_id).toBe(originalId);
+      await route.fulfill({ response });
+    }
+  });
+  await new IncidentDirectory(page).goto();
+  const form = await new IncidentDirectory(page).openCreation();
+  await form
+    .getByLabel("Incident key", { exact: true })
+    .fill(uniqueIncidentKey("REPLAY-CREATE"));
+  await form.getByLabel("Title", { exact: true }).fill("Recovered incident");
+  await form
+    .getByRole("button", { name: "Create and open", exact: true })
+    .evaluate((button) => {
+      (button as HTMLButtonElement).click();
+      (button as HTMLButtonElement).click();
+    });
+  await committed.promise;
+  await form.getByLabel("Title", { exact: true }).focus();
+  await page.keyboard.down("Enter");
+  await page.keyboard.down("Enter");
+  await page.keyboard.up("Enter");
+  expect(bodies).toHaveLength(1);
+  await expect(form).toHaveAttribute("aria-busy", "true");
+  releaseResponse.release();
+  await expect(
+    form.getByRole("button", { name: "Retry creation" }),
+  ).toBeVisible();
+  const title = form.getByLabel("Title", { exact: true });
+  await expect(title).toHaveAttribute("readonly", "");
+  await title.focus();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.type("Edited request");
+  await expect(title).toHaveValue("Recovered incident");
+  await page.keyboard.press("Escape");
+  await expect(form).toBeHidden();
+  const trigger = page.getByTestId(incidentLandingTestId("create-open-button"));
+  await expect(trigger).toBeFocused();
+  await expect(
+    page.getByTestId(incidentLandingTestId("create-status")),
+  ).toContainText("could not be confirmed");
+  await page.keyboard.press("Enter");
+  await expect(
+    form.getByRole("button", { name: "Retry creation" }),
+  ).toBeFocused();
+  let failMembershipRefresh = true;
+  await page.route("**/api/v1/auth/session", async (route) => {
+    if (!failMembershipRefresh) return route.continue();
+    failMembershipRefresh = false;
+    await route.fulfill({
+      status: 502,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: { code: "service_unavailable", status: 502, retryable: true },
+      }),
+    });
+  });
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId(incidentLandingTestId("create-status")),
+  ).toContainText("Incident created, but the workbook could not be opened");
+  expect(bodies).toHaveLength(2);
+  expect(bodies[1]).toEqual(bodies[0]);
+  await form.getByRole("button", { name: "Open created incident" }).click();
+  await expect(page).toHaveURL(new RegExp(`incident_id=${originalId}`));
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  expect(bodies).toHaveLength(2);
+});
+
+test("retains a confirmed creation when account navigation precedes its delayed response", async ({
+  page,
+}) => {
+  const releaseResponse = responseBarrier();
+  const committed = responseBarrier();
+  await page.route("**/api/v1/incidents", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    const response = await route.fetch();
+    expect(response.status()).toBe(201);
+    committed.release();
+    await releaseResponse.promise;
+    await route.fulfill({ response });
+  });
+  await new IncidentDirectory(page).goto();
+  const form = await new IncidentDirectory(page).openCreation();
+  await form
+    .getByLabel("Incident key", { exact: true })
+    .fill(uniqueIncidentKey("DELAYED-CREATE"));
+  await form.getByLabel("Title", { exact: true }).fill("Delayed creation");
+  await form.getByLabel("Title", { exact: true }).press("Enter");
+  await committed.promise;
+  await page
+    .getByRole("button", { name: "Account and application navigation" })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Account settings", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Account settings" });
+  await expect(dialog).toBeVisible();
+  releaseResponse.release();
+  await expect(
+    page.getByTestId(incidentLandingTestId("create-status")),
+  ).toHaveText("Incident created.");
+  expect(new URL(page.url()).searchParams.has("incident_id")).toBe(false);
+  await expect(dialog).toBeVisible();
 });
 
 test("clears a stale selected incident after membership removal while preserving the account session", async ({

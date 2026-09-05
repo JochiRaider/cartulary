@@ -75,6 +75,111 @@
       ]
     },
     {
+      "row_id": "module.incidents.browser.incident_creation_native_keyboard_payload_and_fi_b6b4631f5f",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_incident_creation_keyboard"
+        ],
+        "titles": [
+          "creates an incident with native keyboard submission and associated field errors"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.incident_creation_preserves_chosen_navigation_af_24cb9bd4de",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_incident_creation_navigation"
+        ],
+        "titles": [
+          "retains a confirmed creation when account navigation precedes its delayed response"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.incident_creation_uncertain_replay_and_committed_985931d51a",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/auth-and-incident-directory.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_incident_creation_replay"
+        ],
+        "titles": [
+          "replays a committed incident after transport loss without duplicate dispatch or recreation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.browser",
@@ -248,6 +353,80 @@
         "object_store",
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.incidents.frontend.incident_creation_lifecycle_keyboard_replay_and_e99c1bedb1",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.landing.test.tsx",
+        "titles": [
+          "Incident landing incident creation lifecycle associates required errors locally without replacing directory state",
+          "Incident landing incident creation lifecycle clears a replaced account draft before accepting a delayed response",
+          "Incident landing incident creation lifecycle keeps a chosen account destination when a delayed create succeeds",
+          "Incident landing incident creation lifecycle keeps a draft through keyboard dismissal and explicit reopening",
+          "Incident landing incident creation lifecycle replays an uncertain response with the same captured payload",
+          "Incident landing incident creation lifecycle retries a failed confirmed handoff without creating again",
+          "Incident landing incident creation lifecycle reveals an optional field rejection with an associated message",
+          "Incident landing incident creation lifecycle submits a single-line field with native Enter",
+          "Incident landing incident creation lifecycle suppresses same-tick duplicate dispatch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.frontend.incident_creation_operation_payload_outcomes_and_2ecdf8c632",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentCreationModel.test.ts",
+        "titles": [
+          "incident creation operation bounds handoff observation and prevents its late result from replacing a new draft",
+          "incident creation operation captures only declared values and omits blank optional metadata",
+          "incident creation operation classifies malformed success as uncertain at the public validation boundary",
+          "incident creation operation clears account state on session loss and leaves forbidden errors local",
+          "incident creation operation clears drafts and rejects late account and same-user session responses",
+          "incident creation operation does not turn a rejected replay into proof of earlier rollback",
+          "incident creation operation guards synchronous dispatch and retains the exact uncertain request",
+          "incident creation operation invalidates an in-progress handoff when a destination is chosen",
+          "incident creation operation maps public optional errors and permits a corrected new attempt",
+          "incident creation operation preserves explicit nulls and validates both typed success statuses",
+          "incident creation operation requires Unicode-nonblank identity fields before dispatch",
+          "incident creation operation requires explicit replacement after a transaction conflict",
+          "incident creation operation retains collapse recovery without restoring automatic navigation on reopen",
+          "incident creation operation retains confirmation when membership refresh fails and retries only handoff",
+          "incident creation operation times out observation and ignores a later original success"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.incidents.frontend.lifecycle_product_surface",

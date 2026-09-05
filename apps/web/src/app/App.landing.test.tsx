@@ -18,12 +18,14 @@ import {
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -192,6 +194,301 @@ describe("Incident landing", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  describe("incident creation lifecycle", () => {
+    async function openCreation() {
+      await screen.findByTestId(incidentLandingTestId("empty-state"));
+      fireEvent.click(
+        screen.getByTestId(incidentLandingTestId("create-open-button")),
+      );
+      fireEvent.change(screen.getByLabelText("Incident key"), {
+        target: { value: "IR-CREATE" },
+      });
+      fireEvent.change(screen.getByLabelText("Title"), {
+        target: { value: "Creation draft" },
+      });
+    }
+
+    function createdResponse() {
+      return jsonResponse(
+        {
+          data: {
+            ...incidentResource(
+              "00000000-0000-4000-8000-000000001401",
+              "IR-CREATE",
+              "Creation draft",
+            ),
+            status: "active",
+            closed_at: null,
+            created_at: "2026-04-20T12:00:00Z",
+            updated_at: "2026-04-20T12:00:00Z",
+            created_by_user_id: sessionResource().user_id,
+            updated_by_user_id: sessionResource().user_id,
+          },
+          meta: { request_id: "request-test" },
+        },
+        201,
+      );
+    }
+
+    it("submits a single-line field with native Enter", async () => {
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        onCreateIncident: createdResponse,
+      });
+      renderApp();
+      await openCreation();
+      screen.getByLabelText("Title").focus();
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() =>
+        expect(
+          findFetchCalls(fetchMock, "/api/v1/incidents", "POST"),
+        ).toHaveLength(1),
+      );
+    });
+
+    it("suppresses same-tick duplicate dispatch", async () => {
+      const pending = deferred<Response>();
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        onCreateIncident: () => pending.promise,
+      });
+      renderApp();
+      await openCreation();
+      const button = screen.getByRole("button", { name: "Create and open" });
+      act(() => {
+        button.click();
+        button.click();
+      });
+      expect(
+        findFetchCalls(fetchMock, "/api/v1/incidents", "POST"),
+      ).toHaveLength(1);
+      await act(async () => {
+        pending.resolve(createdResponse());
+      });
+    });
+
+    it("associates required errors locally without replacing directory state", async () => {
+      installLandingShellFetch(fetchMock, { session: sessionResource() });
+      renderApp();
+      await openCreation();
+      fireEvent.change(screen.getByLabelText("Incident key"), {
+        target: { value: "" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      const key = screen.getByLabelText("Incident key");
+      expect(key.getAttribute("aria-invalid")).toBe("true");
+      expect(
+        document.getElementById(key.getAttribute("aria-describedby") ?? "")
+          ?.textContent,
+      ).toContain("required");
+      expect(
+        screen
+          .getByTestId(incidentLandingTestId("shell"))
+          .getAttribute("data-bootstrap-state"),
+      ).toBe("authenticated");
+      expect(
+        findFetchCalls(fetchMock, "/api/v1/incidents", "POST"),
+      ).toHaveLength(0);
+    });
+
+    it("replays an uncertain response with the same captured payload", async () => {
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        onCreateIncident: () =>
+          jsonResponse(
+            {
+              error: {
+                code: "service_unavailable",
+                status: 502,
+                retryable: true,
+              },
+            },
+            502,
+          ),
+      });
+      renderApp();
+      await openCreation();
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      const retry = await screen.findByRole("button", {
+        name: "Retry creation",
+      });
+      expect(
+        (screen.getByLabelText("Title") as HTMLInputElement).readOnly,
+      ).toBe(true);
+      fireEvent.click(retry);
+      await waitFor(() =>
+        expect(
+          findFetchCalls(fetchMock, "/api/v1/incidents", "POST"),
+        ).toHaveLength(2),
+      );
+      const requests = findFetchCalls(fetchMock, "/api/v1/incidents", "POST");
+      expect(requests[1]?.[1]?.body).toBe(requests[0]?.[1]?.body);
+    });
+
+    it("keeps a draft through keyboard dismissal and explicit reopening", async () => {
+      installLandingShellFetch(fetchMock, { session: sessionResource() });
+      renderApp();
+      await openCreation();
+      const key = screen.getByLabelText("Incident key");
+      expect(document.activeElement).toBe(key);
+      await userEvent.keyboard("{Escape}");
+      expect(screen.queryByRole("form", { name: "New incident" })).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByTestId(incidentLandingTestId("create-open-button")),
+      );
+      await userEvent.keyboard("{Enter}");
+      expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
+        "Creation draft",
+      );
+      expect(document.activeElement).toBe(
+        screen.getByLabelText("Incident key"),
+      );
+      expect(screen.queryByRole("dialog", { name: "New incident" })).toBeNull();
+    });
+
+    it("reveals an optional field rejection with an associated message", async () => {
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        onCreateIncident: () =>
+          jsonResponse(
+            {
+              error: {
+                code: "invalid_incident_create",
+                status: 400,
+                details: { field: "severity", reason_code: "field_too_long" },
+              },
+            },
+            400,
+          ),
+      });
+      renderApp();
+      await openCreation();
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      await screen.findByText("Shorten this value and try again.");
+      const severity = screen.getByLabelText("Severity");
+      expect(severity.getAttribute("aria-invalid")).toBe("true");
+      expect(severity.closest("details")?.open).toBe(true);
+      expect(
+        document.getElementById(severity.getAttribute("aria-describedby") ?? "")
+          ?.textContent,
+      ).toContain("Shorten");
+      expect(
+        screen
+          .getByTestId(incidentLandingTestId("shell"))
+          .getAttribute("data-bootstrap-state"),
+      ).toBe("authenticated");
+    });
+
+    it("retries a failed confirmed handoff without creating again", async () => {
+      let created = false;
+      let failRefresh = true;
+      installLandingShellFetch(fetchMock, {
+        session: () =>
+          created && failRefresh
+            ? jsonResponse(
+                { error: { code: "service_unavailable", status: 502 } },
+                502,
+              )
+            : sessionResource({
+                memberships: created
+                  ? [
+                      {
+                        incident_id: "00000000-0000-4000-8000-000000001401",
+                        role: "admin",
+                      },
+                    ]
+                  : [],
+              }),
+        onCreateIncident: () => {
+          created = true;
+          return createdResponse();
+        },
+      });
+      renderApp();
+      await openCreation();
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      await screen.findByText(
+        "Incident created, but the workbook could not be opened. Try opening it again.",
+      );
+      failRefresh = false;
+      fireEvent.click(
+        screen.getByRole("button", { name: "Open created incident" }),
+      );
+      await screen.findByTestId("mock-workbook");
+      expect(
+        findFetchCalls(fetchMock, "/api/v1/incidents", "POST"),
+      ).toHaveLength(1);
+      expect(window.location.search).toContain(
+        "incident_id=00000000-0000-4000-8000-000000001401",
+      );
+    });
+
+    it("clears a replaced account draft before accepting a delayed response", async () => {
+      let currentSession = sessionResource();
+      const pending = deferred<Response>();
+      installLandingShellFetch(fetchMock, {
+        session: () => currentSession,
+        onCreateIncident: () => pending.promise,
+      });
+      renderApp();
+      await openCreation();
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      currentSession = sessionResource({
+        user_id: "00000000-0000-4000-8000-000000000002",
+        display_name: "Other operator",
+      });
+      fireEvent.click(screen.getByTestId(incidentLandingTestId("refresh")));
+      await screen.findByText("Other operator", { selector: "dd" });
+      const response = createdResponse();
+      const parsed = vi.spyOn(response, "json");
+      await act(async () => {
+        pending.resolve(response);
+      });
+      await waitFor(() => expect(parsed).toHaveBeenCalled());
+      await act(async () => {
+        await parsed.mock.results[0]?.value;
+      });
+      expect(window.location.search).not.toContain("incident_id=");
+      fireEvent.click(
+        screen.getByTestId(incidentLandingTestId("create-open-button")),
+      );
+      expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
+        "",
+      );
+    });
+
+    it("keeps a chosen account destination when a delayed create succeeds", async () => {
+      const pending = deferred<Response>();
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        onCreateIncident: () => pending.promise,
+      });
+      renderApp();
+      await openCreation();
+      fireEvent.click(screen.getByRole("button", { name: "Create and open" }));
+      fireEvent.click(
+        screen.getByLabelText("Account and application navigation"),
+      );
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Account settings" }),
+      );
+      const response = createdResponse();
+      const parsed = vi.spyOn(response, "json");
+      await act(async () => {
+        pending.resolve(response);
+      });
+      await waitFor(() => expect(parsed).toHaveBeenCalled());
+      await act(async () => {
+        await parsed.mock.results[0]?.value;
+      });
+      expect(window.location.search).not.toContain("incident_id=");
+      expect(screen.queryByTestId("mock-workbook")).toBeNull();
+      expect(
+        screen.getByRole("dialog", { name: "Account settings" }),
+      ).toBeTruthy();
+    });
   });
 
   it("renders workbook role, incidents, and expandable controls inside the account menu", () => {

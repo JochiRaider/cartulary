@@ -41,6 +41,9 @@
             "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508",
             "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1",
             "module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899",
+            "module.incidents.browser.incident_creation_native_keyboard_payload_and_fi_b6b4631f5f",
+            "module.incidents.browser.incident_creation_preserves_chosen_navigation_af_24cb9bd4de",
+            "module.incidents.browser.incident_creation_uncertain_replay_and_committed_985931d51a",
             "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5"
           ],
           "specs": [
@@ -680,6 +683,9 @@
             "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508",
             "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1",
             "module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899",
+            "module.incidents.browser.incident_creation_native_keyboard_payload_and_fi_b6b4631f5f",
+            "module.incidents.browser.incident_creation_preserves_chosen_navigation_af_24cb9bd4de",
+            "module.incidents.browser.incident_creation_uncertain_replay_and_committed_985931d51a",
             "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5"
           ],
           "specs": [
@@ -1953,6 +1959,7 @@
             "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
+            "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
           "specs": [
@@ -2032,6 +2039,7 @@
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
           "specs": [
@@ -2270,6 +2278,7 @@
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
           "specs": [
@@ -2789,6 +2798,7 @@
             "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
+            "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
           "specs": [
@@ -2857,6 +2867,7 @@
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
           "specs": [
