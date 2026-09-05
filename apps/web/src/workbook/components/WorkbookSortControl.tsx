@@ -5,7 +5,7 @@ import {
   workbookSortOptionTestId,
 } from "@cartulary/ui-contracts";
 import { type RefObject, useMemo } from "react";
-import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
+import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import {
   type WorkbookGridQueryCommand,
   type WorkbookGridQueryControlProjection,

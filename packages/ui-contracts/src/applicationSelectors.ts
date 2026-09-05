@@ -30,6 +30,7 @@ type AuthSelector =
   | "status";
 
 type AccountSelector =
+  | "application-menu"
   | "appearance-density-mode"
   | "appearance-save"
   | "profile-display-name"
@@ -217,6 +218,7 @@ const authTestIds = Object.freeze({
 } satisfies Record<AuthSelector, string>);
 
 const accountTestIds = Object.freeze({
+  "application-menu": "account-application-menu-panel",
   "appearance-density-mode": "account-appearance-density-mode",
   "appearance-save": "account-appearance-save",
   "credential-auth-kind": "account-credential-auth-kind",

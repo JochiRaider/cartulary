@@ -179,9 +179,9 @@ async function readMergeEnvelope(response: Response) {
 }
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
-  const accountMenuTrigger = page.getByLabel(
-    "Account and application navigation",
-  );
+  const accountMenuTrigger = page.getByRole("button", {
+    name: "Account and application navigation",
+  });
   await accountMenuTrigger.click();
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     roleText,

@@ -11,7 +11,7 @@ import {
 import type { ViewContract } from "@cartulary/view-contracts";
 import { SlidersHorizontal } from "lucide-react";
 import { type RefObject, useMemo } from "react";
-import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
+import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import {
   parseDeclaredFieldKey,
   parseWorkbookBooleanDraftValue,

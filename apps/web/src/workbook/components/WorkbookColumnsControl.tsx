@@ -3,7 +3,7 @@ import {
   workbookColumnsMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { useMemo, useRef } from "react";
-import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
+import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import type {
   WorkbookGridQueryCommand,
   WorkbookGridQueryControlProjection,

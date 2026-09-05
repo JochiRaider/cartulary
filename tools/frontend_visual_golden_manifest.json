@@ -3,6 +3,38 @@
   "renderer_profile_id": "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64",
   "goldens": [
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-compact-linux.png",
+      "sha256": "c71003d5b370b9b785a84327d164c5a9a5160e0ec92952c4ea26dda415566e5c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-narrow-linux.png",
+      "sha256": "96e2d5c8c8b10239cc82f7c909f7cae4faa3566ef41a47bb3604231232abd26d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-controls-short-linux.png",
+      "sha256": "a93dbb49c94d5f7d558c0fced15363fe9c37af1b2fe8078006a1d96f8fe0c52f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-deployment-root-linux.png",
+      "sha256": "6e2f0ad301cf191885106a5fb94d2c515b50a3fe29b542009a1f61289bc2156d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-directory-root-linux.png",
+      "sha256": "8f10746df6a09e80136748b9926ca2251e3f76c631faec78976be52d845c9fba"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-text-spacing-linux.png",
+      "sha256": "88946e59019ed742471d360e631596971bb3c4003dff126258f5bdf205a9b700"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-long-label-zoom-linux.png",
+      "sha256": "3f08989ccdfd98c214b737dd13db2a605c172a10062fd2236a0f5c71eee69c92"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-workbook-root-linux.png",
+      "sha256": "01fc27c104878964d1e8e8504e5b7b39d55137d6b7c14b000d571e23cd9577ed"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-200-zoom-linux.png",
       "sha256": "83f9ca73f1a0faf735f8d202f6114164da0e0f65b04ce7105382dafe6ab3f949"
     },

@@ -9,11 +9,11 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-
 import {
   type APIError,
   clientTxnID,
@@ -30,6 +30,7 @@ import {
   AccountSecurityPanel,
   DeploymentUsersPanel,
 } from "./AccountAdministrationPanels";
+import { AccountApplicationMenu } from "./AccountApplicationMenu";
 import {
   AccountAppearancePanel,
   AccountProfilePanel,
@@ -52,7 +53,6 @@ import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
 import {
-  AccountApplicationMenu,
   IncidentDirectoryShell,
   LandingAdminShell,
 } from "./LandingAdminLayout";
@@ -260,6 +260,84 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     useState<DeploymentAdministrationPanelToken>("deployment-users");
   const [accountSettingsPanel, setAccountSettingsPanel] =
     useState<AccountSettingsPanelToken | null>(null);
+  const accountMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountSettingsCloseRef = useRef<HTMLButtonElement>(null);
+  const navigationHeadingRef = useRef<HTMLHeadingElement>(null);
+  const navigationFocusRequestRef = useRef<{
+    readonly destination: "incidents" | "deployment-administration";
+    readonly accountId: string;
+    readonly originIdentity: string;
+  } | null>(null);
+  const previousAccountSettingsRef = useRef<AccountSettingsPanelToken | null>(
+    null,
+  );
+  const restoreAccountMenuRef = useRef(false);
+  const accountNavigationIdentity = `${session?.user_id ?? ""}:${route.incidentId}:${route.deploymentAdministration}`;
+  const previousAccountNavigationIdentityRef = useRef(
+    accountNavigationIdentity,
+  );
+
+  useLayoutEffect(() => {
+    if (
+      previousAccountNavigationIdentityRef.current === accountNavigationIdentity
+    )
+      return;
+    previousAccountNavigationIdentityRef.current = accountNavigationIdentity;
+    restoreAccountMenuRef.current = false;
+    setAccountSettingsPanel(null);
+  }, [accountNavigationIdentity]);
+
+  const closeAccountSettings = useCallback(() => {
+    restoreAccountMenuRef.current = true;
+    setAccountSettingsPanel(null);
+  }, []);
+
+  useLayoutEffect(() => {
+    const previous = previousAccountSettingsRef.current;
+    previousAccountSettingsRef.current = accountSettingsPanel;
+    if (previous === null && accountSettingsPanel !== null) {
+      restoreAccountMenuRef.current = false;
+      accountSettingsCloseRef.current?.focus({ preventScroll: true });
+    } else if (
+      previous !== null &&
+      accountSettingsPanel === null &&
+      restoreAccountMenuRef.current
+    ) {
+      restoreAccountMenuRef.current = false;
+      if (accountMenuTriggerRef.current?.isConnected)
+        accountMenuTriggerRef.current.focus({ preventScroll: true });
+    }
+  }, [accountSettingsPanel]);
+
+  useLayoutEffect(() => {
+    const request = navigationFocusRequestRef.current;
+    if (request === null) return;
+    if (
+      session === null ||
+      session.user_id !== request.accountId ||
+      (request.destination === "deployment-administration" &&
+        !session.is_deployment_admin)
+    ) {
+      navigationFocusRequestRef.current = null;
+      return;
+    }
+    const current =
+      route.deploymentAdministration && session.is_deployment_admin
+        ? "deployment-administration"
+        : route.incidentId === ""
+          ? "incidents"
+          : "workbook";
+    if (current !== request.destination) {
+      // Route publication may follow the menu-closing render. Cancel only
+      // after another context replaces the request's originating context.
+      if (accountNavigationIdentity !== request.originIdentity)
+        navigationFocusRequestRef.current = null;
+      return;
+    }
+    if (!navigationHeadingRef.current?.isConnected) return;
+    navigationFocusRequestRef.current = null;
+    navigationHeadingRef.current.focus({ preventScroll: true });
+  });
   const [referencePackJob, setReferencePackJob] =
     useState<ReferencePackJobResource | null>(null);
   const [incidentSearch, setIncidentSearch] = useState("");
@@ -1103,24 +1181,41 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const renderAccountMenu = useCallback(
     (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
       <AccountApplicationMenu
+        subjectKey={`${session?.user_id ?? ""}:${route.incidentId}:${currentContext}`}
+        triggerFocusRef={accountMenuTriggerRef}
         canOpenDeploymentAdministration={session?.is_deployment_admin ?? false}
         currentContext={currentContext}
         currentIncidentRole={options.currentIncidentRole}
         currentUserLabel={currentUserLabel}
         incidentControls={options.incidentControls}
         onOpenAccountSettings={setAccountSettingsPanel}
-        onOpenDeploymentAdministration={navigateToDeploymentAdministration}
-        onOpenIncidentDirectory={
-          options.onOpenIncidentDirectory ?? navigateToIncidentDirectory
-        }
+        onOpenDeploymentAdministration={() => {
+          navigationFocusRequestRef.current = {
+            destination: "deployment-administration",
+            accountId: session?.user_id ?? "",
+            originIdentity: accountNavigationIdentity,
+          };
+          navigateToDeploymentAdministration();
+        }}
+        onOpenIncidentDirectory={() => {
+          navigationFocusRequestRef.current = {
+            destination: "incidents",
+            accountId: session?.user_id ?? "",
+            originIdentity: accountNavigationIdentity,
+          };
+          (options.onOpenIncidentDirectory ?? navigateToIncidentDirectory)();
+        }}
         triggerTestId={options.triggerTestId}
       />
     ),
     [
+      accountNavigationIdentity,
       currentUserLabel,
       navigateToDeploymentAdministration,
       navigateToIncidentDirectory,
       session?.is_deployment_admin,
+      session?.user_id,
+      route.incidentId,
     ],
   );
 
@@ -1142,6 +1237,12 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           aria-label="Account settings"
           role="dialog"
           style={accountSettingsDialogStyle}
+          onKeyDown={(event) => {
+            if (event.key !== "Escape" || event.defaultPrevented) return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeAccountSettings();
+          }}
         >
           <header style={accountSettingsHeaderStyle}>
             <div>
@@ -1151,11 +1252,10 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               </h2>
             </div>
             <button
+              ref={accountSettingsCloseRef}
               style={accountSettingsCloseButtonStyle}
               type="button"
-              onClick={() => {
-                setAccountSettingsPanel(null);
-              }}
+              onClick={closeAccountSettings}
             >
               Close
             </button>
@@ -1203,6 +1303,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   }, [
     accountPreferences,
     accountSettingsPanel,
+    closeAccountSettings,
     credentialError,
     refreshCurrentShell,
     session,
@@ -1346,6 +1447,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     >
       {route.deploymentAdministration && session.is_deployment_admin ? (
         <LandingAdminShell
+          headingRef={navigationHeadingRef}
           accountMenu={renderAccountMenu("deployment-administration")}
           activePanel={activeDeploymentPanel}
           availablePanels={availableDeploymentPanels}
@@ -1408,6 +1510,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         </LandingAdminShell>
       ) : (
         <IncidentDirectoryShell
+          headingRef={navigationHeadingRef}
           accountMenu={renderAccountMenu("incidents")}
           currentUserLabel={currentUserLabel}
           statusText={landingStatusText}

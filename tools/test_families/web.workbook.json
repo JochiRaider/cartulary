@@ -750,36 +750,6 @@
       "service_dependencies": []
     },
     {
-      "row_id": "web.workbook.regression.registered_workbook_overlay_navigation_focuses_t_8d7c1faa31",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [
-        "web.design"
-      ],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/focus/useRegisteredOverlayNavigation.test.tsx",
-        "titles": [
-          "closes on subject change and restores to a registered fallback",
-          "closes without restoring when focus leaves the registered surface",
-          "focuses on open, wraps, skips disabled items, and restores on Escape",
-          "keeps a programmatically focused overlay root inside the focus boundary",
-          "restores through the fallback when closing unmounts the navigation owner"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
       "row_id": "web.workbook.regression.timeline_committed_idle_refreshes_once_19e6098c0e",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

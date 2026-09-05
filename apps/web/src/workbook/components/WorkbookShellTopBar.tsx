@@ -9,8 +9,8 @@ import {
 } from "@cartulary/ui-contracts";
 import { requireViewContract } from "@cartulary/view-contracts";
 import { type ReactNode, type RefObject, useRef, useState } from "react";
+import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import type { WorkbookCollaborationSnapshot } from "../collaboration/WorkbookCollaborationCoordinator";
-import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
 import type { WorkbookLayoutSnapshot } from "../layout/useWorkbookLayoutFacade";
 import {
   activeSystemViewTitleStyle,

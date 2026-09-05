@@ -257,7 +257,8 @@
             "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5",
             "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
             "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
-            "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956"
+            "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
+            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220"
           ],
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
@@ -895,7 +896,8 @@
             "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5",
             "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
             "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
-            "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956"
+            "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
+            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220"
           ],
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
@@ -1950,6 +1952,7 @@
             "module.workbook.accessibility.verify_keyboard_open_close_panel_navigation_esc_42b98cf08e",
             "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
+            "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
           "specs": [
@@ -2026,6 +2029,7 @@
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
+            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
@@ -2263,6 +2267,7 @@
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
+            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
@@ -2783,6 +2788,7 @@
             "module.workbook.accessibility.verify_keyboard_open_close_panel_navigation_esc_42b98cf08e",
             "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
+            "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
           "specs": [
@@ -2848,6 +2854,7 @@
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
+            "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"

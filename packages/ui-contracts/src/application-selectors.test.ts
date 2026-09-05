@@ -419,6 +419,7 @@ describe("@cartulary/ui-contracts application selectors", () => {
     ]);
 
     expectSelectorCases(accountTestId, [
+      ["application-menu", "account-application-menu-panel"],
       ["refresh-state", "account-refresh-state"],
       ["logout", "account-logout"],
       ["session-user-id", "account-session-user-id"],

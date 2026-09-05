@@ -9,21 +9,27 @@ afterEach(cleanup);
 
 function OverlayHarness({
   hideTrigger = false,
+  keys = itemKeys,
+  restoreFocusOnSubjectChange = true,
   subjectKey,
 }: {
   readonly hideTrigger?: boolean;
+  readonly keys?: readonly (typeof itemKeys)[number][];
+  readonly restoreFocusOnSubjectChange?: boolean;
   readonly subjectKey: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const fallbackRef = useRef<HTMLButtonElement | null>(null);
   const navigation = useRegisteredOverlayNavigation({
+    reconcileItems: true,
     fallbackFocusRef: fallbackRef,
     initialItemKey: "first",
     isOpen,
-    itemKeys,
+    itemKeys: keys,
     onRequestClose: () => setIsOpen(false),
     subjectKey,
+    restoreFocusOnSubjectChange,
     triggerRef,
   });
 
@@ -55,7 +61,7 @@ function OverlayHarness({
             }
           }}
         >
-          {itemKeys.map((key) => (
+          {keys.map((key) => (
             <button
               key={key}
               ref={navigation.registerItem(key)}
@@ -63,6 +69,7 @@ function OverlayHarness({
               role="menuitem"
               tabIndex={navigation.tabIndexFor(key)}
               type="button"
+              onFocus={() => navigation.onItemFocus(key)}
               onKeyDown={(event) => navigation.onItemKeyDown(event, key)}
             >
               {key}
@@ -74,7 +81,11 @@ function OverlayHarness({
   );
 }
 
-function UnmountingOverlayHarness() {
+function UnmountingOverlayHarness({
+  restoreFocusOnUnmount = true,
+}: {
+  readonly restoreFocusOnUnmount?: boolean;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const returnRef = useRef<HTMLSpanElement | null>(null);
   const fallbackRef = useRef<HTMLButtonElement | null>(null);
@@ -89,6 +100,7 @@ function UnmountingOverlayHarness() {
           fallbackRef={fallbackRef}
           onClose={() => setIsOpen(false)}
           returnRef={returnRef}
+          restoreFocusOnUnmount={restoreFocusOnUnmount}
         />
       ) : null}
     </div>
@@ -99,18 +111,22 @@ function UnmountingOverlay({
   fallbackRef,
   onClose,
   returnRef,
+  restoreFocusOnUnmount,
 }: {
   readonly fallbackRef: RefObject<HTMLElement | null>;
   readonly onClose: () => void;
   readonly returnRef: RefObject<HTMLElement | null>;
+  readonly restoreFocusOnUnmount: boolean;
 }) {
   const navigation = useRegisteredOverlayNavigation({
+    reconcileItems: true,
     fallbackFocusRef: fallbackRef,
     initialItemKey: "only",
     isOpen: true,
     itemKeys: ["only"],
     onRequestClose: onClose,
     subjectKey: "unmounting",
+    restoreFocusOnUnmount,
     triggerRef: returnRef,
   });
   return (
@@ -125,6 +141,51 @@ function UnmountingOverlay({
 }
 
 describe("registered overlay navigation", () => {
+  it("cancels requested restoration on unmount when the consumer owns that policy", () => {
+    render(<UnmountingOverlayHarness restoreFocusOnUnmount={false} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open unmounting overlay" }),
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: "Only action" }), {
+      key: "Escape",
+    });
+    expect(screen.queryByRole("button", { name: "Only action" })).toBeNull();
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("button", { name: "Open unmounting overlay" }),
+    );
+  });
+
+  it("reconciles a removed focused item without using its detached element", () => {
+    const { rerender } = render(<OverlayHarness subjectKey="surface-a" />);
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    rerender(
+      <OverlayHarness keys={["disabled", "last"]} subjectKey="surface-a" />,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("menuitem", { name: "last" }),
+    );
+  });
+
+  it("allows a destination owner to suppress subject-change restoration", () => {
+    const { rerender } = render(
+      <OverlayHarness
+        restoreFocusOnSubjectChange={false}
+        subjectKey="surface-a"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    rerender(
+      <OverlayHarness
+        restoreFocusOnSubjectChange={false}
+        subjectKey="surface-b"
+      />,
+    );
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("button", { name: "Open" }),
+    );
+  });
+
   it("focuses on open, wraps, skips disabled items, and restores on Escape", () => {
     render(<OverlayHarness subjectKey="surface-a" />);
     const trigger = screen.getByRole("button", { name: "Open" });

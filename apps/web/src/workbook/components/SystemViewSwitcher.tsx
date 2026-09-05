@@ -5,7 +5,7 @@ import {
   systemViewSwitcherTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { useRef, useState } from "react";
-import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
+import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import { listSystemWorkbookSurfaceGroups } from "../models/workbookSurfaceRegistry";
 
 const systemWorkbookSurfaceGroups = listSystemWorkbookSurfaceGroups();

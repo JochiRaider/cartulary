@@ -339,6 +339,39 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.account_application_menu_keyboard_focus_and_life_e79d61a853",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/AccountApplicationMenu.test.tsx",
+        "titles": [
+          "account application menu interaction allows native Tab departure and dispatches an action only once",
+          "account application menu interaction closes stale context state without stealing destination focus",
+          "account application menu interaction dismisses on an outside nonfocusable pointer without restoring focus",
+          "account application menu interaction hands Controls focus to its destination once for Space and pointer activation",
+          "account application menu interaction invalidates incident identity and never restores on ordinary unmount",
+          "account application menu interaction keeps unsupported shortcuts available while consuming menu keys",
+          "account application menu interaction opens Controls and closes the innermost menu before restoring the root trigger",
+          "account application menu interaction opens at the current action and moves by semantic menu items",
+          "account application menu interaction reconciles a removed focused capability to the next available action",
+          "account application menu interaction reconciles nested removal and exits nested Tab without trapping or restoring"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.app_keeps_deployment_admin_target_actions_disabl_fe7a9b4dad",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1205,6 +1238,39 @@
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
           "ReferencePackAdminPanel discards stale reference pack search responses"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.registered_overlay_semantic_focus_navigation_42dc7fdfee",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/shared/useRegisteredOverlayNavigation.test.tsx",
+        "titles": [
+          "allows a destination owner to suppress subject-change restoration",
+          "cancels requested restoration on unmount when the consumer owns that policy",
+          "closes on subject change and restores to a registered fallback",
+          "closes without restoring when focus leaves the registered surface",
+          "focuses on open, wraps, skips disabled items, and restores on Escape",
+          "keeps a programmatically focused overlay root inside the focus boundary",
+          "reconciles a removed focused item without using its detached element",
+          "restores through the fallback when closing unmounts the navigation owner"
         ]
       },
       "evidence_class": "unit",

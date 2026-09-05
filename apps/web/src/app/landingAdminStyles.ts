@@ -16,7 +16,7 @@ export const incidentDirectoryShellStyle: CSSProperties = {
 
 export const landingAdminHeaderStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(12rem, 1fr) auto minmax(14rem, 1fr)",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto",
   gap: "var(--ct-spacing-lg)",
   alignItems: "center",
   minHeight: "var(--ct-layout-topBarHeight)",
@@ -45,12 +45,16 @@ export const landingAdminTitleStyle: CSSProperties = {
 
 export const landingAdminHeaderMetaStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(9rem, auto))",
+  gridTemplateColumns: "minmax(0, 1fr)",
+  minWidth: 0,
   gap: "var(--ct-spacing-lg)",
   margin: 0,
 };
 
 export const landingAdminMetaValueStyle: CSSProperties = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
   margin: "0.2rem 0 0",
   color: "var(--ct-colors-ink)",
   fontWeight: 700,
@@ -104,14 +108,17 @@ export const accountMenuTriggerTextStyle: CSSProperties = {
 };
 
 export const accountMenuStyle: CSSProperties = {
-  position: "absolute",
-  insetBlockStart: "calc(100% + 0.35rem)",
-  insetInlineEnd: 0,
+  position: "fixed",
   zIndex: 20,
-  minWidth: "18rem",
+  inlineSize: "18rem",
+  minInlineSize: 0,
+  boxSizing: "border-box",
+  overflowY: "auto",
+  overscrollBehavior: "contain",
+  overflowWrap: "anywhere",
   display: "grid",
-  gap: "0.2rem",
-  padding: "0.4rem",
+  gap: "var(--ct-spacing-xs)",
+  padding: "var(--ct-spacing-sm)",
   border: "var(--ct-border-hairline)",
   borderRadius: "var(--ct-rounded-sm)",
   background: "var(--ct-colors-surface-2)",
@@ -120,7 +127,7 @@ export const accountMenuStyle: CSSProperties = {
 
 export const accountMenuItemStyle: CSSProperties = {
   width: "100%",
-  padding: "0.55rem 0.65rem",
+  padding: "var(--ct-spacing-sm)",
   border: "none",
   borderRadius: "var(--ct-rounded-sm)",
   background: "transparent",
@@ -133,7 +140,8 @@ export const accountMenuItemStyle: CSSProperties = {
 
 export const accountMenuStatusItemStyle: CSSProperties = {
   width: "100%",
-  padding: "0.55rem 0.65rem",
+  boxSizing: "border-box",
+  padding: "var(--ct-spacing-sm)",
   borderRadius: "var(--ct-rounded-sm)",
   background: "var(--ct-colors-surface-1)",
   color: "var(--ct-colors-ink-muted)",
@@ -143,15 +151,15 @@ export const accountMenuStatusItemStyle: CSSProperties = {
 
 export const accountSubmenuStyle: CSSProperties = {
   display: "grid",
-  gap: "0.2rem",
-  padding: "0.2rem 0 0.25rem 0.55rem",
+  gap: "var(--ct-spacing-xs)",
+  padding: "var(--ct-spacing-xs) 0 var(--ct-spacing-xs) var(--ct-spacing-sm)",
 };
 
 export const accountSubmenuItemStyle: CSSProperties = {
   display: "grid",
-  gap: "0.16rem",
+  gap: "var(--ct-spacing-xxs)",
   width: "100%",
-  padding: "0.5rem 0.6rem",
+  padding: "var(--ct-spacing-sm)",
   border: "none",
   borderRadius: "var(--ct-rounded-sm)",
   background: "transparent",
@@ -177,6 +185,7 @@ export const accountSubmenuItemDescriptionStyle: CSSProperties = {
 };
 
 export const accountMenuSeparatorStyle: CSSProperties = {
+  border: 0,
   height: 1,
   margin: "0.25rem 0",
   background: "var(--ct-colors-border-muted)",

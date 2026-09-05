@@ -177,8 +177,8 @@ import {
   findFetchCallsByPath,
   jsonResponse,
 } from "../testing/fetchMockTestSupport";
+import { AccountApplicationMenu } from "./AccountApplicationMenu";
 import { AppRoot } from "./AppRoot";
-import { AccountApplicationMenu } from "./LandingAdminLayout";
 
 describe("Incident landing", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -403,6 +403,9 @@ describe("Incident landing", () => {
     ).toBeTruthy();
     expect(screen.queryByTestId("mock-workbook")).toBe(null);
     expect(window.location.search).not.toContain("incident_id=");
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { name: "Incident directory" }),
+    );
   });
 
   it("loads deployment administration as a separate route without incident-directory fetches", async () => {
@@ -886,11 +889,17 @@ describe("Incident landing", () => {
     expect(
       await screen.findByTestId(accountTestId("profile-email")),
     ).toBeTruthy();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Close" }),
+    );
     await waitFor(() => {
       expect(
         screen.getByTestId(accountTestId("profile-email")).textContent,
       ).toBe("operator@example.test");
     });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Close" }),
+    );
     expect(
       screen.getByTestId(accountTestId("profile-display-name")),
     ).toBeTruthy();

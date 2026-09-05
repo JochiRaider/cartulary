@@ -13,7 +13,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { MoreHorizontal } from "lucide-react";
 import { type RefObject, useRef } from "react";
-import { useRegisteredOverlayNavigation } from "../focus/useRegisteredOverlayNavigation";
+import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import type { SavedViewActionIntent } from "../hooks/useActiveSurfaceSavedViewActions";
 import {
   parseSavedViewEditableScope,

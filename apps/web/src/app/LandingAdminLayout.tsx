@@ -1,15 +1,10 @@
 import {
-  currentIncidentRoleTestId,
-  incidentControlsMenuItemTestId,
-  incidentControlsMenuTestId,
-  incidentControlsTriggerTestId,
   incidentLandingTestId,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   landingAdminShellTestId,
 } from "@cartulary/ui-contracts";
 import {
-  ChevronDown,
   FileClock,
   FolderOpen,
   LockKeyhole,
@@ -19,26 +14,8 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
+import { type KeyboardEvent, type MutableRefObject, useRef } from "react";
 import {
-  type KeyboardEvent,
-  type MutableRefObject,
-  useCallback,
-  useRef,
-  useState,
-} from "react";
-import {
-  accountMenuAnchorStyle,
-  accountMenuItemStyle,
-  accountMenuSeparatorStyle,
-  accountMenuStatusItemStyle,
-  accountMenuStyle,
-  accountMenuTriggerStyle,
-  accountMenuTriggerTextStyle,
-  accountSubmenuItemDescriptionStyle,
-  accountSubmenuItemLabelStyle,
-  accountSubmenuItemSelectedStyle,
-  accountSubmenuItemStyle,
-  accountSubmenuStyle,
   brandBlockStyle,
   incidentDirectoryShellStyle,
   landingAccountNavButtonSelectedStyle,
@@ -66,7 +43,6 @@ import {
   visuallyHiddenStyle,
 } from "./landingAdminStyles";
 import type {
-  AccountApplicationMenuProps,
   DeploymentAdministrationPanelToken,
   IncidentDirectoryShellProps,
   LandingAdminPanelDescriptor,
@@ -86,6 +62,7 @@ const panelIcons: Record<LandingAdminPanelId, typeof FolderOpen> = {
 };
 
 export function LandingAdminShell({
+  headingRef,
   accountMenu,
   activePanel,
   availablePanels,
@@ -165,7 +142,9 @@ export function LandingAdminShell({
       <header style={landingAdminHeaderStyle}>
         <div style={brandBlockStyle}>
           <p style={landingEyebrowStyle}>Cartulary</p>
-          <h1 style={landingAdminTitleStyle}>Deployment administration</h1>
+          <h1 ref={headingRef} tabIndex={-1} style={landingAdminTitleStyle}>
+            Deployment administration
+          </h1>
         </div>
         <dl style={landingAdminHeaderMetaStyle}>
           <div>
@@ -211,6 +190,7 @@ export function LandingAdminShell({
 }
 
 export function IncidentDirectoryShell({
+  headingRef,
   accountMenu,
   children,
   currentUserLabel,
@@ -224,7 +204,9 @@ export function IncidentDirectoryShell({
       <header style={landingAdminHeaderStyle}>
         <div style={brandBlockStyle}>
           <p style={landingEyebrowStyle}>Cartulary</p>
-          <h1 style={landingAdminTitleStyle}>Incident directory</h1>
+          <h1 ref={headingRef} tabIndex={-1} style={landingAdminTitleStyle}>
+            Incident directory
+          </h1>
         </div>
         <dl style={landingAdminHeaderMetaStyle}>
           <div>
@@ -244,199 +226,6 @@ export function IncidentDirectoryShell({
         {statusText}
       </p>
     </section>
-  );
-}
-
-export function AccountApplicationMenu({
-  canOpenDeploymentAdministration,
-  currentContext,
-  currentUserLabel,
-  currentIncidentRole,
-  incidentControls,
-  onOpenAccountSettings,
-  onOpenDeploymentAdministration,
-  onOpenIncidentDirectory,
-  triggerTestId,
-}: AccountApplicationMenuProps) {
-  const [open, setOpen] = useState(false);
-  const [controlsOpen, setControlsOpen] = useState(false);
-  const containerRef = useRef<HTMLFieldSetElement | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const closeMenu = useCallback(() => {
-    setOpen(false);
-    setControlsOpen(false);
-  }, []);
-
-  return (
-    <fieldset
-      ref={containerRef}
-      aria-label="Account and application menu"
-      style={accountMenuAnchorStyle}
-      onBlur={(event) => {
-        const nextFocus = event.relatedTarget;
-        if (
-          nextFocus instanceof Node &&
-          containerRef.current?.contains(nextFocus)
-        ) {
-          return;
-        }
-        closeMenu();
-      }}
-    >
-      <button
-        ref={triggerRef}
-        aria-controls={open ? "account-application-menu" : undefined}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Account and application navigation"
-        data-testid={triggerTestId}
-        style={accountMenuTriggerStyle}
-        title={currentUserLabel}
-        type="button"
-        onClick={() => {
-          setOpen((current) => {
-            const nextOpen = !current;
-            if (!nextOpen) {
-              setControlsOpen(false);
-            }
-            return nextOpen;
-          });
-        }}
-      >
-        <UserRound aria-hidden="true" size={16} />
-        <span style={accountMenuTriggerTextStyle}>{currentUserLabel}</span>
-        <ChevronDown aria-hidden="true" size={15} />
-      </button>
-      {open ? (
-        <div id="account-application-menu" role="menu" style={accountMenuStyle}>
-          {currentContext === "workbook" ? (
-            <div
-              aria-disabled="true"
-              data-testid={currentIncidentRoleTestId()}
-              role="menuitem"
-              style={accountMenuStatusItemStyle}
-              tabIndex={-1}
-            >
-              Current incident role: {currentIncidentRole || "viewer"}
-            </div>
-          ) : null}
-          {canOpenDeploymentAdministration ? (
-            <div
-              aria-disabled="true"
-              role="menuitem"
-              style={accountMenuStatusItemStyle}
-              tabIndex={-1}
-            >
-              Deployment administrator
-            </div>
-          ) : null}
-          <button
-            aria-current={currentContext === "incidents" ? "page" : undefined}
-            data-testid={
-              currentContext === "workbook"
-                ? incidentLandingTestId("return")
-                : undefined
-            }
-            role="menuitem"
-            style={accountMenuItemStyle}
-            type="button"
-            onClick={() => {
-              closeMenu();
-              onOpenIncidentDirectory();
-            }}
-          >
-            Incidents
-          </button>
-          {canOpenDeploymentAdministration ? (
-            <button
-              aria-current={
-                currentContext === "deployment-administration"
-                  ? "page"
-                  : undefined
-              }
-              role="menuitem"
-              style={accountMenuItemStyle}
-              type="button"
-              onClick={() => {
-                closeMenu();
-                onOpenDeploymentAdministration();
-              }}
-            >
-              Deployment administration
-            </button>
-          ) : null}
-          {incidentControls ? (
-            <>
-              <button
-                aria-controls={
-                  controlsOpen ? incidentControlsMenuTestId() : undefined
-                }
-                aria-expanded={controlsOpen}
-                aria-haspopup="menu"
-                data-testid={incidentControlsTriggerTestId()}
-                role="menuitem"
-                style={accountMenuItemStyle}
-                type="button"
-                onClick={() => {
-                  setControlsOpen((current) => !current);
-                }}
-              >
-                Controls
-              </button>
-              {controlsOpen ? (
-                <div
-                  data-testid={incidentControlsMenuTestId()}
-                  id={incidentControlsMenuTestId()}
-                  role="menu"
-                  style={accountSubmenuStyle}
-                >
-                  {incidentControls.items.map((item) => (
-                    <button
-                      key={item.section}
-                      data-testid={incidentControlsMenuItemTestId(item.section)}
-                      role="menuitem"
-                      style={
-                        item.section === incidentControls.activeSection
-                          ? accountSubmenuItemSelectedStyle
-                          : accountSubmenuItemStyle
-                      }
-                      type="button"
-                      onClick={() => {
-                        const returnFocusTarget = triggerRef.current;
-                        closeMenu();
-                        incidentControls.onSelectSection(
-                          item.section,
-                          returnFocusTarget,
-                        );
-                      }}
-                    >
-                      <span style={accountSubmenuItemLabelStyle}>
-                        {item.label}
-                      </span>
-                      <span style={accountSubmenuItemDescriptionStyle}>
-                        {item.description}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </>
-          ) : null}
-          <div aria-hidden="true" style={accountMenuSeparatorStyle} />
-          <button
-            role="menuitem"
-            style={accountMenuItemStyle}
-            type="button"
-            onClick={() => {
-              closeMenu();
-              onOpenAccountSettings("account-profile");
-            }}
-          >
-            Account settings
-          </button>
-        </div>
-      ) : null}
-    </fieldset>
   );
 }
 

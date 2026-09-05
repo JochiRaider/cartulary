@@ -14,7 +14,7 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { useRegisteredOverlayNavigation } from "../../focus/useRegisteredOverlayNavigation";
+import { useRegisteredOverlayNavigation } from "../../../shared/useRegisteredOverlayNavigation";
 import { workbookViewportOverlayScrollableStyle } from "../../layout/workbookShellStyles";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";

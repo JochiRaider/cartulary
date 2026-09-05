@@ -3,6 +3,42 @@
   "owner_id": "web.design",
   "rows": [
     {
+      "row_id": "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
+      "owner_id": "web.design",
+      "family_id": "web.design.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_52eb4368f35b"
+        ],
+        "titles": [
+          "a11y.account-menu keyboard focus names current state and nested navigation"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666",
       "owner_id": "web.design",
       "family_id": "web.design.accessibility",
@@ -38,6 +74,42 @@
       ]
     },
     {
+      "row_id": "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220",
+      "owner_id": "web.design",
+      "family_id": "web.design.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-administration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_18fd149b1431"
+        ],
+        "titles": [
+          "operates account application menus with keyboard focus and viewport containment"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3",
       "owner_id": "web.design",
       "family_id": "web.design.browser",
@@ -64,6 +136,43 @@
       "runtime_profile_id": "default",
       "resource_profile_id": "browser_functional",
       "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
+      "owner_id": "web.design",
+      "family_id": "web.design.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_d840806c01cd"
+        ],
+        "titles": [
+          "Capture account application menu root and nested Controls across contexts and constrained viewports."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
       "minimum_tier": "full",

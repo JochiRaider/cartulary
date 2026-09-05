@@ -18,11 +18,13 @@ import {
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
 import {
+  accountTestId,
   authTestId,
   cartularyDefaultThemeId,
   cellPresenceMarkerTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
+  deploymentAdminTestId,
   evidenceAccessMessageTestId,
   evidenceAccessStateTestId,
   evidenceAttachFileInputTestId,
@@ -39,7 +41,10 @@ import {
   gridShellTestId,
   gridSortHeaderTestId,
   incidentAdministrationTestId,
+  incidentControlsMenuItemTestId,
   incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
+  incidentLandingTestId,
   incidentMembershipListTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -6846,3 +6851,112 @@ if (
     );
   });
 }
+
+test("Capture account application menu root and nested Controls across contexts and constrained viewports.", async ({
+  workerAdminPage: page,
+  workerAdmin,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("VISUALMENU"),
+    "Account menu navigation",
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const trigger = page.getByRole("button", {
+    name: "Account and application navigation",
+  });
+  const controls = page.getByTestId(incidentControlsTriggerTestId());
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("menuitem", { name: "Incidents", exact: true }),
+  ).toBeFocused();
+  await assertViewportVisualRegression(page, "account-menu-workbook-root");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Incident directory", exact: true }),
+  ).toBeFocused();
+  await page
+    .getByTestId(incidentLandingTestId("search"))
+    .fill("Account menu navigation");
+  await expect(
+    page.getByTestId(incidentLandingTestId("incident-list")).getByRole("row"),
+  ).toHaveCount(2);
+  await trigger.click();
+  await assertViewportVisualRegression(page, "account-menu-directory-root");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", {
+      name: "Deployment administration",
+      exact: true,
+    }),
+  ).toBeFocused();
+  await page
+    .getByRole("textbox", { name: "Search users", exact: true })
+    .fill(workerAdmin.email);
+  await expect(
+    page.getByTestId(deploymentAdminTestId("user-list")).getByRole("button"),
+  ).toHaveCount(1);
+  await trigger.click();
+  await assertViewportVisualRegression(page, "account-menu-deployment-root");
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  for (const [name, width, height] of [
+    ["account-menu-controls-narrow", 1024, 720],
+    ["account-menu-controls-compact", 768, 640],
+    ["account-menu-controls-short", 640, 480],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await trigger.click();
+    await controls.click();
+    await page.keyboard.press("End");
+    await expect(
+      page.getByTestId(incidentControlsMenuItemTestId("membership-audit")),
+    ).toBeFocused();
+    await assertViewportVisualRegression(page, name);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await trigger.click();
+  await page
+    .getByRole("menuitem", { name: "Account settings", exact: true })
+    .click();
+  const label = "Analyst".repeat(36);
+  await expect(page.getByTestId(accountTestId("profile-save"))).toBeEnabled();
+  await page.getByTestId(accountTestId("profile-display-name")).fill(label);
+  await page.getByTestId(accountTestId("profile-save")).click();
+  await expect(trigger).toHaveAttribute("title", label);
+  await page
+    .getByRole("dialog", { name: "Account settings" })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await trigger.click();
+  await controls.click();
+  await page.keyboard.press("End");
+  await assertViewportVisualRegression(page, "account-menu-long-label-zoom");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await trigger.click();
+  await controls.click();
+  await page.keyboard.press("End");
+  await assertViewportVisualRegression(
+    page,
+    "account-menu-long-label-text-spacing",
+  );
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+});

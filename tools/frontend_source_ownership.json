@@ -10,6 +10,8 @@
       "owner_id": "web.app",
       "paths": [
         "apps/web/src/app/AccountAdministrationPanels.tsx",
+        "apps/web/src/app/AccountApplicationMenu.test.tsx",
+        "apps/web/src/app/AccountApplicationMenu.tsx",
         "apps/web/src/app/AccountSettingsPanels.tsx",
         "apps/web/src/app/App.auth.support.test.tsx",
         "apps/web/src/app/App.auth.test.tsx",
@@ -41,6 +43,7 @@
         "apps/web/src/app/referencePackAdminModel.ts",
         "apps/web/src/app/routeState.test.ts",
         "apps/web/src/app/routeState.ts",
+        "apps/web/src/app/useAccountMenuLayout.ts",
         "apps/web/src/app/useAppRouteRuntime.ts"
       ]
     },
@@ -151,6 +154,8 @@
         "apps/web/src/shared/publicErrorPresentation.test.ts",
         "apps/web/src/shared/publicErrorPresentation.ts",
         "apps/web/src/shared/sheetRef.ts",
+        "apps/web/src/shared/useRegisteredOverlayNavigation.test.tsx",
+        "apps/web/src/shared/useRegisteredOverlayNavigation.ts",
         "apps/web/src/shared/useTransientMessageController.test.tsx",
         "apps/web/src/shared/useTransientMessageController.ts",
         "apps/web/src/shared/workbookShellContracts.ts"
@@ -304,8 +309,6 @@
         "apps/web/src/workbook/features/indicators/IndicatorInspectorWorkflow.tsx",
         "apps/web/src/workbook/features/indicators/indicatorInspectorHandlers.ts",
         "apps/web/src/workbook/features/parties/useGenericPartyLinkWorkflow.ts",
-        "apps/web/src/workbook/focus/useRegisteredOverlayNavigation.test.tsx",
-        "apps/web/src/workbook/focus/useRegisteredOverlayNavigation.ts",
         "apps/web/src/workbook/hooks/useActiveSurfaceSavedViewActions.ts",
         "apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts",
         "apps/web/src/workbook/hooks/useEntityTimelinePreview.ts",

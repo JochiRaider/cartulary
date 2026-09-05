@@ -14,6 +14,8 @@ type OverlayItem = HTMLElement & { readonly disabled?: boolean | undefined };
 export type RegisteredOverlayNavigation<Key extends string> = {
   readonly activeKey: Key | null;
   readonly close: (options: { readonly restoreTriggerFocus: boolean }) => void;
+  readonly focusItem: (itemKey: Key) => boolean;
+  readonly onItemFocus: (itemKey: Key) => void;
   readonly onOverlayBlur: (event: FocusEvent<HTMLElement>) => void;
   readonly onItemKeyDown: (
     event: KeyboardEvent<HTMLElement>,
@@ -31,6 +33,9 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   itemKeys,
   onRequestClose,
   preferredReturnFocusRef,
+  reconcileItems = false,
+  restoreFocusOnSubjectChange = true,
+  restoreFocusOnUnmount = true,
   subjectKey,
   trapTab = false,
   triggerRef,
@@ -41,6 +46,9 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   readonly itemKeys: readonly Key[];
   readonly onRequestClose: () => void;
   readonly preferredReturnFocusRef?: RefObject<HTMLElement | null> | undefined;
+  readonly reconcileItems?: boolean;
+  readonly restoreFocusOnSubjectChange?: boolean;
+  readonly restoreFocusOnUnmount?: boolean;
   readonly subjectKey: string;
   readonly trapTab?: boolean | undefined;
   readonly triggerRef: RefObject<HTMLElement | null>;
@@ -51,6 +59,7 @@ export function useRegisteredOverlayNavigation<Key extends string>({
   const pendingTriggerRestoreRef = useRef(false);
   const wasOpenRef = useRef(false);
   const previousSubjectKeyRef = useRef(subjectKey);
+  const previousEligibleKeysRef = useRef<readonly Key[]>([]);
 
   const eligibleKeys = useCallback(() => {
     return itemKeys.filter((key) => {
@@ -114,9 +123,10 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     previousSubjectKeyRef.current = subjectKey;
     if (subjectChanged && isOpen && wasOpenRef.current) {
       pendingInitialKeyRef.current = null;
+      pendingTriggerRestoreRef.current = false;
       setActiveKey(null);
       onRequestClose();
-      restoreTriggerFocus();
+      if (restoreFocusOnSubjectChange) restoreTriggerFocus();
       wasOpenRef.current = false;
       return;
     }
@@ -129,7 +139,25 @@ export function useRegisteredOverlayNavigation<Key extends string>({
       }
       return;
     }
-    if (wasOpenRef.current) return;
+    const keys = eligibleKeys();
+    const previousKeys = previousEligibleKeysRef.current;
+    previousEligibleKeysRef.current = keys;
+    if (wasOpenRef.current) {
+      if (reconcileItems && activeKey !== null && !keys.includes(activeKey)) {
+        const index = Math.max(0, previousKeys.indexOf(activeKey));
+        const nextKey = keys[Math.min(index, keys.length - 1)];
+        setActiveKey(null);
+        // Removal may move focus to body. Never override an external owner.
+        if (
+          nextKey !== undefined &&
+          (document.activeElement === document.body ||
+            document.activeElement === itemRefs.current.get(activeKey))
+        ) {
+          focusItem(nextKey);
+        }
+      }
+      return;
+    }
     wasOpenRef.current = true;
     const requestedKey = pendingInitialKeyRef.current ?? initialItemKey;
     pendingInitialKeyRef.current = null;
@@ -139,12 +167,15 @@ export function useRegisteredOverlayNavigation<Key extends string>({
       focusItem(firstKey);
     }
   }, [
+    activeKey,
     eligibleKeys,
     focusItem,
     initialItemKey,
     isOpen,
     onRequestClose,
     restoreTriggerFocus,
+    restoreFocusOnSubjectChange,
+    reconcileItems,
     subjectKey,
   ]);
 
@@ -152,14 +183,16 @@ export function useRegisteredOverlayNavigation<Key extends string>({
     () => () => {
       if (!pendingTriggerRestoreRef.current) return;
       pendingTriggerRestoreRef.current = false;
-      restoreTriggerFocus();
+      if (restoreFocusOnUnmount) restoreTriggerFocus();
     },
-    [restoreTriggerFocus],
+    [restoreFocusOnUnmount, restoreTriggerFocus],
   );
 
   return {
     activeKey,
     close,
+    focusItem,
+    onItemFocus: (itemKey) => setActiveKey(itemKey),
     onOverlayBlur: (event) => {
       const nextFocus = event.relatedTarget;
       if (
@@ -173,6 +206,13 @@ export function useRegisteredOverlayNavigation<Key extends string>({
       close({ restoreTriggerFocus: false });
     },
     onItemKeyDown: (event, itemKey) => {
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      )
+        return;
       const decision = registeredOverlayKeyDecision(
         event.key,
         event.shiftKey,

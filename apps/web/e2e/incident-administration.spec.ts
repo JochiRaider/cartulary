@@ -7,7 +7,10 @@ import {
   gridShellTestId,
   incidentAdministrationTestId,
   incidentControlsActionMessageTestId,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
   incidentControlsPanelTestId,
+  incidentControlsTriggerTestId,
   incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
@@ -31,6 +34,8 @@ import {
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
   timelineScalarEditorTestId,
+  workbookInspectorCloseButtonTestId,
+  workbookInspectorToggleTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
@@ -68,15 +73,255 @@ import {
 } from "./support/workbook/savedViews";
 
 type AccountDensityMode = "compact" | "default" | "comfortable" | null;
+
+test("operates account application menus with keyboard focus and viewport containment", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("menu"),
+    "Account menu navigation",
+  );
+  await openIncidentFromLanding(page, incidentId);
+  const trigger = page.getByRole("button", {
+    name: "Account and application navigation",
+  });
+  const incidents = page.getByRole("menuitem", {
+    name: "Incidents",
+    exact: true,
+  });
+  const settings = page.getByRole("menuitem", {
+    name: "Account settings",
+    exact: true,
+  });
+  const controls = page.getByTestId(incidentControlsTriggerTestId());
+  const summary = page.getByTestId(incidentControlsMenuItemTestId("summary"));
+  const menu = page.getByTestId(accountTestId("application-menu"));
+  const inspector = page.getByTestId(workbookShellSlotTestId("inspector"));
+  await page
+    .getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId))
+    .click();
+  await expect(inspector).toBeVisible();
+  await trigger.focus();
+  await page.keyboard.down("Enter");
+  await page.keyboard.down("Enter");
+  await page.keyboard.up("Enter");
+  await expect(incidents).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(settings).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(controls).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(
+    page.getByTestId(incidentControlsMenuItemTestId("membership-audit")),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(controls).toBeFocused();
+  await expect(page.getByTestId(incidentControlsMenuTestId())).toHaveCount(0);
+  await page.keyboard.press("Space");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(controls).toBeFocused();
+  await expect(inspector).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(menu).toHaveCount(0);
+  await expect(inspector).toBeVisible();
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
+
+  await trigger.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(settings).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(menu).toHaveCount(0);
+  await expect(trigger).not.toBeFocused();
+  await trigger.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(incidents).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(trigger).toBeFocused();
+  await expect(menu).toHaveCount(0);
+
+  await trigger.click();
+  await controls.click();
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Space");
+  const closeControls = page.getByRole("button", {
+    name: "Close incident controls",
+  });
+  await expect(closeControls).toBeFocused();
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Incident directory", exact: true }),
+  ).toBeFocused();
+  await trigger.click();
+  await expect(incidents).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", {
+      name: "Deployment administration",
+      exact: true,
+    }),
+  ).toBeFocused();
+  await trigger.click();
+  await expect(
+    page.getByRole("menuitem", {
+      name: "Deployment administration",
+      exact: true,
+    }),
+  ).toBeFocused();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Space");
+  const dialog = page.getByRole("dialog", { name: "Account settings" });
+  await expect(
+    dialog.getByRole("button", { name: "Close", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page.getByText("Cartulary", { exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(trigger).not.toBeFocused();
+
+  // Long display labels are ordinary profile input; authorization is unchanged.
+  await trigger.click();
+  await settings.click();
+  const displayName = page.getByTestId(accountTestId("profile-display-name"));
+  await expect(page.getByTestId(accountTestId("profile-save"))).toBeEnabled();
+  await displayName.fill("Analyst".repeat(36));
+  await page.getByTestId(accountTestId("profile-save")).click();
+  await expect(trigger).toHaveAttribute("title", "Analyst".repeat(36));
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1024, height: 720 },
+    { width: 768, height: 640 },
+    { width: 1280, height: 400 },
+    { width: 768, height: 400 },
+    { width: 640, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    await expectAccountMenuContained(page);
+    await controls.click();
+    await page.keyboard.press("End");
+    await expectAccountMenuContained(page);
+    await page.keyboard.press("Home");
+    await expectAccountMenuContained(page);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await trigger.click();
+  await controls.click();
+  await page.keyboard.press("End");
+  await expectAccountMenuContained(page);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await trigger.click();
+  await controls.click();
+  await page.keyboard.press("End");
+  await expectAccountMenuContained(page);
+  await testInfo.attach("account-menu-open", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await page.setViewportSize({ width: 640, height: 480 });
+  for (const destination of [
+    "Incident directory",
+    "Deployment administration",
+  ]) {
+    await expect(
+      page.getByRole("heading", { name: destination, exact: true }),
+    ).toBeFocused();
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    await expectAccountMenuContained(page);
+    await page.keyboard.press("End");
+    await expectAccountMenuContained(page);
+    if (destination === "Incident directory") {
+      await page.keyboard.press("Home");
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("Enter");
+    } else {
+      await page.keyboard.press("Escape");
+      await expect(trigger).toBeFocused();
+    }
+  }
+});
+
+async function expectAccountMenuContained(page: Page) {
+  const menu = page.getByTestId(accountTestId("application-menu"));
+  await expect
+    .poll(() =>
+      menu.evaluate((panel) => {
+        const rect = panel.getBoundingClientRect();
+        const active = document.activeElement;
+        if (!(active instanceof HTMLElement) || !panel.contains(active))
+          return false;
+        const focus = active.getBoundingClientRect();
+        const style = getComputedStyle(active);
+        return (
+          rect.left >= 0 &&
+          rect.top >= 0 &&
+          rect.right <= window.innerWidth + 1 &&
+          rect.bottom <= window.innerHeight + 1 &&
+          focus.top >= rect.top &&
+          focus.bottom <= rect.bottom &&
+          focus.left >= rect.left &&
+          focus.right <= rect.right &&
+          style.outlineStyle !== "none" &&
+          Number.parseFloat(style.outlineWidth) > 0 &&
+          window.scrollY === 0
+        );
+      }),
+    )
+    .toBe(true);
+}
+
 type AccountPreferencesResource = {
   density_mode: AccountDensityMode;
   preferences_version: number;
 };
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
-  const accountMenuTrigger = page.getByLabel(
-    "Account and application navigation",
-  );
+  const accountMenuTrigger = page.getByRole("button", {
+    name: "Account and application navigation",
+  });
   await accountMenuTrigger.click();
   await expect(page.getByTestId(currentIncidentRoleTestId())).toHaveText(
     roleText,

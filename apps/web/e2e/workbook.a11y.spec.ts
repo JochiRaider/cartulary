@@ -42,7 +42,10 @@ import {
   gridShellTestId,
   gridSortHeaderTestId,
   incidentAdministrationTestId,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
   incidentControlsStatusTestId,
+  incidentControlsTriggerTestId,
   incidentLandingTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
@@ -1198,9 +1201,9 @@ async function activateTimelineGridEditor(
 }
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
-  const accountMenuTrigger = page.getByLabel(
-    "Account and application navigation",
-  );
+  const accountMenuTrigger = page.getByRole("button", {
+    name: "Account and application navigation",
+  });
   await accountMenuTrigger.click();
   await expect(page.getByTestId(currentIncidentRoleTestId())).toContainText(
     roleText,
@@ -5511,4 +5514,95 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       "Refreshed account security.",
     );
   });
+});
+
+test("a11y.account-menu keyboard focus names current state and nested navigation", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("A11YMENU"),
+    "Account menu accessibility",
+  );
+  await page.goto(`/?incident_id=${incidentId}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const trigger = page.getByRole("button", {
+    name: "Account and application navigation",
+  });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const root = page.getByRole("menu", {
+    name: "Account and application navigation",
+    exact: true,
+  });
+  await expect(trigger).toHaveAttribute(
+    "aria-controls",
+    (await root.getAttribute("id")) ?? "",
+  );
+  const incidents = page.getByRole("menuitem", {
+    name: "Incidents",
+    exact: true,
+  });
+  await expect(incidents).toBeFocused();
+  await expectVisibleFocus(incidents);
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowUp");
+  const controls = page.getByTestId(incidentControlsTriggerTestId());
+  await expect(controls).toBeFocused();
+  await expect(controls).toHaveAccessibleDescription(
+    "Opens incident Controls menu",
+  );
+  await page.keyboard.press("ArrowRight");
+  const summary = page.getByTestId(incidentControlsMenuItemTestId("summary"));
+  await expect(summary).toBeFocused();
+  await expect(summary).toHaveAttribute("aria-current", "true");
+  await expectVisibleFocus(summary);
+  const nested = page.getByTestId(incidentControlsMenuTestId());
+  await expect(controls).toHaveAttribute(
+    "aria-controls",
+    (await nested.getAttribute("id")) ?? "",
+  );
+  await expect(
+    page
+      .getByTestId(accountTestId("application-menu"))
+      .locator('[role="menuitem"][tabindex="0"]'),
+  ).toHaveCount(1);
+  await expect(
+    page
+      .getByTestId(accountTestId("application-menu"))
+      .locator('[aria-live], [role="status"]'),
+  ).toHaveCount(0);
+  await expectAllInteractiveControlsNamed(page);
+  await expectAndRecordContrast(page, [
+    incidentControlsTriggerTestId(),
+    incidentControlsMenuItemTestId("summary"),
+    incidentControlsMenuItemTestId("memberships"),
+  ]);
+  await testInfo.attach("account-menu-accessibility-tree", {
+    body: await page
+      .getByTestId(accountTestId("application-menu"))
+      .ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(controls).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: "Incident directory", exact: true }),
+  ).toBeFocused();
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(incidents).toBeFocused();
+  await expect(incidents).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId(incidentControlsTriggerTestId())).toHaveCount(
+    0,
+  );
+  await page.keyboard.press("Shift+Tab");
+  await expect(trigger).toBeFocused();
+  await expect(root).toHaveCount(0);
 });

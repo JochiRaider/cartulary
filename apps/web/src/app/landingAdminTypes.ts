@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { APIError } from "../services/browserApi";
 import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
 
@@ -72,6 +72,7 @@ export type DeploymentAdministrationPanelToken =
   | "reference-packs";
 
 export type LandingAdminShellProps = {
+  headingRef?: RefObject<HTMLHeadingElement | null>;
   accountMenu: ReactNode;
   activePanel: DeploymentAdministrationPanelToken;
   availablePanels: ReadonlyArray<LandingAdminPanelDescriptor>;
@@ -82,6 +83,7 @@ export type LandingAdminShellProps = {
 };
 
 export type IncidentDirectoryShellProps = {
+  headingRef?: RefObject<HTMLHeadingElement | null>;
   accountMenu: ReactNode;
   children: ReactNode;
   currentUserLabel: string;
@@ -89,6 +91,8 @@ export type IncidentDirectoryShellProps = {
 };
 
 export type AccountApplicationMenuProps = {
+  subjectKey?: string;
+  triggerFocusRef?: RefObject<HTMLButtonElement | null>;
   canOpenDeploymentAdministration: boolean;
   currentContext: "deployment-administration" | "incidents" | "workbook";
   currentUserLabel: string;
