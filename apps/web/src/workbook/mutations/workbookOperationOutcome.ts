@@ -1,4 +1,6 @@
 import type { CartularyErrorPresentation } from "@cartulary/ui-contracts";
+import type { PublicErrorReasonCode } from "../../services/publicErrorIdentity";
+import type { EvidenceUploadFailure } from "../../services/workbookEvidence";
 import type { WorkbookSameFieldConflictPayload } from "../runtime/workbookConflictModel";
 
 export type WorkbookOperationFieldFailure = {
@@ -27,6 +29,8 @@ export type WorkbookOperationFailure = (
 ) & {
   readonly presentation?: CartularyErrorPresentation | undefined;
   readonly publicCode?: string | undefined;
+  readonly publicReason?: PublicErrorReasonCode | undefined;
+  readonly uploadFailure?: EvidenceUploadFailure | undefined;
 };
 
 export type WorkbookOperationOutcome<Accepted> =

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createWorkbookOperationExecutor } from "../workbook/adapters/workbookOperationExecutor";
+
+import { createUploadedEvidenceBlob } from "../workbook/features/evidence/createUploadedEvidenceBlob";
 import {
-  createUploadedEvidenceObjectBlob,
-  evidenceAttachPublicErrorMessage,
-  evidencePublicErrorMessage,
   resolvePublicEvidenceHandleHref,
   uploadEvidenceObjectBlobTarget,
 } from "./workbookEvidence";
@@ -18,40 +18,6 @@ describe("workbookEvidence", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-  });
-
-  it("keeps raw storage details out of public evidence error messages", () => {
-    expect(
-      evidencePublicErrorMessage({
-        error: {
-          code: "object_store_unavailable",
-          details: { reason_code: "s3://bucket/private-key" },
-          message: "https://storage.example/private",
-          status: 503,
-        },
-      }),
-    ).toBe("Request failed.");
-
-    expect(
-      evidencePublicErrorMessage({
-        error: {
-          code: "evidence_access_unavailable",
-          details: { reason_code: "unsupported_preview" },
-        },
-      }),
-    ).toBe("evidence_access_unavailable: unsupported_preview");
-
-    expect(
-      evidenceAttachPublicErrorMessage(
-        new Error(
-          "upload_failed_500: https://minio.internal/cartulary-evidence-bucket/object_blob_storage_key_v1",
-        ),
-      ),
-    ).toBe("Evidence attach failed.");
-
-    expect(
-      evidenceAttachPublicErrorMessage(new Error("upload_failed_503")),
-    ).toBe("upload_failed_503");
   });
 
   it("accepts only public evidence handle routes", () => {
@@ -90,8 +56,7 @@ describe("workbookEvidence", () => {
       ),
     ).resolves.toEqual({
       kind: "rejected",
-      message: "upload_failed_503",
-      retryable: false,
+      failure: { cause: "http", status: 503 },
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const uploadInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
@@ -120,8 +85,7 @@ describe("workbookEvidence", () => {
       ),
     ).resolves.toEqual({
       kind: "rejected",
-      message: "upload_failed_csrf",
-      retryable: false,
+      failure: { cause: "csrf_missing" },
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -143,14 +107,18 @@ describe("workbookEvidence", () => {
       );
     });
 
-    const objectBlobId = await createUploadedEvidenceObjectBlob({
+    const objectBlobId = await createUploadedEvidenceBlob({
       apiBase: "/base",
-      createClientTxnId: () => "blob-txn-1",
+      clientTxnId: "blob-txn-1",
+      operations: createWorkbookOperationExecutor({ apiBase: "/base" }),
       file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
       incidentId: "00000000-0000-4000-8000-000000001001",
     });
 
-    expect(objectBlobId).toBe("00000000-0000-4000-8000-000000003001");
+    expect(objectBlobId).toEqual({
+      kind: "accepted",
+      value: { objectBlobId: "00000000-0000-4000-8000-000000003001" },
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const createRequest = fetchMock.mock.calls[0]?.[1] as
       | RequestInit
@@ -171,6 +139,29 @@ describe("workbookEvidence", () => {
     expect(new Headers(uploadRequest.headers).get("X-CSRF-Token")).toBe(
       "evidence-csrf",
     );
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(objectBlobEnvelope()))
+      .mockResolvedValueOnce(
+        new Response("private upload error body", { status: 401 }),
+      );
+    expect(
+      await createUploadedEvidenceBlob({
+        apiBase: "/base",
+        clientTxnId: "expired-session-upload",
+        operations: createWorkbookOperationExecutor({ apiBase: "/base" }),
+        file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+        incidentId: "00000000-0000-4000-8000-000000001001",
+      }),
+    ).toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "authentication_required",
+        presentation: { family: "authentication_required" },
+        uploadFailure: { cause: "http", status: 401 },
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("fails closed before upload for malformed or cross-incident blob-slot responses", async () => {
@@ -184,13 +175,17 @@ describe("workbookEvidence", () => {
       fetchMock.mockResolvedValue(jsonResponse(responsePayload));
 
       await expect(
-        createUploadedEvidenceObjectBlob({
+        createUploadedEvidenceBlob({
           apiBase: "/base",
-          createClientTxnId: () => "blob-txn-1",
+          clientTxnId: "blob-txn-1",
+          operations: createWorkbookOperationExecutor({ apiBase: "/base" }),
           file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
           incidentId: "00000000-0000-4000-8000-000000001001",
         }),
-      ).rejects.toThrow(/invalid public contract|invalid_public_contract/u);
+      ).resolves.toMatchObject({
+        kind: "rejected",
+        failure: { kind: "invalid_contract" },
+      });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     }
   });

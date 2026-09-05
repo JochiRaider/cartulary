@@ -21,6 +21,7 @@ import {
   entityReusableIdentifierItemTestId,
   entityReusableIdentifiersSectionTestId,
   evidenceAccessMessageTestId,
+  evidenceAccessStateTestId,
   evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
@@ -502,6 +503,18 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     expect(evidencePreviewFrameTestId("evidence-1")).toBe(
       "evidence-preview-frame-evidence-1",
     );
+    for (const selector of [
+      evidencePreviewButtonTestId,
+      evidenceDownloadButtonTestId,
+      evidenceAttachFileInputTestId,
+      evidenceAccessMessageTestId,
+      evidenceAccessStateTestId,
+    ]) {
+      expect(selector("evidence-1", "inspector")).not.toBe(
+        selector("evidence-1", "row"),
+      );
+      expect(selector("evidence-1", "row")).toBe(selector("evidence-1"));
+    }
     expect(evidencePreviewPanelTestId()).toBe("evidence-preview-panel");
     expect(genericCreateFieldTestId("note.title")).toBe(
       "generic-create-field-note.title",

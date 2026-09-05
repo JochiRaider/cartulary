@@ -318,6 +318,7 @@ export function ContractWorkbookSurface({
     currentIncidentRole,
     currentUserId,
     draftInspectorFields,
+    density,
     incidentClosed,
     inspectorResetKey,
     interactionMode,
@@ -332,6 +333,15 @@ export function ContractWorkbookSurface({
       const token = inspectorContinuityTokenRef.current;
       inspectorContinuityTokenRef.current = null;
       if (token !== null) continuityPortRef.current?.restore(token);
+    },
+    onRestoreEvidenceFocus: (recordId) => {
+      const fieldKey = visibleAnchorColumns[0]?.fieldKey;
+      if (fieldKey !== undefined)
+        continuityPortRef.current?.focus({
+          viewSchemaId: contract.viewSchemaId,
+          recordId,
+          fieldKey,
+        });
     },
     onSelectRecord: setEditRecordId,
     ownerBindings,
@@ -582,7 +592,7 @@ export function ContractWorkbookSurface({
         </button>
       ),
       renderCell: ({ data: row }) => {
-        return genericInspector.ownerRecordActions.renderRecordActions(row);
+        return genericInspector.ownerRecordActions.renderRowActions(row);
       },
     };
   }, [
@@ -638,6 +648,7 @@ export function ContractWorkbookSurface({
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={genericInspector.node}
+      onRequestPreviewClose={genericInspector.ownerRecordActions.closePreview}
       onRequestInspectorClose={() => {
         genericInspector.close();
       }}
@@ -654,6 +665,9 @@ export function ContractWorkbookSurface({
             columnWidths={layoutState.columnWidths}
             dataState={dataState}
             density={density}
+            fillViewportInline={
+              genericInspector.ownerRecordActions.hasRecordActions
+            }
             draftRow={gridDraftRow}
             grouping={grouping}
             interactionMode={interactionMode}
@@ -717,6 +731,7 @@ export function ContractWorkbookSurface({
       }
       viewSchemaId={surface}
       workAreaOverlays={genericInspector.ownerRecordActions.overlay}
+      workAreaAnnouncements={genericInspector.ownerRecordActions.announcements}
     />
   );
 }

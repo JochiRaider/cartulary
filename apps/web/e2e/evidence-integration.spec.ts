@@ -81,7 +81,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
 
   await expect(
     page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
-  ).toHaveText("Evidence attached.");
+  ).toHaveText("Available");
   const attachedRow = await waitForEvidenceState(
     page,
     incidentId,
@@ -279,7 +279,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
 
   await expect(
     page.getByTestId(evidenceAccessMessageTestId(safeRow.record_id)),
-  ).toHaveText("Evidence attached.");
+  ).toHaveText("Available");
   const attachedSafeRow = await waitForEvidenceState(
     page,
     incidentId,
@@ -409,7 +409,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     .click();
   await expect(
     page.getByTestId(evidenceAccessMessageTestId(blockedRow.record_id)),
-  ).toContainText("evidence_access_unavailable: unsupported_preview");
+  ).toHaveText("No preview");
   await expect(
     page.getByTestId(evidencePreviewFrameTestId(blockedRow.record_id)),
   ).toHaveCount(0);
@@ -591,7 +591,6 @@ async function expectStableEvidenceActionControls(
   recordId: string,
 ) {
   for (const testId of [
-    evidenceAttachFileInputTestId(recordId),
     evidencePreviewButtonTestId(recordId),
     evidenceDownloadButtonTestId(recordId),
   ]) {

@@ -2,10 +2,15 @@ import {
   type CartularyErrorPresentation,
   cartularyErrorPresentation,
 } from "@cartulary/ui-contracts";
+import {
+  type PublicErrorReasonCode,
+  validatedPublicErrorReason,
+} from "../services/publicErrorIdentity";
 
 export type PublicErrorOperationFamily =
   | "authentication"
   | "evidence_preview"
+  | "evidence_download"
   | "extension"
   | "field_mutation"
   | "surface_load"
@@ -15,11 +20,13 @@ export function resolvePublicErrorPresentation({
   code,
   hasAuthorizedMaterialization,
   operationFamily,
+  reasonCode,
   status,
 }: {
   readonly code: string;
   readonly hasAuthorizedMaterialization: boolean;
   readonly operationFamily: PublicErrorOperationFamily;
+  readonly reasonCode?: PublicErrorReasonCode | undefined;
   readonly status: number;
 }): CartularyErrorPresentation {
   if (code === "same_field_conflict") {
@@ -44,7 +51,11 @@ export function resolvePublicErrorPresentation({
   if (operationFamily === "extension") {
     return cartularyErrorPresentation("extension_unavailable");
   }
-  if (operationFamily === "evidence_preview") {
+  if (
+    operationFamily === "evidence_preview" &&
+    code === "evidence_access_unavailable" &&
+    validatedPublicErrorReason(code, reasonCode) !== undefined
+  ) {
     return cartularyErrorPresentation("evidence_preview_blocked");
   }
   if (status === 400 || status === 422) {

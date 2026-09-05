@@ -23,6 +23,7 @@ import {
   dataTestIdPrefixSelector,
   dataTestIdSelector,
   evidenceAccessMessageTestId,
+  evidenceAccessStateTestId,
   evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
@@ -1975,20 +1976,21 @@ test.describe("workbook visual evidence", () => {
       { scroll: { top: 0, left: "left" } },
     );
 
-    await (
-      await mountedGridTarget(
-        page,
-        evidenceViewSchemaId,
-        evidenceAttachFileInputTestId(evidenceRow.record_id),
-      )
-    ).setInputFiles({
-      name: "visual-request.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("evidence_lifecycle visual evidence", "utf8"),
-    });
+    await mountedGridTarget(
+      page,
+      evidenceViewSchemaId,
+      evidencePreviewButtonTestId(evidenceRow.record_id),
+    );
+    await page
+      .getByTestId(evidenceAttachFileInputTestId(evidenceRow.record_id))
+      .setInputFiles({
+        name: "visual-request.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("evidence_lifecycle visual evidence", "utf8"),
+      });
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
-    ).toHaveText("Evidence attached.", { timeout: 30_000 });
+    ).toHaveText("Available", { timeout: 30_000 });
     await expect(
       await mountedGridCell(
         page,
@@ -2227,8 +2229,8 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       page.getByTestId(gridShellTestId(evidenceViewSchemaId)),
     ).toBeVisible();
     await expectVisualEvidenceState(page, requested.record_id, "requested");
-    await expectVisualEvidenceState(page, pending.record_id, "pending_upload");
-    await expectVisualEvidenceState(page, blocked.record_id, "blocked");
+    await expectVisualEvidenceState(page, pending.record_id, "pending_receipt");
+    await expectVisualEvidenceState(page, blocked.record_id, "quarantined");
     await expectVisualEvidenceState(
       page,
       availablePreview.record_id,
@@ -2263,7 +2265,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     ).toBeVisible();
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
-    ).toHaveText("Preview loaded inline.");
+    ).toHaveText("Preview open");
     await page
       .getByTestId(evidencePreviewPanelTestId())
       .getByRole("button", { name: "Close" })
@@ -2281,7 +2283,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     expect(download.suggestedFilename()).toBe("evidence-download-handle.txt");
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
-    ).toHaveText("Download handle issued.");
+    ).toHaveText("Download requested");
 
     await (
       await mountedGridTarget(
@@ -2292,7 +2294,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     ).click();
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(previewBlocked.record_id)),
-    ).toContainText("evidence_access_unavailable: unsupported_preview");
+    ).toContainText("No preview");
 
     await armVisualPublicErrorFault(page, {
       path: `/api/v1/evidence-records/${failedHandle.record_id}/preview-handle`,
@@ -2307,7 +2309,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
     ).click();
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(failedHandle.record_id)),
-    ).toContainText("evidence_access_unavailable: blob_failed");
+    ).toContainText("Upload failed");
 
     await armVisualPublicErrorFault(page, {
       path: `/api/v1/evidence-records/${inconsistentHandle.record_id}/preview-handle`,
@@ -2324,8 +2326,23 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       page.getByTestId(
         evidenceAccessMessageTestId(inconsistentHandle.record_id),
       ),
-    ).toContainText("evidence_access_unavailable: evidence_inconsistent");
+    ).toContainText("Inconsistent");
 
+    await page
+      .getByTestId(evidenceAccessMessageTestId(failedHandle.record_id))
+      .click();
+    await page
+      .getByTestId(
+        workbookInspectorPanelTestId(evidenceViewSchemaId, "evidence"),
+      )
+      .evaluate((element) =>
+        element.scrollIntoView({ block: "start", inline: "nearest" }),
+      );
+    await expect(
+      page.getByTestId(
+        evidenceAccessMessageTestId(failedHandle.record_id, "inspector"),
+      ),
+    ).toContainText("upload failed");
     await assertEvidenceAccessVisualRegression(
       page,
       "evidence-affordance-states",
@@ -4363,8 +4380,8 @@ test.describe("browser.design-readiness visual readiness", () => {
 
 type VisualEvidenceRowStateKey =
   | "available"
-  | "blocked"
-  | "pending_upload"
+  | "quarantined"
+  | "pending_receipt"
   | "requested";
 
 async function createVisualEvidenceRow(
@@ -4412,9 +4429,7 @@ async function expectVisualEvidenceState(
     evidenceViewSchemaId,
     evidencePreviewButtonTestId(recordId),
   );
-  const stateContainer = previewButton.locator(
-    "xpath=ancestor::*[@data-evidence-state-key][1]",
-  );
+  const stateContainer = page.getByTestId(evidenceAccessStateTestId(recordId));
   await expect(stateContainer).toHaveAttribute(
     "data-evidence-state-key",
     stateKey,
@@ -5344,7 +5359,6 @@ async function assertEvidenceAccessVisualRegression(
   actionRecordId: string,
 ) {
   try {
-    await installFeP6EvidenceAccessVisualStyle(page);
     await prepareVisualRegressionState(page);
     await setWorkbookGridScroll(page, evidenceViewSchemaId, {
       top: 0,
@@ -5357,11 +5371,9 @@ async function assertEvidenceAccessVisualRegression(
     );
     await waitForVisualLayoutFrame(page);
     await expect(actionButton).toBeVisible();
-    const evidenceFixture = page.getByTestId(
-      gridShellTestId(evidenceViewSchemaId),
-    );
-    await evidenceFixture.evaluate((element) => {
-      element.setAttribute("data-design-fixture", "evidence");
+    const evidenceFixture = page.getByRole("region", {
+      name: "Workbook work area",
+      exact: true,
     });
     await assertVisualRegression(page, name, evidenceFixture, {
       renderSurface: evidenceViewSchemaId,
@@ -5379,61 +5391,6 @@ async function assertEvidenceAccessVisualRegression(
     }
     throw error;
   }
-}
-
-async function installFeP6EvidenceAccessVisualStyle(page: Page) {
-  await page.evaluate((gridTestId) => {
-    const styleId = "evidence-workflow-evidence-access-visual-style";
-    document.getElementById(styleId)?.remove();
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = `
-      [data-testid='${gridTestId}'] .cartulary-grid {
-        grid-auto-rows: minmax(4.35rem, auto) !important;
-      }
-
-      [data-testid='${gridTestId}'] [data-grid-field-key='__cartulary_actions__'] {
-        min-block-size: 4.35rem !important;
-        overflow: hidden !important;
-      }
-
-      [data-testid='${gridTestId}'] [role='gridcell'][data-grid-field-key='record_id'] {
-        color: transparent !important;
-      }
-
-      [data-testid='${gridTestId}'] [data-evidence-state-key] {
-        align-content: start !important;
-        gap: 0.12rem !important;
-      }
-
-      [data-testid='${gridTestId}'] [data-evidence-state-key] button {
-        padding: 0.22rem 0.38rem !important;
-        font-size: 0.72rem !important;
-        line-height: 1.05 !important;
-      }
-
-      [data-testid='${gridTestId}'] [data-evidence-state-key] label {
-        gap: 0 !important;
-        font-size: 0.66rem !important;
-        line-height: 1.05 !important;
-      }
-
-      [data-testid='${gridTestId}'] [data-evidence-state-key] input[type='file'] {
-        block-size: 1px !important;
-        inline-size: 1px !important;
-        opacity: 0 !important;
-        position: absolute !important;
-      }
-
-      [data-testid='${gridTestId}'] [data-evidence-state-key] > span {
-        display: block !important;
-        font-size: 0.62rem !important;
-        line-height: 1.05 !important;
-        overflow-wrap: anywhere !important;
-      }
-    `;
-    document.head.append(style);
-  }, gridShellTestId(evidenceViewSchemaId));
 }
 
 async function prepareVisualRegressionState(page: Page) {

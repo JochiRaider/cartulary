@@ -103,6 +103,7 @@ describe("frontend source ownership policy", () => {
       });
     expect(ownerLocalWireIntents).toEqual([
       "apps/web/src/workbook/features/evidence/createEvidenceAttachmentPort.ts",
+      "apps/web/src/workbook/features/evidence/createUploadedEvidenceBlob.ts",
       "apps/web/src/workbook/features/generic/createGenericMutationCommandPort.ts",
       "apps/web/src/workbook/features/generic/genericCreateRequestBuilder.ts",
     ]);

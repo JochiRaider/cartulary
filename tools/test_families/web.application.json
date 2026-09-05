@@ -1325,15 +1325,18 @@
       "row_id": "web.application.regression.workbookevidence_keeps_raw_storage_details_out_o_68c8061c4e",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.evidence",
+        "web.workbook"
+      ],
       "verification_ids": [
         "web.application.verification.frontend_regression"
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/services/workbookEvidence.test.ts",
+        "file": "apps/web/src/workbook/evidence/evidenceAccessPresentation.test.ts",
         "titles": [
-          "workbookEvidence keeps raw storage details out of public evidence error messages"
+          "evidenceAccessPresentation ignores arbitrary public prose and unknown reasons"
         ]
       },
       "evidence_class": "unit",

@@ -1,8 +1,6 @@
-import { uploadEvidenceObjectBlobTarget } from "../../../services/workbookEvidence";
 import type { WorkbookOperationExecutor } from "../../adapters/workbookOperationContract";
 import type {
   WorkbookProtocolAttachBlobRequest,
-  WorkbookProtocolCreateObjectBlobSlotRequest,
   WorkbookProtocolPatchRecordRequest,
 } from "../../adapters/workbookProtocolTypes";
 import { evidenceViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -12,6 +10,7 @@ import type {
   EvidenceCapabilityPort,
 } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
+import { createUploadedEvidenceBlob } from "./createUploadedEvidenceBlob";
 
 type AttachmentPort = Pick<EvidenceCapabilityPort, "attach">;
 
@@ -60,47 +59,6 @@ function attachmentTransactionIDs(transactionIds: SecureTransactionIdPort) {
   return create === null || attach === null || available === null
     ? null
     : { attach, available, create };
-}
-
-type AttachmentContext = {
-  readonly apiBase: string | undefined;
-  readonly incidentId: string;
-  readonly operations: WorkbookOperationExecutor;
-};
-
-async function createAndUploadBlob(
-  context: AttachmentContext,
-  file: File,
-  clientTxnId: string,
-): Promise<WorkbookOperationOutcome<{ readonly objectBlobId: string }>> {
-  const createBlob = await context.operations.execute({
-    operationID: "createObjectBlobSlot",
-    request: {
-      incident_id: context.incidentId,
-      client_txn_id: clientTxnId,
-      byte_size: file.size,
-      filename_hint: file.name || null,
-      content_type_hint: file.type || null,
-    } satisfies WorkbookProtocolCreateObjectBlobSlotRequest,
-  });
-  if (createBlob.kind === "rejected") return createBlob;
-  const upload = await uploadEvidenceObjectBlobTarget(
-    context.apiBase,
-    createBlob.value.data.upload_target,
-    file,
-  );
-  return upload.kind === "accepted"
-    ? {
-        kind: "accepted",
-        value: { objectBlobId: createBlob.value.data.object_blob_id },
-      }
-    : {
-        kind: "rejected",
-        failure: {
-          kind: upload.retryable ? "retryable" : "terminal",
-          message: upload.message,
-        },
-      };
 }
 
 async function attachBlob(
@@ -169,11 +127,11 @@ export function createEvidenceAttachmentPort(options: {
       const transactionIDs = attachmentTransactionIDs(options.transactionIds);
       if (transactionIDs === null) return operationIdentityFailure();
       if (input.file.size <= 0) return invalidOperationPayload();
-      const blob = await createAndUploadBlob(
-        options,
-        input.file,
-        transactionIDs.create,
-      );
+      const blob = await createUploadedEvidenceBlob({
+        ...options,
+        file: input.file,
+        clientTxnId: transactionIDs.create,
+      });
       if (blob.kind === "rejected") return blob;
       const attachment = await attachBlob(
         options.operations,

@@ -278,6 +278,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.evidence_access_error_identity_ea02",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/workbookOperationErrorPolicy.test.ts",
+        "titles": [
+          "Workbook operation error policy classifies exact conflicts, authentication, authorization, and stale targets",
+          "Workbook operation error policy classifies validation, merge preconditions, and retryability exactly",
+          "Workbook operation error policy fails malformed success, error, and conflict envelopes closed",
+          "Workbook operation error policy projects Evidence access reasons without exposing server prose"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.evidence_access_presentation_maps_blocking_evide_4b2a60e66a",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -291,7 +320,37 @@
       "selector": {
         "file": "apps/web/src/workbook/evidence/evidenceAccessPresentation.test.ts",
         "titles": [
-          "evidenceAccessPresentation maps blocking evidence messages to assertive live regions"
+          "evidenceAccessPresentation derives polite preview blockers and distinct operation announcements from typed outcomes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.evidence_access_request_lifetime_ea01",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.test.tsx",
+        "titles": [
+          "Evidence workbook bindings discards pending preview completions after close retarget replacement deletion surface or access changes",
+          "Evidence workbook bindings keeps the latest preview intent and does not claim loaded bytes on issuance",
+          "Evidence workbook bindings orders record feedback and download effects and discards completions after unmount or access loss",
+          "Evidence workbook bindings preserves attachment settlement and suppresses stale attachment feedback",
+          "Evidence workbook bindings shares safe feedback across distinct row and inspector views and announces each outcome once"
         ]
       },
       "evidence_class": "unit",
@@ -508,13 +567,13 @@
       "runner": "vitest",
       "selector": {
         "file": "apps/web/src/workbook/components/WorkbookGridControls.test.tsx",
-      "titles": [
+        "titles": [
           "WorkbookGridControls exposes add, direction, priority, boundary, removal, and limit recovery actions",
           "WorkbookGridControls gives the active-query region one Tab stop with roving navigation",
           "WorkbookGridControls keeps column commands available when every data column is hidden",
-        "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
-        "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
-        "WorkbookGridControls parses filter controls exactly and restores focus on Escape"
+          "WorkbookGridControls keeps invalid drafts visible, excludes them from apply, and resets panels by surface",
+          "WorkbookGridControls opens a focused filter chip for editing instead of removing it",
+          "WorkbookGridControls parses filter controls exactly and restores focus on Escape"
         ]
       },
       "evidence_class": "unit",
@@ -1380,6 +1439,7 @@
       "family_id": "web.workbook.regression",
       "collaborator_ids": [
         "module.artifacts",
+        "module.evidence",
         "module.tasksdecisions"
       ],
       "verification_ids": [
@@ -1389,6 +1449,7 @@
       "selector": {
         "file": "apps/web/src/workbook/query/useGenericSurfaceQuery.test.tsx",
         "titles": [
+          "useGenericSurfaceQuery allows a current Evidence read to finish when incident closure arrives during startup",
           "useGenericSurfaceQuery clears access-protected rows, stays idle while inactive, and aborts on teardown",
           "useGenericSurfaceQuery normalizes Notes rows and applies a newer sparse live patch",
           "useGenericSurfaceQuery rejects obsolete schema work and retains current rows after a mismatched envelope"

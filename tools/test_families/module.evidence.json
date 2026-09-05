@@ -433,10 +433,10 @@
       "selector": {
         "file": "apps/web/src/workbook/models/evidenceLifecycleViewModel.test.ts",
         "titles": [
-          "counts only available and preview-blocked evidence as attached",
-          "derives count-display states and detects inconsistent projections",
-          "distinguishes requested, pending upload, available, and preview-blocked states",
-          "keeps failed, blocked, inconsistent, and public-error rendering inputs distinct"
+          "evidence lifecycle view models derives count-display states and detects inconsistent projections",
+          "evidence lifecycle view models fails inconsistent and unknown owner states closed without inventing lifecycle values",
+          "evidence lifecycle view models keeps owner-valid lifecycle and upload combinations separate",
+          "evidence lifecycle view models uses projected record counts independently of access and pending upload slots"
         ]
       },
       "evidence_class": "unit",
@@ -1352,7 +1352,7 @@
       ],
       "runner": "go",
       "selector": {
-		"package": "./internal/modules/evidence/internal/providers/rollback",
+        "package": "./internal/modules/evidence/internal/providers/rollback",
         "tests": [
           "TestProviderRejectsInvalidLifecycleAndReferences",
           "TestSourceForRollbackValuePreservesPresenceAndAssociations"

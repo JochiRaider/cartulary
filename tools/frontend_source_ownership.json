@@ -136,6 +136,7 @@
         "apps/web/src/services/importTargetContractAdapter.ts",
         "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "apps/web/src/services/networkFlowContractAdapter.ts",
+        "apps/web/src/services/publicErrorIdentity.ts",
         "apps/web/src/services/referencePacks.ts",
         "apps/web/src/services/workbookEvidence.test.ts",
         "apps/web/src/services/workbookEvidence.ts"
@@ -287,7 +288,10 @@
         "apps/web/src/workbook/features/entities/useEntityMergeController.test.tsx",
         "apps/web/src/workbook/features/entities/useEntityMergeController.ts",
         "apps/web/src/workbook/features/entities/useEntityWorkbookInspectorComposition.tsx",
+        "apps/web/src/workbook/features/evidence/EvidenceAccessActions.tsx",
         "apps/web/src/workbook/features/evidence/createEvidenceAttachmentPort.ts",
+        "apps/web/src/workbook/features/evidence/createUploadedEvidenceBlob.ts",
+        "apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.test.tsx",
         "apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.tsx",
         "apps/web/src/workbook/features/generic/GenericWorkbookInspector.tsx",
         "apps/web/src/workbook/features/generic/GenericWorkbookInspectorPresentation.tsx",

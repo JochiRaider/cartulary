@@ -687,15 +687,15 @@
       "density_id": "default",
       "scroll_normalization": {
         "kind": "fixture_specific",
-        "description": "Evidence grid scroll normalizes to the right-edge actions column with fixture-only native file-input dimension normalization for the affordance states crop; Timeline grid uses the selected row anchor with the inspector evidence section open."
+        "description": "Evidence grid normalizes to its live right edge; its inspector scrolls to the Evidence section. Timeline uses the selected row anchor with its Evidence section open."
       },
       "capture_scope": {
         "kind": "selector",
-        "selector": "[data-design-fixture='evidence']"
+        "selector": "[aria-label='Workbook work area']"
       },
       "focus_state": {
         "kind": "fixture_specific",
-        "description": "Preview and download actions are exercised, then focus is blurred before screenshot capture."
+        "description": "Preview and download actions are exercised; the Evidence state disclosure retains focus when its inspector opens. The selected row and focus indicator are captured."
       },
       "editor_state": {
         "kind": "fixture_specific",
@@ -703,7 +703,7 @@
       },
       "inspector_state": {
         "kind": "fixture_specific",
-        "description": "Timeline inspector is open for the Timeline evidence-count capture; Evidence affordance capture uses the Evidence grid action column."
+        "description": "The production Evidence inspector is open at its Evidence section for typed upload-failure feedback; Timeline uses its existing evidence-count inspector."
       },
       "dynamic_masks": [
         "incident identifiers",

@@ -1,9 +1,10 @@
 import { useCallback, useRef } from "react";
+import { evidenceOperationFeedback } from "../../evidence/evidenceAccessPresentation";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
-  workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
 import {
   planTimelineEvidenceTarget,
   type TimelineEvidenceActionContext,
@@ -230,9 +231,21 @@ function publishUnavailableEvidenceTarget(
 function failEvidenceAttachment(
   input: TimelineEvidenceAttachInput,
   viewportContinuityToken: number,
-  failure: Parameters<typeof workbookInspectorOperationFailureFeedback>[0],
+  failure: WorkbookOperationFailure,
 ): void {
   input.clearViewportContinuity(viewportContinuityToken);
-  input.setInspectorMessage(workbookInspectorOperationFailureFeedback(failure));
+  const feedback = evidenceOperationFeedback({
+    kind: "rejected",
+    operation: "attach",
+    failure,
+  });
+  input.setInspectorMessage(
+    feedback.announcement === "polite"
+      ? workbookInspectorMessageFeedback(feedback.message, "polite")
+      : {
+          kind: "error",
+          error: { primaryMessage: feedback.message, technicalFields: [] },
+        },
+  );
   input.finishSave("Conflict");
 }

@@ -159,7 +159,8 @@ describe("Workbook operation error policy", () => {
       ),
     ).toMatchObject({
       kind: "terminal",
-      message: "evidence_access_unavailable: unsupported_preview",
+      message: "Evidence request failed.",
+      publicReason: "unsupported_preview",
       presentation: { family: "evidence_preview_blocked" },
     });
   });

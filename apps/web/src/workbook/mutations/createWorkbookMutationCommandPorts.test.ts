@@ -167,7 +167,8 @@ describe("semantic mutation command ports", () => {
       kind: "rejected",
       failure: {
         kind: "terminal",
-        message: "evidence_access_unavailable: unsupported_preview",
+        message: "Evidence request failed.",
+        publicReason: "unsupported_preview",
         publicCode: "evidence_access_unavailable",
         presentation: { family: "evidence_preview_blocked" },
       },

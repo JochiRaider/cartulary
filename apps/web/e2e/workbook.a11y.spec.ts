@@ -25,6 +25,8 @@ import {
   currentIncidentRoleTestId,
   dataTestIdSelector,
   evidenceAccessMessageTestId,
+  evidenceAccessStateTestId,
+  evidenceAttachFileInputTestId,
   evidenceDownloadButtonTestId,
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
@@ -34,6 +36,7 @@ import {
   gridFilterValueTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
+  gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
   incidentAdministrationTestId,
@@ -133,6 +136,7 @@ import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
+import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { revokeAllSessions } from "./support/auth/sessions";
 import { sessionCookieName } from "./support/auth/storageState";
@@ -1621,8 +1625,8 @@ async function deleteIncidentMembership(
 
 type EvidenceA11yRowStateKey =
   | "available"
-  | "blocked"
-  | "pending_upload"
+  | "quarantined"
+  | "pending_receipt"
   | "requested";
 
 async function createA11yEvidenceRow(
@@ -1660,7 +1664,6 @@ async function expectEvidenceAccessState(
   recordId: string,
   stateKey: EvidenceA11yRowStateKey,
   options: {
-    liveRole?: "alert" | "status";
     messageText?: RegExp | string;
   } = {},
 ) {
@@ -1686,33 +1689,76 @@ async function expectEvidenceAccessState(
     await expect(previewButton).toBeDisabled();
     await expect(downloadButton).toBeDisabled();
   }
-  if (options.messageText !== undefined || options.liveRole !== undefined) {
+  if (options.messageText !== undefined) {
     const message = page.getByTestId(evidenceAccessMessageTestId(recordId));
     await expect(message).toBeVisible();
     if (options.messageText !== undefined) {
       await expect(message).toContainText(options.messageText);
     }
-    if (options.liveRole !== undefined) {
-      await expect(message).toHaveAttribute("role", options.liveRole);
-      await expect(message).toHaveAttribute(
-        "aria-live",
-        options.liveRole === "alert" ? "assertive" : "polite",
-      );
-    }
   }
 }
 
 function evidenceAccessStateContainer(page: Page, recordId: string): Locator {
-  return page
-    .getByTestId(evidencePreviewButtonTestId(recordId))
-    .locator("xpath=ancestor::*[@data-evidence-state-key][1]");
+  return page.getByTestId(evidenceAccessStateTestId(recordId));
+}
+
+async function expectEvidenceControlsPainted(page: Page, recordId: string) {
+  await mountedGridTarget(
+    page,
+    evidenceViewSchemaId,
+    evidenceAccessStateTestId(recordId),
+  );
+  const shell = page.getByTestId(gridShellTestId(evidenceViewSchemaId));
+  const shellBox = await shell.boundingBox();
+  const scrollportBox = await shell
+    .locator(gridScrollportSelector())
+    .boundingBox();
+  expect(scrollportBox?.width).toBeLessThanOrEqual((shellBox?.width ?? 0) + 1);
+  const state = page.getByTestId(evidenceAccessStateTestId(recordId));
+  const result = await state.evaluate((element) =>
+    Array.from(element.querySelectorAll("button")).map((button) => {
+      const box = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        box.x + box.width / 2,
+        box.y + box.height / 2,
+      );
+      let unclipped =
+        box.width > 0 &&
+        box.height > 0 &&
+        (hit === button || button.contains(hit));
+      for (
+        let parent = button.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        const style = getComputedStyle(parent);
+        const clip = parent.getBoundingClientRect();
+        if (
+          ["hidden", "clip", "auto", "scroll"].includes(style.overflowY) &&
+          (box.top < clip.top - 1 || box.bottom > clip.bottom + 1)
+        )
+          unclipped = false;
+        if (
+          ["hidden", "clip", "auto", "scroll"].includes(style.overflowX) &&
+          (box.left < clip.left - 1 || box.right > clip.right + 1)
+        )
+          unclipped = false;
+      }
+      return { label: button.textContent, unclipped };
+    }),
+  );
+  expect(result).toHaveLength(4);
+  expect(
+    result.filter((button) => !button.unclipped),
+    "Every production Evidence control must be painted without clipping",
+  ).toEqual([]);
 }
 
 async function armA11yPublicErrorFault(
   page: Page,
   options: {
     path: string;
-    reasonCode: "blob_failed" | "evidence_inconsistent";
+    reasonCode: "blob_failed" | "evidence_inconsistent" | "unsupported_preview";
   },
 ) {
   const response = await createEnvironmentTestControlClient(page.request, {
@@ -2796,6 +2842,7 @@ test.describe("browser.entity-linking accessibility readiness", () => {
 test.describe("browser.evidence-workflow accessibility readiness", () => {
   test(p6AccessibilityScenarioTitles[0], async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("A11YEVIDENCEWORKFLOW"),
@@ -2890,16 +2937,18 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     ).toBeVisible();
 
     await expectEvidenceAccessState(page, requested.record_id, "requested", {
-      liveRole: "status",
-      messageText: /^Requested:/u,
+      messageText: "Requested",
     });
-    await expectEvidenceAccessState(page, pending.record_id, "pending_upload", {
-      liveRole: "status",
-      messageText: /pending/u,
-    });
-    await expectEvidenceAccessState(page, blocked.record_id, "blocked", {
-      liveRole: "alert",
-      messageText: /^Blocked:/u,
+    await expectEvidenceAccessState(
+      page,
+      pending.record_id,
+      "pending_receipt",
+      {
+        messageText: "Pending receipt",
+      },
+    );
+    await expectEvidenceAccessState(page, blocked.record_id, "quarantined", {
+      messageText: "Quarantined",
     });
 
     await expectEvidenceAccessState(
@@ -2907,6 +2956,27 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
       availablePreview.record_id,
       "available",
     );
+    const paintedAction = await page
+      .getByTestId(evidencePreviewButtonTestId(availablePreview.record_id))
+      .evaluate((button) => {
+        const box = button.getBoundingClientRect();
+        let parent = button.parentElement;
+        while (parent) {
+          const style = getComputedStyle(parent);
+          const clip = parent.getBoundingClientRect();
+          if (
+            ["hidden", "clip", "auto", "scroll"].includes(style.overflowY) &&
+            (box.top < clip.top - 1 || box.bottom > clip.bottom + 1)
+          )
+            return false;
+          parent = parent.parentElement;
+        }
+        return box.height > 0;
+      });
+    expect(
+      paintedAction,
+      "Evidence Preview must fit its painted row bounds",
+    ).toBe(true);
     const previewButton = page.getByTestId(
       evidencePreviewButtonTestId(availablePreview.record_id),
     );
@@ -2925,10 +2995,10 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     ).toHaveAttribute("title", /Evidence preview/u);
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
-    ).toHaveAttribute("role", "status");
+    ).not.toHaveAttribute("aria-live");
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(availablePreview.record_id)),
-    ).toHaveText("Preview loaded inline.");
+    ).toHaveText("Preview open");
     await page
       .getByTestId(evidencePreviewPanelTestId())
       .getByRole("button", { name: "Close" })
@@ -2954,10 +3024,10 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     );
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
-    ).toHaveAttribute("role", "status");
+    ).not.toHaveAttribute("aria-live");
     await expect(
       page.getByTestId(evidenceAccessMessageTestId(downloadHandle.record_id)),
-    ).toHaveText("Download handle issued.");
+    ).toHaveText("Download requested");
 
     await expectEvidenceAccessState(
       page,
@@ -2975,10 +3045,11 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     const previewBlockedMessage = page.getByTestId(
       evidenceAccessMessageTestId(previewBlocked.record_id),
     );
-    await expect(previewBlockedMessage).toHaveAttribute("role", "alert");
-    await expect(previewBlockedMessage).toContainText(
-      "evidence_access_unavailable: unsupported_preview",
-    );
+    await expect(previewBlockedMessage).not.toHaveAttribute("aria-live");
+    await expect(
+      page.getByRole("status").filter({ hasText: /evidence:/u }),
+    ).toHaveCount(1);
+    await expect(previewBlockedMessage).toContainText("No preview");
     await expectNoPrivateDiagnostics(previewBlockedMessage);
 
     await armA11yPublicErrorFault(page, {
@@ -2995,10 +3066,11 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     const failedMessage = page.getByTestId(
       evidenceAccessMessageTestId(failedHandle.record_id),
     );
-    await expect(failedMessage).toHaveAttribute("role", "alert");
-    await expect(failedMessage).toContainText(
-      "evidence_access_unavailable: blob_failed",
-    );
+    await expect(failedMessage).not.toHaveAttribute("aria-live");
+    await expect(
+      page.getByRole("status").filter({ hasText: /evidence:/u }),
+    ).toHaveCount(1);
+    await expect(failedMessage).toContainText("Upload failed");
     await expectNoPrivateDiagnostics(failedMessage);
 
     await armA11yPublicErrorFault(page, {
@@ -3015,12 +3087,210 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     const inconsistentMessage = page.getByTestId(
       evidenceAccessMessageTestId(inconsistentHandle.record_id),
     );
-    await expect(inconsistentMessage).toHaveAttribute("role", "alert");
-    await expect(inconsistentMessage).toContainText(
-      "evidence_access_unavailable: evidence_inconsistent",
-    );
+    await expect(inconsistentMessage).not.toHaveAttribute("aria-live");
+    await expect(
+      page.getByRole("status").filter({ hasText: /evidence:/u }),
+    ).toHaveCount(1);
+    await expect(inconsistentMessage).toContainText("Inconsistent");
     await expectNoPrivateDiagnostics(inconsistentMessage);
 
+    // Exercise the production row and inspector under the existing user profiles.
+    const preferences = await page.request.get(
+      `${apiBase}/api/v1/account/preferences`,
+    );
+    const originalPreferences = (await preferences.json()).data;
+    const setDensity = async (density: string) => {
+      const response = await page.request.get(
+        `${apiBase}/api/v1/account/preferences`,
+      );
+      const current = (await response.json()).data;
+      const updated = await page.request.put(
+        `${apiBase}/api/v1/account/preferences`,
+        {
+          headers: await csrfHeaders(page),
+          data: {
+            base_preferences_version: current.preferences_version,
+            client_txn_id: uniqueTxn("evidence-access-density"),
+            density_mode: density,
+          },
+        },
+      );
+      expect(updated.ok()).toBeTruthy();
+      await page.reload();
+    };
+    try {
+      for (const density of ["compact", "default", "comfortable"]) {
+        await setDensity(density);
+        await expectEvidenceControlsPainted(page, availablePreview.record_id);
+        const spacing = await page.addStyleTag({
+          content: `* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-block-end: 2em !important; }`,
+        });
+        await expectEvidenceControlsPainted(page, availablePreview.record_id);
+        await spacing.evaluate((element) =>
+          element.parentNode?.removeChild(element),
+        );
+      }
+      await setDensity("default");
+      for (const width of [1440, 1024, 768]) {
+        await page.setViewportSize({
+          width,
+          height: width >= 1280 ? 900 : width >= 1024 ? 720 : 640,
+        });
+        await expectEvidenceControlsPainted(page, availablePreview.record_id);
+        const state = page.getByTestId(
+          evidenceAccessMessageTestId(availablePreview.record_id),
+        );
+        await state.focus();
+        await state.press("Enter");
+        const inspectorPreview = page.getByTestId(
+          evidencePreviewButtonTestId(availablePreview.record_id, "inspector"),
+        );
+        await expect(inspectorPreview).toBeVisible();
+        await inspectorPreview.focus();
+        await inspectorPreview.press("Enter");
+        const panel = page.getByTestId(evidencePreviewPanelTestId());
+        const close = panel.getByRole("button", { name: "Close" });
+        await expect(close).toBeVisible();
+        await close.focus();
+        await expect(close).toBeFocused();
+        await close.press("Escape");
+        await expect(panel).toHaveCount(0);
+        await expect(inspectorPreview).toBeFocused();
+        if (width === 768) {
+          await armA11yPublicErrorFault(page, {
+            path: `/api/v1/evidence-records/${availablePreview.record_id}/preview-handle`,
+            reasonCode: "unsupported_preview",
+          });
+          await inspectorPreview.press("Enter");
+          await expect(
+            page.getByTestId(
+              evidenceAccessMessageTestId(
+                availablePreview.record_id,
+                "inspector",
+              ),
+            ),
+          ).toHaveText("This file type cannot be previewed.");
+          await expect(
+            page
+              .getByRole("status")
+              .filter({ hasText: "This file type cannot be previewed." }),
+          ).toHaveCount(1);
+          await expect.soft(inspectorPreview).toBeFocused();
+        }
+        await inspectorPreview.press("Escape");
+        await expect(inspectorPreview).toHaveCount(0);
+      }
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "200%";
+      });
+      await expectEvidenceControlsPainted(page, availablePreview.record_id);
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "";
+      });
+      await page.setViewportSize({ width: 1440, height: 900 });
+
+      const availableState = page.getByTestId(
+        evidenceAccessStateTestId(availablePreview.record_id),
+      );
+      const attach = availableState.getByRole("button", {
+        name: /Attach file/u,
+      });
+      await attach.focus();
+      const chooserPromise = page.waitForEvent("filechooser");
+      await attach.press("Enter");
+      await (await chooserPromise).setFiles([]);
+
+      // Hold a real issuance response while the user dismisses the pending panel.
+      let release!: () => void;
+      let finished!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const completed = new Promise<void>((resolve) => {
+        finished = resolve;
+      });
+      const previewPath = `**/api/v1/evidence-records/${availablePreview.record_id}/preview-handle`;
+      await page.route(previewPath, async (route) => {
+        const response = await route.fetch();
+        await held;
+        await route.fulfill({ response });
+        finished();
+      });
+      const preview = page.getByTestId(
+        evidencePreviewButtonTestId(availablePreview.record_id),
+      );
+      await preview.focus();
+      await preview.press("Enter");
+      const pendingPanel = page.getByTestId(evidencePreviewPanelTestId());
+      await expect(pendingPanel).toContainText("Opening preview…");
+      await pendingPanel.getByRole("button", { name: "Close" }).click();
+      release();
+      await completed;
+      await expect(pendingPanel).toHaveCount(0);
+      await expect(preview).toBeFocused();
+      await page.unroute(previewPath);
+
+      const incidentResponse = await page.request.get(
+        `${apiBase}/api/v1/incidents/${incidentId}`,
+      );
+      const incident = (await incidentResponse.json()).data;
+      const closed = await page.request.post(
+        `${apiBase}/api/v1/incidents/${incidentId}/close`,
+        {
+          headers: await csrfHeaders(page),
+          data: {
+            base_incident_version: incident.incident_version,
+            client_txn_id: uniqueTxn("evidence-access-close"),
+            reason: "Evidence read access verification",
+          },
+        },
+      );
+      expect(closed.ok()).toBeTruthy();
+      await page.reload();
+      await expectEvidenceControlsPainted(page, availablePreview.record_id);
+      await expect(
+        page.getByTestId(
+          evidenceAttachFileInputTestId(availablePreview.record_id),
+        ),
+      ).toBeDisabled();
+      await expect(
+        page.getByTestId(
+          evidencePreviewButtonTestId(availablePreview.record_id),
+        ),
+      ).toBeEnabled();
+      await expect(
+        page.getByTestId(
+          evidenceDownloadButtonTestId(availablePreview.record_id),
+        ),
+      ).toBeEnabled();
+      await page
+        .getByTestId(evidencePreviewButtonTestId(availablePreview.record_id))
+        .click();
+      await expect(
+        page.getByTestId(
+          evidencePreviewFrameTestId(availablePreview.record_id),
+        ),
+      ).toBeVisible();
+      await page
+        .getByTestId(evidencePreviewPanelTestId())
+        .getByRole("button", { name: "Close" })
+        .click();
+      const closedDownload = page.waitForEvent("download");
+      await page
+        .getByTestId(evidenceDownloadButtonTestId(availablePreview.record_id))
+        .click();
+      expect((await closedDownload).suggestedFilename()).toBe(
+        "a11y.evidence-workflow-preview.txt",
+      );
+    } finally {
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "";
+      });
+      await setDensity(originalPreferences.density_mode);
+    }
+
+    await expectEvidenceControlsPainted(page, availablePreview.record_id);
     await expectAllInteractiveControlsNamed(page);
     await expectNoFocusTrap(page);
     await expectAndRecordContrast(page, [

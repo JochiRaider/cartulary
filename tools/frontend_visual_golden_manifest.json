@@ -132,7 +132,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-affordance-states-linux.png",
-      "sha256": "ed5118c112db0241d965d6da204c7b27fe1f48bf9b19cbb496cd6e2e2409c6de"
+      "sha256": "9268edbf048874c2659d2c04837ff3ce137472e99ae5511d4f1584d1730018e7"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/evidence-grid-available-evidence-linux.png",

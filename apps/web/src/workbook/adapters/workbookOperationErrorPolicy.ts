@@ -1,5 +1,6 @@
 import type { ErrorEnvelope } from "@cartulary/protocol-ts/http";
 import { publicErrorView } from "../../services/browserApi";
+import { validatedPublicErrorReason } from "../../services/publicErrorIdentity";
 import {
   type PublicErrorOperationFamily,
   resolvePublicErrorPresentation,
@@ -35,7 +36,7 @@ const operationFamilyByID = {
   getIncidentWorkbookStartup: "surface_load",
   getRecordHistory: "surface_load",
   getTimelineTimeConversionProfile: "field_mutation",
-  issueEvidenceDownloadHandle: "evidence_preview",
+  issueEvidenceDownloadHandle: "evidence_download",
   issueEvidencePreviewHandle: "evidence_preview",
   listIncidentMemberships: "field_mutation",
   listIncidentSavedViews: "field_mutation",
@@ -75,17 +76,6 @@ const exactFailureKindByCode: Readonly<Record<string, FailureKind>> = {
   resolved_indicator_not_found: "stale_target",
   row_version_conflict: "stale_target",
 };
-
-const evidenceAccessReasonCodes = new Set([
-  "blob_failed",
-  "blob_missing",
-  "blob_pending",
-  "evidence_inconsistent",
-  "evidence_quarantined",
-  "no_visible_blob",
-  "preview_payload_too_large",
-  "unsupported_preview",
-]);
 
 function safeDetail(value: unknown): string | null {
   if (
@@ -190,21 +180,17 @@ function publicMessage(
   status: number,
 ): string {
   const error = envelope.error;
-  const fallback =
-    error.code === "invalid_mutation_payload"
-      ? error.code
-      : (publicErrorView(error, status)?.statusText ?? "Request failed.");
   if (
-    error.code !== "evidence_access_unavailable" ||
-    (operationID !== "issueEvidencePreviewHandle" &&
-      operationID !== "issueEvidenceDownloadHandle")
+    operationID === "issueEvidencePreviewHandle" ||
+    operationID === "issueEvidenceDownloadHandle" ||
+    operationID === "createObjectBlobSlot" ||
+    operationID === "attachBlobToEvidenceRecord"
   ) {
-    return fallback;
+    return "Evidence request failed.";
   }
-  const reason = safeDetail(error.details.reason_code);
-  return reason !== null && evidenceAccessReasonCodes.has(reason)
-    ? `${error.code}: ${reason}`
-    : fallback;
+  return error.code === "invalid_mutation_payload"
+    ? error.code
+    : (publicErrorView(error, status)?.statusText ?? "Request failed.");
 }
 
 function classifyDecodedError(
@@ -240,13 +226,22 @@ export function classifyWorkbookOperationFailure(
     decoded.kind === "decoded"
       ? classifyDecodedError(decoded.envelope, operationID, status)
       : { kind: decoded.kind, message: decoded.message };
+  const publicReason =
+    decoded.kind === "decoded"
+      ? validatedPublicErrorReason(
+          code,
+          decoded.envelope.error.details.reason_code,
+        )
+      : undefined;
   return {
     ...classified,
+    ...(publicReason === undefined ? {} : { publicReason }),
     ...(decoded.kind === "decoded" ? { publicCode: code } : {}),
     presentation: resolvePublicErrorPresentation({
       code,
       hasAuthorizedMaterialization: false,
       operationFamily: operationFamilyByID[operationID],
+      reasonCode: publicReason,
       status,
     }),
   };

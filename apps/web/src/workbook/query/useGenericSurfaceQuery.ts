@@ -155,13 +155,10 @@ export function useGenericSurfaceQuery({
 
   const invalidate = useCallback(
     (reason: WorkbookQueryInvalidationReason) => {
+      // Closure disables source writes; it does not revoke an authorized read.
+      if (reason.kind === "incident_closed") return;
       abortLatestQuery(queryRuntimeRef);
-      if (
-        reason.kind === "collaboration_reset_required" ||
-        reason.kind === "incident_closed"
-      ) {
-        return;
-      }
+      if (reason.kind === "collaboration_reset_required") return;
       clearRows();
     },
     [clearRows],

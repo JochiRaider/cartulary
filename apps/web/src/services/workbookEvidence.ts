@@ -1,23 +1,12 @@
-import type {
-  CreateObjectBlobSlotRequest,
-  CreateObjectBlobSlotResponse,
-  ErrorEnvelope,
-} from "@cartulary/protocol-ts/http";
-import { publicErrorStatusText } from "../shared/publicError";
-import {
-  apiPath,
-  csrfHeaderName,
-  fetchHTTPOperation,
-  readCookie,
-} from "./browserApi";
+import type { CreateObjectBlobSlotResponse } from "@cartulary/protocol-ts/http";
+import { apiPath, csrfHeaderName, readCookie } from "./browserApi";
 
+export type EvidenceUploadFailure =
+  | { readonly cause: "csrf_missing" | "network" }
+  | { readonly cause: "http"; readonly status: number };
 export type EvidenceUploadOutcome =
   | { readonly kind: "accepted" }
-  | {
-      readonly kind: "rejected";
-      readonly retryable: boolean;
-      readonly message: string;
-    };
+  | { readonly kind: "rejected"; readonly failure: EvidenceUploadFailure };
 
 export type EvidenceObjectUploadTarget =
   CreateObjectBlobSlotResponse["data"]["upload_target"];
@@ -39,8 +28,7 @@ export async function uploadEvidenceObjectBlobTarget(
   if (!csrfToken) {
     return {
       kind: "rejected",
-      retryable: false,
-      message: "upload_failed_csrf",
+      failure: { cause: "csrf_missing" },
     };
   }
   headers.set(csrfHeaderName, csrfToken);
@@ -55,8 +43,7 @@ export async function uploadEvidenceObjectBlobTarget(
   } catch {
     return {
       kind: "rejected",
-      retryable: false,
-      message: "upload_failed_network",
+      failure: { cause: "network" },
     };
   }
   if (upload.ok) {
@@ -64,170 +51,28 @@ export async function uploadEvidenceObjectBlobTarget(
   }
   return {
     kind: "rejected",
-    retryable: false,
-    message: `upload_failed_${upload.status}`,
+    failure: { cause: "http", status: upload.status },
   };
-}
-
-export async function createUploadedEvidenceObjectBlob({
-  apiBase,
-  createClientTxnId,
-  file,
-  incidentId,
-}: {
-  readonly apiBase: string | undefined;
-  readonly createClientTxnId: () => string;
-  readonly file: File;
-  readonly incidentId: string;
-}): Promise<string> {
-  const createBlobRequest = {
-    incident_id: incidentId,
-    client_txn_id: createClientTxnId(),
-    byte_size: file.size,
-    filename_hint: file.name || null,
-    content_type_hint: file.type || null,
-  } satisfies CreateObjectBlobSlotRequest;
-  const createBlob = await fetchHTTPOperation<CreateObjectBlobSlotResponse>({
-    apiBase,
-    operationID: "createObjectBlobSlot",
-    init: {
-      method: "POST",
-      body: JSON.stringify(createBlobRequest),
-    },
-  });
-  if (!createBlob.ok) {
-    throw new Error(evidencePublicErrorMessage(createBlob.payload));
-  }
-  const blobEnvelope = createBlob.payload;
-  if (!createdBlobMatchesRequest(blobEnvelope, createBlobRequest)) {
-    throw new Error("invalid_public_contract_response");
-  }
-  const upload = await uploadEvidenceObjectBlobTarget(
-    apiBase,
-    blobEnvelope.data.upload_target,
-    file,
-  );
-  if (upload.kind === "rejected") {
-    throw new Error(upload.message);
-  }
-  return blobEnvelope.data.object_blob_id;
-}
-
-function createdBlobMatchesRequest(
-  envelope: CreateObjectBlobSlotResponse,
-  request: CreateObjectBlobSlotRequest,
-): boolean {
-  const accepted = envelope.data.accepted_contract;
-  return (
-    envelope.data.incident_id === request.incident_id &&
-    accepted.incident_id === request.incident_id &&
-    accepted.byte_size === request.byte_size &&
-    accepted.filename_hint === request.filename_hint &&
-    accepted.content_type_hint === request.content_type_hint
-  );
-}
-
-const rawEvidenceStorageDetailPatterns = [
-  /\bhttps?:\/\//iu,
-  /\bs3:\/\//iu,
-  /\bobject:\/\//iu,
-  /\bminio\b/iu,
-  /\bseaweedfs?\b/iu,
-  /\bbucket(?:\b|_)/iu,
-  /\bobject[-_ ]?store(?:\b|_)/iu,
-  /\bstorage[-_ ]?backend(?:\b|_)/iu,
-  /\b(?:storage|object)[-_ ]?key(?:\b|_)/iu,
-  /\bobject[-_ ]?blob[-_ ]?storage[-_ ]?key(?:\b|_)/iu,
-  /\/(?:home|var|tmp|usr|app|workspace|data|mnt|srv)\//iu,
-  /\b(?:local|filesystem|s3|gcs|azure)[-_ ]?backend\b/iu,
-] as const;
-
-function containsRawEvidenceStorageDetail(value: string): boolean {
-  return rawEvidenceStorageDetailPatterns.some((pattern) =>
-    pattern.test(value),
-  );
-}
-
-function safeEvidencePublicText(value: unknown): string | null {
-  if (
-    typeof value !== "string" &&
-    typeof value !== "number" &&
-    typeof value !== "boolean"
-  ) {
-    return null;
-  }
-  const text = String(value).trim();
-  if (
-    text === "" ||
-    text.length > 240 ||
-    containsRawEvidenceStorageDetail(text)
-  ) {
-    return null;
-  }
-  return text;
-}
-
-function evidencePublicError(payload: unknown): ErrorEnvelope["error"] | null {
-  if (!payload || typeof payload !== "object" || !("error" in payload)) {
-    return null;
-  }
-  const error = payload.error;
-  if (!error || typeof error !== "object") {
-    return null;
-  }
-  return error as ErrorEnvelope["error"];
-}
-
-export function evidencePublicErrorMessage(
-  payload: unknown,
-  fallback = "Evidence request failed.",
-): string {
-  const error = evidencePublicError(payload);
-  if (error === null) {
-    return fallback;
-  }
-  const reason =
-    error.details && typeof error.details === "object"
-      ? safeEvidencePublicText(error.details.reason_code)
-      : null;
-  const code = safeEvidencePublicText(error.code);
-  if (code !== null && reason !== null) {
-    return `${code}: ${reason}`;
-  }
-  if (reason !== null) {
-    return reason;
-  }
-  const message = safeEvidencePublicText(error.message);
-  if (message !== null) {
-    return message;
-  }
-  if (code !== null) {
-    return code;
-  }
-  const statusText = safeEvidencePublicText(
-    publicErrorStatusText({ status: error.status }, error.status),
-  );
-  return statusText ?? fallback;
-}
-
-export function evidenceAttachPublicErrorMessage(
-  error: unknown,
-  fallback = "Evidence attach failed.",
-): string {
-  if (error instanceof Error) {
-    return safeEvidencePublicText(error.message) ?? fallback;
-  }
-  return safeEvidencePublicText(error) ?? fallback;
 }
 
 export function resolvePublicEvidenceHandleHref(href: string): string | null {
   const trimmed = href.trim();
   if (
-    containsRawEvidenceStorageDetail(trimmed) ||
     !/^\/api\/v1\/evidence-handles\/[A-Za-z0-9._~!$&'()*+,;=:@%-]+(?:\?[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*)?$/u.test(
       trimmed,
     )
   ) {
+    return null;
+  }
+  try {
+    const resolved = new URL(trimmed, "https://cartulary.invalid");
+    if (
+      resolved.origin !== "https://cartulary.invalid" ||
+      !resolved.pathname.startsWith("/api/v1/evidence-handles/") ||
+      /%(?:2f|5c)/iu.test(resolved.pathname)
+    )
+      return null;
+  } catch {
     return null;
   }
   return trimmed;

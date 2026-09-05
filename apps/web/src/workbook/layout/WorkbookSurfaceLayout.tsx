@@ -18,6 +18,7 @@ export function WorkbookSurfaceLayout({
   chromeMode = "base",
   inspector,
   onRequestInspectorClose,
+  onRequestPreviewClose,
   primaryGrid,
   statusStrip,
   testId,
@@ -25,11 +26,13 @@ export function WorkbookSurfaceLayout({
   viewSchemaId,
   workAreaAriaLabel = "Workbook work area",
   workAreaOverlays,
+  workAreaAnnouncements,
   onWorkAreaContextMenu,
   onWorkAreaKeyDown,
 }: {
   readonly chromeMode?: WorkbookChromeMode | undefined;
   readonly inspector?: ReactNode | undefined;
+  readonly onRequestPreviewClose?: (() => void) | undefined;
   readonly onRequestInspectorClose?: (() => void) | undefined;
   readonly primaryGrid: ReactNode;
   readonly statusStrip: ReactNode;
@@ -37,6 +40,7 @@ export function WorkbookSurfaceLayout({
   readonly viewBar: ReactNode;
   readonly viewSchemaId: string;
   readonly workAreaAriaLabel?: string | undefined;
+  readonly workAreaAnnouncements?: ReactNode | undefined;
   readonly workAreaOverlays?: ReactNode | undefined;
   readonly onWorkAreaContextMenu?: MouseEventHandler<HTMLElement> | undefined;
   readonly onWorkAreaKeyDown?: KeyboardEventHandler<HTMLElement> | undefined;
@@ -129,6 +133,15 @@ export function WorkbookSurfaceLayout({
     if (
       event.key === "Escape" &&
       !event.defaultPrevented &&
+      onRequestPreviewClose
+    ) {
+      event.preventDefault();
+      onRequestPreviewClose();
+      return;
+    }
+    if (
+      event.key === "Escape" &&
+      !event.defaultPrevented &&
       inspectorOpen &&
       onRequestInspectorClose
     ) {
@@ -176,6 +189,7 @@ export function WorkbookSurfaceLayout({
       style={workbookSurfaceFrameStyle}
       onKeyDown={closeInspectorFromEscape}
     >
+      {workAreaAnnouncements}
       <WorkbookShellSlotRegion
         slot="view-bar"
         style={workbookSurfaceViewBarStyle}
@@ -199,8 +213,14 @@ export function WorkbookSurfaceLayout({
           {primaryGrid}
         </WorkbookShellSlotRegion>
         <div
-          aria-hidden={backgroundIsInert || undefined}
-          inert={backgroundIsInert || undefined}
+          aria-hidden={
+            (backgroundIsInert && onRequestPreviewClose === undefined) ||
+            undefined
+          }
+          inert={
+            (backgroundIsInert && onRequestPreviewClose === undefined) ||
+            undefined
+          }
           style={workbookSurfaceOverlayLayerStyle}
         >
           {workAreaOverlays}

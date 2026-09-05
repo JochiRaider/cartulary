@@ -2,12 +2,9 @@ import type {
   CreateViewRowResponse,
   EvidenceCreateRequest,
 } from "@cartulary/protocol-ts/http";
-import {
-  createUploadedEvidenceObjectBlob,
-  evidenceAttachPublicErrorMessage,
-} from "../../../services/workbookEvidence";
 import type { WorkbookOperationExecutor } from "../../adapters/workbookOperationContract";
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
+import { createUploadedEvidenceBlob } from "../../features/evidence/createUploadedEvidenceBlob";
 import {
   evidenceViewSchemaId,
   timelineViewSchemaId,
@@ -82,16 +79,18 @@ async function createEvidenceFromFile(
   file: File,
 ): Promise<WorkbookOperationOutcome<TimelineEvidenceCreated>> {
   try {
-    const objectBlobId = await createUploadedEvidenceObjectBlob({
+    const blob = await createUploadedEvidenceBlob({
       apiBase: options.apiBase,
-      createClientTxnId: options.createClientTxnId,
+      clientTxnId: options.createClientTxnId(),
+      operations,
       file,
       incidentId: options.incidentId,
     });
+    if (blob.kind === "rejected") return blob;
     const request: EvidenceCreateRequest = {
       client_txn_id: options.createClientTxnId(),
       "evidence.collector_party_text": "Workbook upload",
-      "evidence.initial_object_blob_id": objectBlobId,
+      "evidence.initial_object_blob_id": blob.value.objectBlobId,
       "evidence.lifecycle_state": "available",
       "evidence.title": evidenceTitleFromFile(file),
     };
@@ -108,8 +107,8 @@ async function createEvidenceFromFile(
           value: { evidenceRecordId: data.row.record_id },
         }
       : invalidContract();
-  } catch (error) {
-    return terminal(evidenceAttachPublicErrorMessage(error));
+  } catch {
+    return terminal("Evidence attachment failed.");
   }
 }
 

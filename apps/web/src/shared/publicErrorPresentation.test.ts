@@ -88,10 +88,11 @@ describe("public error presentation", () => {
       {
         expectedFamily: "evidence_preview_blocked",
         input: {
-          code: "future_preview_failure",
+          code: "evidence_access_unavailable",
+          reasonCode: "unsupported_preview",
           hasAuthorizedMaterialization: true,
           operationFamily: "evidence_preview",
-          status: 503,
+          status: 409,
         },
       },
       {
@@ -105,6 +106,23 @@ describe("public error presentation", () => {
       },
     ] as const;
 
+    for (const operationFamily of [
+      "evidence_preview",
+      "evidence_download",
+    ] as const) {
+      expect(
+        resolvePublicErrorPresentation({
+          code: "future_preview_failure",
+          hasAuthorizedMaterialization: true,
+          operationFamily,
+          status: 503,
+        }),
+      ).toMatchObject({
+        family: "unknown_future_error",
+        actions: [],
+        live: "assertive",
+      });
+    }
     for (const testCase of cases) {
       expect(resolvePublicErrorPresentation(testCase.input).family).toBe(
         testCase.expectedFamily,

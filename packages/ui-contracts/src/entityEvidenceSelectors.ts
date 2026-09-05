@@ -193,20 +193,56 @@ export function assessmentCreatePanelTestId(): string {
   return "assessment-create-panel";
 }
 
-export function evidencePreviewButtonTestId(recordId: string): string {
-  return evidenceRecordControlTestId("preview", recordId);
+export type EvidenceAccessContext = "row" | "inspector";
+
+export function evidencePreviewButtonTestId(
+  recordId: string,
+  context: EvidenceAccessContext = "row",
+): string {
+  return evidenceRecordControlTestId(
+    context === "row" ? "preview" : "inspector-preview",
+    recordId,
+  );
 }
 
-export function evidenceDownloadButtonTestId(recordId: string): string {
-  return evidenceRecordControlTestId("download", recordId);
+export function evidenceDownloadButtonTestId(
+  recordId: string,
+  context: EvidenceAccessContext = "row",
+): string {
+  return evidenceRecordControlTestId(
+    context === "row" ? "download" : "inspector-download",
+    recordId,
+  );
 }
 
-export function evidenceAttachFileInputTestId(recordId: string): string {
-  return evidenceRecordControlTestId("attach-file", recordId);
+export function evidenceAttachFileInputTestId(
+  recordId: string,
+  context: EvidenceAccessContext = "row",
+): string {
+  return evidenceRecordControlTestId(
+    context === "row" ? "attach-file" : "inspector-attach-file",
+    recordId,
+  );
 }
 
-export function evidenceAccessMessageTestId(recordId: string): string {
-  return evidenceRecordControlTestId("access-message", recordId);
+export function evidenceAccessMessageTestId(
+  recordId: string,
+  context: EvidenceAccessContext = "row",
+): string {
+  return evidenceRecordControlTestId(
+    context === "row" ? "access-message" : "inspector-access-message",
+    recordId,
+  );
+}
+
+export function evidenceAccessStateTestId(
+  recordId: string,
+  context: EvidenceAccessContext = "row",
+): string {
+  return evidenceRecordControlTestId(
+    context === "row" ? "access-state" : "inspector-access-state",
+    recordId,
+  );
 }
 
 export function evidencePreviewFrameTestId(recordId: string): string {

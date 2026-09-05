@@ -3253,7 +3253,7 @@ describe("WorkbookShell surface selection", () => {
         "Blocked target",
         {
           lifecycleState: "quarantined",
-          uploadState: "available",
+          uploadState: "quarantined",
         },
       ),
       evidenceStateRow(
@@ -3261,7 +3261,7 @@ describe("WorkbookShell surface selection", () => {
         6,
         "Failed target",
         {
-          lifecycleState: "available",
+          lifecycleState: "received",
           uploadState: "failed",
         },
       ),
@@ -3341,37 +3341,37 @@ describe("WorkbookShell surface selection", () => {
         screen.getByTestId(
           evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004011"),
         ) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
     expect(
       (
         screen.getByTestId(
           evidenceDownloadButtonTestId("00000000-0000-4000-8000-000000004012"),
         ) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
     expect(
       (
         screen.getByTestId(
           evidencePreviewButtonTestId("00000000-0000-4000-8000-000000004013"),
         ) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+      ).getAttribute("aria-disabled"),
+    ).toBe("true");
     expect(
       screen.getByTestId(
         evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004011"),
       ).textContent,
-    ).toContain("Blocked:");
+    ).toBe("Quarantined");
     expect(
       screen.getByTestId(
         evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004012"),
       ).textContent,
-    ).toContain("Failed:");
+    ).toBe("Upload failed");
     expect(
       screen.getByTestId(
         evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004013"),
       ).textContent,
-    ).toContain("Inconsistent:");
+    ).toBe("Inconsistent");
 
     fireEvent.change(
       screen.getByTestId(
@@ -3389,10 +3389,11 @@ describe("WorkbookShell surface selection", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(
-          evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004010"),
-        ).textContent,
-      ).toBe("Evidence attached.");
+        screen
+          .getAllByRole("status")
+          .map((node) => node.textContent)
+          .join(" "),
+      ).toContain("Evidence attached.");
     });
     const createBlobCall = fetchMock.mock.calls.find(([input]) =>
       String(input).endsWith("/api/v1/object-blobs"),
@@ -3457,7 +3458,7 @@ describe("WorkbookShell surface selection", () => {
         screen.getByTestId(
           evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004015"),
         ).textContent,
-      ).toBe("Conflict.");
+      ).toBe("Attach failed");
     });
 
     fireEvent.click(
@@ -3470,7 +3471,7 @@ describe("WorkbookShell surface selection", () => {
         screen.getByTestId(
           evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004014"),
         ).textContent,
-      ).toBe("Evidence handle is unavailable.");
+      ).toBe("Preview unavailable");
     });
     expect(
       screen.queryByTestId(
@@ -3488,7 +3489,7 @@ describe("WorkbookShell surface selection", () => {
         screen.getByTestId(
           evidenceAccessMessageTestId("00000000-0000-4000-8000-000000004015"),
         ).textContent,
-      ).toBe("Conflict.");
+      ).toBe("Preview unavailable");
     });
 
     fireEvent.click(
@@ -3623,7 +3624,7 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(timelineInspectorMessageTestId()).textContent,
-      ).toBe("upload_failed_500");
+      ).toBe("The evidence file could not be uploaded.");
     });
     expect(
       fetchMock.mock.calls.some(([input, init]) => {

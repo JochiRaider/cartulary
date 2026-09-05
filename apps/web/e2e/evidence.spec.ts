@@ -201,7 +201,7 @@ test("redeems inline-safe previews and shows explicit blocked-preview outcomes",
   await page.getByTestId(unsafePreviewButtonTestId).click();
   await expect(
     page.getByTestId(evidenceAccessMessageTestId(unsafe.record_id)),
-  ).toContainText("unsupported_preview");
+  ).toHaveText("No preview");
 });
 
 test("tracks requested evidence before a blob exists and later advances it", async ({
@@ -321,7 +321,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
   await scrollGridTargetIntoView({
     page,
     surface: evidenceViewSchemaId,
-    targetTestId: evidenceAttachFileInputTestId(requested.record_id),
+    targetTestId: evidencePreviewButtonTestId(requested.record_id),
   });
   await page
     .getByTestId(evidenceAttachFileInputTestId(requested.record_id))

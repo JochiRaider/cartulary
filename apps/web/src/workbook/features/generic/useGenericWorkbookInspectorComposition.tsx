@@ -1,4 +1,4 @@
-import type { GridInteractionMode } from "@cartulary/grid-adapter";
+import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
 import { genericWorkbookTestId } from "@cartulary/ui-contracts";
 import type {
   InspectorDisabledCondition,
@@ -56,6 +56,7 @@ export function useGenericWorkbookInspectorComposition({
   currentIncidentRole,
   currentUserId,
   draftInspectorFields,
+  density,
   incidentClosed,
   inspectorResetKey,
   interactionMode,
@@ -64,6 +65,7 @@ export function useGenericWorkbookInspectorComposition({
   onClearSurfaceSelection,
   onRefresh,
   onRestoreFocus,
+  onRestoreEvidenceFocus,
   onSelectRecord,
   ownerBindings,
   referenceLoadError,
@@ -78,6 +80,8 @@ export function useGenericWorkbookInspectorComposition({
   readonly createDraft: Record<string, string>;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly currentUserId: string | null;
+  readonly density: GridDensity;
+  readonly onRestoreEvidenceFocus: (recordId: string) => void;
   readonly draftInspectorFields: readonly ViewFieldContract[];
   readonly incidentClosed: boolean;
   readonly inspectorResetKey: string;
@@ -128,9 +132,11 @@ export function useGenericWorkbookInspectorComposition({
           rowVersion: subjectRow.row_version,
           surfaceLabel: contract.title,
         });
+  const resetEvidence = useRef<() => void>(() => undefined);
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
       resetOwnerState: ({ cause, scope }) => {
+        if (cause !== "retarget") resetEvidence.current();
         setEditValue("");
         setLinkedNoteSourceRecordId("");
         setEditCollectionMode("add");
@@ -163,8 +169,25 @@ export function useGenericWorkbookInspectorComposition({
     },
     onRefresh,
     ownerBindings,
-    resetKey: invalidationKey,
+    resetKey: inspectorResetKey,
+    rows,
+    subjectRecordId: subjectRow?.record_id ?? null,
+    canRead: currentIncidentRole !== null,
+    attachDisabledReason: incidentClosed
+      ? "This incident is closed. Evidence attachment is read-only."
+      : currentIncidentRole === null || currentIncidentRole === "viewer"
+        ? "Your role can read evidence but cannot attach files."
+        : interactionMode.kind === "read_only"
+          ? interactionMode.label
+          : null,
+    density,
+    onInspect: (recordId) => {
+      onSelectRecord(recordId);
+      inspector.commands.open();
+    },
+    onRestoreFocus: onRestoreEvidenceFocus,
   });
+  resetEvidence.current = ownerRecordActions.resetLocalState;
   const selectedEdit = selectWorkbookEditTarget({
     fieldKey: editFieldKey,
     fields: editableFields,
@@ -326,7 +349,7 @@ export function useGenericWorkbookInspectorComposition({
         evidenceContent:
           subjectRow === null
             ? null
-            : ownerRecordActions.renderRecordActions(subjectRow),
+            : ownerRecordActions.renderInspector(subjectRow),
         history: {
           actions: recordHistoryActions,
           canMutate:

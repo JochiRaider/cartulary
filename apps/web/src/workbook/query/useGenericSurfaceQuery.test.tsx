@@ -16,6 +16,7 @@ import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
+  evidenceViewSchemaId,
   findingsViewSchemaId,
   notesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
@@ -117,6 +118,12 @@ function GenericQueryHarness({
         type="button"
       >
         patch
+      </button>
+      <button
+        type="button"
+        onClick={() => query.invalidate({ kind: "incident_closed" })}
+      >
+        incident closed
       </button>
       <output aria-label="generic-load-state">{query.loadState.kind}</output>
       <output aria-label="generic-rows">
@@ -235,6 +242,42 @@ describe("useGenericSurfaceQuery", () => {
     );
     expect(screen.getByLabelText("generic-rows").textContent).toContain(
       findingCurrentId,
+    );
+  });
+
+  it("allows a current Evidence read to finish when incident closure arrives during startup", async () => {
+    const pending = deferred<Response>();
+    let signal: AbortSignal | null | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        signal = init?.signal;
+        return pending.promise;
+      }),
+    );
+    render(<GenericQueryHarness viewSchemaId={evidenceViewSchemaId} />);
+    fireEvent.click(screen.getByRole("button", { name: "refresh" }));
+    await waitFor(() => expect(signal).toBeDefined());
+    fireEvent.click(screen.getByRole("button", { name: "incident closed" }));
+    expect.soft(signal?.aborted).toBe(false);
+    pending.resolve(
+      queryResponse(evidenceViewSchemaId, [
+        fullWorkbookViewRow(
+          requireViewContract(evidenceViewSchemaId),
+          noteCurrentId,
+          1,
+          {
+            "evidence.title": "Closed incident evidence",
+            "evidence.lifecycle_state": "requested",
+            "evidence.upload_state": "pending",
+          },
+        ),
+      ]),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("generic-rows").textContent).toContain(
+        noteCurrentId,
+      ),
     );
   });
 
