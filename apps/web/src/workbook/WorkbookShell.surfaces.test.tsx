@@ -499,7 +499,11 @@ describe("WorkbookShell surface selection", () => {
   let scenario: SurfaceTestScenario;
 
   beforeEach(() => {
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState(
+      {},
+      "",
+      "/?incident_id=10000000-0000-4000-8000-000000000001",
+    );
     vi.spyOn(document, "cookie", "get").mockReturnValue(
       "cartulary_csrf=evidence-shell-csrf",
     );
@@ -1671,7 +1675,7 @@ describe("WorkbookShell surface selection", () => {
     window.history.replaceState(
       {},
       "",
-      `/?view_schema_id=${encodeURIComponent(statusReviewViewSchemaId)}`,
+      `/?incident_id=10000000-0000-4000-8000-000000000001&view_schema_id=${encodeURIComponent(statusReviewViewSchemaId)}`,
     );
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: statusReviewViewSchemaId },
@@ -2145,7 +2149,7 @@ describe("WorkbookShell surface selection", () => {
     window.history.replaceState(
       {},
       "",
-      "/?view_schema_id=cartulary.view.unknown.v1",
+      "/?incident_id=10000000-0000-4000-8000-000000000001&view_schema_id=cartulary.view.unknown.v1",
     );
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },

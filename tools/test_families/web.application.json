@@ -648,7 +648,7 @@
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
-          "Incident landing loads more incidents against the accepted search and status scope"
+          "Incident landing disables continuation while replacing the accepted search and status scope"
         ]
       },
       "evidence_class": "unit",
@@ -744,7 +744,7 @@
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
-          "Incident landing opens the workbook automatically when exactly one incident is visible"
+          "Incident landing keeps exactly one visible incident in the directory until explicit selection"
         ]
       },
       "evidence_class": "unit",
@@ -792,7 +792,7 @@
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
-          "Incident landing preserves incident route and manual directory route state across popstate navigation"
+          "Incident landing preserves incident and directory routes across popstate navigation"
         ]
       },
       "evidence_class": "unit",
@@ -1081,6 +1081,131 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.incident_directory_binding",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentDirectoryModel.test.ts",
+        "titles": [
+          "incident directory React binding retains query drafts on inactivity but clears them on authentication replacement",
+          "incident directory React binding survives strict effect replay and cancels the retired observation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_directory_http_adapter",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/incidentDirectoryClient.test.ts",
+        "titles": [
+          "incident directory HTTP adapter preserves public failures and propagates cancellation to the caller",
+          "incident directory HTTP adapter rejects malformed resource and paging successes without filling defaults",
+          "incident directory HTTP adapter uses declared query members and preserves opaque cursor and search values"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_directory_lifecycle",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.landing.test.tsx",
+        "titles": [
+          "Incident landing directory lifecycle keeps local and provider root entry membership-scoped for every directory size",
+          "Incident landing directory lifecycle keeps malformed and transport directory failures local and never presents successful empty results",
+          "Incident landing directory lifecycle locks duplicate pagination before the next render",
+          "Incident landing directory lifecycle opens an explicit incident outside the former count probe",
+          "Incident landing directory lifecycle preserves debounced edits made while a refresh is settling",
+          "Incident landing directory lifecycle preserves explicit workbook startup through local sign-in without directory authorization probes",
+          "Incident landing directory lifecycle rejects a late page after a replacement query",
+          "Incident landing directory lifecycle rejects a late page after authentication replacement",
+          "Incident landing directory lifecycle rejects a late page after directory navigation and re-entry",
+          "Incident landing directory lifecycle rejects obsolete authorization errors without ending replacement authentication",
+          "Incident landing directory lifecycle retains the query across workbook navigation and refreshes only authoritative directory results"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_directory_model",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentDirectoryModel.test.ts",
+        "titles": [
+          "incident directory operation accumulates live overlapping pages by identity without sorting",
+          "incident directory operation clears account state before late responses from replaced authentication",
+          "incident directory operation clears all directory state before notifying current session loss",
+          "incident directory operation clears materialization on departure and refreshes the retained query on return",
+          "incident directory operation clears protected rows on denial without terminating authentication",
+          "incident directory operation coalesces rapid edits and Enter without a second debounce request",
+          "incident directory operation invalidates disposal and independently checks the current authentication port",
+          "incident directory operation locks same-tick pagination and uses accepted query cursor and limit",
+          "incident directory operation preserves typing during initial load and rejects its obsolete response",
+          "incident directory operation rejects cursor cycles and changed effective limits",
+          "incident directory operation restarts page one only on explicit retry after an invalid cursor",
+          "incident directory operation retains previous accepted rows during replacement and ordinary failure",
+          "incident directory operation retries a failed page without changing its accepted cursor",
+          "incident directory operation submits status immediately with the current search and cancels debounce",
+          "incident directory operation supersedes refresh and rejects old successes and errors",
+          "incident directory operation times out observation without automatic retry or late acceptance",
+          "incident directory operation uses continuation metadata for an empty nonterminal page"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.incidentadminpanel_keeps_incident_summary_visibl_d7a6f59072",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1295,10 +1420,11 @@
         "file": "apps/web/src/app/routeState.test.ts",
         "titles": [
           "app route state builds URLs while preserving non-route query parameters",
+          "app route state clears incident-owned workbook startup parameters when changing application context",
           "app route state parses deployment administration as a path-owned route",
           "app route state parses incident and debug query state outside deployment administration",
-          "app route state parses the root route without accidental manual-directory or debug state",
-          "app route state uses history state only for explicit incident-directory navigation",
+          "app route state parses the root route without accidental debug state",
+          "app route state reads root navigation independently of obsolete history flags",
           "app route state writes push and replace history entries with the route-owned history state"
         ]
       },

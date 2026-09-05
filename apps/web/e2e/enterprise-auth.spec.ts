@@ -2,6 +2,7 @@ import {
   authTestId,
   incidentLandingTestId,
   landingIncidentCardTestId,
+  landingIncidentOpenButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 
@@ -218,11 +219,36 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
     userId: singleMember.user_id,
   });
   await page.goto("/");
+  await expect(
+    page.getByTestId(landingIncidentCardTestId(incidentId)),
+  ).toBeVisible();
+  await expect(page).not.toHaveURL(/incident_id=/);
+  await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
   await page.route("**/api/v1/incidents**", async (route) => {
     const requestURL = new URL(route.request().url());
+    if (
+      route.request().method().toUpperCase() === "GET" &&
+      requestURL.pathname === `/api/v1/incidents/${incidentId}`
+    ) {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "authorization_denied",
+            status: 403,
+            message: "Access denied.",
+            details: {},
+            request_id: "denied-incident",
+            retryable: false,
+          },
+        }),
+      });
+      return;
+    }
     if (
       route.request().method().toUpperCase() !== "GET" ||
       requestURL.pathname !== "/api/v1/incidents"

@@ -55,7 +55,9 @@
         "additionalProperties": false,
         "properties": {
           "limit": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
           },
           "next_cursor": {
             "type": [
@@ -71,6 +73,31 @@
           "limit",
           "next_cursor",
           "has_more"
+        ],
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "has_more": {
+                "const": true
+              },
+              "next_cursor": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "has_more": {
+                "const": false
+              },
+              "next_cursor": {
+                "type": "null"
+              }
+            }
+          }
         ]
       },
       "ErrorEnvelope": {
@@ -118,6 +145,24 @@
           "request_id",
           "retryable",
           "details"
+        ]
+      },
+      "PagedEnvelopeMeta": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "paging": {
+                "$ref": "#/components/schemas/PagingMeta"
+              }
+            },
+            "required": [
+              "paging"
+            ]
+          }
         ]
       }
     },

@@ -160,7 +160,13 @@ export function useWorkbookStartupController({
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search);
-    next.set("incident_id", incidentId);
+    // App owns incident navigation. A retiring workbook may still run an effect
+    // before its transition unmounts it; it owns sheet selection only in its route.
+    if (
+      window.location.pathname !== "/" ||
+      next.get("incident_id") !== incidentId
+    )
+      return;
     if (startupSheetRef.kind === "saved_view") {
       next.delete("view_schema_id");
       next.set("sheet_ref_kind", startupSheetRef.kind);

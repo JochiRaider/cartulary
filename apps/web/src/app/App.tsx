@@ -17,7 +17,6 @@ import {
 import {
   type APIError,
   extractError,
-  fetchJSON,
   publicErrorView,
 } from "../services/browserApi";
 import type {
@@ -37,14 +36,12 @@ import {
 import { AuthGateway } from "./AuthGateway";
 import {
   type AccountPreferencesResource,
-  type CredentialState,
   createAppAuthorizationRecoveryPort,
   type ExtensionProfileResource,
   loadAccountPreferences,
   loadCredentialState,
   loadExtensions,
   loadSession,
-  type PagingMeta,
   type SessionData,
 } from "./api/appShellClient";
 import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
@@ -53,6 +50,10 @@ import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
 import type { IncidentCreationController } from "./incidentCreationModel";
 import {
+  directoryIsLoading,
+  type IncidentDirectoryController,
+} from "./incidentDirectoryModel";
+import {
   IncidentDirectoryShell,
   LandingAdminShell,
 } from "./LandingAdminLayout";
@@ -60,8 +61,6 @@ import type {
   AccountSettingsPanelToken,
   AppBootstrapState,
   DeploymentAdministrationPanelToken,
-  IncidentData,
-  IncidentStatusFilter,
   LandingAdminPanelDescriptor,
   LandingRefreshState,
 } from "./landingAdminTypes";
@@ -69,9 +68,14 @@ import {
   ReferencePackAdminPanel,
   type ReferencePackJobResource,
 } from "./ReferencePackAdminPanel";
-import type { AppRouteState, AppRouteWriteMode } from "./routeState";
+import {
+  type AppRouteState,
+  type AppRouteWriteMode,
+  readAppRouteState,
+} from "./routeState";
 import { useAppRouteRuntime } from "./useAppRouteRuntime";
 import { useIncidentCreation } from "./useIncidentCreation";
+import { useIncidentDirectory } from "./useIncidentDirectory";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
@@ -82,15 +86,6 @@ const LazyDebugHarnessShell = lazy(async () => {
   const module = await import("./debug/DebugHarnessShell");
   return { default: module.DebugHarnessShell };
 });
-
-type IncidentListEnvelope = {
-  data: {
-    incidents: IncidentData[];
-  };
-  meta: {
-    paging: PagingMeta;
-  };
-};
 
 type ShellRefreshOptions = {
   anonymousMessage?: string;
@@ -118,31 +113,10 @@ type AppProps = {
 export type CartularyReadingProfile = "default" | "hyperlegible";
 
 const defaultAuthPrompt = "Use your deployment account.";
-const defaultStaleIncidentMessage =
-  "The requested incident is no longer visible.";
 const accessLostLandingNotice =
   "The current incident is no longer visible. Returned to the landing screen.";
 const defaultRevokedSessionMessage =
   "The current session ended. Sign in again to continue.";
-const emptyIncidentsPaging: PagingMeta = {
-  limit: 100,
-  has_more: false,
-  next_cursor: null,
-};
-
-function upsertIncident(incidents: IncidentData[], nextIncident: IncidentData) {
-  const existingIndex = incidents.findIndex(
-    (incident) => incident.incident_id === nextIncident.incident_id,
-  );
-  if (existingIndex === -1) {
-    return [nextIncident, ...incidents];
-  }
-
-  const next = [...incidents];
-  next[existingIndex] = nextIncident;
-  return next;
-}
-
 function isAbortError(error: unknown): boolean {
   if (typeof DOMException !== "undefined" && error instanceof DOMException) {
     return error.name === "AbortError";
@@ -159,32 +133,6 @@ function isSessionRequiredError(status: number, error: APIError | null) {
   return (
     status === 401 && (error === null || error.code === "session_required")
   );
-}
-
-function isForbiddenError(status: number, error: APIError | null) {
-  return status === 403 || error?.code === "authorization_denied";
-}
-
-function incidentListURL(options: {
-  cursorToken?: string | null;
-  limit: number;
-  search?: string;
-  statusFilter?: IncidentStatusFilter;
-}) {
-  const params = new URLSearchParams();
-  params.set("limit", String(options.limit));
-  const cursorToken = options.cursorToken?.trim() ?? "";
-  if (cursorToken !== "") {
-    params.set("cursor_token", cursorToken);
-  }
-  const search = options.search?.trim() ?? "";
-  if (search !== "") {
-    params.set("search", search);
-  }
-  if (options.statusFilter === "active" || options.statusFilter === "closed") {
-    params.set("status", options.statusFilter);
-  }
-  return `/api/v1/incidents?${params.toString()}`;
 }
 
 function extensionClaimed(
@@ -205,15 +153,41 @@ function creationSessionIdentity(session: SessionData | null) {
 export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const { commitRoute: publishRoute, route, routeRef } = useAppRouteRuntime();
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
+  const directoryControllerRef = useRef<IncidentDirectoryController | null>(
+    null,
+  );
+  const activeRefreshRef = useRef<{
+    controller: AbortController | null;
+    requestID: number;
+  }>({ controller: null, requestID: 0 });
   const commitRoute = useCallback(
     (next: AppRouteState, mode: AppRouteWriteMode) => {
       creationControllerRef.current?.leaveSurface();
+      if (
+        next.incidentId !== "" ||
+        next.deploymentAdministration ||
+        next.debugHarness
+      ) {
+        directoryControllerRef.current?.setActive(false);
+      }
+      activeRefreshRef.current.controller?.abort();
       publishRoute(next, mode);
     },
     [publishRoute],
   );
   useEffect(() => {
-    const leaveCreation = () => creationControllerRef.current?.leaveSurface();
+    const leaveCreation = () => {
+      creationControllerRef.current?.leaveSurface();
+      const next = readAppRouteState();
+      if (
+        next.incidentId !== "" ||
+        next.deploymentAdministration ||
+        next.debugHarness
+      ) {
+        directoryControllerRef.current?.setActive(false);
+      }
+      activeRefreshRef.current.controller?.abort();
+    };
     window.addEventListener("popstate", leaveCreation);
     return () => window.removeEventListener("popstate", leaveCreation);
   }, []);
@@ -235,6 +209,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       creationSessionIdentity(next)
     ) {
       creationControllerRef.current?.setSession(creationSessionIdentity(next));
+      directoryControllerRef.current?.setSession(creationSessionIdentity(next));
     }
     sessionRef.current = next;
     publishSession(next);
@@ -246,13 +221,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       }),
     [setSession],
   );
-  const [, setCredentialState] = useState<CredentialState | null>(null);
   const [accountPreferences, setAccountPreferences] =
     useState<AccountPreferencesResource | null>(null);
   const [credentialError, setCredentialError] = useState<APIError | null>(null);
-  const [incidents, setIncidents] = useState<IncidentData[]>([]);
-  const [incidentsPaging, setIncidentsPaging] =
-    useState<PagingMeta>(emptyIncidentsPaging);
   const [extensionProfiles, setExtensionProfiles] = useState<
     ExtensionProfileResource[]
   >([]);
@@ -347,32 +318,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   });
   const [referencePackJob, setReferencePackJob] =
     useState<ReferencePackJobResource | null>(null);
-  const [incidentSearch, setIncidentSearch] = useState("");
-  const [incidentStatusFilter, setIncidentStatusFilter] =
-    useState<IncidentStatusFilter>("all");
-  const incidentSearchRef = useRef(incidentSearch);
-  const incidentStatusFilterRef = useRef(incidentStatusFilter);
-  const lastLoadedIncidentDirectoryScopeRef = useRef<{
-    search: string;
-    statusFilter: IncidentStatusFilter;
-  }>({
-    search: "",
-    statusFilter: "all",
-  });
-  const incidentDirectoryControlsTouchedRef = useRef(false);
-  const suppressRootIncidentAutoOpenRef = useRef(false);
-  const activeRefreshRef = useRef<{
-    controller: AbortController | null;
-    requestID: number;
-  }>({
-    controller: null,
-    requestID: 0,
-  });
-
-  sessionRef.current = session;
-  incidentSearchRef.current = incidentSearch;
-  incidentStatusFilterRef.current = incidentStatusFilter;
-
   const refreshShell = useCallback(
     async (options: ShellRefreshOptions) => {
       const requestID = activeRefreshRef.current.requestID + 1;
@@ -389,7 +334,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         activeRefreshRef.current.controller === controller &&
         !controller.signal.aborted;
 
-      const hadSessionAtRefreshStart = sessionRef.current !== null;
+      const hadSessionAtRefreshStart =
+        sessionRef.current !== null || options.anonymousMessage !== undefined;
 
       if (!hadSessionAtRefreshStart) {
         setAppBootstrapState("loading");
@@ -412,11 +358,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         if (!sessionResult.ok) {
           const sessionError = extractError(sessionResult.payload);
           setSession(null);
-          setCredentialState(null);
           setAccountPreferences(null);
           setCredentialError(null);
-          setIncidents([]);
-          setIncidentsPaging(emptyIncidentsPaging);
           setExtensionProfiles([]);
           setReferencePackJob(null);
           setLandingNotice(null);
@@ -445,107 +388,46 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
 
         const nextSession = (sessionResult.payload as { data: SessionData })
           .data;
-        const deploymentRouteDenied =
-          options.routeSnapshot.deploymentAdministration &&
-          !nextSession.is_deployment_admin;
-        const effectiveRouteSnapshot = deploymentRouteDenied
-          ? {
-              incidentId: "",
-              debugHarness: false,
-              deploymentAdministration: false,
-              manualIncidentDirectory: false,
-            }
-          : options.routeSnapshot;
-        const shouldLoadIncidentDirectory =
-          !effectiveRouteSnapshot.deploymentAdministration;
-        const directoryScope = {
-          search: incidentSearchRef.current.trim(),
-          statusFilter: incidentStatusFilterRef.current,
-        };
-        const [
+        // Invalidate account-scoped operations as soon as replacement authentication
+        // is observed, before any supporting bootstrap requests can settle.
+        if (
+          sessionRef.current !== null &&
+          creationSessionIdentity(sessionRef.current) !==
+            creationSessionIdentity(nextSession)
+        ) {
+          setSession(nextSession);
+          setAccountPreferences(null);
+          setCredentialError(null);
+          setExtensionProfiles([]);
+          setReferencePackJob(null);
+        }
+        const [credentialResult, preferencesResult, extensionsResult] =
+          await Promise.all([
+            loadCredentialState({ signal: controller.signal }),
+            loadAccountPreferences({ signal: controller.signal }),
+            loadExtensions({ signal: controller.signal }),
+          ]);
+        if (!canCommit()) return;
+        const nextCredentialError = extractError(credentialResult.payload);
+        const preferencesError = extractError(preferencesResult.payload);
+        const extensionsError = extractError(extensionsResult.payload);
+        const sessionFailure = [
           credentialResult,
           preferencesResult,
           extensionsResult,
-          bootstrapIncidentsResult,
-          incidentsResult,
-        ] = await Promise.all([
-          loadCredentialState({
-            signal: controller.signal,
-          }),
-          loadAccountPreferences({ signal: controller.signal }),
-          loadExtensions({ signal: controller.signal }),
-          shouldLoadIncidentDirectory
-            ? fetchJSON<IncidentListEnvelope>(
-                incidentListURL({ limit: 2, statusFilter: "all" }),
-                { signal: controller.signal },
-              )
-            : Promise.resolve(null),
-          shouldLoadIncidentDirectory
-            ? fetchJSON<IncidentListEnvelope>(
-                incidentListURL({
-                  limit: 100,
-                  search: directoryScope.search,
-                  statusFilter: directoryScope.statusFilter,
-                }),
-                { signal: controller.signal },
-              )
-            : Promise.resolve(null),
-        ]);
-        if (!canCommit()) {
-          return;
-        }
-
-        const incidentsError =
-          incidentsResult === null
-            ? null
-            : extractError(incidentsResult.payload);
-        const bootstrapIncidentsError =
-          bootstrapIncidentsResult === null
-            ? null
-            : extractError(bootstrapIncidentsResult.payload);
-        const extensionsError = extractError(extensionsResult.payload);
-        const nextCredentialError = extractError(credentialResult.payload);
-        const preferencesError = extractError(preferencesResult.payload);
-
-        if (
-          (!credentialResult.ok &&
-            isSessionRequiredError(
-              credentialResult.status,
-              nextCredentialError,
-            )) ||
-          (!extensionsResult.ok &&
-            isSessionRequiredError(extensionsResult.status, extensionsError)) ||
-          (!preferencesResult.ok &&
-            isSessionRequiredError(
-              preferencesResult.status,
-              preferencesError,
-            )) ||
-          (bootstrapIncidentsResult !== null &&
-            !bootstrapIncidentsResult.ok &&
-            isSessionRequiredError(
-              bootstrapIncidentsResult.status,
-              bootstrapIncidentsError,
-            )) ||
-          (incidentsResult !== null &&
-            !incidentsResult.ok &&
-            isSessionRequiredError(incidentsResult.status, incidentsError))
-        ) {
+        ].find(
+          (result) =>
+            !result.ok &&
+            isSessionRequiredError(result.status, extractError(result.payload)),
+        );
+        if (sessionFailure) {
           setSession(null);
-          setCredentialState(null);
           setAccountPreferences(null);
           setCredentialError(null);
-          setIncidents([]);
-          setIncidentsPaging(emptyIncidentsPaging);
           setExtensionProfiles([]);
           setReferencePackJob(null);
           setLandingNotice(null);
-          setError(
-            nextCredentialError ??
-              extensionsError ??
-              preferencesError ??
-              bootstrapIncidentsError ??
-              incidentsError,
-          );
+          setError(extractError(sessionFailure.payload));
           setAuthPrompt(
             options.anonymousMessage ?? defaultRevokedSessionMessage,
           );
@@ -553,185 +435,46 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           setLandingRefreshState("idle");
           return;
         }
-
-        if (
-          !extensionsResult.ok ||
-          (bootstrapIncidentsResult !== null && !bootstrapIncidentsResult.ok) ||
-          (incidentsResult !== null && !incidentsResult.ok)
-        ) {
-          setSession(nextSession);
-          setCredentialState(
-            credentialResult.ok
-              ? (credentialResult.payload as { data: CredentialState }).data
-              : null,
-          );
-          setAccountPreferences(
-            preferencesResult.ok
-              ? (
-                  preferencesResult.payload as {
-                    data: AccountPreferencesResource;
-                  }
-                ).data
-              : null,
-          );
-          setCredentialError(nextCredentialError);
-          setIncidents([]);
-          setIncidentsPaging(emptyIncidentsPaging);
+        setSession(nextSession);
+        setAccountPreferences(
+          preferencesResult.ok ? preferencesResult.payload.data : null,
+        );
+        setCredentialError(nextCredentialError);
+        setAuthPrompt(defaultAuthPrompt);
+        if (!extensionsResult.ok || !credentialResult.ok) {
           setExtensionProfiles([]);
           setReferencePackJob(null);
-          setLandingNotice(options.landingNotice ?? null);
-          setError(
-            extensionsError ?? bootstrapIncidentsError ?? incidentsError,
-          );
-          setAuthPrompt(defaultAuthPrompt);
-          setAppBootstrapState(
-            incidentsResult !== null &&
-              isForbiddenError(incidentsResult.status, incidentsError)
-              ? "forbidden"
-              : "public_error_envelope",
-          );
-          setLandingRefreshState("failed");
-          return;
-        }
-
-        if (!credentialResult.ok) {
-          setSession(nextSession);
-          setCredentialState(null);
-          setAccountPreferences(
-            preferencesResult.ok
-              ? (
-                  preferencesResult.payload as {
-                    data: AccountPreferencesResource;
-                  }
-                ).data
-              : null,
-          );
-          setCredentialError(nextCredentialError);
-          setIncidents([]);
-          setIncidentsPaging(emptyIncidentsPaging);
-          setExtensionProfiles([]);
-          setReferencePackJob(null);
-          setLandingNotice(options.landingNotice ?? null);
-          setError(nextCredentialError);
-          setAuthPrompt(defaultAuthPrompt);
+          setError(extensionsError ?? nextCredentialError ?? preferencesError);
           setAppBootstrapState("public_error_envelope");
           setLandingRefreshState("failed");
           return;
         }
-
-        const nextCredentialState = credentialResult.ok
-          ? (credentialResult.payload as { data: CredentialState }).data
-          : null;
-        const nextAccountPreferences = preferencesResult.ok
-          ? (preferencesResult.payload as { data: AccountPreferencesResource })
-              .data
-          : null;
-        const nextIncidents =
-          incidentsResult === null
-            ? []
-            : (incidentsResult.payload as IncidentListEnvelope).data.incidents;
-        const nextIncidentsPaging =
-          incidentsResult === null
-            ? emptyIncidentsPaging
-            : (incidentsResult.payload as IncidentListEnvelope).meta.paging;
-        const nextBootstrapIncidents =
-          bootstrapIncidentsResult === null
-            ? []
-            : (bootstrapIncidentsResult.payload as IncidentListEnvelope).data
-                .incidents;
-        const nextBootstrapPaging =
-          bootstrapIncidentsResult === null
-            ? emptyIncidentsPaging
-            : (bootstrapIncidentsResult.payload as IncidentListEnvelope).meta
-                .paging;
-        const nextExtensionProfiles = (
-          extensionsResult.payload as {
-            data: { extensions: ExtensionProfileResource[] };
-          }
-        ).data.extensions;
-        if (shouldLoadIncidentDirectory) {
-          lastLoadedIncidentDirectoryScopeRef.current = directoryScope;
-        }
-
-        let nextRoute: AppRouteState | null = null;
-        let nextLandingNotice = options.landingNotice ?? null;
-        if (deploymentRouteDenied) {
-          nextRoute = {
-            incidentId: "",
-            debugHarness: false,
-            deploymentAdministration: false,
-            manualIncidentDirectory: false,
-          };
-          nextLandingNotice =
-            options.landingNotice ??
-            "Deployment administration requires deployment admin access.";
-        } else if (shouldLoadIncidentDirectory) {
-          const suppressRootIncidentAutoOpen =
-            effectiveRouteSnapshot.incidentId === "" &&
-            suppressRootIncidentAutoOpenRef.current;
-          const requestedIncidentStillVisible =
-            effectiveRouteSnapshot.incidentId === "" ||
-            nextBootstrapIncidents.some(
-              (incident) =>
-                incident.incident_id === effectiveRouteSnapshot.incidentId,
-            );
-          const rootIncidentID =
-            effectiveRouteSnapshot.incidentId === "" &&
-            !effectiveRouteSnapshot.debugHarness &&
-            !effectiveRouteSnapshot.manualIncidentDirectory &&
-            !suppressRootIncidentAutoOpen &&
-            nextBootstrapIncidents.length === 1 &&
-            !nextBootstrapPaging.has_more
-              ? (nextBootstrapIncidents[0]?.incident_id ?? "")
-              : "";
-          nextRoute =
-            rootIncidentID !== ""
-              ? {
-                  incidentId: rootIncidentID,
-                  debugHarness: false,
-                  deploymentAdministration: false,
-                  manualIncidentDirectory: false,
-                }
-              : requestedIncidentStillVisible
-                ? null
-                : {
-                    incidentId: "",
-                    debugHarness: effectiveRouteSnapshot.debugHarness,
-                    deploymentAdministration: false,
-                    manualIncidentDirectory:
-                      effectiveRouteSnapshot.manualIncidentDirectory,
-                  };
-          nextLandingNotice =
-            nextRoute !== null
-              ? (options.landingNotice ?? defaultStaleIncidentMessage)
-              : (options.landingNotice ?? null);
-        }
-
-        setSession(nextSession);
-        setCredentialState(nextCredentialState);
-        setAccountPreferences(nextAccountPreferences);
-        setCredentialError(nextCredentialError);
-        setIncidents(nextIncidents);
-        setIncidentsPaging(nextIncidentsPaging);
+        const nextExtensionProfiles = extensionsResult.payload.data.extensions;
         setExtensionProfiles(nextExtensionProfiles);
+        const deploymentRouteDenied =
+          options.routeSnapshot.deploymentAdministration &&
+          !nextSession.is_deployment_admin;
         if (
           deploymentRouteDenied ||
           !extensionClaimed(nextExtensionProfiles, "reference_pack")
-        ) {
+        )
           setReferencePackJob(null);
-        }
-        incidentDirectoryControlsTouchedRef.current = false;
-        if (deploymentRouteDenied) {
-          setActiveDeploymentPanel("deployment-users");
-        }
-        setLandingNotice(nextLandingNotice);
         setError(null);
-        setAuthPrompt(defaultAuthPrompt);
         setAppBootstrapState("authenticated");
         setLandingRefreshState("idle");
-
-        if (nextRoute !== null) {
-          commitRoute(nextRoute, "replace");
+        if (deploymentRouteDenied) {
+          setActiveDeploymentPanel("deployment-users");
+          setLandingNotice(
+            "Deployment administration requires deployment admin access.",
+          );
+          commitRoute(
+            {
+              incidentId: "",
+              debugHarness: false,
+              deploymentAdministration: false,
+            },
+            "replace",
+          );
         }
       } catch (error) {
         if (isAbortError(error) || !canCommit()) {
@@ -739,11 +482,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         }
         if (sessionRef.current === null) {
           setSession(null);
-          setCredentialState(null);
           setAccountPreferences(null);
           setCredentialError(null);
-          setIncidents([]);
-          setIncidentsPaging(emptyIncidentsPaging);
           setExtensionProfiles([]);
           setReferencePackJob(null);
           setLandingNotice(null);
@@ -766,8 +506,16 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const getCurrentRoute = useCallback(() => routeRef.current, [routeRef]);
 
   const refreshCurrentShell = useCallback(
-    (options?: { anonymousMessage?: string }) =>
-      refreshShell({
+    (options?: { anonymousMessage?: string }) => {
+      if (options?.anonymousMessage !== undefined) {
+        // Successful sign-out or credential replacement ends this lifetime now.
+        setSession(null);
+        setAccountPreferences(null);
+        setCredentialError(null);
+        setExtensionProfiles([]);
+        setReferencePackJob(null);
+      }
+      return refreshShell({
         routeSnapshot: getCurrentRoute(),
         landingNotice: null,
         ...(typeof options?.anonymousMessage === "string"
@@ -775,154 +523,56 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               anonymousMessage: options.anonymousMessage,
             }
           : {}),
-      }),
-    [getCurrentRoute, refreshShell],
-  );
-
-  useEffect(() => {
-    return () => {
-      activeRefreshRef.current.controller?.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    const routeSnapshot = {
-      debugHarness: route.debugHarness,
-      deploymentAdministration: route.deploymentAdministration,
-      incidentId: route.incidentId,
-      manualIncidentDirectory: route.manualIncidentDirectory,
-    };
-    if (routeSnapshot.debugHarness) {
-      activeRefreshRef.current.controller?.abort();
-      return;
-    }
-    if (routeSnapshot.incidentId !== "" && sessionRef.current !== null) {
-      return;
-    }
-    void refreshShell({
-      routeSnapshot,
-      landingNotice: null,
-    });
-  }, [
-    route.debugHarness,
-    route.deploymentAdministration,
-    route.incidentId,
-    route.manualIncidentDirectory,
-    refreshShell,
-  ]);
-
-  useEffect(() => {
-    const currentRoute = getCurrentRoute();
-    if (
-      sessionRef.current === null ||
-      currentRoute.incidentId !== "" ||
-      currentRoute.deploymentAdministration
-    ) {
-      return;
-    }
-    if (!incidentDirectoryControlsTouchedRef.current) {
-      return;
-    }
-    const nextScope = {
-      search: incidentSearch.trim(),
-      statusFilter: incidentStatusFilter,
-    };
-    const lastLoadedScope = lastLoadedIncidentDirectoryScopeRef.current;
-    if (
-      nextScope.search === lastLoadedScope.search &&
-      nextScope.statusFilter === lastLoadedScope.statusFilter
-    ) {
-      incidentDirectoryControlsTouchedRef.current = false;
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      if (!incidentDirectoryControlsTouchedRef.current) {
-        return;
-      }
-      void refreshShell({
-        routeSnapshot: getCurrentRoute(),
-        landingNotice: null,
       });
-    }, 180);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [getCurrentRoute, incidentSearch, incidentStatusFilter, refreshShell]);
+    },
+    [getCurrentRoute, refreshShell, setSession],
+  );
 
-  const handleIncidentSearchChange = useCallback((value: string) => {
-    incidentDirectoryControlsTouchedRef.current = true;
-    setIncidentSearch(value);
+  useEffect(() => {
+    return () => {
+      activeRefreshRef.current.controller?.abort();
+    };
   }, []);
 
-  const handleIncidentSearchSubmit = useCallback(
-    () =>
-      refreshShell({
-        routeSnapshot: getCurrentRoute(),
-        landingNotice: null,
-      }),
-    [getCurrentRoute, refreshShell],
-  );
-
-  const handleIncidentStatusFilterChange = useCallback(
-    (value: IncidentStatusFilter) => {
-      incidentDirectoryControlsTouchedRef.current = true;
-      setIncidentStatusFilter(value);
-    },
-    [],
-  );
-
-  const handleLoadMoreIncidents = useCallback(async () => {
-    const cursorToken = incidentsPaging.next_cursor;
-    if (!incidentsPaging.has_more || cursorToken === null) {
+  const previousDebugHarnessRef = useRef(false);
+  useEffect(() => {
+    const returningFromDebug = previousDebugHarnessRef.current;
+    previousDebugHarnessRef.current = route.debugHarness;
+    if (route.debugHarness) return;
+    if (
+      sessionRef.current !== null &&
+      !route.deploymentAdministration &&
+      !returningFromDebug
+    )
       return;
-    }
-    incidentDirectoryControlsTouchedRef.current = false;
-    setLandingRefreshState("loading");
-    const result = await fetchJSON<IncidentListEnvelope>(
-      incidentListURL({
-        limit: incidentsPaging.limit,
-        cursorToken,
-        search: lastLoadedIncidentDirectoryScopeRef.current.search,
-        statusFilter: lastLoadedIncidentDirectoryScopeRef.current.statusFilter,
-      }),
-    );
-    const nextError = extractError(result.payload);
-    if (!result.ok) {
-      setError(nextError);
-      setLandingNotice("Failed to load more incidents.");
-      setAppBootstrapState(
-        isSessionRequiredError(result.status, nextError)
-          ? "revoked"
-          : isForbiddenError(result.status, nextError)
-            ? "forbidden"
-            : "public_error_envelope",
-      );
-      if (isSessionRequiredError(result.status, nextError)) {
-        setSession(null);
-        setCredentialState(null);
-        setAccountPreferences(null);
-        setCredentialError(null);
-        setIncidents([]);
-        setIncidentsPaging(emptyIncidentsPaging);
-        setReferencePackJob(null);
-        setAuthPrompt(defaultRevokedSessionMessage);
-      }
-      setLandingRefreshState("failed");
-      return;
-    }
-    const envelope = result.payload as IncidentListEnvelope;
-    setIncidents((current) => [...current, ...envelope.data.incidents]);
-    setIncidentsPaging(envelope.meta.paging);
+    void refreshShell({ routeSnapshot: route, landingNotice: null });
+  }, [route, refreshShell]);
+
+  const handleSessionLost = useCallback(() => {
+    activeRefreshRef.current.controller?.abort();
+    activeRefreshRef.current.requestID += 1;
+    setSession(null);
+    setAccountPreferences(null);
+    setCredentialError(null);
+    setExtensionProfiles([]);
+    setReferencePackJob(null);
     setError(null);
     setLandingNotice(null);
-    setAppBootstrapState("authenticated");
     setLandingRefreshState("idle");
-  }, [
-    incidentsPaging.has_more,
-    incidentsPaging.limit,
-    incidentsPaging.next_cursor,
-    setSession,
-  ]);
+    setAppBootstrapState("revoked");
+    setAuthPrompt(defaultRevokedSessionMessage);
+  }, [setSession]);
+  const directory = useIncidentDirectory({
+    sessionIdentity: creationSessionIdentity(session),
+    active:
+      session !== null &&
+      appBootstrapState === "authenticated" &&
+      route.incidentId === "" &&
+      !route.deploymentAdministration &&
+      !route.debugHarness,
+    sessionLost: handleSessionLost,
+  });
+  directoryControllerRef.current = directory.controller;
 
   const currentUserLabel = useMemo(() => {
     if (session === null) {
@@ -949,18 +599,19 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         : landingRefreshState === "failed" || error !== null
           ? "Failed to load deployment administration."
           : "Deployment administration ready."
-      : appBootstrapState === "forbidden"
-        ? "Access to visible incidents is denied."
-        : appBootstrapState === "public_error_envelope" && error !== null
+      : directory.state.failure !== null
+        ? directory.state.failure.message
+        : error !== null
           ? (publicErrorView(error)?.statusText ??
             "Failed to load visible incidents.")
-          : landingRefreshState === "loading"
+          : directoryIsLoading(directory.state) ||
+              directory.state.phase === "debouncing"
             ? "Searching visible incidents…"
-            : landingRefreshState === "failed" || error !== null
-              ? "Failed to load visible incidents."
-              : incidents.length === 0
+            : directory.state.phase !== "ready"
+              ? "Loading visible incidents…"
+              : directory.state.incidents.length === 0
                 ? "No visible incidents yet."
-                : `Loaded ${incidents.length} incident${incidents.length === 1 ? "" : "s"}${incidentsPaging.has_more ? "; more available." : "."}`);
+                : `Loaded ${directory.state.incidents.length} incident${directory.state.incidents.length === 1 ? "" : "s"}${directory.state.paging?.has_more ? "; more available." : "."}`);
   const availableDeploymentPanels = useMemo(() => {
     const panels: LandingAdminPanelDescriptor[] = [];
     if (session?.is_deployment_admin) {
@@ -1029,9 +680,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         incidentId,
         debugHarness: false,
         deploymentAdministration: false,
-        manualIncidentDirectory: false,
       };
-      suppressRootIncidentAutoOpenRef.current = false;
       setLandingNotice(null);
       commitRoute(nextRoute, "push");
     },
@@ -1043,9 +692,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       incidentId: "",
       debugHarness: false,
       deploymentAdministration: false,
-      manualIncidentDirectory: true,
     };
-    suppressRootIncidentAutoOpenRef.current = true;
     setLandingNotice(null);
     commitRoute(nextRoute, "push");
   }, [commitRoute]);
@@ -1056,9 +703,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         incidentId: "",
         debugHarness: false,
         deploymentAdministration: false,
-        manualIncidentDirectory: true,
       };
-      suppressRootIncidentAutoOpenRef.current = false;
       setLandingNotice(
         "Deployment administration requires deployment admin access.",
       );
@@ -1069,37 +714,15 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       incidentId: "",
       debugHarness: false,
       deploymentAdministration: true,
-      manualIncidentDirectory: false,
     };
-    suppressRootIncidentAutoOpenRef.current = false;
     setLandingNotice(null);
     setActiveDeploymentPanel("deployment-users");
     commitRoute(nextRoute, "push");
   }, [commitRoute]);
 
-  const handleCreationSessionLost = useCallback(() => {
-    activeRefreshRef.current.controller?.abort();
-    activeRefreshRef.current.requestID += 1;
-    creationControllerRef.current?.setSession(null);
-    sessionRef.current = null;
-    setSession(null);
-    setCredentialState(null);
-    setAccountPreferences(null);
-    setCredentialError(null);
-    setIncidents([]);
-    setIncidentsPaging(emptyIncidentsPaging);
-    setExtensionProfiles([]);
-    setReferencePackJob(null);
-    setError(null);
-    setLandingNotice(null);
-    setLandingRefreshState("idle");
-    setAppBootstrapState("revoked");
-    setAuthPrompt(defaultRevokedSessionMessage);
-  }, [setSession]);
-
   const creation = useIncidentCreation({
     sessionIdentity: creationSessionIdentity(session),
-    sessionLost: handleCreationSessionLost,
+    sessionLost: handleSessionLost,
     openIncident: async (incident, signal, canNavigate) => {
       if (!canNavigate()) return "cancelled";
       const identity = creationSessionIdentity(sessionRef.current);
@@ -1107,19 +730,14 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       if (!canNavigate()) return "cancelled";
       if (!result.ok) {
         if (isSessionRequiredError(result.status, extractError(result.payload)))
-          handleCreationSessionLost();
+          handleSessionLost();
         return "unavailable";
       }
       const nextSession = (result.payload as { data: SessionData }).data;
       if (creationSessionIdentity(nextSession) !== identity) {
-        creationControllerRef.current?.setSession(
-          creationSessionIdentity(nextSession),
-        );
-        sessionRef.current = nextSession;
         setSession(nextSession);
         return "cancelled";
       }
-      sessionRef.current = nextSession;
       setSession(nextSession);
       if (
         !nextSession.memberships.some(
@@ -1131,38 +749,25 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       activeRefreshRef.current.controller?.abort();
       activeRefreshRef.current.requestID += 1;
       setLandingRefreshState("idle");
-      setIncidents((current) => upsertIncident(current, incident));
       openIncident(incident.incident_id);
       return "opened";
     },
   });
   creationControllerRef.current = creation.controller;
-  useLayoutEffect(() => {
-    if (creation.state.open) suppressRootIncidentAutoOpenRef.current = true;
-  }, [creation.state.open]);
-
   const handleIncidentAccessLost = useCallback(() => {
-    void refreshShell({
-      routeSnapshot: getCurrentRoute(),
-      landingNotice: accessLostLandingNotice,
-    });
-  }, [getCurrentRoute, refreshShell]);
-
-  const handleIncidentSnapshot = useCallback((incident: IncidentData) => {
-    setIncidents((current) => upsertIncident(current, incident));
-  }, []);
-
-  const handleReturnToLanding = useCallback(() => {
-    const nextRoute = {
-      incidentId: "",
-      debugHarness: false,
-      deploymentAdministration: false,
-      manualIncidentDirectory: true,
+    if (readAppRouteState().incidentId !== route.incidentId) return;
+    directoryControllerRef.current?.setActive(false);
+    navigationFocusRequestRef.current = {
+      destination: "incidents",
+      accountId: sessionRef.current?.user_id ?? "",
+      originIdentity: accountNavigationIdentity,
     };
-    suppressRootIncidentAutoOpenRef.current = true;
-    setLandingNotice("Returned to incident landing.");
-    commitRoute(nextRoute, "push");
-  }, [commitRoute]);
+    setLandingNotice(accessLostLandingNotice);
+    commitRoute(
+      { incidentId: "", debugHarness: false, deploymentAdministration: false },
+      "replace",
+    );
+  }, [accountNavigationIdentity, commitRoute, route.incidentId]);
 
   const renderAccountMenu = useCallback(
     (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
@@ -1333,7 +938,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
                 renderAccountMenu("workbook", {
                   currentIncidentRole,
                   incidentControls,
-                  onOpenIncidentDirectory: handleReturnToLanding,
+                  onOpenIncidentDirectory: navigateToIncidentDirectory,
                   triggerTestId: appRouteTestId("workbook-current-user"),
                 })
               }
@@ -1341,7 +946,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               incidentId={route.incidentId}
               extensionProfiles={extensionProfiles}
               onIncidentAccessLost={handleIncidentAccessLost}
-              onIncidentSnapshot={handleIncidentSnapshot}
               renderIncidentControls={(props) => (
                 <IncidentAdminPanel {...props} />
               )}
@@ -1405,16 +1009,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         }
         message={authPrompt}
         onAuthenticated={async () => {
-          const nextRoute = {
-            incidentId: "",
-            debugHarness: false,
-            deploymentAdministration: false,
-            manualIncidentDirectory: false,
-          };
-          suppressRootIncidentAutoOpenRef.current = false;
-          commitRoute(nextRoute, "replace");
           await refreshShell({
-            routeSnapshot: nextRoute,
+            routeSnapshot: getCurrentRoute(),
             landingNotice: null,
           });
         }}
@@ -1514,22 +1110,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               creation={creation}
               bootstrapState={appBootstrapState}
               error={error}
-              hasMoreIncidents={incidentsPaging.has_more}
-              incidents={incidents}
-              incidentSearch={incidentSearch}
-              incidentStatusFilter={incidentStatusFilter}
-              isRefreshing={landingRefreshState === "loading"}
-              onLoadMore={handleLoadMoreIncidents}
+              directory={directory}
               onOpenIncident={openIncident}
-              onRefresh={() => {
-                void refreshShell({
-                  routeSnapshot: getCurrentRoute(),
-                  landingNotice: null,
-                });
-              }}
-              onSearchChange={handleIncidentSearchChange}
-              onSearchSubmit={handleIncidentSearchSubmit}
-              onStatusFilterChange={handleIncidentStatusFilterChange}
               statusText={landingStatusText}
             />
           </section>

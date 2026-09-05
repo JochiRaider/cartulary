@@ -2,7 +2,6 @@ export type AppRouteState = {
   incidentId: string;
   debugHarness: boolean;
   deploymentAdministration: boolean;
-  manualIncidentDirectory: boolean;
 };
 
 export type AppRouteWriteMode = "push" | "replace";
@@ -14,17 +13,13 @@ export type AppRouteLocation = {
 
 type BrowserHistoryWriter = Pick<History, "pushState" | "replaceState">;
 
-const incidentDirectoryHistoryFlag = "cartularyIncidentDirectory";
-
 export const emptyAppRouteState: AppRouteState = {
   incidentId: "",
   debugHarness: false,
   deploymentAdministration: false,
-  manualIncidentDirectory: false,
 };
 
 export function parseAppRouteState(options: {
-  historyState?: unknown;
   pathname: string;
   search: string;
 }): AppRouteState {
@@ -34,26 +29,17 @@ export function parseAppRouteState(options: {
   const incidentId = deploymentAdministration
     ? ""
     : (params.get("incident_id") ?? "").trim();
-  const historyState =
-    typeof options.historyState === "object" && options.historyState !== null
-      ? (options.historyState as Record<string, unknown>)
-      : null;
 
   return {
     incidentId,
     debugHarness:
       !deploymentAdministration && params.get("debug") === "harness",
     deploymentAdministration,
-    manualIncidentDirectory:
-      !deploymentAdministration &&
-      incidentId === "" &&
-      historyState?.[incidentDirectoryHistoryFlag] === true,
   };
 }
 
 export function readAppRouteState(): AppRouteState {
   return parseAppRouteState({
-    historyState: window.history.state,
     pathname: window.location.pathname,
     search: window.location.search,
   });
@@ -64,10 +50,26 @@ export function buildAppRouteLocation(
   currentSearch: string,
 ): AppRouteLocation {
   const params = new URLSearchParams(currentSearch);
+  // Sheet selection belongs to one incident. Application navigation starts a
+  // fresh workbook context; sign-in at an explicit URL does not rewrite it.
+  if (
+    next.deploymentAdministration ||
+    next.incidentId === "" ||
+    next.incidentId !== params.get("incident_id")
+  ) {
+    for (const key of [
+      "view_schema_id",
+      "sheet_ref_kind",
+      "sheet_ref_id",
+      "extension_profile_id",
+      "workspace_key",
+      "surface",
+    ])
+      params.delete(key);
+  }
 
   if (next.deploymentAdministration) {
     params.delete("incident_id");
-    params.delete("surface");
     params.delete("debug");
     const query = params.toString();
     return {
@@ -81,7 +83,6 @@ export function buildAppRouteLocation(
 
   if (next.incidentId === "") {
     params.delete("incident_id");
-    params.delete("surface");
   } else {
     params.set("incident_id", next.incidentId);
   }
@@ -94,9 +95,7 @@ export function buildAppRouteLocation(
 
   const query = params.toString();
   return {
-    historyState: next.manualIncidentDirectory
-      ? { [incidentDirectoryHistoryFlag]: true }
-      : {},
+    historyState: {},
     url: query === "" ? "/" : `/?${query}`,
   };
 }

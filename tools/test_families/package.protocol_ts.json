@@ -140,7 +140,8 @@
       "selector": {
         "file": "packages/protocol-ts/src/index.test.ts",
         "titles": [
-          "@cartulary/protocol-ts family conformance exposes deterministic generated HTTP operation bindings without payload leakage"
+          "@cartulary/protocol-ts family conformance exposes deterministic generated HTTP operation bindings without payload leakage",
+          "@cartulary/protocol-ts family conformance requires complete incident paging and consistent continuation metadata"
         ]
       },
       "evidence_class": "unit",

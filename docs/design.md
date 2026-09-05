@@ -658,13 +658,15 @@ Non-goal. Deployment administration is not a general deployment console. It MUST
 
 Core restatement. Core 01 §3.3.2.1A owns authenticated-root selection and incident visibility. This subsection owns only presentation of the owner result.
 
-Design contract. Authenticated-root presentation MUST use the exhaustive table below. The visible-incident count is evaluated after authorization filtering. Loading and failed discovery are not count cases and MUST use their typed loading or error presentation.
+Design contract. Authenticated-root presentation MUST use the exhaustive table below. All rows and counts derive from authorized list responses. Root entry MUST NOT require separate count discovery. Loading and failed discovery are not count cases and MUST use their typed loading or error presentation.
 
 | Visible incident count | Required presentation | Active destination | Omission behavior |
 | ---: | --- | --- | --- |
 | `0` | Successful incident directory with heading `Incidents`, an explicit empty-state message, and the owner-authorized create action when creation is allowed. | `/` | No error, missing-incident placeholder, or empty workbook is rendered. |
-| `1` | Open the sole visible incident workbook through ordinary Core 03 startup selection. | Sole incident; no explicit launch `sheet_ref`. | The directory card grid is omitted. |
+| `1` | Incident directory with one stable-identity entry and an explicit Open action. | `/` until explicit selection. | No incident is auto-selected. |
 | `2` or more | Incident directory with one stable-identity entry per visible incident. | `/` until explicit selection. | No incident is auto-selected. |
+
+Design contract. Search controls MUST remain editable while a directory request is pending. Previous accepted rows retained during refresh, replacement, or ordinary failure MUST be identified as previous results. Load more MUST be unavailable while a replacement query is pending. Initial, replacement, and pagination failures MUST offer local recovery without presenting a successful empty result. Directory activity MUST NOT replace a creation draft or move focus away from its current control. Returning to the directory restores the current session's query and loads a fresh first page; no query or creation recovery is promised across reload or session replacement.
 
 Design contract. Transition from permission or incident-access loss to `/` MUST clear protected incident materialization before the root presentation is rendered. Focus MUST move to the authenticated-root `Incidents` heading after navigation completes.
 

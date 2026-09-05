@@ -142,7 +142,12 @@ export function LandingAdminShell({
       <header style={landingAdminHeaderStyle}>
         <div style={brandBlockStyle}>
           <p style={landingEyebrowStyle}>Cartulary</p>
-          <h1 ref={headingRef} tabIndex={-1} style={landingAdminTitleStyle}>
+          <h1
+            data-testid={landingAdminShellTestId("heading")}
+            ref={headingRef}
+            tabIndex={-1}
+            style={landingAdminTitleStyle}
+          >
             Deployment administration
           </h1>
         </div>
@@ -204,7 +209,12 @@ export function IncidentDirectoryShell({
       <header style={landingAdminHeaderStyle}>
         <div style={brandBlockStyle}>
           <p style={landingEyebrowStyle}>Cartulary</p>
-          <h1 ref={headingRef} tabIndex={-1} style={landingAdminTitleStyle}>
+          <h1
+            data-testid={landingAdminShellTestId("heading")}
+            ref={headingRef}
+            tabIndex={-1}
+            style={landingAdminTitleStyle}
+          >
             Incident directory
           </h1>
         </div>

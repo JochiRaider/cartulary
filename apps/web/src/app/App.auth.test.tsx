@@ -159,7 +159,7 @@ describe("ordinary app shell", () => {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    await expectStableFetchCount(fetchMock, 11);
+    await expectStableFetchCount(fetchMock, 10);
   });
 
   it("enterprise auth discovery renders provider sign-in and begins with a relative return_to", async () => {
@@ -263,7 +263,7 @@ describe("ordinary app shell", () => {
     );
     expect(credentialErrorText).not.toContain("req-private-credential-detail");
     expect(credentialErrorText).not.toContain("/var/lib/cartulary");
-    await expectStableFetchCount(fetchMock, 8);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("route-boundary auth login errors render public envelopes without private details", async () => {
@@ -354,7 +354,7 @@ describe("ordinary app shell", () => {
         .textContent,
     ).toContain("Reason: not_allowed_for_route");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 8);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
@@ -644,11 +644,13 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(screen.getByTestId(authTestId("login-username"))).toBeTruthy();
     });
-    expect(
-      screen
-        .getByTestId(authTestId("shell"))
-        .getAttribute("data-bootstrap-state"),
-    ).toBe("revoked");
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId(authTestId("shell"))
+          .getAttribute("data-bootstrap-state"),
+      ).toBe("revoked"),
+    );
     expect(screen.getByTestId(publicErrorCodeTestId("auth")).textContent).toBe(
       "Sign in again to continue.",
     );
@@ -823,7 +825,7 @@ describe("ordinary app shell", () => {
         .textContent,
     ).toContain("Field: current_password");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 9);
   });
 
   it("route-boundary logout failures render public envelopes without ending the visible session", async () => {
@@ -872,7 +874,7 @@ describe("ordinary app shell", () => {
     );
     expect(screen.queryByTestId(authTestId("login-username"))).toBeNull();
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("route-boundary bootstrap TOTP complete errors render public envelopes without private details", async () => {
@@ -1079,7 +1081,7 @@ describe("ordinary app shell", () => {
         .textContent,
     ).toContain("Field: code");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 9);
   });
 
   it("ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
@@ -1899,8 +1901,8 @@ describe("ordinary app shell", () => {
               message: "Incident create request is invalid.",
               request_id: "req-private-create",
               details: {
-                reason_code: "unknown_field",
-                field: "debug_field",
+                reason_code: "field_too_long",
+                field: "title",
                 request_id: "req-private-detail",
                 internal_path: "/var/lib/cartulary/incidents.go",
                 sql: "select * from incidents",
@@ -1936,7 +1938,7 @@ describe("ordinary app shell", () => {
         );
       })
       .map(([, init]) => init as RequestInit | undefined);
-    expect(listIncidentRequests).toHaveLength(2);
+    expect(listIncidentRequests).toHaveLength(1);
     for (const listIncidentRequest of listIncidentRequests) {
       expect(listIncidentRequest?.credentials).toBe("include");
       expect(readHeader(listIncidentRequest, "Authorization")).toBe("");
@@ -1964,9 +1966,19 @@ describe("ordinary app shell", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
-      ).toBe("invalid_incident_create");
+        screen.getByTestId(incidentLandingTestId("create-status")).textContent,
+      ).toBe(
+        "The incident was not created. Correct the indicated fields and try again.",
+      );
     });
+    const titleInput = screen.getByTestId(
+      incidentLandingTestId("incident-title"),
+    );
+    expect(titleInput.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(titleInput.getAttribute("aria-describedby") ?? "")
+        ?.textContent,
+    ).toBe("Shorten this value and try again.");
 
     const createRequest = requireJSONRequest(
       fetchMock,
@@ -1992,18 +2004,6 @@ describe("ordinary app shell", () => {
       expect(String(call[0]).startsWith("/api/v1/")).toBe(true);
     }
 
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("landing").message)
-        .textContent,
-    ).toBe("Incident create request is invalid.");
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("landing").details)
-        .textContent,
-    ).toContain("Reason: unknown_field");
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("landing").details)
-        .textContent,
-    ).toContain("Field: debug_field");
     const renderedText = document.body.textContent ?? "";
     expect(renderedText).not.toContain("req-private-create");
     expect(renderedText).not.toContain("req-private-detail");
@@ -2014,7 +2014,7 @@ describe("ordinary app shell", () => {
     expect(renderedText).not.toContain("otpauth://create-private");
     expect(renderedText).not.toContain("private stack");
     expect(renderedText).not.toContain("private-create-detail");
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 6);
   });
 });
 

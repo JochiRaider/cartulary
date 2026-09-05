@@ -380,6 +380,7 @@ describe("@cartulary/ui-contracts application selectors", () => {
     ]);
 
     expectSelectorCases(landingAdminShellTestId, [
+      ["heading", "landing-admin-heading"],
       ["shell", "landing-admin-shell"],
       ["menu", "landing-admin-menu"],
       ["status-strip", "landing-admin-status-strip"],

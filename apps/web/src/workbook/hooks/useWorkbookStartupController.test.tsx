@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useRef } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 import { useWorkbookStartupController } from "./useWorkbookStartupController";
 
@@ -88,6 +88,7 @@ function StartupControllerHarness() {
 }
 
 describe("useWorkbookStartupController", () => {
+  afterEach(cleanup);
   it("owns selection identity, focus intent, versioning, and URL history", () => {
     window.history.replaceState(
       {},
@@ -114,6 +115,24 @@ describe("useWorkbookStartupController", () => {
     expect(window.location.search).toContain(
       "view_schema_id=cartulary.view.hosts.v1",
     );
+  });
+
+  it("keeps sheet URL writes inside the currently selected incident route", () => {
+    for (const destination of [
+      "/",
+      "/?incident_id=incident-2",
+      "/deployment-administration",
+    ]) {
+      window.history.replaceState({}, "", "/?incident_id=incident-1");
+      const view = render(<StartupControllerHarness />);
+      window.history.replaceState({}, "", destination);
+      // The owner has navigated while this workbook is still retiring.
+      fireEvent.click(screen.getByRole("button", { name: "Select Hosts" }));
+      expect(window.location.pathname + window.location.search).toBe(
+        destination,
+      );
+      view.unmount();
+    }
   });
 
   it("uses monotonic generations and exact acknowledgement for repeated selections", () => {

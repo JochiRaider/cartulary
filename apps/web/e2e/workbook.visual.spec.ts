@@ -46,6 +46,7 @@ import {
   incidentControlsTriggerTestId,
   incidentLandingTestId,
   incidentMembershipListTestId,
+  landingAdminShellTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
   mentionResolveExistingButtonTestId,
@@ -6981,21 +6982,21 @@ test("Capture account application menu root and nested Controls across contexts 
   ).toBeFocused();
   await assertViewportVisualRegression(page, "account-menu-workbook-root");
   await page.keyboard.press("Enter");
+  await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
+    "Incident directory",
+  );
   await expect(
-    page.getByRole("heading", { name: "Incident directory", exact: true }),
+    page.getByTestId(landingAdminShellTestId("heading")),
   ).toBeFocused();
-  await page
-    .getByTestId(incidentLandingTestId("search"))
-    .fill("Account menu navigation");
-  // Submit the fixture filter explicitly: initial directory refresh can still
-  // be settling when the heading receives focus, before debounced search runs.
   const filteredDirectory = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
       new URL(response.url()).searchParams.get("search") ===
         "Account menu navigation",
   );
-  await page.getByTestId(incidentLandingTestId("search")).press("Enter");
+  await page
+    .getByTestId(incidentLandingTestId("search"))
+    .fill("Account menu navigation");
   await filteredDirectory;
   await expect(
     page.getByTestId(incidentLandingTestId("incident-list")).getByRole("row"),
@@ -7004,11 +7005,11 @@ test("Capture account application menu root and nested Controls across contexts 
   await assertViewportVisualRegression(page, "account-menu-directory-root");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
+  await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
+    "Deployment administration",
+  );
   await expect(
-    page.getByRole("heading", {
-      name: "Deployment administration",
-      exact: true,
-    }),
+    page.getByTestId(landingAdminShellTestId("heading")),
   ).toBeFocused();
   await page
     .getByRole("textbox", { name: "Search users", exact: true })

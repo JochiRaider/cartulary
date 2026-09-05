@@ -23,6 +23,7 @@
         "apps/web/src/app/DeploymentAuditPanel.tsx",
         "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "apps/web/src/app/IncidentAdminPanel.tsx",
+        "apps/web/src/app/IncidentCreationForm.tsx",
         "apps/web/src/app/IncidentImportPanel.tsx",
         "apps/web/src/app/IncidentLanding.tsx",
         "apps/web/src/app/LandingAdminDisplay.tsx",
@@ -31,12 +32,17 @@
         "apps/web/src/app/ReferencePackAdminPanel.tsx",
         "apps/web/src/app/api/appShellClient.routeBoundary.test.ts",
         "apps/web/src/app/api/appShellClient.ts",
+        "apps/web/src/app/api/incidentDirectoryClient.test.ts",
         "apps/web/src/app/api/publicHttpTypes.ts",
         "apps/web/src/app/debug/AuthenticationDebugHarness.tsx",
         "apps/web/src/app/debug/DebugHarnessShell.tsx",
         "apps/web/src/app/debug/IncidentDirectoryDebugHarness.tsx",
         "apps/web/src/app/fontBundle.test.ts",
         "apps/web/src/app/fontRoles.test.tsx",
+        "apps/web/src/app/incidentCreationModel.test.ts",
+        "apps/web/src/app/incidentCreationModel.ts",
+        "apps/web/src/app/incidentDirectoryModel.test.ts",
+        "apps/web/src/app/incidentDirectoryModel.ts",
         "apps/web/src/app/landingAdminStyles.ts",
         "apps/web/src/app/landingAdminTypes.ts",
         "apps/web/src/app/otelBoundary.test.ts",
@@ -44,7 +50,9 @@
         "apps/web/src/app/routeState.test.ts",
         "apps/web/src/app/routeState.ts",
         "apps/web/src/app/useAccountMenuLayout.ts",
-        "apps/web/src/app/useAppRouteRuntime.ts"
+        "apps/web/src/app/useAppRouteRuntime.ts",
+        "apps/web/src/app/useIncidentCreation.ts",
+        "apps/web/src/app/useIncidentDirectory.ts"
       ]
     },
     {

@@ -8,6 +8,7 @@ import type {
   GetDeploymentUserResponse,
   ListDeploymentExtensionsResponse,
   ListDeploymentUsersResponse,
+  ListVisibleIncidentsResponse,
   PatchCurrentAccountProfileRequest,
   PatchCurrentAccountProfileResponse,
   PatchDeploymentUserRequest,
@@ -132,6 +133,35 @@ function secondFactorPayload(code: string) {
       code,
     },
   };
+}
+
+export function listVisibleIncidents(
+  options: {
+    apiBase?: string | undefined;
+    search?: string | undefined;
+    status?:
+      | ListVisibleIncidentsResponse["data"]["incidents"][number]["status"]
+      | undefined;
+    limit?: number | undefined;
+    cursorToken?: string | null | undefined;
+    signal?: AbortSignal | undefined;
+  } = {},
+) {
+  return fetchHTTPOperation<ListVisibleIncidentsResponse>({
+    apiBase: options.apiBase,
+    operationID: "listVisibleIncidents",
+    init: options.signal === undefined ? undefined : { signal: options.signal },
+    query: {
+      limit: options.limit ?? 100,
+      ...(options.search === undefined || options.search === ""
+        ? {}
+        : { search: options.search }),
+      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.cursorToken == null
+        ? {}
+        : { cursor_token: options.cursorToken }),
+    },
+  });
 }
 
 export async function createIncident(options: {

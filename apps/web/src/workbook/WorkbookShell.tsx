@@ -17,7 +17,6 @@ import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
   WorkbookIncidentControlsRendererProps,
-  WorkbookIncidentSnapshot,
 } from "../shared/workbookShellContracts";
 import { WorkbookActiveSurfaceFrame } from "./components/WorkbookActiveSurfaceFrame";
 import { WorkbookActiveSurfacePresentation } from "./components/WorkbookActiveSurfacePresentation";
@@ -77,9 +76,6 @@ type WorkbookShellProps = {
   currentUserLabel?: string | undefined;
   initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
   extensionProfiles?: readonly ExtensionDiscoveryProfile[] | undefined;
-  onIncidentSnapshot?:
-    | ((incident: WorkbookIncidentSnapshot) => void)
-    | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
   renderIncidentControls?:
     | ((props: WorkbookIncidentControlsRendererProps) => ReactNode)
@@ -103,7 +99,6 @@ function WorkbookShellContent({
   currentUserLabel,
   initialIncidentIdentity,
   extensionProfiles = noExtensionProfiles,
-  onIncidentSnapshot,
   onIncidentAccessLost,
   renderIncidentControls,
   mutationRuntimeRegistry,
@@ -140,7 +135,6 @@ function WorkbookShellContent({
       incidentId,
       initialIncidentIdentity,
       onIncidentAccessLost,
-      onIncidentSnapshot,
     });
   const queries = useWorkbookSurfaceQueries({
     activeContract: snapshot.activeContract,
@@ -384,7 +378,6 @@ function WorkbookShellContent({
           incidentId={incidentId}
           onClose={incidentControls.closeDrawer}
           onIncidentAccessLost={onIncidentAccessLost}
-          onIncidentSnapshot={onIncidentSnapshot}
           onNavigateToView={(viewSchemaId) => {
             commands.selectWorkbookSurface(viewSchemaId, {
               focusFirstGridTarget: true,

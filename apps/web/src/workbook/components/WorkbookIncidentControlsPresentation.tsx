@@ -5,7 +5,6 @@ import type {
   WorkbookIncidentControlsMenuItem,
   WorkbookIncidentControlsRendererProps,
   WorkbookIncidentRole,
-  WorkbookIncidentSnapshot,
 } from "../../shared/workbookShellContracts";
 import { IncidentControlsDrawer } from "./IncidentControlsDrawer";
 
@@ -26,9 +25,6 @@ type WorkbookIncidentControlsPresentationProps = {
     readonly restoreTriggerFocus: boolean;
   }) => void;
   readonly onIncidentAccessLost: (() => void) | undefined;
-  readonly onIncidentSnapshot:
-    | ((incident: WorkbookIncidentSnapshot) => void)
-    | undefined;
   readonly onNavigateToView: (viewSchemaId: string) => void;
   readonly onSessionRoleChange: () => Promise<void>;
   readonly renderIncidentControls:
@@ -48,7 +44,6 @@ export function WorkbookIncidentControlsPresentation({
   incidentId,
   onClose,
   onIncidentAccessLost,
-  onIncidentSnapshot,
   onNavigateToView,
   onSessionRoleChange,
   renderIncidentControls,
@@ -73,7 +68,6 @@ export function WorkbookIncidentControlsPresentation({
         currentIncidentRole,
         incidentId,
         onIncidentAccessLost,
-        onIncidentSnapshot,
         onSessionRoleChange,
       }) ?? null)
     );

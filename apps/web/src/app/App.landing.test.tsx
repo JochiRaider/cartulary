@@ -196,6 +196,482 @@ describe("Incident landing", () => {
     vi.unstubAllGlobals();
   });
 
+  describe("directory lifecycle", () => {
+    const alpha = incidentResource(
+      "00000000-0000-4000-8000-000000003001",
+      "IR-D1",
+      "Alpha",
+    );
+    const beta = incidentResource(
+      "00000000-0000-4000-8000-000000003002",
+      "IR-D2",
+      "Beta",
+    );
+    const later = incidentResource(
+      "00000000-0000-4000-8000-000000003003",
+      "IR-D3",
+      "Later",
+    );
+    function firstPage() {
+      return jsonResponse({
+        data: { incidents: [alpha, beta] },
+        meta: {
+          request_id: "request-directory",
+          paging: { limit: 100, has_more: true, next_cursor: "next-page" },
+        },
+      });
+    }
+    function pageCalls() {
+      return findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET").filter(
+        ([input]) =>
+          new URL(String(input), "http://cartulary.test").searchParams.has(
+            "cursor_token",
+          ),
+      );
+    }
+    it("preserves explicit workbook startup through local sign-in without directory authorization probes", async () => {
+      let authenticated = false;
+      const session = sessionResource({
+        memberships: [{ incident_id: alpha.incident_id, role: "viewer" }],
+      });
+      window.history.replaceState(
+        {},
+        "",
+        `/?incident_id=${alpha.incident_id}&view_schema_id=cartulary.view.hosts.v1`,
+      );
+      installLandingShellFetch(fetchMock, {
+        session: () =>
+          authenticated
+            ? session
+            : jsonResponse(
+                { error: { code: "session_required", status: 401 } },
+                401,
+              ),
+        extraRoutes: [
+          {
+            method: "POST",
+            url: "/api/v1/auth/login",
+            handler: () => {
+              authenticated = true;
+              return jsonResponse({ data: session });
+            },
+          },
+        ],
+      });
+      renderApp();
+      fireEvent.change(
+        await screen.findByTestId(authTestId("login-username")),
+        { target: { value: "operator@example.test" } },
+      );
+      fireEvent.change(screen.getByTestId(authTestId("login-password")), {
+        target: { value: "OperatorPass1!" },
+      });
+      fireEvent.click(screen.getByTestId(authTestId("login-submit")));
+      await screen.findByTestId("mock-workbook");
+      expect(
+        new URLSearchParams(window.location.search).get("incident_id"),
+      ).toBe(alpha.incident_id);
+      expect(
+        new URLSearchParams(window.location.search).get("view_schema_id"),
+      ).toBe("cartulary.view.hosts.v1");
+      expect(
+        findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
+      ).toHaveLength(0);
+    });
+
+    it("keeps local and provider root entry membership-scoped for every directory size", async () => {
+      for (const provider_type of ["local", "oidc", "saml"] as const) {
+        for (const visible of [[], [alpha], [alpha, beta]]) {
+          installLandingShellFetch(fetchMock, {
+            session: sessionResource({
+              provider_type,
+              is_deployment_admin: true,
+              memberships: visible.map((incident) => ({
+                incident_id: incident.incident_id,
+                role: "viewer",
+              })),
+            }),
+            incidents: visible,
+          });
+          renderApp();
+          await waitFor(() =>
+            expect(
+              screen
+                .getByTestId(incidentLandingTestId("shell"))
+                .getAttribute("data-directory-state"),
+            ).toBe("ready"),
+          );
+          expect(
+            screen.getByTestId(incidentLandingTestId("incidents-count"))
+              .textContent,
+          ).toBe(`${visible.length} loaded`);
+          expect(screen.queryByTestId("mock-workbook")).toBeNull();
+          expect(window.location.search).toBe("");
+          expect(
+            findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
+          ).toHaveLength(1);
+          cleanup();
+          fetchMock.mockReset();
+        }
+      }
+    });
+
+    it("retains the query across workbook navigation and refreshes only authoritative directory results", async () => {
+      let changed = false;
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        incidents: ({ query }) =>
+          query.get("search") === "Alpha"
+            ? changed
+              ? []
+              : [alpha]
+            : [alpha, beta],
+      });
+      renderApp();
+      await screen.findByTestId(landingIncidentCardTestId(alpha.incident_id));
+      const before = [
+        "/api/v1/auth/session",
+        "/api/v1/auth/credential-state",
+        "/api/v1/account/preferences",
+        "/api/v1/extensions",
+      ].map((path) => findFetchCallsByPath(fetchMock, path, "GET").length);
+      fireEvent.change(screen.getByTestId(incidentLandingTestId("search")), {
+        target: { value: "Alpha" },
+      });
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId(landingIncidentCardTestId(beta.incident_id)),
+        ).toBeNull(),
+      );
+      fireEvent.click(screen.getByTestId(incidentLandingTestId("refresh")));
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId(incidentLandingTestId("loading")),
+        ).toBeNull(),
+      );
+      expect(
+        [
+          "/api/v1/auth/session",
+          "/api/v1/auth/credential-state",
+          "/api/v1/account/preferences",
+          "/api/v1/extensions",
+        ].map((path) => findFetchCallsByPath(fetchMock, path, "GET").length),
+      ).toEqual(before);
+      fireEvent.click(
+        screen.getByTestId(landingIncidentOpenButtonTestId(alpha.incident_id)),
+      );
+      await screen.findByTestId("mock-workbook");
+      changed = true;
+      window.history.replaceState({}, "", "/");
+      fireEvent.popState(window);
+      await screen.findByTestId(incidentLandingTestId("empty-state"));
+      expect(
+        (
+          screen.getByTestId(
+            incidentLandingTestId("search"),
+          ) as HTMLInputElement
+        ).value,
+      ).toBe("Alpha");
+      expect(
+        screen.queryByTestId(landingIncidentCardTestId(alpha.incident_id)),
+      ).toBeNull();
+      expect(
+        new URL(
+          String(
+            findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET").at(
+              -1,
+            )?.[0],
+          ),
+          "http://cartulary.test",
+        ).searchParams.get("search"),
+      ).toBe("Alpha");
+    });
+
+    it("keeps malformed and transport directory failures local and never presents successful empty results", async () => {
+      let outcome: "malformed" | "transport" | "valid" | "denied" = "malformed";
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        incidents: () => {
+          if (outcome === "malformed")
+            return jsonResponse({
+              data: { incidents: [alpha] },
+              meta: { request_id: "bad-paging" },
+            });
+          if (outcome === "transport")
+            return Promise.reject(new TypeError("Network failed"));
+          if (outcome === "denied")
+            return jsonResponse(
+              { error: { code: "authorization_denied", status: 403 } },
+              403,
+            );
+          return [alpha];
+        },
+      });
+      renderApp();
+      await screen.findByRole("button", { name: "Retry loading incidents" });
+      expect(
+        screen
+          .getByTestId(appRouteTestId("app-shell"))
+          .getAttribute("data-bootstrap-state"),
+      ).toBe("authenticated");
+      expect(
+        screen.queryByTestId(incidentLandingTestId("empty-state")),
+      ).toBeNull();
+      expect(document.body.textContent).toContain(
+        "invalid_public_contract_response",
+      );
+      outcome = "transport";
+      fireEvent.click(
+        screen.getByRole("button", { name: "Retry loading incidents" }),
+      );
+      await screen.findByRole("button", { name: "Retry loading incidents" });
+      expect(
+        screen.queryByTestId(incidentLandingTestId("empty-state")),
+      ).toBeNull();
+      outcome = "valid";
+      fireEvent.click(
+        screen.getByRole("button", { name: "Retry loading incidents" }),
+      );
+      await screen.findByTestId(landingIncidentCardTestId(alpha.incident_id));
+      outcome = "denied";
+      fireEvent.click(screen.getByTestId(incidentLandingTestId("refresh")));
+      await screen.findByRole("button", { name: "Refresh first page" });
+      expect(
+        screen.queryByTestId(landingIncidentCardTestId(alpha.incident_id)),
+      ).toBeNull();
+      expect(
+        screen.queryByTestId(incidentLandingTestId("empty-state")),
+      ).toBeNull();
+    });
+
+    it("rejects obsolete authorization errors without ending replacement authentication", async () => {
+      const pending = deferred<Response>();
+      let currentSession = sessionResource();
+      installLandingShellFetch(fetchMock, {
+        session: () => currentSession,
+        incidents: ({ query }) =>
+          query.has("cursor_token") ? pending.promise : firstPage(),
+      });
+      renderApp();
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Load more incidents" }),
+      );
+      currentSession = sessionResource({
+        user_id: "00000000-0000-4000-8000-000000000002",
+        display_name: "Replacement",
+      });
+      window.history.replaceState({}, "", "/?debug=harness");
+      fireEvent.popState(window);
+      await screen.findByTestId("mock-authentication-harness");
+      window.history.replaceState({}, "", "/");
+      fireEvent.popState(window);
+      await waitFor(() =>
+        expect(
+          screen.getByTestId(incidentLandingTestId("current-user")).textContent,
+        ).toBe("Replacement"),
+      );
+      await act(async () =>
+        pending.resolve(
+          jsonResponse(
+            { error: { code: "session_required", status: 401 } },
+            401,
+          ),
+        ),
+      );
+      expect(
+        screen.getByTestId(incidentLandingTestId("current-user")).textContent,
+      ).toBe("Replacement");
+      expect(screen.queryByTestId(authTestId("shell"))).toBeNull();
+    });
+
+    it("preserves debounced edits made while a refresh is settling", async () => {
+      const pending = deferred<Response>();
+      const queries: string[] = [];
+      let refreshing = false;
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        incidents: ({ query }) => {
+          const search = query.get("search") ?? "";
+          queries.push(search);
+          return search !== ""
+            ? [later]
+            : refreshing
+              ? pending.promise
+              : [alpha, beta];
+        },
+      });
+      renderApp();
+      await screen.findByTestId(landingIncidentCardTestId(alpha.incident_id));
+      refreshing = true;
+      const beforeRefresh = queries.length;
+      vi.useFakeTimers();
+      try {
+        fireEvent.click(screen.getByTestId(incidentLandingTestId("refresh")));
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1);
+        });
+        expect(queries.length).toBeGreaterThan(beforeRefresh);
+        fireEvent.change(screen.getByTestId(incidentLandingTestId("search")), {
+          target: { value: "Later" },
+        });
+        await act(async () => {
+          pending.resolve(incidentListResponse([alpha, beta]));
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(181);
+        });
+        expect(queries).toContain("Later");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+    it("locks duplicate pagination before the next render", async () => {
+      const pending = deferred<Response>();
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        incidents: ({ query }) =>
+          query.has("cursor_token") ? pending.promise : firstPage(),
+      });
+      renderApp();
+      const button = await screen.findByRole("button", {
+        name: "Load more incidents",
+      });
+      act(() => {
+        button.click();
+        button.click();
+      });
+      expect(pageCalls()).toHaveLength(1);
+      await act(async () => {
+        pending.resolve(incidentListResponse([later]));
+      });
+    });
+    it("rejects a late page after a replacement query", async () => {
+      const pending = deferred<Response>();
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        incidents: ({ query }) =>
+          query.has("cursor_token")
+            ? pending.promise
+            : query.has("search")
+              ? incidentListResponse([beta])
+              : firstPage(),
+      });
+      renderApp();
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Load more incidents" }),
+      );
+      const search = screen.getByTestId(incidentLandingTestId("search"));
+      fireEvent.change(search, { target: { value: "Beta" } });
+      fireEvent.keyDown(search, { key: "Enter" });
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId(landingIncidentCardTestId(alpha.incident_id)),
+        ).toBeNull(),
+      );
+      await act(async () => {
+        pending.resolve(incidentListResponse([later]));
+      });
+      expect(
+        screen.queryByTestId(landingIncidentCardTestId(later.incident_id)),
+      ).toBeNull();
+    });
+    it("rejects a late page after directory navigation and re-entry", async () => {
+      const pending = deferred<Response>();
+      let returned = false;
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource(),
+        incidents: ({ query }) =>
+          query.has("cursor_token")
+            ? pending.promise
+            : returned
+              ? incidentListResponse([alpha, beta])
+              : firstPage(),
+      });
+      renderApp();
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Load more incidents" }),
+      );
+      fireEvent.click(
+        screen.getByTestId(landingIncidentOpenButtonTestId(alpha.incident_id)),
+      );
+      await screen.findByTestId("mock-workbook");
+      returned = true;
+      window.history.replaceState({}, "", "/");
+      fireEvent.popState(window);
+      await screen.findByTestId(landingIncidentCardTestId(alpha.incident_id));
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId(incidentLandingTestId("loading")),
+        ).toBeNull(),
+      );
+      await act(async () => {
+        pending.resolve(incidentListResponse([later]));
+      });
+      expect(
+        screen.queryByTestId(landingIncidentCardTestId(later.incident_id)),
+      ).toBeNull();
+    });
+    it("rejects a late page after authentication replacement", async () => {
+      const pending = deferred<Response>();
+      let replaced = false;
+      installLandingShellFetch(fetchMock, {
+        session: () =>
+          sessionResource(
+            replaced
+              ? {
+                  user_id: "00000000-0000-4000-8000-000000003099",
+                  display_name: "Replacement",
+                }
+              : {},
+          ),
+        incidents: ({ query }) =>
+          query.has("cursor_token")
+            ? pending.promise
+            : replaced
+              ? incidentListResponse([alpha, beta])
+              : firstPage(),
+      });
+      renderApp();
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Load more incidents" }),
+      );
+      replaced = true;
+      // Browser navigation requires session bootstrap independently of directory refresh.
+      window.history.replaceState({}, "", "/?debug=harness");
+      fireEvent.popState(window);
+      await screen.findByText("Debug harness shell");
+      window.history.replaceState({}, "", "/");
+      fireEvent.popState(window);
+      await waitFor(() =>
+        expect(
+          screen.getByTestId(incidentLandingTestId("current-user")).textContent,
+        ).toBe("Replacement"),
+      );
+      await act(async () => {
+        pending.resolve(incidentListResponse([later]));
+      });
+      expect(
+        screen.queryByTestId(landingIncidentCardTestId(later.incident_id)),
+      ).toBeNull();
+    });
+    it("opens an explicit incident outside the former count probe", async () => {
+      window.history.replaceState({}, "", `/?incident_id=${later.incident_id}`);
+      installLandingShellFetch(fetchMock, {
+        session: sessionResource({
+          memberships: [{ incident_id: later.incident_id, role: "viewer" }],
+        }),
+        incidents: [alpha, beta, later],
+      });
+      renderApp();
+      expect(
+        (await screen.findByTestId("mock-workbook-incident")).textContent,
+      ).toBe(later.incident_id);
+      expect(
+        findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
+      ).toHaveLength(0);
+    });
+  });
+
   describe("incident creation lifecycle", () => {
     async function openCreation() {
       await screen.findByTestId(incidentLandingTestId("empty-state"));
@@ -439,7 +915,11 @@ describe("Incident landing", () => {
         user_id: "00000000-0000-4000-8000-000000000002",
         display_name: "Other operator",
       });
-      fireEvent.click(screen.getByTestId(incidentLandingTestId("refresh")));
+      window.history.replaceState({}, "", "/?debug=harness");
+      fireEvent.popState(window);
+      await screen.findByTestId("mock-authentication-harness");
+      window.history.replaceState({}, "", "/");
+      fireEvent.popState(window);
       await screen.findByText("Other operator", { selector: "dd" });
       const response = createdResponse();
       const parsed = vi.spyOn(response, "json");
@@ -620,7 +1100,7 @@ describe("Incident landing", () => {
     ).toHaveLength(1);
     expect(
       findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       fetchMock.mock.calls.filter(([, init]) => {
         const method = ((init as RequestInit | undefined)?.method ?? "GET")
@@ -631,7 +1111,7 @@ describe("Incident landing", () => {
     ).toHaveLength(0);
   });
 
-  it("opens the workbook automatically when exactly one incident is visible", async () => {
+  it("keeps exactly one visible incident in the directory until explicit selection", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Deployment Admin",
@@ -648,6 +1128,16 @@ describe("Incident landing", () => {
 
     renderApp();
 
+    expect(
+      await screen.findByTestId(incidentLandingTestId("incident-list")),
+    ).toBeTruthy();
+    expect(window.location.search).toBe("");
+    expect(screen.queryByTestId("mock-workbook")).toBeNull();
+    fireEvent.click(
+      screen.getByTestId(
+        landingIncidentOpenButtonTestId("00000000-0000-4000-8000-000000001010"),
+      ),
+    );
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
       "00000000-0000-4000-8000-000000001010",
@@ -682,6 +1172,11 @@ describe("Incident landing", () => {
       ],
     });
 
+    window.history.replaceState(
+      {},
+      "",
+      "/?incident_id=00000000-0000-4000-8000-000000001010",
+    );
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
@@ -700,8 +1195,11 @@ describe("Incident landing", () => {
     ).toBeTruthy();
     expect(screen.queryByTestId("mock-workbook")).toBe(null);
     expect(window.location.search).not.toContain("incident_id=");
+    expect(
+      screen.getByTestId(landingAdminShellTestId("heading")).textContent,
+    ).toBe("Incident directory");
     expect(document.activeElement).toBe(
-      screen.getByRole("heading", { name: "Incident directory" }),
+      screen.getByTestId(landingAdminShellTestId("heading")),
     );
   });
 
@@ -1490,10 +1988,18 @@ describe("Incident landing", () => {
     const staleSearch = deferred<Response>();
     const acceptedSearch = deferred<Response>();
     const incidentRequestURLs: string[] = [];
-    const alpha = incidentResource("incident-alpha", "IR-301", "Alpha Case");
-    const beta = incidentResource("incident-beta", "IR-302", "Beta Case");
+    const alpha = incidentResource(
+      "9e484e84-6b2a-557d-9d20-f32c43468ce6",
+      "IR-301",
+      "Alpha Case",
+    );
+    const beta = incidentResource(
+      "4fee4752-bb6d-5405-8217-f9495530734d",
+      "IR-302",
+      "Beta Case",
+    );
     const malware = incidentResource(
-      "incident-malware",
+      "67ae9f47-e4cc-5677-ba7a-9a4d38f02d85",
       "IR-303",
       "Malware investigation",
       {
@@ -1504,7 +2010,7 @@ describe("Incident landing", () => {
       },
     );
     const phish = incidentResource(
-      "incident-phish",
+      "8a621150-9a71-5706-9f88-c1e43a3ea68d",
       "IR-304",
       "Phishing investigation",
     );
@@ -1527,7 +2033,9 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    await screen.findByTestId(landingIncidentCardTestId("incident-alpha"));
+    await screen.findByTestId(
+      landingIncidentCardTestId("9e484e84-6b2a-557d-9d20-f32c43468ce6"),
+    );
     const search = screen.getByTestId(incidentLandingTestId("search"));
     fireEvent.change(search, { target: { value: "phish" } });
     fireEvent.keyDown(search, { key: "Enter" });
@@ -1538,7 +2046,9 @@ describe("Incident landing", () => {
       ).toBe(true);
     });
     expect(
-      screen.getByTestId(landingIncidentCardTestId("incident-alpha")),
+      screen.getByTestId(
+        landingIncidentCardTestId("9e484e84-6b2a-557d-9d20-f32c43468ce6"),
+      ),
     ).toBeTruthy();
     expect(
       screen.getByTestId(incidentLandingTestId("loading")).textContent,
@@ -1554,17 +2064,23 @@ describe("Incident landing", () => {
     acceptedSearch.resolve(incidentListResponse([malware]));
 
     expect(
-      await screen.findByTestId(landingIncidentCardTestId("incident-malware")),
+      await screen.findByTestId(
+        landingIncidentCardTestId("67ae9f47-e4cc-5677-ba7a-9a4d38f02d85"),
+      ),
     ).toBeTruthy();
     expect(
-      screen.queryByTestId(landingIncidentCardTestId("incident-phish")),
+      screen.queryByTestId(
+        landingIncidentCardTestId("8a621150-9a71-5706-9f88-c1e43a3ea68d"),
+      ),
     ).toBe(null);
 
     staleSearch.resolve(incidentListResponse([phish]));
     await Promise.resolve();
     await Promise.resolve();
     expect(
-      screen.queryByTestId(landingIncidentCardTestId("incident-phish")),
+      screen.queryByTestId(
+        landingIncidentCardTestId("8a621150-9a71-5706-9f88-c1e43a3ea68d"),
+      ),
     ).toBe(null);
     for (const [input] of findFetchCallsByPath(
       fetchMock,
@@ -1580,7 +2096,7 @@ describe("Incident landing", () => {
   it("loads additional visible incident rows from the server cursor", async () => {
     const visibleIncidents = Array.from({ length: 101 }, (_value, index) =>
       incidentResource(
-        `incident-${index + 1}`,
+        `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
         `IR-${String(index + 1).padStart(3, "0")}`,
         `Incident ${index + 1}`,
       ),
@@ -1594,9 +2110,13 @@ describe("Incident landing", () => {
 
     renderApp();
 
-    await screen.findByTestId(landingIncidentCardTestId("incident-100"));
+    await screen.findByTestId(
+      landingIncidentCardTestId("00000000-0000-4000-8000-000000000100"),
+    );
     expect(
-      screen.queryByTestId(landingIncidentCardTestId("incident-101")),
+      screen.queryByTestId(
+        landingIncidentCardTestId("00000000-0000-4000-8000-000000000101"),
+      ),
     ).toBe(null);
     expect(
       screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,
@@ -1607,17 +2127,19 @@ describe("Incident landing", () => {
     );
 
     expect(
-      await screen.findByTestId(landingIncidentCardTestId("incident-101")),
+      await screen.findByTestId(
+        landingIncidentCardTestId("00000000-0000-4000-8000-000000000101"),
+      ),
     ).toBeTruthy();
     expect(
       screen.getByTestId(incidentLandingTestId("incidents-count")).textContent,
     ).toBe("101 loaded");
   });
 
-  it("loads more incidents against the accepted search and status scope", async () => {
+  it("disables continuation while replacing the accepted search and status scope", async () => {
     const closedIncidents = Array.from({ length: 101 }, (_value, index) =>
       incidentResource(
-        `incident-closed-${index + 1}`,
+        `00000000-0000-4000-8001-${String(index + 1).padStart(12, "0")}`,
         `IR-C-${String(index + 1).padStart(3, "0")}`,
         `Closed Incident ${index + 1}`,
         { status: "closed" },
@@ -1628,14 +2150,20 @@ describe("Incident landing", () => {
         display_name: "Operator",
       }),
       incidents: [
-        incidentResource("incident-active-1", "IR-A-001", "Active Incident"),
+        incidentResource(
+          "956e61eb-28f0-5245-85a1-4a2aa32f01bd",
+          "IR-A-001",
+          "Active Incident",
+        ),
         ...closedIncidents,
       ],
     });
 
     renderApp();
 
-    await screen.findByTestId(landingIncidentCardTestId("incident-active-1"));
+    await screen.findByTestId(
+      landingIncidentCardTestId("956e61eb-28f0-5245-85a1-4a2aa32f01bd"),
+    );
     const search = screen.getByTestId(incidentLandingTestId("search"));
     fireEvent.change(search, { target: { value: "Closed" } });
     fireEvent.change(
@@ -1646,40 +2174,30 @@ describe("Incident landing", () => {
     );
     fireEvent.keyDown(search, { key: "Enter" });
 
-    await screen.findByTestId(landingIncidentCardTestId("incident-closed-100"));
+    await screen.findByTestId(
+      landingIncidentCardTestId("00000000-0000-4000-8001-000000000100"),
+    );
     expect(
-      screen.queryByTestId(landingIncidentCardTestId("incident-active-1")),
+      screen.queryByTestId(
+        landingIncidentCardTestId("956e61eb-28f0-5245-85a1-4a2aa32f01bd"),
+      ),
     ).toBe(null);
 
     fireEvent.change(search, { target: { value: "Draft" } });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Load more incidents" }),
-    );
-
-    expect(
-      await screen.findByTestId(
-        landingIncidentCardTestId("incident-closed-101"),
-        {},
-        { timeout: 5000 },
-      ),
-    ).toBeTruthy();
-    const cursorRequest = findFetchCallsByPath(
+    const more = screen.getByRole("button", { name: "Load more incidents" });
+    expect((more as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(more);
+    await screen.findByTestId(incidentLandingTestId("empty-state"));
+    const requests = findFetchCallsByPath(
       fetchMock,
       "/api/v1/incidents",
       "GET",
-    ).find(([input]) =>
-      new URL(String(input), "http://cartulary.test").searchParams.has(
-        "cursor_token",
-      ),
+    ).map(
+      ([input]) => new URL(String(input), "http://cartulary.test").searchParams,
     );
-    expect(cursorRequest).toBeTruthy();
-    const cursorParams = new URL(
-      String(cursorRequest?.[0] ?? ""),
-      "http://cartulary.test",
-    ).searchParams;
-    expect(cursorParams.get("search")).toBe("Closed");
-    expect(cursorParams.get("status")).toBe("closed");
-    expect(cursorParams.has("group_by")).toBe(false);
+    expect(requests.some((params) => params.has("cursor_token"))).toBe(false);
+    expect(requests.at(-1)?.get("search")).toBe("Draft");
+    expect(requests.at(-1)?.get("status")).toBe("closed");
   });
 
   it("sends only declared optional metadata when creating an incident from the directory", async () => {
@@ -1786,7 +2304,7 @@ describe("Incident landing", () => {
     }
   });
 
-  it("ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible", async () => {
+  it("ordinary landing shell creates an incident, refreshes membership, opens the workbook, and delegates stale selection to workbook access recovery", async () => {
     let created = false;
     installLandingShellFetch(fetchMock, {
       session: () =>
@@ -1863,16 +2381,29 @@ describe("Incident landing", () => {
       session: sessionResource({
         display_name: "Operator",
       }),
-      incidents: [incidentResource("incident-live", "IR-204", "Live Incident")],
+      incidents: [
+        incidentResource(
+          "50bc02c4-969e-55ec-8a26-5a33b0987fcf",
+          "IR-204",
+          "Live Incident",
+        ),
+      ],
     });
 
     renderApp();
+    await screen.findByTestId("mock-workbook");
+    expect(
+      findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
+    ).toHaveLength(0);
+    fireEvent.click(screen.getByTestId("mock-access-lost"));
 
     expect(
       await screen.findByTestId(incidentLandingTestId("incident-list")),
     ).toBeTruthy();
     expect(
-      screen.getByTestId(landingIncidentOpenButtonTestId("incident-live")),
+      screen.getByTestId(
+        landingIncidentOpenButtonTestId("50bc02c4-969e-55ec-8a26-5a33b0987fcf"),
+      ),
     ).toBeTruthy();
     expect(
       screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
@@ -1921,10 +2452,10 @@ describe("Incident landing", () => {
     expect((workbookFrame as HTMLElement).style.display).toBe("grid");
     expect((workbookFrame as HTMLElement).style.blockSize).toBe("100%");
     expect((workbookFrame as HTMLElement).style.overflow).toBe("hidden");
-    await expectStableFetchCount(fetchMock, 8);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
-  it("preserves incident route and manual directory route state across popstate navigation", async () => {
+  it("preserves incident and directory routes across popstate navigation", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Operator",
@@ -2078,7 +2609,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 8);
+    await expectStableFetchCount(fetchMock, 6);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -2091,7 +2622,7 @@ describe("Incident landing", () => {
       screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 20);
+    await expectStableFetchCount(fetchMock, 7);
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {
@@ -2170,7 +2701,7 @@ describe("Incident landing", () => {
     expect(
       screen.getByTestId(incidentLandingTestId("current-user")).textContent,
     ).toBe("Operator");
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("loads the debug harness directly without ordinary shell bootstrap requests", async () => {

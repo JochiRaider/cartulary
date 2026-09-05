@@ -10,6 +10,10 @@ import { useRef } from "react";
 import { publicErrorView } from "../services/browserApi";
 import { IncidentCreationForm } from "./IncidentCreationForm";
 import {
+  directoryCanLoadMore,
+  directoryIsLoading,
+} from "./incidentDirectoryModel";
+import {
   formatNullableDateTime,
   MutedUnset,
   PublicErrorSummary,
@@ -56,29 +60,35 @@ import type {
 export function IncidentLanding({
   bootstrapState,
   creation,
-  error,
-  hasMoreIncidents,
-  incidents,
-  incidentSearch,
-  incidentStatusFilter,
-  isRefreshing,
-  onLoadMore,
+  error: bootstrapError,
+  directory: { controller, state },
   onOpenIncident,
-  onRefresh,
-  onSearchChange,
-  onSearchSubmit,
-  onStatusFilterChange,
   statusText,
 }: IncidentLandingProps) {
   const createTriggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const incidents = state.incidents;
+  const incidentSearch = state.query.search;
+  const incidentStatusFilter = state.query.statusFilter;
+  const isRefreshing =
+    directoryIsLoading(state) || state.phase === "debouncing";
+  const hasMoreIncidents = state.paging?.has_more ?? false;
+  const error = state.failure?.error ?? bootstrapError;
+  const previousResults =
+    incidents.length > 0 &&
+    (state.phase === "refreshing" ||
+      state.phase === "debouncing" ||
+      (state.phase === "failed" && state.failure?.scope === "replace"));
   const hasIncidents = incidents.length > 0;
   const hasActiveQuery =
     incidentSearch.trim() !== "" || incidentStatusFilter !== "all";
 
   return (
     <section
-      data-bootstrap-state={bootstrapState}
+      data-bootstrap-state={
+        state.phase === "forbidden" ? "forbidden" : bootstrapState
+      }
+      data-directory-state={state.phase}
       data-testid={incidentLandingTestId("shell")}
       style={surfacePanelStyle}
     >
@@ -101,7 +111,7 @@ export function IncidentLanding({
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
-              void onRefresh();
+              controller.refresh();
             }}
           >
             <RefreshCw size={15} />
@@ -144,11 +154,12 @@ export function IncidentLanding({
                   style={searchInputStyle}
                   value={incidentSearch}
                   onChange={(event) => {
-                    onSearchChange(event.target.value);
+                    controller.changeSearch(event.target.value);
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
-                      void onSearchSubmit();
+                      event.preventDefault();
+                      controller.submit();
                     }
                   }}
                   placeholder="Key, title, severity, TLP, phase, external case"
@@ -163,7 +174,7 @@ export function IncidentLanding({
                 style={inputStyle}
                 value={incidentStatusFilter}
                 onChange={(event) => {
-                  onStatusFilterChange(
+                  controller.changeStatus(
                     event.target.value as IncidentStatusFilter,
                   );
                 }}
@@ -186,7 +197,24 @@ export function IncidentLanding({
             </p>
           ) : null}
 
-          {!isRefreshing && !hasIncidents ? (
+          {previousResults ? (
+            <p role="status" style={inlineStatusStyle}>
+              Showing previous results while the current query is unresolved.
+            </p>
+          ) : null}
+          {state.failure !== null ? (
+            <button
+              style={secondaryButtonStyle}
+              type="button"
+              onClick={() => controller.retry()}
+            >
+              {state.failure.restart
+                ? "Refresh first page"
+                : "Retry loading incidents"}
+            </button>
+          ) : null}
+
+          {state.phase === "ready" && !hasIncidents ? (
             <p
               data-testid={incidentLandingTestId("empty-state")}
               style={emptyStateStyle}
@@ -232,7 +260,7 @@ export function IncidentLanding({
                         </p>
                       </td>
                       <td style={tableCellStyle}>
-                        <StatusBadge value={incident.status ?? "active"} />
+                        <StatusBadge value={incident.status} />
                       </td>
                       <td style={tableCellStyle}>
                         <MutedUnset value={incident.current_phase} />
@@ -248,10 +276,7 @@ export function IncidentLanding({
                           value={incident.primary_external_case_ref}
                         />
                       </td>
-                      <td
-                        style={tableCellStyle}
-                        title={incident.updated_at ?? undefined}
-                      >
+                      <td style={tableCellStyle} title={incident.updated_at}>
                         {formatNullableDateTime(incident.updated_at)}
                       </td>
                       <td style={tableActionCellStyle}>
@@ -278,10 +303,11 @@ export function IncidentLanding({
 
           {hasMoreIncidents ? (
             <button
+              disabled={!directoryCanLoadMore(state)}
               style={secondaryButtonStyle}
               type="button"
               onClick={() => {
-                void onLoadMore();
+                controller.loadMore();
               }}
             >
               Load more incidents

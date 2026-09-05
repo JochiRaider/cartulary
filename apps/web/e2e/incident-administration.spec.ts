@@ -22,6 +22,7 @@ import {
   incidentMembershipRoleSelectTestId,
   incidentMembershipRowTestId,
   incidentMembershipVersionTestId,
+  landingAdminShellTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   rowCellTestId,
@@ -164,18 +165,21 @@ test("operates account application menus with keyboard focus and viewport contai
   await trigger.click();
   await page.keyboard.press("Home");
   await page.keyboard.press("Enter");
+  await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
+    "Incident directory",
+  );
   await expect(
-    page.getByRole("heading", { name: "Incident directory", exact: true }),
+    page.getByTestId(landingAdminShellTestId("heading")),
   ).toBeFocused();
   await trigger.click();
   await expect(incidents).toHaveAttribute("aria-current", "page");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
+  await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
+    "Deployment administration",
+  );
   await expect(
-    page.getByRole("heading", {
-      name: "Deployment administration",
-      exact: true,
-    }),
+    page.getByTestId(landingAdminShellTestId("heading")),
   ).toBeFocused();
   await trigger.click();
   await expect(
@@ -266,7 +270,10 @@ test("operates account application menus with keyboard focus and viewport contai
     "Deployment administration",
   ]) {
     await expect(
-      page.getByRole("heading", { name: destination, exact: true }),
+      page.getByTestId(landingAdminShellTestId("heading")),
+    ).toHaveText(destination);
+    await expect(
+      page.getByTestId(landingAdminShellTestId("heading")),
     ).toBeFocused();
     await trigger.focus();
     await page.keyboard.press("Enter");

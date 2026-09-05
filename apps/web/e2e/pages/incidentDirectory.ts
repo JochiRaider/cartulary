@@ -1,7 +1,6 @@
 import {
   incidentAdministrationTestId,
   incidentLandingTestId,
-  landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -11,18 +10,7 @@ import { expect } from "@playwright/test";
 
 export async function openIncidentFromLanding(page: Page, incidentId: string) {
   await page.goto("/");
-  const incidentCard = page.getByTestId(landingIncidentCardTestId(incidentId));
-  const routed = await Promise.race([
-    page
-      .waitForURL(new RegExp(`incident_id=${incidentId}`), { timeout: 5000 })
-      .then(() => "workbook" as const),
-    incidentCard
-      .waitFor({ state: "visible", timeout: 5000 })
-      .then(() => "landing" as const),
-  ]).catch(() => "unknown" as const);
-  if (routed === "landing") {
-    await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
-  }
+  await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 }
@@ -68,7 +56,9 @@ export class IncidentDirectory {
 
   async goto() {
     await this.page.goto("/");
-    await this.open();
+    await expect(
+      this.page.getByTestId(incidentLandingTestId("shell")),
+    ).toBeVisible();
   }
 
   async open() {
@@ -77,33 +67,13 @@ export class IncidentDirectory {
     if (await this.isOpen()) {
       return;
     }
-    let lastError: unknown = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        const menuItem = this.page.getByRole("menuitem", {
-          exact: true,
-          name: "Incidents",
-        });
-        if (!(await menuItem.isVisible().catch(() => false))) {
-          const trigger = this.page.getByLabel(
-            "Account and application navigation",
-          );
-          await expect(trigger).toBeVisible();
-          await trigger.click();
-        }
-        await expect(menuItem).toBeVisible({ timeout: 1_000 });
-        await menuItem.click();
-        await expect(landingShell).toBeVisible();
-        await expect.poll(async () => this.isOpen()).toBe(true);
-        lastError = null;
-        break;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    if (lastError !== null) {
-      throw lastError;
-    }
+    const trigger = this.page.getByLabel("Account and application navigation");
+    await expect(trigger).toBeVisible();
+    if (await this.isOpen()) return;
+    await trigger.click();
+    await this.page
+      .getByRole("menuitem", { exact: true, name: "Incidents" })
+      .click();
     await expect(landingShell).toBeVisible();
   }
 
@@ -203,11 +173,7 @@ export class IncidentDirectory {
     }
     return this.page.evaluate(() => {
       const search = new URLSearchParams(window.location.search);
-      return (
-        window.location.pathname === "/" &&
-        !search.has("incident_id") &&
-        window.history.state?.cartularyIncidentDirectory === true
-      );
+      return window.location.pathname === "/" && !search.has("incident_id");
     });
   }
 

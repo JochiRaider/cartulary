@@ -1010,11 +1010,8 @@ test("clears a stale selected incident after membership removal while preserving
   await expect(page).not.toHaveURL(
     new RegExp(`incident_id=${selectedIncidentId}`),
   );
-  await expect(page).toHaveURL(
-    new RegExp(`incident_id=${alternateIncidentId}`),
-  );
-  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  await expectCurrentIncidentRole(page, "Current incident role: viewer");
+  await expect(page).not.toHaveURL(/incident_id=/);
+  await expect(page.getByTestId(incidentLandingTestId("shell"))).toBeVisible();
   await expectLandingAccountSession(page);
 
   await new IncidentDirectory(page).openIncident(alternateIncidentId);
@@ -1161,7 +1158,7 @@ test("returns a revoked target browser to login and allows re-authentication wit
 
   const revokedSessionResponse = waitForPublicAPIResponse(page, {
     method: "GET",
-    path: "/api/v1/auth/session",
+    path: "/api/v1/incidents",
     status: 401,
   });
   await new IncidentDirectory(page).refresh();

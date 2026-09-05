@@ -831,16 +831,7 @@ sequenceDiagram
     alt zero visible incidents
         App-->>UI: visible directory data is empty
         UI->>UI: remain on / with empty directory and ordinary create-incident affordance
-    else exactly one visible incident
-        UI->>App: open sole incident workbook with no explicit launch sheet_ref
-        App->>PG: bootstrap workbook and recheck incident visibility
-        alt incident still visible
-            App-->>UI: workbook bootstrap with Core 03 startup selection
-        else incident no longer visible
-            App-->>UI: return to current visible directory
-            UI->>UI: remain on / and render current directory
-        end
-    else two or more visible incidents
+    else one or more visible incidents
         App-->>UI: visible directory data
         UI->>UI: remain on / and render visible incident directory
     end
@@ -1037,16 +1028,7 @@ sequenceDiagram
         alt zero visible incidents
             App-->>UI: visible directory data is empty
             UI->>UI: remain on / with empty directory and ordinary create-incident affordance
-        else exactly one visible incident
-            UI->>App: open sole incident workbook with no explicit launch sheet_ref
-            App->>PG: bootstrap workbook and recheck incident visibility
-            alt incident still visible
-                App-->>UI: workbook bootstrap with Core 03 startup selection
-            else incident no longer visible
-                App-->>UI: return to current visible directory
-                UI->>UI: remain on / and render current directory
-            end
-        else two or more visible incidents
+        else one or more visible incidents
             App-->>UI: visible directory data
             UI->>UI: remain on / and render visible incident directory
         end

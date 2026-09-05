@@ -74,7 +74,6 @@ type IncidentAdminPanelProps = {
   activeSection?: IncidentControlsSection | undefined;
   apiBase?: string | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
-  onIncidentSnapshot?: ((incident: IncidentSummary) => void) | undefined;
   onSessionRoleChange?: (() => Promise<void> | void) | undefined;
 };
 
@@ -173,7 +172,6 @@ export function IncidentAdminPanel({
   activeSection = "summary",
   apiBase,
   onIncidentAccessLost,
-  onIncidentSnapshot,
   onSessionRoleChange,
 }: IncidentAdminPanelProps) {
   const [incident, setIncident] = useState<IncidentSummary | null>(null);
@@ -358,7 +356,6 @@ export function IncidentAdminPanel({
       const nextIncident = (incidentResult.payload as { data: IncidentSummary })
         .data;
       setIncident(nextIncident);
-      onIncidentSnapshot?.(nextIncident);
       setPatchDescription(nextIncident.description ?? "");
       setPatchSeverity(nextIncident.severity ?? "");
       setPatchTLP(nextIncident.tlp ?? "");
@@ -410,7 +407,7 @@ export function IncidentAdminPanel({
           : "Incident controls synced.",
       );
     },
-    [onIncidentAccessLost, onIncidentSnapshot],
+    [onIncidentAccessLost],
   );
 
   useEffect(() => {
@@ -597,7 +594,6 @@ export function IncidentAdminPanel({
     ).data;
     setError(null);
     setIncident(nextIncident);
-    onIncidentSnapshot?.(nextIncident);
     setLifecycleReason("");
     await refreshSessionRole();
     setActionMessageForIncident(

@@ -1089,7 +1089,7 @@
             "$ref": "#/components/schemas/IncidentListData"
           },
           "meta": {
-            "$ref": "#/components/schemas/EnvelopeMeta"
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
           }
         },
         "required": [

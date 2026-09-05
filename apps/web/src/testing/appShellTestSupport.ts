@@ -5,6 +5,7 @@ import type {
   ExtensionProfileResource,
   SessionData,
 } from "../app/api/appShellClient";
+import type { IncidentDirectoryResource } from "../app/api/publicHttpTypes";
 import { jsonResponse } from "./fetchMockTestSupport";
 
 type FetchMock = {
@@ -37,23 +38,7 @@ type ExtraRoute = {
   url: string;
 };
 
-export type IncidentResource = {
-  created_at?: string;
-  created_by_user_id?: string;
-  updated_by_user_id?: string | null;
-  current_phase: string | null;
-  description: string | null;
-  closed_at?: string | null;
-  incident_id: string;
-  incident_key: string;
-  incident_version: number;
-  primary_external_case_ref: string | null;
-  severity: string | null;
-  status?: "active" | "closed";
-  title: string;
-  tlp: string | null;
-  updated_at?: string;
-};
+export type IncidentResource = IncidentDirectoryResource;
 
 type InstallLandingShellFetchOptions = {
   accountPreferences?: MaybeHandler<AccountPreferencesResource>;
@@ -142,7 +127,7 @@ export function installLandingShellFetch(
       const status = request.query.get("status");
       const search = (request.query.get("search") ?? "").trim().toLowerCase();
       const filteredIncidents = incidents.filter((incident) => {
-        if (status === "active" && (incident.status ?? "active") !== "active") {
+        if (status === "active" && incident.status !== "active") {
           return false;
         }
         if (status === "closed" && incident.status !== "closed") {
@@ -171,6 +156,7 @@ export function installLandingShellFetch(
           incidents: visibleIncidents,
         },
         meta: {
+          request_id: "request-test",
           paging: {
             limit: boundedLimit,
             has_more: hasMore,

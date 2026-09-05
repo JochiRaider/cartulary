@@ -143,7 +143,7 @@ const landingAdminPanelTokens = [
   "incident-import",
 ] as const satisfies readonly LandingAdminPanelSelectorToken[];
 
-type LandingAdminShellSelector = "menu" | "shell" | "status-strip";
+type LandingAdminShellSelector = "heading" | "menu" | "shell" | "status-strip";
 
 type IncidentControlsSectionSelectorToken =
   | "import-assistant"
@@ -316,6 +316,7 @@ const incidentLandingTestIds = Object.freeze({
 } satisfies Record<IncidentLandingSelector, string>);
 
 const landingAdminShellTestIds = Object.freeze({
+  heading: "landing-admin-heading",
   menu: "landing-admin-menu",
   shell: "landing-admin-shell",
   "status-strip": "landing-admin-status-strip",

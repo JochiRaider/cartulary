@@ -683,7 +683,6 @@ describe("IncidentAdminPanel", () => {
 
   it("uses generated lifecycle bindings, replaces returned state, and refreshes conflicts for explicit retry", async () => {
     const lifecycleRequests: Array<Record<string, unknown>> = [];
-    const onIncidentSnapshot = vi.fn();
     let currentIncident = incidentSummary();
     let incidentReads = 0;
 
@@ -758,7 +757,6 @@ describe("IncidentAdminPanel", () => {
         activeSection="summary"
         currentIncidentRole="admin"
         incidentId="00000000-0000-4000-8000-000000001001"
-        onIncidentSnapshot={onIncidentSnapshot}
       />,
     );
 
@@ -782,7 +780,6 @@ describe("IncidentAdminPanel", () => {
       reason: "containment complete",
     });
     expect(typeof lifecycleRequests[0]?.client_txn_id).toBe("string");
-    expect(onIncidentSnapshot).toHaveBeenLastCalledWith(currentIncident);
 
     fireEvent.change(
       screen.getByTestId(incidentAdministrationTestId("lifecycle-reason")),

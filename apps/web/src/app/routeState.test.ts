@@ -4,11 +4,12 @@ import {
   buildAppRouteLocation,
   emptyAppRouteState,
   parseAppRouteState,
+  readAppRouteState,
   writeAppRouteState,
 } from "./routeState";
 
 describe("app route state", () => {
-  it("parses the root route without accidental manual-directory or debug state", () => {
+  it("parses the root route without accidental debug state", () => {
     expect(
       parseAppRouteState({
         pathname: "/",
@@ -27,14 +28,12 @@ describe("app route state", () => {
       incidentId: "incident-1",
       debugHarness: true,
       deploymentAdministration: false,
-      manualIncidentDirectory: false,
     });
   });
 
   it("parses deployment administration as a path-owned route", () => {
     expect(
       parseAppRouteState({
-        historyState: { cartularyIncidentDirectory: true },
         pathname: "/deployment-administration",
         search: "?incident_id=incident-1&debug=harness",
       }),
@@ -42,20 +41,12 @@ describe("app route state", () => {
       incidentId: "",
       debugHarness: false,
       deploymentAdministration: true,
-      manualIncidentDirectory: false,
     });
   });
 
-  it("uses history state only for explicit incident-directory navigation", () => {
-    expect(
-      parseAppRouteState({
-        historyState: { cartularyIncidentDirectory: true },
-        pathname: "/",
-        search: "",
-      }),
-    ).toMatchObject({
-      manualIncidentDirectory: true,
-    });
+  it("reads root navigation independently of obsolete history flags", () => {
+    window.history.replaceState({ cartularyIncidentDirectory: true }, "", "/");
+    expect(readAppRouteState()).toEqual(emptyAppRouteState);
   });
 
   it("builds URLs while preserving non-route query parameters", () => {
@@ -65,13 +56,12 @@ describe("app route state", () => {
           incidentId: "incident-2",
           debugHarness: false,
           deploymentAdministration: false,
-          manualIncidentDirectory: false,
         },
         "?keep=1&incident_id=incident-1&surface=timeline&debug=harness",
       ),
     ).toEqual({
       historyState: {},
-      url: "/?keep=1&incident_id=incident-2&surface=timeline",
+      url: "/?keep=1&incident_id=incident-2",
     });
 
     expect(
@@ -80,7 +70,6 @@ describe("app route state", () => {
           incidentId: "",
           debugHarness: false,
           deploymentAdministration: true,
-          manualIncidentDirectory: false,
         },
         "?keep=1&incident_id=incident-1&surface=timeline&debug=harness",
       ),
@@ -88,6 +77,26 @@ describe("app route state", () => {
       historyState: {},
       url: "/deployment-administration?keep=1",
     });
+  });
+
+  it("clears incident-owned workbook startup parameters when changing application context", () => {
+    const search =
+      "?keep=1&incident_id=incident-1&view_schema_id=cartulary.view.hosts.v1&sheet_ref_kind=saved_view&sheet_ref_id=saved-1&extension_profile_id=network_flow_activity&workspace_key=network_analysis&surface=hosts";
+    for (const route of [
+      emptyAppRouteState,
+      { ...emptyAppRouteState, incidentId: "incident-2" },
+      { ...emptyAppRouteState, deploymentAdministration: true },
+    ]) {
+      const url = new URL(
+        buildAppRouteLocation(route, search).url,
+        "http://cartulary.test",
+      );
+      expect(Object.fromEntries(url.searchParams)).toEqual(
+        route.incidentId === "incident-2"
+          ? { keep: "1", incident_id: "incident-2" }
+          : { keep: "1" },
+      );
+    }
   });
 
   it("writes push and replace history entries with the route-owned history state", () => {
@@ -100,7 +109,6 @@ describe("app route state", () => {
         incidentId: "",
         debugHarness: false,
         deploymentAdministration: false,
-        manualIncidentDirectory: true,
       },
       "push",
       {
@@ -113,7 +121,6 @@ describe("app route state", () => {
         incidentId: "",
         debugHarness: true,
         deploymentAdministration: false,
-        manualIncidentDirectory: false,
       },
       "replace",
       {
@@ -122,11 +129,7 @@ describe("app route state", () => {
       },
     );
 
-    expect(pushState).toHaveBeenCalledWith(
-      { cartularyIncidentDirectory: true },
-      "",
-      "/",
-    );
+    expect(pushState).toHaveBeenCalledWith({}, "", "/");
     expect(replaceState).toHaveBeenCalledWith({}, "", "/?debug=harness");
   });
 });

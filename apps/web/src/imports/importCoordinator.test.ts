@@ -133,9 +133,15 @@ describe("extension import coordinator stages", () => {
 
     for (const [pagingScenario, expectedError] of [
       ["empty", "import_unit_not_returned"],
-      ["missing_cursor", "invalid_import_paging_contract"],
+      [
+        "missing_cursor",
+        "The server returned an invalid public contract response.",
+      ],
       ["repeated_cursor", "invalid_import_paging_contract"],
-      ["terminal_cursor", "invalid_import_paging_contract"],
+      [
+        "terminal_cursor",
+        "The server returned an invalid public contract response.",
+      ],
     ] as const) {
       fetchMock.mockReset();
       installHappyPath(fetchMock, { pagingScenario });

@@ -47,6 +47,7 @@ import {
   incidentControlsStatusTestId,
   incidentControlsTriggerTestId,
   incidentLandingTestId,
+  landingAdminShellTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -5306,11 +5307,14 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expect(page).not.toHaveURL(
         new RegExp(`incident_id=${selectedIncidentId}`),
       );
-      await expect(page).toHaveURL(
-        new RegExp(`incident_id=${alternateIncidentId}`),
-      );
-      await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-
+      await expect(page).not.toHaveURL(/incident_id=/);
+      await expect(
+        page.getByTestId(landingAdminShellTestId("heading")),
+      ).toHaveText("Incident directory");
+      await expect(
+        page.getByTestId(landingAdminShellTestId("heading")),
+      ).toBeFocused();
+      await new IncidentDirectory(page).openIncident(alternateIncidentId);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expectCurrentIncidentRole(page, "admin");
       await openIncidentControls(page, "incident-fields");
@@ -5423,6 +5427,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await clearBrowserSession(page);
       await new AuthGateway(page).goto();
       await new AuthGateway(page).login(email, password);
+      await new IncidentDirectory(page).openIncident(incidentId);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
         page.getByTestId(appRouteTestId("workbook-current-user")),
@@ -5457,6 +5462,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       });
 
       await new AuthGateway(page).login(email, password);
+      await new IncidentDirectory(page).openIncident(incidentId);
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expect(
         page.getByTestId(appRouteTestId("workbook-current-user")),
@@ -5710,8 +5716,11 @@ test("a11y.account-menu keyboard focus names current state and nested navigation
   await page.keyboard.press("Enter");
   await page.keyboard.press("Home");
   await page.keyboard.press("Enter");
+  await expect(page.getByTestId(landingAdminShellTestId("heading"))).toHaveText(
+    "Incident directory",
+  );
   await expect(
-    page.getByRole("heading", { name: "Incident directory", exact: true }),
+    page.getByTestId(landingAdminShellTestId("heading")),
   ).toBeFocused();
   await trigger.focus();
   await page.keyboard.press("Enter");

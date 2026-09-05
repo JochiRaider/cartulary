@@ -1663,6 +1663,7 @@
       "selector": {
         "file": "apps/web/src/workbook/hooks/useWorkbookStartupController.test.tsx",
         "titles": [
+          "useWorkbookStartupController keeps sheet URL writes inside the currently selected incident route",
           "useWorkbookStartupController owns selection identity, focus intent, versioning, and URL history"
         ]
       },

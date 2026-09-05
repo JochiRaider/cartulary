@@ -8,15 +8,11 @@ export function useWorkbookIncidentIdentity({
   incidentId,
   initialIncidentIdentity,
   onIncidentAccessLost,
-  onIncidentSnapshot,
 }: {
   readonly incidentPort: WorkbookIncidentPort;
   readonly incidentId: string;
   readonly initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
   readonly onIncidentAccessLost?: (() => void) | undefined;
-  readonly onIncidentSnapshot?:
-    | ((incident: WorkbookIncidentIdentity) => void)
-    | undefined;
 }) {
   const [incidentIdentity, setIncidentIdentity] =
     useState<WorkbookIncidentIdentity | null>(
@@ -30,7 +26,6 @@ export function useWorkbookIncidentIdentity({
     if (initialIncidentIdentity?.incident_id === incidentId) {
       setIncidentIdentity(initialIncidentIdentity);
       setIncidentIdentityError(null);
-      onIncidentSnapshot?.(initialIncidentIdentity);
       return;
     }
     const controller = new AbortController();
@@ -50,19 +45,12 @@ export function useWorkbookIncidentIdentity({
         return;
       }
       setIncidentIdentity(result.value);
-      onIncidentSnapshot?.(result.value);
     };
     void loadIncidentIdentity();
     return () => {
       controller.abort();
     };
-  }, [
-    incidentPort,
-    incidentId,
-    initialIncidentIdentity,
-    onIncidentAccessLost,
-    onIncidentSnapshot,
-  ]);
+  }, [incidentPort, incidentId, initialIncidentIdentity, onIncidentAccessLost]);
 
   return {
     incidentIdentity,

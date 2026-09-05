@@ -323,7 +323,7 @@ An automatic persisted-pointer repair MUST compare and clear the exact stored po
 Profiles: base, network_flow_activity
 Verified by: AC-150, AC-153, AC-231
 
-For authenticated root landing flows that open a workbook without an explicit valid launch `sheet_ref`, Core 01 §3.3.2.1A reuses this same ordered fallback chain rather than defining a separate workbook-startup order.
+For explicit incident-directory selection or successful creation that opens a workbook without a launch `sheet_ref`, Core 01 §3.3.2.1A reuses this same ordered fallback chain. Authenticated root entry itself displays the directory and does not select a workbook.
 
 **REQ-03-290**
 Deployment administration is not a workbook startup surface. The `/deployment-administration` browser context defined by Core 01 §3.3.2.1B MUST NOT be represented as a `sheet_ref`, saved view, system view, built-in tab, `home_sheet_ref`, `default_sheet_ref`, startup fallback candidate, or workbook-surface registry entry.

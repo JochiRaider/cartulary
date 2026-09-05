@@ -2,22 +2,10 @@ import type { ReactNode, RefObject } from "react";
 import type { APIError } from "../services/browserApi";
 import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
 import type { IncidentCreationBinding } from "./incidentCreationModel";
-
-export type IncidentData = {
-  incident_id: string;
-  incident_key: string;
-  title: string;
-  description: string | null;
-  severity: string | null;
-  tlp: string | null;
-  current_phase: string | null;
-  primary_external_case_ref: string | null;
-  incident_version: number;
-  status?: "active" | "closed";
-  created_at?: string;
-  updated_at?: string;
-  closed_at?: string | null;
-};
+import type {
+  IncidentDirectoryController,
+  IncidentDirectoryState,
+} from "./incidentDirectoryModel";
 
 export type IncidentStatusFilter = "active" | "all" | "closed";
 
@@ -122,17 +110,11 @@ export type IncidentLandingProps = {
   bootstrapState: AppBootstrapState;
   creation: IncidentCreationBinding;
   error: APIError | null;
-  hasMoreIncidents: boolean;
-  incidents: IncidentData[];
-  incidentSearch: string;
-  incidentStatusFilter: IncidentStatusFilter;
-  isRefreshing: boolean;
-  onLoadMore: () => Promise<void> | void;
+  directory: {
+    controller: IncidentDirectoryController;
+    state: IncidentDirectoryState;
+  };
   onOpenIncident: (incidentId: string) => void;
-  onRefresh: () => Promise<void> | void;
-  onSearchChange: (value: string) => void;
-  onSearchSubmit: () => Promise<void> | void;
-  onStatusFilterChange: (value: IncidentStatusFilter) => void;
   statusText: string;
 };
 

@@ -1148,6 +1148,36 @@
       "classification": "breaking",
       "owner_id": "module.workbook",
       "rationale": "Remove the compatibility-only view_schema_id startup request parameter after the coordinated cutover to the canonical sheet_ref_kind and sheet_ref_id selector."
+    },
+    {
+      "fingerprint": "153e359c69c388143537faea80efc27dfa34d77e16be92ccd89f7589354c6198",
+      "classification": "breaking",
+      "owner_id": "module.incidents",
+      "rationale": "Project existing Core 01 paged-response requirements: incident lists require paging, limits are bounded, and continuation fields agree; conforming wire responses are unchanged."
+    },
+    {
+      "fingerprint": "b6a6347b4d6ab4ba78b10b27831126dabd43401aff5177cc7a049d6a4283cb45",
+      "classification": "additive",
+      "owner_id": "platform.openapi",
+      "rationale": "Project existing Core 01 paged-response requirements: incident lists require paging, limits are bounded, and continuation fields agree; conforming wire responses are unchanged."
+    },
+    {
+      "fingerprint": "1ae5d0922e5d21c2cd3330b443b8a95c72b9d5d09f1264f18f20c619f905ff4e",
+      "classification": "additive",
+      "owner_id": "platform.openapi",
+      "rationale": "Project existing Core 01 paged-response requirements: incident lists require paging, limits are bounded, and continuation fields agree; conforming wire responses are unchanged."
+    },
+    {
+      "fingerprint": "3e53b39d81dab99c9992e81d0eae9a301dee7a35e842bee4f62d308b0fdcfdc8",
+      "classification": "additive",
+      "owner_id": "platform.openapi",
+      "rationale": "Project existing Core 01 paged-response requirements: incident lists require paging, limits are bounded, and continuation fields agree; conforming wire responses are unchanged."
+    },
+    {
+      "fingerprint": "c10f65bc1d4a0bb8ff7d181b2ea2549c23e5157b096e3f00c3a22c09f785d0a5",
+      "classification": "additive",
+      "owner_id": "platform.openapi",
+      "rationale": "Project existing Core 01 paged-response requirements: incident lists require paging, limits are bounded, and continuation fields agree; conforming wire responses are unchanged."
     }
   ]
 }

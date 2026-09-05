@@ -12474,7 +12474,7 @@
             "$ref": "#/components/schemas/IncidentListData"
           },
           "meta": {
-            "$ref": "#/components/schemas/EnvelopeMeta"
+            "$ref": "#/components/schemas/PagedEnvelopeMeta"
           }
         },
         "required": [
@@ -14367,13 +14367,58 @@
         ],
         "type": "object"
       },
+      "PagedEnvelopeMeta": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          },
+          {
+            "properties": {
+              "paging": {
+                "$ref": "#/components/schemas/PagingMeta"
+              }
+            },
+            "required": [
+              "paging"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "PagingMeta": {
         "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "has_more": {
+                "const": true
+              },
+              "next_cursor": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          {
+            "properties": {
+              "has_more": {
+                "const": false
+              },
+              "next_cursor": {
+                "type": "null"
+              }
+            },
+            "type": "object"
+          }
+        ],
         "properties": {
           "has_more": {
             "type": "boolean"
           },
           "limit": {
+            "maximum": 500,
+            "minimum": 1,
             "type": "integer"
           },
           "next_cursor": {

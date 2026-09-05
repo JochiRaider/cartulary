@@ -7,6 +7,26 @@
 export type DensityMode = "compact" | "default" | "comfortable";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PagingMeta".
+ */
+export type PagingMeta = {
+  has_more: boolean;
+  limit: number;
+  next_cursor: string | null;
+} & PagingMeta1;
+export type PagingMeta1 =
+  | {
+      has_more?: true;
+      next_cursor?: string;
+      [k: string]: unknown;
+    }
+  | {
+      has_more?: false;
+      next_cursor?: null;
+      [k: string]: unknown;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "CreateViewRowRequestBody".
  */
 export type CreateViewRowRequestBody =
@@ -70,6 +90,14 @@ export type ApprovedImportMapping1 = {
  * via the `definition` "ImportUnitMappingRequest".
  */
 export type ImportUnitMappingRequest = {
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PagedEnvelopeMeta".
+ */
+export type PagedEnvelopeMeta = EnvelopeMeta & {
+  paging: PagingMeta;
   [k: string]: unknown;
 };
 /**
@@ -201,15 +229,6 @@ export interface AccountPreferencesResource {
 export interface EnvelopeMeta {
   paging?: PagingMeta;
   request_id: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "PagingMeta".
- */
-export interface PagingMeta {
-  has_more: boolean;
-  limit: number;
-  next_cursor: string | null;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -1276,7 +1295,7 @@ export interface IncidentLifecycleRequest {
  */
 export interface IncidentListEnvelope {
   data: IncidentListData;
-  meta: EnvelopeMeta;
+  meta: PagedEnvelopeMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

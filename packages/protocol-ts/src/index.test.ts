@@ -115,6 +115,36 @@ describe("@cartulary/protocol-ts family conformance", () => {
     );
   });
 
+  it("requires complete incident paging and consistent continuation metadata", () => {
+    const validate = (paging: unknown) =>
+      validateHTTPOperationResponse("listVisibleIncidents", {
+        data: { incidents: [] },
+        meta: {
+          request_id: "request-test",
+          ...(paging === undefined ? {} : { paging }),
+        },
+      });
+    for (const paging of [
+      { limit: 100, has_more: false, next_cursor: null },
+      { limit: 1, has_more: true, next_cursor: "opaque next +/%" },
+      { limit: 500, has_more: false, next_cursor: null },
+    ])
+      expect(validate(paging).ok).toBe(true);
+    for (const paging of [
+      undefined,
+      null,
+      {},
+      { limit: 100, has_more: false },
+      { limit: 0, has_more: false, next_cursor: null },
+      { limit: 501, has_more: false, next_cursor: null },
+      { limit: 1.5, has_more: false, next_cursor: null },
+      { limit: 100, has_more: true, next_cursor: null },
+      { limit: 100, has_more: true, next_cursor: "" },
+      { limit: 100, has_more: false, next_cursor: "unexpected" },
+    ])
+      expect(validate(paging).ok, JSON.stringify(paging)).toBe(false);
+  });
+
   it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
     expect([
       buildHTTPOperationPath("loginLocalUser"),

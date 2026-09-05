@@ -548,7 +548,7 @@
       "selector": {
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
-          "ordinary landing shell creates an incident, refreshes session-visible membership, routes to the workbook by incident_id, and falls back when a stale incident selection is no longer visible"
+          "ordinary landing shell creates an incident, refreshes membership, opens the workbook, and delegates stale selection to workbook access recovery"
         ]
       },
       "evidence_class": "unit",
