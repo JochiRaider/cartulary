@@ -1,5 +1,26 @@
 import type { CSSProperties } from "react";
 
+export const accountDensityGroupStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-xs)",
+  marginBlockStart: "var(--ct-spacing-sm)",
+  minInlineSize: 0,
+};
+
+export const accountDensityChoiceStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--ct-spacing-sm)",
+  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
+  border: "var(--ct-border-hairline)",
+  borderRadius: "var(--ct-rounded-sm)",
+  color: "var(--ct-colors-ink)",
+  overflowWrap: "anywhere",
+  minInlineSize: 0,
+  cursor: "pointer",
+};
+
 export const landingAdminShellStyle: CSSProperties = {
   width: "100%",
   minHeight: "100vh",

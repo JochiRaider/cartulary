@@ -8,6 +8,7 @@ import type {
   AuthorizationRecoveryResult,
 } from "../shared/authorizationRecovery";
 import {
+  isAccountPreferencesResource,
   loadAccountPreferences,
   loadExtensions,
   loadSession,
@@ -20,7 +21,12 @@ import type {
 
 export type SessionResourceState<T> =
   | { readonly kind: "unresolved" | "loading" }
-  | { readonly kind: "ready"; readonly value: T }
+  | {
+      readonly kind: "ready";
+      readonly value: T;
+      readonly refreshing?: boolean;
+      readonly refreshError?: APIError;
+    }
   | {
       readonly kind: "failed";
       readonly error: APIError;
@@ -178,6 +184,18 @@ export class AppSessionController {
   refreshSession = async () => {
     await this.observeSession(false);
   };
+  refreshSessionForAccountEdit(
+    lifetime: string,
+    signal: AbortSignal,
+    isCurrent: () => boolean,
+  ) {
+    return this.observeSession(
+      false,
+      signal,
+      () => lifetime === this.snapshot.lifetime && isCurrent(),
+      "caller",
+    );
+  }
   preferencesChanged(
     value: AccountPreferencesResource,
     lifetime: string | null,
@@ -188,10 +206,26 @@ export class AppSessionController {
       lifetime !== this.snapshot.lifetime ||
       value.user_id !== this.snapshot.session?.user_id
     )
-      return;
+      return "obsolete" as const;
+    if (!isAccountPreferencesResource(value)) return "invalid" as const;
+    const prior = this.snapshot.preferences;
+    if (
+      prior.kind === "ready" &&
+      value.preferences_version < prior.value.preferences_version
+    )
+      return "obsolete" as const;
+    if (
+      prior.kind === "ready" &&
+      value.preferences_version === prior.value.preferences_version &&
+      (value.density_mode !== prior.value.density_mode ||
+        value.created_at !== prior.value.created_at ||
+        value.updated_at !== prior.value.updated_at)
+    )
+      return "invalid" as const;
     ++this.resourceReads.preferences;
     this.observations.get("preferences")?.();
     this.publish({ preferences: { kind: "ready", value } });
+    return "accepted" as const;
   }
   refreshResources = () => {
     void this.refreshPreferences();
@@ -348,7 +382,13 @@ export class AppSessionController {
     if (this.disposed || this.snapshot.lifetime === null) return;
     const lifetime = this.snapshot.lifetime;
     const read = ++this.resourceReads[key];
-    this.publish({ [key]: { kind: "loading" } });
+    const prior = this.snapshot.preferences;
+    this.publish({
+      [key]:
+        key === "preferences" && prior.kind === "ready"
+          ? { kind: "ready", value: prior.value, refreshing: true }
+          : { kind: "loading" },
+    });
     const observation = await this.observe(key, request);
     if (
       this.disposed ||
@@ -359,6 +399,31 @@ export class AppSessionController {
       return;
     const result = observation.kind === "completed" ? observation.value : null;
     if (result?.ok) {
+      if (key === "preferences") {
+        const acceptance = this.preferencesChanged(
+          select(result.payload) as AccountPreferencesResource,
+          lifetime,
+        );
+        if (acceptance === "accepted") return;
+        const current = this.snapshot.preferences;
+        if (acceptance === "obsolete" && current.kind === "ready") {
+          this.publish({
+            preferences: { kind: "ready", value: current.value },
+          });
+          return;
+        }
+        const error = {
+          code: "invalid_public_contract_response",
+          retryable: true,
+        };
+        this.publish({
+          preferences:
+            current.kind === "ready"
+              ? { kind: "ready", value: current.value, refreshError: error }
+              : { kind: "failed", error, failure: "contract" },
+        });
+        return;
+      }
       this.publish({ [key]: { kind: "ready", value: select(result.payload) } });
       return;
     }
@@ -370,7 +435,13 @@ export class AppSessionController {
       this.sessionLost();
       return;
     }
-    this.publish({ [key]: { kind: "failed", error, failure: failure(error) } });
+    const current = this.snapshot.preferences;
+    this.publish({
+      [key]:
+        key === "preferences" && current.kind === "ready"
+          ? { kind: "ready", value: current.value, refreshError: error }
+          : { kind: "failed", error, failure: failure(error) },
+    });
   }
   private observe<T>(
     key: string,

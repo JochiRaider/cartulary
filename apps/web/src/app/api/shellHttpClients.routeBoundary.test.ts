@@ -481,11 +481,19 @@ describe("App-shell API route boundaries", () => {
     });
     await expectOperation(() => loadAccountProfile());
     await expectOperation(() =>
-      patchAccountProfile({ baseUserVersion: 1, displayName: "Updated" }),
+      patchAccountProfile({
+        clientTxnId: "profile-test",
+        baseUserVersion: 1,
+        displayName: "Updated",
+      }),
     );
     await expectOperation(() => loadAccountPreferences());
     await expectOperation(() =>
-      putAccountPreferences({ basePreferencesVersion: 1, densityMode: null }),
+      putAccountPreferences({
+        clientTxnId: "preferences-test",
+        basePreferencesVersion: 1,
+        densityMode: null,
+      }),
     );
     await expectOperation(() => loadExtensions());
     await expectOperation(() => listVisibleIncidents());

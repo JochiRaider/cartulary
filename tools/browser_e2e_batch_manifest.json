@@ -261,7 +261,9 @@
             "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
             "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
             "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
-            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220"
+            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220",
+            "web.design.browser.account_settings_keyboard_responsive_781bd74a33",
+            "web.design.browser.account_settings_real_conflict_replay_46b2ec9831"
           ],
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
@@ -904,7 +906,9 @@
             "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
             "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
             "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
-            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220"
+            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220",
+            "web.design.browser.account_settings_keyboard_responsive_781bd74a33",
+            "web.design.browser.account_settings_real_conflict_replay_46b2ec9831"
           ],
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
@@ -1964,6 +1968,7 @@
             "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
+            "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
@@ -2043,6 +2048,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
+            "web.design.visual.account_settings_editing_states_5af731dc29",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
@@ -2283,6 +2289,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
+            "web.design.visual.account_settings_editing_states_5af731dc29",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
@@ -2806,6 +2813,7 @@
             "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
+            "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
@@ -2873,6 +2881,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
+            "web.design.visual.account_settings_editing_states_5af731dc29",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",

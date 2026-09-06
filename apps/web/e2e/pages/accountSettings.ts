@@ -2,10 +2,33 @@ import { accountTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
-type AccountSettingsPanel = "account-appearance" | "account-security";
+type AccountSettingsPanel =
+  | "account-profile"
+  | "account-appearance"
+  | "account-security";
 
 export class AccountSettings {
   constructor(private readonly page: Page) {}
+
+  async openProfile() {
+    await this.openPanel("account-profile");
+    await expect(
+      this.page.getByRole("textbox", { name: "Display name" }),
+    ).toBeEnabled();
+  }
+
+  async selectDensity(
+    label: "Use surface default" | "Compact" | "Default" | "Comfortable",
+  ) {
+    await this.openAppearance();
+    await this.page
+      .getByRole("radiogroup", { name: "Density", exact: true })
+      .getByRole("radio", { name: label, exact: true })
+      .check();
+    await expect(
+      this.page.getByRole("button", { name: "Refresh appearance" }),
+    ).toBeEnabled();
+  }
 
   async openAppearance() {
     await this.openPanel("account-appearance");
@@ -17,11 +40,17 @@ export class AccountSettings {
 
   private async openPanel(panel: AccountSettingsPanel) {
     const panelLabel =
-      panel === "account-appearance" ? "Appearance" : "Security";
+      panel === "account-profile"
+        ? "Profile"
+        : panel === "account-appearance"
+          ? "Appearance"
+          : "Security";
     const expectedControl =
-      panel === "account-appearance"
-        ? accountTestId("appearance-density-mode")
-        : accountTestId("refresh-state");
+      panel === "account-profile"
+        ? accountTestId("profile-display-name")
+        : panel === "account-appearance"
+          ? accountTestId("appearance-density-mode")
+          : accountTestId("refresh-state");
     const expectedControlLocator = this.page.getByTestId(expectedControl);
     try {
       await expect(expectedControlLocator).toBeVisible({ timeout: 500 });
@@ -45,7 +74,9 @@ export class AccountSettings {
       await expect(expectedControlLocator).toBeVisible();
       return;
     }
-    const trigger = this.page.getByLabel("Account and application navigation");
+    const trigger = this.page.getByRole("button", {
+      name: "Account and application navigation",
+    });
     await expect(trigger).toBeVisible();
     await trigger.click();
     await this.page.getByRole("menuitem", { name: "Account settings" }).click();

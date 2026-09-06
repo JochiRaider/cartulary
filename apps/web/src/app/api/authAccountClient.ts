@@ -21,8 +21,13 @@ import type {
   PutCurrentAccountPreferencesRequest,
   PutCurrentAccountPreferencesResponse,
 } from "@cartulary/protocol-ts/http";
+import { validateHTTPOperationResponse } from "@cartulary/protocol-ts/http";
 import { clientTxnID, fetchHTTPOperation } from "../../services/browserApi";
-import type { DensityMode } from "./publicHttpTypes";
+import type {
+  AccountPreferencesResource,
+  AccountProfileResource,
+  DensityMode,
+} from "./publicHttpTypes";
 export type TotpAuthMode = "bootstrap" | "session";
 type ShellGetOptions = { apiBase?: string | undefined; signal?: AbortSignal };
 
@@ -100,18 +105,20 @@ export function loadAccountProfile(options?: ShellGetOptions) {
 export function patchAccountProfile(options: {
   apiBase?: string | undefined;
   baseUserVersion: number;
-  clientTxnId?: string;
+  clientTxnId: string;
+  signal?: AbortSignal;
   displayName: string;
 }) {
   const request = {
     base_user_version: options.baseUserVersion,
-    client_txn_id: options.clientTxnId ?? clientTxnID("account-profile-patch"),
+    client_txn_id: options.clientTxnId,
     display_name: options.displayName,
   } satisfies PatchCurrentAccountProfileRequest;
   return fetchHTTPOperation<PatchCurrentAccountProfileResponse>({
     apiBase: options.apiBase,
     init: {
       method: "PATCH",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify(request),
     },
     operationID: "patchCurrentAccountProfile",
@@ -134,19 +141,20 @@ export function loadAccountPreferences(options?: ShellGetOptions) {
 export function putAccountPreferences(options: {
   apiBase?: string | undefined;
   basePreferencesVersion: number;
-  clientTxnId?: string;
+  clientTxnId: string;
+  signal?: AbortSignal;
   densityMode: DensityMode | null;
 }) {
   const request = {
     base_preferences_version: options.basePreferencesVersion,
-    client_txn_id:
-      options.clientTxnId ?? clientTxnID("account-preferences-put"),
+    client_txn_id: options.clientTxnId,
     density_mode: options.densityMode,
   } satisfies PutCurrentAccountPreferencesRequest;
   return fetchHTTPOperation<PutCurrentAccountPreferencesResponse>({
     apiBase: options.apiBase,
     init: {
       method: "PUT",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify(request),
     },
     operationID: "putCurrentAccountPreferences",
@@ -305,4 +313,22 @@ export function changePassword(options: {
       } satisfies ChangeCurrentPasswordRequest),
     },
   });
+}
+
+export function isAccountProfileResource(
+  value: unknown,
+): value is AccountProfileResource {
+  return validateHTTPOperationResponse("getCurrentAccountProfile", {
+    data: value,
+    meta: { request_id: "account-resource-acceptance" },
+  }).ok;
+}
+
+export function isAccountPreferencesResource(
+  value: unknown,
+): value is AccountPreferencesResource {
+  return validateHTTPOperationResponse("getCurrentAccountPreferences", {
+    data: value,
+    meta: { request_id: "account-resource-acceptance" },
+  }).ok;
 }

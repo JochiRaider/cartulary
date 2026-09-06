@@ -143,6 +143,7 @@ import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
+import { installAccountEditingFixture } from "./support/auth/accountEditingFixture";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { revokeAllSessions } from "./support/auth/sessions";
@@ -5732,4 +5733,79 @@ test("a11y.account-menu keyboard focus names current state and nested navigation
   await page.keyboard.press("Shift+Tab");
   await expect(trigger).toBeFocused();
   await expect(root).toHaveCount(0);
+});
+
+test("a11y.account-settings native forms radios validation and recovery", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  const fixture = await installAccountEditingFixture(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const settings = new AccountSettings(page);
+  await settings.openProfile();
+  const dialog = page.getByRole("dialog", { name: "Account settings" });
+  const field = dialog.getByRole("textbox", { name: "Display name" });
+  await field.focus();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.insertText("   ");
+  await page.keyboard.press("Enter");
+  await expect(field).toHaveAttribute("aria-invalid", "true");
+  await expect(field).toHaveAccessibleDescription("Enter a display name.");
+  await expect(field).toBeFocused();
+  await expectVisibleFocus(field);
+  await expect(dialog.getByRole("alert")).toHaveCount(1);
+  await expectAllInteractiveControlsNamed(page);
+  await field.fill("Accessible draft");
+  fixture.fault("profile", "lost");
+  await field.press("Enter");
+  const retry = dialog.getByRole("button", { name: "Retry save" });
+  await retry.focus();
+  await expectVisibleFocus(retry);
+  await page.keyboard.press("Enter");
+  await expect(dialog.getByRole("status")).toContainText("Profile saved.");
+  await expectAndRecordContrast(page, [
+    accountTestId("profile-display-name"),
+    accountTestId("profile-save"),
+  ]);
+  await dialog.getByRole("tab", { name: "Appearance" }).focus();
+  await page.keyboard.press("Enter");
+  const group = dialog.getByRole("radiogroup", {
+    name: "Density",
+    exact: true,
+  });
+  const radios = group.getByRole("radio");
+  await expect(radios).toHaveCount(4);
+  for (const [index, label] of [
+    "Use surface default",
+    "Compact",
+    "Default",
+    "Comfortable",
+  ].entries())
+    await expect(radios.nth(index)).toHaveAccessibleName(label);
+  await radios.first().focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(radios.last()).toBeChecked();
+  await expect(radios.last()).toBeFocused();
+  await expectVisibleFocus(radios.last());
+  await page.keyboard.press("ArrowRight");
+  await expect(radios.first()).toBeChecked();
+  await page.keyboard.press("ArrowRight");
+  await expect(radios.nth(1)).toBeChecked();
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Save appearance" }),
+  ).toBeFocused();
+  await expectVisibleFocus(
+    dialog.getByRole("button", { name: "Save appearance" }),
+  );
+  await expectAndRecordContrast(page, [accountTestId("appearance-save")]);
+  await expectAllInteractiveControlsNamed(page);
+  await testInfo.attach("account-settings-accessibility-tree", {
+    body: await dialog.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Account and application navigation" }),
+  ).toBeFocused();
 });

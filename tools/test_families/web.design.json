@@ -39,6 +39,43 @@
       ]
     },
     {
+      "row_id": "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
+      "owner_id": "web.design",
+      "family_id": "web.design.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.auth",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_5eca952ea572"
+        ],
+        "titles": [
+          "a11y.account-settings native forms radios validation and recovery"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
       "owner_id": "web.design",
       "family_id": "web.design.accessibility",
@@ -146,6 +183,80 @@
       ]
     },
     {
+      "row_id": "web.design.browser.account_settings_keyboard_responsive_781bd74a33",
+      "owner_id": "web.design",
+      "family_id": "web.design.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.auth",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-administration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_549d079b8d64"
+        ],
+        "titles": [
+          "account settings keyboard density recovery and constrained presentation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "web.design.browser.account_settings_real_conflict_replay_46b2ec9831",
+      "owner_id": "web.design",
+      "family_id": "web.design.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.auth",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-administration.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_b285c70e73d4"
+        ],
+        "titles": [
+          "account settings retain edits through real version conflicts and exact committed replay"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3",
       "owner_id": "web.design",
       "family_id": "web.design.browser",
@@ -203,6 +314,44 @@
         ],
         "titles": [
           "Capture account application menu root and nested Controls across contexts and constrained viewports."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "web.design.visual.account_settings_editing_states_5af731dc29",
+      "owner_id": "web.design",
+      "family_id": "web.design.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "module.auth",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_4301c1db00ce"
+        ],
+        "titles": [
+          "Capture account settings drafts pending conflict recovery and responsive states."
         ]
       },
       "evidence_class": "visual",

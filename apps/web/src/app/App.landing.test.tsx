@@ -1692,8 +1692,8 @@ describe("Incident landing", () => {
       accountTestId("appearance-density-mode"),
     );
     expect(
-      Array.from((densityMode as HTMLSelectElement).options).map(
-        (option) => option.textContent,
+      Array.from(densityMode.querySelectorAll("label")).map(
+        (label) => label.textContent,
       ),
     ).toEqual(["Use surface default", "Compact", "Default", "Comfortable"]);
 
@@ -1796,11 +1796,24 @@ describe("Incident landing", () => {
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
     fireEvent.click(screen.getByRole("tab", { name: "Appearance" }));
-    fireEvent.change(
-      await screen.findByTestId(accountTestId("appearance-density-mode")),
-      {
-        target: { value: "compact" },
-      },
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("radio", {
+            name: "Compact",
+          }) as HTMLInputElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Compact" }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByTestId(
+            accountTestId("appearance-save"),
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
     );
     fireEvent.click(screen.getByTestId(accountTestId("appearance-save")));
 

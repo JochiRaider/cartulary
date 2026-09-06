@@ -35,6 +35,54 @@
       "sha256": "01fc27c104878964d1e8e8504e5b7b39d55137d6b7c14b000d571e23cd9577ed"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-conflict-linux.png",
+      "sha256": "76a8d61e6c6b729e2b643ed663f07e574893aecc81cf6c82f687aeaff15af6e1"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-dirty-linux.png",
+      "sha256": "ed0e5130c3ff22c0d92b866c4e47654747f05510bec7c37ed16d25f0721bb88a"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-pending-linux.png",
+      "sha256": "0440e804cfca1379b0cb7dbdcb778dee925a778f59b6357a9def5503804b5eb6"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-recovery-linux.png",
+      "sha256": "885921675822bbf40c25dbe416ed3db30c7142f01bfd62e6291d26a1a588e579"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-short-linux.png",
+      "sha256": "7631810aa56ad65c62f984adb7fff1a69e4ebcc67da43bdde0a4542efba04be1"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-text-spacing-linux.png",
+      "sha256": "daf3ef9049e6899f70547a1b05352cd77a286dd60b394ec2a5145c01cd29ab30"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-appearance-zoom-linux.png",
+      "sha256": "8eaf87784dd5fffb5e364b751af18484009ca71525969eff3c782ccf8d7e327c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-conflict-linux.png",
+      "sha256": "4cf42f4c30170218d086ae10c27776fc441ce5b39c194fba8e36673edb29969c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-dirty-linux.png",
+      "sha256": "e74bf26db8b7dc8761af0fd6f519b6142ca2323b19e76981b9271cda5ad56397"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-long-name-linux.png",
+      "sha256": "f7bea311a32bce3f57af930d826c9a519a0047d3ad0e22bea76666ee1090c30d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-pending-linux.png",
+      "sha256": "e9971b902744e97fde7c6739ab3583a7f29bd1eff5a42a518502b7451b550989"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-settings-profile-recovery-linux.png",
+      "sha256": "9b01e5040b50b50b5e242448b6ea12fcd80ba63746a5271596315582e4282ba7"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-200-zoom-linux.png",
       "sha256": "83f9ca73f1a0faf735f8d202f6114164da0e0f65b04ce7105382dafe6ab3f949"
     },

@@ -13,6 +13,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type {
   WorkbookAccountApplicationMenuProps,
@@ -30,6 +31,7 @@ import {
   AccountProfilePanel,
 } from "./AccountSettingsPanels";
 import { AuthGateway } from "./AuthGateway";
+import { AccountSettingsController } from "./accountSettingsModel";
 import type {
   ExtensionProfileResource,
   SessionData,
@@ -109,6 +111,7 @@ function extensionClaimed(
 
 export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const { commitRoute: publishRoute, route, routeRef } = useAppRouteRuntime();
+  const accountEditingRef = useRef<AccountSettingsController | null>(null);
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
   const directoryControllerRef = useRef<IncidentDirectoryController | null>(
     null,
@@ -145,6 +148,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     () =>
       new AppSessionController({
         retireLifetime: (lifetime) => {
+          accountEditingRef.current?.retireLifetime();
           workbookMutationRuntimeRegistry.sessionUnavailable();
           creationControllerRef.current?.setSession(lifetime);
           directoryControllerRef.current?.setSession(lifetime);
@@ -153,8 +157,21 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       }),
   );
   sessionControllerRef.current = sessionController;
-  const sessionSnapshot = useAppSession(sessionController, () =>
-    workbookMutationRuntimeRegistry.dispose(),
+  const [accountEditing] = useState(
+    () => new AccountSettingsController(sessionController),
+  );
+  accountEditingRef.current = accountEditing;
+  const sessionSnapshot = useAppSession(sessionController, () => {
+    workbookMutationRuntimeRegistry.dispose();
+    accountEditing.dispose();
+  });
+  useEffect(() => {
+    accountEditing.start();
+    return accountEditing.stop;
+  }, [accountEditing]);
+  const accountEditingSnapshot = useSyncExternalStore(
+    accountEditing.subscribe,
+    accountEditing.getSnapshot,
   );
   const session = sessionSnapshot.session;
   const sessionRef = useRef<SessionData | null>(session);
@@ -587,17 +604,17 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           </div>
           <div style={accountSettingsPanelStyle}>
             {accountSettingsPanel === "account-profile" ? (
-              <AccountProfilePanel onRefreshSession={refreshCurrentSession} />
+              <AccountProfilePanel
+                controller={accountEditing}
+                lifetime={sessionSnapshot.lifetime}
+                state={accountEditingSnapshot.profile}
+              />
             ) : null}
             {accountSettingsPanel === "account-appearance" ? (
               <AccountAppearancePanel
-                preferences={accountPreferences}
-                onPreferencesChange={(value) => {
-                  sessionController.preferencesChanged(
-                    value,
-                    sessionSnapshot.lifetime,
-                  );
-                }}
+                controller={accountEditing}
+                lifetime={sessionSnapshot.lifetime}
+                state={accountEditingSnapshot.appearance}
               />
             ) : null}
             {accountSettingsPanel === "account-security" ? (
@@ -610,21 +627,25 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       </div>
     );
   }, [
-    accountPreferences,
+    accountEditing,
+    accountEditingSnapshot,
+    sessionSnapshot.lifetime,
     accountSettingsPanel,
     closeAccountSettings,
     handleAccountSessionEvent,
-    refreshCurrentSession,
-    sessionController,
-    sessionSnapshot.lifetime,
     session,
   ]);
 
   const resourceStatus = (
     <>
-      {sessionSnapshot.preferences.kind === "failed" ? (
+      {accountSettingsPanel !== "account-appearance" &&
+      (sessionSnapshot.preferences.kind === "failed" ||
+        (sessionSnapshot.preferences.kind === "ready" &&
+          sessionSnapshot.preferences.refreshError !== undefined)) ? (
         <p role="status">
-          Appearance preferences unavailable; using the default presentation.{" "}
+          {sessionSnapshot.preferences.kind === "ready"
+            ? "Appearance preferences could not refresh; keeping the last saved presentation."
+            : "Appearance preferences unavailable; using the default presentation."}{" "}
           <button
             type="button"
             onClick={() => {
@@ -887,14 +908,17 @@ const accountSettingsBackdropStyle: CSSProperties = {
   inset: 0,
   zIndex: 40,
   display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr)",
+  gridTemplateRows: "minmax(0, 1fr)",
   placeItems: "center",
   padding: "var(--ct-spacing-lg)",
   background: "rgba(12, 16, 24, 0.42)",
 };
 
 const accountSettingsDialogStyle: CSSProperties = {
-  width: "min(60rem, calc(100vw - 2rem))",
-  maxHeight: "min(52rem, calc(100vh - 2rem))",
+  width: "min(60rem, 100%)",
+  maxHeight: "min(52rem, 100%)",
+  boxSizing: "border-box",
   display: "grid",
   gridTemplateRows: "auto auto minmax(0, 1fr)",
   minWidth: 0,

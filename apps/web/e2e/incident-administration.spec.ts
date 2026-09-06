@@ -56,6 +56,10 @@ import {
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
 } from "./pages/incidentDirectory";
+import {
+  accountResponseGate,
+  installAccountEditingFixture,
+} from "./support/auth/accountEditingFixture";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { createIncident } from "./support/incidents/fixtures";
@@ -206,7 +210,9 @@ test("operates account application menus with keyboard focus and viewport contai
   await trigger.click();
   await settings.click();
   const displayName = page.getByTestId(accountTestId("profile-display-name"));
-  await expect(page.getByTestId(accountTestId("profile-save"))).toBeEnabled();
+  await expect(
+    page.getByTestId(accountTestId("profile-display-name")),
+  ).toBeEnabled();
   await displayName.fill("Analyst".repeat(36));
   await page.getByTestId(accountTestId("profile-save")).click();
   await expect(trigger).toHaveAttribute("title", "Analyst".repeat(36));
@@ -691,12 +697,10 @@ test("updates workbook density from Account Settings while the workbook remains 
     });
 
     await new AccountSettings(page).openAppearance();
-    const densitySelect = page.getByTestId(
-      accountTestId("appearance-density-mode"),
-    );
+    const settings = new AccountSettings(page);
     const saveButton = page.getByTestId(accountTestId("appearance-save"));
 
-    await densitySelect.selectOption("comfortable");
+    await settings.selectDensity("Comfortable");
     await saveButton.click();
     await expect
       .poll(
@@ -709,7 +713,7 @@ test("updates workbook density from Account Settings while the workbook remains 
       row.record_id,
     );
 
-    await densitySelect.selectOption("compact");
+    await settings.selectDensity("Compact");
     await saveButton.click();
     await expect
       .poll(
@@ -1280,4 +1284,271 @@ function waitForViewQuery(
           `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
         ),
   );
+}
+
+test("account settings retain edits through real version conflicts and exact committed replay", async ({
+  workerAdminPage: page,
+}) => {
+  const originalResponse = await page.request.get(
+    `${apiBase}/api/v1/account/profile`,
+  );
+  expect(originalResponse.ok()).toBeTruthy();
+  const original = (await originalResponse.json()).data as {
+    display_name: string;
+    user_version: number;
+  };
+  const bodies: Record<string, unknown>[] = [];
+  const committed = accountResponseGate();
+  const release = accountResponseGate();
+  let loseResponse = false;
+  await page.route("**/api/v1/account/profile", async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    bodies.push(route.request().postDataJSON() as Record<string, unknown>);
+    if (!loseResponse) return route.continue();
+    loseResponse = false;
+    const response = await route.fetch();
+    expect(response.ok()).toBeTruthy();
+    committed.release();
+    await release.promise;
+    await route.abort("failed");
+  });
+  try {
+    await page.goto("/");
+    const settings = new AccountSettings(page);
+    await settings.openProfile();
+    const field = page.getByRole("textbox", { name: "Display name" });
+    await field.fill("Retained conflict draft");
+    const external = await page.request.patch(
+      `${apiBase}/api/v1/account/profile`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          client_txn_id: uniqueTxn("account-external-profile"),
+          base_user_version: original.user_version,
+          display_name: "Another session name",
+        },
+      },
+    );
+    expect(external.ok()).toBeTruthy();
+    await field.press("Enter");
+    await expect(page.getByRole("alert")).toContainText(
+      "Display name changed elsewhere",
+    );
+    await expect(field).toHaveValue("Retained conflict draft");
+    await expect(
+      page.getByText("Another session name", { exact: true }),
+    ).toBeVisible();
+    expect(bodies).toHaveLength(1);
+    await page.getByRole("button", { name: "Review my edit" }).focus();
+    await page.keyboard.press("Enter");
+    await field.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("button", { name: "Account and application navigation" }),
+    ).toHaveAttribute("title", "Retained conflict draft");
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]?.client_txn_id).not.toBe(bodies[0]?.client_txn_id);
+    loseResponse = true;
+    await field.fill("Committed response lost");
+    await field.press("Enter");
+    await committed.promise;
+    await field.fill("Newer unsaved edit");
+    await page.getByRole("tab", { name: "Appearance" }).click();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    release.release();
+    await settings.openProfile();
+    await expect(field).toHaveValue("Newer unsaved edit");
+    await expect(
+      page.getByRole("button", { name: "Retry save" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Retry save" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("button", { name: "Account and application navigation" }),
+    ).toHaveAttribute("title", "Committed response lost");
+    expect(bodies).toHaveLength(4);
+    expect(bodies[3]).toEqual(bodies[2]);
+    await expect(field).toHaveValue("Newer unsaved edit");
+    const current = (
+      await (await page.request.get(`${apiBase}/api/v1/account/profile`)).json()
+    ).data;
+    expect(current.display_name).toBe("Committed response lost");
+    expect(current.user_version).toBe(Number(bodies[2]?.base_user_version) + 1);
+  } finally {
+    release.release();
+    await page.unroute("**/api/v1/account/profile");
+    const current = (
+      await (await page.request.get(`${apiBase}/api/v1/account/profile`)).json()
+    ).data;
+    const restored = await page.request.patch(
+      `${apiBase}/api/v1/account/profile`,
+      {
+        headers: await csrfHeaders(page),
+        data: {
+          client_txn_id: uniqueTxn("account-profile-restore"),
+          base_user_version: current.user_version,
+          display_name: original.display_name,
+        },
+      },
+    );
+    expect(restored.ok()).toBeTruthy();
+  }
+});
+
+test("account settings keyboard density recovery and constrained presentation", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  const fixture = await installAccountEditingFixture(page);
+  await page.goto("/");
+  const settings = new AccountSettings(page);
+  await settings.openProfile();
+  const field = page.getByRole("textbox", { name: "Display name" });
+  await field.focus();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.insertText("Analyst".repeat(36));
+  await page.getByRole("tab", { name: "Appearance" }).focus();
+  await page.keyboard.press("Enter");
+  const group = page.getByRole("radiogroup", { name: "Density", exact: true });
+  await expect(group.getByRole("radio")).toHaveCount(4);
+  const surfaceDefault = group.getByRole("radio", {
+    name: "Use surface default",
+    exact: true,
+  });
+  await surfaceDefault.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    group.getByRole("radio", { name: "Compact", exact: true }),
+  ).toBeChecked();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    group.getByRole("radio", { name: "Default", exact: true }),
+  ).toBeChecked();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    group.getByRole("radio", { name: "Comfortable", exact: true }),
+  ).toBeChecked();
+  fixture.fault("appearance", "conflict");
+  await page.getByRole("button", { name: "Save appearance" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("alert")).toContainText(
+    "Density changed elsewhere",
+  );
+  await expect(
+    group.getByRole("radio", { name: "Comfortable", exact: true }),
+  ).toBeChecked();
+  expect(fixture.requests.appearance).toHaveLength(1);
+  await page.getByRole("button", { name: "Review my edit" }).focus();
+  await page.keyboard.press("Enter");
+  fixture.fault("appearance", "lost");
+  await page.getByRole("button", { name: "Save appearance" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Retry save" })).toBeVisible();
+  await page.getByRole("button", { name: "Retry save" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Appearance saved." }),
+  ).toBeVisible();
+  expect(fixture.requests.appearance[2]).toEqual(
+    fixture.requests.appearance[1],
+  );
+  await surfaceDefault.focus();
+  await page.keyboard.press("Space");
+  await page.getByRole("button", { name: "Save appearance" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Appearance saved." }),
+  ).toBeVisible();
+  expect(fixture.requests.appearance.at(-1)?.density_mode).toBeNull();
+  for (const [width, height] of [
+    [1280, 720],
+    [1024, 720],
+    [768, 640],
+    [640, 480],
+    [480, 320],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await group
+      .getByRole("radio", { name: "Comfortable", exact: true })
+      .focus();
+    await expectAccountControlInViewport(
+      group.getByRole("radio", { name: "Comfortable", exact: true }),
+    );
+    await page.getByRole("button", { name: "Refresh appearance" }).focus();
+    await expectAccountControlInViewport(
+      page.getByRole("button", { name: "Refresh appearance" }),
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await expectAccountControlInViewport(
+      page.getByRole("dialog", { name: "Account settings" }),
+    );
+    expect(
+      await group.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await surfaceDefault.focus();
+  await expectAccountControlInViewport(surfaceDefault);
+  await expectAccountControlInViewport(
+    page.getByRole("dialog", { name: "Account settings" }),
+  );
+  expect(
+    await group.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    page.getByRole("button", { name: "Save appearance" }),
+  ).toBeEnabled();
+  for (const control of [
+    group.getByRole("radio", { name: "Comfortable", exact: true }),
+    page.getByRole("button", { name: "Save appearance" }),
+    page.getByRole("button", { name: "Refresh appearance" }),
+    page.getByRole("button", { name: "Close", exact: true }),
+  ]) {
+    await control.focus();
+    await expectAccountControlInViewport(control);
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 640, height: 480 });
+  await surfaceDefault.focus();
+  await expectAccountControlInViewport(surfaceDefault);
+  await testInfo.attach("account-density-keyboard-tree", {
+    body: await group.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await spacing.evaluate((node) => node.parentNode?.removeChild(node));
+  await page.getByRole("tab", { name: "Profile" }).click();
+  await expect(field).toHaveValue("Analyst".repeat(36));
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Account and application navigation" }),
+  ).toBeFocused();
+});
+
+async function expectAccountControlInViewport(
+  control: import("@playwright/test").Locator,
+) {
+  await expect(control).toBeInViewport();
+  const visible = await control.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return (
+      bounds.left >= 0 &&
+      bounds.top >= 0 &&
+      bounds.right <= window.innerWidth &&
+      bounds.bottom <= window.innerHeight
+    );
+  });
+  expect(visible).toBe(true);
 }

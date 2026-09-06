@@ -372,6 +372,77 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.account_edit_resource_draft_attempt_lifecycle_9420b2e411",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/accountSettingsModel.test.ts",
+        "titles": [
+          "account edit lifecycle clears work on logout account change and identical-field reauthentication before obsolete completion",
+          "account edit lifecycle distinguishes authorization denial from session loss and preserves uncertainty on replay denial",
+          "account edit lifecycle does not regress accepted versions from old reads or committed replays",
+          "account edit lifecycle keeps transaction conflict distinct from version conflict",
+          "account edit lifecycle locks same-tick submissions independently and acknowledges only the captured revision",
+          "account edit lifecycle publishes null and each exact density mode only after confirmation",
+          "account edit lifecycle replays an uncertain request exactly while retaining newer edits and explicit discard",
+          "account edit lifecycle requires explicit review for both version conflicts and uses a fresh attempt after review",
+          "account edit lifecycle retries failed post-save session publication without repeating the mutation",
+          "account edit lifecycle retries initial load and preserves usable data and dirty drafts through refresh failure",
+          "account edit lifecycle treats timeout and malformed success as uncertain and excludes late ignored-abort completion",
+          "account edit lifecycle validates scalar display names and preserves rejected drafts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.account_settings_preserve_drafts_and_guard_submi_e245fc5a0c",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/accountSettingsEditing.test.tsx",
+        "titles": [
+          "account settings editing associates native-submit validation with the field and preserves input focus",
+          "account settings editing does not initiate session publication after application disposal",
+          "account settings editing keeps a dirty draft through a background refresh and exposes explicit review",
+          "account settings editing offers exact recovery for a malformed success without announcing rejection",
+          "account settings editing retains a newer draft when a captured save completes",
+          "account settings editing retains drafts across section switches and dismissal",
+          "account settings editing retains the appearance draft after a definitive version conflict",
+          "account settings editing retries an unavailable profile without changing opening focus",
+          "account settings editing suppresses duplicate activation at the submission boundary"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.app_keeps_deployment_admin_target_actions_disabl_fe7a9b4dad",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

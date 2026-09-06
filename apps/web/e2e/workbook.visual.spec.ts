@@ -126,7 +126,9 @@ import {
 } from "@cartulary/view-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { AccountSettings } from "./pages/accountSettings";
 import { gridSavedRows } from "./pages/workbookInspector";
+import { installAccountEditingFixture } from "./support/auth/accountEditingFixture";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
   driveRealTimelineSummaryConflict,
@@ -7046,7 +7048,9 @@ test("Capture account application menu root and nested Controls across contexts 
     .getByRole("menuitem", { name: "Account settings", exact: true })
     .click();
   const label = "Analyst".repeat(36);
-  await expect(page.getByTestId(accountTestId("profile-save"))).toBeEnabled();
+  await expect(
+    page.getByTestId(accountTestId("profile-display-name")),
+  ).toBeEnabled();
   await page.getByTestId(accountTestId("profile-display-name")).fill(label);
   await page.getByTestId(accountTestId("profile-save")).click();
   await expect(trigger).toHaveAttribute("title", label);
@@ -7079,4 +7083,125 @@ test("Capture account application menu root and nested Controls across contexts 
     "account-menu-long-label-text-spacing",
   );
   await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+});
+
+test("Capture account settings drafts pending conflict recovery and responsive states.", async ({
+  workerAdminPage: page,
+}) => {
+  const fixture = await installAccountEditingFixture(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  const settings = new AccountSettings(page);
+  await settings.openProfile();
+  const field = page.getByRole("textbox", { name: "Display name" });
+  await field.fill("Account profile draft");
+  await assertViewportVisualRegression(page, "account-settings-profile-dirty");
+  const profilePending = fixture.hold("profile");
+  await field.press("Enter");
+  await profilePending.received;
+  await expect(
+    page.getByRole("button", { name: "Save profile" }),
+  ).toHaveAttribute("aria-busy", "true");
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-profile-pending",
+  );
+  profilePending.release();
+  await expect(
+    page.getByRole("button", { name: "Account and application navigation" }),
+  ).toHaveAttribute("title", "Account profile draft");
+  await field.fill("My retained display name");
+  fixture.fault("profile", "conflict");
+  await field.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Review my edit" }),
+  ).toBeEnabled();
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-profile-conflict",
+  );
+  await page.getByRole("button", { name: "Review my edit" }).click();
+  fixture.fault("profile", "lost");
+  await field.press("Enter");
+  await expect(page.getByRole("button", { name: "Retry save" })).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-profile-recovery",
+  );
+  await page.getByRole("button", { name: "Retry save" }).click();
+  await expect(
+    page.getByRole("button", { name: "Account and application navigation" }),
+  ).toHaveAttribute("title", "My retained display name");
+  await settings.selectDensity("Comfortable");
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-appearance-dirty",
+  );
+  const appearancePending = fixture.hold("appearance");
+  await page.getByRole("button", { name: "Save appearance" }).click();
+  await appearancePending.received;
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-appearance-pending",
+  );
+  appearancePending.release();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Appearance saved." }),
+  ).toBeVisible();
+  await settings.selectDensity("Compact");
+  fixture.fault("appearance", "conflict");
+  await page.getByRole("button", { name: "Save appearance" }).click();
+  await expect(
+    page.getByRole("button", { name: "Review my edit" }),
+  ).toBeEnabled();
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-appearance-conflict",
+  );
+  await page.getByRole("button", { name: "Review my edit" }).click();
+  fixture.fault("appearance", "lost");
+  await page.getByRole("button", { name: "Save appearance" }).click();
+  await expect(page.getByRole("button", { name: "Retry save" })).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-appearance-recovery",
+  );
+  await page.getByRole("button", { name: "Retry save" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Appearance saved." }),
+  ).toBeVisible();
+  await settings.selectDensity("Use surface default");
+  await page.setViewportSize({ width: 640, height: 480 });
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-appearance-short",
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-appearance-zoom",
+  );
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await page.setViewportSize({ width: 640, height: 640 });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-appearance-text-spacing",
+  );
+  await spacing.evaluate((node) => node.parentNode?.removeChild(node));
+  await page.setViewportSize({ width: 768, height: 640 });
+  await page.getByRole("tab", { name: "Profile" }).click();
+  await field.fill("Analyst".repeat(36));
+  await assertViewportVisualRegression(
+    page,
+    "account-settings-profile-long-name",
+  );
 });
