@@ -56,7 +56,7 @@ describe("Workbook collaboration transition models", () => {
       }),
     ).toEqual({ eventGeneration: 4, kind: "reset", reason: "sequence_gap" });
     expect(planWorkbookCollaborationEvent({ kind: "session_revoked" })).toEqual(
-      { kind: "recover_authorization" },
+      { kind: "session_lost" },
     );
     expect(
       planWorkbookCollaborationEvent({

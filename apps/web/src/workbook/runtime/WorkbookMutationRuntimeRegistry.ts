@@ -49,6 +49,14 @@ export class WorkbookMutationRuntimeRegistry {
     return runtime;
   }
 
+  sessionUnavailable(): void {
+    this.entry?.runtime.invalidate({ kind: "session_unavailable" });
+  }
+
+  replaceAccount(): void {
+    this.retireCurrent(null);
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

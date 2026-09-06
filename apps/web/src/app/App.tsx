@@ -14,11 +14,6 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  type APIError,
-  extractError,
-  publicErrorView,
-} from "../services/browserApi";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -26,6 +21,7 @@ import type {
 import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
 import {
   AccountSecurityPanel,
+  type AccountSessionEvent,
   DeploymentUsersPanel,
 } from "./AccountAdministrationPanels";
 import { AccountApplicationMenu } from "./AccountApplicationMenu";
@@ -34,24 +30,19 @@ import {
   AccountProfilePanel,
 } from "./AccountSettingsPanels";
 import { AuthGateway } from "./AuthGateway";
-import {
-  type AccountPreferencesResource,
-  createAppAuthorizationRecoveryPort,
-  type ExtensionProfileResource,
-  loadAccountPreferences,
-  loadCredentialState,
-  loadExtensions,
-  loadSession,
-  type SessionData,
-} from "./api/appShellClient";
+import type {
+  ExtensionProfileResource,
+  SessionData,
+} from "./api/publicHttpTypes";
+import { AppSessionController } from "./appSessionController";
 import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
 import type { IncidentCreationController } from "./incidentCreationModel";
 import {
-  directoryIsLoading,
   type IncidentDirectoryController,
+  incidentDirectoryStatusText,
 } from "./incidentDirectoryModel";
 import {
   IncidentDirectoryShell,
@@ -59,10 +50,8 @@ import {
 } from "./LandingAdminLayout";
 import type {
   AccountSettingsPanelToken,
-  AppBootstrapState,
   DeploymentAdministrationPanelToken,
-  LandingAdminPanelDescriptor,
-  LandingRefreshState,
+  DeploymentPanelDescriptor,
 } from "./landingAdminTypes";
 import {
   ReferencePackAdminPanel,
@@ -74,6 +63,7 @@ import {
   readAppRouteState,
 } from "./routeState";
 import { useAppRouteRuntime } from "./useAppRouteRuntime";
+import { useAppSession } from "./useAppSession";
 import { useIncidentCreation } from "./useIncidentCreation";
 import { useIncidentDirectory } from "./useIncidentDirectory";
 
@@ -81,17 +71,6 @@ const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
   return { default: module.WorkbookShell };
 });
-
-const LazyDebugHarnessShell = lazy(async () => {
-  const module = await import("./debug/DebugHarnessShell");
-  return { default: module.DebugHarnessShell };
-});
-
-type ShellRefreshOptions = {
-  anonymousMessage?: string;
-  landingNotice?: string | null;
-  routeSnapshot: AppRouteState;
-};
 
 type AccountMenuContext =
   | "deployment-administration"
@@ -117,37 +96,15 @@ const accessLostLandingNotice =
   "The current incident is no longer visible. Returned to the landing screen.";
 const defaultRevokedSessionMessage =
   "The current session ended. Sign in again to continue.";
-function isAbortError(error: unknown): boolean {
-  if (typeof DOMException !== "undefined" && error instanceof DOMException) {
-    return error.name === "AbortError";
-  }
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "name" in error &&
-    (error as { name?: unknown }).name === "AbortError"
-  );
-}
-
-function isSessionRequiredError(status: number, error: APIError | null) {
-  return (
-    status === 401 && (error === null || error.code === "session_required")
-  );
-}
-
 function extensionClaimed(
-  profiles: readonly ExtensionProfileResource[],
+  profiles: readonly ExtensionProfileResource[] | null,
   profileId: ExtensionProfileResource["profile_id"],
 ) {
-  return profiles.some(
-    (profile) => profile.profile_id === profileId && profile.claimed,
+  return (
+    profiles?.some(
+      (profile) => profile.profile_id === profileId && profile.claimed,
+    ) ?? false
   );
-}
-
-function creationSessionIdentity(session: SessionData | null) {
-  return session === null
-    ? null
-    : `${session.user_id}:${session.authenticated_at}:${session.provider_type}`;
 }
 
 export function App({ readingProfile = "default", themeId }: AppProps = {}) {
@@ -156,21 +113,14 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const directoryControllerRef = useRef<IncidentDirectoryController | null>(
     null,
   );
-  const activeRefreshRef = useRef<{
-    controller: AbortController | null;
-    requestID: number;
-  }>({ controller: null, requestID: 0 });
+  const sessionControllerRef = useRef<AppSessionController | null>(null);
   const commitRoute = useCallback(
     (next: AppRouteState, mode: AppRouteWriteMode) => {
       creationControllerRef.current?.leaveSurface();
-      if (
-        next.incidentId !== "" ||
-        next.deploymentAdministration ||
-        next.debugHarness
-      ) {
+      if (next.incidentId !== "" || next.deploymentAdministration) {
         directoryControllerRef.current?.setActive(false);
       }
-      activeRefreshRef.current.controller?.abort();
+      sessionControllerRef.current?.navigationChanged();
       publishRoute(next, mode);
     },
     [publishRoute],
@@ -179,14 +129,10 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     const leaveCreation = () => {
       creationControllerRef.current?.leaveSurface();
       const next = readAppRouteState();
-      if (
-        next.incidentId !== "" ||
-        next.deploymentAdministration ||
-        next.debugHarness
-      ) {
+      if (next.incidentId !== "" || next.deploymentAdministration) {
         directoryControllerRef.current?.setActive(false);
       }
-      activeRefreshRef.current.controller?.abort();
+      sessionControllerRef.current?.navigationChanged();
     };
     window.addEventListener("popstate", leaveCreation);
     return () => window.removeEventListener("popstate", leaveCreation);
@@ -195,44 +141,43 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     () => new WorkbookMutationRuntimeRegistry(),
     [],
   );
-  useEffect(
-    () => () => {
-      workbookMutationRuntimeRegistry.dispose();
-    },
-    [workbookMutationRuntimeRegistry],
+  const [sessionController] = useState(
+    () =>
+      new AppSessionController({
+        retireLifetime: (lifetime) => {
+          workbookMutationRuntimeRegistry.sessionUnavailable();
+          creationControllerRef.current?.setSession(lifetime);
+          directoryControllerRef.current?.setSession(lifetime);
+        },
+        replaceAccount: () => workbookMutationRuntimeRegistry.replaceAccount(),
+      }),
   );
-  const [session, publishSession] = useState<SessionData | null>(null);
-  const sessionRef = useRef<SessionData | null>(null);
-  const setSession = useCallback((next: SessionData | null) => {
-    if (
-      creationSessionIdentity(sessionRef.current) !==
-      creationSessionIdentity(next)
-    ) {
-      creationControllerRef.current?.setSession(creationSessionIdentity(next));
-      directoryControllerRef.current?.setSession(creationSessionIdentity(next));
-    }
-    sessionRef.current = next;
-    publishSession(next);
-  }, []);
+  sessionControllerRef.current = sessionController;
+  const sessionSnapshot = useAppSession(sessionController, () =>
+    workbookMutationRuntimeRegistry.dispose(),
+  );
+  const session = sessionSnapshot.session;
+  const sessionRef = useRef<SessionData | null>(session);
+  sessionRef.current = session;
   const workbookAuthorizationRecovery = useMemo(
     () =>
-      createAppAuthorizationRecoveryPort({
-        onSessionRecovered: setSession,
-      }),
-    [setSession],
+      sessionController.recoveryPort(
+        (incidentId) =>
+          routeRef.current.incidentId === incidentId &&
+          !routeRef.current.deploymentAdministration,
+      ),
+    [sessionController, routeRef],
   );
-  const [accountPreferences, setAccountPreferences] =
-    useState<AccountPreferencesResource | null>(null);
-  const [credentialError, setCredentialError] = useState<APIError | null>(null);
-  const [extensionProfiles, setExtensionProfiles] = useState<
-    ExtensionProfileResource[]
-  >([]);
-  const [appBootstrapState, setAppBootstrapState] =
-    useState<AppBootstrapState>("loading");
-  const [landingRefreshState, setLandingRefreshState] =
-    useState<LandingRefreshState>("idle");
+  const accountPreferences =
+    sessionSnapshot.preferences.kind === "ready"
+      ? sessionSnapshot.preferences.value
+      : null;
+  const extensionProfiles =
+    sessionSnapshot.extensions.kind === "ready"
+      ? sessionSnapshot.extensions.value
+      : null;
   const [landingNotice, setLandingNotice] = useState<string | null>(null);
-  const [error, setError] = useState<APIError | null>(null);
+  const error = sessionSnapshot.error;
   const [authPrompt, setAuthPrompt] = useState(defaultAuthPrompt);
   const [activeDeploymentPanel, setActiveDeploymentPanel] =
     useState<DeploymentAdministrationPanelToken>("deployment-users");
@@ -318,258 +263,64 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   });
   const [referencePackJob, setReferencePackJob] =
     useState<ReferencePackJobResource | null>(null);
-  const refreshShell = useCallback(
-    async (options: ShellRefreshOptions) => {
-      const requestID = activeRefreshRef.current.requestID + 1;
-      const previousController = activeRefreshRef.current.controller;
-      const controller = new AbortController();
-      activeRefreshRef.current = {
-        controller,
-        requestID,
-      };
-      previousController?.abort();
-
-      const canCommit = () =>
-        activeRefreshRef.current.requestID === requestID &&
-        activeRefreshRef.current.controller === controller &&
-        !controller.signal.aborted;
-
-      const hadSessionAtRefreshStart =
-        sessionRef.current !== null || options.anonymousMessage !== undefined;
-
-      if (!hadSessionAtRefreshStart) {
-        setAppBootstrapState("loading");
-        setLandingRefreshState("idle");
-      } else {
-        setAppBootstrapState("authenticated");
-        setLandingRefreshState("loading");
+  const refreshCurrentSession = useCallback(async () => {
+    await sessionController.refreshSession();
+    sessionController.refreshResources();
+  }, [sessionController]);
+  const handleAccountSessionEvent = useCallback(
+    async (event: AccountSessionEvent) => {
+      if (sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime)
+        return;
+      if (event.kind === "resource_refresh") {
+        await refreshCurrentSession();
+        return;
       }
-      setError(null);
-      setLandingNotice(options.landingNotice ?? null);
-
-      try {
-        const sessionResult = await loadSession({
-          signal: controller.signal,
-        });
-        if (!canCommit()) {
-          return;
-        }
-
-        if (!sessionResult.ok) {
-          const sessionError = extractError(sessionResult.payload);
-          setSession(null);
-          setAccountPreferences(null);
-          setCredentialError(null);
-          setExtensionProfiles([]);
-          setReferencePackJob(null);
-          setLandingNotice(null);
-          setError(
-            hadSessionAtRefreshStart ||
-              !isSessionRequiredError(sessionResult.status, sessionError)
-              ? sessionError
-              : null,
-          );
-          setAuthPrompt(
-            options.anonymousMessage ??
-              (hadSessionAtRefreshStart
-                ? defaultRevokedSessionMessage
-                : defaultAuthPrompt),
-          );
-          setAppBootstrapState(
-            isSessionRequiredError(sessionResult.status, sessionError)
-              ? hadSessionAtRefreshStart
-                ? "revoked"
-                : "anonymous"
-              : "public_error_envelope",
-          );
-          setLandingRefreshState("idle");
-          return;
-        }
-
-        const nextSession = (sessionResult.payload as { data: SessionData })
-          .data;
-        // Invalidate account-scoped operations as soon as replacement authentication
-        // is observed, before any supporting bootstrap requests can settle.
-        if (
-          sessionRef.current !== null &&
-          creationSessionIdentity(sessionRef.current) !==
-            creationSessionIdentity(nextSession)
-        ) {
-          setSession(nextSession);
-          setAccountPreferences(null);
-          setCredentialError(null);
-          setExtensionProfiles([]);
-          setReferencePackJob(null);
-        }
-        const [credentialResult, preferencesResult, extensionsResult] =
-          await Promise.all([
-            loadCredentialState({ signal: controller.signal }),
-            loadAccountPreferences({ signal: controller.signal }),
-            loadExtensions({ signal: controller.signal }),
-          ]);
-        if (!canCommit()) return;
-        const nextCredentialError = extractError(credentialResult.payload);
-        const preferencesError = extractError(preferencesResult.payload);
-        const extensionsError = extractError(extensionsResult.payload);
-        const sessionFailure = [
-          credentialResult,
-          preferencesResult,
-          extensionsResult,
-        ].find(
-          (result) =>
-            !result.ok &&
-            isSessionRequiredError(result.status, extractError(result.payload)),
-        );
-        if (sessionFailure) {
-          setSession(null);
-          setAccountPreferences(null);
-          setCredentialError(null);
-          setExtensionProfiles([]);
-          setReferencePackJob(null);
-          setLandingNotice(null);
-          setError(extractError(sessionFailure.payload));
-          setAuthPrompt(
-            options.anonymousMessage ?? defaultRevokedSessionMessage,
-          );
-          setAppBootstrapState("revoked");
-          setLandingRefreshState("idle");
-          return;
-        }
-        setSession(nextSession);
-        setAccountPreferences(
-          preferencesResult.ok ? preferencesResult.payload.data : null,
-        );
-        setCredentialError(nextCredentialError);
-        setAuthPrompt(defaultAuthPrompt);
-        if (!extensionsResult.ok || !credentialResult.ok) {
-          setExtensionProfiles([]);
-          setReferencePackJob(null);
-          setError(extensionsError ?? nextCredentialError ?? preferencesError);
-          setAppBootstrapState("public_error_envelope");
-          setLandingRefreshState("failed");
-          return;
-        }
-        const nextExtensionProfiles = extensionsResult.payload.data.extensions;
-        setExtensionProfiles(nextExtensionProfiles);
-        const deploymentRouteDenied =
-          options.routeSnapshot.deploymentAdministration &&
-          !nextSession.is_deployment_admin;
-        if (
-          deploymentRouteDenied ||
-          !extensionClaimed(nextExtensionProfiles, "reference_pack")
-        )
-          setReferencePackJob(null);
-        setError(null);
-        setAppBootstrapState("authenticated");
-        setLandingRefreshState("idle");
-        if (deploymentRouteDenied) {
-          setActiveDeploymentPanel("deployment-users");
-          setLandingNotice(
-            "Deployment administration requires deployment admin access.",
-          );
-          commitRoute(
-            {
-              incidentId: "",
-              debugHarness: false,
-              deploymentAdministration: false,
-            },
-            "replace",
-          );
-        }
-      } catch (error) {
-        if (isAbortError(error) || !canCommit()) {
-          return;
-        }
-        if (sessionRef.current === null) {
-          setSession(null);
-          setAccountPreferences(null);
-          setCredentialError(null);
-          setExtensionProfiles([]);
-          setReferencePackJob(null);
-          setLandingNotice(null);
-          setError(null);
-          setAuthPrompt(options.anonymousMessage ?? defaultAuthPrompt);
-          setAppBootstrapState("anonymous");
-          setLandingRefreshState("idle");
-          return;
-        }
-
-        setError(null);
-        setAuthPrompt(defaultAuthPrompt);
-        setAppBootstrapState("public_error_envelope");
-        setLandingRefreshState("failed");
-      }
+      setAuthPrompt(event.message);
+      setReferencePackJob(null);
+      setLandingNotice(null);
+      if (event.kind === "logout_confirmed")
+        sessionController.logoutConfirmed();
+      else if (event.kind === "session_lost") sessionController.sessionLost();
+      else sessionController.credentialsRevoked();
     },
-    [commitRoute, setSession],
+    [refreshCurrentSession, sessionController, sessionSnapshot.lifetime],
   );
-
-  const getCurrentRoute = useCallback(() => routeRef.current, [routeRef]);
-
-  const refreshCurrentShell = useCallback(
-    (options?: { anonymousMessage?: string }) => {
-      if (options?.anonymousMessage !== undefined) {
-        // Successful sign-out or credential replacement ends this lifetime now.
-        setSession(null);
-        setAccountPreferences(null);
-        setCredentialError(null);
-        setExtensionProfiles([]);
-        setReferencePackJob(null);
-      }
-      return refreshShell({
-        routeSnapshot: getCurrentRoute(),
-        landingNotice: null,
-        ...(typeof options?.anonymousMessage === "string"
-          ? {
-              anonymousMessage: options.anonymousMessage,
-            }
-          : {}),
-      });
-    },
-    [getCurrentRoute, refreshShell, setSession],
-  );
-
-  useEffect(() => {
-    return () => {
-      activeRefreshRef.current.controller?.abort();
-    };
-  }, []);
-
-  const previousDebugHarnessRef = useRef(false);
-  useEffect(() => {
-    const returningFromDebug = previousDebugHarnessRef.current;
-    previousDebugHarnessRef.current = route.debugHarness;
-    if (route.debugHarness) return;
-    if (
-      sessionRef.current !== null &&
-      !route.deploymentAdministration &&
-      !returningFromDebug
-    )
-      return;
-    void refreshShell({ routeSnapshot: route, landingNotice: null });
-  }, [route, refreshShell]);
-
   const handleSessionLost = useCallback(() => {
-    activeRefreshRef.current.controller?.abort();
-    activeRefreshRef.current.requestID += 1;
-    setSession(null);
-    setAccountPreferences(null);
-    setCredentialError(null);
-    setExtensionProfiles([]);
+    if (sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime)
+      return;
+    sessionController.sessionLost();
     setReferencePackJob(null);
-    setError(null);
     setLandingNotice(null);
-    setLandingRefreshState("idle");
-    setAppBootstrapState("revoked");
     setAuthPrompt(defaultRevokedSessionMessage);
-  }, [setSession]);
+  }, [sessionController, sessionSnapshot.lifetime]);
+  useEffect(() => {
+    if (
+      session !== null &&
+      route.deploymentAdministration &&
+      !session.is_deployment_admin
+    ) {
+      setActiveDeploymentPanel("deployment-users");
+      setLandingNotice(
+        "Deployment administration requires deployment admin access.",
+      );
+      commitRoute(
+        { incidentId: "", deploymentAdministration: false },
+        "replace",
+      );
+    }
+    if (
+      session === null ||
+      extensionProfiles === null ||
+      !extensionClaimed(extensionProfiles, "reference_pack")
+    )
+      setReferencePackJob(null);
+  }, [commitRoute, extensionProfiles, route.deploymentAdministration, session]);
   const directory = useIncidentDirectory({
-    sessionIdentity: creationSessionIdentity(session),
+    sessionIdentity: sessionSnapshot.lifetime,
     active:
       session !== null &&
-      appBootstrapState === "authenticated" &&
       route.incidentId === "" &&
-      !route.deploymentAdministration &&
-      !route.debugHarness,
+      !route.deploymentAdministration,
     sessionLost: handleSessionLost,
   });
   directoryControllerRef.current = directory.controller;
@@ -594,39 +345,25 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const landingStatusText =
     landingNotice ??
     (route.deploymentAdministration
-      ? landingRefreshState === "loading"
-        ? "Loading deployment administration."
-        : landingRefreshState === "failed" || error !== null
-          ? "Failed to load deployment administration."
-          : "Deployment administration ready."
-      : directory.state.failure !== null
-        ? directory.state.failure.message
+      ? sessionSnapshot.observing
+        ? "Checking current session."
         : error !== null
-          ? (publicErrorView(error)?.statusText ??
-            "Failed to load visible incidents.")
-          : directoryIsLoading(directory.state) ||
-              directory.state.phase === "debouncing"
-            ? "Searching visible incidents…"
-            : directory.state.phase !== "ready"
-              ? "Loading visible incidents…"
-              : directory.state.incidents.length === 0
-                ? "No visible incidents yet."
-                : `Loaded ${directory.state.incidents.length} incident${directory.state.incidents.length === 1 ? "" : "s"}${directory.state.paging?.has_more ? "; more available." : "."}`);
+          ? "Current session could not be refreshed."
+          : "Deployment administration ready."
+      : incidentDirectoryStatusText(directory.state));
   const availableDeploymentPanels = useMemo(() => {
-    const panels: LandingAdminPanelDescriptor[] = [];
+    const panels: DeploymentPanelDescriptor[] = [];
     if (session?.is_deployment_admin) {
       panels.push(
         {
           token: "deployment-users",
           label: "Deployment users",
           description: "Local user administration",
-          group: "deployment",
         },
         {
           token: "administrative-audit",
           label: "Administrative audit",
           description: "Deployment audit events",
-          group: "deployment",
         },
       );
       if (extensionClaimed(extensionProfiles, "reference_pack")) {
@@ -634,7 +371,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           token: "reference-packs",
           label: "Reference packs",
           description: "Pack operations",
-          group: "deployment",
         });
       }
       if (extensionClaimed(extensionProfiles, "incident_portability")) {
@@ -642,7 +378,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           token: "incident-import",
           label: "Incident import",
           description: "Create incident from bundle",
-          group: "deployment",
         });
       }
     }
@@ -678,7 +413,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     (incidentId: string) => {
       const nextRoute = {
         incidentId,
-        debugHarness: false,
         deploymentAdministration: false,
       };
       setLandingNotice(null);
@@ -690,7 +424,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const navigateToIncidentDirectory = useCallback(() => {
     const nextRoute = {
       incidentId: "",
-      debugHarness: false,
       deploymentAdministration: false,
     };
     setLandingNotice(null);
@@ -701,7 +434,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     if (!sessionRef.current?.is_deployment_admin) {
       const nextRoute = {
         incidentId: "",
-        debugHarness: false,
         deploymentAdministration: false,
       };
       setLandingNotice(
@@ -712,7 +444,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     }
     const nextRoute = {
       incidentId: "",
-      debugHarness: false,
       deploymentAdministration: true,
     };
     setLandingNotice(null);
@@ -721,34 +452,17 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   }, [commitRoute]);
 
   const creation = useIncidentCreation({
-    sessionIdentity: creationSessionIdentity(session),
+    sessionIdentity: sessionSnapshot.lifetime,
     sessionLost: handleSessionLost,
     openIncident: async (incident, signal, canNavigate) => {
-      if (!canNavigate()) return "cancelled";
-      const identity = creationSessionIdentity(sessionRef.current);
-      const result = await loadSession({ signal });
-      if (!canNavigate()) return "cancelled";
-      if (!result.ok) {
-        if (isSessionRequiredError(result.status, extractError(result.payload)))
-          handleSessionLost();
-        return "unavailable";
-      }
-      const nextSession = (result.payload as { data: SessionData }).data;
-      if (creationSessionIdentity(nextSession) !== identity) {
-        setSession(nextSession);
-        return "cancelled";
-      }
-      setSession(nextSession);
-      if (
-        !nextSession.memberships.some(
-          (membership) => membership.incident_id === incident.incident_id,
-        )
-      )
-        return "access_lost";
-      if (!canNavigate()) return "cancelled";
-      activeRefreshRef.current.controller?.abort();
-      activeRefreshRef.current.requestID += 1;
-      setLandingRefreshState("idle");
+      const recovery = sessionController.recoveryPort(() => canNavigate());
+      const result = await recovery.recover({
+        incidentId: incident.incident_id,
+        signal,
+      });
+      if (!canNavigate() || result.kind === "cancelled") return "cancelled";
+      if (result.kind === "access_lost") return "access_lost";
+      if (result.kind !== "authorized") return "unavailable";
       openIncident(incident.incident_id);
       return "opened";
     },
@@ -763,10 +477,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       originIdentity: accountNavigationIdentity,
     };
     setLandingNotice(accessLostLandingNotice);
-    commitRoute(
-      { incidentId: "", debugHarness: false, deploymentAdministration: false },
-      "replace",
-    );
+    commitRoute({ incidentId: "", deploymentAdministration: false }, "replace");
   }, [accountNavigationIdentity, commitRoute, route.incidentId]);
 
   const renderAccountMenu = useCallback(
@@ -876,18 +587,22 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           </div>
           <div style={accountSettingsPanelStyle}>
             {accountSettingsPanel === "account-profile" ? (
-              <AccountProfilePanel onRefreshShell={refreshCurrentShell} />
+              <AccountProfilePanel onRefreshSession={refreshCurrentSession} />
             ) : null}
             {accountSettingsPanel === "account-appearance" ? (
               <AccountAppearancePanel
                 preferences={accountPreferences}
-                onPreferencesChange={setAccountPreferences}
+                onPreferencesChange={(value) => {
+                  sessionController.preferencesChanged(
+                    value,
+                    sessionSnapshot.lifetime,
+                  );
+                }}
               />
             ) : null}
             {accountSettingsPanel === "account-security" ? (
               <AccountSecurityPanel
-                credentialStateError={credentialError}
-                onRefreshShell={refreshCurrentShell}
+                onSessionEvent={handleAccountSessionEvent}
               />
             ) : null}
           </div>
@@ -898,22 +613,69 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     accountPreferences,
     accountSettingsPanel,
     closeAccountSettings,
-    credentialError,
-    refreshCurrentShell,
+    handleAccountSessionEvent,
+    refreshCurrentSession,
+    sessionController,
+    sessionSnapshot.lifetime,
     session,
   ]);
+
+  const resourceStatus = (
+    <>
+      {sessionSnapshot.preferences.kind === "failed" ? (
+        <p role="status">
+          Appearance preferences unavailable; using the default presentation.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              void sessionController.refreshPreferences();
+            }}
+          >
+            Retry preferences
+          </button>
+        </p>
+      ) : null}
+      {sessionSnapshot.extensions.kind === "failed" ? (
+        <p role="status">
+          Extension discovery unavailable.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              void sessionController.refreshExtensions();
+            }}
+          >
+            Retry extensions
+          </button>
+        </p>
+      ) : null}
+      {session !== null && sessionSnapshot.error !== null ? (
+        <p role="status">
+          Session refresh unavailable.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              void sessionController.refreshSession();
+            }}
+          >
+            Retry session
+          </button>
+        </p>
+      ) : null}
+    </>
+  );
 
   if (route.incidentId !== "" && session !== null) {
     return (
       <main
-        aria-busy={appBootstrapState === "loading"}
+        aria-busy={sessionSnapshot.observing}
         className="cartulary-shell"
-        data-bootstrap-state={appBootstrapState}
+        data-bootstrap-state="authenticated"
         data-cartulary-theme={themeId}
         data-reading-profile={readingProfileAttribute}
         data-testid={appRouteTestId("app-shell")}
         style={workbookRootPageStyle}
       >
+        {resourceStatus}
         <section style={workbookFrameStyle}>
           <Suspense
             fallback={
@@ -928,6 +690,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             }
           >
             <LazyWorkbookShell
+              key={sessionSnapshot.lifetime}
+              onSessionLost={handleSessionLost}
               authorizationRecovery={workbookAuthorizationRecovery}
               account={currentWorkbookAccount}
               accountDensityMode={accountPreferences?.density_mode ?? null}
@@ -958,62 +722,53 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     );
   }
 
-  if (route.debugHarness) {
+  if (session === null && sessionSnapshot.state === "unavailable") {
     return (
       <main
         className="cartulary-shell"
-        data-cartulary-theme={themeId}
-        data-reading-profile={readingProfileAttribute}
+        data-testid={appRouteTestId("app-shell")}
+        data-bootstrap-state="unavailable"
         style={rootPageStyle}
       >
-        <section style={utilityPanelStyle}>
-          <div style={landingHeroStyle}>
-            <p style={landingEyebrowStyle}>Cartulary</p>
-            <h1 style={landingHeadlineStyle}>Debug harness shell</h1>
-            <p style={landingBodyStyle}>
-              Authentication and incident-directory harness controls now live
-              behind the explicit `?debug=harness` flag so the default root path
-              can behave like the real incident landing.
-            </p>
-          </div>
-
-          <Suspense
-            fallback={
-              <p
-                aria-live="polite"
-                data-testid={appRouteTestId("debug-harness-loading")}
-                role="status"
-                style={routeLoadingStyle}
-              >
-                Loading debug harness…
-              </p>
-            }
-          >
-            <LazyDebugHarnessShell />
-          </Suspense>
-        </section>
+        <h1>Session unavailable</h1>
+        <p role="status">
+          The current session could not be checked. Try again.
+        </p>
+        <button
+          type="button"
+          disabled={sessionSnapshot.observing}
+          onClick={() => {
+            void sessionController.refreshSession();
+          }}
+        >
+          Retry session
+        </button>
       </main>
     );
   }
-
   if (session === null) {
     return (
       <AuthGateway
         bootstrapState={
-          appBootstrapState === "revoked" ||
-          appBootstrapState === "public_error_envelope"
-            ? appBootstrapState
-            : appBootstrapState === "loading"
-              ? "loading"
+          sessionSnapshot.state === "unresolved" || sessionSnapshot.observing
+            ? "loading"
+            : sessionSnapshot.ended
+              ? "revoked"
               : "anonymous"
         }
         message={authPrompt}
-        onAuthenticated={async () => {
-          await refreshShell({
-            routeSnapshot: getCurrentRoute(),
-            landingNotice: null,
-          });
+        onAuthenticated={(nextSession) => {
+          if (
+            sessionController.authenticationCompleted(
+              nextSession,
+              sessionSnapshot.revision,
+            )
+          )
+            setAuthPrompt(defaultAuthPrompt);
         }}
+        onAuthenticationUncertain={() =>
+          sessionController.confirmAuthentication(sessionSnapshot.revision)
+        }
         publicError={error}
         readingProfile={readingProfile}
       />
@@ -1022,14 +777,15 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
 
   return (
     <main
-      aria-busy={appBootstrapState === "loading"}
+      aria-busy={sessionSnapshot.observing}
       className="cartulary-shell"
-      data-bootstrap-state={appBootstrapState}
+      data-bootstrap-state="authenticated"
       data-cartulary-theme={themeId}
       data-reading-profile={readingProfileAttribute}
       data-testid={appRouteTestId("app-shell")}
       style={rootPageStyle}
     >
+      {resourceStatus}
       {route.deploymentAdministration && session.is_deployment_admin ? (
         <LandingAdminShell
           headingRef={navigationHeadingRef}
@@ -1053,7 +809,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
                 extensionProfiles,
                 "enterprise_authentication",
               )}
-              onRefreshShell={refreshCurrentShell}
+              onRefreshSession={refreshCurrentSession}
               session={session}
             />
           </section>
@@ -1108,11 +864,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           >
             <IncidentLanding
               creation={creation}
-              bootstrapState={appBootstrapState}
-              error={error}
               directory={directory}
               onOpenIncident={openIncident}
-              statusText={landingStatusText}
+              notice={landingNotice}
             />
           </section>
         </IncidentDirectoryShell>
@@ -1233,16 +987,6 @@ const workbookRoutePageStyle = {
   overflow: "hidden",
 };
 
-const utilityPanelStyle = {
-  width: "min(78rem, 100%)",
-  margin: "2rem auto",
-  padding: "2rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-panel)",
-  border: "var(--ct-border-hairline)",
-};
-
 const workbookFrameStyle = {
   display: "grid",
   gridTemplateRows: "minmax(0, 1fr)",
@@ -1250,31 +994,6 @@ const workbookFrameStyle = {
   minBlockSize: 0,
   minWidth: 0,
   overflow: "hidden",
-};
-
-const landingHeroStyle = {
-  marginBottom: "1.5rem",
-};
-
-const landingEyebrowStyle = {
-  margin: 0,
-  fontSize: "0.78rem",
-  letterSpacing: "0.18em",
-  textTransform: "uppercase" as const,
-  color: "var(--ct-colors-accent)",
-};
-
-const landingHeadlineStyle = {
-  margin: "0.45rem 0 0",
-  fontSize: "clamp(2rem, 4vw, 3rem)",
-  lineHeight: 1.05,
-};
-
-const landingBodyStyle = {
-  margin: "0.9rem 0 0",
-  maxWidth: "42rem",
-  lineHeight: 1.6,
-  color: "var(--ct-colors-ink-muted)",
 };
 
 const routeLoadingStyle = {

@@ -642,9 +642,11 @@ describe("IncidentAdminPanel", () => {
         ),
       ),
     ).toBeTruthy();
-    expect(screen.getByTestId("membership-audit-status").textContent).toBe(
-      "Membership audit loaded.",
-    );
+    expect(
+      screen.getByTestId(
+        incidentAdministrationTestId("membership-audit-status"),
+      ).textContent,
+    ).toBe("Membership audit loaded.");
     expect(
       screen.getByTestId(
         incidentMembershipAuditRowTestId(
@@ -652,7 +654,11 @@ describe("IncidentAdminPanel", () => {
         ),
       ).textContent,
     ).toContain("redacted");
-    fireEvent.click(screen.getByTestId("membership-audit-load-more"));
+    fireEvent.click(
+      screen.getByTestId(
+        incidentAdministrationTestId("membership-audit-load-more"),
+      ),
+    );
     expect(
       await screen.findByTestId(
         incidentMembershipAuditRowTestId(
@@ -674,10 +680,15 @@ describe("IncidentAdminPanel", () => {
         incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
-    expect(await screen.findByTestId("membership-audit-note")).toBeTruthy();
-    expect(screen.getByTestId("membership-audit-note").textContent).toContain(
-      "Only incident admins",
-    );
+    expect(
+      await screen.findByTestId(
+        incidentAdministrationTestId("membership-audit-note"),
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(incidentAdministrationTestId("membership-audit-note"))
+        .textContent,
+    ).toContain("Only incident admins");
     expect(auditReads).toBe(2);
   });
 

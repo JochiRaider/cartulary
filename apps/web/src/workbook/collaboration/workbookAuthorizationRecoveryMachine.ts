@@ -29,7 +29,7 @@ export type WorkbookAuthorizationRecoveryResultPlan =
       readonly machine: WorkbookAuthorizationRecoveryMachine;
     }
   | {
-      readonly kind: "access_lost";
+      readonly kind: "access_lost" | "session_lost" | "paused";
       readonly machine: WorkbookAuthorizationRecoveryMachine;
     }
   | {
@@ -107,15 +107,18 @@ export function planWorkbookAuthorizationRecoveryResult(
   if (!admissionIsCurrent(machine, admission, "recovering")) {
     return { kind: "stale", machine };
   }
-  if (result.kind === "unavailable") {
+  if (result.kind === "unavailable" && result.failure === "transient") {
     return {
       kind: "retry",
       machine: scheduleWorkbookAuthorizationRecovery(machine, nowMs),
     };
   }
-  if (result.kind === "access_lost") {
+  if (result.kind !== "authorized") {
     return {
-      kind: "access_lost",
+      kind:
+        result.kind === "access_lost" || result.kind === "session_lost"
+          ? result.kind
+          : "paused",
       machine: {
         ...machine,
         authorizationConfirmed: false,
@@ -165,16 +168,6 @@ export function completeWorkbookAuthorizationRecovery(
     kind: "complete",
     machine: { ...machine, authorizationConfirmed: true, phase: "idle" },
   };
-}
-
-export function retryWorkbookAuthorizationRecovery(
-  machine: WorkbookAuthorizationRecoveryMachine,
-  admission: WorkbookAuthorizationRecoveryAdmission,
-  nowMs: number,
-): WorkbookAuthorizationRecoveryMachine {
-  return admissionIsCurrent(machine, admission, "refreshing")
-    ? scheduleWorkbookAuthorizationRecovery(machine, nowMs)
-    : machine;
 }
 
 export function terminateWorkbookAuthorizationRecovery(

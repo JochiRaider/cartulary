@@ -39,6 +39,28 @@ function deterministicRandom(fill: number) {
 }
 
 describe("extension availability lifecycle", () => {
+  it("joins initial discovery with pending startup without admitting unresolved extension actions", async () => {
+    const controller = new ExtensionAvailabilityController({
+      incidentId: "incident-1",
+      randomValues: deterministicRandom(3),
+    });
+    const tag = controller.reserve();
+    if (tag === null) throw new Error("fixture reservation");
+    const caller = new AbortController();
+    const ready = controller.waitForDiscovery(caller.signal);
+    expect(controller.acceptWorkbookStartup(tag, availability)).toBe(true);
+    expect(controller.renderableWorkspaces()).toEqual([]);
+    controller.setDiscovery(discovery);
+    expect(await ready).toBe(true);
+    expect(controller.isCurrent(tag)).toBe(true);
+    expect(controller.renderableWorkspaces()).toHaveLength(1);
+    controller.setDiscovery(null);
+    const abandoned = controller.waitForDiscovery(caller.signal);
+    caller.abort();
+    expect(await abandoned).toBe(false);
+    expect(controller.renderableWorkspaces()).toEqual([]);
+  });
+
   it("loads the generated standard support registry and rejects capability facts", () => {
     const support = packagedClientExtensionSupportRegistry();
     expect(support).not.toBeNull();

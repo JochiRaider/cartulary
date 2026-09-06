@@ -4,7 +4,10 @@ import {
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
-import type { WorkbookSurfaceRecordChangeResult } from "../collaboration/workbookSurfacePort";
+import {
+  requireWorkbookSurfaceAcceptance,
+  type WorkbookSurfaceRecordChangeResult,
+} from "../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -57,60 +60,68 @@ export function useGenericSurfaceQuery({
     setRows([]);
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (!active) {
-      abortLatestQuery(queryRuntimeRef);
-      activeViewSchemaIdRef.current = viewSchemaId;
-      clearRows();
-      setLoadState(initialWorkbookQueryLoadState);
-      return;
-    }
-    const requestedViewSchemaId = viewSchemaId;
-    if (activeViewSchemaIdRef.current !== requestedViewSchemaId) {
-      activeViewSchemaIdRef.current = requestedViewSchemaId;
-      clearRows();
-    }
-    const request = beginLatestQuery(queryRuntimeRef);
-    setLoadState(
-      acceptedRowCountRef.current > 0
-        ? { kind: "refreshing" }
-        : { generationKey: request.generationKey, kind: "initial_loading" },
-    );
-    const result = await viewQuery.query({
-      contract,
-      queryState,
-      signal: request.signal,
-    });
-    if (!request.isCurrent() || result.kind === "aborted") {
-      return;
-    }
-    if (result.kind === "rejected") {
-      const message = result.failure.message;
-      if (workbookOperationFailureIsAccessLoss(result.failure)) {
-        onIncidentAccessLost?.();
+  const refresh = useCallback(
+    async (options?: { readonly requireAcceptance?: boolean }) => {
+      if (!active) {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
+        abortLatestQuery(queryRuntimeRef);
+        activeViewSchemaIdRef.current = viewSchemaId;
         clearRows();
-        setLoadState({ kind: "permission_denied", message });
-      } else if (acceptedRowCountRef.current > 0) {
-        setLoadState({ kind: "stale_error", message });
-      } else {
-        setLoadState({ kind: "unavailable", message });
+        setLoadState(initialWorkbookQueryLoadState);
+        return;
       }
-      return;
-    }
-    const nextRows = [...result.value.rows];
-    rowsRef.current = nextRows;
-    setRows(nextRows);
-    acceptedRowCountRef.current = nextRows.length;
-    setLoadState({ kind: "ready" });
-  }, [
-    active,
-    clearRows,
-    contract,
-    onIncidentAccessLost,
-    queryState,
-    viewQuery,
-    viewSchemaId,
-  ]);
+      const requestedViewSchemaId = viewSchemaId;
+      if (activeViewSchemaIdRef.current !== requestedViewSchemaId) {
+        activeViewSchemaIdRef.current = requestedViewSchemaId;
+        clearRows();
+      }
+      const request = beginLatestQuery(queryRuntimeRef);
+      setLoadState(
+        acceptedRowCountRef.current > 0
+          ? { kind: "refreshing" }
+          : { generationKey: request.generationKey, kind: "initial_loading" },
+      );
+      const result = await viewQuery.query({
+        contract,
+        queryState,
+        signal: request.signal,
+      });
+      if (!request.isCurrent() || result.kind === "aborted") {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
+        return;
+      }
+      if (options?.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
+      if (result.kind === "rejected") {
+        const message = result.failure.message;
+        if (workbookOperationFailureIsAccessLoss(result.failure)) {
+          onIncidentAccessLost?.();
+          clearRows();
+          setLoadState({ kind: "permission_denied", message });
+        } else if (acceptedRowCountRef.current > 0) {
+          setLoadState({ kind: "stale_error", message });
+        } else {
+          setLoadState({ kind: "unavailable", message });
+        }
+        return;
+      }
+      const nextRows = [...result.value.rows];
+      rowsRef.current = nextRows;
+      setRows(nextRows);
+      acceptedRowCountRef.current = nextRows.length;
+      setLoadState({ kind: "ready" });
+    },
+    [
+      active,
+      clearRows,
+      contract,
+      onIncidentAccessLost,
+      queryState,
+      viewQuery,
+      viewSchemaId,
+    ],
+  );
 
   const applyRecordChanged = useCallback(
     (payload: RecordChangedPayload): WorkbookSurfaceRecordChangeResult => {

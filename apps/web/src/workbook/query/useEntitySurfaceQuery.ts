@@ -1,7 +1,10 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
-import type { WorkbookSurfaceRecordChangeResult } from "../collaboration/workbookSurfacePort";
+import {
+  requireWorkbookSurfaceAcceptance,
+  type WorkbookSurfaceRecordChangeResult,
+} from "../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import { entityRowFromApi } from "../models/entityWorkbookModel";
@@ -63,73 +66,82 @@ export function useEntitySurfaceQuery({
     return index;
   }, [hostRows, identityRows]);
 
-  const refresh = useCallback(async () => {
-    const request = beginLatestQuery(queryRuntimeRef);
-    setLoadState(
-      acceptedRowCountRef.current > 0
-        ? { kind: "refreshing" }
-        : { generationKey: request.generationKey, kind: "initial_loading" },
-    );
-    const [hostsResult, identitiesResult] = await Promise.all([
-      viewQuery.query({
-        contract: hostsContract,
-        queryState: hostQueryState,
-        signal: request.signal,
-      }),
-      viewQuery.query({
-        contract: identitiesContract,
-        queryState: identityQueryState,
-        signal: request.signal,
-      }),
-    ]);
-    if (
-      !request.isCurrent() ||
-      hostsResult.kind === "aborted" ||
-      identitiesResult.kind === "aborted"
-    ) {
-      return;
-    }
-    const rejected = [hostsResult, identitiesResult].find(
-      (result) => result.kind === "rejected",
-    );
-    if (rejected?.kind === "rejected") {
-      const message = rejected.failure.message;
-      if (workbookOperationFailureIsAccessLoss(rejected.failure)) {
-        onIncidentAccessLost?.();
-        hostRowsRef.current = [];
-        identityRowsRef.current = [];
-        acceptedRowCountRef.current = 0;
-        setHostRows([]);
-        setIdentityRows([]);
-        setLoadState({ kind: "permission_denied", message });
-      } else if (acceptedRowCountRef.current > 0) {
-        setLoadState({ kind: "stale_error", message });
-      } else {
-        setLoadState({ kind: "unavailable", message });
+  const refresh = useCallback(
+    async (options?: { readonly requireAcceptance?: boolean }) => {
+      const request = beginLatestQuery(queryRuntimeRef);
+      setLoadState(
+        acceptedRowCountRef.current > 0
+          ? { kind: "refreshing" }
+          : { generationKey: request.generationKey, kind: "initial_loading" },
+      );
+      const [hostsResult, identitiesResult] = await Promise.all([
+        viewQuery.query({
+          contract: hostsContract,
+          queryState: hostQueryState,
+          signal: request.signal,
+        }),
+        viewQuery.query({
+          contract: identitiesContract,
+          queryState: identityQueryState,
+          signal: request.signal,
+        }),
+      ]);
+      if (
+        !request.isCurrent() ||
+        hostsResult.kind === "aborted" ||
+        identitiesResult.kind === "aborted"
+      ) {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
+        return;
       }
-      return;
-    }
-    if (
-      hostsResult.kind !== "accepted" ||
-      identitiesResult.kind !== "accepted"
-    ) {
-      return;
-    }
-    const nextHosts = hostsResult.value.rows.map((row) =>
-      entityRowFromApi(row, "host"),
-    );
-    const nextIdentities = identitiesResult.value.rows.map((row) =>
-      entityRowFromApi(row, "identity"),
-    );
-    setHostRows((current) => [
-      ...reconcileWorkbookRecordRows(current, nextHosts),
-    ]);
-    setIdentityRows((current) => [
-      ...reconcileWorkbookRecordRows(current, nextIdentities),
-    ]);
-    acceptedRowCountRef.current = nextHosts.length + nextIdentities.length;
-    setLoadState({ kind: "ready" });
-  }, [hostQueryState, identityQueryState, onIncidentAccessLost, viewQuery]);
+      if (options?.requireAcceptance) {
+        requireWorkbookSurfaceAcceptance(hostsResult);
+        requireWorkbookSurfaceAcceptance(identitiesResult);
+      }
+      const rejected = [hostsResult, identitiesResult].find(
+        (result) => result.kind === "rejected",
+      );
+      if (rejected?.kind === "rejected") {
+        const message = rejected.failure.message;
+        if (workbookOperationFailureIsAccessLoss(rejected.failure)) {
+          onIncidentAccessLost?.();
+          hostRowsRef.current = [];
+          identityRowsRef.current = [];
+          acceptedRowCountRef.current = 0;
+          setHostRows([]);
+          setIdentityRows([]);
+          setLoadState({ kind: "permission_denied", message });
+        } else if (acceptedRowCountRef.current > 0) {
+          setLoadState({ kind: "stale_error", message });
+        } else {
+          setLoadState({ kind: "unavailable", message });
+        }
+        return;
+      }
+      if (
+        hostsResult.kind !== "accepted" ||
+        identitiesResult.kind !== "accepted"
+      ) {
+        return;
+      }
+      const nextHosts = hostsResult.value.rows.map((row) =>
+        entityRowFromApi(row, "host"),
+      );
+      const nextIdentities = identitiesResult.value.rows.map((row) =>
+        entityRowFromApi(row, "identity"),
+      );
+      setHostRows((current) => [
+        ...reconcileWorkbookRecordRows(current, nextHosts),
+      ]);
+      setIdentityRows((current) => [
+        ...reconcileWorkbookRecordRows(current, nextIdentities),
+      ]);
+      acceptedRowCountRef.current = nextHosts.length + nextIdentities.length;
+      setLoadState({ kind: "ready" });
+    },
+    [hostQueryState, identityQueryState, onIncidentAccessLost, viewQuery],
+  );
 
   const applyRecordChanged = useCallback(
     (

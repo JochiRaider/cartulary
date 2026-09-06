@@ -1,7 +1,7 @@
 import type { CreateIncidentResponse } from "@cartulary/protocol-ts/http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred, jsonResponse } from "../testing/fetchMockTestSupport";
-import { createIncident } from "./api/appShellClient";
+import { createIncident } from "./api/incidentClient";
 import {
   IncidentCreationController,
   type IncidentCreationPorts,

@@ -18,7 +18,7 @@ describe("app route state", () => {
     ).toEqual(emptyAppRouteState);
   });
 
-  it("parses incident and debug query state outside deployment administration", () => {
+  it("parses incident state and ignores obsolete debug query parameters", () => {
     expect(
       parseAppRouteState({
         pathname: "/",
@@ -26,7 +26,6 @@ describe("app route state", () => {
       }),
     ).toEqual({
       incidentId: "incident-1",
-      debugHarness: true,
       deploymentAdministration: false,
     });
   });
@@ -39,7 +38,6 @@ describe("app route state", () => {
       }),
     ).toEqual({
       incidentId: "",
-      debugHarness: false,
       deploymentAdministration: true,
     });
   });
@@ -54,28 +52,26 @@ describe("app route state", () => {
       buildAppRouteLocation(
         {
           incidentId: "incident-2",
-          debugHarness: false,
           deploymentAdministration: false,
         },
         "?keep=1&incident_id=incident-1&surface=timeline&debug=harness",
       ),
     ).toEqual({
       historyState: {},
-      url: "/?keep=1&incident_id=incident-2",
+      url: "/?keep=1&incident_id=incident-2&debug=harness",
     });
 
     expect(
       buildAppRouteLocation(
         {
           incidentId: "",
-          debugHarness: false,
           deploymentAdministration: true,
         },
         "?keep=1&incident_id=incident-1&surface=timeline&debug=harness",
       ),
     ).toEqual({
       historyState: {},
-      url: "/deployment-administration?keep=1",
+      url: "/deployment-administration?keep=1&debug=harness",
     });
   });
 
@@ -107,7 +103,6 @@ describe("app route state", () => {
     writeAppRouteState(
       {
         incidentId: "",
-        debugHarness: false,
         deploymentAdministration: false,
       },
       "push",
@@ -119,7 +114,6 @@ describe("app route state", () => {
     writeAppRouteState(
       {
         incidentId: "",
-        debugHarness: true,
         deploymentAdministration: false,
       },
       "replace",
@@ -130,6 +124,6 @@ describe("app route state", () => {
     );
 
     expect(pushState).toHaveBeenCalledWith({}, "", "/");
-    expect(replaceState).toHaveBeenCalledWith({}, "", "/?debug=harness");
+    expect(replaceState).toHaveBeenCalledWith({}, "", "/");
   });
 });

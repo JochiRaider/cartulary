@@ -191,26 +191,6 @@ export const accountMenuSeparatorStyle: CSSProperties = {
   background: "var(--ct-colors-border-muted)",
 };
 
-export const landingAccountNavButtonStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "0.42rem",
-  padding: "0.5rem 0.65rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink-muted)",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-export const landingAccountNavButtonSelectedStyle: CSSProperties = {
-  ...landingAccountNavButtonStyle,
-  border: "var(--ct-border-strong)",
-  color: "var(--ct-colors-ink)",
-  background: "var(--ct-colors-surface-3)",
-};
-
 export const landingAdminWorkspaceStyle: CSSProperties = {
   minHeight: 0,
   display: "grid",

@@ -463,6 +463,7 @@ export function productionFixtureProviders({
     browser_stack: {
       async acquire({
         affinityKey,
+        browserStage,
         runtimeProfileID = "default",
         fixtureProfileID,
         snapshotKey,
@@ -496,6 +497,7 @@ export function productionFixtureProviders({
           ...suiteEnvironment,
           ...runtimeEnvironment,
           ...selectionEnvironment,
+          CARTULARY_BROWSER_STAGE: browserStage,
           CARTULARY_BROWSER_RUNTIME_PROFILE_ID: runtimeProfileID,
           CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
@@ -552,6 +554,7 @@ export function productionFixtureProviders({
           ...browserSuiteEnvironment(suiteEnvironment),
           ...selectionEnvironment,
           ...stackEnvironment,
+          CARTULARY_BROWSER_STAGE: browserStage,
           CARTULARY_BROWSER_SESSION_GROUP: browserSessionID,
           CARTULARY_WEB_E2E_SESSION_LEASE_FILE: leaseFile,
         };

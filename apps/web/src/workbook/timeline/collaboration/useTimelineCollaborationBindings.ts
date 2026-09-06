@@ -69,7 +69,9 @@ export function useTimelineCollaborationBindings({
   readonly admission: TimelineRowAdmission;
   readonly beginRowsLoad: () => unknown;
   readonly collaborationProjection: TimelineCollaborationProjection;
-  readonly refreshRows: () => Promise<void>;
+  readonly refreshRows: (options?: {
+    readonly requireAcceptance?: boolean;
+  }) => Promise<void>;
   readonly resolveClientTxn: (
     clientTxnId: string | null | undefined,
   ) => boolean;
@@ -166,8 +168,10 @@ export function useTimelineCollaborationBindings({
         rowsRef.current = localDrafts;
         replaceRows(localDrafts);
       },
-      refresh: async () => {
-        await refreshRows();
+      refresh: async (options) => {
+        await refreshRows({
+          requireAcceptance: options?.reason === "authorization_recovered",
+        });
       },
     }),
     [

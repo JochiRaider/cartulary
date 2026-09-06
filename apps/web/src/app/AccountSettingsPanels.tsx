@@ -7,14 +7,16 @@ import {
   publicErrorView,
 } from "../services/browserApi";
 import {
-  type AccountPreferencesResource,
-  type AccountProfileResource,
-  type DensityMode,
   loadAccountPreferences,
   loadAccountProfile,
   patchAccountProfile,
   putAccountPreferences,
-} from "./api/appShellClient";
+} from "./api/authAccountClient";
+import type {
+  AccountPreferencesResource,
+  AccountProfileResource,
+  DensityMode,
+} from "./api/publicHttpTypes";
 import {
   definitionLabelStyle,
   definitionPanelStyle,
@@ -31,9 +33,9 @@ import {
 } from "./landingAdminStyles";
 
 export function AccountProfilePanel({
-  onRefreshShell,
+  onRefreshSession,
 }: {
-  onRefreshShell: () => Promise<void> | void;
+  onRefreshSession: () => Promise<void> | void;
 }) {
   const [profile, setProfile] = useState<AccountProfileResource | null>(null);
   const [displayName, setDisplayName] = useState("");
@@ -48,8 +50,7 @@ export function AccountProfilePanel({
       setStatus("Account profile unavailable.");
       return;
     }
-    const nextProfile = (result.payload as { data: AccountProfileResource })
-      .data;
+    const nextProfile = result.payload.data;
     setProfile(nextProfile);
     setDisplayName(nextProfile.display_name);
     setStatus("Account profile loaded.");
@@ -74,12 +75,11 @@ export function AccountProfilePanel({
       setStatus("Account profile save failed.");
       return;
     }
-    const nextProfile = (result.payload as { data: AccountProfileResource })
-      .data;
+    const nextProfile = result.payload.data;
     setProfile(nextProfile);
     setDisplayName(nextProfile.display_name);
     setStatus("Account profile saved.");
-    await onRefreshShell();
+    await onRefreshSession();
   }
 
   return (
@@ -162,9 +162,7 @@ export function AccountAppearancePanel({
       setStatus("Account appearance unavailable.");
       return;
     }
-    const nextPreferences = (
-      result.payload as { data: AccountPreferencesResource }
-    ).data;
+    const nextPreferences = result.payload.data;
     setLocalPreferences(nextPreferences);
     onPreferencesChange?.(nextPreferences);
     setDensityMode(nextPreferences.density_mode ?? "");
@@ -217,9 +215,7 @@ export function AccountAppearancePanel({
       }
       return;
     }
-    const nextPreferences = (
-      result.payload as { data: AccountPreferencesResource }
-    ).data;
+    const nextPreferences = result.payload.data;
     setLocalPreferences(nextPreferences);
     onPreferencesChange?.(nextPreferences);
     setDensityMode(nextPreferences.density_mode ?? "");

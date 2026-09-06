@@ -387,6 +387,40 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.extension_availability_lifecycle_792bc604af",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/extensions/extensionAvailability.test.ts",
+        "titles": [
+          "extension availability lifecycle admits exact profile routes and discards a response after claim loss",
+          "extension availability lifecycle ignores stale and malformed availability without retry",
+          "extension availability lifecycle joins initial discovery with pending startup without admitting unresolved extension actions",
+          "extension availability lifecycle linearizes extension requests while preserving distinct reservation generations",
+          "extension availability lifecycle loads the generated standard support registry and rejects capability facts",
+          "extension availability lifecycle rejects duplicate, unsorted, extra-member, and oversized availability rows",
+          "extension availability lifecycle requires the exact discovery, support, authorization, and current-generation intersection",
+          "extension availability lifecycle rolls over atomically and disables extensions when secure randomness fails",
+          "extension availability lifecycle uses the build-bound browser bootstrap and fails closed when it is malformed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.genericworkbookmodel_builds_generic_creates_with_07b632b33d",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1447,7 +1481,8 @@
           "useGenericSurfaceQuery allows a current Evidence read to finish when incident closure arrives during startup",
           "useGenericSurfaceQuery clears access-protected rows, stays idle while inactive, and aborts on teardown",
           "useGenericSurfaceQuery normalizes Notes rows and applies a newer sparse live patch",
-          "useGenericSurfaceQuery rejects obsolete schema work and retains current rows after a mismatched envelope"
+          "useGenericSurfaceQuery rejects obsolete schema work and retains current rows after a mismatched envelope",
+          "useGenericSurfaceQuery requires an accepted current query before authorization recovery can resume"
         ]
       },
       "evidence_class": "unit",
@@ -1506,10 +1541,11 @@
           "useWorkbookStartupAdmission applies no response state for a non-OK result",
           "useWorkbookStartupAdmission applies no selection-owned state for a malformed result",
           "useWorkbookStartupAdmission does not hydrate a late saved view after a later selection",
-          "useWorkbookStartupAdmission falls back exactly once when availability admission is stale",
           "useWorkbookStartupAdmission falls back exactly once when the selected extension is not renderable",
           "useWorkbookStartupAdmission hydrates a saved view in upsert-query-layout-identity order",
-          "useWorkbookStartupAdmission keeps a user selection made while startup is delayed"
+          "useWorkbookStartupAdmission keeps a user selection made while startup is delayed",
+          "useWorkbookStartupAdmission preserves a Base startup when extension availability admission is stale",
+          "useWorkbookStartupAdmission waits for discovery before committing an extension startup and cancels an obsolete wait"
         ]
       },
       "evidence_class": "unit",
@@ -4145,6 +4181,8 @@
       "selector": {
         "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
         "titles": [
+          "WorkbookMutationRuntime discards a retired account response even when its transport ignores cancellation",
+          "WorkbookMutationRuntime preserves paused same-account edits and retires them before account replacement",
           "WorkbookMutationRuntime retains queued drafts and refresh debt across surface unmounts",
           "WorkbookMutationRuntimeRegistry preserves one scoped runtime across authenticated shell remounts",
           "WorkbookMutationRuntimeRegistry rejects a factory result from another pending-queue scope",

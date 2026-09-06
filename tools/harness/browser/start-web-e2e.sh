@@ -12,7 +12,8 @@ TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
 TEST_SERVICE_FRONTEND_PORT_START=19000
 TEST_SERVICE_FRONTEND_PORT_END=19199
 TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
-WEB_DIST_INDEX="${ROOT_DIR}/apps/web/dist/index.html"
+WEB_DIST_INDEX=""
+WEB_DIST_DIR=""
 SESSION_EVIDENCE_HELPER="${ROOT_DIR}/tools/harness/browser/browser-session-evidence.mjs"
 FRONTEND_MODE="preview"
 FRONTEND_COMMAND_KIND="vite-preview"
@@ -515,11 +516,15 @@ snapshot_service_scope() {
 }
 
 require_frontend_preview_artifacts() {
+  local artifact_ref
+  artifact_ref="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${SESSION_EVIDENCE_HELPER}" frontend-artifact)" || return $?
+  WEB_DIST_DIR="${ROOT_DIR}/${artifact_ref}"
+  WEB_DIST_INDEX="${WEB_DIST_DIR}/index.html"
   if [[ -f "${WEB_DIST_INDEX}" ]]; then
     return 0
   fi
 
-  local message="built frontend artifact missing at ${WEB_DIST_INDEX}; run make build-web before browser e2e"
+  local message="built frontend artifact missing at ${WEB_DIST_INDEX}; run the selected Make frontend build before browser e2e"
   echo "${message}" >&2
   write_startup_diagnostics "fail" "frontend_artifact" "config" "configuration_error" "${message}" || true
   return 2
@@ -1303,7 +1308,7 @@ start_frontend_preview_process() {
     PATH="${NODE_RUNTIME_DIR}/bin:${PATH}" \
     CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
-    "${pnpm_bin}" --dir apps/web exec vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
+    "${pnpm_bin}" --dir apps/web exec vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort --outDir "${WEB_DIST_DIR}"
 }
 
 start_frontend_preview_ready() {

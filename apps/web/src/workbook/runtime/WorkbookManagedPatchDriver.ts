@@ -75,6 +75,7 @@ class WorkbookManagedPatchDriverState
     WorkbookManagedPatchRequestContext
   >();
   readonly #visibleEdits = new Map<string, unknown>();
+  #disposed = false;
   readonly #options: WorkbookManagedPatchDriverOptions;
 
   constructor(options: WorkbookManagedPatchDriverOptions) {
@@ -91,7 +92,18 @@ class WorkbookManagedPatchDriverState
     );
   }
 
+  dispose(): void {
+    this.#disposed = true;
+    this.#requestContextByUnitId.clear();
+    this.#visibleEdits.clear();
+  }
+
   enqueue(request: WorkbookQueuedPatchRequest): GridEditCommitOutcome {
+    if (this.#disposed)
+      return {
+        kind: "rejected_mutation",
+        message: "This workbook session has ended.",
+      };
     const transactionId = this.#createTransactionId(request.viewSchemaId);
     if (transactionId === null) {
       return {
@@ -210,7 +222,7 @@ class WorkbookManagedPatchDriverState
     if (dispatch === null) return;
     this.#options.emit();
     const result = await this.#execute(dispatch.unit, dispatch.identity);
-    if (result === null) return;
+    if (this.#disposed || result === null) return;
     if (result.kind === "rejected") {
       this.#settleRejected(result, meta);
       return;
@@ -415,6 +427,7 @@ export function createWorkbookManagedPatchDriver(
   const state = new WorkbookManagedPatchDriverState(options);
   return {
     kind: state.kind,
+    dispose: () => state.dispose(),
     visibleEdit: (viewSchemaId: string, recordId: string, fieldKey: string) =>
       state.visibleEdit(viewSchemaId, recordId, fieldKey),
     enqueue: (request: WorkbookQueuedPatchRequest) => state.enqueue(request),
@@ -429,6 +442,7 @@ export function createWorkbookManagedPatchDriver(
       >,
     ) => state.drain(unit, envelope),
   } satisfies WorkbookManagedPatchMutationDriver & {
+    readonly dispose: typeof state.dispose;
     readonly visibleEdit: typeof state.visibleEdit;
     readonly enqueue: typeof state.enqueue;
     readonly discard: typeof state.discard;

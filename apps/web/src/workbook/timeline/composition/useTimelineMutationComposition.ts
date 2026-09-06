@@ -255,7 +255,8 @@ export function useTimelineMutationComposition({
     [incident.sheetRef],
   );
   const refreshRowsForCollaboration = useCallback(
-    () => loadRows({ showLoading: false }),
+    (options?: { readonly requireAcceptance?: boolean }) =>
+      loadRows({ showLoading: false, ...options }),
     [loadRows],
   );
   const collaboration = useTimelineCollaborationBindings({

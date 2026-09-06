@@ -153,6 +153,12 @@ type IncidentControlsSectionSelectorToken =
   | "summary";
 
 type IncidentAdministrationSelector =
+  | "membership-audit-apply-filters"
+  | "membership-audit-status"
+  | "membership-audit-empty"
+  | "membership-audit-list"
+  | "membership-audit-load-more"
+  | "membership-audit-note"
   | "admin-action-message"
   | "admin-error-code"
   | "admin-status"
@@ -190,8 +196,6 @@ const incidentControlsSections = [
 
 type AppRouteSelector =
   | "app-shell"
-  | "debug-harness-loading"
-  | "debug-harness-shell"
   | "workbook-current-user"
   | "workbook-loading";
 
@@ -328,13 +332,18 @@ const landingAdminPanelTokenSet = Object.freeze(
 
 const appRouteTestIds = Object.freeze({
   "app-shell": "app-shell",
-  "debug-harness-loading": "debug-harness-loading",
-  "debug-harness-shell": "debug-harness-shell",
   "workbook-current-user": "workbook-current-user",
   "workbook-loading": "workbook-loading",
 } satisfies Record<AppRouteSelector, string>);
 
 const incidentAdministrationTestIds = Object.freeze({
+  "membership-audit-apply-filters": "membership-audit-apply-filters",
+  "membership-audit-status": "membership-audit-status",
+  "membership-audit-empty": "membership-audit-empty",
+  "membership-audit-list": "membership-audit-list",
+  "membership-audit-load-more": "membership-audit-load-more",
+  "membership-audit-note": "membership-audit-note",
+
   "admin-action-message": "incident-admin-action-message",
   "admin-error-code": "incident-admin-error-code",
   "admin-status": "incident-admin-status",
@@ -561,34 +570,6 @@ export function incidentMembershipAuditRowTestId(
   );
 }
 
-export function debugIncidentRowTestId(incidentId: string): string {
-  return encodedTestId("incident-row", incidentId, "incident_id");
-}
-
-export function debugSelectIncidentButtonTestId(incidentId: string): string {
-  return encodedTestId("select-incident", incidentId, "incident_id");
-}
-
-export function debugMembershipRowTestId(userId: string): string {
-  return debugMembershipControlTestId("row", userId);
-}
-
-export function debugMembershipRoleInputTestId(userId: string): string {
-  return debugMembershipControlTestId("roleInput", userId);
-}
-
-export function debugMembershipVersionTestId(userId: string): string {
-  return debugMembershipControlTestId("version", userId);
-}
-
-export function debugMembershipPatchButtonTestId(userId: string): string {
-  return debugMembershipControlTestId("patch", userId);
-}
-
-export function debugMembershipDeleteButtonTestId(userId: string): string {
-  return debugMembershipControlTestId("delete", userId);
-}
-
 export function extensionProfileRowTestId(profileId: string): string {
   return encodedTestId("extension", profileId, "extension_profile_id");
 }
@@ -678,23 +659,6 @@ function incidentMembershipControlTestId(
   userId: string,
 ): string {
   return userScopedTestId(incidentMembershipControlPrefixes[control], userId);
-}
-
-const debugMembershipControlPrefixes = {
-  row: "membership-row",
-  roleInput: "membership-role-input",
-  version: "membership-version",
-  patch: "patch-membership",
-  delete: "delete-membership",
-} as const;
-
-type DebugMembershipControl = keyof typeof debugMembershipControlPrefixes;
-
-function debugMembershipControlTestId(
-  control: DebugMembershipControl,
-  userId: string,
-): string {
-  return userScopedTestId(debugMembershipControlPrefixes[control], userId);
 }
 
 function requirePublicErrorSurface(

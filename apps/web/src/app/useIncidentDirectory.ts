@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { listVisibleIncidents } from "./api/appShellClient";
+import { listVisibleIncidents } from "./api/incidentClient";
 import {
   IncidentDirectoryController,
   type IncidentDirectoryPorts,

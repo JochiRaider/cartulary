@@ -1,3 +1,4 @@
+import { resolveBrowserFrontendArtifact } from "../../generated-artifacts/execution-topology.mjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -9,6 +10,7 @@ import { planGoLPTShards } from "../../backend/go-lpt-shards.mjs";
 import { buildWorkGraph, loadWorkGraphOwner } from "./model.mjs";
 import {
   browserTargetStage,
+  selectBrowserRowStages,
   compileBrowserRowSelectionGraph,
   compileBrowserStageGraph,
 } from "./browser.mjs";
@@ -342,13 +344,18 @@ export class WorkGraphCompiler {
       if (!row) throw new Error(`unknown active row ${rowID}`);
       return row;
     });
+    const browserArtifactsByRow = new Map();
+    for (const stage of selectBrowserRowStages(this.root, rows.filter((row) => row.runner === "playwright").map((row) => row.row_id))) {
+      const artifact = resolveBrowserFrontendArtifact(this.root, stage.name, this.topology);
+      for (const group of stage.groups) for (const rowID of group.selectedRowIDs) browserArtifactsByRow.set(rowID, artifact);
+    }
     const prerequisiteTargetsForRow = (row) => {
       const targets = new Set();
       if (row.runner === "vitest") targets.add("frontend-install");
       if (row.runner === "playwright") {
         for (const target of [
           "playwright-install",
-          "build-web",
+          browserArtifactsByRow.get(row.row_id).producer_target,
           "build-server-harness",
           "build-migrate",
           "test-service-images",
@@ -511,7 +518,7 @@ export class WorkGraphCompiler {
     if (browser) {
       const readinessTargets = [
         "playwright-install",
-        "build-web",
+        resolveBrowserFrontendArtifact(this.root, browser.stage.name, this.topology).producer_target,
         "build-server-harness",
         "build-migrate",
         "test-service-images",

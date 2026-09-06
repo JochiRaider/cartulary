@@ -123,6 +123,7 @@
         "titles": [
           "useAssessmentSurfaceQuery does not query while inactive and aborts active work on teardown",
           "useAssessmentSurfaceQuery rejects a stale rapid-filter response and applies a newer live patch",
+          "useAssessmentSurfaceQuery requires an accepted current query before authorization recovery can resume",
           "useAssessmentSurfaceQuery retains accepted rows on a stale error and clears them on access loss"
         ]
       },

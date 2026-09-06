@@ -7,7 +7,12 @@ export type AuthorizationRecoveryResult =
       readonly userId: string;
     }
   | { readonly kind: "access_lost" }
-  | { readonly kind: "unavailable" };
+  | { readonly kind: "cancelled" }
+  | { readonly kind: "session_lost" }
+  | {
+      readonly kind: "unavailable";
+      readonly failure: "transient" | "contract";
+    };
 
 export interface AuthorizationRecoveryPort {
   recover(input: {

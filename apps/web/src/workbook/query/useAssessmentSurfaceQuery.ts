@@ -4,7 +4,10 @@ import {
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
-import type { WorkbookSurfaceRecordChangeResult } from "../collaboration/workbookSurfacePort";
+import {
+  requireWorkbookSurfaceAcceptance,
+  type WorkbookSurfaceRecordChangeResult,
+} from "../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -49,46 +52,54 @@ export function useAssessmentSurfaceQuery({
   });
   rowsRef.current = rows;
 
-  const refresh = useCallback(async () => {
-    if (!active) {
-      abortLatestQuery(queryRuntimeRef);
-      return;
-    }
-    const request = beginLatestQuery(queryRuntimeRef);
-    setLoadState(
-      acceptedRowCountRef.current > 0
-        ? { kind: "refreshing" }
-        : { generationKey: request.generationKey, kind: "initial_loading" },
-    );
-    const result = await viewQuery.query({
-      contract: assessmentsContract,
-      queryState,
-      signal: request.signal,
-    });
-    if (!request.isCurrent() || result.kind === "aborted") {
-      return;
-    }
-    if (result.kind === "rejected") {
-      const message = result.failure.message;
-      if (workbookOperationFailureIsAccessLoss(result.failure)) {
-        onIncidentAccessLost?.();
-        rowsRef.current = [];
-        acceptedRowCountRef.current = 0;
-        setRows([]);
-        setLoadState({ kind: "permission_denied", message });
-      } else if (acceptedRowCountRef.current > 0) {
-        setLoadState({ kind: "stale_error", message });
-      } else {
-        setLoadState({ kind: "unavailable", message });
+  const refresh = useCallback(
+    async (options?: { readonly requireAcceptance?: boolean }) => {
+      if (!active) {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
+        abortLatestQuery(queryRuntimeRef);
+        return;
       }
-      return;
-    }
-    const nextRows = [...result.value.rows];
-    rowsRef.current = nextRows;
-    setRows(nextRows);
-    acceptedRowCountRef.current = nextRows.length;
-    setLoadState({ kind: "ready" });
-  }, [active, onIncidentAccessLost, queryState, viewQuery]);
+      const request = beginLatestQuery(queryRuntimeRef);
+      setLoadState(
+        acceptedRowCountRef.current > 0
+          ? { kind: "refreshing" }
+          : { generationKey: request.generationKey, kind: "initial_loading" },
+      );
+      const result = await viewQuery.query({
+        contract: assessmentsContract,
+        queryState,
+        signal: request.signal,
+      });
+      if (!request.isCurrent() || result.kind === "aborted") {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
+        return;
+      }
+      if (options?.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
+      if (result.kind === "rejected") {
+        const message = result.failure.message;
+        if (workbookOperationFailureIsAccessLoss(result.failure)) {
+          onIncidentAccessLost?.();
+          rowsRef.current = [];
+          acceptedRowCountRef.current = 0;
+          setRows([]);
+          setLoadState({ kind: "permission_denied", message });
+        } else if (acceptedRowCountRef.current > 0) {
+          setLoadState({ kind: "stale_error", message });
+        } else {
+          setLoadState({ kind: "unavailable", message });
+        }
+        return;
+      }
+      const nextRows = [...result.value.rows];
+      rowsRef.current = nextRows;
+      setRows(nextRows);
+      acceptedRowCountRef.current = nextRows.length;
+      setLoadState({ kind: "ready" });
+    },
+    [active, onIncidentAccessLost, queryState, viewQuery],
+  );
 
   const applyRecordChanged = useCallback(
     (payload: RecordChangedPayload): WorkbookSurfaceRecordChangeResult => {

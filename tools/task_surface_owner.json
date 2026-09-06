@@ -193,6 +193,11 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "build-web-measurement",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
         "target": "clean",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
@@ -1162,6 +1167,10 @@
         {
           "target": "build-web",
           "description": "build frontend web assets"
+        },
+        {
+          "target": "build-web-measurement",
+          "description": "build isolated frontend measurement assets"
         },
         {
           "target": "distclean",
@@ -2968,6 +2977,13 @@
       ],
       "type": "artifact_binding",
       "graph_entry": true
+    },
+    "build-web-measurement": {
+      "prerequisites": [
+        "$(CURDIR)/apps/web/dist-measurement/index.html"
+      ],
+      "type": "artifact_binding",
+      "test_target": "self"
     }
   },
   "targets": [
@@ -13405,6 +13421,69 @@
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
       "command_id": "cartulary.harness.command.build_web.v2",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "check"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "bin",
+            "apps/web/dist"
+          ]
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": []
+      }
+    },
+    {
+      "name": "build-web-measurement",
+      "backing_scripts": [
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/readiness/build-web-artifact.sh"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.build_web_measurement.v1",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",

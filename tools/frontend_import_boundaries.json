@@ -69,7 +69,9 @@
       "message": "Import the react-data-grid stylesheet exactly once from the grid adapter.",
       "specifier": "react-data-grid/lib/styles.css",
       "required_count": 1,
-      "allowed_importers": ["packages/grid-adapter/src/**"]
+      "allowed_importers": [
+        "packages/grid-adapter/src/**"
+      ]
     }
   ],
   "rules": [
@@ -78,7 +80,9 @@
       "level": "error",
       "message": "Only the authored view-contract projection adapter may import generated normalized view contracts.",
       "applies_to": {
-        "include": ["**"],
+        "include": [
+          "**"
+        ],
         "exclude": []
       },
       "allowed_importers": [
@@ -96,7 +100,9 @@
       "level": "error",
       "message": "Import react-data-grid only through @cartulary/grid-adapter.",
       "applies_to": {
-        "include": ["**"],
+        "include": [
+          "**"
+        ],
         "exclude": []
       },
       "allowed_importers": [
@@ -115,7 +121,9 @@
       "level": "error",
       "message": "Import the non-virtualized grid binding only from package-local DOM-unit tests.",
       "applies_to": {
-        "include": ["**"],
+        "include": [
+          "**"
+        ],
         "exclude": [
           "packages/grid-adapter/src/*.test.ts",
           "packages/grid-adapter/src/*.test.tsx",
@@ -136,7 +144,9 @@
       "level": "error",
       "message": "Import generated protocol artifacts only through owner-declared Protocol-TS entrypoints.",
       "applies_to": {
-        "include": ["**"],
+        "include": [
+          "**"
+        ],
         "exclude": [
           "packages/protocol-ts/src/unsupported-entrypoints.compile.ts"
         ]
@@ -619,7 +629,9 @@
       "level": "error",
       "message": "Timeline controllers must collaborate through model ports instead of importing sibling controllers.",
       "applies_to": {
-        "include": ["apps/web/src/workbook/timeline/hooks/**"],
+        "include": [
+          "apps/web/src/workbook/timeline/hooks/**"
+        ],
         "exclude": []
       },
       "allowed_importers": [],
@@ -660,7 +672,9 @@
       "level": "error",
       "message": "Timeline composition consumes semantic owners and must not import presentation, generated protocol, or browser services.",
       "applies_to": {
-        "include": ["apps/web/src/workbook/timeline/composition/**"],
+        "include": [
+          "apps/web/src/workbook/timeline/composition/**"
+        ],
         "exclude": []
       },
       "allowed_importers": [],
@@ -689,7 +703,9 @@
       "level": "error",
       "message": "Only the Timeline root composer may import sibling composition owners.",
       "applies_to": {
-        "include": ["apps/web/src/workbook/timeline/composition/**"],
+        "include": [
+          "apps/web/src/workbook/timeline/composition/**"
+        ],
         "exclude": [
           "apps/web/src/workbook/timeline/composition/useTimelineWorkbookComposition.ts"
         ]
@@ -707,7 +723,9 @@
       "level": "error",
       "message": "Timeline presentation components must not invoke composition hooks outside the public Timeline root.",
       "applies_to": {
-        "include": ["apps/web/src/workbook/timeline/components/**"],
+        "include": [
+          "apps/web/src/workbook/timeline/components/**"
+        ],
         "exclude": [
           "apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx"
         ]
@@ -787,7 +805,9 @@
       "level": "error",
       "message": "Timeline protocol adapters may depend on semantic models and ports but must not import workflow state or presentation owners.",
       "applies_to": {
-        "include": ["apps/web/src/workbook/timeline/adapters/**"],
+        "include": [
+          "apps/web/src/workbook/timeline/adapters/**"
+        ],
         "exclude": []
       },
       "allowed_importers": [],
@@ -1069,7 +1089,9 @@
       "level": "error",
       "message": "Import generated design token artifacts only through the @cartulary/ui-contracts facade.",
       "applies_to": {
-        "include": ["**"],
+        "include": [
+          "**"
+        ],
         "exclude": []
       },
       "allowed_importers": [
@@ -1088,7 +1110,9 @@
       "level": "error",
       "message": "Import generated performance contracts only through the @cartulary/ui-contracts facade.",
       "applies_to": {
-        "include": ["**"],
+        "include": [
+          "**"
+        ],
         "exclude": []
       },
       "allowed_importers": [
@@ -1147,7 +1171,9 @@
       "restricted_imports": [
         {
           "kind": "node_builtin",
-          "names": ["*"]
+          "names": [
+            "*"
+          ]
         }
       ]
     },
@@ -1174,7 +1200,9 @@
         },
         {
           "kind": "node_builtin",
-          "names": ["*"]
+          "names": [
+            "*"
+          ]
         }
       ]
     },
@@ -1207,7 +1235,9 @@
       "level": "error",
       "message": "Import workspace packages only through package names and declared package.json exports.",
       "applies_to": {
-        "include": ["**"],
+        "include": [
+          "**"
+        ],
         "exclude": [
           "packages/protocol-ts/src/unsupported-entrypoints.compile.ts",
           "packages/test-utils/src/unsupported-entrypoints.compile.ts"
@@ -1328,7 +1358,9 @@
       "level": "error",
       "message": "E2E workbook support must consume generated-projection metadata from @cartulary/view-contracts instead of the web registry.",
       "applies_to": {
-        "include": ["apps/web/e2e/**"],
+        "include": [
+          "apps/web/e2e/**"
+        ],
         "exclude": []
       },
       "allowed_importers": [],
@@ -1344,7 +1376,9 @@
       "level": "error",
       "message": "E2E code must consume public package and selector facades instead of private web production sources.",
       "applies_to": {
-        "include": ["apps/web/e2e/**"],
+        "include": [
+          "apps/web/e2e/**"
+        ],
         "exclude": []
       },
       "allowed_importers": [],
@@ -1360,7 +1394,9 @@
       "level": "error",
       "message": "Import @cartulary/test-utils only through its semantic grid subpath.",
       "applies_to": {
-        "include": ["apps/web/e2e/**"],
+        "include": [
+          "apps/web/e2e/**"
+        ],
         "exclude": []
       },
       "allowed_importers": [],
@@ -1377,7 +1413,9 @@
       "level": "error",
       "message": "Public JSON transport must not import privileged test-control transport.",
       "applies_to": {
-        "include": ["apps/web/e2e/support/transport/publicJsonClient.ts"],
+        "include": [
+          "apps/web/e2e/support/transport/publicJsonClient.ts"
+        ],
         "exclude": []
       },
       "allowed_importers": [],
@@ -1431,7 +1469,9 @@
           "apps/web/e2e/support/transport/**",
           "apps/web/e2e/support/workbook/**"
         ],
-        "exclude": ["apps/web/e2e/support/runtime/architecturePolicy.test.ts"]
+        "exclude": [
+          "apps/web/e2e/support/runtime/architecturePolicy.test.ts"
+        ]
       },
       "allowed_importers": [],
       "restricted_imports": [
@@ -1472,6 +1512,26 @@
           "path": "apps/web/e2e/support/visual"
         }
       ]
+    },
+    {
+      "id": "frontend-measurement-fixture-boundary",
+      "level": "error",
+      "message": "Only isolated measurement composition may import measurement fixtures.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/measurement/**"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/measurement"
+        }
+      ]
     }
   ],
   "raw_design_token_literal_checks": [
@@ -1480,7 +1540,9 @@
       "level": "error",
       "message": "Runtime UI code must use generated Cartulary design token artifacts instead of raw machine-owned color token literals.",
       "design_document": "contracts/design/tokens.v1.json",
-      "token_namespaces": ["colors"],
+      "token_namespaces": [
+        "colors"
+      ],
       "applies_to": {
         "include": [
           "apps/web/src/**",

@@ -27,7 +27,7 @@ function ExtensionAvailabilityHarness({
     revision: number,
   ) => void;
   readonly onRender: (setDiscoveryCalls: number) => void;
-  readonly profiles: readonly ExtensionDiscoveryProfile[];
+  readonly profiles: readonly ExtensionDiscoveryProfile[] | null;
 }) {
   onRender(
     vi.mocked(ExtensionAvailabilityController.prototype.setDiscovery).mock.calls
@@ -100,6 +100,19 @@ describe("useWorkbookExtensionAvailability", () => {
     );
     await waitFor(() => expect(commits.at(-1)?.revision).toBe(2));
     expect(commits.at(-1)?.controller).toBe(initialController);
+    const resolvedTag = initialController?.currentTag();
+    view.rerender(
+      <ExtensionAvailabilityHarness
+        onCommit={onCommit}
+        onRender={() => undefined}
+        profiles={null}
+      />,
+    );
+    await waitFor(() => expect(commits.at(-1)?.revision).toBe(3));
+    expect(initialController?.currentTag()).not.toEqual(resolvedTag);
+    expect(
+      initialController?.isRouteAvailable("import", "/api/v1/import-sessions"),
+    ).toBe(false);
     expect(
       renderCallCounts.every(
         (count) => count <= setDiscovery.mock.calls.length,

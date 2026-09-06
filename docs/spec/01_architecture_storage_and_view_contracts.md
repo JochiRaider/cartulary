@@ -534,6 +534,31 @@ The application MUST remain on `/` and render the visible-incident directory reg
 Opening an incident through an explicit directory selection or successful creation MUST supply no explicit launch `sheet_ref`; Core 03 §2.4 selects the initial workbook surface. An explicit incident route MUST use ordinary workbook authorization and MUST NOT depend on that incident appearing in any directory page. A validated same-origin authentication return target remains independent of directory discovery.
 
 If the caller loses incident visibility before workbook bootstrap completes or while the workbook is open, the application MUST clear protected materialization, return to `/`, and render the current visible-incident directory. Directory search, filtering, refresh, pagination, and changes in visible-incident count MUST NOT automatically select an incident or change application context. The implementation MUST NOT choose an incident by recency, sort order, prior visit, provider claim, deployment-admin status, or client cache. Holding `deployment_admin` MUST NOT widen the visible incident collection.
+Session discovery MUST distinguish confirmed absence or revocation from transport,
+server, timeout, and response-contract failure. An unavailable initial discovery
+MUST present a recoverable error, not assert anonymous authentication. Each browser
+bootstrap/session-read observation MUST settle within 30 seconds and expose manual
+retry; an aborted or superseded observation MUST NOT later publish session state,
+errors, callbacks, or navigation even when transport cancellation is ignored.
+
+A validated current session is sufficient for directory admission. Account
+preferences and extension discovery MUST have independent readiness and failure
+states. Unavailable preferences permit the existing default presentation and
+explicit retry. Credential-state discovery belongs to current-account security
+and MUST NOT block unrelated shell surfaces. Extension-dependent admission waits
+for validated discovery; unavailable discovery MUST NOT be represented as a
+successful empty inventory. Core 03 owns Base-state preservation and extension
+cleanup/fallback behavior.
+
+All browser session acceptance MUST use one current-lifetime boundary. Explicit
+reauthentication establishes a replacement lifetime even when public identity
+fields are unchanged. Ordinary refresh of the same session does not establish a
+replacement lifetime. Account-scoped observations MUST be invalidated before
+replacement state is exposed. Incident recovery additionally validates its caller
+request and incident before accepting any result. Temporary recovery failure does
+not establish incident membership loss. Confirmed session loss requires ordinary
+reauthentication; confirmed membership loss follows the clearing and root-navigation
+rule above. Core 03 §4.4 owns pending-work retention across these transitions.
 Profiles: base
 Verified by: AC-414
 

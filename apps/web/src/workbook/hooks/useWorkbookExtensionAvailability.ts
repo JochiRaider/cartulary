@@ -7,7 +7,7 @@ import {
 type WorkbookExtensionAvailabilityOptions = {
   readonly clientInstanceId: string;
   readonly incidentId: string;
-  readonly profiles: readonly ExtensionDiscoveryProfile[];
+  readonly profiles: readonly ExtensionDiscoveryProfile[] | null;
 };
 
 /** Owns the shell-lifetime extension controller and all of its mutations. */

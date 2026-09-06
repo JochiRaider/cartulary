@@ -1,6 +1,5 @@
 export type AppRouteState = {
   incidentId: string;
-  debugHarness: boolean;
   deploymentAdministration: boolean;
 };
 
@@ -15,7 +14,6 @@ type BrowserHistoryWriter = Pick<History, "pushState" | "replaceState">;
 
 export const emptyAppRouteState: AppRouteState = {
   incidentId: "",
-  debugHarness: false,
   deploymentAdministration: false,
 };
 
@@ -32,8 +30,6 @@ export function parseAppRouteState(options: {
 
   return {
     incidentId,
-    debugHarness:
-      !deploymentAdministration && params.get("debug") === "harness",
     deploymentAdministration,
   };
 }
@@ -70,7 +66,6 @@ export function buildAppRouteLocation(
 
   if (next.deploymentAdministration) {
     params.delete("incident_id");
-    params.delete("debug");
     const query = params.toString();
     return {
       historyState: {},
@@ -85,12 +80,6 @@ export function buildAppRouteLocation(
     params.delete("incident_id");
   } else {
     params.set("incident_id", next.incidentId);
-  }
-
-  if (next.debugHarness) {
-    params.set("debug", "harness");
-  } else {
-    params.delete("debug");
   }
 
   const query = params.toString();

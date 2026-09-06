@@ -9,6 +9,7 @@ export type WorkbookCollaborationEventPlan =
       readonly reason: "resume_reset" | "sequence_gap";
     }
   | { readonly kind: "recover_authorization" }
+  | { readonly kind: "session_lost" }
   | { readonly kind: "incident_closed" }
   | { readonly kind: "presence_snapshot"; readonly payload: unknown }
   | { readonly kind: "presence_delta"; readonly payload: unknown }
@@ -31,8 +32,9 @@ export function planWorkbookCollaborationEvent(
         reason: event.reason,
       };
     case "authorization_lost":
-    case "session_revoked":
       return { kind: "recover_authorization" };
+    case "session_revoked":
+      return { kind: "session_lost" };
     case "incident_closed":
       return { kind: "incident_closed" };
     case "message":

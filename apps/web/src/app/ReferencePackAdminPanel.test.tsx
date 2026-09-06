@@ -22,7 +22,7 @@ import {
   errorResponse,
   jsonResponse,
 } from "../testing/fetchMockTestSupport";
-import type { SessionData } from "./api/appShellClient";
+import type { SessionData } from "./api/publicHttpTypes";
 import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
 
 describe("ReferencePackAdminPanel", () => {

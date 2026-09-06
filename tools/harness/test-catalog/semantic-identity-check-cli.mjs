@@ -296,7 +296,6 @@ function collectFixtureViolations(root) {
 function collectLiveHelperViolations(root) {
   const violations = [];
   const roots = [
-    "apps/web/src/app/debug",
     "db/queries",
     "internal/modules",
     "packages/ui-contracts/src",

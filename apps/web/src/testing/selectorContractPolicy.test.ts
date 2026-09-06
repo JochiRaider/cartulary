@@ -34,7 +34,6 @@ const sharedBuilderOwnedSelectorPatterns = [
   /^assessment-/u,
   /^(?:conflict|paste-conflict)-/u,
   /^(?:party-link|task-lifecycle|decision-supersede)-/u,
-  /^debug-harness-loading$/u,
   /^deployment-user-row-/u,
   /^generic-/u,
   /^(?:host|identity)-inspector$/u,
@@ -43,6 +42,7 @@ const sharedBuilderOwnedSelectorPatterns = [
   /^landing-admin-/u,
   /^landing-/u,
   /^merge-/u,
+  /^membership-audit-/u,
   /^pending-queue-/u,
   /^presence-/u,
   /^row-history-/u,
@@ -56,15 +56,6 @@ const sharedBuilderOwnedSelectorPatterns = [
 ] as const;
 
 const appLocalSelectorOwnership = [
-  {
-    owner: "apps/web phase harnesses",
-    pattern:
-      /^(?:authentication-debug-|incident-directory-debug-|session-|create-|probe-|current-incident-(?:id|key|title|version)$|patch-|incident-discovery$|default-workbook-pref$|user-workbook-pref$|membership-|reload-extensions$|extensions-list$|last-)/u,
-    reason:
-      "Debug phase harness selectors are retained app-local harness controls, not shared product selectors.",
-    scope:
-      "apps/web AuthenticationDebugHarness, IncidentDirectoryDebugHarness, and phase support specs",
-  },
   {
     owner: "apps/web fixed unit-fixture controls",
     pattern:
@@ -465,7 +456,6 @@ describe("selector contract policy", () => {
   it("keeps delivery-shaped selector helpers out of production modules", () => {
     const violations = listSourceFiles("apps/web/src").flatMap((file) => {
       if (
-        /(?:^|\/)debug\//u.test(file) ||
         /(?:^|\/)testing\//u.test(file) ||
         /(?:\.test|TestSupport)\.[cm]?[tj]sx?$/u.test(file)
       ) {
@@ -490,7 +480,6 @@ describe("selector contract policy", () => {
       "app-shell",
       "auth-login-username",
       "auth-error-details",
-      "debug-harness-loading",
       "incident-landing",
       "landing-current-user",
       "landing-error-message",
@@ -503,7 +492,7 @@ describe("selector contract policy", () => {
       expect(appLocalOwnershipFor(token), token).toBeNull();
     }
 
-    expect(appLocalOwnershipFor("authentication-debug-request")).not.toBeNull();
+    expect(appLocalOwnershipFor("authentication-debug-request")).toBeNull();
     expect(sharedBuilderOwns("incident-patch-button")).toBe(true);
     expect(appLocalOwnershipFor("incident-patch-button")).toBeNull();
     expect(sharedBuilderOwns("workbook-focus-anchor")).toBe(true);

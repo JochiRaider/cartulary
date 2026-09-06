@@ -1003,6 +1003,16 @@ Verified by: AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-
 **REQ-03-100**
 An authentication failure on a queued write, or a `session_revoked` event on the collaboration stream, MUST NOT discard unresolved same-field local drafts or queued unsent writes. This requirement applies when `session_revoked` is caused by self-service password change, self-service TOTP replacement, administrator password reset, administrator TOTP reset, or explicit session revoke-all. The client MUST preserve that client-local unsaved work and prompt for re-authentication when required.
 
+The pending work retained across session loss MUST remain associated with its
+originating account within the same browser runtime. Reauthentication by that same
+account preserves it. Before exposing a validated session for a different account,
+the client MUST clear the previous account's protected materialization, unresolved
+local drafts, and queued unsent writes. This account-replacement boundary does not
+add per-account draft archives or persistence, and MUST NOT be inferred from a
+failed or obsolete session observation. Directory queries and incident-creation
+recovery have their own session-lifetime retention and MUST NOT inherit workbook
+pending-work retention.
+
 Before replay begins, the client MUST:
 
 - establish a new authenticated session when required,

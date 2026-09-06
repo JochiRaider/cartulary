@@ -77,8 +77,7 @@ import {
 } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
-import { fetchJSON } from "../services/browserApi";
+import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
@@ -86,6 +85,7 @@ import {
   successEnvelope,
   waitForWorkbookRows,
 } from "../testing/timelineWorkbookTestSupport";
+import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
 import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
 import { useGenericPartyLinkWorkflow } from "./features/parties/useGenericPartyLinkWorkflow";
@@ -116,9 +116,7 @@ vi.mock(
   async () => import("@cartulary/grid-adapter/test-support"),
 );
 
-const authorizationRecovery = createAppAuthorizationRecoveryPort({
-  loadCurrentSession: (signal) => fetchJSON("/api/v1/auth/session", { signal }),
-});
+const authorizationRecovery = workbookAuthorizationRecovery();
 
 function WorkbookShell(
   props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
@@ -514,6 +512,7 @@ describe("WorkbookShell surface selection", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
+          ...sessionResource(),
           user_id: testUserId,
           memberships: [
             {

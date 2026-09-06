@@ -3,9 +3,9 @@ import type {
   CredentialState,
   EnterpriseAuthProvider,
   ExtensionProfileResource,
+  IncidentDirectoryResource,
   SessionData,
-} from "../app/api/appShellClient";
-import type { IncidentDirectoryResource } from "../app/api/publicHttpTypes";
+} from "../app/api/publicHttpTypes";
 import { jsonResponse } from "./fetchMockTestSupport";
 
 type FetchMock = {
@@ -201,10 +201,11 @@ export function credentialStateResource(
     pending_expires_at: null,
   };
   return {
-    user_id: "user-1",
+    user_id: "00000000-0000-4000-8000-000000000001",
     auth_kind: "local",
     recovery_model: "admin_assisted",
-    password_changed_at: "2026-04-20T12:00:00Z",
+    password: { changed_at: "2026-04-20T12:00:00Z" },
+    mfa_required: false,
     ...overrides,
     totp: {
       ...baseTotp,
@@ -217,7 +218,7 @@ function accountPreferencesResource(
   overrides?: Partial<AccountPreferencesResource>,
 ): AccountPreferencesResource {
   return {
-    user_id: "user-1",
+    user_id: "00000000-0000-4000-8000-000000000001",
     density_mode: null,
     preferences_version: 1,
     created_at: "2026-04-20T12:00:00Z",

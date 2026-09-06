@@ -1,6 +1,10 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef } from "react";
+import {
+  requireWorkbookSurfaceAcceptance,
+  WorkbookSurfaceRefreshError,
+} from "../../collaboration/workbookSurfacePort";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
@@ -42,6 +46,7 @@ import type { DismissedMention } from "../models/workbookMentionChips";
 import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness";
 
 type LoadRowsOptions = {
+  requireAcceptance?: boolean;
   afterProjectionCommit?: () => void;
   showLoading: boolean;
   freshnessRetryDepth?: number;
@@ -109,6 +114,7 @@ function retryOptions(
   freshnessRetryDepth: number,
 ): LoadRowsOptions {
   const next: LoadRowsOptions = {
+    ...options,
     freshnessRetryDepth,
     showLoading: false,
   };
@@ -498,6 +504,11 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
           }
           return;
         }
+        if (options.requireAcceptance)
+          throw new WorkbookSurfaceRefreshError({
+            kind: "unavailable",
+            failure: "transient",
+          });
         if (retryable && retryDepth >= timelineFreshnessRetryLimit) {
           applyLifecycleEffects(
             dispatchLoadEvent({
@@ -516,6 +527,8 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         options.sourceRecordRequirement,
       );
       if (!request.isCurrent() || !isCurrentLoadSequence(requestSequence)) {
+        if (options.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         await retryStaleResult(
           options.sourceRecordRequirement !== undefined,
           obligationEvidence,
@@ -528,6 +541,7 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
         await retryStaleResult(true, obligationEvidence);
         return;
       }
+      if (options.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
       if (result.kind === "aborted") return;
       if (result.kind === "rejected") {
         const event: TimelineLoadEvent = isAccessLossFailure(
@@ -555,6 +569,11 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
           ),
         );
       } catch {
+        if (options.requireAcceptance)
+          throw new WorkbookSurfaceRefreshError({
+            kind: "unavailable",
+            failure: "contract",
+          });
         applyLifecycleEffects(
           dispatchLoadEvent({
             hasLoadedRows: hasLoadedRows(),
@@ -578,6 +597,11 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       if (effects.some((effect) => effect.kind === "commit")) {
         commitAcceptedRows(freshness.rows, options);
       }
+      if (
+        options.requireAcceptance &&
+        !effects.some((effect) => effect.kind === "commit")
+      )
+        requireWorkbookSurfaceAcceptance({ kind: "aborted" });
       applyLifecycleEffects(effects, options);
     },
     [

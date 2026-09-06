@@ -4,22 +4,11 @@ import {
   landingAdminPanelTestId,
   landingAdminShellTestId,
 } from "@cartulary/ui-contracts";
-import {
-  FileClock,
-  FolderOpen,
-  LockKeyhole,
-  Package,
-  Palette,
-  Upload,
-  UserRound,
-  UsersRound,
-} from "lucide-react";
+import { FileClock, Package, Upload, UsersRound } from "lucide-react";
 import { type KeyboardEvent, type MutableRefObject, useRef } from "react";
 import {
   brandBlockStyle,
   incidentDirectoryShellStyle,
-  landingAccountNavButtonSelectedStyle,
-  landingAccountNavButtonStyle,
   landingAccountNavStyle,
   landingAdminContentStyle,
   landingAdminHeaderMetaStyle,
@@ -44,22 +33,18 @@ import {
 } from "./landingAdminStyles";
 import type {
   DeploymentAdministrationPanelToken,
+  DeploymentPanelDescriptor,
   IncidentDirectoryShellProps,
-  LandingAdminPanelDescriptor,
-  LandingAdminPanelId,
   LandingAdminShellProps,
 } from "./landingAdminTypes";
 
-const panelIcons: Record<LandingAdminPanelId, typeof FolderOpen> = {
-  incidents: FolderOpen,
-  "deployment-users": UsersRound,
-  "administrative-audit": FileClock,
-  "reference-packs": Package,
-  "incident-import": Upload,
-  "account-profile": UserRound,
-  "account-appearance": Palette,
-  "account-security": LockKeyhole,
-};
+const panelIcons: Record<DeploymentAdministrationPanelToken, typeof FileClock> =
+  {
+    "deployment-users": UsersRound,
+    "administrative-audit": FileClock,
+    "reference-packs": Package,
+    "incident-import": Upload,
+  };
 
 export function LandingAdminShell({
   headingRef,
@@ -72,12 +57,8 @@ export function LandingAdminShell({
   statusText,
 }: LandingAdminShellProps) {
   const menuItemRefs = useRef(
-    new Map<LandingAdminPanelId, HTMLButtonElement>(),
+    new Map<DeploymentAdministrationPanelToken, HTMLButtonElement>(),
   );
-  const deploymentPanels = availablePanels.filter(
-    (panel) => panel.group === "deployment",
-  );
-  const navigationPanels = deploymentPanels;
 
   function focusPanelMenuItem(panel: DeploymentAdministrationPanelToken) {
     const focus = () => {
@@ -101,17 +82,13 @@ export function LandingAdminShell({
   }
 
   function handleMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    const currentIndex = navigationPanels.findIndex(
+    const currentIndex = availablePanels.findIndex(
       (panel) => panel.token === activePanel,
     );
-    const lastIndex = navigationPanels.length - 1;
+    const lastIndex = availablePanels.length - 1;
     const selectByIndex = (index: number) => {
       event.preventDefault();
-      selectPanel(
-        (navigationPanels[index]?.token ??
-          "deployment-users") as DeploymentAdministrationPanelToken,
-        true,
-      );
+      selectPanel(availablePanels[index]?.token ?? "deployment-users", true);
     };
 
     switch (event.key) {
@@ -173,10 +150,10 @@ export function LandingAdminShell({
           onKeyDown={handleMenuKeyDown}
         >
           <div style={landingAdminMenuItemsStyle}>
-            {deploymentPanels.length > 0 ? (
+            {availablePanels.length > 0 ? (
               <MenuGroup
                 title="Administration"
-                panels={deploymentPanels}
+                panels={availablePanels}
                 activePanel={activePanel}
                 menuItemRefs={menuItemRefs}
                 onSelect={selectPanel}
@@ -247,12 +224,14 @@ function MenuGroup({
   title,
 }: {
   activePanel: DeploymentAdministrationPanelToken;
-  menuItemRefs: MutableRefObject<Map<LandingAdminPanelId, HTMLButtonElement>>;
+  menuItemRefs: MutableRefObject<
+    Map<DeploymentAdministrationPanelToken, HTMLButtonElement>
+  >;
   onSelect: (
     panel: DeploymentAdministrationPanelToken,
     focus?: boolean,
   ) => void;
-  panels: ReadonlyArray<LandingAdminPanelDescriptor>;
+  panels: ReadonlyArray<DeploymentPanelDescriptor>;
   title: string;
 }) {
   if (panels.length === 0) {
@@ -263,7 +242,7 @@ function MenuGroup({
       <p style={menuGroupTitleStyle}>{title}</p>
       <div style={menuGroupItemsStyle}>
         {panels.map((panel) => {
-          const token = panel.token as DeploymentAdministrationPanelToken;
+          const token = panel.token;
           const selected = token === activePanel;
           return (
             <PanelButton
@@ -289,26 +268,20 @@ function MenuGroup({
 }
 
 function PanelButton({
-  compact = false,
   onClick,
   panel,
   refCallback,
   selected,
 }: {
-  compact?: boolean;
   onClick: () => void;
-  panel: LandingAdminPanelDescriptor;
+  panel: DeploymentPanelDescriptor;
   refCallback?: (element: HTMLButtonElement | null) => void;
   selected: boolean;
 }) {
   const Icon = panelIcons[panel.token];
-  const style = compact
-    ? selected
-      ? landingAccountNavButtonSelectedStyle
-      : landingAccountNavButtonStyle
-    : selected
-      ? landingAdminMenuItemSelectedStyle
-      : landingAdminMenuItemStyle;
+  const style = selected
+    ? landingAdminMenuItemSelectedStyle
+    : landingAdminMenuItemStyle;
   return (
     <button
       id={landingAdminMenuItemTestId(panel.token)}
@@ -320,14 +293,12 @@ function PanelButton({
       type="button"
       onClick={onClick}
     >
-      <Icon size={compact ? 15 : 17} strokeWidth={2.2} />
+      <Icon size={17} strokeWidth={2.2} />
       <span style={landingAdminMenuItemTextStyle}>
         <span style={landingAdminMenuItemLabelStyle}>{panel.label}</span>
-        {compact ? null : (
-          <span style={landingAdminMenuItemDescriptionStyle}>
-            {panel.description}
-          </span>
-        )}
+        <span style={landingAdminMenuItemDescriptionStyle}>
+          {panel.description}
+        </span>
       </span>
     </button>
   );

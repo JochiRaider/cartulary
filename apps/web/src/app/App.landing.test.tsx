@@ -28,17 +28,20 @@ import {
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
 
 vi.mock("../workbook/WorkbookShell", async () => {
   const React = await import("react");
 
   return {
     WorkbookShell: ({
+      authorizationRecovery,
       accountDensityMode,
       accountApplicationMenu,
       incidentId,
       onIncidentAccessLost,
     }: {
+      authorizationRecovery: AuthorizationRecoveryPort;
       accountDensityMode?: string | null;
       accountApplicationMenu?: (props: {
         currentIncidentRole: string;
@@ -68,36 +71,15 @@ vi.mock("../workbook/WorkbookShell", async () => {
       const [currentRole, setCurrentRole] = React.useState("");
 
       React.useEffect(() => {
-        let active = true;
-        void fetch("/api/v1/auth/session")
-          .then(async (response) => {
-            const payload = (await response.json()) as {
-              data?: {
-                memberships?: Array<{
-                  incident_id: string;
-                  role: string;
-                }>;
-              };
-            };
-            if (!active) {
-              return;
-            }
-            const membership =
-              payload.data?.memberships?.find(
-                (entry) => entry.incident_id === incidentId,
-              ) ?? null;
-            setCurrentRole(membership?.role ?? "");
-          })
-          .catch(() => {
-            if (active) {
-              setCurrentRole("");
-            }
+        const controller = new AbortController();
+        void authorizationRecovery
+          .recover({ incidentId, signal: controller.signal })
+          .then((result) => {
+            if (!controller.signal.aborted && result.kind === "authorized")
+              setCurrentRole(result.role);
           });
-
-        return () => {
-          active = false;
-        };
-      }, [incidentId]);
+        return () => controller.abort();
+      }, [authorizationRecovery, incidentId]);
 
       return (
         <section data-testid="mock-workbook">
@@ -152,18 +134,6 @@ vi.mock("../workbook/WorkbookShell", async () => {
     TimelineWorkbook: vi.fn(),
   };
 });
-
-vi.mock("./debug/AuthenticationDebugHarness", () => ({
-  AuthenticationDebugHarness: () => (
-    <section data-testid="mock-authentication-harness" />
-  ),
-}));
-
-vi.mock("./debug/IncidentDirectoryDebugHarness", () => ({
-  IncidentDirectoryDebugHarness: () => (
-    <section data-testid="mock-incident-directory-harness" />
-  ),
-}));
 
 import {
   type IncidentResource,
@@ -253,7 +223,10 @@ describe("Incident landing", () => {
             url: "/api/v1/auth/login",
             handler: () => {
               authenticated = true;
-              return jsonResponse({ data: session });
+              return jsonResponse({
+                data: session,
+                meta: { request_id: "req-login" },
+              });
             },
           },
         ],
@@ -460,11 +433,16 @@ describe("Incident landing", () => {
         user_id: "00000000-0000-4000-8000-000000000002",
         display_name: "Replacement",
       });
-      window.history.replaceState({}, "", "/?debug=harness");
-      fireEvent.popState(window);
-      await screen.findByTestId("mock-authentication-harness");
-      window.history.replaceState({}, "", "/");
-      fireEvent.popState(window);
+      fireEvent.click(
+        await screen.findByLabelText("Account and application navigation"),
+      );
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Account settings" }),
+      );
+      fireEvent.click(screen.getByRole("tab", { name: "Security" }));
+      fireEvent.click(
+        await screen.findByTestId(accountTestId("refresh-state")),
+      );
       await waitFor(() =>
         expect(
           screen.getByTestId(incidentLandingTestId("current-user")).textContent,
@@ -636,12 +614,16 @@ describe("Incident landing", () => {
         await screen.findByRole("button", { name: "Load more incidents" }),
       );
       replaced = true;
-      // Browser navigation requires session bootstrap independently of directory refresh.
-      window.history.replaceState({}, "", "/?debug=harness");
-      fireEvent.popState(window);
-      await screen.findByText("Debug harness shell");
-      window.history.replaceState({}, "", "/");
-      fireEvent.popState(window);
+      fireEvent.click(
+        await screen.findByLabelText("Account and application navigation"),
+      );
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Account settings" }),
+      );
+      fireEvent.click(screen.getByRole("tab", { name: "Security" }));
+      fireEvent.click(
+        await screen.findByTestId(accountTestId("refresh-state")),
+      );
       await waitFor(() =>
         expect(
           screen.getByTestId(incidentLandingTestId("current-user")).textContent,
@@ -915,11 +897,16 @@ describe("Incident landing", () => {
         user_id: "00000000-0000-4000-8000-000000000002",
         display_name: "Other operator",
       });
-      window.history.replaceState({}, "", "/?debug=harness");
-      fireEvent.popState(window);
-      await screen.findByTestId("mock-authentication-harness");
-      window.history.replaceState({}, "", "/");
-      fireEvent.popState(window);
+      fireEvent.click(
+        screen.getByLabelText("Account and application navigation"),
+      );
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Account settings" }),
+      );
+      fireEvent.click(screen.getByRole("tab", { name: "Security" }));
+      fireEvent.click(
+        await screen.findByTestId(accountTestId("refresh-state")),
+      );
       await screen.findByText("Other operator", { selector: "dd" });
       const response = createdResponse();
       const parsed = vi.spyOn(response, "json");
@@ -1097,7 +1084,7 @@ describe("Incident landing", () => {
     ).toHaveLength(1);
     expect(
       findFetchCalls(fetchMock, "/api/v1/auth/credential-state", "GET"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
     ).toHaveLength(1);
@@ -2452,7 +2439,7 @@ describe("Incident landing", () => {
     expect((workbookFrame as HTMLElement).style.display).toBe("grid");
     expect((workbookFrame as HTMLElement).style.blockSize).toBe("100%");
     expect((workbookFrame as HTMLElement).style.overflow).toBe("hidden");
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 4);
   });
 
   it("preserves incident and directory routes across popstate navigation", async () => {
@@ -2609,7 +2596,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 4);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -2622,7 +2609,7 @@ describe("Incident landing", () => {
       screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {
@@ -2652,75 +2639,14 @@ describe("Incident landing", () => {
     await expectStableFetchCount(fetchMock, 1);
   });
 
-  it("aborts an in-flight refresh when entering the debug harness and loads the ordinary shell after leaving it", async () => {
-    const abortedSignals: AbortSignal[] = [];
-    let readyToLoad = false;
-    installLandingShellFetch(fetchMock, {
-      session: ({ init }) => {
-        if (!readyToLoad) {
-          return abortablePendingResponse(
-            init?.signal as AbortSignal | undefined,
-            (signal) => {
-              abortedSignals.push(signal);
-            },
-          );
-        }
-        return sessionResource({
-          display_name: "Operator",
-        });
-      },
-    });
-
+  it("handles obsolete debug parameters through ordinary shell bootstrap", async () => {
+    window.history.replaceState({}, "", "/?debug=harness");
+    installLandingShellFetch(fetchMock, { session: sessionResource() });
     renderApp();
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-    expect(screen.getByTestId(authTestId("status")).textContent).toBe(
-      "Checking current session...",
-    );
-
-    window.history.pushState({}, "", "/?debug=harness");
-    fireEvent.popState(window);
-
-    expect(await screen.findByText("Debug harness shell")).toBeTruthy();
-    expect(
-      await screen.findByTestId(appRouteTestId("debug-harness-shell")),
-    ).toBeTruthy();
-    await waitFor(() => {
-      expect(abortedSignals).toHaveLength(1);
-    });
-
-    readyToLoad = true;
-    window.history.pushState({}, "", "/");
-    fireEvent.popState(window);
-
     expect(
       await screen.findByTestId(incidentLandingTestId("empty-state")),
     ).toBeTruthy();
-    expect(
-      screen.getByTestId(incidentLandingTestId("current-user")).textContent,
-    ).toBe("Operator");
-    await expectStableFetchCount(fetchMock, 6);
-  });
-
-  it("loads the debug harness directly without ordinary shell bootstrap requests", async () => {
-    window.history.replaceState({}, "", "/?debug=harness");
-    installLandingShellFetch(fetchMock, {
-      session: sessionResource({
-        display_name: "Operator",
-      }),
-    });
-
-    renderApp();
-
-    expect(await screen.findByText("Debug harness shell")).toBeTruthy();
-    expect(
-      await screen.findByTestId(appRouteTestId("debug-harness-shell")),
-    ).toBeTruthy();
-    expect(screen.getByTestId("mock-authentication-harness")).toBeTruthy();
-    expect(screen.getByTestId("mock-incident-directory-harness")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 0);
+    expect(screen.queryByText("Debug harness shell")).toBeNull();
   });
 });
 

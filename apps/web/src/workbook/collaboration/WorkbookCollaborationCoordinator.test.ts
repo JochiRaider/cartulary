@@ -4,7 +4,10 @@ import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecove
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { createWorkbookCollaborationCoordinator } from "./WorkbookCollaborationCoordinator";
-import type { WorkbookActiveSurfacePort } from "./workbookSurfacePort";
+import {
+  type WorkbookActiveSurfacePort,
+  WorkbookSurfaceRefreshError,
+} from "./workbookSurfacePort";
 
 function manualTiming() {
   let nowMs = 0;
@@ -106,6 +109,7 @@ function projectionFixture(
   });
   const onAuthorizationRecovered = vi.fn();
   const onIncidentAccessLost = vi.fn();
+  const onSessionLost = vi.fn();
   const queryInvalidation = vi.fn(() => {
     cleanupOrder.push("query");
   });
@@ -129,6 +133,7 @@ function projectionFixture(
     mutationRuntime,
     onAuthorizationRecovered,
     onIncidentAccessLost,
+    onSessionLost,
     queryInvalidation,
     scheduler: timing.scheduler,
   });
@@ -159,6 +164,7 @@ function projectionFixture(
     mutationInvalidation,
     onAuthorizationRecovered,
     onIncidentAccessLost,
+    onSessionLost,
     projection,
     published,
     queryInvalidation,
@@ -189,6 +195,121 @@ function presence(
 afterEach(() => vi.restoreAllMocks());
 
 describe("WorkbookCollaborationCoordinator", () => {
+  it("waits for an active accepted surface before resuming retained edits", async () => {
+    const fixture = projectionFixture();
+    fixture.emit({ kind: "authorization_lost" });
+    await fixture.timing.advanceBy(1000);
+    await Promise.resolve();
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    expect(fixture.session.reconnect).not.toHaveBeenCalled();
+    let accept: (() => void) | undefined;
+    const refresh = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          accept = resolve;
+        }),
+    );
+    fixture.projection.registerActiveSurface({
+      identity: {
+        sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+        viewSchemaId: "cartulary.view.timeline.v2",
+      },
+      applyRecordChanged: () => ({ kind: "applied" }),
+      invalidate: vi.fn(),
+      refresh,
+    });
+    expect(refresh).toHaveBeenCalledWith({ reason: "authorization_recovered" });
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    accept?.();
+    await Promise.resolve();
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(false);
+    expect(fixture.session.reconnect).toHaveBeenCalledOnce();
+    fixture.projection.dispose();
+  });
+  it("classifies failed surface confirmation without replaying or retrying contract defects", async () => {
+    for (const recovery of [
+      { kind: "cancelled" },
+      { kind: "unavailable", failure: "contract" },
+      { kind: "unavailable", failure: "transient" },
+      { kind: "session_lost" },
+      { kind: "access_lost" },
+    ] as const) {
+      const fixture = projectionFixture();
+      const refresh = vi.fn(async () => {
+        throw new WorkbookSurfaceRefreshError(recovery);
+      });
+      fixture.projection.registerActiveSurface({
+        identity: {
+          sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+          viewSchemaId: "cartulary.view.timeline.v2",
+        },
+        applyRecordChanged: () => ({ kind: "applied" }),
+        invalidate: vi.fn(),
+        refresh,
+      });
+      fixture.emit({ kind: "authorization_lost" });
+      await fixture.timing.advanceBy(1000);
+      for (let i = 0; i < 6; ++i) await Promise.resolve();
+      await fixture.timing.advanceBy(1000);
+      for (let i = 0; i < 6; ++i) await Promise.resolve();
+      expect(refresh).toHaveBeenCalledTimes(
+        recovery.kind === "unavailable" && recovery.failure === "transient"
+          ? 2
+          : 1,
+      );
+      expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+      expect(fixture.session.reconnect).not.toHaveBeenCalled();
+      expect(fixture.onSessionLost).toHaveBeenCalledTimes(
+        recovery.kind === "session_lost" ? 1 : 0,
+      );
+      expect(fixture.onIncidentAccessLost).toHaveBeenCalledTimes(
+        recovery.kind === "access_lost" ? 1 : 0,
+      );
+      fixture.projection.dispose();
+    }
+  });
+
+  it("prompts authentication immediately for revocation while preserving pending work", async () => {
+    const recover = vi.fn();
+    const fixture = projectionFixture(
+      { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+      { recover },
+    );
+    fixture.emit({ kind: "session_revoked" });
+    expect(fixture.onSessionLost).toHaveBeenCalledOnce();
+    expect(fixture.onIncidentAccessLost).not.toHaveBeenCalled();
+    expect(fixture.mutationRuntime.getSnapshot().authPaused).toBe(true);
+    await fixture.timing.advanceBy(30_000);
+    expect(recover).not.toHaveBeenCalled();
+    fixture.projection.dispose();
+  });
+  it("retries transient recovery but pauses cancellation and contract defects without access-loss navigation", async () => {
+    for (const outcome of [
+      { kind: "cancelled" },
+      { kind: "unavailable", failure: "contract" },
+      { kind: "unavailable", failure: "transient" },
+    ] as const) {
+      const recover = vi.fn(async () => outcome);
+      const fixture = projectionFixture(
+        { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+        { recover },
+      );
+      fixture.emit({ kind: "authorization_lost" });
+      await fixture.timing.advanceBy(1_000);
+      await Promise.resolve();
+      await fixture.timing.advanceBy(1_000);
+      await Promise.resolve();
+      expect(recover).toHaveBeenCalledTimes(
+        outcome.kind === "unavailable" && outcome.failure === "transient"
+          ? 2
+          : 1,
+      );
+      expect(fixture.onIncidentAccessLost).not.toHaveBeenCalled();
+      expect(fixture.onSessionLost).not.toHaveBeenCalled();
+      fixture.projection.dispose();
+    }
+  });
+
   it("replaces removes and invalidates presence without stale callbacks restoring it", () => {
     const fixture = projectionFixture();
     const p = {
@@ -616,7 +737,7 @@ describe("WorkbookCollaborationCoordinator", () => {
       refresh,
     });
 
-    fixture.emit({ kind: "session_revoked" });
+    fixture.emit({ kind: "authorization_lost" });
     await fixture.timing.advanceBy(1_000);
     await Promise.resolve();
 

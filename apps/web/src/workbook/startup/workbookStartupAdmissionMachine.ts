@@ -9,12 +9,11 @@ import { isStandardizedWorkbookViewSchemaId } from "../models/workbookSurfaceReg
 import type { WorkbookStartupPort } from "./WorkbookStartupPort";
 
 export type StartupFallbackReason =
-  | "availability_reservation_unavailable"
   | "availability_rejected"
   | "selected_extension_not_renderable";
 
 export type WorkbookStartupAdmission = {
-  readonly availabilityTag: ExtensionAvailabilityTag;
+  readonly availabilityTag: ExtensionAvailabilityTag | null;
   readonly incidentId: string;
   readonly queryKey: string;
   readonly requestGeneration: number;
@@ -53,7 +52,7 @@ function queryKey(query: WorkbookStartupQuery): string {
 export function beginWorkbookStartupAdmission(
   machine: WorkbookStartupAdmissionMachine,
   input: {
-    readonly availabilityTag: ExtensionAvailabilityTag;
+    readonly availabilityTag: ExtensionAvailabilityTag | null;
     readonly incidentId: string;
     readonly query: WorkbookStartupQuery;
     readonly selectionVersion: number;
@@ -63,7 +62,8 @@ export function beginWorkbookStartupAdmission(
   readonly machine: WorkbookStartupAdmissionMachine;
 } {
   const admission = {
-    availabilityTag: { ...input.availabilityTag },
+    availabilityTag:
+      input.availabilityTag === null ? null : { ...input.availabilityTag },
     incidentId: input.incidentId,
     queryKey: queryKey(input.query),
     requestGeneration: machine.requestGeneration + 1,
@@ -102,9 +102,9 @@ export function workbookStartupAdmissionIsCurrent(
     active.requestGeneration === admission.requestGeneration &&
     active.incidentId === admission.incidentId &&
     active.queryKey === admission.queryKey &&
-    active.availabilityTag.epochId === admission.availabilityTag.epochId &&
-    active.availabilityTag.generation ===
-      admission.availabilityTag.generation &&
+    active.availabilityTag?.epochId === admission.availabilityTag?.epochId &&
+    active.availabilityTag?.generation ===
+      admission.availabilityTag?.generation &&
     current.incidentId === admission.incidentId &&
     queryKey(current.query) === admission.queryKey &&
     current.selectionVersion === admission.selectionVersion
@@ -121,10 +121,13 @@ export function planAcceptedWorkbookStartup(input: {
   readonly extensionRenderable: boolean;
   readonly startup: AcceptedStartup;
 }): WorkbookStartupCommitPlan {
-  if (!input.availabilityAccepted) {
+  const selection = input.startup.selection;
+  if (
+    selection.selectedSheetRef.kind === "extension_workspace" &&
+    !input.availabilityAccepted
+  ) {
     return { kind: "fallback", reason: "availability_rejected" };
   }
-  const selection = input.startup.selection;
   if (
     selection.selectedSheetRef.kind === "extension_workspace" &&
     !input.extensionRenderable

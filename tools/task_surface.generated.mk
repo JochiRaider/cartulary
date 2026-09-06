@@ -146,6 +146,7 @@
   build-migrate \
   build-operator \
   build-web \
+  build-web-measurement \
   clean \
   distclean \
   canonical-evidence-drift-suite \
@@ -326,6 +327,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make build-migrate                  build the migration binary' \
 	'  make build-operator                 build the deployment-local operator binary' \
 	'  make build-web                      build frontend web assets' \
+	'  make build-web-measurement          build isolated frontend measurement assets' \
 	'  make distclean' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or remove repo-local tool/runtime caches and dependency installs' \
 	''
@@ -1616,4 +1618,12 @@ release-inventory-artifacts: $(NODE_BIN)
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs \
 	  --selection target --target release-inventory-artifacts
 endif
+
+build-web-measurement: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+build-web-measurement: export CARTULARY_TEST_TARGET ?= build-web-measurement
+build-web-measurement:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web-measurement)
+	$(Q)if [ "$${CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0}" = "1" ] || [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(CURDIR)/apps/web/dist-measurement/index.html; fi
+	$(call RUN_TARGET_SUMMARY,build-web-measurement,pass)
 

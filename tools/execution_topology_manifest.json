@@ -488,7 +488,8 @@
             "browser_session_group": "browser-functional-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration"
           }
-        ]
+        ],
+        "frontend_artifact_id": "production"
       },
       {
         "name": "functional",
@@ -514,7 +515,8 @@
             "browser_session_group": "browser-functional-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration"
           }
-        ]
+        ],
+        "frontend_artifact_id": "production"
       },
       {
         "name": "support",
@@ -533,7 +535,8 @@
             "browser_session_group": "browser-e2e-support-default",
             "browser_session_isolation_reason": "release support evidence owns an isolated fixture session"
           }
-        ]
+        ],
+        "frontend_artifact_id": "production"
       },
       {
         "name": "stateful",
@@ -564,7 +567,8 @@
             "browser_session_group": "browser-stateful-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration"
           }
-        ]
+        ],
+        "frontend_artifact_id": "production"
       },
       {
         "name": "measurement",
@@ -592,7 +596,8 @@
             "browser_session_group": "browser-measurement-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration"
           }
-        ]
+        ],
+        "frontend_artifact_id": "measurement"
       },
       {
         "name": "a11y",
@@ -623,7 +628,8 @@
             "browser_session_group": "browser-a11y-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration"
           }
-        ]
+        ],
+        "frontend_artifact_id": "production"
       },
       {
         "name": "visual",
@@ -654,7 +660,8 @@
             "browser_session_group": "browser-visual-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration"
           }
-        ]
+        ],
+        "frontend_artifact_id": "production"
       },
       {
         "name": "resettable",
@@ -691,7 +698,8 @@
             "execution_dependency": "browser_visual",
             "workers": "1"
           }
-        ]
+        ],
+        "frontend_artifact_id": "measurement"
       },
       {
         "name": "isolated",
@@ -781,9 +789,27 @@
             "browser_session_group": "browser-visual-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow visual evidence requires immutable startup-only extension configuration"
           }
+        ],
+        "frontend_artifact_id": "measurement"
+      }
+    ],
+    "frontend_artifacts": {
+      "production": {
+        "producer_target": "build-web",
+        "path": "apps/web/dist",
+        "entries": [
+          "index.html"
+        ]
+      },
+      "measurement": {
+        "producer_target": "build-web-measurement",
+        "path": "apps/web/dist-measurement",
+        "entries": [
+          "index.html",
+          "measurement.html"
         ]
       }
-    ]
+    }
   },
   "task_surface_owner": "tools/task_surface_owner.json"
 }

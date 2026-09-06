@@ -585,6 +585,7 @@ export async function runWorkGraph({
                 ? await fixtureBroker.acquire(unit.fixture_lease, {
                     affinityKey: unit.affinity_key ?? unit.owner_id,
                     unitID: unit.unit_id,
+                    browserStage: unit.command.environment.CARTULARY_BROWSER_STAGE,
                     runtimeProfileID:
                       unit.command.environment.CARTULARY_BROWSER_RUNTIME_PROFILE_ID,
                     fixtureProfileID:

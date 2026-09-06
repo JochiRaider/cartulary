@@ -473,7 +473,15 @@ export class WorkbookMutationRuntime {
     if (reason.kind === "runtime_disposed") {
       if (this.lifecycle.disposed) return;
       this.retryScheduler.cancel();
-      this.pauseForTerminalLifecycle();
+      this.managedPatches.dispose();
+      for (const unit of this.pendingRuntime.model.snapshot().units)
+        this.drivers.release(unit.id);
+      this.pendingRuntime.model.retire();
+      for (const conflict of this.conflicts.entries())
+        this.conflicts.clear(conflict.key);
+      this.refreshStatusBySheet.clear();
+      this.explicitInFlightCount = 0;
+      this.emit();
       this.lifecycle.dispose();
       return;
     }

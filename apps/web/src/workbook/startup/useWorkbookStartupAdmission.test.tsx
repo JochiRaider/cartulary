@@ -100,6 +100,7 @@ function ports(
   let selectionVersion = 0;
   const events: string[] = [];
   const availabilityPort: WorkbookStartupAvailabilityPort = {
+    waitForDiscovery: vi.fn(async () => true),
     reserve: vi.fn(
       () =>
         options.reserve ?? {
@@ -278,17 +279,47 @@ describe("useWorkbookStartupAdmission", () => {
     });
   });
 
-  it("falls back exactly once when availability admission is stale", async () => {
+  it("waits for discovery before committing an extension startup and cancels an obsolete wait", async () => {
+    for (const cancel of [false, true]) {
+      const ready = deferred<boolean>();
+      const ownedPorts = ports();
+      ownedPorts.availabilityPort.waitForDiscovery = vi.fn(() => ready.promise);
+      const rendered = renderAdmission(
+        ownedPorts,
+        vi.fn(),
+        "incident-1",
+        startupPortReturning(acceptedStartup(extensionStartup())),
+      );
+      await waitFor(() =>
+        expect(
+          ownedPorts.availabilityPort.waitForDiscovery,
+        ).toHaveBeenCalledOnce(),
+      );
+      expect(
+        ownedPorts.selectionPort.applyStartupIdentity,
+      ).not.toHaveBeenCalled();
+      expect(ownedPorts.selectionPort.selectTimeline).not.toHaveBeenCalled();
+      if (cancel) rendered.unmount();
+      await act(async () => ready.resolve(true));
+      expect(
+        ownedPorts.selectionPort.applyStartupIdentity,
+      ).toHaveBeenCalledTimes(cancel ? 0 : 1);
+      rendered.unmount();
+    }
+  });
+  it("preserves a Base startup when extension availability admission is stale", async () => {
     const ownedPorts = ports({ accept: false });
     const onAvailabilityChange = vi.fn();
     renderAdmission(ownedPorts, onAvailabilityChange);
-
-    await waitFor(() => {
-      expect(ownedPorts.selectionPort.selectTimeline).toHaveBeenCalledWith(
-        "availability_rejected",
-      );
-    });
-    expect(ownedPorts.selectionPort.selectTimeline).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(
+        ownedPorts.selectionPort.applyStartupIdentity,
+      ).toHaveBeenCalledWith({
+        sheetRef: { kind: "view_schema", id: hostsViewSchemaId },
+        viewSchemaId: hostsViewSchemaId,
+      }),
+    );
+    expect(ownedPorts.selectionPort.selectTimeline).not.toHaveBeenCalled();
     expect(onAvailabilityChange).toHaveBeenCalledOnce();
   });
 

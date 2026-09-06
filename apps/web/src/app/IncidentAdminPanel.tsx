@@ -1078,7 +1078,9 @@ export function IncidentAdminPanel({
                   />
                 </label>
                 <button
-                  data-testid="membership-audit-apply-filters"
+                  data-testid={incidentAdministrationTestId(
+                    "membership-audit-apply-filters",
+                  )}
                   style={secondaryButtonStyle}
                   type="button"
                   onClick={() => {
@@ -1090,20 +1092,29 @@ export function IncidentAdminPanel({
               </div>
               <p
                 aria-live="polite"
-                data-testid="membership-audit-status"
+                data-testid={incidentAdministrationTestId(
+                  "membership-audit-status",
+                )}
                 role="status"
                 style={mutedBodyStyle}
               >
                 {membershipAuditStatus}
               </p>
               {membershipAuditEvents.length === 0 ? (
-                <p data-testid="membership-audit-empty" style={bodyStyle}>
+                <p
+                  data-testid={incidentAdministrationTestId(
+                    "membership-audit-empty",
+                  )}
+                  style={bodyStyle}
+                >
                   No membership audit events loaded.
                 </p>
               ) : (
                 <ul
                   aria-label="Incident membership audit events"
-                  data-testid="membership-audit-list"
+                  data-testid={incidentAdministrationTestId(
+                    "membership-audit-list",
+                  )}
                   style={membershipListStyle}
                 >
                   {membershipAuditEvents.map((event) => (
@@ -1158,7 +1169,9 @@ export function IncidentAdminPanel({
               )}
               {membershipAuditNextCursor !== null ? (
                 <button
-                  data-testid="membership-audit-load-more"
+                  data-testid={incidentAdministrationTestId(
+                    "membership-audit-load-more",
+                  )}
                   style={secondaryButtonStyle}
                   type="button"
                   onClick={() => {
@@ -1170,7 +1183,12 @@ export function IncidentAdminPanel({
               ) : null}
             </>
           ) : (
-            <p data-testid="membership-audit-note" style={mutedBodyStyle}>
+            <p
+              data-testid={incidentAdministrationTestId(
+                "membership-audit-note",
+              )}
+              style={mutedBodyStyle}
+            >
               Only incident admins can review incident membership audit.
             </p>
           )}

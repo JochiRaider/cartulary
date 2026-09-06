@@ -1,5 +1,4 @@
 import type { ReactNode, RefObject } from "react";
-import type { APIError } from "../services/browserApi";
 import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
 import type { IncidentCreationBinding } from "./incidentCreationModel";
 import type {
@@ -8,26 +7,6 @@ import type {
 } from "./incidentDirectoryModel";
 
 export type IncidentStatusFilter = "active" | "all" | "closed";
-
-export type AppBootstrapState =
-  | "loading"
-  | "anonymous"
-  | "authenticated"
-  | "forbidden"
-  | "revoked"
-  | "public_error_envelope";
-
-export type LandingRefreshState = "idle" | "loading" | "failed";
-
-export type LandingAdminPanelId =
-  | "account-appearance"
-  | "account-profile"
-  | "account-security"
-  | "administrative-audit"
-  | "deployment-users"
-  | "incident-import"
-  | "incidents"
-  | "reference-packs";
 
 export type IncidentControlsSection =
   | "import-assistant"
@@ -42,11 +21,10 @@ export type IncidentControlsLoadState =
   | "synced"
   | "unavailable";
 
-export type LandingAdminPanelDescriptor = {
+export type DeploymentPanelDescriptor = {
   description: string;
-  group: "account" | "deployment" | "primary";
   label: string;
-  token: LandingAdminPanelId;
+  token: DeploymentAdministrationPanelToken;
 };
 
 export type AccountSettingsPanelToken =
@@ -64,7 +42,7 @@ export type LandingAdminShellProps = {
   headingRef?: RefObject<HTMLHeadingElement | null>;
   accountMenu: ReactNode;
   activePanel: DeploymentAdministrationPanelToken;
-  availablePanels: ReadonlyArray<LandingAdminPanelDescriptor>;
+  availablePanels: ReadonlyArray<DeploymentPanelDescriptor>;
   children: ReactNode;
   currentUserLabel: string;
   onActivePanelChange: (panel: DeploymentAdministrationPanelToken) => void;
@@ -107,15 +85,13 @@ export type AccountApplicationMenuProps = {
 };
 
 export type IncidentLandingProps = {
-  bootstrapState: AppBootstrapState;
   creation: IncidentCreationBinding;
-  error: APIError | null;
   directory: {
     controller: IncidentDirectoryController;
     state: IncidentDirectoryState;
   };
   onOpenIncident: (incidentId: string) => void;
-  statusText: string;
+  notice: string | null;
 };
 
 export type AdministrativeAuditEvent =

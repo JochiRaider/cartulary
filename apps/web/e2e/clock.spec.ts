@@ -48,18 +48,22 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   const currentSession = await readCurrentSession(page);
   try {
     await testClock.setAfter(currentSession.session_expires_at);
-    const [sessionResponse] = await Promise.all([
+    const [credentialResponse] = await Promise.all([
       page.waitForResponse((candidate) => {
         const method = candidate.request().method().toUpperCase();
         return (
           method === "GET" &&
-          new URL(candidate.url()).pathname === "/api/v1/auth/session" &&
+          new URL(candidate.url()).pathname ===
+            "/api/v1/auth/credential-state" &&
           candidate.status() === 401
         );
       }),
       new AccountSettings(page).refresh(),
     ]);
-    expect(sessionResponse.status()).toBe(401);
+    expect(credentialResponse.status()).toBe(401);
+    expect((await credentialResponse.json()).error.code).toBe(
+      "session_required",
+    );
     await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
   } finally {
     await testClock.reset();

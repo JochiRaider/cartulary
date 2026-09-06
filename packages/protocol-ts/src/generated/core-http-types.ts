@@ -730,6 +730,42 @@ export interface LessonCreateRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CredentialStateEnvelope".
+ */
+export interface CredentialStateEnvelope {
+  data: CredentialStateResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CredentialStateResource".
+ */
+export interface CredentialStateResource {
+  auth_kind: "local";
+  mfa_required: boolean;
+  password: CredentialPasswordStateResource;
+  recovery_model: "admin_assisted";
+  totp: CredentialTOTPStateResource;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CredentialPasswordStateResource".
+ */
+export interface CredentialPasswordStateResource {
+  changed_at: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CredentialTOTPStateResource".
+ */
+export interface CredentialTOTPStateResource {
+  enrolled_at: string | null;
+  pending_expires_at: string | null;
+  state: "not_enrolled" | "pending" | "active";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "DefaultWorkbookPreferencesEnvelope".
  */
 export interface DefaultWorkbookPreferencesEnvelope {
@@ -830,6 +866,85 @@ export interface DeploymentUserTOTPResetRequest {
   base_user_version: number;
   client_txn_id: string;
   reason?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthBeginEnvelope".
+ */
+export interface EnterpriseAuthBeginEnvelope {
+  data: EnterpriseAuthBeginResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthBeginResource".
+ */
+export interface EnterpriseAuthBeginResource {
+  expires_at: string;
+  provider_key: string;
+  provider_type: "oidc" | "saml";
+  redirect_url: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthBeginRequest".
+ */
+export interface EnterpriseAuthBeginRequest {
+  return_to?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthBindingCreateRequest".
+ */
+export interface EnterpriseAuthBindingCreateRequest {
+  base_user_version: number;
+  client_txn_id: string;
+  provider_key: string;
+  provider_subject: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthBindingRetireRequest".
+ */
+export interface EnterpriseAuthBindingRetireRequest {
+  base_user_version: number;
+  client_txn_id: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthBindingRotateRequest".
+ */
+export interface EnterpriseAuthBindingRotateRequest {
+  base_user_version: number;
+  client_txn_id: string;
+  new_provider_subject: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthProviderListEnvelope".
+ */
+export interface EnterpriseAuthProviderListEnvelope {
+  data: EnterpriseAuthProviderListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthProviderListData".
+ */
+export interface EnterpriseAuthProviderListData {
+  providers: EnterpriseAuthProviderResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EnterpriseAuthProviderResource".
+ */
+export interface EnterpriseAuthProviderResource {
+  display_name: string;
+  provider_key: string;
+  provider_type: "oidc" | "saml";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -1756,6 +1871,45 @@ export interface ObjectBlobCreateRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PasswordChangeEnvelope".
+ */
+export interface PasswordChangeEnvelope {
+  data: PasswordChangeResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PasswordChangeResource".
+ */
+export interface PasswordChangeResource {
+  password: PasswordChangeStateResource;
+  sessions_revoked: true;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PasswordChangeStateResource".
+ */
+export interface PasswordChangeStateResource {
+  changed_at: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PasswordChangeRequest".
+ */
+export interface PasswordChangeRequest {
+  client_txn_id: string;
+  current_password: string;
+  new_password: string;
+  second_factor?: {
+    assertion: {
+      code: string;
+    };
+    kind: "totp";
+  };
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "RecordConflictResolveRequest".
  */
 export interface RecordConflictResolveRequest {
@@ -2357,6 +2511,81 @@ export interface DecisionSupersedeData {
   target_row_version: number;
   target_status: string;
   view_schema_id: "cartulary.view.decisions.v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPBeginEnvelope".
+ */
+export interface TOTPBeginEnvelope {
+  data: TOTPBeginResponse;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPBeginResponse".
+ */
+export interface TOTPBeginResponse {
+  enrollment_id: string;
+  expires_at: string;
+  totp_setup: TOTPSetupResource;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPSetupResource".
+ */
+export interface TOTPSetupResource {
+  algorithm: "SHA1";
+  digits: 6;
+  otpauth_uri: string;
+  period_seconds: 30;
+  secret_base32: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPBeginRequest".
+ */
+export interface TOTPBeginRequest {
+  client_txn_id: string;
+  current_password?: string;
+  second_factor?: {
+    assertion: {
+      code: string;
+    };
+    kind: "totp";
+  };
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPCompleteEnvelope".
+ */
+export interface TOTPCompleteEnvelope {
+  data: TOTPCompleteResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPCompleteResource".
+ */
+export interface TOTPCompleteResource {
+  sessions_revoked: boolean;
+  totp: TOTPCompleteStateResource;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPCompleteStateResource".
+ */
+export interface TOTPCompleteStateResource {
+  enrolled_at: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TOTPCompleteRequest".
+ */
+export interface TOTPCompleteRequest {
+  client_txn_id: string;
+  code: string;
+  enrollment_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

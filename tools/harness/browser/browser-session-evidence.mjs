@@ -19,6 +19,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
+
 import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -373,7 +375,7 @@ function writeLease() {
   return output;
 }
 
-function directoryDigest(directory) {
+export function directoryDigest(directory) {
   const hash = createHash("sha256");
   function walk(current) {
     const names = readdirSync(current).sort();
@@ -396,6 +398,23 @@ function directoryDigest(directory) {
   }
   walk(directory);
   return `sha256:${hash.digest("hex")}`;
+}
+
+export function validateFrontendAttachment(root, artifact, frontend) {
+  if (frontend.build_artifact_ref !== artifact.path) {
+    throw new Error("browser attachment frontend artifact does not match selected stage");
+  }
+  const directory = path.join(root, artifact.path);
+  requireArtifactEntries(directory, artifact);
+  if (directoryDigest(directory) !== frontend.build_artifact_sha256) {
+    throw new Error("browser v6 attachment frontend build digest mismatch");
+  }
+}
+
+function requireArtifactEntries(directory, artifact) {
+  for (const entry of artifact.entries) {
+    requireRegularNoSymlink(path.join(directory, entry), "frontend artifact entry");
+  }
 }
 
 function endpointOrigin(endpoint, secure) {
@@ -492,7 +511,9 @@ function writeStack() {
     throw new Error("v6 stack publication requires a terminal ready diagnostic");
   }
   const fixture = JSON.parse(readFileSync(metadataFile, "utf8"));
-  const buildDirectory = path.join(repoRoot, "apps", "web", "dist");
+  const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
+  const buildDirectory = path.join(repoRoot, artifact.path);
+  requireArtifactEntries(buildDirectory, artifact);
   const runtimeProfileFingerprint = normalizeDigest(
     requiredEnv("CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT"),
     "runtime profile fingerprint",
@@ -549,7 +570,7 @@ function writeStack() {
       port: Number.parseInt(requiredEnv("CARTULARY_WEB_E2E_FRONTEND_PORT"), 10),
       frontend_mode: "preview",
       frontend_command_kind: "vite-preview",
-      build_artifact_ref: "apps/web/dist",
+      build_artifact_ref: artifact.path,
       build_artifact_sha256: directoryDigest(buildDirectory),
       ready_at: requiredEnv("CARTULARY_WEB_E2E_FRONTEND_READY_AT"),
     },
@@ -823,12 +844,8 @@ export function attachmentAssignments(stackPath) {
   ) {
     throw new Error("browser v6 attachment active service identity mismatch");
   }
-  if (
-    directoryDigest(path.join(repoRoot, stack.frontend.build_artifact_ref)) !==
-    stack.frontend.build_artifact_sha256
-  ) {
-    throw new Error("browser v6 attachment frontend build digest mismatch");
-  }
+  const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
+  validateFrontendAttachment(repoRoot, artifact, stack.frontend);
   verifyProcessProof(currentBackend.backend, "backend");
   verifyProcessProof(stack.frontend, "frontend");
   mkdirSync(playwrightStateDir, { recursive: true, mode: 0o700 });
@@ -885,6 +902,10 @@ function attach(stackPath) {
 
 function main(argv) {
   const [command, ...args] = argv;
+  if (command === "frontend-artifact" && args.length === 0) {
+    process.stdout.write(resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE")).path + "\n");
+    return;
+  }
   if (command === "event" && (args.length === 2 || args.length === 4)) {
     appendEvent(args[0], args[1], args[2], args[3]);
     return;

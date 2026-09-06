@@ -22,34 +22,42 @@ import {
   publicErrorView,
 } from "../services/browserApi";
 import {
-  adminResetPassword,
-  adminResetTotp,
-  adminRevokeAllSessions,
   beginTotpEnrollment,
   changePassword,
   completeTotpEnrollment,
+  listEnterpriseAuthProviders,
+  loadCredentialState,
+  logoutCurrentSession,
+} from "./api/authAccountClient";
+import {
+  adminResetPassword,
+  adminResetTotp,
+  adminRevokeAllSessions,
   createEnterpriseAuthBinding,
   createLocalUser,
-  type EnterpriseAuthProvider,
-  listEnterpriseAuthProviders,
   listUsers,
   loadUser,
-  logoutCurrentSession,
   patchLocalUser,
   retireEnterpriseAuthBinding,
   rotateEnterpriseAuthBinding,
-  type SessionData,
-  type UserListEnvelope,
-  type UserResource,
-} from "./api/appShellClient";
+} from "./api/deploymentUserClient";
+import type {
+  EnterpriseAuthProvider,
+  SessionData,
+  UserResource,
+} from "./api/publicHttpTypes";
 
-type RefreshOptions = {
-  anonymousMessage?: string;
-};
-
+export type AccountSessionEvent =
+  | { readonly kind: "resource_refresh" }
+  | {
+      readonly kind:
+        | "logout_confirmed"
+        | "credentials_revoked"
+        | "session_lost";
+      readonly message: string;
+    };
 type AccountSecurityPanelProps = {
-  credentialStateError: APIError | null;
-  onRefreshShell: (options?: RefreshOptions) => Promise<void> | void;
+  onSessionEvent: (event: AccountSessionEvent) => Promise<void> | void;
 };
 
 type DeploymentUsersPanelProps = {
@@ -58,7 +66,7 @@ type DeploymentUsersPanelProps = {
   onCommandStateChange?:
     | ((state: DeploymentUsersPanelCommandState) => void)
     | undefined;
-  onRefreshShell: (options?: RefreshOptions) => Promise<void> | void;
+  onRefreshSession: () => Promise<void> | void;
   session: SessionData;
 };
 
@@ -105,7 +113,54 @@ function isEnterpriseAuthBinding(
 export const AccountSecurityPanel = forwardRef<
   AccountSecurityPanelHandle,
   AccountSecurityPanelProps
->(function AccountSecurityPanel({ credentialStateError, onRefreshShell }, ref) {
+>(function AccountSecurityPanel({ onSessionEvent }, ref) {
+  const [credentialStateError, setCredentialStateError] =
+    useState<APIError | null>(null);
+  const credentialRequest = useRef<AbortController | null>(null);
+  const refreshCredentialState = useCallback(async () => {
+    credentialRequest.current?.abort();
+    const controller = new AbortController();
+    credentialRequest.current = controller;
+    const timer = setTimeout(() => {
+      if (controller.signal.aborted) return;
+      setCredentialStateError({
+        code: "credential_state_unavailable",
+        status: 503,
+      });
+      controller.abort();
+    }, 30_000);
+    try {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      const result = await loadCredentialState({ signal: controller.signal });
+      if (controller.signal.aborted) return;
+      const failure = result.ok ? null : extractError(result.payload);
+      if (
+        !result.ok &&
+        result.status === 401 &&
+        failure?.code === "session_required"
+      ) {
+        await onSessionEvent({
+          kind: "session_lost",
+          message: "Your session is no longer available. Sign in again.",
+        });
+        return;
+      }
+      setCredentialStateError(failure);
+    } catch {
+      if (!controller.signal.aborted)
+        setCredentialStateError({
+          code: "credential_state_unavailable",
+          status: 503,
+        });
+    } finally {
+      clearTimeout(timer);
+    }
+  }, [onSessionEvent]);
+  useEffect(() => {
+    void refreshCredentialState();
+    return () => credentialRequest.current?.abort();
+  }, [refreshCredentialState]);
   const [statusText, setStatusText] = useState("Account security is current.");
   const [error, setError] = useState<APIError | null>(null);
 
@@ -128,13 +183,14 @@ export const AccountSecurityPanel = forwardRef<
       setStatusText("Sign out failed");
       return;
     }
-    await onRefreshShell({ anonymousMessage: "Signed out." });
+    await onSessionEvent({ kind: "logout_confirmed", message: "Signed out." });
   }
 
   async function handleRefreshAccount() {
     setStatusText("Refreshing account security");
     setError(null);
-    await onRefreshShell();
+    await refreshCredentialState();
+    await onSessionEvent({ kind: "resource_refresh" });
     setStatusText("Refreshed account security.");
   }
 
@@ -151,8 +207,9 @@ export const AccountSecurityPanel = forwardRef<
       setStatusText("Password change failed");
       return;
     }
-    await onRefreshShell({
-      anonymousMessage: "Password changed. Sign in again.",
+    await onSessionEvent({
+      kind: "credentials_revoked",
+      message: "Password changed. Sign in again.",
     });
   }
 
@@ -169,11 +226,7 @@ export const AccountSecurityPanel = forwardRef<
       setStatusText("TOTP begin failed");
       return;
     }
-    const data = (
-      result.payload as {
-        data: { enrollment_id: string; totp_setup: { secret_base32: string } };
-      }
-    ).data;
+    const data = result.payload.data;
     setTotpEnrollmentId(data.enrollment_id);
     setTotpSecretBase32(data.totp_setup.secret_base32);
     setStatusText("Began TOTP enrollment");
@@ -192,9 +245,18 @@ export const AccountSecurityPanel = forwardRef<
       setStatusText("TOTP complete failed");
       return;
     }
-    await onRefreshShell({
-      anonymousMessage: "TOTP enrollment completed. Sign in again.",
-    });
+    setTotpEnrollmentId("");
+    setTotpSecretBase32("");
+    setTotpCompleteCode("");
+    await onSessionEvent(
+      result.payload.data.sessions_revoked
+        ? {
+            kind: "credentials_revoked",
+            message: "TOTP enrollment completed. Sign in again.",
+          }
+        : { kind: "resource_refresh" },
+    );
+    setStatusText("TOTP enrollment completed.");
   }
 
   useImperativeHandle(ref, () => ({
@@ -439,7 +501,7 @@ export const DeploymentUsersPanel = forwardRef<
     autoLoadUsers = false,
     enterpriseAuthClaimed = false,
     onCommandStateChange,
-    onRefreshShell,
+    onRefreshSession,
     session,
   },
   ref,
@@ -620,7 +682,7 @@ export const DeploymentUsersPanel = forwardRef<
       setStatusText("Deployment users unavailable");
       return;
     }
-    const payload = result.payload as UserListEnvelope;
+    const payload = result.payload;
     if (typeof payload.meta.paging === "undefined") {
       setStatusText("Deployment users unavailable");
       setError({
@@ -675,7 +737,7 @@ export const DeploymentUsersPanel = forwardRef<
       setStatusText("Load more users failed");
       return;
     }
-    const payload = result.payload as UserListEnvelope;
+    const payload = result.payload;
     if (typeof payload.meta.paging === "undefined") {
       setStatusText("Load more users failed");
       setError({
@@ -738,9 +800,7 @@ export const DeploymentUsersPanel = forwardRef<
         setEnterpriseProviders([]);
         return;
       }
-      const data = (
-        result.payload as { data: { providers: EnterpriseAuthProvider[] } }
-      ).data;
+      const data = result.payload.data;
       setEnterpriseProviders(data.providers);
     })();
     return () => {
@@ -783,7 +843,7 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       if (!options?.preserveStatus) {
         setStatusText("Loaded target user");
@@ -822,12 +882,12 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       setStatusText("Created local user");
       setError(null);
       setCreateDialogOpen(false);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }
@@ -866,11 +926,11 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       setStatusText("Patched local user");
       setError(null);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }
@@ -907,13 +967,13 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       setStatusText("Reset user password");
       setError(null);
       setAdminReason("");
       setCredentialDialog(null);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }
@@ -948,14 +1008,14 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       setStatusText("Reset user TOTP");
       setError(null);
       setAdminNewPassword("");
       setAdminReason("");
       setCredentialDialog(null);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }
@@ -994,7 +1054,7 @@ export const DeploymentUsersPanel = forwardRef<
       setAdminNewPassword("");
       setAdminReason("");
       setCredentialDialog(null);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }
@@ -1036,12 +1096,12 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       setBindingProviderSubject("");
       setStatusText("Created enterprise auth binding");
       setError(null);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }
@@ -1086,11 +1146,11 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       setStatusText("Rotated enterprise auth binding");
       setError(null);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }
@@ -1129,11 +1189,11 @@ export const DeploymentUsersPanel = forwardRef<
         return;
       }
 
-      const user = (result.payload as { data: UserResource }).data;
+      const user = result.payload.data;
       applySelectedUser(user);
       setStatusText("Retired enterprise auth binding");
       setError(null);
-      await onRefreshShell();
+      await onRefreshSession();
     } finally {
       finishTargetAdminOperation(operationID);
     }

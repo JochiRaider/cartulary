@@ -153,6 +153,13 @@ function validateBrowserOwner(raw, dependencyIDs, targets, runtimeProfileIDs) {
     if (stageNames.has(stage.name)) throw new Error(`duplicate browser stage ${stage.name}`);
     stageNames.add(stage.name);
     if (!targets.has(stage.target)) throw new Error(`browser stage ${stage.name} has unknown target ${stage.target}`);
+    const artifact = raw.browser_e2e_batch.frontend_artifacts?.[stage.frontend_artifact_id];
+    if (!artifact || !targets.has(artifact.producer_target) ||
+        !/^apps\/web\/dist(?:-measurement)?$/u.test(artifact.path) ||
+        !Array.isArray(artifact.entries) || artifact.entries.length === 0 ||
+        artifact.entries.some((entry) => !/^[a-z]+\.html$/u.test(entry))) {
+      throw new Error(`browser stage ${stage.name} has invalid frontend artifact`);
+    }
     const groups = new Set();
     for (const group of assertArray(stage.groups, `browser stage ${stage.name} groups`)) {
       if (groups.has(group.name)) throw new Error(`browser stage ${stage.name} has duplicate group ${group.name}`);
@@ -214,6 +221,13 @@ export function loadExecutionTopology(options = {}) {
     taskSurfaceOwnerPath,
     browserBatch: clone(raw.browser_e2e_batch),
   };
+}
+
+export function resolveBrowserFrontendArtifact(root, stageName, rawTopology) {
+  const browser = rawTopology?.browser_e2e_batch ?? loadExecutionTopology({ root }).browserBatch;
+  const stage = browser.stages.find((entry) => entry.name === stageName);
+  if (!stage) throw new Error(`unknown browser frontend stage ${stageName}`);
+  return browser.frontend_artifacts[stage.frontend_artifact_id];
 }
 
 export function renderTaskSurfaceManifest(topology) {

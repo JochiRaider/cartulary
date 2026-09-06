@@ -1178,6 +1178,114 @@
       "classification": "additive",
       "owner_id": "platform.openapi",
       "rationale": "Project existing Core 01 paged-response requirements: incident lists require paging, limits are bounded, and continuation fields agree; conforming wire responses are unchanged."
+    },
+    {
+      "fingerprint": "d886a1ef18429948fda5c684cef2fb44a88c6da81b915a3ad4ac6a0e0a4eea0c",
+      "classification": "breaking",
+      "owner_id": "module.auth",
+      "rationale": "Correct the credential snapshot nullable changed_at projection under REQ-01-523 while retaining a non-null password-change success timestamp under REQ-01-524."
+    },
+    {
+      "fingerprint": "239fac0cdbf4570103eb051e982571edc78a3625011ee328563f50765f7631ce",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "7ca4cef69dba5973efde42abc5cd79ba36057166c201a6931154a37c72fd42a5",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "c92f07a82816e987e06c0e0fdf1b5e2333e015d257b53bf32c5a63a083407d70",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "d3205344f06f571ebd03e96bd2cb61be5331e8554ebda3bae4a44c4cb83074a1",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "b19a160042c9f8760b2d58877bbd566756f08b85c562ecb728382e95db81c739",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "2cea7dcaa808fdc36d521d354a29b633260a165358dad92113a3a0ea277539c5",
+      "classification": "breaking",
+      "owner_id": "module.auth",
+      "rationale": "Correct the credential snapshot nullable changed_at projection under REQ-01-523 while retaining a non-null password-change success timestamp under REQ-01-524."
+    },
+    {
+      "fingerprint": "c01d87dd87bda2c8c730dd1a9a2094964e564177608c64c857a876730f505645",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Correct the credential snapshot nullable changed_at projection under REQ-01-523 while retaining a non-null password-change success timestamp under REQ-01-524."
+    },
+    {
+      "fingerprint": "c203c680c9b37ebaad27897c4f341c718ecfcb6d050ef1a74903bde143375bd7",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "ddc7ac60b07490dc174618ba0dca54e1c840052b8872e5abc658e5f1ceac2d71",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "2321784a443c3b20ab1149ff6e02bf26d16dd341ec06ca50192ba339d0f22f73",
+      "classification": "non_behavioral",
+      "owner_id": "module.auth",
+      "rationale": "Document the existing logout operation without inventing a required request body or route members."
+    },
+    {
+      "fingerprint": "5e3d3705cad48f78d6d1fccdee84541c89e248034137a99c77b065b4ba101f8b",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "ad4b1b78f5eb34ae12debbec5222d87e2a3941749f171d72ca0808a414ed76d0",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "95cb3c67372317457bf18e025184836b7834b8e109953c34842fc7798c6cbb98",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "d6cf3606d8d7a0963ab64dddccece4d7a2e715228a9ca34ac04b006f881d2ffc",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "29731e02d072c3932b58e6fa75280b54d249df903487a476ce37672505c551e4",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "c19ba696b27247d7416df1350c7bbfcf39effcfa404401b5615957d8b84dbe5f",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "b4964685d14dfcb86644f75de009ec5b97d4c50d09106cb7ed8ef92fcd555345",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
     }
   ]
 }

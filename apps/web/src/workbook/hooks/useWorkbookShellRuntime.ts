@@ -139,10 +139,12 @@ export function useWorkbookShellRuntime({
       isRenderable: (identity: ExtensionWorkspaceIdentity) =>
         extensionAvailability.isRenderable(identity),
       reserve: () => extensionAvailability.reserve(),
+      waitForDiscovery: (signal: AbortSignal) =>
+        extensionAvailability.waitForDiscovery(signal),
     }),
     [extensionAvailability],
   );
-  useWorkbookStartupAdmission({
+  const startupAdmission = useWorkbookStartupAdmission({
     incidentId,
     urlParams: params,
     availabilityPort: startupAvailabilityPort,
@@ -186,6 +188,7 @@ export function useWorkbookShellRuntime({
       savedViewsResource,
       sheetReloadToken,
       startupSheetRef,
+      startupPending: startupAdmission.pending,
       surface,
       timelineQueryState,
     },

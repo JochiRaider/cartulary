@@ -30,6 +30,114 @@ afterEach(() => {
 });
 
 describe("WorkbookMutationRuntime", () => {
+  it("discards a retired account response even when its transport ignores cancellation", async () => {
+    let respond: ((response: Response) => void) | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            respond = resolve;
+          }),
+      ),
+    );
+    const registry = new WorkbookMutationRuntimeRegistry();
+    const scope = { clientInstanceId: "client-1", incidentId };
+    const runtime = registry.acquire(
+      scope,
+      () =>
+        new WorkbookMutationRuntime(
+          scope,
+          transactionIds,
+          createWorkbookPendingMutationAdapter({
+            apiBase: undefined,
+            incidentId,
+          }),
+        ),
+    );
+    const refresh = vi.fn();
+    runtime.registerSurface(timelineViewSchemaId, refresh);
+    runtime.enqueuePatch({
+      baseRowVersion: 1,
+      changes: [
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value: "Previous account",
+        },
+      ],
+      fieldKey: "timeline.activity_synopsis_text",
+      localValue: "Previous account",
+      recordId,
+      rowLabel: "Task",
+      surfaceLabel: "Timeline",
+      viewSchemaId: timelineViewSchemaId,
+    });
+    await vi.waitFor(() => expect(respond).toBeDefined());
+    registry.replaceAccount();
+    respond?.(successResponse(2));
+    for (let i = 0; i < 12; ++i) await Promise.resolve();
+    expect(runtime.pendingQueue().model.snapshot().units).toEqual([]);
+    expect(
+      runtime.visibleEdit(
+        timelineViewSchemaId,
+        recordId,
+        "timeline.activity_synopsis_text",
+      ),
+    ).toBeUndefined();
+    expect(refresh).not.toHaveBeenCalled();
+    registry.dispose();
+  });
+  it("preserves paused same-account edits and retires them before account replacement", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const registry = new WorkbookMutationRuntimeRegistry();
+    const scope = { clientInstanceId: "client-1", incidentId };
+    const create = () =>
+      new WorkbookMutationRuntime(
+        scope,
+        transactionIds,
+        createWorkbookPendingMutationAdapter({
+          apiBase: undefined,
+          incidentId,
+        }),
+      );
+    const runtime = registry.acquire(scope, create);
+    registry.sessionUnavailable();
+    const edit = {
+      baseRowVersion: 1,
+      changes: [
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value: "Private draft",
+        },
+      ],
+      fieldKey: "timeline.activity_synopsis_text",
+      localValue: "Private draft",
+      recordId,
+      rowLabel: "Task 1",
+      surfaceLabel: "Tasks",
+      viewSchemaId: timelineViewSchemaId,
+    };
+    expect(runtime.enqueuePatch(edit)).toEqual({ kind: "accepted" });
+    expect(runtime.pendingQueue().model.snapshot().units).toHaveLength(1);
+    expect(runtime.getSnapshot().authPaused).toBe(true);
+    expect(registry.acquire(scope, create)).toBe(runtime);
+    expect(
+      runtime.visibleEdit(timelineViewSchemaId, recordId, edit.fieldKey),
+    ).toBe("Private draft");
+    expect(fetchMock).not.toHaveBeenCalled();
+    registry.replaceAccount();
+    expect(runtime.pendingQueue().model.snapshot().units).toEqual([]);
+    expect(
+      runtime.visibleEdit(timelineViewSchemaId, recordId, edit.fieldKey),
+    ).toBeUndefined();
+    expect(runtime.enqueuePatch(edit).kind).toBe("rejected_mutation");
+    const replacement = registry.acquire(scope, create);
+    expect(replacement).not.toBe(runtime);
+    expect(replacement.pendingQueue().model.snapshot().units).toEqual([]);
+    registry.dispose();
+  });
+
   it("keeps secure transaction identity failure local without queue admission", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

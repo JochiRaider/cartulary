@@ -84,6 +84,7 @@ describe("ordinary app shell", () => {
           handler: () => {
             authenticated = true;
             return jsonResponse({
+              meta: { request_id: "req-auth" },
               data: sessionResource({
                 display_name: "Authentication Operator",
               }),
@@ -159,7 +160,7 @@ describe("ordinary app shell", () => {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    await expectStableFetchCount(fetchMock, 10);
+    await expectStableFetchCount(fetchMock, 9);
   });
 
   it("enterprise auth discovery renders provider sign-in and begins with a relative return_to", async () => {
@@ -183,6 +184,7 @@ describe("ordinary app shell", () => {
             url: "/api/v1/auth/providers/corp-oidc/begin",
             handler: () =>
               jsonResponse({
+                meta: { request_id: "req-auth" },
                 data: {
                   provider_key: "corp-oidc",
                   provider_type: "oidc",
@@ -221,7 +223,7 @@ describe("ordinary app shell", () => {
     }
   });
 
-  it("ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details", async () => {
+  it("ordinary shell admits the directory independently and loads credential errors only in account security", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Authentication Operator",
@@ -242,28 +244,30 @@ describe("ordinary app shell", () => {
       screen
         .getByTestId(appRouteTestId("app-shell"))
         .getAttribute("data-bootstrap-state"),
-    ).toBe("public_error_envelope");
+    ).toBe("authenticated");
     expect(
       screen.getByTestId(incidentLandingTestId("current-user")).textContent,
     ).toContain("Authentication Operator");
     expect(
       screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
-    ).toBe("credential_bootstrap_rejected");
+    ).toBe("");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("landing").details)
         .textContent,
-    ).toContain("Reason: not_allowed_for_route");
+    ).toBe("");
     await openAccountSecurity();
-    expect(
-      screen.getByTestId(publicErrorCodeTestId("account")).textContent,
-    ).toBe("credential_bootstrap_rejected");
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(publicErrorCodeTestId("account")).textContent,
+      ).toBe("credential_bootstrap_rejected"),
+    );
     const credentialErrorText = document.body.textContent ?? "";
     expect(credentialErrorText).not.toContain(
       "credential-bootstrap-token-must-not-render",
     );
     expect(credentialErrorText).not.toContain("req-private-credential-detail");
     expect(credentialErrorText).not.toContain("/var/lib/cartulary");
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 7);
   });
 
   it("route-boundary auth login errors render public envelopes without private details", async () => {
@@ -316,7 +320,7 @@ describe("ordinary app shell", () => {
     await expectStableFetchCount(fetchMock, 3);
   });
 
-  it("route-boundary credential-state errors render public envelopes on landing and account surfaces without private details", async () => {
+  it("route-boundary credential-state errors remain local to account security without private details", async () => {
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
         display_name: "Authentication Operator",
@@ -337,24 +341,26 @@ describe("ordinary app shell", () => {
       screen
         .getByTestId(appRouteTestId("app-shell"))
         .getAttribute("data-bootstrap-state"),
-    ).toBe("public_error_envelope");
+    ).toBe("authenticated");
     expect(
       screen.getByTestId(publicErrorCodeTestId("landing")).textContent,
-    ).toBe("credential_bootstrap_rejected");
+    ).toBe("");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("landing").message)
         .textContent,
-    ).toBe("Credential bootstrap rejected.");
+    ).toBe("");
     await openAccountSecurity();
-    expect(
-      screen.getByTestId(publicErrorCodeTestId("account")).textContent,
-    ).toBe("credential_bootstrap_rejected");
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(publicErrorCodeTestId("account")).textContent,
+      ).toBe("credential_bootstrap_rejected"),
+    );
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
-    ).toContain("Reason: not_allowed_for_route");
+    ).toBe("Reason: not_allowed_for_route");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 7);
   });
 
   it("ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
@@ -403,10 +409,17 @@ describe("ordinary app shell", () => {
           url: "/api/v1/auth/mfa/totp/begin",
           handler: () =>
             jsonResponse({
+              meta: { request_id: "req-auth" },
               data: {
-                enrollment_id: "enrollment-1",
+                enrollment_id: "00000000-0000-4000-8000-000000000002",
+                expires_at: "2026-04-20T12:10:00Z",
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
+                  otpauth_uri:
+                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
+                  algorithm: "SHA1",
+                  digits: 6,
+                  period_seconds: 30,
                 },
               },
             }),
@@ -414,7 +427,15 @@ describe("ordinary app shell", () => {
         {
           method: "POST",
           url: "/api/v1/auth/mfa/totp/complete",
-          handler: () => jsonResponse({ data: {} }),
+          handler: () =>
+            jsonResponse({
+              meta: { request_id: "req-auth" },
+              data: {
+                user_id: "00000000-0000-4000-8000-000000000006",
+                totp: { enrolled_at: "2026-04-20T12:00:00Z" },
+                sessions_revoked: false,
+              },
+            }),
         },
       ],
     });
@@ -525,7 +546,9 @@ describe("ordinary app shell", () => {
       "POST",
     );
     expect(typeof completeRequest.body.client_txn_id).toBe("string");
-    expect(completeRequest.body.enrollment_id).toBe("enrollment-1");
+    expect(completeRequest.body.enrollment_id).toBe(
+      "00000000-0000-4000-8000-000000000002",
+    );
     expect(completeRequest.body.code).toBe("123456");
     expect(completeRequest.init?.credentials).toBe("omit");
     expect(readHeader(completeRequest.init, "Authorization")).toBe(
@@ -572,10 +595,17 @@ describe("ordinary app shell", () => {
               return errorResponse("invalid_second_factor", 401);
             }
             return jsonResponse({
+              meta: { request_id: "req-auth" },
               data: {
-                enrollment_id: "replacement-enrollment-1",
+                enrollment_id: "00000000-0000-4000-8000-000000000001",
+                expires_at: "2026-04-20T12:10:00Z",
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
+                  otpauth_uri:
+                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
+                  algorithm: "SHA1",
+                  digits: 6,
+                  period_seconds: 30,
                 },
               },
             });
@@ -586,7 +616,14 @@ describe("ordinary app shell", () => {
           url: "/api/v1/auth/password/change",
           handler: () => {
             sessionActive = false;
-            return jsonResponse({ data: {} });
+            return jsonResponse({
+              meta: { request_id: "req-auth" },
+              data: {
+                user_id: "00000000-0000-4000-8000-000000000006",
+                password: { changed_at: "2026-04-20T12:00:00Z" },
+                sessions_revoked: true,
+              },
+            });
           },
         },
       ],
@@ -652,7 +689,7 @@ describe("ordinary app shell", () => {
       ).toBe("revoked"),
     );
     expect(screen.getByTestId(publicErrorCodeTestId("auth")).textContent).toBe(
-      "Sign in again to continue.",
+      "",
     );
     expect(
       screen.getByTestId(authTestId("shell-message")).textContent,
@@ -715,7 +752,7 @@ describe("ordinary app shell", () => {
         },
       },
     });
-    await expectStableFetchCount(fetchMock, 14);
+    await expectStableFetchCount(fetchMock, 12);
   });
 
   it("route-boundary account password and TOTP errors render public envelopes without private details", async () => {
@@ -912,10 +949,17 @@ describe("ordinary app shell", () => {
           url: "/api/v1/auth/mfa/totp/begin",
           handler: () =>
             jsonResponse({
+              meta: { request_id: "req-auth" },
               data: {
-                enrollment_id: "enrollment-1",
+                enrollment_id: "00000000-0000-4000-8000-000000000002",
+                expires_at: "2026-04-20T12:10:00Z",
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
+                  otpauth_uri:
+                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
+                  algorithm: "SHA1",
+                  digits: 6,
+                  period_seconds: 30,
                 },
               },
             }),
@@ -1013,10 +1057,17 @@ describe("ordinary app shell", () => {
           url: "/api/v1/auth/mfa/totp/begin",
           handler: () =>
             jsonResponse({
+              meta: { request_id: "req-auth" },
               data: {
-                enrollment_id: "replacement-enrollment-1",
+                enrollment_id: "00000000-0000-4000-8000-000000000001",
+                expires_at: "2026-04-20T12:10:00Z",
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
+                  otpauth_uri:
+                    "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
+                  algorithm: "SHA1",
+                  digits: 6,
+                  period_seconds: 30,
                 },
               },
             }),
@@ -1053,7 +1104,7 @@ describe("ordinary app shell", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(accountTestId("totp-enrollment-id")).textContent,
-      ).toBe("replacement-enrollment-1");
+      ).toBe("00000000-0000-4000-8000-000000000001");
     });
     fireEvent.change(screen.getByTestId(accountTestId("totp-complete-code")), {
       target: { value: "000000" },
@@ -1927,7 +1978,7 @@ describe("ordinary app shell", () => {
     ).toHaveLength(1);
     expect(
       findFetchCalls(fetchMock, "/api/v1/auth/credential-state", "GET"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     const listIncidentRequests = fetchMock.mock.calls
       .filter(([input, init]) => {
         const method = ((init as RequestInit | undefined)?.method ?? "GET")
@@ -2014,7 +2065,7 @@ describe("ordinary app shell", () => {
     expect(renderedText).not.toContain("otpauth://create-private");
     expect(renderedText).not.toContain("private stack");
     expect(renderedText).not.toContain("private-create-detail");
-    await expectStableFetchCount(fetchMock, 6);
+    await expectStableFetchCount(fetchMock, 5);
   });
 });
 
@@ -2054,7 +2105,7 @@ function userResource(
 ) {
   return {
     user_id: "00000000-0000-4000-8000-000000000002",
-    email: "user-2@example.test",
+    email: "00000000-0000-4000-8000-000000000005@example.test",
     display_name: "User Two",
     user_version: 1,
     is_active: true,

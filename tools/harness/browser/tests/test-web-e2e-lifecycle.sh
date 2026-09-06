@@ -438,6 +438,7 @@ export CARTULARY_TEST_RESULTS_DIR="$results_root"
 export CARTULARY_TEST_RUN_ID="$run_id"
 export CARTULARY_TEST_SUITE_ID="$suite_id"
 export CARTULARY_BROWSER_SESSION_GROUP="$session_id"
+export CARTULARY_BROWSER_STAGE=functional
 export CARTULARY_BROWSER_RUNTIME_PROFILE_ID=default
 export CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services
 export CARTULARY_TEST_SERVICES_CALL_MODE=owned
@@ -528,6 +529,23 @@ if CARTULARY_BROWSER_RUNTIME_PROFILE_ID=network_flow_claimed \
   "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then
   fail "profile-mismatched v4 attachment must fail"
 fi
+if CARTULARY_BROWSER_STAGE=measurement "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >"$tmp_dir/wrong-artifact.log" 2>&1; then
+  fail "production artifact must not attach to measurement"
+fi
+assert_file_contains "$tmp_dir/wrong-artifact.log" 'frontend artifact does not match selected stage' "artifact purpose rejection"
+cp "$stack_file" "$tmp_dir/original-stack.json"
+"$NODE_BIN" - "$stack_file" <<'JS'
+const fs = require("node:fs");
+const file = process.argv[2];
+const value = JSON.parse(fs.readFileSync(file, "utf8"));
+value.frontend.build_artifact_sha256 = `sha256:${"0".repeat(64)}`;
+fs.writeFileSync(file, JSON.stringify(value));
+JS
+if "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >"$tmp_dir/stale-build.log" 2>&1; then
+  fail "stale frontend build digest must fail attachment"
+fi
+assert_file_contains "$tmp_dir/stale-build.log" 'frontend build digest mismatch' "stale build rejection"
+cp "$tmp_dir/original-stack.json" "$stack_file"
 if "$NODE_BIN" "$EVIDENCE_HELPER" stack >/dev/null 2>&1; then
   fail "v6 stack publication must be immutable"
 fi

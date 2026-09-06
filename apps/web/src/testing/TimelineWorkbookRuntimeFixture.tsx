@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
 import type { SheetRef } from "../shared/sheetRef";
 import { createWorkbookClipboardPasteAdapter } from "../workbook/adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
@@ -47,6 +46,7 @@ import type {
   TimelineWorkbookEntityRow,
   TimelineWorkbookIncidentRole,
 } from "../workbook/timeline/models/timelineWorkbookSurfaceRuntime";
+import { workbookAuthorizationRecovery } from "./workbookAuthorizationTestSupport";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const idleGridEntryFocus = {
@@ -236,7 +236,7 @@ export function TimelineWorkbookRuntimeFixture({
   );
   const [collaborationProjection] = useState(() =>
     createWorkbookCollaborationCoordinator({
-      authorizationRecovery: createAppAuthorizationRecoveryPort(),
+      authorizationRecovery: workbookAuthorizationRecovery(),
       clock: systemWorkbookCollaborationClock,
       continuityInvalidation: () => undefined,
       evidenceInvalidation: () => undefined,

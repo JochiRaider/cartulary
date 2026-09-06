@@ -5,56 +5,171 @@
       "profile_id": "build_outputs",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": ["build", "build-migrate", "build-operator", "build-server", "build-server-harness", "build-web", "embedded-web-assets"],
-      "input_roots": ["apps", "cmd", "contracts", "go.mod", "go.sum", "internal", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tools/toolchain_pins.json"],
+      "targets": [
+        "build",
+        "build-migrate",
+        "build-operator",
+        "build-server",
+        "build-server-harness",
+        "build-web",
+        "build-web-measurement",
+        "embedded-web-assets"
+      ],
+      "input_roots": [
+        "apps",
+        "cmd",
+        "contracts",
+        "go.mod",
+        "go.sum",
+        "internal",
+        "package.json",
+        "packages",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tools/toolchain_pins.json"
+      ],
       "requires_vulnerability_database_revision": false
     },
     {
       "profile_id": "frontend_analysis",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": ["check-frontend-install", "frontend-fallow-static", "frontend-import-boundary-check", "frontend-typecheck", "lint-biome", "lint-scripts"],
-      "input_roots": ["apps", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tools"],
+      "targets": [
+        "check-frontend-install",
+        "frontend-fallow-static",
+        "frontend-import-boundary-check",
+        "frontend-typecheck",
+        "lint-biome",
+        "lint-scripts"
+      ],
+      "input_roots": [
+        "apps",
+        "package.json",
+        "packages",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tools"
+      ],
       "requires_vulnerability_database_revision": false
     },
     {
       "profile_id": "go_analysis",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": ["backend-module-boundary-check", "lint-go", "lint-shell"],
-      "input_roots": ["cmd", "go.mod", "go.sum", "internal", "scripts", "tools"],
+      "targets": [
+        "backend-module-boundary-check",
+        "lint-go",
+        "lint-shell"
+      ],
+      "input_roots": [
+        "cmd",
+        "go.mod",
+        "go.sum",
+        "internal",
+        "scripts",
+        "tools"
+      ],
       "requires_vulnerability_database_revision": false
     },
     {
       "profile_id": "go_vulnerability_scan",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": ["go-vulncheck"],
-      "input_roots": ["cmd", "go.mod", "go.sum", "internal", "tools/toolchain_pins.json"],
+      "targets": [
+        "go-vulncheck"
+      ],
+      "input_roots": [
+        "cmd",
+        "go.mod",
+        "go.sum",
+        "internal",
+        "tools/toolchain_pins.json"
+      ],
       "requires_vulnerability_database_revision": true
     },
     {
       "profile_id": "release_artifacts",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": ["release-inventory-artifacts"],
-      "input_roots": ["LICENSE", "Makefile", "apps", "cmd", "contracts", "docker-compose.dev.yml", "go.mod", "go.sum", "internal", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tools/harness_cache_registry.json", "tools/harness_work_graph_owner.json", "tools/release-evidence/check-release-artifact.sh", "tools/release-evidence/generate-sbom-license-evidence.mjs", "tools/release-evidence/validate-cyclonedx.mjs", "tools/release-evidence/validate-license-report.mjs", "tools/release-evidence/validate-release-sbom.mjs", "tools/schemas/cartulary.harness_cache_record.v2.schema.json", "tools/schemas/cartulary.harness_work_graph.v5.schema.json", "tools/schemas/cartulary.license_report.v2.schema.json", "tools/toolchain_pins.json"],
+      "targets": [
+        "release-inventory-artifacts"
+      ],
+      "input_roots": [
+        "LICENSE",
+        "Makefile",
+        "apps",
+        "cmd",
+        "contracts",
+        "docker-compose.dev.yml",
+        "go.mod",
+        "go.sum",
+        "internal",
+        "package.json",
+        "packages",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tools/harness_cache_registry.json",
+        "tools/harness_work_graph_owner.json",
+        "tools/release-evidence/check-release-artifact.sh",
+        "tools/release-evidence/generate-sbom-license-evidence.mjs",
+        "tools/release-evidence/validate-cyclonedx.mjs",
+        "tools/release-evidence/validate-license-report.mjs",
+        "tools/release-evidence/validate-release-sbom.mjs",
+        "tools/schemas/cartulary.harness_cache_record.v2.schema.json",
+        "tools/schemas/cartulary.harness_work_graph.v5.schema.json",
+        "tools/schemas/cartulary.license_report.v2.schema.json",
+        "tools/toolchain_pins.json"
+      ],
       "requires_vulnerability_database_revision": false
     },
     {
       "profile_id": "run_setup",
       "policy": "same_run",
       "dependency_strategy": "broad",
-      "targets": ["codegen-toolchain", "go-lint-toolchain", "goose-toolchain", "gosec-toolchain", "govulncheck-toolchain", "shell-lint-toolchain", "toolchain-drift"],
-      "input_roots": ["tools/toolchain_pins.json"],
+      "targets": [
+        "codegen-toolchain",
+        "go-lint-toolchain",
+        "goose-toolchain",
+        "gosec-toolchain",
+        "govulncheck-toolchain",
+        "shell-lint-toolchain",
+        "toolchain-drift"
+      ],
+      "input_roots": [
+        "tools/toolchain_pins.json"
+      ],
       "requires_vulnerability_database_revision": false
     },
     {
       "profile_id": "test_rows",
       "policy": "content_addressed",
       "dependency_strategy": "unit_aware",
-      "targets": ["backend-integration", "backend-integration-support", "backend-process", "backend-store", "backend-unit", "frontend-unit"],
-      "input_roots": ["Makefile", "apps", "cmd", "configs", "contracts", "go.mod", "go.sum", "internal", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "scripts", "tools", "tsconfig.base.json", "tsconfig.json"],
+      "targets": [
+        "backend-integration",
+        "backend-integration-support",
+        "backend-process",
+        "backend-store",
+        "backend-unit",
+        "frontend-unit"
+      ],
+      "input_roots": [
+        "Makefile",
+        "apps",
+        "cmd",
+        "configs",
+        "contracts",
+        "go.mod",
+        "go.sum",
+        "internal",
+        "package.json",
+        "packages",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "scripts",
+        "tools",
+        "tsconfig.base.json",
+        "tsconfig.json"
+      ],
       "requires_vulnerability_database_revision": false
     }
   ]

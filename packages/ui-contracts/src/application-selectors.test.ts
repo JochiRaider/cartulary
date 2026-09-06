@@ -5,13 +5,6 @@ import {
   appRouteTestId,
   authTestId,
   currentIncidentRoleTestId,
-  debugIncidentRowTestId,
-  debugMembershipDeleteButtonTestId,
-  debugMembershipPatchButtonTestId,
-  debugMembershipRoleInputTestId,
-  debugMembershipRowTestId,
-  debugMembershipVersionTestId,
-  debugSelectIncidentButtonTestId,
   deploymentAdminTestId,
   deploymentUserRowTestId,
   extensionProfileRowTestId,
@@ -183,6 +176,13 @@ describe("@cartulary/ui-contracts application selectors", () => {
           "admin-status",
           "close-button",
           "lifecycle-reason",
+          "membership-audit-apply-filters",
+          "membership-audit-status",
+          "membership-audit-empty",
+          "membership-audit-list",
+          "membership-audit-load-more",
+          "membership-audit-note",
+
           "patch-button",
           "patch-current-phase",
           "patch-description",
@@ -212,6 +212,13 @@ describe("@cartulary/ui-contracts application selectors", () => {
       "incident-admin-status",
       "incident-close-button",
       "incident-lifecycle-reason",
+      "membership-audit-apply-filters",
+      "membership-audit-status",
+      "membership-audit-empty",
+      "membership-audit-list",
+      "membership-audit-load-more",
+      "membership-audit-note",
+
       "incident-patch-button",
       "incident-patch-current-phase",
       "incident-patch-description",
@@ -314,31 +321,6 @@ describe("@cartulary/ui-contracts application selectors", () => {
         ["roleDisplay", "incident-membership-role-user-2"],
       ],
     );
-    expect(debugIncidentRowTestId("incident-2")).toBe(
-      "incident-row-incident-2",
-    );
-    expect(debugSelectIncidentButtonTestId("incident-2")).toBe(
-      "select-incident-incident-2",
-    );
-    expectSelectorCases<"delete" | "patch" | "roleInput" | "row" | "version">(
-      (control) => {
-        const testIdFor = {
-          row: debugMembershipRowTestId,
-          roleInput: debugMembershipRoleInputTestId,
-          version: debugMembershipVersionTestId,
-          patch: debugMembershipPatchButtonTestId,
-          delete: debugMembershipDeleteButtonTestId,
-        }[control];
-        return testIdFor("user-2");
-      },
-      [
-        ["row", "membership-row-user-2"],
-        ["roleInput", "membership-role-input-user-2"],
-        ["version", "membership-version-user-2"],
-        ["patch", "patch-membership-user-2"],
-        ["delete", "delete-membership-user-2"],
-      ],
-    );
     expect(extensionProfileRowTestId("profile:core")).toBe(
       "extension-profile%3Acore",
     );
@@ -417,8 +399,6 @@ describe("@cartulary/ui-contracts application selectors", () => {
       ["app-shell", "app-shell"],
       ["workbook-current-user", "workbook-current-user"],
       ["workbook-loading", "workbook-loading"],
-      ["debug-harness-loading", "debug-harness-loading"],
-      ["debug-harness-shell", "debug-harness-shell"],
     ]);
 
     expectSelectorCases(accountTestId, [

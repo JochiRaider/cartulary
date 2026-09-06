@@ -470,6 +470,7 @@
     },
     "/api/v1/auth/logout": {
       "post": {
+        "description": "No route-specific request members are declared. No request body is required; clients may omit it. Revokes only the current authenticated session.",
         "operationId": "logoutCurrentSession",
         "responses": {
           "200": {
@@ -507,6 +508,16 @@
     "/api/v1/auth/mfa/totp/begin": {
       "post": {
         "operationId": "beginTOTPEnrollment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TOTPBeginRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/AuthTOTPBeginSuccessResponse"
@@ -549,6 +560,16 @@
     "/api/v1/auth/mfa/totp/complete": {
       "post": {
         "operationId": "completeTOTPEnrollment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TOTPCompleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/AuthTOTPCompleteSuccessResponse"
@@ -621,6 +642,16 @@
     "/api/v1/auth/password/change": {
       "post": {
         "operationId": "changeCurrentPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/AuthPasswordChangeSuccessResponse"
@@ -690,6 +721,16 @@
       ],
       "post": {
         "operationId": "beginEnterpriseAuth",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnterpriseAuthBeginRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/EnterpriseAuthBeginSuccessResponse"
@@ -7382,6 +7423,16 @@
       ],
       "post": {
         "operationId": "createEnterpriseAuthBinding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnterpriseAuthBindingCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "$ref": "#/components/responses/AuthSafeUserCreatedResponse"
@@ -7425,6 +7476,16 @@
     "/api/v1/users/{user_id}/auth-bindings/{auth_binding_id}": {
       "delete": {
         "operationId": "retireEnterpriseAuthBinding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnterpriseAuthBindingRetireRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
@@ -7484,6 +7545,16 @@
       ],
       "post": {
         "operationId": "rotateEnterpriseAuthBinding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnterpriseAuthBindingRotateRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/AuthSafeUserSuccessResponse"
@@ -10233,7 +10304,10 @@
         "properties": {
           "changed_at": {
             "format": "date-time",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -10651,6 +10725,19 @@
         ],
         "type": "object"
       },
+      "EnterpriseAuthBeginRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "return_to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
       "EnterpriseAuthBeginResource": {
         "additionalProperties": false,
         "properties": {
@@ -10678,6 +10765,38 @@
           "provider_type",
           "redirect_url",
           "expires_at"
+        ],
+        "type": "object"
+      },
+      "EnterpriseAuthBindingCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider_key": {
+            "type": "string"
+          },
+          "provider_subject": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_user_version",
+          "client_txn_id",
+          "provider_key",
+          "provider_subject"
         ],
         "type": "object"
       },
@@ -10720,6 +10839,58 @@
           "provider_subject",
           "created_at",
           "last_auth_at"
+        ],
+        "type": "object"
+      },
+      "EnterpriseAuthBindingRetireRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_user_version",
+          "client_txn_id"
+        ],
+        "type": "object"
+      },
+      "EnterpriseAuthBindingRotateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_user_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "client_txn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "new_provider_subject": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_user_version",
+          "client_txn_id",
+          "new_provider_subject"
         ],
         "type": "object"
       },
@@ -14494,11 +14665,59 @@
         ],
         "type": "object"
       },
+      "PasswordChangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "current_password": {
+            "type": "string"
+          },
+          "new_password": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "second_factor": {
+            "additionalProperties": false,
+            "properties": {
+              "assertion": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "pattern": "^[0-9]{6}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "type": "object"
+              },
+              "kind": {
+                "const": "totp"
+              }
+            },
+            "required": [
+              "kind",
+              "assertion"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "current_password",
+          "new_password"
+        ],
+        "type": "object"
+      },
       "PasswordChangeResource": {
         "additionalProperties": false,
         "properties": {
           "password": {
-            "$ref": "#/components/schemas/CredentialPasswordStateResource"
+            "$ref": "#/components/schemas/PasswordChangeStateResource"
           },
           "sessions_revoked": {
             "const": true
@@ -14512,6 +14731,19 @@
           "user_id",
           "password",
           "sessions_revoked"
+        ],
+        "type": "object"
+      },
+      "PasswordChangeStateResource": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "changed_at"
         ],
         "type": "object"
       },
@@ -17324,6 +17556,48 @@
         ],
         "type": "object"
       },
+      "TOTPBeginRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "current_password": {
+            "type": "string"
+          },
+          "second_factor": {
+            "additionalProperties": false,
+            "properties": {
+              "assertion": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "pattern": "^[0-9]{6}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "type": "object"
+              },
+              "kind": {
+                "const": "totp"
+              }
+            },
+            "required": [
+              "kind",
+              "assertion"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ],
+        "type": "object"
+      },
       "TOTPBeginResponse": {
         "additionalProperties": false,
         "properties": {
@@ -17359,6 +17633,29 @@
         "required": [
           "data",
           "meta"
+        ],
+        "type": "object"
+      },
+      "TOTPCompleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "code": {
+            "pattern": "^[0-9]{6}$",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "enrollment_id",
+          "code"
         ],
         "type": "object"
       },

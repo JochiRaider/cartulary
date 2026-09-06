@@ -255,7 +255,7 @@ export type PendingQueueAdmissionResult =
   | {
       accepted: false;
       status: "refused";
-      refusedReason: "capacity" | "scope_mismatch";
+      refusedReason: "capacity" | "scope_mismatch" | "runtime_retired";
       refusedUnit: PendingReplayUnitState;
       preserveVisibleEditAsUnsaved: boolean;
       primarySaveStateInput: PendingReplayPrimarySaveState;
@@ -1088,6 +1088,7 @@ class WorkbookPendingQueueState {
   private halted: PendingReplayHalt | null = null;
   private authPaused = false;
   private terminalReplayPaused = false;
+  private retired = false;
   private overflow: PendingReplayOverflow | null = null;
   private readonly sameFieldConflicts: PendingReplaySameFieldConflict[] = [];
 
@@ -1148,13 +1149,14 @@ class WorkbookPendingQueueState {
     this.overflow = null;
     const unit = normalizeUnit(input);
     if (
+      this.retired ||
       unit.incidentId !== this.scope.incidentId ||
       unit.clientInstanceId !== this.scope.clientInstanceId
     ) {
       return {
         accepted: false,
         status: "refused",
-        refusedReason: "scope_mismatch",
+        refusedReason: this.retired ? "runtime_retired" : "scope_mismatch",
         refusedUnit: cloneUnit(unit),
         preserveVisibleEditAsUnsaved: false,
         primarySaveStateInput: this.snapshot().primarySaveStateInput,
@@ -1505,6 +1507,17 @@ class WorkbookPendingQueueState {
     return this.snapshot();
   }
 
+  retire(): PendingQueueSnapshot {
+    this.retired = true;
+    this.terminalReplayPaused = true;
+    this.authPaused = true;
+    this.units = [];
+    this.halted = null;
+    this.overflow = null;
+    this.sameFieldConflicts.length = 0;
+    return this.snapshot();
+  }
+
   clearSameFieldConflict(key: string): PendingQueueSnapshot {
     const conflictIndex = this.sameFieldConflicts.findIndex(
       (conflict) => conflict.key === key,
@@ -1520,6 +1533,7 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
   const state = new WorkbookPendingQueueState(scope);
   return {
     scope: state.scope,
+    retire: () => state.retire(),
     snapshot: () => state.snapshot(),
     admit: (input: PendingReplayUnitInput) => state.admit(input),
     peekNextQueued: () => state.peekNextQueued(),

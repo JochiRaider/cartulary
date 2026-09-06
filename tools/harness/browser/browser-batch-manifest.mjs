@@ -19,6 +19,7 @@ const browserStageKeys = new Set([
   "name",
   "target",
   "schedule_tags",
+  "frontend_artifact_id",
   "scheduler_dependency_policy",
   "scheduler_needs",
   "summary_children",

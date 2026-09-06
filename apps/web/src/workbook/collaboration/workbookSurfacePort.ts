@@ -1,5 +1,7 @@
+import type { AuthorizationRecoveryResult } from "../../shared/authorizationRecovery";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
+import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
 import type { RecordChangedPayload } from "./workbookCollaborationMessages";
 
 export type WorkbookSurfaceIdentity = {
@@ -27,3 +29,36 @@ export type WorkbookActiveSurfacePort = {
     readonly reason?: string | undefined;
   }): Promise<void>;
 };
+
+/** A reconciliation refresh must acknowledge an accepted, current query before replay. */
+export class WorkbookSurfaceRefreshError extends Error {
+  constructor(
+    readonly recovery: Exclude<
+      AuthorizationRecoveryResult,
+      { kind: "authorized" }
+    >,
+  ) {
+    super(
+      "Workbook surface refresh did not establish current authorized state.",
+    );
+  }
+}
+
+export function requireWorkbookSurfaceAcceptance(
+  result: WorkbookPortResult<unknown>,
+): void {
+  if (result.kind === "accepted") return;
+  if (result.kind === "aborted")
+    throw new WorkbookSurfaceRefreshError({ kind: "cancelled" });
+  const kind = result.failure.kind;
+  throw new WorkbookSurfaceRefreshError(
+    kind === "authentication_required"
+      ? { kind: "session_lost" }
+      : kind === "authorization_lost" || kind === "stale_target"
+        ? { kind: "access_lost" }
+        : {
+            kind: "unavailable",
+            failure: kind === "retryable" ? "transient" : "contract",
+          },
+  );
+}

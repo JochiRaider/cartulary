@@ -45,6 +45,7 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          meta: { request_id: "enterprise-provider-discovery" },
           data: {
             providers: [
               {
@@ -66,10 +67,14 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
+            meta: { request_id: "enterprise-provider-begin" },
             data: {
               provider_key: "corp-oidc",
               provider_type: "oidc",
-              redirect_url: "/enterprise-idp/start?state=e-11-02",
+              redirect_url: new URL(
+                "/enterprise-idp/start?state=e-11-02",
+                route.request().url(),
+              ).href,
               expires_at: "2026-06-13T22:30:00Z",
             },
           }),

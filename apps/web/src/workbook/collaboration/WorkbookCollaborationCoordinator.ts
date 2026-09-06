@@ -19,7 +19,6 @@ import {
   completeWorkbookAuthorizationRecovery,
   initialWorkbookAuthorizationRecoveryMachine,
   planWorkbookAuthorizationRecoveryResult,
-  retryWorkbookAuthorizationRecovery,
   scheduleWorkbookAuthorizationRecovery,
   terminateWorkbookAuthorizationRecovery,
   type WorkbookAuthorizationRecoveryAdmission,
@@ -72,6 +71,7 @@ import {
   settleWorkbookPresencePublication,
 } from "./workbookPresencePublicationMachine";
 import type { WorkbookActiveSurfacePort } from "./workbookSurfacePort";
+import { WorkbookSurfaceRefreshError } from "./workbookSurfacePort";
 
 type CollaborationProjectionListener = () => void;
 type AuthorizedRecoveryPlan = Extract<
@@ -85,6 +85,7 @@ type LifecycleEventPlan = Extract<
       | "established"
       | "reset"
       | "recover_authorization"
+      | "session_lost"
       | "incident_closed";
   }
 >;
@@ -145,6 +146,7 @@ type WorkbookCollaborationCoordinatorOptions = {
     >,
   ) => void;
   readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly onSessionLost?: (() => void) | undefined;
   readonly queryInvalidation: (reason: WorkbookQueryInvalidationReason) => void;
   readonly scheduler: WorkbookCollaborationScheduler;
 };
@@ -191,11 +193,20 @@ class WorkbookCollaborationCoordinatorRuntime {
     | null = null;
   private sessionUnsubscribe: (() => void) | null = null;
   private snapshot: WorkbookCollaborationSnapshot;
+  private pendingAuthorizationRefresh: AuthorizedRecoveryPlan | null = null;
+  private authorizationRefreshAttempt = 0;
 
   constructor(
     private readonly options: WorkbookCollaborationCoordinatorOptions,
   ) {
     this.activeSheetRef = { ...options.initialSheetRef };
+    if (options.mutationRuntime.getSnapshot().authPaused) {
+      this.authorizationRecoveryMachine = {
+        ...this.authorizationRecoveryMachine,
+        authorizationConfirmed: false,
+        canResumeMutations: false,
+      };
+    }
     this.snapshot = {
       presence: emptyWorkbookPresence,
       connectionId: null,
@@ -262,6 +273,11 @@ class WorkbookCollaborationCoordinatorRuntime {
     });
     this.emit();
     this.publishPresenceNow();
+    if (
+      !this.authorizationRecoveryMachine.authorizationConfirmed &&
+      this.authorizationRecoveryMachine.phase === "idle"
+    )
+      this.requestAuthorizationRecovery();
     return () => {
       if (this.session !== session) return;
       this.sessionUnsubscribe?.();
@@ -288,8 +304,13 @@ class WorkbookCollaborationCoordinatorRuntime {
 
   registerActiveSurface(port: WorkbookActiveSurfacePort): () => void {
     this.activePort = port;
+    if (this.pendingAuthorizationRefresh !== null)
+      void this.settleAuthorizedRecovery(this.pendingAuthorizationRefresh);
     const key = sheetRefKey(port.identity.sheetRef);
-    if (this.dirtySurfaceKeys.delete(key)) {
+    if (
+      this.dirtySurfaceKeys.delete(key) &&
+      this.pendingAuthorizationRefresh === null
+    ) {
       void port
         .refresh({ reason: "inactive_surface_reconciliation" })
         .catch(() => {
@@ -311,10 +332,7 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   requestAuthorizationRecovery(): void {
-    if (
-      this.disposed ||
-      !this.authorizationRecoveryMachine.authorizationConfirmed
-    ) {
+    if (this.disposed || this.authorizationRecoveryMachine.phase !== "idle") {
       return;
     }
     this.cancelReset();
@@ -557,6 +575,8 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private cancelAuthorizationWork(): void {
+    this.pendingAuthorizationRefresh = null;
+    ++this.authorizationRefreshAttempt;
     this.authorizationRecoveryTask?.cancel();
     this.authorizationRecoveryTask = null;
     this.authorizationRecoveryController?.abort();
@@ -595,7 +615,10 @@ class WorkbookCollaborationCoordinatorRuntime {
   private async loadAuthorizationRecovery(): Promise<AuthorizationRecoveryResult | null> {
     const controller = new AbortController();
     this.authorizationRecoveryController = controller;
-    let result: AuthorizationRecoveryResult = { kind: "unavailable" };
+    let result: AuthorizationRecoveryResult = {
+      kind: "unavailable",
+      failure: "transient",
+    };
     try {
       result = await this.options.authorizationRecovery.recover({
         incidentId: this.options.incidentId,
@@ -621,7 +644,13 @@ class WorkbookCollaborationCoordinatorRuntime {
       this.options.clock.nowMs(),
     );
     this.authorizationRecoveryMachine = plan.machine;
-    if (plan.kind === "stale") return;
+    if (plan.kind === "stale" || plan.kind === "paused") return;
+    if (plan.kind === "session_lost") {
+      this.cancelReset();
+      this.applyInvalidationPlan({ kind: "session_unavailable" });
+      this.options.onSessionLost?.();
+      return;
+    }
     if (plan.kind === "retry") {
       this.scheduleCurrentAuthorizationRecovery();
       return;
@@ -632,6 +661,7 @@ class WorkbookCollaborationCoordinatorRuntime {
       this.options.onIncidentAccessLost?.();
       return;
     }
+    if (plan.kind !== "authorized") return;
     this.options.onAuthorizationRecovered(plan.result);
     if (!plan.canResumeMutations) {
       this.applyInvalidationPlan({
@@ -639,23 +669,44 @@ class WorkbookCollaborationCoordinatorRuntime {
         role: plan.result.role,
       });
     }
+    this.pendingAuthorizationRefresh = plan;
     void this.settleAuthorizedRecovery(plan);
   }
 
   private async settleAuthorizedRecovery(
     plan: AuthorizedRecoveryPlan,
   ): Promise<void> {
+    const port = this.activePort;
+    if (
+      port === null ||
+      sheetRefKey(port.identity.sheetRef) !== sheetRefKey(this.activeSheetRef)
+    )
+      return;
+    const attempt = ++this.authorizationRefreshAttempt;
+    const current = () =>
+      !this.disposed &&
+      attempt === this.authorizationRefreshAttempt &&
+      this.activePort === port &&
+      this.pendingAuthorizationRefresh === plan;
     try {
-      await this.refreshActiveSurface("authorization_recovered");
-    } catch {
-      this.authorizationRecoveryMachine = retryWorkbookAuthorizationRecovery(
-        this.authorizationRecoveryMachine,
+      await port.refresh({ reason: "authorization_recovered" });
+    } catch (error) {
+      if (!current()) return;
+      this.pendingAuthorizationRefresh = null;
+      this.authorizationRecoveryMachine = {
+        ...this.authorizationRecoveryMachine,
+        phase: "recovering",
+      };
+      this.handleAuthorizationRecoveryResult(
         plan.admission,
-        this.options.clock.nowMs(),
+        error instanceof WorkbookSurfaceRefreshError
+          ? error.recovery
+          : { kind: "unavailable", failure: "transient" },
       );
-      this.scheduleCurrentAuthorizationRecovery();
       return;
     }
+    if (!current()) return;
+    this.pendingAuthorizationRefresh = null;
     const completed = completeWorkbookAuthorizationRecovery(
       this.authorizationRecoveryMachine,
       plan.admission,
@@ -801,6 +852,16 @@ class WorkbookCollaborationCoordinatorRuntime {
         return;
       case "reset":
         this.beginReset(plan.eventGeneration, plan.reason);
+        return;
+      case "session_lost":
+        this.cancelReset();
+        this.cancelAuthorizationWork();
+        this.applyInvalidationPlan({ kind: "session_unavailable" });
+        this.authorizationRecoveryMachine =
+          terminateWorkbookAuthorizationRecovery(
+            this.authorizationRecoveryMachine,
+          );
+        this.options.onSessionLost?.();
         return;
       case "recover_authorization":
         this.requestAuthorizationRecovery();

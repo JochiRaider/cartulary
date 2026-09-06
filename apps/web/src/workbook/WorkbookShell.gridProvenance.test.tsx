@@ -25,8 +25,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
-import { fetchJSON } from "../services/browserApi";
+import { sessionResource } from "../testing/appShellTestSupport";
 import {
   fullWorkbookViewRow,
   successEnvelope,
@@ -34,6 +33,7 @@ import {
   type WorkbookViewApiRow,
   workbookCollectionValue,
 } from "../testing/timelineWorkbookTestSupport";
+import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
@@ -48,9 +48,7 @@ vi.mock(
   async () => import("@cartulary/grid-adapter/test-support"),
 );
 
-const authorizationRecovery = createAppAuthorizationRecoveryPort({
-  loadCurrentSession: (signal) => fetchJSON("/api/v1/auth/session", { signal }),
-});
+const authorizationRecovery = workbookAuthorizationRecovery();
 
 function WorkbookShell(
   props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
@@ -283,6 +281,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
+          ...sessionResource(),
           user_id: "40000000-0000-4000-8000-000000000301",
           memberships: [
             {

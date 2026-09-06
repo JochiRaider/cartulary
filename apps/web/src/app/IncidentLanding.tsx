@@ -12,6 +12,7 @@ import { IncidentCreationForm } from "./IncidentCreationForm";
 import {
   directoryCanLoadMore,
   directoryIsLoading,
+  incidentDirectoryStatusText,
 } from "./incidentDirectoryModel";
 import {
   formatNullableDateTime,
@@ -58,12 +59,10 @@ import type {
 } from "./landingAdminTypes";
 
 export function IncidentLanding({
-  bootstrapState,
   creation,
-  error: bootstrapError,
   directory: { controller, state },
   onOpenIncident,
-  statusText,
+  notice,
 }: IncidentLandingProps) {
   const createTriggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -73,7 +72,8 @@ export function IncidentLanding({
   const isRefreshing =
     directoryIsLoading(state) || state.phase === "debouncing";
   const hasMoreIncidents = state.paging?.has_more ?? false;
-  const error = state.failure?.error ?? bootstrapError;
+  const error = state.failure?.error ?? null;
+  const statusText = notice ?? incidentDirectoryStatusText(state);
   const previousResults =
     incidents.length > 0 &&
     (state.phase === "refreshing" ||
@@ -86,7 +86,7 @@ export function IncidentLanding({
   return (
     <section
       data-bootstrap-state={
-        state.phase === "forbidden" ? "forbidden" : bootstrapState
+        state.phase === "forbidden" ? "forbidden" : "authenticated"
       }
       data-directory-state={state.phase}
       data-testid={incidentLandingTestId("shell")}

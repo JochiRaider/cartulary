@@ -321,7 +321,8 @@
         "titles": [
           "useEntitySurfaceQuery clears protected rows on access loss and aborts both queries on teardown",
           "useEntitySurfaceQuery owns dual host and identity admission, indexing, live patching, and explicit cleanup",
-          "useEntitySurfaceQuery rejects obsolete dual-query results after a rapid refresh"
+          "useEntitySurfaceQuery rejects obsolete dual-query results after a rapid refresh",
+          "useEntitySurfaceQuery requires an accepted current query before authorization recovery can resume"
         ]
       },
       "evidence_class": "unit",

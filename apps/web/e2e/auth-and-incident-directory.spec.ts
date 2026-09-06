@@ -94,11 +94,6 @@ test("signs in as a local user and inspects the ordinary session surface", async
     path: "/api/v1/auth/login",
     status: 200,
   });
-  const sessionResponse = waitForPublicAPIResponse(page, {
-    method: "GET",
-    path: "/api/v1/auth/session",
-    status: 200,
-  });
   const credentialStateResponse = waitForPublicAPIResponse(page, {
     method: "GET",
     path: "/api/v1/auth/credential-state",
@@ -110,14 +105,10 @@ test("signs in as a local user and inspects the ordinary session surface", async
     status: 200,
   });
   await new AuthGateway(page).login(email, password);
-  await Promise.all([
-    loginResponse,
-    sessionResponse,
-    credentialStateResponse,
-    incidentListResponse,
-  ]);
-
+  await Promise.all([loginResponse, incidentListResponse]);
+  expect((await (await loginResponse).json()).data.user_id).toBe(user.user_id);
   await expectLandingAccountSession(page);
+  await credentialStateResponse;
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "authentication ordinary shell",
     email,

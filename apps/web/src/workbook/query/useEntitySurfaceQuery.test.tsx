@@ -1,8 +1,10 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
+  renderHook,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -139,6 +141,37 @@ function EntityQueryHarness({
 }
 
 describe("useEntitySurfaceQuery", () => {
+  it("requires an accepted current query before authorization recovery can resume", async () => {
+    const onIncidentAccessLost = vi.fn();
+    const query = vi.fn().mockResolvedValue({
+      kind: "rejected",
+      failure: { kind: "invalid_contract", message: "Malformed query" },
+    });
+    const view = renderHook(() =>
+      useEntitySurfaceQuery({
+        hostQueryState: emptyWorkbookQueryState(),
+        identityQueryState: emptyWorkbookQueryState(),
+        onIncidentAccessLost,
+        viewQuery: { query },
+      }),
+    );
+    await act(async () => {
+      await expect(
+        view.result.current.refresh({ requireAcceptance: true }),
+      ).rejects.toMatchObject({
+        recovery: { kind: "unavailable", failure: "contract" },
+      });
+    });
+    expect(onIncidentAccessLost).not.toHaveBeenCalled();
+    query.mockResolvedValue({ kind: "aborted" });
+    await act(async () => {
+      await expect(
+        view.result.current.refresh({ requireAcceptance: true }),
+      ).rejects.toMatchObject({ recovery: { kind: "cancelled" } });
+    });
+    view.unmount();
+  });
+
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();

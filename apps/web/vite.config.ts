@@ -31,8 +31,37 @@ const e2eBackendProxy = {
   },
 };
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ mode }) => ({
+  plugins: [
+    react(),
+    {
+      name: "production-fixture-boundary",
+      generateBundle() {
+        if (mode === "measurement") return;
+        for (const id of this.getModuleIds()) {
+          if (
+            id.includes("/src/measurement/") ||
+            id.includes("NetworkFlowGridLoadFixture")
+          ) {
+            this.error(
+              "Production module graph contains a measurement fixture",
+            );
+          }
+        }
+      },
+    },
+  ],
+  build: {
+    rollupOptions: {
+      input:
+        mode === "measurement"
+          ? {
+              app: path.resolve(__dirname, "index.html"),
+              measurement: path.resolve(__dirname, "measurement.html"),
+            }
+          : path.resolve(__dirname, "index.html"),
+    },
+  },
   server: {
     fs: {
       allow: [path.resolve(__dirname, "..", "..")],
@@ -66,4 +95,4 @@ export default defineConfig({
       }),
     ],
   },
-});
+}));

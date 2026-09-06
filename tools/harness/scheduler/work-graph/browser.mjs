@@ -218,6 +218,7 @@ function resetUnit(root, stage, group, dependencies, fixture, resetLabel) {
       resetLabel,
     ], {
       CARTULARY_TEST_TARGET: group.target,
+      CARTULARY_BROWSER_STAGE: stage.name,
       CARTULARY_MAKE_INPUT_SOURCES: "",
 	  OWNER: "",
 	  ROWS: "",
@@ -309,6 +310,7 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
       ],
       {
         BROWSER_E2E_BATCH_MANIFEST: manifestRelativePath,
+        CARTULARY_BROWSER_STAGE: stage.name,
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
         CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
         CARTULARY_BROWSER_SELECTED_ROW_IDS: group.selectedRowIDs.join(","),
@@ -604,9 +606,9 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
   return buildWorkGraph(units);
 }
 
-export function compileBrowserRowSelectionGraph(root, owner, rowIDs) {
+export function selectBrowserRowStages(root, rowIDs) {
   const remaining = new Set(rowIDs);
-  const units = [];
+  const selectedStages = [];
   for (const stage of browserStages(root).values()) {
     const groups = stage.groups.flatMap((group) => {
       const selectedRowIDs = group.selectedRowIDs.filter((rowID) =>
@@ -617,14 +619,7 @@ export function compileBrowserRowSelectionGraph(root, owner, rowIDs) {
       return [{ ...group, selectedRowIDs }];
     });
     if (groups.length === 0) continue;
-    units.push(
-      ...compileBrowserStageGraph(
-        root,
-        owner,
-        { ...stage, groups, summaryChildren: [] },
-        { mode: "validation" },
-      ).units,
-    );
+    selectedStages.push({ ...stage, groups, summaryChildren: [] });
   }
   if (remaining.size > 0) {
     throw new Error(
@@ -633,5 +628,11 @@ export function compileBrowserRowSelectionGraph(root, owner, rowIDs) {
       ].join(", ")}`,
     );
   }
-  return buildWorkGraph(units);
+  return selectedStages;
+}
+
+export function compileBrowserRowSelectionGraph(root, owner, rowIDs) {
+  return buildWorkGraph(selectBrowserRowStages(root, rowIDs).flatMap((stage) =>
+    compileBrowserStageGraph(root, owner, stage, {mode:"validation"}).units,
+  ));
 }

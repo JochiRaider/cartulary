@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ExtensionAvailabilityTag,
   ExtensionWorkspaceIdentity,
@@ -29,6 +29,7 @@ import {
 } from "./workbookStartupAdmissionMachine";
 
 export interface WorkbookStartupAvailabilityPort {
+  waitForDiscovery(signal: AbortSignal): Promise<boolean>;
   reserve(): ExtensionAvailabilityTag | null;
   acceptWorkbookStartup(
     tag: ExtensionAvailabilityTag,
@@ -106,18 +107,19 @@ export function useWorkbookStartupAdmission({
   readonly startupPort: WorkbookStartupPort;
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly onAvailabilityChange: () => void;
-}): void {
+}): { readonly pending: boolean } {
+  const [pending, setPending] = useState(true);
+  const launchQuery = urlParams.toString();
   const admissionMachineRef = useRef(initialWorkbookStartupAdmissionMachine());
 
   useEffect(() => {
     const controller = new AbortController();
-    const startupQuery = workbookStartupQueryFromURLParams(urlParams);
+    setPending(true);
+    const startupQuery = workbookStartupQueryFromURLParams(
+      new URLSearchParams(launchQuery),
+    );
     const loadStartup = async () => {
       const availabilityTag = availabilityPort.reserve();
-      if (availabilityTag === null) {
-        selectionPort.selectTimeline("availability_reservation_unavailable");
-        return;
-      }
       const started = beginWorkbookStartupAdmission(
         admissionMachineRef.current,
         {
@@ -159,12 +161,20 @@ export function useWorkbookStartupAdmission({
         }
         return;
       }
-      const availabilityAccepted = availabilityPort.acceptWorkbookStartup(
-        started.admission.availabilityTag,
-        result.value.availability,
-      );
-      if (!isCurrent()) return;
       const selectedSheetRef = result.value.selection.selectedSheetRef;
+      if (
+        selectedSheetRef.kind === "extension_workspace" &&
+        !(await availabilityPort.waitForDiscovery(controller.signal))
+      )
+        return;
+      if (controller.signal.aborted || !isCurrent()) return;
+      const availabilityAccepted =
+        started.admission.availabilityTag !== null &&
+        availabilityPort.acceptWorkbookStartup(
+          started.admission.availabilityTag,
+          result.value.availability,
+        );
+      if (!isCurrent()) return;
       const plan = planAcceptedWorkbookStartup({
         availabilityAccepted,
         extensionRenderable:
@@ -187,7 +197,9 @@ export function useWorkbookStartupAdmission({
       });
     };
 
-    void loadStartup();
+    void loadStartup().finally(() => {
+      if (!controller.signal.aborted) setPending(false);
+    });
     return () => {
       controller.abort();
       const active = admissionMachineRef.current.active;
@@ -206,6 +218,7 @@ export function useWorkbookStartupAdmission({
     savedViewStatePort,
     selectionPort,
     startupPort,
-    urlParams,
+    launchQuery,
   ]);
+  return { pending };
 }

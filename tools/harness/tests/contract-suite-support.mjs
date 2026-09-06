@@ -68,6 +68,8 @@ import {
   createSuiteRuntime,
   scanRetainedRoot,
 } from "../runtime/suite-runtime.mjs";
+import { directoryDigest, validateFrontendAttachment } from "../browser/browser-session-evidence.mjs";
+import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
 const root = path.resolve(import.meta.dirname, "../../..");
 
 function compareASCII(left, right) {
@@ -443,8 +445,8 @@ const generalCases = [
     name: "current target roster and public surface are exact",
     acceptance_ids: ["TH-HARNESS-AC-001"],
     run() {
-      assert.equal(taskSurface.targets.length, 150);
-      assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 102);
+      assert.equal(taskSurface.targets.length, 151);
+      assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 103);
     },
   },
   {
@@ -1941,6 +1943,46 @@ const suiteCases = {
     semanticCase("scanner_evidence_parity", "scanner evidence parity rejects divergent executions", ["TH-HARNESS-AC-098"], () => assertSchedulerContract("scanner_parity")),
   ],
 };
+
+suiteCases.evidence.push(semanticCase(
+  "browser_artifact_admission", "browser attachments bind the selected artifact and current complete build", ["TH-HARNESS-AC-086"], () => {
+    const temporaryRoot = mkdtempSync(path.join(tmpdir(), "cartulary-browser-artifact-"));
+    try {
+      const production = resolveBrowserFrontendArtifact(root, "functional");
+      const measurement = resolveBrowserFrontendArtifact(root, "measurement");
+      for (const [rowID, expectedProducer] of [
+        ["module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229", "build-web"],
+        ["web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451", "build-web"],
+        ["web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde", "build-web"],
+        ["module.networkflow.measurement.saved_graph_dom_ceiling", "build-web-measurement"],
+      ]) {
+        const graph = compiler.compileRows([rowID]);
+        assert.ok(graph.units.some((unit) => unit.unit_id === `target:${expectedProducer}`), `row ${rowID} must build ${expectedProducer}`);
+        // Measurement still builds the backend's embedded production assets.
+        // Production work must never acquire the measurement producer.
+        if (expectedProducer === "build-web") assert.ok(!graph.units.some((unit) => unit.unit_id === "target:build-web-measurement"), `production row ${rowID} must not build measurement output`);
+      }
+      assert.notEqual(production.producer_target, measurement.producer_target);
+      assert.notEqual(production.path, measurement.path);
+      for (const artifact of [production, measurement]) {
+        const directory = path.join(temporaryRoot, artifact.path);
+        mkdirSync(directory, { recursive: true });
+        for (const entry of artifact.entries) writeFileSync(path.join(directory, entry), entry);
+        const frontend = { build_artifact_ref: artifact.path, build_artifact_sha256: directoryDigest(directory) };
+        validateFrontendAttachment(temporaryRoot, artifact, frontend);
+        const other = artifact === production ? measurement : production;
+        assert.throws(() => validateFrontendAttachment(temporaryRoot, other, frontend), /does not match selected stage/u);
+        assert.throws(() => validateFrontendAttachment(temporaryRoot, artifact, { ...frontend, build_artifact_sha256: `sha256:${"0".repeat(64)}` }), /digest mismatch/u);
+        writeFileSync(path.join(directory, "index.html"), "changed after publication");
+        assert.throws(() => validateFrontendAttachment(temporaryRoot, artifact, frontend), /digest mismatch/u);
+        rmSync(path.join(directory, artifact.entries.at(-1)));
+        assert.throws(() => validateFrontendAttachment(temporaryRoot, artifact, frontend));
+      }
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+  },
+));
 
 const allCases = Object.values(suiteCases).flat();
 assert.equal(new Set(allCases.map((entry) => entry.id)).size, allCases.length);

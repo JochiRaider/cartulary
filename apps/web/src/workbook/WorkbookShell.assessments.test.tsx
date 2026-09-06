@@ -23,14 +23,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
-import { fetchJSON } from "../services/browserApi";
+import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred, requireJSONBodyAt } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
   timelineRow as fullTimelineRow,
   successEnvelope,
 } from "../testing/timelineWorkbookTestSupport";
+import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import {
   buildAssessmentCreatePayload,
   confidenceScoreFromBand,
@@ -42,9 +42,7 @@ vi.mock(
   async () => import("@cartulary/grid-adapter/test-support"),
 );
 
-const authorizationRecovery = createAppAuthorizationRecoveryPort({
-  loadCurrentSession: (signal) => fetchJSON("/api/v1/auth/session", { signal }),
-});
+const authorizationRecovery = workbookAuthorizationRecovery();
 
 function WorkbookShell(
   props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
@@ -160,7 +158,8 @@ describe("Assessment workbook surface", () => {
       const url = String(input);
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
-          user_id: "user-1",
+          ...sessionResource(),
+          user_id: "00000000-0000-4000-8000-000000000001",
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
@@ -193,7 +192,7 @@ describe("Assessment workbook surface", () => {
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
-              user_id: "user-1",
+              user_id: "00000000-0000-4000-8000-000000000001",
               display_name: "Admin User",
               role: "admin",
               membership_version: 1,
@@ -391,7 +390,8 @@ describe("Assessment workbook surface", () => {
       const url = String(input);
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
-          user_id: "user-1",
+          ...sessionResource(),
+          user_id: "00000000-0000-4000-8000-000000000001",
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
@@ -424,7 +424,7 @@ describe("Assessment workbook surface", () => {
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
-              user_id: "user-1",
+              user_id: "00000000-0000-4000-8000-000000000001",
               display_name: "Admin User",
               role: "admin",
               membership_version: 1,
@@ -744,7 +744,8 @@ describe("Assessment workbook surface", () => {
       const url = String(input);
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
-          user_id: "user-1",
+          ...sessionResource(),
+          user_id: "00000000-0000-4000-8000-000000000001",
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
@@ -777,7 +778,7 @@ describe("Assessment workbook surface", () => {
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
-              user_id: "user-1",
+              user_id: "00000000-0000-4000-8000-000000000001",
               display_name: "Admin User",
               role: "admin",
               membership_version: 1,
@@ -899,7 +900,8 @@ describe("Assessment workbook surface", () => {
       const url = String(input);
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
-          user_id: "user-1",
+          ...sessionResource(),
+          user_id: "00000000-0000-4000-8000-000000000001",
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
@@ -932,7 +934,7 @@ describe("Assessment workbook surface", () => {
           memberships: [
             {
               incident_id: "00000000-0000-4000-8000-000000000001",
-              user_id: "user-1",
+              user_id: "00000000-0000-4000-8000-000000000001",
               display_name: "Admin User",
               role: "admin",
               membership_version: 1,

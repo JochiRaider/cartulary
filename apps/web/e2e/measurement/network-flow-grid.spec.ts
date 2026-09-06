@@ -101,9 +101,7 @@ test("Measure the 1000-resource all-column production Network Flow grid envelope
 test("measures the saved graph viewer 500-vertex and 1000-edge DOM ceiling", async ({
   page,
 }, testInfo) => {
-  await page.goto(
-    "/?debug=harness&fixture=network-flow-grid-load&fixture_rows=1000",
-  );
+  await page.goto("/measurement.html?fixture_rows=1000");
   await page.getByRole("button", { name: "Saved graph result" }).click();
   const vertices = page.getByTestId(/^network-flow-saved-graph-vertex-/u);
   const edges = page.getByTestId(/^network-flow-saved-graph-edge-/u);
@@ -141,9 +139,7 @@ test("measures the saved graph viewer 500-vertex and 1000-edge DOM ceiling", asy
 });
 
 async function measureFixture(page: Page, logicalRows: 100 | 1_000) {
-  await page.goto(
-    `/?debug=harness&fixture=network-flow-grid-load&fixture_rows=${logicalRows}`,
-  );
+  await page.goto(`/measurement.html?fixture_rows=${logicalRows}`);
   const fixture = page.getByTestId(networkAnalysisTestId("load-fixture"));
   await expect(fixture).toHaveAttribute(
     "data-logical-row-count",
@@ -169,9 +165,7 @@ async function measureFixtureChrome(
   viewport: { readonly height: number; readonly width: number },
 ) {
   await page.setViewportSize(viewport);
-  await page.goto(
-    "/?debug=harness&fixture=network-flow-grid-load&fixture_rows=1000",
-  );
+  await page.goto("/measurement.html?fixture_rows=1000");
   const fixture = page.getByTestId(networkAnalysisTestId("load-fixture"));
   await expect(fixture).toBeVisible();
   const measurement = await fixture.evaluate((element) => {

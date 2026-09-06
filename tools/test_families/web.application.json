@@ -396,30 +396,6 @@
       "service_dependencies": []
     },
     {
-      "row_id": "web.application.regression.app_landing_aborts_an_in_flight_refresh_when_ent_edd84babb6",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/App.landing.test.tsx",
-        "titles": [
-          "Incident landing aborts an in-flight refresh when entering the debug harness and loads the ordinary shell after leaving it"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
       "row_id": "web.application.regression.app_landing_cancels_an_in_flight_shell_refresh_w_fe9dfe2c0f",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -649,30 +625,6 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing disables continuation while replacing the accepted search and status scope"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.application.regression.app_landing_loads_the_debug_harness_directly_wit_c28623539a",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/App.landing.test.tsx",
-        "titles": [
-          "Incident landing loads the debug harness directly without ordinary shell bootstrap requests"
         ]
       },
       "evidence_class": "unit",
@@ -1021,6 +973,43 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.app_session_lifecycle_d770146af2",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.auth",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/appSessionController.test.tsx",
+        "titles": [
+          "admits a validated session while preferences and extension discovery fail independently",
+          "cancels recovery before publication after caller cancellation navigation replacement and disposal",
+          "classifies recovery without treating transport or contract failure as membership loss",
+          "creates a new lifetime for identical-field reauthentication but preserves ordinary refresh identity",
+          "distinguishes unavailable discovery from confirmed anonymous and permits manual retry",
+          "keeps workbook authorization through temporary failure and rejects obsolete hook callbacks",
+          "preserves same-account work across revocation and clears another account before publication",
+          "rejects obsolete session successes and failures from overlapping observations",
+          "settles overlapping recovery callers without publishing the obsolete account",
+          "settles session and supporting observations at thirty seconds despite ignored aborts",
+          "survives React lifecycle replay and disposes pending observations after unmount"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.browserapi_suite_96242311a1",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1326,6 +1315,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.obsolete_debug_query_ordinary_navigation_dc33fdc25c",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.landing.test.tsx",
+        "titles": [
+          "Incident landing handles obsolete debug parameters through ordinary shell bootstrap"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.public_error_presentation_typed_mapping_1ea7e57fb4",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1422,7 +1435,7 @@
           "app route state builds URLs while preserving non-route query parameters",
           "app route state clears incident-owned workbook startup parameters when changing application context",
           "app route state parses deployment administration as a path-owned route",
-          "app route state parses incident and debug query state outside deployment administration",
+          "app route state parses incident state and ignores obsolete debug query parameters",
           "app route state parses the root route without accidental debug state",
           "app route state reads root navigation independently of obsolete history flags",
           "app route state writes push and replace history entries with the route-owned history state"

@@ -34,7 +34,7 @@ import {
   DeploymentUsersPanel,
 } from "./AccountAdministrationPanels";
 import { AppRoot } from "./AppRoot";
-import type { UserResource } from "./api/appShellClient";
+import type { UserResource } from "./api/publicHttpTypes";
 
 describe("ordinary shell support", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -69,7 +69,12 @@ describe("ordinary shell support", () => {
         );
       }
       if (String(input) === "/api/v1/auth/providers") {
-        return Promise.resolve(jsonResponse({ data: { providers: [] } }));
+        return Promise.resolve(
+          jsonResponse({
+            meta: { request_id: "req-auth" },
+            data: { providers: [] },
+          }),
+        );
       }
       throw new Error(`unexpected fetch: ${String(input)}`);
     });
@@ -195,7 +200,7 @@ describe("ordinary shell support", () => {
     render(
       <DeploymentUsersPanel
         autoLoadUsers
-        onRefreshShell={() => undefined}
+        onRefreshSession={() => undefined}
         session={sessionResource({ is_deployment_admin: true })}
       />,
     );
@@ -254,12 +259,9 @@ describe("ordinary shell support", () => {
 
     render(
       <>
-        <AccountSecurityPanel
-          credentialStateError={null}
-          onRefreshShell={() => undefined}
-        />
+        <AccountSecurityPanel onSessionEvent={() => undefined} />
         <DeploymentUsersPanel
-          onRefreshShell={() => undefined}
+          onRefreshSession={() => undefined}
           session={session}
         />
       </>,
@@ -327,6 +329,7 @@ describe("ordinary shell support", () => {
       if (url === "/api/v1/auth/providers" && method === "GET") {
         return Promise.resolve(
           jsonResponse({
+            meta: { request_id: "req-auth" },
             data: {
               providers: [
                 {
@@ -356,7 +359,13 @@ describe("ordinary shell support", () => {
         method === "POST"
       ) {
         return Promise.resolve(
-          jsonResponse({ data: { ...loadedUser, user_version: 6 } }, 201),
+          jsonResponse(
+            {
+              meta: { request_id: "req-auth" },
+              data: { ...loadedUser, user_version: 6 },
+            },
+            201,
+          ),
         );
       }
       if (
@@ -365,7 +374,10 @@ describe("ordinary shell support", () => {
         method === "POST"
       ) {
         return Promise.resolve(
-          jsonResponse({ data: { ...loadedUser, user_version: 7 } }),
+          jsonResponse({
+            meta: { request_id: "req-auth" },
+            data: { ...loadedUser, user_version: 7 },
+          }),
         );
       }
       if (
@@ -375,6 +387,7 @@ describe("ordinary shell support", () => {
       ) {
         return Promise.resolve(
           jsonResponse({
+            meta: { request_id: "req-auth" },
             data: {
               ...loadedUser,
               user_version: 8,
@@ -390,7 +403,7 @@ describe("ordinary shell support", () => {
       <DeploymentUsersPanel
         autoLoadUsers
         enterpriseAuthClaimed
-        onRefreshShell={() => undefined}
+        onRefreshSession={() => undefined}
         session={sessionResource({ is_deployment_admin: true })}
       />,
     );
@@ -473,6 +486,64 @@ describe("ordinary shell support", () => {
       base_user_version: 7,
       reason: "identity correction",
     });
+  });
+  it("honors the returned TOTP session revocation result", async () => {
+    for (const sessionsRevoked of [false, true]) {
+      const refresh = vi.fn();
+      fetchMock.mockImplementation((input) =>
+        Promise.resolve(
+          jsonResponse({
+            meta: { request_id: "req-totp" },
+            data: String(input).endsWith("/credential-state")
+              ? credentialStateResource()
+              : String(input).endsWith("/begin")
+                ? {
+                    enrollment_id: "00000000-0000-4000-8000-000000000002",
+                    expires_at: "2026-04-20T12:10:00Z",
+                    totp_setup: {
+                      secret_base32: "JBSWY3DPEHPK3PXP",
+                      otpauth_uri:
+                        "otpauth://totp/Cartulary?secret=JBSWY3DPEHPK3PXP",
+                      algorithm: "SHA1",
+                      digits: 6,
+                      period_seconds: 30,
+                    },
+                  }
+                : {
+                    user_id: "00000000-0000-4000-8000-000000000006",
+                    totp: { enrolled_at: "2026-04-20T12:00:00Z" },
+                    sessions_revoked: sessionsRevoked,
+                  },
+          }),
+        ),
+      );
+      const rendered = render(
+        <AccountSecurityPanel onSessionEvent={refresh} />,
+      );
+      fireEvent.click(screen.getByTestId(accountTestId("totp-begin")));
+      await waitFor(() =>
+        expect(
+          screen.getByTestId(accountTestId("totp-secret-base32")).textContent,
+        ).toBe("JBSWY3DPEHPK3PXP"),
+      );
+      fireEvent.change(
+        screen.getByTestId(accountTestId("totp-complete-code")),
+        { target: { value: "123456" } },
+      );
+      fireEvent.click(screen.getByTestId(accountTestId("totp-complete")));
+      await waitFor(() =>
+        expect(refresh).toHaveBeenCalledWith(
+          sessionsRevoked
+            ? {
+                kind: "credentials_revoked",
+                message: "TOTP enrollment completed. Sign in again.",
+              }
+            : { kind: "resource_refresh" },
+        ),
+      );
+      expect(screen.queryByText("JBSWY3DPEHPK3PXP")).toBeNull();
+      rendered.unmount();
+    }
   });
 });
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { incidentResource } from "../../testing/appShellTestSupport";
 import { jsonResponse } from "../../testing/fetchMockTestSupport";
-import { listVisibleIncidents } from "./appShellClient";
+import { listVisibleIncidents } from "./incidentClient";
 
 describe("incident directory HTTP adapter", () => {
   afterEach(() => vi.unstubAllGlobals());

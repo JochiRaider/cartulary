@@ -148,8 +148,10 @@ export function useWorkbookSurfaceQueries({
         : entitySurface
           ? invalidateEntities
           : invalidateGeneric,
-      refresh: async () => {
-        await refresh();
+      refresh: async (options) => {
+        await refresh({
+          requireAcceptance: options?.reason === "authorization_recovered",
+        });
       },
     };
   }, [

@@ -577,7 +577,10 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
       });
     });
     await page.route("**/api/v1/auth/providers", async (route) => {
-      await fulfillAuthVisualJSON(route, { data: { providers: [] } });
+      await fulfillAuthVisualJSON(route, {
+        meta: { request_id: "auth-visual-providers" },
+        data: { providers: [] },
+      });
     });
     await page.route("**/api/v1/auth/login", async (route) => {
       const mode = loginMode;

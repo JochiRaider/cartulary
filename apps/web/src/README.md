@@ -39,8 +39,7 @@ mechanics of the test harness.
 ## `app/`
 
 The `app/` directory owns the application shell, route-level browser entry
-surfaces, authentication gateway, landing/admin surfaces, debug harness
-entrypoints, and app-shell tests. It should not own workbook internals.
+surfaces, authentication gateway, landing/admin surfaces, and app-shell tests. It should not own workbook internals.
 
 | File | Responsibility |
 | --- | --- |
@@ -48,18 +47,17 @@ entrypoints, and app-shell tests. It should not own workbook internals.
 | `app/AppRoot.tsx` | Root React wrapper that connects app-level providers and the rendered `App`. |
 | `app/AccountAdministrationPanels.tsx` | Account-security and deployment-user administration panels. |
 | `app/AccountSettingsPanels.tsx` | Account profile and appearance settings panels. |
-| `app/api/appShellClient.ts` | App-shell client helpers for auth, account, deployment administration, and extension profile requests. |
+| `app/api/authAccountClient.ts` | Generated authentication, account and supporting-resource operations. |
+| `app/api/deploymentUserClient.ts` | Generated deployment user administration operations. |
+| `app/api/incidentClient.ts` | Generated incident directory and creation operations. |
 | `app/api/publicHttpTypes.ts` | Public app-shell HTTP request and response type exports from the generated protocol facade. |
 | `app/AuthGateway.tsx` | Authentication-state gate around app content and login/account readiness. |
-| `app/debug/DebugHarnessShell.tsx` | Shared shell for development/debug harness pages. |
 | `app/DeploymentAuditPanel.tsx` | Deployment administrative audit panel and audit-event formatting. |
 | `app/IncidentImportPanel.tsx` | Incident bundle import panel and import-job polling controls. |
 | `app/IncidentAdminPanel.tsx` | Incident administration panel UI for incident metadata, preferences, membership, and audit affordances. |
 | `app/IncidentLanding.tsx` | Incident directory landing panel, search/filter controls, and create-incident dialog. |
 | `app/LandingAdminDisplay.tsx` | Shared display helpers for landing/admin panels. |
 | `app/LandingAdminLayout.tsx` | Landing and deployment-administration shell layout plus the account/application menu. |
-| `app/debug/AuthenticationDebugHarness.tsx` | Authentication debug harness entrypoint for auth, account, and route readiness scenarios. |
-| `app/debug/IncidentDirectoryDebugHarness.tsx` | Incident-directory debug harness entrypoint for incident setup and preference scenarios. |
 | `app/referencePackAdminClient.ts` | Reference-pack administration HTTP client helpers. |
 | `app/referencePackAdminModel.ts` | Reference-pack administration resource, query, paging, and session-shape types. |
 | `app/ReferencePackAdminPanel.tsx` | Reference-pack administration panel UI for import, reload, cancellation, and job-status controls. |
@@ -68,16 +66,30 @@ entrypoints, and app-shell tests. It should not own workbook internals.
 | `app/routeState.ts` | Pure app-route parsing and history URL construction helpers. |
 | `app/useAppRouteRuntime.ts` | React hook for route state, popstate handling, and history writes. |
 | `app/App.landing.test.tsx` | Landing-surface tests for app startup and landing interactions. |
-| `app/App.auth.support.test.tsx` | Support tests for Authentication app harness behavior. |
+| `app/App.auth.support.test.tsx` | Account security and deployment-user adapter integration tests. |
 | `app/App.auth.test.tsx` | Authentication app behavior tests for auth/account/route readiness. |
 | `app/App.timeline-invalidation.support.test.tsx` | General app-shell behavior tests. |
 | `app/IncidentAdminPanel.test.tsx` | Incident administration panel tests. |
 | `app/ReferencePackAdminPanel.test.tsx` | Reference-pack administration panel tests. |
-| `app/api/appShellClient.routeBoundary.test.ts` | Route-boundary tests for app-shell client helpers. |
+| `app/api/shellHttpClients.routeBoundary.test.ts` | Route-boundary tests for app-shell client helpers. |
 | `app/fontBundle.test.ts` | Font bundle availability and packaging boundary tests. |
 | `app/fontRoles.test.tsx` | Font-role presentation tests for app and workbook surfaces. |
 | `app/otelBoundary.test.ts` | OpenTelemetry import and runtime-boundary tests. |
 | `app/routeState.test.ts` | Route-state parsing and history write tests. |
+
+Session acceptance belongs to `appSessionController.ts`; `useAppSession.ts` binds
+its snapshot and lifetime to React. Session discovery and each supporting read have
+independent 30-second observation bounds. Preferences can fail locally; unresolved
+or failed extension discovery cannot authorize extension actions. Credential state
+loads only in account security. Explicit authentication and revocation events change
+the local lifetime; navigation, caller cancellation, and obsolete requests prevent
+recovery publication.
+
+The application retains same-account workbook pending edits through reauthentication
+but pauses replay. The replacement shell confirms authorization and an accepted
+current-surface query before replay resumes. Accepting a different account first
+retires the previous pending queue and protected state. Directory queries and
+creation recovery have separate session lifetimes and are not workbook pending work.
 
 ## `collaboration/`
 
@@ -125,7 +137,7 @@ or `view_schema` owner. Workbook composition consumes it only through
 | File | Responsibility |
 | --- | --- |
 | `networkFlow/NetworkAnalysisWorkspace.tsx` | Network Analysis presentation/composition facade over feature-specific controllers. |
-| `networkFlow/NetworkFlowGridLoadFixture.tsx` | Debug-only deterministic supported-load fixture composed from the production Network Flow grid components. |
+| `measurement/NetworkFlowGridLoadFixture.tsx` | Measurement-only deterministic supported-load fixture composed from the production Network Flow grid components. |
 | `networkFlow/NetworkFlowMappingModal.tsx` | Explicit ordinal-aware Network Flow mapping, safe preview, and approval dialog. |
 | `networkFlow/NetworkFlowQueryControls.tsx` | Accepted-row and rejected-row filter, sort, time-window, and reset controls. |
 | `networkFlow/NetworkFlowSemanticGrid.tsx` | Semantic accepted-row, rejected-row, and contributor grids with layout controls, selection, focus recovery, and inspector presentation. |
@@ -484,7 +496,7 @@ identity into the Base surface registry.
 | --- | --- |
 | `workbook/features/ImportAssistantFeature.tsx` | Availability-gated workbook import assistant for discovery, ordinal mapping, approval, unit selection, apply/cancel, and result navigation. |
 | `workbook/features/ImportAssistantFeature.test.tsx` | Import assistant discovery, approval, cancellation, and returned-selection characterization. |
-| `workbook/features/NetworkFlowFeature.tsx` | Workbook/app-facing Network Flow facade for workspace rendering, debug-fixture composition, and stable extension identity. |
+| `workbook/features/NetworkFlowFeature.tsx` | Workbook/app-facing Network Flow facade for workspace rendering and stable extension identity. |
 | `workbook/features/coordination/CoordinationWorkflowBindings.tsx` | Coordination-owned task lifecycle and decision supersession presentation over semantic commands. |
 | `workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Evidence-owned access, preview, download, and semantic attachment binding for the contract surface. |
 

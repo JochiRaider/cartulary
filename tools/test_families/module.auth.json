@@ -662,8 +662,39 @@
       "selector": {
         "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
-          "ordinary shell blocks authenticated bootstrap until credential state loads and renders credential public errors without private details",
+          "ordinary shell admits the directory independently and loads credential errors only in account security",
           "ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.auth.frontend_integration.account_support_lifecycle_7afc31b882",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.frontend_integration",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.auth.support.test.tsx",
+        "titles": [
+          "Verify bootstrap route selectors and error-state selectors use stable test-id builders.",
+          "honors the returned TOTP session revocation result",
+          "keeps account and deployment-admin panels reachable through stable selectors",
+          "loads, filters, selects, and pages deployment users",
+          "renders claimed enterprise binding controls only inside the selected-user inspector and calls binding routes",
+          "shows the anonymous login surface when the browser has no session"
         ]
       },
       "evidence_class": "unit",
@@ -718,7 +749,7 @@
           "route-boundary account password and TOTP errors render public envelopes without private details",
           "route-boundary auth login errors render public envelopes without private details",
           "route-boundary bootstrap TOTP complete errors render public envelopes without private details",
-          "route-boundary credential-state errors render public envelopes on landing and account surfaces without private details",
+          "route-boundary credential-state errors remain local to account security without private details",
           "route-boundary deployment-admin load and action errors render public envelopes without private details",
           "route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors",
           "route-boundary logout failures render public envelopes without ending the visible session",
@@ -746,10 +777,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/api/appShellClient.routeBoundary.test.ts",
+        "file": "apps/web/src/app/api/shellHttpClients.routeBoundary.test.ts",
         "titles": [
           "route-boundary bootstrap token authorization is limited to TOTP begin and complete",
-          "route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies"
+          "route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies",
+          "validates every remaining shell operation and rejects malformed successes"
         ]
       },
       "evidence_class": "unit",

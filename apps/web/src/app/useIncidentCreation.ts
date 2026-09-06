@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { createIncident } from "./api/appShellClient";
+import { createIncident } from "./api/incidentClient";
 import {
   IncidentCreationController,
   type IncidentCreationPorts,

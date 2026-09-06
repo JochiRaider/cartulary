@@ -1185,11 +1185,13 @@ test("lets incident admins manage memberships and hides those controls from non-
 
   await closeIncidentControlsIfOpen(page);
   await openIncidentControls(page, "membership-audit");
-  await expect(page.getByTestId("membership-audit-list")).toBeVisible();
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("membership-audit-list")),
+  ).toBeVisible();
   await expect(page.getByText("Membership role changed")).toBeVisible();
   await expect(
     page
-      .getByTestId("membership-audit-list")
+      .getByTestId(incidentAdministrationTestId("membership-audit-list"))
       .getByText(memberUser.user_id)
       .first(),
   ).toBeVisible();
@@ -1231,9 +1233,11 @@ test("lets incident admins manage memberships and hides those controls from non-
   ).toHaveCount(0);
   await closeIncidentControlsIfOpen(memberPage);
   await openIncidentControls(memberPage, "membership-audit");
-  await expect(memberPage.getByTestId("membership-audit-note")).toContainText(
-    "Only incident admins",
-  );
+  await expect(
+    memberPage.getByTestId(
+      incidentAdministrationTestId("membership-audit-note"),
+    ),
+  ).toContainText("Only incident admins");
   await memberPage.context().close();
 
   await openIncidentControls(page, "summary");

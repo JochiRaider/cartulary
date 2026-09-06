@@ -271,11 +271,12 @@ export function decodeExtensionWorkspaceAvailability(
 }
 
 export class ExtensionAvailabilityController {
+  readonly #discoveryWaiters = new Set<() => void>();
   readonly clientInstanceId: string;
   readonly incidentId: string;
   readonly support: ClientExtensionSupportRegistry | null;
   #availability = new Set<string>();
-  #discovery: readonly ExtensionDiscoveryProfile[] = [];
+  #discovery: readonly ExtensionDiscoveryProfile[] | null = null;
   #epochId = "";
   #generation = 0n;
   #enabled = true;
@@ -315,19 +316,45 @@ export class ExtensionAvailabilityController {
     }
   }
 
-  setDiscovery(profiles: readonly ExtensionDiscoveryProfile[]): boolean {
+  setDiscovery(profiles: readonly ExtensionDiscoveryProfile[] | null): boolean {
+    if (profiles === null) {
+      if (this.#discovery === null) return false;
+      this.#discovery = null;
+      this.invalidate();
+      return true;
+    }
     const next = profiles.map((profile) => ({
       ...profile,
       route_families: [...profile.route_families],
       workspace_keys: [...profile.workspace_keys],
       capabilities: [...profile.capabilities],
     }));
-    const changed = !discoveryProfilesEqual(this.#discovery, next);
+    const hadDiscovery = this.#discovery !== null;
+    const changed =
+      this.#discovery === null ||
+      !discoveryProfilesEqual(this.#discovery, next);
     this.#discovery = next;
-    if (changed) {
-      this.invalidate();
-    }
+    // Initial discovery fills one part of the intersection; it must not retire
+    // an already pending startup observation for this same authorization.
+    if (changed && (hadDiscovery || this.#generation === 0n)) this.invalidate();
+    for (const ready of this.#discoveryWaiters) ready();
     return changed;
+  }
+
+  waitForDiscovery(signal: AbortSignal): Promise<boolean> {
+    if (signal.aborted) return Promise.resolve(false);
+    if (this.#discovery !== null) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const finish = (ready: boolean) => {
+        this.#discoveryWaiters.delete(onReady);
+        signal.removeEventListener("abort", onAbort);
+        resolve(ready);
+      };
+      const onReady = () => finish(true);
+      const onAbort = () => finish(false);
+      this.#discoveryWaiters.add(onReady);
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
   }
 
   reserve(): ExtensionAvailabilityTag | null {
@@ -402,7 +429,7 @@ export class ExtensionAvailabilityController {
     if (!this.#enabled || this.support === null) {
       return false;
     }
-    const discovery = this.#discovery.find(
+    const discovery = this.#discovery?.find(
       (profile) => profile.profile_id === identity.extensionProfileId,
     );
     const support = this.support.profiles.find(
@@ -443,7 +470,7 @@ export class ExtensionAvailabilityController {
     if (!this.#enabled || this.support === null) {
       return false;
     }
-    const discovery = this.#discovery.find(
+    const discovery = this.#discovery?.find(
       (profile) => profile.profile_id === extensionProfileId,
     );
     const support = this.support.profiles.find(

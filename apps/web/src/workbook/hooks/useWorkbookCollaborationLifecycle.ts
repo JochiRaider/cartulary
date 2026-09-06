@@ -28,6 +28,7 @@ type WorkbookCollaborationLifecycleOptions = {
     readonly role: WorkbookIncidentRole;
     readonly userId: string;
   }) => void;
+  readonly onSessionLost?: (() => void) | undefined;
   readonly onIncidentAccessLost: (() => void) | undefined;
   readonly queryInvalidation: (reason: WorkbookQueryInvalidationReason) => void;
   readonly sheetRef: SheetRef;
@@ -46,6 +47,7 @@ export function useWorkbookCollaborationLifecycle({
   mutationRuntime,
   onAuthorizationRecovered,
   onIncidentAccessLost,
+  onSessionLost,
   queryInvalidation,
   sheetRef,
   sheetReloadToken,
@@ -81,6 +83,7 @@ export function useWorkbookCollaborationLifecycle({
         mutationRuntime,
         onAuthorizationRecovered,
         onIncidentAccessLost,
+        onSessionLost,
         queryInvalidation,
         scheduler: systemWorkbookCollaborationScheduler,
       }),
@@ -94,6 +97,7 @@ export function useWorkbookCollaborationLifecycle({
       mutationRuntime,
       onAuthorizationRecovered,
       onIncidentAccessLost,
+      onSessionLost,
       queryInvalidation,
     ],
   );

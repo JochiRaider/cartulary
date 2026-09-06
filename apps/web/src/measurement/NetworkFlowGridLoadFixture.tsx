@@ -1,36 +1,36 @@
 import type { GridCellAnchor, GridCellRange } from "@cartulary/grid-adapter";
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
+import {
+  NetworkFlowButton,
+  NetworkFlowChromeStyles,
+  networkFlowChromeRootClassName,
+} from "../networkFlow/NetworkFlowControls";
+import {
+  NetworkFlowSavedGraphPanel,
+  type NetworkFlowSavedGraphPanelController,
+} from "../networkFlow/NetworkFlowSavedGraphPanel";
+import {
+  NetworkFlowAcceptedGrid,
+  NetworkFlowContributorGrid,
+  NetworkFlowRejectedGrid,
+} from "../networkFlow/NetworkFlowSemanticGrid";
+import type {
+  NetworkFlowGraphResult,
+  NetworkFlowSavedGraph,
+  NetworkFlowSavedGraphResult,
+} from "../networkFlow/networkFlowClient";
+import {
+  reconcileNetworkFlowContributors,
+  reconcileNetworkFlowDiagnostics,
+  reconcileNetworkFlowRows,
+} from "../networkFlow/networkFlowQueryModel";
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
   NetworkFlowRow,
   NetworkFlowTable,
 } from "../services/networkFlowContractAdapter";
-import {
-  NetworkFlowButton,
-  NetworkFlowChromeStyles,
-  networkFlowChromeRootClassName,
-} from "./NetworkFlowControls";
-import {
-  NetworkFlowSavedGraphPanel,
-  type NetworkFlowSavedGraphPanelController,
-} from "./NetworkFlowSavedGraphPanel";
-import {
-  NetworkFlowAcceptedGrid,
-  NetworkFlowContributorGrid,
-  NetworkFlowRejectedGrid,
-} from "./NetworkFlowSemanticGrid";
-import type {
-  NetworkFlowGraphResult,
-  NetworkFlowSavedGraph,
-  NetworkFlowSavedGraphResult,
-} from "./networkFlowClient";
-import {
-  reconcileNetworkFlowContributors,
-  reconcileNetworkFlowDiagnostics,
-  reconcileNetworkFlowRows,
-} from "./networkFlowQueryModel";
 
 type FixtureSurface = "accepted" | "contributors" | "rejected" | "saved";
 

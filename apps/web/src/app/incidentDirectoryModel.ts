@@ -380,3 +380,14 @@ export class IncidentDirectoryController {
     }
   }
 }
+
+export function incidentDirectoryStatusText(
+  state: IncidentDirectoryState,
+): string {
+  if (state.failure !== null) return state.failure.message;
+  if (directoryIsLoading(state) || state.phase === "debouncing")
+    return "Searching visible incidents…";
+  if (state.phase !== "ready") return "Loading visible incidents…";
+  if (state.incidents.length === 0) return "No visible incidents yet.";
+  return `Loaded ${state.incidents.length} incident${state.incidents.length === 1 ? "" : "s"}${state.paging?.has_more ? "; more available." : "."}`;
+}

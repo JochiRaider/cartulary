@@ -75,7 +75,8 @@ type WorkbookShellProps = {
     | undefined;
   currentUserLabel?: string | undefined;
   initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
-  extensionProfiles?: readonly ExtensionDiscoveryProfile[] | undefined;
+  extensionProfiles?: readonly ExtensionDiscoveryProfile[] | null | undefined;
+  onSessionLost?: (() => void) | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
   renderIncidentControls?:
     | ((props: WorkbookIncidentControlsRendererProps) => ReactNode)
@@ -100,6 +101,7 @@ function WorkbookShellContent({
   initialIncidentIdentity,
   extensionProfiles = noExtensionProfiles,
   onIncidentAccessLost,
+  onSessionLost,
   renderIncidentControls,
   mutationRuntimeRegistry,
 }: WorkbookShellContentProps) {
@@ -120,6 +122,7 @@ function WorkbookShellContent({
   });
   const { commands, snapshot } = infrastructure.workbookRuntime;
   const authorization = useWorkbookAuthorizationState({
+    onSessionLost,
     accountUserId: account?.user_id,
     authorizationRecovery,
     incidentId,
@@ -165,6 +168,7 @@ function WorkbookShellContent({
     viewQuery: infrastructure.viewQuery,
   });
   const collaboration = useWorkbookCollaborationLifecycle({
+    onSessionLost,
     activeSurfacePort: queries.activeSurfacePort,
     authorizationRecovery,
     cancelGridEntryFocus: commands.cancelGridEntryFocus,
@@ -217,7 +221,7 @@ function WorkbookShellContent({
     commands.selectWorkbookSurface(timelineViewSchemaId);
   }, [commands.selectWorkbookSurface]);
   useWorkbookExtensionFallback({
-    active: networkAnalysisActive,
+    active: networkAnalysisActive && !snapshot.startupPending,
     available: networkAnalysisAvailable,
     onFallback: selectTimelineFallback,
   });

@@ -135,7 +135,10 @@ describe("Workbook startup admission machine", () => {
         extensionRenderable: true,
         startup: startupSelection(),
       }),
-    ).toEqual({ kind: "fallback", reason: "availability_rejected" });
+    ).toMatchObject({
+      kind: "apply",
+      identity: { viewSchemaId: hostsViewSchemaId },
+    });
     expect(
       planAcceptedWorkbookStartup({
         availabilityAccepted: true,

@@ -658,7 +658,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "production"
     },
     {
       "name": "functional",
@@ -1300,7 +1301,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "production"
     },
     {
       "name": "support",
@@ -1435,7 +1437,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "production"
     },
     {
       "name": "stateful",
@@ -1757,7 +1760,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "production"
     },
     {
       "name": "measurement",
@@ -1927,7 +1931,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "measurement"
     },
     {
       "name": "a11y",
@@ -1996,7 +2001,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "production"
     },
     {
       "name": "visual",
@@ -2076,7 +2082,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "production"
     },
     {
       "name": "resettable",
@@ -2293,7 +2300,8 @@
           ],
           "browser_session_group": "browser-e2e-resettable-default"
         }
-      ]
+      ],
+      "frontend_artifact_id": "measurement"
     },
     {
       "name": "isolated",
@@ -2905,7 +2913,8 @@
             "postgres"
           ]
         }
-      ]
+      ],
+      "frontend_artifact_id": "measurement"
     }
   ]
 }

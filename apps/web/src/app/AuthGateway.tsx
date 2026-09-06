@@ -11,11 +11,13 @@ import {
   beginEnterpriseAuth,
   beginTotpEnrollment,
   completeTotpEnrollment,
-  type EnterpriseAuthProvider,
   listEnterpriseAuthProviders,
-  loadSession,
   loginLocal,
-} from "./api/appShellClient";
+} from "./api/authAccountClient";
+import type {
+  EnterpriseAuthProvider,
+  SessionData,
+} from "./api/publicHttpTypes";
 
 type AuthSurfaceBootstrapState =
   | "loading"
@@ -28,7 +30,8 @@ type AuthChallengeState = "mfa_required" | "mfa_setup_required";
 export type AuthGatewayProps = {
   bootstrapState: AuthSurfaceBootstrapState;
   message: string;
-  onAuthenticated: () => Promise<void> | void;
+  onAuthenticated: (session: SessionData) => Promise<void> | void;
+  onAuthenticationUncertain: () => Promise<boolean>;
   publicError?: APIError | null;
   readingProfile?: "default" | "hyperlegible" | undefined;
 };
@@ -435,9 +438,17 @@ export function AuthGateway({
   bootstrapState,
   message,
   onAuthenticated,
+  onAuthenticationUncertain,
   publicError = null,
   readingProfile = "default",
 }: AuthGatewayProps) {
+  const authenticationRequest = useRef(0);
+  useEffect(
+    () => () => {
+      ++authenticationRequest.current;
+    },
+    [],
+  );
   const [state, dispatch] = useReducer(authReducer, initialAuthState);
   const usernameRef = useRef<HTMLInputElement | null>(null);
   const passwordRef = useRef<HTMLInputElement | null>(null);
@@ -470,9 +481,7 @@ export function AuthGateway({
         dispatch({ type: "providers_loaded", providers: [] });
         return;
       }
-      const data = (
-        result.payload as { data: { providers: EnterpriseAuthProvider[] } }
-      ).data;
+      const data = result.payload.data;
       dispatch({ type: "providers_loaded", providers: data.providers });
     })();
     return () => {
@@ -524,12 +533,14 @@ export function AuthGateway({
     }
 
     dispatch({ type: "login_started" });
+    const request = ++authenticationRequest.current;
     try {
       const result = await loginLocal({
         username: state.username,
         password: state.password,
         ...(state.phase === "mfa" ? { secondFactorCode: state.totpCode } : {}),
       });
+      if (request !== authenticationRequest.current) return;
       const nextError = extractError(result.payload);
       if (!result.ok) {
         if (nextError?.code === "mfa_required") {
@@ -574,12 +585,11 @@ export function AuthGateway({
       }
 
       dispatch({ type: "login_succeeded" });
-      await onAuthenticated();
+      await onAuthenticated(result.payload.data);
     } catch {
-      const sessionResult = await loadSession();
-      if (sessionResult.ok) {
+      if (request !== authenticationRequest.current) return;
+      if (await onAuthenticationUncertain()) {
         dispatch({ type: "login_succeeded" });
-        await onAuthenticated();
         return;
       }
       dispatch({
@@ -616,7 +626,7 @@ export function AuthGateway({
       });
       return;
     }
-    const data = (result.payload as { data: { redirect_url: string } }).data;
+    const data = result.payload.data;
     enterpriseAuthNavigate(data.redirect_url);
   }
 
@@ -639,14 +649,7 @@ export function AuthGateway({
         });
         return;
       }
-      const data = (
-        result.payload as {
-          data: {
-            enrollment_id: string;
-            totp_setup: { secret_base32: string };
-          };
-        }
-      ).data;
+      const data = result.payload.data;
       dispatch({
         type: "setup_begin_succeeded",
         enrollmentId: data.enrollment_id,
