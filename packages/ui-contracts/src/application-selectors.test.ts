@@ -17,6 +17,8 @@ import {
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
   incidentControlsTriggerTestId,
+  incidentImportJobTestId,
+  incidentImportTestId,
   incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipAuditRowTestId,
@@ -341,6 +343,18 @@ describe("@cartulary/ui-contracts application selectors", () => {
       ["bootstrap-complete", "auth-bootstrap-complete"],
     ]);
 
+    expectSelectorCases(incidentImportTestId, [
+      ["form", "incident-import-form"],
+      ["file", "incident-import-file"],
+      ["admission", "incident-import-admission"],
+      ["jobs", "incident-import-jobs"],
+      ["detail", "incident-import-detail"],
+      ["progress", "incident-import-progress"],
+      ["feedback", "incident-import-feedback"],
+    ]);
+    expect(incidentImportJobTestId("job/one")).toBe(
+      "incident-import-job-job%2Fone",
+    );
     expectSelectorCases(incidentLandingTestId, [
       ["shell", "incident-landing"],
       ["current-user", "landing-current-user"],

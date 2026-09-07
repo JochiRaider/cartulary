@@ -44,6 +44,7 @@ import {
   incidentControlsMenuItemTestId,
   incidentControlsPanelTestId,
   incidentControlsTriggerTestId,
+  incidentImportTestId,
   incidentLandingTestId,
   incidentMembershipListTestId,
   landingAdminShellTestId,
@@ -161,6 +162,11 @@ import {
   responseBarrier,
 } from "./support/incidents/creation";
 import { createIncident } from "./support/incidents/fixtures";
+import {
+  expectImportControlReachable,
+  installImportObservationFixture,
+  openImportPresentation,
+} from "./support/incidents/import";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
 import {
@@ -6695,6 +6701,9 @@ async function maskVisualDynamicText(page: Page) {
       ) {
         continue;
       }
+      // Native file values cannot be assigned. Upload fixtures supply stable names.
+      if (element instanceof HTMLInputElement && element.type === "file")
+        continue;
       let value = element.value;
       // Controlled inputs repaint their fixture values; do not race React by
       // replacing timestamp values in form controls during screenshot prep.
@@ -7207,5 +7216,168 @@ test("Capture account settings drafts pending conflict recovery and responsive s
   await assertViewportVisualRegression(
     page,
     "account-settings-profile-long-name",
+  );
+});
+
+test("Capture incident import admission observation cancellation and result recovery states.", async ({
+  workerAdminPage: page,
+  workerAdmin,
+}) => {
+  const fixture = await installImportObservationFixture(
+    page,
+    workerAdmin.user_id,
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const form = await openImportPresentation(page);
+  await assertViewportVisualRegression(page, "incident-import-empty");
+  await form.getByRole("button", { name: "Start import" }).click();
+  await expect(form.getByLabel("Incident bundle file")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  await assertViewportVisualRegression(page, "incident-import-required");
+  await form.getByLabel("Incident bundle file").setInputFiles({
+    name: "Investigation.tar",
+    mimeType: "application/x-tar",
+    buffer: Buffer.from("presentation fixture"),
+  });
+  const pending = responseBarrier();
+  fixture.gateAdmission(pending.promise);
+  fixture.failAdmission(true);
+  await form.getByRole("button", { name: "Start import" }).click();
+  await expect(
+    page.getByRole("progressbar", { name: "Upload admission" }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-admission-pending",
+  );
+  pending.release();
+  const retry = page.getByRole("button", { name: "Retry admission" });
+  await expect(retry).toBeVisible();
+  await page.setViewportSize({ width: 640, height: 480 });
+  await expectImportControlReachable(page, retry);
+  await assertViewportVisualRegression(page, "incident-import-recovery-short");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectImportControlReachable(page, retry);
+  await assertViewportVisualRegression(page, "incident-import-recovery-zoom");
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await expectImportControlReachable(page, retry);
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-recovery-text-spacing",
+  );
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  fixture.failAdmission(false);
+  await retry.click();
+  const detail = page.getByTestId(incidentImportTestId("detail"));
+  await expect(
+    detail.getByRole("heading", { name: "Queued", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Pause updates" }).click();
+  const refresh = async () => {
+    await page
+      .getByRole("button", { name: /^(Refresh job status|Retry observation)$/ })
+      .click();
+    await expect(
+      page.getByRole("button", {
+        name: /^(Refresh job status|Retry observation)$/,
+      }),
+    ).toBeEnabled();
+  };
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-queued-indeterminate",
+  );
+  fixture.setJob(
+    fixture.importJob("running", { progress: { completed: 2, total: 8 } }),
+  );
+  await refresh();
+  await expect(
+    detail.getByRole("heading", { name: "Processing", exact: true }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-running-determinate",
+  );
+  fixture.failReads(true);
+  await refresh();
+  await expect(detail).toContainText("Observation unavailable");
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-observation-unavailable",
+  );
+  fixture.failReads(false);
+  await refresh();
+  await page
+    .getByRole("button", { name: "Cancel import", exact: true })
+    .click();
+  await expect(
+    detail.getByRole("heading", {
+      name: "Cancellation requested",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-cancel-requested",
+  );
+  fixture.setJob(
+    fixture.importJob("canceled", { progress: { completed: 2, total: 8 } }),
+  );
+  await refresh();
+  await expect(
+    detail.getByRole("heading", { name: "Import canceled", exact: true }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(page, "incident-import-canceled");
+  for (const status of ["failed", "succeeded"] as const) {
+    // A new application lifetime isolates terminal outcomes without regressing a job.
+    await openImportPresentation(page);
+    fixture.setJob(fixture.importJob(status));
+    await form.getByLabel("Incident bundle file").setInputFiles({
+      name: "Investigation.tar",
+      mimeType: "application/x-tar",
+      buffer: Buffer.from("presentation fixture"),
+    });
+    await form.getByRole("button", { name: "Start import" }).click();
+    await expect(
+      detail.getByRole("heading", {
+        name: status === "failed" ? "Import failed" : "Import succeeded",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Refresh job status" }),
+    ).toBeEnabled();
+    await assertViewportVisualRegression(page, `incident-import-${status}`);
+  }
+  await page.route("**/api/v1/auth/session", (route) =>
+    route.fulfill({
+      status: 503,
+      json: {
+        error: { code: "service_unavailable", status: 503, retryable: true },
+      },
+    }),
+  );
+  await page
+    .getByRole("button", { name: "Open imported incident", exact: true })
+    .click();
+  await expect(detail).toContainText(
+    "The import succeeded, but the workbook could not be opened",
+  );
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-handoff-unavailable",
   );
 });

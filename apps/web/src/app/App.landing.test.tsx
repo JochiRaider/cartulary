@@ -29,6 +29,13 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
+import {
+  importActorID,
+  importedIncidentID,
+  importJob,
+  importJobID,
+  jobEnvelope,
+} from "../testing/incidentImportTestSupport";
 
 vi.mock("../workbook/WorkbookShell", async () => {
   const React = await import("react");
@@ -136,6 +143,7 @@ vi.mock("../workbook/WorkbookShell", async () => {
 });
 
 import {
+  credentialStateResource,
   type IncidentResource,
   incidentResource,
   installLandingShellFetch,
@@ -1240,6 +1248,8 @@ describe("Incident landing", () => {
       session: sessionResource({
         display_name: "Deployment Admin",
         is_deployment_admin: true,
+        user_id: importActorID,
+        memberships: [{ incident_id: importedIncidentID, role: "admin" }],
       }),
       extensions: {
         extensions: [
@@ -1274,46 +1284,12 @@ describe("Incident landing", () => {
         {
           method: "POST",
           url: "/api/v1/incident-bundles/import",
-          handler: () =>
-            jsonResponse({
-              data: {
-                job_id: "job-import-1",
-                status: "succeeded",
-                progress: { completed: 1, total: 1 },
-                result_summary: {
-                  code: "incident_bundle_imported",
-                  resource_refs: [
-                    {
-                      kind: "incident",
-                      id: "incident-imported",
-                      route: "/api/v1/incidents/incident-imported",
-                    },
-                  ],
-                },
-              },
-            }),
+          handler: () => jsonResponse(jobEnvelope(), 202),
         },
         {
           method: "GET",
-          url: "/api/v1/jobs/job-import-1",
-          handler: () =>
-            jsonResponse({
-              data: {
-                job_id: "job-import-1",
-                status: "succeeded",
-                progress: { completed: 1, total: 1 },
-                result_summary: {
-                  code: "incident_bundle_imported",
-                  resource_refs: [
-                    {
-                      kind: "incident",
-                      id: "incident-imported",
-                      route: "/api/v1/incidents/incident-imported",
-                    },
-                  ],
-                },
-              },
-            }),
+          url: `/api/v1/jobs/${importJobID}`,
+          handler: () => jsonResponse(jobEnvelope(importJob("succeeded"))),
         },
       ],
     });
@@ -1326,7 +1302,6 @@ describe("Incident landing", () => {
     expect(document.body.textContent ?? "").not.toContain(
       "Imported incident navigation is intentionally withheld",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Import incident" }));
     fireEvent.change(screen.getByLabelText("Incident bundle file"), {
       target: {
         files: [
@@ -1340,9 +1315,118 @@ describe("Incident landing", () => {
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
     expect(screen.getByTestId("mock-workbook-incident").textContent).toBe(
-      "incident-imported",
+      importedIncidentID,
     );
-    expect(window.location.search).toBe("?incident_id=incident-imported");
+    expect(window.location.search).toBe(`?incident_id=${importedIncidentID}`);
+  });
+
+  it("retains import recovery across panels and clears it before demoted session publication", async () => {
+    window.history.replaceState({}, "", "/deployment-administration");
+    let currentSession = sessionResource({
+      user_id: importActorID,
+      is_deployment_admin: true,
+    });
+    const pending = deferred<Response>();
+    let admissions = 0;
+    installLandingShellFetch(fetchMock, {
+      session: () => currentSession,
+      credentialState: credentialStateResource({ user_id: importActorID }),
+      extensions: {
+        extensions: [
+          {
+            profile_id: "incident_portability",
+            claimable: true,
+            claimed: true,
+            contract_major: 1,
+            route_families: ["/api/v1/incident-bundles"],
+            workspace_keys: [],
+            capabilities: [],
+          },
+        ],
+      },
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/users?limit=100",
+          handler: () =>
+            jsonResponse({
+              data: { users: [] },
+              meta: {
+                request_id: "request-users",
+                paging: { limit: 100, has_more: false, next_cursor: null },
+              },
+            }),
+        },
+        {
+          method: "POST",
+          url: "/api/v1/incident-bundles/import",
+          handler: () =>
+            ++admissions === 1
+              ? Promise.reject(new TypeError("controlled admission loss"))
+              : Promise.resolve(jsonResponse(jobEnvelope(), 202)),
+        },
+        {
+          method: "GET",
+          url: `/api/v1/jobs/${importJobID}`,
+          handler: () => pending.promise,
+        },
+      ],
+    });
+    renderApp();
+    fireEvent.click(
+      await screen.findByTestId(landingAdminMenuItemTestId("incident-import")),
+    );
+    fireEvent.change(screen.getByLabelText("Incident bundle file"), {
+      target: {
+        files: [
+          new File(["protected archive"], "protected-archive.zip", {
+            type: "application/zip",
+          }),
+        ],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start import" }));
+    await screen.findByRole("button", { name: "Retry admission" });
+    fireEvent.click(
+      screen.getByTestId(landingAdminMenuItemTestId("deployment-users")),
+    );
+    fireEvent.click(
+      screen.getByTestId(landingAdminMenuItemTestId("incident-import")),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry admission" }));
+    await waitFor(() =>
+      expect(
+        findFetchCallsByPath(fetchMock, `/api/v1/jobs/${importJobID}`, "GET"),
+      ).toHaveLength(1),
+    );
+    expect(admissions).toBe(2);
+    currentSession = sessionResource({
+      user_id: importActorID,
+      is_deployment_admin: false,
+    });
+    fireEvent.click(
+      screen.getByLabelText("Account and application navigation"),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
+    fireEvent.click(await screen.findByTestId(accountTestId("refresh-state")));
+    await waitFor(() => expect(window.location.pathname).toBe("/"));
+    const read = findFetchCallsByPath(
+      fetchMock,
+      `/api/v1/jobs/${importJobID}`,
+      "GET",
+    )[0];
+    expect(read?.[1]?.signal?.aborted).toBe(true);
+    await act(async () => {
+      pending.resolve(jsonResponse(jobEnvelope(importJob("succeeded"))));
+    });
+    expect(
+      screen.queryByRole("button", { name: "Open imported incident" }),
+    ).toBeNull();
+    expect(document.body.textContent).not.toContain("protected-archive.zip");
+    expect(
+      screen.queryByTestId(landingAdminMenuItemTestId("incident-import")),
+    ).toBeNull();
   });
 
   it("loads administrative audit directly from the deployment administration panel", async () => {

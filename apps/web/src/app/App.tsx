@@ -47,6 +47,7 @@ import {
   type IncidentDirectoryController,
   incidentDirectoryStatusText,
 } from "./incidentDirectoryModel";
+import type { IncidentImportController } from "./incidentImportModel";
 import {
   IncidentDirectoryShell,
   LandingAdminShell,
@@ -65,6 +66,7 @@ import { useAppRouteRuntime } from "./useAppRouteRuntime";
 import { useAppSession } from "./useAppSession";
 import { useIncidentCreation } from "./useIncidentCreation";
 import { useIncidentDirectory } from "./useIncidentDirectory";
+import { useIncidentImport } from "./useIncidentImport";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
@@ -117,6 +119,7 @@ export function App({
   const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
   const accountEditingRef = useRef<AccountSettingsController | null>(null);
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
+  const importControllerRef = useRef<IncidentImportController | null>(null);
   const directoryControllerRef = useRef<IncidentDirectoryController | null>(
     null,
   );
@@ -126,6 +129,7 @@ export function App({
     requestLeave: () =>
       deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true),
     beforeCommit: (next) => {
+      importControllerRef.current?.setActive(false);
       creationControllerRef.current?.leaveSurface();
       if (next.incidentId !== "" || next.deploymentAdministration)
         directoryControllerRef.current?.setActive(false);
@@ -146,12 +150,16 @@ export function App({
           authenticationRef.current?.retire();
           securityRef.current?.retire();
           deploymentUsersRef.current?.retire();
+          importControllerRef.current?.retire();
           workbookMutationRuntimeRegistry.sessionUnavailable();
           creationControllerRef.current?.setSession(lifetime);
           directoryControllerRef.current?.setSession(lifetime);
         },
         replaceAccount: () => workbookMutationRuntimeRegistry.replaceAccount(),
-        capabilitiesReduced: () => deploymentUsersRef.current?.retire(),
+        capabilitiesReduced: () => {
+          deploymentUsersRef.current?.retire();
+          importControllerRef.current?.retire();
+        },
       }),
   );
   sessionControllerRef.current = sessionController;
@@ -284,13 +292,16 @@ export function App({
   const changeDeploymentPanel = (next: DeploymentAdministrationPanelToken) => {
     if (next === activeDeploymentPanel) return;
     if (!deploymentUsers.hasDirtyDraft()) {
+      importControllerRef.current?.setActive(false);
       setActiveDeploymentPanel(next);
       return;
     }
     const lifetime = sessionController.getSnapshot().lifetime;
     void deploymentUsers.requestLeave().then((accepted) => {
-      if (accepted && lifetime === sessionController.getSnapshot().lifetime)
+      if (accepted && lifetime === sessionController.getSnapshot().lifetime) {
+        importControllerRef.current?.setActive(false);
         setActiveDeploymentPanel(next);
+      }
     });
   };
 
@@ -308,6 +319,7 @@ export function App({
     authentication.dispose();
     security.dispose();
     deploymentUsers.dispose();
+    importControllerRef.current?.dispose();
   });
   useEffect(() => {
     accountEditing.start();
@@ -583,6 +595,45 @@ export function App({
     },
   });
   creationControllerRef.current = creation.controller;
+  const importAllowed =
+    session?.is_deployment_admin === true &&
+    extensionClaimed(extensionProfiles, "incident_portability");
+  const incidentImport = useIncidentImport({
+    observedSession: session,
+    authority:
+      importAllowed && sessionSnapshot.lifetime && session
+        ? { lifetime: sessionSnapshot.lifetime, actorId: session.user_id }
+        : null,
+    active:
+      importAllowed &&
+      route.deploymentAdministration &&
+      activeDeploymentPanel === "incident-import",
+    isCurrent: (authority) => {
+      const current = sessionController.getSnapshot();
+      return (
+        current.lifetime === authority.lifetime &&
+        current.session?.user_id === authority.actorId &&
+        current.session.is_deployment_admin &&
+        current.extensions.kind === "ready" &&
+        extensionClaimed(current.extensions.value, "incident_portability")
+      );
+    },
+    authorizationFailed: (status) => {
+      if (status === 401) handleSessionLost();
+      else void sessionController.refreshSession();
+    },
+    openIncident: async (incidentId, signal, canNavigate) => {
+      const result = await sessionController
+        .recoveryPort(() => canNavigate())
+        .recover({ incidentId, signal });
+      if (!canNavigate() || result.kind === "cancelled") return "cancelled";
+      if (result.kind === "access_lost") return "access_lost";
+      if (result.kind !== "authorized") return "unavailable";
+      openIncident(incidentId);
+      return "opened";
+    },
+  });
+  importControllerRef.current = incidentImport.controller;
   const handleIncidentAccessLost = useCallback(() => {
     if (readAppRouteState().incidentId !== route.incidentId) return;
     directoryControllerRef.current?.setActive(false);
@@ -908,7 +959,7 @@ export function App({
               hidden={activeDeploymentPanel !== "incident-import"}
               style={landingAdminPanelRegionStyle}
             >
-              <IncidentImportPanel onOpenImportedIncident={openIncident} />
+              <IncidentImportPanel binding={incidentImport} />
             </section>
           ) : null}
         </LandingAdminShell>

@@ -15,6 +15,8 @@ export {
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
   incidentControlsTriggerTestId,
+  incidentImportJobTestId,
+  incidentImportTestId,
   incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipAuditRowTestId,

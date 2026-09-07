@@ -1411,6 +1411,123 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.incident_import_application_lifetime",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.landing.test.tsx",
+        "titles": [
+          "Incident landing retains import recovery across panels and clears it before demoted session publication"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_import_client",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/incidentImportClient.test.ts",
+        "titles": [
+          "incident import client ignores additive result kinds without allowing ambiguous or premature navigation",
+          "incident import client preserves exact multipart bytes metadata and csrf on admission and replay",
+          "incident import client rejects inconsistent jobs and preserves opaque cancellation idempotency",
+          "incident import client requires complete queued or running 202 admission and validates terminal reads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_import_lifecycle",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentImportModel.test.ts",
+        "titles": [
+          "incident import lifecycle captures one immutable admission and replays exactly after loss without file replacement",
+          "incident import lifecycle guards delayed handoff and authorization failures without stale protected publication",
+          "incident import lifecycle handles rejected cancellation and a completion race through authoritative reads",
+          "incident import lifecycle keeps terminal state across malformed or regressive reads and marks missing jobs unavailable",
+          "incident import lifecycle keeps timeout and malformed admission uncertain while definitive rejection unlocks input",
+          "incident import lifecycle observes cancellation uncertainty and reuses its exact id only while cancellation remains allowed",
+          "incident import lifecycle observes multiple jobs fairly without overlapping reads or replacing selection",
+          "incident import lifecycle pauses reads across hidden panels and rejects late continuations after retirement",
+          "incident import lifecycle recovers a failed or timed out read and retains the last validated status",
+          "incident import lifecycle renders no inferred navigation for every nonsuccess status and expires retained terminal jobs",
+          "incident import lifecycle requires explicit opening and retries only the handoff after workbook failure",
+          "incident import lifecycle retains in-flight admission across navigation but excludes lost capability and new sessions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_import_workflow",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/IncidentImportPanel.test.tsx",
+        "titles": [
+          "incident import workflow admits one synchronous submission and locks unresolved file replacement",
+          "incident import workflow exposes retry after observation failure",
+          "incident import workflow keeps a late read from replacing the selected newer job",
+          "incident import workflow locks file replacement while admission is unresolved",
+          "incident import workflow never opens a result from a nonterminal or wrong-code job",
+          "incident import workflow offers exact admission recovery after malformed success",
+          "incident import workflow offers recovery after a lost admission response",
+          "restores import access only after a new confirmed session observation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.incidentadminpanel_keeps_incident_summary_visibl_d7a6f59072",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

@@ -717,7 +717,8 @@ function operationBindings(openAPI, selection, definitions) {
         throw new Error(`duplicate selected operation ${operation.operationId}`);
       }
       const pascalID = pascalCase(operation.operationId);
-      const requestSchema = operation.requestBody?.content?.["application/json"]?.schema;
+      const requestSchema = operation.requestBody?.content?.["application/json"]?.schema ??
+        operation.requestBody?.content?.["multipart/form-data"]?.schema;
       let requestType;
       if (requestSchema) {
         requestType = localComponentName(requestSchema.$ref, "schemas");

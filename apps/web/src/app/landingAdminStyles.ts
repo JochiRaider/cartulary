@@ -438,49 +438,6 @@ export const detailsSummaryStyle: CSSProperties = {
   fontWeight: 700,
 };
 
-export const dialogBackdropStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 40,
-  display: "grid",
-  placeItems: "center",
-  padding: "var(--ct-spacing-lg)",
-  background: "rgba(10, 13, 18, 0.68)",
-};
-
-export const createDialogStyle: CSSProperties = {
-  width: "min(48rem, 100%)",
-  maxHeight: "calc(100vh - 3rem)",
-  overflow: "auto",
-  display: "grid",
-  gap: "var(--ct-spacing-md)",
-  padding: "var(--ct-spacing-lg)",
-  border: "var(--ct-border-strong)",
-  borderRadius: "var(--ct-rounded-md)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-panel)",
-};
-
-export const dialogHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: "var(--ct-spacing-md)",
-};
-
-export const iconButtonStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "2rem",
-  height: "2rem",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink)",
-  cursor: "pointer",
-};
-
 export const buttonRowEndStyle: CSSProperties = {
   display: "flex",
   justifyContent: "flex-end",

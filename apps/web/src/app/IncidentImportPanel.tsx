@@ -1,22 +1,21 @@
-import { X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-
 import {
-  type APIError,
-  clientTxnID,
-  extractError,
-  fetchJSON,
-  publicErrorView,
-} from "../services/browserApi";
-import { requestMultipartJSON } from "../services/httpTransport";
+  incidentImportJobTestId,
+  incidentImportTestId,
+} from "@cartulary/ui-contracts";
+import { useId } from "react";
 import {
-  buttonRowEndStyle,
-  createDialogStyle,
-  dialogBackdropStyle,
-  dialogHeaderStyle,
+  importedIncidentTarget,
+  terminalImportJob,
+} from "./api/incidentImportClient";
+import {
+  admissionUnresolved,
+  cancelableImport,
+  importStatusLabel,
+  openableImport,
+} from "./incidentImportModel";
+import {
   errorTextStyle,
   formGridStyle,
-  iconButtonStyle,
   inputStyle,
   jobPanelStyle,
   labelBlockStyle,
@@ -28,237 +27,394 @@ import {
   statusTextStyle,
   strongTextStyle,
   subsectionTitleStyle,
-  surfaceHeaderStyle,
   surfacePanelStyle,
+  visuallyHiddenStyle,
 } from "./landingAdminStyles";
+import type { IncidentImportPresentation } from "./useIncidentImport";
 
-type JobResource = {
-  job_id?: string;
-  status?: string;
-  cancelable?: boolean;
-  progress?: {
-    completed?: number;
-    total?: number | null;
-  };
-  result_summary?: { code?: string; resource_refs?: unknown[] } | null;
-  error_summary?: { code?: string } | null;
-};
-
-type JobResourceRef = {
-  kind?: unknown;
-  id?: unknown;
-};
-
-const terminalJobStates = new Set(["succeeded", "failed", "canceled"]);
-
-function importedIncidentIDFromJob(job: JobResource | null): string | null {
-  const refs = job?.result_summary?.resource_refs;
-  if (!Array.isArray(refs)) {
-    return null;
-  }
-  const incidentRefs = refs.filter((ref): ref is JobResourceRef => {
-    if (typeof ref !== "object" || ref === null || Array.isArray(ref)) {
-      return false;
-    }
-    const candidate = ref as JobResourceRef;
-    return candidate.kind === "incident" && typeof candidate.id === "string";
-  });
-  if (incidentRefs.length !== 1) {
-    return null;
-  }
-  const incidentID = incidentRefs[0]?.id;
-  return typeof incidentID === "string" && incidentID.trim() !== ""
-    ? incidentID
-    : null;
-}
+const actionsStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-sm)",
+  alignItems: "center",
+} as const;
+const localStyles = `
+[data-incident-import] :is(button,input):focus-visible { outline: var(--ct-border-focus); outline-offset: var(--ct-component-focus-ring-offset); }
+[data-incident-import] button:is(:disabled,[aria-disabled="true"]) { cursor: not-allowed !important; color: var(--ct-colors-ink-subtle) !important; background: var(--ct-colors-surface-3) !important; }
+[data-incident-import] button { white-space: normal; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
+[data-incident-import] input { box-sizing: border-box; min-width: 0; max-width: 100%; }
+[data-incident-import], [data-incident-import] :is(section,form) { min-width: 0; grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; }
+[data-incident-import] progress { appearance: none; box-sizing: border-box; height: var(--ct-spacing-sm); border: var(--ct-border-hairline); border-radius: var(--ct-rounded-pill); background: var(--ct-colors-surface-3); }
+[data-incident-import] progress:indeterminate { background: repeating-linear-gradient(135deg, var(--ct-colors-accent) 0, var(--ct-colors-accent) var(--ct-spacing-xs), var(--ct-colors-surface-3) var(--ct-spacing-xs), var(--ct-colors-surface-3) var(--ct-spacing-sm)); }
+[data-incident-import] progress::-webkit-progress-bar { background: inherit; border-radius: inherit; }
+[data-incident-import] progress::-webkit-progress-value { background: var(--ct-colors-accent); border-radius: inherit; }
+[data-incident-import] progress::-moz-progress-bar { background: var(--ct-colors-accent); border-radius: inherit; }
+`;
 
 export function IncidentImportPanel({
-  onOpenImportedIncident,
+  binding,
 }: {
-  onOpenImportedIncident: (incidentId: string) => void;
+  binding: IncidentImportPresentation;
 }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [job, setJob] = useState<JobResource | null>(null);
-  const [status, setStatus] = useState("Incident import idle.");
-  const [error, setError] = useState<APIError | null>(null);
-  const pollTimer = useRef<number | null>(null);
-  const importedIncidentID = importedIncidentIDFromJob(job);
-
-  const loadJob = useCallback(async (jobID: string) => {
-    const result = await fetchJSON<{ data: JobResource }>(
-      `/api/v1/jobs/${jobID}`,
-    );
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      return;
-    }
-    const nextJob = (result.payload as { data: JobResource }).data;
-    setJob(nextJob);
-    setStatus(`Incident import job ${nextJob.status ?? "updated"}.`);
-  }, []);
-
-  useEffect(() => {
-    if (
-      job?.job_id === undefined ||
-      job.status === undefined ||
-      terminalJobStates.has(job.status)
-    ) {
-      return;
-    }
-    pollTimer.current = window.setTimeout(() => {
-      void loadJob(job.job_id ?? "");
-    }, 1000);
-    return () => {
-      if (pollTimer.current !== null) {
-        window.clearTimeout(pollTimer.current);
-        pollTimer.current = null;
-      }
-    };
-  }, [job, loadJob]);
-
-  async function submitImport() {
-    if (file === null) {
-      setStatus("Select an incident bundle first.");
-      return;
-    }
-    const form = new FormData();
-    form.append(
-      "metadata",
-      new Blob(
-        [
-          JSON.stringify({
-            client_txn_id: clientTxnID("incident-import"),
-          }),
-        ],
-        { type: "application/json" },
-      ),
-    );
-    form.append("file", file);
-    setStatus("Submitting incident import.");
-    const response = await requestMultipartJSON<{
-      data?: JobResource;
-      error?: APIError;
-    }>("/api/v1/incident-bundles/import", form);
-    const payload = response.payload;
-    if (!response.ok) {
-      setError(extractError(payload));
-      setStatus("Incident import failed to start.");
-      return;
-    }
-    const nextJob = "data" in payload ? (payload.data ?? null) : null;
-    setError(null);
-    setJob(nextJob);
-    setStatus(
-      `Incident import queued${nextJob?.job_id ? `: ${nextJob.job_id}` : "."}`,
-    );
-    setImportDialogOpen(false);
-    setFile(null);
-    if (nextJob?.job_id) {
-      void loadJob(nextJob.job_id);
-    }
-  }
-
+  const {
+    controller,
+    state,
+    fileInputRef,
+    jobHeadingRef,
+    retryAdmission,
+    retryAdmissionRef,
+    cancel,
+  } = binding;
+  const id = useId();
+  const entry = state.selectedJobId
+    ? state.jobs[state.selectedJobId]
+    : undefined;
+  const job = entry?.job;
+  const unresolved = admissionUnresolved(state);
+  const uploadLocked = unresolved || state.access !== "ready";
+  const admission = state.admission;
+  const opening = state.navigation.kind === "opening";
+  const target = entry ? openableImport(entry) : null;
+  const handoffFailed =
+    state.navigation.kind === "unavailable" ||
+    state.navigation.kind === "access_lost";
   return (
-    <section style={surfacePanelStyle}>
-      <div style={surfaceHeaderStyle}>
-        <div>
-          <p style={sectionEyebrowStyle}>Incident portability</p>
-          <h2 style={sectionTitleStyle}>Incident import</h2>
-        </div>
-        <button
-          style={primaryButtonStyle}
-          type="button"
-          onClick={() => setImportDialogOpen(true)}
-        >
-          Import incident
-        </button>
-      </div>
-      <div style={jobPanelStyle}>
-        <p style={strongTextStyle}>Import progress</p>
-        <p style={metadataTextStyle}>
-          {job === null
-            ? "No import job is active."
-            : `${job.status ?? "queued"} · ${job.progress?.completed ?? 0}/${job.progress?.total ?? "?"}`}
+    <section data-incident-import="" style={surfacePanelStyle}>
+      <style>{localStyles}</style>
+      <header>
+        <p style={sectionEyebrowStyle}>Incident portability</p>
+        <h2 style={sectionTitleStyle}>Incident import</h2>
+      </header>
+      <form
+        aria-label="Import incident bundle"
+        data-testid={incidentImportTestId("form")}
+        style={formGridStyle}
+        onSubmit={(event) => {
+          event.preventDefault();
+          controller.submit();
+        }}
+      >
+        <label htmlFor={`${id}-file`} style={labelBlockStyle}>
+          Incident bundle file
+        </label>
+        <input
+          id={`${id}-file`}
+          ref={fileInputRef}
+          data-testid={incidentImportTestId("file")}
+          type="file"
+          accept=".zip,.tar,.gz,.tgz,application/zip,application/x-tar,application/gzip,application/x-gzip,application/octet-stream"
+          style={inputStyle}
+          disabled={uploadLocked}
+          aria-invalid={state.fieldError !== null}
+          aria-describedby={`${id}-file-help${state.fieldError ? ` ${id}-file-error` : ""}`}
+          onChange={(event) =>
+            controller.selectFile(event.currentTarget.files?.[0] ?? null)
+          }
+        />
+        <p id={`${id}-file-help`} style={metadataTextStyle}>
+          {state.selectedFile ? `Selected: ${state.selectedFile.name}. ` : ""}
+          Upload a whole-incident bundle. The server validates its contents.
         </p>
-        {importedIncidentID !== null ? (
+        {state.fieldError ? (
+          <p id={`${id}-file-error`} style={errorTextStyle}>
+            Select an incident bundle file.
+          </p>
+        ) : null}
+        <div style={actionsStyle}>
           <button
             style={primaryButtonStyle}
-            type="button"
-            onClick={() => {
-              onOpenImportedIncident(importedIncidentID);
-            }}
+            type="submit"
+            disabled={uploadLocked}
+            aria-busy={admission.kind === "pending"}
           >
-            Open imported incident
+            Start import
           </button>
+          {state.selectedFile && !unresolved ? (
+            <button
+              style={secondaryButtonStyle}
+              type="button"
+              onClick={() => controller.selectFile(null)}
+            >
+              Clear selection
+            </button>
+          ) : null}
+        </div>
+      </form>
+      {state.access === "checking" ? (
+        <p style={statusTextStyle}>
+          Import access is being checked. Upload is unavailable until the
+          session is confirmed.
+        </p>
+      ) : null}
+      <div
+        data-testid={incidentImportTestId("admission")}
+        style={formGridStyle}
+      >
+        {admission.kind === "pending" ? (
+          <>
+            <p style={statusTextStyle}>
+              Uploading bundle and awaiting admission…
+            </p>
+            <progress aria-label="Upload admission" style={{ width: "100%" }} />
+          </>
+        ) : null}
+        {admission.kind === "uncertain" ? (
+          <>
+            <p style={errorTextStyle}>
+              Admission is unconfirmed. The server may have accepted this
+              import.
+            </p>
+            <p style={metadataTextStyle}>
+              Retry sends the same file and request. Keep this tab open to
+              retain recovery.
+            </p>
+            <div style={actionsStyle}>
+              <button
+                type="button"
+                style={primaryButtonStyle}
+                onClick={retryAdmission}
+                ref={retryAdmissionRef}
+              >
+                Retry admission
+              </button>
+            </div>
+          </>
+        ) : null}
+        {admission.kind === "rejected" ? (
+          <p style={errorTextStyle}>
+            {admission.problem === "conflict"
+              ? "This request conflicts with a previous admission. No new import was confirmed."
+              : "Import admission was rejected. Review the selected bundle before submitting again."}
+          </p>
+        ) : null}
+        {admission.kind === "accepted" ? (
+          <p style={statusTextStyle}>Import accepted. Observe its job below.</p>
         ) : null}
       </div>
-      {importDialogOpen ? (
-        <div style={dialogBackdropStyle}>
-          <section
-            aria-label="Import incident bundle"
-            aria-modal="true"
-            role="dialog"
-            style={createDialogStyle}
-          >
-            <header style={dialogHeaderStyle}>
-              <div>
-                <p style={sectionEyebrowStyle}>Staged import</p>
-                <h3 style={subsectionTitleStyle}>Select incident bundle</h3>
-              </div>
+      <section aria-labelledby={`${id}-jobs`} style={formGridStyle}>
+        <h3 id={`${id}-jobs`} style={subsectionTitleStyle}>
+          Imports in this session
+        </h3>
+        <p style={metadataTextStyle}>
+          Only imports started here are listed. This list and upload recovery
+          stay in this tab until reload, sign-out or access loss. Server jobs
+          may continue when you leave.
+        </p>
+        {state.order.length === 0 ? (
+          <p style={statusTextStyle}>No imports are known in this session.</p>
+        ) : (
+          <>
+            <div style={actionsStyle}>
               <button
-                aria-label="Close incident import"
-                style={iconButtonStyle}
                 type="button"
-                onClick={() => setImportDialogOpen(false)}
-              >
-                <X aria-hidden="true" size={16} />
-              </button>
-            </header>
-            <div style={formGridStyle}>
-              <label style={labelBlockStyle}>
-                Bundle file
-                <input
-                  aria-label="Incident bundle file"
-                  style={inputStyle}
-                  type="file"
-                  onChange={(event) => {
-                    setFile(event.currentTarget.files?.[0] ?? null);
-                  }}
-                />
-              </label>
-            </div>
-            <div style={buttonRowEndStyle}>
-              <button
                 style={secondaryButtonStyle}
-                type="button"
-                onClick={() => setImportDialogOpen(false)}
+                onClick={state.paused ? controller.resume : controller.pause}
               >
-                Cancel
+                {state.paused ? "Resume updates" : "Pause updates"}
               </button>
-              <button
-                style={primaryButtonStyle}
-                type="button"
-                onClick={() => {
-                  void submitImport();
-                }}
-              >
-                Start import
-              </button>
+              {state.paused ? <span>Automatic updates paused.</span> : null}
             </div>
-          </section>
-        </div>
+            <ul
+              aria-label="Imports in this session"
+              data-testid={incidentImportTestId("jobs")}
+              style={{
+                ...formGridStyle,
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+              }}
+            >
+              {[...state.order].reverse().map((jobId) => {
+                const item = state.jobs[jobId];
+                if (!item) return null;
+                return (
+                  <li key={jobId}>
+                    <button
+                      type="button"
+                      data-testid={incidentImportJobTestId(jobId)}
+                      aria-current={
+                        jobId === state.selectedJobId ? "true" : undefined
+                      }
+                      onClick={() => controller.selectJob(jobId)}
+                      style={{
+                        ...secondaryButtonStyle,
+                        width: "100%",
+                        justifyContent: "flex-start",
+                        textAlign: "left",
+                      }}
+                    >
+                      {item.filename} — {importStatusLabel[item.job.status]}
+                      {item.observation.kind === "failed" ||
+                      item.observation.kind === "stale"
+                        ? " (last observed)"
+                        : item.observation.kind === "unavailable"
+                          ? " (job unavailable)"
+                          : ""}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </section>
+      {entry && job ? (
+        <section
+          aria-labelledby={`${id}-detail`}
+          data-testid={incidentImportTestId("detail")}
+          style={{ ...jobPanelStyle, ...formGridStyle }}
+        >
+          <h3
+            id={`${id}-detail`}
+            ref={jobHeadingRef}
+            tabIndex={-1}
+            style={subsectionTitleStyle}
+          >
+            {importStatusLabel[job.status]}
+          </h3>
+          <p style={strongTextStyle}>{entry.filename}</p>
+          {!terminalImportJob(job) ? (
+            <>
+              <progress
+                data-testid={incidentImportTestId("progress")}
+                aria-label="Import processing"
+                aria-valuetext={
+                  job.progress.total === null
+                    ? `${job.progress.completed} completed; total unknown`
+                    : `${job.progress.completed} of ${job.progress.total} completed`
+                }
+                value={
+                  job.progress.total === null
+                    ? undefined
+                    : job.progress.completed
+                }
+                max={job.progress.total ?? undefined}
+                style={{
+                  width: "100%",
+                  accentColor: "var(--ct-colors-accent)",
+                }}
+              />
+              <p style={metadataTextStyle}>
+                {job.progress.total === null
+                  ? `${job.progress.completed} completed; total unknown.`
+                  : `${job.progress.completed} of ${job.progress.total} completed.`}
+              </p>
+            </>
+          ) : null}
+          {entry.observation.kind === "reading" ? (
+            <p style={metadataTextStyle}>Refreshing job status…</p>
+          ) : null}
+          {entry.observation.kind === "stale" ? (
+            <p style={metadataTextStyle}>
+              Showing the last validated status. Refresh to check current
+              actions.
+            </p>
+          ) : null}
+          {entry.observation.kind === "failed" ? (
+            <p style={errorTextStyle}>
+              Observation unavailable. The last validated status may be stale.
+            </p>
+          ) : null}
+          {entry.observation.kind === "unavailable" ? (
+            <p style={errorTextStyle}>
+              This job is no longer available. It may have expired or become
+              inaccessible. This does not undo a committed import.
+            </p>
+          ) : null}
+          {entry.cancellation.kind === "pending" ? (
+            <p style={statusTextStyle}>Requesting cancellation…</p>
+          ) : null}
+          {entry.cancellation.kind === "uncertain" ? (
+            <p style={errorTextStyle}>
+              Cancellation is unconfirmed. Check the job status; retry
+              cancellation only if it remains available.
+            </p>
+          ) : null}
+          {entry.cancellation.kind === "rejected" ? (
+            <p style={errorTextStyle}>
+              Cancellation was rejected. The job’s authoritative status
+              determines its outcome.
+            </p>
+          ) : null}
+          {job.status === "cancel_requested" ? (
+            <p style={statusTextStyle}>
+              Cancellation has been requested. Waiting for the server’s final
+              outcome.
+            </p>
+          ) : null}
+          {job.status === "failed" ? (
+            <p style={errorTextStyle}>
+              The server could not import this bundle. Review the bundle before
+              starting a new import.
+            </p>
+          ) : null}
+          {job.status === "canceled" ? (
+            <p style={statusTextStyle}>The server confirmed cancellation.</p>
+          ) : null}
+          {job.status === "succeeded" &&
+          importedIncidentTarget(job) === null ? (
+            <p style={errorTextStyle}>
+              The job succeeded, but its imported incident reference is
+              incomplete or unsupported. Refresh the result to check again.
+            </p>
+          ) : null}
+          {handoffFailed ? (
+            <p style={errorTextStyle}>
+              The import succeeded, but the workbook could not be opened. Retry
+              opening the imported incident.
+            </p>
+          ) : null}
+          {opening ? (
+            <p style={statusTextStyle}>Opening imported incident…</p>
+          ) : null}
+          <div style={actionsStyle}>
+            {target ? (
+              <button
+                type="button"
+                style={primaryButtonStyle}
+                aria-disabled={opening}
+                aria-busy={opening}
+                onClick={controller.open}
+              >
+                Open imported incident
+              </button>
+            ) : null}
+            <button
+              type="button"
+              style={secondaryButtonStyle}
+              disabled={entry.observation.kind === "reading" || opening}
+              onClick={() => controller.refresh()}
+            >
+              {entry.observation.kind === "failed"
+                ? "Retry observation"
+                : "Refresh job status"}
+            </button>
+            {(job.status === "queued" || job.status === "running") &&
+            job.cancelable ? (
+              <button
+                type="button"
+                style={secondaryButtonStyle}
+                aria-disabled={!cancelableImport(entry)}
+                aria-busy={entry.cancellation.kind === "pending"}
+                onClick={cancel}
+              >
+                {entry.cancellation.kind === "uncertain"
+                  ? "Retry cancellation"
+                  : "Cancel import"}
+              </button>
+            ) : null}
+          </div>
+        </section>
       ) : null}
-      <p aria-live="polite" role="status" style={statusTextStyle}>
-        {status}
-      </p>
-      <p
-        aria-live="assertive"
-        role={error === null ? undefined : "alert"}
-        style={errorTextStyle}
+      <div
+        data-testid={incidentImportTestId("feedback")}
+        role={state.announcement.priority === "assertive" ? "alert" : "status"}
+        aria-live={state.announcement.priority}
+        aria-atomic="true"
+        style={visuallyHiddenStyle}
       >
-        {publicErrorView(error)?.code ?? ""}
-      </p>
+        <span key={state.announcement.sequence}>{state.announcement.text}</span>
+      </div>
     </section>
   );
 }

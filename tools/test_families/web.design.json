@@ -149,6 +149,43 @@
       ]
     },
     {
+      "row_id": "web.design.accessibility.incident_import_workflow",
+      "owner_id": "web.design",
+      "family_id": "web.design.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.incidentbundles",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_c2edc8d7c5ec"
+        ],
+        "titles": [
+          "a11y.incident-import upload recovery progress and cancellation remain keyboard reachable"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666",
       "owner_id": "web.design",
       "family_id": "web.design.accessibility",
@@ -279,6 +316,82 @@
         ],
         "titles": [
           "account settings retain edits through real version conflicts and exact committed replay"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "web.design.browser.incident_import_observation_recovery",
+      "owner_id": "web.design",
+      "family_id": "web.design.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.incidentbundles",
+        "module.jobapi",
+        "platform.jobs",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-import.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_4d254f0c49a1"
+        ],
+        "titles": [
+          "recovers import observation and cancellation without confusing terminal outcomes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "web.design.browser.incident_import_real_workflow",
+      "owner_id": "web.design",
+      "family_id": "web.design.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.incidentbundles",
+        "module.jobapi",
+        "platform.jobs",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-import.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_48a95e7fc1d0"
+        ],
+        "titles": [
+          "imports real active and closed bundles with exact recovery and explicit workbook launch"
         ]
       },
       "evidence_class": "browser",
@@ -498,6 +611,44 @@
         ],
         "titles": [
           "Capture incident creation form validation pending recovery and confirmed handoff states."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "web.design.visual.incident_import_workflow",
+      "owner_id": "web.design",
+      "family_id": "web.design.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "module.incidentbundles",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_49044213afe8"
+        ],
+        "titles": [
+          "Capture incident import admission observation cancellation and result recovery states."
         ]
       },
       "evidence_class": "visual",

@@ -399,6 +399,28 @@ export function incidentLandingTestId(
   );
 }
 
+const incidentImportTestIds = Object.freeze({
+  form: "incident-import-form",
+  file: "incident-import-file",
+  admission: "incident-import-admission",
+  jobs: "incident-import-jobs",
+  detail: "incident-import-detail",
+  progress: "incident-import-progress",
+  feedback: "incident-import-feedback",
+});
+export function incidentImportTestId(
+  selector: keyof typeof incidentImportTestIds,
+): StableTestId {
+  return semanticSelectorTestId(
+    incidentImportTestIds,
+    selector,
+    "incident import selector",
+  );
+}
+export function incidentImportJobTestId(jobId: string): StableTestId {
+  return stableEncodedTestId("incident-import-job", jobId, "job_id");
+}
+
 export function incidentAdministrationTestId(
   selector: IncidentAdministrationSelector,
 ): StableTestId {

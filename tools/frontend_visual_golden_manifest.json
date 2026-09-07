@@ -279,6 +279,62 @@
       "sha256": "340bbe8b9f1ce7e8370d5c2c4eb137ecca36433f02d6499d1df586430d1d5bf8"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-admission-pending-linux.png",
+      "sha256": "77aef0e7861eee764ee3c4b8bf70cbfe5d876864b0c1342571056f7dfa8ff0da"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-cancel-requested-linux.png",
+      "sha256": "b73f25c161d248a53d22d958192b6a44738a4fca9e70ca9eba07d76efec0761b"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-canceled-linux.png",
+      "sha256": "d8c0ff2d5301ccb3aca87c4666d1e85e9a5be01b9c59cbdf4806c48bd18c7e17"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-empty-linux.png",
+      "sha256": "39935b22f399434d8043edb85983bc9ab149c2ff96a48b84bea6df2a227cf46d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-failed-linux.png",
+      "sha256": "b563180bf90611e571115724daae00516b2af48e96a2210d13665f3ee71c383b"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-handoff-unavailable-linux.png",
+      "sha256": "4bf018be4798011d0571e06006c9da885bfccebc33133304ad12df3cbd425d2e"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-observation-unavailable-linux.png",
+      "sha256": "c43e4469384633cf721e728dc3bcf8e1dda418855994d8b092e9a010a76eb4a6"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-queued-indeterminate-linux.png",
+      "sha256": "1d46c244e55eac37f33fd5cb8da984a705bde9721c1ced4b119a75c15d1f3a2d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-short-linux.png",
+      "sha256": "e8acbf7bf48a33838214e53a127f49a47c2fc1851179492005469d12c2bb2867"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-text-spacing-linux.png",
+      "sha256": "347d57b9a5a3447ef3112c79e7cd706ee6a463363c7d2e66d0d70e0b4a0c63fd"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-recovery-zoom-linux.png",
+      "sha256": "2ed0a37366a5055611223caed648ded3735745700569ad0f6f8679c531bb9d97"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-required-linux.png",
+      "sha256": "689f81288a4e7e916e4c00c9cf3466418a801b446c7544ab1bd488189ef97dd1"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-running-determinate-linux.png",
+      "sha256": "eb3e34533301c7c729d2d986088e5e7955389c4b11318e474d092f6440821381"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-succeeded-linux.png",
+      "sha256": "f501b17664396c888cd59f57fd0ed0f883a32fd2ab3f11f48566f9244d533f51"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
       "sha256": "2da397d8afe110953fd0fed35383b12846622641fb7e942dcbeca98527fcd674"
     },

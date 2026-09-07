@@ -47,6 +47,7 @@
     "getReferencePackVersion",
     "getTimelineTimeConversionProfile",
     "getViewSchema",
+    "importIncidentBundle",
     "importReferencePack",
     "issueEvidenceDownloadHandle",
     "issueEvidencePreviewHandle",

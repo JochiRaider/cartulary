@@ -1244,6 +1244,23 @@ export interface ImportSession {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportSessionUploadRequest".
+ */
+export interface ImportSessionUploadRequest {
+  file: string;
+  metadata: ImportSessionCreateMetadata;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ImportSessionCreateMetadata".
+ */
+export interface ImportSessionCreateMetadata {
+  assistant_profile?: "phase2_workbook_import_v1";
+  client_txn_id: string;
+  incident_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ImportUnitActionEnvelope".
  */
 export interface ImportUnitActionEnvelope {
@@ -1351,6 +1368,16 @@ export interface ImportUnitsEnvelope {
     import_units: ImportUnit[];
   };
   meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentBundleImportUploadRequest".
+ */
+export interface IncidentBundleImportUploadRequest {
+  file: string;
+  metadata: {
+    client_txn_id: string;
+  };
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -2173,6 +2200,22 @@ export interface ReferencePackVersionResource {
 export interface ReferencePackActionRequest {
   client_txn_id: string;
   reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackImportUploadRequest".
+ */
+export interface ReferencePackImportUploadRequest {
+  file: string;
+  metadata: ReferencePackImportMetadata;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackImportMetadata".
+ */
+export interface ReferencePackImportMetadata {
+  activation_policy?: "staged_only";
+  client_txn_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
