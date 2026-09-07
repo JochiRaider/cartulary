@@ -76,6 +76,43 @@
       ]
     },
     {
+      "row_id": "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
+      "owner_id": "web.design",
+      "family_id": "web.design.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.auth",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_admin_draft_credential_accessibility"
+        ],
+        "titles": [
+          "a11y.deployment-users guarded drafts and credential dialogs remain keyboard reachable"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
       "owner_id": "web.design",
       "family_id": "web.design.accessibility",

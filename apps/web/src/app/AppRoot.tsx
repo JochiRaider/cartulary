@@ -7,10 +7,16 @@ import { StrictMode } from "react";
 import { App, type CartularyReadingProfile } from "./App";
 
 type AppRootProps = {
+  readonly authNavigation?:
+    | import("./authenticationModel").EnterpriseAuthNavigation
+    | undefined;
   readonly readingProfile?: CartularyReadingProfile | undefined;
 };
 
-export function AppRoot({ readingProfile = "default" }: AppRootProps = {}) {
+export function AppRoot({
+  readingProfile = "default",
+  authNavigation,
+}: AppRootProps = {}) {
   return (
     <StrictMode>
       <style>{cartularyDesignThemeCssText}</style>
@@ -59,7 +65,11 @@ export function AppRoot({ readingProfile = "default" }: AppRootProps = {}) {
           }
         `}
       </style>
-      <App readingProfile={readingProfile} themeId={cartularyDefaultThemeId} />
+      <App
+        authNavigation={authNavigation}
+        readingProfile={readingProfile}
+        themeId={cartularyDefaultThemeId}
+      />
     </StrictMode>
   );
 }

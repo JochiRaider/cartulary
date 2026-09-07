@@ -632,6 +632,7 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     await assertAuthGatewayVisual(page, "auth-invalid-credentials");
 
     loginMode = "mfa_required";
+    await fillAuthVisualCredentials(page);
     await page.getByTestId(authTestId("login-submit")).click();
     await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
@@ -662,7 +663,10 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     await fillAuthVisualCredentials(page);
     await page.getByTestId(authTestId("login-submit")).click();
     await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
-      "Authentication is temporarily unavailable. Try again.",
+      "Sign-in response could not be confirmed. Try again after the request settles; reload if it does not finish.",
+    );
+    await expect(page.getByTestId(authTestId("login-password"))).toHaveValue(
+      "",
     );
     await assertAuthGatewayVisual(page, "auth-service-unavailable");
 
@@ -4984,6 +4988,7 @@ async function fulfillAuthVisualLogin(route: Route, mode: AuthVisualLoginMode) {
       code: "mfa_setup_required",
       details: {
         bootstrap_token: "visual-bootstrap-token",
+        bootstrap_expires_at: new Date(Date.now() + 300_000).toISOString(),
         required_setup_kinds: ["totp"],
       },
       message: "Authenticator setup is required.",

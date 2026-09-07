@@ -6,264 +6,53 @@ import {
   publicErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
 import { X } from "lucide-react";
+import type { CSSProperties } from "react";
+import { type APIError, publicErrorView } from "../services/browserApi";
 import {
-  type CSSProperties,
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from "react";
-
+  type AccountSecurityPanelProps,
+  useAccountSecurity,
+} from "./accountSecurityModel";
+import { DeploymentUserActionDialog } from "./DeploymentUserActionDialog";
+import { DeploymentUserLeaveDialog } from "./DeploymentUserLeaveDialog";
 import {
-  type APIError,
-  extractError,
-  publicErrorView,
-} from "../services/browserApi";
-import {
-  beginTotpEnrollment,
-  changePassword,
-  completeTotpEnrollment,
-  listEnterpriseAuthProviders,
-  loadCredentialState,
-  logoutCurrentSession,
-} from "./api/authAccountClient";
-import {
-  adminResetPassword,
-  adminResetTotp,
-  adminRevokeAllSessions,
-  createEnterpriseAuthBinding,
-  createLocalUser,
-  listUsers,
-  loadUser,
-  patchLocalUser,
-  retireEnterpriseAuthBinding,
-  rotateEnterpriseAuthBinding,
-} from "./api/deploymentUserClient";
-import type {
-  EnterpriseAuthProvider,
-  SessionData,
-  UserResource,
-} from "./api/publicHttpTypes";
+  type DeploymentUsersPanelProps,
+  isEnterpriseAuthBinding,
+  useDeploymentUsers,
+} from "./deploymentUsersModel";
 
-export type AccountSessionEvent =
-  | { readonly kind: "resource_refresh" }
-  | {
-      readonly kind:
-        | "logout_confirmed"
-        | "credentials_revoked"
-        | "session_lost";
-      readonly message: string;
-    };
-type AccountSecurityPanelProps = {
-  onSessionEvent: (event: AccountSessionEvent) => Promise<void> | void;
-};
+export type { AccountSessionEvent } from "./accountSecurityModel";
 
-type DeploymentUsersPanelProps = {
-  autoLoadUsers?: boolean | undefined;
-  enterpriseAuthClaimed?: boolean | undefined;
-  onCommandStateChange?:
-    | ((state: DeploymentUsersPanelCommandState) => void)
-    | undefined;
-  onRefreshSession: () => Promise<void> | void;
-  session: SessionData;
-};
-
-type AccountSecurityPanelHandle = {
-  refreshAccount: () => Promise<void>;
-  signOut: () => Promise<void>;
-};
-
-type DeploymentUsersPanelHandle = {
-  createUser: () => Promise<void>;
-  loadTargetUser: () => Promise<void>;
-  refreshUsers: () => Promise<void>;
-  resetPassword: () => Promise<void>;
-  resetTotp: () => Promise<void>;
-  revokeAllSessions: () => Promise<void>;
-  saveTargetUser: () => Promise<void>;
-};
-
-type DeploymentUsersPanelCommandState = {
-  canLoadTargetUser: boolean;
-  canSubmitTargetAction: boolean;
-  canSubmitVersionedTargetAction: boolean;
-  hasSelectedUser: boolean;
-  targetOperationPending: boolean;
-};
-
-type TargetAdminOperation = "loading" | "mutating";
-type CredentialDialogKind = "password" | "revoke" | "totp";
-
-type SafeAuthBindingSummary = NonNullable<
-  UserResource["auth_bindings"]
->[number];
-type EnterpriseAuthBindingSummary = Extract<
-  SafeAuthBindingSummary,
-  { provider_type: "oidc" | "saml" }
->;
-
-function isEnterpriseAuthBinding(
-  binding: SafeAuthBindingSummary,
-): binding is EnterpriseAuthBindingSummary {
-  return binding.provider_type !== "local";
-}
-
-export const AccountSecurityPanel = forwardRef<
-  AccountSecurityPanelHandle,
-  AccountSecurityPanelProps
->(function AccountSecurityPanel({ onSessionEvent }, ref) {
-  const [credentialStateError, setCredentialStateError] =
-    useState<APIError | null>(null);
-  const credentialRequest = useRef<AbortController | null>(null);
-  const refreshCredentialState = useCallback(async () => {
-    credentialRequest.current?.abort();
-    const controller = new AbortController();
-    credentialRequest.current = controller;
-    const timer = setTimeout(() => {
-      if (controller.signal.aborted) return;
-      setCredentialStateError({
-        code: "credential_state_unavailable",
-        status: 503,
-      });
-      controller.abort();
-    }, 30_000);
-    try {
-      await Promise.resolve();
-      if (controller.signal.aborted) return;
-      const result = await loadCredentialState({ signal: controller.signal });
-      if (controller.signal.aborted) return;
-      const failure = result.ok ? null : extractError(result.payload);
-      if (
-        !result.ok &&
-        result.status === 401 &&
-        failure?.code === "session_required"
-      ) {
-        await onSessionEvent({
-          kind: "session_lost",
-          message: "Your session is no longer available. Sign in again.",
-        });
-        return;
-      }
-      setCredentialStateError(failure);
-    } catch {
-      if (!controller.signal.aborted)
-        setCredentialStateError({
-          code: "credential_state_unavailable",
-          status: 503,
-        });
-    } finally {
-      clearTimeout(timer);
-    }
-  }, [onSessionEvent]);
-  useEffect(() => {
-    void refreshCredentialState();
-    return () => credentialRequest.current?.abort();
-  }, [refreshCredentialState]);
-  const [statusText, setStatusText] = useState("Account security is current.");
-  const [error, setError] = useState<APIError | null>(null);
-
-  const [passwordCurrent, setPasswordCurrent] = useState("");
-  const [passwordNext, setPasswordNext] = useState("");
-  const [passwordFactorCode, setPasswordFactorCode] = useState("");
-
-  const [totpCurrentPassword, setTotpCurrentPassword] = useState("");
-  const [totpCurrentFactorCode, setTotpCurrentFactorCode] = useState("");
-  const [totpEnrollmentId, setTotpEnrollmentId] = useState("");
-  const [totpSecretBase32, setTotpSecretBase32] = useState("");
-  const [totpCompleteCode, setTotpCompleteCode] = useState("");
-
-  async function handleLogout() {
-    setStatusText("Signing out");
-    const result = await logoutCurrentSession();
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Sign out failed");
-      return;
-    }
-    await onSessionEvent({ kind: "logout_confirmed", message: "Signed out." });
-  }
-
-  async function handleRefreshAccount() {
-    setStatusText("Refreshing account security");
-    setError(null);
-    await refreshCredentialState();
-    await onSessionEvent({ kind: "resource_refresh" });
-    setStatusText("Refreshed account security.");
-  }
-
-  async function handlePasswordChange() {
-    setStatusText("Changing password");
-    const result = await changePassword({
-      currentPassword: passwordCurrent,
-      newPassword: passwordNext,
-      secondFactorCode: passwordFactorCode,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Password change failed");
-      return;
-    }
-    await onSessionEvent({
-      kind: "credentials_revoked",
-      message: "Password changed. Sign in again.",
-    });
-  }
-
-  async function handleBeginTotpReplacement() {
-    setStatusText("Beginning TOTP enrollment");
-    const result = await beginTotpEnrollment({
-      authMode: "session",
-      currentPassword: totpCurrentPassword,
-      currentFactorCode: totpCurrentFactorCode,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("TOTP begin failed");
-      return;
-    }
-    const data = result.payload.data;
-    setTotpEnrollmentId(data.enrollment_id);
-    setTotpSecretBase32(data.totp_setup.secret_base32);
-    setStatusText("Began TOTP enrollment");
-  }
-
-  async function handleCompleteTotpReplacement() {
-    setStatusText("Completing TOTP enrollment");
-    const result = await completeTotpEnrollment({
-      authMode: "session",
-      code: totpCompleteCode,
-      enrollmentId: totpEnrollmentId,
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("TOTP complete failed");
-      return;
-    }
-    setTotpEnrollmentId("");
-    setTotpSecretBase32("");
-    setTotpCompleteCode("");
-    await onSessionEvent(
-      result.payload.data.sessions_revoked
-        ? {
-            kind: "credentials_revoked",
-            message: "TOTP enrollment completed. Sign in again.",
-          }
-        : { kind: "resource_refresh" },
-    );
-    setStatusText("TOTP enrollment completed.");
-  }
-
-  useImperativeHandle(ref, () => ({
-    refreshAccount: handleRefreshAccount,
-    signOut: handleLogout,
-  }));
-
+export function AccountSecurityPanel(props: AccountSecurityPanelProps) {
+  const {
+    credentialStateError,
+    credentialState,
+    credentialRead,
+    fieldErrors,
+    operation,
+    transportPending,
+    review,
+    statusText,
+    error,
+    passwordCurrent,
+    setPasswordCurrent,
+    passwordNext,
+    setPasswordNext,
+    passwordFactorCode,
+    setPasswordFactorCode,
+    totpCurrentPassword,
+    setTotpCurrentPassword,
+    totpCurrentFactorCode,
+    setTotpCurrentFactorCode,
+    totpEnrollmentId,
+    totpSecretBase32,
+    totpCompleteCode,
+    setTotpCompleteCode,
+    handleLogout,
+    handleRefreshAccount,
+    handlePasswordChange,
+    handleBeginTotpReplacement,
+    handleCompleteTotpReplacement,
+  } = useAccountSecurity(props);
   return (
     <section style={cardStyle}>
       <div style={cardHeaderStyle}>
@@ -295,7 +84,21 @@ export const AccountSecurityPanel = forwardRef<
         </div>
       </div>
 
-      <section style={subsectionStyle}>
+      <p role="status">
+        {credentialRead === "loading"
+          ? "Loading credential state…"
+          : credentialRead === "failed"
+            ? "Credential state unavailable; refresh to check it."
+            : `Authenticator: ${credentialState?.totp.state ?? "unavailable"}.`}
+      </p>
+      <form
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          handlePasswordChange();
+        }}
+        style={subsectionStyle}
+      >
         <p style={subsectionTitleStyle}>Password change</p>
         <div style={formGridStyle}>
           <label htmlFor="account-password-current" style={labelBlockStyle}>
@@ -304,6 +107,13 @@ export const AccountSecurityPanel = forwardRef<
           <input
             data-testid={accountTestId("password-current")}
             id="account-password-current"
+            autoComplete="current-password"
+            aria-invalid={fieldErrors.passwordCurrent ? true : undefined}
+            aria-describedby={
+              fieldErrors.passwordCurrent
+                ? "account-password-current-error"
+                : undefined
+            }
             style={inputStyle}
             type="password"
             value={passwordCurrent}
@@ -311,12 +121,28 @@ export const AccountSecurityPanel = forwardRef<
               setPasswordCurrent(event.target.value);
             }}
           />
+          {fieldErrors.passwordCurrent ? (
+            <p
+              id="account-password-current-error"
+              role="alert"
+              style={errorStyle}
+            >
+              {fieldErrors.passwordCurrent}
+            </p>
+          ) : null}
           <label htmlFor="account-password-next" style={labelBlockStyle}>
             New password
           </label>
           <input
             data-testid={accountTestId("password-next")}
             id="account-password-next"
+            autoComplete="new-password"
+            aria-invalid={fieldErrors.passwordNext ? true : undefined}
+            aria-describedby={
+              fieldErrors.passwordNext
+                ? "account-password-next-error"
+                : undefined
+            }
             style={inputStyle}
             type="password"
             value={passwordNext}
@@ -324,77 +150,147 @@ export const AccountSecurityPanel = forwardRef<
               setPasswordNext(event.target.value);
             }}
           />
+          {fieldErrors.passwordNext ? (
+            <p id="account-password-next-error" role="alert" style={errorStyle}>
+              {fieldErrors.passwordNext}
+            </p>
+          ) : null}
           <label htmlFor="account-password-factor" style={labelBlockStyle}>
             Current TOTP code
           </label>
           <input
             data-testid={accountTestId("password-factor-code")}
             id="account-password-factor"
+            autoComplete="one-time-code"
+            aria-invalid={fieldErrors.passwordFactorCode ? true : undefined}
+            aria-describedby={
+              fieldErrors.passwordFactorCode
+                ? "account-password-factor-error"
+                : undefined
+            }
             style={inputStyle}
             value={passwordFactorCode}
             onChange={(event) => {
               setPasswordFactorCode(event.target.value);
             }}
           />
+          {fieldErrors.passwordFactorCode ? (
+            <p
+              id="account-password-factor-error"
+              role="alert"
+              style={errorStyle}
+            >
+              {fieldErrors.passwordFactorCode}
+            </p>
+          ) : null}
         </div>
         <div style={buttonRowStyle}>
           <button
             data-testid={accountTestId("password-change")}
             style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handlePasswordChange();
-            }}
+            type="submit"
+            disabled={
+              transportPending ||
+              operation.kind === "pending" ||
+              operation.kind === "uncertain"
+            }
           >
             Change password
           </button>
         </div>
-      </section>
+      </form>
 
       <section style={subsectionStyle}>
         <p style={subsectionTitleStyle}>TOTP replacement</p>
-        <div style={formGridStyle}>
-          <label
-            htmlFor="account-totp-current-password"
-            style={labelBlockStyle}
-          >
-            Current password
-          </label>
-          <input
-            data-testid={accountTestId("totp-current-password")}
-            id="account-totp-current-password"
-            style={inputStyle}
-            type="password"
-            value={totpCurrentPassword}
-            onChange={(event) => {
-              setTotpCurrentPassword(event.target.value);
-            }}
-          />
-          <label htmlFor="account-totp-current-factor" style={labelBlockStyle}>
-            Current TOTP code
-          </label>
-          <input
-            data-testid={accountTestId("totp-current-factor")}
-            id="account-totp-current-factor"
-            style={inputStyle}
-            value={totpCurrentFactorCode}
-            onChange={(event) => {
-              setTotpCurrentFactorCode(event.target.value);
-            }}
-          />
-        </div>
-        <div style={buttonRowStyle}>
-          <button
-            data-testid={accountTestId("totp-begin")}
-            style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handleBeginTotpReplacement();
-            }}
-          >
-            Begin TOTP enrollment
-          </button>
-        </div>
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleBeginTotpReplacement();
+          }}
+        >
+          <div style={formGridStyle}>
+            <label
+              htmlFor="account-totp-current-password"
+              style={labelBlockStyle}
+            >
+              Current password
+            </label>
+            <input
+              data-testid={accountTestId("totp-current-password")}
+              id="account-totp-current-password"
+              autoComplete="current-password"
+              aria-invalid={fieldErrors.totpCurrentPassword ? true : undefined}
+              aria-describedby={
+                fieldErrors.totpCurrentPassword
+                  ? "account-totp-current-password-error"
+                  : undefined
+              }
+              style={inputStyle}
+              type="password"
+              value={totpCurrentPassword}
+              onChange={(event) => {
+                setTotpCurrentPassword(event.target.value);
+              }}
+            />
+            {fieldErrors.totpCurrentPassword ? (
+              <p
+                id="account-totp-current-password-error"
+                role="alert"
+                style={errorStyle}
+              >
+                {fieldErrors.totpCurrentPassword}
+              </p>
+            ) : null}
+            <label
+              htmlFor="account-totp-current-factor"
+              style={labelBlockStyle}
+            >
+              Current TOTP code
+            </label>
+            <input
+              data-testid={accountTestId("totp-current-factor")}
+              id="account-totp-current-factor"
+              autoComplete="one-time-code"
+              aria-invalid={
+                fieldErrors.totpCurrentFactorCode ? true : undefined
+              }
+              aria-describedby={
+                fieldErrors.totpCurrentFactorCode
+                  ? "account-totp-current-factor-error"
+                  : undefined
+              }
+              style={inputStyle}
+              value={totpCurrentFactorCode}
+              onChange={(event) => {
+                setTotpCurrentFactorCode(event.target.value);
+              }}
+            />
+            {fieldErrors.totpCurrentFactorCode ? (
+              <p
+                id="account-totp-current-factor-error"
+                role="alert"
+                style={errorStyle}
+              >
+                {fieldErrors.totpCurrentFactorCode}
+              </p>
+            ) : null}
+          </div>
+          <div style={buttonRowStyle}>
+            <button
+              data-testid={accountTestId("totp-begin")}
+              style={buttonStyle}
+              type="submit"
+              disabled={
+                transportPending ||
+                operation.kind === "pending" ||
+                operation.kind === "uncertain"
+              }
+            >
+              Begin TOTP enrollment
+            </button>
+          </div>
+        </form>
         <div style={detailGridStyle}>
           <div>
             <span style={labelStyle}>Enrollment id</span>
@@ -415,32 +311,59 @@ export const AccountSecurityPanel = forwardRef<
             </div>
           </div>
         </div>
-        <div style={formGridStyle}>
-          <label htmlFor="account-totp-complete-code" style={labelBlockStyle}>
-            Replacement TOTP code
-          </label>
-          <input
-            data-testid={accountTestId("totp-complete-code")}
-            id="account-totp-complete-code"
-            style={inputStyle}
-            value={totpCompleteCode}
-            onChange={(event) => {
-              setTotpCompleteCode(event.target.value);
-            }}
-          />
-        </div>
-        <div style={buttonRowStyle}>
-          <button
-            data-testid={accountTestId("totp-complete")}
-            style={buttonStyle}
-            type="button"
-            onClick={() => {
-              void handleCompleteTotpReplacement();
-            }}
-          >
-            Complete TOTP enrollment
-          </button>
-        </div>
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleCompleteTotpReplacement();
+          }}
+        >
+          <div style={formGridStyle}>
+            <label htmlFor="account-totp-complete-code" style={labelBlockStyle}>
+              Replacement TOTP code
+            </label>
+            <input
+              data-testid={accountTestId("totp-complete-code")}
+              id="account-totp-complete-code"
+              autoComplete="one-time-code"
+              aria-invalid={fieldErrors.totpCompleteCode ? true : undefined}
+              aria-describedby={
+                fieldErrors.totpCompleteCode
+                  ? "account-totp-complete-code-error"
+                  : undefined
+              }
+              style={inputStyle}
+              value={totpCompleteCode}
+              onChange={(event) => {
+                setTotpCompleteCode(event.target.value);
+              }}
+            />
+            {fieldErrors.totpCompleteCode ? (
+              <p
+                id="account-totp-complete-code-error"
+                role="alert"
+                style={errorStyle}
+              >
+                {fieldErrors.totpCompleteCode}
+              </p>
+            ) : null}
+          </div>
+          <div style={buttonRowStyle}>
+            <button
+              data-testid={accountTestId("totp-complete")}
+              style={buttonStyle}
+              type="submit"
+              disabled={
+                !totpEnrollmentId ||
+                transportPending ||
+                operation.kind === "pending" ||
+                operation.kind === "uncertain"
+              }
+            >
+              Complete TOTP enrollment
+            </button>
+          </div>
+        </form>
       </section>
 
       <p
@@ -461,755 +384,117 @@ export const AccountSecurityPanel = forwardRef<
       >
         {publicErrorView(error ?? credentialStateError)?.code ?? ""}
       </p>
+      {operation.kind === "uncertain" ? (
+        <button
+          type="button"
+          style={secondaryButtonStyle}
+          disabled={transportPending || credentialRead !== "ready"}
+          onClick={review}
+        >
+          Review a new credential action
+        </button>
+      ) : null}
+      {operation.kind === "confirmed" && operation.propagation === "failed" ? (
+        <button
+          type="button"
+          style={secondaryButtonStyle}
+          onClick={() => {
+            void handleRefreshAccount();
+          }}
+        >
+          Retry refresh
+        </button>
+      ) : null}
       <PublicErrorSummary
         error={error ?? credentialStateError}
         testIds={publicErrorSummaryTestIds("account")}
       />
     </section>
   );
-});
-
-function upsertUserResource(
-  users: UserResource[],
-  nextUser: UserResource,
-): UserResource[] {
-  const existingIndex = users.findIndex(
-    (user) => user.user_id === nextUser.user_id,
-  );
-  if (existingIndex === -1) {
-    return [...users, nextUser].sort((a, b) =>
-      a.user_id.localeCompare(b.user_id),
-    );
-  }
-  const next = [...users];
-  next[existingIndex] = nextUser;
-  return next;
 }
 
-function mergeUserResources(
-  users: UserResource[],
-  nextUsers: UserResource[],
-): UserResource[] {
-  return nextUsers.reduce(upsertUserResource, users);
-}
-
-export const DeploymentUsersPanel = forwardRef<
-  DeploymentUsersPanelHandle,
-  DeploymentUsersPanelProps
->(function DeploymentUsersPanel(
-  {
-    autoLoadUsers = false,
-    enterpriseAuthClaimed = false,
-    onCommandStateChange,
-    onRefreshSession,
-    session,
-  },
-  ref,
-) {
-  const [statusText, setStatusText] = useState(
-    session.is_deployment_admin
-      ? "Deployment user administration is ready."
-      : "Deployment admin access is required for user administration.",
-  );
-  const [error, setError] = useState<APIError | null>(null);
-  const [selectedUser, setSelectedUser] = useState<UserResource | null>(null);
-  const [users, setUsers] = useState<UserResource[]>([]);
-  const [userFilter, setUserFilter] = useState("");
-  const [userActiveFilter, setUserActiveFilter] = useState("all");
-  const [userAdminFilter, setUserAdminFilter] = useState("all");
-  const [usersNextCursor, setUsersNextCursor] = useState<string | null>(null);
-  const [usersHasMore, setUsersHasMore] = useState(false);
-
-  const [createEmail, setCreateEmail] = useState("");
-  const [createDisplayName, setCreateDisplayName] = useState("");
-  const [createInitialPassword, setCreateInitialPassword] = useState("");
-  const [createMfaRequired, setCreateMfaRequired] = useState(true);
-  const [createIsDeploymentAdmin, setCreateIsDeploymentAdmin] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-
-  const [targetUserId, setTargetUserId] = useState("");
-  const [targetBaseVersion, setTargetBaseVersion] = useState("");
-  const [patchEmail, setPatchEmail] = useState("");
-  const [patchDisplayName, setPatchDisplayName] = useState("");
-  const [patchMfaRequired, setPatchMfaRequired] = useState(true);
-  const [patchIsActive, setPatchIsActive] = useState(true);
-  const [patchIsDeploymentAdmin, setPatchIsDeploymentAdmin] = useState(false);
-  const [adminNewPassword, setAdminNewPassword] = useState("");
-  const [adminReason, setAdminReason] = useState("");
-  const [credentialDialog, setCredentialDialog] =
-    useState<CredentialDialogKind | null>(null);
-  const [enterpriseProviders, setEnterpriseProviders] = useState<
-    EnterpriseAuthProvider[]
-  >([]);
-  const [bindingProviderKey, setBindingProviderKey] = useState("");
-  const [bindingProviderSubject, setBindingProviderSubject] = useState("");
-  const [bindingTargetID, setBindingTargetID] = useState("");
-  const [bindingNewSubject, setBindingNewSubject] = useState("");
-  const [bindingReason, setBindingReason] = useState("");
-  const [targetAdminOperation, setTargetAdminOperation] =
-    useState<TargetAdminOperation | null>(null);
-  const targetAdminOperationRef = useRef<{
-    id: number;
-    kind: TargetAdminOperation;
-  } | null>(null);
-  const nextTargetAdminOperationID = useRef(0);
-  const userListRequestIDRef = useRef(0);
-  const acceptedUserQueryRef = useRef({
-    isActive: "all",
-    isDeploymentAdmin: "all",
-    search: "",
-  });
-  const userFiltersTouchedRef = useRef(false);
-  const autoLoadUsersStartedRef = useRef(false);
-
-  const targetOperationPending = targetAdminOperation !== null;
-  const loadedTargetIsCurrent = selectedUser !== null;
-  const parsedTargetBaseVersion = selectedUser?.user_version ?? 0;
-  const canLoadTargetUser =
-    !targetOperationPending && targetUserId.trim() !== "";
-  const canSubmitTargetAction =
-    !targetOperationPending && loadedTargetIsCurrent;
-  const canSubmitVersionedTargetAction =
-    canSubmitTargetAction && selectedUser !== null;
-
-  useEffect(() => {
-    onCommandStateChange?.({
-      canLoadTargetUser,
-      canSubmitTargetAction,
-      canSubmitVersionedTargetAction,
-      hasSelectedUser: selectedUser !== null,
-      targetOperationPending,
-    });
-  }, [
-    canLoadTargetUser,
-    canSubmitTargetAction,
-    canSubmitVersionedTargetAction,
-    onCommandStateChange,
+export function DeploymentUsersPanel(props: DeploymentUsersPanelProps) {
+  const { controller, enterpriseAuthClaimed = false } = props;
+  const {
+    statusText,
+    error,
     selectedUser,
-    targetOperationPending,
-  ]);
-
-  function beginTargetAdminOperation(kind: TargetAdminOperation) {
-    if (targetAdminOperationRef.current !== null) {
-      return null;
-    }
-    const operation = {
-      id: nextTargetAdminOperationID.current + 1,
-      kind,
-    };
-    nextTargetAdminOperationID.current = operation.id;
-    targetAdminOperationRef.current = operation;
-    setTargetAdminOperation(kind);
-    return operation.id;
-  }
-
-  function isCurrentTargetAdminOperation(operationID: number) {
-    return targetAdminOperationRef.current?.id === operationID;
-  }
-
-  function finishTargetAdminOperation(operationID: number) {
-    if (!isCurrentTargetAdminOperation(operationID)) {
-      return;
-    }
-    targetAdminOperationRef.current = null;
-    setTargetAdminOperation(null);
-  }
-
-  function clearSelectedUser() {
-    setSelectedUser(null);
-    setTargetBaseVersion("");
-    setPatchEmail("");
-    setPatchDisplayName("");
-    setPatchMfaRequired(true);
-    setPatchIsActive(true);
-    setPatchIsDeploymentAdmin(false);
-    setAdminNewPassword("");
-    setAdminReason("");
-    setCredentialDialog(null);
-    setBindingTargetID("");
-    setBindingNewSubject("");
-  }
-
-  function applySelectedUser(user: UserResource) {
-    const firstEnterpriseBinding = user.auth_bindings?.find(
-      isEnterpriseAuthBinding,
-    );
-    setSelectedUser(user);
-    setUsers((current) => upsertUserResource(current, user));
-    setTargetUserId(user.user_id);
-    setTargetBaseVersion(String(user.user_version));
-    setPatchEmail(user.email);
-    setPatchDisplayName(user.display_name);
-    setPatchMfaRequired(user.mfa_required);
-    setPatchIsActive(user.is_active);
-    setPatchIsDeploymentAdmin(user.is_deployment_admin);
-    setBindingTargetID(firstEnterpriseBinding?.auth_binding_id ?? "");
-    setBindingNewSubject("");
-    setAdminNewPassword("");
-    setAdminReason("");
-    setCredentialDialog(null);
-  }
-
-  const refreshUsers = useCallback(async () => {
-    if (!session.is_deployment_admin) {
-      return;
-    }
-    const requestID = userListRequestIDRef.current + 1;
-    userListRequestIDRef.current = requestID;
-    const filterActive =
-      userFilter.trim() !== "" ||
-      userActiveFilter !== "all" ||
-      userAdminFilter !== "all";
-    setStatusText(
-      filterActive
-        ? "Searching deployment users"
-        : "Refreshing deployment users",
-    );
-    setError(null);
-    const result = await listUsers({
-      limit: 100,
-      search: userFilter,
-      isActive: userActiveFilter === "all" ? null : userActiveFilter === "true",
-      isDeploymentAdmin:
-        userAdminFilter === "all" ? null : userAdminFilter === "true",
-    });
-    if (userListRequestIDRef.current !== requestID) {
-      return;
-    }
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Deployment users unavailable");
-      return;
-    }
-    const payload = result.payload;
-    if (typeof payload.meta.paging === "undefined") {
-      setStatusText("Deployment users unavailable");
-      setError({
-        code: "invalid_deployment_user_response",
-        details: { instance_path: "/meta/paging" },
-        message: "Deployment user response omitted paging metadata.",
-        retryable: true,
-        status: 502,
-      });
-      return;
-    }
-    setUsers(payload.data.users);
-    setUsersNextCursor(payload.meta.paging.next_cursor);
-    setUsersHasMore(payload.meta.paging.has_more);
-    acceptedUserQueryRef.current = {
-      isActive: userActiveFilter,
-      isDeploymentAdmin: userAdminFilter,
-      search: userFilter.trim(),
-    };
-    userFiltersTouchedRef.current = false;
-    setStatusText("Deployment users loaded");
-  }, [
-    session.is_deployment_admin,
-    userActiveFilter,
-    userAdminFilter,
+    users,
     userFilter,
-  ]);
-
-  const loadMoreUsers = useCallback(async () => {
-    if (!session.is_deployment_admin || !usersHasMore) {
-      return;
-    }
-    setStatusText("Loading more deployment users");
-    setError(null);
-    const acceptedQuery = acceptedUserQueryRef.current;
-    const result = await listUsers({
-      cursorToken: usersNextCursor,
-      limit: 100,
-      search: acceptedQuery.search,
-      isActive:
-        acceptedQuery.isActive === "all"
-          ? null
-          : acceptedQuery.isActive === "true",
-      isDeploymentAdmin:
-        acceptedQuery.isDeploymentAdmin === "all"
-          ? null
-          : acceptedQuery.isDeploymentAdmin === "true",
-    });
-    const nextError = extractError(result.payload);
-    setError(nextError);
-    if (!result.ok) {
-      setStatusText("Load more users failed");
-      return;
-    }
-    const payload = result.payload;
-    if (typeof payload.meta.paging === "undefined") {
-      setStatusText("Load more users failed");
-      setError({
-        code: "invalid_deployment_user_response",
-        details: { instance_path: "/meta/paging" },
-        message: "Deployment user response omitted paging metadata.",
-        retryable: true,
-        status: 502,
-      });
-      return;
-    }
-    setUsers((current) => mergeUserResources(current, payload.data.users));
-    setUsersNextCursor(payload.meta.paging.next_cursor);
-    setUsersHasMore(payload.meta.paging.has_more);
-    setStatusText("Loaded more deployment users");
-  }, [session.is_deployment_admin, usersHasMore, usersNextCursor]);
-
-  useEffect(() => {
-    if (!autoLoadUsers || !session.is_deployment_admin) {
-      autoLoadUsersStartedRef.current = false;
-      return;
-    }
-    if (autoLoadUsersStartedRef.current) {
-      return;
-    }
-    autoLoadUsersStartedRef.current = true;
-    void refreshUsers();
-  }, [autoLoadUsers, refreshUsers, session.is_deployment_admin]);
-
-  useEffect(() => {
-    if (
-      !autoLoadUsers ||
-      !session.is_deployment_admin ||
-      !userFiltersTouchedRef.current
-    ) {
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      void refreshUsers();
-    }, 180);
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [autoLoadUsers, refreshUsers, session.is_deployment_admin]);
-
-  useEffect(() => {
-    if (!session.is_deployment_admin || !enterpriseAuthClaimed) {
-      setEnterpriseProviders([]);
-      return;
-    }
-    const controller = new AbortController();
-    void (async () => {
-      const result = await listEnterpriseAuthProviders({
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) {
-        return;
-      }
-      if (!result.ok) {
-        setEnterpriseProviders([]);
-        return;
-      }
-      const data = result.payload.data;
-      setEnterpriseProviders(data.providers);
-    })();
-    return () => {
-      controller.abort();
-    };
-  }, [enterpriseAuthClaimed, session.is_deployment_admin]);
-
-  async function loadSelectedUser(
-    userId: string,
-    options?: {
-      preserveStatus?: boolean;
-    },
-  ) {
-    const targetUserID = userId.trim();
-    if (targetUserID === "") {
-      clearSelectedUser();
-      return;
-    }
-
-    const operationID = beginTargetAdminOperation("loading");
-    if (operationID === null) {
-      return;
-    }
-    setStatusText("Loading target user");
-    setError(null);
-
-    try {
-      const result = await loadUser({ userId: targetUserID });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      if (!result.ok) {
-        if (!options?.preserveStatus) {
-          setStatusText("Load target user failed");
-        }
-        clearSelectedUser();
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      if (!options?.preserveStatus) {
-        setStatusText("Loaded target user");
-      }
-      setError(null);
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handleCreateUser() {
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    setStatusText("Creating local user");
-    setError(null);
-
-    try {
-      const result = await createLocalUser({
-        email: createEmail,
-        displayName: createDisplayName,
-        initialPassword: createInitialPassword,
-        mfaRequired: createMfaRequired,
-        isDeploymentAdmin: createIsDeploymentAdmin,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      setCreateInitialPassword("");
-      if (!result.ok) {
-        setStatusText("Create local user failed");
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      setStatusText("Created local user");
-      setError(null);
-      setCreateDialogOpen(false);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handlePatchUser() {
-    if (!canSubmitVersionedTargetAction || selectedUser === null) {
-      return;
-    }
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    const targetUserID = selectedUser.user_id;
-    setStatusText("Patching local user");
-    setError(null);
-
-    try {
-      const result = await patchLocalUser({
-        userId: targetUserID,
-        baseUserVersion: parsedTargetBaseVersion,
-        email: patchEmail,
-        displayName: patchDisplayName,
-        mfaRequired: patchMfaRequired,
-        isActive: patchIsActive,
-        isDeploymentAdmin: patchIsDeploymentAdmin,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      if (!result.ok) {
-        setStatusText("Patch local user failed");
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      setStatusText("Patched local user");
-      setError(null);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handleAdminPasswordReset() {
-    if (!canSubmitVersionedTargetAction || selectedUser === null) {
-      return;
-    }
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    const targetUserID = selectedUser.user_id;
-    setStatusText("Resetting user password");
-    setError(null);
-
-    try {
-      const result = await adminResetPassword({
-        userId: targetUserID,
-        baseUserVersion: parsedTargetBaseVersion,
-        newPassword: adminNewPassword,
-        reason: adminReason,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      setAdminNewPassword("");
-      if (!result.ok) {
-        setStatusText("Reset user password failed");
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      setStatusText("Reset user password");
-      setError(null);
-      setAdminReason("");
-      setCredentialDialog(null);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handleAdminTotpReset() {
-    if (!canSubmitVersionedTargetAction || selectedUser === null) {
-      return;
-    }
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    const targetUserID = selectedUser.user_id;
-    setStatusText("Resetting user TOTP");
-    setError(null);
-
-    try {
-      const result = await adminResetTotp({
-        userId: targetUserID,
-        baseUserVersion: parsedTargetBaseVersion,
-        reason: adminReason,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      if (!result.ok) {
-        setStatusText("Reset user TOTP failed");
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      setStatusText("Reset user TOTP");
-      setError(null);
-      setAdminNewPassword("");
-      setAdminReason("");
-      setCredentialDialog(null);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handleAdminRevokeAll() {
-    if (!canSubmitTargetAction || selectedUser === null) {
-      return;
-    }
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    const targetUserID = selectedUser.user_id;
-    setStatusText("Revoking every user session");
-    setError(null);
-
-    try {
-      const result = await adminRevokeAllSessions({
-        userId: targetUserID,
-        reason: adminReason,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      if (!result.ok) {
-        setStatusText("Revoke-all failed");
-        return;
-      }
-
-      setStatusText("Revoked every user session");
-      setError(null);
-      setAdminNewPassword("");
-      setAdminReason("");
-      setCredentialDialog(null);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handleCreateEnterpriseBinding() {
-    if (!canSubmitVersionedTargetAction || selectedUser === null) {
-      return;
-    }
-    const providerKey = bindingProviderKey.trim();
-    const providerSubject = bindingProviderSubject.trim();
-    if (providerKey === "" || providerSubject === "") {
-      setStatusText("Provider key and provider subject are required.");
-      return;
-    }
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    setStatusText("Creating enterprise auth binding");
-    setError(null);
-
-    try {
-      const result = await createEnterpriseAuthBinding({
-        userId: selectedUser.user_id,
-        baseUserVersion: parsedTargetBaseVersion,
-        providerKey,
-        providerSubject,
-        reason: bindingReason,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      if (!result.ok) {
-        setStatusText("Create enterprise auth binding failed");
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      setBindingProviderSubject("");
-      setStatusText("Created enterprise auth binding");
-      setError(null);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handleRotateEnterpriseBinding() {
-    if (
-      !canSubmitVersionedTargetAction ||
-      selectedUser === null ||
-      bindingTargetID.trim() === ""
-    ) {
-      return;
-    }
-    const newProviderSubject = bindingNewSubject.trim();
-    if (newProviderSubject === "") {
-      setStatusText("New provider subject is required.");
-      return;
-    }
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    setStatusText("Rotating enterprise auth binding");
-    setError(null);
-
-    try {
-      const result = await rotateEnterpriseAuthBinding({
-        userId: selectedUser.user_id,
-        authBindingId: bindingTargetID.trim(),
-        baseUserVersion: parsedTargetBaseVersion,
-        newProviderSubject,
-        reason: bindingReason,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      if (!result.ok) {
-        setStatusText("Rotate enterprise auth binding failed");
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      setStatusText("Rotated enterprise auth binding");
-      setError(null);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  async function handleRetireEnterpriseBinding() {
-    if (
-      !canSubmitVersionedTargetAction ||
-      selectedUser === null ||
-      bindingTargetID.trim() === ""
-    ) {
-      return;
-    }
-    const operationID = beginTargetAdminOperation("mutating");
-    if (operationID === null) {
-      return;
-    }
-    setStatusText("Retiring enterprise auth binding");
-    setError(null);
-
-    try {
-      const result = await retireEnterpriseAuthBinding({
-        userId: selectedUser.user_id,
-        authBindingId: bindingTargetID.trim(),
-        baseUserVersion: parsedTargetBaseVersion,
-        reason: bindingReason,
-      });
-      if (!isCurrentTargetAdminOperation(operationID)) {
-        return;
-      }
-
-      const nextError = extractError(result.payload);
-      setError(nextError);
-      if (!result.ok) {
-        setStatusText("Retire enterprise auth binding failed");
-        return;
-      }
-
-      const user = result.payload.data;
-      applySelectedUser(user);
-      setStatusText("Retired enterprise auth binding");
-      setError(null);
-      await onRefreshSession();
-    } finally {
-      finishTargetAdminOperation(operationID);
-    }
-  }
-
-  useImperativeHandle(ref, () => ({
-    createUser: handleCreateUser,
-    loadTargetUser: () => loadSelectedUser(targetUserId),
+    setUserFilter,
+    userActiveFilter,
+    setUserActiveFilter,
+    userAdminFilter,
+    setUserAdminFilter,
+    createEmail,
+    setCreateEmail,
+    createDisplayName,
+    setCreateDisplayName,
+    createInitialPassword,
+    setCreateInitialPassword,
+    createMfaRequired,
+    setCreateMfaRequired,
+    createIsDeploymentAdmin,
+    setCreateIsDeploymentAdmin,
+    createDialogOpen,
+    setCreateDialogOpen,
+    patchEmail,
+    setPatchEmail,
+    patchDisplayName,
+    setPatchDisplayName,
+    patchMfaRequired,
+    setPatchMfaRequired,
+    patchIsActive,
+    setPatchIsActive,
+    patchIsDeploymentAdmin,
+    setPatchIsDeploymentAdmin,
+    adminNewPassword,
+    setAdminNewPassword,
+    adminReason,
+    setAdminReason,
+    credentialDialog,
+    setCredentialDialog,
+    enterpriseProviders,
+    bindingProviderKey,
+    setBindingProviderKey,
+    bindingProviderSubject,
+    setBindingProviderSubject,
+    bindingTargetID,
+    setBindingTargetID,
+    bindingNewSubject,
+    setBindingNewSubject,
+    bindingReason,
+    setBindingReason,
+    clearSelectedUser,
+    loadSelectedUser,
+    handleCreateUser,
+    handlePatchUser,
+    handleAdminPasswordReset,
+    handleAdminTotpReset,
+    handleAdminRevokeAll,
+    handleCreateEnterpriseBinding,
+    handleRotateEnterpriseBinding,
+    handleRetireEnterpriseBinding,
     refreshUsers,
-    resetPassword: handleAdminPasswordReset,
-    resetTotp: handleAdminTotpReset,
-    revokeAllSessions: handleAdminRevokeAll,
-    saveTargetUser: handlePatchUser,
-  }));
-
-  if (!session.is_deployment_admin) {
+    loadMoreUsers,
+    targetOperationPending,
+    canSubmitTargetAction,
+    authorized,
+    draft,
+    operation,
+    operationObserved,
+    transportPending,
+    fieldErrors,
+    queryStatus,
+    targetStatus,
+    acceptedQuery,
+    providersStatus,
+    canSave,
+    canPage,
+    dirty,
+    reviewRequired,
+  } = useDeploymentUsers(props);
+  if (!authorized) {
     return (
       <section style={cardStyle}>
         <div style={cardHeaderStyle}>
@@ -1223,6 +508,25 @@ export const DeploymentUsersPanel = forwardRef<
           credential actions. Incident-admin membership alone does not unlock
           these controls.
         </p>
+        <p role="status" data-testid={deploymentAdminTestId("status")}>
+          {statusText}
+        </p>
+        <p role="alert" data-testid={publicErrorCodeTestId("admin")}>
+          {publicErrorView(error)?.code ?? ""}
+        </p>
+        <PublicErrorSummary
+          error={error}
+          testIds={publicErrorSummaryTestIds("admin")}
+        />
+        <button
+          type="button"
+          style={secondaryButtonStyle}
+          onClick={() => {
+            void controller.refreshUsers();
+          }}
+        >
+          Check administration access
+        </button>
       </section>
     );
   }
@@ -1236,6 +540,7 @@ export const DeploymentUsersPanel = forwardRef<
 
   return (
     <section style={cardStyle}>
+      <DeploymentUserLeaveDialog controller={controller} />
       <div style={cardHeaderStyle}>
         <div>
           <p style={sectionEyebrowStyle}>Deployment users</p>
@@ -1249,7 +554,7 @@ export const DeploymentUsersPanel = forwardRef<
           style={buttonStyle}
           type="button"
           onClick={() => {
-            setCreateDialogOpen(true);
+            void setCreateDialogOpen(true);
           }}
         >
           Create user
@@ -1273,6 +578,18 @@ export const DeploymentUsersPanel = forwardRef<
               Refresh users
             </button>
           </div>
+          {queryStatus === "loading" || queryStatus === "pending" ? (
+            <p role="status">
+              Updating users. The last accepted results remain visible.
+            </p>
+          ) : null}
+          {queryStatus === "failed" ? (
+            <p role="status">
+              User query failed. Showing results for{" "}
+              {acceptedQuery?.search || "the last accepted query"}; refresh to
+              retry.
+            </p>
+          ) : null}
           <label htmlFor="admin-user-filter" style={labelBlockStyle}>
             Search users
           </label>
@@ -1282,7 +599,6 @@ export const DeploymentUsersPanel = forwardRef<
             style={inputStyle}
             value={userFilter}
             onChange={(event) => {
-              userFiltersTouchedRef.current = true;
               setUserFilter(event.target.value);
             }}
             onKeyDown={(event) => {
@@ -1300,7 +616,6 @@ export const DeploymentUsersPanel = forwardRef<
                 style={inputStyle}
                 value={userActiveFilter}
                 onChange={(event) => {
-                  userFiltersTouchedRef.current = true;
                   setUserActiveFilter(event.target.value);
                 }}
               >
@@ -1318,7 +633,6 @@ export const DeploymentUsersPanel = forwardRef<
                 style={inputStyle}
                 value={userAdminFilter}
                 onChange={(event) => {
-                  userFiltersTouchedRef.current = true;
                   setUserAdminFilter(event.target.value);
                 }}
               >
@@ -1365,7 +679,7 @@ export const DeploymentUsersPanel = forwardRef<
           </div>
           <button
             data-testid={deploymentAdminTestId("load-more-users")}
-            disabled={!usersHasMore || targetOperationPending}
+            disabled={!canPage}
             style={secondaryButtonStyle}
             type="button"
             onClick={() => {
@@ -1387,7 +701,14 @@ export const DeploymentUsersPanel = forwardRef<
             </section>
           ) : (
             <>
-              <section style={inspectorSectionStyle}>
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handlePatchUser();
+                }}
+                style={inspectorSectionStyle}
+              >
                 <div style={compactPanelHeaderStyle}>
                   <div>
                     <p style={sectionEyebrowStyle}>Selected user</p>
@@ -1444,47 +765,82 @@ export const DeploymentUsersPanel = forwardRef<
                     <div
                       data-testid={deploymentAdminTestId("patch-base-version")}
                     >
-                      {targetBaseVersion}
+                      {draft?.baseVersion}
                     </div>
                   </div>
                 </div>
                 <div style={formGridStyle}>
-                  <label htmlFor="admin-patch-email" style={labelBlockStyle}>
-                    Email
-                    <input
-                      data-testid={deploymentAdminTestId("patch-email")}
-                      id="admin-patch-email"
-                      disabled={!canSubmitTargetAction}
-                      style={inputStyle}
-                      value={patchEmail}
-                      onChange={(event) => {
-                        setPatchEmail(event.target.value);
-                      }}
-                    />
-                  </label>
-                  <label
-                    htmlFor="admin-patch-display-name"
-                    style={labelBlockStyle}
-                  >
-                    Display name
-                    <input
-                      data-testid={deploymentAdminTestId("patch-display-name")}
-                      id="admin-patch-display-name"
-                      disabled={!canSubmitTargetAction}
-                      style={inputStyle}
-                      value={patchDisplayName}
-                      onChange={(event) => {
-                        setPatchDisplayName(event.target.value);
-                      }}
-                    />
-                  </label>
+                  <div>
+                    <label htmlFor="admin-patch-email" style={labelBlockStyle}>
+                      Email
+                      <input
+                        data-testid={deploymentAdminTestId("patch-email")}
+                        id="admin-patch-email"
+                        aria-invalid={fieldErrors.email ? true : undefined}
+                        aria-describedby={
+                          fieldErrors.email
+                            ? "admin-patch-email-error"
+                            : undefined
+                        }
+                        style={inputStyle}
+                        value={patchEmail}
+                        onChange={(event) => {
+                          setPatchEmail(event.target.value);
+                        }}
+                      />
+                    </label>
+                    {fieldErrors.email ? (
+                      <p
+                        id="admin-patch-email-error"
+                        role="alert"
+                        style={errorStyle}
+                      >
+                        {fieldErrors.email}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="admin-patch-display-name"
+                      style={labelBlockStyle}
+                    >
+                      Display name
+                      <input
+                        data-testid={deploymentAdminTestId(
+                          "patch-display-name",
+                        )}
+                        id="admin-patch-display-name"
+                        aria-invalid={
+                          fieldErrors.display_name ? true : undefined
+                        }
+                        aria-describedby={
+                          fieldErrors.display_name
+                            ? "admin-patch-display-name-error"
+                            : undefined
+                        }
+                        style={inputStyle}
+                        value={patchDisplayName}
+                        onChange={(event) => {
+                          setPatchDisplayName(event.target.value);
+                        }}
+                      />
+                    </label>
+                    {fieldErrors.display_name ? (
+                      <p
+                        id="admin-patch-display-name-error"
+                        role="alert"
+                        style={errorStyle}
+                      >
+                        {fieldErrors.display_name}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <div style={checkboxRowStyle}>
                   <label style={checkboxLabelStyle}>
                     <input
                       data-testid={deploymentAdminTestId("patch-mfa-required")}
                       type="checkbox"
-                      disabled={!canSubmitTargetAction}
                       checked={patchMfaRequired}
                       onChange={(event) => {
                         setPatchMfaRequired(event.target.checked);
@@ -1496,7 +852,6 @@ export const DeploymentUsersPanel = forwardRef<
                     <input
                       data-testid={deploymentAdminTestId("patch-is-active")}
                       type="checkbox"
-                      disabled={!canSubmitTargetAction}
                       checked={patchIsActive}
                       onChange={(event) => {
                         setPatchIsActive(event.target.checked);
@@ -1510,7 +865,6 @@ export const DeploymentUsersPanel = forwardRef<
                         "patch-is-deployment-admin",
                       )}
                       type="checkbox"
-                      disabled={!canSubmitTargetAction}
                       checked={patchIsDeploymentAdmin}
                       onChange={(event) => {
                         setPatchIsDeploymentAdmin(event.target.checked);
@@ -1519,20 +873,52 @@ export const DeploymentUsersPanel = forwardRef<
                     Deployment admin
                   </label>
                 </div>
+                {reviewRequired ? (
+                  <p role="status">
+                    The accepted user changed or the action needs review.
+                    Refresh this user, then review remaining edits before
+                    another save.
+                  </p>
+                ) : null}
                 <div style={buttonRowStyle}>
                   <button
                     data-testid={deploymentAdminTestId("patch-user")}
-                    disabled={!canSubmitVersionedTargetAction}
+                    disabled={!canSave}
                     style={buttonStyle}
-                    type="button"
-                    onClick={() => {
-                      void handlePatchUser();
-                    }}
+                    type="submit"
                   >
                     Save user
                   </button>
+                  {dirty ? (
+                    <button
+                      type="button"
+                      style={secondaryButtonStyle}
+                      onClick={controller.discard}
+                    >
+                      Discard user edits
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    style={secondaryButtonStyle}
+                    onClick={() => {
+                      void controller.refreshTarget();
+                    }}
+                  >
+                    Refresh current user
+                  </button>
+                  {reviewRequired ? (
+                    <button
+                      type="button"
+                      style={secondaryButtonStyle}
+                      disabled={targetOperationPending || transportPending}
+                      onClick={controller.review}
+                    >
+                      Review remaining edits
+                    </button>
+                  ) : null}
                 </div>
-              </section>
+              </form>
 
               <section style={inspectorSectionStyle}>
                 <p style={subsectionTitleStyle}>Credential actions</p>
@@ -1547,7 +933,7 @@ export const DeploymentUsersPanel = forwardRef<
                         ? undefined
                         : deploymentAdminTestId("password-reset")
                     }
-                    disabled={!canSubmitVersionedTargetAction}
+                    disabled={!canSubmitTargetAction}
                     style={destructiveButtonStyle}
                     type="button"
                     onClick={() => {
@@ -1562,7 +948,7 @@ export const DeploymentUsersPanel = forwardRef<
                         ? undefined
                         : deploymentAdminTestId("totp-reset")
                     }
-                    disabled={!canSubmitVersionedTargetAction}
+                    disabled={!canSubmitTargetAction}
                     style={destructiveButtonStyle}
                     type="button"
                     onClick={() => {
@@ -1679,22 +1065,40 @@ export const DeploymentUsersPanel = forwardRef<
                   </datalist>
 
                   <div style={formGridStyle}>
-                    <label
-                      htmlFor="admin-enterprise-provider-key"
-                      style={labelBlockStyle}
-                    >
-                      Provider key
-                      <input
-                        id="admin-enterprise-provider-key"
-                        list="admin-enterprise-provider-options"
-                        disabled={!canSubmitTargetAction}
-                        style={inputStyle}
-                        value={bindingProviderKey}
-                        onChange={(event) => {
-                          setBindingProviderKey(event.target.value);
-                        }}
-                      />
-                    </label>
+                    <div>
+                      <label
+                        htmlFor="admin-enterprise-provider-key"
+                        style={labelBlockStyle}
+                      >
+                        Provider key
+                        <input
+                          id="admin-enterprise-provider-key"
+                          aria-invalid={
+                            fieldErrors.providerKey ? true : undefined
+                          }
+                          aria-describedby={
+                            fieldErrors.providerKey
+                              ? "admin-enterprise-provider-key-error"
+                              : undefined
+                          }
+                          list="admin-enterprise-provider-options"
+                          disabled={!canSubmitTargetAction}
+                          style={inputStyle}
+                          value={bindingProviderKey}
+                          onChange={(event) => {
+                            setBindingProviderKey(event.target.value);
+                          }}
+                        />
+                      </label>
+                      {fieldErrors.providerKey ? (
+                        <p
+                          id="admin-enterprise-provider-key-error"
+                          role="alert"
+                        >
+                          {fieldErrors.providerKey}
+                        </p>
+                      ) : null}
+                    </div>
                     <label
                       htmlFor="admin-enterprise-provider-subject"
                       style={labelBlockStyle}
@@ -1744,7 +1148,7 @@ export const DeploymentUsersPanel = forwardRef<
                   </div>
                   <div style={buttonRowStyle}>
                     <button
-                      disabled={!canSubmitVersionedTargetAction}
+                      disabled={!canSubmitTargetAction}
                       style={buttonStyle}
                       type="button"
                       onClick={() => {
@@ -1755,8 +1159,7 @@ export const DeploymentUsersPanel = forwardRef<
                     </button>
                     <button
                       disabled={
-                        !canSubmitVersionedTargetAction ||
-                        bindingTargetID === ""
+                        !canSubmitTargetAction || bindingTargetID === ""
                       }
                       style={buttonStyle}
                       type="button"
@@ -1768,8 +1171,7 @@ export const DeploymentUsersPanel = forwardRef<
                     </button>
                     <button
                       disabled={
-                        !canSubmitVersionedTargetAction ||
-                        bindingTargetID === ""
+                        !canSubmitTargetAction || bindingTargetID === ""
                       }
                       style={secondaryButtonStyle}
                       type="button"
@@ -1787,13 +1189,98 @@ export const DeploymentUsersPanel = forwardRef<
         </div>
       </div>
 
+      {targetStatus === "failed" ? (
+        <p role="status">
+          Current user could not be refreshed. The accepted resource and draft
+          remain available; refresh this user to retry.
+        </p>
+      ) : null}
+      {operation.kind !== "idle" ? (
+        <p role="status">
+          {operation.kind === "confirmed"
+            ? "Confirmed. "
+            : operation.kind === "uncertain"
+              ? "Outcome uncertain. "
+              : operation.kind === "rejected"
+                ? "Action rejected. "
+                : "Action pending. "}
+          {operation.intent.target
+            ? `Action target: ${operation.intent.label} (${operation.intent.target}).`
+            : `Create action: ${operation.intent.label}.`}
+        </p>
+      ) : null}
+      {operation.kind === "uncertain" ? (
+        <div style={buttonRowStyle}>
+          {operation.attempt ? (
+            <button
+              type="button"
+              style={buttonStyle}
+              disabled={transportPending}
+              onClick={controller.replay}
+            >
+              Replay exact action
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                style={secondaryButtonStyle}
+                onClick={() => {
+                  if (operation.intent.target)
+                    void controller.select(operation.intent.target);
+                  else void controller.refreshUsers();
+                }}
+              >
+                Inspect previous action target
+              </button>
+              <button
+                type="button"
+                style={secondaryButtonStyle}
+                disabled={!operationObserved || transportPending}
+                onClick={controller.review}
+              >
+                Review a new action
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
+      {operation.kind === "confirmed" && operation.propagation === "failed" ? (
+        <button
+          type="button"
+          style={secondaryButtonStyle}
+          onClick={() => {
+            void controller.retryRefresh();
+          }}
+        >
+          Retry session refresh
+        </button>
+      ) : null}
+      {enterpriseAuthClaimed && providersStatus === "failed" ? (
+        <p role="status">
+          Provider suggestions could not be loaded. Configured provider keys can
+          still be entered.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              void controller.discoverProviders();
+            }}
+          >
+            Retry provider suggestions
+          </button>
+        </p>
+      ) : null}
       {createDialogOpen ? (
         <div style={dialogBackdropStyle}>
-          <section
-            aria-label="Create local user"
-            aria-modal="true"
-            role="dialog"
+          <DeploymentUserActionDialog
+            label="Create local user"
             style={dialogStyle}
+            onClose={() => {
+              void setCreateDialogOpen(false);
+            }}
+            onSubmit={() => {
+              void handleCreateUser();
+            }}
           >
             <header style={dialogHeaderStyle}>
               <div>
@@ -1804,55 +1291,108 @@ export const DeploymentUsersPanel = forwardRef<
                 aria-label="Close create user"
                 style={iconButtonStyle}
                 type="button"
-                onClick={() => setCreateDialogOpen(false)}
+                data-dialog-close=""
               >
                 <X aria-hidden="true" size={16} />
               </button>
             </header>
             <div style={formGridStyle}>
-              <label htmlFor="admin-create-email" style={labelBlockStyle}>
-                Email
-                <input
-                  data-testid={deploymentAdminTestId("create-email")}
-                  id="admin-create-email"
-                  disabled={targetOperationPending}
-                  style={inputStyle}
-                  value={createEmail}
-                  onChange={(event) => {
-                    setCreateEmail(event.target.value);
-                  }}
-                />
-              </label>
-              <label
-                htmlFor="admin-create-display-name"
-                style={labelBlockStyle}
-              >
-                Display name
-                <input
-                  data-testid={deploymentAdminTestId("create-display-name")}
-                  id="admin-create-display-name"
-                  disabled={targetOperationPending}
-                  style={inputStyle}
-                  value={createDisplayName}
-                  onChange={(event) => {
-                    setCreateDisplayName(event.target.value);
-                  }}
-                />
-              </label>
-              <label htmlFor="admin-create-password" style={labelBlockStyle}>
-                Initial password
-                <input
-                  data-testid={deploymentAdminTestId("create-password")}
-                  id="admin-create-password"
-                  disabled={targetOperationPending}
-                  style={inputStyle}
-                  type="password"
-                  value={createInitialPassword}
-                  onChange={(event) => {
-                    setCreateInitialPassword(event.target.value);
-                  }}
-                />
-              </label>
+              <div>
+                <label htmlFor="admin-create-email" style={labelBlockStyle}>
+                  Email
+                  <input
+                    data-testid={deploymentAdminTestId("create-email")}
+                    id="admin-create-email"
+                    aria-invalid={fieldErrors.createEmail ? true : undefined}
+                    aria-describedby={
+                      fieldErrors.createEmail
+                        ? "admin-create-email-error"
+                        : undefined
+                    }
+                    disabled={targetOperationPending}
+                    style={inputStyle}
+                    value={createEmail}
+                    onChange={(event) => {
+                      setCreateEmail(event.target.value);
+                    }}
+                  />
+                </label>
+                {fieldErrors.createEmail ? (
+                  <p
+                    id="admin-create-email-error"
+                    role="alert"
+                    style={errorStyle}
+                  >
+                    {fieldErrors.createEmail}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label
+                  htmlFor="admin-create-display-name"
+                  style={labelBlockStyle}
+                >
+                  Display name
+                  <input
+                    data-testid={deploymentAdminTestId("create-display-name")}
+                    id="admin-create-display-name"
+                    aria-invalid={
+                      fieldErrors.createDisplayName ? true : undefined
+                    }
+                    aria-describedby={
+                      fieldErrors.createDisplayName
+                        ? "admin-create-display-name-error"
+                        : undefined
+                    }
+                    disabled={targetOperationPending}
+                    style={inputStyle}
+                    value={createDisplayName}
+                    onChange={(event) => {
+                      setCreateDisplayName(event.target.value);
+                    }}
+                  />
+                </label>
+                {fieldErrors.createDisplayName ? (
+                  <p
+                    id="admin-create-display-name-error"
+                    role="alert"
+                    style={errorStyle}
+                  >
+                    {fieldErrors.createDisplayName}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label htmlFor="admin-create-password" style={labelBlockStyle}>
+                  Initial password
+                  <input
+                    data-testid={deploymentAdminTestId("create-password")}
+                    id="admin-create-password"
+                    aria-invalid={fieldErrors.createPassword ? true : undefined}
+                    aria-describedby={
+                      fieldErrors.createPassword
+                        ? "admin-create-password-error"
+                        : undefined
+                    }
+                    disabled={targetOperationPending}
+                    style={inputStyle}
+                    type="password"
+                    value={createInitialPassword}
+                    onChange={(event) => {
+                      setCreateInitialPassword(event.target.value);
+                    }}
+                  />
+                </label>
+                {fieldErrors.createPassword ? (
+                  <p
+                    id="admin-create-password-error"
+                    role="alert"
+                    style={errorStyle}
+                  >
+                    {fieldErrors.createPassword}
+                  </p>
+                ) : null}
+              </div>
             </div>
             <div style={checkboxRowStyle}>
               <label style={checkboxLabelStyle}>
@@ -1886,7 +1426,7 @@ export const DeploymentUsersPanel = forwardRef<
               <button
                 style={secondaryButtonStyle}
                 type="button"
-                onClick={() => setCreateDialogOpen(false)}
+                data-dialog-close=""
               >
                 Cancel
               </button>
@@ -1894,25 +1434,29 @@ export const DeploymentUsersPanel = forwardRef<
                 data-testid={deploymentAdminTestId("create-user")}
                 disabled={targetOperationPending}
                 style={buttonStyle}
-                type="button"
-                onClick={() => {
-                  void handleCreateUser();
-                }}
+                type="submit"
               >
                 Create user
               </button>
             </div>
-          </section>
+            <p role="status">{statusText}</p>
+            {error ? <p role="alert">{publicErrorView(error)?.code}</p> : null}
+          </DeploymentUserActionDialog>
         </div>
       ) : null}
 
       {credentialDialog !== null && selectedUser !== null ? (
         <div style={dialogBackdropStyle}>
-          <section
-            aria-label="Confirm credential action"
-            aria-modal="true"
-            role="dialog"
+          <DeploymentUserActionDialog
+            label="Confirm credential action"
             style={dialogStyle}
+            onClose={() => setCredentialDialog(null)}
+            onSubmit={() => {
+              if (credentialDialog === "password")
+                void handleAdminPasswordReset();
+              else if (credentialDialog === "totp") void handleAdminTotpReset();
+              else void handleAdminRevokeAll();
+            }}
           >
             <header style={dialogHeaderStyle}>
               <div>
@@ -1929,7 +1473,7 @@ export const DeploymentUsersPanel = forwardRef<
                 aria-label="Close credential action"
                 style={iconButtonStyle}
                 type="button"
-                onClick={() => setCredentialDialog(null)}
+                data-dialog-close=""
               >
                 <X aria-hidden="true" size={16} />
               </button>
@@ -1943,19 +1487,36 @@ export const DeploymentUsersPanel = forwardRef<
             </p>
             <div style={formGridStyle}>
               {credentialDialog === "password" ? (
-                <label htmlFor="admin-new-password" style={labelBlockStyle}>
-                  New password
-                  <input
-                    data-testid={deploymentAdminTestId("new-password")}
-                    id="admin-new-password"
-                    style={inputStyle}
-                    type="password"
-                    value={adminNewPassword}
-                    onChange={(event) => {
-                      setAdminNewPassword(event.target.value);
-                    }}
-                  />
-                </label>
+                <div>
+                  <label htmlFor="admin-new-password" style={labelBlockStyle}>
+                    New password
+                    <input
+                      data-testid={deploymentAdminTestId("new-password")}
+                      id="admin-new-password"
+                      aria-invalid={fieldErrors.password ? true : undefined}
+                      aria-describedby={
+                        fieldErrors.password
+                          ? "admin-new-password-error"
+                          : undefined
+                      }
+                      style={inputStyle}
+                      type="password"
+                      value={adminNewPassword}
+                      onChange={(event) => {
+                        setAdminNewPassword(event.target.value);
+                      }}
+                    />
+                  </label>
+                  {fieldErrors.password ? (
+                    <p
+                      id="admin-new-password-error"
+                      role="alert"
+                      style={errorStyle}
+                    >
+                      {fieldErrors.password}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
               <label htmlFor="admin-reason" style={labelBlockStyle}>
                 Reason
@@ -1974,7 +1535,7 @@ export const DeploymentUsersPanel = forwardRef<
               <button
                 style={secondaryButtonStyle}
                 type="button"
-                onClick={() => setCredentialDialog(null)}
+                data-dialog-close=""
               >
                 Cancel
               </button>
@@ -1986,29 +1547,16 @@ export const DeploymentUsersPanel = forwardRef<
                       ? deploymentAdminTestId("totp-reset")
                       : deploymentAdminTestId("revoke-all")
                 }
-                disabled={
-                  credentialDialog === "revoke"
-                    ? !canSubmitTargetAction
-                    : !canSubmitVersionedTargetAction
-                }
+                disabled={!canSubmitTargetAction}
                 style={destructiveButtonStyle}
-                type="button"
-                onClick={() => {
-                  if (credentialDialog === "password") {
-                    void handleAdminPasswordReset();
-                    return;
-                  }
-                  if (credentialDialog === "totp") {
-                    void handleAdminTotpReset();
-                    return;
-                  }
-                  void handleAdminRevokeAll();
-                }}
+                type="submit"
               >
                 Confirm
               </button>
             </div>
-          </section>
+            <p role="status">{statusText}</p>
+            {error ? <p role="alert">{publicErrorView(error)?.code}</p> : null}
+          </DeploymentUserActionDialog>
         </div>
       ) : null}
 
@@ -2034,7 +1582,7 @@ export const DeploymentUsersPanel = forwardRef<
       />
     </section>
   );
-});
+}
 
 function PublicErrorSummary({
   error,

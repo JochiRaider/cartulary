@@ -22,13 +22,21 @@ import type {
   PutCurrentAccountPreferencesResponse,
 } from "@cartulary/protocol-ts/http";
 import { validateHTTPOperationResponse } from "@cartulary/protocol-ts/http";
-import { clientTxnID, fetchHTTPOperation } from "../../services/browserApi";
+import { fetchHTTPOperation } from "../../services/browserApi";
 import type {
   AccountPreferencesResource,
   AccountProfileResource,
   DensityMode,
 } from "./publicHttpTypes";
-export type TotpAuthMode = "bootstrap" | "session";
+
+type TotpContext =
+  | { authMode: "bootstrap"; bootstrapToken: string }
+  | { authMode: "session"; bootstrapToken?: never };
+type MutationOptions = {
+  apiBase?: string | undefined;
+  clientTxnId: string;
+  signal?: AbortSignal;
+};
 type ShellGetOptions = { apiBase?: string | undefined; signal?: AbortSignal };
 
 function secondFactorPayload(code: string) {
@@ -43,33 +51,22 @@ function secondFactorPayload(code: string) {
   };
 }
 
-function bootstrapAuthorizationHeader(options: {
-  authMode: TotpAuthMode;
-  bootstrapToken?: string | undefined;
-}): HeadersInit | undefined {
-  if (options.authMode !== "bootstrap") {
-    return undefined;
-  }
-  const token = options.bootstrapToken?.trim() ?? "";
-  if (token === "") {
-    return undefined;
-  }
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-function totpEnrollmentRequestInit(options: {
-  authMode: TotpAuthMode;
-  bootstrapToken?: string | undefined;
-  body: Record<string, unknown>;
-}): RequestInit {
-  const headers = bootstrapAuthorizationHeader(options);
+function totpEnrollmentRequestInit(
+  options: TotpContext & {
+    body: Record<string, unknown>;
+    signal?: AbortSignal;
+  },
+): RequestInit {
   return {
     method: "POST",
     credentials: options.authMode === "bootstrap" ? "omit" : "include",
     body: JSON.stringify(options.body),
-    ...(headers === undefined ? {} : { headers }),
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.authMode === "bootstrap"
+      ? {
+          headers: { Authorization: `Bearer ${options.bootstrapToken.trim()}` },
+        }
+      : {}),
   };
 }
 
@@ -176,6 +173,7 @@ export function loadExtensions(options?: ShellGetOptions) {
 
 export function loginLocal(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   password: string;
   secondFactorCode?: string;
   username: string;
@@ -186,6 +184,7 @@ export function loginLocal(options: {
     operationID: "loginLocalUser",
     init: {
       method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify({
         username: options.username,
         password: options.password,
@@ -209,6 +208,7 @@ export function listEnterpriseAuthProviders(options: ShellGetOptions = {}) {
 
 export function beginEnterpriseAuth(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   providerKey: string;
   returnTo?: string | undefined;
 }) {
@@ -218,6 +218,7 @@ export function beginEnterpriseAuth(options: {
     pathParameters: { provider_key: options.providerKey },
     init: {
       method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify({
         return_to: options.returnTo ?? "/",
       } satisfies BeginEnterpriseAuthRequest),
@@ -229,25 +230,35 @@ export function logoutCurrentSession(options: ShellGetOptions = {}) {
   return fetchHTTPOperation<LogoutCurrentSessionResponse>({
     apiBase: options.apiBase,
     operationID: "logoutCurrentSession",
-    init: { method: "POST" },
+    init: {
+      method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    },
   });
 }
 
-export function beginTotpEnrollment(options: {
-  apiBase?: string | undefined;
-  authMode: TotpAuthMode;
-  bootstrapToken?: string;
-  clientTxnId?: string;
-  currentFactorCode?: string;
-  currentPassword?: string;
-}) {
+export function beginTotpEnrollment(
+  options: MutationOptions &
+    (
+      | {
+          authMode: "bootstrap";
+          bootstrapToken: string;
+          currentPassword?: never;
+          currentFactorCode?: never;
+        }
+      | {
+          authMode: "session";
+          bootstrapToken?: never;
+          currentPassword: string;
+          currentFactorCode?: string;
+        }
+    ),
+) {
   const secondFactor = secondFactorPayload(options.currentFactorCode ?? "");
   const requestInit = totpEnrollmentRequestInit({
-    authMode: options.authMode,
-    bootstrapToken: options.bootstrapToken,
+    ...options,
     body: {
-      client_txn_id:
-        options.clientTxnId ?? clientTxnID("authentication-ui-totp-begin"),
+      client_txn_id: options.clientTxnId,
       ...(options.authMode === "session"
         ? {
             current_password: options.currentPassword ?? "",
@@ -265,20 +276,14 @@ export function beginTotpEnrollment(options: {
   });
 }
 
-export function completeTotpEnrollment(options: {
-  apiBase?: string | undefined;
-  authMode: TotpAuthMode;
-  bootstrapToken?: string;
-  clientTxnId?: string;
-  code: string;
-  enrollmentId: string;
-}) {
+export function completeTotpEnrollment(
+  options: MutationOptions &
+    TotpContext & { code: string; enrollmentId: string },
+) {
   const requestInit = totpEnrollmentRequestInit({
-    authMode: options.authMode,
-    bootstrapToken: options.bootstrapToken,
+    ...options,
     body: {
-      client_txn_id:
-        options.clientTxnId ?? clientTxnID("authentication-ui-totp-complete"),
+      client_txn_id: options.clientTxnId,
       enrollment_id: options.enrollmentId,
       code: options.code,
     } satisfies CompleteTOTPEnrollmentRequest,
@@ -292,7 +297,8 @@ export function completeTotpEnrollment(options: {
 
 export function changePassword(options: {
   apiBase?: string | undefined;
-  clientTxnId?: string;
+  clientTxnId: string;
+  signal?: AbortSignal;
   currentPassword: string;
   newPassword: string;
   secondFactorCode?: string;
@@ -303,10 +309,9 @@ export function changePassword(options: {
     operationID: "changeCurrentPassword",
     init: {
       method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify({
-        client_txn_id:
-          options.clientTxnId ??
-          clientTxnID("authentication-ui-password-change"),
+        client_txn_id: options.clientTxnId,
         current_password: options.currentPassword,
         new_password: options.newPassword,
         ...(secondFactor === undefined ? {} : { second_factor: secondFactor }),

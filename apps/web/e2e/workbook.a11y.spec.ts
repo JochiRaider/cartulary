@@ -25,6 +25,7 @@ import {
   cellPresenceMarkerTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  deploymentAdminTestId,
   evidenceAccessMessageTestId,
   evidenceAccessStateTestId,
   evidenceAttachFileInputTestId,
@@ -141,7 +142,10 @@ import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
-import { openIncidentControls } from "./pages/deploymentAdministration";
+import {
+  DeploymentAdministration,
+  openIncidentControls,
+} from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
 import { installAccountEditingFixture } from "./support/auth/accountEditingFixture";
 import { csrfHeaders } from "./support/auth/browserSession";
@@ -5006,14 +5010,11 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       "Checking current session",
     );
     await expectP1SurfaceA11y(page, {
-      focusTestId: authTestId("login-submit"),
-      tabStops: [
-        authTestId("login-username"),
-        authTestId("login-password"),
-        authTestId("login-submit"),
-      ],
+      focusTestId: authTestId("login-username"),
+      tabStops: [authTestId("login-username"), authTestId("login-password")],
     });
 
+    await expect(page.getByTestId(authTestId("login-submit"))).toBeDisabled();
     try {
       heldSession.release();
       await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
@@ -5744,10 +5745,26 @@ test("a11y.account-settings native forms radios validation and recovery", async 
   const settings = new AccountSettings(page);
   await settings.openProfile();
   const dialog = page.getByRole("dialog", { name: "Account settings" });
+  await dialog.getByRole("button", { name: "Close", exact: true }).focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect
+    .poll(() =>
+      dialog.evaluate((node) => node.contains(document.activeElement)),
+    )
+    .toBe(true);
+  await dialog.getByRole("tab", { name: "Profile", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(
+    dialog.getByRole("tab", { name: "Appearance", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
   const field = dialog.getByRole("textbox", { name: "Display name" });
   await field.focus();
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.insertText("   ");
+  await expect(
+    dialog.getByRole("button", { name: "Save profile", exact: true }),
+  ).toBeEnabled();
   await page.keyboard.press("Enter");
   await expect(field).toHaveAttribute("aria-invalid", "true");
   await expect(field).toHaveAccessibleDescription("Enter a display name.");
@@ -5756,6 +5773,9 @@ test("a11y.account-settings native forms radios validation and recovery", async 
   await expect(dialog.getByRole("alert")).toHaveCount(1);
   await expectAllInteractiveControlsNamed(page);
   await field.fill("Accessible draft");
+  await expect(
+    dialog.getByRole("button", { name: "Save profile", exact: true }),
+  ).toBeEnabled();
   fixture.fault("profile", "lost");
   await field.press("Enter");
   const retry = dialog.getByRole("button", { name: "Retry save" });
@@ -5808,4 +5828,107 @@ test("a11y.account-settings native forms radios validation and recovery", async 
   await expect(
     page.getByRole("button", { name: "Account and application navigation" }),
   ).toBeFocused();
+});
+
+test("a11y.deployment-users guarded drafts and credential dialogs remain keyboard reachable", async ({
+  workerAdminPage: page,
+  workerAdminRequest,
+}, testInfo) => {
+  const target = await createDeploymentUser(workerAdminRequest, {
+    email: uniqueEmail("admin-accessibility"),
+    display_name: "Accessible target",
+    initial_password: "AccessibleTargetPass!",
+    mfa_required: false,
+    is_deployment_admin: false,
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await new DeploymentAdministration(page).loadTargetUser(target.user_id);
+  const field = page.getByTestId(deploymentAdminTestId("patch-display-name"));
+  await field.fill("Unsaved accessible draft");
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  const guard = page.getByRole("dialog", { name: "Unsaved user changes" });
+  await expect(guard).toBeVisible();
+  await expect(
+    guard.getByRole("button", { name: "Stay", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    guard.getByRole("button", { name: "Save and leave", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    guard.getByRole("button", { name: "Stay", exact: true }),
+  ).toBeFocused();
+  await expectAllInteractiveControlsNamed(page);
+  await page.keyboard.press("Escape");
+  await expect(guard).toHaveCount(0);
+  await expect(field).toHaveValue("Unsaved accessible draft");
+  await page
+    .getByRole("button", { name: "Discard user edits", exact: true })
+    .click();
+  const reset = page.getByTestId(deploymentAdminTestId("password-reset"));
+  await reset.click();
+  const dialog = page.getByRole("dialog", {
+    name: "Confirm credential action",
+  });
+  const password = dialog.getByLabel("New password", { exact: true });
+  await password.fill("short");
+  await password.press("Enter");
+  await expect(password).toHaveAttribute("aria-invalid", "true");
+  await expect(password).toHaveAccessibleDescription(/12/);
+  await password.fill("Transient Password!");
+  for (const viewport of [
+    { width: 360, height: 480 },
+    { width: 800, height: 320 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await dialog.evaluate((node) => {
+      node.style.lineHeight = "1.5";
+      node.style.letterSpacing = "0.12em";
+      node.style.wordSpacing = "0.16em";
+    });
+    await dialog
+      .getByRole("button", { name: "Close credential action" })
+      .focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      dialog.getByRole("button", { name: "Confirm", exact: true }),
+    ).toBeFocused();
+    const box = await dialog.boundingBox();
+    expect(box).not.toBeNull();
+    if (box) {
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.width).toBeLessThanOrEqual(viewport.width);
+      expect(box.height).toBeLessThanOrEqual(viewport.height);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).focus();
+  const zoomBounds = await dialog.boundingBox();
+  expect(zoomBounds).not.toBeNull();
+  if (zoomBounds) {
+    expect(zoomBounds.x).toBeGreaterThanOrEqual(0);
+    expect(zoomBounds.y).toBeGreaterThanOrEqual(0);
+    expect(zoomBounds.x + zoomBounds.width).toBeLessThanOrEqual(1280);
+    expect(zoomBounds.y + zoomBounds.height).toBeLessThanOrEqual(720);
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await testInfo.attach("deployment-user-dialog-accessibility-tree", {
+    body: await dialog.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(reset).toBeFocused();
+  await reset.click();
+  await expect(dialog.getByLabel("New password", { exact: true })).toHaveValue(
+    "",
+  );
+  await page.keyboard.press("Escape");
 });

@@ -1,4 +1,5 @@
 import { clientTxnID, type HTTPOperationResult } from "../services/browserApi";
+import { validateAccountDisplayName } from "./accountInputValidation";
 import {
   isAccountPreferencesResource,
   isAccountProfileResource,
@@ -11,30 +12,28 @@ import type {
   AccountProfileResource,
   DensityMode,
 } from "./api/publicHttpTypes";
-import type { AppSessionController } from "./appSessionController";
+import type { AccountSettingsSessionPort } from "./appSessionController";
 
 export type AccountResourceKind = "profile" | "appearance";
-type Resource = AccountProfileResource | AccountPreferencesResource;
-type Value = string | null;
 type Failure =
   | "transport"
   | "timeout"
   | "contract"
   | "authorization"
   | "unavailable";
-export type AccountAttempt = Readonly<{
+type Attempt<V> = Readonly<{
   actor: string;
   lifetime: string;
   kind: AccountResourceKind;
   baseVersion: number;
-  desired: Value;
+  desired: V;
   revision: number;
   clientTxnId: string;
 }>;
-export type AccountOperation =
+type Operation<V> =
   | { kind: "idle" }
-  | { kind: "saving"; attempt: AccountAttempt; replay: boolean }
-  | { kind: "uncertain"; attempt: AccountAttempt; reason: Failure }
+  | { kind: "saving"; attempt: Attempt<V>; replay: boolean }
+  | { kind: "uncertain"; attempt: Attempt<V>; reason: Failure }
   | {
       kind: "rejected";
       reason: "validation" | "transaction" | "authorization" | "preparation";
@@ -43,359 +42,269 @@ export type AccountOperation =
       kind: "conflict";
       code: "user_version_conflict" | "preferences_version_conflict";
     }
-  | {
-      kind: "confirmed";
-      attempt: AccountAttempt;
-      resource: Resource;
-      publication: "pending" | "ready" | "failed";
-    };
-export type AccountEditState = {
-  readonly saved: Resource | null;
-  readonly draft: Value;
-  readonly revision: number;
-  readonly baseVersion: number | null;
-  readonly followSaved: boolean;
-  readonly read: "unresolved" | "loading" | "refreshing" | "ready" | "failed";
-  readonly readFailure: Failure | null;
-  readonly fieldError: string | null;
-  readonly operation: AccountOperation;
+  | { kind: "confirmed"; attempt: Attempt<V> };
+type ReadState = "unresolved" | "loading" | "refreshing" | "ready" | "failed";
+type EditorState<R, V> = Readonly<{
+  saved: R | null;
+  draft: V | undefined;
+  revision: number;
+  baseVersion: number | null;
+  followSaved: boolean;
+  read: ReadState;
+  readFailure: Failure | null;
+  fieldError: string | null;
+  operation: Operation<V>;
+}>;
+type Publication = "pending" | "ready" | "failed";
+export type ProfileEditState = Omit<
+  EditorState<AccountProfileResource, string>,
+  "operation"
+> & {
+  readonly kind: "profile";
+  readonly operation:
+    | Exclude<Operation<string>, { kind: "confirmed" }>
+    | { kind: "confirmed"; attempt: Attempt<string>; publication: Publication };
 };
-export type AccountSettingsSnapshot = Readonly<
-  Record<AccountResourceKind, AccountEditState>
->;
+export type AppearanceEditState = EditorState<
+  AccountPreferencesResource,
+  DensityMode | null
+> & { readonly kind: "appearance" };
+export type AccountEditState = ProfileEditState | AppearanceEditState;
+export type AccountSettingsSnapshot = Readonly<{
+  profile: ProfileEditState;
+  appearance: AppearanceEditState;
+}>;
 type Ports = {
   readProfile: typeof loadAccountProfile;
   patchProfile: typeof patchAccountProfile;
   putPreferences: typeof putAccountPreferences;
   newTransactionId: (kind: AccountResourceKind) => string;
 };
+type ResourceIdentity = {
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+};
 type Observation<T> =
   | { kind: "completed"; value: T }
   | { kind: "cancelled" | "timeout" | "transport" };
-const initial = (): AccountEditState => ({
-  saved: null,
-  draft: null,
-  revision: 0,
-  baseVersion: null,
-  followSaved: true,
-  read: "unresolved",
-  readFailure: null,
-  fieldError: null,
-  operation: { kind: "idle" },
-});
-const initialSnapshot = (): AccountSettingsSnapshot => ({
-  profile: initial(),
-  appearance: initial(),
-});
-export const accountSavedValue = (resource: Resource | null): Value =>
-  resource === null
-    ? null
-    : "user_version" in resource
-      ? resource.display_name
-      : resource.density_mode;
-export const accountResourceVersion = (resource: Resource): number =>
-  "user_version" in resource
-    ? resource.user_version
-    : resource.preferences_version;
+const unresolved = (operation: { kind: string }) =>
+  operation.kind === "saving" || operation.kind === "uncertain";
+const failure = (code?: string, status?: number): Failure =>
+  code === "invalid_public_contract_response"
+    ? "contract"
+    : status === 403 || code === "authorization_denied"
+      ? "authorization"
+      : "unavailable";
+export const accountSavedValue = (state: AccountEditState) =>
+  state.kind === "profile"
+    ? state.saved?.display_name
+    : state.saved?.density_mode;
 export const accountDraftDirty = (state: AccountEditState) =>
-  state.saved !== null && state.draft !== accountSavedValue(state.saved);
+  state.saved !== null && state.draft !== accountSavedValue(state);
 export const accountReviewRequired = (state: AccountEditState) =>
   state.saved !== null &&
   accountDraftDirty(state) &&
-  state.baseVersion !== accountResourceVersion(state.saved);
-const unresolved = (operation: AccountOperation) =>
-  operation.kind === "saving" || operation.kind === "uncertain";
+  state.baseVersion !==
+    (state.kind === "profile"
+      ? state.saved.user_version
+      : state.saved.preferences_version);
 export function canSaveAccountEdit(state: AccountEditState) {
   return (
     state.saved !== null &&
     accountDraftDirty(state) &&
     !accountReviewRequired(state) &&
+    writable(state) &&
+    !(
+      state.kind === "profile" &&
+      state.operation.kind === "confirmed" &&
+      state.operation.publication === "pending"
+    )
+  );
+}
+export function accountEditActions(state: AccountEditState) {
+  const operation = state.operation;
+  const recovery =
+    accountReviewRequired(state) ||
+    operation.kind === "conflict" ||
+    (operation.kind === "rejected" &&
+      (operation.reason === "transaction" ||
+        operation.reason === "authorization"));
+  return {
+    save: canSaveAccountEdit(state),
+    review: recovery && !unresolved(operation),
+    reviewEnabled: state.read === "ready",
+    discard: accountDraftDirty(state),
+    replay: operation.kind === "uncertain",
+    publicationRetry:
+      state.kind === "profile" &&
+      state.operation.kind === "confirmed" &&
+      state.operation.publication === "failed",
+  };
+}
+function writable(state: {
+  read: ReadState;
+  readFailure: Failure | null;
+  operation: { kind: string; reason?: string };
+}) {
+  return (
     state.read !== "refreshing" &&
     state.readFailure !== "authorization" &&
     !unresolved(state.operation) &&
     state.operation.kind !== "conflict" &&
     !(
       state.operation.kind === "rejected" &&
-      ["transaction", "authorization"].includes(state.operation.reason)
-    ) &&
-    !(
-      state.operation.kind === "confirmed" &&
-      state.operation.publication === "pending"
+      ["transaction", "authorization"].includes(state.operation.reason ?? "")
     )
   );
 }
 
-export function validateAccountDisplayName(input: string): {
-  value: string;
-  error: string | null;
-} {
-  const value = input
-    .normalize("NFC")
-    .replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
-  const scalars = Array.from(value);
-  const invalid = scalars.some((scalar) => {
-    const point = scalar.codePointAt(0) ?? 0;
-    return (
-      point <= 31 ||
-      (point >= 127 && point <= 159) ||
-      (point >= 0xd800 && point <= 0xdfff)
-    );
-  });
-  return {
-    value,
-    error:
-      value === ""
-        ? "Enter a display name."
-        : invalid
-          ? "Remove control characters from the display name."
-          : scalars.length > 256
-            ? "Use 256 characters or fewer."
-            : null,
-  };
-}
-
-/** Two account-local scalar edits. The session controller remains the preferences authority. */
-export class AccountSettingsController {
-  private snapshot = initialSnapshot();
-  private readonly listeners = new Set<() => void>();
+/** Bounded mechanics for the two scalar account editors, with typed resource policies. */
+class AccountEditor<R extends ResourceIdentity, V> {
+  state: EditorState<R, V> = this.initial();
   private readonly observations = new Map<string, () => void>();
-  private unsubscribe: (() => void) | null = null;
-  private lifetime: string | null = null;
-  private actor: string | null = null;
   private epoch = 0;
-  private disposed = false;
-  private readonly ports: Ports;
   constructor(
-    private readonly session: AppSessionController,
-    ports: Partial<Ports> = {},
-  ) {
-    this.ports = {
-      readProfile: loadAccountProfile,
-      patchProfile: patchAccountProfile,
-      putPreferences: putAccountPreferences,
-      newTransactionId: (kind) => clientTxnID(`account-${kind}`),
-      ...ports,
-    };
-  }
-  getSnapshot = () => this.snapshot;
-  bind(kind: AccountResourceKind, lifetime: string | null) {
-    const current = () =>
-      lifetime !== null && lifetime === this.lifetime && this.current();
+    private readonly policy: {
+      kind: AccountResourceKind;
+      current: () => { actor: string; lifetime: string } | null;
+      version: (resource: R) => number;
+      value: (resource: R) => V;
+      equal: (a: R, b: R) => boolean;
+      validate: (value: V) => { value: V; error: string | null };
+      resourceValid: (value: unknown) => value is R;
+      write: (
+        attempt: Attempt<V>,
+        signal: AbortSignal,
+      ) => Promise<
+        HTTPOperationResult<{ data: R; meta: { request_id: string } }>
+      >;
+      newTransactionId: () => string;
+      refresh: () => Promise<void>;
+      sessionLost: () => void;
+      confirmed: (resource: R, attempt: Attempt<V>) => boolean;
+      changed: () => void;
+      canSubmit: () => boolean;
+    },
+  ) {}
+  private initial(): EditorState<R, V> {
     return {
-      open: () => {
-        if (current()) this.open(kind);
-      },
-      change: (value: Value) => {
-        if (current()) this.change(kind, value);
-      },
-      submit: () => {
-        if (current()) this.submit(kind);
-      },
-      refresh: () => {
-        if (current()) void this.refresh(kind);
-      },
-      discard: () => {
-        if (current()) this.discard(kind);
-      },
-      review: () => {
-        if (current()) this.review(kind);
-      },
-      replay: () => {
-        if (current()) this.replay(kind);
-      },
-      retryPublication: () => {
-        if (current()) this.retryPublication(kind);
-      },
+      saved: null,
+      draft: undefined,
+      revision: 0,
+      baseVersion: null,
+      followSaved: true,
+      read: "unresolved",
+      readFailure: null,
+      fieldError: null,
+      operation: { kind: "idle" },
     };
   }
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-  start = () => {
-    if (this.disposed || this.unsubscribe !== null) return;
-    this.unsubscribe = this.session.subscribe(this.syncSession);
-    this.syncSession();
-  };
-  stop = () => {
-    this.unsubscribe?.();
-    this.unsubscribe = null;
-  };
-  retireLifetime = () => {
+  reset() {
     ++this.epoch;
-    this.lifetime = null;
-    this.actor = null;
     for (const cancel of [...this.observations.values()]) cancel();
-    this.snapshot = initialSnapshot();
-    this.emit();
-  };
-  dispose = () => {
-    this.stop();
-    this.retireLifetime();
-    this.disposed = true;
-    this.listeners.clear();
-  };
-  private current(epoch = this.epoch) {
-    const current = this.session.getSnapshot();
-    return (
-      !this.disposed &&
-      epoch === this.epoch &&
-      this.lifetime !== null &&
-      current.lifetime === this.lifetime &&
-      current.session?.user_id === this.actor
-    );
+    this.state = this.initial();
   }
-  private syncSession = () => {
-    const current = this.session.getSnapshot();
-    if (current.lifetime !== this.lifetime) {
-      this.retireLifetime();
-      this.lifetime = current.lifetime;
-      this.actor = current.session?.user_id ?? null;
-    }
-    if (!this.current()) return;
-    const preferences = current.preferences;
-    if (preferences.kind === "ready") {
-      this.acceptResource("appearance", preferences.value);
-      this.update("appearance", {
-        read: preferences.refreshing
-          ? "refreshing"
-          : preferences.refreshError
-            ? "failed"
-            : "ready",
-        readFailure: preferences.refreshError
-          ? this.failure(preferences.refreshError.code)
-          : null,
-      });
-    } else if (preferences.kind === "failed") {
-      this.update("appearance", {
-        read: "failed",
-        readFailure: this.failure(preferences.error.code),
-      });
-    } else
-      this.update("appearance", { read: preferences.kind, readFailure: null });
-  };
-  open = (kind: AccountResourceKind) => {
-    this.syncSession();
-    if (!this.current()) return;
-    const state = this.snapshot[kind];
+  update(patch: Partial<EditorState<R, V>>) {
     if (
-      state.read === "unresolved" ||
-      state.read === "ready" ||
-      (state.read === "failed" && state.saved !== null)
-    )
-      void this.refresh(kind);
-  };
-  change = (kind: AccountResourceKind, draft: Value) => {
-    if (!this.current() || this.snapshot[kind].saved === null) return;
-    if (kind === "profile" && typeof draft !== "string") return;
-    if (
-      kind === "appearance" &&
-      draft !== null &&
-      !["compact", "default", "comfortable"].includes(draft)
+      Object.entries(patch).every(
+        ([key, value]) => this.state[key as keyof EditorState<R, V>] === value,
+      )
     )
       return;
-    const state = this.snapshot[kind];
-    if (draft === state.draft) return;
-    this.update(kind, {
+    this.state = { ...this.state, ...patch };
+    this.policy.changed();
+  }
+  private current(epoch: number) {
+    return epoch === this.epoch && this.policy.current() !== null;
+  }
+  private dirty() {
+    return (
+      this.state.saved !== null &&
+      this.state.draft !== this.policy.value(this.state.saved)
+    );
+  }
+  change(draft: V) {
+    if (
+      !this.policy.current() ||
+      this.state.saved === null ||
+      draft === this.state.draft
+    )
+      return;
+    this.update({
       draft,
-      revision: state.revision + 1,
+      revision: this.state.revision + 1,
       followSaved: false,
       fieldError: null,
     });
-  };
-  discard = (kind: AccountResourceKind) => {
-    if (!this.current()) return;
-    const state = this.snapshot[kind];
-    this.update(kind, {
-      draft: accountSavedValue(state.saved),
-      baseVersion:
-        state.saved === null ? null : accountResourceVersion(state.saved),
+  }
+  discard() {
+    if (!this.policy.current()) return;
+    const { saved, operation } = this.state;
+    this.update({
+      draft: saved === null ? undefined : this.policy.value(saved),
+      baseVersion: saved === null ? null : this.policy.version(saved),
       followSaved: true,
-      revision: state.revision + 1,
+      revision: this.state.revision + 1,
       fieldError: null,
       operation:
-        unresolved(state.operation) || state.operation.kind === "confirmed"
-          ? state.operation
+        unresolved(operation) || operation.kind === "confirmed"
+          ? operation
           : { kind: "idle" },
     });
-  };
-  review = (kind: AccountResourceKind) => {
-    if (!this.current()) return;
-    const state = this.snapshot[kind];
+  }
+  review() {
+    const { saved, read, operation } = this.state;
     if (
-      state.saved === null ||
-      state.read !== "ready" ||
-      unresolved(state.operation)
+      !this.policy.current() ||
+      saved === null ||
+      read !== "ready" ||
+      unresolved(operation)
     )
       return;
-    this.update(kind, {
-      baseVersion: accountResourceVersion(state.saved),
+    this.update({
+      baseVersion: this.policy.version(saved),
       operation: { kind: "idle" },
       fieldError: null,
     });
-  };
-  refresh = async (kind: AccountResourceKind) => {
-    if (!this.current()) return;
-    if (kind === "appearance") {
-      await this.session.refreshPreferences();
-      return;
+  }
+  accept(resource: R) {
+    if (resource.user_id !== this.policy.current()?.actor) return false;
+    const previous = this.state.saved;
+    const version = this.policy.version(resource);
+    if (previous !== null) {
+      if (version < this.policy.version(previous)) return true;
+      if (
+        version === this.policy.version(previous) &&
+        !this.policy.equal(previous, resource)
+      )
+        return false;
     }
-    const epoch = this.epoch;
-    this.update(kind, {
-      read: this.snapshot[kind].saved === null ? "loading" : "refreshing",
-      readFailure: null,
+    this.update({
+      saved: resource,
+      ...(this.state.followSaved
+        ? { draft: this.policy.value(resource), baseVersion: version }
+        : {}),
     });
-    const observation = await this.observe("profile-read", (signal) =>
-      this.ports.readProfile({ signal }),
-    );
-    if (!this.current(epoch) || observation.kind === "cancelled") return;
-    const result = observation.kind === "completed" ? observation.value : null;
+    return true;
+  }
+  submit() {
+    const identity = this.policy.current();
+    const { saved, draft, baseVersion } = this.state;
     if (
-      result?.ok &&
-      isAccountProfileResource(result.payload.data) &&
-      this.acceptResource(kind, result.payload.data)
-    ) {
-      this.update(kind, { read: "ready", readFailure: null });
-      return;
-    }
-    if (
-      result &&
-      !result.ok &&
-      result.status === 401 &&
-      result.payload.error?.code === "session_required"
-    ) {
-      this.session.sessionLost();
-      return;
-    }
-    this.update(kind, {
-      read: "failed",
-      readFailure: result?.ok
-        ? "contract"
-        : result && !result.ok
-          ? this.failure(result.payload.error?.code, result.status)
-          : observation.kind === "timeout"
-            ? "timeout"
-            : "transport",
-    });
-  };
-  submit = (kind: AccountResourceKind) => {
-    if (!this.current()) return;
-    const state = this.snapshot[kind];
-    if (
-      !canSaveAccountEdit(state) ||
-      state.baseVersion === null ||
-      this.actor === null ||
-      this.lifetime === null
+      !identity ||
+      saved === null ||
+      draft === undefined ||
+      baseVersion === null ||
+      !this.dirty() ||
+      baseVersion !== this.policy.version(saved) ||
+      !writable(this.state) ||
+      !this.policy.canSubmit()
     )
       return;
-    const validated =
-      kind === "profile"
-        ? validateAccountDisplayName(state.draft ?? "")
-        : { value: state.draft, error: null };
+    const validated = this.policy.validate(draft);
     if (validated.error !== null) {
-      this.update(kind, {
+      this.update({
         fieldError: validated.error,
         operation: { kind: "rejected", reason: "validation" },
       });
@@ -403,66 +312,44 @@ export class AccountSettingsController {
     }
     try {
       const attempt = Object.freeze({
-        actor: this.actor,
-        lifetime: this.lifetime,
-        kind,
-        baseVersion: state.baseVersion,
+        ...identity,
+        kind: this.policy.kind,
+        baseVersion,
         desired: validated.value,
-        revision: state.revision,
-        clientTxnId: this.ports.newTransactionId(kind),
+        revision: this.state.revision,
+        clientTxnId: this.policy.newTransactionId(),
       });
       void this.dispatch(attempt, false);
     } catch {
-      this.update(kind, {
-        operation: { kind: "rejected", reason: "preparation" },
-      });
+      this.update({ operation: { kind: "rejected", reason: "preparation" } });
     }
-  };
-  replay = (kind: AccountResourceKind) => {
-    if (!this.current()) return;
-    const operation = this.snapshot[kind].operation;
+  }
+  replay() {
+    const operation = this.state.operation;
     if (operation.kind === "uncertain")
       void this.dispatch(operation.attempt, true);
-  };
-  private async dispatch(attempt: AccountAttempt, replay: boolean) {
-    const { kind } = attempt;
+  }
+  private async dispatch(attempt: Attempt<V>, replay: boolean) {
+    const identity = this.policy.current();
     if (
-      !this.current() ||
-      attempt.lifetime !== this.lifetime ||
-      attempt.actor !== this.actor ||
-      this.snapshot[kind].operation.kind === "saving"
+      !identity ||
+      identity.actor !== attempt.actor ||
+      identity.lifetime !== attempt.lifetime ||
+      this.state.operation.kind === "saving"
     )
       return;
     const epoch = this.epoch;
-    this.observations.get(`${kind}-publication`)?.();
-    this.update(kind, {
+    this.cancel("publication");
+    this.update({
       operation: { kind: "saving", attempt, replay },
       fieldError: null,
     });
-    const observation = await this.observe(
-      `${kind}-write`,
-      (
-        signal,
-      ): Promise<
-        HTTPOperationResult<{ data: Resource; meta: { request_id: string } }>
-      > =>
-        kind === "profile"
-          ? this.ports.patchProfile({
-              baseUserVersion: attempt.baseVersion,
-              displayName: attempt.desired ?? "",
-              clientTxnId: attempt.clientTxnId,
-              signal,
-            })
-          : this.ports.putPreferences({
-              basePreferencesVersion: attempt.baseVersion,
-              densityMode: attempt.desired as DensityMode | null,
-              clientTxnId: attempt.clientTxnId,
-              signal,
-            }),
+    const observation = await this.observe("write", (signal) =>
+      this.policy.write(attempt, signal),
     );
     if (!this.current(epoch) || observation.kind === "cancelled") return;
     const uncertain = (reason: Failure) =>
-      this.update(kind, { operation: { kind: "uncertain", attempt, reason } });
+      this.update({ operation: { kind: "uncertain", attempt, reason } });
     if (observation.kind !== "completed") {
       uncertain(observation.kind);
       return;
@@ -471,180 +358,85 @@ export class AccountSettingsController {
     if (result.ok) {
       const resource = result.payload.data;
       if (
-        !(kind === "profile"
-          ? isAccountProfileResource(resource)
-          : isAccountPreferencesResource(resource)) ||
+        !this.policy.resourceValid(resource) ||
         resource.user_id !== attempt.actor ||
-        accountResourceVersion(resource) < attempt.baseVersion ||
-        accountSavedValue(resource) !== attempt.desired
+        this.policy.version(resource) < attempt.baseVersion ||
+        this.policy.value(resource) !== attempt.desired
       ) {
         uncertain("contract");
         return;
       }
-      // Invalidating an older read is separate from accepting a replay's older version.
-      if (kind === "profile") this.observations.get("profile-read")?.();
-      if (kind === "appearance") {
-        const accepted = this.session.preferencesChanged(
-          resource as AccountPreferencesResource,
-          attempt.lifetime,
-        );
-        if (accepted === "invalid") {
-          uncertain("contract");
-          return;
-        }
-      } else if (!this.acceptResource(kind, resource)) {
+      if (this.policy.kind === "profile") this.cancel("read");
+      if (!this.policy.confirmed(resource, attempt)) {
         uncertain("contract");
         return;
       }
       if (!this.current(epoch)) return;
-      const state = this.snapshot[kind];
-      const latestVersion =
-        state.saved === null ? 0 : accountResourceVersion(state.saved);
+      const latest = this.state.saved;
+      const version = latest === null ? 0 : this.policy.version(latest);
       const acknowledge =
-        state.revision === attempt.revision &&
-        accountResourceVersion(resource) >= latestVersion;
-      this.update(kind, {
+        this.state.revision === attempt.revision &&
+        this.policy.version(resource) >= version;
+      this.update({
         ...(acknowledge
           ? {
-              draft: accountSavedValue(resource),
-              baseVersion: latestVersion,
+              draft: this.policy.value(resource),
+              baseVersion: version,
               followSaved: true,
             }
           : {}),
-        // An obsolete Appearance replay must leave a newer session read visible.
-        ...(kind === "profile"
+        ...(this.policy.kind === "profile"
           ? { read: "ready" as const, readFailure: null }
           : {}),
-        operation: {
-          kind: "confirmed",
-          attempt,
-          resource,
-          publication: kind === "profile" ? "pending" : "ready",
-        },
+        operation: { kind: "confirmed", attempt },
       });
-      if (kind === "profile") void this.publishProfile(attempt);
       return;
     }
     const error = result.payload.error;
     if (result.status === 401 && error?.code === "session_required") {
-      this.session.sessionLost();
+      this.policy.sessionLost();
       return;
     }
-    const conflictCode =
-      kind === "profile"
+    const conflict =
+      this.policy.kind === "profile"
         ? "user_version_conflict"
         : "preferences_version_conflict";
-    if (result.status === 409 && error?.code === conflictCode) {
-      this.update(kind, {
-        operation: { kind: "conflict", code: conflictCode },
-      });
-      void this.refresh(kind);
+    if (result.status === 409 && error?.code === conflict) {
+      this.update({ operation: { kind: "conflict", code: conflict } });
+      void this.policy.refresh();
     } else if (result.status === 409 && error?.code === "client_txn_conflict") {
-      this.update(kind, {
-        operation: { kind: "rejected", reason: "transaction" },
-      });
-      void this.refresh(kind);
+      this.update({ operation: { kind: "rejected", reason: "transaction" } });
+      void this.policy.refresh();
     } else if (
       result.status === 400 &&
       error?.code === "invalid_mutation_payload" &&
       !replay
     ) {
-      this.update(kind, {
+      const profile = this.policy.kind === "profile";
+      this.update({
         operation: { kind: "rejected", reason: "validation" },
         fieldError:
-          error.details?.field ===
-          (kind === "profile" ? "display_name" : "density_mode")
-            ? kind === "profile"
+          error.details?.field === (profile ? "display_name" : "density_mode")
+            ? profile
               ? "Check the display name: use 1–256 characters without control characters."
               : "Select one of the listed density choices."
             : null,
       });
-    } else if (result.status === 403 && !replay) {
-      this.update(kind, {
+    } else if (result.status === 403 && !replay)
+      this.update({
         operation: { kind: "rejected", reason: "authorization" },
         readFailure: "authorization",
       });
-    } else uncertain(this.failure(error?.code, result.status));
+    else uncertain(failure(error?.code, result.status));
   }
-  retryPublication = (kind: AccountResourceKind) => {
-    const operation = this.snapshot[kind].operation;
-    if (
-      this.current() &&
-      kind === "profile" &&
-      operation.kind === "confirmed" &&
-      operation.publication === "failed"
-    )
-      void this.publishProfile(operation.attempt);
-  };
-  private async publishProfile(attempt: AccountAttempt) {
-    const epoch = this.epoch;
-    const isCurrent = () => {
-      const operation = this.snapshot.profile.operation;
-      return (
-        this.current(epoch) &&
-        operation.kind === "confirmed" &&
-        operation.attempt === attempt
-      );
-    };
-    if (!isCurrent()) return;
-    const operation = this.snapshot.profile.operation;
-    if (operation.kind !== "confirmed") return;
-    this.update("profile", {
-      operation: { ...operation, publication: "pending" },
-    });
-    const observation = await this.observe("profile-publication", (signal) =>
-      this.session.refreshSessionForAccountEdit(
-        attempt.lifetime,
-        signal,
-        isCurrent,
-      ),
-    );
-    if (!isCurrent() || observation.kind === "cancelled") return;
-    const result = observation.kind === "completed" ? observation.value : null;
-    // Session reads may already contain a later, externally accepted display name.
-    const ready = result?.kind === "accepted";
-    this.update("profile", {
-      operation: { ...operation, publication: ready ? "ready" : "failed" },
-    });
+  cancel(key: string) {
+    this.observations.get(key)?.();
   }
-  private acceptResource(kind: AccountResourceKind, resource: Resource) {
-    if (resource.user_id !== this.actor) return false;
-    const state = this.snapshot[kind];
-    const version = accountResourceVersion(resource);
-    if (state.saved !== null) {
-      const priorVersion = accountResourceVersion(state.saved);
-      if (version < priorVersion) return true;
-      if (
-        version === priorVersion &&
-        (accountSavedValue(resource) !== accountSavedValue(state.saved) ||
-          resource.created_at !== state.saved.created_at ||
-          resource.updated_at !== state.saved.updated_at ||
-          ("email" in resource &&
-            "email" in state.saved &&
-            resource.email !== state.saved.email))
-      )
-        return false;
-    }
-    this.update(kind, {
-      saved: resource,
-      ...(state.followSaved
-        ? { draft: accountSavedValue(resource), baseVersion: version }
-        : {}),
-    });
-    return true;
-  }
-  private failure(code?: string, status?: number): Failure {
-    return code === "invalid_public_contract_response"
-      ? "contract"
-      : status === 403 || code === "authorization_denied"
-        ? "authorization"
-        : "unavailable";
-  }
-  private observe<T>(
+  observe<T>(
     key: string,
     task: (signal: AbortSignal) => Promise<T>,
   ): Promise<Observation<T>> {
-    this.observations.get(key)?.();
+    this.cancel(key);
     return new Promise((resolve) => {
       const controller = new AbortController();
       let settled = false;
@@ -660,7 +452,6 @@ export class AccountSettingsController {
       const cancel = () => finish({ kind: "cancelled" });
       const timer = setTimeout(() => finish({ kind: "timeout" }), 30_000);
       this.observations.set(key, cancel);
-      // Dispatch starts synchronously, after the operation lock was published.
       try {
         void task(controller.signal).then(
           (value) => finish({ kind: "completed", value }),
@@ -671,18 +462,341 @@ export class AccountSettingsController {
       }
     });
   }
-  private update(kind: AccountResourceKind, patch: Partial<AccountEditState>) {
-    const previous = this.snapshot[kind];
+}
+
+export class AccountSettingsController {
+  private readonly profile: AccountEditor<AccountProfileResource, string>;
+  private readonly appearance: AccountEditor<
+    AccountPreferencesResource,
+    DensityMode | null
+  >;
+  private snapshot: AccountSettingsSnapshot;
+  private readonly listeners = new Set<() => void>();
+  private lifetime: string | null = null;
+  private actor: string | null = null;
+  private epoch = 0;
+  private disposed = false;
+  private unsubscribe: (() => void) | null = null;
+  private publication: Publication = "ready";
+  private publishing: Attempt<string> | null = null;
+  private readonly ports: Ports;
+  constructor(
+    private readonly session: AccountSettingsSessionPort,
+    ports: Partial<Ports> = {},
+  ) {
+    this.ports = {
+      readProfile: loadAccountProfile,
+      patchProfile: patchAccountProfile,
+      putPreferences: putAccountPreferences,
+      newTransactionId: (kind) => clientTxnID(`account-${kind}`),
+      ...ports,
+    };
+    const common = {
+      current: this.current,
+      sessionLost: () => session.sessionLost(),
+      changed: () => this.changed(),
+    };
+    this.profile = new AccountEditor({
+      ...common,
+      kind: "profile",
+      version: (r) => r.user_version,
+      value: (r) => r.display_name,
+      equal: (a, b) =>
+        a.display_name === b.display_name &&
+        a.email === b.email &&
+        a.created_at === b.created_at &&
+        a.updated_at === b.updated_at,
+      validate: validateAccountDisplayName,
+      resourceValid: isAccountProfileResource,
+      write: (a, signal) =>
+        this.ports.patchProfile({
+          baseUserVersion: a.baseVersion,
+          displayName: a.desired,
+          clientTxnId: a.clientTxnId,
+          signal,
+        }),
+      newTransactionId: () => this.ports.newTransactionId("profile"),
+      refresh: () => this.refresh("profile"),
+      confirmed: (r) => {
+        if (!this.profile.accept(r)) return false;
+        this.publication = "pending";
+        return true;
+      },
+      canSubmit: () =>
+        this.profile.state.operation.kind !== "confirmed" ||
+        this.publication !== "pending",
+    });
+    this.appearance = new AccountEditor({
+      ...common,
+      kind: "appearance",
+      version: (r) => r.preferences_version,
+      value: (r) => r.density_mode,
+      equal: (a, b) =>
+        a.density_mode === b.density_mode &&
+        a.created_at === b.created_at &&
+        a.updated_at === b.updated_at,
+      validate: (value) => ({ value, error: null }),
+      resourceValid: isAccountPreferencesResource,
+      write: (a, signal) =>
+        this.ports.putPreferences({
+          basePreferencesVersion: a.baseVersion,
+          densityMode: a.desired,
+          clientTxnId: a.clientTxnId,
+          signal,
+        }),
+      newTransactionId: () => this.ports.newTransactionId("appearance"),
+      refresh: () => this.refresh("appearance"),
+      confirmed: (r, a) =>
+        session.preferencesChanged(r, a.lifetime) !== "invalid",
+      canSubmit: () => true,
+    });
+    this.snapshot = this.project();
+  }
+  private project(): AccountSettingsSnapshot {
+    const state = this.profile.state;
+    return {
+      profile: {
+        ...state,
+        kind: "profile",
+        operation:
+          state.operation.kind === "confirmed"
+            ? { ...state.operation, publication: this.publication }
+            : state.operation,
+      },
+      appearance: { ...this.appearance.state, kind: "appearance" },
+    };
+  }
+  private changed() {
+    this.snapshot = this.project();
+    for (const listener of this.listeners) listener();
+    const op = this.profile.state.operation;
     if (
-      Object.entries(patch).every(
-        ([key, value]) => previous[key as keyof AccountEditState] === value,
-      )
+      op.kind === "confirmed" &&
+      this.publication === "pending" &&
+      this.publishing !== op.attempt
+    )
+      void this.publishProfile(op.attempt);
+  }
+  private current = () => {
+    const state = this.session.getSnapshot();
+    return !this.disposed &&
+      this.lifetime !== null &&
+      state.lifetime === this.lifetime &&
+      this.actor !== null &&
+      state.session?.user_id === this.actor
+      ? { actor: this.actor, lifetime: this.lifetime }
+      : null;
+  };
+  getSnapshot = () => this.snapshot;
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  };
+  start = () => {
+    if (this.disposed || this.unsubscribe) return;
+    this.unsubscribe = this.session.subscribe(this.syncSession);
+    this.syncSession();
+  };
+  stop = () => {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+  };
+  retireLifetime = () => {
+    ++this.epoch;
+    this.lifetime = null;
+    this.actor = null;
+    this.publishing = null;
+    this.publication = "ready";
+    this.profile.reset();
+    this.appearance.reset();
+    this.changed();
+  };
+  dispose = () => {
+    this.stop();
+    this.retireLifetime();
+    this.disposed = true;
+    this.listeners.clear();
+  };
+  private syncSession = () => {
+    const state = this.session.getSnapshot();
+    if (state.lifetime !== this.lifetime) {
+      this.retireLifetime();
+      this.lifetime = state.lifetime;
+      this.actor = state.session?.user_id ?? null;
+    }
+    if (!this.current()) return;
+    const preferences = state.preferences;
+    if (preferences.kind === "ready") {
+      this.appearance.accept(preferences.value);
+      this.appearance.update({
+        read: preferences.refreshing
+          ? "refreshing"
+          : preferences.refreshError
+            ? "failed"
+            : "ready",
+        readFailure: preferences.refreshError
+          ? failure(preferences.refreshError.code)
+          : null,
+      });
+    } else if (preferences.kind === "failed")
+      this.appearance.update({
+        read: "failed",
+        readFailure: failure(preferences.error.code),
+      });
+    else this.appearance.update({ read: preferences.kind, readFailure: null });
+  };
+  bind<K extends AccountResourceKind>(kind: K, lifetime: string | null) {
+    const active = () =>
+      lifetime !== null &&
+      lifetime === this.lifetime &&
+      this.current() !== null;
+    return {
+      open: () => {
+        if (active()) this.open(kind);
+      },
+      change: (
+        value: { profile: string; appearance: DensityMode | null }[K],
+      ) => {
+        if (active()) this.change(kind, value);
+      },
+      submit: () => {
+        if (active()) this.submit(kind);
+      },
+      refresh: () => {
+        if (active()) void this.refresh(kind);
+      },
+      discard: () => {
+        if (active()) this.discard(kind);
+      },
+      review: () => {
+        if (active()) this.review(kind);
+      },
+      replay: () => {
+        if (active()) this.replay(kind);
+      },
+      retryPublication: () => {
+        if (active()) this.retryPublication(kind);
+      },
+    };
+  }
+  open = (kind: AccountResourceKind) => {
+    this.syncSession();
+    if (!this.current()) return;
+    const state = this.snapshot[kind];
+    if (
+      state.read === "unresolved" ||
+      state.read === "ready" ||
+      (state.read === "failed" && state.saved !== null)
+    )
+      void this.refresh(kind);
+  };
+  change = <K extends AccountResourceKind>(
+    kind: K,
+    value: { profile: string; appearance: DensityMode | null }[K],
+  ) => {
+    if (kind === "profile" && typeof value === "string")
+      this.profile.change(value);
+    else if (
+      kind === "appearance" &&
+      (value === null ||
+        value === "compact" ||
+        value === "default" ||
+        value === "comfortable")
+    )
+      this.appearance.change(value);
+  };
+  submit = (kind: AccountResourceKind) => this[kind].submit();
+  discard = (kind: AccountResourceKind) => this[kind].discard();
+  review = (kind: AccountResourceKind) => this[kind].review();
+  replay = (kind: AccountResourceKind) => this[kind].replay();
+  refresh = async (kind: AccountResourceKind) => {
+    if (!this.current()) return;
+    if (kind === "appearance") {
+      await this.session.refreshPreferences();
+      return;
+    }
+    const epoch = this.epoch;
+    this.profile.update({
+      read: this.profile.state.saved === null ? "loading" : "refreshing",
+      readFailure: null,
+    });
+    const observation = await this.profile.observe("read", (signal) =>
+      this.ports.readProfile({ signal }),
+    );
+    if (
+      epoch !== this.epoch ||
+      !this.current() ||
+      observation.kind === "cancelled"
     )
       return;
-    this.snapshot = { ...this.snapshot, [kind]: { ...previous, ...patch } };
-    this.emit();
-  }
-  private emit() {
-    for (const listener of this.listeners) listener();
+    const result = observation.kind === "completed" ? observation.value : null;
+    if (
+      result?.ok &&
+      isAccountProfileResource(result.payload.data) &&
+      this.profile.accept(result.payload.data)
+    ) {
+      this.profile.update({ read: "ready", readFailure: null });
+      return;
+    }
+    if (
+      result &&
+      !result.ok &&
+      result.status === 401 &&
+      result.payload.error?.code === "session_required"
+    ) {
+      this.session.sessionLost();
+      return;
+    }
+    this.profile.update({
+      read: "failed",
+      readFailure: result?.ok
+        ? "contract"
+        : result && !result.ok
+          ? failure(result.payload.error?.code, result.status)
+          : observation.kind === "timeout"
+            ? "timeout"
+            : "transport",
+    });
+  };
+  retryPublication = (kind: AccountResourceKind) => {
+    const operation = this.profile.state.operation;
+    if (
+      kind === "profile" &&
+      this.current() &&
+      operation.kind === "confirmed" &&
+      this.publication === "failed"
+    )
+      void this.publishProfile(operation.attempt);
+  };
+  private async publishProfile(attempt: Attempt<string>) {
+    const epoch = this.epoch;
+    const current = () => {
+      const op = this.profile.state.operation;
+      return (
+        epoch === this.epoch &&
+        this.current() !== null &&
+        op.kind === "confirmed" &&
+        op.attempt === attempt
+      );
+    };
+    if (!current()) return;
+    this.publishing = attempt;
+    this.publication = "pending";
+    this.changed();
+    const observation = await this.profile.observe("publication", (signal) =>
+      this.session.refreshSessionForAccountOperation(
+        attempt.lifetime,
+        signal,
+        current,
+      ),
+    );
+    if (!current() || observation.kind === "cancelled") return;
+    this.publication =
+      observation.kind === "completed" && observation.value.kind === "accepted"
+        ? "ready"
+        : "failed";
+    this.changed();
   }
 }

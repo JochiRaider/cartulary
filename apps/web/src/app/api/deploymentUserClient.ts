@@ -18,11 +18,12 @@ import type {
   RotateEnterpriseAuthBindingRequest,
   RotateEnterpriseAuthBindingResponse,
 } from "@cartulary/protocol-ts/http";
-import { clientTxnID, fetchHTTPOperation } from "../../services/browserApi";
+import { fetchHTTPOperation } from "../../services/browserApi";
 
 export function createLocalUser(options: {
   apiBase?: string | undefined;
-  clientTxnId?: string;
+  signal?: AbortSignal;
+  clientTxnId: string;
   displayName: string;
   email: string;
   initialPassword: string;
@@ -30,8 +31,7 @@ export function createLocalUser(options: {
   mfaRequired: boolean;
 }) {
   const request = {
-    client_txn_id:
-      options.clientTxnId ?? clientTxnID("authentication-ui-user-create"),
+    client_txn_id: options.clientTxnId,
     auth_kind: "local",
     email: options.email,
     display_name: options.displayName,
@@ -43,6 +43,7 @@ export function createLocalUser(options: {
     apiBase: options.apiBase,
     init: {
       method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify(request),
     },
     operationID: "createDeploymentUser",
@@ -51,12 +52,12 @@ export function createLocalUser(options: {
 
 export function listUsers(options?: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   cursorToken?: string | null;
   isActive?: boolean | null | undefined;
   isDeploymentAdmin?: boolean | null | undefined;
   limit?: number | undefined;
   search?: string | undefined;
-  signal?: AbortSignal | undefined;
 }) {
   const query: Record<string, string | number> = {
     limit: options?.limit ?? 100,
@@ -91,37 +92,43 @@ export function listUsers(options?: {
 
 export function loadUser(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   userId: string;
 }) {
   return fetchHTTPOperation<GetDeploymentUserResponse>({
     apiBase: options.apiBase,
     operationID: "getDeploymentUser",
+    init: options.signal === undefined ? undefined : { signal: options.signal },
     pathParameters: { user_id: options.userId },
   });
 }
 
+export type DeploymentUserChanges = Partial<
+  Pick<
+    PatchDeploymentUserRequest,
+    | "email"
+    | "display_name"
+    | "mfa_required"
+    | "is_active"
+    | "is_deployment_admin"
+  >
+>;
 export function patchLocalUser(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   baseUserVersion: number;
-  displayName: string;
-  email: string;
-  isActive: boolean;
-  isDeploymentAdmin: boolean;
-  mfaRequired: boolean;
+  changes: DeploymentUserChanges;
   userId: string;
 }) {
   const request = {
     base_user_version: options.baseUserVersion,
-    email: options.email,
-    display_name: options.displayName,
-    mfa_required: options.mfaRequired,
-    is_active: options.isActive,
-    is_deployment_admin: options.isDeploymentAdmin,
+    ...options.changes,
   } satisfies PatchDeploymentUserRequest;
   return fetchHTTPOperation<PatchDeploymentUserResponse>({
     apiBase: options.apiBase,
     init: {
       method: "PATCH",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify(request),
     },
     operationID: "patchDeploymentUser",
@@ -131,8 +138,9 @@ export function patchLocalUser(options: {
 
 export function createEnterpriseAuthBinding(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   baseUserVersion: number;
-  clientTxnId?: string;
+  clientTxnId: string;
   providerKey: string;
   providerSubject: string;
   reason: string;
@@ -140,9 +148,7 @@ export function createEnterpriseAuthBinding(options: {
 }) {
   const request = {
     base_user_version: options.baseUserVersion,
-    client_txn_id:
-      options.clientTxnId ??
-      clientTxnID("authentication-ui-auth-binding-create"),
+    client_txn_id: options.clientTxnId,
     provider_key: options.providerKey,
     provider_subject: options.providerSubject,
     reason: options.reason,
@@ -151,24 +157,27 @@ export function createEnterpriseAuthBinding(options: {
     apiBase: options.apiBase,
     operationID: "createEnterpriseAuthBinding",
     pathParameters: { user_id: options.userId },
-    init: { method: "POST", body: JSON.stringify(request) },
+    init: {
+      method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      body: JSON.stringify(request),
+    },
   });
 }
 
 export function rotateEnterpriseAuthBinding(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   authBindingId: string;
   baseUserVersion: number;
-  clientTxnId?: string;
+  clientTxnId: string;
   newProviderSubject: string;
   reason: string;
   userId: string;
 }) {
   const request = {
     base_user_version: options.baseUserVersion,
-    client_txn_id:
-      options.clientTxnId ??
-      clientTxnID("authentication-ui-auth-binding-rotate"),
+    client_txn_id: options.clientTxnId,
     new_provider_subject: options.newProviderSubject,
     reason: options.reason,
   } satisfies RotateEnterpriseAuthBindingRequest;
@@ -179,23 +188,26 @@ export function rotateEnterpriseAuthBinding(options: {
       user_id: options.userId,
       auth_binding_id: options.authBindingId,
     },
-    init: { method: "POST", body: JSON.stringify(request) },
+    init: {
+      method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      body: JSON.stringify(request),
+    },
   });
 }
 
 export function retireEnterpriseAuthBinding(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   authBindingId: string;
   baseUserVersion: number;
-  clientTxnId?: string;
+  clientTxnId: string;
   reason: string;
   userId: string;
 }) {
   const request = {
     base_user_version: options.baseUserVersion,
-    client_txn_id:
-      options.clientTxnId ??
-      clientTxnID("authentication-ui-auth-binding-retire"),
+    client_txn_id: options.clientTxnId,
     reason: options.reason,
   } satisfies RetireEnterpriseAuthBindingRequest;
   return fetchHTTPOperation<RetireEnterpriseAuthBindingResponse>({
@@ -205,22 +217,26 @@ export function retireEnterpriseAuthBinding(options: {
       user_id: options.userId,
       auth_binding_id: options.authBindingId,
     },
-    init: { method: "DELETE", body: JSON.stringify(request) },
+    init: {
+      method: "DELETE",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      body: JSON.stringify(request),
+    },
   });
 }
 
 export function adminResetPassword(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   baseUserVersion: number;
-  clientTxnId?: string;
+  clientTxnId: string;
   newPassword: string;
   reason: string;
   userId: string;
 }) {
   const request = {
     base_user_version: options.baseUserVersion,
-    client_txn_id:
-      options.clientTxnId ?? clientTxnID("authentication-ui-password-reset"),
+    client_txn_id: options.clientTxnId,
     new_password: options.newPassword,
     reason: options.reason,
   } satisfies ResetDeploymentUserPasswordRequest;
@@ -228,6 +244,7 @@ export function adminResetPassword(options: {
     apiBase: options.apiBase,
     init: {
       method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify(request),
     },
     operationID: "resetDeploymentUserPassword",
@@ -237,21 +254,22 @@ export function adminResetPassword(options: {
 
 export function adminResetTotp(options: {
   apiBase?: string | undefined;
+  signal?: AbortSignal;
   baseUserVersion: number;
-  clientTxnId?: string;
+  clientTxnId: string;
   reason: string;
   userId: string;
 }) {
   const request = {
     base_user_version: options.baseUserVersion,
-    client_txn_id:
-      options.clientTxnId ?? clientTxnID("authentication-ui-totp-reset"),
+    client_txn_id: options.clientTxnId,
     reason: options.reason,
   } satisfies ResetDeploymentUserTOTPRequest;
   return fetchHTTPOperation<ResetDeploymentUserTOTPResponse>({
     apiBase: options.apiBase,
     init: {
       method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify(request),
     },
     operationID: "resetDeploymentUserTOTP",
@@ -261,19 +279,20 @@ export function adminResetTotp(options: {
 
 export function adminRevokeAllSessions(options: {
   apiBase?: string | undefined;
-  clientTxnId?: string;
+  signal?: AbortSignal;
+  clientTxnId: string;
   reason: string;
   userId: string;
 }) {
   const request = {
-    client_txn_id:
-      options.clientTxnId ?? clientTxnID("authentication-ui-revoke-all"),
+    client_txn_id: options.clientTxnId,
     reason: options.reason,
   } satisfies RevokeAllDeploymentUserSessionsRequest;
   return fetchHTTPOperation<RevokeAllDeploymentUserSessionsResponse>({
     apiBase: options.apiBase,
     init: {
       method: "POST",
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
       body: JSON.stringify(request),
     },
     operationID: "revokeAllDeploymentUserSessions",

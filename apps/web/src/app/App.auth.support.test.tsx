@@ -16,6 +16,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AccountSecurityController } from "./accountSecurityModel";
+import { DeploymentUsersController } from "./deploymentUsersModel";
 
 vi.mock("../workbook/WorkbookShell", () => ({
   WorkbookShell: vi.fn(),
@@ -200,8 +202,9 @@ describe("ordinary shell support", () => {
     render(
       <DeploymentUsersPanel
         autoLoadUsers
-        onRefreshSession={() => undefined}
-        session={sessionResource({ is_deployment_admin: true })}
+        controller={deploymentController(
+          sessionResource({ is_deployment_admin: true }),
+        )}
       />,
     );
 
@@ -259,11 +262,16 @@ describe("ordinary shell support", () => {
 
     render(
       <>
-        <AccountSecurityPanel onSessionEvent={() => undefined} />
-        <DeploymentUsersPanel
-          onRefreshSession={() => undefined}
-          session={session}
+        <AccountSecurityPanel
+          controller={
+            new AccountSecurityController(() => ({
+              actor: sessionResource().user_id,
+              current: () => true,
+              event: () => undefined,
+            }))
+          }
         />
+        <DeploymentUsersPanel controller={deploymentController(session)} />
       </>,
     );
 
@@ -403,8 +411,9 @@ describe("ordinary shell support", () => {
       <DeploymentUsersPanel
         autoLoadUsers
         enterpriseAuthClaimed
-        onRefreshSession={() => undefined}
-        session={sessionResource({ is_deployment_admin: true })}
+        controller={deploymentController(
+          sessionResource({ is_deployment_admin: true }),
+        )}
       />,
     );
 
@@ -499,7 +508,7 @@ describe("ordinary shell support", () => {
               : String(input).endsWith("/begin")
                 ? {
                     enrollment_id: "00000000-0000-4000-8000-000000000002",
-                    expires_at: "2026-04-20T12:10:00Z",
+                    expires_at: new Date(Date.now() + 300_000).toISOString(),
                     totp_setup: {
                       secret_base32: "JBSWY3DPEHPK3PXP",
                       otpauth_uri:
@@ -510,7 +519,7 @@ describe("ordinary shell support", () => {
                     },
                   }
                 : {
-                    user_id: "00000000-0000-4000-8000-000000000006",
+                    user_id: sessionResource().user_id,
                     totp: { enrolled_at: "2026-04-20T12:00:00Z" },
                     sessions_revoked: sessionsRevoked,
                   },
@@ -518,7 +527,19 @@ describe("ordinary shell support", () => {
         ),
       );
       const rendered = render(
-        <AccountSecurityPanel onSessionEvent={refresh} />,
+        <AccountSecurityPanel
+          controller={
+            new AccountSecurityController(() => ({
+              actor: sessionResource().user_id,
+              current: () => true,
+              event: (event) => refresh(event),
+            }))
+          }
+        />,
+      );
+      fireEvent.change(
+        screen.getByTestId(accountTestId("totp-current-password")),
+        { target: { value: "Current Password!" } },
       );
       fireEvent.click(screen.getByTestId(accountTestId("totp-begin")));
       await waitFor(() =>
@@ -643,5 +664,22 @@ function jsonResponse(payload: unknown, status = 200) {
     headers: {
       "Content-Type": "application/json",
     },
+  });
+}
+
+function deploymentController(
+  session: ReturnType<typeof sessionResource>,
+  refresh: () => Promise<void> | void = () => {},
+) {
+  return new DeploymentUsersController({
+    identity: () => ({
+      actor: session.user_id,
+      lifetime: "test-lifetime",
+      admin: session.is_deployment_admin,
+    }),
+    subscribe: () => () => {},
+    refresh,
+    revoked: () => {},
+    lost: () => {},
   });
 }

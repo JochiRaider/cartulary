@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  it,
+  vi,
+} from "vitest";
 import type { HTTPOperationResult } from "../../services/browserApi";
 import { csrfHeaderName } from "../../services/browserApi";
 import {
@@ -135,11 +143,13 @@ describe("App-shell API route boundaries", () => {
     await expectOperation(() =>
       patchLocalUser({
         baseUserVersion: 7,
-        displayName: "Updated User",
-        email: "00000000-0000-4000-8000-000000000005@example.test",
-        isActive: true,
-        isDeploymentAdmin: false,
-        mfaRequired: true,
+        changes: {
+          display_name: "Updated User",
+          email: "00000000-0000-4000-8000-000000000005@example.test",
+          is_active: true,
+          is_deployment_admin: false,
+          mfa_required: true,
+        },
         userId: "00000000-0000-4000-8000-000000000005",
       }),
     );
@@ -376,10 +386,25 @@ describe("App-shell API route boundaries", () => {
   });
 
   it("route-boundary bootstrap token authorization is limited to TOTP begin and complete", async () => {
+    const signal = new AbortController().signal;
+    const mixedMode = {
+      authMode: "session" as const,
+      bootstrapToken: "token",
+      currentPassword: "password",
+      clientTxnId: "owned",
+    };
+    expectTypeOf(mixedMode).not.toExtend<
+      Parameters<typeof beginTotpEnrollment>[0]
+    >();
+    expectTypeOf({
+      authMode: "bootstrap" as const,
+      bootstrapToken: "token",
+    }).not.toExtend<Parameters<typeof beginTotpEnrollment>[0]>();
     cookieValue = "cartulary_csrf=session-csrf";
 
     await expectOperation(() =>
       beginTotpEnrollment({
+        signal,
         authMode: "bootstrap",
         bootstrapToken: " bootstrap-token-1 ",
         clientTxnId: "txn-bootstrap-begin",
@@ -387,6 +412,7 @@ describe("App-shell API route boundaries", () => {
     );
     await expectOperation(() =>
       completeTotpEnrollment({
+        signal,
         authMode: "bootstrap",
         bootstrapToken: "bootstrap-token-1",
         clientTxnId: "txn-bootstrap-complete",
@@ -396,6 +422,7 @@ describe("App-shell API route boundaries", () => {
     );
     await expectOperation(() =>
       beginTotpEnrollment({
+        signal,
         authMode: "session",
         clientTxnId: "txn-session-begin",
         currentFactorCode: "654321",
@@ -404,6 +431,7 @@ describe("App-shell API route boundaries", () => {
     );
     await expectOperation(() =>
       completeTotpEnrollment({
+        signal,
         authMode: "session",
         clientTxnId: "txn-session-complete",
         code: "654321",
@@ -412,6 +440,7 @@ describe("App-shell API route boundaries", () => {
     );
 
     const requests = capturedRequests(fetchMock);
+    for (const request of requests) expect(request.init?.signal).toBe(signal);
     expect(
       requests.map((request) => `${request.method} ${request.url}`),
     ).toEqual([

@@ -41,7 +41,6 @@ import {
   requireJSONRequest,
 } from "../testing/fetchMockTestSupport";
 import { AppRoot } from "./AppRoot";
-import { setEnterpriseAuthNavigateForTesting } from "./AuthGateway";
 
 describe("ordinary app shell", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -160,13 +159,12 @@ describe("ordinary app shell", () => {
       username: "operator@example.test",
       password: "OperatorPass1!",
     });
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("enterprise auth discovery renders provider sign-in and begins with a relative return_to", async () => {
     const navigateSpy = vi.fn();
-    const restoreNavigate = setEnterpriseAuthNavigateForTesting(navigateSpy);
-    try {
+    {
       installLandingShellFetch(fetchMock, {
         session: errorResponse("session_required", 401),
         enterpriseProviders: {
@@ -189,14 +187,18 @@ describe("ordinary app shell", () => {
                   provider_key: "corp-oidc",
                   provider_type: "oidc",
                   redirect_url: "https://idp.example.test/start",
-                  expires_at: "2026-06-13T22:30:00Z",
+                  expires_at: new Date(Date.now() + 300_000).toISOString(),
                 },
               }),
           },
         ],
       });
 
-      renderApp();
+      render(
+        <AppRoot
+          authNavigation={{ assign: navigateSpy, returnTo: () => "/" }}
+        />,
+      );
 
       const providerButton = await screen.findByTestId(
         authTestId("enterprise-provider-button"),
@@ -218,8 +220,6 @@ describe("ordinary app shell", () => {
         return_to: "/",
       });
       await expectStableFetchCount(fetchMock, 3);
-    } finally {
-      restoreNavigate();
     }
   });
 
@@ -267,7 +267,7 @@ describe("ordinary app shell", () => {
     );
     expect(credentialErrorText).not.toContain("req-private-credential-detail");
     expect(credentialErrorText).not.toContain("/var/lib/cartulary");
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("route-boundary auth login errors render public envelopes without private details", async () => {
@@ -360,7 +360,7 @@ describe("ordinary app shell", () => {
         .textContent,
     ).toBe("Reason: not_allowed_for_route");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 7);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session", async () => {
@@ -391,7 +391,9 @@ describe("ordinary app shell", () => {
                   details: {
                     required_setup_kinds: ["totp"],
                     bootstrap_token: "bootstrap-token-123",
-                    bootstrap_expires_at: "2026-04-17T12:10:00Z",
+                    bootstrap_expires_at: new Date(
+                      Date.now() + 300_000,
+                    ).toISOString(),
                     secret_base32: "ERRORSECRETBASE32",
                     otpauth_uri: "otpauth://private-error",
                     request_id: "req-private-detail",
@@ -412,7 +414,7 @@ describe("ordinary app shell", () => {
               meta: { request_id: "req-auth" },
               data: {
                 enrollment_id: "00000000-0000-4000-8000-000000000002",
-                expires_at: "2026-04-20T12:10:00Z",
+                expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
                   otpauth_uri:
@@ -431,7 +433,7 @@ describe("ordinary app shell", () => {
             jsonResponse({
               meta: { request_id: "req-auth" },
               data: {
-                user_id: "00000000-0000-4000-8000-000000000006",
+                user_id: sessionResource().user_id,
                 totp: { enrolled_at: "2026-04-20T12:00:00Z" },
                 sessions_revoked: false,
               },
@@ -598,7 +600,7 @@ describe("ordinary app shell", () => {
               meta: { request_id: "req-auth" },
               data: {
                 enrollment_id: "00000000-0000-4000-8000-000000000001",
-                expires_at: "2026-04-20T12:10:00Z",
+                expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
                   otpauth_uri:
@@ -619,7 +621,7 @@ describe("ordinary app shell", () => {
             return jsonResponse({
               meta: { request_id: "req-auth" },
               data: {
-                user_id: "00000000-0000-4000-8000-000000000006",
+                user_id: sessionResource().user_id,
                 password: { changed_at: "2026-04-20T12:00:00Z" },
                 sessions_revoked: true,
               },
@@ -653,6 +655,17 @@ describe("ordinary app shell", () => {
       "TOTP begin failed",
     );
 
+    expect(
+      (
+        screen.getByTestId(
+          accountTestId("totp-current-password"),
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("");
+    fireEvent.change(
+      screen.getByTestId(accountTestId("totp-current-password")),
+      { target: { value: "Current Authentication Password!" } },
+    );
     fireEvent.change(screen.getByTestId(accountTestId("totp-current-factor")), {
       target: { value: "222222" },
     });
@@ -752,7 +765,9 @@ describe("ordinary app shell", () => {
         },
       },
     });
-    await expectStableFetchCount(fetchMock, 12);
+    expect(
+      findFetchCalls(fetchMock, "/api/v1/auth/password/change", "POST"),
+    ).toHaveLength(1);
   });
 
   it("route-boundary account password and TOTP errors render public envelopes without private details", async () => {
@@ -819,7 +834,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
-    ).toBe("Second factor rejected.");
+    ).toBe("Authentication required.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
@@ -852,7 +867,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
-    ).toBe("Current password rejected.");
+    ).toBe("Conflict.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
@@ -862,7 +877,7 @@ describe("ordinary app shell", () => {
         .textContent,
     ).toContain("Field: current_password");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("route-boundary logout failures render public envelopes without ending the visible session", async () => {
@@ -901,7 +916,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
-    ).toBe("Sign out request failed.");
+    ).toBe("Access denied.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
@@ -911,7 +926,7 @@ describe("ordinary app shell", () => {
     );
     expect(screen.queryByTestId(authTestId("login-username"))).toBeNull();
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 8);
+    await expectStableFetchCount(fetchMock, 7);
   });
 
   it("route-boundary bootstrap TOTP complete errors render public envelopes without private details", async () => {
@@ -932,7 +947,9 @@ describe("ordinary app shell", () => {
                   details: {
                     required_setup_kinds: ["totp"],
                     bootstrap_token: "bootstrap-token-123",
-                    bootstrap_expires_at: "2026-04-17T12:10:00Z",
+                    bootstrap_expires_at: new Date(
+                      Date.now() + 300_000,
+                    ).toISOString(),
                     secret_base32: "ERRORSECRETBASE32",
                     otpauth_uri: "otpauth://private-error",
                     request_id: "req-private-detail",
@@ -952,7 +969,7 @@ describe("ordinary app shell", () => {
               meta: { request_id: "req-auth" },
               data: {
                 enrollment_id: "00000000-0000-4000-8000-000000000002",
-                expires_at: "2026-04-20T12:10:00Z",
+                expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
                   otpauth_uri:
@@ -1060,7 +1077,7 @@ describe("ordinary app shell", () => {
               meta: { request_id: "req-auth" },
               data: {
                 enrollment_id: "00000000-0000-4000-8000-000000000001",
-                expires_at: "2026-04-20T12:10:00Z",
+                expires_at: new Date(Date.now() + 300_000).toISOString(),
                 totp_setup: {
                   secret_base32: "JBSWY3DPEHPK3PXP",
                   otpauth_uri:
@@ -1122,7 +1139,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").message)
         .textContent,
-    ).toBe("Replacement TOTP completion failed.");
+    ).toBe("Authentication required.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("account").details)
         .textContent,
@@ -1132,7 +1149,7 @@ describe("ordinary app shell", () => {
         .textContent,
     ).toContain("Field: code");
     expectPrivateErrorProbeNotRendered();
-    await expectStableFetchCount(fetchMock, 9);
+    await expectStableFetchCount(fetchMock, 8);
   });
 
   it("ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell", async () => {
@@ -1295,6 +1312,10 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(deploymentAdminTestId("status")).textContent,
     ).toBe("Created local user");
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("patch-display-name")),
+      { target: { value: "Reviewed edit" } },
+    );
     await waitFor(() => {
       expect(
         (
@@ -1334,11 +1355,7 @@ describe("ordinary app shell", () => {
     );
     expect(patchConflictRequest.body).toEqual({
       base_user_version: 1,
-      display_name: "Authentication Admin Target",
-      email: "authentication-debug-admin@example.test",
-      mfa_required: true,
-      is_active: true,
-      is_deployment_admin: false,
+      display_name: "Reviewed edit",
     });
 
     fireEvent.click(
@@ -1346,20 +1363,14 @@ describe("ordinary app shell", () => {
         deploymentUserRowTestId("00000000-0000-4000-8000-000000000001"),
       ),
     );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Discard and leave" }),
+    );
     await waitFor(() => {
       expect(
         screen.getByTestId(deploymentAdminTestId("target-user-version"))
           .textContent,
       ).toBe("9");
-    });
-    await waitFor(() => {
-      expect(
-        (
-          screen.getByTestId(
-            deploymentAdminTestId("patch-user"),
-          ) as HTMLButtonElement
-        ).disabled,
-      ).toBe(false);
     });
     fireEvent.click(
       screen.getByTestId(deploymentAdminTestId("patch-is-deployment-admin")),
@@ -1378,10 +1389,6 @@ describe("ordinary app shell", () => {
     );
     expect(lastAdminPatchRequest.body).toEqual({
       base_user_version: 9,
-      display_name: "Deployment Admin",
-      email: "deployment-admin@example.test",
-      mfa_required: true,
-      is_active: true,
       is_deployment_admin: false,
     });
     expect(
@@ -1433,6 +1440,7 @@ describe("ordinary app shell", () => {
       user_version: 7,
     });
     const pendingLoad = deferred<Response>();
+    let targetReads = 0;
 
     installLandingShellFetch(fetchMock, {
       session: sessionResource({
@@ -1461,7 +1469,13 @@ describe("ordinary app shell", () => {
         {
           method: "GET",
           url: "/api/v1/users/00000000-0000-4000-8000-000000000002",
-          handler: () => pendingLoad.promise,
+          handler: () =>
+            ++targetReads === 1
+              ? pendingLoad.promise
+              : jsonResponse({
+                  data: loadedUser,
+                  meta: { request_id: "test" },
+                }),
         },
         {
           method: "PATCH",
@@ -1529,6 +1543,10 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(deploymentAdminTestId("status")).textContent,
     ).toBe("Loaded target user");
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("patch-display-name")),
+      { target: { value: "Reviewed edit" } },
+    );
     expect(
       (
         screen.getByTestId(
@@ -1566,7 +1584,7 @@ describe("ordinary app shell", () => {
         "/api/v1/users/00000000-0000-4000-8000-000000000002",
         "GET",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(
       screen.getByTestId(deploymentAdminTestId("status")).textContent,
     ).toBe("Patch local user failed");
@@ -1724,7 +1742,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
-    ).toBe("User create request is invalid.");
+    ).toBe("Invalid request.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
@@ -1753,7 +1771,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
-    ).toBe("Target user was not found.");
+    ).toBe("Not found.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
@@ -1784,6 +1802,10 @@ describe("ordinary app shell", () => {
           .textContent,
       ).toBe("7");
     });
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("patch-display-name")),
+      { target: { value: "Valid edit" } },
+    );
     fireEvent.click(screen.getByTestId(deploymentAdminTestId("patch-user")));
 
     await waitFor(() => {
@@ -1794,7 +1816,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
-    ).toBe("User patch request is invalid.");
+    ).toBe("Invalid request.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
@@ -1829,7 +1851,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
-    ).toBe("User version conflict.");
+    ).toBe("Conflict.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
@@ -1841,6 +1863,9 @@ describe("ordinary app shell", () => {
     expectPrivateErrorProbeNotRendered();
 
     fireEvent.click(screen.getByLabelText("Close credential action"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review remaining edits" }),
+    );
     fireEvent.click(screen.getByTestId(deploymentAdminTestId("totp-reset")));
     fireEvent.change(screen.getByTestId(deploymentAdminTestId("reason")), {
       target: { value: "row-owned public error check" },
@@ -1855,7 +1880,7 @@ describe("ordinary app shell", () => {
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
-    ).toBe("TOTP reset request is invalid.");
+    ).toBe("Invalid request.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
@@ -1880,11 +1905,13 @@ describe("ordinary app shell", () => {
     });
     expect(
       screen.getByTestId(deploymentAdminTestId("status")).textContent,
-    ).toBe("Revoke-all failed");
+    ).toBe(
+      "Deployment administration access is unavailable. Check access before continuing.",
+    );
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").message)
         .textContent,
-    ).toBe("Revoke-all request is denied.");
+    ).toBe("Access denied.");
     expect(
       screen.getByTestId(publicErrorSummaryTestIds("admin").details)
         .textContent,
@@ -1901,7 +1928,7 @@ describe("ordinary app shell", () => {
         "/api/v1/users/00000000-0000-4000-8000-000000000002",
         "GET",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       findFetchCalls(
         fetchMock,

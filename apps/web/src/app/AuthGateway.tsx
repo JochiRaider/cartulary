@@ -4,778 +4,41 @@ import {
   publicErrorSummaryTestIds,
 } from "@cartulary/ui-contracts";
 import { Eye, EyeOff } from "lucide-react";
-import { type FormEvent, useEffect, useReducer, useRef } from "react";
-
-import { type APIError, extractError } from "../services/browserApi";
 import {
-  beginEnterpriseAuth,
-  beginTotpEnrollment,
-  completeTotpEnrollment,
-  listEnterpriseAuthProviders,
-  loginLocal,
-} from "./api/authAccountClient";
-import type {
-  EnterpriseAuthProvider,
-  SessionData,
-} from "./api/publicHttpTypes";
+  type AuthGatewayProps,
+  normalizeTotpCode,
+  useAuthentication,
+} from "./authenticationModel";
 
-type AuthSurfaceBootstrapState =
-  | "loading"
-  | "anonymous"
-  | "revoked"
-  | "public_error_envelope";
+export type { AuthGatewayProps } from "./authenticationModel";
 
-type AuthChallengeState = "mfa_required" | "mfa_setup_required";
-
-export type AuthGatewayProps = {
-  bootstrapState: AuthSurfaceBootstrapState;
-  message: string;
-  onAuthenticated: (session: SessionData) => Promise<void> | void;
-  onAuthenticationUncertain: () => Promise<boolean>;
-  publicError?: APIError | null;
-  readingProfile?: "default" | "hyperlegible" | undefined;
-};
-
-type AuthPhase = "credentials" | "mfa" | "setup";
-type SetupAction = "beginning" | "completing" | "idle";
-type BannerTone = "error" | "info" | "success";
-
-type AuthBanner = {
-  message: string;
-  tone: BannerTone;
-};
-
-type FieldErrors = {
-  bootstrapCompleteCode?: string;
-  password?: string;
-  totpCode?: string;
-  username?: string;
-};
-
-type AuthState = {
-  banner: AuthBanner | null;
-  bootstrapCompleteCode: string;
-  bootstrapEnrollmentId: string;
-  bootstrapSecretBase32: string;
-  bootstrapToken: string;
-  enterprisePendingProviderKey: string | null;
-  enterpriseProviders: EnterpriseAuthProvider[];
-  error: APIError | null;
-  fieldErrors: FieldErrors;
-  password: string;
-  passwordVisible: boolean;
-  phase: AuthPhase;
-  setupAction: SetupAction;
-  submitting: boolean;
-  totpCode: string;
-  username: string;
-};
-
-type AuthAction =
-  | { type: "auth_failure"; banner: AuthBanner; error: APIError | null }
-  | { type: "enterprise_begin_started"; providerKey: string }
-  | {
-      type: "field";
-      field: "bootstrapCompleteCode" | "password" | "totpCode" | "username";
-      value: string;
-    }
-  | { type: "login_started" }
-  | { type: "login_succeeded" }
-  | { type: "mfa_required" }
-  | {
-      type: "mfa_setup_required";
-      bootstrapToken: string;
-      error: APIError | null;
-    }
-  | { type: "providers_loaded"; providers: EnterpriseAuthProvider[] }
-  | { type: "setup_begin_failed"; banner: AuthBanner; error: APIError | null }
-  | { type: "setup_begin_started" }
-  | {
-      type: "setup_begin_succeeded";
-      enrollmentId: string;
-      secretBase32: string;
-    }
-  | {
-      type: "setup_complete_failed";
-      banner: AuthBanner | null;
-      error: APIError | null;
-      fieldError?: string;
-    }
-  | { type: "setup_complete_started" }
-  | { type: "setup_complete_succeeded" }
-  | { type: "toggle_password_visibility" }
-  | { type: "use_different_account" }
-  | { type: "validation_failed"; fieldErrors: FieldErrors };
-
-const initialAuthState: AuthState = {
-  banner: null,
-  bootstrapCompleteCode: "",
-  bootstrapEnrollmentId: "",
-  bootstrapSecretBase32: "",
-  bootstrapToken: "",
-  enterprisePendingProviderKey: null,
-  enterpriseProviders: [],
-  error: null,
-  fieldErrors: {},
-  password: "",
-  passwordVisible: false,
-  phase: "credentials",
-  setupAction: "idle",
-  submitting: false,
-  totpCode: "",
-  username: "",
-};
-
-let enterpriseAuthNavigate = (redirectURL: string) => {
-  window.location.assign(redirectURL);
-};
-
-export function setEnterpriseAuthNavigateForTesting(
-  navigate: (redirectURL: string) => void,
-) {
-  const previous = enterpriseAuthNavigate;
-  enterpriseAuthNavigate = navigate;
-  return () => {
-    enterpriseAuthNavigate = previous;
-  };
-}
-
-function authReducer(state: AuthState, action: AuthAction): AuthState {
-  switch (action.type) {
-    case "auth_failure":
-      return {
-        ...state,
-        banner: action.banner,
-        error: action.error,
-        enterprisePendingProviderKey: null,
-        fieldErrors: {},
-        submitting: false,
-      };
-    case "enterprise_begin_started":
-      return {
-        ...state,
-        banner: null,
-        enterprisePendingProviderKey: action.providerKey,
-        error: null,
-        fieldErrors: {},
-      };
-    case "field":
-      return {
-        ...state,
-        [action.field]: action.value,
-        banner: null,
-        error: null,
-        fieldErrors: {
-          ...state.fieldErrors,
-          [action.field]: undefined,
-        },
-      };
-    case "login_started":
-      return {
-        ...state,
-        banner: null,
-        error: null,
-        fieldErrors: {},
-        submitting: true,
-      };
-    case "login_succeeded":
-      return {
-        ...state,
-        banner: null,
-        bootstrapCompleteCode: "",
-        bootstrapEnrollmentId: "",
-        bootstrapSecretBase32: "",
-        bootstrapToken: "",
-        error: null,
-        fieldErrors: {},
-        submitting: false,
-        totpCode: "",
-      };
-    case "mfa_required":
-      return {
-        ...state,
-        banner: null,
-        bootstrapCompleteCode: "",
-        bootstrapEnrollmentId: "",
-        bootstrapSecretBase32: "",
-        bootstrapToken: "",
-        error: null,
-        fieldErrors: {},
-        phase: "mfa",
-        submitting: false,
-        totpCode: "",
-      };
-    case "mfa_setup_required":
-      return {
-        ...state,
-        banner: {
-          message: "Authenticator setup is required before sign-in.",
-          tone: "info",
-        },
-        bootstrapCompleteCode: "",
-        bootstrapEnrollmentId: "",
-        bootstrapSecretBase32: "",
-        bootstrapToken: action.bootstrapToken,
-        error: action.error,
-        fieldErrors: {},
-        phase: "setup",
-        setupAction: "idle",
-        submitting: false,
-        totpCode: "",
-      };
-    case "providers_loaded":
-      return {
-        ...state,
-        enterpriseProviders: action.providers,
-      };
-    case "setup_begin_failed":
-      return {
-        ...state,
-        banner: action.banner,
-        error: action.error,
-        setupAction: "idle",
-      };
-    case "setup_begin_started":
-      return {
-        ...state,
-        banner: null,
-        error: null,
-        fieldErrors: {},
-        setupAction: "beginning",
-      };
-    case "setup_begin_succeeded":
-      return {
-        ...state,
-        banner: {
-          message: "Authenticator enrollment started.",
-          tone: "info",
-        },
-        bootstrapEnrollmentId: action.enrollmentId,
-        bootstrapSecretBase32: action.secretBase32,
-        error: null,
-        setupAction: "idle",
-      };
-    case "setup_complete_failed":
-      return {
-        ...state,
-        banner: action.banner,
-        error: action.error,
-        fieldErrors:
-          typeof action.fieldError === "string"
-            ? {
-                ...state.fieldErrors,
-                bootstrapCompleteCode: action.fieldError,
-              }
-            : state.fieldErrors,
-        setupAction: "idle",
-      };
-    case "setup_complete_started":
-      return {
-        ...state,
-        banner: null,
-        error: null,
-        fieldErrors: {},
-        setupAction: "completing",
-      };
-    case "setup_complete_succeeded":
-      return {
-        ...state,
-        banner: {
-          message: "Authenticator setup is complete. Sign in again.",
-          tone: "success",
-        },
-        bootstrapCompleteCode: "",
-        bootstrapEnrollmentId: "",
-        bootstrapSecretBase32: "",
-        bootstrapToken: "",
-        error: null,
-        fieldErrors: {},
-        password: "",
-        phase: "credentials",
-        setupAction: "idle",
-        submitting: false,
-        totpCode: "",
-      };
-    case "toggle_password_visibility":
-      return {
-        ...state,
-        passwordVisible: !state.passwordVisible,
-      };
-    case "use_different_account":
-      return {
-        ...state,
-        banner: null,
-        bootstrapCompleteCode: "",
-        bootstrapEnrollmentId: "",
-        bootstrapSecretBase32: "",
-        bootstrapToken: "",
-        error: null,
-        fieldErrors: {},
-        password: "",
-        phase: "credentials",
-        setupAction: "idle",
-        totpCode: "",
-      };
-    case "validation_failed":
-      return {
-        ...state,
-        banner: null,
-        fieldErrors: action.fieldErrors,
-        submitting: false,
-      };
-  }
-}
-
-function normalizeTotpCode(value: string): string {
-  return value.replace(/\D/gu, "").slice(0, 6);
-}
-
-function validateEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value.trim());
-}
-
-function validateLoginState(state: AuthState): FieldErrors {
-  const fieldErrors: FieldErrors = {};
-  if (!validateEmail(state.username)) {
-    fieldErrors.username = "Enter a valid email address.";
-  }
-  if (state.password.length === 0) {
-    fieldErrors.password = "Enter your password.";
-  }
-  if (state.phase === "mfa" && !/^\d{6}$/u.test(state.totpCode)) {
-    fieldErrors.totpCode = "Enter a six-digit authenticator code.";
-  }
-  return fieldErrors;
-}
-
-function hasFieldErrors(fieldErrors: FieldErrors): boolean {
-  return Object.values(fieldErrors).some(
-    (value) => typeof value === "string" && value.length > 0,
-  );
-}
-
-function authBannerForError(error: APIError | null): AuthBanner {
-  if (error?.code === "invalid_credentials") {
-    return {
-      message: "Email or password is incorrect.",
-      tone: "error",
-    };
-  }
-  if (error?.code === "invalid_auth_request") {
-    return {
-      message: "Sign-in request could not be completed.",
-      tone: "error",
-    };
-  }
-  if (
-    error?.code === "session_required" ||
-    error?.code === "auth_required" ||
-    error?.code === "credential_bootstrap_rejected"
-  ) {
-    return {
-      message: "Sign in again to continue.",
-      tone: "error",
-    };
-  }
-  return {
-    message: "Authentication is temporarily unavailable. Try again.",
-    tone: "error",
-  };
-}
-
-function setupBannerForError(error: APIError | null): AuthBanner {
-  if (error?.code === "invalid_second_factor") {
-    return {
-      message: "The verification code is incorrect or expired.",
-      tone: "error",
-    };
-  }
-  if (error?.code === "totp_setup_not_pending") {
-    return {
-      message: "Authenticator setup expired. Start setup again.",
-      tone: "error",
-    };
-  }
-  return {
-    message: "Authenticator setup could not be completed. Try again.",
-    tone: "error",
-  };
-}
-
-function fieldErrorForAuthRequest(
-  error: APIError | null,
-  phase: AuthPhase,
-): FieldErrors | null {
-  if (error?.code !== "invalid_auth_request") {
-    return null;
-  }
-  const field = error.details?.field;
-  if (field === "username") {
-    return { username: "Enter a valid email address." };
-  }
-  if (
-    phase === "mfa" &&
-    (field === "second_factor.assertion.code" ||
-      field === "second_factor" ||
-      field === "second_factor.assertion")
-  ) {
-    return { totpCode: "Enter a six-digit authenticator code." };
-  }
-  return null;
-}
-
-function firstFieldError(fieldErrors: FieldErrors): string {
-  return (
-    fieldErrors.username ??
-    fieldErrors.password ??
-    fieldErrors.totpCode ??
-    fieldErrors.bootstrapCompleteCode ??
-    ""
-  );
-}
-
-export function AuthGateway({
-  bootstrapState,
-  message,
-  onAuthenticated,
-  onAuthenticationUncertain,
-  publicError = null,
-  readingProfile = "default",
-}: AuthGatewayProps) {
-  const authenticationRequest = useRef(0);
-  useEffect(
-    () => () => {
-      ++authenticationRequest.current;
-    },
-    [],
-  );
-  const [state, dispatch] = useReducer(authReducer, initialAuthState);
-  const usernameRef = useRef<HTMLInputElement | null>(null);
-  const passwordRef = useRef<HTMLInputElement | null>(null);
-  const totpCodeRef = useRef<HTMLInputElement | null>(null);
-  const bootstrapBeginRef = useRef<HTMLButtonElement | null>(null);
-  const bootstrapCompleteCodeRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (bootstrapState === "loading") {
-      return;
-    }
-    const controller = new AbortController();
-    void (async () => {
-      const result = await listEnterpriseAuthProviders({
-        signal: controller.signal,
-      });
-      if (controller.signal.aborted) {
-        return;
-      }
-      const nextError = extractError(result.payload);
-      if (
-        !result.ok &&
-        (result.status === 404 ||
-          nextError?.code === "extension_profile_not_claimed")
-      ) {
-        dispatch({ type: "providers_loaded", providers: [] });
-        return;
-      }
-      if (!result.ok) {
-        dispatch({ type: "providers_loaded", providers: [] });
-        return;
-      }
-      const data = result.payload.data;
-      dispatch({ type: "providers_loaded", providers: data.providers });
-    })();
-    return () => {
-      controller.abort();
-    };
-  }, [bootstrapState]);
-
-  useEffect(() => {
-    if (state.phase === "mfa") {
-      totpCodeRef.current?.focus();
-      return;
-    }
-    if (state.phase === "setup") {
-      if (state.bootstrapEnrollmentId === "") {
-        bootstrapBeginRef.current?.focus();
-        return;
-      }
-      bootstrapCompleteCodeRef.current?.focus();
-    }
-  }, [state.bootstrapEnrollmentId, state.phase]);
-
-  useEffect(() => {
-    if (state.fieldErrors.username) {
-      usernameRef.current?.focus();
-      return;
-    }
-    if (state.fieldErrors.password) {
-      passwordRef.current?.focus();
-      return;
-    }
-    if (state.fieldErrors.totpCode) {
-      totpCodeRef.current?.focus();
-      return;
-    }
-    if (state.fieldErrors.bootstrapCompleteCode) {
-      bootstrapCompleteCodeRef.current?.focus();
-    }
-  }, [state.fieldErrors]);
-
-  async function handleLoginSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (state.submitting) {
-      return;
-    }
-    const validationErrors = validateLoginState(state);
-    if (hasFieldErrors(validationErrors)) {
-      dispatch({ type: "validation_failed", fieldErrors: validationErrors });
-      return;
-    }
-
-    dispatch({ type: "login_started" });
-    const request = ++authenticationRequest.current;
-    try {
-      const result = await loginLocal({
-        username: state.username,
-        password: state.password,
-        ...(state.phase === "mfa" ? { secondFactorCode: state.totpCode } : {}),
-      });
-      if (request !== authenticationRequest.current) return;
-      const nextError = extractError(result.payload);
-      if (!result.ok) {
-        if (nextError?.code === "mfa_required") {
-          dispatch({ type: "mfa_required" });
-          return;
-        }
-        if (nextError?.code === "mfa_setup_required") {
-          const token = nextError.details?.bootstrap_token;
-          dispatch({
-            type: "mfa_setup_required",
-            bootstrapToken: typeof token === "string" ? token : "",
-            error: nextError,
-          });
-          return;
-        }
-        if (nextError?.code === "invalid_second_factor") {
-          dispatch({
-            type: "validation_failed",
-            fieldErrors: {
-              totpCode: "The verification code is incorrect or expired.",
-            },
-          });
-          return;
-        }
-        const requestFieldError = fieldErrorForAuthRequest(
-          nextError,
-          state.phase,
-        );
-        if (requestFieldError !== null) {
-          dispatch({
-            type: "validation_failed",
-            fieldErrors: requestFieldError,
-          });
-          return;
-        }
-        dispatch({
-          type: "auth_failure",
-          banner: authBannerForError(nextError),
-          error: nextError,
-        });
-        return;
-      }
-
-      dispatch({ type: "login_succeeded" });
-      await onAuthenticated(result.payload.data);
-    } catch {
-      if (request !== authenticationRequest.current) return;
-      if (await onAuthenticationUncertain()) {
-        dispatch({ type: "login_succeeded" });
-        return;
-      }
-      dispatch({
-        type: "auth_failure",
-        banner: {
-          message: "Sign-in response could not be confirmed. Try again.",
-          tone: "error",
-        },
-        error: null,
-      });
-    }
-  }
-
-  async function handleEnterpriseBegin(providerKey: string) {
-    if (state.enterprisePendingProviderKey !== null) {
-      return;
-    }
-    dispatch({ type: "enterprise_begin_started", providerKey });
-    const returnTo =
-      `${window.location.pathname}${window.location.search}`.trim() || "/";
-    const result = await beginEnterpriseAuth({
-      providerKey,
-      returnTo,
-    });
-    const nextError = extractError(result.payload);
-    if (!result.ok) {
-      dispatch({
-        type: "auth_failure",
-        banner: {
-          message: "Enterprise sign-in could not be started.",
-          tone: "error",
-        },
-        error: nextError,
-      });
-      return;
-    }
-    const data = result.payload.data;
-    enterpriseAuthNavigate(data.redirect_url);
-  }
-
-  async function handleBeginBootstrapEnrollment() {
-    if (state.setupAction !== "idle") {
-      return;
-    }
-    dispatch({ type: "setup_begin_started" });
-    try {
-      const result = await beginTotpEnrollment({
-        authMode: "bootstrap",
-        bootstrapToken: state.bootstrapToken,
-      });
-      const nextError = extractError(result.payload);
-      if (!result.ok) {
-        dispatch({
-          type: "setup_begin_failed",
-          banner: setupBannerForError(nextError),
-          error: nextError,
-        });
-        return;
-      }
-      const data = result.payload.data;
-      dispatch({
-        type: "setup_begin_succeeded",
-        enrollmentId: data.enrollment_id,
-        secretBase32: data.totp_setup.secret_base32,
-      });
-    } catch {
-      dispatch({
-        type: "setup_begin_failed",
-        banner: {
-          message: "Authenticator setup could not be started. Try again.",
-          tone: "error",
-        },
-        error: null,
-      });
-    }
-  }
-
-  async function handleCompleteBootstrapEnrollment() {
-    if (state.setupAction !== "idle") {
-      return;
-    }
-    if (!/^\d{6}$/u.test(state.bootstrapCompleteCode)) {
-      dispatch({
-        type: "setup_complete_failed",
-        banner: null,
-        error: null,
-        fieldError: "Enter a six-digit authenticator code.",
-      });
-      return;
-    }
-    dispatch({ type: "setup_complete_started" });
-    try {
-      const result = await completeTotpEnrollment({
-        authMode: "bootstrap",
-        bootstrapToken: state.bootstrapToken,
-        code: state.bootstrapCompleteCode,
-        enrollmentId: state.bootstrapEnrollmentId,
-      });
-      const nextError = extractError(result.payload);
-      if (!result.ok) {
-        const fieldError =
-          nextError?.code === "invalid_second_factor"
-            ? "The verification code is incorrect or expired."
-            : undefined;
-        dispatch({
-          type: "setup_complete_failed",
-          banner:
-            fieldError === undefined ? setupBannerForError(nextError) : null,
-          error: nextError,
-          ...(fieldError === undefined ? {} : { fieldError }),
-        });
-        return;
-      }
-      dispatch({ type: "setup_complete_succeeded" });
-    } catch {
-      dispatch({
-        type: "setup_complete_failed",
-        banner: {
-          message: "Authenticator setup could not be completed. Try again.",
-          tone: "error",
-        },
-        error: null,
-      });
-    }
-  }
-
-  const displayedBootstrapState:
-    | AuthChallengeState
-    | AuthSurfaceBootstrapState =
-    state.phase === "mfa"
-      ? "mfa_required"
-      : state.phase === "setup"
-        ? "mfa_setup_required"
-        : bootstrapState;
-  const externalBanner =
-    publicError === null || state.banner !== null
-      ? null
-      : authBannerForError(publicError);
-  const displayedBanner = state.banner ?? externalBanner;
-  const currentFieldError = firstFieldError(state.fieldErrors);
-  const authAlertText = displayedBanner?.message ?? currentFieldError;
-  const authLiveRole =
-    authAlertText === ""
-      ? undefined
-      : displayedBanner?.tone === "error" || currentFieldError !== ""
-        ? "alert"
-        : "status";
-  const authLivePoliteness = authLiveRole === "alert" ? "assertive" : "polite";
-  const activeErrorCode = state.error?.code ?? publicError?.code ?? "";
-  const statusText =
-    bootstrapState === "loading"
-      ? "Checking current session..."
-      : state.submitting
-        ? "Signing in..."
-        : state.setupAction === "beginning"
-          ? "Beginning authenticator enrollment..."
-          : state.setupAction === "completing"
-            ? "Completing authenticator enrollment..."
-            : state.phase === "mfa"
-              ? "Authenticator code required."
-              : state.phase === "setup"
-                ? "Authenticator setup required."
-                : "";
-  const rootClassName =
-    readingProfile === "hyperlegible"
-      ? "cartulary-shell cartulary-auth-shell cartulary-auth-hyperlegible"
-      : "cartulary-shell cartulary-auth-shell";
-  const supportText =
-    state.phase === "mfa"
-      ? "Enter the authenticator code for this account."
-      : state.phase === "setup"
-        ? "Complete authenticator setup before signing in."
-        : message;
-  const title =
-    state.phase === "mfa"
-      ? "Verify your identity"
-      : state.phase === "setup"
-        ? "Set up authenticator"
-        : "Sign in to Cartulary";
-  const submitLabel = state.submitting
-    ? "Signing in..."
-    : state.phase === "mfa"
-      ? "Verify and sign in"
-      : "Sign in";
-  const canSubmit = !state.submitting;
-
+export function AuthGateway(props: AuthGatewayProps) {
+  const { bootstrapState, readingProfile = "default" } = props;
+  const {
+    state,
+    dispatch,
+    usernameRef,
+    passwordRef,
+    totpCodeRef,
+    bootstrapBeginRef,
+    bootstrapCompleteCodeRef,
+    handleLoginSubmit,
+    handleEnterpriseBegin,
+    handleBeginBootstrapEnrollment,
+    handleCompleteBootstrapEnrollment,
+    displayedBootstrapState,
+    displayedBanner,
+    authAlertText,
+    authLiveRole,
+    authLivePoliteness,
+    activeErrorCode,
+    statusText,
+    rootClassName,
+    supportText,
+    title,
+    submitLabel,
+    canSubmit,
+  } = useAuthentication(props);
   return (
     <main
       aria-busy={bootstrapState === "loading"}
@@ -820,8 +83,25 @@ export function AuthGateway({
             </div>
           ) : null}
 
+          {state.confirmation !== "idle" ? (
+            <button
+              type="button"
+              className="cartulary-auth-secondary-button"
+              disabled={state.confirmation === "pending"}
+              onClick={() => {
+                void props.controller.retrySession();
+              }}
+            >
+              Retry session check
+            </button>
+          ) : null}
           {state.phase === "setup" ? (
-            <section
+            <form
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleCompleteBootstrapEnrollment();
+              }}
               className="cartulary-auth-setup"
               aria-label="Authenticator setup"
             >
@@ -863,10 +143,10 @@ export function AuthGateway({
               </div>
               <button
                 ref={bootstrapBeginRef}
-                aria-disabled={state.setupAction !== "idle"}
+                aria-disabled={!canSubmit}
                 className="cartulary-auth-primary-button"
                 data-testid={authTestId("bootstrap-begin")}
-                disabled={state.setupAction !== "idle"}
+                disabled={!canSubmit}
                 type="button"
                 onClick={() => {
                   void handleBeginBootstrapEnrollment();
@@ -920,18 +200,17 @@ export function AuthGateway({
               <button
                 aria-disabled={
                   state.setupAction !== "idle" ||
+                  state.transportPending ||
                   state.bootstrapEnrollmentId === ""
                 }
                 className="cartulary-auth-primary-button"
                 data-testid={authTestId("bootstrap-complete")}
                 disabled={
                   state.setupAction !== "idle" ||
+                  state.transportPending ||
                   state.bootstrapEnrollmentId === ""
                 }
-                type="button"
-                onClick={() => {
-                  void handleCompleteBootstrapEnrollment();
-                }}
+                type="submit"
               >
                 {state.setupAction === "completing"
                   ? "Completing setup..."
@@ -944,7 +223,7 @@ export function AuthGateway({
               >
                 Use a different account
               </button>
-            </section>
+            </form>
           ) : (
             <form
               className="cartulary-auth-form"
@@ -994,7 +273,7 @@ export function AuthGateway({
                 className="cartulary-auth-field"
                 htmlFor="auth-login-password"
               >
-                Password
+                <span id="auth-login-password-label">Password</span>
                 <span className="cartulary-auth-password-control">
                   <input
                     ref={passwordRef}
@@ -1007,6 +286,7 @@ export function AuthGateway({
                     autoComplete="current-password"
                     data-testid={authTestId("login-password")}
                     id="auth-login-password"
+                    aria-labelledby="auth-login-password-label"
                     type={state.passwordVisible ? "text" : "password"}
                     value={state.password}
                     onChange={(event) => {
@@ -1108,6 +388,21 @@ export function AuthGateway({
             Need account access? Contact a deployment administrator.
           </p>
 
+          {state.providersStatus === "failed" ? (
+            <p role="status">
+              Enterprise sign-in options could not be loaded. Local sign-in
+              remains available.{" "}
+              <button
+                type="button"
+                className="cartulary-auth-secondary-button"
+                onClick={() => {
+                  void props.controller.discover();
+                }}
+              >
+                Retry enterprise options
+              </button>
+            </p>
+          ) : null}
           {state.enterpriseProviders.length > 0 ? (
             <section
               className="cartulary-auth-enterprise"
@@ -1123,11 +418,7 @@ export function AuthGateway({
                     className="cartulary-auth-secondary-button"
                     data-provider-key={provider.provider_key}
                     data-testid={authTestId("enterprise-provider-button")}
-                    disabled={
-                      state.enterprisePendingProviderKey !== null &&
-                      state.enterprisePendingProviderKey !==
-                        provider.provider_key
-                    }
+                    disabled={!canSubmit}
                     type="button"
                     onClick={() => {
                       void handleEnterpriseBegin(provider.provider_key);

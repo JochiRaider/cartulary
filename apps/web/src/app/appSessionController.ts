@@ -39,6 +39,7 @@ export type AppSessionSnapshot = {
   readonly lifetime: string | null;
   readonly revision: number;
   readonly observing: boolean;
+  readonly authenticationTransportPending: boolean;
   readonly error: APIError | null;
   readonly ended: boolean;
   readonly preferences: SessionResourceState<AccountPreferencesResource>;
@@ -57,6 +58,7 @@ type SessionPorts = {
   ) => ReturnType<typeof loadExtensions>;
   readonly retireLifetime: (nextLifetime: string | null) => void;
   readonly replaceAccount: () => void;
+  readonly capabilitiesReduced: () => void;
 };
 type Observation<T> =
   | { kind: "completed"; value: T }
@@ -91,6 +93,7 @@ export class AppSessionController {
     lifetime: null,
     revision: 0,
     observing: false,
+    authenticationTransportPending: false,
     error: null,
     ended: false,
     preferences: { kind: "unresolved" },
@@ -105,6 +108,21 @@ export class AppSessionController {
   private disposed = false;
   private readonly ports: SessionPorts;
 
+  private authenticationTransport: object | null = null;
+  /** Cookie-changing authentication and logout transports outlive observation and session retirement. */
+  reserveAuthenticationTransport = (): (() => void) | null => {
+    if (this.disposed || this.authenticationTransport !== null) return null;
+    const identity = {};
+    this.authenticationTransport = identity;
+    this.publish({ authenticationTransportPending: true });
+    return () => {
+      if (this.authenticationTransport !== identity) return;
+      this.authenticationTransport = null;
+      if (!this.disposed)
+        this.publish({ authenticationTransportPending: false });
+    };
+  };
+
   constructor(ports: Partial<SessionPorts> = {}) {
     this.ports = {
       session: (signal) => loadSession({ signal }),
@@ -112,6 +130,7 @@ export class AppSessionController {
       extensions: (signal) => loadExtensions({ signal }),
       retireLifetime: () => {},
       replaceAccount: () => {},
+      capabilitiesReduced: () => {},
       ...ports,
     };
   }
@@ -152,7 +171,16 @@ export class AppSessionController {
   }
   async confirmAuthentication(expectedRevision: number): Promise<boolean> {
     if (this.snapshot.revision !== expectedRevision) return false;
-    return (await this.observeSession(true)).kind === "accepted";
+    return (
+      (
+        await this.observeSession(
+          true,
+          undefined,
+          () => this.snapshot.revision === expectedRevision,
+          "authentication",
+        )
+      ).kind === "accepted"
+    );
   }
   logoutConfirmed() {
     this.endSession();
@@ -184,7 +212,7 @@ export class AppSessionController {
   refreshSession = async () => {
     await this.observeSession(false);
   };
-  refreshSessionForAccountEdit(
+  refreshSessionForAccountOperation(
     lifetime: string,
     signal: AbortSignal,
     isCurrent: () => boolean,
@@ -306,6 +334,11 @@ export class AppSessionController {
       });
       this.refreshResources();
     } else {
+      if (
+        this.snapshot.session?.is_deployment_admin &&
+        !session.is_deployment_admin
+      )
+        this.ports.capabilitiesReduced();
       this.publish({
         session,
         state: "authenticated",
@@ -319,7 +352,7 @@ export class AppSessionController {
     reauthenticated: boolean,
     signal?: AbortSignal,
     canAccept: () => boolean = () => true,
-    reporting: "shell" | "caller" = "shell",
+    reporting: "shell" | "caller" | "authentication" = "shell",
   ): Promise<SessionObservation> {
     if (this.disposed || signal?.aborted || !canAccept())
       return { kind: "cancelled" };
@@ -357,6 +390,12 @@ export class AppSessionController {
       result?.status === 401 &&
       (error.code === "session_required" || result.payload.error === undefined)
     ) {
+      // An anonymous confirmation read is discovery within the active login flow,
+      // not a new retirement; its owner must retain the uncertain outcome.
+      if (reporting === "authentication" && this.snapshot.session === null) {
+        this.publish({ observing: false });
+        return { kind: "session_lost" };
+      }
       const wasAuthenticated = this.accountId !== null;
       this.endSession();
       if (!wasAuthenticated) this.publish({ ended: false });
@@ -491,3 +530,14 @@ export class AppSessionController {
     for (const listener of this.listeners) listener();
   }
 }
+
+/** Current-account observation and publication capabilities. */
+export type AccountSettingsSessionPort = Pick<
+  AppSessionController,
+  | "getSnapshot"
+  | "subscribe"
+  | "sessionLost"
+  | "refreshPreferences"
+  | "preferencesChanged"
+  | "refreshSessionForAccountOperation"
+>;

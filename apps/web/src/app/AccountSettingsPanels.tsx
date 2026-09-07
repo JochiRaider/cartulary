@@ -4,10 +4,12 @@ import {
   type AccountEditState,
   type AccountResourceKind,
   type AccountSettingsController,
+  type AppearanceEditState,
   accountDraftDirty,
+  accountEditActions,
   accountReviewRequired,
   accountSavedValue,
-  canSaveAccountEdit,
+  type ProfileEditState,
 } from "./accountSettingsModel";
 import {
   accountDensityChoiceStyle,
@@ -26,9 +28,9 @@ import {
   surfacePanelStyle,
 } from "./landingAdminStyles";
 
-type Props = {
+type Props<S extends AccountEditState> = {
   controller: AccountSettingsController;
-  state: AccountEditState;
+  state: S;
   lifetime: string | null;
 };
 const densityChoices = [
@@ -37,11 +39,15 @@ const densityChoices = [
   { value: "default", label: "Default" },
   { value: "comfortable", label: "Comfortable" },
 ] as const;
-const densityLabel = (value: string | null) =>
+const densityLabel = (value: string | null | undefined) =>
   densityChoices.find((choice) => choice.value === value)?.label ??
   "Use surface default";
 
-export function AccountProfilePanel({ controller, state, lifetime }: Props) {
+export function AccountProfilePanel({
+  controller,
+  state,
+  lifetime,
+}: Props<ProfileEditState>) {
   const commands = useMemo(
     () => controller.bind("profile", lifetime),
     [controller, lifetime],
@@ -67,9 +73,7 @@ export function AccountProfilePanel({ controller, state, lifetime }: Props) {
             id="account-profile-email"
             style={{ ...definitionValueStyle, overflowWrap: "anywhere" }}
           >
-            {state.saved !== null && "email" in state.saved
-              ? state.saved.email
-              : ""}
+            {state.saved !== null ? state.saved.email : ""}
           </div>
           <p style={statusTextStyle}>
             Email is managed by your deployment. You can edit your display name
@@ -104,7 +108,11 @@ export function AccountProfilePanel({ controller, state, lifetime }: Props) {
   );
 }
 
-export function AccountAppearancePanel({ controller, state, lifetime }: Props) {
+export function AccountAppearancePanel({
+  controller,
+  state,
+  lifetime,
+}: Props<AppearanceEditState>) {
   const commands = useMemo(
     () => controller.bind("appearance", lifetime),
     [controller, lifetime],
@@ -198,7 +206,7 @@ function AccountSavedValue({
       state.operation.kind !== "uncertain")
   )
     return null;
-  const saved = accountSavedValue(state.saved);
+  const saved = accountSavedValue(state);
   return (
     <div style={{ minInlineSize: 0, overflowWrap: "anywhere" }}>
       <span style={definitionLabelStyle}>
@@ -222,21 +230,14 @@ function AccountEditActions({
   commands,
   state,
 }: {
-  commands: ReturnType<AccountSettingsController["bind"]>;
+  commands: Omit<ReturnType<AccountSettingsController["bind"]>, "change">;
   state: AccountEditState;
   kind: AccountResourceKind;
 }) {
   const operation = state.operation;
-  const recovery =
-    accountReviewRequired(state) ||
-    operation.kind === "conflict" ||
-    (operation.kind === "rejected" &&
-      (operation.reason === "transaction" ||
-        operation.reason === "authorization"));
-  const unresolved =
-    operation.kind === "saving" || operation.kind === "uncertain";
+  const actions = accountEditActions(state);
   const loading = state.read === "loading" || state.read === "refreshing";
-  const canSave = canSaveAccountEdit(state);
+  const canSave = actions.save;
   return (
     <div
       style={{ display: "flex", flexWrap: "wrap", gap: "var(--ct-spacing-sm)" }}
@@ -260,7 +261,7 @@ function AccountEditActions({
       >
         Save {kind}
       </button>
-      {operation.kind === "uncertain" ? (
+      {actions.replay ? (
         <button
           type="button"
           style={secondaryButtonStyle}
@@ -281,11 +282,11 @@ function AccountEditActions({
           ? "Retry load"
           : `Refresh ${kind}`}
       </button>
-      {recovery && !unresolved ? (
+      {actions.review ? (
         <>
           <button
             type="button"
-            disabled={state.read !== "ready"}
+            disabled={!actions.reviewEnabled}
             style={secondaryButtonStyle}
             onClick={() => commands.review()}
           >
@@ -293,14 +294,14 @@ function AccountEditActions({
           </button>
           <button
             type="button"
-            disabled={state.read !== "ready"}
+            disabled={!actions.reviewEnabled}
             style={secondaryButtonStyle}
             onClick={() => commands.discard()}
           >
             Use saved value
           </button>
         </>
-      ) : accountDraftDirty(state) ? (
+      ) : actions.discard ? (
         <button
           type="button"
           style={secondaryButtonStyle}
@@ -309,7 +310,7 @@ function AccountEditActions({
           Discard edits
         </button>
       ) : null}
-      {operation.kind === "confirmed" && operation.publication === "failed" ? (
+      {actions.publicationRetry ? (
         <button
           type="button"
           style={secondaryButtonStyle}
@@ -357,9 +358,17 @@ function AccountEditFeedback({
     alert = operation.reason !== "transaction";
   } else if (operation.kind === "confirmed") {
     message = `${title} saved.${accountDraftDirty(state) ? " You have unsaved edits." : ""}`;
-    if (operation.publication === "pending")
+    if (
+      state.kind === "profile" &&
+      state.operation.kind === "confirmed" &&
+      state.operation.publication === "pending"
+    )
       message += " Updating account labels.";
-    if (operation.publication === "failed")
+    if (
+      state.kind === "profile" &&
+      state.operation.kind === "confirmed" &&
+      state.operation.publication === "failed"
+    )
       message +=
         " Account labels could not refresh. Retry refresh; your save is already confirmed.";
   } else if (accountDraftDirty(state)) message = "Unsaved changes.";

@@ -104,7 +104,21 @@ test("signs in as a local user and inspects the ordinary session surface", async
     path: "/api/v1/incidents",
     status: 200,
   });
+  const releaseLogin = responseBarrier();
+  let loginWrites = 0;
+  await page.route("**/api/v1/auth/login", async (route) => {
+    ++loginWrites;
+    await releaseLogin.promise;
+    await route.continue();
+  });
   await new AuthGateway(page).login(email, password);
+  await page.getByTestId(authTestId("login-username")).evaluate((input) => {
+    const form = input.closest("form");
+    form?.requestSubmit();
+    form?.requestSubmit();
+  });
+  await expect.poll(() => loginWrites).toBe(1);
+  releaseLogin.release();
   await Promise.all([loginResponse, incidentListResponse]);
   expect((await (await loginResponse).json()).data.user_id).toBe(user.user_id);
   await expectLandingAccountSession(page);
@@ -158,6 +172,10 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
   });
   await new AuthGateway(page).login(email, password, "000000");
   await wrongTotpResponse;
+  await expect(page.getByTestId(authTestId("login-totp-code"))).toHaveValue("");
+  await expect(page.getByTestId(authTestId("login-password"))).toHaveValue(
+    password,
+  );
   await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
     "The verification code is incorrect or expired.",
   );
@@ -250,10 +268,67 @@ test("lets deployment admins create and patch users, rejects stale versions, and
     base_user_version: 2,
     display_name: "Authentication E105 Concurrent",
   });
+  await page
+    .getByTestId(deploymentAdminTestId("patch-display-name"))
+    .fill("Stale reviewed edit");
   await new DeploymentAdministration(page).patchTargetUser();
   await expect(page.getByTestId(publicErrorCodeTestId("admin"))).toHaveText(
     "user_version_conflict",
   );
+
+  await expect(
+    page.getByTestId(deploymentAdminTestId("patch-display-name")),
+  ).toHaveValue("Stale reviewed edit");
+  await page
+    .getByRole("button", { name: "Discard user edits", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Review remaining edits", exact: true })
+    .click();
+
+  // Real Back/Forward traversal retains one draft until an explicit leave decision.
+  await page
+    .getByTestId(deploymentAdminTestId("patch-display-name"))
+    .fill("Navigation draft");
+  // A full-document departure uses the browser's native unload decision.
+  const unload = page.waitForEvent("dialog");
+  await page.evaluate(() => {
+    setTimeout(() => window.location.reload(), 0);
+  });
+  const departure = await unload;
+  expect(departure.type()).toBe("beforeunload");
+  await departure.dismiss();
+  await expect(
+    page.getByTestId(deploymentAdminTestId("patch-display-name")),
+  ).toHaveValue("Navigation draft");
+  const leave = page.getByRole("dialog", { name: "Unsaved user changes" });
+  await page
+    .getByTestId(landingAdminMenuItemTestId("administrative-audit"))
+    .click();
+  await expect(leave).toBeVisible();
+  await leave.getByRole("button", { name: "Stay", exact: true }).click();
+  await expect(
+    page.getByTestId(landingAdminMenuItemTestId("deployment-users")),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => window.history.back());
+  await expect(leave).toBeVisible();
+  await expect(
+    leave.getByRole("button", { name: "Stay", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(leave).toHaveCount(0);
+  await expect(page).toHaveURL(/deployment-administration/);
+  await page.evaluate(() => window.history.back());
+  await expect(leave).toBeVisible();
+  await leave
+    .getByRole("button", { name: "Save and leave", exact: true })
+    .click();
+  await expect(page).not.toHaveURL(/deployment-administration/);
+  await page.evaluate(() => window.history.forward());
+  await expect(page).toHaveURL(/deployment-administration/);
+  await expect(
+    page.getByTestId(deploymentAdminTestId("patch-display-name")),
+  ).toHaveValue("Navigation draft");
 
   const currentAdminID = (await readCurrentSession(page)).user_id;
   if (!currentAdminID) {
@@ -280,6 +355,9 @@ test("lets deployment admins create and patch users, rejects stale versions, and
         "last_deployment_admin",
       );
 
+      await page
+        .getByRole("button", { name: "Discard user edits", exact: true })
+        .click();
       await new DeploymentAdministration(page).loadTargetUser(currentAdminID);
       await expect(
         page.getByTestId(deploymentAdminTestId("patch-is-deployment-admin")),
@@ -292,6 +370,9 @@ test("lets deployment admins create and patch users, rejects stale versions, and
       await expect(page.getByTestId(publicErrorCodeTestId("admin"))).toHaveText(
         "last_deployment_admin",
       );
+      await page
+        .getByRole("button", { name: "Discard user edits", exact: true })
+        .click();
     },
   );
 });
@@ -439,6 +520,14 @@ test("requires the current password and current TOTP code, revokes the session i
     userId: user.user_id,
   });
 
+  let passwordWrites = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/v1/auth/password/change"
+    )
+      ++passwordWrites;
+  });
   await new AccountSettings(page).changePassword(
     "WrongCurrent1!",
     "AuthenticationE107Changed!",
@@ -447,15 +536,28 @@ test("requires the current password and current TOTP code, revokes the session i
   await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(
     "invalid_current_password",
   );
+  await expect(page.getByTestId(accountTestId("password-current"))).toHaveValue(
+    "",
+  );
+  await expect(page.getByTestId(accountTestId("password-next"))).toHaveValue(
+    "",
+  );
+  await expect(
+    page.getByTestId(accountTestId("password-factor-code")),
+  ).toHaveValue("");
 
   await new AccountSettings(page).changePassword(
     password,
     "AuthenticationE107Changed!",
     "",
   );
-  await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(
-    "invalid_second_factor",
-  );
+  await expect(
+    page.getByTestId(accountTestId("password-factor-code")),
+  ).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByText("Enter a six-digit authenticator code.", { exact: true }),
+  ).toBeVisible();
+  expect(passwordWrites).toBe(1);
 
   await new AccountSettings(page).changePassword(
     password,

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred } from "../testing/fetchMockTestSupport";
+import { validateAccountDisplayName } from "./accountInputValidation";
 import {
   AccountSettingsController,
   accountReviewRequired,
   canSaveAccountEdit,
-  validateAccountDisplayName,
 } from "./accountSettingsModel";
 import type {
   loadAccountProfile,
@@ -401,7 +401,7 @@ describe("account edit lifecycle", () => {
       pending.resolve(success(profile("Private draft", 2)));
       await flush();
       expect(controller.getSnapshot().profile).toMatchObject({
-        draft: null,
+        draft: undefined,
         saved: null,
         operation: { kind: "idle" },
       });
@@ -409,7 +409,7 @@ describe("account edit lifecycle", () => {
       stale.change("Obsolete callback");
       stale.submit();
       stale.refresh();
-      expect(controller.getSnapshot().profile.draft).toBeNull();
+      expect(controller.getSnapshot().profile.draft).toBeUndefined();
       expect(patch).toHaveBeenCalledTimes(1);
     }
   });
@@ -491,10 +491,13 @@ describe("account edit lifecycle", () => {
     );
     await controller.refresh("appearance");
     expect(controller.getSnapshot().appearance).toMatchObject({
-      operation: { kind: "confirmed", publication: "ready" },
+      operation: { kind: "confirmed" },
       saved: preferences(null, 5),
       read: "failed",
     });
+    expect(controller.getSnapshot().appearance.operation).not.toHaveProperty(
+      "publication",
+    );
     expect(session.getSnapshot().preferences).toMatchObject({
       kind: "ready",
       value: preferences(null, 5),
@@ -511,6 +514,9 @@ describe("account edit lifecycle", () => {
       kind: "uncertain",
       reason: "contract",
     });
+    expect(controller.getSnapshot().appearance.operation).not.toHaveProperty(
+      "publication",
+    );
     expect(session.getSnapshot().preferences).toMatchObject({
       kind: "ready",
       value: preferences(null, 5),

@@ -1911,6 +1911,17 @@ describe("Incident landing", () => {
           deploymentAdminTestId("patch-user"),
         ) as HTMLButtonElement
       ).disabled,
+    ).toBe(true);
+    fireEvent.change(
+      screen.getByTestId(deploymentAdminTestId("patch-display-name")),
+      { target: { value: "Explicit edit" } },
+    );
+    expect(
+      (
+        screen.getByTestId(
+          deploymentAdminTestId("patch-user"),
+        ) as HTMLButtonElement
+      ).disabled,
     ).toBe(false);
     expect(
       (

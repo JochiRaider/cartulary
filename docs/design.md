@@ -654,6 +654,15 @@ Design contract. A successful incident-import terminal state MUST offer exactly 
 
 Non-goal. Deployment administration is not a general deployment console. It MUST NOT contain `General settings`, all-incident catalog/search/count/metadata controls, generic cross-incident policy-default editors, provider-definition editors, provider-wide recovery controls, or incident membership controls whose only authorization basis is `deployment_admin`.
 
+Design contract. Account and Users recovery MUST use native forms, field-associated
+errors and explicit operation status. Confirmed mutation feedback MUST remain
+separate from failed refresh feedback. Dirty Users departure offers Stay, Discard
+and leave, and Save and leave, with focus restored on cancellation. Credential
+dialog dismissal clears its inputs. Modal dialogs MUST contain keyboard focus,
+support Escape, restore focus to their trigger and keep recovery controls reachable
+at narrow/short viewports, zoom and text spacing. Provider discovery failure exposes
+local retry without blocking local sign-in.
+
 ### 4.6 Authenticated-root composition
 
 Core restatement. Core 01 §3.3.2.1A owns authenticated-root selection and incident visibility. This subsection owns only presentation of the owner result.

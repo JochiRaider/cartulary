@@ -71,6 +71,29 @@ afterEach(() => {
 });
 
 describe("application session lifecycle", () => {
+  it("keeps anonymous authentication confirmation inside its current flow and fences replacement", async () => {
+    const anonymous: SessionResult = {
+      ok: false,
+      status: 401,
+      payload: { error: { code: "session_required" } },
+    };
+    const session = vi.fn().mockResolvedValue(anonymous);
+    const { controller, retireLifetime } = setup({ session });
+    await controller.refreshSession();
+    const revision = controller.getSnapshot().revision;
+    const retirements = retireLifetime.mock.calls.length;
+    expect(await controller.confirmAuthentication(revision)).toBe(false);
+    expect(controller.getSnapshot().revision).toBe(revision);
+    expect(retireLifetime).toHaveBeenCalledTimes(retirements);
+    const late = deferred<SessionResult>();
+    session.mockReturnValueOnce(late.promise);
+    const confirmation = controller.confirmAuthentication(revision);
+    controller.credentialsRevoked();
+    late.resolve(success());
+    expect(await confirmation).toBe(false);
+    expect(controller.getSnapshot().session).toBeNull();
+  });
+
   it("distinguishes unavailable discovery from confirmed anonymous and permits manual retry", async () => {
     const session = vi
       .fn()

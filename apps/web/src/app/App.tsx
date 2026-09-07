@@ -22,22 +22,25 @@ import type {
 import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
 import {
   AccountSecurityPanel,
-  type AccountSessionEvent,
   DeploymentUsersPanel,
 } from "./AccountAdministrationPanels";
 import { AccountApplicationMenu } from "./AccountApplicationMenu";
+import { AccountSettingsDialog } from "./AccountSettingsDialog";
 import {
   AccountAppearancePanel,
   AccountProfilePanel,
 } from "./AccountSettingsPanels";
 import { AuthGateway } from "./AuthGateway";
+import { AccountSecurityController } from "./accountSecurityModel";
 import { AccountSettingsController } from "./accountSettingsModel";
 import type {
   ExtensionProfileResource,
   SessionData,
 } from "./api/publicHttpTypes";
 import { AppSessionController } from "./appSessionController";
+import { AuthenticationController } from "./authenticationModel";
 import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
+import { DeploymentUsersController } from "./deploymentUsersModel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
@@ -59,11 +62,7 @@ import {
   ReferencePackAdminPanel,
   type ReferencePackJobResource,
 } from "./ReferencePackAdminPanel";
-import {
-  type AppRouteState,
-  type AppRouteWriteMode,
-  readAppRouteState,
-} from "./routeState";
+import { readAppRouteState } from "./routeState";
 import { useAppRouteRuntime } from "./useAppRouteRuntime";
 import { useAppSession } from "./useAppSession";
 import { useIncidentCreation } from "./useIncidentCreation";
@@ -87,6 +86,9 @@ type AccountMenuOptions = {
 };
 
 type AppProps = {
+  readonly authNavigation?:
+    | import("./authenticationModel").EnterpriseAuthNavigation
+    | undefined;
   readonly readingProfile?: CartularyReadingProfile | undefined;
   readonly themeId?: string | undefined;
 };
@@ -109,54 +111,184 @@ function extensionClaimed(
   );
 }
 
-export function App({ readingProfile = "default", themeId }: AppProps = {}) {
-  const { commitRoute: publishRoute, route, routeRef } = useAppRouteRuntime();
+export function App({
+  readingProfile = "default",
+  themeId,
+  authNavigation,
+}: AppProps = {}) {
+  const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
   const accountEditingRef = useRef<AccountSettingsController | null>(null);
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
   const directoryControllerRef = useRef<IncidentDirectoryController | null>(
     null,
   );
   const sessionControllerRef = useRef<AppSessionController | null>(null);
-  const commitRoute = useCallback(
-    (next: AppRouteState, mode: AppRouteWriteMode) => {
+  const { commitRoute, route, routeRef } = useAppRouteRuntime({
+    hasPendingEdits: () => deploymentUsersRef.current?.hasDirtyDraft() ?? false,
+    requestLeave: () =>
+      deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true),
+    beforeCommit: (next) => {
       creationControllerRef.current?.leaveSurface();
-      if (next.incidentId !== "" || next.deploymentAdministration) {
+      if (next.incidentId !== "" || next.deploymentAdministration)
         directoryControllerRef.current?.setActive(false);
-      }
       sessionControllerRef.current?.navigationChanged();
-      publishRoute(next, mode);
     },
-    [publishRoute],
-  );
-  useEffect(() => {
-    const leaveCreation = () => {
-      creationControllerRef.current?.leaveSurface();
-      const next = readAppRouteState();
-      if (next.incidentId !== "" || next.deploymentAdministration) {
-        directoryControllerRef.current?.setActive(false);
-      }
-      sessionControllerRef.current?.navigationChanged();
-    };
-    window.addEventListener("popstate", leaveCreation);
-    return () => window.removeEventListener("popstate", leaveCreation);
-  }, []);
+  });
   const workbookMutationRuntimeRegistry = useMemo(
     () => new WorkbookMutationRuntimeRegistry(),
     [],
   );
+  const authenticationRef = useRef<AuthenticationController | null>(null);
+  const securityRef = useRef<AccountSecurityController | null>(null);
   const [sessionController] = useState(
     () =>
       new AppSessionController({
         retireLifetime: (lifetime) => {
           accountEditingRef.current?.retireLifetime();
+          authenticationRef.current?.retire();
+          securityRef.current?.retire();
+          deploymentUsersRef.current?.retire();
           workbookMutationRuntimeRegistry.sessionUnavailable();
           creationControllerRef.current?.setSession(lifetime);
           directoryControllerRef.current?.setSession(lifetime);
         },
         replaceAccount: () => workbookMutationRuntimeRegistry.replaceAccount(),
+        capabilitiesReduced: () => deploymentUsersRef.current?.retire(),
       }),
   );
   sessionControllerRef.current = sessionController;
+  const [authentication] = useState(
+    () =>
+      new AuthenticationController(() => {
+        const revision = sessionController.getSnapshot().revision;
+        const current = () =>
+          sessionController.getSnapshot().revision === revision &&
+          sessionController.getSnapshot().session === null;
+        return {
+          current,
+          admitTransport: sessionController.reserveAuthenticationTransport,
+          canAuthenticate: () =>
+            !sessionController.getSnapshot().authenticationTransportPending,
+          authenticated: (next) => {
+            if (
+              current() &&
+              sessionController.authenticationCompleted(next, revision)
+            )
+              setAuthPrompt(defaultAuthPrompt);
+          },
+          uncertain: () =>
+            current()
+              ? sessionController.confirmAuthentication(revision)
+              : Promise.resolve(false),
+        };
+      }, authNavigation),
+  );
+  authenticationRef.current = authentication;
+  const [security] = useState(
+    () =>
+      new AccountSecurityController(() => {
+        const lifetime = sessionController.getSnapshot().lifetime;
+        const current = () =>
+          lifetime !== null &&
+          sessionController.getSnapshot().lifetime === lifetime;
+        return {
+          actor: sessionController.getSnapshot().session?.user_id ?? "",
+          current,
+          admitLogout: sessionController.reserveAuthenticationTransport,
+          event: async (event, signal, operationCurrent) => {
+            if (lifetime === null || !current() || !operationCurrent()) return;
+            if (event.kind === "resource_refresh") {
+              const result =
+                await sessionController.refreshSessionForAccountOperation(
+                  lifetime,
+                  signal,
+                  () => current() && operationCurrent(),
+                );
+              if (lifetime === null || !current() || !operationCurrent())
+                return;
+              if (result.kind !== "accepted")
+                throw new Error("Account session refresh unavailable");
+              sessionController.refreshResources();
+              return;
+            }
+            setAuthPrompt(event.message);
+            setReferencePackJob(null);
+            setLandingNotice(null);
+            if (event.kind === "logout_confirmed")
+              sessionController.logoutConfirmed();
+            else if (event.kind === "session_lost")
+              sessionController.sessionLost();
+            else sessionController.credentialsRevoked();
+          },
+        };
+      }),
+  );
+  securityRef.current = security;
+  const [deploymentUsers] = useState(
+    () =>
+      new DeploymentUsersController({
+        identity: () => {
+          const current = sessionController.getSnapshot();
+          return current.session && current.lifetime
+            ? {
+                actor: current.session.user_id,
+                lifetime: current.lifetime,
+                admin: current.session.is_deployment_admin,
+              }
+            : null;
+        },
+        subscribe: sessionController.subscribe,
+        refresh: async (identity, signal, current) => {
+          const result =
+            await sessionController.refreshSessionForAccountOperation(
+              identity.lifetime,
+              signal,
+              current,
+            );
+          if (!current()) return;
+          if (result.kind !== "accepted")
+            throw new Error("Session refresh unavailable");
+          sessionController.refreshResources();
+        },
+        revoked: (identity, message) => {
+          if (sessionController.getSnapshot().lifetime !== identity.lifetime)
+            return;
+          sessionController.credentialsRevoked();
+          setAuthPrompt(message);
+        },
+        lost: (identity) => {
+          if (sessionController.getSnapshot().lifetime === identity.lifetime)
+            sessionController.sessionLost();
+        },
+      }),
+  );
+  deploymentUsersRef.current = deploymentUsers;
+  useEffect(() => {
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      if (!deploymentUsers.hasDirtyDraft()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventUnload);
+    return () => window.removeEventListener("beforeunload", preventUnload);
+  }, [deploymentUsers]);
+  const changeDeploymentPanel = (next: DeploymentAdministrationPanelToken) => {
+    if (next === activeDeploymentPanel) return;
+    if (!deploymentUsers.hasDirtyDraft()) {
+      setActiveDeploymentPanel(next);
+      return;
+    }
+    const lifetime = sessionController.getSnapshot().lifetime;
+    void deploymentUsers.requestLeave().then((accepted) => {
+      if (accepted && lifetime === sessionController.getSnapshot().lifetime)
+        setActiveDeploymentPanel(next);
+    });
+  };
+
+  useEffect(() => {
+    deploymentUsers.start();
+    return deploymentUsers.stop;
+  }, [deploymentUsers]);
   const [accountEditing] = useState(
     () => new AccountSettingsController(sessionController),
   );
@@ -164,6 +296,9 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const sessionSnapshot = useAppSession(sessionController, () => {
     workbookMutationRuntimeRegistry.dispose();
     accountEditing.dispose();
+    authentication.dispose();
+    security.dispose();
+    deploymentUsers.dispose();
   });
   useEffect(() => {
     accountEditing.start();
@@ -280,28 +415,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   });
   const [referencePackJob, setReferencePackJob] =
     useState<ReferencePackJobResource | null>(null);
-  const refreshCurrentSession = useCallback(async () => {
-    await sessionController.refreshSession();
-    sessionController.refreshResources();
-  }, [sessionController]);
-  const handleAccountSessionEvent = useCallback(
-    async (event: AccountSessionEvent) => {
-      if (sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime)
-        return;
-      if (event.kind === "resource_refresh") {
-        await refreshCurrentSession();
-        return;
-      }
-      setAuthPrompt(event.message);
-      setReferencePackJob(null);
-      setLandingNotice(null);
-      if (event.kind === "logout_confirmed")
-        sessionController.logoutConfirmed();
-      else if (event.kind === "session_lost") sessionController.sessionLost();
-      else sessionController.credentialsRevoked();
-    },
-    [refreshCurrentSession, sessionController, sessionSnapshot.lifetime],
-  );
   const handleSessionLost = useCallback(() => {
     if (sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime)
       return;
@@ -508,8 +621,17 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
         currentUserLabel={currentUserLabel}
         incidentControls={options.incidentControls}
         onOpenAccountSettings={(panel) => {
-          creationControllerRef.current?.leaveSurface();
-          setAccountSettingsPanel(panel);
+          const lifetime = sessionController.getSnapshot().lifetime;
+          const open = () => {
+            if (sessionController.getSnapshot().lifetime !== lifetime) return;
+            creationControllerRef.current?.leaveSurface();
+            setAccountSettingsPanel(panel);
+          };
+          if (deploymentUsersRef.current?.hasDirtyDraft()) {
+            void deploymentUsersRef.current.requestLeave().then((accepted) => {
+              if (accepted) open();
+            });
+          } else open();
         }}
         onOpenDeploymentAdministration={() => {
           navigationFocusRequestRef.current = {
@@ -535,6 +657,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
       currentUserLabel,
       navigateToDeploymentAdministration,
       navigateToIncidentDirectory,
+      sessionController,
       session?.is_deployment_admin,
       session?.user_id,
       route.incidentId,
@@ -545,86 +668,31 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     if (accountSettingsPanel === null || session === null) {
       return null;
     }
-    const tabs: ReadonlyArray<{
-      label: string;
-      token: AccountSettingsPanelToken;
-    }> = [
-      { token: "account-profile", label: "Profile" },
-      { token: "account-appearance", label: "Appearance" },
-      { token: "account-security", label: "Security" },
-    ];
     return (
-      <div style={accountSettingsBackdropStyle}>
-        <section
-          aria-label="Account settings"
-          role="dialog"
-          style={accountSettingsDialogStyle}
-          onKeyDown={(event) => {
-            if (event.key !== "Escape" || event.defaultPrevented) return;
-            event.preventDefault();
-            event.stopPropagation();
-            closeAccountSettings();
-          }}
-        >
-          <header style={accountSettingsHeaderStyle}>
-            <div>
-              <p style={accountSettingsEyebrowStyle}>Account settings</p>
-              <h2 style={accountSettingsTitleStyle}>
-                {tabs.find((tab) => tab.token === accountSettingsPanel)?.label}
-              </h2>
-            </div>
-            <button
-              ref={accountSettingsCloseRef}
-              style={accountSettingsCloseButtonStyle}
-              type="button"
-              onClick={closeAccountSettings}
-            >
-              Close
-            </button>
-          </header>
-          <div style={accountSettingsTabsStyle} role="tablist">
-            {tabs.map((tab) => (
-              <button
-                key={tab.token}
-                aria-selected={accountSettingsPanel === tab.token}
-                role="tab"
-                style={
-                  accountSettingsPanel === tab.token
-                    ? accountSettingsTabSelectedStyle
-                    : accountSettingsTabStyle
-                }
-                type="button"
-                onClick={() => {
-                  setAccountSettingsPanel(tab.token);
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <div style={accountSettingsPanelStyle}>
-            {accountSettingsPanel === "account-profile" ? (
-              <AccountProfilePanel
-                controller={accountEditing}
-                lifetime={sessionSnapshot.lifetime}
-                state={accountEditingSnapshot.profile}
-              />
-            ) : null}
-            {accountSettingsPanel === "account-appearance" ? (
-              <AccountAppearancePanel
-                controller={accountEditing}
-                lifetime={sessionSnapshot.lifetime}
-                state={accountEditingSnapshot.appearance}
-              />
-            ) : null}
-            {accountSettingsPanel === "account-security" ? (
-              <AccountSecurityPanel
-                onSessionEvent={handleAccountSessionEvent}
-              />
-            ) : null}
-          </div>
-        </section>
-      </div>
+      <AccountSettingsDialog
+        panel={accountSettingsPanel}
+        onClose={closeAccountSettings}
+        onSelect={setAccountSettingsPanel}
+        closeRef={accountSettingsCloseRef}
+      >
+        {accountSettingsPanel === "account-profile" ? (
+          <AccountProfilePanel
+            controller={accountEditing}
+            lifetime={sessionSnapshot.lifetime}
+            state={accountEditingSnapshot.profile}
+          />
+        ) : null}
+        {accountSettingsPanel === "account-appearance" ? (
+          <AccountAppearancePanel
+            controller={accountEditing}
+            lifetime={sessionSnapshot.lifetime}
+            state={accountEditingSnapshot.appearance}
+          />
+        ) : null}
+        {accountSettingsPanel === "account-security" ? (
+          <AccountSecurityPanel controller={security} />
+        ) : null}
+      </AccountSettingsDialog>
     );
   }, [
     accountEditing,
@@ -632,7 +700,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
     sessionSnapshot.lifetime,
     accountSettingsPanel,
     closeAccountSettings,
-    handleAccountSessionEvent,
+    security,
     session,
   ]);
 
@@ -770,6 +838,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   if (session === null) {
     return (
       <AuthGateway
+        controller={authentication}
         bootstrapState={
           sessionSnapshot.state === "unresolved" || sessionSnapshot.observing
             ? "loading"
@@ -778,18 +847,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               : "anonymous"
         }
         message={authPrompt}
-        onAuthenticated={(nextSession) => {
-          if (
-            sessionController.authenticationCompleted(
-              nextSession,
-              sessionSnapshot.revision,
-            )
-          )
-            setAuthPrompt(defaultAuthPrompt);
-        }}
-        onAuthenticationUncertain={() =>
-          sessionController.confirmAuthentication(sessionSnapshot.revision)
-        }
         publicError={error}
         readingProfile={readingProfile}
       />
@@ -814,7 +871,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
           activePanel={activeDeploymentPanel}
           availablePanels={availableDeploymentPanels}
           currentUserLabel={currentUserLabel}
-          onActivePanelChange={setActiveDeploymentPanel}
+          onActivePanelChange={changeDeploymentPanel}
           statusText={landingStatusText}
         >
           <section
@@ -830,8 +887,8 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
                 extensionProfiles,
                 "enterprise_authentication",
               )}
-              onRefreshSession={refreshCurrentSession}
-              session={session}
+              controller={deploymentUsers}
+              active={activeDeploymentPanel === "deployment-users"}
             />
           </section>
           <section
@@ -900,95 +957,6 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
 const landingAdminPanelRegionStyle: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
-  padding: "var(--ct-spacing-md)",
-};
-
-const accountSettingsBackdropStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 40,
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gridTemplateRows: "minmax(0, 1fr)",
-  placeItems: "center",
-  padding: "var(--ct-spacing-lg)",
-  background: "rgba(12, 16, 24, 0.42)",
-};
-
-const accountSettingsDialogStyle: CSSProperties = {
-  width: "min(60rem, 100%)",
-  maxHeight: "min(52rem, 100%)",
-  boxSizing: "border-box",
-  display: "grid",
-  gridTemplateRows: "auto auto minmax(0, 1fr)",
-  minWidth: 0,
-  overflow: "hidden",
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-panel)",
-};
-
-const accountSettingsHeaderStyle: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "var(--ct-spacing-md)",
-  padding: "var(--ct-spacing-md)",
-  borderBottom: "var(--ct-border-hairline)",
-};
-
-const accountSettingsEyebrowStyle: CSSProperties = {
-  margin: 0,
-  fontSize: "0.72rem",
-  letterSpacing: "0.14em",
-  textTransform: "uppercase",
-  color: "var(--ct-colors-accent)",
-};
-
-const accountSettingsTitleStyle: CSSProperties = {
-  margin: "0.2rem 0 0",
-  fontSize: "1.15rem",
-};
-
-const accountSettingsCloseButtonStyle: CSSProperties = {
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink)",
-  padding: "0.48rem 0.7rem",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const accountSettingsTabsStyle: CSSProperties = {
-  display: "flex",
-  gap: "0.35rem",
-  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
-  borderBottom: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-};
-
-const accountSettingsTabStyle: CSSProperties = {
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "transparent",
-  color: "var(--ct-colors-ink-muted)",
-  padding: "0.45rem 0.65rem",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const accountSettingsTabSelectedStyle: CSSProperties = {
-  ...accountSettingsTabStyle,
-  background: "var(--ct-colors-surface-1)",
-  color: "var(--ct-colors-ink)",
-};
-
-const accountSettingsPanelStyle: CSSProperties = {
-  minWidth: 0,
-  minHeight: 0,
-  overflow: "auto",
   padding: "var(--ct-spacing-md)",
 };
 

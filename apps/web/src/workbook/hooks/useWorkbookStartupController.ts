@@ -185,7 +185,11 @@ export function useWorkbookStartupController({
     }
     next.delete("workspace_key");
     next.delete("surface");
-    window.history.replaceState({}, "", `/?${next.toString()}`);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `/?${next.toString()}`,
+    );
   }, [incidentId, startupSheetRef, surface]);
 
   return {

@@ -409,6 +409,65 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.account_frontend_administration_boundaries_a67e41b590",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/accountFrontendBoundaries.test.tsx",
+        "titles": [
+          "account frontend boundaries clears a create password when its form closes",
+          "account frontend boundaries does not append a page from a replaced user query",
+          "account frontend boundaries keeps confirmed user mutation separate from a failed session refresh",
+          "account frontend boundaries retains newer user input across save completion",
+          "account frontend boundaries sends a sparse user patch and preserves edits made while saving"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.account_frontend_operation_boundaries_4c0264caa7",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/accountFrontendBoundaries.test.tsx",
+        "titles": [
+          "account frontend boundaries admits one same-turn login and accepts owner-valid deployment email",
+          "account frontend boundaries clears dispatched password inputs and excludes retired Security completion",
+          "account frontend boundaries excludes Security completion after its form retires",
+          "account frontend boundaries suppresses duplicate login with ordinary email"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.account_settings_preserve_drafts_and_guard_submi_e245fc5a0c",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1059,6 +1118,7 @@
         "file": "apps/web/src/app/appSessionController.test.tsx",
         "titles": [
           "admits a validated session while preferences and extension discovery fail independently",
+          "application session lifecycle keeps anonymous authentication confirmation inside its current flow and fences replacement",
           "cancels recovery before publication after caller cancellation navigation replacement and disposal",
           "classifies recovery without treating transport or contract failure as membership loss",
           "creates a new lifetime for identical-field reauthentication but preserves ordinary refresh identity",
@@ -1069,6 +1129,44 @@
           "settles overlapping recovery callers without publishing the obsolete account",
           "settles session and supporting observations at thirty seconds despite ignored aborts",
           "survives React lifecycle replay and disposes pending observations after unmount"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.authentication_security_operation_lifetime_8021a8bd90",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/accountAuthenticationLifecycle.test.ts",
+        "titles": [
+          "authentication and Security operation lifetime bounds MFA password retention from initial dispatch and clears submitted factor codes",
+          "authentication and Security operation lifetime expires enrollment material and excludes obsolete enrollment success",
+          "authentication and Security operation lifetime fences uncertain-session continuation and late login publication after retirement",
+          "authentication and Security operation lifetime keeps Security uncertainty after a late success and requires explicit review",
+          "authentication and Security operation lifetime keeps confirmed credential changes separate from failed propagation",
+          "authentication and Security operation lifetime keeps timeout uncertainty separate from outstanding authentication transport settlement",
+          "authentication and Security operation lifetime retains only active bootstrap material and never signs in from enrollment completion",
+          "authentication and Security operation lifetime retains safe credential resources while showing failed reads and fencing retired reads",
+          "authentication and Security operation lifetime separates failed provider discovery from unclaimed discovery and isolates navigation instances",
+          "authentication and Security operation lifetime serializes Security writes and clears every dispatched credential",
+          "authentication and Security operation lifetime serializes local and enterprise activation while preserving exact login bytes",
+          "authentication and Security operation lifetime treats malformed authentication success as uncertainty and clears terminal-failure secrets",
+          "authentication and Security operation lifetime validates owner email and provisioning scalar boundaries without password transformations"
         ]
       },
       "evidence_class": "unit",
@@ -1103,6 +1201,41 @@
           "fetchJSON route-boundary CSRF headers follow cookie-backed mutating request rules",
           "readCookie decodes the named cookie value",
           "readCookie distinguishes an empty cookie from a missing cookie"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.deployment_user_operation_lifetime_b4702e860c",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.auth"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/deploymentUsersModel.test.ts",
+        "titles": [
+          "deployment user operation ownership accepts monotonic resources and rejects inconsistent same-version reads without overwriting drafts",
+          "deployment user operation ownership clears submitted credentials and never retains them for recovery or late selection",
+          "deployment user operation ownership fences old pages, failed query replacements, duplicate activation and invalid cursors",
+          "deployment user operation ownership keeps Save and leave pending for newer edits and lets Discard leave without erasing an operation",
+          "deployment user operation ownership keeps confirmed writes confirmed when refresh fails and retries only propagation",
+          "deployment user operation ownership makes obsolete success and authorization failures inert after capability loss and identical-account reauthentication",
+          "deployment user operation ownership preserves a PATCH uncertainty until fresh observation and explicit review, never replaying it",
+          "deployment user operation ownership replays exact non-credential actions against captured targets after selection and version changes",
+          "deployment user operation ownership routes self revocation through the session owner and requires review for transaction conflict",
+          "deployment user operation ownership suppresses empty patches and acknowledges only the submitted draft revision"
         ]
       },
       "evidence_class": "unit",

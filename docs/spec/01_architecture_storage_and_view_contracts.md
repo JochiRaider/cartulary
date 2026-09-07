@@ -559,6 +559,19 @@ request and incident before accepting any result. Temporary recovery failure doe
 not establish incident membership loss. Confirmed session loss requires ordinary
 reauthentication; confirmed membership loss follows the clearing and root-navigation
 rule above. Core 03 §4.4 owns pending-work retention across these transitions.
+Browser authentication MUST synchronously admit at most one login, enterprise
+begin, or enrollment operation per active flow. Every asynchronous continuation
+MUST validate its flow, operation and expected session lifetime before publishing
+state, callbacks or navigation. Observations MUST settle within 30 seconds;
+timeout or malformed success is uncertain, not proof of rejection or rollback.
+The browser MUST keep observation completion separate from transport settlement
+and MUST NOT overlap session-establishing requests while an earlier authentication
+transport remains outstanding. Manual session inspection and reload guidance MUST
+remain available when transport does not settle. Local login MUST NOT be
+automatically retried. Bootstrap completion MUST NOT automatically sign in.
+Failed provider discovery MUST be distinguishable from successful empty or
+unclaimed discovery and MUST NOT prevent local sign-in.
+
 Profiles: base
 Verified by: AC-414
 
@@ -611,6 +624,34 @@ The current profile defines no generic deployment-settings resource and no brows
 | Recovery | Deployment-local recovery CLI. |
 
 Notifications, retention defaults, membership templates, naming policies, default TLP, default severity, default phase, cross-incident workbook-startup defaults, MFA policy defaults, and other generalized deployment policy controls are not current-profile administration controls unless a later owner contract defines their data shape, defaults, validation, authorization, persistence, and inheritance behavior.
+The Users browser panel MUST keep query input, accepted collection/pagination,
+selected resource, editable draft and captured operation distinct. Replacement
+and page responses MUST match the current actor/lifetime, query generation and
+request identity. Page requests MUST capture the accepted query and cursor, MUST
+NOT overlap, and MUST NOT append after a replacement query. Failed refresh retains
+usable accepted rows; invalid cursors require explicit first-page refresh.
+
+The panel MUST retain one reviewed non-secret target draft. Voluntary target or
+context departure MUST offer Stay, Discard and leave, and Save and leave. A save
+permits departure only after confirmation with no newer draft. Authorization loss
+MUST bypass the prompt and clear protected state. Full-document departure uses
+browser unload protection without promising reload persistence. Administrator
+PATCH MUST send changed mutable fields only and MUST NOT dispatch an empty edit.
+Resource refresh MUST preserve dirty drafts and require explicit review when the
+accepted version advances. Mutation completion acknowledges only its captured
+draft revision and MUST NOT reselect an obsolete target.
+
+Administrator writes MUST be synchronously serialized and capture target identity,
+version where declared and transaction ID where declared. Uncertain TOTP reset,
+revoke-all and enterprise-binding operations MAY be explicitly replayed only with
+the exact captured request and original transaction ID in the same actor/lifetime.
+Credential-bearing requests MUST NOT be queued for replay. Uncertain PATCH requires
+refresh and explicit review; no transaction ID is added. Observing current resource
+state MUST NOT be presented as confirmation of a particular earlier mutation.
+Confirmed writes remain confirmed if subsequent refresh fails; recovery retries
+the read only. Every observation MUST settle within 30 seconds and exclude late
+publication after retirement, even when abort is ignored.
+
 Profiles: base
 Verified by: AC-414, AC-427, AC-441
 
@@ -809,6 +850,18 @@ Verified by: AC-431, AC-432
 
 **REQ-01-602**
 The current-account route family MUST NOT expose or accept self-service email change, login-identifier change, locale, time zone, notification settings, theme selection, global default incident, global `home_sheet_ref`, custom density values, or custom row heights. Per-incident `home_sheet_ref` remains owned by `GET /api/v1/incidents/{incident_id}/workbook-preferences/me` and `PUT /api/v1/incidents/{incident_id}/workbook-preferences/me`. Account preference state is deployment-local normalized user state; it is not an incident record, not workbook mutation state, not saved-view state, not a per-incident workbook preference, and not incident-portability content.
+Profile and Appearance browser editors MUST independently retain accepted
+resources, editable drafts and immutable dispatched attempts. Drafts and uncertain
+attempts survive section switching and dismissal within the current application
+lifetime, but MUST clear on lifetime retirement, including identical-account
+reauthentication. Ordinary session refresh preserves them. Discard resets only
+the draft, never a pending or uncertain attempt. Exact uncertain replay retains
+the original transaction ID, normalized input and base version. Accepted versions
+MUST NOT regress; advancing saved state does not overwrite a dirty draft. A save
+acknowledges only its captured draft revision. Profile session-label publication
+is separate from mutation confirmation and its retry MUST NOT repeat the write.
+Preferences accepted by the session owner remain canonical for density.
+
 Profiles: base
 Verified by: AC-432
 

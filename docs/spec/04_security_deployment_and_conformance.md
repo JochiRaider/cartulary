@@ -38,6 +38,26 @@ Authentication MUST work in disconnected deployments and MUST NOT depend on ente
 Profiles: base
 Verified by: AC-123, AC-130, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-231
 
+Browser credential ownership. The browser MUST release submitted factor codes
+and provisioning passwords after dispatch. A login password MAY remain only for
+the active MFA challenge, for no more than five minutes from initial login
+dispatch, and MUST clear on success, terminal failure, uncertainty, bootstrap
+transition, account switch or flow retirement. Bootstrap tokens MUST remain only
+in the active enrollment flow until its server-provided expiry; setup seeds MUST
+remain only while needed to present and complete that enrollment. All form/flow
+secrets MUST clear on closure, retirement, expiry or completion. Generic errors,
+logs, browser persistence and recovery records MUST NOT retain duplicate secrets.
+These are application-reference lifetime rules, not a promise to erase immutable
+JavaScript strings or transport-owned bytes.
+
+Credential actions MUST bind publication and session effects to the captured
+actor/lifetime and operation. Closing a form invalidates its presentation callbacks
+without implying server cancellation; safe outcome observation may finish in the
+still-current application lifetime. Confirmed session loss clears protected state.
+A safe credential or session read establishes current state, not which uncertain
+request caused it. Security discovery failure MUST remain local and recoverable
+and MUST NOT be described as current credential state.
+
 #### 1.1.1 Session lifecycle boundaries
 
 **REQ-04-005**
@@ -2390,7 +2410,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   error.code='invalid_pagination_request'` and
   `error.details.reason_code='pagination_not_supported'`.
   - Verifies: REQ-00-014, REQ-01-023..REQ-01-031, REQ-04-001..REQ-04-017
-- **AC-414**: After successful local authentication, default browser navigation to `/` remains on `/` and renders only the caller's current visible incident directory for zero, one, and multiple visible incidents. An empty directory exposes the ordinary create-incident affordance to an active authenticated account; failed discovery is an error, not an empty success. Directory search, filtering, refresh, pagination, and count changes MUST NOT select an incident or navigate. Explicit directory selection and successful creation open the selected incident without a launch `sheet_ref` and use Core 03 §2.4 startup selection. Explicit incident routes MUST open through current workbook authorization even when the incident is absent from the loaded directory page, and MUST NOT require a directory request. Incident-access loss before bootstrap or while open clears protected materialization and returns to the current directory at `/`. The fixtures MUST prove that recency, sort order, prior visit state, client cache, and `deployment_admin` status neither select nor widen incidents. A deployment administrator with exactly one visible incident remains in the directory and can reach `/deployment-administration` through the global entry; that entry is also reachable from an explicitly opened workbook. When the Enterprise Authentication Extension Profile is claimed, AC-289 through AC-291 additionally prove the same default-root outcome and access-loss handling for the same memberships, independently of provider claims, while preserving validated same-origin return targets.
+- **AC-414**: After successful local authentication, default browser navigation to `/` remains on `/` and renders only the caller's current visible incident directory for zero, one, and multiple visible incidents. An empty directory exposes the ordinary create-incident affordance to an active authenticated account; failed discovery is an error, not an empty success. Directory search, filtering, refresh, pagination, and count changes MUST NOT select an incident or navigate. Explicit directory selection and successful creation open the selected incident without a launch `sheet_ref` and use Core 03 §2.4 startup selection. Explicit incident routes MUST open through current workbook authorization even when the incident is absent from the loaded directory page, and MUST NOT require a directory request. Incident-access loss before bootstrap or while open clears protected materialization and returns to the current directory at `/`. The fixtures MUST prove that recency, sort order, prior visit state, client cache, and `deployment_admin` status neither select nor widen incidents. A deployment administrator with exactly one visible incident remains in the directory and can reach `/deployment-administration` through the global entry; that entry is also reachable from an explicitly opened workbook. When the Enterprise Authentication Extension Profile is claimed, AC-289 through AC-291 additionally prove the same default-root outcome and access-loss handling for the same memberships, independently of provider claims, while preserving validated same-origin return targets. Browser account evidence additionally proves synchronous authentication admission, bounded observation and secret retention, obsolete-continuation exclusion, independent account drafts/replay, query-generation pagination, sparse administrator PATCH, one-draft departure review and confirmed-write/failed-refresh separation under the browser owner contracts. Safe observations must not be represented as receipts for uncertain writes.
 
   Shell lifecycle coverage distinguishes unavailable session discovery from confirmed session loss, bounds observation to 30 seconds, rejects obsolete success and failure before publication, isolates preference/credential/extension failure, preserves queries only within the current session lifetime, preserves pending workbook work for same-account reauthentication, and clears previous-account pending work before exposing a different account. Incident recovery distinguishes cancellation, temporary failure, session loss, and confirmed membership loss.
   - Verifies: REQ-00-053, REQ-00-057, REQ-01-025, REQ-01-168, REQ-01-580, REQ-01-608, REQ-03-030..REQ-03-031, REQ-04-028..REQ-04-029
