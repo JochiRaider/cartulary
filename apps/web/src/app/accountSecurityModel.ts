@@ -1,4 +1,3 @@
-import { useLayoutEffect, useSyncExternalStore } from "react";
 import {
   type APIError,
   clientTxnID,
@@ -27,7 +26,7 @@ export type AccountSessionEvent =
       readonly message: string;
     };
 type SecurityEffects = {
-  admitLogout?: () => (() => void) | null;
+  admitLogout: () => (() => void) | null;
   actor: string;
   current: () => boolean;
   event: (
@@ -36,9 +35,7 @@ type SecurityEffects = {
     current: () => boolean,
   ) => Promise<void> | void;
 };
-export type AccountSecurityPanelProps = {
-  controller: AccountSecurityController;
-};
+
 type Action = "password" | "begin" | "complete" | "logout";
 type Operation =
   | { kind: "idle" }
@@ -54,12 +51,11 @@ const emptySecrets = {
   passwordFactorCode: "",
   totpCurrentPassword: "",
   totpCurrentFactorCode: "",
-  totpEnrollmentId: "",
-  totpSecretBase32: "",
   totpCompleteCode: "",
 };
 type SecretField = keyof typeof emptySecrets;
 type SecurityState = typeof emptySecrets & {
+  enrollment: Readonly<{ key: string; expiresAt: number }> | null;
   credentialState: CredentialState | null;
   credentialRead: "loading" | "ready" | "failed";
   credentialStateError: APIError | null;
@@ -71,6 +67,7 @@ type SecurityState = typeof emptySecrets & {
 };
 const initial = (): SecurityState => ({
   ...emptySecrets,
+  enrollment: null,
   credentialState: null,
   credentialRead: "loading",
   credentialStateError: null,
@@ -89,7 +86,10 @@ export class AccountSecurityController {
   private read = 0;
   private operation: object | null = null;
   private transport: object | null = null;
-  private logoutPending = false;
+  private logoutTransport: object | null = null;
+  private readonly transports = new Set<object>();
+  private disposed = false;
+  private enrollmentId = "";
   private cancelRead: (() => void) | null = null;
   private readonly observations = new Set<() => void>();
   private expiry: ReturnType<typeof setTimeout> | undefined;
@@ -103,7 +103,7 @@ export class AccountSecurityController {
       logoutCurrentSession,
     },
   ) {}
-  getSnapshot = () => this.state;
+  getSnapshot = (): Readonly<SecurityState> => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {
@@ -111,10 +111,13 @@ export class AccountSecurityController {
     };
   };
   private publish(patch: Partial<SecurityState>) {
+    if (patch.enrollment === null) this.enrollmentId = "";
+    if (this.disposed) return;
     this.state = { ...this.state, ...patch };
     for (const listener of this.listeners) listener();
   }
   open = () => {
+    if (this.disposed) return;
     this.active = true;
     const form = ++this.form;
     queueMicrotask(() => {
@@ -127,7 +130,12 @@ export class AccountSecurityController {
     ++this.read;
     this.cancelRead?.();
     clearTimeout(this.expiry);
-    this.publish({ ...emptySecrets, fieldErrors: {}, error: null });
+    this.publish({
+      ...emptySecrets,
+      enrollment: null,
+      fieldErrors: {},
+      error: null,
+    });
   };
   retire = () => {
     this.close();
@@ -137,11 +145,13 @@ export class AccountSecurityController {
     this.operation = null;
     this.publish({
       ...initial(),
-      transportPending: this.transport !== null || this.logoutPending,
+      transportPending: this.transports.size !== 0,
     });
   };
   dispose = () => {
+    if (this.disposed) return;
     this.retire();
+    this.disposed = true;
     this.listeners.clear();
   };
   change = (field: SecretField, value: string) => {
@@ -296,7 +306,7 @@ export class AccountSecurityController {
   ) {
     if (
       !this.active ||
-      this.logoutPending ||
+      this.logoutTransport !== null ||
       (action !== "logout" &&
         (this.operation ||
           this.transport ||
@@ -306,8 +316,8 @@ export class AccountSecurityController {
     const effects = this.capture();
     if (!effects.current()) return;
     const releaseTransport =
-      action === "logout" ? effects.admitLogout?.() : undefined;
-    if (action === "logout" && effects.admitLogout && !releaseTransport) {
+      action === "logout" ? effects.admitLogout() : undefined;
+    if (action === "logout" && !releaseTransport) {
       this.publish({
         ...emptySecrets,
         statusText:
@@ -315,15 +325,16 @@ export class AccountSecurityController {
       });
       return;
     }
+    const identity = {};
+    this.transports.add(identity);
     if (action === "logout") {
       ++this.form;
-      this.logoutPending = true;
-      this.publish(emptySecrets);
+      this.logoutTransport = identity;
+      this.publish({ ...emptySecrets, enrollment: null });
       clearTimeout(this.expiry);
     }
     const form = this.form;
     const epoch = this.epoch;
-    const identity = {};
     this.operation = identity;
     if (action !== "logout") this.transport = identity;
     const current = () =>
@@ -356,11 +367,9 @@ export class AccountSecurityController {
     void observation.settled.then(() => {
       releaseTransport?.();
       if (this.transport === identity) this.transport = null;
-      if (action === "logout") this.logoutPending = false;
-      if (epoch === this.epoch)
-        this.publish({
-          transportPending: this.transport !== null || this.logoutPending,
-        });
+      if (this.logoutTransport === identity) this.logoutTransport = null;
+      this.transports.delete(identity);
+      this.publish({ transportPending: this.transports.size !== 0 });
     });
     try {
       const outcome = await observation.result;
@@ -374,6 +383,7 @@ export class AccountSecurityController {
       ) {
         this.publish({
           ...emptySecrets,
+          enrollment: null,
           operation: { kind: "uncertain", action },
           statusText:
             "Credential action outcome is uncertain. Refresh current security state, then review a new action or sign in again. No request will be repeated automatically.",
@@ -409,6 +419,7 @@ export class AccountSecurityController {
       if (!matchesActor(result.payload, effects.actor)) {
         this.publish({
           ...emptySecrets,
+          enrollment: null,
           operation: { kind: "uncertain", action },
           statusText:
             "Credential response did not match this account. Refresh current state before a new action.",
@@ -425,7 +436,7 @@ export class AccountSecurityController {
         },
         statusText:
           action === "begin"
-            ? this.state.totpEnrollmentId
+            ? this.enrollmentId
               ? "Began TOTP enrollment"
               : "Enrollment request confirmed; setup is unavailable or expired. Review a new enrollment."
             : action === "complete"
@@ -522,16 +533,18 @@ export class AccountSecurityController {
         const data = payload.data;
         const expires = Date.parse(data.expires_at);
         if (current() && Number.isFinite(expires) && expires > Date.now()) {
+          this.enrollmentId = data.enrollment_id;
           this.publish({
-            totpEnrollmentId: data.enrollment_id,
-            totpSecretBase32: data.totp_setup.secret_base32,
+            enrollment: {
+              key: data.totp_setup.secret_base32,
+              expiresAt: expires,
+            },
           });
           clearTimeout(this.expiry);
           this.expiry = setTimeout(
             () =>
               this.publish({
-                totpEnrollmentId: "",
-                totpSecretBase32: "",
+                enrollment: null,
                 totpCompleteCode: "",
                 statusText: "TOTP enrollment expired. Review a new enrollment.",
               }),
@@ -543,7 +556,7 @@ export class AccountSecurityController {
     );
   };
   complete = () => {
-    if (!this.state.totpEnrollmentId) return;
+    if (!this.enrollmentId) return;
     if (
       !this.validFields(
         /^\d{6}$/.test(this.state.totpCompleteCode)
@@ -555,7 +568,7 @@ export class AccountSecurityController {
     const input = {
       authMode: "session" as const,
       code: this.state.totpCompleteCode,
-      enrollmentId: this.state.totpEnrollmentId,
+      enrollmentId: this.enrollmentId,
       clientTxnId: clientTxnID("security-totp-complete"),
     };
     void this.execute(
@@ -564,8 +577,7 @@ export class AccountSecurityController {
       (payload) => {
         clearTimeout(this.expiry);
         this.publish({
-          totpEnrollmentId: "",
-          totpSecretBase32: "",
+          enrollment: null,
           totpCompleteCode: "",
         });
         return payload.data.sessions_revoked
@@ -577,34 +589,5 @@ export class AccountSecurityController {
       },
       (payload, actor) => payload.data.user_id === actor,
     );
-  };
-}
-export function useAccountSecurity({ controller }: AccountSecurityPanelProps) {
-  const state = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-  );
-  useLayoutEffect(() => {
-    controller.open();
-    return controller.close;
-  }, [controller]);
-  return {
-    ...state,
-    setPasswordCurrent: (v: string) => controller.change("passwordCurrent", v),
-    setPasswordNext: (v: string) => controller.change("passwordNext", v),
-    setPasswordFactorCode: (v: string) =>
-      controller.change("passwordFactorCode", v),
-    setTotpCurrentPassword: (v: string) =>
-      controller.change("totpCurrentPassword", v),
-    setTotpCurrentFactorCode: (v: string) =>
-      controller.change("totpCurrentFactorCode", v),
-    setTotpCompleteCode: (v: string) =>
-      controller.change("totpCompleteCode", v),
-    handleLogout: controller.logout,
-    handleRefreshAccount: controller.refresh,
-    handlePasswordChange: controller.password,
-    handleBeginTotpReplacement: controller.begin,
-    handleCompleteTotpReplacement: controller.complete,
-    review: controller.review,
   };
 }

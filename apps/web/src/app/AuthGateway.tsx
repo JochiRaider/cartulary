@@ -1,36 +1,24 @@
-import {
-  authTestId,
-  publicErrorCodeTestId,
-  publicErrorSummaryTestIds,
-} from "@cartulary/ui-contracts";
+import { authTestId } from "@cartulary/ui-contracts";
 import { Eye, EyeOff } from "lucide-react";
-import {
-  type AuthGatewayProps,
-  normalizeTotpCode,
-  useAuthentication,
-} from "./authenticationModel";
+import { normalizeTotpCode, useAuthentication } from "./useAuthentication";
 
-export type { AuthGatewayProps } from "./authenticationModel";
+type AuthGatewayProps = Parameters<typeof useAuthentication>[0];
 
 export function AuthGateway(props: AuthGatewayProps) {
   const { bootstrapState, readingProfile = "default" } = props;
   const {
-    state,
-    dispatch,
+    snapshot: state,
+    commands,
     usernameRef,
     passwordRef,
     totpCodeRef,
     bootstrapBeginRef,
     bootstrapCompleteCodeRef,
     handleLoginSubmit,
-    handleEnterpriseBegin,
-    handleBeginBootstrapEnrollment,
-    handleCompleteBootstrapEnrollment,
     displayedBootstrapState,
     displayedBanner,
     authAlertText,
     authLiveRole,
-    authLivePoliteness,
     activeErrorCode,
     statusText,
     rootClassName,
@@ -39,6 +27,17 @@ export function AuthGateway(props: AuthGatewayProps) {
     submitLabel,
     canSubmit,
   } = useAuthentication(props);
+  const observing = state.sessionRead === "pending";
+  const progressing =
+    observing ||
+    bootstrapState === "loading" ||
+    state.operation.kind === "pending";
+  const feedbackText = observing
+    ? "Checking current session..."
+    : progressing
+      ? statusText
+      : authAlertText || statusText;
+  const feedbackRole = progressing ? "status" : (authLiveRole ?? "status");
   return (
     <main
       aria-busy={bootstrapState === "loading"}
@@ -73,21 +72,34 @@ export function AuthGateway(props: AuthGatewayProps) {
             {supportText}
           </p>
 
-          {displayedBanner !== null ? (
-            <div
-              className="cartulary-auth-banner"
-              data-tone={displayedBanner.tone}
-              role={displayedBanner.tone === "error" ? "alert" : "status"}
-            >
-              {displayedBanner.message}
-            </div>
-          ) : null}
+          <p
+            className={
+              feedbackText
+                ? "cartulary-auth-banner"
+                : "cartulary-auth-visually-hidden"
+            }
+            data-tone={
+              feedbackRole === "alert"
+                ? "error"
+                : (displayedBanner?.tone ?? "info")
+            }
+            data-testid={authTestId("feedback")}
+            data-error-code={activeErrorCode}
+            role={feedbackRole}
+          >
+            {feedbackText}
+          </p>
 
-          {state.confirmation !== "idle" ? (
+          {state.operation.kind === "uncertain" ||
+          state.transportPending ||
+          (state.operation.kind === "confirmed" &&
+            state.operation.propagation !== "ready") ? (
             <button
               type="button"
               className="cartulary-auth-secondary-button"
-              disabled={state.confirmation === "pending"}
+              disabled={
+                state.sessionRead === "pending" || !commands.canInspectSession()
+              }
               onClick={() => {
                 void props.controller.retrySession();
               }}
@@ -95,12 +107,12 @@ export function AuthGateway(props: AuthGatewayProps) {
               Retry session check
             </button>
           ) : null}
-          {state.phase === "setup" ? (
+          {state.flow.kind === "setup" ? (
             <form
               noValidate
               onSubmit={(event) => {
                 event.preventDefault();
-                handleCompleteBootstrapEnrollment();
+                commands.complete();
               }}
               className="cartulary-auth-setup"
               aria-label="Authenticator setup"
@@ -109,117 +121,113 @@ export function AuthGateway(props: AuthGatewayProps) {
                 This account requires authenticator enrollment before it can
                 sign in.
               </p>
-              <div className="cartulary-auth-detail-list">
-                <div>
-                  <span className="cartulary-auth-detail-label">
-                    Setup token
-                  </span>
-                  <div data-testid={authTestId("bootstrap-token")}>
-                    Stored for TOTP setup requests.
+              {state.flow.enrollment.kind === "ready" ? (
+                <div className="cartulary-auth-detail-list">
+                  <p>
+                    In your authenticator app, add an account using a setup key.
+                    Enter this key manually, then enter the six-digit code from
+                    the app below.
+                  </p>
+                  <div>
+                    <span className="cartulary-auth-detail-label">
+                      Setup key
+                    </span>
+                    <div
+                      className="cartulary-auth-mono"
+                      data-testid={authTestId("bootstrap-setup-key")}
+                    >
+                      {state.flow.enrollment.key}
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <span className="cartulary-auth-detail-label">
-                    Enrollment id
-                  </span>
-                  <div
-                    className="cartulary-auth-mono"
-                    data-testid={authTestId("bootstrap-enrollment-id")}
-                  >
-                    {state.bootstrapEnrollmentId}
-                  </div>
-                </div>
-                <div>
-                  <span className="cartulary-auth-detail-label">
-                    Secret base32
-                  </span>
-                  <div
-                    className="cartulary-auth-mono"
-                    data-testid={authTestId("bootstrap-secret-base32")}
-                  >
-                    {state.bootstrapSecretBase32}
-                  </div>
-                </div>
-              </div>
-              <button
-                ref={bootstrapBeginRef}
-                aria-disabled={!canSubmit}
-                className="cartulary-auth-primary-button"
-                data-testid={authTestId("bootstrap-begin")}
-                disabled={!canSubmit}
-                type="button"
-                onClick={() => {
-                  void handleBeginBootstrapEnrollment();
-                }}
-              >
-                {state.setupAction === "beginning"
-                  ? "Beginning setup..."
-                  : "Begin enrollment"}
-              </button>
-              <label
-                className="cartulary-auth-field"
-                htmlFor="auth-bootstrap-complete-code"
-              >
-                Authenticator code
-                <input
-                  ref={bootstrapCompleteCodeRef}
-                  aria-describedby={
-                    state.fieldErrors.bootstrapCompleteCode
-                      ? "auth-bootstrap-complete-code-error"
-                      : undefined
-                  }
-                  aria-invalid={
-                    state.fieldErrors.bootstrapCompleteCode ? true : undefined
-                  }
-                  autoComplete="one-time-code"
-                  data-testid={authTestId("bootstrap-complete-code")}
-                  id="auth-bootstrap-complete-code"
-                  inputMode="numeric"
-                  maxLength={6}
-                  pattern="[0-9]*"
-                  type="text"
-                  value={state.bootstrapCompleteCode}
-                  onChange={(event) => {
-                    dispatch({
-                      type: "field",
-                      field: "bootstrapCompleteCode",
-                      value: normalizeTotpCode(event.target.value),
-                    });
+              ) : (
+                <button
+                  ref={bootstrapBeginRef}
+                  aria-disabled={!canSubmit}
+                  className="cartulary-auth-primary-button"
+                  data-testid={authTestId("bootstrap-begin")}
+                  disabled={!canSubmit}
+                  type="button"
+                  onClick={() => {
+                    void commands.begin();
                   }}
-                />
-              </label>
-              {state.fieldErrors.bootstrapCompleteCode ? (
-                <p
-                  className="cartulary-auth-field-error"
-                  id="auth-bootstrap-complete-code-error"
-                  role="alert"
                 >
-                  {state.fieldErrors.bootstrapCompleteCode}
-                </p>
+                  {state.operation.kind === "pending" &&
+                  state.operation.action === "begin"
+                    ? "Beginning setup..."
+                    : "Begin enrollment"}
+                </button>
+              )}
+              {state.flow.enrollment.kind === "ready" ? (
+                <>
+                  <label
+                    className="cartulary-auth-field"
+                    htmlFor="auth-bootstrap-complete-code"
+                  >
+                    Authenticator code
+                    <input
+                      ref={bootstrapCompleteCodeRef}
+                      aria-describedby={
+                        state.fieldErrors.bootstrapCompleteCode
+                          ? "auth-bootstrap-complete-code-error"
+                          : undefined
+                      }
+                      aria-invalid={
+                        state.fieldErrors.bootstrapCompleteCode
+                          ? true
+                          : undefined
+                      }
+                      autoComplete="one-time-code"
+                      data-testid={authTestId("bootstrap-complete-code")}
+                      id="auth-bootstrap-complete-code"
+                      inputMode="numeric"
+                      maxLength={6}
+                      pattern="[0-9]*"
+                      type="text"
+                      value={state.flow.kind === "setup" ? state.flow.code : ""}
+                      onChange={(event) => {
+                        commands.dispatch({
+                          type: "field",
+                          field: "bootstrapCompleteCode",
+                          value: normalizeTotpCode(event.target.value),
+                        });
+                      }}
+                    />
+                  </label>
+                  {state.fieldErrors.bootstrapCompleteCode ? (
+                    <p
+                      className="cartulary-auth-field-error"
+                      id="auth-bootstrap-complete-code-error"
+                    >
+                      {state.fieldErrors.bootstrapCompleteCode}
+                    </p>
+                  ) : null}
+                  <button
+                    aria-disabled={
+                      state.operation.kind === "pending" ||
+                      state.transportPending
+                    }
+                    className="cartulary-auth-primary-button"
+                    data-testid={authTestId("bootstrap-complete")}
+                    disabled={
+                      state.operation.kind === "pending" ||
+                      state.transportPending
+                    }
+                    type="submit"
+                  >
+                    {state.operation.kind === "pending" &&
+                    state.operation.action === "complete"
+                      ? "Completing setup..."
+                      : "Complete enrollment"}
+                  </button>
+                </>
               ) : null}
-              <button
-                aria-disabled={
-                  state.setupAction !== "idle" ||
-                  state.transportPending ||
-                  state.bootstrapEnrollmentId === ""
-                }
-                className="cartulary-auth-primary-button"
-                data-testid={authTestId("bootstrap-complete")}
-                disabled={
-                  state.setupAction !== "idle" ||
-                  state.transportPending ||
-                  state.bootstrapEnrollmentId === ""
-                }
-                type="submit"
-              >
-                {state.setupAction === "completing"
-                  ? "Completing setup..."
-                  : "Complete enrollment"}
-              </button>
               <button
                 className="cartulary-auth-secondary-button"
                 type="button"
-                onClick={() => dispatch({ type: "use_different_account" })}
+                onClick={() =>
+                  commands.dispatch({ type: "use_different_account" })
+                }
               >
                 Use a different account
               </button>
@@ -249,9 +257,9 @@ export function AuthGateway(props: AuthGatewayProps) {
                   data-testid={authTestId("login-username")}
                   id="auth-login-username"
                   type="email"
-                  value={state.username}
+                  value={state.flow.username}
                   onChange={(event) => {
-                    dispatch({
+                    commands.dispatch({
                       type: "field",
                       field: "username",
                       value: event.target.value,
@@ -263,7 +271,6 @@ export function AuthGateway(props: AuthGatewayProps) {
                 <p
                   className="cartulary-auth-field-error"
                   id="auth-login-username-error"
-                  role="alert"
                 >
                   {state.fieldErrors.username}
                 </p>
@@ -287,10 +294,10 @@ export function AuthGateway(props: AuthGatewayProps) {
                     data-testid={authTestId("login-password")}
                     id="auth-login-password"
                     aria-labelledby="auth-login-password-label"
-                    type={state.passwordVisible ? "text" : "password"}
-                    value={state.password}
+                    type={state.flow.passwordVisible ? "text" : "password"}
+                    value={state.flow.password}
                     onChange={(event) => {
-                      dispatch({
+                      commands.dispatch({
                         type: "field",
                         field: "password",
                         value: event.target.value,
@@ -299,15 +306,17 @@ export function AuthGateway(props: AuthGatewayProps) {
                   />
                   <button
                     aria-label={
-                      state.passwordVisible ? "Hide password" : "Show password"
+                      state.flow.passwordVisible
+                        ? "Hide password"
+                        : "Show password"
                     }
                     className="cartulary-auth-icon-button"
                     type="button"
                     onClick={() =>
-                      dispatch({ type: "toggle_password_visibility" })
+                      commands.dispatch({ type: "toggle_password_visibility" })
                     }
                   >
-                    {state.passwordVisible ? (
+                    {state.flow.passwordVisible ? (
                       <EyeOff aria-hidden="true" size={18} />
                     ) : (
                       <Eye aria-hidden="true" size={18} />
@@ -319,13 +328,12 @@ export function AuthGateway(props: AuthGatewayProps) {
                 <p
                   className="cartulary-auth-field-error"
                   id="auth-login-password-error"
-                  role="alert"
                 >
                   {state.fieldErrors.password}
                 </p>
               ) : null}
 
-              {state.phase === "mfa" ? (
+              {state.flow.kind === "mfa" ? (
                 <>
                   <label
                     className="cartulary-auth-field"
@@ -349,9 +357,9 @@ export function AuthGateway(props: AuthGatewayProps) {
                       maxLength={6}
                       pattern="[0-9]*"
                       type="text"
-                      value={state.totpCode}
+                      value={state.flow.kind === "mfa" ? state.flow.code : ""}
                       onChange={(event) => {
-                        dispatch({
+                        commands.dispatch({
                           type: "field",
                           field: "totpCode",
                           value: normalizeTotpCode(event.target.value),
@@ -363,7 +371,6 @@ export function AuthGateway(props: AuthGatewayProps) {
                     <p
                       className="cartulary-auth-field-error"
                       id="auth-login-totp-code-error"
-                      role="alert"
                     >
                       {state.fieldErrors.totpCode}
                     </p>
@@ -372,7 +379,12 @@ export function AuthGateway(props: AuthGatewayProps) {
               ) : null}
 
               <button
-                aria-busy={state.submitting ? true : undefined}
+                aria-busy={
+                  state.operation.kind === "pending" &&
+                  state.operation.action === "login"
+                    ? true
+                    : undefined
+                }
                 aria-disabled={!canSubmit}
                 className="cartulary-auth-primary-button"
                 data-testid={authTestId("login-submit")}
@@ -421,7 +433,7 @@ export function AuthGateway(props: AuthGatewayProps) {
                     disabled={!canSubmit}
                     type="button"
                     onClick={() => {
-                      void handleEnterpriseBegin(provider.provider_key);
+                      void commands.enterprise(provider.provider_key);
                     }}
                   >
                     {provider.display_name}
@@ -430,35 +442,6 @@ export function AuthGateway(props: AuthGatewayProps) {
               </div>
             </section>
           ) : null}
-
-          <p
-            aria-live="polite"
-            className="cartulary-auth-visually-hidden"
-            data-testid={authTestId("status")}
-            role="status"
-          >
-            {statusText}
-          </p>
-          <p
-            aria-live={authLivePoliteness}
-            className="cartulary-auth-visually-hidden"
-            data-error-code={activeErrorCode}
-            data-testid={publicErrorCodeTestId("auth")}
-            role={authLiveRole}
-          >
-            {authAlertText}
-          </p>
-          <div
-            className="cartulary-auth-visually-hidden"
-            data-error-code={activeErrorCode}
-            data-testid={publicErrorSummaryTestIds("auth").container}
-            role={authLiveRole}
-          >
-            <p data-testid={publicErrorSummaryTestIds("auth").message}>
-              {authAlertText}
-            </p>
-            <p data-testid={publicErrorSummaryTestIds("auth").details} />
-          </div>
         </div>
       </section>
     </main>

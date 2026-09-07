@@ -10,15 +10,13 @@ import {
   userScopedTestId,
 } from "./selectorCore";
 
-type PublicErrorSurface = "account" | "admin" | "auth" | "landing";
+type PublicErrorSurface = "account" | "admin" | "landing";
 
 type AuthSelector =
   | "bootstrap-begin"
   | "bootstrap-complete"
   | "bootstrap-complete-code"
-  | "bootstrap-enrollment-id"
-  | "bootstrap-secret-base32"
-  | "bootstrap-token"
+  | "bootstrap-setup-key"
   | "enterprise-provider-button"
   | "enterprise-provider-list"
   | "login-password"
@@ -27,7 +25,7 @@ type AuthSelector =
   | "login-username"
   | "shell"
   | "shell-message"
-  | "status";
+  | "feedback";
 
 type AccountSelector =
   | "application-menu"
@@ -62,8 +60,7 @@ type AccountSelector =
   | "totp-complete-code"
   | "totp-current-factor"
   | "totp-current-password"
-  | "totp-enrollment-id"
-  | "totp-secret-base32";
+  | "totp-setup-key";
 
 type DeploymentAdminSelector =
   | "access-note"
@@ -209,9 +206,7 @@ const authTestIds = Object.freeze({
   "bootstrap-begin": "auth-bootstrap-begin",
   "bootstrap-complete": "auth-bootstrap-complete",
   "bootstrap-complete-code": "auth-bootstrap-complete-code",
-  "bootstrap-enrollment-id": "auth-bootstrap-enrollment-id",
-  "bootstrap-secret-base32": "auth-bootstrap-secret-base32",
-  "bootstrap-token": "auth-bootstrap-token",
+  "bootstrap-setup-key": "auth-bootstrap-setup-key",
   "enterprise-provider-button": "auth-enterprise-provider-button",
   "enterprise-provider-list": "auth-enterprise-provider-list",
   "login-password": "auth-login-password",
@@ -220,7 +215,7 @@ const authTestIds = Object.freeze({
   "login-username": "auth-login-username",
   shell: "auth-shell",
   "shell-message": "auth-shell-message",
-  status: "auth-status",
+  feedback: "auth-feedback",
 } satisfies Record<AuthSelector, string>);
 
 const accountTestIds = Object.freeze({
@@ -256,8 +251,7 @@ const accountTestIds = Object.freeze({
   "totp-complete-code": "account-totp-complete-code",
   "totp-current-factor": "account-totp-current-factor",
   "totp-current-password": "account-totp-current-password",
-  "totp-enrollment-id": "account-totp-enrollment-id",
-  "totp-secret-base32": "account-totp-secret-base32",
+  "totp-setup-key": "account-totp-setup-key",
 } satisfies Record<AccountSelector, string>);
 
 const deploymentAdminTestIds = Object.freeze({
@@ -374,7 +368,7 @@ const incidentAdministrationTestIds = Object.freeze({
 } satisfies Record<IncidentAdministrationSelector, string>);
 
 const publicErrorSurfaces = Object.freeze(
-  new Set<PublicErrorSurface>(["account", "admin", "auth", "landing"]),
+  new Set<PublicErrorSurface>(["account", "admin", "landing"]),
 );
 
 export function authTestId(selector: AuthSelector): StableTestId {

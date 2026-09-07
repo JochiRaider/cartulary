@@ -20,11 +20,8 @@ import type {
   WorkbookAccountModel,
 } from "../shared/workbookShellContracts";
 import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
-import {
-  AccountSecurityPanel,
-  DeploymentUsersPanel,
-} from "./AccountAdministrationPanels";
 import { AccountApplicationMenu } from "./AccountApplicationMenu";
+import { AccountSecurityPanel } from "./AccountSecurityPanel";
 import { AccountSettingsDialog } from "./AccountSettingsDialog";
 import {
   AccountAppearancePanel,
@@ -40,6 +37,7 @@ import type {
 import { AppSessionController } from "./appSessionController";
 import { AuthenticationController } from "./authenticationModel";
 import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
+import { DeploymentUsersPanel } from "./DeploymentUsersPanel";
 import { DeploymentUsersController } from "./deploymentUsersModel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
@@ -159,29 +157,40 @@ export function App({
   sessionControllerRef.current = sessionController;
   const [authentication] = useState(
     () =>
-      new AuthenticationController(() => {
-        const revision = sessionController.getSnapshot().revision;
-        const current = () =>
-          sessionController.getSnapshot().revision === revision &&
-          sessionController.getSnapshot().session === null;
-        return {
-          current,
-          admitTransport: sessionController.reserveAuthenticationTransport,
-          canAuthenticate: () =>
-            !sessionController.getSnapshot().authenticationTransportPending,
-          authenticated: (next) => {
-            if (
-              current() &&
-              sessionController.authenticationCompleted(next, revision)
-            )
-              setAuthPrompt(defaultAuthPrompt);
-          },
-          uncertain: () =>
-            current()
-              ? sessionController.confirmAuthentication(revision)
-              : Promise.resolve(false),
-        };
-      }, authNavigation),
+      new AuthenticationController(
+        () => {
+          const revision = sessionController.getSnapshot().revision;
+          const current = () =>
+            sessionController.getSnapshot().revision === revision &&
+            sessionController.getSnapshot().session === null;
+          return {
+            current,
+            admitTransport: sessionController.reserveAuthenticationTransport,
+            canAuthenticate: () =>
+              !sessionController.getSnapshot().authenticationTransportPending,
+            authenticated: (next, signal, flowCurrent) => {
+              if (
+                current() &&
+                !signal.aborted &&
+                flowCurrent() &&
+                sessionController.authenticationCompleted(next, revision)
+              )
+                setAuthPrompt(defaultAuthPrompt);
+            },
+            inspectSession: (signal, flowCurrent) =>
+              sessionController.confirmAuthentication(
+                revision,
+                signal,
+                () => current() && flowCurrent(),
+              ),
+          };
+        },
+        authNavigation ?? {
+          assign: (url) => window.location.assign(url),
+          returnTo: () =>
+            `${window.location.pathname}${window.location.search}` || "/",
+        },
+      ),
   );
   authenticationRef.current = authentication;
   const [security] = useState(
@@ -336,17 +345,12 @@ export function App({
   const [accountSettingsPanel, setAccountSettingsPanel] =
     useState<AccountSettingsPanelToken | null>(null);
   const accountMenuTriggerRef = useRef<HTMLButtonElement>(null);
-  const accountSettingsCloseRef = useRef<HTMLButtonElement>(null);
   const navigationHeadingRef = useRef<HTMLHeadingElement>(null);
   const navigationFocusRequestRef = useRef<{
     readonly destination: "incidents" | "deployment-administration";
     readonly accountId: string;
     readonly originIdentity: string;
   } | null>(null);
-  const previousAccountSettingsRef = useRef<AccountSettingsPanelToken | null>(
-    null,
-  );
-  const restoreAccountMenuRef = useRef(false);
   const accountNavigationIdentity = `${session?.user_id ?? ""}:${route.incidentId}:${route.deploymentAdministration}`;
   const previousAccountNavigationIdentityRef = useRef(
     accountNavigationIdentity,
@@ -358,31 +362,12 @@ export function App({
     )
       return;
     previousAccountNavigationIdentityRef.current = accountNavigationIdentity;
-    restoreAccountMenuRef.current = false;
     setAccountSettingsPanel(null);
   }, [accountNavigationIdentity]);
 
   const closeAccountSettings = useCallback(() => {
-    restoreAccountMenuRef.current = true;
     setAccountSettingsPanel(null);
   }, []);
-
-  useLayoutEffect(() => {
-    const previous = previousAccountSettingsRef.current;
-    previousAccountSettingsRef.current = accountSettingsPanel;
-    if (previous === null && accountSettingsPanel !== null) {
-      restoreAccountMenuRef.current = false;
-      accountSettingsCloseRef.current?.focus({ preventScroll: true });
-    } else if (
-      previous !== null &&
-      accountSettingsPanel === null &&
-      restoreAccountMenuRef.current
-    ) {
-      restoreAccountMenuRef.current = false;
-      if (accountMenuTriggerRef.current?.isConnected)
-        accountMenuTriggerRef.current.focus({ preventScroll: true });
-    }
-  }, [accountSettingsPanel]);
 
   useLayoutEffect(() => {
     const request = navigationFocusRequestRef.current;
@@ -673,7 +658,7 @@ export function App({
         panel={accountSettingsPanel}
         onClose={closeAccountSettings}
         onSelect={setAccountSettingsPanel}
-        closeRef={accountSettingsCloseRef}
+        fallbackFocusRef={accountMenuTriggerRef}
       >
         {accountSettingsPanel === "account-profile" ? (
           <AccountProfilePanel
@@ -882,7 +867,7 @@ export function App({
             style={landingAdminPanelRegionStyle}
           >
             <DeploymentUsersPanel
-              autoLoadUsers={activeDeploymentPanel === "deployment-users"}
+              fallbackFocusRef={accountMenuTriggerRef}
               enterpriseAuthClaimed={extensionClaimed(
                 extensionProfiles,
                 "enterprise_authentication",

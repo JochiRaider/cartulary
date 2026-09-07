@@ -663,6 +663,24 @@ support Escape, restore focus to their trigger and keep recovery controls reacha
 at narrow/short viewports, zoom and text spacing. Provider discovery failure exposes
 local retry without blocking local sign-in.
 
+Design contract. Authentication, Account security and Users MUST provide one live
+announcement source for each operation or validation event. Field errors remain
+associated with their inputs; diagnostic metadata and background copies MUST NOT
+announce the same event again. Modal operation feedback belongs to the active
+dialog while it is open.
+
+Design contract. Authenticator enrollment MUST show the usable setup key with
+manual-entry instructions, code entry and completion feedback. Bootstrap-token
+bookkeeping and enrollment identifiers MUST NOT be rendered as user instructions.
+This presentation rule does not change the Core-owned enrollment protocol.
+
+Design contract. Account settings, Users action dialogs and the unsaved-user
+departure prompt MUST use native modal containment with one backdrop and one
+dismissal path. Close and Escape dismiss ordinary account dialogs; Escape means
+Stay in the departure prompt. Backdrop clicks MUST NOT dismiss. Focus returns to
+the connected trigger or an appropriate available application control. Dismissal
+does not imply server cancellation or erase retained non-secret editing work.
+
 ### 4.6 Authenticated-root composition
 
 Core restatement. Core 01 §3.3.2.1A owns authenticated-root selection and incident visibility. This subsection owns only presentation of the owner result.

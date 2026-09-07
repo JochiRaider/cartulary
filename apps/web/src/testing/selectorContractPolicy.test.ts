@@ -519,7 +519,7 @@ describe("selector contract policy", () => {
     const violations = collectSelectorPolicyViolations(
       "apps/web/e2e/raw-helper-fixture.ts",
       `
-        authGateway.requireText("auth-bootstrap-secret-base32");
+        authGateway.requireText("auth-bootstrap-setup-key");
         authGateway.setCheckbox("admin-patch-is-active", false);
         await expectP1SurfaceA11y(page, {
           focusTestId: "auth-login-submit",
@@ -530,7 +530,7 @@ describe("selector contract policy", () => {
 
     expect(violations).toEqual([
       expect.stringContaining(
-        'AuthGateway.requireText literal for shared selector "auth-bootstrap-secret-base32"',
+        'AuthGateway.requireText literal for shared selector "auth-bootstrap-setup-key"',
       ),
       expect.stringContaining(
         'AuthGateway.setCheckbox literal for shared selector "admin-patch-is-active"',

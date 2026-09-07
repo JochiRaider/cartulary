@@ -12,20 +12,20 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { StrictMode, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   credentialStateResource,
   sessionResource,
 } from "../testing/appShellTestSupport";
 import { deferred, jsonResponse } from "../testing/fetchMockTestSupport";
-import {
-  AccountSecurityPanel,
-  DeploymentUsersPanel,
-} from "./AccountAdministrationPanels";
+import { AccountSecurityPanel } from "./AccountSecurityPanel";
 import { AuthGateway } from "./AuthGateway";
 import { AccountSecurityController } from "./accountSecurityModel";
 import type { UserResource } from "./api/publicHttpTypes";
 import { AuthenticationController } from "./authenticationModel";
+import { DeploymentUserActionDialog } from "./DeploymentUserActionDialog";
+import { DeploymentUsersPanel } from "./DeploymentUsersPanel";
 import { DeploymentUsersController } from "./deploymentUsersModel";
 
 const user = (name = "Alpha", version = 1): UserResource => ({
@@ -71,6 +71,163 @@ const writes = (path: string) =>
   );
 
 describe("account frontend boundaries", () => {
+  it("announces an authentication error through one live source", async () => {
+    fetchMock.mockResolvedValue(response({ providers: [] }));
+    const controller = new AuthenticationController(
+      () => ({
+        admitTransport: () => () => {},
+        canAuthenticate: () => true,
+        current: () => true,
+        authenticated: () => {},
+        inspectSession: async () => ({ kind: "session_lost" }),
+      }),
+      { assign: () => {}, returnTo: () => "/" },
+    );
+    render(
+      <AuthGateway
+        controller={controller}
+        bootstrapState="anonymous"
+        message="Sign in"
+        publicError={{ code: "invalid_credentials", status: 401 }}
+      />,
+    );
+    await waitFor(() =>
+      expect(controller.getSnapshot().providersStatus).toBe("ready"),
+    );
+    expect(
+      screen
+        .getAllByRole("alert")
+        .filter(
+          (node) => node.textContent === "Email or password is incorrect.",
+        ),
+    ).toHaveLength(1);
+  });
+  it("dismisses an account action dialog exactly once for explicit Close", () => {
+    const close = vi.fn();
+    render(
+      <DeploymentUserActionDialog
+        label="Test action"
+        onClose={close}
+        onSubmit={() => {}}
+        style={{}}
+      >
+        {(dismiss) => (
+          <button type="button" onClick={dismiss}>
+            Close
+          </button>
+        )}
+      </DeploymentUserActionDialog>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(close).toHaveBeenCalledOnce();
+  });
+  it("restores dialog focus to the connected fallback when its trigger is removed", () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      const [trigger, setTrigger] = useState(true);
+      const fallback = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button ref={fallback} type="button">
+            Account navigation
+          </button>
+          {trigger ? (
+            <button type="button" onClick={() => setOpen(true)}>
+              Open action
+            </button>
+          ) : null}
+          {open ? (
+            <DeploymentUserActionDialog
+              label="Test action"
+              style={{}}
+              fallbackFocusRef={fallback}
+              onSubmit={() => {}}
+              onClose={() => setOpen(false)}
+            >
+              {(dismiss) => (
+                <>
+                  <button type="button" onClick={dismiss}>
+                    Close
+                  </button>
+                  <button type="button" onClick={() => setTrigger(false)}>
+                    Remove trigger
+                  </button>
+                </>
+              )}
+            </DeploymentUserActionDialog>
+          ) : null}
+        </>
+      );
+    }
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "Open action" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Remove trigger" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Account navigation" }),
+    );
+  });
+  it("keeps dialog dismissal and focus stable through lifecycle replay and changing controls", () => {
+    const close = vi.fn();
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      const [extra, setExtra] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open action
+          </button>
+          {open ? (
+            <DeploymentUserActionDialog
+              label="Test action"
+              style={{}}
+              onSubmit={() => {}}
+              onClose={() => {
+                close();
+                setOpen(false);
+              }}
+            >
+              {(dismiss) => (
+                <>
+                  <button type="button" onClick={dismiss}>
+                    Close
+                  </button>
+                  <button type="button" onClick={() => setExtra(true)}>
+                    Add control
+                  </button>
+                  {extra ? <input aria-label="New control" /> : null}
+                </>
+              )}
+            </DeploymentUserActionDialog>
+          ) : null}
+        </>
+      );
+    }
+    render(
+      <StrictMode>
+        <Harness />
+      </StrictMode>,
+    );
+    const trigger = screen.getByRole("button", { name: "Open action" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect((screen.getByRole("dialog") as HTMLDialogElement).open).toBe(true);
+    expect(close).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Add control" }));
+    const input = screen.getByRole("textbox", { name: "New control" });
+    input.focus();
+    fireEvent.keyDown(input, { key: "Tab" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Close" }),
+    );
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+    expect(close).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("admits one same-turn login and accepts owner-valid deployment email", async () => {
     const pending = deferred<Response>();
     fetchMock.mockImplementation((url) =>
@@ -83,12 +240,17 @@ describe("account frontend boundaries", () => {
         bootstrapState="anonymous"
         message="Sign in"
         controller={
-          new AuthenticationController(() => ({
-            actor: sessionResource().user_id,
-            current: () => true,
-            authenticated: () => {},
-            uncertain: async () => false,
-          }))
+          new AuthenticationController(
+            () => ({
+              admitTransport: () => () => {},
+              canAuthenticate: () => true,
+              actor: sessionResource().user_id,
+              current: () => true,
+              authenticated: () => {},
+              inspectSession: async () => ({ kind: "session_lost" }),
+            }),
+            { assign: () => {}, returnTo: () => "/" },
+          )
         }
       />,
     );
@@ -119,12 +281,17 @@ describe("account frontend boundaries", () => {
         bootstrapState="anonymous"
         message="Sign in"
         controller={
-          new AuthenticationController(() => ({
-            actor: sessionResource().user_id,
-            current: () => true,
-            authenticated: () => {},
-            uncertain: async () => false,
-          }))
+          new AuthenticationController(
+            () => ({
+              admitTransport: () => () => {},
+              canAuthenticate: () => true,
+              actor: sessionResource().user_id,
+              current: () => true,
+              authenticated: () => {},
+              inspectSession: async () => ({ kind: "session_lost" }),
+            }),
+            { assign: () => {}, returnTo: () => "/" },
+          )
         }
       />,
     );
@@ -155,6 +322,7 @@ describe("account frontend boundaries", () => {
       <AccountSecurityPanel
         controller={
           new AccountSecurityController(() => ({
+            admitLogout: () => () => {},
             actor: sessionResource().user_id,
             current: () => true,
             event: sessionEvent,
@@ -198,6 +366,7 @@ describe("account frontend boundaries", () => {
       <AccountSecurityPanel
         controller={
           new AccountSecurityController(() => ({
+            admitLogout: () => () => {},
             actor: sessionResource().user_id,
             current: () => true,
             event: sessionEvent,
@@ -237,7 +406,6 @@ describe("account frontend boundaries", () => {
     );
     render(
       <DeploymentUsersPanel
-        autoLoadUsers
         controller={deploymentController(
           sessionResource({ is_deployment_admin: true }),
         )}
@@ -274,7 +442,6 @@ describe("account frontend boundaries", () => {
     );
     render(
       <DeploymentUsersPanel
-        autoLoadUsers
         controller={deploymentController(
           sessionResource({ is_deployment_admin: true }),
         )}
@@ -315,7 +482,6 @@ describe("account frontend boundaries", () => {
     );
     render(
       <DeploymentUsersPanel
-        autoLoadUsers
         controller={deploymentController(
           sessionResource({ is_deployment_admin: true }),
         )}
@@ -371,7 +537,6 @@ describe("account frontend boundaries", () => {
     );
     render(
       <DeploymentUsersPanel
-        autoLoadUsers
         controller={deploymentController(
           sessionResource({ is_deployment_admin: true }),
           async () => {

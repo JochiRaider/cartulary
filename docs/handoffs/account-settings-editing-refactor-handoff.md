@@ -2,8 +2,8 @@
 
 AS-01–AS-05 and their evidence below are preserved as completed history, including
 their original baseline and end-of-iteration working-tree statements. The
-[next-iteration plan](#next-iteration--account-frontend-cleanup-and-production-hardening)
-records the current inspection baseline and future work separately.
+[AC completion record](#next-iteration--account-boundary-consolidation-and-legacy-retirement)
+records the current remediation, validation and handoff separately.
 
 ## Baseline and scope
 
@@ -1156,3 +1156,718 @@ and uncertainty boundaries above remain the constraints for future expansion.
 Next action: review the cohesive implementation and owner amendments using this
 evidence index. Integrate source, tests, authored/generated ownership, reviewed
 goldens and this handoff together; use the scoped rollback units above if needed.
+
+---
+
+## Next iteration — Account boundary consolidation and legacy retirement
+
+**Overall status: DONE — 2026-09-07.** AC-01–AC-06 are complete. The register,
+execution evidence and terminal acceptance below are the current handoff.
+
+### Planning baseline, scope and authority
+
+Inspection baseline, revalidated for this document update on 2026-09-07: clean
+`main` at `5300167b238faf84184856730ab2715d950a61af`. The preceding AS and AR
+execution records, working-tree statements and verification results remain
+completed history. They are not acceptance evidence for this new iteration.
+Revalidate branch, HEAD, working tree and consumers when implementation begins.
+
+Implementation of the complete AC remediation plan was authorized on 2026-09-07.
+The execution baseline is the same HEAD with the preexisting staged handoff edit;
+that index content is preserved. The document-update evidence below is historical.
+AC-01–AC-06 execute sequentially with terminal tracker updates before each successor.
+
+The iteration covers account editing, authentication, Security, deployment-user
+administration, and their immediate composition and presentation boundaries.
+Include the approved UI simplification. Backend behavior, public wire contracts
+and stored data remain unchanged.
+
+Use [NLSpec guidance](../research/nlspec-spec.md) for precise boundaries, explicit
+defaults, conceptual clarity and defining behavior once. This handoff remains
+implementation-support documentation; adopted Core owners retain behavioral
+authority. Core 01 §3.3.2.1A, §3.3.2.1B, §3.3.2.2 and §3.3.2.3 own the relevant
+browser, credential-route and current-account contracts. Core 04 owns credential
+and session guarantees. Design §4.4–§4.5 supplies bounded presentation direction.
+Use [domain.md](../domain.md) for vocabulary and owner navigation. Do not promote
+controller decomposition or test mechanisms into domain concepts or duplicate
+the adopted recovery policy in new normative text.
+
+Prefer structural simplification that makes future phases easier to understand,
+test and extend. Remove unnecessary compatibility burden, retain features with a
+required or material future role, and keep feature ownership cohesive. Do not
+replace working lifecycle boundaries merely to make unrelated models uniform.
+
+### Authorized remediation and acceptance register
+
+The authorized execution plan replaces the earlier eight grouped findings with
+G01–G14 below. All changes are internal unless explicitly identified as bounded
+Design changes. No backend/public API, stored-data, dependency or workspace-package
+migration is required. Internal callers, authored routing, generated projections,
+selectors and justified goldens migrate atomically without compatibility shims.
+Future growth uses feature-specific commands and explicit recovery policies rather
+than a general mutation manager or operation-receipt service.
+
+| Gap / slice | Areas and remediation | Rationale and long-term benefit | Risk if unresolved / acceptance |
+| --- | --- | --- | --- |
+| G01 / AC-01 | Design and handoff: one announcement source, usable enrollment content, consistent dismissal; reference existing Core owners. | Define behavior once and keep vocabulary independent of code structure. No wire/data migration. | Obsolete planning becomes authority. Exit: each gap has owner, slice and scenario; domain vocabulary unchanged. |
+| G02 / AC-01 | Tests and routing: characterize outstanding-login inspection, retired session reads, Security settlement, announcements and native departure containment. | Observe owner acceptance, not only controller mocks. Test-only additions. | Defects survive refactoring or speculative fixes replace evidence. Exit: reproduced failures, passes and hypotheses separately recorded. |
+| G03 / AC-02 | Implementation/callers/tests: remove unread enterprise provider pending state, associated parameters, unused re-exports and excess snapshot exports. | Smaller interfaces remove synchronization and accidental compatibility obligations. | New consumers adopt dead interfaces. Exit: complete consumer search and typecheck; no aliases. |
+| G04 / AC-02 | Implementation/tests: reuse landing PublicErrorSummary and identical styles, retain safe diagnostic projection. | One error implementation prevents disclosure, accessibility and style drift. | Duplicate implementations diverge. Exit: public-envelope and private-material assertions pass. |
+| G05 / AC-02 | Implementation/tests/ownership: split Security and Users presentation; move React lifecycle and focus out of models; expose snapshots and commands. | Cohesive controllers support isolated tests and future phases. | Forwarding layers preserve coupling. Exit: controllers have no React/DOM dependencies; callers migrate atomically. |
+| G06 / AC-02 | Internal interfaces/tests: require authentication availability/admission and Security logout admission; resolve navigation at composition. | Construction cannot silently omit safety capabilities. | Permissive callers bypass serialization. Exit: typecheck and shared-gate duplicate-dispatch evidence. |
+| G07 / AC-03 | Internal types/tests: discriminated credentials/MFA/enrollment states; only user inputs are editable; tokens/IDs remain internal. | Invalid combinations and duplicated secrets become harder to represent. | Secret leakage or invalid transitions. Exit: five-minute MFA ceiling, enrollment expiry, dispatch and retirement clearing pass. |
+| G08 / AC-03 | Internal session port/model/UI/tests: typed, abortable, flow-guarded session observation independent of write admission. | Recovery remains available; acceptance checks the initiating flow before publication. | Blocked recovery or obsolete session acceptance. Exit: 30-second serialized observations, retry while login transport is outstanding, stale acceptance excluded. |
+| G09 / AC-03 | Implementation/tests: identity-bound transport release and current availability publication separate from obsolete outcomes. | Resource release survives lifetime retirement without reviving prior work. | Stale busy flags or releasing newer locks. Exit: replacement lifetime, overlapping credential/logout transports, disposal and late settlement pass. |
+| G10 / AC-04 | Internal configuration/UI/tests: activation owns automatic reads; explicit Refresh remains; render accepted enterprise configuration. | One loading/availability source removes contradictory combinations. | Hidden-panel requests and stale capability UI. Exit: activation, reopening, query generations and capability loss pass. |
+| G11 / AC-04 | Internal state/tests: discriminate exact-replay and observation/review recovery; remove nullable attempt/global observed flags. | Each route declares its recovery policy without a flag matrix. | Credential replay or false mutation receipts. Exit: sparse/no-op PATCH, exact requests, retained drafts and Save/Discard/Stay pass. |
+| G12 / AC-05 | Design/UI/selectors/tests/goldens: one live source per event, field associations retained, active modal owns its feedback. | Consistent understandable recovery across account actions. | Competing announcements obscure actions. Exit: DOM and browser evidence; no universal assistive-technology claim. |
+| G13 / AC-05 | Design/UI/selectors/tests/goldens: remove token bookkeeping and enrollment labels; retain setup key and manual-entry instructions. | Product concepts cease depending on protocol identity. | Tests preserve transport-oriented UI. Exit: bootstrap/session enrollment passes; IDs/tokens absent from presentation; completion is not sign-in. |
+| G14 / AC-05 | Design/UI/test infrastructure/browser/goldens: one account-local native-dialog adapter using existing overlay infrastructure; remove production emulation. | Future dialogs inherit containment, dismissal, cleanup and focus. | Background interaction, duplicate closure or test-only behavior. Exit: all three dialog families, Escape/Close, focus, constrained layouts and lifecycle replay pass. |
+
+G01 references Core 01 §3.3.2.1A/REQ-01-580, §3.3.2.1B/REQ-01-608,
+§3.3.2.2–§3.3.2.3 and Core 04 §1.1/§2. Design §§4.4–4.5 owns the
+presentation additions. G02–G14 are downstream implementation and evidence.
+No Core amendment is needed to permit manual inspection: it is already required.
+
+### Sequential implementation workstreams
+
+Each workstream depends on the preceding row being `DONE`; AC-01 has no
+implementation dependency. Mark only the current row `IN_PROGRESS`, record
+terminal evidence and update the tracker before advancing. Never advance through
+a blocked dependency. Only the executing row is `IN_PROGRESS`.
+
+| Workstream | Status | Planned changes, rationale and exit |
+| --- | --- | --- |
+| AC-01 — Owner alignment and characterization | DONE | Revalidate consumers and classify every deletion candidate. Reference existing Core lifecycle/recovery requirements; record approved presentation decisions in Design before implementing observable changes. Add focused characterization for outstanding-auth session inspection, Security settlement after retirement, duplicate announcements and modal dismissal. **Exit:** owner mappings and passing baselines, reproduced failures and remaining hypotheses are recorded separately. **Risk:** treating implementation observations as requirements. |
+| AC-02 — Dead interfaces and feature boundaries | DONE | Remove verified unused state/exports and duplicate error presentation. Separate Security and deployment-user panels. Move React hooks, focus logic and presentation prop types out of controller modules; replace flattened setter projections with typed snapshots and explicit commands. Require authentication/Security admission ports and resolve browser navigation defaults at composition. **Exit:** callers migrate atomically, controller modules have no React/DOM presentation dependencies, and affected type/import/lifecycle checks pass. **Risk:** introducing forwarding layers that preserve the old coupling. |
+| AC-03 — Authentication and Security state closure | DONE | Model credential entry, active MFA and enrollment as distinct states. Keep server-issued enrollment identifiers and tokens outside editable commands. Separate operation outcome, safe observation, propagation and outstanding transport state. Implement manual session inspection independently of the write admission gate. Fix reproduced stale-busy behavior through guarded transport release. **Exit:** duplicate dispatch, timeout, expiry, close/reopen, replacement lifetime, late settlement and publication-only recovery pass. **Risk:** weakening fencing while improving recovery availability. |
+| AC-04 — Deployment-user state simplification | DONE | Remove the redundant `active`/`autoLoadUsers` configuration split: activation controls automatic loading, while Refresh remains explicit. Render enterprise availability from the controller's accepted configuration. Encode uncertain operations as either exact-replay recovery or observation-and-review recovery, eliminating unrelated nullable flags. Retain one controller coordinating query, draft, selection and operation ownership. **Exit:** pagination, sparse/no-op PATCH, pending edits, review, exact replay, capability loss and leave decisions remain correct. **Risk:** turning simplification into draft loss or broader mutation scope. |
+| AC-05 — Production presentation and modal cleanup | DONE | Remove setup-token bookkeeping and enrollment-ID labels; retain the setup key and clear manual-entry instructions. Consolidate repeated error/status announcements without losing field associations or safe diagnostic content. Use one account-local native-dialog lifecycle adapter backed by existing overlay infrastructure; remove duplicate backdrop/close paths and production jsdom fallbacks. Move dialog emulation into DOM-test setup. Retire obsolete selector keys and migrate consumers. **Exit:** keyboard, Escape, close buttons, background containment, focus restoration, recovery and constrained layouts pass real-browser checks. **Risk:** preserving test-only markup or weakening accessibility to reduce code. |
+| AC-06 — Validation and handoff completion | DONE | Complete current owner-routed verification, deletion and ownership inventories, compatibility notes, visual review and rollback guidance. **Exit:** every finding has a terminal disposition; required checks and reviews are resolved; the tracker and overall iteration are complete. **Risk:** presenting narrow evidence as repository-wide production readiness. |
+
+For each implementation slice, update authored ownership/routing when files or
+cases change, then generate downstream projections through Make. Record changed
+paths, substantive decisions, commands/results, run roots, remaining risks and
+the next action. Mark the row `DONE` or `BLOCKED` before beginning its successor.
+An adopted-owner contradiction must be resolved before dependent implementation;
+passing tests do not resolve contradictory requirements.
+
+### Interfaces, behavior and compatibility
+
+- **Controller interfaces:** expose readonly snapshots and feature commands.
+  React bindings handle subscription, mounting, focus and rendering. Keep shared
+  helpers limited to identical mechanics; introduce no form framework, global
+  mutation manager, dependency or workspace package.
+- **Authentication recovery:** provide an explicit session-check command after
+  uncertainty, including while the original authentication transport remains
+  outstanding. Serialize and bound that read to 30 seconds. A validated session
+  may be accepted through the existing session owner; an anonymous or unavailable
+  observation does not prove the earlier write failed. Fresh authentication
+  remains blocked until the earlier transport settles.
+- **Transport retirement:** release outstanding transport bookkeeping when
+  settlement occurs, while fencing old outcomes, credentials, redirects and
+  session effects. Recovery must not remain disabled solely because its published
+  busy flag is stale.
+- **Credential policy:** preserve the adopted five-minute MFA retention ceiling,
+  enrollment expiry, dispatch clearing and lifetime retirement rules. Do not add
+  credential replay or browser persistence. Removing setup-token bookkeeping
+  from presentation does not remove the internal token needed by enrollment.
+- **Administration:** preserve current loading cadence, query fencing, one
+  reviewed draft, sparse PATCH, exact non-credential replay and Save/Discard/Stay
+  navigation. Simplification changes internal representations rather than
+  introducing new route semantics.
+- **Presentation:** one announcement source per event; field errors remain
+  associated with their inputs. Protocol identifiers remain available internally
+  where required, without rendering them merely for tests. Preserve the usable
+  setup key; enrollment simplification adds no new factor or recovery feature.
+- **Migration:** update internal callers, tests, authored ownership, selectors,
+  generated projections and reviewed goldens atomically. Provide no compatibility
+  shim. Roll back dependent workstreams in reverse order with their supporting
+  artifacts. No public API or stored-data migration is required.
+
+### Verification and implementation handoff
+
+Use current authored ownership, confirmed through public task guides during
+planning:
+
+| Change or evidence | Verification owner |
+| --- | --- |
+| Controllers, application composition and lifetime integration | `web.application` |
+| Authentication, Security, account adapters and administrator behavior | `module.auth`, using its authored rows |
+| Applicable presentation, browser and accessibility evidence | `web.design` and each scenario's authored owner |
+| Retired or migrated shared selector keys | `package.ui` |
+| Existing complete density pipeline | Preserve the `module.workbook` full-density regression |
+
+Run the narrowest applicable `make test-slice` and
+`make service-backed-test-slice` selections after each workstream, using
+`make task-guide ROLE=module-author OWNER=<owner-id>` to resolve current routing.
+Do not make tests, generators or runtime evidence read Markdown.
+
+AC-06 runs `make agent-finalize` before broader checks. Leave `RESULTS_DIR` unset
+unless qualifying successful full warm evidence exists, and record any skipped
+retained-run maintenance. Complete frontend type/import checks, lint, applicable
+generation/drift/JSON policies, the full frontend unit suite, web build and routed
+browser/accessibility regressions. Preserve existing Profile/Appearance draft,
+replay, publication and density coverage while exercising the new recovery and
+presentation cases.
+
+Visual changes follow the
+[visual maintenance guide](../guides/cartulary_visual_golden_maintenance.md):
+ordinary reconciliation before mutation, justified Make-owned promotion,
+individual changed-image review and two fresh ordinary visual passes. Retain
+unrelated goldens and migrate selectors through authored sources rather than
+preserving obsolete production markup.
+
+The final implementation handoff must record each finding's terminal disposition,
+the deletion inventory, before/after ownership, compatibility impact, atomic
+rollback units, current evidence and remaining limitations. Resolve related
+failures; identify unrelated failures and omitted checks without claiming broader
+readiness. Complete Markdown lint, staged/unstaged whitespace checks and an exact
+scope audit before marking AC-06 and the overall iteration complete.
+
+### Historical document-update validation
+
+Planning inspection and public owner task-guide checks completed before this
+document edit. The implementation remains pending, with all AC rows `PLANNED`.
+Validate this document-only update using `make lint-markdown`,
+`git diff --check`, `git diff --cached --check` and an exact one-file scope audit.
+Preserve the entire preexisting handoff as an unchanged prefix. Product tests,
+generation, formatting of product sources and golden changes are outside this
+step; no staging, commit or push is requested. Next implementation action: AC-01.
+
+Document-update evidence: `make lint-markdown` passed at
+`.cartulary/test-results/20260907T131934Z-p2073166`, with summary
+`adhoc/lint-markdown/tool-run-summary.json`. Staged and unstaged whitespace checks
+passed. The exact scope audit confirmed that only this handoff changed, its entire
+preexisting content remains an unchanged prefix, the index is unchanged, and all
+six AC rows are `PLANNED`. This evidence-reference addition is followed by a final
+Markdown lint and the same whitespace/scope checks before returning the update.
+
+
+### AC execution log
+
+AC-01 started 2026-09-07. Branch/HEAD and the sole staged handoff edit were
+revalidated; only root AGENTS.md applies. Public task guides for web.application
+and module.auth were resolved. Planning baseline at
+`.cartulary/test-results/20260907T135341Z-p2083882` passed three fresh rows/four
+graph units. Current characterization is separate evidence, pending below.
+
+The complete approved plan includes: caller fencing at session acceptance with
+abort and typed observation results; one current 30-second session observation
+independent of authentication transport admission; identity-bound Security
+transport release; native containment for Settings, Users actions and the Users
+leave prompt; Close/Escape dismissal (Escape means Stay for departure), no backdrop
+dismissal, connected-trigger/fallback focus; exact replay only on declared routes.
+Only internal interfaces change. Owner-backed credential, draft, query and route
+semantics remain as mapped above.
+
+AC-01 completed. G01/G02 owner mapping and Design amendments are complete. Consumer
+searches confirm the dead state/re-exports, duplicate error summary/styles and the
+React/DOM/presentation coupling. No adopted-owner contradiction was found.
+
+`make generate` passed at `20260907T140101Z-p2086849`. Characterization
+`make test-slice OWNER=web.application ROWS=web.application.regression.authentication_security_operation_lifetime_8021a8bd90,web.application.regression.account_frontend_operation_boundaries_4c0264caa7`
+failed as expected at `20260907T140200Z-p2089955`: three lifecycle assertions
+reproduce blocked manual inspection, obsolete session acceptance and stale Security
+availability; one component assertion finds three identical live error sources.
+The existing thirteen lifecycle tests and explicit Close characterization pass.
+Duplicate Close is not claimed as a reproduced defect.
+
+`make service-backed-test-slice OWNER=module.auth ROWS=module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86`
+failed at `20260907T140227Z-p2091652` solely at the new `:modal` assertion for the
+visible Users departure prompt. This establishes missing native containment;
+it does not claim a demonstrated unauthorized operation. `make lint-markdown`
+passed at `20260907T140220Z-p2090743`.
+
+Changed paths: Design, this handoff, the two existing application characterization
+files, the existing administration browser scenario, authored web.application
+routing and its Make-generated topology index. Current expected failures belong
+to AC-03 and AC-05. Next: AC-02; no production changes preceded characterization.
+
+AC-02 completed. G03–G06 removed unused provider-pending state, its dispatch
+parameter, unused presentation re-exports and the settings snapshot export.
+AccountAdministrationPanels is retired; AccountSecurityPanel and DeploymentUsersPanel
+consume snapshots and explicit controller commands through small React bindings.
+Authentication hooks/focus and component props moved to useAuthentication. Models
+have no React/DOM dependencies and expose readonly snapshots. Existing landing
+PublicErrorSummary and its styles replace the duplicate. Shared account panel
+styles contain only reused definitions; source ownership and generated topology
+were updated. Required admission/navigation capabilities have explicit test substitutes.
+
+Passing evidence: `make generate` at `20260907T140713Z-p2138002`; `make format`
+at `20260907T140809Z-p2141672`; typecheck at `20260907T140825Z-p2146128`; import
+boundaries at `20260907T140825Z-p2146146`; administration/session/account-editor
+slice at `20260907T140829Z-p2147216`; module.auth ordinary Security/admin frontend
+rows at `20260907T140825Z-p2146046`. Initial typecheck
+`20260907T140723Z-p2140962` caught mechanical split issues (local-name collisions,
+style declaration order and a removed provider input); all were repaired without
+changing behavior or weakening checks. AC-03/AC-05 characterization failures remain
+intentionally pending. No API/data/dependency change or compatibility facade.
+Next: AC-03.
+
+AC-03 completed. G07–G09 now use discriminated credential/MFA/enrollment flow
+state, a private bootstrap authorization token, separately owned operation,
+session observation and transport state, and editable-only Security input commands.
+Security enrollment material is a readonly resource, not an editable field.
+Session confirmation returns the existing typed observation and carries signal,
+flow/read identity and expected session revision into acceptance. Manual and
+initial uncertain-login observations share that guarded path; no read consumes
+write admission. Authentication publication also receives its current-flow guard.
+Security releases identity-bound credential/logout transports across retirement;
+disposal suppresses publication and old outcomes never return with availability.
+
+Nineteen lifecycle cases now pass, including all three reproduced AC-03 failures,
+serialized/timeout session reads, an accepted manual read while login admission
+remains reserved, overlapping Security transports and disposal. Passing evidence:
+`make generate` at `20260907T141659Z-p2155854`; format at
+`20260907T141728Z-p2158926`; lifecycle/session slice at
+`20260907T141753Z-p2163314`; final lifecycle at `20260907T141843Z-p2166225`;
+final typecheck at `20260907T141837Z-p2165436`; imports at
+`20260907T141849Z-p2166815`. Ordinary login/Security/account-support rows passed
+in `20260907T141753Z-p2163305` except bootstrap presentation, repaired and passing
+at `20260907T141837Z-p2165368`.
+
+The bootstrap regression caught a missing notification after dispatch-lock
+release; the final controller publishes availability after releasing its operation.
+Intermediate typechecks (`20260907T141349Z-p2149326`, `20260907T141502Z-p2154405`,
+`20260907T141753Z-p2163423`) exposed unmigrated test/flow/port types, all resolved.
+Format `20260907T141450Z-p2150053` caught focus-effect dependency expressions,
+replaced with a semantic enrollment-readiness dependency. AC-05 announcement and
+native-modal failures remain pending. No wire, credential policy or data change.
+Next: AC-04.
+
+AC-04 completed. G10 removes autoLoadUsers and its model flag: idempotent
+activation schedules a current-query refresh, explicit reads suppress duplicate
+scheduled activation reads, and active query edits retain the 180 ms cadence.
+Inactive panels cancel reads; React composition applies accepted enterprise
+configuration after session synchronization. Users presentation reads that accepted
+configuration. G11 replaces nullable attempts/global operationObserved with
+exact_replay or observe_review recovery; observation has explicit unobserved,
+pending, ready and failed states tied to the captured uncertain intent. A read
+started before uncertainty cannot authorize review of that later operation.
+
+Passing evidence: generation at `20260907T142241Z-p2174060`; final format at
+`20260907T142602Z-p2183513`; lifecycle (including activation and fresh-observation
+cases) at `20260907T142409Z-p2181597`; account-support integration at
+`20260907T142414Z-p2182506`; typecheck at `20260907T142622Z-p2187755`; imports at
+`20260907T142634Z-p2188235`. Earlier application slice
+`20260907T142159Z-p2172258` passed administration component/landing rows but
+identified two old nullable-state assertions; they now assert typed recovery.
+Module.auth slice `20260907T142159Z-p2172265` passed ordinary admin behavior but
+caught enterprise configuration being applied before initial session synchronization;
+the lifecycle binding now applies it afterward. Typecheck
+`20260907T142409Z-p2181689` caught optional test-call access, corrected. Format
+`20260907T142337Z-p2177278` caught a redundant hook dependency; activation/configuration
+now share one effect with a separate unmount cleanup.
+
+Sparse/no-op PATCH, draft retention, exact replay, query fencing, capability loss
+and departure decisions remain covered. No new route semantics or compatibility
+flags. Next: AC-05; the announcement and native-modal characterizations remain red.
+
+
+AC-05 implementation and functional review: G12 now has one authentication feedback
+surface, field descriptions without duplicate live errors, and a single Users feedback
+owner inside an active action dialog. The leave prompt owns its own pending/recovery
+announcement. Shared PublicErrorSummary announces only its sanitized message;
+diagnostic code and metadata remain nonlive. G13 replaces protocol bookkeeping with
+manual setup-key instructions and issued-material code entry. Enrollment identifiers
+and bootstrap authorization are private controller state. Authentication selectors
+now name feedback and setup keys; retired token/ID/status/error projections have no
+production consumers.
+
+G14 consolidates Settings, Users actions and departure into AccountDialog. Native
+showModal supplies containment/backdrop and native cancel supplies Escape; explicit
+Close calls the same once-only dismissal. Existing overlay navigation handles Tab
+wrapping with controls discovered at each keypress and restores a connected trigger
+or the account-navigation fallback. Production DOM-test fallbacks and delegated
+close attributes are deleted; DOM emulation lives in testSetup.dom. Browser checks
+cover native modal state, programmatic background focus exclusion, backdrop clicks,
+short/narrow layouts, text spacing, reduced motion and 200% zoom.
+
+Intermediate failures were related migration/verification findings, not acceptance:
+typecheck `20260907T143758Z-p2198672` found unsupported findLast in DOM setup and
+an unused import; generation `20260907T143901Z-p2199542` and format rejected an
+incorrect authored test title. Corrected generation passed at
+`20260907T143926Z-p2202755` and `20260907T144124Z-p2299094`.
+Module.auth unit roots `20260907T143941Z-p2205913`, `20260907T144147Z-p2309872`
+and `20260907T144400Z-p2322012` exposed assertions tied to hidden empty auth
+markup; final assertions follow MFA, completion and revoked states.
+Browser roots `20260907T144047Z-p2212068` and `20260907T144047Z-p2212075`
+exposed browser-chrome Tab escape and obsolete duplicate-alert assumptions.
+`20260907T144400Z-p2322025` found an inherited viewport-height override at CSS
+zoom; removing that local override restores shared bounds. The later removed-trigger
+assertion at `20260907T144635Z-p2420796` and its diagnostic run
+`20260907T144913Z-p2514781` removed the modal Confirm button via a state-dependent
+selector, rather than its background trigger; the test now names the actual trigger.
+No functional failure was hidden by a golden update.
+
+
+AC-05 completed. Passing current evidence: application characterization/settings/
+lifecycle rows at `20260907T143940Z-p2205673`; final dialog component row at
+`20260907T144708Z-p2508120`; package.ui selectors at `20260907T144146Z-p2309317`;
+ordinary Security/bootstrap at `20260907T144635Z-p2420779`; type/import boundaries
+at `20260907T144708Z-p2508218` and `20260907T144708Z-p2508229`; final format at
+`20260907T145013Z-p2560511`. Real login read-recovery, bootstrap and stateful Users
+rows passed within `20260907T144047Z-p2212075`; the unrelated failing rows in that
+slice are resolved by Security/auth accessibility at `20260907T144400Z-p2322035`
+and final auth accessibility at `20260907T144635Z-p2420790`. Account-settings
+accessibility passed in `20260907T144400Z-p2322025`; final Users accessibility,
+including actual removed-trigger fallback, passed at `20260907T145028Z-p2564699`.
+These are per-row results where the containing earlier slice failed; no failed
+aggregate is presented as passing. All AC-01 reproduced failures are now resolved.
+
+Changed paths: the three account dialog bindings and new AccountDialog, split
+Security/Users panels, AuthGateway/useAuthentication, private enrollment projections,
+App focus composition, shared PublicErrorSummary, DOM setup, existing component/
+auth/browser/accessibility/visual scenarios, authored application selector contracts
+and their tests, selector-policy fixture, ownership/routing inputs and generated
+index. Visual assertions were migrated; goldens have not been changed. No public
+API, data or dependency migration. Browser transport non-cancellation and in-memory
+recovery remain explicit limitations. Next: AC-06 final validation and handoff.
+
+
+AC-06 started. Current owner task guides were resolved for web.application,
+module.auth, web.design, package.ui and module.workbook. Finalization precedes
+broader verification; RESULTS_DIR remains unset because no qualifying successful
+full warm check run exists for these changes.
+
+
+### AC-06 ownership, deletion and compatibility handoff
+
+| Before | Accepted ownership after consolidation |
+| --- | --- |
+| React effects, focus and flattened presentation props in feature models | AuthenticationController, AccountSecurityController and DeploymentUsersController coordinate resources/drafts/operations; useAuthentication, useAccountSecurity and useDeploymentUsers own React subscription/lifecycle; panels consume snapshots and explicit commands. |
+| Boolean authentication confirmation accepted before the initiating flow could reject it | AppSessionController owns typed session observation/acceptance. Expected session revision and caller flow/read guards are checked before publication; write admission remains application-wide. |
+| One busy flag tied to an old Security lifetime | Identity-bound transport settlement releases only its own slot across retirement; obsolete outcomes remain fenced. |
+| Nullable uncertain attempt plus unrelated observation flag | Route-specific exact_replay or observe_review recovery, with fresh observation bound to the same intent. |
+| Separate modal wrappers, production DOM fallbacks and delegated Close attributes | AccountDialog supplies native containment/cancel/backdrop, dynamic shared Tab navigation and focus restoration. DOM mechanics emulation is test infrastructure. |
+| Repeated auth/error live markup and protocol-oriented enrollment text | One live source per event; shared sanitized error message, nonlive diagnostics, setup key and manual-entry instructions. |
+
+Deletion inventory: enterprisePendingProviderKey and its dispatch parameter;
+unused AuthGatewayProps/AccountSessionEvent presentation re-exports; exported
+AccountSettingsSnapshot; AccountAdministrationPanels; duplicate PublicErrorSummary
+and identical error style definitions; flattened setter bindings; optional
+admission/navigation defaults in controllers; autoLoadUsers; operationObserved and
+nullable replay attempts; editable enrollment identifiers/seeds; public enrollment
+identifier projections; useAccountDialogFocus; duplicate backdrop wrappers,
+showModal/open-attribute production fallbacks and data-dialog-close delegation.
+Retired selectors: bootstrap-token, bootstrap-enrollment-id, totp-enrollment-id,
+bootstrap-secret-base32, totp-secret-base32, auth status and auth public-error
+code/summary selectors. Replacements are semantic feedback and setup-key selectors;
+there are no compatibility aliases. API request fields and route audit terminology
+remain internal protocol vocabulary, not obsolete presentation consumers.
+
+Compatibility outcome: no backend implementation, public API, stored-data,
+dependency or toolchain migration. Repository-only imports, constructor ports,
+snapshot/command shapes, selectors and assertions migrate atomically. No new domain
+concept was introduced; domain.md remains unchanged. Authored source ownership and
+verification titles changed before Make regenerated the topology projection.
+Tests, generators and runtime evidence continue to consume machine/authored sources,
+never Markdown; this document is human-reviewed handoff material.
+
+Rollback units follow dependency order. AC-02 contains model/binding/panel imports,
+constructor callers, source ownership and generated projection; AC-03 includes the
+session port, App acceptance guards, flow/transport models and lifecycle evidence;
+AC-04 includes Users state, activation binding, all consumers and tests; AC-05
+includes dialogs, focus composition, enrollment/feedback presentation, selectors,
+DOM setup, browser/component tests and reviewed goldens with their manifest.
+Reverse dependent units together (AC-05 before AC-04/03/02); never restore only an
+old selector export, optional safety port, generated file or golden. AC-01 owner
+alignment and regression evidence must remain consistent with the chosen behavior.
+Preserve completed AS/AR history and the user's staged handoff contribution.
+
+Remaining limitations: abort requests do not guarantee transport cancellation;
+authentication/logout admission remains reserved until actual transport settlement.
+Recovery is in memory and current-state observation is not an operation receipt.
+Confirmed mutations remain confirmed if session/resource publication fails; recovery
+then uses safe reads. Accessibility evidence establishes the tested DOM, keyboard,
+native browser and layout behavior, not universal screen-reader behavior. Visual
+evidence is design/implementation support and is not a release or Core 05 claim.
+
+
+### AC-06 verification selection and running evidence
+
+Exact routed selections were resolved from authored catalogs. The following row IDs
+are the acceptance selection (abbreviations below only remove their common prefix).
+
+- `module.auth` backend/session-read unit and adapter rows:
+  `module.auth.unit.the_real_get_auth_session_route_rejects_paginati_14b12305f4`,
+  `module.auth.unit.the_password_change_route_proves_exact_current_p_338ff542a2`,
+  `module.auth.unit.the_totp_begin_and_complete_handlers_enforce_exa_59570a1bac`,
+  `module.auth.store.the_real_patch_route_rejects_missing_base_user_v_e16c180611`,
+  `module.auth.unit.deployment_admin_only_credential_routes_fail_clo_5cfa2f8dce`,
+  `module.auth.unit.the_real_login_handler_trims_and_case_folds_the_9ed31374cf`,
+  `module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_e3b9506c1e`,
+  `module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_752a6fcc0e`.
+- `module.auth` service-backed backend rows:
+  `module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c`,
+  `module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438`,
+  `module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb`,
+  `module.auth.integration.deployment_admin_binding_create_replay_divergent_85cb20830a`,
+  `module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af`,
+  `module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6`,
+  `module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063`.
+- Account editing browser rows:
+  `web.design.browser.account_settings_keyboard_responsive_781bd74a33` and
+  `web.design.browser.account_settings_real_conflict_replay_46b2ec9831`.
+  Complete density pipeline:
+  `module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084`.
+
+`make agent-finalize` passed at `20260907T145247Z-p2610986`, generated files unchanged.
+Its retained-run selection, performance evidence and run checks explicitly report
+`skipped` because RESULTS_DIR was unset. Full accessibility passed at
+`20260907T145354Z-p2619159`. Typecheck/import/Biome passed at
+`20260907T145354Z-p2618859`, `20260907T145354Z-p2618876` and
+`20260907T145354Z-p2618901`. Service-backed backend rows passed at
+`20260907T145354Z-p2618758`. Settings conflict/replay/responsive rows passed at
+`20260907T145610Z-p2785551`.
+
+Full frontend-unit `20260907T145354Z-p2618868` and the mixed route unit slice
+`20260907T145413Z-p2715437` found the same migrated assertion still expecting
+separate status and error text for an invalid bootstrap factor. It now checks the
+single error message/role and retains non-disclosure assertions; its narrow row
+passes at `20260907T145755Z-p2925488`. The full frontend target is rerunning.
+
+First ordinary visual reconciliation at `20260907T145354Z-p2619010` found 118
+captures/122 goldens, no ambiguous mapping or missing golden, and four temporarily
+unobserved captures after an old uncertainty-message assertion stopped the auth
+scenario. Those goldens are retained. The assertion now follows read-only recovery
+wording; ordinary reconciliation is rerunning before mutation. Auth loading,
+submitting, MFA, invalid factor and setup presentation differences follow G12/G13.
+Viewport, zoom policy, masks, capture scope, fonts and renderer pins are unchanged.
+
+
+Current full frontend evidence: frontend-unit passed all 456 units at
+`20260907T145901Z-p2942913`; build-web passed at `20260907T145901Z-p2943050`;
+generate-drift at `20260907T145901Z-p2942794`; generated-artifact-policy-check at
+`20260907T145901Z-p2942797`; json-shape-check at `20260907T145901Z-p2942801`.
+The complete mixed backend/adapter selection now passes at
+`20260907T150009Z-p3010155`. Complete workbook density browser evidence passes at
+`20260907T145729Z-p2839858`.
+
+Final auth browser selection uses `make service-backed-test-slice OWNER=module.auth`
+with these exact rows:
+
+- `module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229`
+- `module.auth.browser.invalid_credentials_leave_no_session_cookie_and_47a0f6a4d2`
+- `module.auth.browser.the_browser_anonymous_shell_renders_discovered_e_9c637d5924`
+- `module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3`
+- `module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437`
+- `module.auth.browser.the_ordinary_login_ui_rejects_missing_and_wrong_f6009192d8`
+- `module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508`
+- `module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f`
+- `module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86`
+- `module.auth.browser_stateful.idle_expiry_fails_closed_after_the_shared_clock_6525f19d9d`
+- `module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957`
+
+At `20260907T145728Z-p2839600`, all selected scenarios except MFA passed. MFA still
+asserted the retired empty error element during its initial challenge; the migrated
+assertion now names the visible code-required feedback. No production change was
+needed; the narrow MFA row is rerunning. Historical failed aggregates remain failed.
+
+
+MFA browser validation now passes at `20260907T150116Z-p3056853`. All selected
+functional/auth/accessibility scenarios have passing terminal evidence. Second
+ordinary visual run `20260907T145901Z-p2942974` completed all 122 captures:
+122 active goldens, zero orphan/missing/ambiguous mappings, all 26 registered
+fixtures resolved. Its only failures are the six intentional auth screenshot
+comparisons. Before mutation, all six actual images were inspected: expected
+feedback/recovery controls and setup simplification, with no clipping or unrelated
+layout change. No golden is being deleted or re-accounted.
+
+### AC-06 visual refresh record
+
+Accepted trigger: AC-03 guarded session recovery and AC-05 G12/G13 presentation
+alignment with Design. Owner row:
+`module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99`;
+scenario `scenario_b04591a66827`, project `chromium`. These are active nonregistry
+captures: no stable registry fixture ID is declared, and reconciliation resolves
+them exactly through emitted capture intents. Capture intent names and golden
+filenames (under `apps/web/e2e/workbook.visual.spec.ts-snapshots/`) are:
+
+| Capture intent | Golden |
+| --- | --- |
+| auth-loading | auth-loading-linux.png |
+| auth-submitting | auth-submitting-linux.png |
+| auth-mfa-required | auth-mfa-required-linux.png |
+| auth-invalid-mfa | auth-invalid-mfa-linux.png |
+| auth-mfa-setup-required | auth-mfa-setup-required-linux.png |
+| auth-service-unavailable | auth-service-unavailable-linux.png |
+
+There is no viewport, browser-zoom, mask, screenshot-scope, scroll-normalization,
+font or renderer change. All unrelated goldens must remain byte-identical. The
+Make-owned update, changed-image review and two fresh ordinary passes follow.
+
+
+`make browser-e2e-visual-update` passed at `20260907T150438Z-p3109501`, including
+all functional assertions. Every changed image was inspected after promotion.
+It generated the six intended auth updates plus eight incidental raster changes:
+account-settings-appearance-zoom, account-settings-profile-conflict, auth-focused,
+auth-invalid-credentials, entity-mention-chip-states, incident-create-expanded-details,
+incident-create-recovery-zoom and timeline-mutation-pending-replay-status. Those eight
+original PNGs were restored byte-for-byte; no user edits existed in those files.
+The zoom image had only RGB-channel differences of at most three, with unchanged
+layout; the other seven had 1–24 changed pixels. No unrelated visual refresh is
+accepted. Make regenerates the golden manifest for the six retained changes before
+the two final ordinary passes.
+
+Final source typecheck/import/Biome checks passed at
+`20260907T150613Z-p3158140`, `20260907T150613Z-p3158144` and
+`20260907T150613Z-p3158150`. Documentation lint passed at
+`20260907T150439Z-p3111361`; terminal documentation will be validated again.
+
+
+### AC-06 gap dispositions and acceptance links
+
+The remediation register above supplies the rationale, benefit, migration impact,
+unresolved risk and validation criteria for each gap. Each implementation disposition
+below is resolved; both final visual repetitions pass and the iteration is complete.
+Links reference current passing row/target evidence,
+not historical characterization failures.
+
+| Gap | Disposition and current evidence |
+| --- | --- |
+| G01 | Owner alignment resolved in [Design](../design.md) and this handoff; existing Core behavior retained, domain vocabulary unchanged. |
+| G02 | All reproduced defects resolved; [lifecycle/acceptance](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/web.application.regression.authentication_security_operation_lifetime_8021a8bd90.json), [announcements/dialog components](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/web.application.regression.account_frontend_operation_boundaries_4c0264caa7.json), [real modal accessibility](../../.cartulary/test-results/20260907T145354Z-p2619159/run-summary.json). Explicit Close remains passing characterization, not a claimed reproduced duplicate. |
+| G03 | Dead state/exports/plumbing removed with no aliases; deletion audit below, [typecheck](../../.cartulary/test-results/20260907T150613Z-p3158140/run-summary.json), [import boundaries](../../.cartulary/test-results/20260907T150613Z-p3158144/run-summary.json). |
+| G04 | Shared sanitized error presentation resolved; [public-envelope/non-disclosure row](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_752a6fcc0e.json). |
+| G05 | Feature models and React bindings separated; [full frontend suite](../../.cartulary/test-results/20260907T145901Z-p2942913/run-summary.json) includes lifecycle replay, composition and settings retention; controller consumer/import audit recorded below. |
+| G06 | Required admission/navigation ports and shared admission resolved; [lifecycle/admission row](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/web.application.regression.authentication_security_operation_lifetime_8021a8bd90.json) and final typecheck. |
+| G07 | Credential/MFA/enrollment transitions and private issued identifiers resolved; [secret/expiry lifecycle row](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/web.application.regression.authentication_security_operation_lifetime_8021a8bd90.json), [real MFA browser](../../.cartulary/test-results/20260907T150116Z-p3056853/run-summary.json). |
+| G08 | Separate bounded session observation and pre-acceptance caller fencing resolved; lifecycle row above and real committed-login/manual-observation scenario in [auth browser evidence](../../.cartulary/test-results/20260907T145728Z-p2839600/rows/module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229.json). Absence/unavailability is never a mutation receipt. |
+| G09 | Identity-bound settlement across retirement resolved; lifecycle row above covers overlapping logout/credential transport, reopening, disposal and stale outcome exclusion. |
+| G10 | Activation/configuration ownership resolved; [Users lifecycle](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/web.application.regression.deployment_user_operation_lifetime_b4702e860c.json), [enterprise/capability integration](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/module.auth.frontend_integration.account_support_lifecycle_7afc31b882.json). |
+| G11 | Route-specific recovery resolved; Users lifecycle above, [real user administration](../../.cartulary/test-results/20260907T145728Z-p2839600/rows/module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86.json), [backend replay/authorization](../../.cartulary/test-results/20260907T145354Z-p2618758/run-summary.json). |
+| G12 | One live source per event and preserved field descriptions resolved; [full accessibility](../../.cartulary/test-results/20260907T145354Z-p2619159/run-summary.json), component row above and six reviewed auth goldens. No universal assistive-technology claim. |
+| G13 | Usable setup content/private protocol fields resolved; [real bootstrap enrollment](../../.cartulary/test-results/20260907T145728Z-p2839600/rows/module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3.json), [session credential flow](../../.cartulary/test-results/20260907T145728Z-p2839600/rows/module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437.json), [selector contract](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/package.ui.frontend_unit.application_selector_contracts_675995f2ab.json). |
+| G14 | Native modal lifecycle/one dismissal/focus fallback resolved; [full accessibility](../../.cartulary/test-results/20260907T145354Z-p2619159/run-summary.json), [component replay](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/web.application.regression.account_frontend_operation_boundaries_4c0264caa7.json), [settings recovery](../../.cartulary/test-results/20260907T145610Z-p2785551/run-summary.json). |
+
+Profile/Appearance behavior is retained and validated by the full frontend suite,
+[resource/draft/attempt lifecycle](../../.cartulary/test-results/20260907T145901Z-p2942913/rows/web.application.regression.account_edit_resource_draft_attempt_lifecycle_9420b2e411.json),
+real conflict/replay browser rows and the
+[complete density pipeline](../../.cartulary/test-results/20260907T145729Z-p2839858/run-summary.json).
+These cover monotonic acceptance, publication-only recovery, retained edits and every
+density mode without adding a second editing owner.
+
+### AC-06 exact scope audit
+
+The final intended scope is the following 46 paths (including two deletions, seven
+new source files, six goldens and their generated manifest). There are no backend,
+API/schema, database, dependency/lockfile, toolchain or domain.md changes. The staged
+index remains the user's sole 174-line handoff addition; no staging, commit, push or
+deployment was performed. Completed AS/AR content is byte-identical to HEAD except
+for the active navigation paragraph at the top.
+
+```text
+apps/web/e2e/auth-and-incident-directory.spec.ts
+apps/web/e2e/auth.support.spec.ts
+apps/web/e2e/workbook.a11y.spec.ts
+apps/web/e2e/workbook.visual.spec.ts
+apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-mfa-linux.png
+apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-loading-linux.png
+apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-required-linux.png
+apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-setup-required-linux.png
+apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-service-unavailable-linux.png
+apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-submitting-linux.png
+apps/web/src/app/AccountAdministrationPanels.tsx
+apps/web/src/app/AccountDialog.tsx
+apps/web/src/app/AccountSecurityPanel.tsx
+apps/web/src/app/AccountSettingsDialog.tsx
+apps/web/src/app/App.auth.support.test.tsx
+apps/web/src/app/App.auth.test.tsx
+apps/web/src/app/App.tsx
+apps/web/src/app/AuthGateway.tsx
+apps/web/src/app/DeploymentUserActionDialog.tsx
+apps/web/src/app/DeploymentUserLeaveDialog.tsx
+apps/web/src/app/DeploymentUsersPanel.tsx
+apps/web/src/app/LandingAdminDisplay.tsx
+apps/web/src/app/accountAuthenticationLifecycle.test.ts
+apps/web/src/app/accountFrontendBoundaries.test.tsx
+apps/web/src/app/accountPanelStyles.ts
+apps/web/src/app/accountSecurityModel.ts
+apps/web/src/app/accountSettingsModel.ts
+apps/web/src/app/appSessionController.test.tsx
+apps/web/src/app/appSessionController.ts
+apps/web/src/app/authenticationModel.ts
+apps/web/src/app/deploymentUsersModel.test.ts
+apps/web/src/app/deploymentUsersModel.ts
+apps/web/src/app/useAccountDialogFocus.ts
+apps/web/src/app/useAccountSecurity.ts
+apps/web/src/app/useAuthentication.ts
+apps/web/src/app/useDeploymentUsers.ts
+apps/web/src/testing/selectorContractPolicy.test.ts
+apps/web/src/testing/testSetup.dom.ts
+docs/design.md
+docs/handoffs/account-settings-editing-refactor-handoff.md
+packages/ui-contracts/src/application-selectors.test.ts
+packages/ui-contracts/src/applicationSelectors.ts
+tools/execution_topology_render_index.json
+tools/frontend_source_ownership.json
+tools/frontend_visual_golden_manifest.json
+tools/test_families/web.application.json
+```
+
+
+Scoped golden manifest regeneration passed at `20260907T151033Z-p3160481`.
+Post-promotion generate-drift, generated-artifact-policy-check and json-shape-check
+passed at `20260907T151122Z-p3163861`, `20260907T151122Z-p3163867` and
+`20260907T151122Z-p3163874`. First fresh ordinary visual pass:
+[20260907T151122Z-p3164140](../../.cartulary/test-results/20260907T151122Z-p3164140/run-summary.json),
+with passing reconciliation of all 122 active goldens, zero orphan/missing/ambiguous
+mappings and all 26 registered fixtures resolved.
+
+Registry coverage is the authored
+`web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967`
+row included in each full visual run. An auxiliary `task-guide OWNER=harness.visual`
+lookup was rejected because that collaborator is not an active test owner; routing
+was resolved through web.design instead. This was a navigation error, not a product
+failure. `agent-finalize` already passed test-catalog-check and catalog-tier-coverage;
+no separate internal helper was invoked as a public target.
+
+Both staged and unstaged `git diff --check` currently pass. The source, selectors,
+contracts and six accepted goldens are frozen while the second ordinary visual
+pass runs; only the terminal handoff record remains to be completed.
+
+
+### AC-06 terminal acceptance — DONE
+
+Second fresh ordinary visual pass:
+[20260907T151428Z-p3216094](../../.cartulary/test-results/20260907T151428Z-p3216094/run-summary.json).
+Both ordinary passes use identical source and golden-manifest digests, pass all
+122 captures and reconciliation, and resolve all 26 registered fixtures with zero
+orphan, missing or ambiguous mappings. Six approved auth goldens and their manifest
+are the entire visual change. Every promoted image was inspected; unrelated
+originals are preserved.
+
+All G01–G14 dispositions are resolved. AC-01–AC-06 are DONE in dependency order,
+with tracker updates preceding every successor. Specification alignment, feature
+boundaries, guarded session acceptance, secret/transport lifetimes, route-specific
+Users recovery, native presentation, validation and handoff are complete. Every
+related failure documented above has a supported resolution. No unresolved product
+failure or omitted required acceptance check remains.
+
+The required checks passed: frontend type/import checks, Biome, full frontend-unit,
+build-web, generation drift, generated-artifact policy, JSON shape, routed backend
+and browser regressions, full accessibility, workbook density, golden review and
+two ordinary visual passes. Catalog/registry checks are included in finalization
+and the full visual rows. The earlier Markdown lint and both whitespace checks
+passed; this terminal documentation edit is validated once more before delivery.
+
+Retained-run maintenance was skipped by agent-finalize because RESULTS_DIR was
+unset; no qualifying successful full warm check run was supplied. Repository-wide
+`make check`, `make ci` and release gates were not run: this effort establishes the
+explicit scoped acceptance above, not repository-wide or release readiness.
+Transport non-cancellation, in-memory recovery, current-state/receipt distinctions
+and the limits of accessibility evidence remain documented limitations.
+
+Next action: review/integrate the cohesive unstaged change using the ownership and
+rollback units above. No staging, commit, push or deployment is included. Preserve
+the user's original staged handoff addition and completed AS/AR history.
+
+
+Terminal documentation validation passed at
+[20260907T151912Z-p3263812](../../.cartulary/test-results/20260907T151912Z-p3263812/adhoc/lint-markdown/tool-run-summary.json).
+Final staged/unstaged whitespace checks and the exact 46-path scope audit pass;
+HEAD remains `5300167b238faf84184856730ab2715d950a61af` on `main`, and the staged
+handoff remains the original 174-line addition. This evidence-only closing note
+receives one final Markdown validation before delivery.

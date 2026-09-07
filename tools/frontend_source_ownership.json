@@ -9,9 +9,10 @@
     {
       "owner_id": "web.app",
       "paths": [
-        "apps/web/src/app/AccountAdministrationPanels.tsx",
         "apps/web/src/app/AccountApplicationMenu.test.tsx",
         "apps/web/src/app/AccountApplicationMenu.tsx",
+        "apps/web/src/app/AccountDialog.tsx",
+        "apps/web/src/app/AccountSecurityPanel.tsx",
         "apps/web/src/app/AccountSettingsDialog.tsx",
         "apps/web/src/app/AccountSettingsPanels.tsx",
         "apps/web/src/app/App.auth.support.test.tsx",
@@ -24,6 +25,7 @@
         "apps/web/src/app/DeploymentAuditPanel.tsx",
         "apps/web/src/app/DeploymentUserActionDialog.tsx",
         "apps/web/src/app/DeploymentUserLeaveDialog.tsx",
+        "apps/web/src/app/DeploymentUsersPanel.tsx",
         "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "apps/web/src/app/IncidentAdminPanel.tsx",
         "apps/web/src/app/IncidentCreationForm.tsx",
@@ -37,6 +39,7 @@
         "apps/web/src/app/accountFrontendBoundaries.test.tsx",
         "apps/web/src/app/accountInputValidation.ts",
         "apps/web/src/app/accountOperation.ts",
+        "apps/web/src/app/accountPanelStyles.ts",
         "apps/web/src/app/accountSecurityModel.ts",
         "apps/web/src/app/accountSettingsEditing.test.tsx",
         "apps/web/src/app/accountSettingsModel.test.ts",
@@ -64,10 +67,12 @@
         "apps/web/src/app/referencePackAdminModel.ts",
         "apps/web/src/app/routeState.test.ts",
         "apps/web/src/app/routeState.ts",
-        "apps/web/src/app/useAccountDialogFocus.ts",
         "apps/web/src/app/useAccountMenuLayout.ts",
+        "apps/web/src/app/useAccountSecurity.ts",
         "apps/web/src/app/useAppRouteRuntime.ts",
         "apps/web/src/app/useAppSession.ts",
+        "apps/web/src/app/useAuthentication.ts",
+        "apps/web/src/app/useDeploymentUsers.ts",
         "apps/web/src/app/useIncidentCreation.ts",
         "apps/web/src/app/useIncidentDirectory.ts"
       ]

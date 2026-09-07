@@ -11,7 +11,10 @@ import {
 import { accountOperationError } from "./accountOperation";
 import { AccountSecurityController } from "./accountSecurityModel";
 import * as api from "./api/authAccountClient";
-import { AppSessionController } from "./appSessionController";
+import {
+  AppSessionController,
+  type SessionObservation,
+} from "./appSessionController";
 import { AuthenticationController } from "./authenticationModel";
 
 const success = <T>(data: T) => ({
@@ -58,9 +61,18 @@ const enrollment = () => ({
   },
 });
 function auth(gate?: AppSessionController) {
+  gate ??= new AppSessionController();
+  controllers.push(gate);
   let alive = true;
   const authenticated = vi.fn();
-  const uncertain = vi.fn(async () => false);
+  const uncertain = vi
+    .fn<
+      (
+        signal: AbortSignal,
+        current: () => boolean,
+      ) => Promise<SessionObservation>
+    >()
+    .mockResolvedValue({ kind: "session_lost" });
   const assign = vi.fn();
   const loginLocal = vi
     .fn<typeof api.loginLocal>()
@@ -93,15 +105,10 @@ function auth(gate?: AppSessionController) {
     () => ({
       actor: sessionResource().user_id,
       current: () => alive,
-      ...(gate
-        ? {
-            admitTransport: gate.reserveAuthenticationTransport,
-            canAuthenticate: () =>
-              !gate.getSnapshot().authenticationTransportPending,
-          }
-        : {}),
+      admitTransport: gate.reserveAuthenticationTransport,
+      canAuthenticate: () => !gate.getSnapshot().authenticationTransportPending,
       authenticated,
-      uncertain,
+      inspectSession: uncertain,
     }),
     { assign, returnTo: () => "/?deployment_admin=1" },
     {
@@ -144,6 +151,8 @@ function auth(gate?: AppSessionController) {
   };
 }
 function security(gate?: AppSessionController) {
+  gate ??= new AppSessionController();
+  controllers.push(gate);
   let alive = true;
   const event = vi.fn();
   const loadCredentialState = vi
@@ -173,7 +182,7 @@ function security(gate?: AppSessionController) {
       actor: sessionResource().user_id,
       current: () => alive,
       event,
-      ...(gate ? { admitLogout: gate.reserveAuthenticationTransport } : {}),
+      admitLogout: gate.reserveAuthenticationTransport,
     }),
     {
       ...api,
@@ -212,6 +221,164 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("authentication and Security operation lifetime", () => {
+  it("bounds and serializes session inspection without converting observations into write receipts", async () => {
+    const s = auth();
+    const first = deferred<SessionObservation>();
+    const second = deferred<SessionObservation>();
+    s.uncertain
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    s.loginLocal.mockRejectedValue(new TypeError());
+    s.controller.login();
+    await flush();
+    await s.controller.retrySession();
+    expect(s.uncertain).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(s.controller.getSnapshot().sessionRead).toBe("unavailable");
+    expect(s.uncertain.mock.calls[0]?.[0].aborted).toBe(true);
+    expect(s.uncertain.mock.calls[0]?.[1]()).toBe(false);
+    const retry = s.controller.retrySession();
+    expect(s.uncertain).toHaveBeenCalledTimes(2);
+    first.resolve({ kind: "accepted", session: sessionResource() });
+    await flush();
+    expect(s.controller.getSnapshot().sessionRead).toBe("pending");
+    second.resolve({ kind: "session_lost" });
+    await retry;
+    expect(s.controller.getSnapshot()).toMatchObject({
+      sessionRead: "absent",
+      operation: { kind: "uncertain" },
+    });
+    expect(s.loginLocal).toHaveBeenCalledOnce();
+  });
+  it("accepts a manually observed session while retaining admission for an outstanding login", async () => {
+    const read = vi
+      .fn<typeof api.loadSession>()
+      .mockResolvedValue(failure("session_required"));
+    const gate = new AppSessionController({
+      session: (signal) => read({ signal }),
+    });
+    const s = auth(gate);
+    const login = deferred<Awaited<ReturnType<typeof api.loginLocal>>>();
+    s.loginLocal.mockReturnValue(login.promise);
+    s.uncertain.mockImplementation((signal, current) =>
+      gate.confirmAuthentication(0, signal, current),
+    );
+    s.controller.login();
+    await vi.advanceTimersByTimeAsync(30_000);
+    read.mockResolvedValue(success(sessionResource()));
+    await s.controller.retrySession();
+    expect(gate.getSnapshot().session?.user_id).toBe(sessionResource().user_id);
+    expect(gate.getSnapshot().authenticationTransportPending).toBe(true);
+    expect(gate.reserveAuthenticationTransport()).toBeNull();
+    s.controller.retire();
+    login.resolve(success(sessionResource()));
+    await flush();
+    expect(gate.getSnapshot().authenticationTransportPending).toBe(false);
+    expect(s.authenticated).not.toHaveBeenCalled();
+  });
+  it("releases only matching Security transports across retirement and disposal", async () => {
+    const s = security();
+    const password = deferred<Awaited<ReturnType<typeof api.changePassword>>>();
+    const logout =
+      deferred<Awaited<ReturnType<typeof api.logoutCurrentSession>>>();
+    s.changePassword.mockReturnValue(password.promise);
+    s.logoutCurrentSession.mockReturnValue(logout.promise);
+    s.credentials();
+    s.controller.password();
+    s.controller.logout();
+    s.controller.retire();
+    s.controller.open();
+    password.resolve(
+      success({
+        user_id: sessionResource().user_id,
+        password: { changed_at: new Date().toISOString() },
+        sessions_revoked: true,
+      }),
+    );
+    await flush();
+    expect(s.controller.getSnapshot().transportPending).toBe(true);
+    logout.resolve(
+      success({
+        user_id: sessionResource().user_id,
+        logged_out: true,
+        sessions_revoked: false,
+      }),
+    );
+    await flush();
+    expect(s.controller.getSnapshot().transportPending).toBe(false);
+    expect(s.event).not.toHaveBeenCalled();
+    const late =
+      deferred<Awaited<ReturnType<typeof api.logoutCurrentSession>>>();
+    s.logoutCurrentSession.mockReturnValue(late.promise);
+    s.controller.logout();
+    s.controller.dispose();
+    const snapshot = s.controller.getSnapshot();
+    late.resolve(
+      success({
+        user_id: sessionResource().user_id,
+        logged_out: true,
+        sessions_revoked: false,
+      }),
+    );
+    await flush();
+    expect(s.controller.getSnapshot()).toBe(snapshot);
+    expect(s.event).not.toHaveBeenCalled();
+  });
+  it("allows manual session inspection while an uncertain login transport remains outstanding", async () => {
+    const s = auth();
+    const pending = deferred<Awaited<ReturnType<typeof api.loginLocal>>>();
+    s.loginLocal.mockReturnValue(pending.promise);
+    s.controller.login();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(s.uncertain).toHaveBeenCalledOnce();
+    await s.controller.retrySession();
+    expect(s.uncertain).toHaveBeenCalledTimes(2);
+    s.controller.login();
+    expect(s.loginLocal).toHaveBeenCalledOnce();
+    pending.resolve(success(sessionResource()));
+    await flush();
+    expect(s.authenticated).not.toHaveBeenCalled();
+  });
+  it("fences session acceptance itself when the initiating authentication flow closes", async () => {
+    const pending = deferred<Awaited<ReturnType<typeof api.loadSession>>>();
+    const session = new AppSessionController({
+      session: () => pending.promise,
+    });
+    controllers.push(session);
+    const s = auth();
+    s.uncertain.mockImplementation((signal, current) =>
+      session.confirmAuthentication(0, signal, current),
+    );
+    s.loginLocal.mockRejectedValue(new TypeError());
+    s.controller.login();
+    await flush();
+    expect(s.uncertain).toHaveBeenCalledOnce();
+    s.controller.close();
+    pending.resolve(success(sessionResource()));
+    await flush();
+    expect(session.getSnapshot().session).toBeNull();
+  });
+  it("releases Security transport availability after retirement without publishing its outcome", async () => {
+    const s = security();
+    const pending = deferred<Awaited<ReturnType<typeof api.changePassword>>>();
+    s.changePassword.mockReturnValue(pending.promise);
+    s.credentials();
+    s.controller.password();
+    s.controller.retire();
+    s.controller.open();
+    expect(s.controller.getSnapshot().transportPending).toBe(true);
+    pending.resolve(
+      success({
+        user_id: sessionResource().user_id,
+        password: { changed_at: new Date().toISOString() },
+        sessions_revoked: true,
+      }),
+    );
+    await flush();
+    expect(s.controller.getSnapshot().transportPending).toBe(false);
+    expect(s.controller.getSnapshot().operation.kind).toBe("idle");
+    expect(s.event).not.toHaveBeenCalled();
+  });
   it("serializes local and enterprise activation while preserving exact login bytes", async () => {
     const s = auth();
     await s.controller.discover();
@@ -229,7 +396,7 @@ describe("authentication and Security operation lifetime", () => {
     pending.resolve(success(sessionResource()));
     await flush();
     expect(s.authenticated).toHaveBeenCalledTimes(1);
-    expect(s.controller.getSnapshot().password).toBe("");
+    expect(s.controller.getSnapshot().flow).toMatchObject({ password: "" });
   });
   it("bounds MFA password retention from initial dispatch and clears submitted factor codes", async () => {
     const s = auth();
@@ -238,8 +405,11 @@ describe("authentication and Security operation lifetime", () => {
       .mockResolvedValueOnce(failure("invalid_second_factor"));
     s.controller.login();
     await flush();
-    expect(s.controller.getSnapshot().phase).toBe("mfa");
-    expect(s.controller.getSnapshot().password).not.toBe("");
+    expect(s.controller.getSnapshot().flow.kind).toBe("mfa");
+    expect(s.controller.getSnapshot().flow).toMatchObject({
+      kind: "mfa",
+      password: "  Exact e\u0301 Password  ",
+    });
     await vi.advanceTimersByTimeAsync(240_000);
     s.controller.dispatch({
       type: "field",
@@ -247,14 +417,18 @@ describe("authentication and Security operation lifetime", () => {
       value: "123456",
     });
     s.controller.login();
-    expect(s.controller.getSnapshot().totpCode).toBe("");
+    expect(s.controller.getSnapshot().flow).toMatchObject({
+      kind: "mfa",
+      code: "",
+    });
     await flush();
-    expect(s.controller.getSnapshot().password).not.toBe("");
+    expect(s.controller.getSnapshot().flow).toMatchObject({
+      kind: "mfa",
+      password: "  Exact e\u0301 Password  ",
+    });
     await vi.advanceTimersByTimeAsync(60_000);
     expect(s.controller.getSnapshot()).toMatchObject({
-      phase: "credentials",
-      password: "",
-      totpCode: "",
+      flow: { kind: "credentials", password: "" },
     });
   });
   it("keeps timeout uncertainty separate from outstanding authentication transport settlement", async () => {
@@ -274,8 +448,8 @@ describe("authentication and Security operation lifetime", () => {
     s.controller.login();
     await vi.advanceTimersByTimeAsync(30_000);
     expect(s.controller.getSnapshot()).toMatchObject({
-      submitting: false,
-      password: "",
+      operation: { kind: "uncertain", action: "login" },
+      flow: { kind: "credentials", password: "" },
       transportPending: true,
     });
     expect(s.uncertain).toHaveBeenCalledOnce();
@@ -315,15 +489,15 @@ describe("authentication and Security operation lifetime", () => {
   });
   it("fences uncertain-session continuation and late login publication after retirement", async () => {
     const s = auth();
-    const observed = deferred<boolean>();
+    const observed = deferred<SessionObservation>();
     s.uncertain.mockReturnValue(observed.promise);
     s.loginLocal.mockRejectedValue(new TypeError());
     s.controller.login();
     await flush();
     s.controller.close();
-    observed.resolve(true);
+    observed.resolve({ kind: "accepted", session: sessionResource() });
     await flush();
-    expect(s.controller.getSnapshot().password).toBe("");
+    expect(s.controller.getSnapshot().flow).toMatchObject({ password: "" });
     expect(s.authenticated).not.toHaveBeenCalled();
     s.controller.open();
     s.credentials();
@@ -346,10 +520,12 @@ describe("authentication and Security operation lifetime", () => {
     s.controller.login();
     await flush();
     expect(s.controller.getSnapshot()).toMatchObject({
-      password: "",
-      bootstrapToken: "PRIVATE-TOKEN",
+      flow: { kind: "setup", enrollment: { kind: "unissued" } },
       error: { code: "mfa_setup_required" },
     });
+    expect(JSON.stringify(s.controller.getSnapshot())).not.toContain(
+      "PRIVATE-TOKEN",
+    );
     expect(s.controller.getSnapshot().error?.details).not.toHaveProperty(
       "bootstrap_token",
     );
@@ -357,20 +533,23 @@ describe("authentication and Security operation lifetime", () => {
     s.controller.begin();
     await flush();
     expect(s.beginTotpEnrollment).toHaveBeenCalledOnce();
-    expect(s.controller.getSnapshot().bootstrapSecretBase32).toBe("SEED");
+    expect(s.controller.getSnapshot().flow).toMatchObject({
+      kind: "setup",
+      enrollment: { kind: "ready", key: "SEED" },
+    });
     s.controller.dispatch({
       type: "field",
       field: "bootstrapCompleteCode",
       value: "123456",
     });
     s.controller.complete();
-    expect(s.controller.getSnapshot().bootstrapCompleteCode).toBe("");
+    expect(s.controller.getSnapshot().flow).toMatchObject({
+      kind: "setup",
+      code: "",
+    });
     await flush();
     expect(s.controller.getSnapshot()).toMatchObject({
-      phase: "credentials",
-      password: "",
-      bootstrapToken: "",
-      bootstrapSecretBase32: "",
+      flow: { kind: "credentials", password: "" },
     });
     expect(s.authenticated).not.toHaveBeenCalled();
   });
@@ -388,9 +567,7 @@ describe("authentication and Security operation lifetime", () => {
     await flush();
     await vi.advanceTimersByTimeAsync(45_000);
     expect(s.controller.getSnapshot()).toMatchObject({
-      phase: "credentials",
-      bootstrapToken: "",
-      bootstrapSecretBase32: "",
+      flow: { kind: "credentials", password: "" },
     });
     s.credentials();
     s.loginLocal.mockResolvedValue(
@@ -408,7 +585,8 @@ describe("authentication and Security operation lifetime", () => {
     s.controller.dispatch({ type: "use_different_account" });
     pending.resolve(success(enrollment()));
     await flush();
-    expect(s.controller.getSnapshot().bootstrapSecretBase32).toBe("");
+    expect(s.controller.getSnapshot().flow.kind).toBe("credentials");
+    expect(JSON.stringify(s.controller.getSnapshot())).not.toContain("SEED");
   });
   it("separates failed provider discovery from unclaimed discovery and isolates navigation instances", async () => {
     const a = auth();
@@ -463,13 +641,12 @@ describe("authentication and Security operation lifetime", () => {
     s.controller.login();
     await flush();
     expect(s.uncertain).toHaveBeenCalledOnce();
-    expect(s.controller.getSnapshot().password).toBe("");
+    expect(s.controller.getSnapshot().flow).toMatchObject({ password: "" });
     s.credentials();
     s.controller.login();
     await flush();
     expect(s.controller.getSnapshot()).toMatchObject({
-      phase: "credentials",
-      password: "",
+      flow: { kind: "credentials", password: "" },
     });
     const confirmed = auth();
     confirmed.loginLocal.mockResolvedValue(success(sessionResource()));
@@ -478,12 +655,21 @@ describe("authentication and Security operation lifetime", () => {
     );
     confirmed.controller.login();
     await flush();
-    expect(confirmed.controller.getSnapshot().confirmation).toBe("failed");
+    expect(confirmed.controller.getSnapshot().operation).toEqual({
+      kind: "confirmed",
+      propagation: "failed",
+    });
     confirmed.controller.login();
     expect(confirmed.loginLocal).toHaveBeenCalledOnce();
-    confirmed.uncertain.mockResolvedValue(true);
+    confirmed.uncertain.mockResolvedValue({
+      kind: "accepted",
+      session: sessionResource(),
+    });
     await confirmed.controller.retrySession();
-    expect(confirmed.controller.getSnapshot().confirmation).toBe("idle");
+    expect(confirmed.controller.getSnapshot().operation).toEqual({
+      kind: "confirmed",
+      propagation: "ready",
+    });
     expect(confirmed.loginLocal).toHaveBeenCalledOnce();
   });
   it("serializes Security writes and clears every dispatched credential", async () => {

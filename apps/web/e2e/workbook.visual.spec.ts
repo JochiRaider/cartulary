@@ -55,7 +55,6 @@ import {
   networkAnalysisTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
-  publicErrorCodeTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   relationshipOverflowButtonTestId,
@@ -626,7 +625,7 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     );
     await assertAuthGatewayVisual(page, "auth-submitting");
     releaseAuthVisualStep(releaseLogin);
-    await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
+    await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
       "Email or password is incorrect.",
     );
     await assertAuthGatewayVisual(page, "auth-invalid-credentials");
@@ -643,7 +642,7 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     loginMode = "invalid_mfa";
     await page.getByTestId(authTestId("login-totp-code")).fill("000000");
     await page.getByTestId(authTestId("login-submit")).click();
-    await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
+    await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
       "The verification code is incorrect or expired.",
     );
     await assertAuthGatewayVisual(page, "auth-invalid-mfa");
@@ -662,8 +661,8 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     await page.reload();
     await fillAuthVisualCredentials(page);
     await page.getByTestId(authTestId("login-submit")).click();
-    await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
-      "Sign-in response could not be confirmed. Try again after the request settles; reload if it does not finish.",
+    await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
+      "The earlier authentication remains unconfirmed. Check the current session again or enter fresh credentials after the request settles; reload if it does not finish.",
     );
     await expect(page.getByTestId(authTestId("login-password"))).toHaveValue(
       "",

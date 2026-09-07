@@ -31,12 +31,10 @@ import {
   installLandingShellFetch,
   sessionResource,
 } from "../testing/appShellTestSupport";
-import {
-  AccountSecurityPanel,
-  DeploymentUsersPanel,
-} from "./AccountAdministrationPanels";
+import { AccountSecurityPanel } from "./AccountSecurityPanel";
 import { AppRoot } from "./AppRoot";
 import type { UserResource } from "./api/publicHttpTypes";
+import { DeploymentUsersPanel } from "./DeploymentUsersPanel";
 
 describe("ordinary shell support", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -139,11 +137,9 @@ describe("ordinary shell support", () => {
       await screen.findByTestId(authTestId("login-username")),
     ).toBeTruthy();
     expect(screen.getByTestId(authTestId("shell-message"))).toBeTruthy();
-    expect(screen.getByTestId(authTestId("status"))).toBeTruthy();
-    expect(screen.getByTestId(publicErrorCodeTestId("auth"))).toBeTruthy();
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("auth").container),
-    ).toBeTruthy();
+    expect(screen.getByTestId(authTestId("feedback"))).toBeTruthy();
+    expect(screen.getByTestId(authTestId("feedback"))).toBeTruthy();
+    expect(screen.getByTestId(authTestId("feedback"))).toBeTruthy();
   });
 
   it("loads, filters, selects, and pages deployment users", async () => {
@@ -201,7 +197,6 @@ describe("ordinary shell support", () => {
 
     render(
       <DeploymentUsersPanel
-        autoLoadUsers
         controller={deploymentController(
           sessionResource({ is_deployment_admin: true }),
         )}
@@ -265,6 +260,7 @@ describe("ordinary shell support", () => {
         <AccountSecurityPanel
           controller={
             new AccountSecurityController(() => ({
+              admitLogout: () => () => {},
               actor: sessionResource().user_id,
               current: () => true,
               event: () => undefined,
@@ -409,7 +405,6 @@ describe("ordinary shell support", () => {
 
     render(
       <DeploymentUsersPanel
-        autoLoadUsers
         enterpriseAuthClaimed
         controller={deploymentController(
           sessionResource({ is_deployment_admin: true }),
@@ -530,6 +525,7 @@ describe("ordinary shell support", () => {
         <AccountSecurityPanel
           controller={
             new AccountSecurityController(() => ({
+              admitLogout: () => () => {},
               actor: sessionResource().user_id,
               current: () => true,
               event: (event) => refresh(event),
@@ -544,7 +540,7 @@ describe("ordinary shell support", () => {
       fireEvent.click(screen.getByTestId(accountTestId("totp-begin")));
       await waitFor(() =>
         expect(
-          screen.getByTestId(accountTestId("totp-secret-base32")).textContent,
+          screen.getByTestId(accountTestId("totp-setup-key")).textContent,
         ).toBe("JBSWY3DPEHPK3PXP"),
       );
       fireEvent.change(

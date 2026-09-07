@@ -1,37 +1,20 @@
-import {
-  type CSSProperties,
-  type ReactNode,
-  type RefObject,
-  useLayoutEffect,
-  useRef,
-} from "react";
+import type { CSSProperties, ReactNode, RefObject } from "react";
+import { AccountDialog } from "./AccountDialog";
 import type { AccountSettingsPanelToken } from "./landingAdminTypes";
-import { useAccountDialogFocus } from "./useAccountDialogFocus";
 
 export function AccountSettingsDialog({
   panel,
   onClose,
   onSelect,
-  closeRef,
+  fallbackFocusRef,
   children,
 }: {
   panel: AccountSettingsPanelToken;
   onClose: () => void;
   onSelect: (panel: AccountSettingsPanelToken) => void;
-  closeRef: RefObject<HTMLButtonElement | null>;
+  fallbackFocusRef: RefObject<HTMLElement | null>;
   children: ReactNode;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const focus = useAccountDialogFocus(() => {
-    dialogRef.current?.close?.();
-    onClose();
-  });
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    dialog?.showModal?.();
-    if (dialog && !dialog.open) dialog.setAttribute("open", "");
-    return () => dialog?.close?.();
-  }, []);
   const tabs: ReadonlyArray<{
     label: string;
     token: AccountSettingsPanelToken;
@@ -41,102 +24,85 @@ export function AccountSettingsDialog({
     { token: "account-security", label: "Security" },
   ];
   return (
-    <div style={accountSettingsBackdropStyle}>
-      <dialog
-        ref={(element) => {
-          dialogRef.current = element;
-          focus.register(element);
-        }}
-        aria-label="Account settings"
-        aria-modal="true"
-        onCancel={(event) => {
-          event.preventDefault();
-          onClose();
-        }}
-        style={accountSettingsDialogStyle}
-        onKeyDown={focus.onKeyDown}
-      >
-        <header style={accountSettingsHeaderStyle}>
-          <div>
-            <p style={accountSettingsEyebrowStyle}>Account settings</p>
-            <h2 style={accountSettingsTitleStyle}>
-              {tabs.find((tab) => tab.token === panel)?.label}
-            </h2>
-          </div>
-          <button
-            ref={closeRef}
-            style={accountSettingsCloseButtonStyle}
-            type="button"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </header>
-        <div style={accountSettingsTabsStyle} role="tablist">
-          {tabs.map((tab) => (
+    <AccountDialog
+      label="Account settings"
+      onClose={onClose}
+      fallbackFocusRef={fallbackFocusRef}
+      style={accountSettingsDialogStyle}
+    >
+      {(dismiss) => (
+        <>
+          <header style={accountSettingsHeaderStyle}>
+            <div>
+              <p style={accountSettingsEyebrowStyle}>Account settings</p>
+              <h2 style={accountSettingsTitleStyle}>
+                {tabs.find((tab) => tab.token === panel)?.label}
+              </h2>
+            </div>
             <button
-              key={tab.token}
-              aria-selected={panel === tab.token}
-              role="tab"
-              id={`account-tab-${tab.token}`}
-              aria-controls="account-settings-tabpanel"
-              tabIndex={panel === tab.token ? 0 : -1}
-              onKeyDown={(event) => {
-                const index = tabs.findIndex((item) => item.token === panel);
-                const next =
-                  event.key === "ArrowRight"
-                    ? (index + 1) % tabs.length
-                    : event.key === "ArrowLeft"
-                      ? (index + tabs.length - 1) % tabs.length
-                      : event.key === "Home"
-                        ? 0
-                        : event.key === "End"
-                          ? tabs.length - 1
-                          : null;
-                const target = next === null ? undefined : tabs[next];
-                if (!target) return;
-                event.preventDefault();
-                onSelect(target.token);
-                document.getElementById(`account-tab-${target.token}`)?.focus();
-              }}
-              style={
-                panel === tab.token
-                  ? accountSettingsTabSelectedStyle
-                  : accountSettingsTabStyle
-              }
+              style={accountSettingsCloseButtonStyle}
               type="button"
-              onClick={() => {
-                onSelect(tab.token);
-              }}
+              onClick={dismiss}
             >
-              {tab.label}
+              Close
             </button>
-          ))}
-        </div>
-        <div
-          role="tabpanel"
-          id="account-settings-tabpanel"
-          aria-labelledby={`account-tab-${panel}`}
-          style={accountSettingsPanelStyle}
-        >
-          {children}
-        </div>
-      </dialog>
-    </div>
+          </header>
+          <div style={accountSettingsTabsStyle} role="tablist">
+            {tabs.map((tab) => (
+              <button
+                key={tab.token}
+                aria-selected={panel === tab.token}
+                role="tab"
+                id={`account-tab-${tab.token}`}
+                aria-controls="account-settings-tabpanel"
+                tabIndex={panel === tab.token ? 0 : -1}
+                onKeyDown={(event) => {
+                  const index = tabs.findIndex((item) => item.token === panel);
+                  const next =
+                    event.key === "ArrowRight"
+                      ? (index + 1) % tabs.length
+                      : event.key === "ArrowLeft"
+                        ? (index + tabs.length - 1) % tabs.length
+                        : event.key === "Home"
+                          ? 0
+                          : event.key === "End"
+                            ? tabs.length - 1
+                            : null;
+                  const target = next === null ? undefined : tabs[next];
+                  if (!target) return;
+                  event.preventDefault();
+                  onSelect(target.token);
+                  document
+                    .getElementById(`account-tab-${target.token}`)
+                    ?.focus();
+                }}
+                style={
+                  panel === tab.token
+                    ? accountSettingsTabSelectedStyle
+                    : accountSettingsTabStyle
+                }
+                type="button"
+                onClick={() => {
+                  onSelect(tab.token);
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div
+            role="tabpanel"
+            id="account-settings-tabpanel"
+            aria-labelledby={`account-tab-${panel}`}
+            style={accountSettingsPanelStyle}
+          >
+            {children}
+          </div>
+        </>
+      )}
+    </AccountDialog>
   );
 }
-
-const accountSettingsBackdropStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 40,
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gridTemplateRows: "minmax(0, 1fr)",
-  placeItems: "center",
-  padding: "var(--ct-spacing-lg)",
-  background: "rgba(12, 16, 24, 0.42)",
-};
 
 const accountSettingsDialogStyle: CSSProperties = {
   width: "min(60rem, 100%)",

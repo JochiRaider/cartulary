@@ -203,3 +203,64 @@ if (typeof HTMLElement !== "undefined") {
   installDimensionFallback("scrollHeight", "height");
   installDimensionFallback("scrollWidth", "width");
 }
+
+// DOM tests emulate dialog mechanics only. Browser scenarios establish native containment.
+if (typeof HTMLDialogElement !== "undefined") {
+  const modals: HTMLDialogElement[] = [];
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        if (this.open) return;
+        this.setAttribute("open", "");
+        modals.push(this);
+      },
+    },
+    close: {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        if (!this.open) return;
+        this.removeAttribute("open");
+        const index = modals.lastIndexOf(this);
+        if (index >= 0) modals.splice(index, 1);
+        this.dispatchEvent(new Event("close"));
+      },
+    },
+  });
+  document.addEventListener("keydown", (event) => {
+    const dialog = [...modals]
+      .reverse()
+      .find((element) => element.isConnected && element.open);
+    if (!dialog || event.defaultPrevented) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (dialog.dispatchEvent(new Event("cancel", { cancelable: true })))
+        dialog.close();
+    } else if (event.key === "Tab") {
+      const controls = [
+        ...dialog.querySelectorAll<HTMLElement>(
+          "button, input, select, textarea, a[href], [tabindex]",
+        ),
+      ].filter(
+        (element) =>
+          element.tabIndex >= 0 &&
+          !element.hasAttribute("disabled") &&
+          !(
+            element instanceof HTMLInputElement &&
+            element.type === "radio" &&
+            !element.checked
+          ),
+      );
+      const index = controls.indexOf(document.activeElement as HTMLElement);
+      const next = event.shiftKey
+        ? index <= 0
+          ? controls.length - 1
+          : index - 1
+        : (index + 1) % controls.length;
+      if (controls[next]) {
+        event.preventDefault();
+        controls[next].focus();
+      }
+    }
+  });
+}

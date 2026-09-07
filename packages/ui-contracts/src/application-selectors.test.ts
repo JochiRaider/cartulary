@@ -330,14 +330,12 @@ describe("@cartulary/ui-contracts application selectors", () => {
     expectSelectorCases(authTestId, [
       ["shell", "auth-shell"],
       ["shell-message", "auth-shell-message"],
-      ["status", "auth-status"],
+      ["feedback", "auth-feedback"],
       ["login-username", "auth-login-username"],
       ["login-password", "auth-login-password"],
       ["login-totp-code", "auth-login-totp-code"],
       ["login-submit", "auth-login-submit"],
-      ["bootstrap-token", "auth-bootstrap-token"],
-      ["bootstrap-enrollment-id", "auth-bootstrap-enrollment-id"],
-      ["bootstrap-secret-base32", "auth-bootstrap-secret-base32"],
+      ["bootstrap-setup-key", "auth-bootstrap-setup-key"],
       ["bootstrap-begin", "auth-bootstrap-begin"],
       ["bootstrap-complete-code", "auth-bootstrap-complete-code"],
       ["bootstrap-complete", "auth-bootstrap-complete"],
@@ -432,8 +430,7 @@ describe("@cartulary/ui-contracts application selectors", () => {
       ["totp-current-password", "account-totp-current-password"],
       ["totp-current-factor", "account-totp-current-factor"],
       ["totp-begin", "account-totp-begin"],
-      ["totp-enrollment-id", "account-totp-enrollment-id"],
-      ["totp-secret-base32", "account-totp-secret-base32"],
+      ["totp-setup-key", "account-totp-setup-key"],
       ["totp-complete-code", "account-totp-complete-code"],
       ["totp-complete", "account-totp-complete"],
       ["status", "account-status"],
@@ -470,12 +467,7 @@ describe("@cartulary/ui-contracts application selectors", () => {
       ["status", "admin-status"],
     ]);
 
-    expect(publicErrorCodeTestId("auth")).toBe("auth-error-code");
-    expect(publicErrorSummaryTestIds("auth")).toEqual({
-      container: "auth-error-public",
-      details: "auth-error-details",
-      message: "auth-error-message",
-    });
+    expect(authTestId("feedback")).toBe("auth-feedback");
     expect(publicErrorCodeTestId("account")).toBe("account-error-code");
     expect(publicErrorSummaryTestIds("account")).toEqual({
       container: "account-error-public",

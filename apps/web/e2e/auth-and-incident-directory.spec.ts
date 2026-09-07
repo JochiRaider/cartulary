@@ -129,6 +129,40 @@ test("signs in as a local user and inspects the ordinary session surface", async
     purpose: "authentication e101 successful ordinary login",
     userId: user.user_id,
   });
+  await page.getByTestId(accountTestId("logout")).click();
+  await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
+  await page.unroute("**/api/v1/auth/login");
+  await page.route("**/api/v1/auth/login", async (route) => {
+    ++loginWrites;
+    const committed = await route.fetch();
+    expect(committed.status()).toBe(200);
+    // Preserve the real cookie-changing response headers but lose its receipt body.
+    await route.fulfill({ response: committed, body: "{}" });
+  });
+  let inspections = 0;
+  await page.route("**/api/v1/auth/session", async (route) => {
+    ++inspections;
+    if (inspections === 1)
+      await route.fulfill({
+        status: 503,
+        json: { error: { code: "unavailable" } },
+      });
+    else await route.continue();
+  });
+  await new AuthGateway(page).login(email, password);
+  const inspect = page.getByRole("button", { name: "Retry session check" });
+  await expect.poll(() => inspections).toBe(1);
+  await expect(inspect).toBeEnabled();
+  await inspect.click();
+  await expectLandingAccountSession(page);
+  expect(loginWrites).toBe(2);
+  expect(inspections).toBe(2);
+  await sessionTracker.captureCurrentSession(page, {
+    createdBy: "authentication read recovery",
+    email,
+    purpose: "manual observation after an unavailable initial read",
+    userId: user.user_id,
+  });
 });
 
 test("requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code", async ({
@@ -162,7 +196,9 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
     "mfa_required",
   );
   await expect(page.getByTestId(authTestId("login-totp-code"))).toBeVisible();
-  await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText("");
+  await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
+    "Authenticator code required.",
+  );
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   const wrongTotpResponse = waitForPublicAPIResponse(page, {
@@ -176,7 +212,7 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
   await expect(page.getByTestId(authTestId("login-password"))).toHaveValue(
     password,
   );
-  await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
     "The verification code is incorrect or expired.",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
@@ -223,7 +259,7 @@ test("rejects invalid credentials without issuing a session cookie", async ({
   });
   await new AuthGateway(page).login(email, "WrongPassword1!");
   await invalidLoginResponse;
-  await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
     "Email or password is incorrect.",
   );
   expect(await hasSessionCookie(page)).toBeFalsy();
@@ -306,6 +342,7 @@ test("lets deployment admins create and patch users, rejects stale versions, and
     .getByTestId(landingAdminMenuItemTestId("administrative-audit"))
     .click();
   await expect(leave).toBeVisible();
+  expect(await leave.evaluate((node) => node.matches(":modal"))).toBe(true);
   await leave.getByRole("button", { name: "Stay", exact: true }).click();
   await expect(
     page.getByTestId(landingAdminMenuItemTestId("deployment-users")),
@@ -399,14 +436,15 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
     "data-bootstrap-state",
     "mfa_setup_required",
   );
-  await expect(page.getByTestId(authTestId("bootstrap-token"))).not.toHaveText(
-    "",
-  );
+  await expect(
+    page.getByRole("form", { name: "Authenticator setup" }),
+  ).toBeVisible();
+  await expect(page.getByText("Enrollment id", { exact: true })).toHaveCount(0);
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await new AuthGateway(page).beginBootstrapEnrollment();
   const secretBase32 = await new AuthGateway(page).requireText(
-    authTestId("bootstrap-secret-base32"),
+    authTestId("bootstrap-setup-key"),
   );
 
   await new AuthGateway(page).completeBootstrapEnrollment(
@@ -451,14 +489,15 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
     "data-bootstrap-state",
     "mfa_setup_required",
   );
-  await expect(page.getByTestId(authTestId("bootstrap-token"))).not.toHaveText(
-    "",
-  );
+  await expect(
+    page.getByRole("form", { name: "Authenticator setup" }),
+  ).toBeVisible();
+  await expect(page.getByText("Enrollment id", { exact: true })).toHaveCount(0);
   expect(await hasSessionCookie(page)).toBeFalsy();
 
   await new AuthGateway(page).beginBootstrapEnrollment();
   const replacementSecretBase32 = await new AuthGateway(page).requireText(
-    authTestId("bootstrap-secret-base32"),
+    authTestId("bootstrap-setup-key"),
   );
 
   await new AuthGateway(page).completeBootstrapEnrollment(
@@ -567,7 +606,7 @@ test("requires the current password and current TOTP code, revokes the session i
   await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
 
   await new AuthGateway(page).login(email, password);
-  await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
+  await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
     "Email or password is incorrect.",
   );
 

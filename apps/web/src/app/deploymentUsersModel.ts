@@ -1,4 +1,3 @@
-import { useLayoutEffect, useSyncExternalStore } from "react";
 import {
   type APIError,
   clientTxnID,
@@ -33,12 +32,7 @@ export type DeploymentUsersSessionPort = {
   revoked: (identity: Identity, message: string) => void;
   lost: (identity: Identity) => void;
 };
-export type DeploymentUsersPanelProps = {
-  controller: DeploymentUsersController;
-  autoLoadUsers?: boolean;
-  enterpriseAuthClaimed?: boolean;
-  active?: boolean;
-};
+
 type Binding = UserResource["auth_bindings"][number];
 export function isEnterpriseAuthBinding(
   binding: Binding,
@@ -100,12 +94,18 @@ type Intent = Readonly<{
   draftRevision: number;
   baseVersion: number | null;
 }>;
+type Recovery =
+  | { readonly kind: "exact_replay"; readonly attempt: ReplayAttempt }
+  | {
+      readonly kind: "observe_review";
+      readonly observation: "unobserved" | "pending" | "ready" | "failed";
+    };
 type Operation =
   | { kind: "idle" }
   | {
       kind: "pending" | "uncertain";
       intent: Intent;
-      attempt: ReplayAttempt | null;
+      recovery: Recovery;
     }
   | { kind: "rejected"; intent: Intent; review: boolean }
   | {
@@ -153,7 +153,6 @@ type State = {
   providers: EnterpriseAuthProvider[];
   providersStatus: "idle" | "loading" | "ready" | "failed";
   operation: Operation;
-  operationObserved: boolean;
   transportPending: boolean;
   leavePrompt: boolean;
   fieldErrors: Record<string, string>;
@@ -196,7 +195,6 @@ const initial = (): State => ({
   providers: [],
   providersStatus: "idle",
   operation: { kind: "idle" },
-  operationObserved: false,
   transportPending: false,
   leavePrompt: false,
   fieldErrors: {},
@@ -302,7 +300,6 @@ export class DeploymentUsersController {
   private selection = 0;
   private form = 0;
   private active = false;
-  private autoLoad = false;
   private disposed = false;
   private unsubscribe: (() => void) | null = null;
   private queryGeneration = 0;
@@ -320,7 +317,7 @@ export class DeploymentUsersController {
     private readonly session: DeploymentUsersSessionPort,
     private readonly api = { ...userApi, listEnterpriseAuthProviders },
   ) {}
-  getSnapshot = () => this.state;
+  getSnapshot = (): Readonly<State> => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {
@@ -391,12 +388,26 @@ export class DeploymentUsersController {
     );
   };
   open = () => {
+    if (this.disposed || this.active) return;
     this.start();
     this.active = true;
+    const epoch = this.epoch;
+    const form = this.form;
+    const request = this.readRequest;
+    queueMicrotask(() => {
+      if (
+        this.active &&
+        form === this.form &&
+        request === this.readRequest &&
+        this.current(undefined, epoch)
+      )
+        void this.refreshUsers();
+    });
+    if (this.state.enterpriseClaimed && this.state.providersStatus === "idle")
+      void this.discoverProviders();
   };
   close = () => {
     this.active = false;
-    this.autoLoad = false;
     ++this.form;
     ++this.readRequest;
     ++this.pageRequest;
@@ -418,9 +429,7 @@ export class DeploymentUsersController {
       fieldErrors: {},
     });
   };
-  configure = (autoLoad: boolean, enterpriseClaimed: boolean) => {
-    const newlyActive = autoLoad && !this.autoLoad;
-    this.autoLoad = autoLoad;
+  configure = (enterpriseClaimed: boolean) => {
     if (this.state.enterpriseClaimed !== enterpriseClaimed) {
       this.publish({
         enterpriseClaimed,
@@ -436,18 +445,6 @@ export class DeploymentUsersController {
       this.observations.get("providers")?.();
     }
     if (this.active && this.current()) {
-      if (autoLoad && (newlyActive || this.state.acceptedQuery === null)) {
-        const epoch = this.epoch;
-        const form = this.form;
-        queueMicrotask(() => {
-          if (
-            this.active &&
-            form === this.form &&
-            this.current(undefined, epoch)
-          )
-            void this.refreshUsers();
-        });
-      }
       if (enterpriseClaimed && this.state.providersStatus === "idle")
         void this.discoverProviders();
     }
@@ -473,7 +470,7 @@ export class DeploymentUsersController {
         this.state.operation.review &&
         this.state.operation.intent.target === this.state.selected.user_id) ||
       (this.state.operation.kind === "uncertain" &&
-        this.state.operation.attempt === null &&
+        this.state.operation.recovery.kind === "observe_review" &&
         this.state.operation.intent.target === this.state.selected.user_id));
   private canMutate = () =>
     this.active &&
@@ -578,13 +575,13 @@ export class DeploymentUsersController {
       this.transportCount ||
       this.state.targetStatus === "loading" ||
       (op.kind === "uncertain" &&
-        (op.attempt !== null || !this.state.operationObserved))
+        (op.recovery.kind !== "observe_review" ||
+          op.recovery.observation !== "ready"))
     )
       return;
     if (op.kind === "uncertain" && op.intent.action === "create") {
       this.publish({
         operation: { kind: "idle" },
-        operationObserved: false,
         error: null,
         statusText:
           "Current users reviewed. The earlier create remains unconfirmed; explicitly review any new create.",
@@ -612,7 +609,6 @@ export class DeploymentUsersController {
         baseVersion: selected.user_version,
       },
       operation: { kind: "idle" },
-      operationObserved: false,
       error: null,
       statusText:
         "Current user reviewed. Remaining changes can be submitted as a new action.",
@@ -629,7 +625,7 @@ export class DeploymentUsersController {
     this.observations.get("query")?.();
     clearTimeout(this.debounce);
     this.publish({ queryDraft, queryStatus: "pending", pagePending: false });
-    if (this.autoLoad)
+    if (this.active)
       this.debounce = setTimeout(() => {
         void this.refreshUsers();
       }, 180);
@@ -678,8 +674,34 @@ export class DeploymentUsersController {
       ).result;
     }
   };
+  private recoveryIntent(target: string | null) {
+    const op = this.state.operation;
+    return op.kind === "uncertain" &&
+      op.recovery.kind === "observe_review" &&
+      op.intent.target === target
+      ? op.intent
+      : null;
+  }
+  private observeRecovery(
+    intent: Intent | null,
+    observation: "pending" | "ready" | "failed",
+  ) {
+    const op = this.state.operation;
+    if (
+      intent &&
+      op.kind === "uncertain" &&
+      op.intent === intent &&
+      op.recovery.kind === "observe_review"
+    ) {
+      this.publish({
+        operation: { ...op, recovery: { kind: "observe_review", observation } },
+      });
+    }
+  }
   refreshUsers = async () => {
     if (!this.active || !this.current()) return;
+    const recovery = this.recoveryIntent(null);
+    this.observeRecovery(recovery, "pending");
     clearTimeout(this.debounce);
     const generation = ++this.queryGeneration;
     const request = ++this.readRequest;
@@ -727,6 +749,7 @@ export class DeploymentUsersController {
                   : resource,
               );
         if (!accepted) {
+          this.observeRecovery(recovery, "failed");
           this.publish({
             queryStatus: "failed",
             error: { code: "invalid_deployment_user_response", status: 502 },
@@ -739,6 +762,7 @@ export class DeploymentUsersController {
         if (index < 0) users.push(accepted);
         else users[index] = accepted;
       }
+      this.observeRecovery(recovery, "ready");
       this.publish({
         authorized: true,
         users: users.sort((a, b) =>
@@ -746,10 +770,6 @@ export class DeploymentUsersController {
         ),
         acceptedQuery: query,
         queryDraft: query,
-        operationObserved:
-          this.state.operationObserved ||
-          (this.state.operation.kind === "uncertain" &&
-            this.state.operation.intent.action === "create"),
         queryStatus: "idle",
         paging: {
           next: paging.next_cursor,
@@ -767,6 +787,7 @@ export class DeploymentUsersController {
       outcome.kind === "completed" && !outcome.value.ok
         ? (outcome.value.payload.error ?? null)
         : null;
+    this.observeRecovery(recovery, "failed");
     this.publish({
       queryStatus: "failed",
       error: accountOperationError(error) ?? {
@@ -912,6 +933,8 @@ export class DeploymentUsersController {
   };
   private loadTarget = async (target: string) => {
     if (!this.active || !this.current()) return;
+    const recovery = this.recoveryIntent(target);
+    this.observeRecovery(recovery, "pending");
     const selection = this.selection;
     const request = ++this.targetRequest;
     const epoch = this.epoch;
@@ -937,14 +960,11 @@ export class DeploymentUsersController {
     ) {
       const user = this.acceptResource(outcome.value.payload.data);
       if (user) {
+        this.observeRecovery(recovery, "ready");
         this.publish({
           authorized: true,
           selected: user,
           targetStatus: "idle",
-          operationObserved:
-            this.state.operationObserved ||
-            (this.state.operation.kind === "uncertain" &&
-              this.state.operation.intent.target === target),
           draft: this.state.draft ?? {
             changes: {},
             baseVersion: user.user_version,
@@ -968,6 +988,7 @@ export class DeploymentUsersController {
       outcome.kind === "completed" && !outcome.value.ok
         ? (outcome.value.payload.error ?? null)
         : null;
+    this.observeRecovery(recovery, "failed");
     this.publish({
       targetStatus: "failed",
       error: accountOperationError(error) ?? {
@@ -1079,7 +1100,7 @@ export class DeploymentUsersController {
   private async dispatch(
     intent: Intent,
     task: (signal: AbortSignal) => Promise<MutationReply>,
-    attempt: ReplayAttempt | null = null,
+    recovery: Recovery = { kind: "observe_review", observation: "unobserved" },
     replay = false,
   ) {
     if (
@@ -1099,8 +1120,7 @@ export class DeploymentUsersController {
     const current = () =>
       this.current(intent.identity, epoch) && this.operation === token;
     this.publish({
-      operation: { kind: "pending", intent, attempt },
-      operationObserved: false,
+      operation: { kind: "pending", intent, recovery },
       transportPending: true,
       error: null,
       statusText: labels[intent.action][0],
@@ -1125,8 +1145,8 @@ export class DeploymentUsersController {
         (!outcome.value.ok && outcome.value.status >= 500)
       ) {
         this.publish({
-          operation: { kind: "uncertain", intent, attempt },
-          statusText: `${labels[intent.action][0]}: outcome uncertain for ${intent.target ?? intent.label}. ${attempt ? "Replay the exact action to check the original request." : "Refresh current state and explicitly review a new action. Matching state is not a receipt."}`,
+          operation: { kind: "uncertain", intent, recovery },
+          statusText: `${labels[intent.action][0]}: outcome uncertain for ${intent.target ?? intent.label}. ${recovery.kind === "exact_replay" ? "Replay the exact action to check the original request." : "Refresh current state and explicitly review a new action. Matching state is not a receipt."}`,
         });
         return false;
       }
@@ -1160,7 +1180,7 @@ export class DeploymentUsersController {
           result.user.user_version < intent.baseVersion)
       ) {
         this.publish({
-          operation: { kind: "uncertain", intent, attempt },
+          operation: { kind: "uncertain", intent, recovery },
           statusText:
             "Administrator response did not match the captured action. Review current state.",
         });
@@ -1170,7 +1190,7 @@ export class DeploymentUsersController {
         const accepted = this.acceptResource(result.user);
         if (!accepted) {
           this.publish({
-            operation: { kind: "uncertain", intent, attempt },
+            operation: { kind: "uncertain", intent, recovery },
             statusText:
               "Administrator response was inconsistent with accepted state. Review current state.",
           });
@@ -1435,11 +1455,10 @@ export class DeploymentUsersController {
     Object.freeze(attempt);
     const intent = this.intent(action);
     if (intent)
-      void this.dispatch(
-        intent,
-        (signal) => this.sendReplay(attempt, signal),
+      void this.dispatch(intent, (signal) => this.sendReplay(attempt, signal), {
+        kind: "exact_replay",
         attempt,
-      );
+      });
   };
   private async sendReplay(
     attempt: ReplayAttempt,
@@ -1488,126 +1507,14 @@ export class DeploymentUsersController {
   }
   replay = () => {
     const op = this.state.operation;
-    if (op.kind === "uncertain" && op.attempt !== null) {
-      const attempt = op.attempt;
+    if (op.kind === "uncertain" && op.recovery.kind === "exact_replay") {
+      const attempt = op.recovery.attempt;
       void this.dispatch(
         op.intent,
         (signal) => this.sendReplay(attempt, signal),
-        attempt,
+        { kind: "exact_replay", attempt },
         true,
       );
     }
-  };
-}
-
-export function useDeploymentUsers({
-  controller,
-  autoLoadUsers = false,
-  enterpriseAuthClaimed = false,
-  active = true,
-}: DeploymentUsersPanelProps) {
-  const state = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-  );
-  useLayoutEffect(() => {
-    if (active) controller.open();
-    else controller.close();
-    return controller.close;
-  }, [controller, active]);
-  useLayoutEffect(() => {
-    controller.configure(active && autoLoadUsers, enterpriseAuthClaimed);
-  }, [controller, autoLoadUsers, enterpriseAuthClaimed, active]);
-  const selected = state.selected;
-  const values = selected
-    ? { ...mutable(selected), ...state.draft?.changes }
-    : null;
-  return {
-    ...state,
-    selectedUser: selected,
-    userFilter: state.queryDraft.search,
-    userActiveFilter:
-      state.queryDraft.isActive === null
-        ? "all"
-        : String(state.queryDraft.isActive),
-    userAdminFilter:
-      state.queryDraft.isAdmin === null
-        ? "all"
-        : String(state.queryDraft.isAdmin),
-    usersHasMore: state.paging.hasMore,
-    setUserFilter: (search: string) => controller.changeQuery({ search }),
-    setUserActiveFilter: (v: string) =>
-      controller.changeQuery({ isActive: v === "all" ? null : v === "true" }),
-    setUserAdminFilter: (v: string) =>
-      controller.changeQuery({ isAdmin: v === "all" ? null : v === "true" }),
-    createEmail: state.create.email,
-    createDisplayName: state.create.displayName,
-    createInitialPassword: state.create.password,
-    createMfaRequired: state.create.mfaRequired,
-    createIsDeploymentAdmin: state.create.admin,
-    createDialogOpen: state.createOpen,
-    setCreateEmail: (v: string) => controller.changeCreate("email", v),
-    setCreateDisplayName: (v: string) =>
-      controller.changeCreate("displayName", v),
-    setCreateInitialPassword: (v: string) =>
-      controller.changeCreate("password", v),
-    setCreateMfaRequired: (v: boolean) =>
-      controller.changeCreate("mfaRequired", v),
-    setCreateIsDeploymentAdmin: (v: boolean) =>
-      controller.changeCreate("admin", v),
-    setCreateDialogOpen: controller.createDialog,
-    patchEmail: values?.email ?? "",
-    patchDisplayName: values?.display_name ?? "",
-    patchMfaRequired: values?.mfa_required ?? true,
-    patchIsActive: values?.is_active ?? true,
-    patchIsDeploymentAdmin: values?.is_deployment_admin ?? false,
-    setPatchEmail: (v: string) => controller.changeDraft("email", v),
-    setPatchDisplayName: (v: string) =>
-      controller.changeDraft("display_name", v),
-    setPatchMfaRequired: (v: boolean) =>
-      controller.changeDraft("mfa_required", v),
-    setPatchIsActive: (v: boolean) => controller.changeDraft("is_active", v),
-    setPatchIsDeploymentAdmin: (v: boolean) =>
-      controller.changeDraft("is_deployment_admin", v),
-    adminNewPassword: state.password,
-    adminReason: state.reason,
-    setAdminNewPassword: controller.changePassword,
-    setAdminReason: controller.changeReason,
-    setCredentialDialog: controller.credentialDialog,
-    enterpriseProviders: state.providers,
-    bindingProviderKey: state.binding.providerKey,
-    bindingProviderSubject: state.binding.subject,
-    bindingTargetID: state.binding.target,
-    bindingNewSubject: state.binding.newSubject,
-    bindingReason: state.binding.reason,
-    setBindingProviderKey: (v: string) =>
-      controller.changeBinding("providerKey", v),
-    setBindingProviderSubject: (v: string) =>
-      controller.changeBinding("subject", v),
-    setBindingTargetID: (v: string) => controller.changeBinding("target", v),
-    setBindingNewSubject: (v: string) =>
-      controller.changeBinding("newSubject", v),
-    setBindingReason: (v: string) => controller.changeBinding("reason", v),
-    clearSelectedUser: () => {
-      void controller.select("");
-    },
-    loadSelectedUser: controller.select,
-    handleCreateUser: controller.create,
-    handlePatchUser: controller.save,
-    handleAdminPasswordReset: controller.resetPassword,
-    handleAdminTotpReset: () => controller.safeAction("totp"),
-    handleAdminRevokeAll: () => controller.safeAction("revoke"),
-    handleCreateEnterpriseBinding: () => controller.safeAction("bindingCreate"),
-    handleRotateEnterpriseBinding: () => controller.safeAction("bindingRotate"),
-    handleRetireEnterpriseBinding: () => controller.safeAction("bindingRetire"),
-    refreshUsers: controller.refreshUsers,
-    loadMoreUsers: controller.loadMore,
-    targetOperationPending:
-      state.targetStatus === "loading" || state.operation.kind === "pending",
-    canSubmitTargetAction: controller.canTargetAction(),
-    canSave: controller.canSave(),
-    canPage: controller.canPage(),
-    dirty: controller.hasDirtyDraft(),
-    reviewRequired: controller.needsReview(),
   };
 }

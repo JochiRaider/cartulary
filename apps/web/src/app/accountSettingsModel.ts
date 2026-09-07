@@ -70,7 +70,7 @@ export type AppearanceEditState = EditorState<
   DensityMode | null
 > & { readonly kind: "appearance" };
 export type AccountEditState = ProfileEditState | AppearanceEditState;
-export type AccountSettingsSnapshot = Readonly<{
+type AccountSettingsSnapshot = Readonly<{
   profile: ProfileEditState;
   appearance: AppearanceEditState;
 }>;

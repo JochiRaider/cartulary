@@ -100,7 +100,7 @@ describe("ordinary app shell", () => {
         "data-bootstrap-state",
       ),
     ).toBe("loading");
-    expect(screen.getByTestId(authTestId("status")).textContent).toBe(
+    expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
       "Checking current session...",
     );
     pendingInitialSession.resolve(
@@ -301,19 +301,16 @@ describe("ordinary app shell", () => {
     fireEvent.click(screen.getByTestId(authTestId("login-submit")));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId(publicErrorCodeTestId("auth")).textContent,
-      ).toBe("Sign-in request could not be completed.");
+      expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
+        "Sign-in request could not be completed.",
+      );
     });
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("auth").message).textContent,
-    ).toBe("Sign-in request could not be completed.");
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("auth").details).textContent,
-    ).toBe("");
+    expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
+      "Sign-in request could not be completed.",
+    );
     expect(
       screen
-        .getByTestId(publicErrorCodeTestId("auth"))
+        .getByTestId(authTestId("feedback"))
         .getAttribute("data-error-code"),
     ).toBe("invalid_auth_request");
     expectPrivateErrorProbeNotRendered();
@@ -461,8 +458,8 @@ describe("ordinary app shell", () => {
       ).toBe("mfa_required");
     });
     expect(screen.getByTestId(authTestId("login-totp-code"))).toBeTruthy();
-    expect(screen.getByTestId(publicErrorCodeTestId("auth")).textContent).toBe(
-      "",
+    expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
+      "Authenticator code required.",
     );
     expect(
       screen
@@ -493,15 +490,11 @@ describe("ordinary app shell", () => {
         .getByTestId(authTestId("shell"))
         .getAttribute("data-bootstrap-state"),
     ).toBe("mfa_setup_required");
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("auth").message).textContent,
-    ).toBe("Authenticator setup is required before sign-in.");
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("auth").details).textContent,
-    ).toBe("");
-    expect(screen.getByTestId(authTestId("bootstrap-token")).textContent).toBe(
-      "Stored for TOTP setup requests.",
+    expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
+      "Authenticator setup is required before sign-in.",
     );
+    expect(document.body.textContent).not.toContain("Setup token");
+    expect(document.body.textContent).not.toContain("Enrollment id");
     const preBeginText = document.body.textContent ?? "";
     expect(preBeginText).not.toContain("bootstrap-token-123");
     expect(preBeginText).not.toContain("ERRORSECRETBASE32");
@@ -513,7 +506,7 @@ describe("ordinary app shell", () => {
     fireEvent.click(screen.getByTestId(authTestId("bootstrap-begin")));
     await waitFor(() => {
       expect(
-        screen.getByTestId(authTestId("bootstrap-secret-base32")).textContent,
+        screen.getByTestId(authTestId("bootstrap-setup-key")).textContent,
       ).toBe("JBSWY3DPEHPK3PXP");
     });
 
@@ -526,7 +519,9 @@ describe("ordinary app shell", () => {
     fireEvent.click(screen.getByTestId(authTestId("bootstrap-complete")));
 
     await waitFor(() => {
-      expect(screen.getByTestId(authTestId("status")).textContent).toBe("");
+      expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
+        "Authenticator setup is complete. Sign in again.",
+      );
     });
     expect(document.body.textContent ?? "").toContain(
       "Authenticator setup is complete. Sign in again.",
@@ -673,7 +668,7 @@ describe("ordinary app shell", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(accountTestId("totp-secret-base32")).textContent,
+        screen.getByTestId(accountTestId("totp-setup-key")).textContent,
       ).toBe("JBSWY3DPEHPK3PXP");
     });
 
@@ -701,9 +696,7 @@ describe("ordinary app shell", () => {
           .getAttribute("data-bootstrap-state"),
       ).toBe("revoked"),
     );
-    expect(screen.getByTestId(publicErrorCodeTestId("auth")).textContent).toBe(
-      "",
-    );
+    expect(screen.getByTestId(authTestId("feedback")).textContent).toBe("");
     expect(
       screen.getByTestId(authTestId("shell-message")).textContent,
     ).toContain("Password changed. Sign in again.");
@@ -1017,7 +1010,7 @@ describe("ordinary app shell", () => {
     fireEvent.click(screen.getByTestId(authTestId("bootstrap-begin")));
     await waitFor(() => {
       expect(
-        screen.getByTestId(authTestId("bootstrap-secret-base32")).textContent,
+        screen.getByTestId(authTestId("bootstrap-setup-key")).textContent,
       ).toBe("JBSWY3DPEHPK3PXP");
     });
 
@@ -1030,22 +1023,16 @@ describe("ordinary app shell", () => {
     fireEvent.click(screen.getByTestId(authTestId("bootstrap-complete")));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId(publicErrorCodeTestId("auth")).textContent,
-      ).toBe("The verification code is incorrect or expired.");
+      expect(screen.getByTestId(authTestId("feedback")).textContent).toBe(
+        "The verification code is incorrect or expired.",
+      );
     });
-    expect(screen.getByTestId(authTestId("status")).textContent).toBe(
-      "Authenticator setup required.",
-    );
     expect(
-      screen.getByTestId(publicErrorSummaryTestIds("auth").message).textContent,
-    ).toBe("The verification code is incorrect or expired.");
-    expect(
-      screen.getByTestId(publicErrorSummaryTestIds("auth").details).textContent,
-    ).toBe("");
+      screen.getByTestId(authTestId("feedback")).getAttribute("role"),
+    ).toBe("alert");
     expect(
       screen
-        .getByTestId(publicErrorCodeTestId("auth"))
+        .getByTestId(authTestId("feedback"))
         .getAttribute("data-error-code"),
     ).toBe("invalid_second_factor");
     expect(
@@ -1120,8 +1107,8 @@ describe("ordinary app shell", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(accountTestId("totp-enrollment-id")).textContent,
-      ).toBe("00000000-0000-4000-8000-000000000001");
+        screen.getByTestId(accountTestId("totp-setup-key")).textContent,
+      ).toBe("JBSWY3DPEHPK3PXP");
     });
     fireEvent.change(screen.getByTestId(accountTestId("totp-complete-code")), {
       target: { value: "000000" },

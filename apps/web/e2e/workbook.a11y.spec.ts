@@ -5005,8 +5005,8 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       "aria-busy",
       "true",
     );
-    await expectStatusRole(page.getByTestId(authTestId("status")));
-    await expect(page.getByTestId(authTestId("status"))).toContainText(
+    await expectStatusRole(page.getByTestId(authTestId("feedback")));
+    await expect(page.getByTestId(authTestId("feedback"))).toContainText(
       "Checking current session",
     );
     await expectP1SurfaceA11y(page, {
@@ -5101,12 +5101,12 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         "data-bootstrap-state",
         "mfa_required",
       );
-      await expectStatusRole(page.getByTestId(authTestId("status")));
-      await expect(page.getByTestId(authTestId("status"))).toContainText(
+      await expectStatusRole(page.getByTestId(authTestId("feedback")));
+      await expect(page.getByTestId(authTestId("feedback"))).toContainText(
         "Authenticator code",
       );
       await expectNoPrivateDiagnostics(
-        page.getByTestId(publicErrorSummaryTestIds("auth").container),
+        page.getByTestId(authTestId("feedback")),
       );
       expect(await hasSessionCookie(page)).toBeFalsy();
       await expectP1SurfaceA11y(page, {
@@ -5156,27 +5156,24 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         "data-bootstrap-state",
         "mfa_setup_required",
       );
-      await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toHaveText(
+      await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
         "Authenticator setup is required before sign-in.",
       );
-      await expect(page.getByTestId(authTestId("bootstrap-token"))).toHaveText(
-        "Stored for TOTP setup requests.",
+      await expect(page.getByText("Setup token", { exact: true })).toHaveCount(
+        0,
       );
       await expectNoPrivateDiagnostics(
-        page.getByTestId(publicErrorSummaryTestIds("auth").container),
+        page.getByTestId(authTestId("feedback")),
       );
       await expectP1SurfaceA11y(page, {
         focusTestId: authTestId("bootstrap-begin"),
-        tabStops: [
-          authTestId("bootstrap-begin"),
-          authTestId("bootstrap-complete-code"),
-        ],
+        tabStops: [authTestId("bootstrap-begin")],
       });
 
       await new AuthGateway(page).beginBootstrapEnrollment();
-      await expectStatusRole(page.getByTestId(authTestId("status")));
+      await expectStatusRole(page.getByTestId(authTestId("feedback")));
       const secretBase32 = await new AuthGateway(page).requireText(
-        authTestId("bootstrap-secret-base32"),
+        authTestId("bootstrap-setup-key"),
       );
       await expectP1SurfaceA11y(page, {
         focusTestId: authTestId("bootstrap-complete-code"),
@@ -5500,10 +5497,18 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(
       "credential_state_unavailable",
     );
-    await expectAlertRole(page.getByTestId(publicErrorCodeTestId("account")));
     await expectAlertRole(
-      page.getByTestId(publicErrorSummaryTestIds("account").container),
+      page.getByTestId(publicErrorSummaryTestIds("account").message),
     );
+    await expect(
+      page.getByTestId(publicErrorCodeTestId("account")),
+    ).not.toHaveAttribute("role", "alert");
+    await expect(
+      page.getByTestId(publicErrorSummaryTestIds("account").container),
+    ).not.toHaveAttribute("role", "alert");
+    await expect(
+      page.getByRole("dialog", { name: "Account settings" }).getByRole("alert"),
+    ).toHaveCount(1);
     await expect(
       page.getByTestId(publicErrorSummaryTestIds("account").message),
     ).toHaveText("Request failed.");
@@ -5849,6 +5854,11 @@ test("a11y.deployment-users guarded drafts and credential dialogs remain keyboar
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   const guard = page.getByRole("dialog", { name: "Unsaved user changes" });
   await expect(guard).toBeVisible();
+  expect(await guard.evaluate((node) => node.matches(":modal"))).toBe(true);
+  await field.evaluate((node) => node.focus());
+  await expect(
+    guard.getByRole("button", { name: "Stay", exact: true }),
+  ).toBeFocused();
   await expect(
     guard.getByRole("button", { name: "Stay", exact: true }),
   ).toBeFocused();
@@ -5872,11 +5882,15 @@ test("a11y.deployment-users guarded drafts and credential dialogs remain keyboar
   const dialog = page.getByRole("dialog", {
     name: "Confirm credential action",
   });
+  expect(await dialog.evaluate((node) => node.matches(":modal"))).toBe(true);
   const password = dialog.getByLabel("New password", { exact: true });
   await password.fill("short");
   await password.press("Enter");
   await expect(password).toHaveAttribute("aria-invalid", "true");
   await expect(password).toHaveAccessibleDescription(/12/);
+  await expect(dialog.getByRole("status")).toHaveCount(1);
+  await page.mouse.click(1, 1);
+  await expect(dialog).toBeVisible();
   await password.fill("Transient Password!");
   for (const viewport of [
     { width: 360, height: 480 },
@@ -5930,5 +5944,15 @@ test("a11y.deployment-users guarded drafts and credential dialogs remain keyboar
   await expect(dialog.getByLabel("New password", { exact: true })).toHaveValue(
     "",
   );
+  await page
+    .getByRole("button", {
+      name: "Reset password",
+      exact: true,
+      includeHidden: true,
+    })
+    .evaluate((node) => node.remove());
   await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Account and application navigation" }),
+  ).toBeFocused();
 });

@@ -34,15 +34,13 @@ test("Verify bootstrap route selectors and error-state selectors use stable test
   ).toBeAttached();
   await new DeploymentAdministration(page).open();
   await expect(page.getByTestId(deploymentAdminTestId("status"))).toBeVisible();
-  expect(authTestId("bootstrap-token")).toBe("auth-bootstrap-token");
+  expect(authTestId("bootstrap-setup-key")).toBe("auth-bootstrap-setup-key");
 
   await page.context().clearCookies();
   await page.goto("/");
 
   await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
-  await expect(page.getByTestId(authTestId("status"))).toBeVisible();
-  await expect(page.getByTestId(publicErrorCodeTestId("auth"))).toBeAttached();
-  await expect(
-    page.getByTestId(publicErrorSummaryTestIds("auth").container),
-  ).toBeAttached();
+  await expect(page.getByTestId(authTestId("feedback"))).toBeVisible();
+  await expect(page.getByTestId(authTestId("feedback"))).toBeAttached();
+  await expect(page.getByTestId(authTestId("feedback"))).toBeAttached();
 });

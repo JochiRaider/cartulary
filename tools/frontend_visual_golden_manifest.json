@@ -100,19 +100,19 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-invalid-mfa-linux.png",
-      "sha256": "65f20a802f06a26beca1dbe271ec94e23f0b54d73a40a4f9e8cd941096188563"
+      "sha256": "15c2d56818559dbb236452bd688117965c43421ff1b8c9792010e98a8df24dce"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-loading-linux.png",
-      "sha256": "0057665ec7fd7bf608e3bdb3228223c22dbeaf2faf8ac99b3c17f04957d94805"
+      "sha256": "6cfbf8aaed5670de3429a400f1678d718e752a2a06e218ccf11f9c184b33263f"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-required-linux.png",
-      "sha256": "e3ab55761a6aab8106c9c4b609881c95ab238ab935fed6a3f0cfa5c3fe8cfa73"
+      "sha256": "dcbfd7602ea53260c7985d9708316b4aaf3aeb862c8b5cd8d7c6502c4e44dcd2"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mfa-setup-required-linux.png",
-      "sha256": "2b312502d16aa424fd4bfe4c38488a90510d197239ed12235c9f1da1fed86352"
+      "sha256": "e701dfb7fe9b7598a6ce0f6d264b6f7909c5fbde0d2e3bfbb8b429cab63449b3"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-mobile-linux.png",
@@ -124,11 +124,11 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-service-unavailable-linux.png",
-      "sha256": "a349e72239eb05e00b938fbf928c30a5d543e71873e63f71fdc2c3ddda942daf"
+      "sha256": "07a89ecc578b09d09f579cd810ea29cc5a6be18bdc05a7401967a46e2f29c11b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-submitting-linux.png",
-      "sha256": "29f3283974b3ca582f0eedee6151b1c96b618e5517cb2c0fddefa53419562d38"
+      "sha256": "0d91e999157f15badf07cc7b7b88649c8b5d60da97f017c59b84020397abd31b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/collaboration-conflict-resolver-linux.png",

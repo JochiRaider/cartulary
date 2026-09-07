@@ -453,8 +453,12 @@
         "file": "apps/web/src/app/accountFrontendBoundaries.test.tsx",
         "titles": [
           "account frontend boundaries admits one same-turn login and accepts owner-valid deployment email",
+          "account frontend boundaries announces an authentication error through one live source",
           "account frontend boundaries clears dispatched password inputs and excludes retired Security completion",
+          "account frontend boundaries dismisses an account action dialog exactly once for explicit Close",
           "account frontend boundaries excludes Security completion after its form retires",
+          "account frontend boundaries keeps dialog dismissal and focus stable through lifecycle replay and changing controls",
+          "account frontend boundaries restores dialog focus to the connected fallback when its trigger is removed",
           "account frontend boundaries suppresses duplicate login with ordinary email"
         ]
       },
@@ -1154,12 +1158,18 @@
       "selector": {
         "file": "apps/web/src/app/accountAuthenticationLifecycle.test.ts",
         "titles": [
+          "authentication and Security operation lifetime accepts a manually observed session while retaining admission for an outstanding login",
+          "authentication and Security operation lifetime allows manual session inspection while an uncertain login transport remains outstanding",
           "authentication and Security operation lifetime bounds MFA password retention from initial dispatch and clears submitted factor codes",
+          "authentication and Security operation lifetime bounds and serializes session inspection without converting observations into write receipts",
           "authentication and Security operation lifetime expires enrollment material and excludes obsolete enrollment success",
+          "authentication and Security operation lifetime fences session acceptance itself when the initiating authentication flow closes",
           "authentication and Security operation lifetime fences uncertain-session continuation and late login publication after retirement",
           "authentication and Security operation lifetime keeps Security uncertainty after a late success and requires explicit review",
           "authentication and Security operation lifetime keeps confirmed credential changes separate from failed propagation",
           "authentication and Security operation lifetime keeps timeout uncertainty separate from outstanding authentication transport settlement",
+          "authentication and Security operation lifetime releases Security transport availability after retirement without publishing its outcome",
+          "authentication and Security operation lifetime releases only matching Security transports across retirement and disposal",
           "authentication and Security operation lifetime retains only active bootstrap material and never signs in from enrollment completion",
           "authentication and Security operation lifetime retains safe credential resources while showing failed reads and fencing retired reads",
           "authentication and Security operation lifetime separates failed provider discovery from unclaimed discovery and isolates navigation instances",
@@ -1231,9 +1241,11 @@
           "deployment user operation ownership fences old pages, failed query replacements, duplicate activation and invalid cursors",
           "deployment user operation ownership keeps Save and leave pending for newer edits and lets Discard leave without erasing an operation",
           "deployment user operation ownership keeps confirmed writes confirmed when refresh fails and retries only propagation",
+          "deployment user operation ownership loads on activation and search while keeping inactive panels quiet",
           "deployment user operation ownership makes obsolete success and authorization failures inert after capability loss and identical-account reauthentication",
           "deployment user operation ownership preserves a PATCH uncertainty until fresh observation and explicit review, never replaying it",
           "deployment user operation ownership replays exact non-credential actions against captured targets after selection and version changes",
+          "deployment user operation ownership requires a fresh successful observation for the captured uncertain operation",
           "deployment user operation ownership routes self revocation through the session owner and requires review for transaction conflict",
           "deployment user operation ownership suppresses empty patches and acknowledges only the submitted draft revision"
         ]

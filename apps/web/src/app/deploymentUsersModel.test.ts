@@ -137,6 +137,63 @@ function fixture() {
 }
 
 describe("deployment user operation ownership", () => {
+  it("loads on activation and search while keeping inactive panels quiet", async () => {
+    vi.useFakeTimers();
+    const { model, ports } = fixture();
+    await flush();
+    expect(ports.listUsers).toHaveBeenCalledOnce();
+    model.open();
+    await flush();
+    expect(ports.listUsers).toHaveBeenCalledOnce();
+    model.changeQuery({ search: "current" });
+    await vi.advanceTimersByTimeAsync(180);
+    expect(ports.listUsers).toHaveBeenCalledTimes(2);
+    expect(ports.listUsers.mock.lastCall?.[0]?.search).toBe("current");
+    model.close();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(ports.listUsers).toHaveBeenCalledTimes(2);
+    model.open();
+    await flush();
+    expect(ports.listUsers).toHaveBeenCalledTimes(3);
+    expect(ports.listUsers.mock.lastCall?.[0]?.search).toBe("current");
+  });
+  it("requires a fresh successful observation for the captured uncertain operation", async () => {
+    const { model, ports } = fixture();
+    await model.select(user().user_id);
+    model.changeDraft("display_name", "Draft");
+    const write = deferred<Awaited<ReturnType<typeof api.patchLocalUser>>>();
+    ports.patchLocalUser.mockReturnValueOnce(write.promise);
+    const saving = model.save();
+    const oldRead = deferred<Awaited<ReturnType<typeof api.loadUser>>>();
+    ports.loadUser.mockReturnValueOnce(oldRead.promise);
+    const refreshing = model.refreshTarget();
+    write.resolve(failure("unavailable", 503));
+    await saving;
+    oldRead.resolve(success(user()));
+    await refreshing;
+    expect(model.getSnapshot().operation).toMatchObject({
+      kind: "uncertain",
+      recovery: { kind: "observe_review", observation: "unobserved" },
+    });
+    model.review();
+    expect(model.getSnapshot().operation.kind).toBe("uncertain");
+    ports.loadUser.mockResolvedValueOnce(failure("unavailable", 503));
+    await model.refreshTarget();
+    expect(model.getSnapshot().operation).toMatchObject({
+      recovery: { observation: "failed" },
+    });
+    await model.refreshTarget();
+    expect(model.getSnapshot().operation).toMatchObject({
+      kind: "uncertain",
+      recovery: { observation: "ready" },
+    });
+    model.review();
+    expect(model.getSnapshot().operation.kind).toBe("idle");
+    expect(model.getSnapshot().draft?.changes).toEqual({
+      display_name: "Draft",
+    });
+    expect(ports.patchLocalUser).toHaveBeenCalledOnce();
+  });
   it("fences old pages, failed query replacements, duplicate activation and invalid cursors", async () => {
     const { model, ports } = fixture();
     ports.listUsers.mockResolvedValueOnce(page([user()], "cursor"));
@@ -270,7 +327,7 @@ describe("deployment user operation ownership", () => {
     await saving;
     expect(model.getSnapshot().operation).toMatchObject({
       kind: "uncertain",
-      attempt: null,
+      recovery: { kind: "observe_review", observation: "unobserved" },
     });
     model.replay();
     model.review();
@@ -310,7 +367,7 @@ describe("deployment user operation ownership", () => {
       };
       ports.loadUser.mockResolvedValueOnce(success(bound));
       await model.select(bound.user_id);
-      model.configure(false, true);
+      model.configure(true);
       model.changeBinding("providerKey", "corp");
       model.changeBinding("subject", "  e\u0301 opaque  ");
       model.changeBinding("newSubject", "  replacement  ");
@@ -406,7 +463,7 @@ describe("deployment user operation ownership", () => {
       );
       expect(model.getSnapshot().operation).toMatchObject({
         kind: "uncertain",
-        attempt: null,
+        recovery: { kind: "observe_review", observation: "unobserved" },
       });
       const sent = create
         ? ports.createLocalUser.mock.calls[0]?.[0].initialPassword

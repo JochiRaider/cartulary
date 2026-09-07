@@ -82,15 +82,25 @@ describe("application session lifecycle", () => {
     await controller.refreshSession();
     const revision = controller.getSnapshot().revision;
     const retirements = retireLifetime.mock.calls.length;
-    expect(await controller.confirmAuthentication(revision)).toBe(false);
+    expect(
+      await controller.confirmAuthentication(
+        revision,
+        new AbortController().signal,
+        () => true,
+      ),
+    ).toEqual({ kind: "session_lost" });
     expect(controller.getSnapshot().revision).toBe(revision);
     expect(retireLifetime).toHaveBeenCalledTimes(retirements);
     const late = deferred<SessionResult>();
     session.mockReturnValueOnce(late.promise);
-    const confirmation = controller.confirmAuthentication(revision);
+    const confirmation = controller.confirmAuthentication(
+      revision,
+      new AbortController().signal,
+      () => true,
+    );
     controller.credentialsRevoked();
     late.resolve(success());
-    expect(await confirmation).toBe(false);
+    expect(await confirmation).toEqual({ kind: "cancelled" });
     expect(controller.getSnapshot().session).toBeNull();
   });
 

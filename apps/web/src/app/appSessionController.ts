@@ -63,7 +63,7 @@ type SessionPorts = {
 type Observation<T> =
   | { kind: "completed"; value: T }
   | { kind: "cancelled" | "timeout" | "transport" };
-type SessionObservation =
+export type SessionObservation =
   | { kind: "accepted"; session: SessionData }
   | Exclude<
       AuthorizationRecoveryResult,
@@ -169,17 +169,16 @@ export class AppSessionController {
     this.accept(session, true);
     return true;
   }
-  async confirmAuthentication(expectedRevision: number): Promise<boolean> {
-    if (this.snapshot.revision !== expectedRevision) return false;
-    return (
-      (
-        await this.observeSession(
-          true,
-          undefined,
-          () => this.snapshot.revision === expectedRevision,
-          "authentication",
-        )
-      ).kind === "accepted"
+  confirmAuthentication(
+    expectedRevision: number,
+    signal: AbortSignal,
+    current: () => boolean,
+  ): Promise<SessionObservation> {
+    return this.observeSession(
+      true,
+      signal,
+      () => this.snapshot.revision === expectedRevision && current(),
+      "authentication",
     );
   }
   logoutConfirmed() {

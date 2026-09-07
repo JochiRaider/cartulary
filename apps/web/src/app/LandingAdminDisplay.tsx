@@ -36,12 +36,12 @@ export function PublicErrorSummary({
 }) {
   const view = publicErrorView(error);
   return (
-    <div
-      data-testid={testIds.container}
-      role={view === null ? undefined : "alert"}
-      style={publicErrorStyle}
-    >
-      <p data-testid={testIds.message} style={errorMessageStyle}>
+    <div data-testid={testIds.container} style={publicErrorStyle}>
+      <p
+        data-testid={testIds.message}
+        role={view === null ? undefined : "alert"}
+        style={errorMessageStyle}
+      >
         {view?.statusText ?? ""}
       </p>
       <p data-testid={testIds.details} style={errorDetailStyle}>
