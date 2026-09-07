@@ -1286,6 +1286,18 @@
       "classification": "additive",
       "owner_id": "module.auth",
       "rationale": "Project existing Core 01 authentication and enterprise binding request requirements as closed generated operation contracts."
+    },
+    {
+      "fingerprint": "95d541dab1b798ad3bb68f1263bd2cd1dce75df9de882a225a2eabb0aeb4199e",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project the adopted optional asynchronous Activate/Disable response as a complete common job receipt without changing inline backend execution."
+    },
+    {
+      "fingerprint": "6237c68e2a3bd3effd41fb99496b91b4c6c73bddbaa88fdbfb1d499678b993b9",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project the adopted optional asynchronous Activate/Disable response as a complete common job receipt without changing inline backend execution."
     }
   ]
 }

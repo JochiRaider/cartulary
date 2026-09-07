@@ -23,7 +23,33 @@ import {
   jsonResponse,
 } from "../testing/fetchMockTestSupport";
 import type { SessionData } from "./api/publicHttpTypes";
-import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
+import { ReferencePackAdminPanel as Panel } from "./ReferencePackAdminPanel";
+import { useReferencePackAdmin } from "./useReferencePackAdmin";
+
+function ReferencePackAdminPanel({
+  session,
+  active = true,
+  visible = true,
+}: {
+  session: SessionData;
+  active?: boolean;
+  visible?: boolean;
+}) {
+  const authority = session.is_deployment_admin
+    ? { lifetime: session.authenticated_at, actorId: session.user_id }
+    : null;
+  const controller = useReferencePackAdmin({
+    authority,
+    active,
+    isCurrent: (value) =>
+      session.is_deployment_admin &&
+      value.actorId === session.user_id &&
+      value.lifetime === session.authenticated_at,
+    confirmAccess: async () => ({ kind: "authorized" }),
+    authorizationFailed: () => {},
+  });
+  return visible ? <Panel controller={controller} active={active} /> : null;
+}
 
 describe("ReferencePackAdminPanel", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -44,6 +70,211 @@ describe("ReferencePackAdminPanel", () => {
       screen.getByTestId(referencePackAdminPanelTestId()).textContent,
     ).toContain("Deployment admin access is required");
     expect(screen.queryByTestId(referencePackFileInputTestId())).toBeNull();
+  });
+
+  it("admits material search and filter edits without a separate submit", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(packListEnvelope([packResource()])),
+    );
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    await screen.findByTestId(
+      referencePackRowTestId("type_registry.host", "1"),
+    );
+    fireEvent.change(screen.getByLabelText("Search reference packs"), {
+      target: { value: "identity" },
+    });
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes("search=identity"),
+        ),
+      ).toBe(true),
+    );
+    fireEvent.change(screen.getByLabelText("Reference pack active state"), {
+      target: { value: "false" },
+    });
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) =>
+            String(input).includes("active=false") &&
+            String(input).includes("search=identity"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("retains a selected upload across panel remount without native validation blocking import", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(packListEnvelope([])));
+    const currentSession = session(true);
+    const view = render(<ReferencePackAdminPanel session={currentSession} />);
+    const file = new File(["retained bytes"], "Retained.tar");
+    fireEvent.change(screen.getByLabelText("Reference pack bundle"), {
+      target: { files: [file] },
+    });
+    view.rerender(
+      <ReferencePackAdminPanel
+        session={currentSession}
+        active={false}
+        visible={false}
+      />,
+    );
+    view.rerender(<ReferencePackAdminPanel session={currentSession} />);
+    const input = screen.getByLabelText(
+      "Reference pack bundle",
+    ) as HTMLInputElement;
+    await waitFor(() => expect(input.disabled).toBe(false));
+    expect(input.files?.length).toBe(0);
+    expect(screen.getByText("Selected file: Retained.tar")).toBeTruthy();
+    expect(input.checkValidity()).toBe(true);
+  });
+
+  it("does not load an inactive administration panel", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(packListEnvelope([])));
+    render(
+      <ReferencePackAdminPanel
+        {...{ session: session(true), active: false }}
+      />,
+    );
+    await Promise.resolve();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("retains the actual ancestor scroll position across ordinary panel concealment", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(packListEnvelope([packResource()])),
+    );
+    const presentation = (active: boolean) => (
+      <section
+        aria-label="Scroll retention fixture"
+        style={{ overflowY: "auto" }}
+      >
+        <ReferencePackAdminPanel session={session(true)} active={active} />
+      </section>
+    );
+    const view = render(presentation(true));
+    await screen.findByTestId(
+      referencePackRowTestId("type_registry.host", "1"),
+    );
+    const host = screen.getByRole("region", {
+      name: "Scroll retention fixture",
+    });
+    Object.defineProperties(host, {
+      scrollHeight: { value: 1000 },
+      clientHeight: { value: 100 },
+    });
+    fireEvent.scroll(host, { target: { scrollTop: 375 } });
+    view.rerender(presentation(false));
+    fireEvent.scroll(host, { target: { scrollTop: 0 } });
+    view.rerender(presentation(true));
+    expect(host.scrollTop).toBe(375);
+  });
+
+  it("offers observation recovery after a failed job read", async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    fetchMock.mockImplementation((input, init) => {
+      if (String(input).startsWith("/api/v1/jobs/"))
+        return Promise.resolve(errorResponse("internal_error", 500));
+      if (init?.method === "POST")
+        return Promise.resolve(
+          jsonResponse(
+            {
+              data: jobResource(id, "queued", true, 0, 1),
+              meta: { request_id: "accepted" },
+            },
+            202,
+          ),
+        );
+      return Promise.resolve(jsonResponse(packListEnvelope([packResource()])));
+    });
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    await screen.findByTestId(
+      referencePackRowTestId("type_registry.host", "1"),
+    );
+    fireEvent.click(screen.getByTestId(referencePackRefreshAllButtonTestId()));
+    expect(
+      await screen.findByRole("button", { name: "Retry observation" }),
+    ).toBeTruthy();
+  });
+
+  it("admits only one request for the same pending cursor", async () => {
+    const page = deferred<Response>();
+    fetchMock.mockImplementation((input) =>
+      String(input).includes("cursor_token=")
+        ? page.promise
+        : Promise.resolve(
+            jsonResponse(
+              packListEnvelope([packResource()], {
+                limit: 100,
+                has_more: true,
+                next_cursor: "next",
+              }),
+            ),
+          ),
+    );
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    const more = await screen.findByRole("button", { name: "Load more" });
+    fireEvent.click(more);
+    fireEvent.click(more);
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([input]) =>
+          String(input).includes("cursor_token="),
+        ).length,
+      ).toBe(1),
+    );
+    page.resolve(jsonResponse(packListEnvelope([])));
+  });
+
+  it("does not replace an unresolved refresh with a duplicate command", async () => {
+    const admission = deferred<Response>();
+    fetchMock.mockImplementation((_input, init) =>
+      init?.method === "POST"
+        ? admission.promise
+        : Promise.resolve(jsonResponse(packListEnvelope([packResource()]))),
+    );
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    await screen.findByTestId(
+      referencePackRowTestId("type_registry.host", "1"),
+    );
+    const refresh = screen.getByTestId(referencePackRefreshAllButtonTestId());
+    fireEvent.click(refresh);
+    fireEvent.click(refresh);
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")
+          .length,
+      ).toBe(1),
+    );
+    admission.resolve(errorResponse("invalid_reference_pack_request", 400));
+  });
+
+  it("keeps uncertain refresh recovery beside the exact captured request", async () => {
+    fetchMock.mockImplementation((_input, init) =>
+      init?.method === "POST"
+        ? Promise.resolve(errorResponse("internal_error", 500))
+        : Promise.resolve(jsonResponse(packListEnvelope([packResource()]))),
+    );
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    await screen.findByTestId(
+      referencePackRowTestId("type_registry.host", "1"),
+    );
+    fireEvent.click(screen.getByTestId(referencePackRefreshAllButtonTestId()));
+    const retry = await screen.findByRole("button", {
+      name: "Retry exact request",
+    });
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")
+          .length,
+      ).toBe(2),
+    );
+    const bodies = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => init.body);
+    expect(bodies[1]).toBe(bodies[0]);
+    expect(JSON.parse(bodies[0])).not.toHaveProperty("pack_keys");
   });
 
   it("shows job progress and cancel controls for deployment-admin Reference Pack work", async () => {
@@ -82,10 +313,13 @@ describe("ReferencePackAdminPanel", () => {
       }
       if (url === "/api/v1/reference-packs/refresh" && method === "POST") {
         return Promise.resolve(
-          jsonResponse({
-            data: jobResource(jobID, "queued", true, 0, 1),
-            meta: { request_id: "request-1" },
-          }),
+          jsonResponse(
+            {
+              data: jobResource(jobID, "queued", true, 0, 1),
+              meta: { request_id: "request-1" },
+            },
+            202,
+          ),
         );
       }
       if (url === `/api/v1/jobs/${jobID}` && method === "GET") {
@@ -109,10 +343,7 @@ describe("ReferencePackAdminPanel", () => {
 
     render(<ReferencePackAdminPanel session={session(true)} />);
     expect(screen.getByTestId(referencePackAdminPanelTestId())).toBeTruthy();
-    expect(screen.queryByTestId(referencePackFileInputTestId())).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Import pack" }));
     expect(screen.getByTestId(referencePackFileInputTestId())).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Filter loaded packs")).toBeNull();
 
     const packRow = await screen.findByTestId(
@@ -165,7 +396,7 @@ describe("ReferencePackAdminPanel", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(referencePackJobStatusTestId()).textContent,
-      ).toContain("running");
+      ).toContain("Running");
     });
     expect(screen.getByTestId(referencePackCancelButtonTestId())).toBeTruthy();
 
@@ -291,9 +522,9 @@ describe("ReferencePackAdminPanel", () => {
     fireEvent.change(screen.getByLabelText("Search reference packs"), {
       target: { value: "identity" },
     });
-    fireEvent.keyDown(screen.getByLabelText("Search reference packs"), {
-      key: "Enter",
-    });
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Reference pack catalog query" }),
+    );
 
     expect(
       screen.getByTestId(referencePackListStatusTestId()).textContent,
@@ -301,18 +532,21 @@ describe("ReferencePackAdminPanel", () => {
     expect(
       screen.getByTestId(referencePackRowTestId("type_registry.host", "1")),
     ).toBeTruthy();
-    expect(
-      fetchMock.mock.calls.some(
-        ([input]) =>
-          String(input) === "/api/v1/reference-packs?limit=100&search=identity",
-      ),
-    ).toBe(true);
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) =>
+            String(input) ===
+            "/api/v1/reference-packs?limit=100&search=identity",
+        ),
+      ).toBe(true),
+    );
 
     searchResponse.resolve(errorResponse("reference_pack_search_failed", 500));
     await waitFor(() => {
-      expect(screen.getByTestId(referencePackErrorTestId()).textContent).toBe(
-        "reference_pack_search_failed",
-      );
+      expect(
+        screen.getByTestId(referencePackErrorTestId()).textContent,
+      ).toContain("request was rejected");
     });
     appendResponse.resolve(
       jsonResponse(
@@ -326,9 +560,9 @@ describe("ReferencePackAdminPanel", () => {
         ),
       ).toBeNull();
     });
-    expect(screen.getByTestId(referencePackErrorTestId()).textContent).toBe(
-      "reference_pack_search_failed",
-    );
+    expect(
+      screen.getByTestId(referencePackErrorTestId()).textContent,
+    ).toContain("request was rejected");
   });
 
   it("clears protected list state and invalidates pending generations on authorization loss", async () => {
@@ -399,9 +633,9 @@ describe("ReferencePackAdminPanel", () => {
 
     render(<ReferencePackAdminPanel session={session(true)} />);
     await waitFor(() => {
-      expect(screen.getByTestId(referencePackErrorTestId()).textContent).toBe(
-        "invalid_public_contract_response",
-      );
+      expect(
+        screen.getByTestId(referencePackErrorTestId()).textContent,
+      ).toContain("could not be validated");
     });
     expect(
       screen.getByTestId(referencePackListStatusTestId()).textContent,
@@ -411,7 +645,7 @@ describe("ReferencePackAdminPanel", () => {
 
 function session(isDeploymentAdmin: boolean): SessionData {
   return {
-    user_id: "user-1",
+    user_id: "22222222-2222-4222-8222-222222222222",
     display_name: "Operator",
     provider_type: "local",
     mfa_state: "satisfied",
@@ -469,7 +703,7 @@ function packResource(
     imported_at: "2026-05-24T00:00:00Z",
     imported_by_user_id: null,
     manifest_sha256: "a".repeat(64),
-    pack_contract_version: "1",
+    pack_contract_version: "cartulary.reference_pack.v1",
     pack_key: "type_registry.host",
     pack_kind: "type_registry",
     pack_version: "1",
@@ -478,7 +712,7 @@ function packResource(
     previous_active_version: null,
     signer_key_id: null,
     source_identifier: null,
-    verification_method: "sha256",
+    verification_method: "manifest_sha256_v1",
     verification_result: "passed" as const,
     ...overrides,
   };

@@ -3,6 +3,76 @@
   "owner_id": "module.reference_data",
   "rows": [
     {
+      "row_id": "module.reference_data.browser.administration_async_recovery",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/reference-pack.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_7c2843c7b21f"
+        ],
+        "titles": [
+          "supports asynchronous exact actions and retained selection with independent observation recovery"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.reference_data.browser.administration_real_lifecycle",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/reference-pack.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_6d7791e02f0f"
+        ],
+        "titles": [
+          "imports and replays real pack bytes then activates disables reverifies and refreshes exact scope by keyboard"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.browser",
@@ -38,6 +108,104 @@
       ]
     },
     {
+      "row_id": "module.reference_data.frontend.administration_query_ownership",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/referencePackAdminModel.test.ts",
+        "titles": [
+          "Reference Pack ownership coalesces exact repeated versions without changing server order or key selection",
+          "Reference Pack ownership gates catalog success and failure by the newest admitted generation",
+          "Reference Pack ownership keeps query generations independent from transport cancellation and invalidation",
+          "Reference Pack ownership normalizes Unicode input while retaining server search semantics"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.frontend.administration_recovery",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/referencePackAdminController.test.ts",
+        "titles": [
+          "Reference Pack execution accepts a hidden admission without automatic reads and clears every retired continuation",
+          "Reference Pack execution bounds ignored-abort admission and observation without treating read failure as job failure",
+          "Reference Pack execution captures selected scope once and admits no conflicting operation",
+          "Reference Pack execution coalesces completion behind the newest query and preserves failed query recovery",
+          "Reference Pack execution keeps an inline commit committed when catalog reconciliation fails",
+          "Reference Pack execution keeps concealed observation unavailable until access is confirmed and clears confirmed loss",
+          "Reference Pack execution observes a completion race before cancellation and never sends a replacement action",
+          "Reference Pack execution reconciles a terminal replay receipt after another known job finishes reading",
+          "Reference Pack execution recovers observation failure and keeps multiple known jobs isolated from late reads",
+          "Reference Pack execution rejects regressing observations and keeps terminal snapshots stable",
+          "Reference Pack execution replays an uncertain upload with the original bytes target and transaction",
+          "Reference Pack execution replays only the captured uncertain cancellation and observes authoritative completion",
+          "Reference Pack execution retires captured upload bytes and ignores a late admission after capability loss",
+          "Reference Pack execution reviews exact version eligibility without substituting a different mutation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reference_data.frontend.administration_transport",
+      "owner_id": "module.reference_data",
+      "family_id": "module.reference_data.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reference_data.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/referencePacks.test.ts",
+        "titles": [
+          "Reference Pack transport distinguishes definitive rejection conflict malformed success and transport uncertainty",
+          "Reference Pack transport keeps all omission separate from deduplicated explicit selected scope during replay",
+          "Reference Pack transport preserves upload bytes filename media hint and staged-only metadata across lost-response replay",
+          "Reference Pack transport validates complete job envelopes while accepting unknown additive reference kinds",
+          "Reference Pack transport validates inline and asynchronous activation and disable by successful HTTP status"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79",
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.frontend",
@@ -51,10 +219,18 @@
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
+          "admits material search and filter edits without a separate submit",
+          "admits only one request for the same pending cursor",
           "clears protected list state and invalidates pending generations on authorization loss",
           "discards stale reference pack search responses",
+          "does not load an inactive administration panel",
+          "does not replace an unresolved refresh with a duplicate command",
+          "keeps uncertain refresh recovery beside the exact captured request",
+          "offers observation recovery after a failed job read",
           "rejects malformed successful Reference Pack responses",
+          "retains a selected upload across panel remount without native validation blocking import",
           "retains accepted rows while searching, resets paging on Enter, and ignores stale terminal results",
+          "retains the actual ancestor scroll position across ordinary panel concealment",
           "shows job progress and cancel controls for deployment-admin Reference Pack work"
         ]
       },

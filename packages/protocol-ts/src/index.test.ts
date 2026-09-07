@@ -146,6 +146,78 @@ describe("@cartulary/protocol-ts family conformance", () => {
   });
 
   it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
+    const pack = {
+      pack_key: "type_registry.host",
+      pack_kind: "type_registry",
+      pack_version: "1",
+      pack_version_state: "verified_available",
+      active: true,
+      source_identifier: null,
+      manifest_sha256: "a".repeat(64),
+      payload_sha256: "b".repeat(64),
+      pack_contract_version: "1",
+      verification_method: "sha256",
+      verification_result: "passed",
+      signer_key_id: null,
+      previous_active_version: null,
+      imported_by_user_id: null,
+      imported_at: "2026-01-01T00:00:00Z",
+      activated_by_user_id: null,
+      activated_at: null,
+    };
+    const job = {
+      job_id: "11111111-1111-4111-8111-111111111111",
+      scope: { kind: "deployment" },
+      status_route: "/api/v1/jobs/11111111-1111-4111-8111-111111111111",
+      status: "queued",
+      cancelable: true,
+      submitted_by_user_id: "22222222-2222-4222-8222-222222222222",
+      submitted_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+      progress: { completed: 0, total: null },
+      started_at: null,
+      finished_at: null,
+      retained_until: null,
+      result_summary: null,
+      error_summary: null,
+    };
+    for (const operation of [
+      "activateReferencePackVersion",
+      "disableReferencePackVersion",
+    ] as const) {
+      const inline = {
+        data: { pack_version: pack },
+        meta: { request_id: "inline" },
+      };
+      const accepted = { data: job, meta: { request_id: "accepted" } };
+      expect(httpOperationBindings[operation].success_statuses).toEqual([
+        200, 202,
+      ]);
+      expect(validateHTTPOperationResponse(operation, inline, 200).ok).toBe(
+        true,
+      );
+      expect(validateHTTPOperationResponse(operation, accepted, 202).ok).toBe(
+        true,
+      );
+      expect(validateHTTPOperationResponse(operation, inline).ok).toBe(true);
+      expect(validateHTTPOperationResponse(operation, accepted).ok).toBe(true);
+      expect(validateHTTPOperationResponse(operation, inline, 202).ok).toBe(
+        false,
+      );
+      expect(validateHTTPOperationResponse(operation, accepted, 200).ok).toBe(
+        false,
+      );
+      expect(validateHTTPOperationResponse(operation, accepted, 201).ok).toBe(
+        false,
+      );
+      expect(
+        validateHTTPOperationResponse(
+          operation,
+          { data: { job_id: job.job_id }, meta: accepted.meta },
+          202,
+        ).ok,
+      ).toBe(false);
+    }
     expect([
       buildHTTPOperationPath("loginLocalUser"),
       buildHTTPOperationPath("logoutCurrentSession"),

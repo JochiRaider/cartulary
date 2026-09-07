@@ -736,6 +736,7 @@ function operationBindings(openAPI, selection, definitions) {
         .filter((status) => /^[23][0-9][0-9]$/u.test(status))
         .sort();
       let responseType;
+      const responseTypesByStatus = {};
       for (const status of successStatuses) {
         let response = requireObject(responses[status], `${operation.operationId} ${status}`);
         const responseComponent = localComponentName(response.$ref, "responses");
@@ -751,14 +752,23 @@ function operationBindings(openAPI, selection, definitions) {
         }
         responseType = localComponentName(responseSchema.$ref, "schemas");
         if (!responseType) {
-          responseType = `${pascalID}ResponseBody`;
+          responseType = Object.keys(responseTypesByStatus).length === 0
+            ? `${pascalID}ResponseBody`
+            : `${pascalID}Response${status}Body`;
           definitions[responseType] = cloneWithRewrittenReferences(
             responseSchema,
             "#/components/schemas/",
             "#/$defs/",
           );
         }
-        break;
+        responseTypesByStatus[status] = responseType;
+      }
+      const distinctResponseTypes = [...new Set(Object.values(responseTypesByStatus))];
+      if (distinctResponseTypes.length > 1) {
+        responseType = `${pascalID}SuccessBody`;
+        definitions[responseType] = {
+          anyOf: distinctResponseTypes.map((name) => ({ $ref: `#/$defs/${name}` })),
+        };
       }
       const parameters = [
         ...(Array.isArray(pathItem.parameters) ? pathItem.parameters : []),
@@ -784,6 +794,7 @@ function operationBindings(openAPI, selection, definitions) {
         queryParameters,
         requestType,
         responseType,
+        responseTypesByStatus,
         successStatuses,
         responseValidationPolicyID:
           responseValidationPolicies.get(operation.operationId) ??
@@ -829,6 +840,10 @@ function httpOperationBindingSource(operations, forbiddenAuditVisibleFieldTokens
             response_schema_id: operation.responseType
               ? `cartulary.core_http.${operation.responseType}.v1`
               : null,
+            response_schemas_by_status: Object.fromEntries(
+              Object.entries(operation.responseTypesByStatus).map(([status, name]) =>
+                [status, `cartulary.core_http.${name}.v1`]),
+            ),
             response_validation_policy_id:
               operation.responseValidationPolicyID,
           },
@@ -976,9 +991,16 @@ function httpOperationBindingSource(operations, forbiddenAuditVisibleFieldTokens
     ...responseValidators,
     "};",
     "",
-    "export function validateHTTPOperationResponse(operationID: HTTPOperationID, value: unknown): HTTPResponseValidation {",
-    "  const validator = httpResponseValidators[operationID];",
-    "  const schemaId = httpOperationBindings[operationID].response_schema_id;",
+    "const statusResponseValidators: Partial<Record<HTTPOperationID, Readonly<Record<number, ((value: unknown) => boolean) & { errors?: readonly { instancePath?: string }[] | null }>>>> = {",
+    ...operations.map((operation) => `  ${JSON.stringify(operation.operationID)}: {${Object.entries(operation.responseTypesByStatus).map(([status, name]) => `${status}: validators.validate${pascalCase(`cartulary.core_http.${name}.v1`)}`).join(", ")}},`),
+    "};",
+    "",
+    "export function validateHTTPOperationResponse(operationID: HTTPOperationID, value: unknown, status?: number): HTTPResponseValidation {",
+    "  const binding = httpOperationBindings[operationID];",
+    "  const schemas: Readonly<Record<number, string>> = binding.response_schemas_by_status;",
+    "  const schemaId = status === undefined ? binding.response_schema_id : schemas[status];",
+    "  if (status !== undefined && !(binding.success_statuses as readonly number[]).includes(status)) return { ok: false, schemaId: binding.response_schema_id ?? operationID, instancePath: \"\" };",
+    "  const validator = status === undefined ? httpResponseValidators[operationID] : statusResponseValidators[operationID]?.[status];",
     "  if (!schemaId) return { ok: true };",
     "  if (!validator) return { ok: false, schemaId, instancePath: \"\" };",
     "  const policyID = httpOperationBindings[operationID].response_validation_policy_id;",
@@ -1109,7 +1131,7 @@ const coreHTTPEntrypoints = [
   "core_http.component_schema_names",
     ),
     ...selectedHTTPOperations.flatMap((operation) =>
-      [operation.requestType, operation.responseType].filter(Boolean),
+      [operation.requestType, operation.responseType, ...Object.values(operation.responseTypesByStatus)].filter(Boolean),
     ),
   ]),
 ].sort();

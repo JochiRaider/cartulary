@@ -72,6 +72,9 @@
         "apps/web/src/app/landingAdminStyles.ts",
         "apps/web/src/app/landingAdminTypes.ts",
         "apps/web/src/app/otelBoundary.test.ts",
+        "apps/web/src/app/referencePackAdminController.test.ts",
+        "apps/web/src/app/referencePackAdminController.ts",
+        "apps/web/src/app/referencePackAdminModel.test.ts",
         "apps/web/src/app/referencePackAdminModel.ts",
         "apps/web/src/app/routeState.test.ts",
         "apps/web/src/app/routeState.ts",
@@ -83,7 +86,8 @@
         "apps/web/src/app/useDeploymentUsers.ts",
         "apps/web/src/app/useIncidentCreation.ts",
         "apps/web/src/app/useIncidentDirectory.ts",
-        "apps/web/src/app/useIncidentImport.ts"
+        "apps/web/src/app/useIncidentImport.ts",
+        "apps/web/src/app/useReferencePackAdmin.ts"
       ]
     },
     {
@@ -185,6 +189,7 @@
         "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "apps/web/src/services/networkFlowContractAdapter.ts",
         "apps/web/src/services/publicErrorIdentity.ts",
+        "apps/web/src/services/referencePacks.test.ts",
         "apps/web/src/services/referencePacks.ts",
         "apps/web/src/services/workbookEvidence.test.ts",
         "apps/web/src/services/workbookEvidence.ts"
@@ -214,6 +219,7 @@
         "apps/web/src/testing/extensionAvailabilityTestSupport.ts",
         "apps/web/src/testing/fetchMockTestSupport.ts",
         "apps/web/src/testing/incidentImportTestSupport.ts",
+        "apps/web/src/testing/referencePackTestSupport.ts",
         "apps/web/src/testing/selectorContractPolicy.test.ts",
         "apps/web/src/testing/sourceOwnershipPolicy.test.ts",
         "apps/web/src/testing/testSetup.dom.ts",

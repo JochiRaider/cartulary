@@ -11,918 +11,870 @@ import {
   referencePackReloadButtonTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
-import { X } from "lucide-react";
+import type { CSSProperties } from "react";
 import {
-  type CSSProperties,
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-
-import { type APIError, extractError } from "../services/browserApi";
-import {
-  activateReferencePackVersion,
-  cancelReferencePackJob,
-  disableReferencePackVersion,
-  importReferencePackBundle,
-  listReferencePacks,
-  loadReferencePackJob,
-  type ReferencePackAction,
-  refreshReferencePacks,
-  reverifyReferencePackVersion,
+  type ReferencePackCommand,
+  referencePackJobProblem,
+  referencePackResultTarget,
+  referencePackVersionRoute,
 } from "../services/referencePacks";
+import type { ReferencePackAdminController } from "./referencePackAdminController";
 import {
-  type DeploymentAdminSession,
-  defaultReferencePackPaging,
-  type ReferencePackJobResource,
-  type ReferencePackQuery,
-  type ReferencePackVersion,
+  emptyReferencePackQuery,
+  type ReferencePackKnownJob,
+  referencePackBusy,
+  referencePackCommandLabel,
+  referencePackEligible,
+  referencePackIdentity,
+  referencePackListStatus,
+  referencePackProblemText,
   terminalReferencePackJobStates,
 } from "./referencePackAdminModel";
+import { useReferencePackAdminPresentation } from "./useReferencePackAdmin";
 
-export type { ReferencePackJobResource } from "./referencePackAdminModel";
+const referencePackStyles = `
+[data-reference-pack-admin] :is(button,input,select):focus-visible { outline: var(--ct-border-focus); outline-offset: var(--ct-component-focus-ring-offset); }
+[data-reference-pack-admin] button:is(:disabled,[aria-disabled="true"]) { color: var(--ct-colors-ink-subtle) !important; background: var(--ct-colors-surface-3) !important; cursor: not-allowed; }
+[data-reference-pack-admin] progress { appearance: none; box-sizing: border-box; height: var(--ct-spacing-sm); border: var(--ct-border-hairline); border-radius: var(--ct-rounded-pill); background: var(--ct-colors-surface-3); }
+[data-reference-pack-admin] progress:indeterminate { background: repeating-linear-gradient(135deg, var(--ct-colors-accent) 0, var(--ct-colors-accent) var(--ct-spacing-xs), var(--ct-colors-surface-3) var(--ct-spacing-xs), var(--ct-colors-surface-3) var(--ct-spacing-sm)); }
+[data-reference-pack-admin] progress::-webkit-progress-bar { background: inherit; border-radius: inherit; }
+[data-reference-pack-admin] progress::-webkit-progress-value { background: var(--ct-colors-accent); border-radius: inherit; }
+[data-reference-pack-admin] progress::-moz-progress-bar { background: var(--ct-colors-accent); border-radius: inherit; }
+[data-reference-pack-admin] .rp-cell-label { display: none; }
+@container (max-width: 42rem) {
+  [data-reference-pack-admin] table, [data-reference-pack-admin] tbody, [data-reference-pack-admin] caption { display: block; }
+  [data-reference-pack-admin] colgroup { display: none; }
+  [data-reference-pack-admin] thead { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+  [data-reference-pack-admin] tbody tr { display: flex; flex-wrap: wrap; border-block-end: var(--ct-border-hairline); padding-block: var(--ct-spacing-sm); }
+  [data-reference-pack-admin] td { display: block; box-sizing: border-box; min-inline-size: 0; flex: 1 1 12em; border-block-end: 0 !important; }
+  [data-reference-pack-admin] td:first-child, [data-reference-pack-admin] td:last-child { flex-basis: 100%; }
+  [data-reference-pack-admin] .rp-cell-label { display: block; font-weight: bold; margin-block-end: var(--ct-spacing-xs); }
+}
+`;
 
-type ReferencePackAdminPanelProps = {
-  activeJob?: ReferencePackJobResource | null;
-  onJobChange?: (job: ReferencePackJobResource | null) => void;
-  session: DeploymentAdminSession;
-};
-
-type ReferencePackAdminPanelHandle = {
-  cancelJob: () => Promise<void>;
-  importBundle: () => Promise<void>;
-  refreshAll: () => Promise<void>;
-  refreshPacks: () => Promise<void>;
-  refreshSelected: () => Promise<void>;
-};
-
-type ReferencePackListStatus = "idle" | "searching" | "loaded" | "unavailable";
-
-export const ReferencePackAdminPanel = forwardRef<
-  ReferencePackAdminPanelHandle,
-  ReferencePackAdminPanelProps
->(function ReferencePackAdminPanel({ activeJob, onJobChange, session }, ref) {
-  const [packs, setPacks] = useState<ReferencePackVersion[]>([]);
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
-  const [file, setFile] = useState<File | null>(null);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [internalJob, setInternalJob] =
-    useState<ReferencePackJobResource | null>(null);
-  const [error, setError] = useState<APIError | null>(null);
-  const [packSearch, setPackSearch] = useState("");
-  const [packVersionStateFilter, setPackVersionStateFilter] = useState("");
-  const [verificationResultFilter, setVerificationResultFilter] = useState("");
-  const [activeFilter, setActiveFilter] = useState("");
-  const [packPaging, setPackPaging] = useState(defaultReferencePackPaging);
-  const [status, setStatus] = useState("Idle");
-  const [listStatus, setListStatus] = useState<ReferencePackListStatus>("idle");
-  const pollTimer = useRef<number | null>(null);
-  const requestSeqRef = useRef(0);
-  const initialLoadRef = useRef(false);
-  const acceptedPackQueryRef = useRef<ReferencePackQuery>({
-    active: "",
-    packVersionState: "",
-    search: "",
-    verificationResult: "",
-  });
-  const job = activeJob === undefined ? internalJob : activeJob;
-
-  const activePackKeys = useMemo(() => {
-    return Array.from(new Set(packs.map((pack) => pack.pack_key))).sort();
-  }, [packs]);
-
-  const loadPacks = useCallback(
-    async (options?: { append?: boolean; cursorToken?: string | null }) => {
-      if (!session.is_deployment_admin) {
-        return;
-      }
-      const sequence = requestSeqRef.current + 1;
-      requestSeqRef.current = sequence;
-      const cursorToken = options?.cursorToken?.trim() ?? "";
-      const query =
-        options?.append === true
-          ? acceptedPackQueryRef.current
-          : {
-              active: activeFilter,
-              packVersionState: packVersionStateFilter,
-              search: packSearch.trim(),
-              verificationResult: verificationResultFilter,
-            };
-      setListStatus("searching");
-      const result = await listReferencePacks({ cursorToken, query });
-      if (requestSeqRef.current !== sequence) {
-        return;
-      }
-      if (!result.ok) {
-        setError(extractError(result.payload));
-        setListStatus("unavailable");
-        return;
-      }
-      const envelope = result.payload;
-      const nextPacks = envelope.data.pack_versions;
-      if (options?.append !== true) {
-        acceptedPackQueryRef.current = query;
-      }
-      setError(null);
-      setPacks((current) =>
-        options?.append === true ? [...current, ...nextPacks] : nextPacks,
-      );
-      setPackPaging(envelope.meta?.paging ?? defaultReferencePackPaging);
-      setListStatus("loaded");
-    },
-    [
-      activeFilter,
-      packSearch,
-      packVersionStateFilter,
-      session.is_deployment_admin,
-      verificationResultFilter,
-    ],
-  );
-
-  const updateJob = useCallback(
-    (nextJob: ReferencePackJobResource | null) => {
-      setInternalJob(nextJob);
-      onJobChange?.(nextJob);
-    },
-    [onJobChange],
-  );
-
-  const loadJob = useCallback(
-    async (jobID: string) => {
-      if (!session.is_deployment_admin) {
-        return;
-      }
-      const result = await loadReferencePackJob(jobID);
-      if (!result.ok) {
-        setError(extractError(result.payload));
-        return;
-      }
-      const nextJob = result.payload.data;
-      updateJob(nextJob);
-      setStatus(`Job ${nextJob.status}`);
-      if (terminalReferencePackJobStates.has(nextJob.status)) {
-        await loadPacks();
-      }
-    },
-    [loadPacks, session.is_deployment_admin, updateJob],
-  );
-
-  useEffect(() => {
-    if (
-      !session.is_deployment_admin ||
-      job === null ||
-      terminalReferencePackJobStates.has(job.status)
-    ) {
-      return;
-    }
-    pollTimer.current = window.setTimeout(() => {
-      void loadJob(job.job_id);
-    }, 1000);
-    return () => {
-      if (pollTimer.current !== null) {
-        window.clearTimeout(pollTimer.current);
-        pollTimer.current = null;
-      }
-    };
-  }, [job, loadJob, session.is_deployment_admin]);
-
-  useEffect(() => {
-    if (!session.is_deployment_admin) {
-      requestSeqRef.current += 1;
-      initialLoadRef.current = false;
-      acceptedPackQueryRef.current = {
-        active: "",
-        packVersionState: "",
-        search: "",
-        verificationResult: "",
-      };
-      setPacks([]);
-      setSelectedKeys(new Set());
-      setPackPaging(defaultReferencePackPaging);
-      setListStatus("idle");
-      setError(null);
-      updateJob(null);
-      return;
-    }
-    if (initialLoadRef.current) {
-      return;
-    }
-    initialLoadRef.current = true;
-    void loadPacks();
-  }, [loadPacks, session.is_deployment_admin, updateJob]);
-
-  useImperativeHandle(ref, () => ({
-    cancelJob,
-    importBundle: submitUpload,
-    refreshAll: () => refreshSelected(true),
-    refreshPacks: loadPacks,
-    refreshSelected: () => refreshSelected(false),
-  }));
-
-  if (!session.is_deployment_admin) {
-    return (
-      <section data-testid={referencePackAdminPanelTestId()} style={panelStyle}>
-        <div style={panelHeaderStyle}>
-          <div>
-            <p style={eyebrowStyle}>Reference packs</p>
-            <h2 style={titleStyle}>Pack operations</h2>
-          </div>
-        </div>
-        <p style={emptyStyle}>
+export function ReferencePackAdminPanel({
+  controller,
+  active,
+}: {
+  readonly controller: ReferencePackAdminController;
+  readonly active: boolean;
+}) {
+  const binding = useReferencePackAdminPresentation(controller, active);
+  const { state } = binding;
+  const busy = referencePackBusy(state);
+  const available =
+    state.authority !== null &&
+    state.access === "ready" &&
+    !state.reconciling &&
+    active;
+  const canStart = available && !busy;
+  const loadedKeys = new Set(state.catalog.rows.map((pack) => pack.pack_key));
+  const hiddenKeys = state.selectedKeys.filter((key) => !loadedKeys.has(key));
+  const operation = state.operation;
+  const run = (element: HTMLElement, command: ReferencePackCommand) =>
+    binding.run(element, () => controller.run(command));
+  return (
+    <section
+      ref={binding.rootRef}
+      data-reference-pack-admin=""
+      data-testid={referencePackAdminPanelTestId()}
+      style={panelStyle}
+    >
+      <style>{referencePackStyles}</style>
+      <header style={rowStyle}>
+        <h2 style={titleStyle}>Reference packs</h2>
+        <button
+          type="button"
+          style={buttonStyle}
+          data-testid={referencePackReloadButtonTestId()}
+          disabled={state.access !== "ready"}
+          onClick={() => void controller.reload()}
+        >
+          Reload catalog
+        </button>
+      </header>
+      {state.authority === null ? (
+        <p>
           Deployment admin access is required for reference-pack import,
           refresh, activation, and verification actions.
         </p>
-      </section>
-    );
-  }
-
-  async function submitUpload() {
-    if (!session.is_deployment_admin) {
-      return;
-    }
-    if (file === null) {
-      setStatus("Select a bundle first");
-      return;
-    }
-    const result = await importReferencePackBundle(file);
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setStatus("Import failed to start");
-      return;
-    }
-    const nextJob = result.payload.data;
-    setError(null);
-    updateJob(nextJob);
-    setStatus("Import queued");
-    setImportDialogOpen(false);
-    setFile(null);
-    void loadJob(nextJob.job_id);
-  }
-
-  async function runPackAction(
-    pack: ReferencePackVersion,
-    action: ReferencePackAction,
-  ) {
-    if (!session.is_deployment_admin) {
-      return;
-    }
-    if (action === "reverify") {
-      const result = await reverifyReferencePackVersion(pack);
-      if (!result.ok) {
-        setError(extractError(result.payload));
-        setStatus("reverify failed");
-        return;
-      }
-      const nextJob = result.payload.data;
-      setError(null);
-      updateJob(nextJob);
-      setStatus("Reverify queued");
-      void loadJob(nextJob.job_id);
-      return;
-    }
-    const result =
-      action === "activate"
-        ? await activateReferencePackVersion(pack)
-        : await disableReferencePackVersion(pack);
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setStatus(`${action} failed`);
-      return;
-    }
-    setError(null);
-    setStatus(`${action} complete`);
-    await loadPacks();
-  }
-
-  async function refreshSelected(all: boolean) {
-    if (!session.is_deployment_admin) {
-      return;
-    }
-    if (!all && selectedKeys.size === 0) {
-      setStatus("Select packs first");
-      return;
-    }
-    const packKeys = all ? [] : Array.from(selectedKeys).sort();
-    const result = await refreshReferencePacks({ all, packKeys });
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setStatus("Refresh failed to start");
-      return;
-    }
-    const nextJob = result.payload.data;
-    setError(null);
-    updateJob(nextJob);
-    setStatus("Refresh queued");
-    void loadJob(nextJob.job_id);
-  }
-
-  async function cancelJob() {
-    if (!session.is_deployment_admin || job === null) {
-      return;
-    }
-    const result = await cancelReferencePackJob(job.job_id);
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setStatus("Cancel rejected");
-      return;
-    }
-    const nextJob = result.payload.data;
-    setError(null);
-    updateJob(nextJob);
-    setStatus("Cancel requested");
-  }
-
-  return (
-    <section data-testid={referencePackAdminPanelTestId()} style={panelStyle}>
-      <div style={panelHeaderStyle}>
-        <div>
-          <p style={eyebrowStyle}>Reference packs</p>
-          <h2 style={titleStyle}>Pack operations</h2>
-        </div>
-        <div style={headerActionRowStyle}>
-          <button
-            data-testid={
-              importDialogOpen ? undefined : referencePackImportButtonTestId()
-            }
-            type="button"
-            style={primaryButtonStyle}
-            onClick={() => setImportDialogOpen(true)}
-          >
-            Import pack
-          </button>
-          <button
-            data-testid={referencePackReloadButtonTestId()}
-            type="button"
-            style={buttonStyle}
-            onClick={() => void loadPacks()}
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      <div style={searchRowStyle}>
-        <label style={filterFieldStyle} htmlFor="reference-pack-search">
-          Search reference packs
-          <input
-            aria-label="Search reference packs"
-            id="reference-pack-search"
-            style={filterInputStyle}
-            value={packSearch}
-            onChange={(event) => {
-              setPackSearch(event.target.value);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                void loadPacks();
+      ) : (
+        <>
+          {state.access !== "ready" || state.reconciling ? (
+            <p>
+              {state.access === "unavailable"
+                ? "Access could not be confirmed. Retained information may be stale."
+                : "Checking current access and reconciling reference packs."}
+            </p>
+          ) : null}
+          {state.access === "unavailable" ? (
+            <button
+              type="button"
+              data-rp-recovery
+              style={buttonStyle}
+              onClick={(event) =>
+                binding.run(event.currentTarget, controller.retryAccess)
               }
-            }}
-            placeholder="Pack key, kind, version, source"
-          />
-        </label>
-        <label style={filterFieldStyle} htmlFor="reference-pack-state-filter">
-          State
-          <select
-            aria-label="Reference pack state"
-            id="reference-pack-state-filter"
-            style={filterInputStyle}
-            value={packVersionStateFilter}
-            onChange={(event) => {
-              setPackVersionStateFilter(event.target.value);
+            >
+              Retry access
+            </button>
+          ) : null}
+          <form
+            aria-label="Reference pack catalog query"
+            style={rowStyle}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void controller.reload();
             }}
           >
-            <option value="">Any state</option>
-            <option value="staged">staged</option>
-            <option value="verified_available">verified_available</option>
-            <option value="disabled">disabled</option>
-            <option value="failed">failed</option>
-            <option value="missing">missing</option>
-          </select>
-        </label>
-        <label
-          style={filterFieldStyle}
-          htmlFor="reference-pack-verification-filter"
-        >
-          Verification
-          <select
-            aria-label="Reference pack verification result"
-            id="reference-pack-verification-filter"
-            style={filterInputStyle}
-            value={verificationResultFilter}
-            onChange={(event) => {
-              setVerificationResultFilter(event.target.value);
-            }}
-          >
-            <option value="">Any verification</option>
-            <option value="pending">pending</option>
-            <option value="passed">passed</option>
-            <option value="failed">failed</option>
-          </select>
-        </label>
-        <label style={filterFieldStyle} htmlFor="reference-pack-active-filter">
-          Active
-          <select
-            aria-label="Reference pack active state"
-            id="reference-pack-active-filter"
-            style={filterInputStyle}
-            value={activeFilter}
-            onChange={(event) => {
-              setActiveFilter(event.target.value);
-            }}
-          >
-            <option value="">Any active state</option>
-            <option value="true">true</option>
-            <option value="false">false</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          style={buttonStyle}
-          onClick={() => void loadPacks()}
-        >
-          Search
-        </button>
-      </div>
-
-      <div
-        aria-live="polite"
-        data-testid={referencePackListStatusTestId()}
-        role="status"
-        style={jobStyle}
-      >
-        {referencePackListStatusMessage(listStatus)}
-      </div>
-
-      <div style={jobStyle} data-testid={referencePackJobStatusTestId()}>
-        <span>{status}</span>
-        {job !== null ? (
-          <span>
-            {job.status} · {job.progress.completed}/{job.progress.total ?? "?"}
-          </span>
-        ) : null}
-        {job !== null &&
-        !terminalReferencePackJobStates.has(job.status) &&
-        job.cancelable ? (
-          <button
-            data-testid={referencePackCancelButtonTestId()}
-            type="button"
-            style={buttonStyle}
-            onClick={() => void cancelJob()}
-          >
-            Cancel
-          </button>
-        ) : null}
-      </div>
-
-      <div style={actionBarStyle}>
-        <button
-          data-testid={referencePackRefreshAllButtonTestId()}
-          type="button"
-          style={buttonStyle}
-          onClick={() => void refreshSelected(true)}
-        >
-          Refresh all
-        </button>
-        <button
-          data-testid={referencePackRefreshSelectedButtonTestId()}
-          type="button"
-          style={buttonStyle}
-          disabled={selectedKeys.size === 0}
-          onClick={() => void refreshSelected(false)}
-        >
-          Refresh selected
-        </button>
-      </div>
-
-      <div style={packListStyle}>
-        <table style={packTableStyle}>
-          <thead>
-            <tr>
-              <th style={tableHeaderCellStyle}>Pack</th>
-              <th style={tableHeaderCellStyle}>State</th>
-              <th style={tableHeaderCellStyle}>Verification</th>
-              <th style={tableHeaderCellStyle}>Active</th>
-              <th style={tableHeaderActionCellStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {packs.map((pack) => {
-              const canActivate =
-                pack.pack_version_state === "verified_available" &&
-                !pack.active;
-              const canDisable =
-                pack.pack_version_state === "verified_available";
-              const canReverify = pack.pack_version_state !== "staged";
-              return (
-                <tr
-                  key={`${pack.pack_key}/${pack.pack_version}`}
-                  style={packRowStyle}
-                  data-testid={referencePackRowTestId(
-                    pack.pack_key,
-                    pack.pack_version,
-                  )}
-                >
-                  <td style={primaryCellStyle}>
-                    <label style={packLabelStyle}>
-                      <input
-                        type="checkbox"
-                        checked={selectedKeys.has(pack.pack_key)}
-                        onChange={(event) => {
-                          setSelectedKeys((current) => {
-                            const next = new Set(current);
-                            if (event.currentTarget.checked) {
-                              next.add(pack.pack_key);
-                            } else {
-                              next.delete(pack.pack_key);
-                            }
-                            return next;
-                          });
-                        }}
-                      />
-                      <span>
-                        <strong>{pack.pack_key}</strong>
-                        <span style={mutedTextStyle}>
-                          @{pack.pack_version} · {pack.pack_kind}
-                        </span>
-                      </span>
-                    </label>
-                  </td>
-                  <td style={tableCellStyle}>{pack.pack_version_state}</td>
-                  <td style={tableCellStyle}>
-                    {pack.verification_result}
-                    <span style={mutedTextStyle}>
-                      {pack.verification_method}
-                    </span>
-                  </td>
-                  <td style={tableCellStyle}>{pack.active ? "Yes" : "No"}</td>
-                  <td style={tableActionCellStyle}>
-                    <span style={actionButtonsStyle}>
-                      <button
-                        type="button"
-                        style={buttonStyle}
-                        disabled={!canActivate}
-                        onClick={() => void runPackAction(pack, "activate")}
-                      >
-                        Activate
-                      </button>
-                      <button
-                        type="button"
-                        style={buttonStyle}
-                        disabled={!canDisable}
-                        onClick={() => void runPackAction(pack, "disable")}
-                      >
-                        Disable
-                      </button>
-                      <button
-                        type="button"
-                        style={buttonStyle}
-                        disabled={!canReverify}
-                        onClick={() => void runPackAction(pack, "reverify")}
-                      >
-                        Reverify
-                      </button>
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {packs.length === 0 ? <p style={emptyStyle}>No packs loaded</p> : null}
-        {packPaging.has_more && packPaging.next_cursor !== null ? (
-          <button
-            type="button"
-            style={buttonStyle}
-            onClick={() =>
-              void loadPacks({
-                append: true,
-                cursorToken: packPaging.next_cursor,
-              })
-            }
-          >
-            Load more
-          </button>
-        ) : null}
-      </div>
-
-      <p data-testid={referencePackErrorTestId()} style={errorStyle}>
-        {error?.code ?? ""}
-      </p>
-      <p style={emptyStyle}>{activePackKeys.length} pack keys loaded</p>
-      {importDialogOpen ? (
-        <div style={dialogBackdropStyle}>
-          <section
-            aria-label="Import reference pack"
-            aria-modal="true"
-            role="dialog"
-            style={dialogStyle}
-          >
-            <header style={dialogHeaderStyle}>
-              <div>
-                <p style={eyebrowStyle}>Reference packs</p>
-                <h3 style={titleStyle}>Import pack</h3>
-              </div>
-              <button
-                aria-label="Close reference pack import"
-                style={iconButtonStyle}
-                type="button"
-                onClick={() => setImportDialogOpen(false)}
-              >
-                <X aria-hidden="true" size={16} />
-              </button>
-            </header>
-            <label style={filterFieldStyle}>
-              Bundle file
+            <label style={searchFieldStyle}>
+              Search reference packs
               <input
-                aria-label="Reference pack bundle file"
-                data-testid={referencePackFileInputTestId()}
-                style={fileInputStyle}
-                type="file"
-                onChange={(event) => {
-                  setFile(event.currentTarget.files?.[0] ?? null);
-                }}
+                style={inputStyle}
+                value={state.input.search}
+                onChange={(event) =>
+                  controller.setQuery({
+                    ...state.input,
+                    search: event.currentTarget.value,
+                  })
+                }
               />
             </label>
-            <div style={dialogButtonRowStyle}>
-              <button
-                type="button"
-                style={buttonStyle}
-                onClick={() => setImportDialogOpen(false)}
+            <label style={fieldStyle}>
+              State
+              <select
+                aria-label="Reference pack state"
+                style={inputStyle}
+                value={state.input.packVersionState}
+                onChange={(event) =>
+                  controller.setQuery({
+                    ...state.input,
+                    packVersionState: event.currentTarget.value,
+                  })
+                }
               >
-                Cancel
-              </button>
+                <option value="">Any state</option>
+                {Object.entries(stateLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={fieldStyle}>
+              Verification
+              <select
+                aria-label="Reference pack verification result"
+                style={inputStyle}
+                value={state.input.verificationResult}
+                onChange={(event) =>
+                  controller.setQuery({
+                    ...state.input,
+                    verificationResult: event.currentTarget.value,
+                  })
+                }
+              >
+                <option value="">Any verification</option>
+                <option value="pending">Pending</option>
+                <option value="passed">Passed</option>
+                <option value="failed">Failed</option>
+              </select>
+            </label>
+            <label style={fieldStyle}>
+              Active
+              <select
+                aria-label="Reference pack active state"
+                style={inputStyle}
+                value={state.input.active}
+                onChange={(event) =>
+                  controller.setQuery({
+                    ...state.input,
+                    active: event.currentTarget.value,
+                  })
+                }
+              >
+                <option value="">Any active state</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </label>
+            <button type="submit" style={buttonStyle}>
+              Search
+            </button>
+            <button
+              type="button"
+              style={buttonStyle}
+              onClick={() =>
+                controller.setQuery({ ...emptyReferencePackQuery })
+              }
+            >
+              Clear filters
+            </button>
+          </form>
+          <p role="status" data-testid={referencePackListStatusTestId()}>
+            {referencePackListStatus(state)}
+          </p>
+          <div data-testid={referencePackErrorTestId()}>
+            {state.catalog.problem ? (
+              <p style={errorStyle}>
+                {referencePackProblemText(state.catalog.problem)}{" "}
+                <button
+                  type="button"
+                  style={buttonStyle}
+                  onClick={() => void controller.reload()}
+                >
+                  Retry catalog
+                </button>
+              </p>
+            ) : null}
+          </div>
+          <form
+            aria-label="Import reference pack"
+            style={sectionStyle}
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canStart && state.file)
+                run(
+                  event.nativeEvent instanceof SubmitEvent &&
+                    event.nativeEvent.submitter instanceof HTMLElement
+                    ? event.nativeEvent.submitter
+                    : event.currentTarget,
+                  { kind: "import", filename: state.file.name },
+                );
+            }}
+          >
+            <h3 style={subtitleStyle}>Import a bundle</h3>
+            <p style={mutedStyle}>
+              Import verifies a candidate version. Activation requires a
+              separate action.
+            </p>
+            <div style={rowStyle}>
+              <label style={searchFieldStyle}>
+                Reference pack bundle
+                <input
+                  type="file"
+                  required={state.file === null}
+                  ref={binding.fileInputRef}
+                  data-testid={referencePackFileInputTestId()}
+                  style={fileStyle}
+                  disabled={busy || !available}
+                  onChange={(event) =>
+                    controller.setFile(event.currentTarget.files?.[0] ?? null)
+                  }
+                />
+              </label>
               <button
-                data-testid={referencePackImportButtonTestId()}
-                type="button"
+                type="submit"
                 style={primaryButtonStyle}
-                onClick={() => void submitUpload()}
+                data-testid={referencePackImportButtonTestId()}
+                aria-disabled={!canStart || !state.file}
               >
                 Import
               </button>
+              {state.file ? (
+                <button
+                  type="button"
+                  style={buttonStyle}
+                  disabled={busy}
+                  onClick={() => controller.setFile(null)}
+                >
+                  Clear file
+                </button>
+              ) : null}
             </div>
+            {state.file ? (
+              <p style={mutedStyle}>Selected file: {state.file.name}</p>
+            ) : null}
+          </form>
+          <section aria-label="Refresh scope" style={sectionStyle}>
+            <div style={rowStyle}>
+              <button
+                type="button"
+                style={buttonStyle}
+                data-testid={referencePackRefreshAllButtonTestId()}
+                aria-disabled={!canStart}
+                onClick={(event) => {
+                  if (canStart)
+                    run(event.currentTarget, { kind: "refresh_all" });
+                }}
+              >
+                Refresh all
+              </button>
+              <button
+                type="button"
+                style={buttonStyle}
+                data-testid={referencePackRefreshSelectedButtonTestId()}
+                aria-disabled={!canStart || !state.selectedKeys.length}
+                onClick={(event) => {
+                  if (canStart && state.selectedKeys.length)
+                    run(event.currentTarget, {
+                      kind: "refresh_selected",
+                      packKeys: state.selectedKeys,
+                    });
+                }}
+              >
+                Refresh selected
+              </button>
+              <span>
+                {state.selectedKeys.length} pack keys selected ·{" "}
+                {loadedKeys.size} pack keys loaded
+              </span>
+              <button
+                type="button"
+                style={buttonStyle}
+                disabled={!state.selectedKeys.length}
+                onClick={() => controller.clearSelection()}
+              >
+                Clear selection
+              </button>
+            </div>
+            <p style={mutedStyle}>
+              Refresh verifies imported packs. Refresh all covers the server's
+              imported catalog at admission. Selection persists across filters
+              and pages.
+            </p>
+            {hiddenKeys.length ? (
+              <div>
+                <p>
+                  {hiddenKeys.length} selected keys are outside the loaded rows:
+                </p>
+                <ul style={listStyle}>
+                  {hiddenKeys.map((key) => (
+                    <li key={key} style={rowStyle}>
+                      <span style={identityStyle}>{key}</span>
+                      <button
+                        type="button"
+                        style={buttonStyle}
+                        aria-label={`Deselect ${key}`}
+                        onClick={() => controller.setSelected(key, false)}
+                      >
+                        Deselect
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
-        </div>
-      ) : null}
+          <section
+            ref={binding.feedbackRef}
+            tabIndex={-1}
+            aria-label="Current pack action"
+            style={
+              operation ? sectionStyle : { ...sectionStyle, display: "none" }
+            }
+          >
+            {operation ? (
+              <>
+                <h3 style={subtitleStyle}>
+                  {referencePackCommandLabel(operation.command)}
+                </h3>
+                <p>{phaseLabels[operation.phase]}</p>
+                {operation.problem ? (
+                  <p style={errorStyle}>
+                    {referencePackProblemText(operation.problem)}
+                  </p>
+                ) : null}
+                {operation.phase === "uncertain" ||
+                operation.phase === "replaying" ? (
+                  <button
+                    type="button"
+                    style={buttonStyle}
+                    data-rp-recovery
+                    onClick={(event) =>
+                      binding.run(event.currentTarget, controller.retryAttempt)
+                    }
+                    aria-disabled={
+                      !available || operation.phase === "replaying"
+                    }
+                  >
+                    Retry exact request
+                  </button>
+                ) : null}
+                {operation.phase === "rejected" ? (
+                  <button
+                    type="button"
+                    style={buttonStyle}
+                    data-rp-recovery
+                    onClick={(event) =>
+                      binding.run(event.currentTarget, controller.reload)
+                    }
+                  >
+                    Review current catalog
+                  </button>
+                ) : null}
+                {busy ? (
+                  <p style={mutedStyle}>
+                    Resolve this operation before starting another pack
+                    operation. Catalog search and selection remain available.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p style={mutedStyle}>No operation submitted in this session.</p>
+            )}
+          </section>
+          {Object.keys(state.jobs).length ? (
+            <section
+              aria-label="Operations in this session"
+              data-testid={referencePackJobStatusTestId()}
+              style={sectionStyle}
+            >
+              <h3 style={subtitleStyle}>Operations in this session</h3>
+              <p style={mutedStyle}>
+                Only operations learned in this application session appear here.
+                Leaving this panel pauses observation; it does not cancel server
+                work.
+              </p>
+              <ol style={listStyle}>
+                {Object.entries(state.jobs).map(([id, job]) => (
+                  <li key={id} style={sectionStyle}>
+                    <section
+                      aria-label={referencePackCommandLabel(job.command)}
+                    >
+                      <h4 style={subtitleStyle}>
+                        {referencePackCommandLabel(job.command)}
+                      </h4>
+                      <p>
+                        {jobStatusLabels[job.snapshot.status]}
+                        {job.observation === "reading"
+                          ? " · Checking status"
+                          : job.observation === "paused"
+                            ? " · Observation paused"
+                            : ""}
+                      </p>
+                      <progress
+                        aria-label={`${referencePackCommandLabel(job.command)} progress`}
+                        {...(job.snapshot.progress.total === null
+                          ? {}
+                          : {
+                              value: job.snapshot.progress.completed,
+                              max: job.snapshot.progress.total,
+                            })}
+                      />
+                      <span>
+                        {" "}
+                        {job.snapshot.progress.completed}
+                        {job.snapshot.progress.total === null
+                          ? " processed; total unknown"
+                          : ` of ${job.snapshot.progress.total}`}
+                      </span>
+                      {terminalReferencePackJobStates.has(
+                        job.snapshot.status,
+                      ) ? (
+                        <p>{jobResultText(job)}</p>
+                      ) : null}
+                      {job.problem ? (
+                        <p style={errorStyle}>
+                          {referencePackProblemText(job.problem)} The last
+                          observed state is retained.
+                        </p>
+                      ) : null}
+                      {job.problem !== null ||
+                      job.observation === "failed" ||
+                      job.observation === "unavailable" ||
+                      job.observation === "paused" ? (
+                        <button
+                          type="button"
+                          style={buttonStyle}
+                          data-rp-recovery
+                          aria-disabled={
+                            !available || job.observation === "reading"
+                          }
+                          onClick={(event) =>
+                            binding.run(event.currentTarget, () =>
+                              controller.retryObservation(id),
+                            )
+                          }
+                        >
+                          Retry observation
+                        </button>
+                      ) : null}
+                      {job.snapshot.cancelable &&
+                      !terminalReferencePackJobStates.has(
+                        job.snapshot.status,
+                      ) ? (
+                        <button
+                          type="button"
+                          style={buttonStyle}
+                          data-testid={referencePackCancelButtonTestId()}
+                          aria-disabled={
+                            !available ||
+                            ["checking", "submitting", "uncertain"].includes(
+                              job.cancellation?.phase ?? "",
+                            )
+                          }
+                          onClick={(event) => {
+                            if (available)
+                              binding.run(event.currentTarget, () =>
+                                controller.cancelJob(id),
+                              );
+                          }}
+                        >
+                          Cancel operation
+                        </button>
+                      ) : null}
+                      {job.cancellation ? (
+                        <p>
+                          {cancelLabels[job.cancellation.phase]}{" "}
+                          {job.cancellation.problem
+                            ? referencePackProblemText(job.cancellation.problem)
+                            : ""}
+                        </p>
+                      ) : null}
+                      {job.cancellation?.phase === "uncertain" ? (
+                        <button
+                          type="button"
+                          style={buttonStyle}
+                          data-rp-recovery
+                          disabled={!available}
+                          onClick={(event) =>
+                            binding.run(event.currentTarget, () =>
+                              controller.cancelJob(id, true),
+                            )
+                          }
+                        >
+                          Retry cancellation request
+                        </button>
+                      ) : null}
+                      {terminalReferencePackJobStates.has(
+                        job.snapshot.status,
+                      ) ? (
+                        <button
+                          type="button"
+                          style={buttonStyle}
+                          onClick={(event) =>
+                            binding.run(event.currentTarget, () =>
+                              controller.dismissJob(id),
+                            )
+                          }
+                        >
+                          Dismiss operation
+                        </button>
+                      ) : null}
+                    </section>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+          <div style={catalogStyle}>
+            <table style={tableStyle}>
+              <caption style={captionStyle}>Imported pack versions</caption>
+              <colgroup>
+                {["40%", "15%", "20%", "7%", "18%"].map((width) => (
+                  <col key={width} style={{ width }} />
+                ))}
+              </colgroup>
+              <thead>
+                <tr>
+                  {[
+                    "Pack selection",
+                    "Version state",
+                    "Verification",
+                    "Active",
+                    "Version actions",
+                  ].map((label) => (
+                    <th key={label} scope="col" style={cellStyle}>
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {state.catalog.rows.map((pack) => (
+                  <tr
+                    key={referencePackIdentity(pack)}
+                    data-testid={referencePackRowTestId(
+                      pack.pack_key,
+                      pack.pack_version,
+                    )}
+                  >
+                    <td style={cellStyle}>
+                      <label style={rowStyle}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select pack key ${pack.pack_key}, version ${pack.pack_version}`}
+                          checked={state.selectedKeys.includes(pack.pack_key)}
+                          onChange={(event) =>
+                            controller.setSelected(
+                              pack.pack_key,
+                              event.currentTarget.checked,
+                            )
+                          }
+                        />
+                        <span style={identityStyle}>
+                          <strong>{pack.pack_key}</strong>
+                          <span>@{pack.pack_version}</span>
+                          <small style={mutedStyle}> · {pack.pack_kind}</small>
+                        </span>
+                      </label>
+                    </td>
+                    <td style={cellStyle}>
+                      <span className="rp-cell-label" aria-hidden="true">
+                        Version state
+                      </span>
+                      {stateLabels[pack.pack_version_state]}
+                    </td>
+                    <td style={cellStyle}>
+                      <span className="rp-cell-label" aria-hidden="true">
+                        Verification
+                      </span>
+                      {verificationLabels[pack.verification_result]}
+                      <small style={mutedStyle}>
+                        {" "}
+                        · {pack.verification_method}
+                      </small>
+                    </td>
+                    <td style={cellStyle}>
+                      <span className="rp-cell-label" aria-hidden="true">
+                        Active
+                      </span>
+                      {pack.active ? "Yes" : "No"}
+                    </td>
+                    <td style={cellStyle}>
+                      <span className="rp-cell-label" aria-hidden="true">
+                        Version actions
+                      </span>
+                      <span style={rowStyle}>
+                        {(["activate", "disable", "reverify"] as const).map(
+                          (action) => (
+                            <button
+                              key={action}
+                              type="button"
+                              style={buttonStyle}
+                              disabled={!referencePackEligible(pack, action)}
+                              aria-disabled={!canStart}
+                              onClick={(event) => {
+                                if (canStart)
+                                  run(event.currentTarget, {
+                                    kind: action,
+                                    target: {
+                                      pack_key: pack.pack_key,
+                                      pack_version: pack.pack_version,
+                                    },
+                                  });
+                              }}
+                            >
+                              {actionLabels[action]}
+                            </button>
+                          ),
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {state.catalog.paging.has_more ? (
+            <button
+              type="button"
+              style={buttonStyle}
+              disabled={state.catalog.pending !== null || state.catalog.dirty}
+              onClick={() => void controller.loadMore()}
+            >
+              Load more
+            </button>
+          ) : null}
+        </>
+      )}
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={visuallyHiddenStyle}
+      >
+        {active ? state.announcement.text : ""}
+      </span>
     </section>
   );
-});
-
-function referencePackListStatusMessage(
-  status: ReferencePackListStatus,
-): string {
-  switch (status) {
-    case "searching":
-      return "Searching reference packs";
-    case "loaded":
-      return "Reference packs loaded";
-    case "unavailable":
-      return "Reference packs unavailable";
-    default:
-      return "Reference packs idle";
-  }
 }
-
-const panelStyle = {
-  boxSizing: "border-box" as const,
-  minWidth: 0,
-  padding: "1.25rem",
-  borderRadius: "var(--ct-rounded-lg)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
+const actionLabels = {
+  activate: "Activate",
+  disable: "Disable",
+  reverify: "Reverify",
+};
+const stateLabels = {
+  staged: "Staged",
+  verified_available: "Verified, available",
+  disabled: "Disabled",
+  failed: "Failed",
+  missing: "Missing",
+};
+const verificationLabels = {
+  pending: "Pending",
+  passed: "Passed",
+  failed: "Failed",
+};
+const phaseLabels = {
+  checking: "Checking current state before submission.",
+  submitting: "Submitted; awaiting server acknowledgment.",
+  replaying: "Exact request resubmitted; awaiting server acknowledgment.",
+  accepted: "Accepted for processing. Completion has not yet been confirmed.",
+  committed: "Committed. Catalog data may still need reloading.",
+  rejected: "Request rejected.",
+  uncertain: "Outcome uncertain. Recovery resends the exact captured request.",
+  failed: "Operation failed.",
+  canceled: "Operation canceled.",
+};
+const cancelLabels = {
+  checking: "Checking whether cancellation is currently allowed.",
+  submitting: "Cancellation submitted; awaiting acknowledgment.",
+  uncertain: "Cancellation outcome uncertain.",
+  rejected: "Cancellation was not confirmed.",
+  acknowledged:
+    "Cancellation acknowledged. This does not establish cancellation or rollback.",
+};
+const jobStatusLabels = {
+  queued: "Queued",
+  running: "Running",
+  cancel_requested: "Cancellation requested",
+  succeeded: "Succeeded",
+  failed: "Failed",
+  canceled: "Canceled",
+};
+function jobResultText(job: ReferencePackKnownJob) {
+  if (job.snapshot.status === "failed") {
+    const problem = referencePackJobProblem(job.snapshot);
+    return problem.kind === "rejected"
+      ? "The operation failed. Review current catalog state before starting another operation."
+      : referencePackProblemText(problem);
+  }
+  if (job.snapshot.status === "canceled")
+    return "The server confirmed cancellation. This does not imply rollback of earlier effects.";
+  const expected = {
+    import: "reference_pack_imported",
+    activate: "reference_pack_activated",
+    disable: "reference_pack_disabled",
+    reverify: "reference_pack_reverified",
+    refresh_all: "reference_packs_refreshed",
+    refresh_selected: "reference_packs_refreshed",
+  }[job.command.kind];
+  if (job.snapshot.result_summary?.code !== expected)
+    return "The operation succeeded with a result this client cannot interpret. Reload the catalog to review current state.";
+  const refs = (job.snapshot.result_summary.resource_refs ?? []).filter(
+    (ref) => ref.kind === "reference_pack_version",
+  );
+  if (
+    job.command.kind === "refresh_all" ||
+    job.command.kind === "refresh_selected"
+  )
+    return "Refresh succeeded. Returned references may omit changed versions; reload the catalog to review current state.";
+  if (
+    refs.length !== 1 ||
+    ("target" in job.command &&
+      refs[0]?.id !== referencePackVersionRoute(job.command.target))
+  )
+    return "The operation succeeded, but its version reference could not be confirmed. Reload the catalog to review current state.";
+  const target = refs[0] ? referencePackResultTarget(refs[0]) : null;
+  return `${job.command.kind === "import" ? "Import verified a candidate; activate it separately." : "The operation succeeded for the exact version."} Version: ${target?.pack_key}@${target?.pack_version}`;
+}
+const panelStyle: CSSProperties = {
+  containerType: "inline-size",
+  boxSizing: "border-box",
+  minInlineSize: 0,
+  maxInlineSize: "100%",
+  padding: "var(--ct-spacing-lg)",
   color: "var(--ct-colors-ink)",
+  background: "var(--ct-colors-surface-1)",
+  overflow: "auto",
+  overflowWrap: "anywhere",
 };
-
-const panelHeaderStyle = {
+const rowStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
-  gap: "1rem",
+  flexWrap: "wrap",
   alignItems: "center",
+  gap: "var(--ct-spacing-sm)",
+  minInlineSize: 0,
 };
-
-const eyebrowStyle = {
+const titleStyle: CSSProperties = {
+  fontSize: "var(--ct-typography-surface-title-fontSize)",
   margin: 0,
-  color: "var(--ct-colors-ink-subtle)",
-  fontSize: "0.75rem",
-  textTransform: "uppercase" as const,
+  marginInlineEnd: "auto",
 };
-
-const titleStyle = {
-  margin: "0.2rem 0 0",
-  fontSize: "1.05rem",
+const subtitleStyle: CSSProperties = { fontSize: "inherit", margin: 0 };
+const fieldStyle: CSSProperties = {
+  display: "grid",
+  gap: "var(--ct-spacing-xs)",
+  minInlineSize: 0,
+  flex: "1 1 12em",
 };
-
-const searchRowStyle = {
-  display: "grid",
-  gridTemplateColumns:
-    "minmax(18rem, 1.4fr) repeat(3, minmax(10rem, 1fr)) auto",
-  gap: "0.75rem",
-  marginTop: "1rem",
-  minWidth: 0,
-  alignItems: "end",
-} satisfies CSSProperties;
-
-const filterFieldStyle = {
-  display: "grid",
-  gap: "0.35rem",
-  minWidth: 0,
-  color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.82rem",
-  fontWeight: 700,
-} satisfies CSSProperties;
-
-const filterInputStyle = {
-  boxSizing: "border-box" as const,
-  minWidth: 0,
-  width: "100%",
+const searchFieldStyle: CSSProperties = { ...fieldStyle, flex: "2 1 16em" };
+const inputStyle: CSSProperties = {
+  boxSizing: "border-box",
+  minInlineSize: 0,
+  inlineSize: "100%",
   borderRadius: "var(--ct-component-text-input-rounded)",
   border: "var(--ct-component-text-input-border)",
   background: "var(--ct-component-text-input-backgroundColor)",
   color: "var(--ct-component-text-input-textColor)",
   padding: "var(--ct-component-text-input-padding)",
-} satisfies CSSProperties;
-
-const fileInputStyle = {
-  boxSizing: "border-box" as const,
-  minWidth: 0,
-  maxWidth: "100%",
-  color: "var(--ct-colors-ink-muted)",
-} satisfies CSSProperties;
-
-const headerActionRowStyle = {
-  display: "flex",
-  flexWrap: "wrap" as const,
-  gap: "0.5rem",
-  justifyContent: "flex-end",
 };
-
-const actionBarStyle = {
-  display: "flex",
-  flexWrap: "wrap" as const,
-  gap: "0.5rem",
-  marginTop: "0.75rem",
-};
-
-const jobStyle = {
-  display: "flex",
-  flexWrap: "wrap" as const,
-  alignItems: "center",
-  gap: "0.75rem",
-  minHeight: "2.25rem",
-  marginTop: "0.75rem",
-  fontSize: "0.85rem",
-};
-
-const dialogBackdropStyle = {
-  position: "fixed" as const,
-  inset: 0,
-  zIndex: 40,
-  display: "grid",
-  placeItems: "center",
-  padding: "1.5rem",
-  background: "rgba(10, 13, 18, 0.68)",
-} satisfies CSSProperties;
-
-const dialogStyle = {
-  width: "min(42rem, 100%)",
-  display: "grid",
-  gap: "1rem",
-  padding: "1.25rem",
-  borderRadius: "var(--ct-rounded-md)",
-  border: "var(--ct-border-strong)",
-  background: "var(--ct-colors-surface-1)",
-  boxShadow: "var(--ct-elevation-panel)",
-} satisfies CSSProperties;
-
-const dialogHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: "1rem",
-  alignItems: "flex-start",
-} satisfies CSSProperties;
-
-const iconButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "2rem",
-  height: "2rem",
-  borderRadius: "var(--ct-rounded-sm)",
-  border: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink)",
-  cursor: "pointer",
-} satisfies CSSProperties;
-
-const dialogButtonRowStyle = {
-  display: "flex",
-  justifyContent: "flex-end",
-  flexWrap: "wrap" as const,
-  gap: "0.5rem",
-} satisfies CSSProperties;
-
-const packListStyle = {
-  marginTop: "0.75rem",
-  minWidth: 0,
-  overflowX: "auto" as const,
-  border: "var(--ct-border-hairline)",
-  borderRadius: "var(--ct-rounded-sm)",
-  background: "var(--ct-colors-surface-1)",
-};
-
-const packTableStyle = {
-  width: "100%",
-  minWidth: "58rem",
-  borderCollapse: "collapse" as const,
-} satisfies CSSProperties;
-
-const packRowStyle = {
-  borderBottom: "var(--ct-border-hairline)",
-  fontSize: "0.82rem",
-};
-
-const packLabelStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.4rem",
-  minWidth: 0,
-};
-
-const tableHeaderCellStyle = {
-  padding: "0.7rem 0.85rem",
-  borderBottom: "var(--ct-border-hairline)",
-  color: "var(--ct-colors-ink-subtle)",
-  fontSize: "0.68rem",
-  letterSpacing: "0.12em",
-  textTransform: "uppercase" as const,
-  textAlign: "left" as const,
-  whiteSpace: "nowrap" as const,
-} satisfies CSSProperties;
-
-const tableHeaderActionCellStyle = {
-  ...tableHeaderCellStyle,
-  textAlign: "right" as const,
-} satisfies CSSProperties;
-
-const tableCellStyle = {
-  padding: "0.75rem 0.85rem",
-  color: "var(--ct-colors-ink-muted)",
-  verticalAlign: "top" as const,
-} satisfies CSSProperties;
-
-const primaryCellStyle = {
-  ...tableCellStyle,
-  color: "var(--ct-colors-ink)",
-} satisfies CSSProperties;
-
-const tableActionCellStyle = {
-  ...tableCellStyle,
-  textAlign: "right" as const,
-} satisfies CSSProperties;
-
-const actionButtonsStyle = {
-  display: "inline-flex",
-  flexWrap: "wrap" as const,
-  justifyContent: "flex-end",
-  gap: "0.45rem",
-} satisfies CSSProperties;
-
-const mutedTextStyle = {
-  display: "block",
-  color: "var(--ct-colors-ink-subtle)",
-  fontSize: "0.76rem",
-  fontWeight: 400,
-} satisfies CSSProperties;
-
-const buttonStyle = {
-  border: "var(--ct-component-button-secondary-border)",
+const buttonStyle: CSSProperties = {
   borderRadius: "var(--ct-component-button-secondary-rounded)",
   background: "var(--ct-component-button-secondary-backgroundColor)",
   color: "var(--ct-component-button-secondary-textColor)",
+  border: "var(--ct-component-button-secondary-border)",
   padding: "var(--ct-component-button-secondary-padding)",
-  cursor: "pointer",
+  font: "inherit",
+  maxInlineSize: "100%",
+  whiteSpace: "normal",
+  overflowWrap: "anywhere",
 };
-
-const primaryButtonStyle = {
+const primaryButtonStyle: CSSProperties = {
   ...buttonStyle,
-  border: "none",
-  color: "var(--ct-component-button-primary-textColor)",
   background: "var(--ct-component-button-primary-backgroundColor)",
-  padding: "var(--ct-component-button-primary-padding)",
+  color: "var(--ct-component-button-primary-textColor)",
+  border: "var(--ct-border-hairline)",
 };
-
-const errorStyle = {
-  minHeight: "1.25rem",
-  margin: "0.75rem 0 0",
-  color: "var(--ct-colors-semantic-conflict)",
-  fontSize: "0.82rem",
+const sectionStyle: CSSProperties = {
+  borderBlockStart: "var(--ct-border-hairline)",
+  paddingBlock: "var(--ct-spacing-md)",
+  marginBlockStart: "var(--ct-spacing-sm)",
+  minInlineSize: 0,
 };
-
-const emptyStyle = {
-  margin: "0.5rem 0 0",
+const mutedStyle: CSSProperties = {
   color: "var(--ct-colors-ink-muted)",
-  fontSize: "0.82rem",
+  overflowWrap: "anywhere",
+};
+const identityStyle: CSSProperties = {
+  minInlineSize: 0,
+  overflowWrap: "anywhere",
+  flex: "1 1 0",
+};
+const fileStyle: CSSProperties = { maxInlineSize: "100%", minInlineSize: 0 };
+const errorStyle: CSSProperties = {
+  color: "var(--ct-colors-semantic-conflict)",
+  overflowWrap: "anywhere",
+};
+const catalogStyle: CSSProperties = {
+  maxInlineSize: "100%",
+  overflowX: "auto",
+};
+const tableStyle: CSSProperties = {
+  borderCollapse: "collapse",
+  inlineSize: "100%",
+  tableLayout: "fixed",
+};
+const cellStyle: CSSProperties = {
+  textAlign: "start",
+  verticalAlign: "top",
+  padding: "var(--ct-spacing-sm)",
+  borderBlockEnd: "var(--ct-border-hairline)",
+  overflowWrap: "anywhere",
+};
+const captionStyle: CSSProperties = {
+  textAlign: "start",
+  paddingBlock: "var(--ct-spacing-sm)",
+  fontWeight: "bold",
+};
+const listStyle: CSSProperties = { listStyle: "none", padding: 0, margin: 0 };
+const visuallyHiddenStyle: CSSProperties = {
+  position: "absolute",
+  inlineSize: 1,
+  blockSize: 1,
+  overflow: "hidden",
+  clipPath: "inset(50%)",
+  whiteSpace: "nowrap",
 };

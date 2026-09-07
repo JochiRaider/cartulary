@@ -57,16 +57,15 @@ import type {
   DeploymentAdministrationPanelToken,
   DeploymentPanelDescriptor,
 } from "./landingAdminTypes";
-import {
-  ReferencePackAdminPanel,
-  type ReferencePackJobResource,
-} from "./ReferencePackAdminPanel";
+import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
+import type { ReferencePackAdminController } from "./referencePackAdminController";
 import { readAppRouteState } from "./routeState";
 import { useAppRouteRuntime } from "./useAppRouteRuntime";
 import { useAppSession } from "./useAppSession";
 import { useIncidentCreation } from "./useIncidentCreation";
 import { useIncidentDirectory } from "./useIncidentDirectory";
 import { useIncidentImport } from "./useIncidentImport";
+import { useReferencePackAdmin } from "./useReferencePackAdmin";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
@@ -120,6 +119,8 @@ export function App({
   const accountEditingRef = useRef<AccountSettingsController | null>(null);
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
   const importControllerRef = useRef<IncidentImportController | null>(null);
+  const referencePackControllerRef =
+    useRef<ReferencePackAdminController | null>(null);
   const directoryControllerRef = useRef<IncidentDirectoryController | null>(
     null,
   );
@@ -130,6 +131,7 @@ export function App({
       deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true),
     beforeCommit: (next) => {
       importControllerRef.current?.setActive(false);
+      referencePackControllerRef.current?.setActive(false);
       creationControllerRef.current?.leaveSurface();
       if (next.incidentId !== "" || next.deploymentAdministration)
         directoryControllerRef.current?.setActive(false);
@@ -151,6 +153,7 @@ export function App({
           securityRef.current?.retire();
           deploymentUsersRef.current?.retire();
           importControllerRef.current?.retire();
+          referencePackControllerRef.current?.retire();
           workbookMutationRuntimeRegistry.sessionUnavailable();
           creationControllerRef.current?.setSession(lifetime);
           directoryControllerRef.current?.setSession(lifetime);
@@ -159,6 +162,7 @@ export function App({
         capabilitiesReduced: () => {
           deploymentUsersRef.current?.retire();
           importControllerRef.current?.retire();
+          referencePackControllerRef.current?.retire();
         },
       }),
   );
@@ -228,7 +232,6 @@ export function App({
               return;
             }
             setAuthPrompt(event.message);
-            setReferencePackJob(null);
             setLandingNotice(null);
             if (event.kind === "logout_confirmed")
               sessionController.logoutConfirmed();
@@ -291,6 +294,7 @@ export function App({
     if (next === activeDeploymentPanel) return;
     if (!deploymentUsers.hasDirtyDraft()) {
       importControllerRef.current?.setActive(false);
+      referencePackControllerRef.current?.setActive(false);
       setActiveDeploymentPanel(next);
       return;
     }
@@ -298,6 +302,7 @@ export function App({
     void deploymentUsers.requestLeave().then((accepted) => {
       if (accepted && lifetime === sessionController.getSnapshot().lifetime) {
         importControllerRef.current?.setActive(false);
+        referencePackControllerRef.current?.setActive(false);
         setActiveDeploymentPanel(next);
       }
     });
@@ -318,6 +323,7 @@ export function App({
     security.dispose();
     deploymentUsers.dispose();
     importControllerRef.current?.dispose();
+    referencePackControllerRef.current?.dispose();
   });
   useEffect(() => {
     accountEditing.start();
@@ -408,13 +414,10 @@ export function App({
     navigationFocusRequestRef.current = null;
     navigationHeadingRef.current.focus({ preventScroll: true });
   });
-  const [referencePackJob, setReferencePackJob] =
-    useState<ReferencePackJobResource | null>(null);
   const handleSessionLost = useCallback(() => {
     if (sessionController.getSnapshot().lifetime !== sessionSnapshot.lifetime)
       return;
     sessionController.sessionLost();
-    setReferencePackJob(null);
     setLandingNotice(null);
     setAuthPrompt(defaultRevokedSessionMessage);
   }, [sessionController, sessionSnapshot.lifetime]);
@@ -433,13 +436,7 @@ export function App({
         "replace",
       );
     }
-    if (
-      session === null ||
-      extensionProfiles === null ||
-      !extensionClaimed(extensionProfiles, "reference_pack")
-    )
-      setReferencePackJob(null);
-  }, [commitRoute, extensionProfiles, route.deploymentAdministration, session]);
+  }, [commitRoute, route.deploymentAdministration, session]);
   const directory = useIncidentDirectory({
     sessionIdentity: sessionSnapshot.lifetime,
     active:
@@ -593,6 +590,64 @@ export function App({
     },
   });
   creationControllerRef.current = creation.controller;
+  const referencePackAllowed =
+    session?.is_deployment_admin === true &&
+    extensionClaimed(extensionProfiles, "reference_pack");
+  const referencePacks = useReferencePackAdmin({
+    authority:
+      referencePackAllowed && sessionSnapshot.lifetime && session
+        ? { lifetime: sessionSnapshot.lifetime, actorId: session.user_id }
+        : null,
+    active:
+      referencePackAllowed &&
+      route.deploymentAdministration &&
+      activeDeploymentPanel === "reference-packs",
+    isCurrent: (authority) => {
+      const current = sessionController.getSnapshot();
+      return (
+        current.lifetime === authority.lifetime &&
+        current.session?.user_id === authority.actorId &&
+        current.session.is_deployment_admin &&
+        current.extensions.kind === "ready" &&
+        extensionClaimed(current.extensions.value, "reference_pack")
+      );
+    },
+    authorizationFailed: (status) => {
+      if (status === 401) handleSessionLost();
+      else void sessionController.refreshSession();
+    },
+    confirmAccess: async (authority, signal, current) => {
+      const result = await sessionController.observeOperationSession(
+        authority.lifetime,
+        signal,
+        current,
+      );
+      if (result.kind !== "accepted") return { kind: result.kind };
+      if (
+        !current() ||
+        sessionController.getSnapshot().lifetime !== authority.lifetime
+      )
+        return { kind: "cancelled" };
+      if (
+        result.session.user_id !== authority.actorId ||
+        !result.session.is_deployment_admin
+      )
+        return { kind: "access_lost" };
+      const discovery = await sessionController.observeOperationExtensions(
+        authority.lifetime,
+        signal,
+        current,
+      );
+      if (discovery.kind !== "accepted") return discovery;
+      if (!current()) return { kind: "cancelled" };
+      return {
+        kind: extensionClaimed(discovery.profiles, "reference_pack")
+          ? "authorized"
+          : "access_lost",
+      };
+    },
+  });
+  referencePackControllerRef.current = referencePacks;
   const importAllowed =
     session?.is_deployment_admin === true &&
     extensionClaimed(extensionProfiles, "incident_portability");
@@ -969,9 +1024,8 @@ export function App({
               style={landingAdminPanelRegionStyle}
             >
               <ReferencePackAdminPanel
-                activeJob={referencePackJob}
-                session={session}
-                onJobChange={setReferencePackJob}
+                controller={referencePacks}
+                active={activeDeploymentPanel === "reference-packs"}
               />
             </section>
           ) : null}
