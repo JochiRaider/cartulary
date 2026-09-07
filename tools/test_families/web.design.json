@@ -331,6 +331,44 @@
       ]
     },
     {
+      "row_id": "web.design.browser.incident_import_action_access_hardening",
+      "owner_id": "web.design",
+      "family_id": "web.design.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.incidentbundles",
+        "module.jobapi",
+        "platform.jobs",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-import.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_76b94e0a582f"
+        ],
+        "titles": [
+          "checks import actions and recovers access explicitly before accepting current profile loss"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "web.design.browser.incident_import_observation_recovery",
       "owner_id": "web.design",
       "family_id": "web.design.browser",

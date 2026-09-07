@@ -329,6 +329,31 @@ For explicit incident-directory selection or successful creation that opens a wo
 Deployment administration is not a workbook startup surface. The `/deployment-administration` browser context defined by Core 01 §3.3.2.1B MUST NOT be represented as a `sheet_ref`, saved view, system view, built-in tab, `home_sheet_ref`, `default_sheet_ref`, startup fallback candidate, or workbook-surface registry entry.
 
 When a successful incident-bundle import exposes an `Open imported incident` action, activating that action MUST open the imported incident without an explicit launch `sheet_ref` and MUST use the ordinary startup chain in REQ-03-030. The action MUST preserve the imported incident's actual lifecycle state; if the imported incident is `closed`, ordinary closed/read-only behavior applies after open.
+
+Every incident-import Cancel or Open activation MUST obtain a new authoritative
+job read started after that activation before cancellation dispatch or workbook
+handoff. Action reads MUST take the next serial read slot, with duplicate intents
+suppressed. Preflight MUST settle within 30 seconds including queue time. Ordinary
+reads, cancel dispatch and workbook handoff each have separate 30-second limits;
+admission has a 120-second limit. Client timeout or abort is not evidence of
+server cancellation. Pause suppresses automatic observation, not explicit actions.
+
+A preflight failure MUST NOT mutate or navigate. Cancellation requires a currently
+cancelable queued/running job. Open requires supported terminal import success and
+current incident membership. Selection, departure, hidden state or lifetime change
+invalidates undispatched intent. Dispatched cancellation retains its exact replay
+ownership across ordinary panel changes; an uncertain attempt is replayable only
+after another eligible preflight. Failed handoff retries opening, never import.
+
+Clients MUST retain the last validated job snapshot independently of read activity,
+reject conflicting committed incident targets, and tolerate unknown additive result
+reference kinds without inferring navigation. Browser time MUST NOT establish job
+expiry or availability; server reads do. An unavailable job does not imply deletion
+of its durable output. Protected import state MUST clear on session retirement or
+confirmed capability loss. Access restoration MUST use an explicit completed
+session observation bound to the current lifetime, not session-object identity;
+failed confirmation MUST expose explicit retry. Restoration after retirement starts
+an empty workflow. A concealed job lookup alone does not prove global access loss.
 Profiles: base, incident_portability
 Verified by: AC-441, AC-442
 

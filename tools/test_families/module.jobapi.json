@@ -111,6 +111,31 @@
         "object_store",
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.jobapi.unit.internal_error_safety",
+      "owner_id": "module.jobapi",
+      "family_id": "module.jobapi.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.jobapi.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/jobapi",
+        "tests": [
+          "TestJobHandlersConcealInternalDatabaseFailure",
+          "TestJobInternalErrorDoesNotRetainPrivateCause"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

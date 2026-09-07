@@ -285,6 +285,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "web.design.browser.incident_import_action_access_hardening",
             "web.design.browser.incident_import_observation_recovery",
             "web.design.browser.incident_import_real_workflow"
           ],
@@ -953,6 +954,7 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "web.design.browser.incident_import_action_access_hardening",
             "web.design.browser.incident_import_observation_recovery",
             "web.design.browser.incident_import_real_workflow"
           ],

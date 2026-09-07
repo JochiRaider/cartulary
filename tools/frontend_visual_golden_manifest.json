@@ -279,6 +279,18 @@
       "sha256": "340bbe8b9f1ce7e8370d5c2c4eb137ecca36433f02d6499d1df586430d1d5bf8"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-access-retry-linux.png",
+      "sha256": "b2a6d06f377f2d4e21141c57ae928467d2e369648a75440a761baa63518ad1e3"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-action-checking-linux.png",
+      "sha256": "643d618be02651ea2484ed48a03d4bfb88703af4fd4b5bef7a29477f556af3e7"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-action-unconfirmed-linux.png",
+      "sha256": "9a0ff57cdf5052567a6cd85f4be4396b60e3278cb821d8472db954f3a2b43725"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-admission-pending-linux.png",
       "sha256": "77aef0e7861eee764ee3c4b8bf70cbfe5d876864b0c1342571056f7dfa8ff0da"
     },
@@ -304,7 +316,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-observation-unavailable-linux.png",
-      "sha256": "c43e4469384633cf721e728dc3bcf8e1dda418855994d8b092e9a010a76eb4a6"
+      "sha256": "3b8f343e39661c9794c6602ff5b9faf1340ab36d1cfac588424b0f5ab07a3705"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/incident-import-queued-indeterminate-linux.png",

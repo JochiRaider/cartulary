@@ -335,6 +335,11 @@ For the current profile, `deployment_admin` authorization is exactly:
 This matrix is exhaustive for current-profile public route families and deployment-local operator families that reference `deployment_admin`. Future granular deployment capabilities require a later profile or an explicit versioned capability registry. A current v1 implementation MUST NOT silently narrow or widen `deployment_admin` by local policy. Holding `deployment_admin` MUST continue not to disclose incident content without ordinary incident membership.
 
 Deployment-admin route families MUST distinguish authentication failure from authorization denial. Missing, invalid, expired, revoked, or inactive sessions fail with `401` and `error.code='session_required'`. An authenticated caller whose current user lacks `deployment_admin` fails with `403` and `error.code='authorization_denied'`; the error details SHOULD identify `required_capability='deployment_admin'` when the route family is denied for that reason.
+
+Common Job lookup and cancellation use the more specific concealed-resource rule
+in Core 01 §3.3.9.1: absent, expired or unauthorized job access returns `404` with
+`job_not_found`, including deployment-scoped jobs requiring deployment_admin.
+This exception does not replace ordinary authentication failure with concealment.
 Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-343, AC-344, AC-345, AC-346, AC-414, AC-427, AC-432, AC-439, AC-441
 
@@ -2646,7 +2651,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-249, REQ-01-268
 - **AC-260**: `POST /api/v1/jobs/{job_id}/cancel` requires a JSON object with `client_txn_id` and accepts optional `reason`; omission and explicit JSON `null` for `reason` compare equal for normalized request comparison; first success and idempotent replay both return `200 OK` with the current authoritative job resource; same-actor replay of the same normalized request with the same `(job_id, client_txn_id)` creates no second cancel transition; reuse of that scope key with a different normalized request fails with `409 error.code='client_txn_conflict'`; and rejected cancel attempts fail with `409 error.code='job_cancel_rejected'` plus exact `reason_code` equal to `already_cancel_requested`, `already_terminal`, or `not_cancelable`.
   - Verifies: REQ-01-234, REQ-01-238, REQ-01-249, REQ-01-453, REQ-04-023
-- **AC-261**: Terminal jobs expose `retained_until >= finished_at + 7 days`; `GET /api/v1/jobs/{job_id}` succeeds before expiry and may return `404 error.code='job_not_found'` after expiry; the same `404 error.code='job_not_found'` behavior is used for absent or unauthorized job reads or cancel requests, including a caller with `deployment_admin=true` but no incident membership attempting to access an incident-scoped job; and expiring the job resource does not delete or mutate durable outputs that the job produced.
+- **AC-261**: Terminal jobs expose `retained_until >= finished_at + 7 days`; `GET /api/v1/jobs/{job_id}` succeeds for an authorized caller before expiry; at server `now >= retained_until`, GET and every cancellation request, including exact cancellation replay, MUST return `404 error.code='job_not_found'` independently of physical compaction; the same `404 error.code='job_not_found'` behavior is used for absent or unauthorized job reads or cancel requests, including a caller with `deployment_admin=true` but no incident membership attempting to access an incident-scoped job; and expiring the job resource does not delete or mutate durable outputs that the job produced.
   - Verifies: REQ-01-234, REQ-01-249, REQ-04-023, REQ-04-029
 - **AC-130**: A cookie-authenticated state-changing request with missing or invalid CSRF proof fails closed, and the same request succeeds when a valid CSRF proof accompanies an otherwise authorized session.
   - Verifies: REQ-01-023..REQ-01-031, REQ-01-154, REQ-04-001..REQ-04-004, REQ-04-052..REQ-04-053

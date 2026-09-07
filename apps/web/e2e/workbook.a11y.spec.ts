@@ -6039,9 +6039,8 @@ test("a11y.incident-import upload recovery progress and cancellation remain keyb
   fixture.failAdmission(false);
   await page.keyboard.press("Enter");
   const detail = page.getByTestId(incidentImportTestId("detail"));
-  await expect(
-    detail.getByRole("heading", { name: "Queued", exact: true }),
-  ).toBeFocused();
+  await expect(detail.getByRole("heading")).toHaveText("Queued");
+  await expect(detail.getByRole("heading")).toBeFocused();
   const pause = page.getByRole("button", { name: "Pause updates" });
   await expectImportControlReachable(page, pause);
   await page.keyboard.press("Enter");
@@ -6060,13 +6059,36 @@ test("a11y.incident-import upload recovery progress and cancellation remain keyb
   await expect(cancel).toBeEnabled();
   await expectImportControlReachable(page, cancel);
   await expectVisibleFocus(cancel);
+  const checking = responseBarrier();
+  fixture.gateReads(checking.promise);
   await page.keyboard.press("Enter");
+  await expect(cancel).toHaveAttribute("aria-busy", "true");
+  await expect(cancel).toBeFocused();
+  expect(fixture.cancellationBodies).toHaveLength(0);
+  fixture.failReads(true);
+  checking.release();
   await expect(
-    detail.getByRole("heading", {
-      name: "Cancellation requested",
-      exact: true,
-    }),
-  ).toBeFocused();
+    page
+      .getByText(
+        "The action could not be confirmed. Review the current job status and retry.",
+        { exact: true },
+      )
+      .first(),
+  ).toBeVisible();
+  await expect(cancel).toBeFocused();
+  expect(fixture.cancellationBodies).toHaveLength(0);
+  fixture.gateReads(null);
+  fixture.failReads(false);
+  fixture.cancellation("rejected");
+  await page.keyboard.press("Enter");
+  await expect(detail).toContainText("Cancellation was rejected");
+  await expect(cancel).toBeFocused();
+  fixture.cancellation("requested");
+  await page.keyboard.press("Enter");
+  await expect(detail.getByRole("heading")).toHaveText(
+    "Cancellation requested",
+  );
+  await expect(detail.getByRole("heading")).toBeFocused();
   await expect(
     page.getByRole("button", { name: "Open imported incident" }),
   ).toHaveCount(0);

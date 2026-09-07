@@ -1,84 +1,67 @@
 import { clientTxnID } from "../services/browserApi";
 import {
   captureImport,
+  type ImportAdmissionOutcome,
   type ImportAttempt,
   type ImportCancelAttempt,
-  type ImportJobResponse,
-  type IncidentImportJob,
+  type ImportCancellationOutcome,
+  type ImportObservationOutcome,
   importedIncidentTarget,
-  importJobAdvances,
   terminalImportJob,
-  validImportJob,
 } from "./api/incidentImportClient";
+import {
+  admissionUnresolved,
+  cancelableImport,
+  type ImportAuthority,
+  type ImportEvent,
+  type IncidentImportState,
+  importStatusLabel,
+  initialImportState,
+  openableImport,
+  transitionImport,
+} from "./incidentImportState";
 
-export type ImportProblem =
-  | "transport"
-  | "contract"
-  | "rejected"
-  | "conflict"
-  | "unavailable";
-type Admission =
-  | { readonly kind: "idle" }
-  | { readonly kind: "pending" | "uncertain"; readonly attempt: ImportAttempt }
-  | { readonly kind: "rejected"; readonly problem: ImportProblem }
-  | { readonly kind: "accepted"; readonly jobId: string };
-type Observation =
-  | { readonly kind: "stale" | "reading" | "ready" | "unavailable" }
-  | { readonly kind: "failed"; readonly problem: ImportProblem };
-type Cancellation =
-  | { readonly kind: "idle" | "observed" }
+export type {
+  ImportAuthority,
+  IncidentImportState,
+  KnownImport,
+} from "./incidentImportState";
+export {
+  admissionUnresolved,
+  availableImport,
+  cancelableImport,
+  importStatusLabel,
+  openableImport,
+} from "./incidentImportState";
+export type ImportAccessConfirmation =
+  | { readonly kind: "authorized"; readonly authority: ImportAuthority }
   | {
-      readonly kind: "pending" | "uncertain";
-      readonly attempt: ImportCancelAttempt;
-    }
-  | { readonly kind: "rejected"; readonly problem: ImportProblem };
-type Navigation =
-  | { readonly kind: "idle" }
-  | {
-      readonly kind: "opening" | "opened" | "unavailable" | "access_lost";
-      readonly jobId: string;
+      readonly kind:
+        | "session_lost"
+        | "access_lost"
+        | "unavailable"
+        | "cancelled";
     };
-export type KnownImport = {
-  readonly job: IncidentImportJob;
-  readonly filename: string;
-  readonly observation: Observation;
-  readonly cancellation: Cancellation;
-};
-export type IncidentImportState = {
-  readonly access: "checking" | "ready";
-  readonly selectedFile: File | null;
-  readonly fieldError: "required" | null;
-  readonly admission: Admission;
-  readonly jobs: Readonly<Record<string, KnownImport>>;
-  readonly order: readonly string[];
-  readonly selectedJobId: string | null;
-  readonly paused: boolean;
-  readonly navigation: Navigation;
-  readonly announcement: {
-    readonly sequence: number;
-    readonly text: string;
-    readonly priority: "polite" | "assertive";
-  };
-};
-export type ImportAuthority = {
-  readonly lifetime: string;
-  readonly actorId: string;
-};
 export type IncidentImportPorts = {
+  readonly confirmAccess: (
+    authority: ImportAuthority,
+    signal: AbortSignal,
+    current: () => boolean,
+  ) => Promise<ImportAccessConfirmation>;
   readonly admit: (
     attempt: ImportAttempt,
     signal: AbortSignal,
     replay: boolean,
-  ) => Promise<ImportJobResponse>;
+  ) => Promise<ImportAdmissionOutcome>;
   readonly read: (
     id: string,
     signal: AbortSignal,
-  ) => Promise<ImportJobResponse>;
+  ) => Promise<ImportObservationOutcome>;
   readonly cancel: (
     id: string,
     attempt: ImportCancelAttempt,
     signal: AbortSignal,
-  ) => Promise<ImportJobResponse>;
+  ) => Promise<ImportCancellationOutcome>;
   readonly isCurrent: (authority: ImportAuthority) => boolean;
   readonly authorizationFailed: (status: number) => void;
   readonly openIncident: (
@@ -95,52 +78,22 @@ export type IncidentImportBinding = {
 type WaitResult<T> =
   | { kind: "response"; value: T }
   | { kind: "lost" | "aborted" };
-const initialState = (): IncidentImportState => ({
-  access: "checking",
-  selectedFile: null,
-  fieldError: null,
-  admission: { kind: "idle" },
-  jobs: {},
-  order: [],
-  selectedJobId: null,
-  paused: false,
-  navigation: { kind: "idle" },
-  announcement: { sequence: 0, text: "", priority: "polite" },
-});
-export const importStatusLabel: Record<IncidentImportJob["status"], string> = {
-  queued: "Queued",
-  running: "Processing",
-  cancel_requested: "Cancellation requested",
-  succeeded: "Import succeeded",
-  failed: "Import failed",
-  canceled: "Import canceled",
-};
-export const admissionUnresolved = (state: IncidentImportState) =>
-  state.admission.kind === "pending" || state.admission.kind === "uncertain";
-export const availableImport = (entry: KnownImport) =>
-  entry.observation.kind === "ready" &&
-  (entry.job.retained_until === null ||
-    Date.parse(entry.job.retained_until) > Date.now());
-export const cancelableImport = (entry: KnownImport) =>
-  availableImport(entry) &&
-  entry.job.cancelable &&
-  (entry.job.status === "queued" || entry.job.status === "running") &&
-  entry.cancellation.kind !== "pending";
-export const openableImport = (entry: KnownImport) =>
-  availableImport(entry) ? importedIncidentTarget(entry.job) : null;
-function problem(result: ImportJobResponse): ImportProblem {
-  if (result.ok) return "contract";
-  if (result.payload.error?.code === "client_txn_conflict") return "conflict";
-  if (result.payload.error?.code === "invalid_public_contract_response")
-    return "contract";
-  if (result.status === 404) return "unavailable";
-  return result.status >= 500 ? "transport" : "rejected";
-}
 
-/** Owns only session-local Incident Bundle imports. No React or incident socket. */
+type ActionIntent = {
+  readonly jobId: string;
+  readonly action: "cancel" | "open";
+  readonly epoch: number;
+  readonly deadline: number;
+};
+
+/** Bounded asynchronous executor for the session-local Incident Bundle workflow. */
 export class IncidentImportController {
-  private state = initialState();
+  private state = initialImportState();
   private authority: ImportAuthority | null = null;
+  private boundAuthority: ImportAuthority | null = null;
+  private recoveryAuthority: ImportAuthority | null = null;
+  private recoveryGeneration = 0;
+  private recoveryStop: (() => void) | null = null;
   private epoch = 0;
   private active = false;
   private disposed = false;
@@ -152,7 +105,9 @@ export class IncidentImportController {
   private navigationGeneration = 0;
   private navigationStop: (() => void) | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
-  private expiryTimer: ReturnType<typeof setTimeout> | undefined;
+  private pendingAction: ActionIntent | null = null;
+  private readAction: ActionIntent | null = null;
+  private actionTimer: ReturnType<typeof setTimeout> | undefined;
   private queue = new Set<string>();
   private cursor = 0;
   constructor(private readonly ports: IncidentImportPorts) {}
@@ -163,19 +118,14 @@ export class IncidentImportController {
       this.listeners.delete(listener);
     };
   };
-  private publish(patch: Partial<IncidentImportState>) {
-    this.state = { ...this.state, ...patch };
+  private dispatch(event: ImportEvent) {
+    const next = transitionImport(this.state, event);
+    if (next === this.state) return;
+    this.state = next;
     for (const listener of this.listeners) listener();
   }
   private announce(text: string, priority: "polite" | "assertive" = "polite") {
-    if (this.active)
-      this.publish({
-        announcement: {
-          sequence: this.state.announcement.sequence + 1,
-          text,
-          priority,
-        },
-      });
+    if (this.active) this.dispatch({ type: "announce", text, priority });
   }
   private current(epoch = this.epoch): boolean {
     return (
@@ -185,28 +135,37 @@ export class IncidentImportController {
       this.ports.isCurrent(this.authority)
     );
   }
+  private authorized() {
+    return this.current() && this.state.access === "ready";
+  }
   setAuthority(authority: ImportAuthority | null) {
     if (
-      this.authority?.lifetime === authority?.lifetime &&
-      this.authority?.actorId === authority?.actorId
+      this.boundAuthority?.lifetime === authority?.lifetime &&
+      this.boundAuthority?.actorId === authority?.actorId
     )
       return;
     this.retire();
+    this.boundAuthority = authority;
     if (!this.disposed) {
       this.authority = authority;
-      if (authority !== null) this.publish({ access: "ready" });
+      if (authority !== null)
+        this.dispatch({ type: "access", access: "ready" });
     }
   }
   retire = () => {
     ++this.epoch;
+    ++this.recoveryGeneration;
+    this.recoveryStop?.();
+    this.recoveryStop = null;
+    this.recoveryAuthority = null;
     this.authority = null;
     this.stopReads();
     this.stopNavigation();
     for (const stop of this.stops) stop();
     this.stops.clear();
-    clearTimeout(this.expiryTimer);
+    this.stopAction();
     this.cursor = 0;
-    this.publish(initialState());
+    this.dispatch({ type: "reset" });
   };
   dispose = () => {
     this.retire();
@@ -217,56 +176,35 @@ export class IncidentImportController {
     if (this.active === active) return;
     this.active = active;
     if (!active) {
+      this.stopAction();
       this.stopReads();
       this.stopNavigation();
-      const jobs = Object.fromEntries(
-        Object.entries(this.state.jobs).map(([id, entry]) => [
-          id,
-          {
-            ...entry,
-            observation:
-              entry.observation.kind === "ready" ||
-              entry.observation.kind === "reading"
-                ? { kind: "stale" as const }
-                : entry.observation,
-          },
-        ]),
-      );
-      this.publish({
-        jobs,
-        announcement: { ...this.state.announcement, text: "" },
-      });
-    } else if (this.current()) {
+      this.dispatch({ type: "inactive" });
+    } else if (this.authorized()) {
       for (const id of this.state.order) this.queue.add(id);
       this.schedule(0);
     }
   };
   selectFile = (file: File | null) => {
-    if (!this.current() || !this.active || admissionUnresolved(this.state))
+    if (!this.authorized() || !this.active || admissionUnresolved(this.state))
       return;
-    this.publish({
-      selectedFile: file,
-      fieldError: null,
-      admission: { kind: "idle" },
-    });
+    this.dispatch({ type: "file", file });
   };
   submit = () => {
-    if (!this.current() || !this.active || admissionUnresolved(this.state))
+    if (!this.authorized() || !this.active || admissionUnresolved(this.state))
       return;
     if (this.state.selectedFile === null) {
-      this.publish({ fieldError: "required" });
+      this.dispatch({ type: "required" });
       this.announce("Select an incident bundle file.", "assertive");
       return;
     }
-    const attempt = captureImport(
-      this.state.selectedFile,
-      this.transactionId(),
+    void this.admit(
+      captureImport(this.state.selectedFile, this.transactionId()),
     );
-    void this.admit(attempt);
   };
   retryAdmission = () => {
     if (
-      this.current() &&
+      this.authorized() &&
       this.active &&
       this.state.admission.kind === "uncertain"
     )
@@ -278,97 +216,68 @@ export class IncidentImportController {
   private async admit(attempt: ImportAttempt, replay = false) {
     if (this.state.admission.kind === "pending") return;
     const epoch = this.epoch;
-    this.publish({ admission: { kind: "pending", attempt }, fieldError: null });
+    this.dispatch({ type: "admission_started", attempt });
     this.announce("Uploading bundle and awaiting admission.");
     const result = await this.wait(
       (signal) => this.ports.admit(attempt, signal, replay),
       120_000,
     );
-    if (!this.current(epoch)) return;
-    if (result.kind !== "response") {
-      this.publish({ admission: { kind: "uncertain", attempt } });
-      this.announce(
-        "Import admission is unconfirmed. Retry the same upload to recover.",
-        "assertive",
-      );
+    if (!this.current(epoch) || !this.authority) return;
+    const outcome =
+      result.kind === "response"
+        ? result.value
+        : { kind: "uncertain" as const, problem: "transport" as const };
+    if (outcome.kind === "access_failed") {
+      this.authorizationFailure(outcome.status);
       return;
     }
-    const response = result.value;
-    if (
-      response.ok &&
-      response.status === 202 &&
-      validImportJob(response.payload.data) &&
-      (replay ||
-        ["queued", "running"].includes(response.payload.data.status)) &&
-      response.payload.data.submitted_by_user_id === this.authority?.actorId
-    ) {
-      const job = response.payload.data;
-      // Replayed admission is a receipt, not a newer observation of a known job.
-      const existing = this.state.jobs[job.job_id];
+    if (outcome.kind === "accepted") {
+      this.stopAction();
       this.stopNavigation();
-      this.publish({
-        selectedFile: null,
-        admission: { kind: "accepted", jobId: job.job_id },
-        selectedJobId: job.job_id,
-        order: existing ? this.state.order : [...this.state.order, job.job_id],
-        jobs: {
-          ...this.state.jobs,
-          [job.job_id]: existing ?? {
-            job,
-            filename: attempt.filename,
-            observation: { kind: "stale" },
-            cancellation: { kind: "idle" },
-          },
-        },
-      });
+    }
+    this.dispatch({
+      type: "admission_finished",
+      attempt,
+      outcome,
+      actorId: this.authority.actorId,
+    });
+    const admission = this.state.admission;
+    if (admission.kind === "accepted") {
       this.announce(
         "Import accepted. Server processing can continue when you leave this panel.",
       );
-      this.refresh(job.job_id);
-      return;
-    }
-    if (!response.ok && (response.status === 401 || response.status === 403)) {
-      this.authorizationFailure(response.status);
-      return;
-    }
-    const uncertain =
-      response.ok ||
-      response.status >= 500 ||
-      response.status === 408 ||
-      response.status === 0;
-    this.publish({
-      admission: uncertain
-        ? { kind: "uncertain", attempt }
-        : { kind: "rejected", problem: problem(response) },
-    });
-    this.announce(
-      uncertain
-        ? "Import admission is unconfirmed. Retry the same upload to recover."
-        : "Import admission was rejected. Review the bundle before submitting again.",
-      "assertive",
-    );
+      this.refresh(admission.jobId);
+    } else
+      this.announce(
+        admission.kind === "uncertain"
+          ? "Import admission is unconfirmed. Retry the same upload to recover."
+          : "Import admission was rejected. Review the bundle before submitting again.",
+        "assertive",
+      );
   }
   selectJob = (id: string) => {
-    if (!this.current() || !this.active || !this.state.jobs[id]) return;
+    if (!this.authorized() || !this.active || !this.state.jobs[id]) return;
     if (id !== this.state.selectedJobId) {
+      this.stopAction();
       this.stopNavigation();
-      this.publish({ selectedJobId: id });
+      this.dispatch({ type: "selected", id });
     }
     if (this.state.jobs[id]?.observation.kind !== "ready") this.refresh(id);
   };
   refresh = (id = this.state.selectedJobId) => {
-    if (!this.current() || !id || !this.state.jobs[id]) return;
+    if (!this.authorized() || !id || !this.state.jobs[id]) return;
     this.queue.add(id);
     this.schedule(0);
   };
   pause = () => {
-    this.stopReads();
-    this.publish({ paused: true });
+    clearTimeout(this.timer);
+    this.dispatch({ type: "paused", paused: true });
+    this.schedule(0);
     this.announce("Automatic job updates paused.");
   };
   resume = () => {
-    if (!this.current()) return;
-    this.publish({ paused: false });
+    if (!this.authorized()) return;
+    this.dispatch({ type: "paused", paused: false });
     for (const id of this.state.order) this.queue.add(id);
     this.schedule(0);
     this.announce("Automatic job updates resumed.");
@@ -381,14 +290,10 @@ export class IncidentImportController {
     this.readStop = null;
     this.readId = null;
     this.queue.clear();
-    const jobs = { ...this.state.jobs };
-    for (const [id, entry] of Object.entries(jobs))
-      if (entry.observation.kind === "reading")
-        jobs[id] = { ...entry, observation: { kind: "stale" } };
-    this.publish({ jobs });
+    this.dispatch({ type: "reads_stopped" });
   }
   private schedule(delay: number) {
-    if (!this.current() || !this.active || this.readId !== null) return;
+    if (!this.authorized() || !this.active || this.readId !== null) return;
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = undefined;
@@ -396,10 +301,21 @@ export class IncidentImportController {
     }, delay);
   }
   private pump() {
-    if (!this.current() || !this.active || this.readId !== null) return;
+    if (!this.authorized() || !this.active || this.readId !== null) return;
+    if (this.pendingAction) {
+      const action = this.pendingAction;
+      if (this.actionCurrent(action)) void this.observe(action.jobId, action);
+      else this.failAction(action);
+      return;
+    }
     let id: string | undefined;
     for (const queued of this.queue) {
-      if (this.state.jobs[queued]?.cancellation.kind === "pending") continue;
+      if (
+        this.state.jobs[queued]?.cancellation.kind === "pending" ||
+        (this.state.navigation.kind === "opening" &&
+          this.state.navigation.jobId === queued)
+      )
+        continue;
       this.queue.delete(queued);
       id = queued;
       break;
@@ -422,37 +338,15 @@ export class IncidentImportController {
     }
     if (id !== undefined) void this.observe(id);
   }
-  private update(id: string, patch: Partial<KnownImport>) {
-    const entry = this.state.jobs[id];
-    if (entry)
-      this.publish({
-        jobs: { ...this.state.jobs, [id]: { ...entry, ...patch } },
-      });
-  }
-  private acceptJob(id: string, job: IncidentImportJob): boolean {
-    const previous = this.state.jobs[id];
-    if (!previous || !importJobAdvances(previous.job, job)) return false;
-    this.update(id, {
-      job,
-      observation: { kind: this.active ? "ready" : "stale" },
-      cancellation:
-        job.status === "cancel_requested" || terminalImportJob(job)
-          ? { kind: "observed" }
-          : previous.cancellation,
-    });
-    if (previous.job.status !== job.status)
-      this.announce(importStatusLabel[job.status]);
-    this.expireJobs();
-    return true;
-  }
-  private async observe(id: string) {
+  private async observe(id: string, action: ActionIntent | null = null) {
     const epoch = this.epoch;
     const generation = ++this.readGeneration;
     this.readId = id;
-    this.update(id, { observation: { kind: "reading" } });
+    this.readAction = action;
+    this.dispatch({ type: "read_started", id });
     const result = await this.wait(
       (signal) => this.ports.read(id, signal),
-      30_000,
+      action ? Math.max(0, action.deadline - performance.now()) : 30_000,
       (stop) => {
         this.readStop = stop;
       },
@@ -465,114 +359,176 @@ export class IncidentImportController {
       return;
     this.readStop = null;
     this.readId = null;
-    if (
-      result.kind === "response" &&
-      result.value.ok &&
-      this.acceptJob(id, result.value.payload.data)
-    ) {
-      // Status changes alone announce; successful polls preserve focus and silence.
+    this.readAction = null;
+    const outcome =
+      result.kind === "response"
+        ? result.value
+        : { kind: "failed" as const, problem: "transport" as const };
+    if (outcome.kind === "access_failed") {
+      this.authorizationFailure(outcome.status);
+      return;
+    }
+    const previous = this.state.jobs[id]?.job.status;
+    this.dispatch({ type: "read_finished", id, outcome, active: this.active });
+    const entry = this.state.jobs[id];
+    if (entry?.observation.kind === "ready") {
+      if (previous !== entry.job.status)
+        this.announce(importStatusLabel[entry.job.status]);
     } else {
-      const response = result.kind === "response" ? result.value : null;
-      if (
-        response &&
-        !response.ok &&
-        (response.status === 401 || response.status === 403)
-      ) {
-        this.authorizationFailure(response.status);
-        return;
-      }
-      const issue = response ? problem(response) : "transport";
-      this.update(id, {
-        observation:
-          issue === "unavailable"
-            ? { kind: "unavailable" }
-            : { kind: "failed", problem: issue },
-      });
       this.announce(
-        issue === "unavailable"
+        outcome.kind === "unavailable"
           ? "The import job is no longer available."
           : "Job observation failed. The last validated status is retained. Retry observation to recover.",
         "assertive",
       );
-      if (issue === "unavailable") this.ports.authorizationFailed(404);
+      if (outcome.kind === "unavailable") this.beginAccessConfirmation();
     }
-    this.schedule(1000);
+    if (action && this.pendingAction === action) {
+      if (entry?.observation.kind === "ready" && this.actionCurrent(action)) {
+        const target = openableImport(entry);
+        if (action.action === "cancel" && cancelableImport(entry)) {
+          const attempt =
+            entry.cancellation.kind === "uncertain"
+              ? entry.cancellation.attempt
+              : Object.freeze({ client_txn_id: this.transactionId() });
+          this.stopAction();
+          void this.cancelAttempt(id, attempt);
+        } else if (action.action === "open" && target) {
+          this.stopAction();
+          void this.openTarget(id, target);
+        } else this.failAction(action);
+      } else this.failAction(action);
+    }
+    this.schedule(this.pendingAction ? 0 : 1000);
   }
   cancel = (id = this.state.selectedJobId) => {
-    if (!this.current() || !this.active || !id) return;
+    if (!id || id !== this.state.selectedJobId) return;
     const entry = this.state.jobs[id];
-    if (!entry || !cancelableImport(entry)) return;
-    const attempt =
-      entry.cancellation.kind === "uncertain"
-        ? entry.cancellation.attempt
-        : Object.freeze({ client_txn_id: this.transactionId() });
-    void this.cancelAttempt(id, attempt);
+    if (entry && cancelableImport(entry)) this.requestAction("cancel", id);
   };
+  private requestAction(action: "open" | "cancel", jobId: string) {
+    if (
+      !this.authorized() ||
+      !this.active ||
+      this.pendingAction ||
+      this.state.navigation.kind === "opening"
+    )
+      return;
+    const intent: ActionIntent = {
+      action,
+      jobId,
+      epoch: this.epoch,
+      deadline: performance.now() + 30_000,
+    };
+    this.pendingAction = intent;
+    this.dispatch({
+      type: "action",
+      action: { kind: "checking", action, jobId },
+    });
+    this.announce("Checking current job status.");
+    this.actionTimer = setTimeout(() => {
+      if (this.pendingAction !== intent) return;
+      this.failAction(intent);
+      if (this.readAction === intent) this.readStop?.();
+    }, 30_000);
+    this.schedule(0);
+  }
+  private actionCurrent(action: ActionIntent) {
+    return (
+      this.pendingAction === action &&
+      this.current(action.epoch) &&
+      this.state.access === "ready" &&
+      this.active &&
+      this.state.selectedJobId === action.jobId &&
+      performance.now() < action.deadline
+    );
+  }
+  private stopAction() {
+    clearTimeout(this.actionTimer);
+    this.pendingAction = null;
+    if (this.state.action.kind !== "idle")
+      this.dispatch({ type: "action", action: { kind: "idle" } });
+  }
+  private failAction(action: ActionIntent) {
+    if (this.pendingAction !== action) return;
+    this.stopAction();
+    this.dispatch({
+      type: "action",
+      action: { kind: "failed", action: action.action, jobId: action.jobId },
+    });
+    this.announce(
+      "The action could not be confirmed. Review the current job status and retry.",
+      "assertive",
+    );
+  }
   private async cancelAttempt(id: string, attempt: ImportCancelAttempt) {
     const epoch = this.epoch;
     if (this.readId === id) this.stopReads();
-    this.update(id, { cancellation: { kind: "pending", attempt } });
+    this.dispatch({ type: "cancel_started", id, attempt });
     this.announce("Requesting cancellation.");
     const result = await this.wait(
       (signal) => this.ports.cancel(id, attempt, signal),
       30_000,
     );
     if (!this.current(epoch)) return;
-    const response = result.kind === "response" ? result.value : null;
-    if (response?.ok && this.acceptJob(id, response.payload.data)) {
-      this.update(id, { cancellation: { kind: "observed" } });
-    } else {
-      if (
-        response &&
-        !response.ok &&
-        (response.status === 401 || response.status === 403)
-      ) {
-        this.authorizationFailure(response.status);
-        return;
-      }
-      const issue = response ? problem(response) : "transport";
-      const uncertain =
-        !response ||
-        response.ok ||
-        (!response.ok && (response.status >= 500 || response.status === 408));
-      this.update(id, {
-        cancellation: uncertain
-          ? { kind: "uncertain", attempt }
-          : { kind: "rejected", problem: issue },
-        observation: { kind: "stale" },
-      });
+    const outcome =
+      result.kind === "response"
+        ? result.value
+        : { kind: "uncertain" as const, problem: "transport" as const };
+    if (outcome.kind === "access_failed") {
+      this.authorizationFailure(outcome.status);
+      return;
+    }
+    const previous = this.state.jobs[id]?.job.status;
+    this.dispatch({
+      type: "cancel_finished",
+      id,
+      attempt,
+      outcome,
+      active: this.active,
+    });
+    const entry = this.state.jobs[id];
+    if (entry?.cancellation.kind === "observed") {
+      if (previous !== entry.job.status)
+        this.announce(importStatusLabel[entry.job.status]);
+    } else
       this.announce(
-        uncertain
+        entry?.cancellation.kind === "uncertain"
           ? "Cancellation is unconfirmed. Checking the job status."
           : "Cancellation was rejected. Checking the job status.",
         "assertive",
       );
-    }
-    this.refresh(id);
+    if (outcome.kind === "unavailable") this.beginAccessConfirmation();
+    else this.refresh(id);
   }
   open = () => {
-    if (
-      !this.current() ||
-      !this.active ||
-      this.state.navigation.kind === "opening"
-    )
-      return;
     const id = this.state.selectedJobId;
     const entry = id ? this.state.jobs[id] : undefined;
-    const target = entry ? openableImport(entry) : null;
-    if (id && target) void this.openTarget(id, target);
+    if (id && entry && openableImport(entry)) this.requestAction("open", id);
   };
   private async openTarget(jobId: string, incidentId: string) {
     const epoch = this.epoch;
     const generation = ++this.navigationGeneration;
-    const current = () =>
-      this.current(epoch) &&
-      this.active &&
-      this.navigationGeneration === generation &&
-      this.state.selectedJobId === jobId &&
-      this.state.jobs[jobId] !== undefined &&
-      openableImport(this.state.jobs[jobId]) === incidentId;
-    this.publish({ navigation: { kind: "opening", jobId } });
+    const current = () => {
+      const entry = this.state.jobs[jobId];
+      return (
+        this.current(epoch) &&
+        this.active &&
+        this.navigationGeneration === generation &&
+        this.state.selectedJobId === jobId &&
+        entry !== undefined &&
+        entry.availability !== "unavailable" &&
+        !(
+          entry.observation.kind === "failed" &&
+          entry.observation.problem === "contract"
+        ) &&
+        importedIncidentTarget(entry.job) === incidentId
+      );
+    };
+    this.dispatch({
+      type: "navigation",
+      navigation: { kind: "opening", jobId },
+    });
     this.announce("Opening imported incident.");
     const result = await this.wait(
       (signal) => this.ports.openIncident(incidentId, signal, current),
@@ -584,7 +540,8 @@ export class IncidentImportController {
     if (!current()) return;
     this.navigationStop = null;
     const outcome = result.kind === "response" ? result.value : "unavailable";
-    this.publish({
+    this.dispatch({
+      type: "navigation",
       navigation:
         outcome === "cancelled" ? { kind: "idle" } : { kind: outcome, jobId },
     });
@@ -593,38 +550,86 @@ export class IncidentImportController {
         "The import succeeded, but the workbook could not be opened. You can retry opening it.",
         "assertive",
       );
+    this.schedule(0);
   }
   private stopNavigation() {
     ++this.navigationGeneration;
     this.navigationStop?.();
     this.navigationStop = null;
     if (this.state.navigation.kind !== "idle")
-      this.publish({ navigation: { kind: "idle" } });
+      this.dispatch({ type: "navigation", navigation: { kind: "idle" } });
   }
   private authorizationFailure(status: number) {
+    const authority = this.authority;
     this.retire();
     this.ports.authorizationFailed(status);
-  }
-  private expireJobs() {
-    clearTimeout(this.expiryTimer);
-    let next = Number.POSITIVE_INFINITY;
-    for (const [id, entry] of Object.entries(this.state.jobs)) {
-      if (
-        entry.job.retained_until === null ||
-        entry.observation.kind === "unavailable"
-      )
-        continue;
-      const remaining = Date.parse(entry.job.retained_until) - Date.now();
-      if (remaining <= 0) {
-        this.update(id, { observation: { kind: "unavailable" } });
-        if (this.state.selectedJobId === id) this.stopNavigation();
-      } else next = Math.min(next, remaining);
+    if (status === 403 && authority && !this.disposed) {
+      this.recoveryAuthority = authority;
+      this.beginAccessConfirmation();
     }
-    if (Number.isFinite(next))
-      this.expiryTimer = setTimeout(
-        () => this.expireJobs(),
-        Math.min(next, 2_147_483_647),
+  }
+  retryAccess = () => {
+    if (this.state.access === "unavailable") this.beginAccessConfirmation();
+  };
+  private beginAccessConfirmation() {
+    const authority = this.recoveryAuthority ?? this.authority;
+    if (!authority || this.disposed || this.recoveryStop) return;
+    this.recoveryAuthority = authority;
+    this.stopAction();
+    this.stopReads();
+    this.stopNavigation();
+    this.dispatch({ type: "access", access: "checking" });
+    void this.confirmAccess(authority);
+  }
+  private async confirmAccess(authority: ImportAuthority) {
+    const epoch = this.epoch;
+    const generation = ++this.recoveryGeneration;
+    const current = () =>
+      !this.disposed &&
+      epoch === this.epoch &&
+      generation === this.recoveryGeneration;
+    const result = await this.wait(
+      (signal) => this.ports.confirmAccess(authority, signal, current),
+      30_000,
+      (stop) => {
+        this.recoveryStop = stop;
+      },
+    );
+    if (!current()) return;
+    this.recoveryStop = null;
+    const outcome =
+      result.kind === "response"
+        ? result.value
+        : { kind: "unavailable" as const };
+    if (outcome.kind === "authorized") {
+      if (
+        outcome.authority.lifetime !== authority.lifetime ||
+        outcome.authority.actorId !== authority.actorId ||
+        !this.ports.isCurrent(outcome.authority)
+      ) {
+        this.retire();
+        this.dispatch({ type: "access", access: "lost" });
+        return;
+      }
+      this.authority = outcome.authority;
+      this.recoveryAuthority = null;
+      this.dispatch({ type: "access", access: "ready" });
+      this.announce("Import access confirmed.");
+      this.schedule(0);
+    } else if (
+      outcome.kind === "access_lost" ||
+      outcome.kind === "session_lost"
+    ) {
+      this.retire();
+      this.dispatch({ type: "access", access: "lost" });
+      if (outcome.kind === "session_lost") this.ports.authorizationFailed(401);
+    } else {
+      this.dispatch({ type: "access", access: "unavailable" });
+      this.announce(
+        "Import access could not be confirmed. Retry access to continue.",
+        "assertive",
       );
+    }
   }
   /** Bounded local observations settle even when a transport ignores abort. */
   private wait<T>(

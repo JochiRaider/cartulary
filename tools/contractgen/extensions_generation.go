@@ -983,15 +983,15 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 	}
 	sortObjectRows(participantRows, "participant_id")
 	return map[string]any{
-			"schema_id": "cartulary.extension_state_registry.v1",
-			"profiles":  objectsToAny(stateRows),
-		}, map[string]any{
-			"schema_id": "cartulary.extension_backup_registry.v1",
-			"profiles":  objectsToAny(backupRows),
-		}, map[string]any{
-			"schema_id":    "cartulary.extension_participant_registry.v1",
-			"participants": objectsToAny(participantRows),
-		}, nil
+		"schema_id": "cartulary.extension_state_registry.v1",
+		"profiles":  objectsToAny(stateRows),
+	}, map[string]any{
+		"schema_id": "cartulary.extension_backup_registry.v1",
+		"profiles":  objectsToAny(backupRows),
+	}, map[string]any{
+		"schema_id":    "cartulary.extension_participant_registry.v1",
+		"participants": objectsToAny(participantRows),
+	}, nil
 }
 
 func extensionAlgorithmID(value any) any {

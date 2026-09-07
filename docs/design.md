@@ -652,6 +652,16 @@ Design contract. Reference Pack search controls inside Deployment administration
 
 Design contract. A successful incident-import terminal state MUST offer exactly one primary incident-entry action labeled `Open imported incident` for the imported incident. The action MUST leave Deployment administration and launch the incident through the ordinary workbook startup chain with no explicit `sheet_ref`. It MUST NOT write or expose `home_sheet_ref`, `default_sheet_ref`, saved-view ownership, source-role mapping, or historical-actor membership decisions.
 
+Design contract. Incident-import refresh MUST retain the last validated status
+and mounted action controls. Cancel and Open expose their checking/busy state and
+preserve keyboard focus while Core 03 REQ-03-290 revalidates the action. Failed
+access confirmation exposes `Retry access`; failed preflight and handoff have
+distinct local feedback. Repeated recovery remains keyboard reachable. A control
+that disappears after a meaningful transition transfers focus to the corresponding
+recovery control or job details only when its originating focus would otherwise be
+lost; background reads and hidden panels MUST NOT move focus. Live announcements
+report meaningful transitions and repeated explicit failures, not every poll.
+
 Non-goal. Deployment administration is not a general deployment console. It MUST NOT contain `General settings`, all-incident catalog/search/count/metadata controls, generic cross-incident policy-default editors, provider-definition editors, provider-wide recovery controls, or incident membership controls whose only authorization basis is `deployment_admin`.
 
 Design contract. Account and Users recovery MUST use native forms, field-associated

@@ -211,7 +211,7 @@ export class AppSessionController {
   refreshSession = async () => {
     await this.observeSession(false);
   };
-  refreshSessionForAccountOperation(
+  observeOperationSession(
     lifetime: string,
     signal: AbortSignal,
     isCurrent: () => boolean,
@@ -222,6 +222,44 @@ export class AppSessionController {
       () => lifetime === this.snapshot.lifetime && isCurrent(),
       "caller",
     );
+  }
+  async observeOperationExtensions(
+    lifetime: string,
+    signal: AbortSignal,
+    current: () => boolean,
+  ) {
+    if (
+      this.disposed ||
+      signal.aborted ||
+      lifetime !== this.snapshot.lifetime ||
+      !current()
+    )
+      return { kind: "cancelled" } as const;
+    const read = ++this.resourceReads.extensions;
+    const observation = await this.observe(
+      "extensions",
+      this.ports.extensions,
+      signal,
+    );
+    if (
+      this.disposed ||
+      signal.aborted ||
+      lifetime !== this.snapshot.lifetime ||
+      read !== this.resourceReads.extensions ||
+      !current()
+    )
+      return { kind: "cancelled" } as const;
+    const result = observation.kind === "completed" ? observation.value : null;
+    if (result?.ok) {
+      const profiles = result.payload.data.extensions;
+      this.publish({ extensions: { kind: "ready", value: profiles } });
+      return { kind: "accepted", profiles } as const;
+    }
+    if (result?.status === 401) {
+      this.sessionLost();
+      return { kind: "session_lost" } as const;
+    }
+    return { kind: "unavailable" } as const;
   }
   preferencesChanged(
     value: AccountPreferencesResource,
@@ -538,5 +576,5 @@ export type AccountSettingsSessionPort = Pick<
   | "sessionLost"
   | "refreshPreferences"
   | "preferencesChanged"
-  | "refreshSessionForAccountOperation"
+  | "observeOperationSession"
 >;

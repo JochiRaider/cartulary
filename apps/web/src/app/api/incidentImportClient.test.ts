@@ -41,7 +41,9 @@ describe("incident import client", () => {
     expect(attempt.file).toBe(file);
     const signal = new AbortController().signal;
     for (let replay = 0; replay < 2; replay++) {
-      expect((await importIncidentBundle(attempt, signal)).ok).toBe(true);
+      expect((await importIncidentBundle(attempt, signal)).kind).toBe(
+        "accepted",
+      );
       const [path, init] = fetch.mock.calls[replay] ?? [];
       expect(path).toBe("/api/v1/incident-bundles/import");
       expect(init.signal).toBe(signal);
@@ -74,7 +76,9 @@ describe("incident import client", () => {
           .fn()
           .mockResolvedValue(jsonResponse(jobEnvelope(importJob(status)), 202)),
       );
-      expect((await importIncidentBundle(attempt, signal)).ok).toBe(true);
+      expect((await importIncidentBundle(attempt, signal)).kind).toBe(
+        "accepted",
+      );
     }
     for (const [payload, status] of [
       [{ data: { job_id: importJobID } }, 202],
@@ -87,8 +91,8 @@ describe("incident import client", () => {
         vi.fn().mockResolvedValue(jsonResponse(payload, status)),
       );
       expect(await importIncidentBundle(attempt, signal)).toMatchObject({
-        ok: false,
-        payload: { error: { code: "invalid_public_contract_response" } },
+        kind: "uncertain",
+        problem: "contract",
       });
     }
     vi.stubGlobal(
@@ -99,7 +103,9 @@ describe("incident import client", () => {
           jsonResponse(jobEnvelope(importJob("succeeded")), 202),
         ),
     );
-    expect((await importIncidentBundle(attempt, signal, true)).ok).toBe(true);
+    expect((await importIncidentBundle(attempt, signal, true)).kind).toBe(
+      "accepted",
+    );
     for (const status of [
       "queued",
       "running",
@@ -112,7 +118,7 @@ describe("incident import client", () => {
         "fetch",
         vi.fn().mockResolvedValue(jsonResponse(jobEnvelope(importJob(status)))),
       );
-      expect((await readImportJob(importJobID, signal)).ok).toBe(true);
+      expect((await readImportJob(importJobID, signal)).kind).toBe("observed");
     }
   });
   it("rejects inconsistent jobs and preserves opaque cancellation idempotency", async () => {
@@ -134,7 +140,7 @@ describe("incident import client", () => {
         "fetch",
         vi.fn().mockResolvedValue(jsonResponse(jobEnvelope(job))),
       );
-      expect((await readImportJob(importJobID, signal)).ok).toBe(false);
+      expect((await readImportJob(importJobID, signal)).kind).toBe("failed");
     }
     const fetch = vi
       .fn()
@@ -147,8 +153,7 @@ describe("incident import client", () => {
     expect(fetch.mock.calls[0]?.[1].body).toBe('{"client_txn_id":"cancel-id"}');
     fetch.mockResolvedValue(errorResponse("job_not_found", 404));
     expect(await readImportJob(importJobID, signal)).toMatchObject({
-      ok: false,
-      status: 404,
+      kind: "unavailable",
     });
   });
   it("ignores additive result kinds without allowing ambiguous or premature navigation", () => {

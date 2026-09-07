@@ -215,12 +215,11 @@ export function App({
           event: async (event, signal, operationCurrent) => {
             if (lifetime === null || !current() || !operationCurrent()) return;
             if (event.kind === "resource_refresh") {
-              const result =
-                await sessionController.refreshSessionForAccountOperation(
-                  lifetime,
-                  signal,
-                  () => current() && operationCurrent(),
-                );
+              const result = await sessionController.observeOperationSession(
+                lifetime,
+                signal,
+                () => current() && operationCurrent(),
+              );
               if (lifetime === null || !current() || !operationCurrent())
                 return;
               if (result.kind !== "accepted")
@@ -256,12 +255,11 @@ export function App({
         },
         subscribe: sessionController.subscribe,
         refresh: async (identity, signal, current) => {
-          const result =
-            await sessionController.refreshSessionForAccountOperation(
-              identity.lifetime,
-              signal,
-              current,
-            );
+          const result = await sessionController.observeOperationSession(
+            identity.lifetime,
+            signal,
+            current,
+          );
           if (!current()) return;
           if (result.kind !== "accepted")
             throw new Error("Session refresh unavailable");
@@ -599,7 +597,6 @@ export function App({
     session?.is_deployment_admin === true &&
     extensionClaimed(extensionProfiles, "incident_portability");
   const incidentImport = useIncidentImport({
-    observedSession: session,
     authority:
       importAllowed && sessionSnapshot.lifetime && session
         ? { lifetime: sessionSnapshot.lifetime, actorId: session.user_id }
@@ -620,7 +617,34 @@ export function App({
     },
     authorizationFailed: (status) => {
       if (status === 401) handleSessionLost();
-      else void sessionController.refreshSession();
+    },
+    confirmAccess: async (authority, signal, current) => {
+      const result = await sessionController.observeOperationSession(
+        authority.lifetime,
+        signal,
+        current,
+      );
+      if (result.kind !== "accepted") return { kind: result.kind };
+      if (
+        !current() ||
+        sessionController.getSnapshot().lifetime !== authority.lifetime
+      )
+        return { kind: "cancelled" };
+      if (
+        result.session.user_id !== authority.actorId ||
+        !result.session.is_deployment_admin
+      )
+        return { kind: "access_lost" };
+      const discovery = await sessionController.observeOperationExtensions(
+        authority.lifetime,
+        signal,
+        current,
+      );
+      if (discovery.kind !== "accepted") return discovery;
+      if (!current()) return { kind: "cancelled" };
+      return extensionClaimed(discovery.profiles, "incident_portability")
+        ? { kind: "authorized", authority }
+        : { kind: "access_lost" };
     },
     openIncident: async (incidentId, signal, canNavigate) => {
       const result = await sessionController

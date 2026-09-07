@@ -449,3 +449,47 @@ describe("application session lifecycle", () => {
     expect(sessionLost).not.toHaveBeenCalled();
   });
 });
+
+it("observes operation session and current profiles with explicit cancellation and failure outcomes", async () => {
+  const extensions = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    payload: { meta: { request_id: "extensions" }, data: { extensions: [] } },
+  });
+  const { controller } = setup({ extensions });
+  await controller.refreshSession();
+  await flush();
+  const lifetime = controller.getSnapshot().lifetime;
+  if (lifetime === null) throw new Error("Expected authenticated lifetime");
+  const signal = new AbortController().signal;
+  const result = await controller.observeOperationSession(
+    lifetime,
+    signal,
+    () => true,
+  );
+  expect(result.kind).toBe("accepted");
+  expect(controller.getSnapshot().lifetime).toBe(lifetime);
+  extensions.mockRejectedValueOnce(new TypeError("offline"));
+  expect(
+    await controller.observeOperationExtensions(lifetime, signal, () => true),
+  ).toEqual({ kind: "unavailable" });
+  expect(controller.getSnapshot().extensions.kind).toBe("ready");
+  expect(
+    await controller.observeOperationExtensions(lifetime, signal, () => true),
+  ).toEqual({ kind: "accepted", profiles: [] });
+  const gate = deferred<Awaited<ReturnType<typeof extensions>>>();
+  extensions.mockReturnValueOnce(gate.promise);
+  let current = true;
+  const observation = controller.observeOperationExtensions(
+    lifetime,
+    signal,
+    () => current,
+  );
+  current = false;
+  gate.resolve({
+    ok: true,
+    status: 200,
+    payload: { data: { extensions: [] } },
+  });
+  expect(await observation).toEqual({ kind: "cancelled" });
+});

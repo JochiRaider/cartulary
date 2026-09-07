@@ -26,6 +26,7 @@ test("imports real active and closed bundles with exact recovery and explicit wo
     const admitted = responseBarrier();
     const release = responseBarrier();
     let failedRead = false;
+    let jobReads = 0;
     await page.route("**/api/v1/incident-bundles/import", async (route) => {
       const response = await route.fetch();
       expect(response.status()).toBe(202);
@@ -55,6 +56,7 @@ test("imports real active and closed bundles with exact recovery and explicit wo
       } else await route.fulfill({ response });
     });
     await page.route("**/api/v1/jobs/*", async (route) => {
+      if (route.request().method() === "GET") ++jobReads;
       if (route.request().method() === "GET" && !failedRead) {
         failedRead = true;
         await route.abort("failed");
@@ -101,9 +103,11 @@ test("imports real active and closed bundles with exact recovery and explicit wo
         `/incidents/${bundle.incidentId}/workbook`,
       ),
     );
+    const beforeOpen = jobReads;
     await open.focus();
     await page.keyboard.press("Enter");
     const membership = (await (await session).json()).data.memberships;
+    expect(jobReads).toBeGreaterThan(beforeOpen);
     expect(membership).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -156,9 +160,7 @@ test("recovers import observation and cancellation without confusing terminal ou
   });
   await form.getByRole("button", { name: "Start import" }).click();
   const detail = page.getByTestId(incidentImportTestId("detail"));
-  await expect(
-    detail.getByRole("heading", { name: "Queued", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Queued");
   await page.getByRole("button", { name: "Pause updates" }).click();
   await expect(
     page.getByTestId(incidentImportTestId("progress")),
@@ -177,18 +179,14 @@ test("recovers import observation and cancellation without confusing terminal ou
     fixture.importJob("running", { progress: { completed: 2, total: 8 } }),
   );
   await refresh();
-  await expect(
-    detail.getByRole("heading", { name: "Processing", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Processing");
   await expect(
     page.getByTestId(incidentImportTestId("progress")),
   ).toHaveAttribute("value", "2");
   fixture.failReads(true);
   await refresh();
   await expect(detail).toContainText("Observation unavailable");
-  await expect(
-    detail.getByRole("heading", { name: "Processing", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Processing");
   fixture.failReads(false);
   await refresh();
   fixture.cancellation("rejected");
@@ -212,13 +210,11 @@ test("recovers import observation and cancellation without confusing terminal ou
     fixture.importJob("running", { progress: { completed: 2, total: 8 } }),
   );
   await page.getByRole("button", { name: "Retry cancellation" }).click();
+  await expect.poll(() => fixture.cancellationBodies.length).toBe(3);
   expect(fixture.cancellationBodies[2]).toBe(fixture.cancellationBodies[1]);
-  await expect(
-    detail.getByRole("heading", {
-      name: "Cancellation requested",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText(
+    "Cancellation requested",
+  );
   await expect(
     page.getByRole("button", { name: "Open imported incident" }),
   ).toHaveCount(0);
@@ -226,16 +222,91 @@ test("recovers import observation and cancellation without confusing terminal ou
     fixture.importJob("canceled", { progress: { completed: 2, total: 8 } }),
   );
   await refresh();
-  await expect(
-    detail.getByRole("heading", { name: "Import canceled", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Import canceled");
   fixture.setJob(
     fixture.importJob("running", { progress: { completed: 2, total: 8 } }),
   );
   await refresh();
-  await expect(
-    detail.getByRole("heading", { name: "Import canceled", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Import canceled");
   await expect(detail).toContainText("Observation unavailable");
   expect(fixture.admissionCount()).toBe(1);
+});
+
+test("checks import actions and recovers access explicitly before accepting current profile loss", async ({
+  workerAdminPage: page,
+  workerAdmin,
+}) => {
+  const fixture = await installImportObservationFixture(
+    page,
+    workerAdmin.user_id,
+  );
+  const form = await openImportPresentation(page);
+  await form.getByLabel("Incident bundle file").setInputFiles({
+    name: "Protected.tar",
+    mimeType: "application/x-tar",
+    buffer: Buffer.from("fixture"),
+  });
+  await form.getByRole("button", { name: "Start import" }).click();
+  const cancel = page.getByRole("button", {
+    name: "Cancel import",
+    exact: true,
+  });
+  await expect(cancel).toBeEnabled();
+  await page.getByRole("button", { name: "Pause updates" }).click();
+  const readGate = responseBarrier();
+  fixture.gateReads(readGate.promise);
+  const before = fixture.readCount();
+  await cancel.focus();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => fixture.readCount()).toBe(before + 1);
+  await expect(cancel).toHaveAttribute("aria-busy", "true");
+  await expect(cancel).toBeFocused();
+  expect(fixture.cancellationBodies).toHaveLength(0);
+  await page.keyboard.press("Enter");
+  expect(fixture.readCount()).toBe(before + 1);
+  fixture.failReads(true);
+  readGate.release();
+  await expect(
+    page
+      .getByText(
+        "The action could not be confirmed. Review the current job status and retry.",
+        { exact: true },
+      )
+      .first(),
+  ).toBeVisible();
+  expect(fixture.cancellationBodies).toHaveLength(0);
+  await expect(cancel).toBeFocused();
+  fixture.gateReads(null);
+  fixture.failReads(false);
+
+  let sessionUnavailable = true;
+  await page.route("**/api/v1/auth/session", async (route) => {
+    if (sessionUnavailable) await route.abort("failed");
+    else await route.fallback();
+  });
+  fixture.readStatus(404);
+  await page.getByRole("button", { name: "Retry observation" }).click();
+  const retry = page.getByRole("button", { name: "Retry access", exact: true });
+  await expect(retry).toBeVisible();
+  await expect(
+    page.getByText("Protected.tar", { exact: true }).first(),
+  ).toBeVisible();
+  await retry.focus();
+  await page.keyboard.press("Enter");
+  await expect(retry).toBeFocused();
+  sessionUnavailable = false;
+  await page.keyboard.press("Enter");
+  await expect(retry).toHaveCount(0);
+  await expect(form.getByLabel("Incident bundle file")).toBeFocused();
+  await expect(form.getByLabel("Incident bundle file")).toBeEnabled();
+
+  await page.route("**/api/v1/extensions", (route) =>
+    route.fulfill({
+      status: 200,
+      json: { data: { extensions: [] }, meta: { request_id: "profile-loss" } },
+    }),
+  );
+  await page.getByRole("button", { name: "Refresh job status" }).click();
+  await expect(page.locator("[data-incident-import]")).toHaveCount(0);
+  await expect(page.getByText("Protected.tar", { exact: true })).toHaveCount(0);
 });

@@ -3408,6 +3408,13 @@ All non-success JSON responses MUST use a common error envelope with:
 - `error.request_id` as a correlation identifier,
 - `error.retryable` as an explicit retry hint,
 - optional `error.details` for route-specific validation or state details.
+
+For `error.code='internal_error'`, the shared HTTP boundary MUST emit HTTP and
+envelope status `500`, message `internal_error`, `retryable=false`, an empty
+details object and no conflict payload. The server-generated request correlation
+identifier remains available. Caller-supplied causes, messages, details and
+conflicts MUST NOT escape this boundary. Internal causes MUST NOT be copied into
+public diagnostics or newly logged as a substitute for the removed response text.
 Profiles: base
 Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231
 
@@ -3454,6 +3461,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_auth_request` | `400` | `false` | A local-account login request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, uses an unsupported `second_factor.kind`, or carries an invalid TOTP assertion shape. |  |  |  |
 | `invalid_enterprise_auth_request` | `400` | `false` | An enterprise-auth discovery or initiation request is malformed, omits a required member, includes an unknown or forbidden member, supplies `null` where forbidden, or uses a `return_to` value not allowed by the current profile. |  |  |  |
 | `extension_profile_not_claimed` | `404` | `false` | The request path matches a reserved extension route family for a profile the deployment does not currently claim. `error.details` MUST include `profile_id` and `route_family`. |  |  |  |
+| `internal_error` | `500` | `false` | An internal failure could not complete the request; the shared boundary emits only the fixed safe envelope in REQ-01-229. | REQ-01-229 | base | AC-231 |
 | `extension_capability_not_supported` | `409` | `false` | A request, bundle, descriptor, browser action, or internal activation attempts a nonempty extension capability in contract major `1`; no capability behavior executes. |  |  |  |
 | `authorization_denied` | `403` | `false` | The request is authenticated, the route or operation is currently matched, and the authenticated caller lacks the current authorization required by that route or operation. | REQ-01-234 | base | AC-427 |
 | `auth_provider_not_found` | `404` | `false` | The addressed enterprise-auth `provider_key` does not identify a configured enterprise-auth provider allowed by the active route. |  |  |  |
@@ -4229,6 +4237,12 @@ This subsection declares the base route family only. Core 01 §16 is the primary
 
 **REQ-01-248**
 Routes that start long-running operations MUST return `202 Accepted` with the common success envelope from §3.3.6 and `data` equal to the canonical job resource defined in §3.3.9.1. The initial job resource returned by an initiating route MUST use `status` equal to `queued` or `running`, and `status_route` MUST be the same-origin path `/api/v1/jobs/{job_id}` for that resource.
+
+An exact idempotent replay identifies the original operation rather than starting
+another operation. Its canonical job receipt MAY already be terminal. A replay
+receipt does not establish current job availability; clients MUST use a current
+job read before an explicit result action. This does not change the initiating
+route's response status or its route-owned idempotency comparison.
 Profiles: base
 Verified by: AC-046, AC-129, AC-231, AC-257
 

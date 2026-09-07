@@ -29,6 +29,7 @@
         "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "apps/web/src/app/IncidentAdminPanel.tsx",
         "apps/web/src/app/IncidentCreationForm.tsx",
+        "apps/web/src/app/IncidentImportPanel.test.tsx",
         "apps/web/src/app/IncidentImportPanel.tsx",
         "apps/web/src/app/IncidentLanding.tsx",
         "apps/web/src/app/LandingAdminDisplay.tsx",
@@ -48,6 +49,8 @@
         "apps/web/src/app/api/deploymentUserClient.ts",
         "apps/web/src/app/api/incidentClient.ts",
         "apps/web/src/app/api/incidentDirectoryClient.test.ts",
+        "apps/web/src/app/api/incidentImportClient.test.ts",
+        "apps/web/src/app/api/incidentImportClient.ts",
         "apps/web/src/app/api/publicHttpTypes.ts",
         "apps/web/src/app/api/shellHttpClients.routeBoundary.test.ts",
         "apps/web/src/app/appSessionController.test.tsx",
@@ -61,6 +64,11 @@
         "apps/web/src/app/incidentCreationModel.ts",
         "apps/web/src/app/incidentDirectoryModel.test.ts",
         "apps/web/src/app/incidentDirectoryModel.ts",
+        "apps/web/src/app/incidentImportHardening.test.ts",
+        "apps/web/src/app/incidentImportModel.test.ts",
+        "apps/web/src/app/incidentImportModel.ts",
+        "apps/web/src/app/incidentImportState.test.ts",
+        "apps/web/src/app/incidentImportState.ts",
         "apps/web/src/app/landingAdminStyles.ts",
         "apps/web/src/app/landingAdminTypes.ts",
         "apps/web/src/app/otelBoundary.test.ts",
@@ -74,7 +82,8 @@
         "apps/web/src/app/useAuthentication.ts",
         "apps/web/src/app/useDeploymentUsers.ts",
         "apps/web/src/app/useIncidentCreation.ts",
-        "apps/web/src/app/useIncidentDirectory.ts"
+        "apps/web/src/app/useIncidentDirectory.ts",
+        "apps/web/src/app/useIncidentImport.ts"
       ]
     },
     {
@@ -204,6 +213,7 @@
         "apps/web/src/testing/appShellTestSupport.ts",
         "apps/web/src/testing/extensionAvailabilityTestSupport.ts",
         "apps/web/src/testing/fetchMockTestSupport.ts",
+        "apps/web/src/testing/incidentImportTestSupport.ts",
         "apps/web/src/testing/selectorContractPolicy.test.ts",
         "apps/web/src/testing/sourceOwnershipPolicy.test.ts",
         "apps/web/src/testing/testSetup.dom.ts",

@@ -786,11 +786,7 @@ export class AccountSettingsController {
     this.publication = "pending";
     this.changed();
     const observation = await this.profile.observe("publication", (signal) =>
-      this.session.refreshSessionForAccountOperation(
-        attempt.lifetime,
-        signal,
-        current,
-      ),
+      this.session.observeOperationSession(attempt.lifetime, signal, current),
     );
     if (!current() || observation.kind === "cancelled") return;
     this.publication =

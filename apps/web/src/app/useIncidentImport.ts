@@ -4,7 +4,6 @@ import {
   importIncidentBundle,
   readImportJob,
 } from "./api/incidentImportClient";
-import type { SessionData } from "./api/publicHttpTypes";
 import {
   admissionUnresolved,
   type ImportAuthority,
@@ -14,7 +13,7 @@ import {
 
 export function useIncidentImport(options: {
   authority: ImportAuthority | null;
-  observedSession: SessionData | null;
+  confirmAccess: IncidentImportPorts["confirmAccess"];
   active: boolean;
   isCurrent: IncidentImportPorts["isCurrent"];
   authorizationFailed: IncidentImportPorts["authorizationFailed"];
@@ -25,6 +24,8 @@ export function useIncidentImport(options: {
   const [controller] = useState(
     () =>
       new IncidentImportController({
+        confirmAccess: (authority, signal, canAccept) =>
+          current.current.confirmAccess(authority, signal, canAccept),
         admit: importIncidentBundle,
         read: readImportJob,
         cancel: cancelImportJob,
@@ -40,14 +41,9 @@ export function useIncidentImport(options: {
   const actorId = options.authority?.actorId ?? null;
   useLayoutEffect(() => {
     controller.setAuthority(
-      lifetime !== null &&
-        actorId !== null &&
-        options.observedSession?.user_id === actorId &&
-        options.observedSession.is_deployment_admin
-        ? { lifetime, actorId }
-        : null,
+      lifetime !== null && actorId !== null ? { lifetime, actorId } : null,
     );
-  }, [controller, lifetime, actorId, options.observedSession]);
+  }, [controller, lifetime, actorId]);
   useLayoutEffect(() => {
     controller.setActive(
       options.active && document.visibilityState !== "hidden",
@@ -92,14 +88,26 @@ export function useIncidentImportPresentation(
   const jobHeadingRef = useRef<HTMLHeadingElement>(null);
   const retryAdmissionRef = useRef<HTMLButtonElement>(null);
   const recoveryOrigin = useRef<Element | null>(null);
+  const retryAccessRef = useRef<HTMLButtonElement>(null);
+  const accessOrigin = useRef<Element | null>(null);
   const cancellationOrigin = useRef<Element | null>(null);
   useLayoutEffect(() => {
     if (state.selectedFile === null && fileInputRef.current)
       fileInputRef.current.value = "";
-    if (!active) {
+    if (!active || document.visibilityState === "hidden") {
+      accessOrigin.current = null;
       recoveryOrigin.current = null;
       cancellationOrigin.current = null;
       return;
+    }
+    if (state.access !== "checking" && accessOrigin.current !== null) {
+      const origin = accessOrigin.current;
+      accessOrigin.current = null;
+      if (!origin.isConnected && document.activeElement === document.body)
+        (state.access === "ready"
+          ? fileInputRef.current
+          : retryAccessRef.current
+        )?.focus();
     }
     if (state.admission.kind !== "pending" && recoveryOrigin.current !== null) {
       const origin = recoveryOrigin.current;
@@ -118,6 +126,7 @@ export function useIncidentImportPresentation(
       ? state.jobs[state.selectedJobId]
       : undefined;
     if (
+      state.action.kind !== "checking" &&
       selected?.cancellation.kind !== "pending" &&
       cancellationOrigin.current !== null
     ) {
@@ -128,6 +137,8 @@ export function useIncidentImportPresentation(
     }
   }, [
     active,
+    state.access,
+    state.action.kind,
     state.admission.kind,
     state.selectedFile,
     state.jobs,
@@ -139,6 +150,11 @@ export function useIncidentImportPresentation(
     fileInputRef,
     jobHeadingRef,
     retryAdmissionRef,
+    retryAccessRef,
+    retryAccess: () => {
+      accessOrigin.current = document.activeElement;
+      controller.retryAccess();
+    },
     retryAdmission: () => {
       recoveryOrigin.current = document.activeElement;
       controller.retryAdmission();

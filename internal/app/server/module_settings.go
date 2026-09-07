@@ -51,16 +51,16 @@ func (projection applicationSettingsProjection) Evidence() evidence.Settings {
 func (projection applicationSettingsProjection) Imports() (imports.Limits, imports.ArchiveLimits) {
 	cfg := projection.deployment
 	return imports.Limits{
-			MaxCSVSourceBytes:  cfg.Limits.Imports.MaxCSVSourceBytes,
-			MaxXLSXSourceBytes: cfg.Limits.Imports.MaxXLSXSourceBytes,
-			MaxRows:            cfg.Limits.Imports.MaxRows,
-			MaxColumns:         cfg.Limits.Imports.MaxColumns,
-			MaxCells:           cfg.Limits.Imports.MaxCells,
-		}, imports.ArchiveLimits{
-			DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes,
-			MaxCompressionRatio:      cfg.Limits.Archives.MaxCompressionRatio,
-			MaxMembers:               cfg.Limits.Archives.MaxMembers,
-		}
+		MaxCSVSourceBytes:  cfg.Limits.Imports.MaxCSVSourceBytes,
+		MaxXLSXSourceBytes: cfg.Limits.Imports.MaxXLSXSourceBytes,
+		MaxRows:            cfg.Limits.Imports.MaxRows,
+		MaxColumns:         cfg.Limits.Imports.MaxColumns,
+		MaxCells:           cfg.Limits.Imports.MaxCells,
+	}, imports.ArchiveLimits{
+		DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes,
+		MaxCompressionRatio:      cfg.Limits.Archives.MaxCompressionRatio,
+		MaxMembers:               cfg.Limits.Archives.MaxMembers,
+	}
 }
 
 func (projection applicationSettingsProjection) IncidentBundles() incidentbundles.Limits {

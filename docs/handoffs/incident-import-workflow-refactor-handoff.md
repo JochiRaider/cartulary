@@ -1,5 +1,10 @@
 # Incident import workflow refactor handoff
 
+**Current iteration:** [Production hardening, II-06–II-10](#production-hardening-iteration).
+The approved iteration is complete, including validation and handoff. The original baseline,
+II-01–II-05 completion record and evidence below remain historical records of
+the implemented workflow.
+
 ## Baseline and authority
 
 Execution baseline: `main`, HEAD `dd83a122008e7f410fc1dabff4094ba58fa5e6e6`,
@@ -505,3 +510,546 @@ do not retain an adapter/controller half against the old unchecked presentation.
 The multipart projection correction can be retained independently only after
 reviewing its two other already-selected upload aliases. No stored data needs
 rollback. No commit, push or deployment is part of this work.
+
+## Production hardening iteration
+
+### Execution authority and baseline
+
+The user approved implementation of the expanded II-06–II-10 remediation plan,
+including specification cleanup and shared backend HTTP error safety. That
+authorization supersedes the historical frontend-only boundary and the previous
+document-update-only restrictions. II-01–II-05 above remain historical evidence;
+their completion statements do not describe this iteration.
+
+Execution baseline: main at b1624e9f30956453b877db62f9393a41fd64c566.
+The handoff alone had staged user changes, retained intact as the starting point.
+No reset, dependency change, new endpoint, stored-data migration, commit, push,
+or deployment is included. Domain vocabulary remains owned by domain.md.
+
+Fresh planning evidence: the four incident_import_client, incident_import_lifecycle,
+incident_import_workflow and incident_import_application_lifetime rows passed
+through make test-slice OWNER=web.application with cache off, 5/5 harness units,
+at .cartulary/test-results/20260907T185737Z-p173041. This is a passing baseline,
+not evidence for the new requirements.
+
+### Remediation and acceptance map
+
+| Gap | Remediation and areas | Rationale and lasting benefit | Compatibility and unresolved risk | Completion criteria |
+| --- | --- | --- | --- | --- |
+| G1 — Owner ambiguity | Core 01 defines replay receipts and safe internal_error; Core 03 owns action revalidation; Core 04 clarifies concealed job lookup and mandatory expiry; Design owns presentation. Update projections only from authored machine inputs. | Define behavior once so future implementations agree. | Preserve wire shapes and job concealment; restrict diagnostic text. Unresolved ambiguity risks inconsistent expiry, rejected replay and information disclosure. | Human owner review plus independent replay, authorization and exact-expiry tests. No executable Markdown dependency. |
+| G2 — Raw client outcomes | Import-specific discriminated admission, observation and cancellation outcomes; preserve received status through malformed bodies, including multipart. Implementation/tests. | Normalize once; every operation settles without leaking transport details into transitions. | Preserve exact Blob, filename, transaction IDs and CSRF. Otherwise malformed failures can strand UI or duplicate operations. | Null, scalar, array, invalid JSON, HTML, empty body, throws, lost response and status matrix settle correctly. |
+| G3 — Internal exception disclosure | Shared HTTP writer fixes internal_error to 500, fixed message, false retry hint, empty details, no conflict and server request ID. Remove raw cause copying in common and Job API helpers. Specification/backend/tests. | One enforced boundary protects every caller. | No data migration; exception-text consumers must use code/correlation. Otherwise private SQL, paths or infrastructure details can escape. | Hostile markers absent from complete shared and job responses; typed non-internal errors unchanged. |
+| G4 — Coupled state and effects | Pure transitions/selectors, bounded executor, independent snapshot availability and read activity. Implementation/tests. | Cohesive state makes future growth testable without asynchronous branch sprawl. | Replace obsolete helpers and duplicate validation together. Otherwise refresh removes focused controls or cancels valid handoff. | State invariants, scheduling cleanup and stable DOM/focus through refresh pass. |
+| G5 — Stale explicit actions | New serial GET after each Cancel/Open intent; priority next slot; bounded queue time, duplicate suppression and lifetime guards. Spec/implementation/tests. | Separate intent, observation and committed effects. | One GET per action; preserve exact cancel replay. Otherwise stale authorization and cancellation races can mutate or navigate incorrectly. | Queue, deadlines, terminal races, departure, duplicate intents and delayed responses pass. Failed preflight has no side effect. |
+| G6 — Browser-clock expiry | Remove local expiry transitions and availability clock checks; server GET decides; monotonic local deadlines. Implementation/tests/docs. | Fewer timers and correct behavior under clock skew. | Retained result may remain visible until authoritative read; expiry never means output deletion. Otherwise valid results become locally inaccessible. | Positive/negative skew has no authority; server 404 does; durable outputs survive expiry. |
+| G7 — Session object recovery | Explicit typed, lifetime-bound access confirmation, Retry access, current discovery when uncertain. Rename operation-observation interface without alias. App/session/binding/tests/docs. | Session publication and object allocation no longer grant authority implicitly. | Retirement clears files/jobs permanently; restoration starts empty. Otherwise recovery can stall or resurrect protected state. | Confirmation failure/retry, same identity, demotion, replacement, profile loss, ambiguous 404 and ignored-abort responses pass. |
+| G8 — Conflicting results | Central immutable identity, progress, lifecycle and committed-target checks; allow skipped observations and ignore unknown additive refs. Spec/implementation/tests. | Strong target identity with forward-compatible summaries. | Unsupported/ambiguous results render but cannot open; conflicting snapshots do not overwrite validated state. Otherwise wrong incidents can open. | Target conflict, duplicate refs, additive refs, unknown result, lifecycle regressions and unchanged refresh pass. |
+| G9 — Missing evidence | Deterministic regression, real browser, keyboard/a11y, reviewed scoped visuals and completed tracker. Tests/routing/docs. | Preserve a reliable regression boundary for later phases. | Replace assertions encoding removed defects; no unrelated golden refresh. Otherwise refactor completion can conceal unchanged bugs. | Every gap has owner mapping, routed results and final disposition; two ordinary visual passes after updates. |
+
+### State, timing and lifecycle decisions
+
+The import adapter owns generated wire operations and validation. Pure state owns
+admission, retained snapshots, availability, read activity, cancellation attempts,
+action intent, access and announcements. The executor owns requests, serial reads,
+timers and cleanup. React owns visibility, native input clearing and focus. App
+owns current session/capability confirmation and semantic workbook startup.
+There is no generic job framework or extension registry.
+
+Admission 4xx except 408 rejects even with malformed bodies; 401 retires the
+session and 403 clears import authority before confirmation. Transport loss,
+408, 5xx, unexpected success status or malformed success remains uncertain.
+Read/cancel 404 means unavailable, not proof of global capability loss.
+Unknown failures use fixed safe feedback; no raw message drives decisions.
+
+Admission waits 120 seconds. Reads, action preflight (including queue time),
+cancel dispatch and workbook handoff each have separate 30-second bounds.
+A new action GET starts after its intent and takes the next available serial
+slot. Duplicate intents are suppressed. Selection/panel/visibility/lifetime
+changes invalidate undispatched actions. Dispatched cancel ownership survives
+ordinary panel changes; uncertainty reuses its exact ID only after eligible
+preflight. Pause stops automatic polling, not explicit recovery or actions.
+Automatic reads remain fair across locally known nonterminal jobs, with one
+second between automatic reads.
+
+Routine refresh preserves validated snapshots and mounted controls. Server reads,
+not browser time, establish availability. Open requires supported success,
+current membership and ordinary startup without sheet_ref. Failed handoff retries
+opening only. Job unavailable feedback never claims committed output deletion.
+
+After 401/403 or confirmed capability loss, protected state is cleared and late
+continuations fenced. Failed confirmation exposes Retry access. Confirmed access
+after retirement restores an empty workflow. Ambiguous job 404 retains the
+unavailable snapshot while confirmation disables new protected actions; confirmed
+loss clears state before publication. Current discovery confirms uncertain profile
+authority. Reload loses memory recovery, and server work may continue.
+
+### Sequential tracker
+
+Only one executable child row may be IN_PROGRESS. Parent II-06–II-10 phases are
+rollups, not independent execution. Close evidence and update this tracker and
+work log after each child, before beginning the next. Unexpected owner
+contradictions block dependent work until reconciled.
+
+| Parent phase | Child completion rollup |
+| --- | --- |
+| II-06 | Complete: II-06a and II-06b |
+| II-07 | Complete: II-07a, II-07b and II-07c |
+| II-08 | Complete: II-08a and II-08b |
+| II-09 | Complete: II-09a and II-09b |
+| II-10 | Complete: validation, acceptance audit and handoff closure |
+
+| Workstream | Status | Dependency and exit |
+| --- | --- | --- |
+| II-06a — Specification and controlling plan | DONE | Owner wording and acceptance reviewed; Markdown and whitespace pass. |
+| II-06b — Characterization | DONE | New hardening, access and shared/job error rows reproduce product failures before production edits. |
+| II-07a — Shared server error safety | DONE | Shared and job-local sentinel tests pass; typed public errors and correlation preserved. |
+| II-07b — Typed import boundary | DONE | Typed client/lifecycle and expanded malformed-response matrix pass; callers typecheck. |
+| II-07c — Pure state and snapshot ownership | DONE | Pure state/client/lifecycle and focused-control tests pass; typecheck passes. |
+| II-08a — Authoritative actions and expiry | DONE | Fresh serial preflight, queue deadlines, cancellation ownership and clock independence pass. |
+| II-08b — Access and application integration | DONE | Typed recovery, retained ambiguous 404, retirement, session collaborators and focus pass. |
+| II-09a — Browser and accessibility evidence | DONE | Real launch, action/access faults, profile loss and keyboard/layout evidence pass. |
+| II-09b — Visual evidence | DONE | Three new/one changed scoped goldens reviewed; two full ordinary visual passes. |
+| II-10 — Validation and handoff completion | DONE | Required checks pass; all gaps accepted; scope, limitations, compatibility and rollback recorded. |
+
+Primary phase risks: II-06 can encode defects as requirements; II-07 can widen
+shared HTTP compatibility or retain duplicate paths; II-08 can admit late actions
+or restore authority accidentally; II-09 can hide defects in fixtures or unrelated
+goldens; II-10 can overstate incomplete evidence. The exit gates above address
+those risks and remain mandatory.
+
+### Verification and handoff contract
+
+Resolve Make routing for web.application, module.auth, module.jobapi,
+module.incidentbundles, platform.jobs, app.server, platform.openapi,
+package.protocol_ts, package.ui and web.design. Add authored routing for new
+cases; generate topology/projections only through Make. Narrow fresh slices
+precede broader checks. Preserve real active/closed import, exact upload replay,
+six statuses and explicit launch; use deterministic gates for races.
+
+Run make agent-finalize before broader final verification. Without qualifying
+retained full-run evidence leave RESULTS_DIR unset and report maintenance skips.
+Require applicable type/boundary/lint, generated drift/policy/JSON checks,
+service-backed import/job evidence, browser/a11y/visual checks and make check.
+Follow the visual golden maintenance guide: ordinary reconciliation, justified
+update, individual image review and two fresh ordinary passes. Finish with
+make lint-markdown and staged/unstaged whitespace and scope audits.
+
+II-10 records changed files and behavior, commands/run roots, all failures and
+corrections, skips with reasons, every G1–G9 disposition, memory/reload/retention
+limits and no stored-data migration. Roll back frontend/state/binding/projections
+cohesively. Shared error safety is independently revertible; workflow rollback
+must not automatically restore disclosure. No production certification is implied.
+
+### Hardening work log
+
+#### II-06a — Complete
+
+Revalidated main/HEAD and the staged handoff-only starting state. Updated Core 01
+common internal errors and replay receipt semantics, Core 03 explicit actions and
+recovery, Core 04 concealed jobs and exact expiry, and Design focus/presentation.
+Existing typed error registry already declares internal_error=500; wire shape
+does not change. Owner review found no remaining contradiction for this seam.
+make lint-markdown PASS at 20260907T190845Z-p176935; git diff --check PASS.
+No product code, test, generator or dependency changed in this workstream.
+II-06a exit recorded before starting characterization.
+
+#### II-06b — Complete
+
+Added independent import hardening cases for malformed admission status, retained
+actions during refresh, new action reads, cancellation completion, clock skew and
+conflicting/additive targets. Strengthened the existing access case to require
+failed explicit confirmation and Retry access instead of new object identity.
+Added shared HTTP and job-local private-error sentinel tests. Authored routing
+belongs to web.application, app.server and module.jobapi; make task-guide resolved
+their narrow commands. make generate PASS at 20260907T191146Z-p179246.
+
+Fresh cache-off make test-slice failures are expected characterization evidence:
+web.application incident_import_hardening at 20260907T191213Z-p182201;
+app.server internal_error_boundary at 20260907T191214Z-p182447;
+module.jobapi internal_error_safety at 20260907T191308Z-p183387;
+web.application incident_import_workflow at 20260907T191348Z-p184194.
+All report product/test_assertion_failure rather than missing selectors. The
+earlier passing four-row baseline remains separate. G1 is owner clarification;
+G2–G8 now have targeted failing rows and G9 maps the missing evidence. No production
+source changed before these reproductions. Service-backed replay/auth/expiry
+fixtures remain existing owner evidence to rerun in final validation.
+II-06b exit recorded before shared server safety implementation.
+
+#### II-07a — Complete
+
+The common HTTP writer now enforces the fixed internal_error envelope, clearing
+caller diagnostics/details/conflicts and false retry hints while preserving
+request correlation. Shared and job-local constructors no longer copy raw causes.
+Typed non-internal responses retain their prior envelope. No logging was added.
+Fresh app.server internal_error_boundary PASS at 20260907T191559Z-p187752
+(including correlation and non-null empty details); module.jobapi
+internal_error_safety PASS at 20260907T191535Z-p185628. Both use cache-off slices.
+make format PASS at 20260907T191618Z-p188262; two unrelated baseline Go formatter
+sites were inspected and restored before client conversion. G3's reproductions now pass; broader
+shared-route compatibility remains a required II-10 gate.
+II-07a exit recorded before typed client conversion.
+
+#### II-07b — Complete
+
+Admission, GET and cancellation now return distinct typed outcomes. The adapter
+owns safe unknown-body inspection and received-status classification. Multipart
+adds the same onResponse hook already available for JSON operations, before body
+parsing; existing request framing/bytes/CSRF remain unchanged. The executor and
+fixtures consume typed outcomes without raw payload branches. Existing client and
+lifecycle plus admission-error rows PASS, 4/4 units, at 20260907T192145Z-p195391;
+frontend-typecheck PASS at 20260907T192145Z-p195456. Expanded read/cancel malformed,
+throw/loss/invalid-success matrix PASS at 20260907T192220Z-p196633.
+An initial fixture conversion omitted parentheses around an async object return;
+typecheck 20260907T192025Z-p193932 and lifecycle routing 20260907T192026Z-p194309
+failed before correction. The reruns above pass. No production compatibility shim
+was retained. G2 is complete; action/access characterization stays intentionally
+red until its assigned slices. II-07b exit recorded before pure state extraction.
+
+#### II-07c — Complete
+
+Added incidentImportState.ts with pure events/transitions/selectors. The controller
+now executes effects and dispatches events rather than patching workflow state.
+Read activity is a separate flag; refresh preserves validated state. The result
+control remains mounted through read failure/recovery. Central job advancement
+now rejects changed committed target/code and established lifecycle timestamps,
+while accepting unknown additive refs and skipped intermediate observations.
+State/client/lifecycle rows PASS, 4/4, at 20260907T192805Z-p199548; focused-control
+recovery PASS at 20260907T192915Z-p201053; typecheck PASS at
+20260907T192828Z-p200421. Initial typecheck 20260907T192658Z-p198171 caught a
+remaining presentation comparison against removed reading state; it was migrated
+to the new activity flag. The mixed hardening row still fails pending action
+preflight, as expected (20260907T192700Z-p198561). Selectors are clock-independent;
+the remaining executor expiry timer is removed in II-08a. G4/G8 evidence passes.
+II-07c exit recorded before action integration.
+
+#### II-08a — Complete
+
+Explicit Cancel/Open now create bounded intents with a fresh prioritized serial
+GET. Queue time counts toward preflight's monotonic deadline. Duplicate intents,
+departure and late responses cannot dispatch. Dispatched cancellation retains its
+exact retry attempt across panel changes. Separate dispatch/handoff bounds remain.
+Removed browser expiry decisions and timer; authoritative 404 controls availability.
+Refresh no longer invalidates an unchanged workbook handoff. Paused automatic
+observation still permits explicit actions.
+
+Hardening/state/lifecycle/focus rows PASS, 5/5, at
+20260907T194040Z-p208572; typecheck PASS at 20260907T194142Z-p210255.
+The first mixed run 20260907T193221Z-p202614 exposed old local-expiry and cached
+action fixture assumptions; updated lifecycle passed at 20260907T193429Z-p204270.
+Typechecks at 20260907T193220Z-p202231, 20260907T193428Z-p203881,
+20260907T193932Z-p207859 and 20260907T194042Z-p208839 caught union narrowing,
+one leftover removed expiry helper call and a fixture's cancelled/canceled typo.
+All corrected; direct compiler diagnostics were used only to expose errors omitted
+by the graph summary, and the public Make rerun supplies passing evidence.
+G5/G6 exit recorded before access integration.
+
+#### II-08b — Complete
+
+Replaced observedSession binding identity with a typed confirmation port, bound
+authority and recovery generation. Retirement clears protected data; fresh typed
+confirmation restores only an empty workflow. Failed/cancelled confirmation
+settles into Retry access. Job 404 keeps its unavailable snapshot while protected
+actions are suspended; confirmed loss clears it. Retry focus returns to the new
+retry control or file input. Cancellation focus ownership spans preflight.
+
+Renamed all account-specific session-observation callers to observeOperationSession,
+without an alias. Current profile confirmation uses observeOperationExtensions
+over the existing session observation executor and publishes no artificial loading
+state. App confirms session/admin identity and current profile discovery before
+authorization. Internal interfaces changed; wire/API and persistence did not.
+
+Import/session/account collaborator rows PASS, 7/7, at
+20260907T194552Z-p213555; typecheck PASS at 20260907T194553Z-p213860.
+Expanded hardening/state/workflow/session rows PASS, 5/5, at
+20260907T194844Z-p286496. module.auth owner slice PASS, 37/37, at
+20260907T194618Z-p215267. Boundary check PASS at 20260907T194659Z-p267414;
+Biome PASS at 20260907T194843Z-p286048; format PASS at
+20260907T194827Z-p281719 with unrelated baseline Go formatting restored.
+Typecheck 20260907T194424Z-p211765 caught a widened fixture literal, corrected.
+Biome 20260907T194659Z-p267425 and 20260907T194804Z-p280905 caught new test
+non-null assertions and subsequent formatting; explicit fixture checks and Make
+format resolved them. G7 exit recorded before browser evidence work.
+
+#### II-09a — Complete
+
+Real active/closed archive tests now prove a new job GET precedes membership
+recovery and ordinary workbook startup. Cancellation replay assertions wait for
+dispatch after preflight. A separately routed browser scenario gates action
+reads, suppresses duplicates, proves failed preflight cannot cancel, recovers
+ambiguous 404 through repeated Retry access, and confirms current profile loss
+removes the protected panel. Accessibility adds focused checking, failed preflight,
+definitive rejection and disappearing cancellation controls to existing reduced
+motion, keyboard, zoom, text spacing and constrained-layout coverage.
+
+Fresh combined service-backed web.design rows PASS, 13/13 units, at
+20260907T195207Z-p302616. The retained browser reports cover three functional
+scenarios and the expanded accessibility scenario. Typecheck PASS at
+20260907T195045Z-p291860; generate PASS at 20260907T195149Z-p295277.
+Generator attempts 20260907T195017Z-p288043 and 20260907T195044Z-p291209
+caught a missing scenario identity and unsorted identity array. The first browser
+attempt likewise rejected the catalog before product execution. The new scenario
+now has its own row/identity, preserving the historical scenario mapping.
+Format PASS at 20260907T195151Z-p295933; unrelated Go formatting restored.
+II-09a exit recorded before visual reconciliation.
+
+#### II-09b — Complete
+
+Ordinary reconciliation at 20260907T195335Z-p352168 accounts for 139 intents:
+136 existing active goldens, three new missing captures, no orphans or ambiguous
+mappings and all 26 registered fixtures resolved. All unrelated visual tests pass.
+The sole existing changed comparison is incident-import-observation-unavailable:
+Cancel remains enabled because activation performs fresh preflight. Its actual and
+diff were inspected; the only changed pixels are that control's enabled text.
+
+New planned captures are incident-import-action-checking,
+incident-import-action-unconfirmed and incident-import-access-retry, all under
+web.design.visual.incident_import_workflow / scenario_49044213afe8, Chromium,
+1280×900 viewport. This is an approved workflow/presentation change; no masks,
+zoom, scroll normalization, screenshot scope, renderer or tolerance changed.
+The new ordinary captures completed their functional assertions before reporting
+missing goldens. The canonical visual update passed at 20260907T195633Z-p405881, 12/12 units,
+with all 139 captures active and no reconciliation defects.
+
+Review also identified hidden-document focus restoration after a dispatched
+cancellation. The binding now suppresses it; focused/hidden-focus row PASS at
+20260907T195555Z-p404805. Typecheck and Biome PASS at
+20260907T195500Z-p403770 and 20260907T195500Z-p403780. Make format PASS at
+20260907T195657Z-p449561 and generate PASS at 20260907T195745Z-p458987.
+
+All 14 changed/promoted images were individually inspected. The three new
+1280×900 states retain visible focus, readable safe feedback and reachable
+controls; the existing observation-failure image reflects preflight eligibility.
+Ten incidental rewrites were inspected and restored byte-for-byte: four unchanged
+import states (empty, canceled, queued, running) and six unrelated account/auth,
+collaboration, creation and Timeline states. The final manifest regenerated at
+20260907T200056Z-p463272 changes only three new entries and the justified existing
+observation-failure hash. Two ordinary scoped passes satisfy the exit gate: 20260907T200117Z-p466414
+and 20260907T200353Z-p515125, both 12/12 units. Each reconciles all 139 active
+captures with zero missing/orphan/ambiguous mappings and all 26 registry fixtures.
+Unrelated PNG bytes remain identical to HEAD. II-09b exit recorded before final
+validation and handoff work.
+
+#### II-10 — Complete
+
+Final evidence audit characterized a remaining availability coupling at
+20260907T200653Z-p562997: a failed read after an authoritative 404 made the
+cached result actionable again. KnownImport now stores server-established
+availability independently from the last observation outcome and read activity.
+Only validated authoritative outcomes restore availability. Last snapshots,
+failed-read feedback and unavailable feedback coexist without resurrecting actions.
+The new pure regression and five import rows pass at 20260907T200850Z-p568640
+(6/6). Positive and negative browser-clock offsets are covered.
+
+Shared error tests now inspect individual secret, SQL and path markers across
+the complete response. Actual Job GET and cancel handlers inject a failing
+database read and assert the canonical envelope, separately from the private job
+helper test. module.jobapi internal_error_safety PASS at
+20260907T200851Z-p568949. The real imported-incident integration now expires its
+job and proves 404 while ordinary workbook startup, imported projection, object
+bytes and commit proof survive. It passes at 20260907T200853Z-p569461 (3/3).
+No production backend change was needed for expiry.
+
+Typecheck 20260907T200907Z-p584385 caught a Playwright-only exact option copied
+into a Testing Library focus fixture; removed it. Typecheck/Biome now PASS at
+20260907T201019Z-p591881 / 20260907T201019Z-p591891.
+Generate PASS at 20260907T200908Z-p586183. agent-finalize PASS at
+20260907T201020Z-p592276 before broader final verification. RESULTS_DIR was
+unset; retained-run selection, canonical retained-evidence validation, scheduler
+event/timing validation and performance-evidence maintenance were skipped.
+Generated structure was unchanged; schema and tier coverage passed.
+
+Final cache-off narrow owner evidence:
+
+| Public Make route | Run root suffix | Result |
+| --- | --- | --- |
+| service-backed-test-slice platform.jobs: expiry/compaction, lifecycle/progress, transition contracts, failure security | 20260907T201131Z-p595832 | PASS 3/3 |
+| service-backed-test-slice module.jobapi: all service rows | 20260907T201132Z-p596073 | PASS 3/3 |
+| test-slice app.server: internal_error_boundary | 20260907T201133Z-p596939 | PASS 1/1 |
+| test-slice platform.openapi | 20260907T201134Z-p599084 | PASS 4/4 |
+| test-slice package.protocol_ts | 20260907T201140Z-p613775 | PASS 7/7 |
+| test-slice package.ui | 20260907T201150Z-p640275 | PASS 10/10 |
+| frontend-import-boundary-check | 20260907T201136Z-p602534 | PASS 2/2 |
+| generate-drift | 20260907T201135Z-p602231 | PASS 4/4 |
+| generated-artifact-policy-check | 20260907T201135Z-p602241 | PASS 3/3 |
+| json-shape-check | 20260907T201135Z-p602251 | PASS 3/3 |
+
+Run roots use .cartulary/test-results/<suffix>. The broader make check route is
+justified by shared HTTP serialization and session caller migration.
+
+The browser/accessibility/affected-visual slice passes on the availability fix at
+20260907T201214Z-p642332 (15/15). The first make check at
+20260907T201351Z-p692784 failed three of 747 work units; 744 passed. These are
+verification regressions/pre-existing policy debt, not expected characterization
+failures. The failing units and resolutions are:
+
+- Selector-contract policy found 13 import heading-name readiness assertions in
+  the three browser suites. They now locate the existing owned detail selector,
+  then assert the heading text and applicable focus. No policy exception or new
+  selector was introduced.
+- Source-ownership policy found ten uncatalogued paths: seven existing import
+  files and three new hardening/state files. The authored web.app/web.testing
+  source ownership lists now cover them. Architecture rerun
+  20260907T201827Z-p863427 passed two of three units while selector edits were
+  still incomplete; corrected rerun 20260907T201924Z-p876326 passed all three.
+- lint-go found pre-existing indentation in internal/app/server/module_settings.go
+  and tools/contractgen/extensions_generation.go. The isolated lint-go-format
+  failure at 20260907T202007Z-p881867 confirmed this. Make format at
+  20260907T202020Z-p885954 corrected both. These whitespace-only changes are now
+  retained to satisfy the required gate, superseding earlier work-log restorations.
+
+agent-finalize passed again at 20260907T202052Z-p890274 before the second broad
+check. RESULTS_DIR remained unset with the same retained-maintenance skips.
+The generator's formatting changed its source-integrity digest; Make regenerated
+only that digest and its enclosing artifact hash in
+internal/gen/contractextensions/artifacts_gen.go. No extension schema or behavior
+changed. No generated file was hand-edited.
+
+Final typecheck and Biome pass at 20260907T202053Z-p890526 and
+20260907T202053Z-p890536. make lint-go passes: format, vet and staticcheck
+target summaries are 20260907T202053Z-p890633, 20260907T202055Z-p894616 and
+20260907T202106Z-p905656 respectively. Fresh drift/policy/JSON reruns pass at
+20260907T202215Z-p958367 (4/4), 20260907T202215Z-p958375 (3/3) and
+20260907T202215Z-p958383 (3/3). The final browser/accessibility/visual rerun
+after the selector corrections passes at 20260907T202215Z-p958442 (15/15).
+
+The second make check passes at 20260907T202149Z-p909964: 747/747 work units,
+1123 selected owner rows, zero failed/skipped/cancelled units, 326161 ms. This
+broad run used normal cache mode (82 hits, 496 misses, 169 bypasses); the affected
+narrow slices and final browser run above used cache off. No broad-run cache
+hit is represented as a freshly executed characterization or browser result.
+Final Markdown and whitespace checks follow the completed evidence record.
+
+### Final gap acceptance disposition
+
+PASS denotes implementation-support evidence. It does not publish a Core 05
+conformance claim. The work-log tables supply the full run-root suffixes; all
+new tests are routed through authored owner catalogs, never through Markdown.
+
+| Gap | Final disposition and owner-to-evidence mapping |
+| --- | --- |
+| G1 | PASS. Human review reconciled Core 01 REQ-01-229/248/249, Core 03 REQ-03-290, Core 04 concealment and AC-261, and Design §4.5. Existing typed internal_error projection already matches 500; no wire projection change is required. module.jobapi service rows cover concealment/replay; platform.jobs.integration.expiry_and_compaction proves immediately-before and exact-cutoff behavior, including cancellation replay. The real module.incidentbundles integration proves expired-job output survival. |
+| G2 | PASS. web.application.regression.incident_import_error_boundary/client and hardening exercise all three typed operations, malformed bodies/statuses, thrown/lost responses and invalid successes. Shared transport status survives parsing failure. Exact multipart recovery is also proved by web.design.browser.incident_import_real_workflow. |
+| G3 | PASS. app.server.unit.internal_error_boundary and module.jobapi.unit.internal_error_safety prove fixed HTTP/envelope status, code/message, retry hint, empty details, omitted conflict and preserved shared request correlation. Individual private SQL/path/secret markers are absent from complete responses; actual GET/cancel handlers and typed public errors are covered. Full make check passes. |
+| G4 | PASS. web.application.regression.incident_import_state/lifecycle/refresh_focus/hardening prove pure immutable transitions, independent snapshot availability/read activity, retained controls and unchanged handoff. The final availability regression ensures a failed read cannot reverse authoritative 404. |
+| G5 | PASS. web.application.regression.incident_import_hardening/lifecycle prove fresh serial action reads, priority/deadline accounting, duplicate/departure fencing, loss of eligibility, exact dispatched cancellation replay and no side effect after failed preflight. Real browser action/access and import-to-workbook rows confirm integration. |
+| G6 | PASS. Hardening covers large positive and negative browser-clock offsets; availability has no local clock dependency. platform.jobs expiry tests own server cutoff behavior. module.incidentbundles real integration proves workbook startup, imported projection, object bytes and commit proof remain after job expiry. |
+| G7 | PASS. Import workflow/application-lifetime/hardening and session collaborator rows cover explicit confirmation failure/retry, stable identity, retirement and obsolete generations. module.auth passes 37/37 units. Real action/access browser coverage confirms ambiguous 404, repeated recovery and current profile loss; protected state is cleared before confirmed loss publication. |
+| G8 | PASS. Central validation and state/client/hardening rows cover immutable job/submission/scope identity, timestamp/progress/lifecycle consistency, skipped states, duplicate/unsupported references, committed-target conflict and additive unknown references. Semantic incident IDs feed ordinary startup; API resource routes never navigate the browser. |
+| G9 | PASS. Baseline, expected characterization failures, implementation failures/corrections, routed regressions and final results are distinct in this log. Real active/closed imports, upload/cancel recovery, six statuses, keyboard/layout/a11y and explicit launch remain covered. Three new and one changed golden were reviewed; two ordinary visual passes and the final 15/15 browser/a11y/visual run pass with unrelated golden bytes unchanged. |
+
+### Final changed-file inventory and scope audit
+
+This iteration changes 46 paths relative to its starting HEAD, including eight
+new files. The original staged handoff edit remains staged and unchanged; all
+iteration edits remain in the working tree. Historical II-01–II-05 path lists
+above describe their earlier seam and are not this iteration's change inventory.
+
+- Owners and controlling documentation: docs/spec/01_architecture_storage_and_view_contracts.md,
+  docs/spec/03_workbook_interaction_collaboration_and_workflows.md,
+  docs/spec/04_security_deployment_and_conformance.md, docs/design.md, and this
+  handoff. docs/domain.md was inspected and remains unchanged.
+- Import application/state/presentation: apps/web/src/app/incidentImportModel.ts,
+  incidentImportState.ts (new), IncidentImportPanel.tsx, useIncidentImport.ts,
+  api/incidentImportClient.ts, App.tsx, appSessionController.ts and
+  accountSettingsModel.ts. The account caller change only adopts the neutral
+  operation-observation name.
+- Frontend transport and unit evidence: apps/web/src/services/browserApi.ts and
+  httpTransport.ts; apps/web/src/app/incidentImportHardening.test.ts and
+  incidentImportState.test.ts (new), incidentImportModel.test.ts,
+  IncidentImportPanel.test.tsx, appSessionController.test.tsx and
+  api/incidentImportClient.test.ts.
+- Backend behavior and evidence: internal/platform/httpapi/httpapi.go,
+  api_error.go and internal_error_test.go (new);
+  internal/modules/jobapi/routes.go and error_test.go (new);
+  internal/modules/incidentbundles/routes_admission_integration_test.go.
+- Browser evidence: apps/web/e2e/incident-import.spec.ts,
+  support/incidents/import.ts, workbook.a11y.spec.ts and workbook.visual.spec.ts.
+  Under workbook.visual.spec.ts-snapshots, new
+  incident-import-action-checking-linux.png,
+  incident-import-action-unconfirmed-linux.png and
+  incident-import-access-retry-linux.png; changed
+  incident-import-observation-unavailable-linux.png. No other PNG changed.
+- Authored verification/ownership: tools/test_families/app.server.json,
+  module.jobapi.json, web.application.json and web.design.json;
+  tools/frontend_source_ownership.json. Existing ownership omissions were repaired
+  without changing routing authority or weakening architectural policy.
+- Make-generated evidence/projections: tools/browser_e2e_batch_manifest.json,
+  tools/execution_topology_render_index.json,
+  tools/frontend_visual_golden_manifest.json and
+  internal/gen/contractextensions/artifacts_gen.go. The latter changes only the
+  formatted generator's integrity hash and containing artifact hash.
+- Required formatter repair: internal/app/server/module_settings.go and
+  tools/contractgen/extensions_generation.go, both whitespace-only. They add no
+  feature behavior or stored-data change.
+
+Inspection also covered domain navigation, existing protocol/error projections,
+session/membership/workbook startup, auth/job admission/cancel/expiry paths,
+verification routing and the visual maintenance guide. Package protocol/UI and
+OpenAPI owner slices pass without changes to their wire shapes or selectors.
+No lockfile, dependency, authored migration, endpoint or production configuration
+changed. No runtime, generator, test, conformance or release-evidence input was
+added under docs or other Markdown.
+
+### Final verification limits and completion gate
+
+All required product, service-backed, browser/accessibility, visual, type,
+boundary, lint, generated-policy/drift and JSON checks have passed. Initial
+characterization failures and subsequent implementation/policy failures have
+successful closing evidence above; no product failure remains deferred.
+
+Retained-run selection and retained canonical/scheduler/performance maintenance
+were skipped by agent-finalize because RESULTS_DIR was unset at both invocations;
+no qualifying successful full warm run was available then. The final make check
+result does not retroactively claim those maintenance operations. Full CI,
+release-check, alternate-browser certification, deployment and production
+conformance publication are outside the authorized task and were not performed.
+No required check is waived by those scope limits.
+
+make lint-markdown passes at 20260907T202934Z-p1130629; its summary is
+adhoc/lint-markdown/tool-run-summary.json. Both git diff --check and
+git diff --cached --check pass. The scope audit confirms 46 changed paths, eight
+new files, only the four approved PNG changes, and the original handoff-only
+staged edit (151 insertions). Historical sections from the first section through
+II-05's rollback are byte-identical to the original staged handoff; only the
+iteration pointer and superseded hardening proposal were replaced.
+
+All child workstreams and G1–G9 are complete. II-10 closes the overall effort;
+no required work remains. A final Markdown/whitespace rerun checks this tracker
+closure itself before the completion report. No commit, push or deployment was
+performed.
+
+### Final architecture, compatibility and rollback
+
+The import-specific client validates transport outcomes once. Pure state owns
+snapshots, independent availability/read activity, attempts, access and action
+state. The executor owns serial scheduling, intent priority, monotonic deadlines,
+abort/late-response fencing, and exact cancellation ownership. The React binding
+owns visibility, native file clearing, subscriptions and conditional focus recovery.
+App coordinates explicit session/profile confirmation, membership recovery and
+ordinary workbook startup. No generic job framework or compatibility alias remains.
+
+Core 01 owns fixed internal errors and admission/replay meaning; Core 04 owns
+concealment and mandatory server expiry; Core 03 owns action/access requirements;
+Design owns presentation and focus direction. domain.md was inspected and remains
+unchanged as vocabulary/navigation authority. Executable checks do not consume
+these documents. Existing generated wire shapes remain sufficient.
+
+Compatibility effects are internal TypeScript interface changes, one fresh GET per
+explicit Cancel/Open action, and restricted internal-error diagnostics. No new
+endpoint, stored-data migration, dependency, job discovery, persistence, mode or
+registry was added. Callers must use stable codes and request correlation instead
+of private diagnostic strings.
+
+Recovery remains local to this tab and session. Reload loses selected files,
+attempts and locally known job history. After timeout or abort the server may
+continue processing. Job retention controls resource observation, independently
+of committed incident existence. Protected data cleared on retirement is not
+resurrected after access recovery.
+
+Rollback the frontend conversion coherently: adapter/transport, pure state,
+executor, binding/panel, App/session callers, tests, authored routing, generated
+routing and affected goldens/manifest. Restore owner interpretation consistently
+with the behavior selected for rollback. The shared error security boundary and
+its tests are independently revertible; a workflow rollback must not automatically
+restore exception disclosure. No commit, push, deployment or production
+certification is part of this effort.

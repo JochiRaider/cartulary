@@ -956,6 +956,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "app.server.unit.internal_error_boundary",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestInternalErrorBoundaryPreservesTypedPublicErrors",
+          "TestInternalErrorBoundaryRemovesPrivateDiagnostics"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "app.server.unit.invalid_deployment_config_and_bootstrap_prefligh_a87fd921ec",
       "owner_id": "app.server",
       "family_id": "app.server.unit",

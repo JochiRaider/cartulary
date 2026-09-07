@@ -7282,9 +7282,7 @@ test("Capture incident import admission observation cancellation and result reco
   fixture.failAdmission(false);
   await retry.click();
   const detail = page.getByTestId(incidentImportTestId("detail"));
-  await expect(
-    detail.getByRole("heading", { name: "Queued", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Queued");
   await page.getByRole("button", { name: "Pause updates" }).click();
   const refresh = async () => {
     await page
@@ -7304,9 +7302,7 @@ test("Capture incident import admission observation cancellation and result reco
     fixture.importJob("running", { progress: { completed: 2, total: 8 } }),
   );
   await refresh();
-  await expect(
-    detail.getByRole("heading", { name: "Processing", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Processing");
   await assertViewportVisualRegression(
     page,
     "incident-import-running-determinate",
@@ -7323,12 +7319,9 @@ test("Capture incident import admission observation cancellation and result reco
   await page
     .getByRole("button", { name: "Cancel import", exact: true })
     .click();
-  await expect(
-    detail.getByRole("heading", {
-      name: "Cancellation requested",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText(
+    "Cancellation requested",
+  );
   await assertViewportVisualRegression(
     page,
     "incident-import-cancel-requested",
@@ -7337,9 +7330,7 @@ test("Capture incident import admission observation cancellation and result reco
     fixture.importJob("canceled", { progress: { completed: 2, total: 8 } }),
   );
   await refresh();
-  await expect(
-    detail.getByRole("heading", { name: "Import canceled", exact: true }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading")).toHaveText("Import canceled");
   await assertViewportVisualRegression(page, "incident-import-canceled");
   for (const status of ["failed", "succeeded"] as const) {
     // A new application lifetime isolates terminal outcomes without regressing a job.
@@ -7351,12 +7342,9 @@ test("Capture incident import admission observation cancellation and result reco
       buffer: Buffer.from("presentation fixture"),
     });
     await form.getByRole("button", { name: "Start import" }).click();
-    await expect(
-      detail.getByRole("heading", {
-        name: status === "failed" ? "Import failed" : "Import succeeded",
-        exact: true,
-      }),
-    ).toBeVisible();
+    await expect(detail.getByRole("heading")).toHaveText(
+      status === "failed" ? "Import failed" : "Import succeeded",
+    );
     await expect(
       page.getByRole("button", { name: "Refresh job status" }),
     ).toBeEnabled();
@@ -7380,4 +7368,38 @@ test("Capture incident import admission observation cancellation and result reco
     page,
     "incident-import-handoff-unavailable",
   );
+  const actionRead = responseBarrier();
+  fixture.gateReads(actionRead.promise);
+  const open = page.getByRole("button", {
+    name: "Open imported incident",
+    exact: true,
+  });
+  await open.click();
+  await expect(open).toHaveAttribute("aria-busy", "true");
+  await assertViewportVisualRegression(page, "incident-import-action-checking");
+  fixture.failReads(true);
+  actionRead.release();
+  await expect(
+    page
+      .getByText(
+        "The action could not be confirmed. Review the current job status and retry.",
+        { exact: true },
+      )
+      .first(),
+  ).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "incident-import-action-unconfirmed",
+  );
+  fixture.gateReads(null);
+  fixture.failReads(false);
+  fixture.readStatus(404);
+  await page.getByRole("button", { name: "Retry observation" }).click();
+  const retryAccess = page.getByRole("button", {
+    name: "Retry access",
+    exact: true,
+  });
+  await expect(retryAccess).toBeVisible();
+  await expectImportControlReachable(page, retryAccess);
+  await assertViewportVisualRegression(page, "incident-import-access-retry");
 });

@@ -654,4 +654,30 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if afterReplay := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID); !afterReplay.equal(finalization) {
 		t.Fatalf("terminal import replay duplicated finalization side effects: before=%#v after=%#v", finalization, afterReplay)
 	}
+	// Job retention is independent of the committed incident and its durable outputs.
+	if _, err := targetHarness.DB.Exec(`
+UPDATE jobs SET submitted_at = now() - interval '8 days',
+       started_at = now() - interval '8 days', finished_at = now() - interval '8 days',
+       updated_at = now() - interval '8 days', retained_until = now() - interval '1 second'
+ WHERE job_id = $1
+`, importJob["job_id"]); err != nil {
+		t.Fatal(err)
+	}
+	expired := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/jobs/"+importJob["job_id"].(string), nil, httptestx.WithCookies(targetAdmin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, expired, http.StatusNotFound, "job_not_found")
+	retainedStartup := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
+	httptestx.RequireSuccessEnvelope(t, retainedStartup, http.StatusOK)
+	if countRows(t, targetHarness.DB, `SELECT count(*) FROM timeline_grid_projection WHERE record_id = $1`, recordID) != 1 {
+		t.Fatal("expiry removed imported projection")
+	}
+	retainedObject, _, err := targetHarness.ObjectStore.ReadObject(context.Background(), importedStorageKey, objectstore.ReadOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	retainedBytes, err := io.ReadAll(retainedObject)
+	_ = retainedObject.Close()
+	if err != nil || !bytes.Equal(retainedBytes, seededState.BlobBytes) {
+		t.Fatal("expiry changed imported object bytes")
+	}
+	requireIncidentPortabilityProof(t, targetHarness.DB, importJob["job_id"].(string), "incident_portability.import")
 }

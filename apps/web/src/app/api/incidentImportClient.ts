@@ -17,7 +17,38 @@ export type ImportAttempt = {
   readonly metadata: Readonly<ImportIncidentBundleRequest["metadata"]>;
 };
 export type ImportCancelAttempt = Readonly<CancelJobRequest>;
-export type ImportJobResponse = HTTPOperationResult<GetJobResponse>;
+export type ImportProblem =
+  | "transport"
+  | "contract"
+  | "rejected"
+  | "conflict"
+  | "unavailable";
+type AccessFailure = {
+  readonly kind: "access_failed";
+  readonly status: 401 | 403;
+};
+type ProblemOutcome<K extends string> = {
+  readonly kind: K;
+  readonly problem: ImportProblem;
+};
+export type ImportAdmissionOutcome =
+  | { readonly kind: "accepted"; readonly job: IncidentImportJob }
+  | ProblemOutcome<"rejected" | "uncertain">
+  | AccessFailure;
+export type ImportObservationOutcome =
+  | { readonly kind: "observed"; readonly job: IncidentImportJob }
+  | ProblemOutcome<"failed">
+  | { readonly kind: "unavailable" }
+  | AccessFailure;
+export type ImportCancellationOutcome =
+  | { readonly kind: "acknowledged"; readonly job: IncidentImportJob }
+  | ProblemOutcome<"rejected" | "uncertain">
+  | { readonly kind: "unavailable" }
+  | AccessFailure;
+type JobReceipt =
+  | { kind: "job"; job: IncidentImportJob }
+  | { kind: "failure"; status: number; problem: ImportProblem };
+
 const mediaTypes = new Set([
   "application/zip",
   "application/x-tar",
@@ -45,66 +76,144 @@ export function captureImport(
     metadata: Object.freeze({ client_txn_id: transactionId }),
   });
 }
-export function importIncidentBundle(
+export async function importIncidentBundle(
   attempt: ImportAttempt,
   signal: AbortSignal,
   replay = false,
-) {
-  const body = new FormData();
-  body.append(
-    "metadata",
-    new Blob([JSON.stringify(attempt.metadata)], { type: "application/json" }),
+): Promise<ImportAdmissionOutcome> {
+  const result = await receiveJob(
+    (onResponse) => {
+      const body = new FormData();
+      body.append(
+        "metadata",
+        new Blob([JSON.stringify(attempt.metadata)], {
+          type: "application/json",
+        }),
+      );
+      body.append("file", attempt.file, attempt.filename);
+      return fetchMultipartHTTPOperation<ImportIncidentBundleResponse>({
+        operationID: "importIncidentBundle",
+        body,
+        init: { signal },
+        onResponse,
+      });
+    },
+    202,
+    undefined,
+    replay,
   );
-  body.append("file", attempt.file, attempt.filename);
-  return fetchMultipartHTTPOperation<ImportIncidentBundleResponse>({
-    operationID: "importIncidentBundle",
-    body,
-    init: { signal },
-  }).then((result) => checkedJob(result, 202, undefined, replay));
+  if (result.kind === "job") return { kind: "accepted", job: result.job };
+  if (result.status === 401 || result.status === 403)
+    return { kind: "access_failed", status: result.status };
+  return {
+    kind: definitiveRejection(result.status) ? "rejected" : "uncertain",
+    problem: result.problem,
+  };
 }
-export function readImportJob(jobId: string, signal: AbortSignal) {
-  return fetchHTTPOperation<GetJobResponse>({
-    operationID: "getJob",
-    pathParameters: { job_id: jobId },
-    init: { signal, cache: "no-store" },
-  }).then((result) => checkedJob(result, 200, jobId));
+export async function readImportJob(
+  jobId: string,
+  signal: AbortSignal,
+): Promise<ImportObservationOutcome> {
+  const result = await receiveJob(
+    (onResponse) =>
+      fetchHTTPOperation<GetJobResponse>({
+        operationID: "getJob",
+        pathParameters: { job_id: jobId },
+        init: { signal, cache: "no-store" },
+        onResponse,
+      }),
+    200,
+    jobId,
+  );
+  if (result.kind === "job") return { kind: "observed", job: result.job };
+  if (result.status === 401 || result.status === 403)
+    return { kind: "access_failed", status: result.status };
+  if (result.status === 404) return { kind: "unavailable" };
+  return { kind: "failed", problem: result.problem };
 }
-export function cancelImportJob(
+export async function cancelImportJob(
   jobId: string,
   attempt: ImportCancelAttempt,
   signal: AbortSignal,
-) {
-  return fetchHTTPOperation<GetJobResponse>({
-    operationID: "cancelJob",
-    pathParameters: { job_id: jobId },
-    init: { method: "POST", body: JSON.stringify(attempt), signal },
-  }).then((result) => checkedJob(result, 200, jobId));
+): Promise<ImportCancellationOutcome> {
+  const result = await receiveJob(
+    (onResponse) =>
+      fetchHTTPOperation<GetJobResponse>({
+        operationID: "cancelJob",
+        pathParameters: { job_id: jobId },
+        init: { method: "POST", body: JSON.stringify(attempt), signal },
+        onResponse,
+      }),
+    200,
+    jobId,
+  );
+  if (result.kind === "job") return { kind: "acknowledged", job: result.job };
+  if (result.status === 401 || result.status === 403)
+    return { kind: "access_failed", status: result.status };
+  if (result.status === 404) return { kind: "unavailable" };
+  return {
+    kind: definitiveRejection(result.status) ? "rejected" : "uncertain",
+    problem: result.problem,
+  };
 }
-function checkedJob(
-  result: ImportJobResponse,
-  status: number,
+const definitiveRejection = (status: number) =>
+  status >= 400 && status < 500 && status !== 408;
+function errorCode(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null || !("error" in payload))
+    return null;
+  const error = payload.error;
+  return typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+    ? error.code
+    : null;
+}
+/** Capture HTTP status before parsing; untrusted error payloads never enter workflow state. */
+async function receiveJob(
+  run: (
+    onResponse: (response: Response) => void,
+  ) => Promise<HTTPOperationResult<GetJobResponse>>,
+  expectedStatus: number,
   jobId?: string,
   replay = false,
-): ImportJobResponse {
-  if (!result.ok) return result;
-  if (
-    result.status === status &&
-    validImportJob(result.payload.data, jobId) &&
-    (status !== 202 ||
-      replay ||
-      ["queued", "running"].includes(result.payload.data.status))
-  )
-    return result;
+): Promise<JobReceipt> {
+  let status = 0;
+  let code: string | null = null;
+  try {
+    const result = await run((response) => {
+      status = response.status;
+    });
+    if (status === 0) status = result.status;
+    if (result.ok) {
+      if (
+        status === expectedStatus &&
+        validImportJob(result.payload.data, jobId) &&
+        (expectedStatus !== 202 ||
+          replay ||
+          ["queued", "running"].includes(result.payload.data.status))
+      )
+        return { kind: "job", job: result.payload.data };
+      return { kind: "failure", status, problem: "contract" };
+    }
+    code = errorCode(result.payload);
+  } catch {
+    // A received rejection remains definitive even when JSON parsing failed.
+  }
   return {
-    ok: false,
-    status: 502,
-    payload: {
-      error: {
-        code: "invalid_public_contract_response",
-        status: 502,
-        retryable: true,
-      },
-    },
+    kind: "failure",
+    status,
+    problem:
+      code === "client_txn_conflict"
+        ? "conflict"
+        : code === "invalid_public_contract_response" ||
+            (status >= 200 && status < 400)
+          ? "contract"
+          : status === 404
+            ? "unavailable"
+            : definitiveRejection(status)
+              ? "rejected"
+              : "transport",
   };
 }
 /** Cross-field owner rules supplement the generated closed envelope validator. */
@@ -182,7 +291,22 @@ export function importJobAdvances(
         next.progress.total < previous.progress.total))
   )
     return false;
-  if (terminalImportJob(previous)) return next.status === previous.status;
+  if (previous.started_at !== null && next.started_at !== previous.started_at)
+    return false;
+  if (
+    previous.finished_at !== null &&
+    next.finished_at !== previous.finished_at
+  )
+    return false;
+  if (terminalImportJob(previous)) {
+    const target = importedIncidentTarget(previous);
+    return (
+      next.status === previous.status &&
+      next.result_summary?.code === previous.result_summary?.code &&
+      next.error_summary?.code === previous.error_summary?.code &&
+      (target === null || importedIncidentTarget(next) === target)
+    );
+  }
   if (previous.status === "cancel_requested")
     return next.status !== "queued" && next.status !== "running";
   return previous.status !== "running" || next.status !== "queued";

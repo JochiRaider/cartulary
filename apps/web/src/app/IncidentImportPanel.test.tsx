@@ -56,6 +56,7 @@ function start() {
     read: readImportJob,
     cancel: cancelImportJob,
     isCurrent: () => true,
+    confirmAccess: async () => ({ kind: "unavailable" }),
     authorizationFailed: vi.fn(),
     openIncident: async () => "opened",
   });
@@ -205,10 +206,11 @@ describe("incident import workflow", () => {
 });
 
 it("restores import access only after a new confirmed session observation", async () => {
-  let observations = sessionResource({
-    user_id: importActorID,
-    is_deployment_admin: true,
-  });
+  const authority = { lifetime: "same-session", actorId: importActorID };
+  const confirmAccess = vi
+    .fn()
+    .mockResolvedValueOnce({ kind: "unavailable" })
+    .mockResolvedValue({ kind: "authorized", authority });
   const fetch = vi
     .fn()
     .mockResolvedValueOnce(errorResponse("authorization_denied", 403))
@@ -222,16 +224,19 @@ it("restores import access only after a new confirmed session observation", asyn
     observedSession: ReturnType<typeof sessionResource>;
   }) {
     const options = {
-      authority: { lifetime: "same-session", actorId: importActorID },
+      authority,
       observedSession,
       active: true,
       isCurrent: () => true,
       authorizationFailed: vi.fn(),
+      confirmAccess,
       openIncident: async () => "opened" as const,
     };
     return <IncidentImportPanel binding={useIncidentImport(options)} />;
   }
-  const mounted = render(<Live observedSession={observations} />);
+  const session = () =>
+    sessionResource({ user_id: importActorID, is_deployment_admin: true });
+  const mounted = render(<Live observedSession={session()} />);
   const choose = () =>
     fireEvent.change(screen.getByLabelText("Incident bundle file"), {
       target: { files: [new File(["bytes"], "archive.tar")] },
@@ -239,19 +244,27 @@ it("restores import access only after a new confirmed session observation", asyn
   choose();
   fireEvent.click(screen.getByRole("button", { name: "Start import" }));
   await settle();
+  expect(confirmAccess).toHaveBeenCalledOnce();
   expect(
     (screen.getByLabelText("Incident bundle file") as HTMLInputElement)
       .disabled,
   ).toBe(true);
-  mounted.rerender(<Live observedSession={observations} />);
-  choose();
-  fireEvent.click(screen.getByRole("button", { name: "Start import" }));
-  expect(fetch).toHaveBeenCalledTimes(1);
-  observations = sessionResource({
-    user_id: importActorID,
-    is_deployment_admin: true,
-  });
-  mounted.rerender(<Live observedSession={observations} />);
+  mounted.rerender(<Live observedSession={session()} />);
+  expect(
+    (screen.getByLabelText("Incident bundle file") as HTMLInputElement)
+      .disabled,
+  ).toBe(true);
+  const retry = screen.getByRole("button", { name: "Retry access" });
+  retry.focus();
+  fireEvent.click(retry);
+  await settle();
+  expect(confirmAccess).toHaveBeenCalledTimes(2);
+  expect(
+    screen.getByText("No imports are known in this session."),
+  ).toBeTruthy();
+  expect(
+    (screen.getByLabelText("Incident bundle file") as HTMLInputElement).value,
+  ).toBe("");
   choose();
   fireEvent.click(screen.getByRole("button", { name: "Start import" }));
   await settle();
@@ -261,4 +274,67 @@ it("restores import access only after a new confirmed session observation", asyn
   expect(
     screen.getByText("Import accepted. Observe its job below."),
   ).toBeTruthy();
+});
+
+it("retains the focused import result control through refresh failure and recovery", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(jsonResponse(jobEnvelope(), 202))
+    .mockImplementation(async () =>
+      jsonResponse(jobEnvelope(importJob("succeeded"))),
+    );
+  vi.stubGlobal("fetch", fetch);
+  fireEvent.click(start());
+  await settle();
+  const open = screen.getByRole("button", { name: "Open imported incident" });
+  open.focus();
+  const gate = deferred<Response>();
+  fetch.mockReturnValueOnce(gate.promise);
+  await act(async () => {
+    controllers.at(-1)?.refresh();
+  });
+  await settle();
+  expect(screen.getByRole("button", { name: "Open imported incident" })).toBe(
+    open,
+  );
+  expect(document.activeElement).toBe(open);
+  gate.resolve(errorResponse("internal_error", 500));
+  await settle();
+  expect(screen.getByRole("button", { name: "Open imported incident" })).toBe(
+    open,
+  );
+  expect(document.activeElement).toBe(open);
+  await act(async () => {
+    controllers.at(-1)?.refresh();
+  });
+  await settle();
+  expect(document.activeElement).toBe(open);
+  expect(open.getAttribute("aria-disabled")).toBe("false");
+});
+
+it("does not restore import action focus while the document is hidden", async () => {
+  const gate = deferred<Response>();
+  const fetch = vi.fn().mockImplementation(async (path: string) => {
+    if (path.endsWith("/cancel")) return gate.promise;
+    return jsonResponse(jobEnvelope(), path.endsWith("/import") ? 202 : 200);
+  });
+  vi.stubGlobal("fetch", fetch);
+  fireEvent.click(start());
+  await settle();
+  const cancel = screen.getByRole("button", {
+    name: "Cancel import",
+  });
+  cancel.focus();
+  fireEvent.click(cancel);
+  await settle();
+  const visibility = vi
+    .spyOn(document, "visibilityState", "get")
+    .mockReturnValue("hidden");
+  await act(async () => {
+    controllers.at(-1)?.setActive(false);
+  });
+  gate.resolve(jsonResponse(jobEnvelope(importJob("cancel_requested"))));
+  await settle();
+  expect(document.activeElement).toBe(document.body);
+  visibility.mockRestore();
 });

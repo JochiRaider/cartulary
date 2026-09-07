@@ -1128,6 +1128,7 @@
           "creates a new lifetime for identical-field reauthentication but preserves ordinary refresh identity",
           "distinguishes unavailable discovery from confirmed anonymous and permits manual retry",
           "keeps workbook authorization through temporary failure and rejects obsolete hook callbacks",
+          "observes operation session and current profiles with explicit cancellation and failure outcomes",
           "preserves same-account work across revocation and clears another account before publication",
           "rejects obsolete session successes and failures from overlapping observations",
           "settles overlapping recovery callers without publishing the obsolete account",
@@ -1462,6 +1463,65 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.incident_import_error_boundary",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentImportHardening.test.ts",
+        "titles": [
+          "normalizes malformed admission bodies without losing received rejection or authorization status",
+          "settles malformed read and cancellation bodies with operation-specific outcomes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_import_hardening",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentImportHardening.test.ts",
+        "titles": [
+          "clears protected imports before confirmed loss and fences obsolete access confirmation",
+          "confirms ambiguous job unavailability without inferring global access loss",
+          "does not let browser clock skew establish terminal job unavailability",
+          "invalidates undispatched intent on departure and ignores late preflight responses",
+          "keeps an unchanged workbook handoff valid while another refresh is requested",
+          "prioritizes a fresh action read over queued refresh and includes queue time in its deadline",
+          "rechecks cancellation eligibility and performs no mutation when completion wins preflight",
+          "rejects conflicting committed targets while accepting unknown additive references",
+          "requires a newly started job read before opening and suppresses duplicate intent",
+          "retains a supported result action throughout an unchanged refresh",
+          "retains the exact cancellation attempt after dispatch loss across panel changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.incident_import_lifecycle",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1482,9 +1542,61 @@
           "incident import lifecycle observes multiple jobs fairly without overlapping reads or replacing selection",
           "incident import lifecycle pauses reads across hidden panels and rejects late continuations after retirement",
           "incident import lifecycle recovers a failed or timed out read and retains the last validated status",
-          "incident import lifecycle renders no inferred navigation for every nonsuccess status and expires retained terminal jobs",
+          "incident import lifecycle renders no inferred navigation for nonsuccess and uses server reads for job unavailability",
           "incident import lifecycle requires explicit opening and retries only the handoff after workbook failure",
           "incident import lifecycle retains in-flight admission across navigation but excludes lost capability and new sessions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_import_refresh_focus",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/IncidentImportPanel.test.tsx",
+        "titles": [
+          "does not restore import action focus while the document is hidden",
+          "retains the focused import result control through refresh failure and recovery"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_import_state",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentImportState.test.ts",
+        "titles": [
+          "pure import transitions preserve immutable snapshots independently of read activity",
+          "pure import transitions reject conflicting terminal targets without replacing the last validated result",
+          "pure import transitions retain exact unresolved attempts and clear protected data on reset",
+          "retains server-established unavailability through later read failures until a validated observation succeeds"
         ]
       },
       "evidence_class": "unit",

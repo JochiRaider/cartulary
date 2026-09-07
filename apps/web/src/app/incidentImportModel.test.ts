@@ -5,10 +5,11 @@ import {
   importedIncidentID,
   importJob,
   importJobID,
-  jobEnvelope,
 } from "../testing/incidentImportTestSupport";
 import type {
-  ImportJobResponse,
+  ImportAdmissionOutcome,
+  ImportCancellationOutcome,
+  ImportObservationOutcome,
   IncidentImportJob,
 } from "./api/incidentImportClient";
 import {
@@ -16,15 +17,17 @@ import {
   type IncidentImportPorts,
 } from "./incidentImportModel";
 
-const response = (job = importJob(), status = 200): ImportJobResponse => ({
-  ok: true,
-  status,
-  payload: jobEnvelope(job),
-});
-const rejected = (status: number, code = "unavailable"): ImportJobResponse => ({
-  ok: false,
-  status,
-  payload: { error: { code, status } },
+function response(job: IncidentImportJob, status: 202): ImportAdmissionOutcome;
+function response(job?: IncidentImportJob): ImportObservationOutcome;
+function response(
+  job = importJob(),
+  status = 200,
+): ImportAdmissionOutcome | ImportObservationOutcome {
+  return status === 202 ? { kind: "accepted", job } : { kind: "observed", job };
+}
+const acknowledged = (job: IncidentImportJob): ImportCancellationOutcome => ({
+  kind: "acknowledged",
+  job,
 });
 const controllers: IncidentImportController[] = [];
 const nextJobId = "00000000-0000-4000-8000-000000005004";
@@ -38,11 +41,12 @@ function setup(overrides: Partial<IncidentImportPorts> = {}) {
       .mockResolvedValue(response(importJob("running"))),
     cancel: vi
       .fn<IncidentImportPorts["cancel"]>()
-      .mockResolvedValue(response(importJob("cancel_requested"))),
+      .mockResolvedValue(acknowledged(importJob("cancel_requested"))),
     openIncident: vi
       .fn<IncidentImportPorts["openIncident"]>()
       .mockResolvedValue("opened"),
     isCurrent: vi.fn().mockReturnValue(true),
+    confirmAccess: async () => ({ kind: "unavailable" as const }),
     authorizationFailed: vi.fn(),
     transactionId: vi
       .fn()
@@ -76,7 +80,7 @@ afterEach(() => {
 
 describe("incident import lifecycle", () => {
   it("captures one immutable admission and replays exactly after loss without file replacement", async () => {
-    const pending = deferred<ImportJobResponse>();
+    const pending = deferred<ImportAdmissionOutcome>();
     const admit = vi
       .fn<IncidentImportPorts["admit"]>()
       .mockReturnValueOnce(pending.promise)
@@ -112,12 +116,12 @@ describe("incident import lifecycle", () => {
     expect(ports.read).toHaveBeenCalled();
   });
   it("keeps timeout and malformed admission uncertain while definitive rejection unlocks input", async () => {
-    const gate = deferred<ImportJobResponse>();
+    const gate = deferred<ImportAdmissionOutcome>();
     const admit = vi
       .fn<IncidentImportPorts["admit"]>()
       .mockReturnValueOnce(gate.promise)
-      .mockResolvedValueOnce(rejected(502, "invalid_public_contract_response"))
-      .mockResolvedValueOnce(rejected(400, "invalid_incident_bundle_request"));
+      .mockResolvedValueOnce({ kind: "uncertain", problem: "contract" })
+      .mockResolvedValueOnce({ kind: "rejected", problem: "rejected" });
     const { controller } = setup({ admit });
     controller.submit();
     await tick(120_000);
@@ -138,9 +142,9 @@ describe("incident import lifecycle", () => {
   it("recovers a failed or timed out read and retains the last validated status", async () => {
     const read = vi
       .fn<IncidentImportPorts["read"]>()
-      .mockResolvedValueOnce(rejected(503))
+      .mockResolvedValueOnce({ kind: "failed", problem: "transport" })
       .mockResolvedValueOnce(response(importJob("running")))
-      .mockReturnValueOnce(deferred<ImportJobResponse>().promise)
+      .mockReturnValueOnce(deferred<ImportObservationOutcome>().promise)
       .mockResolvedValue(response(importJob("succeeded")));
     const { controller } = setup({ read });
     controller.submit();
@@ -167,7 +171,7 @@ describe("incident import lifecycle", () => {
     );
   });
   it("observes multiple jobs fairly without overlapping reads or replacing selection", async () => {
-    const firstRead = deferred<ImportJobResponse>();
+    const firstRead = deferred<ImportObservationOutcome>();
     const job2 = importJob("queued", {
       job_id: nextJobId,
       status_route: `/api/v1/jobs/${nextJobId}`,
@@ -208,7 +212,7 @@ describe("incident import lifecycle", () => {
     ]);
   });
   it("pauses reads across hidden panels and rejects late continuations after retirement", async () => {
-    const oldRead = deferred<ImportJobResponse>();
+    const oldRead = deferred<ImportObservationOutcome>();
     const read = vi
       .fn<IncidentImportPorts["read"]>()
       .mockReturnValueOnce(oldRead.promise)
@@ -241,7 +245,7 @@ describe("incident import lifecycle", () => {
   });
   it("retains in-flight admission across navigation but excludes lost capability and new sessions", async () => {
     for (const retirement of ["navigation", "capability", "session"] as const) {
-      const gate = deferred<ImportJobResponse>();
+      const gate = deferred<ImportAdmissionOutcome>();
       const current = vi.fn().mockReturnValue(true);
       const { controller } = setup({
         admit: () => gate.promise,
@@ -271,7 +275,7 @@ describe("incident import lifecycle", () => {
     const cancel = vi
       .fn<IncidentImportPorts["cancel"]>()
       .mockRejectedValueOnce(new TypeError("lost cancel"))
-      .mockResolvedValue(response(importJob("cancel_requested")));
+      .mockResolvedValue(acknowledged(importJob("cancel_requested")));
     const { controller } = setup({ cancel });
     controller.submit();
     await tick();
@@ -294,8 +298,8 @@ describe("incident import lifecycle", () => {
   });
   it("handles rejected cancellation and a completion race through authoritative reads", async () => {
     for (const result of [
-      rejected(409, "job_cancel_rejected"),
-      response(importJob("succeeded")),
+      { kind: "rejected", problem: "rejected" } as ImportCancellationOutcome,
+      acknowledged(importJob("succeeded")),
     ]) {
       const read = vi
         .fn<IncidentImportPorts["read"]>()
@@ -310,9 +314,10 @@ describe("incident import lifecycle", () => {
         "succeeded",
       );
     }
-    const pending = deferred<ImportJobResponse>();
+    const pending = deferred<ImportCancellationOutcome>();
     const read = vi
       .fn<IncidentImportPorts["read"]>()
+      .mockResolvedValueOnce(response(importJob("running")))
       .mockResolvedValueOnce(response(importJob("running")))
       .mockResolvedValue(response(importJob("succeeded")));
     const { controller, ports } = setup({
@@ -322,8 +327,9 @@ describe("incident import lifecycle", () => {
     controller.submit();
     await tick();
     controller.cancel();
+    await tick();
     controller.setActive(false);
-    pending.resolve(response(importJob("succeeded")));
+    pending.resolve(acknowledged(importJob("succeeded")));
     await tick();
     expect(controller.getSnapshot().jobs[importJobID]?.observation.kind).toBe(
       "stale",
@@ -332,8 +338,6 @@ describe("incident import lifecycle", () => {
     controller.open();
     expect(ports.openIncident).not.toHaveBeenCalled();
     await tick();
-    controller.open();
-    await tick();
     expect(ports.openIncident).toHaveBeenCalledOnce();
   });
   it("keeps terminal state across malformed or regressive reads and marks missing jobs unavailable", async () => {
@@ -341,7 +345,7 @@ describe("incident import lifecycle", () => {
       .fn<IncidentImportPorts["read"]>()
       .mockResolvedValueOnce(response(importJob("succeeded")))
       .mockResolvedValueOnce(response(importJob("running")))
-      .mockResolvedValueOnce(rejected(404, "job_not_found"));
+      .mockResolvedValueOnce({ kind: "unavailable" });
     const { controller, ports } = setup({ read });
     controller.submit();
     await tick();
@@ -404,14 +408,14 @@ describe("incident import lifecycle", () => {
     controller.open();
     expect(ports.admit).toHaveBeenCalledTimes(1);
     const second = setup({
-      admit: async () => rejected(403, "authorization_denied"),
+      admit: async () => ({ kind: "access_failed", status: 403 }),
     });
     second.controller.submit();
     await tick();
     expect(second.controller.getSnapshot().order).toEqual([]);
     expect(second.ports.authorizationFailed).toHaveBeenCalledWith(403);
   });
-  it("renders no inferred navigation for every nonsuccess status and expires retained terminal jobs", async () => {
+  it("renders no inferred navigation for nonsuccess and uses server reads for job unavailability", async () => {
     for (const status of [
       "queued",
       "running",
@@ -448,11 +452,18 @@ describe("incident import lifecycle", () => {
           }),
           202,
         ),
-      read: async () => response(terminal),
+      read: vi
+        .fn<IncidentImportPorts["read"]>()
+        .mockResolvedValueOnce(response(terminal))
+        .mockResolvedValue({ kind: "unavailable" }),
     });
     controller.submit();
     await tick(1000);
+    expect(controller.getSnapshot().jobs[importJobID]?.observation.kind).toBe(
+      "ready",
+    );
     controller.open();
+    await tick();
     expect(controller.getSnapshot().jobs[importJobID]?.observation.kind).toBe(
       "unavailable",
     );

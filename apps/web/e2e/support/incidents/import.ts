@@ -272,6 +272,8 @@ export async function installImportObservationFixture(
   });
   let job = importJob();
   let readFailure = false;
+  let readStatus = 200;
+  let readCount = 0;
   let admissionFailure = false;
   let admissionGate: Promise<void> | null = null;
   let readGate: Promise<void> | null = null;
@@ -286,10 +288,25 @@ export async function installImportObservationFixture(
     return route.fulfill({ status: 202, json: jobEnvelope(importJob()) });
   });
   await page.route("**/api/v1/jobs/*", async (route) => {
+    ++readCount;
     const captured = job;
     if (readGate !== null) await readGate;
     if (readFailure) return route.abort("failed");
-    return route.fulfill({ status: 200, json: jobEnvelope(captured) });
+    return route.fulfill({
+      status: readStatus,
+      json:
+        readStatus === 200
+          ? jobEnvelope(captured)
+          : {
+              error: {
+                code: "job_not_found",
+                message: "Unavailable",
+                status: readStatus,
+                retryable: false,
+                details: {},
+              },
+            },
+    });
   });
   await page.route("**/api/v1/jobs/*/cancel", async (route) => {
     cancellationBodies.push(route.request().postData() ?? "");
@@ -316,6 +333,10 @@ export async function installImportObservationFixture(
   return {
     setJob: (next: typeof job) => {
       job = next;
+    },
+    readCount: () => readCount,
+    readStatus: (value: number) => {
+      readStatus = value;
     },
     failReads: (value: boolean) => {
       readFailure = value;

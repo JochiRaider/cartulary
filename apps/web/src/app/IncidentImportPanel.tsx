@@ -74,7 +74,8 @@ export function IncidentImportPanel({
   const uploadLocked = unresolved || state.access !== "ready";
   const admission = state.admission;
   const opening = state.navigation.kind === "opening";
-  const target = entry ? openableImport(entry) : null;
+  const checking = state.action.kind === "checking";
+  const target = job ? importedIncidentTarget(job) : null;
   const handoffFailed =
     state.navigation.kind === "unavailable" ||
     state.navigation.kind === "access_lost";
@@ -140,6 +141,22 @@ export function IncidentImportPanel({
           ) : null}
         </div>
       </form>
+      {state.access === "unavailable" ? (
+        <div style={formGridStyle}>
+          <p style={statusTextStyle}>Import access could not be confirmed.</p>
+          <button
+            type="button"
+            style={secondaryButtonStyle}
+            ref={binding.retryAccessRef}
+            onClick={binding.retryAccess}
+          >
+            Retry access
+          </button>
+        </div>
+      ) : null}
+      {state.access === "lost" ? (
+        <p style={statusTextStyle}>Import access is unavailable.</p>
+      ) : null}
       {state.access === "checking" ? (
         <p style={statusTextStyle}>
           Import access is being checked. Upload is unavailable until the
@@ -244,11 +261,11 @@ export function IncidentImportPanel({
                       }}
                     >
                       {item.filename} — {importStatusLabel[item.job.status]}
-                      {item.observation.kind === "failed" ||
-                      item.observation.kind === "stale"
-                        ? " (last observed)"
-                        : item.observation.kind === "unavailable"
-                          ? " (job unavailable)"
+                      {item.availability === "unavailable"
+                        ? " (job unavailable)"
+                        : item.observation.kind === "failed" ||
+                            item.observation.kind === "stale"
+                          ? " (last observed)"
                           : ""}
                     </button>
                   </li>
@@ -301,7 +318,7 @@ export function IncidentImportPanel({
               </p>
             </>
           ) : null}
-          {entry.observation.kind === "reading" ? (
+          {entry.reading ? (
             <p style={metadataTextStyle}>Refreshing job status…</p>
           ) : null}
           {entry.observation.kind === "stale" ? (
@@ -315,7 +332,7 @@ export function IncidentImportPanel({
               Observation unavailable. The last validated status may be stale.
             </p>
           ) : null}
-          {entry.observation.kind === "unavailable" ? (
+          {entry.availability === "unavailable" ? (
             <p style={errorTextStyle}>
               This job is no longer available. It may have expired or become
               inaccessible. This does not undo a committed import.
@@ -364,6 +381,15 @@ export function IncidentImportPanel({
               opening the imported incident.
             </p>
           ) : null}
+          {checking ? (
+            <p style={statusTextStyle}>Checking current job status…</p>
+          ) : null}
+          {state.action.kind === "failed" ? (
+            <p style={errorTextStyle}>
+              The action could not be confirmed. Review the current job status
+              and retry.
+            </p>
+          ) : null}
           {opening ? (
             <p style={statusTextStyle}>Opening imported incident…</p>
           ) : null}
@@ -372,8 +398,18 @@ export function IncidentImportPanel({
               <button
                 type="button"
                 style={primaryButtonStyle}
-                aria-disabled={opening}
-                aria-busy={opening}
+                aria-disabled={
+                  opening ||
+                  checking ||
+                  state.access !== "ready" ||
+                  !entry ||
+                  !openableImport(entry)
+                }
+                aria-busy={
+                  opening ||
+                  (state.action.kind === "checking" &&
+                    state.action.action === "open")
+                }
                 onClick={controller.open}
               >
                 Open imported incident
@@ -382,7 +418,7 @@ export function IncidentImportPanel({
             <button
               type="button"
               style={secondaryButtonStyle}
-              disabled={entry.observation.kind === "reading" || opening}
+              disabled={entry.reading || opening}
               onClick={() => controller.refresh()}
             >
               {entry.observation.kind === "failed"
@@ -394,8 +430,16 @@ export function IncidentImportPanel({
               <button
                 type="button"
                 style={secondaryButtonStyle}
-                aria-disabled={!cancelableImport(entry)}
-                aria-busy={entry.cancellation.kind === "pending"}
+                aria-disabled={
+                  checking ||
+                  state.access !== "ready" ||
+                  !cancelableImport(entry)
+                }
+                aria-busy={
+                  entry.cancellation.kind === "pending" ||
+                  (state.action.kind === "checking" &&
+                    state.action.action === "cancel")
+                }
                 onClick={cancel}
               >
                 {entry.cancellation.kind === "uncertain"

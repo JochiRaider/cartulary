@@ -25,15 +25,11 @@ func WriteAPIError(w http.ResponseWriter, r *http.Request, apiErr *APIError) {
 	_ = WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func InternalAPIError(err error) *APIError {
-	message := "internal_error"
-	if err != nil {
-		message = err.Error()
-	}
+func InternalAPIError(_ error) *APIError {
 	return &APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
-		Message: message,
+		Message: "internal_error",
 		Details: map[string]any{},
 	}
 }

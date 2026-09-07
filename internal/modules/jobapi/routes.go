@@ -307,10 +307,5 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIEr
 }
 
 func internalAPIError(err error) *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusInternalServerError,
-		Code:    "internal_error",
-		Message: err.Error(),
-		Details: map[string]any{},
-	}
+	return httpapi.InternalAPIError(err)
 }

@@ -93,6 +93,7 @@ export async function fetchMultipartHTTPOperation<T>(options: {
   operationID: HTTPOperationID;
   pathParameters?: Readonly<Record<string, string | number>> | undefined;
   query?: Readonly<Record<string, HTTPQueryValue>> | undefined;
+  onResponse?: ((response: Response) => void) | undefined;
 }): Promise<HTTPOperationResult<T>> {
   const path =
     buildHTTPOperationPath(options.operationID, options.pathParameters) +
@@ -101,6 +102,7 @@ export async function fetchMultipartHTTPOperation<T>(options: {
     apiPath(options.apiBase, path),
     options.body,
     options.init,
+    options.onResponse === undefined ? {} : { onResponse: options.onResponse },
   )) as APIResult<T>;
   return validateHTTPOperationResult(options.operationID, result);
 }

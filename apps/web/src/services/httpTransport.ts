@@ -104,6 +104,7 @@ export async function requestMultipartJSON<T>(
   input: RequestInfo | URL,
   body: FormData,
   init: Omit<RequestInit, "body" | "credentials" | "headers"> = {},
+  options: { readonly onResponse?: (response: Response) => void } = {},
 ): Promise<HTTPTransportResult<T>> {
   const headers = new Headers();
   const csrfToken = readCookie(csrfCookieName);
@@ -117,6 +118,7 @@ export async function requestMultipartJSON<T>(
     headers,
     body,
   });
+  options.onResponse?.(response);
   const payload = (await response.json()) as
     | T
     | {

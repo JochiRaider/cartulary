@@ -326,6 +326,12 @@ type ErrorOptions struct {
 }
 
 func WriteErrorWithOptions(w http.ResponseWriter, r *http.Request, status int, code string, message string, details map[string]any, options ErrorOptions) error {
+	if code == "internal_error" {
+		status = http.StatusInternalServerError
+		message = "internal_error"
+		details = map[string]any{}
+		options = ErrorOptions{}
+	}
 	if details == nil {
 		details = map[string]any{}
 	}
