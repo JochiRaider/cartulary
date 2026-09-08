@@ -47,7 +47,12 @@ export async function openIncidentControls(
     "data-incident-controls-section",
     section,
   );
-  if (section === "membership-audit" || section === "memberships") return;
+  if (
+    section === "membership-audit" ||
+    section === "memberships" ||
+    section === "incident-fields"
+  )
+    return;
   await expect(surface).toHaveAttribute(
     "data-incident-controls-load-state",
     incidentControlsLoadedStatePattern,

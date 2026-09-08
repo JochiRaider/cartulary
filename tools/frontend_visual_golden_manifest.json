@@ -463,6 +463,54 @@
       "sha256": "63993416df9da206f05843972e6ef184b083f0eb651c669bf2ca53678ef066c8"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-closed-linux.png",
+      "sha256": "48b7608f6c65e82564243dbd9872f4594689e99fe49361a57db77d1197969895"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-comfortable-linux.png",
+      "sha256": "c3b467d4dde6d1d2269094b5e90cf5073d7e6e3c8088cf4ed51a43e03087ed19"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-compact-linux.png",
+      "sha256": "2fdd66486bbda7291bd1fdf6c1b43978cd16d69676d0653189c17a7b873ca943"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-confirmed-refresh-failure-linux.png",
+      "sha256": "bd45145984ae5057de78afe2c6918ace5e95d892bf271bb84f487f37e983d0d4"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-conflict-linux.png",
+      "sha256": "65073405a0a0cb2c441bc94ddb7f585572bf5fe2210a7259be61ba1bcb1e7e9c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-dirty-linux.png",
+      "sha256": "fdd260dd54f644c0638a48fe7a8fda25f5b38e2005bd2c9ba7cd2a7d78c4ea2e"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-loading-linux.png",
+      "sha256": "f29cac2ca8a9551e067549557c07a1affcf53421a277128221f070370518e9b3"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-narrow-linux.png",
+      "sha256": "98341266540971cfb483c3d9065e9c044c3a7b788faae56de7c5b21844d2c69c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-spacing-linux.png",
+      "sha256": "a3ff643c53adaed7b2a9ff3b1a298337a060b934b9b43c874242c82bf7dc244c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-zoom-linux.png",
+      "sha256": "3da7ef6f991f5259b5b6ff7cb50dc9eb8e474317063f6103f74836e244357964"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-saving-linux.png",
+      "sha256": "87b66e43a38e4c63c5b0077d396c0684a2b97caef32ef78161d7f597fa2d370c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-uncertain-linux.png",
+      "sha256": "b954ae49b13499a62457233cf3e7537c090a66ca23584d4c905fb72654f4df6d"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
       "sha256": "2da397d8afe110953fd0fed35383b12846622641fb7e942dcbeca98527fcd674"
     },

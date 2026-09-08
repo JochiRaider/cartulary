@@ -208,7 +208,35 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentPatchRequest"
+              }
+            }
+          }
+        },
+        "x-cartulary-string-contracts": {
+          "description": {
+            "string_contract_id": "multiline_body_v1",
+            "normalized_max_scalar_values": 16384
+          },
+          "severity": {
+            "string_contract_id": "incident_metadata_text_v1",
+            "normalized_max_scalar_values": 128
+          },
+          "current_phase": {
+            "string_contract_id": "incident_metadata_text_v1",
+            "normalized_max_scalar_values": 128
+          },
+          "primary_external_case_ref": {
+            "string_contract_id": "incident_metadata_text_v1",
+            "normalized_max_scalar_values": 128
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/close": {
@@ -1341,6 +1369,62 @@
         "required": [
           "base_membership_version"
         ]
+      },
+      "IncidentPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "base_incident_version"
+        ],
+        "properties": {
+          "base_incident_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "multiline_body_v1: Unicode NFC; CRLF and CR to LF; trim leading/trailing Unicode whitespace; preserve interior whitespace and line breaks; reject C0/C1 controls except LF and TAB; maximum 16384 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears."
+          },
+          "severity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears."
+          },
+          "tlp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "TLP:CLEAR",
+              "TLP:GREEN",
+              "TLP:AMBER",
+              "TLP:AMBER+STRICT",
+              "TLP:RED",
+              null
+            ],
+            "description": "Exact canonical token or null. Omission leaves unchanged; only null clears. Empty, whitespace, aliases and case variants are invalid."
+          },
+          "current_phase": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears."
+          },
+          "primary_external_case_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears."
+          }
+        }
       }
     },
     "responses": {

@@ -37,6 +37,7 @@
         "apps/web/src/app/IncidentMembershipAuditPanel.tsx",
         "apps/web/src/app/IncidentMembershipManagementPanel.test.tsx",
         "apps/web/src/app/IncidentMembershipManagementPanel.tsx",
+        "apps/web/src/app/IncidentMetadataPanel.tsx",
         "apps/web/src/app/LandingAdminDisplay.tsx",
         "apps/web/src/app/LandingAdminLayout.tsx",
         "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
@@ -66,8 +67,13 @@
         "apps/web/src/app/api/incidentMembershipAuditClient.ts",
         "apps/web/src/app/api/incidentMembershipManagementClient.test.ts",
         "apps/web/src/app/api/incidentMembershipManagementClient.ts",
+        "apps/web/src/app/api/incidentMetadataClient.test.ts",
+        "apps/web/src/app/api/incidentMetadataClient.ts",
+        "apps/web/src/app/api/incidentMetadataContracts.ts",
         "apps/web/src/app/api/publicHttpTypes.ts",
         "apps/web/src/app/api/shellHttpClients.routeBoundary.test.ts",
+        "apps/web/src/app/appDepartureReview.test.ts",
+        "apps/web/src/app/appDepartureReview.ts",
         "apps/web/src/app/appSessionController.test.tsx",
         "apps/web/src/app/appSessionController.ts",
         "apps/web/src/app/authenticationModel.ts",
@@ -96,6 +102,12 @@
         "apps/web/src/app/incidentMembershipManagementLifecycle.test.tsx",
         "apps/web/src/app/incidentMembershipManagementModel.ts",
         "apps/web/src/app/incidentMembershipManagementTestSurface.tsx",
+        "apps/web/src/app/incidentMetadataCharacterization.test.tsx",
+        "apps/web/src/app/incidentMetadataController.test.ts",
+        "apps/web/src/app/incidentMetadataController.ts",
+        "apps/web/src/app/incidentMetadataLifecycle.test.tsx",
+        "apps/web/src/app/incidentMetadataModel.ts",
+        "apps/web/src/app/incidentMetadataTestSurface.tsx",
         "apps/web/src/app/landingAdminStyles.ts",
         "apps/web/src/app/landingAdminTypes.ts",
         "apps/web/src/app/otelBoundary.test.ts",
@@ -117,6 +129,7 @@
         "apps/web/src/app/useIncidentImport.ts",
         "apps/web/src/app/useIncidentMembershipAudit.ts",
         "apps/web/src/app/useIncidentMembershipManagement.ts",
+        "apps/web/src/app/useIncidentMetadata.ts",
         "apps/web/src/app/useReferencePackAdmin.ts"
       ]
     },
@@ -240,7 +253,8 @@
         "apps/web/src/shared/useTransientMessageController.test.tsx",
         "apps/web/src/shared/useTransientMessageController.ts",
         "apps/web/src/shared/workbookShellContracts.ts",
-        "apps/web/src/testing/incidentMembershipAuditTestSupport.tsx"
+        "apps/web/src/testing/incidentMembershipAuditTestSupport.tsx",
+        "apps/web/src/testing/incidentMetadataTestSupport.ts"
       ]
     },
     {

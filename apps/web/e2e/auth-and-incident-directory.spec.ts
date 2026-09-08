@@ -50,6 +50,8 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
+import { atJsonOrigin } from "./support/transport/publicJsonClient";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByRole("button", {
@@ -1214,27 +1216,43 @@ test("observes current-role authorization on a stale reviewer edit through the p
     userId: targetUser.user_id,
   });
 
-  const forbiddenPatchResponse = waitForPublicAPIResponse(page, {
-    method: "PATCH",
-    path: `/api/v1/incidents/${incidentId}`,
-    status: 403,
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      request.url().endsWith(`/incidents/${incidentId}`)
+    )
+      writes.push(request.url());
   });
   await new IncidentDirectory(page).patchIncidentFields({
     currentPhase: "containment",
     externalCase: "CASE-E111",
     tlp: "TLP:AMBER",
   });
-  const patchResponse = await forbiddenPatchResponse;
-  await expect(patchResponse.json()).resolves.toMatchObject({
-    error: {
-      code: "authorization_denied",
-    },
-  });
   await expect(
-    page.getByTestId(incidentAdministrationTestId("admin-error-code")),
-  ).toHaveText("authorization_denied");
+    page.getByTestId(incidentAdministrationTestId("patch-readonly-note")),
+  ).toBeVisible();
+  expect(writes).toHaveLength(0);
+  await expect(
+    page.getByText(/Your local changes are retained/u),
+  ).toBeVisible();
+  const denied = await publicHttpOperation({
+    request: atJsonOrigin(page.request, apiBase),
+    headers: authHeadersForStorageState(await page.context().storageState()),
+    operationID: "patchIncident",
+    pathParameters: { incident_id: incidentId },
+    body: { base_incident_version: 1, current_phase: "containment" },
+  });
+  expect(denied).toMatchObject({
+    ok: false,
+    status: 403,
+    payload: { error: { code: "authorization_denied" } },
+  });
   await expect(page.locator("body")).not.toContainText("request_id");
   await expect(page.locator("body")).not.toContainText("traceback");
+  await page
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
 
   await page.reload();
   await expectCurrentIncidentRole(page, "Current incident role: editor");

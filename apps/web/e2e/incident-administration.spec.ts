@@ -1103,11 +1103,9 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
 
   const actionMessage = page.getByTestId(incidentControlsActionMessageTestId());
   await expect(actionMessage).toHaveText("Saved promoted incident fields.");
-  await actionMessage.hover();
+  // Metadata acknowledgement remains available after the toast timeout window.
   await page.waitForTimeout(5_100);
   await expect(actionMessage).toHaveText("Saved promoted incident fields.");
-  await page.getByLabel("Close incident controls").hover();
-  await expect(actionMessage).toHaveText("", { timeout: 15_000 });
 
   await openIncidentControls(page);
   await expect(

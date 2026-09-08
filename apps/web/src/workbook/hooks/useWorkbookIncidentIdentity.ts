@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkbookIncidentIdentity } from "../models/workbookIncidentIdentity";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
@@ -22,9 +22,24 @@ export function useWorkbookIncidentIdentity({
     string | null
   >(null);
 
+  const currentIncident = useRef(incidentId);
+  currentIncident.current = incidentId;
+  const acceptIncidentResource = useCallback(
+    (next: WorkbookIncidentIdentity) => {
+      if (next.incident_id !== currentIncident.current) return;
+      setIncidentIdentity((previous) =>
+        previous?.incident_id === next.incident_id &&
+        previous.incident_version > next.incident_version
+          ? previous
+          : next,
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     if (initialIncidentIdentity?.incident_id === incidentId) {
-      setIncidentIdentity(initialIncidentIdentity);
+      acceptIncidentResource(initialIncidentIdentity);
       setIncidentIdentityError(null);
       return;
     }
@@ -44,16 +59,23 @@ export function useWorkbookIncidentIdentity({
         setIncidentIdentityError(result.failure.message);
         return;
       }
-      setIncidentIdentity(result.value);
+      acceptIncidentResource(result.value);
     };
     void loadIncidentIdentity();
     return () => {
       controller.abort();
     };
-  }, [incidentPort, incidentId, initialIncidentIdentity, onIncidentAccessLost]);
+  }, [
+    incidentPort,
+    incidentId,
+    initialIncidentIdentity,
+    onIncidentAccessLost,
+    acceptIncidentResource,
+  ]);
 
   return {
     incidentIdentity,
+    acceptIncidentResource,
     incidentIdentityError,
   };
 }

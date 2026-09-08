@@ -1,3 +1,4 @@
+import type { IncidentMetadataResource } from "../app/api/incidentMetadataContracts";
 import type { IncidentControlsSection } from "../app/landingAdminTypes";
 
 export type WorkbookIncidentRole =
@@ -34,6 +35,9 @@ export type WorkbookAccountModel = {
 };
 
 export type WorkbookIncidentControlsRendererProps = {
+  readonly onIncidentResourceAccepted?:
+    | ((resource: IncidentMetadataResource) => void)
+    | undefined;
   readonly density?: WorkbookDensityMode | undefined;
   readonly onAuthorizationRecovered?:
     | ((result: {

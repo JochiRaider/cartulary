@@ -136,12 +136,17 @@ export function useAppRouteRuntime(policy?: LeavePolicy): AppRouteRuntime {
         return;
       }
       const next = readAppRouteState();
-      if (targetIndex !== null && approvedIndex === targetIndex) {
+      if (
+        targetIndex !== null &&
+        approvedIndex === targetIndex &&
+        !policyRef.current?.hasPendingEdits()
+      ) {
         approvedIndex = null;
         index.current = targetIndex;
         publish(next);
         return;
       }
+      approvedIndex = null;
       if (!policyRef.current?.hasPendingEdits()) {
         ++request.current;
         pending.current = false;

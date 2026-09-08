@@ -14,6 +14,7 @@ const LazyImportAssistantFeature = lazy(async () => {
 });
 
 type WorkbookIncidentControlsPresentationProps = {
+  readonly onIncidentResourceAccepted?: WorkbookIncidentControlsRendererProps["onIncidentResourceAccepted"];
   readonly density?: WorkbookIncidentControlsRendererProps["density"];
   readonly onAuthorizationRecovered?: WorkbookIncidentControlsRendererProps["onAuthorizationRecovered"];
   readonly activeMenuItem: WorkbookIncidentControlsMenuItem;
@@ -38,6 +39,7 @@ type WorkbookIncidentControlsPresentationProps = {
 /** Owns lazy support-surface selection inside the incident controls drawer. */
 export function WorkbookIncidentControlsPresentation({
   density,
+  onIncidentResourceAccepted,
   onAuthorizationRecovered,
   activeMenuItem,
   apiBase,
@@ -68,6 +70,7 @@ export function WorkbookIncidentControlsPresentation({
     ) : (
       (renderIncidentControls?.({
         density,
+        onIncidentResourceAccepted,
         onAuthorizationRecovered,
         activeSection: section,
         apiBase,

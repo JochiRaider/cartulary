@@ -1328,6 +1328,24 @@
       "classification": "additive",
       "owner_id": "module.incidents",
       "rationale": "Project REQ-01-129 existing limit and cursor_token query members so generated membership list bindings support the owner-required pagination. No runtime query or permission change."
+    },
+    {
+      "fingerprint": "9635dabfe20c93d5a6b0cc3f7584c8ef19a62fbb2e074af63838ed1fea49878f",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project the existing incident metadata PATCH request and its normalized string bindings for generated clients without changing server behavior."
+    },
+    {
+      "fingerprint": "85982ed22be703eb9bb7952c0e20cc0f6276faa11547d9c264dd1268f5aa4136",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project the existing incident metadata PATCH request and its normalized string bindings for generated clients without changing server behavior."
+    },
+    {
+      "fingerprint": "6eac2e19168225bea0d0ebaf04448e81c5a7f18e2631b9f3155d9639fabd90be",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project the existing incident metadata PATCH request and its normalized string bindings for generated clients without changing server behavior."
     }
   ]
 }

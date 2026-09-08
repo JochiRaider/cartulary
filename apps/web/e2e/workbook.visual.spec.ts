@@ -174,6 +174,11 @@ import {
   openMembershipManagement,
 } from "./support/incidentMembershipManagement";
 import {
+  expectMetadataControlReachable,
+  installMetadataPresentation,
+  openMetadata,
+} from "./support/incidentMetadata";
+import {
   expectCreationControlReachable,
   openCreationPresentation,
   responseBarrier,
@@ -7902,6 +7907,137 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
         page,
         `membership-management-${density}`,
       );
+    }
+  } finally {
+    await setVisualAccountDensity(page, originalDensity);
+  }
+});
+
+test("Capture Metadata editing loading dirty conflict uncertainty confirmation responsive and density.", async ({
+  workerAdminPage: page,
+}) => {
+  const fixture = await installMetadataPresentation(page);
+  await maskIncidentIdentity(page, fixture.incidentId);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const gate = auditBrowserBarrier();
+  fixture.gateRead(gate.promise);
+  const panel = await openMetadata(page);
+  await expect(
+    panel.getByText("Loading promoted fields…", { exact: true }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(page, "metadata-loading");
+  gate.release();
+  const severity = panel.getByLabel("Severity", { exact: true });
+  await severity.fill("critical");
+  await assertViewportVisualRegression(page, "metadata-dirty");
+  const pending = auditBrowserBarrier();
+  fixture.gateWrite(pending.promise);
+  fixture.mutation(503);
+  await panel
+    .getByRole("button", { name: "Save promoted fields", exact: true })
+    .click();
+  await expect(
+    panel.getByText("Saving promoted incident fields…", { exact: true }),
+  ).toBeVisible();
+  await panel.evaluate((node) =>
+    node.scrollIntoView({ block: "start", behavior: "instant" }),
+  );
+  await assertViewportVisualRegression(page, "metadata-saving");
+  pending.release();
+  await expect(panel).toHaveAttribute("data-metadata-operation", "uncertain");
+  const review = panel.getByRole("region", {
+    name: "Review promoted field changes",
+  });
+  await review.scrollIntoViewIfNeeded();
+  await assertViewportVisualRegression(page, "metadata-uncertain");
+  await panel
+    .getByRole("button", { name: "Observe current values", exact: true })
+    .click();
+  await expect(
+    panel.getByText("Incident controls synced.", { exact: true }),
+  ).toBeVisible();
+  await panel
+    .getByRole("button", { name: "Use this version", exact: true })
+    .click();
+  fixture.observe({ severity: "concurrent", incident_version: 2 });
+  fixture.mutation(409, {}, "incident_version_conflict");
+  await panel
+    .getByRole("button", { name: "Save promoted fields", exact: true })
+    .click();
+  await expect(review.getByText("concurrent", { exact: true })).toBeVisible();
+  await review.scrollIntoViewIfNeeded();
+  await assertViewportVisualRegression(page, "metadata-conflict");
+  await page.setViewportSize({ width: 390, height: 480 });
+  await expectMetadataControlReachable(
+    page,
+    panel.getByRole("button", { name: "Use this version", exact: true }),
+  );
+  await assertViewportVisualRegression(page, "metadata-review-narrow");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await review.scrollIntoViewIfNeeded();
+  await assertViewportVisualRegression(page, "metadata-review-zoom");
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await review.scrollIntoViewIfNeeded();
+  await assertViewportVisualRegression(page, "metadata-review-spacing");
+  await spacing.evaluate((node) => node.parentNode?.removeChild(node));
+  await panel
+    .getByRole("button", { name: "Use this version", exact: true })
+    .click();
+  fixture.mutation(200, { severity: "critical", incident_version: 3 });
+  fixture.failRead();
+  await panel
+    .getByRole("button", { name: "Save promoted fields", exact: true })
+    .click();
+  await expect(panel.getByText(/Metadata refresh failed/u)).toBeVisible();
+  await panel.evaluate((node) =>
+    node.scrollIntoView({ block: "start", behavior: "instant" }),
+  );
+  await assertViewportVisualRegression(
+    page,
+    "metadata-confirmed-refresh-failure",
+  );
+  fixture.observe({
+    severity: "critical",
+    incident_version: 3,
+    status: "closed",
+    closed_at: "2026-08-01T00:00:00Z",
+  });
+  await panel
+    .getByRole("button", { name: "Check access and refresh", exact: true })
+    .click();
+  await expect(panel.getByText(/This incident is closed/u)).toBeVisible();
+  await assertViewportVisualRegression(page, "metadata-closed");
+  fixture.observe({ status: "active", closed_at: null, incident_version: 4 });
+  const originalDensity = (await readVisualAccountPreferences(page))
+    .density_mode;
+  try {
+    for (const density of ["compact", "comfortable"] as const) {
+      await setVisualAccountDensity(page, density);
+      await page.reload();
+      await maskIncidentIdentity(page, fixture.incidentId);
+      await page.setViewportSize({ width: 768, height: 640 });
+      await openMetadata(page);
+      await expect(severity).toBeVisible();
+      await expect(panel).toHaveCSS(
+        "font-size",
+        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+      );
+      await expect(panel.locator("[data-metadata-field]").first()).toHaveCSS(
+        "padding",
+        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+      );
+      await severity.fill("critical exact input");
+      await assertViewportVisualRegression(page, `metadata-${density}`);
     }
   } finally {
     await setVisualAccountDensity(page, originalDensity);

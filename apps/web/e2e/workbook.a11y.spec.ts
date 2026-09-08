@@ -45,7 +45,6 @@ import {
   incidentAdministrationTestId,
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
-  incidentControlsStatusTestId,
   incidentControlsTriggerTestId,
   incidentImportTestId,
   incidentLandingTestId,
@@ -201,6 +200,11 @@ import {
   installMembershipManagementPresentation,
   openMembershipManagement,
 } from "./support/incidentMembershipManagement";
+import {
+  expectMetadataControlReachable,
+  installMetadataPresentation,
+  openMetadata,
+} from "./support/incidentMetadata";
 import {
   expectCreationControlReachable,
   openCreationPresentation,
@@ -5309,7 +5313,11 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expectCurrentIncidentRole(page, "admin");
       await openIncidentControls(page, "incident-fields");
-      await expectStatusRole(page.getByTestId(incidentControlsStatusTestId()));
+      const metadataPanel = page.getByRole("region", {
+        name: "Promoted incident fields",
+        exact: true,
+      });
+      await expectStatusRole(metadataPanel.getByRole("status"));
       await expectVisibleFocus(
         page.getByTestId(incidentAdministrationTestId("patch-button")),
       );
@@ -5365,15 +5373,17 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         externalCase: "CASE-A11Y",
         tlp: "TLP:AMBER",
       });
-      await expectAlertRole(
-        page.getByTestId(incidentAdministrationTestId("admin-error-code")),
-      );
       await expect(
-        page.getByTestId(incidentAdministrationTestId("admin-error-code")),
-      ).toHaveText("authorization_denied");
-      await expectNoPrivateDiagnostics(
-        page.getByTestId(incidentAdministrationTestId("admin-error-code")),
+        page.getByTestId(incidentAdministrationTestId("patch-readonly-note")),
+      ).toBeVisible();
+      await expectStatusRole(metadataPanel.getByRole("status"));
+      await expect(metadataPanel.getByRole("status")).toContainText(
+        "Save was not sent.",
       );
+      await expectNoPrivateDiagnostics(metadataPanel);
+      await expect(
+        metadataPanel.getByRole("button", { name: "Refresh", exact: true }),
+      ).toBeFocused();
       await expectVisibleFocus(
         page.getByTestId(appRouteTestId("workbook-current-user")),
       );
@@ -6530,4 +6540,93 @@ test("a11y.membership-management draft review keyboard recovery and removal focu
   await expect(
     page.getByLabel("Account and application navigation"),
   ).toBeFocused();
+});
+
+test("a11y.metadata native inputs inline review discard and drawer focus remain reachable", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const fixture = await installMetadataPresentation(page);
+  const panel = await openMetadata(page);
+  const description = panel.getByLabel("Description", { exact: true });
+  await description.fill(`Long description ${"incident context ".repeat(60)}`);
+  await description.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Second line");
+  await expect(description).toHaveValue(/\nSecond line$/u);
+  expect(fixture.writes).toHaveLength(0);
+  const save = panel.getByRole("button", {
+    name: "Save promoted fields",
+    exact: true,
+  });
+  const discard = panel.getByRole("button", {
+    name: "Discard changes",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [
+      description,
+      panel.getByLabel("TLP", { exact: true }),
+      save,
+      discard,
+      page.getByRole("button", {
+        name: "Close incident controls",
+        exact: true,
+      }),
+    ]) {
+      await expectMetadataControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectMetadataControlReachable(page, save);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 390, height: 480 });
+  await expectMetadataControlReachable(page, discard);
+  await page.keyboard.press("Enter");
+  await expect(description).toHaveValue("Initial incident description");
+  await spacing.evaluate((e) => e.parentNode?.removeChild(e));
+  await page.setViewportSize({ width: 768, height: 640 });
+  await panel.getByLabel("Severity", { exact: true }).fill("intended");
+  fixture.observe({ severity: "current", incident_version: 2 });
+  fixture.mutation(409, {}, "incident_version_conflict");
+  await save.focus();
+  await page.keyboard.press("Enter");
+  const useVersion = panel.getByRole("button", {
+    name: "Use this version",
+    exact: true,
+  });
+  await expectMetadataControlReachable(page, useVersion);
+  await expectVisibleFocus(useVersion);
+  await page.keyboard.press("Enter");
+  expect(fixture.writes).toHaveLength(1);
+  await expect(save).toHaveAttribute("aria-disabled", "false");
+  await expectAllInteractiveControlsNamed(page);
+  await testInfo.attach("metadata-accessibility-tree", {
+    body: await panel.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(
+    page.getByLabel("Account and application navigation"),
+  ).toBeFocused();
+  await openMetadata(page);
+  await expect(panel.getByLabel("Severity", { exact: true })).toHaveValue(
+    "intended",
+  );
 });

@@ -35,6 +35,7 @@ import type {
   ExtensionProfileResource,
   SessionData,
 } from "./api/publicHttpTypes";
+import { reviewAppDeparture } from "./appDepartureReview";
 import { AppSessionController } from "./appSessionController";
 import { AuthenticationController } from "./authenticationModel";
 import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
@@ -48,6 +49,10 @@ import {
   IncidentMembershipDepartureDialog,
   IncidentMembershipManagementFeature,
 } from "./IncidentMembershipManagementPanel";
+import {
+  IncidentMetadataDepartureDialog,
+  IncidentMetadataFeature,
+} from "./IncidentMetadataPanel";
 import type { IncidentCreationController } from "./incidentCreationModel";
 import {
   type IncidentDirectoryController,
@@ -56,6 +61,7 @@ import {
 import type { IncidentImportController } from "./incidentImportModel";
 import type { IncidentMembershipAuditController } from "./incidentMembershipAuditController";
 import type { IncidentMembershipManagementController } from "./incidentMembershipManagementController";
+import type { IncidentMetadataController } from "./incidentMetadataController";
 import {
   IncidentDirectoryShell,
   LandingAdminShell,
@@ -76,6 +82,7 @@ import { useIncidentDirectory } from "./useIncidentDirectory";
 import { useIncidentImport } from "./useIncidentImport";
 import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
 import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
+import { useIncidentMetadata } from "./useIncidentMetadata";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
 
 const LazyWorkbookShell = lazy(async () => {
@@ -126,6 +133,7 @@ export function App({
   themeId,
   authNavigation,
 }: AppProps = {}) {
+  const metadataRef = useRef<IncidentMetadataController | null>(null);
   const membershipManagementRef =
     useRef<IncidentMembershipManagementController | null>(null);
   const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
@@ -144,16 +152,40 @@ export function App({
   const sessionControllerRef = useRef<AppSessionController | null>(null);
   const { commitRoute, route, routeRef } = useAppRouteRuntime({
     hasPendingEdits: () =>
+      (metadataRef.current?.hasDepartureWork() ?? false) ||
       (membershipManagementRef.current?.hasDepartureWork() ?? false) ||
       (deploymentUsersRef.current?.hasDirtyDraft() ?? false),
-    requestLeave: () =>
-      membershipManagementRef.current?.hasDepartureWork()
-        ? membershipManagementRef.current.requestLeave()
-        : (deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true)),
+    requestLeave: () => {
+      const lifetime = sessionControllerRef.current?.getSnapshot().lifetime;
+      const incidentId = routeRef.current.incidentId;
+      return reviewAppDeparture({
+        memberships: {
+          hasWork: () =>
+            membershipManagementRef.current?.hasDepartureWork() ?? false,
+          requestLeave: () =>
+            membershipManagementRef.current?.requestLeave() ??
+            Promise.resolve(true),
+        },
+        metadata: {
+          hasWork: () => metadataRef.current?.hasDepartureWork() ?? false,
+          requestLeave: () =>
+            metadataRef.current?.requestLeave() ?? Promise.resolve(true),
+        },
+        deploymentUsers: {
+          hasWork: () => deploymentUsersRef.current?.hasDirtyDraft() ?? false,
+          requestLeave: () =>
+            deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true),
+        },
+        isCurrent: () =>
+          lifetime === sessionControllerRef.current?.getSnapshot().lifetime &&
+          incidentId === routeRef.current.incidentId,
+      });
+    },
     beforeCommit: (next) => {
       if (next.incidentId !== routeRef.current.incidentId) {
         membershipAuditRef.current?.retire();
         membershipManagementRef.current?.retire();
+        metadataRef.current?.retire();
       }
       auditControllerRef.current?.setActive(false);
       importControllerRef.current?.setActive(false);
@@ -176,6 +208,7 @@ export function App({
         retireLifetime: (lifetime) => {
           membershipAuditRef.current?.retire();
           membershipManagementRef.current?.retire();
+          metadataRef.current?.retire();
           auditControllerRef.current?.retire();
           accountEditingRef.current?.retireLifetime();
           authenticationRef.current?.retire();
@@ -315,7 +348,8 @@ export function App({
     const preventUnload = (event: BeforeUnloadEvent) => {
       if (
         !deploymentUsers.hasDirtyDraft() &&
-        !membershipManagementRef.current?.hasDepartureWork()
+        !membershipManagementRef.current?.hasDepartureWork() &&
+        !metadataRef.current?.hasDepartureWork()
       )
         return;
       event.preventDefault();
@@ -355,6 +389,7 @@ export function App({
   const sessionSnapshot = useAppSession(sessionController, () => {
     membershipAuditRef.current?.dispose();
     membershipManagementRef.current?.dispose();
+    metadataRef.current?.dispose();
     workbookMutationRuntimeRegistry.dispose();
     accountEditing.dispose();
     authentication.dispose();
@@ -805,6 +840,7 @@ export function App({
   const handleIncidentAccessLost = useCallback(() => {
     if (readAppRouteState().incidentId !== route.incidentId) return;
     membershipManagementRef.current?.retire();
+    metadataRef.current?.retire();
     directoryControllerRef.current?.setActive(false);
     navigationFocusRequestRef.current = {
       destination: "incidents",
@@ -831,6 +867,14 @@ export function App({
     onSessionLost: handleSessionLost,
   });
   membershipManagementRef.current = membershipManagement.controller;
+  const metadata = useIncidentMetadata({
+    sessionController,
+    recovery: workbookAuthorizationRecovery,
+    currentIncidentId: () => routeRef.current.incidentId,
+    onIncidentAccessLost: handleIncidentAccessLost,
+    onSessionLost: handleSessionLost,
+  });
+  metadataRef.current = metadata.controller;
 
   const renderAccountMenu = useCallback(
     (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
@@ -1022,6 +1066,8 @@ export function App({
               extensionProfiles={extensionProfiles}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentControlsSectionChange={(section) => {
+                if (section !== "incident-fields")
+                  metadata.controller.setActive(false);
                 if (section !== "memberships")
                   membershipManagement.controller.setActive(false);
                 if (section !== "membership-audit")
@@ -1040,8 +1086,28 @@ export function App({
                     controller={membershipManagement.controller}
                     bindSurface={membershipManagement.bindSurface}
                   />
+                ) : props.activeSection === "incident-fields" ? (
+                  <IncidentMetadataFeature
+                    {...props}
+                    controller={metadata.controller}
+                    bindSurface={metadata.bindSurface}
+                  />
                 ) : (
-                  <IncidentAdminPanel {...props} />
+                  <IncidentAdminPanel
+                    {...props}
+                    acceptedIncident={metadata.resource}
+                    onIncidentObserved={(resource) => {
+                      const authority =
+                        metadata.controller.getSnapshot().authority;
+                      if (
+                        authority?.incidentId !== props.incidentId ||
+                        authority.lifetime !== sessionSnapshot.lifetime
+                      )
+                        return;
+                      metadata.controller.acceptResource(resource);
+                      props.onIncidentResourceAccepted?.(resource);
+                    }}
+                  />
                 )
               }
               mutationRuntimeRegistry={workbookMutationRuntimeRegistry}
@@ -1049,6 +1115,10 @@ export function App({
           </Suspense>
         </section>
         {renderAccountSettings()}
+        <IncidentMetadataDepartureDialog
+          controller={metadata.controller}
+          fallbackFocusRef={accountMenuTriggerRef}
+        />
         <IncidentMembershipDepartureDialog
           controller={membershipManagement.controller}
           kind="route"

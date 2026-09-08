@@ -1930,54 +1930,6 @@
       "service_dependencies": []
     },
     {
-      "row_id": "web.application.regression.incidentadminpanel_keeps_readiness_on_the_curren_35921ed917",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
-        "titles": [
-          "IncidentAdminPanel keeps readiness on the current incident-controls section when a patch finishes after a section switch"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.application.regression.incidentadminpanel_patches_required_incident_met_bd946d6caa",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
-        "titles": [
-          "IncidentAdminPanel patches required incident metadata fields and restricts TLP to canonical tokens"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
       "row_id": "web.application.regression.incidentadminpanel_renders_null_and_view_schema_b2a93c36b5",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -2108,6 +2060,127 @@
           "Incident membership management typed transport retains safe error identities without raw server message or arbitrary details",
           "Incident membership management typed transport uses captured PATCH and DELETE bodies and accepts a bodyless 204",
           "Incident membership management typed transport uses only limit and opaque cursor and retains the server ordering"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.metadata_departure",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/appDepartureReview.test.ts",
+        "titles": [
+          "App departure review rejects retirement or newly outstanding work before navigation",
+          "App departure review reviews all outstanding owners sequentially without overlapping dialogs",
+          "App departure review stops on Stay and preserves unreviewed work"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.metadata_lifetime",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMetadataLifecycle.test.tsx",
+        "titles": [
+          "Incident metadata lifetime integration clears incident access without logging out and excludes a late acknowledgement after account replacement",
+          "Incident metadata lifetime integration requires renewed review after current role changes while retaining authorized values and drafts",
+          "Incident metadata lifetime integration retains exact drafts through real drawer transitions and publishes a late save into summary without preference reloads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.metadata_ownership",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMetadataController.test.ts",
+        "titles": [
+          "Incident metadata ownership accepts acknowledgement after local discard without inventing a reversal and preserves typing after discard",
+          "Incident metadata ownership allows active reviewers and admins but requires review after role or lifecycle changes",
+          "Incident metadata ownership bounds observation while retaining the transport lock and accepts a late acknowledgement",
+          "Incident metadata ownership captures an immutable attempt and acknowledges only submitted input revisions",
+          "Incident metadata ownership classifies malformed and unknown mutation outcomes as uncertain without raw diagnostics",
+          "Incident metadata ownership clears protected work on access or session loss without conflating their destinations",
+          "Incident metadata ownership constructs each sparse field independently and distinguishes omission null and raw text",
+          "Incident metadata ownership discards only local input and requires explicit departure to forget pending recovery",
+          "Incident metadata ownership does not regress a newer accepted resource when a late acknowledgement arrives",
+          "Incident metadata ownership fences delayed reads errors and writes across incident and retired account lifetimes",
+          "Incident metadata ownership keeps acknowledgement confirmed when access or resource publication reads fail",
+          "Incident metadata ownership keeps field rejection attached only to the submitted field revision",
+          "Incident metadata ownership never treats matching observation as proof of an uncertain write",
+          "Incident metadata ownership preserves a draft during refresh and requires review of changed resources",
+          "Incident metadata ownership preserves conflicts and requires explicit review followed by a distinct save",
+          "Incident metadata ownership prevents dispatch after role loss or section exit during admission",
+          "Incident metadata ownership retains one draft through closure and section return but rereads current eligibility",
+          "Incident metadata ownership revalidates a reopened drawer while transport remains pending without admitting another write",
+          "Incident metadata ownership suppresses untouched saves and locks admission before current authorization"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.metadata_transport",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/incidentMetadataClient.test.ts",
+        "titles": [
+          "Incident metadata transport accepts authoritative no-op responses without demanding a version increase",
+          "Incident metadata transport rejects malformed wrong-incident regressing and unexpected-status success responses",
+          "Incident metadata transport retains only safe known error identities and bounded field reasons",
+          "Incident metadata transport uses generated paths and preserves sparse null and exact Unicode input"
         ]
       },
       "evidence_class": "unit",

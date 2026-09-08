@@ -1611,6 +1611,33 @@ export interface IncidentMembershipPatchRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentPatchRequest".
+ */
+export interface IncidentPatchRequest {
+  base_incident_version: number;
+  /**
+   * incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.
+   */
+  current_phase?: string | null;
+  /**
+   * multiline_body_v1: Unicode NFC; CRLF and CR to LF; trim leading/trailing Unicode whitespace; preserve interior whitespace and line breaks; reject C0/C1 controls except LF and TAB; maximum 16384 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.
+   */
+  description?: string | null;
+  /**
+   * incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.
+   */
+  primary_external_case_ref?: string | null;
+  /**
+   * incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.
+   */
+  severity?: string | null;
+  /**
+   * Exact canonical token or null. Omission leaves unchanged; only null clears. Empty, whitespace, aliases and case variants are invalid.
+   */
+  tlp?: "TLP:CLEAR" | "TLP:GREEN" | "TLP:AMBER" | "TLP:AMBER+STRICT" | "TLP:RED" | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "IndicatorLifecycleAppendRequest".
  */
 export interface IndicatorLifecycleAppendRequest {

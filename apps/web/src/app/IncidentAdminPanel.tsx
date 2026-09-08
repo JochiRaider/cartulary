@@ -44,6 +44,8 @@ type PreferenceSlot = {
 type WorkbookPreferenceField = "default_sheet_ref" | "home_sheet_ref";
 
 type IncidentAdminPanelProps = {
+  acceptedIncident?: IncidentSummary | null | undefined;
+  onIncidentObserved?: ((incident: IncidentSummary) => void) | undefined;
   incidentId: string;
   currentIncidentRole: IncidentRole | null;
   activeSection?: IncidentControlsSection | undefined;
@@ -136,6 +138,8 @@ function formatSheetRef(slot: PreferenceSlot): string {
 }
 
 export function IncidentAdminPanel({
+  acceptedIncident,
+  onIncidentObserved,
   incidentId,
   currentIncidentRole,
   activeSection = "summary",
@@ -150,11 +154,6 @@ export function IncidentAdminPanel({
   const [userPreference, setUserPreference] = useState<PreferenceSlot>(
     loadingPreferenceSlot,
   );
-  const [patchDescription, setPatchDescription] = useState("");
-  const [patchSeverity, setPatchSeverity] = useState("");
-  const [patchTLP, setPatchTLP] = useState("");
-  const [patchCurrentPhase, setPatchCurrentPhase] = useState("");
-  const [patchExternalCase, setPatchExternalCase] = useState("");
   const [lifecycleReason, setLifecycleReason] = useState("");
   const [surfaceLoadState, setSurfaceLoadState] =
     useState<IncidentControlsLoadState>("loading");
@@ -164,6 +163,17 @@ export function IncidentAdminPanel({
   const [actionMessageState, setActionMessageState] =
     useState<IncidentActionMessage>({ incidentId, text: "", transient: false });
   const [error, setError] = useState<APIError | null>(null);
+  const acceptedIncidentRef = useRef(acceptedIncident);
+  acceptedIncidentRef.current = acceptedIncident;
+  useEffect(() => {
+    if (acceptedIncident?.incident_id === incidentId)
+      setIncident((current) =>
+        current?.incident_id === incidentId &&
+        current.incident_version > acceptedIncident.incident_version
+          ? current
+          : acceptedIncident,
+      );
+  }, [acceptedIncident, incidentId]);
   const loadRequestIdRef = useRef(0);
   const activeSectionRef = useRef(activeSection);
   const apiBaseRef = useRef(apiBase);
@@ -172,9 +182,6 @@ export function IncidentAdminPanel({
   activeSectionRef.current = activeSection;
   apiBaseRef.current = apiBase;
   incidentIdRef.current = incidentId;
-  const canEditIncident =
-    incident?.status !== "closed" &&
-    (currentIncidentRole === "reviewer" || currentIncidentRole === "admin");
   const actionMessage =
     actionMessageState.incidentId === incidentId ? actionMessageState.text : "";
 
@@ -277,12 +284,13 @@ export function IncidentAdminPanel({
 
       const nextIncident = (incidentResult.payload as { data: IncidentSummary })
         .data;
-      setIncident(nextIncident);
-      setPatchDescription(nextIncident.description ?? "");
-      setPatchSeverity(nextIncident.severity ?? "");
-      setPatchTLP(nextIncident.tlp ?? "");
-      setPatchCurrentPhase(nextIncident.current_phase ?? "");
-      setPatchExternalCase(nextIncident.primary_external_case_ref ?? "");
+      const published = acceptedIncidentRef.current;
+      setIncident(
+        published?.incident_id === requestedIncidentId &&
+          published.incident_version > nextIncident.incident_version
+          ? published
+          : nextIncident,
+      );
 
       let partialFailure = false;
 
@@ -325,47 +333,6 @@ export function IncidentAdminPanel({
         : { incidentId, text: "", transient: false },
     );
   }, [incidentId]);
-
-  async function handlePatchIncident() {
-    if (!incident) {
-      return;
-    }
-
-    const actionIncidentId = incident.incident_id;
-    setActionMessageForIncident(
-      actionIncidentId,
-      "Saving promoted incident fields…",
-    );
-    const result = await fetchJSON<{ data: IncidentSummary }>(
-      apiPath(apiBase, `/api/v1/incidents/${incident.incident_id}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          base_incident_version: incident.incident_version,
-          description: patchDescription.trim() === "" ? null : patchDescription,
-          severity: patchSeverity.trim() === "" ? null : patchSeverity,
-          tlp: patchTLP === "" ? null : patchTLP,
-          current_phase:
-            patchCurrentPhase.trim() === "" ? null : patchCurrentPhase,
-          primary_external_case_ref:
-            patchExternalCase.trim() === "" ? null : patchExternalCase,
-        }),
-      },
-    );
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setActionMessageForIncident(actionIncidentId, "Incident update failed.");
-      return;
-    }
-
-    setError(null);
-    await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setActionMessageForIncident(
-      actionIncidentId,
-      "Saved promoted incident fields.",
-      true,
-    );
-  }
 
   async function handleLifecycle(action: "close" | "reopen") {
     if (!incident || currentIncidentRole !== "admin") {
@@ -422,6 +389,7 @@ export function IncidentAdminPanel({
     ).data;
     setError(null);
     setIncident(nextIncident);
+    onIncidentObserved?.(nextIncident);
     setLifecycleReason("");
     await refreshSessionRole();
     setActionMessageForIncident(
@@ -500,110 +468,6 @@ export function IncidentAdminPanel({
             userPreference,
           })}
         </div>
-      ) : null}
-
-      {activeSection === "incident-fields" ? (
-        <section style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <div>
-              <p style={cardEyebrowStyle}>Promoted fields only</p>
-              <h3 style={cardTitleStyle}>Incident update</h3>
-            </div>
-          </div>
-
-          {canEditIncident ? (
-            <div style={formGridStyle}>
-              <label style={fieldLabelStyle}>
-                Description
-                <textarea
-                  data-testid={incidentAdministrationTestId(
-                    "patch-description",
-                  )}
-                  style={textAreaStyle}
-                  value={patchDescription}
-                  onChange={(event) => {
-                    setPatchDescription(event.target.value);
-                  }}
-                />
-              </label>
-              <label style={fieldLabelStyle}>
-                Severity
-                <input
-                  data-testid={incidentAdministrationTestId("patch-severity")}
-                  style={inputStyle}
-                  value={patchSeverity}
-                  onChange={(event) => {
-                    setPatchSeverity(event.target.value);
-                  }}
-                  placeholder="high"
-                />
-              </label>
-              <label style={fieldLabelStyle}>
-                TLP
-                <select
-                  data-testid={incidentAdministrationTestId("patch-tlp")}
-                  style={inputStyle}
-                  value={patchTLP}
-                  onChange={(event) => {
-                    setPatchTLP(event.target.value);
-                  }}
-                >
-                  <option value="">Unset</option>
-                  <option value="TLP:CLEAR">TLP:CLEAR</option>
-                  <option value="TLP:GREEN">TLP:GREEN</option>
-                  <option value="TLP:AMBER">TLP:AMBER</option>
-                  <option value="TLP:AMBER+STRICT">TLP:AMBER+STRICT</option>
-                  <option value="TLP:RED">TLP:RED</option>
-                </select>
-              </label>
-              <label style={fieldLabelStyle}>
-                Current phase
-                <input
-                  data-testid={incidentAdministrationTestId(
-                    "patch-current-phase",
-                  )}
-                  style={inputStyle}
-                  value={patchCurrentPhase}
-                  onChange={(event) => {
-                    setPatchCurrentPhase(event.target.value);
-                  }}
-                  placeholder="containment"
-                />
-              </label>
-              <label style={fieldLabelStyle}>
-                Primary external case
-                <input
-                  data-testid={incidentAdministrationTestId(
-                    "patch-external-case",
-                  )}
-                  style={inputStyle}
-                  value={patchExternalCase}
-                  onChange={(event) => {
-                    setPatchExternalCase(event.target.value);
-                  }}
-                  placeholder="CASE-1234"
-                />
-              </label>
-              <button
-                data-testid={incidentAdministrationTestId("patch-button")}
-                style={primaryButtonStyle}
-                type="button"
-                onClick={() => {
-                  void handlePatchIncident();
-                }}
-              >
-                Save promoted fields
-              </button>
-            </div>
-          ) : (
-            <p
-              data-testid={incidentAdministrationTestId("patch-readonly-note")}
-              style={mutedBodyStyle}
-            >
-              Promoted incident fields are read-only for this incident role.
-            </p>
-          )}
-        </section>
       ) : null}
     </section>
   );
@@ -896,11 +760,6 @@ const bodyStyle = {
   maxWidth: "42rem",
 };
 
-const mutedBodyStyle = {
-  margin: 0,
-  color: "var(--ct-colors-ink-subtle)",
-};
-
 const actionMessageStyle = {
   margin: 0,
   minHeight: "1.25rem",
@@ -987,11 +846,6 @@ const valueStyle = {
   wordBreak: "break-word" as const,
 };
 
-const formGridStyle = {
-  display: "grid",
-  gap: "0.85rem",
-};
-
 const inlineFormStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
@@ -1014,12 +868,6 @@ const inputStyle = {
   font: "inherit",
   color: "var(--ct-component-text-input-textColor)",
   background: "var(--ct-component-text-input-backgroundColor)",
-};
-
-const textAreaStyle = {
-  ...inputStyle,
-  minHeight: "5.5rem",
-  resize: "vertical" as const,
 };
 
 const primaryButtonStyle = {

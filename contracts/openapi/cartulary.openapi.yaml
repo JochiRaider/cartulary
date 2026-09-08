@@ -2309,6 +2309,16 @@
       ],
       "patch": {
         "operationId": "patchIncident",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/IncidentSuccessResponse"
@@ -2345,7 +2355,25 @@
         "summary": "Patch mutable incident metadata with optimistic incident_version checks.",
         "tags": [
           "incidents"
-        ]
+        ],
+        "x-cartulary-string-contracts": {
+          "current_phase": {
+            "normalized_max_scalar_values": 128,
+            "string_contract_id": "incident_metadata_text_v1"
+          },
+          "description": {
+            "normalized_max_scalar_values": 16384,
+            "string_contract_id": "multiline_body_v1"
+          },
+          "primary_external_case_ref": {
+            "normalized_max_scalar_values": 128,
+            "string_contract_id": "incident_metadata_text_v1"
+          },
+          "severity": {
+            "normalized_max_scalar_values": 128,
+            "string_contract_id": "incident_metadata_text_v1"
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/close": {
@@ -12916,6 +12944,62 @@
           "updated_at",
           "updated_by_user_id",
           "membership_version"
+        ],
+        "type": "object"
+      },
+      "IncidentPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_incident_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "current_phase": {
+            "description": "incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "description": "multiline_body_v1: Unicode NFC; CRLF and CR to LF; trim leading/trailing Unicode whitespace; preserve interior whitespace and line breaks; reject C0/C1 controls except LF and TAB; maximum 16384 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "primary_external_case_ref": {
+            "description": "incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "severity": {
+            "description": "incident_metadata_text_v1: Unicode NFC; trim leading/trailing Unicode whitespace; preserve interior whitespace; reject C0/C1 controls; maximum 128 Unicode scalar values after normalization. Omission leaves unchanged; null or normalized-empty clears.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tlp": {
+            "description": "Exact canonical token or null. Omission leaves unchanged; only null clears. Empty, whitespace, aliases and case variants are invalid.",
+            "enum": [
+              "TLP:CLEAR",
+              "TLP:GREEN",
+              "TLP:AMBER",
+              "TLP:AMBER+STRICT",
+              "TLP:RED",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "base_incident_version"
         ],
         "type": "object"
       },

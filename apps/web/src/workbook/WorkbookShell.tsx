@@ -138,7 +138,7 @@ function WorkbookShellContent({
     authorization.authorizationGeneration,
     infrastructure.viewQuery,
   );
-  const { incidentIdentity, incidentIdentityError } =
+  const { incidentIdentity, incidentIdentityError, acceptIncidentResource } =
     useWorkbookIncidentIdentity({
       incidentPort: infrastructure.incidentPort,
       incidentId,
@@ -382,6 +382,7 @@ function WorkbookShellContent({
           onActivateOrigin={selectBaseWorkbookSurface}
         />
         <WorkbookIncidentControlsPresentation
+          onIncidentResourceAccepted={acceptIncidentResource}
           density={workbookLayout.shell.density}
           onAuthorizationRecovered={authorization.acceptRecoveredAuthorization}
           activeMenuItem={incidentControls.activeMenuItem}

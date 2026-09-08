@@ -468,6 +468,191 @@
       ]
     },
     {
+      "row_id": "module.incidents.browser.metadata_authority",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-metadata-editing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_1dd13df75af6"
+        ],
+        "titles": [
+          "metadata uses current roles distinguishes closure and clears protected state after session or incident loss"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.metadata_departure",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-metadata-editing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_87fec4f8f1a5"
+        ],
+        "titles": [
+          "metadata and membership retained work receive sequential departure review including Stay and history"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.metadata_live",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-metadata-editing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d262742ed34b"
+        ],
+        "titles": [
+          "metadata edits each live field sparsely clears normalizes and reviews a real version conflict"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.metadata_pending_departure",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-metadata-editing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d74e78db396f"
+        ],
+        "titles": [
+          "metadata pending transport survives drawer return and cannot publish after deliberate incident departure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.metadata_recovery",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-metadata-editing.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_b40bd7809b2d"
+        ],
+        "titles": [
+          "metadata retains newer input and distinguishes confirmed failed reads from uncertain observation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.browser",
@@ -839,7 +1024,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.incidents.frontend.the_ordinary_incident_shell_exposes_patchable_me_9af2ae4573",
+      "row_id": "module.incidents.frontend.metadata_characterization",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.frontend",
       "collaborator_ids": [
@@ -850,9 +1035,18 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+        "file": "apps/web/src/app/incidentMetadataCharacterization.test.tsx",
         "titles": [
-          "ordinary incident shell gates promoted-field controls by incident role and returns to landing when incident access is lost"
+          "Incident metadata characterization admits repeated Save activation only once",
+          "Incident metadata characterization consumes acknowledgement despite failed subsequent reads",
+          "Incident metadata characterization excludes an obsolete rejection from another incident",
+          "Incident metadata characterization explains closure while keeping authorized metadata visible",
+          "Incident metadata characterization explains insufficient role while keeping authorized values visible",
+          "Incident metadata characterization preserves conflicted input and exposes explicit version review",
+          "Incident metadata characterization preserves newer typing when the submitted revision completes",
+          "Incident metadata characterization retains exact input across drawer closure",
+          "Incident metadata characterization retains exact input across section changes and their reads",
+          "Incident metadata characterization sends only the changed field and draft base version"
         ]
       },
       "evidence_class": "unit",
@@ -1875,6 +2069,60 @@
         "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestMembershipManagementOpenAPIProjectsExactVersionedBodies_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.metadata_field_intent",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [
+        "platform.audit",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentMetadataNormalizationAndFieldIntent_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.metadata_openapi",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [
+        "platform.audit",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents/httpapi",
+        "tests": [
+          "TestIncidentMetadataOpenAPIProjectsSparseNullableVersionedRequest_Unit"
         ]
       },
       "evidence_class": "unit",
