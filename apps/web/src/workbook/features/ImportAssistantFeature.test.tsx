@@ -4,333 +4,234 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ImportWriteAttempt } from "../../imports/importRequests";
+import { WorkbookImportController } from "../../imports/WorkbookImportController";
+import type { ImportWriteResult } from "../../services/importClient";
+import type { DiscoveredImportUnit } from "../../services/importContractAdapter";
+import { workbookImportTargets } from "../../services/importTargetContractAdapter";
 import {
-  approveWorkbookImportMapping,
-  createWorkbookImportRegion,
-  setWorkbookImportUnitSelection,
-  uploadAndDiscoverWorkbookImport,
-  type WorkbookImportDiscovery,
-  type WorkbookImportUnitDiscovery,
-} from "../../imports/importCoordinator";
-import { readyExtensionAvailability } from "../../testing/extensionAvailabilityTestSupport";
+  importTestIds as ids,
+  importTestJob,
+  importTestMapping,
+  importTestPreview,
+  importTestScope,
+  importTestSession,
+  importTestUnit,
+} from "../../testing/workbookImportTestSupport";
 import { ImportAssistantFeature } from "./ImportAssistantFeature";
 
-vi.mock("../../imports/importCoordinator", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../../imports/importCoordinator")>();
-  return {
-    ...actual,
-    approveWorkbookImportMapping: vi.fn(),
-    createWorkbookImportRegion: vi.fn(),
-    setWorkbookImportUnitSelection: vi.fn(),
-    uploadAndDiscoverWorkbookImport: vi.fn(),
-  };
-});
-
-const sessionID = "00000000-0000-4000-8000-000000000001";
-const unitID = "00000000-0000-4000-8000-000000000002";
-
+const controllers: WorkbookImportController[] = [];
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  for (const c of controllers.splice(0)) c.dispose();
 });
-
+function setup(xlsx = false, selectionFailure = false) {
+  let unit = importTestUnit(
+    xlsx
+      ? {
+          locator_kind: "xlsx_used_range",
+          locator: { sheet_name: "Sheet1" },
+          source_rect_a1: "A1:A4",
+          inferred_row_count: 3,
+        }
+      : {},
+  );
+  let units = [unit];
+  let session = importTestSession();
+  const send = vi.fn(
+    async (a: ImportWriteAttempt): Promise<ImportWriteResult> => {
+      if (a.kind === "upload")
+        return {
+          kind: "accepted",
+          receipt: { kind: "job", job: importTestJob() },
+        };
+      if (a.kind === "mapping") {
+        unit = {
+          ...unit,
+          approved_mapping: {
+            ...importTestMapping,
+            source_columns: [...importTestMapping.source_columns],
+          },
+          mapping_fingerprint: "a".repeat(64),
+          unit_status: "mapped",
+        };
+        units = [unit];
+        return { kind: "accepted", receipt: { kind: "unit", unit } };
+      }
+      if (a.kind === "region") {
+        const region = importTestUnit({
+          import_unit_id: ids.secondUnit,
+          locator_kind: "operator_region",
+          locator: { sheet_name: "Sheet1" },
+        });
+        units.push(region);
+        return { kind: "accepted", receipt: { kind: "unit", unit: region } };
+      }
+      if (a.kind === "select" || a.kind === "skip") {
+        if (selectionFailure) {
+          selectionFailure = false;
+          return {
+            kind: "rejected",
+            failure: {
+              kind: "public",
+              code: "invalid_import_state",
+              reason: "unit_not_ready",
+              field: null,
+              status: 409,
+              retryable: false,
+            },
+          };
+        }
+        const selected = a.kind === "select";
+        unit = { ...unit, unit_status: selected ? "ready" : "skipped" };
+        units = [unit];
+        session = {
+          ...session,
+          session_status: selected ? "ready_to_apply" : "mapped",
+          selected_unit_ids: selected ? [ids.unit] : [],
+        };
+        return {
+          kind: "accepted",
+          receipt: {
+            kind: "selection",
+            selection: {
+              import_session_id: ids.session,
+              session_status: session.session_status,
+              selected_unit_ids: session.selected_unit_ids,
+              unit,
+            },
+          },
+        };
+      }
+      throw new Error("Unexpected test operation");
+    },
+  );
+  const controller = new WorkbookImportController();
+  controllers.push(controller);
+  controller.bind({
+    scope: importTestScope,
+    available: true,
+    closed: false,
+    role: "admin",
+    current: () => true,
+    accessFailure: vi.fn(),
+    client: {
+      send,
+      readJob: async () => ({
+        kind: "received",
+        value: importTestJob("succeeded"),
+      }),
+      readSession: async () => ({ kind: "received", value: session }),
+      listUnits: async () => ({ kind: "received", value: units }),
+      readUnit: async () => ({ kind: "received", value: unit }),
+      preview: async (u: DiscoveredImportUnit) => ({
+        kind: "received",
+        value: importTestPreview(u),
+      }),
+    },
+  });
+  const view = render(
+    <ImportAssistantFeature
+      controller={controller}
+      onNavigateToView={vi.fn()}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Source workbook"), {
+    target: {
+      files: [
+        new File(
+          ["Activity Synopsis\nObservation"],
+          xlsx ? "source.xlsx" : "source.csv",
+        ),
+      ],
+    },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Upload and discover" }));
+  return { controller, send, view };
+}
 describe("ImportAssistantFeature selection lifecycle", () => {
   it("reselects a skipped mapped unit without approving a second mapping", async () => {
-    const discovery = workbookDiscovery();
-    const first = discovery.units[0];
-    if (first === undefined) {
-      throw new Error("missing import discovery fixture");
-    }
-    vi.mocked(uploadAndDiscoverWorkbookImport).mockResolvedValue(discovery);
-    vi.mocked(approveWorkbookImportMapping).mockResolvedValue({
-      ...first.unit,
-      unit_status: "mapped",
-      mapping_fingerprint: "a".repeat(64),
-    });
-    vi.mocked(setWorkbookImportUnitSelection).mockImplementation(
-      async ({ selected }) => ({
-        ...first.unit,
-        unit_status: selected ? "ready" : "skipped",
-        mapping_fingerprint: "a".repeat(64),
-      }),
-    );
-
-    render(
-      <ImportAssistantFeature
-        apiBase={undefined}
-        availability={readyExtensionAvailability()}
-        currentIncidentRole="admin"
-        incidentId="incident-1"
-        onNavigateToView={() => undefined}
-      />,
-    );
-
-    const sourceInput = screen.getByLabelText("Source workbook");
-    fireEvent.change(sourceInput, {
-      target: {
-        files: [
-          new File(["summary\none\n"], "selection.csv", {
-            type: "text/csv",
-          }),
-        ],
-      },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Upload and discover" }),
-    );
+    const h = setup();
     fireEvent.click(
       await screen.findByRole("button", { name: "Approve mapping and select" }),
     );
-    await waitFor(() => {
-      expect(approveWorkbookImportMapping).toHaveBeenCalledTimes(1);
-      expect(setWorkbookImportUnitSelection).toHaveBeenLastCalledWith(
-        expect.objectContaining({ selected: true }),
-      );
-    });
-
+    await waitFor(() =>
+      expect(h.controller.getSnapshot().session?.selected_unit_ids).toEqual([
+        ids.unit,
+      ]),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Skip unit" }));
-    const reselectButton = await screen.findByRole("button", {
+    const reselect = await screen.findByRole("button", {
       name: "Reselect unit",
     });
-    await waitFor(() => {
-      expect(setWorkbookImportUnitSelection).toHaveBeenLastCalledWith(
-        expect.objectContaining({ selected: false }),
-      );
-    });
-
-    fireEvent.click(reselectButton);
-    await waitFor(() => {
-      expect(setWorkbookImportUnitSelection).toHaveBeenCalledTimes(3);
-      expect(setWorkbookImportUnitSelection).toHaveBeenLastCalledWith(
-        expect.objectContaining({ selected: true }),
-      );
-    });
-    expect(approveWorkbookImportMapping).toHaveBeenCalledTimes(1);
-    expect(
-      screen.getByText("Unit reselected with its approved mapping."),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect((reselect as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(reselect);
+    await waitFor(() =>
+      expect(h.send.mock.calls.map(([a]) => a.kind)).toEqual([
+        "upload",
+        "mapping",
+        "select",
+        "skip",
+        "select",
+      ]),
+    );
   });
-
   it("uses generated view targets and creates an operator-selected region", async () => {
-    const discovery = xlsxWorkbookDiscovery();
-    const created = operatorRegionDiscovery();
-    vi.mocked(uploadAndDiscoverWorkbookImport).mockResolvedValue(discovery);
-    vi.mocked(createWorkbookImportRegion).mockResolvedValue(created);
-
-    render(
-      <ImportAssistantFeature
-        apiBase={undefined}
-        availability={readyExtensionAvailability()}
-        currentIncidentRole="admin"
-        incidentId="incident-1"
-        onNavigateToView={() => undefined}
-      />,
-    );
-
-    fireEvent.change(screen.getByLabelText("Source workbook"), {
-      target: {
-        files: [
-          new File(["xlsx"], "regions.xlsx", {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          }),
-        ],
-      },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Upload and discover" }),
-    );
-
+    const h = setup(true);
     await screen.findByRole("button", { name: "Create operator region" });
     expect(
       (screen.getByLabelText("Target view") as HTMLSelectElement).options,
-    ).toHaveLength(14);
+    ).toHaveLength(workbookImportTargets.length);
     fireEvent.change(screen.getByLabelText("Region start row"), {
-      target: { value: "2" },
-    });
-    fireEvent.change(screen.getByLabelText("Region end column"), {
       target: { value: "2" },
     });
     fireEvent.click(
       screen.getByRole("button", { name: "Create operator region" }),
     );
-
-    await waitFor(() => {
-      expect(createWorkbookImportRegion).toHaveBeenCalledWith(
-        expect.objectContaining({
-          baseUnitId: unitID,
-          sessionId: sessionID,
-          sourceRect: {
-            startRow: 2,
-            startColumn: 1,
-            endRow: 4,
-            endColumn: 2,
-          },
-        }),
-      );
+    await screen.findByRole("heading", { name: "Unit 2: Sheet1" });
+    expect(h.send.mock.calls.at(-1)?.[0]).toMatchObject({
+      kind: "region",
+      unitId: ids.unit,
+      body: { source_rect: { start_row: 2, end_row: 4 } },
     });
     expect(
-      await screen.findByText(
-        "Operator region created. Review its mapping separately.",
+      within(screen.getByRole("region", { name: "Import unit 2" })).getByText(
+        /Mapping has not been approved/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/^Unit 2:/u).tagName).toBe("H3");
+  });
+  it("keeps selection recovery beside the approved unit across presentation replacement", async () => {
+    const h = setup(false, true);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Approve mapping and select" }),
+    );
+    await screen.findByRole("button", { name: "Retry selection" });
+    h.view.unmount();
+    render(
+      <ImportAssistantFeature
+        controller={h.controller}
+        onNavigateToView={vi.fn()}
+      />,
+    );
+    const unit = screen.getByRole("region", { name: "Import unit 1" });
+    expect(within(unit).getByRole("alert").textContent).toContain(
+      "Mapping approval is retained",
+    );
+    fireEvent.click(
+      within(unit).getByRole("button", { name: "Retry selection" }),
+    );
+    await waitFor(() =>
+      expect(h.send.mock.calls.map(([a]) => a.kind)).toEqual([
+        "upload",
+        "mapping",
+        "select",
+        "select",
+      ]),
+    );
   });
 });
-
-function workbookDiscovery(): WorkbookImportDiscovery {
-  return {
-    session: {
-      assistant_profile: "phase2_workbook_import_v1",
-      blocking_diagnostics: [],
-      created_at: "2026-07-29T00:00:00Z",
-      created_by_user_id: "00000000-0000-4000-8000-000000000003",
-      import_session_id: sessionID,
-      incident_id: "00000000-0000-4000-8000-000000000004",
-      nonblocking_warning_codes: [],
-      original_filename: "selection.csv",
-      parser_profile_id: "cartulary.import.phase2_workbook_import.v1",
-      parser_version: "phase11_import_adapter_v1",
-      selected_unit_ids: [],
-      session_status: "discovered",
-      source_content_sha256: "b".repeat(64),
-      source_file_kind: "csv",
-    },
-    units: [
-      {
-        unit: {
-          data_start_row_ref: 2,
-          header_row_ref: 1,
-          import_session_id: sessionID,
-          import_unit_id: unitID,
-          inferred_column_count: 1,
-          inferred_row_count: 1,
-          locator: { file: true },
-          locator_kind: "csv_file",
-          source_rect_a1: "A1:A2",
-          unit_status: "discovered",
-          warning_codes: [],
-        },
-        preview: {
-          columns: [
-            {
-              source_column_ordinal: 1,
-              source_header_text: "summary",
-            },
-          ],
-          data_start_row_ref: 2,
-          header_row_ref: 1,
-          import_session_id: sessionID,
-          import_unit_id: unitID,
-          inferred_column_count: 1,
-          inferred_row_count: 1,
-          locator: { file: true },
-          locator_kind: "csv_file",
-          preview_rows: [
-            {
-              cells: [
-                {
-                  cell_kind: "string",
-                  display_text: "one",
-                  source_column_ordinal: 1,
-                },
-              ],
-              source_row_ref: 2,
-            },
-          ],
-          source_rect_a1: "A1:A2",
-          truncated: false,
-          unit_status: "discovered",
-          warning_codes: [],
-        },
-      },
-    ],
-  };
-}
-
-function xlsxWorkbookDiscovery(): WorkbookImportDiscovery {
-  const discovery = workbookDiscovery();
-  const first = discovery.units[0];
-  if (first === undefined) {
-    throw new Error("missing import discovery fixture");
-  }
-  return {
-    ...discovery,
-    session: {
-      ...discovery.session,
-      original_filename: "regions.xlsx",
-      source_file_kind: "xlsx",
-    },
-    units: [
-      {
-        unit: {
-          ...first.unit,
-          locator: { sheet_name: "Data" },
-          locator_kind: "xlsx_used_range",
-          source_rect_a1: "A1:C4",
-          inferred_column_count: 3,
-          inferred_row_count: 3,
-        },
-        preview: {
-          ...first.preview,
-          locator: { sheet_name: "Data" },
-          locator_kind: "xlsx_used_range",
-          source_rect_a1: "A1:C4",
-          inferred_column_count: 3,
-          inferred_row_count: 3,
-          columns: [
-            { source_column_ordinal: 1, source_header_text: "summary" },
-            { source_column_ordinal: 2, source_header_text: "details" },
-            { source_column_ordinal: 3, source_header_text: "source" },
-          ],
-        },
-      },
-    ],
-  };
-}
-
-function operatorRegionDiscovery(): WorkbookImportUnitDiscovery {
-  const base = xlsxWorkbookDiscovery().units[0];
-  if (base === undefined) {
-    throw new Error("missing XLSX import discovery fixture");
-  }
-  const regionID = "00000000-0000-4000-8000-000000000005";
-  return {
-    unit: {
-      ...base.unit,
-      import_unit_id: regionID,
-      locator: {
-        sheet_name: "Data",
-        base_unit_id: unitID,
-        region_sequence: 1,
-      },
-      locator_kind: "operator_region",
-      source_rect_a1: "A2:B4",
-      header_row_ref: 2,
-      data_start_row_ref: 3,
-      inferred_column_count: 2,
-      inferred_row_count: 2,
-    },
-    preview: {
-      ...base.preview,
-      import_unit_id: regionID,
-      locator: {
-        sheet_name: "Data",
-        base_unit_id: unitID,
-        region_sequence: 1,
-      },
-      locator_kind: "operator_region",
-      source_rect_a1: "A2:B4",
-      header_row_ref: 2,
-      data_start_row_ref: 3,
-      inferred_column_count: 2,
-      inferred_row_count: 2,
-      columns: [
-        { source_column_ordinal: 1, source_header_text: "one" },
-        { source_column_ordinal: 2, source_header_text: "two" },
-      ],
-    },
-  };
-}

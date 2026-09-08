@@ -636,6 +636,12 @@ func (s *store) recordTerminalUnitOutcome(
 	if err := insertUnitOutcomeTx(ctx, tx, outcome); err != nil {
 		return unitApplyOutcome{}, err
 	}
+	// The private outcome records why processing stopped. Public durable units
+	// use the import state vocabulary, which has no job-phase "canceled" state.
+	unitStatus := status
+	if status == "canceled" {
+		unitStatus = "failed"
+	}
 	tag, err := tx.Exec(ctx, `
 UPDATE import_units
    SET unit_status = $3,
@@ -643,7 +649,7 @@ UPDATE import_units
  WHERE import_session_id = $1
    AND import_unit_id = $2
    AND unit_status = 'applying'
-`, start.ImportSessionID, unitID, status, now.UTC())
+`, start.ImportSessionID, unitID, unitStatus, now.UTC())
 	if err != nil {
 		return unitApplyOutcome{}, err
 	}

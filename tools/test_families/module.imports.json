@@ -73,6 +73,140 @@
       ]
     },
     {
+      "row_id": "module.imports.browser.density_containment",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_800801d281bb"
+        ],
+        "titles": [
+          "Workbook Import Assistant contains long mapping content in every workbook density"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.imports.browser.keyboard_recovery",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_36d4605ad400"
+        ],
+        "titles": [
+          "Workbook Import Assistant resumes its known job and recovers only selection after drawer closure using the keyboard"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.imports.browser.partial_outcomes",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/import-assistant.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_74635f9abd68"
+        ],
+        "titles": [
+          "Workbook Import Assistant reviews XLSX partial outcomes and navigates only to committed targets"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.imports.frontend.bounded_observation",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "module.jobapi",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/imports/importJobObservation.test.ts",
+        "titles": [
+          "Import job observation bounds hung reads without changing the acknowledged job and resumes that job",
+          "Import job observation bounds slow jobs by elapsed time and preserves canceled or failed terminal facts",
+          "Import job observation ignores late reads after observation abort and rejects regressions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.imports.frontend.generated_target_consumption_3005d01876",
       "owner_id": "module.imports",
       "family_id": "module.imports.frontend",
@@ -90,6 +224,45 @@
         "titles": [
           "generated import target frontend semantics keeps generated identity consumption in the shared adapter",
           "generated import target frontend semantics partitions all 18 generated rows without a client fallback registry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.imports.frontend.lifecycle",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "module.jobapi",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/imports/WorkbookImportController.test.ts",
+        "titles": [
+          "Workbook import lifecycle admits once synchronously and retains the exact uncertain upload for replay",
+          "Workbook import lifecycle creates only the returned durable region without approving or selecting it",
+          "Workbook import lifecycle fences late writes at every command stage across role closure claim and incident boundaries",
+          "Workbook import lifecycle fences stale resource loads after a mutation and gates every write on current authority",
+          "Workbook import lifecycle keeps empty discovery and preview failure distinct and bounds previews to one request",
+          "Workbook import lifecycle keeps header suggestions advisory and associates duplicate destinations with both columns",
+          "Workbook import lifecycle pauses sensitive presentation on unresolved authentication without replaying restored writes",
+          "Workbook import lifecycle reconciles changed selection before apply and blocks overlap and terminal sessions",
+          "Workbook import lifecycle reconciles current late acknowledgement and fences a replaced lifetime",
+          "Workbook import lifecycle requires current cancelability, admits cancellation once, and handles completion races",
+          "Workbook import lifecycle retains accepted discovery through read failure and resumes the same job after drawer closure",
+          "Workbook import lifecycle retains approval after selection failure and recovers only selection across skip and reselect",
+          "Workbook import lifecycle separates cancel requested from canceled and retains committed partial outcomes and navigation"
         ]
       },
       "evidence_class": "unit",
@@ -154,6 +327,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.imports.frontend.presentation_recovery",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/ImportAssistantFeature.test.tsx",
+        "titles": [
+          "ImportAssistantFeature selection lifecycle keeps selection recovery beside the approved unit across presentation replacement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.imports.frontend.sanitize_import_transport_errors_through_the_sha_1cdfb222a8",
       "owner_id": "module.imports",
       "family_id": "module.imports.frontend",
@@ -194,6 +393,39 @@
         "file": "apps/web/src/workbook/features/ImportAssistantFeature.test.tsx",
         "titles": [
           "ImportAssistantFeature selection lifecycle reselects a skipped mapped unit without approving a second mapping"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.imports.frontend.typed_transport",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "module.jobapi",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/importClient.test.ts",
+        "titles": [
+          "Workbook import typed transport captures exact upload bytes and secure identity once for an exact replay",
+          "Workbook import typed transport keeps malformed success and server uncertainty distinct from public rejection",
+          "Workbook import typed transport preserves authentication authorization conflict and resource denial without private exceptions",
+          "Workbook import typed transport preserves opaque paging and accepts successful empty discovery",
+          "Workbook import typed transport rejects foreign jobs contradictory mappings and cancel responses",
+          "Workbook import typed transport rejects mismatched and oversized previews and snapshots mapping input",
+          "Workbook import typed transport separates acceptance from resource loading and retains complete selection receipts"
         ]
       },
       "evidence_class": "unit",

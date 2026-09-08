@@ -796,7 +796,10 @@
           "browser_session_group": "browser-functional-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
-            "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee"
+            "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
+            "module.imports.browser.density_containment",
+            "module.imports.browser.keyboard_recovery",
+            "module.imports.browser.partial_outcomes"
           ],
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
@@ -1620,7 +1623,10 @@
           "browser_session_group": "browser-functional-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
-            "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee"
+            "module.imports.browser.claimed_import_assistant_production_workflow_986c2117ee",
+            "module.imports.browser.density_containment",
+            "module.imports.browser.keyboard_recovery",
+            "module.imports.browser.partial_outcomes"
           ],
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"

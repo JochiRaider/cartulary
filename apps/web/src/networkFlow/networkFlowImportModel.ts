@@ -1,4 +1,47 @@
-import type { DiscoveredImportColumn } from "../imports/importCoordinator";
+import type {
+  DiscoveredImportColumn,
+  DiscoveredImportPreview,
+  DiscoveredImportUnit,
+  ImportMappingRequest,
+} from "../services/importContractAdapter";
+
+export type NetworkFlowImportDiscovery = {
+  readonly sessionId: string;
+  readonly unit: DiscoveredImportUnit;
+  readonly preview: DiscoveredImportPreview;
+};
+export function networkFlowApprovalRequest(
+  discovery: NetworkFlowImportDiscovery,
+  candidate: {
+    readonly target_kind: string;
+    readonly extension_profile_id: string;
+    readonly owner_mapping_schema_id: string;
+    readonly owner_mapping: Record<string, unknown>;
+  },
+  transactionId: string,
+): ImportMappingRequest {
+  return {
+    ...candidate,
+    client_txn_id: transactionId,
+    header_row_ref: discovery.preview.header_row_ref,
+    data_start_row_ref: discovery.preview.data_start_row_ref,
+    source_columns: discovery.preview.columns.map((column) => ({
+      ...column,
+      field_key: null,
+      entity_binding_mode: null,
+      transform_id: null,
+      transform_options: {},
+      empty_value_policy: "omit_field",
+    })),
+  };
+}
+export function networkFlowApprovedPreviewMatches(
+  unit: DiscoveredImportUnit,
+  fingerprint: string,
+) {
+  return unit.mapping_fingerprint === fingerprint;
+}
+
 import type { NetworkFlowMappingCandidate } from "../services/networkFlowContractAdapter";
 import { networkFlowMappingMetadata } from "../services/networkFlowContractAdapter";
 

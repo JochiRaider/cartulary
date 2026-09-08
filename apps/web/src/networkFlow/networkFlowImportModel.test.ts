@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DiscoveredImportColumn } from "../imports/importCoordinator";
+import type { DiscoveredImportColumn } from "../services/importContractAdapter";
 import {
   buildNetworkFlowMappingCandidate,
   createNetworkFlowMappingDraft,

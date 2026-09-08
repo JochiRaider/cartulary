@@ -16,6 +16,7 @@ import {
 type ExtensionWorkspaceRendererProps = {
   readonly workbookStatus: ReactNode;
   readonly apiBase: string | undefined;
+  readonly currentUserId: string | null;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentId: string;
   readonly onIncidentAccessLost: (() => void) | undefined;

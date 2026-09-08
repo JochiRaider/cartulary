@@ -2508,6 +2508,34 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.workbook_import_lifetime",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.imports",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/useWorkbookImport.test.tsx",
+        "titles": [
+          "Workbook import application binding fences incident and account replacement before a pending write can be accepted",
+          "Workbook import application binding retains copyable work on role loss and purges it on confirmed profile withdrawal"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.workbookevidence_accepts_only_public_evidence_ha_4ba022c249",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

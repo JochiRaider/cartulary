@@ -3,7 +3,6 @@ import {
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
-import type { ExtensionImportDiscovery } from "../imports/importCoordinator";
 import type { NetworkFlowImportPreviewResult } from "../services/networkFlowContractAdapter";
 import { networkFlowMappingMetadata } from "../services/networkFlowContractAdapter";
 import {
@@ -13,6 +12,7 @@ import {
   NetworkFlowSelect,
   NetworkFlowTextInput,
 } from "./NetworkFlowControls";
+import type { NetworkFlowImportDiscovery } from "./networkFlowImportModel";
 import {
   ignoredColumnChoice,
   mappedRequiredFieldCount,
@@ -41,7 +41,7 @@ export function NetworkFlowMappingModal({
   stage,
 }: {
   readonly canApply: boolean;
-  readonly discovery: ExtensionImportDiscovery;
+  readonly discovery: NetworkFlowImportDiscovery;
   readonly draft: NetworkFlowMappingDraft;
   readonly onApply: () => void;
   readonly onCancel: () => void;
@@ -364,7 +364,7 @@ function NetFlowUptimeSettings({
   onDraftChange,
 }: {
   readonly disabled: boolean;
-  readonly discovery: ExtensionImportDiscovery;
+  readonly discovery: NetworkFlowImportDiscovery;
   readonly draft: NetworkFlowMappingDraft;
   readonly onDraftChange: (draft: NetworkFlowMappingDraft) => void;
 }) {
@@ -424,7 +424,7 @@ function ColumnOrdinalSelect({
   value,
 }: {
   readonly disabled: boolean;
-  readonly discovery: ExtensionImportDiscovery;
+  readonly discovery: NetworkFlowImportDiscovery;
   readonly label: string;
   readonly onChange: (ordinal: number | null) => void;
   readonly value: number | null;

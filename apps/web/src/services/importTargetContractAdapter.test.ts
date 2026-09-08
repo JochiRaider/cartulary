@@ -65,7 +65,17 @@ describe("generated import target frontend semantics", () => {
       "utf8",
     );
 
-    expect(assistant).toContain("selectableViewImportTargets");
+    const adapter = readFileSync(
+      path.join(servicesDirectory, "importTargetContractAdapter.ts"),
+      "utf8",
+    );
+    const mapping = readFileSync(
+      path.join(sourceDirectory, "imports/workbookImportMapping.ts"),
+      "utf8",
+    );
+    expect(adapter).toContain("selectableViewImportTargets");
+    expect(mapping).toContain("workbookImportTargets");
+    expect(mapping).not.toMatch(/cartulary\.view\.[a-z_]+\.v[0-9]+/u);
     expect(assistant).not.toContain("importableViewSchemaIds");
     expect(assistant).not.toMatch(/cartulary\.view\.[a-z_]+\.v[0-9]+/u);
     expect(networkFlowController).toContain("networkFlowImportTarget");

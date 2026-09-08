@@ -1265,6 +1265,11 @@ func scanUnitResource(row pgx.Row) (map[string]any, error) {
 	if err := row.Scan(&unitID, &sessionID, &status, &locatorKind, &locator, &sourceRect, &headerRow, &dataStart, &rowCount, &columnCount, &warningJSON, &mappingFingerprint, &approvedMapping, &createdAt, &updatedAt); err != nil {
 		return nil, err
 	}
+	// Retained outcomes written before the public-state correction remain readable
+	// without rewriting their immutable cancellation journal or committed effects.
+	if status == "canceled" {
+		status = "failed"
+	}
 	var warnings []string
 	if len(warningJSON) > 0 {
 		_ = json.Unmarshal(warningJSON, &warnings)

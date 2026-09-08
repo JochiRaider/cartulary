@@ -2350,13 +2350,28 @@ SELECT COUNT(*)
  WHERE s.import_session_id::text = $1
    AND s.session_status = 'partially_applied'
    AND j.status = 'canceled'
-   AND j.result_summary_json->>'code' = 'import_session_partially_applied'
+   AND j.result_summary_json->>'code' = 'job_canceled'
 `, sessionID); got != 1 {
 		t.Fatalf(
 			"cancellation after a committed unit did not derive truthful partial application: %d state=%#v",
 			got,
 			importApplyState(t, harness.DB, sessionID),
 		)
+	}
+	terminalJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJobID)
+	if terminalJob["status"] != "canceled" || terminalJob["result_summary"].(map[string]any)["code"] != "job_canceled" {
+		t.Fatalf("public cancellation must retain the common-job summary: %#v", terminalJob)
+	}
+	for index, unitID := range unitIDs {
+		response := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+		unit := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+		want := "applied"
+		if index > 0 {
+			want = "failed"
+		}
+		if unit["unit_status"] != want || unit["approved_mapping"] == nil || unit["mapping_fingerprint"] == nil {
+			t.Fatalf("public unit must preserve durable mapping and import outcome %s: %#v", want, unit)
+		}
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `
 SELECT COUNT(*)

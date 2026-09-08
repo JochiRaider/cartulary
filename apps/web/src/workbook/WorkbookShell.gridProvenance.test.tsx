@@ -25,6 +25,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WorkbookImportController } from "../imports/WorkbookImportController";
 import { sessionResource } from "../testing/appShellTestSupport";
 import {
   fullWorkbookViewRow,
@@ -54,7 +55,11 @@ const authorizationRecovery = workbookAuthorizationRecovery();
 function WorkbookShell(
   props: Omit<
     Parameters<typeof WorkbookShellImpl>[0],
-    "authorizationRecovery" | "savedViewController" | "bindWorkbookSavedViews"
+    | "authorizationRecovery"
+    | "savedViewController"
+    | "bindWorkbookSavedViews"
+    | "importController"
+    | "bindWorkbookImport"
   >,
 ) {
   const savedViews = useSavedViewTestApplication(
@@ -64,6 +69,8 @@ function WorkbookShell(
   );
   return (
     <WorkbookShellImpl
+      importController={new WorkbookImportController()}
+      bindWorkbookImport={() => {}}
       {...savedViews}
       {...props}
       authorizationRecovery={authorizationRecovery}

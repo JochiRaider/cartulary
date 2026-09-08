@@ -145,7 +145,7 @@ func (s *service) finalizeApplyJob(ctx context.Context, execution jobs.Execution
 		})
 	case jobs.StatusCanceled:
 		completion := jobs.CancellationCompletion{Progress: progress, ResultSummary: jobs.ResultSummary{
-			Code:         finalization.ResultCode,
+			Code:         "job_canceled",
 			Message:      "Import apply canceled.",
 			ResourceRefs: finalization.ResourceRefs,
 		}}

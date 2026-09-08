@@ -11990,6 +11990,17 @@
             "type": "boolean"
           },
           "unit_status": {
+            "enum": [
+              "discovered",
+              "selected",
+              "mapped",
+              "ready",
+              "applying",
+              "applied",
+              "skipped",
+              "rejected",
+              "failed"
+            ],
             "type": "string"
           },
           "warning_codes": {
@@ -12158,13 +12169,13 @@
           },
           "session_status": {
             "enum": [
-              "uploaded",
-              "discovering",
+              "created",
               "discovered",
+              "mapped",
               "ready_to_apply",
               "applying",
-              "applied",
               "partially_applied",
+              "applied",
               "failed",
               "canceled"
             ],
@@ -12281,8 +12292,7 @@
           "empty_value_policy": {
             "enum": [
               "omit_field",
-              "set_null",
-              "set_empty_string"
+              "write_null"
             ],
             "type": "string"
           },
@@ -12389,12 +12399,11 @@
               "selected",
               "mapped",
               "ready",
-              "skipped",
               "applying",
               "applied",
+              "skipped",
               "rejected",
-              "failed",
-              "canceled"
+              "failed"
             ],
             "type": "string"
           },
@@ -12438,6 +12447,17 @@
                 "type": "array"
               },
               "session_status": {
+                "enum": [
+                  "created",
+                  "discovered",
+                  "mapped",
+                  "ready_to_apply",
+                  "applying",
+                  "partially_applied",
+                  "applied",
+                  "failed",
+                  "canceled"
+                ],
                 "type": "string"
               },
               "unit": {

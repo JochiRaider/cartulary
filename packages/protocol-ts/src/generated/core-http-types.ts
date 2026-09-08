@@ -1277,7 +1277,8 @@ export interface ImportPreview {
   preview_rows: ImportPreviewRow[];
   source_rect_a1: string;
   truncated: boolean;
-  unit_status: string;
+  unit_status:
+    "discovered" | "selected" | "mapped" | "ready" | "applying" | "applied" | "skipped" | "rejected" | "failed";
   warning_codes: string[];
 }
 /**
@@ -1340,13 +1341,13 @@ export interface ImportSession {
   parser_version: string;
   selected_unit_ids: string[];
   session_status:
-    | "uploaded"
-    | "discovering"
+    | "created"
     | "discovered"
+    | "mapped"
     | "ready_to_apply"
     | "applying"
-    | "applied"
     | "partially_applied"
+    | "applied"
     | "failed"
     | "canceled";
   source_content_sha256: string;
@@ -1377,7 +1378,16 @@ export interface ImportUnitActionEnvelope {
   data: {
     import_session_id: string;
     selected_unit_ids: string[];
-    session_status: string;
+    session_status:
+      | "created"
+      | "discovered"
+      | "mapped"
+      | "ready_to_apply"
+      | "applying"
+      | "partially_applied"
+      | "applied"
+      | "failed"
+      | "canceled";
     unit: ImportUnit;
   };
   meta: EnvelopeMeta;
@@ -1401,16 +1411,7 @@ export interface ImportUnit {
   mapping_fingerprint?: string;
   source_rect_a1: string;
   unit_status:
-    | "discovered"
-    | "selected"
-    | "mapped"
-    | "ready"
-    | "skipped"
-    | "applying"
-    | "applied"
-    | "rejected"
-    | "failed"
-    | "canceled";
+    "discovered" | "selected" | "mapped" | "ready" | "applying" | "applied" | "skipped" | "rejected" | "failed";
   warning_codes: string[];
 }
 /**
@@ -1418,7 +1419,7 @@ export interface ImportUnit {
  * via the `definition` "ImportSourceColumnMapping".
  */
 export interface ImportSourceColumnMapping {
-  empty_value_policy: "omit_field" | "set_null" | "set_empty_string";
+  empty_value_policy: "omit_field" | "write_null";
   entity_binding_mode: string | null;
   field_key: string | null;
   source_column_ordinal: number;

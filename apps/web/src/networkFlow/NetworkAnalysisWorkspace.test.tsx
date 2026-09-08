@@ -26,7 +26,10 @@ function NetworkAnalysisWorkspace(
     <ExtensionAvailabilityProvider
       controller={readyExtensionAvailability(props.incidentId)}
     >
-      <ProductionNetworkAnalysisWorkspace {...props} />
+      <ProductionNetworkAnalysisWorkspace
+        currentUserId={importActorId}
+        {...props}
+      />
     </ExtensionAvailabilityProvider>
   );
 }
@@ -723,7 +726,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="editor"
-        incidentId="incident-1"
+        incidentId={incidentResourceId}
       />,
     );
 
@@ -1178,7 +1181,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
   const columns = importColumns();
   const fetchSpy = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = requestURL(input);
+      const url = requestURL(input).replace(incidentResourceId, "incident-1");
       const method = init?.method ?? "GET";
       if (
         method === "GET" &&
@@ -1235,21 +1238,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
         });
       }
       if (method === "POST" && url.endsWith("/api/v1/import-sessions")) {
-        return jsonResponse(
-          importEnvelope(
-            importJob(uploadImportJobId, {
-              code: "import_session_discovered",
-              message: "Import discovery completed.",
-              resource_refs: [
-                {
-                  kind: "import_session",
-                  id: importSessionId,
-                  route: `/api/v1/import-sessions/${importSessionId}`,
-                },
-              ],
-            }),
-          ),
-        );
+        return jsonResponse(importEnvelope(importJob(uploadImportJobId)), 202);
       }
       if (
         method === "GET" &&
@@ -1342,7 +1331,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
         );
       }
       if (method === "POST" && url.endsWith(`/${importSessionId}/apply`)) {
-        return jsonResponse(importEnvelope(importJob(applyImportJobId)));
+        return jsonResponse(importEnvelope(importJob(applyImportJobId)), 202);
       }
       if (
         method === "GET" &&
@@ -1355,9 +1344,14 @@ function installImportFlowFetchMock(returnedTableId: string) {
               message: "Import session applied.",
               resource_refs: [
                 {
+                  kind: "import_session",
+                  id: importSessionId,
+                  route: `/api/v1/import-sessions/${importSessionId}`,
+                },
+                {
                   kind: "network_flow_table",
                   id: returnedTableId,
-                  route: `/api/v1/incidents/incident-1/network-flow/tables/${returnedTableId}`,
+                  route: `/api/v1/incidents/${incidentResourceId}/network-flow/tables/${returnedTableId}`,
                 },
               ],
             }),
@@ -1474,15 +1468,15 @@ function importJob(
     scope: { kind: "incident", incident_id: incidentResourceId },
     status_route: `/api/v1/jobs/${jobId}`,
     submitted_by_user_id: importActorId,
-    status: "succeeded",
-    cancelable: false,
-    progress: { completed: 1, total: 1 },
+    status: resultSummary === null ? "queued" : "succeeded",
+    cancelable: resultSummary === null,
+    progress: { completed: resultSummary === null ? 0 : 1, total: 1 },
     result_summary: resultSummary,
     error_summary: null,
     submitted_at: "2026-07-28T12:00:00Z",
-    started_at: "2026-07-28T12:00:01Z",
-    finished_at: "2026-07-28T12:00:02Z",
-    retained_until: "2026-08-04T12:00:02Z",
+    started_at: resultSummary === null ? null : "2026-07-28T12:00:01Z",
+    finished_at: resultSummary === null ? null : "2026-07-28T12:00:02Z",
+    retained_until: resultSummary === null ? null : "2026-08-04T12:00:02Z",
     updated_at: "2026-07-28T12:00:02Z",
   } as const;
 }

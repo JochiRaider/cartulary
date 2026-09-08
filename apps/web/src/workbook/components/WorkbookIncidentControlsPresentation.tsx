@@ -1,6 +1,6 @@
 import { lazy, type ReactNode, type RefObject, Suspense } from "react";
 import type { IncidentControlsSection } from "../../app/landingAdminTypes";
-import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
+import type { WorkbookImportController } from "../../imports/WorkbookImportController";
 import type {
   WorkbookIncidentControlsMenuItem,
   WorkbookIncidentControlsRendererProps,
@@ -19,7 +19,7 @@ type WorkbookIncidentControlsPresentationProps = {
   readonly onAuthorizationRecovered?: WorkbookIncidentControlsRendererProps["onAuthorizationRecovered"];
   readonly activeMenuItem: WorkbookIncidentControlsMenuItem;
   readonly apiBase: string | undefined;
-  readonly availability: ExtensionAvailabilityController;
+  readonly importController: WorkbookImportController;
   readonly closeButtonRef: RefObject<HTMLButtonElement | null>;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly importAssistantAvailable: boolean;
@@ -43,7 +43,7 @@ export function WorkbookIncidentControlsPresentation({
   onAuthorizationRecovered,
   activeMenuItem,
   apiBase,
-  availability,
+  importController,
   closeButtonRef,
   currentIncidentRole,
   importAssistantAvailable,
@@ -60,10 +60,8 @@ export function WorkbookIncidentControlsPresentation({
     section === "import-assistant" && importAssistantAvailable ? (
       <Suspense fallback={<p role="status">Loading import assistant…</p>}>
         <LazyImportAssistantFeature
-          apiBase={apiBase}
-          availability={availability}
-          currentIncidentRole={currentIncidentRole}
-          incidentId={incidentId}
+          density={density}
+          controller={importController}
           onNavigateToView={onNavigateToView}
         />
       </Suspense>

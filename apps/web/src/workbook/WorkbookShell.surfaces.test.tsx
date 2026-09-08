@@ -77,6 +77,7 @@ import {
 } from "@testing-library/react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WorkbookImportController } from "../imports/WorkbookImportController";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
@@ -130,7 +131,11 @@ const authorizationRecovery = workbookAuthorizationRecovery();
 function WorkbookShell(
   props: Omit<
     Parameters<typeof WorkbookShellImpl>[0],
-    "authorizationRecovery" | "savedViewController" | "bindWorkbookSavedViews"
+    | "authorizationRecovery"
+    | "savedViewController"
+    | "bindWorkbookSavedViews"
+    | "importController"
+    | "bindWorkbookImport"
   >,
 ) {
   const savedViews = useSavedViewTestApplication(
@@ -157,6 +162,8 @@ function WorkbookShell(
   useLayoutEffect(() => () => preferences.dispose(), [preferences]);
   return (
     <WorkbookShellImpl
+      importController={new WorkbookImportController()}
+      bindWorkbookImport={() => {}}
       {...savedViews}
       {...props}
       preferenceController={preferences}

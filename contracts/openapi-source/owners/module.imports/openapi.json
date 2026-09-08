@@ -904,7 +904,18 @@
                 "format": "uuid"
               },
               "session_status": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "created",
+                  "discovered",
+                  "mapped",
+                  "ready_to_apply",
+                  "applying",
+                  "partially_applied",
+                  "applied",
+                  "failed",
+                  "canceled"
+                ]
               },
               "selected_unit_ids": {
                 "type": "array",
@@ -979,13 +990,13 @@
           "session_status": {
             "type": "string",
             "enum": [
-              "uploaded",
-              "discovering",
+              "created",
               "discovered",
+              "mapped",
               "ready_to_apply",
               "applying",
-              "applied",
               "partially_applied",
+              "applied",
               "failed",
               "canceled"
             ]
@@ -1087,12 +1098,11 @@
               "selected",
               "mapped",
               "ready",
-              "skipped",
               "applying",
               "applied",
+              "skipped",
               "rejected",
-              "failed",
-              "canceled"
+              "failed"
             ]
           },
           "mapping_fingerprint": {
@@ -1213,8 +1223,7 @@
             "type": "string",
             "enum": [
               "omit_field",
-              "set_null",
-              "set_empty_string"
+              "write_null"
             ]
           }
         },
@@ -1269,7 +1278,18 @@
             }
           },
           "unit_status": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "discovered",
+              "selected",
+              "mapped",
+              "ready",
+              "applying",
+              "applied",
+              "skipped",
+              "rejected",
+              "failed"
+            ]
           },
           "mapping_fingerprint": {
             "type": "string"

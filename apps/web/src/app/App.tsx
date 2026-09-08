@@ -15,6 +15,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { WorkbookImportController } from "../imports/WorkbookImportController";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -92,6 +93,7 @@ import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
 import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
 import { useIncidentMetadata } from "./useIncidentMetadata";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
+import { useWorkbookImport } from "./useWorkbookImport";
 import { useWorkbookPreferences } from "./useWorkbookPreferences";
 import { useWorkbookSavedViews } from "./useWorkbookSavedViews";
 import { WorkbookPreferenceDepartureDialog } from "./WorkbookPreferenceDepartureDialog";
@@ -144,6 +146,7 @@ export function App({
   themeId,
   authNavigation,
 }: AppProps = {}) {
+  const workbookImportRef = useRef<WorkbookImportController | null>(null);
   const preferencesRef = useRef<WorkbookPreferenceController | null>(null);
   const metadataRef = useRef<IncidentMetadataController | null>(null);
   const lifecycleRef = useRef<IncidentLifecycleController | null>(null);
@@ -209,6 +212,7 @@ export function App({
     },
     beforeCommit: (next) => {
       if (next.incidentId !== routeRef.current.incidentId) {
+        workbookImportRef.current?.retire();
         membershipAuditRef.current?.retire();
         membershipManagementRef.current?.retire();
         metadataRef.current?.retire();
@@ -235,6 +239,7 @@ export function App({
     () =>
       new AppSessionController({
         retireLifetime: (lifetime) => {
+          workbookImportRef.current?.retire();
           membershipAuditRef.current?.retire();
           membershipManagementRef.current?.retire();
           metadataRef.current?.retire();
@@ -917,6 +922,12 @@ export function App({
     incidentResources.getSnapshot,
   );
 
+  const workbookImport = useWorkbookImport({
+    sessionController,
+    currentIncidentId: () => routeRef.current.incidentId,
+  });
+  workbookImportRef.current = workbookImport.controller;
+
   const savedViews = useWorkbookSavedViews({
     sessionController,
     recovery: workbookAuthorizationRecovery,
@@ -1137,6 +1148,8 @@ export function App({
             }
           >
             <LazyWorkbookShell
+              importController={workbookImport.controller}
+              bindWorkbookImport={workbookImport.bindWorkbook}
               savedViewController={savedViews.controller}
               bindWorkbookSavedViews={(binding) => {
                 if (

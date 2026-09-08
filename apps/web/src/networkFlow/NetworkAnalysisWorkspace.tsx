@@ -107,6 +107,7 @@ type NetworkFlowGraphSurface = "explore" | "saved";
 export type NetworkAnalysisWorkspaceProps = {
   readonly workbookStatus?: ReactNode;
   readonly apiBase?: string | undefined;
+  readonly currentUserId?: string | null | undefined;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly incidentId: string;
   readonly onIncidentAccessLost?: (() => void) | undefined;
@@ -120,6 +121,7 @@ function NetworkAnalysisWorkspaceContent({
   workbookStatus,
   apiBase,
   currentIncidentRole,
+  currentUserId,
   incidentId,
   onIncidentAccessLost,
 }: NetworkAnalysisWorkspaceProps) {
@@ -214,6 +216,7 @@ function NetworkAnalysisWorkspaceContent({
     availability: extensionAvailability,
     apiBase,
     canImport,
+    actorId: currentUserId ?? null,
     incidentId,
     onError: handleWorkspaceError,
     onImported: tableController.loadTables,

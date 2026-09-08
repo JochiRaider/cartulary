@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import type { WorkbookImportSurfaceBinding } from "../app/useWorkbookImport";
 import {
   IncidentCollaborationSession,
   useIncidentCollaborationSession,
@@ -19,6 +20,7 @@ import {
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
 } from "../extensions/extensionWorkspaceIdentities";
+import type { WorkbookImportController } from "../imports/WorkbookImportController";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
 import type { IncidentResource } from "../shared/incidentResource";
 import type {
@@ -41,6 +43,7 @@ import {
   useWorkbookExtensionAvailability,
   useWorkbookExtensionFallback,
 } from "./hooks/useWorkbookExtensionAvailability";
+import { useWorkbookImportBinding } from "./hooks/useWorkbookImportBinding";
 import { useWorkbookIncidentIdentity } from "./hooks/useWorkbookIncidentIdentity";
 import { useWorkbookProjectionRefreshController } from "./hooks/useWorkbookProjectionRefreshController";
 import { useWorkbookRecoveryFocus } from "./hooks/useWorkbookRecoveryFocus";
@@ -78,6 +81,8 @@ export type {
 };
 
 type WorkbookShellProps = {
+  importController: WorkbookImportController;
+  bindWorkbookImport: (binding: WorkbookImportSurfaceBinding | null) => void;
   savedViewController: WorkbookSavedViewController;
   bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
   preferenceController?: WorkbookPreferenceController | undefined;
@@ -119,6 +124,8 @@ type WorkbookShellContentProps = WorkbookShellProps & {
 const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 
 function WorkbookShellContent({
+  importController,
+  bindWorkbookImport,
   savedViewController,
   bindWorkbookSavedViews,
   preferenceController,
@@ -339,6 +346,17 @@ function WorkbookShellContent({
       importProfileId,
       importRouteFamily,
     );
+  useWorkbookImportBinding({
+    controller: importController,
+    bind: bindWorkbookImport,
+    incidentId,
+    apiBase,
+    availability: extensionLifecycle.controller,
+    available: importAssistantAvailable,
+    role: authorization.currentIncidentRole,
+    closed: incidentIdentity?.status !== "active",
+    recoverAccess: authorization.loadSessionRole,
+  });
   const incidentControls = useIncidentControlsDrawer(
     importAssistantAvailable,
     onIncidentControlsSectionChange,
@@ -409,6 +427,7 @@ function WorkbookShellContent({
         revision: extensionLifecycle.revision,
       }}
       extensionRenderer={{
+        currentUserId: authorization.currentUserId,
         workbookStatus: (
           <WorkbookStatusStrip
             status={activeStatus}
@@ -478,7 +497,7 @@ function WorkbookShellContent({
           onAuthorizationRecovered={authorization.acceptRecoveredAuthorization}
           activeMenuItem={incidentControls.activeMenuItem}
           apiBase={apiBase}
-          availability={extensionLifecycle.controller}
+          importController={importController}
           closeButtonRef={incidentControls.closeButtonRef}
           currentIncidentRole={authorization.currentIncidentRole}
           importAssistantAvailable={importAssistantAvailable}

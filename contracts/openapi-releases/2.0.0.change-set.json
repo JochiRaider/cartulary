@@ -718,12 +718,6 @@
       "rationale": "Replace the inaccurate string Import unit locator with the structured descriptor already emitted by the runtime."
     },
     {
-      "fingerprint": "1fa1d3e8567624f19156412978a542db13e1a7a62c399ec54ecb16824ec61f6b",
-      "classification": "additive",
-      "owner_id": "module.imports",
-      "rationale": "Publish the selected, rejected, and canceled Import unit lifecycle states already defined by the adopted owner and emitted by the runtime."
-    },
-    {
       "fingerprint": "1a963aa67304ad1474696a3db1febc6ebbe419418a96ea56ffed4d7516f6fb69",
       "classification": "additive",
       "owner_id": "module.imports",
@@ -1478,6 +1472,36 @@
       "classification": "additive",
       "owner_id": "module.workbook",
       "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "938f2ec8740afe563d05045ca78de88df86b74ee785da79e8227f19b9dd39781",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Constrain preview unit states to the adopted Import unit lifecycle emitted by the runtime."
+    },
+    {
+      "fingerprint": "09cdeacb63975a0dca83e38565d26cc834f93c4ccc8c4c58fc19b6997d360e24",
+      "classification": "breaking",
+      "owner_id": "module.imports",
+      "rationale": "Correct the session lifecycle projection to include created and mapped and remove obsolete states, matching the adopted owner and runtime."
+    },
+    {
+      "fingerprint": "3df8bca6131c335e665cdef1cc5fa77dd34b5dae697b048ff0e63d488991ace2",
+      "classification": "breaking",
+      "owner_id": "module.imports",
+      "rationale": "Correct empty-value policies to omit_field and write_null, matching the adopted mapping owner and runtime."
+    },
+    {
+      "fingerprint": "e74a5a0f2b02ca0e92753de32add74941972239b28713b1606bcc399a8ff3591",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Publish selected and rejected unit states defined by the adopted owner; canceled is a session and job state, not a unit state."
+    },
+    {
+      "fingerprint": "238f1e2d8a614765a67d554fc4b52b09996d0dc7d55eb6b89131b3aa1fbea329",
+      "classification": "additive",
+      "owner_id": "module.imports",
+      "rationale": "Constrain selection receipts to the same adopted session lifecycle as session resources."
     }
   ]
 }

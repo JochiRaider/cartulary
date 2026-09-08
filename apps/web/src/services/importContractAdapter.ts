@@ -3,6 +3,7 @@ import type {
   ApplyImportSessionResponse,
   CancelJobRequest,
   CancelJobResponse,
+  CreateImportSessionRequest,
   CreateImportSessionResponse,
   CreateImportUnitRegionRequest,
   CreateImportUnitRegionResponse,
@@ -26,6 +27,7 @@ export type {
   ApplyImportSessionResponse,
   CancelJobRequest,
   CancelJobResponse,
+  CreateImportSessionRequest,
   CreateImportSessionResponse,
   CreateImportUnitRegionRequest,
   CreateImportUnitRegionResponse,
@@ -59,6 +61,30 @@ export type ImportResourceRef = NonNullable<
 >[number];
 export type ImportSessionResource = GetImportSessionResponse["data"];
 export type WorkbookSourceColumnMapping = ImportSourceColumnMapping;
+export type ImportSelectionReceipt = SelectImportUnitResponse["data"];
+// The generated oneOf request is an open object; refine its adopted alternatives
+// at the typed transport boundary rather than letting drafts send arbitrary JSON.
+export type ImportMappingRequest = {
+  readonly client_txn_id: string;
+  readonly header_row_ref: number;
+  readonly data_start_row_ref: number;
+  readonly source_columns: readonly WorkbookSourceColumnMapping[];
+} & (
+  | {
+      readonly target_view_schema_id: string;
+      readonly unknown_column_policy:
+        | "preserve_raw_capture"
+        | "preserve_custom_attrs"
+        | "reject_if_unmapped";
+    }
+  | {
+      readonly target_kind: string;
+      readonly extension_profile_id: string;
+      readonly owner_mapping_schema_id: string;
+      readonly owner_mapping: Record<string, unknown>;
+    }
+);
+export type ImportUploadMetadata = CreateImportSessionRequest["metadata"];
 
 export type ExtensionMappingPreviewResource<OwnerResult> = Omit<
   PreviewImportUnitExtensionMappingResponse["data"],

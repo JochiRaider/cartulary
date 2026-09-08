@@ -2,6 +2,7 @@ import {
   type ImportTargetFrontendRow,
   importTargetRegistry,
 } from "@cartulary/protocol-ts/import-targets";
+import { listViewContracts } from "@cartulary/view-contracts";
 
 export type ImportUnknownColumnPolicy =
   | "preserve_raw_capture"
@@ -82,3 +83,20 @@ function isUnknownColumnPolicy(
     value === "reject_if_unmapped"
   );
 }
+
+/** Joins two generated owner projections; labels never establish eligibility. */
+export const workbookImportTargets = selectableViewImportTargets.map(
+  (semantics) => {
+    const matches = listViewContracts().filter(
+      (contract) => contract.viewSchemaId === semantics.target_view_schema_id,
+    );
+    const contract = matches[0];
+    if (matches.length !== 1 || contract === undefined)
+      throw new Error("Invalid import target projection");
+    return {
+      semantics,
+      contract,
+      fields: contract.fields.filter((field) => field.createWritable),
+    };
+  },
+);
