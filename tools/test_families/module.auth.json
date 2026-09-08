@@ -90,6 +90,78 @@
       ]
     },
     {
+      "row_id": "module.auth.browser.administrative_audit_read_recovery",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "platform.audit",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/administrative-audit.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_054c68190f9e"
+        ],
+        "titles": [
+          "administrative audit fences delayed pages and errors with keyboard filter recovery and focus continuity"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.auth.browser.administrative_audit_real_browsing",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "platform.audit",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/administrative-audit.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_58e388dabe02"
+        ],
+        "titles": [
+          "administrative audit browses more than one hundred real exact matching events and timestamp boundaries"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad",
       "owner_id": "module.auth",
       "family_id": "module.auth.browser",

@@ -148,6 +148,13 @@ import {
   openIncidentControls,
 } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
+import {
+  auditBrowserBarrier,
+  auditBrowserEvent,
+  expectAuditControlReachable,
+  installAuditPresentation,
+  openAdministrativeAudit,
+} from "./support/administrativeAudit";
 import { installAccountEditingFixture } from "./support/auth/accountEditingFixture";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
@@ -5967,6 +5974,107 @@ test("a11y.deployment-users guarded drafts and credential dialogs remain keyboar
   await expect(
     page.getByRole("button", { name: "Account and application navigation" }),
   ).toBeFocused();
+});
+
+test("a11y.administrative-audit exact filters paging inspection and recovery stay reachable", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const fixture = await installAuditPresentation(page);
+  fixture.setPage([auditBrowserEvent()], "next-page");
+  const panel = await openAdministrativeAudit(page);
+  await expect(panel.getByRole("status")).toContainText("Page 1:");
+  const target = panel.getByLabel("Target ID", { exact: true });
+  await target.fill("exact-target");
+  await target.press("Enter");
+  const kind = panel.getByLabel("Target kind", { exact: true });
+  await expect(kind).toBeFocused();
+  await expect(kind).toHaveAccessibleDescription(/Choose a target kind/);
+  await expectVisibleFocus(kind);
+  await panel
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  const inspect = panel.getByRole("button", { name: /^Inspect / });
+  await inspect.focus();
+  await page.keyboard.press("Enter");
+  const hide = panel.getByRole("button", { name: /^Hide / });
+  await expect(hide).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    panel.getByRole("region", { name: /^Details for / }),
+  ).toContainText("Redacted");
+  await expect(panel.locator("script")).toHaveCount(0);
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 640, height: 480 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectAuditControlReachable(page, hide);
+    await expectVisibleFocus(hide);
+    const identityCell = panel
+      .getByRole("table", { name: "Deployment audit events", exact: true })
+      .locator("tbody > tr > td")
+      .first();
+    expect((await identityCell.boundingBox())?.width).toBeGreaterThan(75);
+    await expectAuditControlReachable(
+      page,
+      panel.getByRole("button", { name: "Next page", exact: true }),
+    );
+    await expectAuditControlReachable(
+      page,
+      panel.getByRole("button", { name: "Apply filters", exact: true }),
+    );
+    await expectAuditControlReachable(
+      page,
+      panel.getByRole("button", { name: "Refresh", exact: true }),
+    );
+    await expectAuditControlReachable(
+      page,
+      page.getByLabel("Account and application navigation"),
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectAuditControlReachable(page, hide);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await expectAuditControlReachable(page, hide);
+  await expectAllInteractiveControlsNamed(page);
+  const gate = auditBrowserBarrier();
+  fixture.fail();
+  fixture.gateRead(gate.promise);
+  await panel.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(panel.getByRole("status")).toContainText("Refreshing");
+  gate.release();
+  const retry = panel.getByRole("button", {
+    name: "Retry refresh",
+    exact: true,
+  });
+  await expect(retry).toBeVisible();
+  await expectAuditControlReachable(page, retry);
+  await expectVisibleFocus(retry);
+  await testInfo.attach("administrative-audit-accessibility-tree", {
+    body: await panel.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  fixture.setPage([]);
+  await page.keyboard.press("Enter");
+  await expect(
+    panel.getByText("No deployment audit events are available."),
+  ).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "Refresh", exact: true }),
+  ).toBeFocused();
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
 });
 
 test("a11y.reference-packs keyboard selection upload observation and cancellation recovery remain reachable", async ({

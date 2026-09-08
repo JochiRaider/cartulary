@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  administrativeAuditDetailTestId,
+  administrativeAuditEventTestId,
   assessmentCreateControlTestId,
   assessmentCreatePanelTestId,
   autoResolutionNoticeFamilySelector,
@@ -312,6 +314,12 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
       "reference-pack-refresh-selected",
     );
     expect(referencePackErrorTestId()).toBe("reference-pack-error");
+    expect(administrativeAuditEventTestId("event/id")).toBe(
+      "administrative-audit-event-event%2Fid",
+    );
+    expect(administrativeAuditDetailTestId("event/id")).toBe(
+      "administrative-audit-detail-event%2Fid",
+    );
     expect(referencePackRowTestId("type_registry.host", "1")).toBe(
       "reference-pack-row-type_registry.host-1",
     );

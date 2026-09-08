@@ -1,5 +1,7 @@
 export {
   accountTestId,
+  administrativeAuditDetailTestId,
+  administrativeAuditEventTestId,
   appRouteTestId,
   authTestId,
   currentIncidentRoleTestId,

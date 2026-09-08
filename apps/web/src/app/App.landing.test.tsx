@@ -24,6 +24,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -142,6 +143,10 @@ vi.mock("../workbook/WorkbookShell", async () => {
   };
 });
 
+import {
+  auditEnvelope,
+  auditEvent,
+} from "../testing/administrativeAuditTestSupport";
 import {
   credentialStateResource,
   type IncidentResource,
@@ -1518,6 +1523,71 @@ describe("Incident landing", () => {
     expect(
       findFetchCallsByPath(fetchMock, "/api/v1/incidents", "GET"),
     ).toHaveLength(0);
+  });
+
+  it("clears audit rows and delayed reads when the session loses deployment administration", async () => {
+    window.history.replaceState({}, "", "/deployment-administration");
+    let currentSession = sessionResource({ is_deployment_admin: true });
+    const delayed = deferred<Response>();
+    let reads = 0;
+    installLandingShellFetch(fetchMock, {
+      session: () => currentSession,
+      extraRoutes: [
+        {
+          method: "GET",
+          url: "/api/v1/administrative-audit-events?limit=100",
+          handler: () =>
+            ++reads === 1
+              ? jsonResponse(
+                  auditEnvelope([
+                    auditEvent({ action_code: "protected_future_audit" }),
+                  ]),
+                )
+              : delayed.promise,
+        },
+      ],
+    });
+    renderApp();
+    const auditMenu = await screen.findByTestId(
+      landingAdminMenuItemTestId("administrative-audit"),
+    );
+    expect(reads).toBe(0);
+    fireEvent.click(auditMenu);
+    await screen.findByText("protected_future_audit");
+    const panel = within(
+      screen.getByTestId(landingAdminPanelTestId("administrative-audit")),
+    );
+    fireEvent.click(panel.getByRole("button", { name: /^Inspect/ }));
+    fireEvent.click(panel.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(reads).toBe(2));
+    currentSession = sessionResource({ is_deployment_admin: false });
+    fireEvent.click(
+      screen.getByLabelText("Account and application navigation"),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Account settings" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
+    fireEvent.click(await screen.findByTestId(accountTestId("refresh-state")));
+    await waitFor(() => expect(window.location.pathname).toBe("/"));
+    expect(
+      findFetchCallsByPath(
+        fetchMock,
+        "/api/v1/administrative-audit-events",
+        "GET",
+      )[1]?.[1]?.signal?.aborted,
+    ).toBe(true);
+    await act(async () =>
+      delayed.resolve(
+        jsonResponse(
+          auditEnvelope([
+            auditEvent({ action_code: "protected_future_audit" }),
+          ]),
+        ),
+      ),
+    );
+    expect(document.body.textContent).not.toContain("protected_future_audit");
+    expect(
+      screen.queryByTestId(landingAdminMenuItemTestId("administrative-audit")),
+    ).toBeNull();
   });
 
   it("gates reference-pack deployment administration on the claimed extension profile", async () => {

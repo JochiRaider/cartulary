@@ -30,6 +30,7 @@ import {
 import { AuthGateway } from "./AuthGateway";
 import { AccountSecurityController } from "./accountSecurityModel";
 import { AccountSettingsController } from "./accountSettingsModel";
+import type { AdministrativeAuditController } from "./administrativeAuditController";
 import type {
   ExtensionProfileResource,
   SessionData,
@@ -60,6 +61,7 @@ import type {
 import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
 import type { ReferencePackAdminController } from "./referencePackAdminController";
 import { readAppRouteState } from "./routeState";
+import { useAdministrativeAudit } from "./useAdministrativeAudit";
 import { useAppRouteRuntime } from "./useAppRouteRuntime";
 import { useAppSession } from "./useAppSession";
 import { useIncidentCreation } from "./useIncidentCreation";
@@ -116,6 +118,7 @@ export function App({
   authNavigation,
 }: AppProps = {}) {
   const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
+  const auditControllerRef = useRef<AdministrativeAuditController | null>(null);
   const accountEditingRef = useRef<AccountSettingsController | null>(null);
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
   const importControllerRef = useRef<IncidentImportController | null>(null);
@@ -130,6 +133,7 @@ export function App({
     requestLeave: () =>
       deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true),
     beforeCommit: (next) => {
+      auditControllerRef.current?.setActive(false);
       importControllerRef.current?.setActive(false);
       referencePackControllerRef.current?.setActive(false);
       creationControllerRef.current?.leaveSurface();
@@ -148,6 +152,7 @@ export function App({
     () =>
       new AppSessionController({
         retireLifetime: (lifetime) => {
+          auditControllerRef.current?.retire();
           accountEditingRef.current?.retireLifetime();
           authenticationRef.current?.retire();
           securityRef.current?.retire();
@@ -160,6 +165,7 @@ export function App({
         },
         replaceAccount: () => workbookMutationRuntimeRegistry.replaceAccount(),
         capabilitiesReduced: () => {
+          auditControllerRef.current?.retire();
           deploymentUsersRef.current?.retire();
           importControllerRef.current?.retire();
           referencePackControllerRef.current?.retire();
@@ -293,6 +299,7 @@ export function App({
   const changeDeploymentPanel = (next: DeploymentAdministrationPanelToken) => {
     if (next === activeDeploymentPanel) return;
     if (!deploymentUsers.hasDirtyDraft()) {
+      auditControllerRef.current?.setActive(false);
       importControllerRef.current?.setActive(false);
       referencePackControllerRef.current?.setActive(false);
       setActiveDeploymentPanel(next);
@@ -301,6 +308,7 @@ export function App({
     const lifetime = sessionController.getSnapshot().lifetime;
     void deploymentUsers.requestLeave().then((accepted) => {
       if (accepted && lifetime === sessionController.getSnapshot().lifetime) {
+        auditControllerRef.current?.setActive(false);
         importControllerRef.current?.setActive(false);
         referencePackControllerRef.current?.setActive(false);
         setActiveDeploymentPanel(next);
@@ -590,6 +598,57 @@ export function App({
     },
   });
   creationControllerRef.current = creation.controller;
+  const audit = useAdministrativeAudit({
+    authority:
+      session?.is_deployment_admin && sessionSnapshot.lifetime
+        ? { actorId: session.user_id, lifetime: sessionSnapshot.lifetime }
+        : null,
+    active:
+      session?.is_deployment_admin === true &&
+      route.deploymentAdministration &&
+      activeDeploymentPanel === "administrative-audit",
+    isCurrent: (authority) => {
+      const current = sessionController.getSnapshot();
+      return (
+        current.lifetime === authority.lifetime &&
+        current.session?.user_id === authority.actorId &&
+        current.session.is_deployment_admin
+      );
+    },
+    confirmAccess: async (authority, signal, current) => {
+      const result = await sessionController.observeOperationSession(
+        authority.lifetime,
+        signal,
+        current,
+      );
+      if (result.kind !== "accepted") return { kind: result.kind };
+      if (!current()) return { kind: "cancelled" };
+      return {
+        kind:
+          result.session.user_id === authority.actorId &&
+          result.session.is_deployment_admin
+            ? "authorized"
+            : "access_lost",
+      };
+    },
+    authorizationFailed: (status, authority) => {
+      if (sessionController.getSnapshot().lifetime !== authority.lifetime)
+        return;
+      if (status === 401) {
+        handleSessionLost();
+        return;
+      }
+      setLandingNotice(
+        "Deployment administration requires deployment admin access.",
+      );
+      commitRoute(
+        { incidentId: "", deploymentAdministration: false },
+        "replace",
+      );
+      void sessionController.refreshSession();
+    },
+  });
+  auditControllerRef.current = audit;
   const referencePackAllowed =
     session?.is_deployment_admin === true &&
     extensionClaimed(extensionProfiles, "reference_pack");
@@ -1013,7 +1072,10 @@ export function App({
             hidden={activeDeploymentPanel !== "administrative-audit"}
             style={landingAdminPanelRegionStyle}
           >
-            <AdministrativeAuditPanel />
+            <AdministrativeAuditPanel
+              controller={audit}
+              active={activeDeploymentPanel === "administrative-audit"}
+            />
           </section>
           {extensionClaimed(extensionProfiles, "reference_pack") ? (
             <section

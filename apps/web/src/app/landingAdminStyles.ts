@@ -1,4 +1,25 @@
+import { workbookLayoutMetrics } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
+
+// Reuse the validated design-owned compact bound for this audit layout only.
+export const auditResponsiveCss = `
+[data-audit-browser] .aa-cell-label { display: none; }
+[data-audit-browser] button[aria-disabled="true"] { color: var(--ct-colors-ink-subtle) !important; background: var(--ct-colors-surface-3) !important; cursor: not-allowed; }
+@container (max-width: ${workbookLayoutMetrics(0).compactMinWidthCssPx}px) {
+  [data-active-audit] > .aa-workspace { grid-template-columns: minmax(0, 1fr) !important; align-content: start; }
+  [data-active-audit] > .aa-workspace > nav { border-inline-end: 0 !important; border-block-end: var(--ct-border-hairline); }
+  [data-audit-browser] .aa-events, [data-audit-browser] .aa-changes,
+  [data-audit-browser] tbody { display: block; }
+  [data-audit-browser] thead { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+  [data-audit-browser] tbody > tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block-end: var(--ct-border-hairline); }
+  [data-audit-browser] tbody > tr > :is(td,th) { display: block; min-inline-size: 0; }
+  [data-audit-browser] .aa-events > tbody > tr > td:first-child,
+  [data-audit-browser] .aa-events > tbody > tr > td:last-child,
+  [data-audit-browser] .aa-changes > tbody > tr > th { grid-column: 1 / -1; }
+  [data-audit-browser] tbody > .aa-detail-row { display: block; }
+  [data-audit-browser] .aa-cell-label { display: block; margin-block-end: var(--ct-spacing-xs); color: var(--ct-colors-ink-subtle); font-weight: bold; }
+}
+`;
 
 export const accountDensityGroupStyle: CSSProperties = {
   display: "flex",
@@ -657,33 +678,74 @@ export const definitionValueStyle: CSSProperties = {
   overflowWrap: "anywhere",
 };
 
-export const auditFilterGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(13rem, 1fr))",
+export const auditPanelStyle: CSSProperties = {
+  ...surfacePanelStyle,
+  minInlineSize: 0,
+  maxInlineSize: "100%",
+  boxSizing: "border-box",
+  containerType: "inline-size",
+};
+export const auditTextStyle: CSSProperties = {
+  minInlineSize: 0,
+  overflowWrap: "anywhere",
+};
+export const auditActionsStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
   gap: "var(--ct-spacing-sm)",
+  minInlineSize: 0,
 };
-
-export const auditDetailCellStyle: CSSProperties = {
-  padding: 0,
-  borderBottom: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-};
-
-export const auditDetailPanelStyle: CSSProperties = {
+export const auditDetailsStyle: CSSProperties = {
   display: "grid",
-  gap: "var(--ct-spacing-md)",
-  padding: "var(--ct-spacing-md)",
-};
-
-export const auditDetailMetaGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))",
   gap: "var(--ct-spacing-sm)",
+  minInlineSize: 0,
 };
-
-export const auditChangeTableStyle: CSSProperties = {
-  ...dataTableStyle,
-  minWidth: "44rem",
+export const auditFormGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 16rem), 1fr))",
+  gap: "var(--ct-spacing-sm)",
+  minInlineSize: 0,
+};
+export const auditMetadataGridStyle: CSSProperties = {
+  ...auditFormGridStyle,
+  margin: 0,
+};
+export const auditInputStyle: CSSProperties = {
+  ...inputStyle,
+  boxSizing: "border-box",
+  minInlineSize: 0,
+  maxInlineSize: "100%",
+};
+export const auditTableStyle: CSSProperties = {
+  width: "100%",
+  tableLayout: "fixed",
+  borderCollapse: "collapse",
+};
+export const auditHeaderCellStyle: CSSProperties = {
+  ...tableHeaderCellStyle,
+  whiteSpace: "normal",
+  overflowWrap: "anywhere",
+};
+export const auditCellStyle: CSSProperties = {
+  padding: "var(--ct-spacing-sm)",
+  verticalAlign: "top",
+  textAlign: "left",
+  overflowWrap: "anywhere",
+  color: "var(--ct-colors-ink-muted)",
+  fontSize: "var(--ct-typography-ui-fontSize)",
+  fontWeight: "normal",
+};
+export const auditValueStyle: CSSProperties = {
+  margin: 0,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  fontFamily: "var(--ct-typography-mono-fontFamily)",
+};
+export const auditFieldErrorStyle: CSSProperties = {
+  ...auditTextStyle,
+  color: "var(--ct-colors-semantic-conflict)",
+  margin: 0,
 };
 
 export const redactedBadgeStyle: CSSProperties = {

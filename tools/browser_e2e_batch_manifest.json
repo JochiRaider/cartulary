@@ -23,6 +23,29 @@
       ],
       "groups": [
         {
+          "name": "functional-support-default-administrative-audit",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.auth.browser.administrative_audit_read_recovery",
+            "module.auth.browser.administrative_audit_real_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/administrative-audit.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-auth-and-incident-directory",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -693,6 +716,29 @@
       "name": "functional",
       "target": "browser-e2e-functional",
       "groups": [
+        {
+          "name": "functional-default-administrative-audit",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.auth.browser.administrative_audit_read_recovery",
+            "module.auth.browser.administrative_audit_real_browsing"
+          ],
+          "specs": [
+            "apps/web/e2e/administrative-audit.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
         {
           "name": "functional-default-auth-and-incident-directory",
           "target": "browser-e2e-functional",
@@ -2021,6 +2067,7 @@
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
+            "web.design.accessibility.administrative_audit_browsing",
             "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.incident_import_workflow",
@@ -2104,6 +2151,7 @@
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
+            "web.design.visual.administrative_audit_browsing",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
@@ -2347,6 +2395,7 @@
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
+            "web.design.visual.administrative_audit_browsing",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
@@ -2873,6 +2922,7 @@
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
+            "web.design.accessibility.administrative_audit_browsing",
             "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.incident_import_workflow",
@@ -2944,6 +2994,7 @@
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
+            "web.design.visual.administrative_audit_browsing",
             "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",

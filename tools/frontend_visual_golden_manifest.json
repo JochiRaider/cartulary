@@ -83,6 +83,42 @@
       "sha256": "9b01e5040b50b50b5e242448b6ea12fcd80ba63746a5271596315582e4282ba7"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-empty-linux.png",
+      "sha256": "d5b3f832c1535d7b014236068f07b8558947faf9a1f5664784ff13bf26401a66"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-linux.png",
+      "sha256": "26b70e5d55342e56b7ac12f0ccefe8660fde34766cb6f94e06b81e78e8666519"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-narrow-linux.png",
+      "sha256": "9e2e6a74652b403325bc36741d002c4b734d1e50a1e47f7898aed23f8ae4a09a"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-spacing-linux.png",
+      "sha256": "358fa2b65f0a8a21926d42da08035626261423af1a1cf75a91b3505921ae2657"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-inspected-zoom-linux.png",
+      "sha256": "cc74112235e4bf55d511aadc999ac84a66dd92d04edfeb1f45b82df5036850e3"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-loading-linux.png",
+      "sha256": "c2f3b66c621e08c03cd8bc7d2fad97c793ddb1249b3268c1a6e3c9f8c0908320"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-page-two-linux.png",
+      "sha256": "a32bd3e628dd31a413d98ca520b3170caee8df929df021de895cc2d38b21bc97"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-stale-linux.png",
+      "sha256": "2046c5d3cec84ffda310049079fa31289837eb6e3c3e2b0bc0c75298fbae4d2d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/administrative-audit-unavailable-linux.png",
+      "sha256": "39a0cdd8dc9ea730d5898fa9fe22c192b6f104c7845538425ebdfc82c8001232"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/auth-200-zoom-linux.png",
       "sha256": "83f9ca73f1a0faf735f8d202f6114164da0e0f65b04ce7105382dafe6ab3f949"
     },

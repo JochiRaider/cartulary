@@ -506,6 +506,157 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.administrative_audit_browsing",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.administrative_audit_contract",
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/DeploymentAuditPanel.test.tsx",
+        "titles": [
+          "Administrative audit browsing applies with Enter and associates target and timestamp errors locally",
+          "Administrative audit browsing distinguishes unavailable empty and stale states with explicit retries",
+          "Administrative audit browsing does not label an unresolved initial read as empty",
+          "Administrative audit browsing does not read a hidden inactive panel",
+          "Administrative audit browsing exposes continuation when more audit events exist",
+          "Administrative audit browsing keeps the admitted refresh after a superseded initial response settles",
+          "Administrative audit browsing preserves expanded identity and moves focus only when replacement removes it",
+          "Administrative audit browsing provides an explicit native Apply filters form",
+          "Administrative audit browsing refreshes only the applied exact filters",
+          "Administrative audit browsing renders additive vocabulary and distinct visible JSON values versus redaction",
+          "Administrative audit browsing retains page and inputs across route mounts but clears a retired lifetime",
+          "Administrative audit browsing survives Strict Mode cleanup and document visibility fencing"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.administrative_audit_exact_query",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.administrative_audit_contract",
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/administrativeAuditModel.test.ts",
+        "titles": [
+          "Administrative audit exact query binds continuations to query actor and application lifetime",
+          "Administrative audit exact query normalizes explicit instants and compares nanosecond range boundaries",
+          "Administrative audit exact query projects current filter vocabulary from the authored operation",
+          "Administrative audit exact query validates exact filters and the target dependency without aliases"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.administrative_audit_read_ownership",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.administrative_audit_contract",
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/administrativeAuditController.test.ts",
+        "titles": [
+          "Administrative audit read ownership bounds navigation memory while permitting arbitrarily old pages",
+          "Administrative audit read ownership clears immediately on current session or administrator rejection",
+          "Administrative audit read ownership clears protected state on retirement and ignores late success and failure",
+          "Administrative audit read ownership distinguishes empty initial failure and stale refresh with explicit retry",
+          "Administrative audit read ownership does not treat unavailable or cancelled access observation as success or denial",
+          "Administrative audit read ownership fences ignored aborts at the observation deadline",
+          "Administrative audit read ownership identifies a failed page separately and retries its exact continuation",
+          "Administrative audit read ownership keeps public query rejection on the applied form without marking newer edits invalid",
+          "Administrative audit read ownership pauses hidden reads and confirms access before rereading the retained page",
+          "Administrative audit read ownership requires explicit fresh recovery for rejected or cycling cursors",
+          "Administrative audit read ownership separates editable applied and accepted state and retains invalid input",
+          "Administrative audit read ownership suppresses stale success error and page publication after replacement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.administrative_audit_session_retirement",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.administrative_audit_contract",
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/App.landing.test.tsx",
+        "titles": [
+          "Incident landing clears audit rows and delayed reads when the session loses deployment administration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.administrative_audit_typed_client",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.administrative_audit_contract",
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/administrativeAuditClient.test.ts",
+        "titles": [
+          "Administrative audit typed client accepts additive vocabulary while enforcing safe complete deployment pages",
+          "Administrative audit typed client uses only the existing deployment operation and exact query members"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.app_keeps_deployment_admin_target_actions_disabl_fe7a9b4dad",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

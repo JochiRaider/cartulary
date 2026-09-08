@@ -640,6 +640,14 @@ export function referencePackErrorTestId(): string {
   return "reference-pack-error";
 }
 
+export function administrativeAuditEventTestId(eventId: string): string {
+  return `administrative-audit-event-${encodeSelectorSegment(eventId, "audit_event_id")}`;
+}
+
+export function administrativeAuditDetailTestId(eventId: string): string {
+  return `administrative-audit-detail-${encodeSelectorSegment(eventId, "audit_event_id")}`;
+}
+
 function requireLandingAdminPanel(
   panel: string,
 ): LandingAdminPanelSelectorToken {

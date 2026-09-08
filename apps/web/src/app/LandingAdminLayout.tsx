@@ -114,7 +114,14 @@ export function LandingAdminShell({
   return (
     <section
       data-testid={landingAdminShellTestId("shell")}
-      style={landingAdminShellStyle}
+      data-active-audit={
+        activePanel === "administrative-audit" ? "" : undefined
+      }
+      style={
+        activePanel === "administrative-audit"
+          ? { ...landingAdminShellStyle, containerType: "inline-size" }
+          : landingAdminShellStyle
+      }
     >
       <header style={landingAdminHeaderStyle}>
         <div style={brandBlockStyle}>
@@ -142,7 +149,7 @@ export function LandingAdminShell({
         <div style={landingAccountNavStyle}>{accountMenu}</div>
       </header>
 
-      <div style={landingAdminWorkspaceStyle}>
+      <div className="aa-workspace" style={landingAdminWorkspaceStyle}>
         <nav
           data-testid={landingAdminShellTestId("menu")}
           style={landingAdminMenuStyle}
