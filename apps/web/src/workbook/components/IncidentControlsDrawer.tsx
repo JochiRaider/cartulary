@@ -30,7 +30,13 @@ export function IncidentControlsDrawer({
       role="dialog"
       style={supportRegionStyle}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        if (
+          event.key === "Escape" &&
+          !event.defaultPrevented &&
+          event.target instanceof Element &&
+          event.target.closest('dialog, [role="dialog"]') ===
+            event.currentTarget
+        ) {
           event.preventDefault();
           onClose({ restoreTriggerFocus: true });
         }

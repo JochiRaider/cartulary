@@ -1117,6 +1117,14 @@ test("clears a stale selected incident after membership removal while preserving
     page.getByTestId(incidentMembershipRowTestId(targetUser.user_id)),
   ).toBeVisible();
   await expect(
+    page.getByTestId(incidentMembershipRoleDisplayTestId(targetUser.user_id)),
+  ).toHaveText("admin");
+  await page
+    .getByRole("button", {
+      name: /^Change role for Authentication E110 Target/u,
+    })
+    .click();
+  await expect(
     page.getByTestId(incidentMembershipRoleInputTestId(targetUser.user_id)),
   ).toHaveValue("admin");
   await expect(

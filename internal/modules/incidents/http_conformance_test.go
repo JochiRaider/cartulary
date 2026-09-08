@@ -440,6 +440,13 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 	incidentID := incident["incident_id"].(string)
 	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u207@example.test", "IncidentMembership U207", "IncidentMembershipU207Pass!", false, false, true)
 
+	// Membership administration remains available after incident closure.
+	closeResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
+		map[string]any{"client_txn_id": "txn-u-2-07-close", "base_incident_version": incident["incident_version"], "reason": "Membership review after closure"},
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	httptestx.RequireSuccessEnvelope(t, closeResp, http.StatusOK)
+
 	createResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
@@ -521,6 +528,20 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 	)
 	deleteError := httptestx.RequireErrorEnvelope(t, clientTxnDelete, http.StatusBadRequest, "invalid_mutation_payload")
 	requireErrorDetails(t, deleteError, "client_txn_id", "unknown_field")
+
+	removed := httptestx.DoJSON(t, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
+		map[string]any{"base_membership_version": patchedMembership["membership_version"]},
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	if removed.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete status = %d, want 204", removed.StatusCode)
+	}
+	_ = removed.Body.Close()
+	missing := httptestx.DoJSON(t, http.MethodDelete, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
+		map[string]any{"base_membership_version": patchedMembership["membership_version"]},
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	httptestx.RequireErrorEnvelope(t, missing, http.StatusNotFound, "membership_not_found")
 
 	contracttest.RequireErrorContract(t, "last_incident_admin", http.StatusConflict)
 	lastAdmin := httptestx.DoJSON(

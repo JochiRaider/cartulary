@@ -44,6 +44,10 @@ import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
 import { IncidentMembershipAuditFeature } from "./IncidentMembershipAuditPanel";
+import {
+  IncidentMembershipDepartureDialog,
+  IncidentMembershipManagementFeature,
+} from "./IncidentMembershipManagementPanel";
 import type { IncidentCreationController } from "./incidentCreationModel";
 import {
   type IncidentDirectoryController,
@@ -51,6 +55,7 @@ import {
 } from "./incidentDirectoryModel";
 import type { IncidentImportController } from "./incidentImportModel";
 import type { IncidentMembershipAuditController } from "./incidentMembershipAuditController";
+import type { IncidentMembershipManagementController } from "./incidentMembershipManagementController";
 import {
   IncidentDirectoryShell,
   LandingAdminShell,
@@ -70,6 +75,7 @@ import { useIncidentCreation } from "./useIncidentCreation";
 import { useIncidentDirectory } from "./useIncidentDirectory";
 import { useIncidentImport } from "./useIncidentImport";
 import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
+import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
 
 const LazyWorkbookShell = lazy(async () => {
@@ -120,6 +126,8 @@ export function App({
   themeId,
   authNavigation,
 }: AppProps = {}) {
+  const membershipManagementRef =
+    useRef<IncidentMembershipManagementController | null>(null);
   const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
   const membershipAuditRef = useRef<IncidentMembershipAuditController | null>(
     null,
@@ -135,12 +143,18 @@ export function App({
   );
   const sessionControllerRef = useRef<AppSessionController | null>(null);
   const { commitRoute, route, routeRef } = useAppRouteRuntime({
-    hasPendingEdits: () => deploymentUsersRef.current?.hasDirtyDraft() ?? false,
+    hasPendingEdits: () =>
+      (membershipManagementRef.current?.hasDepartureWork() ?? false) ||
+      (deploymentUsersRef.current?.hasDirtyDraft() ?? false),
     requestLeave: () =>
-      deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true),
+      membershipManagementRef.current?.hasDepartureWork()
+        ? membershipManagementRef.current.requestLeave()
+        : (deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true)),
     beforeCommit: (next) => {
-      if (next.incidentId !== routeRef.current.incidentId)
+      if (next.incidentId !== routeRef.current.incidentId) {
         membershipAuditRef.current?.retire();
+        membershipManagementRef.current?.retire();
+      }
       auditControllerRef.current?.setActive(false);
       importControllerRef.current?.setActive(false);
       referencePackControllerRef.current?.setActive(false);
@@ -161,6 +175,7 @@ export function App({
       new AppSessionController({
         retireLifetime: (lifetime) => {
           membershipAuditRef.current?.retire();
+          membershipManagementRef.current?.retire();
           auditControllerRef.current?.retire();
           accountEditingRef.current?.retireLifetime();
           authenticationRef.current?.retire();
@@ -298,7 +313,11 @@ export function App({
   deploymentUsersRef.current = deploymentUsers;
   useEffect(() => {
     const preventUnload = (event: BeforeUnloadEvent) => {
-      if (!deploymentUsers.hasDirtyDraft()) return;
+      if (
+        !deploymentUsers.hasDirtyDraft() &&
+        !membershipManagementRef.current?.hasDepartureWork()
+      )
+        return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -335,6 +354,7 @@ export function App({
   accountEditingRef.current = accountEditing;
   const sessionSnapshot = useAppSession(sessionController, () => {
     membershipAuditRef.current?.dispose();
+    membershipManagementRef.current?.dispose();
     workbookMutationRuntimeRegistry.dispose();
     accountEditing.dispose();
     authentication.dispose();
@@ -784,6 +804,7 @@ export function App({
   importControllerRef.current = incidentImport.controller;
   const handleIncidentAccessLost = useCallback(() => {
     if (readAppRouteState().incidentId !== route.incidentId) return;
+    membershipManagementRef.current?.retire();
     directoryControllerRef.current?.setActive(false);
     navigationFocusRequestRef.current = {
       destination: "incidents",
@@ -802,6 +823,14 @@ export function App({
     onSessionLost: handleSessionLost,
   });
   membershipAuditRef.current = membershipAudit.controller;
+  const membershipManagement = useIncidentMembershipManagement({
+    sessionController,
+    recovery: workbookAuthorizationRecovery,
+    currentIncidentId: () => routeRef.current.incidentId,
+    onIncidentAccessLost: handleIncidentAccessLost,
+    onSessionLost: handleSessionLost,
+  });
+  membershipManagementRef.current = membershipManagement.controller;
 
   const renderAccountMenu = useCallback(
     (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
@@ -993,6 +1022,8 @@ export function App({
               extensionProfiles={extensionProfiles}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentControlsSectionChange={(section) => {
+                if (section !== "memberships")
+                  membershipManagement.controller.setActive(false);
                 if (section !== "membership-audit")
                   membershipAudit.controller.setActive(false);
               }}
@@ -1003,6 +1034,12 @@ export function App({
                     controller={membershipAudit.controller}
                     bindSurface={membershipAudit.bindSurface}
                   />
+                ) : props.activeSection === "memberships" ? (
+                  <IncidentMembershipManagementFeature
+                    {...props}
+                    controller={membershipManagement.controller}
+                    bindSurface={membershipManagement.bindSurface}
+                  />
                 ) : (
                   <IncidentAdminPanel {...props} />
                 )
@@ -1012,6 +1049,11 @@ export function App({
           </Suspense>
         </section>
         {renderAccountSettings()}
+        <IncidentMembershipDepartureDialog
+          controller={membershipManagement.controller}
+          kind="route"
+          fallbackFocusRef={accountMenuTriggerRef}
+        />
       </main>
     );
   }

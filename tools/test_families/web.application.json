@@ -2026,6 +2026,100 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.membership_management_ownership",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMembershipManagementController.test.ts",
+        "titles": [
+          "Incident membership management ownership admits one immutable write before authorization and preserves newer draft revisions",
+          "Incident membership management ownership allows explicit route departure without claiming cancellation and fences late success",
+          "Incident membership management ownership bounds live browsing to one page and twenty cursors with explicit first and previous",
+          "Incident membership management ownership bounds observation while an ignored abort keeps transport admission locked",
+          "Incident membership management ownership coalesces reads and fences delayed responses across close incident and session",
+          "Incident membership management ownership distinguishes temporary authority failure incident loss and session loss",
+          "Incident membership management ownership distinguishes version conflicts from uncertain writes and requires observed review before another attempt",
+          "Incident membership management ownership does not add idempotency to no-op PATCH or reinterpret domain rejections",
+          "Incident membership management ownership does not treat absence as a DELETE receipt and handles a real 204 without content",
+          "Incident membership management ownership invalidates removal confirmation when the observed subject version changes",
+          "Incident membership management ownership keeps one draft through reads and close and requires stay or discard to switch",
+          "Incident membership management ownership rejects cursor cycles and retains prior rows after ordinary refresh failure",
+          "Incident membership management ownership retains acknowledgement when follow-up list and authorization fail",
+          "Incident membership management ownership retains pending and uncertain writes across ordinary close without background list publication",
+          "Incident membership management ownership retires privileged drafts on downgrade while nonadmin membership reads remain available",
+          "Incident membership management ownership uses a fresh crypto identity for creates and exact immutable uncertain replay"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.membership_management_presentation",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/IncidentMembershipManagementPanel.test.tsx",
+        "titles": [
+          "Incident membership management presentation issues versioned create patch and bodyless delete with deliberate review and retained receipts",
+          "Incident membership management presentation keeps non-admin incident browsing and excludes privileged forms",
+          "Incident membership management presentation requires Stay or Discard before replacing dirty input and preserves explicit cancellation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.membership_management_transport",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/incidentMembershipManagementClient.test.ts",
+        "titles": [
+          "Incident membership management typed transport does not accept mismatched resource identities roles or undeclared success statuses",
+          "Incident membership management typed transport preserves 201 and 200 create outcomes and sends one email selector",
+          "Incident membership management typed transport rejects wrong incident duplicate unordered and malformed paged resources",
+          "Incident membership management typed transport retains safe error identities without raw server message or arbitrary details",
+          "Incident membership management typed transport uses captured PATCH and DELETE bodies and accepts a bodyless 204",
+          "Incident membership management typed transport uses only limit and opaque cursor and retains the server ordering"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.obsolete_debug_query_ordinary_navigation_dc33fdc25c",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

@@ -9,7 +9,7 @@ import { auditBrowserEvent } from "./administrativeAudit";
 import { createIncident } from "./incidents/fixtures";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
 
-export const membershipAuditRegion = "Incident membership audit browser";
+const membershipAuditRegion = "Incident membership audit browser";
 type Event =
   ListIncidentMembershipAuditEventsResponse["data"]["audit_events"][number];
 export function membershipBrowserEvent(

@@ -423,6 +423,46 @@
       "sha256": "cb0bbcd58d3694b03b16c455829123bbe35f5e277ba262f2a7cdaebe7e566a85"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-comfortable-linux.png",
+      "sha256": "257514ddd42afd8809059b41c18faa49fcab67980d709a0e5496f889f62ec250"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-compact-linux.png",
+      "sha256": "f601a2acca5ec49dcc183f15e468cfc8a6ab08b5a2e36b76fc6aa2d8ce1eff97"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-confirmed-refresh-failure-linux.png",
+      "sha256": "a4a89809fdd32d874370bf81d6b9cf8296a0cd1cf3965c8cf500130bedd09790"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-loading-linux.png",
+      "sha256": "72a8cfe478c0376eabc6cf890504d931dd21596dc750df2801ecdac8e1229f72"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-pending-linux.png",
+      "sha256": "8228a56cbd5e8e168f18c5b5ddd92d23b0d56b10ecb313eccec5cb5786296163"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-narrow-linux.png",
+      "sha256": "270a6e5909ca16827f3bcc55ca708f3ea1acf722b96635188ac36e235ae84f82"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-spacing-linux.png",
+      "sha256": "42df91efe26719e9c03e1c4fd4a36f4bbee4fa3729d90126bbe498adb9ce9c2d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-zoom-linux.png",
+      "sha256": "0aaea2eb480b0ef49cdff69880a09b16dbda361646787dbf88a946f46bb63339"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-role-linux.png",
+      "sha256": "90e280d6b8948ae011da5120c63dc21640a9e1f72ed014800867a0ea4bc9e356"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-uncertain-linux.png",
+      "sha256": "63993416df9da206f05843972e6ef184b083f0eb651c669bf2ca53678ef066c8"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
       "sha256": "2da397d8afe110953fd0fed35383b12846622641fb7e942dcbeca98527fcd674"
     },

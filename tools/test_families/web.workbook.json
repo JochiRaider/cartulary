@@ -732,6 +732,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.membership_management_lifetime",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMembershipManagementLifecycle.test.tsx",
+        "titles": [
+          "Incident membership management lifetime integration denies deployment-admin nonmember materialization and retires incident data without logging out",
+          "Incident membership management lifetime integration fences hidden reads and clears all retained work on session retirement",
+          "Incident membership management lifetime integration propagates current role loss and preserves ordinary reads while retiring privileged drafts",
+          "Incident membership management lifetime integration retains one draft across actual drawer and section transitions under Strict Mode",
+          "Incident membership management lifetime integration settles an admitted self-demotion while closed and propagates its recovered role"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.mention_undo_current_committed_identity_ddf69011e7",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

@@ -1298,6 +1298,36 @@
       "classification": "additive",
       "owner_id": "module.reference_data",
       "rationale": "Project the adopted optional asynchronous Activate/Disable response as a complete common job receipt without changing inline backend execution."
+    },
+    {
+      "fingerprint": "d4b07c7652ba0f6fb0ee5518d9683ee2913f9e8ed8cc2fb04841ed20b3f9f11e",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project the existing membership PATCH/DELETE request preconditions, including the authorized DELETE base-version clarification; stale removal must require renewed review after an intervening membership change. No runtime route or permission change."
+    },
+    {
+      "fingerprint": "8f4362ccedf71cb14693c692c4539d92601bd702ee06b8ca1f2e37b4e9b68620",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project the existing membership PATCH/DELETE request preconditions, including the authorized DELETE base-version clarification; stale removal must require renewed review after an intervening membership change. No runtime route or permission change."
+    },
+    {
+      "fingerprint": "206b20813d332f13b40439ff23837633b1163e711fa5d4e6308aabea917ffe2a",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project the existing membership PATCH/DELETE request preconditions, including the authorized DELETE base-version clarification; stale removal must require renewed review after an intervening membership change. No runtime route or permission change."
+    },
+    {
+      "fingerprint": "b6693a5891a7985fe08d217a42e0a22d4a8ce833ede077481790d4b627161692",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project the existing membership PATCH/DELETE request preconditions, including the authorized DELETE base-version clarification; stale removal must require renewed review after an intervening membership change. No runtime route or permission change."
+    },
+    {
+      "fingerprint": "5c85fe87ad5fc6b409a758bbf49c225e64ce4d48f0230f0634d2656bd881f3cd",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Project REQ-01-129 existing limit and cursor_token query members so generated membership list bindings support the owner-required pagination. No runtime query or permission change."
     }
   ]
 }

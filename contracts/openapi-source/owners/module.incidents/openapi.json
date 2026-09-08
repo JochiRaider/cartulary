@@ -706,6 +706,28 @@
           {
             "bearerSession": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Omission defaults to 100 without a cursor and reuses the cursor-bound limit with a cursor."
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque live continuation bound to incident, actor, route, ordering, and effective limit."
+          }
         ]
       },
       "post": {
@@ -809,7 +831,17 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentMembershipPatchRequest"
+              }
+            }
+          }
+        }
       },
       "delete": {
         "tags": [
@@ -849,7 +881,17 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentMembershipDeleteRequest"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -1262,6 +1304,42 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "IncidentMembershipPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_membership_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "editor",
+              "reviewer",
+              "admin"
+            ]
+          }
+        },
+        "required": [
+          "base_membership_version",
+          "role"
+        ]
+      },
+      "IncidentMembershipDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "base_membership_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "base_membership_version"
         ]
       }
     },

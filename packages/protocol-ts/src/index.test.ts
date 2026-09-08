@@ -146,6 +146,23 @@ describe("@cartulary/protocol-ts family conformance", () => {
   });
 
   it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
+    expect(httpOperationBindings.patchIncidentMembership.method).toBe("PATCH");
+    expect(httpOperationBindings.deleteIncidentMembership.method).toBe(
+      "DELETE",
+    );
+    expect(
+      httpOperationBindings.deleteIncidentMembership.success_statuses,
+    ).toEqual([204]);
+    expect(
+      validateHTTPOperationResponse("deleteIncidentMembership", undefined, 204),
+    ).toEqual({ ok: true });
+    expect(
+      validateHTTPOperationResponse("deleteIncidentMembership", undefined, 200)
+        .ok,
+    ).toBe(false);
+    expect(
+      httpOperationBindings.listIncidentMemberships.query_parameters,
+    ).toEqual(["cursor_token", "limit"]);
     const pack = {
       pack_key: "type_registry.host",
       pack_kind: "type_registry",

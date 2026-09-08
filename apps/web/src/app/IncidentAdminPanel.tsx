@@ -3,17 +3,6 @@ import {
   incidentControlsActionMessageTestId,
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
-  incidentMembershipAdminNoteTestId,
-  incidentMembershipCreateButtonTestId,
-  incidentMembershipDeleteButtonTestId,
-  incidentMembershipEmailInputTestId,
-  incidentMembershipListTestId,
-  incidentMembershipPatchButtonTestId,
-  incidentMembershipRoleDisplayTestId,
-  incidentMembershipRoleInputTestId,
-  incidentMembershipRoleSelectTestId,
-  incidentMembershipRowTestId,
-  incidentMembershipVersionTestId,
 } from "@cartulary/ui-contracts";
 import { getViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,17 +28,8 @@ import type {
 } from "./landingAdminTypes";
 
 type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
-type MembershipRole = Exclude<IncidentRole, "">;
 
 type IncidentSummary = CloseIncidentResponse["data"];
-
-type MembershipRecord = {
-  incident_id: string;
-  user_id: string;
-  display_name: string;
-  role: MembershipRole;
-  membership_version: number;
-};
 
 type WorkbookPreferences = {
   default_sheet_ref?: SheetRef | null;
@@ -155,12 +135,6 @@ function formatSheetRef(slot: PreferenceSlot): string {
   return `Extension workspace: ${sheetRef.extension_profile_id}/${sheetRef.workspace_key}`;
 }
 
-function upsertMembershipRoleDrafts(records: MembershipRecord[]) {
-  return Object.fromEntries(
-    records.map((record) => [record.user_id, record.role]),
-  ) as Record<string, MembershipRole>;
-}
-
 export function IncidentAdminPanel({
   incidentId,
   currentIncidentRole,
@@ -170,7 +144,6 @@ export function IncidentAdminPanel({
   onSessionRoleChange,
 }: IncidentAdminPanelProps) {
   const [incident, setIncident] = useState<IncidentSummary | null>(null);
-  const [memberships, setMemberships] = useState<MembershipRecord[]>([]);
   const [defaultPreference, setDefaultPreference] = useState<PreferenceSlot>(
     loadingPreferenceSlot,
   );
@@ -183,12 +156,6 @@ export function IncidentAdminPanel({
   const [patchCurrentPhase, setPatchCurrentPhase] = useState("");
   const [patchExternalCase, setPatchExternalCase] = useState("");
   const [lifecycleReason, setLifecycleReason] = useState("");
-  const [membershipEmail, setMembershipEmail] = useState("");
-  const [membershipRole, setMembershipRole] =
-    useState<MembershipRole>("viewer");
-  const [membershipRoleDrafts, setMembershipRoleDrafts] = useState<
-    Record<string, MembershipRole>
-  >({});
   const [surfaceLoadState, setSurfaceLoadState] =
     useState<IncidentControlsLoadState>("loading");
   const [surfaceStatusText, setSurfaceStatusText] = useState(
@@ -208,7 +175,6 @@ export function IncidentAdminPanel({
   const canEditIncident =
     incident?.status !== "closed" &&
     (currentIncidentRole === "reviewer" || currentIncidentRole === "admin");
-  const canManageMemberships = currentIncidentRole === "admin";
   const actionMessage =
     actionMessageState.incidentId === incidentId ? actionMessageState.text : "";
 
@@ -262,15 +228,6 @@ export function IncidentAdminPanel({
       const incidentRequest = fetchJSON<{ data: IncidentSummary }>(
         apiPath(requestedApiBase, `/api/v1/incidents/${requestedIncidentId}`),
       );
-      const membershipsRequest =
-        requestedSection === "memberships"
-          ? fetchJSON<{ data: { memberships: MembershipRecord[] } }>(
-              apiPath(
-                requestedApiBase,
-                `/api/v1/incidents/${requestedIncidentId}/memberships`,
-              ),
-            )
-          : Promise.resolve(null);
       const defaultPrefsRequest =
         requestedSection === "summary"
           ? fetchJSON<{ data: WorkbookPreferences }>(
@@ -290,17 +247,12 @@ export function IncidentAdminPanel({
             )
           : Promise.resolve(null);
 
-      const [
-        incidentResult,
-        membershipsResult,
-        defaultPrefsResult,
-        userPrefsResult,
-      ] = await Promise.all([
-        incidentRequest,
-        membershipsRequest,
-        defaultPrefsRequest,
-        userPrefsRequest,
-      ]);
+      const [incidentResult, defaultPrefsResult, userPrefsResult] =
+        await Promise.all([
+          incidentRequest,
+          defaultPrefsRequest,
+          userPrefsRequest,
+        ]);
 
       if (!isLatestRequest()) {
         return;
@@ -310,8 +262,6 @@ export function IncidentAdminPanel({
         const incidentError = extractError(incidentResult.payload);
         setError(incidentError);
         setIncident(null);
-        setMemberships([]);
-        setMembershipRoleDrafts({});
         setDefaultPreference(unavailablePreferenceSlot());
         setUserPreference(unavailablePreferenceSlot());
         setSurfaceLoadState("unavailable");
@@ -336,22 +286,6 @@ export function IncidentAdminPanel({
 
       let partialFailure = false;
 
-      if (requestedSection === "memberships") {
-        if (membershipsResult?.ok) {
-          const nextMemberships = (
-            membershipsResult.payload as {
-              data: { memberships: MembershipRecord[] };
-            }
-          ).data.memberships;
-          setMemberships(nextMemberships);
-          setMembershipRoleDrafts(upsertMembershipRoleDrafts(nextMemberships));
-        } else {
-          partialFailure = true;
-          setMemberships([]);
-          setMembershipRoleDrafts({});
-        }
-      }
-
       if (requestedSection === "summary") {
         const nextDefaultPreference = defaultPrefsResult?.ok
           ? preferenceSlotFromPayload(
@@ -373,9 +307,7 @@ export function IncidentAdminPanel({
       setSurfaceLoadState(partialFailure ? "partial" : "synced");
       setSurfaceStatusText(
         partialFailure
-          ? requestedSection === "summary"
-            ? "Incident summary synced; workbook preferences unavailable."
-            : "Incident controls synced; memberships unavailable."
+          ? "Incident summary synced; workbook preferences unavailable."
           : "Incident controls synced.",
       );
     },
@@ -497,107 +429,6 @@ export function IncidentAdminPanel({
       action === "close" ? "Incident closed." : "Incident reopened.",
       true,
     );
-  }
-
-  async function handleCreateMembership() {
-    if (!incident) {
-      return;
-    }
-
-    const actionIncidentId = incident.incident_id;
-    setActionMessageForIncident(actionIncidentId, "Adding membership…");
-    const result = await fetchJSON<{ data: MembershipRecord }>(
-      apiPath(apiBase, `/api/v1/incidents/${incident.incident_id}/memberships`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          client_txn_id: clientTxnID("incident-membership"),
-          email: membershipEmail.trim(),
-          role: membershipRole,
-        }),
-      },
-    );
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setActionMessageForIncident(
-        actionIncidentId,
-        "Membership create failed.",
-      );
-      return;
-    }
-
-    setError(null);
-    setMembershipEmail("");
-    setMembershipRole("viewer");
-    await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setActionMessageForIncident(actionIncidentId, "Added membership.", true);
-  }
-
-  async function handlePatchMembership(membership: MembershipRecord) {
-    if (!incident) {
-      return;
-    }
-
-    const actionIncidentId = incident.incident_id;
-    setActionMessageForIncident(actionIncidentId, "Updating membership…");
-    const result = await fetchJSON<{ data: MembershipRecord }>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incident.incident_id}/memberships/${membership.user_id}`,
-      ),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          base_membership_version: membership.membership_version,
-          role: membershipRoleDrafts[membership.user_id] ?? membership.role,
-        }),
-      },
-    );
-    if (!result.ok) {
-      setError(extractError(result.payload));
-      setActionMessageForIncident(
-        actionIncidentId,
-        "Membership update failed.",
-      );
-      return;
-    }
-
-    setError(null);
-    await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setActionMessageForIncident(actionIncidentId, "Updated membership.", true);
-  }
-
-  async function handleDeleteMembership(membership: MembershipRecord) {
-    if (!incident) {
-      return;
-    }
-
-    const actionIncidentId = incident.incident_id;
-    setActionMessageForIncident(actionIncidentId, "Removing membership…");
-    const result = await fetchJSON(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incident.incident_id}/memberships/${membership.user_id}`,
-      ),
-      {
-        method: "DELETE",
-        body: JSON.stringify({
-          base_membership_version: membership.membership_version,
-        }),
-      },
-    );
-    if (!result.ok && result.status !== 204) {
-      setError(extractError(result.payload));
-      setActionMessageForIncident(
-        actionIncidentId,
-        "Membership delete failed.",
-      );
-      return;
-    }
-
-    setError(null);
-    await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setActionMessageForIncident(actionIncidentId, "Removed membership.", true);
   }
 
   const activeSectionMeta = incidentControlsSectionMeta[activeSection];
@@ -772,153 +603,6 @@ export function IncidentAdminPanel({
               Promoted incident fields are read-only for this incident role.
             </p>
           )}
-        </section>
-      ) : null}
-
-      {activeSection === "memberships" ? (
-        <section style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <div>
-              <p style={cardEyebrowStyle}>Membership surface</p>
-              <h3 style={cardTitleStyle}>Incident memberships</h3>
-            </div>
-          </div>
-
-          {canManageMemberships ? (
-            <div style={inlineFormStyle}>
-              <label style={fieldLabelStyle}>
-                User email
-                <input
-                  data-testid={incidentMembershipEmailInputTestId()}
-                  style={inputStyle}
-                  value={membershipEmail}
-                  onChange={(event) => {
-                    setMembershipEmail(event.target.value);
-                  }}
-                  placeholder="analyst@example.test"
-                />
-              </label>
-              <label style={fieldLabelStyle}>
-                Role
-                <select
-                  data-testid={incidentMembershipRoleSelectTestId()}
-                  style={inputStyle}
-                  value={membershipRole}
-                  onChange={(event) => {
-                    setMembershipRole(event.target.value as MembershipRole);
-                  }}
-                >
-                  <option value="viewer">viewer</option>
-                  <option value="editor">editor</option>
-                  <option value="reviewer">reviewer</option>
-                  <option value="admin">admin</option>
-                </select>
-              </label>
-              <button
-                data-testid={incidentMembershipCreateButtonTestId()}
-                style={primaryButtonStyle}
-                type="button"
-                onClick={() => {
-                  void handleCreateMembership();
-                }}
-              >
-                Add membership
-              </button>
-            </div>
-          ) : (
-            <p
-              data-testid={incidentMembershipAdminNoteTestId()}
-              style={mutedBodyStyle}
-            >
-              Only incident admins can add, change, or remove memberships.
-            </p>
-          )}
-
-          <div
-            data-testid={incidentMembershipListTestId()}
-            style={membershipListStyle}
-          >
-            {memberships.map((membership) => (
-              <article
-                key={membership.user_id}
-                data-testid={incidentMembershipRowTestId(membership.user_id)}
-                style={membershipCardStyle}
-              >
-                <div style={membershipMetaStyle}>
-                  <strong>{membership.display_name}</strong>
-                  <span style={valueStyle}>{membership.user_id}</span>
-                  <span
-                    data-testid={incidentMembershipVersionTestId(
-                      membership.user_id,
-                    )}
-                    style={subtleValueStyle}
-                  >
-                    Version {membership.membership_version}
-                  </span>
-                </div>
-
-                {canManageMemberships ? (
-                  <div style={membershipControlStyle}>
-                    <select
-                      data-testid={incidentMembershipRoleInputTestId(
-                        membership.user_id,
-                      )}
-                      style={inputStyle}
-                      value={
-                        membershipRoleDrafts[membership.user_id] ??
-                        membership.role
-                      }
-                      onChange={(event) => {
-                        setMembershipRoleDrafts((current) => ({
-                          ...current,
-                          [membership.user_id]: event.target
-                            .value as MembershipRole,
-                        }));
-                      }}
-                    >
-                      <option value="viewer">viewer</option>
-                      <option value="editor">editor</option>
-                      <option value="reviewer">reviewer</option>
-                      <option value="admin">admin</option>
-                    </select>
-                    <button
-                      data-testid={incidentMembershipPatchButtonTestId(
-                        membership.user_id,
-                      )}
-                      style={secondaryButtonStyle}
-                      type="button"
-                      onClick={() => {
-                        void handlePatchMembership(membership);
-                      }}
-                    >
-                      Save role
-                    </button>
-                    <button
-                      data-testid={incidentMembershipDeleteButtonTestId(
-                        membership.user_id,
-                      )}
-                      style={dangerButtonStyle}
-                      type="button"
-                      onClick={() => {
-                        void handleDeleteMembership(membership);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <p
-                    data-testid={incidentMembershipRoleDisplayTestId(
-                      membership.user_id,
-                    )}
-                    style={valueStyle}
-                  >
-                    {membership.role}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
         </section>
       ) : null}
     </section>
@@ -1303,11 +987,6 @@ const valueStyle = {
   wordBreak: "break-word" as const,
 };
 
-const subtleValueStyle = {
-  color: "var(--ct-colors-ink-subtle)",
-  fontSize: "0.85rem",
-};
-
 const formGridStyle = {
   display: "grid",
   gap: "0.85rem",
@@ -1363,41 +1042,4 @@ const secondaryButtonStyle = {
   font: "inherit",
   fontWeight: 700,
   cursor: "pointer",
-};
-
-const dangerButtonStyle = {
-  borderRadius: "var(--ct-component-button-danger-rounded)",
-  border: "1px solid var(--ct-colors-semantic-destructive)",
-  padding: "var(--ct-component-button-danger-padding)",
-  background: "var(--ct-component-button-danger-backgroundColor)",
-  color: "var(--ct-component-button-danger-textColor)",
-  font: "inherit",
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const membershipListStyle = {
-  display: "grid",
-  gap: "0.75rem",
-};
-
-const membershipCardStyle = {
-  borderRadius: "var(--ct-rounded-lg)",
-  border: "var(--ct-border-hairline)",
-  padding: "0.85rem",
-  background: "var(--ct-colors-surface-2)",
-  display: "grid",
-  gap: "0.75rem",
-};
-
-const membershipMetaStyle = {
-  display: "grid",
-  gap: "0.2rem",
-};
-
-const membershipControlStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(9rem, 1fr) auto auto",
-  gap: "0.65rem",
-  alignItems: "center",
 };

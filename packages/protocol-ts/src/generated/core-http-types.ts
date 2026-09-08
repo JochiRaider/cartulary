@@ -1558,6 +1558,13 @@ export interface IncidentListData {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipDeleteRequest".
+ */
+export interface IncidentMembershipDeleteRequest {
+  base_membership_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "IncidentMembershipEnvelope".
  */
 export interface IncidentMembershipEnvelope {
@@ -1593,6 +1600,14 @@ export interface IncidentMembershipListEnvelope {
  */
 export interface IncidentMembershipListData {
   memberships: IncidentMembershipResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipPatchRequest".
+ */
+export interface IncidentMembershipPatchRequest {
+  base_membership_version: number;
+  role: "viewer" | "editor" | "reviewer" | "admin";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

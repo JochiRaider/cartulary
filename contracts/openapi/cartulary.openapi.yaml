@@ -2679,6 +2679,28 @@
     "/api/v1/incidents/{incident_id}/memberships": {
       "get": {
         "operationId": "listIncidentMemberships",
+        "parameters": [
+          {
+            "description": "Omission defaults to 100 without a cursor and reuses the cursor-bound limit with a cursor.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque live continuation bound to incident, actor, route, ordering, and effective limit.",
+            "in": "query",
+            "name": "cursor_token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/IncidentMembershipListSuccessResponse"
@@ -2774,6 +2796,16 @@
     "/api/v1/incidents/{incident_id}/memberships/{user_id}": {
       "delete": {
         "operationId": "deleteIncidentMembership",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentMembershipDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "204": {
             "$ref": "#/components/responses/IncidentMembershipDeletedResponse"
@@ -2822,6 +2854,16 @@
       ],
       "patch": {
         "operationId": "patchIncidentMembership",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentMembershipPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/IncidentMembershipSuccessResponse"
@@ -12734,6 +12776,19 @@
           }
         ]
       },
+      "IncidentMembershipDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_membership_version": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "base_membership_version"
+        ],
+        "type": "object"
+      },
       "IncidentMembershipEnvelope": {
         "additionalProperties": false,
         "properties": {
@@ -12778,6 +12833,29 @@
         "required": [
           "data",
           "meta"
+        ],
+        "type": "object"
+      },
+      "IncidentMembershipPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_membership_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "viewer",
+              "editor",
+              "reviewer",
+              "admin"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_membership_version",
+          "role"
         ],
         "type": "object"
       },

@@ -197,6 +197,11 @@ import {
   openMembershipAudit,
 } from "./support/incidentMembershipAudit";
 import {
+  expectMembershipManagementControlReachable,
+  installMembershipManagementPresentation,
+  openMembershipManagement,
+} from "./support/incidentMembershipManagement";
+import {
   expectCreationControlReachable,
   openCreationPresentation,
   responseBarrier,
@@ -6417,6 +6422,110 @@ test("a11y.membership-audit exact filters inspection paging recovery and drawer 
     panel.getByRole("button", { name: "Refresh", exact: true }),
   ).toBeFocused();
   await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByLabel("Account and application navigation"),
+  ).toBeFocused();
+});
+
+test("a11y.membership-management draft review keyboard recovery and removal focus remain reachable", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const fixture = await installMembershipManagementPresentation(page);
+  const panel = await openMembershipManagement(page);
+  await expect(
+    panel.getByText("Response analyst", { exact: true }),
+  ).toBeVisible();
+  const change = panel.getByRole("button", {
+    name: /^Change role for Response analyst/u,
+  });
+  await change.focus();
+  await page.keyboard.press("Enter");
+  const role = panel.getByRole("combobox", {
+    name: /^Role for Response analyst/u,
+  });
+  await expect(role).toBeFocused();
+  await expectVisibleFocus(role);
+  await role.selectOption("reviewer");
+  await panel
+    .getByRole("button", { name: "Add existing account", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Discard this membership draft?" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: "Discard this membership draft?" }),
+  ).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await expect(role).toHaveValue("reviewer");
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1024, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [
+      role,
+      panel.getByRole("button", { name: "Save role", exact: true }),
+      panel.getByRole("button", { name: "Cancel", exact: true }),
+      page.getByRole("button", {
+        name: "Close incident controls",
+        exact: true,
+      }),
+    ]) {
+      await expectMembershipManagementControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectMembershipManagementControlReachable(page, role);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await expectMembershipManagementControlReachable(
+    page,
+    panel.getByRole("button", { name: "Save role", exact: true }),
+  );
+  await expectAllInteractiveControlsNamed(page);
+  await testInfo.attach("membership-management-accessibility-tree", {
+    body: await panel.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await panel.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Discard draft", exact: true })
+    .click();
+  await panel
+    .getByRole("button", {
+      name: /^Remove incident access for Response analyst/u,
+    })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(panel.getByRole("form").getByRole("heading")).toBeFocused();
+  fixture.mutation(204);
+  fixture.setPage([]);
+  const confirm = panel.getByRole("button", {
+    name: "Confirm removal",
+    exact: true,
+  });
+  await confirm.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    panel.getByText("Incident membership removed.", { exact: true }),
+  ).toBeVisible();
+  await expect(panel.getByRole("heading")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(
     page.getByLabel("Account and application navigation"),

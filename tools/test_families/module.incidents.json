@@ -320,6 +320,154 @@
       ]
     },
     {
+      "row_id": "module.incidents.browser.membership_management_departure",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-management.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_b0e3c392d612"
+        ],
+        "titles": [
+          "membership management retains pending work on close and requires deliberate route departure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.membership_management_live_pages",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-management.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_6f0db0ba0dc9"
+        ],
+        "titles": [
+          "membership management traverses live service pages and adds changes removes with audit visibility"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.membership_management_mutation_recovery",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-management.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_485c30a13c76"
+        ],
+        "titles": [
+          "membership management separates confirmed refresh failure exact create replay and explicit conflict review"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.membership_management_self_actions",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-management.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_81622c56baf7"
+        ],
+        "titles": [
+          "membership management self-demotion and self-removal recover current authority on closed incidents"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.browser",
@@ -658,7 +806,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "module.incidents.frontend.the_ordinary_incident_shell_emits_the_expected_m_21d3fe076b",
+      "row_id": "module.incidents.frontend.membership_management_characterization",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.frontend",
       "collaborator_ids": [
@@ -669,9 +817,16 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+        "file": "apps/web/src/app/incidentMembershipManagementCharacterization.test.tsx",
         "titles": [
-          "ordinary incident shell issues membership create, patch, and delete requests with versioned payloads and refreshes session role after each mutation"
+          "Incident membership management characterization acknowledges a write before follow-up reads finish",
+          "Incident membership management characterization admits a repeated create activation only once",
+          "Incident membership management characterization does not publish an older write rejection into another incident",
+          "Incident membership management characterization makes server continuation reachable",
+          "Incident membership management characterization names role controls for their member",
+          "Incident membership management characterization preserves a newer add draft when the captured create completes",
+          "Incident membership management characterization preserves a role draft through a section reload",
+          "Incident membership management characterization separates uncertain writes from rejected version conflicts"
         ]
       },
       "evidence_class": "unit",
@@ -697,7 +852,7 @@
       "selector": {
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
-          "ordinary incident shell gates promoted-field controls by incident role, hides membership-admin controls from non-admin members, and returns to landing when incident access is lost"
+          "ordinary incident shell gates promoted-field controls by incident role and returns to landing when incident access is lost"
         ]
       },
       "evidence_class": "unit",
@@ -1693,6 +1848,33 @@
         "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestMembershipCreateUsesLookupOnlyForUserOrEmailTargets_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.membership_management_openapi",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [
+        "platform.audit",
+        "platform.openapi"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents/httpapi",
+        "tests": [
+          "TestMembershipManagementOpenAPIProjectsExactVersionedBodies_Unit"
         ]
       },
       "evidence_class": "unit",

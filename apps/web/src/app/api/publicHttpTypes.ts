@@ -1,11 +1,15 @@
 export type {
   CloseIncidentRequest,
   CloseIncidentResponse,
+  CreateIncidentMembershipRequest,
   CreateIncidentRequest,
   CreateIncidentResponse,
+  DeleteIncidentMembershipRequest,
   ListAdministrativeAuditEventsResponse,
   ListIncidentMembershipAuditEventsResponse,
+  ListIncidentMembershipsResponse,
   ListVisibleIncidentsResponse,
+  PatchIncidentMembershipRequest,
   ReopenIncidentRequest,
   ReopenIncidentResponse,
 } from "@cartulary/protocol-ts/http";

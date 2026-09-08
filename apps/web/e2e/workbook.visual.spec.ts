@@ -169,6 +169,11 @@ import {
   openMembershipAudit,
 } from "./support/incidentMembershipAudit";
 import {
+  installMembershipManagementPresentation,
+  membershipBrowserMember,
+  openMembershipManagement,
+} from "./support/incidentMembershipManagement";
+import {
   expectCreationControlReachable,
   openCreationPresentation,
   responseBarrier,
@@ -7753,6 +7758,150 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
       await panel.getByRole("button", { name: /^Inspect / }).click();
       await scrollChanges();
       await assertViewportVisualRegression(page, `membership-audit-${density}`);
+    }
+  } finally {
+    await setVisualAccountDensity(page, originalDensity);
+  }
+});
+
+test("Capture Membership management drafts pending uncertainty confirmed recovery and density.", async ({
+  workerAdminPage: page,
+}) => {
+  const fixture = await installMembershipManagementPresentation(page);
+  await maskIncidentIdentity(page, fixture.incidentId);
+  const loading = auditBrowserBarrier();
+  fixture.gateRead(loading.promise);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const panel = await openMembershipManagement(page);
+  await expect(
+    panel.getByText("Loading memberships…", { exact: true }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(page, "membership-management-loading");
+  loading.release();
+  await expect(
+    panel.getByText("Response analyst", { exact: true }),
+  ).toBeVisible();
+  await panel
+    .getByRole("button", { name: /^Change role for Response analyst/u })
+    .click();
+  const role = panel.getByRole("combobox", {
+    name: /^Role for Response analyst/u,
+  });
+  await role.selectOption("reviewer");
+  await assertViewportVisualRegression(page, "membership-management-role");
+  const pending = auditBrowserBarrier();
+  fixture.gateWrite(pending.promise);
+  fixture.mutation(503);
+  await panel.getByRole("button", { name: "Save role", exact: true }).click();
+  await expect(
+    panel.getByText(/Saving the reviewed membership action/u),
+  ).toBeVisible();
+  await assertViewportVisualRegression(page, "membership-management-pending");
+  pending.release();
+  await expect(panel.getByText(/has an uncertain outcome/u)).toBeVisible();
+  await assertViewportVisualRegression(page, "membership-management-uncertain");
+  fixture.setPage([
+    membershipBrowserMember(fixture.incidentId, {
+      role: "reviewer",
+      membership_version: 2,
+    }),
+  ]);
+  await panel
+    .getByRole("button", { name: "Observe current membership", exact: true })
+    .click();
+  await expect(
+    panel.getByText(/Observed role: reviewer; version: 2/u),
+  ).toBeVisible();
+  await panel
+    .getByRole("button", { name: "Review observed membership", exact: true })
+    .first()
+    .click();
+  fixture.mutation(
+    200,
+    membershipBrowserMember(fixture.incidentId, {
+      role: "reviewer",
+      membership_version: 2,
+    }),
+  );
+  fixture.failRead();
+  await panel.getByRole("button", { name: "Save role", exact: true }).click();
+  await expect(
+    panel.getByRole("button", { name: "Retry member refresh", exact: true }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "membership-management-confirmed-refresh-failure",
+  );
+  fixture.setPage([membershipBrowserMember(fixture.incidentId)]);
+  await panel
+    .getByRole("button", { name: "Retry member refresh", exact: true })
+    .click();
+  await expect(panel.getByText(/Page 1:/u)).toBeVisible();
+  await panel
+    .getByRole("button", {
+      name: /^Remove incident access for Response analyst/u,
+    })
+    .click();
+  const review = panel.getByRole("form");
+  const scrollReview = async () => {
+    await review.evaluate((element) =>
+      element.scrollIntoView({ block: "start", behavior: "instant" }),
+    );
+  };
+  await page.setViewportSize({ width: 390, height: 480 });
+  await scrollReview();
+  await assertViewportVisualRegression(
+    page,
+    "membership-management-removal-narrow",
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await scrollReview();
+  await assertViewportVisualRegression(
+    page,
+    "membership-management-removal-zoom",
+  );
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await scrollReview();
+  await assertViewportVisualRegression(
+    page,
+    "membership-management-removal-spacing",
+  );
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  const originalDensity = (await readVisualAccountPreferences(page))
+    .density_mode;
+  try {
+    for (const density of ["compact", "comfortable"] as const) {
+      await setVisualAccountDensity(page, density);
+      await page.reload();
+      await maskIncidentIdentity(page, fixture.incidentId);
+      await openMembershipManagement(page);
+      await expect(panel.getByText(/Page 1:/u)).toBeVisible();
+      await expect(panel).toHaveCSS(
+        "font-size",
+        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+      );
+      await expect(panel.getByRole("article")).toHaveCSS(
+        "padding",
+        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+      );
+      await panel
+        .getByRole("button", { name: /^Change role for Response analyst/u })
+        .click();
+      await scrollReview();
+      await assertViewportVisualRegression(
+        page,
+        `membership-management-${density}`,
+      );
     }
   } finally {
     await setVisualAccountDensity(page, originalDensity);

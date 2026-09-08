@@ -1159,6 +1159,9 @@ test("lets incident admins manage memberships and hides those controls from non-
   await openIncidentControls(page, "memberships");
 
   await page
+    .getByRole("button", { name: "Add existing account", exact: true })
+    .click();
+  await page
     .getByTestId(incidentMembershipEmailInputTestId())
     .fill(memberEmail);
   await page
@@ -1170,8 +1173,14 @@ test("lets incident admins manage memberships and hides those controls from non-
     page.getByTestId(incidentMembershipRowTestId(memberUser.user_id)),
   ).toBeVisible();
   await expect(
-    page.getByTestId(incidentMembershipRoleInputTestId(memberUser.user_id)),
-  ).toHaveValue("viewer");
+    page.getByTestId(incidentMembershipRoleDisplayTestId(memberUser.user_id)),
+  ).toHaveText("viewer");
+  await page
+    .getByRole("button", {
+      name: `Change role for ${memberUser.display_name} (${memberUser.user_id})`,
+      exact: true,
+    })
+    .click();
 
   await page
     .getByTestId(incidentMembershipRoleInputTestId(memberUser.user_id))
@@ -1181,8 +1190,8 @@ test("lets incident admins manage memberships and hides those controls from non-
     .click();
 
   await expect(
-    page.getByTestId(incidentMembershipRoleInputTestId(memberUser.user_id)),
-  ).toHaveValue("reviewer");
+    page.getByTestId(incidentMembershipRoleDisplayTestId(memberUser.user_id)),
+  ).toHaveText("reviewer");
   await expect(
     page.getByTestId(incidentMembershipVersionTestId(memberUser.user_id)),
   ).toHaveText("Version 2");
@@ -1264,6 +1273,9 @@ test("lets incident admins manage memberships and hides those controls from non-
   await openIncidentControls(page, "memberships");
   await page
     .getByTestId(incidentMembershipDeleteButtonTestId(memberUser.user_id))
+    .click();
+  await page
+    .getByRole("button", { name: "Confirm removal", exact: true })
     .click();
   await expect(
     page.getByTestId(incidentMembershipRowTestId(memberUser.user_id)),

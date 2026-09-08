@@ -54,7 +54,7 @@ export function auditBrowserEvent(overrides: Partial<Event> = {}): Event {
     ...overrides,
   };
 }
-export function auditBrowserEnvelope(
+function auditBrowserEnvelope(
   rows: Event[] = [auditBrowserEvent()],
   cursor: string | null = null,
 ): ListAdministrativeAuditEventsResponse {

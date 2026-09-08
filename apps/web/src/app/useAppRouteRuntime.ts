@@ -34,7 +34,7 @@ const readIndex = () => {
     : null;
 };
 
-/** The application route owner guards only the single deployment-user draft. */
+/** The application route owner delegates deliberate departure to the active feature. */
 export function useAppRouteRuntime(policy?: LeavePolicy): AppRouteRuntime {
   const [route, setRoute] = useState<AppRouteState>(() => readAppRouteState());
   const routeRef = useRef(route);
