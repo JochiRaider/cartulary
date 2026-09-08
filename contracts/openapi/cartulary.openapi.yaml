@@ -2501,7 +2501,14 @@
         "summary": "Close an active incident using optimistic concurrency and route-scoped idempotency.",
         "tags": [
           "incidents"
-        ]
+        ],
+        "x-cartulary-string-contracts": {
+          "reason": {
+            "normalized_max_scalar_values": 4096,
+            "required": true,
+            "string_contract_id": "reason_note_v1"
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/membership-audit-events": {
@@ -3056,7 +3063,14 @@
         "summary": "Reopen a closed incident using optimistic concurrency and route-scoped idempotency.",
         "tags": [
           "incidents"
-        ]
+        ],
+        "x-cartulary-string-contracts": {
+          "reason": {
+            "normalized_max_scalar_values": 4096,
+            "required": true,
+            "string_contract_id": "reason_note_v1"
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/report-compositions": {
@@ -12701,7 +12715,7 @@
             "type": "string"
           },
           "reason": {
-            "maxLength": 4096,
+            "description": "Required reason_note_v1: normalized NFC multiline text, nonempty after normalization, at most 4096 Unicode scalar values after normalization.",
             "minLength": 1,
             "type": "string"
           }

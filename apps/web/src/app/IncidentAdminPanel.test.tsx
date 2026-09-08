@@ -1,8 +1,14 @@
 import { incidentAdministrationTestId } from "@cartulary/ui-contracts";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
+import { LifecycleTestSurface } from "./incidentLifecycleTestSurface";
 
 describe("IncidentAdminPanel", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -146,7 +152,7 @@ describe("IncidentAdminPanel", () => {
     ).toBe("");
   });
 
-  it("uses generated lifecycle bindings, replaces returned state, and refreshes conflicts for explicit retry", async () => {
+  it("composes reviewed lifecycle actions with summary and preserves preferences during reconciliation", async () => {
     const lifecycleRequests: Array<Record<string, unknown>> = [];
     let currentIncident = incidentSummary();
     let incidentReads = 0;
@@ -159,7 +165,9 @@ describe("IncidentAdminPanel", () => {
         method === "GET"
       ) {
         incidentReads += 1;
-        return Promise.resolve(jsonResponse({ data: currentIncident }));
+        return Promise.resolve(
+          jsonResponse({ data: currentIncident, meta: { request_id: "read" } }),
+        );
       }
       if (
         (url ===
@@ -218,7 +226,7 @@ describe("IncidentAdminPanel", () => {
     });
 
     render(
-      <IncidentAdminPanel
+      <LifecycleTestSurface
         activeSection="summary"
         currentIncidentRole="admin"
         incidentId="00000000-0000-4000-8000-000000001001"
@@ -232,17 +240,28 @@ describe("IncidentAdminPanel", () => {
         target: { value: "  containment complete  " },
       },
     );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId(incidentAdministrationTestId("close-button"))
+          .getAttribute("aria-disabled"),
+      ).toBe("false"),
+    );
     fireEvent.click(
       screen.getByTestId(incidentAdministrationTestId("close-button")),
     );
-    await screen.findByText("Incident closed.");
+    expect(lifecycleRequests).toHaveLength(0);
+    fireEvent.click(
+      screen.getByTestId(incidentAdministrationTestId("lifecycle-confirm")),
+    );
+    await screen.findByText("Close confirmed.");
     expect(
       screen.getByTestId(incidentAdministrationTestId("summary-status"))
         .textContent,
     ).toBe("Closed, read-only");
     expect(lifecycleRequests[0]).toMatchObject({
       base_incident_version: 1,
-      reason: "containment complete",
+      reason: "  containment complete  ",
     });
     expect(typeof lifecycleRequests[0]?.client_txn_id).toBe("string");
 
@@ -252,17 +271,30 @@ describe("IncidentAdminPanel", () => {
         target: { value: "new evidence" },
       },
     );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId(incidentAdministrationTestId("reopen-button"))
+          .getAttribute("aria-disabled"),
+      ).toBe("false"),
+    );
     fireEvent.click(
       screen.getByTestId(incidentAdministrationTestId("reopen-button")),
     );
-    await screen.findByText(
-      "Incident changed; refreshed current state. Review and retry.",
+    fireEvent.click(
+      screen.getByTestId(incidentAdministrationTestId("lifecycle-confirm")),
     );
+    await screen.findByText(/incident version changed.*review/i);
     expect(lifecycleRequests[1]).toMatchObject({
       base_incident_version: 2,
       reason: "new evidence",
     });
     expect(incidentReads).toBeGreaterThanOrEqual(2);
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("workbook-preferences"),
+      ),
+    ).toHaveLength(2);
     expect(
       screen.getByTestId(incidentAdministrationTestId("summary-version"))
         .textContent,

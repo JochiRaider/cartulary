@@ -464,6 +464,12 @@ export class WorkbookMutationRuntime {
     this.requestDrain();
   }
 
+  /** Called only after version-fenced current incident observation. No automatic replay. */
+  observeIncidentReopened(): void {
+    this.pendingRuntime.model.resumeAfterIncidentReopen();
+    this.emit();
+  }
+
   pauseForTerminalLifecycle(): void {
     this.pendingRuntime.model.pauseForTerminalLifecycle();
     this.emit();
@@ -485,10 +491,12 @@ export class WorkbookMutationRuntime {
       this.lifecycle.dispose();
       return;
     }
-    if (
-      reason.kind === "incident_closed" ||
-      reason.kind === "incident_changed"
-    ) {
+    if (reason.kind === "incident_closed") {
+      this.pendingRuntime.model.pauseForIncidentClosure();
+      this.emit();
+      return;
+    }
+    if (reason.kind === "incident_changed") {
       this.pauseForTerminalLifecycle();
       return;
     }

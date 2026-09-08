@@ -128,6 +128,7 @@ import {
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
+import { openIncidentFromLanding } from "./pages/incidentDirectory";
 import { gridSavedRows } from "./pages/workbookInspector";
 import {
   auditBrowserBarrier,
@@ -163,6 +164,10 @@ import {
   networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
+import {
+  expectLifecycleControlReachable,
+  openLifecycle,
+} from "./support/incidentLifecycle";
 import {
   installMembershipAuditPresentation,
   membershipBrowserEvent,
@@ -7923,7 +7928,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
   fixture.gateRead(gate.promise);
   const panel = await openMetadata(page);
   await expect(
-    panel.getByText("Loading promoted fields…", { exact: true }),
+    panel.getByText("Refreshing promoted fields…", { exact: true }),
   ).toBeVisible();
   await assertViewportVisualRegression(page, "metadata-loading");
   gate.release();
@@ -8008,7 +8013,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
   );
   fixture.observe({
     severity: "critical",
-    incident_version: 3,
+    incident_version: 4,
     status: "closed",
     closed_at: "2026-08-01T00:00:00Z",
   });
@@ -8017,7 +8022,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
     .click();
   await expect(panel.getByText(/This incident is closed/u)).toBeVisible();
   await assertViewportVisualRegression(page, "metadata-closed");
-  fixture.observe({ status: "active", closed_at: null, incident_version: 4 });
+  fixture.observe({ status: "active", closed_at: null, incident_version: 5 });
   const originalDensity = (await readVisualAccountPreferences(page))
     .density_mode;
   try {
@@ -8038,6 +8043,150 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
       );
       await severity.fill("critical exact input");
       await assertViewportVisualRegression(page, `metadata-${density}`);
+    }
+  } finally {
+    await setVisualAccountDensity(page, originalDensity);
+  }
+});
+
+test("Capture Lifecycle review pending exact recovery confirmation responsive and density.", async ({
+  workerAdminPage: page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("LC-VISUAL"),
+    "Incident lifecycle review",
+  );
+  await openIncidentFromLanding(page, incidentId);
+  const panel = await openLifecycle(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const capture = async (name: string, anchor = panel) => {
+    await anchor.scrollIntoViewIfNeeded();
+    await assertViewportVisualRegression(page, name);
+    await test.info().attach(`${name}-review`, {
+      body: await page.screenshot({
+        animations: "disabled",
+        caret: "hide",
+        fullPage: false,
+      }),
+      contentType: "image/png",
+    });
+  };
+  const reason = panel.getByRole("textbox", { name: "Reason", exact: true });
+  await reason.fill(
+    "Containment reviewed.\nRetain local investigation drafts.",
+  );
+  await capture("lifecycle-reason");
+  await panel
+    .getByRole("button", { name: "Close incident", exact: true })
+    .click();
+  const confirm = panel.getByRole("button", {
+    name: "Confirm Close incident",
+    exact: true,
+  });
+  await expectLifecycleControlReachable(page, confirm);
+  await capture("lifecycle-review", confirm);
+  await page.setViewportSize({ width: 390, height: 480 });
+  await expectLifecycleControlReachable(page, confirm);
+  await capture("lifecycle-review-narrow", confirm);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectLifecycleControlReachable(page, confirm);
+  await capture("lifecycle-review-zoom", confirm);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await expectLifecycleControlReachable(page, confirm);
+  await capture("lifecycle-review-spacing", confirm);
+  await spacing.evaluate((e) => e.parentNode?.removeChild(e));
+  await page.setViewportSize({ width: 1024, height: 720 });
+  const pending = auditBrowserBarrier();
+  let writes = 0;
+  let failedReads = false;
+  await page.route(`**/api/v1/incidents/${incidentId}/close`, async (route) => {
+    ++writes;
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    if (writes === 1) {
+      await pending.promise;
+      await route.abort("failed");
+    } else await route.fulfill({ response });
+  });
+  await page.route(`**/api/v1/incidents/${incidentId}`, async (route) => {
+    if (failedReads && route.request().method() === "GET")
+      await route.fulfill({
+        status: 503,
+        json: {
+          error: { code: "internal_error" },
+          meta: { request_id: "lc-visual-read-failure" },
+        },
+      });
+    else await route.continue();
+  });
+  await confirm.click();
+  await expect.poll(() => writes).toBe(1);
+  await expect(panel.getByText(/Close request sent/u)).toBeVisible();
+  await capture("lifecycle-pending", confirm);
+  pending.release();
+  await expect(panel.getByText(/Close result is uncertain/u)).toBeVisible();
+  const replay = panel.getByRole("button", {
+    name: "Replay original action",
+    exact: true,
+  });
+  await expectLifecycleControlReachable(page, replay);
+  await capture("lifecycle-uncertain", replay);
+  failedReads = true;
+  await replay.click();
+  await expect(
+    panel.getByText(
+      /The action is confirmed, but current state could not be refreshed/u,
+    ),
+  ).toBeVisible();
+  const refresh = panel.getByRole("button", {
+    name: "Refresh current incident",
+    exact: true,
+  });
+  await expectLifecycleControlReachable(page, refresh);
+  await capture("lifecycle-confirmed-refresh-failure", refresh);
+  failedReads = false;
+  await refresh.click();
+  await expect(
+    panel.getByText(/Current accepted state: Closed, read-only · Version 2/u),
+  ).toBeVisible();
+  await capture("lifecycle-closed", panel);
+  const originalDensity = (await readVisualAccountPreferences(page))
+    .density_mode;
+  try {
+    for (const density of ["compact", "comfortable"] as const) {
+      await setVisualAccountDensity(page, density);
+      await page.reload();
+      await openLifecycle(page);
+      await page.setViewportSize({ width: 768, height: 640 });
+      await expect(panel).toHaveCSS(
+        "font-size",
+        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+      );
+      await expect(panel).toHaveCSS(
+        "padding",
+        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+      );
+      await reason.fill("Review new evidence before reopening.");
+      await panel
+        .getByRole("button", { name: "Reopen incident", exact: true })
+        .click();
+      const reopen = panel.getByRole("button", {
+        name: "Confirm Reopen incident",
+        exact: true,
+      });
+      await expectLifecycleControlReachable(page, reopen);
+      await capture(`lifecycle-${density}`, reopen);
     }
   } finally {
     await setVisualAccountDensity(page, originalDensity);

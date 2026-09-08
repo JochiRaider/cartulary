@@ -3,6 +3,7 @@ package incidents_test
 import (
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,7 +87,7 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	httptestx.RequireErrorEnvelope(t, viewerDenied, http.StatusForbidden, "authorization_denied")
 
 	const deploymentAdminSecretBase32 = "JBSWY3DPEHPK3QAA"
-	flowtest.SeedLocalUserWithActiveTOTP(
+	secondAdminID := flowtest.SeedLocalUserWithActiveTOTP(
 		t,
 		harness.DB,
 		"incident-lifecycle-nonmember@example.test",
@@ -165,21 +166,37 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	}, adminLogin)
 	httptestx.RequireErrorEnvelope(t, staleReopen, http.StatusConflict, "incident_version_conflict")
 
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+		"client_txn_id": "txn-lifecycle-second-admin", "user_id": secondAdminID, "role": "admin",
+	})
 	reopenTime := closeTime.Add(time.Minute)
 	httptestx.SetClockFixed(t, harness.Server, reopenTime)
 	reopenResponse := lifecycleRequest(t, path+"/reopen", map[string]any{
 		"base_incident_version": 2,
 		"client_txn_id":         "txn-lifecycle-reopen",
 		"reason":                "Resume response.",
-	}, adminLogin)
+	}, deploymentAdminLogin)
 	reopenData := httptestx.RequireSuccessEnvelope(t, reopenResponse, http.StatusOK)["data"].(map[string]any)
 	if reopenData["status"] != "active" ||
 		reopenData["incident_version"] != float64(3) ||
 		reopenData["closed_at"] != nil ||
 		reopenData["updated_at"] != reopenTime.Format(time.RFC3339) ||
-		reopenData["updated_by_user_id"] != adminID {
+		reopenData["updated_by_user_id"] != secondAdminID {
 		t.Fatalf("unexpected reopen resource: %#v", reopenData)
 	}
+
+	historical := httptestx.RequireSuccessEnvelope(t, lifecycleRequest(t, path+"/close", closeRequest, adminLogin), http.StatusOK)["data"].(map[string]any)
+	if !reflect.DeepEqual(historical, closeData) {
+		t.Fatalf("historical receipt changed: %#v", historical)
+	}
+	observed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodGet, path, nil, httptestx.WithCookies(adminLogin.SessionCookie)), http.StatusOK)["data"].(map[string]any)
+	if !reflect.DeepEqual(observed, reopenData) {
+		t.Fatalf("replay rolled back current resource: %#v", observed)
+	}
+	// Receipt recovery still requires current administration, even for its original actor.
+	scenariotest.UpdateMembershipRole(t, harness.Server, deploymentAdminLogin, incidentID, adminID, 1, "viewer")
+	httptestx.RequireErrorEnvelope(t, lifecycleRequest(t, path+"/close", closeRequest, adminLogin), http.StatusForbidden, "authorization_denied")
+	scenariotest.UpdateMembershipRole(t, harness.Server, deploymentAdminLogin, incidentID, adminID, 2, "admin")
 
 	repeatedReopen := lifecycleRequest(t, path+"/reopen", map[string]any{
 		"base_incident_version": 3,
@@ -212,6 +229,8 @@ func TestIncidentLifecycleCloseReopenAuthorizationReplayAndTransitions_Integrati
 	if len(lifecycleEvents) != 2 ||
 		lifecycleEvents[0].EventKind != "incident_close" ||
 		lifecycleEvents[0].ReasonCode != "Close after review.\nReady." ||
+		lifecycleEvents[0].ActorUserID != adminID ||
+		lifecycleEvents[1].ActorUserID != secondAdminID ||
 		lifecycleEvents[1].EventKind != "incident_reopen" ||
 		lifecycleEvents[1].ReasonCode != "Resume response." {
 		t.Fatalf("unexpected lifecycle audit events: %#v", lifecycleEvents)
@@ -224,6 +243,21 @@ SELECT COUNT(*)
 `, incidentID); got != 2 {
 		t.Fatalf("expected exactly two committed lifecycle idempotency rows, got %d", got)
 	}
+
+	boundaryIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-lifecycle-boundary-create", "incident_key": "IR-LC-BOUNDARY", "title": "Lifecycle reason boundary",
+	})
+	boundaryPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + boundaryIncident["incident_id"].(string)
+	for index, reason := range []string{"  " + strings.Repeat("e\u0301", 4096) + "  ", strings.Repeat("😀", 4096), strings.Repeat("x", 4096)} {
+		action := "/close"
+		if index == 1 {
+			action = "/reopen"
+		}
+		request := map[string]any{"base_incident_version": index + 1, "client_txn_id": "txn-lifecycle-boundary-" + []string{"0", "1", "2"}[index], "reason": reason}
+		httptestx.RequireSuccessEnvelope(t, lifecycleRequest(t, boundaryPath+action, request, adminLogin), http.StatusOK)
+	}
+	oversized := lifecycleRequest(t, boundaryPath+"/reopen", map[string]any{"base_incident_version": 4, "client_txn_id": "txn-lifecycle-boundary-rejected", "reason": strings.Repeat("😀", 4097)}, adminLogin)
+	httptestx.RequireErrorEnvelope(t, oversized, http.StatusBadRequest, "invalid_incident_lifecycle_request")
 
 	bearerIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-incident-lifecycle-bearer-create",

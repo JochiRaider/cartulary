@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"reflect"
 	"sort"
 	"strings"
@@ -9,6 +10,32 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
+
+func TestIncidentLifecycleReasonNormalizationBoundary_Unit(t *testing.T) {
+	for name, raw := range map[string]string{
+		"decomposed":             strings.Repeat("e\u0301", 4096),
+		"surrounding whitespace": "  " + strings.Repeat("x", 4096) + "  ",
+		"supplementary scalars":  strings.Repeat("\U0001F600", 4096),
+	} {
+		t.Run(name, func(t *testing.T) {
+			body, err := json.Marshal(map[string]any{"base_incident_version": 1, "client_txn_id": "normalization-boundary", "reason": raw})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, apiErr := admitIncidentLifecycleJSON(incidents.LifecycleActionClose, strings.NewReader(string(body))); apiErr != nil {
+				t.Fatalf("valid normalized reason rejected: %v", apiErr)
+			}
+		})
+	}
+	t.Run("projection does not cap raw text before normalization", func(t *testing.T) {
+		document := contracttest.OpenAPIDocument(t)
+		schemas := openAPIObjectAt(t, openAPIObjectAt(t, document, "components"), "schemas")
+		reason := openAPIObjectAt(t, openAPIObjectAt(t, openAPIObjectAt(t, schemas, "IncidentLifecycleRequest"), "properties"), "reason")
+		if _, present := reason["maxLength"]; present {
+			t.Fatal("raw maxLength rejects normalized-valid lifecycle reasons")
+		}
+	})
+}
 
 func TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit(t *testing.T) {
 	tooLongReason := strings.Repeat("x", 4097)

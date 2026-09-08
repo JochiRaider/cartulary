@@ -140,8 +140,11 @@ test("metadata edits each live field sparsely clears normalizes and reviews a re
   await page
     .getByRole("button", { name: "Close incident", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Confirm Close incident", exact: true })
+    .click();
   await expect(
-    page.getByText("Incident closed.", { exact: true }),
+    page.getByText("Close confirmed.", { exact: true }),
   ).toBeVisible();
   await openMetadata(page);
   await expect(panel.getByText(/This incident is closed/u)).toBeVisible();

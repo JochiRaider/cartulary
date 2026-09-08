@@ -1978,6 +1978,106 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.lifecycle_integration",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentLifecycleIntegration.test.tsx",
+        "titles": [
+          "Lifecycle App integration fans out newer lifecycle state while retaining metadata bases and rejecting stale or foreign resources",
+          "Lifecycle App integration keeps a hidden acknowledgement without hidden reads and clears it on account replacement",
+          "Lifecycle App integration rejects late old-session publication even when transport ignores abort",
+          "Lifecycle App integration retains reason through drawer return and current-member demotion with renewed administrator review"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.lifecycle_ownership",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentLifecycleController.test.ts",
+        "titles": [
+          "Incident lifecycle ownership associates validation only with its submitted revision",
+          "Incident lifecycle ownership clears protected work on explicit session or incident access loss",
+          "Incident lifecycle ownership does not treat rejected replay as proof of the original action failing",
+          "Incident lifecycle ownership fences ignored-abort completion after incident actor and lifetime changes",
+          "Incident lifecycle ownership holds the unsettled transport lock beyond timeout and accepts a late current receipt",
+          "Incident lifecycle ownership invalidates preflight on a current role change despite obsolete administrator recovery",
+          "Incident lifecycle ownership invalidates reviewed action after intent changes and after document hiding",
+          "Incident lifecycle ownership keeps illegal transition and transaction conflict distinct without automatic replacement",
+          "Incident lifecycle ownership keeps local recovery on demotion but rejects fresh and replay dispatch",
+          "Incident lifecycle ownership keeps newer reopened state while acknowledging the original close",
+          "Incident lifecycle ownership locks same-tick admission before authorization and uses Web Crypto",
+          "Incident lifecycle ownership never publishes a replay receipt as current even without a newer local version",
+          "Incident lifecycle ownership preserves newer reason input after delayed confirmation",
+          "Incident lifecycle ownership rechecks current admin authority before dispatch without treating preflight failure as a sent action",
+          "Incident lifecycle ownership rejects invalid resource state and conflicting same-version publication",
+          "Incident lifecycle ownership replays the exact route actor lifetime key version and raw payload despite newer form input",
+          "Incident lifecycle ownership requires current reviewed intent and version for a fresh action",
+          "Incident lifecycle ownership requires renewed review after version rejection and allocates a fresh key",
+          "Incident lifecycle ownership retains confirmation when subsequent resource and authorization reads fail",
+          "Incident lifecycle ownership retains settled transport loss until explicit replay and never infers receipt from reads",
+          "Incident lifecycle ownership retains work across drawer hiding and revalidates on return without hidden dispatch",
+          "Incident lifecycle ownership separates reason discard and departure forgetting from server cancellation",
+          "Incident lifecycle ownership settles a dispatched action while hidden without starting follow-up reads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.lifecycle_transport",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/incidentLifecycleClient.test.ts",
+        "titles": [
+          "Incident lifecycle transport accepts exact historical receipts and sends normalized-valid long raw reasons unchanged",
+          "Incident lifecycle transport preserves typed error distinctions without retaining private diagnostics",
+          "Incident lifecycle transport rejects identity version transition and closed-at contradictions",
+          "Incident lifecycle transport uses existing generated operations and sends only exact captured members"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.membership_management_ownership",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

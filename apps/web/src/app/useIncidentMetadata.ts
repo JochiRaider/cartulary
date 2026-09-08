@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
+import type { IncidentResource } from "../shared/incidentResource";
 import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
 import {
   patchIncidentMetadata,
@@ -7,9 +8,13 @@ import {
 } from "./api/incidentMetadataClient";
 import type { AppSessionController } from "./appSessionController";
 import { IncidentMetadataController } from "./incidentMetadataController";
+import type { MetadataAuthority } from "./incidentMetadataModel";
 
 /** Retains one workflow above drawer mounts; App remains the session authority. */
 export function useIncidentMetadata(options: {
+  onResourceAccepted?:
+    | ((resource: IncidentResource, authority: MetadataAuthority) => void)
+    | undefined;
   sessionController: AppSessionController;
   recovery: AuthorizationRecoveryPort;
   currentIncidentId: () => string;
@@ -60,7 +65,9 @@ export function useIncidentMetadata(options: {
           else current.current.onIncidentAccessLost();
         },
         publishResource: (resource, authority) => {
-          if (workbook.current?.incidentId === authority.incidentId)
+          if (current.current.onResourceAccepted)
+            current.current.onResourceAccepted(resource, authority);
+          else if (workbook.current?.incidentId === authority.incidentId)
             workbook.current.onIncidentResourceAccepted?.(resource);
         },
       }),

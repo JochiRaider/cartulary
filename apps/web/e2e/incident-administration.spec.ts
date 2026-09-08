@@ -1256,6 +1256,9 @@ test("lets incident admins manage memberships and hides those controls from non-
     .getByTestId(incidentAdministrationTestId("lifecycle-reason"))
     .fill("Membership access review complete");
   await page.getByTestId(incidentAdministrationTestId("close-button")).click();
+  await page
+    .getByTestId(incidentAdministrationTestId("lifecycle-confirm"))
+    .click();
   await expect(
     page.getByTestId(incidentAdministrationTestId("summary-status")),
   ).toHaveText("Closed, read-only");
@@ -1263,6 +1266,9 @@ test("lets incident admins manage memberships and hides those controls from non-
     .getByTestId(incidentAdministrationTestId("lifecycle-reason"))
     .fill("Additional membership cleanup required");
   await page.getByTestId(incidentAdministrationTestId("reopen-button")).click();
+  await page
+    .getByTestId(incidentAdministrationTestId("lifecycle-confirm"))
+    .click();
   await expect(
     page.getByTestId(incidentAdministrationTestId("summary-status")),
   ).toHaveText("active");

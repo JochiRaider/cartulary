@@ -7,12 +7,14 @@ type DepartureOwner = {
 export async function reviewAppDeparture(options: {
   memberships: DepartureOwner;
   metadata: DepartureOwner;
+  lifecycle: DepartureOwner;
   deploymentUsers: DepartureOwner;
   isCurrent: () => boolean;
 }): Promise<boolean> {
   const owners = [
     options.memberships,
     options.metadata,
+    options.lifecycle,
     options.deploymentUsers,
   ];
   for (const owner of owners) {

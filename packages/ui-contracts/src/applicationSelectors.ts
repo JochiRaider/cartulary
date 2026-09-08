@@ -161,6 +161,14 @@ type IncidentAdministrationSelector =
   | "admin-status"
   | "close-button"
   | "lifecycle-reason"
+  | "lifecycle-panel"
+  | "lifecycle-current"
+  | "lifecycle-review"
+  | "lifecycle-confirm"
+  | "lifecycle-outcome"
+  | "lifecycle-replay"
+  | "lifecycle-notice"
+  | "lifecycle-refresh"
   | "patch-button"
   | "patch-current-phase"
   | "patch-description"
@@ -343,6 +351,14 @@ const incidentAdministrationTestIds = Object.freeze({
   "admin-status": "incident-admin-status",
   "close-button": "incident-close-button",
   "lifecycle-reason": "incident-lifecycle-reason",
+  "lifecycle-panel": "incident-lifecycle-panel",
+  "lifecycle-current": "incident-lifecycle-current",
+  "lifecycle-review": "incident-lifecycle-review",
+  "lifecycle-confirm": "incident-lifecycle-confirm",
+  "lifecycle-outcome": "incident-lifecycle-outcome",
+  "lifecycle-replay": "incident-lifecycle-replay",
+  "lifecycle-notice": "incident-lifecycle-notice",
+  "lifecycle-refresh": "incident-lifecycle-refresh",
   "patch-button": "incident-patch-button",
   "patch-current-phase": "incident-patch-current-phase",
   "patch-description": "incident-patch-description",

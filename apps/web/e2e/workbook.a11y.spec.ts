@@ -146,7 +146,10 @@ import {
   DeploymentAdministration,
   openIncidentControls,
 } from "./pages/deploymentAdministration";
-import { IncidentDirectory } from "./pages/incidentDirectory";
+import {
+  IncidentDirectory,
+  openIncidentFromLanding,
+} from "./pages/incidentDirectory";
 import {
   auditBrowserBarrier,
   auditBrowserEvent,
@@ -189,6 +192,10 @@ import {
   networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
+import {
+  expectLifecycleControlReachable,
+  openLifecycle,
+} from "./support/incidentLifecycle";
 import {
   expectMembershipControlReachable,
   installMembershipAuditPresentation,
@@ -6629,4 +6636,112 @@ test("a11y.metadata native inputs inline review discard and drawer focus remain 
   await expect(panel.getByLabel("Severity", { exact: true })).toHaveValue(
     "intended",
   );
+});
+
+test("a11y.lifecycle multiline reason inline review exact recovery and departure retain keyboard focus", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("LC-A11Y"),
+    "Lifecycle accessibility review",
+  );
+  await openIncidentFromLanding(page, incidentId);
+  const panel = await openLifecycle(page);
+  const reason = panel.getByRole("textbox", { name: "Reason", exact: true });
+  await reason.fill("First reason line");
+  await reason.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Second reason line");
+  await expect(reason).toHaveValue("First reason line\nSecond reason line");
+  const close = panel.getByRole("button", {
+    name: "Close incident",
+    exact: true,
+  });
+  await close.focus();
+  await page.keyboard.press("Enter");
+  const confirm = panel.getByRole("button", {
+    name: "Confirm Close incident",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1024, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [
+      reason,
+      confirm,
+      panel.getByRole("button", { name: "Cancel review", exact: true }),
+      panel.getByRole("button", {
+        name: "Refresh current incident",
+        exact: true,
+      }),
+    ]) {
+      await expectLifecycleControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectLifecycleControlReachable(page, confirm);
+  await expectVisibleFocus(confirm);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await expectLifecycleControlReachable(page, confirm);
+  await spacing.evaluate((e) => e.parentNode?.removeChild(e));
+  let requests = 0;
+  await page.route(`**/api/v1/incidents/${incidentId}/close`, async (route) => {
+    ++requests;
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    if (requests === 1) await route.abort("failed");
+    else await route.fulfill({ response });
+  });
+  await confirm.focus();
+  await page.keyboard.press("Enter");
+  await expect(panel.getByText(/Close result is uncertain/u)).toBeVisible();
+  const refresh = panel.getByRole("button", {
+    name: "Refresh current incident",
+    exact: true,
+  });
+  await expect(refresh).toBeFocused();
+  await expectVisibleFocus(refresh);
+  const replay = panel.getByRole("button", {
+    name: "Replay original action",
+    exact: true,
+  });
+  await expectLifecycleControlReachable(page, replay);
+  await expectVisibleFocus(replay);
+  await page.keyboard.press("Enter");
+  await expect(
+    panel.getByText("Close confirmed.", { exact: true }),
+  ).toBeVisible();
+  await expect(refresh).toBeFocused();
+  expect(requests).toBe(2);
+  await expectAllInteractiveControlsNamed(page);
+  await testInfo.attach("lifecycle-accessibility-tree", {
+    body: await panel.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(
+    page.getByLabel("Account and application navigation"),
+  ).toBeFocused();
+  await openLifecycle(page);
+  await expect(
+    panel.getByText("Close confirmed.", { exact: true }),
+  ).toBeVisible();
 });

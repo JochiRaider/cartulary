@@ -1346,6 +1346,30 @@
       "classification": "additive",
       "owner_id": "module.incidents",
       "rationale": "Project the existing incident metadata PATCH request and its normalized string bindings for generated clients without changing server behavior."
+    },
+    {
+      "fingerprint": "11ca5fabca6b61dad4758c4449aec9332a91e4497e8528d0fed9f60df22e0d28",
+      "classification": "non_behavioral",
+      "owner_id": "module.incidents",
+      "rationale": "Correct the lifecycle reason projection to describe the existing required normalized-scalar limit; raw decomposed or padded text accepted by server normalization must not be rejected by a pre-normalization length constraint."
+    },
+    {
+      "fingerprint": "ac574f3f3e61df44d46306b2f0b80e59a21e115763a118245d7c256343420ea7",
+      "classification": "breaking",
+      "owner_id": "module.incidents",
+      "rationale": "Correct the lifecycle reason projection to describe the existing required normalized-scalar limit; raw decomposed or padded text accepted by server normalization must not be rejected by a pre-normalization length constraint."
+    },
+    {
+      "fingerprint": "72638db8f11c2d7fca9e87030ded15ab0d9ec1c43bdc234fb4bbee4d1c60d51c",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Correct the lifecycle reason projection to describe the existing required normalized-scalar limit; raw decomposed or padded text accepted by server normalization must not be rejected by a pre-normalization length constraint."
+    },
+    {
+      "fingerprint": "2c2c40fa245cfbae1e43d219b26bd2e734725ccaaee1457587470bca967d6a57",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Correct the lifecycle reason projection to describe the existing required normalized-scalar limit; raw decomposed or padded text accepted by server normalization must not be rejected by a pre-normalization length constraint."
     }
   ]
 }

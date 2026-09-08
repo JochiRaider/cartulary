@@ -1539,6 +1539,9 @@ export interface IncidentResource {
 export interface IncidentLifecycleRequest {
   base_incident_version: number;
   client_txn_id: string;
+  /**
+   * Required reason_note_v1: normalized NFC multiline text, nonempty after normalization, at most 4096 Unicode scalar values after normalization.
+   */
   reason: string;
 }
 /**

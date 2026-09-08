@@ -13,6 +13,7 @@ import {
   networkFlowActivityProfileId,
 } from "../extensions/extensionWorkspaceIdentities";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
+import type { IncidentResource } from "../shared/incidentResource";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -80,6 +81,10 @@ type WorkbookShellProps = {
     | undefined;
   currentUserLabel?: string | undefined;
   initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
+  acceptedIncidentResource?: IncidentResource | null | undefined;
+  onIncidentResourceObserved?:
+    | ((resource: IncidentResource) => void)
+    | undefined;
   extensionProfiles?: readonly ExtensionDiscoveryProfile[] | null | undefined;
   onSessionLost?: (() => void) | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
@@ -105,6 +110,8 @@ function WorkbookShellContent({
   accountApplicationMenu,
   currentUserLabel,
   initialIncidentIdentity,
+  acceptedIncidentResource,
+  onIncidentResourceObserved,
   extensionProfiles = noExtensionProfiles,
   onIncidentAccessLost,
   onSessionLost,
@@ -143,6 +150,8 @@ function WorkbookShellContent({
       incidentPort: infrastructure.incidentPort,
       incidentId,
       initialIncidentIdentity,
+      acceptedIncidentResource,
+      onIncidentResourceObserved,
       onIncidentAccessLost,
     });
   const queries = useWorkbookSurfaceQueries({
@@ -189,6 +198,13 @@ function WorkbookShellContent({
     sheetReloadToken: snapshot.sheetReloadToken,
     surface: snapshot.surface,
   });
+  useEffect(() => {
+    if (!incidentIdentity) return;
+    if (incidentIdentity?.status === "closed")
+      infrastructure.mutationRuntime.invalidate({ kind: "incident_closed" });
+    else if (incidentIdentity?.status === "active")
+      infrastructure.mutationRuntime.observeIncidentReopened();
+  }, [incidentIdentity, infrastructure.mutationRuntime]);
   const interactionMode = workbookGridInteractionMode(
     incidentIdentity?.status,
     authorization.currentIncidentRole,

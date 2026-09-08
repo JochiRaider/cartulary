@@ -172,7 +172,7 @@ export class IncidentMetadataController {
     return false;
   }
   /** Accept external/lifecycle observations without changing an outstanding draft's base. */
-  acceptResource = (resource: IncidentMetadataResource) => {
+  acceptResource = (resource: IncidentMetadataResource, broadcast = true) => {
     const authority = this.state.authority;
     if (
       !authority ||
@@ -205,7 +205,7 @@ export class IncidentMetadataController {
           }
         : newMetadataDraft(accepted),
     });
-    this.ports.publishResource?.(accepted, authority);
+    if (broadcast) this.ports.publishResource?.(accepted, authority);
   };
   refresh = () => {
     const authority = this.state.authority;

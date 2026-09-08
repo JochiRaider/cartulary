@@ -1088,6 +1088,8 @@ class WorkbookPendingQueueState {
   private halted: PendingReplayHalt | null = null;
   private authPaused = false;
   private terminalReplayPaused = false;
+  private incidentReopened = false;
+  private incidentClosurePaused = false;
   private retired = false;
   private overflow: PendingReplayOverflow | null = null;
   private readonly sameFieldConflicts: PendingReplaySameFieldConflict[] = [];
@@ -1229,6 +1231,7 @@ class WorkbookPendingQueueState {
     }
 
     this.units.push(unit);
+    this.describeIncidentClosureWork();
     return {
       accepted: true,
       status: "accepted",
@@ -1291,6 +1294,7 @@ class WorkbookPendingQueueState {
       this.units = this.units.filter((candidate) => candidate !== unit);
       this.authPaused = false;
       this.halted = null;
+      this.describeIncidentClosureWork();
       return {
         outcome: "success",
         unit: completedUnit,
@@ -1303,6 +1307,7 @@ class WorkbookPendingQueueState {
     }
 
     unit.status = "queued";
+    this.describeIncidentClosureWork();
     if (isAuthFailure(result.status, result.error.code)) {
       this.authPaused = true;
       this.halted = null;
@@ -1479,6 +1484,7 @@ class WorkbookPendingQueueState {
       };
     }
     this.halted = null;
+    this.describeIncidentClosureWork();
     return {
       recovered: true,
       status: "discarded",
@@ -1488,9 +1494,8 @@ class WorkbookPendingQueueState {
   }
 
   resumeAfterAuthRecovery(): PendingQueueSnapshot {
-    if (!this.terminalReplayPaused) {
-      this.authPaused = false;
-    }
+    this.authPaused = false;
+    this.describeIncidentClosureWork();
     return this.snapshot();
   }
 
@@ -1500,10 +1505,51 @@ class WorkbookPendingQueueState {
     return this.snapshot();
   }
 
+  /** Describes retained work through the existing discard recovery, independently of auth. */
+  private describeIncidentClosureWork(): void {
+    if (!this.incidentClosurePaused || this.retired) return;
+    if (this.units.length === 0 && this.incidentReopened) {
+      this.terminalReplayPaused = false;
+      this.incidentClosurePaused = false;
+    } else if (this.halted === null) {
+      const unit = this.units.find(
+        (candidate) => candidate.status === "queued",
+      );
+      if (unit)
+        this.halted = {
+          unit_id: unit.id,
+          error_code: "incident_closed",
+          message: workbookEditRecoveryPresentation({
+            errorCode: "incident_closed",
+          }).message,
+          anchor: failureAnchor(unit, {
+            code: "incident_closed",
+            message: "Incident closed",
+          }),
+        };
+    }
+  }
+
+  pauseForIncidentClosure(): PendingQueueSnapshot {
+    this.terminalReplayPaused = true;
+    this.incidentClosurePaused = true;
+    this.incidentReopened = false;
+    this.describeIncidentClosureWork();
+    return this.snapshot();
+  }
+
+  /** Current state may permit new work, but never replays terminally retained work. */
+  resumeAfterIncidentReopen(): PendingQueueSnapshot {
+    if (!this.incidentClosurePaused || this.retired) return this.snapshot();
+    this.incidentReopened = true;
+    this.describeIncidentClosureWork();
+    return this.snapshot();
+  }
+
   pauseForTerminalLifecycle(): PendingQueueSnapshot {
     this.terminalReplayPaused = true;
+    this.incidentReopened = false;
     this.authPaused = true;
-    this.halted = null;
     return this.snapshot();
   }
 
@@ -1547,6 +1593,8 @@ export function createWorkbookPendingQueueModel(scope: PendingReplayScope) {
     resumeAfterAuthRecovery: () => state.resumeAfterAuthRecovery(),
     pauseForAuthRecovery: () => state.pauseForAuthRecovery(),
     pauseForTerminalLifecycle: () => state.pauseForTerminalLifecycle(),
+    resumeAfterIncidentReopen: () => state.resumeAfterIncidentReopen(),
+    pauseForIncidentClosure: () => state.pauseForIncidentClosure(),
     clearSameFieldConflict: (key: string) => state.clearSameFieldConflict(key),
   };
 }

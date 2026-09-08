@@ -180,6 +180,191 @@
       ]
     },
     {
+      "row_id": "module.incidents.browser.lifecycle_acknowledgement",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-lifecycle.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_527e9b72ca42"
+        ],
+        "titles": [
+          "lifecycle confirms a real action independently of failed reads and preserves newer input during delayed acknowledgement"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.lifecycle_boundaries",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-lifecycle.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_96fddba6266b"
+        ],
+        "titles": [
+          "lifecycle validates normalized reason boundaries and requires fresh review after a real version conflict"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.lifecycle_departure",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-lifecycle.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_1414a3b14f43"
+        ],
+        "titles": [
+          "lifecycle metadata and membership retained work receive sequential departure review with cancellation and history"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.lifecycle_replay",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-lifecycle.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_f9e8cae8d508"
+        ],
+        "titles": [
+          "lifecycle recovers a committed lost Close after another actor reopens without publishing its historical receipt"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.lifecycle_workbook",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.lifecycle_openapi_alignment",
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-lifecycle.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_bd1b5cd5fe8b"
+        ],
+        "titles": [
+          "lifecycle closure retains rejected workbook work and allowed configuration while reopening requires fresh source action"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidents.browser.membership_audit_access_recovery",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.browser",
@@ -902,6 +1087,43 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.incidents.frontend.lifecycle_characterization",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "package.protocol_ts",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.lifecycle_openapi_alignment"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentLifecycleCharacterization.test.tsx",
+        "titles": [
+          "Incident lifecycle characterization acknowledges success before subsequent authorization observation settles",
+          "Incident lifecycle characterization admits same-tick Close activation once",
+          "Incident lifecycle characterization distinguishes transaction conflict from changed incident recovery",
+          "Incident lifecycle characterization does not replace a newer accepted incident with an old action receipt",
+          "Incident lifecycle characterization excludes a delayed rejection from another incident",
+          "Incident lifecycle characterization explains an illegal transition using its current-state mismatch",
+          "Incident lifecycle characterization keeps the transaction and captured reason after an uncertain response",
+          "Incident lifecycle characterization preserves newer reason input after delayed confirmation",
+          "Incident lifecycle characterization requires renewed review after an incident version conflict",
+          "Incident lifecycle characterization retains raw reason across ordinary drawer closure",
+          "Incident lifecycle characterization retains reason across section changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.incidents.frontend.lifecycle_product_surface",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.frontend",
@@ -916,7 +1138,7 @@
       "selector": {
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
-          "IncidentAdminPanel uses generated lifecycle bindings, replaces returned state, and refreshes conflicts for explicit retry"
+          "IncidentAdminPanel composes reviewed lifecycle actions with summary and preserves preferences during reconciliation"
         ]
       },
       "evidence_class": "unit",
@@ -1912,6 +2134,7 @@
       "selector": {
         "package": "./internal/modules/incidents/httpapi",
         "tests": [
+          "TestIncidentLifecycleReasonNormalizationBoundary_Unit",
           "TestIncidentLifecycleRequestValidationUsesExactErrorFamilyAndReasons_Unit",
           "TestOpenAPIIncidentLifecycleOperationsAreCompleteAndExact_Unit"
         ]

@@ -734,10 +734,93 @@ describe("pending queue unit model", () => {
         }),
       ),
     );
-    closedIncidentQueue.pauseForTerminalLifecycle();
+    closedIncidentQueue.pauseForIncidentClosure();
+    expectAccepted(
+      closedIncidentQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-second-retained",
+          recordId: "record-second-retained",
+          order: 2,
+        }),
+      ),
+    );
+    expect(closedIncidentQueue.snapshot().authPaused).toBe(false);
+    expect(closedIncidentQueue.snapshot().halted?.error_code).toBe(
+      "incident_closed",
+    );
+    closedIncidentQueue.pauseForAuthRecovery();
     closedIncidentQueue.resumeAfterAuthRecovery();
-    expect(closedIncidentQueue.snapshot().queuedCount).toBe(1);
+    expect(closedIncidentQueue.snapshot().authPaused).toBe(false);
+    expect(closedIncidentQueue.snapshot().halted?.error_code).toBe(
+      "incident_closed",
+    );
+    expect(closedIncidentQueue.snapshot().queuedCount).toBe(2);
     expect(closedIncidentQueue.dispatchNext()).toBeNull();
+
+    // Reopening does not release retained units. Explicit discard precedes a fresh action.
+    closedIncidentQueue.resumeAfterIncidentReopen();
+    expect(closedIncidentQueue.dispatchNext()).toBeNull();
+    expect(closedIncidentQueue.snapshot().halted?.error_code).toBe(
+      "incident_closed",
+    );
+    const retained = closedIncidentQueue.snapshot().units[0];
+    if (!retained) throw new Error("Expected retained closed-incident edit");
+    expect(closedIncidentQueue.discardHaltedUnit(retained.id).recovered).toBe(
+      true,
+    );
+    expect(closedIncidentQueue.dispatchNext()).toBeNull();
+    expect(closedIncidentQueue.snapshot().halted?.error_code).toBe(
+      "incident_closed",
+    );
+    const second = closedIncidentQueue.snapshot().units[0];
+    if (!second) throw new Error("Expected second retained edit");
+    expect(closedIncidentQueue.discardHaltedUnit(second.id).recovered).toBe(
+      true,
+    );
+    expectAccepted(
+      closedIncidentQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-fresh-after-reopen",
+          recordId: "record-new",
+          order: 2,
+        }),
+      ),
+    );
+    expect(closedIncidentQueue.dispatchNext()?.unit.clientTxnId).toBe(
+      "txn-fresh-after-reopen",
+    );
+
+    const emptyClosedQueue = createQueue();
+    emptyClosedQueue.pauseForIncidentClosure();
+    expect(emptyClosedQueue.snapshot().authPaused).toBe(false);
+    emptyClosedQueue.resumeAfterIncidentReopen();
+    expectAccepted(
+      emptyClosedQueue.admit(
+        patchUnit({
+          clientTxnId: "txn-empty-fresh",
+          recordId: "record-empty-fresh",
+          order: 1,
+        }),
+      ),
+    );
+    expect(emptyClosedQueue.dispatchNext()?.unit.clientTxnId).toBe(
+      "txn-empty-fresh",
+    );
+    emptyClosedQueue.pauseForIncidentClosure();
+    emptyClosedQueue.settleDispatched({
+      ok: false,
+      status: 503,
+      error: {
+        code: "internal_error",
+        message: "Transport unavailable",
+        retryable: true,
+      },
+    });
+    expect(emptyClosedQueue.snapshot().halted?.error_code).toBe(
+      "incident_closed",
+    );
+    emptyClosedQueue.resumeAfterIncidentReopen();
+    expect(emptyClosedQueue.dispatchNext()).toBeNull();
 
     const recreatedPageInstance = createQueue();
     expect(recreatedPageInstance.snapshot().units).toHaveLength(0);

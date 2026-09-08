@@ -364,7 +364,14 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-string-contracts": {
+          "reason": {
+            "string_contract_id": "reason_note_v1",
+            "normalized_max_scalar_values": 4096,
+            "required": true
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/reopen": {
@@ -492,7 +499,14 @@
           {
             "bearerSession": []
           }
-        ]
+        ],
+        "x-cartulary-string-contracts": {
+          "reason": {
+            "string_contract_id": "reason_note_v1",
+            "normalized_max_scalar_values": 4096,
+            "required": true
+          }
+        }
       }
     },
     "/api/v1/incidents/{incident_id}/membership-audit-events": {
@@ -1003,7 +1017,7 @@
           "reason": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 4096
+            "description": "Required reason_note_v1: normalized NFC multiline text, nonempty after normalization, at most 4096 Unicode scalar values after normalization."
           }
         },
         "required": [

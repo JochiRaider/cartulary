@@ -1,3 +1,4 @@
+import { validIncidentResource } from "../../shared/incidentResource";
 import { normalizeIncidentIdentity } from "../models/workbookIncidentIdentity";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import {
@@ -26,7 +27,7 @@ export function createWorkbookIncidentAdapter(options: {
         if (outcome.kind === "rejected") {
           return normalizeWorkbookAdapterFailure(outcome, message);
         }
-        if (outcome.value.data.incident_id !== options.incidentId) {
+        if (!validIncidentResource(outcome.value.data, options.incidentId)) {
           return invalidWorkbookAdapterResult(message);
         }
         const identity = normalizeIncidentIdentity(
@@ -35,7 +36,10 @@ export function createWorkbookIncidentAdapter(options: {
         );
         return identity === null
           ? invalidWorkbookAdapterResult(message)
-          : { kind: "accepted", value: identity };
+          : {
+              kind: "accepted",
+              value: { ...identity, resource: outcome.value.data },
+            };
       } catch (error) {
         return workbookAdapterCaughtResult(error, input.signal, message);
       }

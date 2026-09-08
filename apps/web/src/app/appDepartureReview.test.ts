@@ -4,34 +4,32 @@ import { reviewAppDeparture } from "./appDepartureReview";
 
 describe("App departure review", () => {
   it("reviews all outstanding owners sequentially without overlapping dialogs", async () => {
-    const membership = metadataDeferred<boolean>();
-    const metadata = metadataDeferred<boolean>();
-    let membershipDirty = true;
-    let metadataDirty = true;
-    const owners = {
-      memberships: {
-        hasWork: () => membershipDirty,
-        requestLeave: vi.fn(() => membership.promise),
-      },
-      metadata: {
-        hasWork: () => metadataDirty,
-        requestLeave: vi.fn(() => metadata.promise),
-      },
-      deploymentUsers: {
-        hasWork: () => false,
-        requestLeave: vi.fn(async () => true),
-      },
+    const work = Array.from({ length: 4 }, () => ({
+      dirty: true,
+      decision: metadataDeferred<boolean>(),
+    }));
+    const participants = work.map((item) => ({
+      hasWork: () => item.dirty,
+      requestLeave: vi.fn(() => item.decision.promise),
+    }));
+    const [memberships, metadata, lifecycle, deploymentUsers] = participants;
+    if (!memberships || !metadata || !lifecycle || !deploymentUsers)
+      throw new Error("Missing departure fixture");
+    const result = reviewAppDeparture({
+      memberships,
+      metadata,
+      lifecycle,
+      deploymentUsers,
       isCurrent: () => true,
-    };
-    const result = reviewAppDeparture(owners);
-    expect(owners.memberships.requestLeave).toHaveBeenCalledTimes(1);
-    expect(owners.metadata.requestLeave).not.toHaveBeenCalled();
-    membershipDirty = false;
-    membership.resolve(true);
-    await Promise.resolve();
-    expect(owners.metadata.requestLeave).toHaveBeenCalledTimes(1);
-    metadataDirty = false;
-    metadata.resolve(true);
+    });
+    for (const [index, item] of work.entries()) {
+      expect(participants[index]?.requestLeave).toHaveBeenCalledTimes(1);
+      for (const later of participants.slice(index + 1))
+        expect(later.requestLeave).not.toHaveBeenCalled();
+      item.dirty = false;
+      item.decision.resolve(true);
+      await Promise.resolve();
+    }
     expect(await result).toBe(true);
   });
   it("stops on Stay and preserves unreviewed work", async () => {
@@ -40,6 +38,7 @@ describe("App departure review", () => {
       await reviewAppDeparture({
         memberships: { hasWork: () => true, requestLeave: async () => false },
         metadata: { hasWork: () => true, requestLeave: metadataLeave },
+        lifecycle: { hasWork: () => false, requestLeave: async () => true },
         deploymentUsers: {
           hasWork: () => false,
           requestLeave: async () => true,
@@ -62,6 +61,7 @@ describe("App departure review", () => {
           },
         },
         metadata: { hasWork: () => true, requestLeave: metadataLeave },
+        lifecycle: { hasWork: () => false, requestLeave: async () => true },
         deploymentUsers: {
           hasWork: () => false,
           requestLeave: async () => true,
@@ -75,6 +75,7 @@ describe("App departure review", () => {
       await reviewAppDeparture({
         memberships: stillDirty,
         metadata: stillDirty,
+        lifecycle: stillDirty,
         deploymentUsers: stillDirty,
         isCurrent: () => true,
       }),

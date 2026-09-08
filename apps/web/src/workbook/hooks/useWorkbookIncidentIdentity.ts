@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type IncidentResource,
+  validIncidentResource,
+} from "../../shared/incidentResource";
 import type { WorkbookIncidentIdentity } from "../models/workbookIncidentIdentity";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
@@ -7,9 +11,15 @@ export function useWorkbookIncidentIdentity({
   incidentPort,
   incidentId,
   initialIncidentIdentity,
+  acceptedIncidentResource,
+  onIncidentResourceObserved,
   onIncidentAccessLost,
 }: {
   readonly incidentPort: WorkbookIncidentPort;
+  readonly acceptedIncidentResource?: IncidentResource | null | undefined;
+  readonly onIncidentResourceObserved?:
+    | ((resource: IncidentResource) => void)
+    | undefined;
   readonly incidentId: string;
   readonly initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
   readonly onIncidentAccessLost?: (() => void) | undefined;
@@ -22,6 +32,8 @@ export function useWorkbookIncidentIdentity({
     string | null
   >(null);
 
+  const observed = useRef(onIncidentResourceObserved);
+  observed.current = onIncidentResourceObserved;
   const currentIncident = useRef(incidentId);
   currentIncident.current = incidentId;
   const acceptIncidentResource = useCallback(
@@ -29,13 +41,21 @@ export function useWorkbookIncidentIdentity({
       if (next.incident_id !== currentIncident.current) return;
       setIncidentIdentity((previous) =>
         previous?.incident_id === next.incident_id &&
-        previous.incident_version > next.incident_version
+        previous.incident_version >= next.incident_version
           ? previous
           : next,
       );
     },
     [],
   );
+
+  useEffect(() => {
+    if (
+      acceptedIncidentResource &&
+      validIncidentResource(acceptedIncidentResource, incidentId)
+    )
+      acceptIncidentResource(acceptedIncidentResource);
+  }, [acceptedIncidentResource, incidentId, acceptIncidentResource]);
 
   useEffect(() => {
     if (initialIncidentIdentity?.incident_id === incidentId) {
@@ -49,7 +69,11 @@ export function useWorkbookIncidentIdentity({
       const result = await incidentPort.getIdentity({
         signal: controller.signal,
       });
-      if (controller.signal.aborted || result.kind === "aborted") {
+      if (
+        controller.signal.aborted ||
+        currentIncident.current !== incidentId ||
+        result.kind === "aborted"
+      ) {
         return;
       }
       if (result.kind === "rejected") {
@@ -60,6 +84,7 @@ export function useWorkbookIncidentIdentity({
         return;
       }
       acceptIncidentResource(result.value);
+      if (result.value.resource) observed.current?.(result.value.resource);
     };
     void loadIncidentIdentity();
     return () => {

@@ -41,9 +41,12 @@ import { AuthenticationController } from "./authenticationModel";
 import { AdministrativeAuditPanel } from "./DeploymentAuditPanel";
 import { DeploymentUsersPanel } from "./DeploymentUsersPanel";
 import { DeploymentUsersController } from "./deploymentUsersModel";
-import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
+import {
+  IncidentLifecycleDepartureDialog,
+  IncidentLifecycleFeature,
+} from "./IncidentLifecyclePanel";
 import { IncidentMembershipAuditFeature } from "./IncidentMembershipAuditPanel";
 import {
   IncidentMembershipDepartureDialog,
@@ -59,9 +62,11 @@ import {
   incidentDirectoryStatusText,
 } from "./incidentDirectoryModel";
 import type { IncidentImportController } from "./incidentImportModel";
+import type { IncidentLifecycleController } from "./incidentLifecycleController";
 import type { IncidentMembershipAuditController } from "./incidentMembershipAuditController";
 import type { IncidentMembershipManagementController } from "./incidentMembershipManagementController";
 import type { IncidentMetadataController } from "./incidentMetadataController";
+import { IncidentResourceController } from "./incidentResourceController";
 import {
   IncidentDirectoryShell,
   LandingAdminShell,
@@ -80,6 +85,7 @@ import { useAppSession } from "./useAppSession";
 import { useIncidentCreation } from "./useIncidentCreation";
 import { useIncidentDirectory } from "./useIncidentDirectory";
 import { useIncidentImport } from "./useIncidentImport";
+import { useIncidentLifecycle } from "./useIncidentLifecycle";
 import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
 import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
 import { useIncidentMetadata } from "./useIncidentMetadata";
@@ -134,6 +140,8 @@ export function App({
   authNavigation,
 }: AppProps = {}) {
   const metadataRef = useRef<IncidentMetadataController | null>(null);
+  const lifecycleRef = useRef<IncidentLifecycleController | null>(null);
+  const incidentResourceRef = useRef<IncidentResourceController | null>(null);
   const membershipManagementRef =
     useRef<IncidentMembershipManagementController | null>(null);
   const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
@@ -152,6 +160,7 @@ export function App({
   const sessionControllerRef = useRef<AppSessionController | null>(null);
   const { commitRoute, route, routeRef } = useAppRouteRuntime({
     hasPendingEdits: () =>
+      (lifecycleRef.current?.hasDepartureWork() ?? false) ||
       (metadataRef.current?.hasDepartureWork() ?? false) ||
       (membershipManagementRef.current?.hasDepartureWork() ?? false) ||
       (deploymentUsersRef.current?.hasDirtyDraft() ?? false),
@@ -171,6 +180,11 @@ export function App({
           requestLeave: () =>
             metadataRef.current?.requestLeave() ?? Promise.resolve(true),
         },
+        lifecycle: {
+          hasWork: () => lifecycleRef.current?.hasDepartureWork() ?? false,
+          requestLeave: () =>
+            lifecycleRef.current?.requestLeave() ?? Promise.resolve(true),
+        },
         deploymentUsers: {
           hasWork: () => deploymentUsersRef.current?.hasDirtyDraft() ?? false,
           requestLeave: () =>
@@ -186,6 +200,8 @@ export function App({
         membershipAuditRef.current?.retire();
         membershipManagementRef.current?.retire();
         metadataRef.current?.retire();
+        lifecycleRef.current?.retire();
+        incidentResourceRef.current?.retire();
       }
       auditControllerRef.current?.setActive(false);
       importControllerRef.current?.setActive(false);
@@ -209,6 +225,8 @@ export function App({
           membershipAuditRef.current?.retire();
           membershipManagementRef.current?.retire();
           metadataRef.current?.retire();
+          lifecycleRef.current?.retire();
+          incidentResourceRef.current?.retire();
           auditControllerRef.current?.retire();
           accountEditingRef.current?.retireLifetime();
           authenticationRef.current?.retire();
@@ -349,7 +367,8 @@ export function App({
       if (
         !deploymentUsers.hasDirtyDraft() &&
         !membershipManagementRef.current?.hasDepartureWork() &&
-        !metadataRef.current?.hasDepartureWork()
+        !metadataRef.current?.hasDepartureWork() &&
+        !lifecycleRef.current?.hasDepartureWork()
       )
         return;
       event.preventDefault();
@@ -390,6 +409,8 @@ export function App({
     membershipAuditRef.current?.dispose();
     membershipManagementRef.current?.dispose();
     metadataRef.current?.dispose();
+    lifecycleRef.current?.dispose();
+    incidentResourceRef.current?.retire();
     workbookMutationRuntimeRegistry.dispose();
     accountEditing.dispose();
     authentication.dispose();
@@ -841,6 +862,8 @@ export function App({
     if (readAppRouteState().incidentId !== route.incidentId) return;
     membershipManagementRef.current?.retire();
     metadataRef.current?.retire();
+    lifecycleRef.current?.retire();
+    incidentResourceRef.current?.retire();
     directoryControllerRef.current?.setActive(false);
     navigationFocusRequestRef.current = {
       destination: "incidents",
@@ -850,6 +873,32 @@ export function App({
     setLandingNotice(accessLostLandingNotice);
     commitRoute({ incidentId: "", deploymentAdministration: false }, "replace");
   }, [accountNavigationIdentity, commitRoute, route.incidentId]);
+
+  const [incidentResources] = useState(
+    () =>
+      new IncidentResourceController({
+        isCurrent: (authority) => {
+          const state = sessionController.getSnapshot();
+          return (
+            routeRef.current.incidentId === authority.incidentId &&
+            state.lifetime === authority.lifetime &&
+            state.session?.user_id === authority.actorId &&
+            state.session.memberships.some(
+              (member) => member.incident_id === authority.incidentId,
+            )
+          );
+        },
+        accepted: (resource) => {
+          metadataRef.current?.acceptResource(resource, false);
+          lifecycleRef.current?.acceptResource(resource, false);
+        },
+      }),
+  );
+  incidentResourceRef.current = incidentResources;
+  const acceptedIncident = useSyncExternalStore(
+    incidentResources.subscribe,
+    incidentResources.getSnapshot,
+  );
 
   const membershipAudit = useIncidentMembershipAudit({
     sessionController,
@@ -868,6 +917,7 @@ export function App({
   });
   membershipManagementRef.current = membershipManagement.controller;
   const metadata = useIncidentMetadata({
+    onResourceAccepted: incidentResources.accept,
     sessionController,
     recovery: workbookAuthorizationRecovery,
     currentIncidentId: () => routeRef.current.incidentId,
@@ -875,6 +925,15 @@ export function App({
     onSessionLost: handleSessionLost,
   });
   metadataRef.current = metadata.controller;
+  const lifecycle = useIncidentLifecycle({
+    sessionController,
+    recovery: workbookAuthorizationRecovery,
+    currentIncidentId: () => routeRef.current.incidentId,
+    onIncidentAccessLost: handleIncidentAccessLost,
+    onSessionLost: handleSessionLost,
+    onResourceAccepted: incidentResources.accept,
+  });
+  lifecycleRef.current = lifecycle.controller;
 
   const renderAccountMenu = useCallback(
     (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
@@ -1046,6 +1105,15 @@ export function App({
           >
             <LazyWorkbookShell
               key={sessionSnapshot.lifetime}
+              acceptedIncidentResource={acceptedIncident}
+              onIncidentResourceObserved={(resource) => {
+                if (sessionSnapshot.lifetime && session?.user_id)
+                  incidentResources.accept(resource, {
+                    incidentId: route.incidentId,
+                    actorId: session.user_id,
+                    lifetime: sessionSnapshot.lifetime,
+                  });
+              }}
               onSessionLost={handleSessionLost}
               authorizationRecovery={workbookAuthorizationRecovery}
               account={currentWorkbookAccount}
@@ -1066,6 +1134,8 @@ export function App({
               extensionProfiles={extensionProfiles}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentControlsSectionChange={(section) => {
+                if (section !== "summary")
+                  lifecycle.controller.setActive(false);
                 if (section !== "incident-fields")
                   metadata.controller.setActive(false);
                 if (section !== "memberships")
@@ -1093,19 +1163,18 @@ export function App({
                     bindSurface={metadata.bindSurface}
                   />
                 ) : (
-                  <IncidentAdminPanel
+                  <IncidentLifecycleFeature
                     {...props}
-                    acceptedIncident={metadata.resource}
+                    controller={lifecycle.controller}
+                    bindSurface={lifecycle.bindSurface}
+                    acceptedIncident={acceptedIncident}
                     onIncidentObserved={(resource) => {
-                      const authority =
-                        metadata.controller.getSnapshot().authority;
-                      if (
-                        authority?.incidentId !== props.incidentId ||
-                        authority.lifetime !== sessionSnapshot.lifetime
-                      )
-                        return;
-                      metadata.controller.acceptResource(resource);
-                      props.onIncidentResourceAccepted?.(resource);
+                      if (sessionSnapshot.lifetime && session?.user_id)
+                        incidentResources.accept(resource, {
+                          incidentId: props.incidentId,
+                          actorId: session.user_id,
+                          lifetime: sessionSnapshot.lifetime,
+                        });
                     }}
                   />
                 )
@@ -1115,6 +1184,10 @@ export function App({
           </Suspense>
         </section>
         {renderAccountSettings()}
+        <IncidentLifecycleDepartureDialog
+          controller={lifecycle.controller}
+          fallbackFocusRef={accountMenuTriggerRef}
+        />
         <IncidentMetadataDepartureDialog
           controller={metadata.controller}
           fallbackFocusRef={accountMenuTriggerRef}
