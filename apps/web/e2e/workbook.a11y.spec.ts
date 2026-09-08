@@ -4103,6 +4103,66 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       savedViewSetDefaultButtonTestId(timelineViewSchemaId),
       savedViewStatusTestId(timelineViewSchemaId),
     ]);
+    await page.route(
+      `**/api/v1/incidents/${incidentId}/saved-views`,
+      async (route) => {
+        if (route.request().method() !== "POST") {
+          await route.continue();
+          return;
+        }
+        const response = await route.fetch();
+        expect(response.status()).toBe(201);
+        await route.abort("failed");
+      },
+    );
+    await savedViewNameInput.fill("Accessible recovery draft");
+    await createSavedViewButton.press("Enter");
+    const recovery = page.getByRole("region", {
+      name: "Saved-view operation",
+      exact: true,
+    });
+    const finishRecovery = recovery.getByRole("button", {
+      name: "End recovery without another write",
+      exact: true,
+    });
+    await expect(finishRecovery).toBeEnabled();
+    await savedViewNameInput.press("Escape");
+    await expect(
+      page.getByTestId(savedViewActionMenuTriggerTestId(timelineViewSchemaId)),
+    ).toBeFocused();
+    await page.setViewportSize({ width: 768, height: 640 });
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
+    const recoveryName = page.getByLabel(
+      "Name for reviewed saved-view request",
+      { exact: true },
+    );
+    await expectVisibleFocus(recoveryName);
+    await recoveryName.fill("Accessible revised name");
+    await recoveryName.press("Tab");
+    const riskConfirmation = recovery.getByRole("checkbox", {
+      name: /may create a duplicate/,
+    });
+    await expect(riskConfirmation).toBeFocused();
+    await riskConfirmation.press("Space");
+    await riskConfirmation.press("Tab");
+    await expect(
+      recovery.getByRole("button", {
+        name: "Make a new create attempt",
+        exact: true,
+      }),
+    ).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(finishRecovery).toBeFocused();
+    await finishRecovery.press("Escape");
+    await expect(
+      page.getByTestId(savedViewActionMenuTriggerTestId(timelineViewSchemaId)),
+    ).toBeFocused();
+    await openSavedViewActionMenu(page, timelineViewSchemaId);
+    await expect(recoveryName).toHaveValue("Accessible revised name");
+    await expectAllInteractiveControlsNamed(page);
+    await expectVisibleFocus(finishRecovery);
+    await finishRecovery.press("Enter");
+    await expect(recovery).toContainText("Recovery ended by your choice");
   });
 });
 

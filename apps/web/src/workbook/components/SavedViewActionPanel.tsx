@@ -13,7 +13,7 @@ import {
   workbookPreferenceTestId,
 } from "@cartulary/ui-contracts";
 import { MoreHorizontal } from "lucide-react";
-import { type RefObject, useRef } from "react";
+import { type RefObject, useRef, useSyncExternalStore } from "react";
 import { useRegisteredOverlayNavigation } from "../../shared/useRegisteredOverlayNavigation";
 import type { SavedViewActionIntent } from "../hooks/useActiveSurfaceSavedViewActions";
 import {
@@ -31,8 +31,15 @@ import {
   preferenceOutcome,
   useWorkbookPreferencesSnapshot,
 } from "../preferences/WorkbookPreferencesPanel";
+import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
+import {
+  SavedViewRecovery,
+  type SavedViewRecoveryKey,
+  savedViewRecoveryKeys,
+} from "./SavedViewRecovery";
 
 type SavedViewActionControlKey =
+  | SavedViewRecoveryKey
   | "create"
   | "delete"
   | "duplicate"
@@ -55,9 +62,11 @@ const savedViewActionControlKeys: readonly SavedViewActionControlKey[] = [
   "set_default",
   "preferences",
   "delete",
+  ...savedViewRecoveryKeys,
 ];
 
 export function SavedViewActionPanel({
+  controller,
   activeViewSchemaId,
   control,
   currentIncidentRole,
@@ -71,6 +80,7 @@ export function SavedViewActionPanel({
   onInspectPreferences,
   selectedSavedView,
 }: {
+  readonly controller: WorkbookSavedViewController;
   readonly activeViewSchemaId: string;
   readonly control: SavedViewSurfaceControlState;
   readonly currentIncidentRole: string | null;
@@ -95,9 +105,32 @@ export function SavedViewActionPanel({
     currentUserId,
     currentIncidentRole,
   );
-  const actionPending = control.activeAction !== null;
+  const operationState = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+  );
+  const subject = {
+    viewSchemaId: activeViewSchemaId,
+    savedViewId: selectedSavedView?.saved_view_id ?? null,
+    savedViewVersion: selectedSavedView?.saved_view_version ?? null,
+  };
+  const unavailable = (kind: SavedViewActionIntent["kind"]) =>
+    controller.unavailableReason(kind, subject) !== null;
+  const actionPending = control.busy;
+  const operation = operationState.operation;
+  const validation =
+    operation.kind === "rejected" &&
+    operation.problem.field === "display_name" &&
+    operation.attempt.kind !== "duplicate" &&
+    operation.attempt.subject.viewSchemaId === subject.viewSchemaId &&
+    operation.attempt.subject.savedViewId === subject.savedViewId &&
+    operation.attempt.definition.displayName === control.displayName
+      ? operation.problem.message
+      : null;
+  const validationId = `${panelId}-name-error`;
   const resourceReady = resourceKind === "ready";
-  const trimmedDisplayName = control.displayName.trim();
+
+  const controls = useRef(new Map<SavedViewActionControlKey, HTMLElement>());
   const navigation = useRegisteredOverlayNavigation({
     fallbackFocusRef,
     initialItemKey: "name",
@@ -108,9 +141,16 @@ export function SavedViewActionPanel({
     },
     subjectKey: `${activeViewSchemaId}:${control.selectionKey}`,
     trapTab: true,
+    restoreFocusOnSubjectChange: false,
     triggerRef,
   });
 
+  const registerControl =
+    (key: SavedViewActionControlKey) => (element: HTMLElement | null) => {
+      navigation.registerItem(key)(element);
+      if (element) controls.current.set(key, element);
+      else controls.current.delete(key);
+    };
   return (
     <div style={actionPanelFrameStyle}>
       <button
@@ -120,7 +160,7 @@ export function SavedViewActionPanel({
         aria-haspopup="dialog"
         aria-label="Saved view actions"
         data-testid={savedViewActionMenuTriggerTestId(activeViewSchemaId)}
-        disabled={resourceKind === "loading" || resourceKind === "unavailable"}
+        disabled={resourceKind === "loading" && operation.kind === "idle"}
         style={iconButtonStyle}
         type="button"
         onClick={() => {
@@ -140,8 +180,21 @@ export function SavedViewActionPanel({
           style={actionPanelStyle}
           tabIndex={-1}
           onBlur={navigation.onOverlayBlur}
+          onFocusCapture={(event) => {
+            const key = savedViewActionControlKeys.find(
+              (candidate) => controls.current.get(candidate) === event.target,
+            );
+            if (key) navigation.onItemFocus(key);
+          }}
           onKeyDown={(event) => {
             if (navigation.activeKey === null) return;
+            if (
+              (event.target instanceof HTMLInputElement ||
+                event.target instanceof HTMLSelectElement) &&
+              event.key !== "Escape" &&
+              event.key !== "Tab"
+            )
+              return;
             navigation.onItemKeyDown(event, navigation.activeKey);
           }}
         >
@@ -154,10 +207,11 @@ export function SavedViewActionPanel({
             <label style={panelLabelStyle}>
               Name
               <input
-                ref={navigation.registerItem("name")}
+                ref={registerControl("name")}
                 aria-label="Saved view name"
+                aria-invalid={validation ? true : undefined}
+                aria-describedby={validation ? validationId : undefined}
                 data-testid={savedViewNameInputTestId(activeViewSchemaId)}
-                disabled={actionPending}
                 style={inputStyle}
                 type="text"
                 value={control.displayName}
@@ -170,13 +224,17 @@ export function SavedViewActionPanel({
                 }}
               />
             </label>
+            {validation ? (
+              <p id={validationId} role="alert" style={panelLabelStyle}>
+                {validation}
+              </p>
+            ) : null}
             <label style={panelLabelStyle}>
               Scope
               <select
-                ref={navigation.registerItem("scope")}
+                ref={registerControl("scope")}
                 aria-label="Saved view scope"
                 data-testid={savedViewScopeSelectTestId(activeViewSchemaId)}
-                disabled={actionPending}
                 style={inputStyle}
                 value={control.scope}
                 onChange={(event) => {
@@ -199,11 +257,9 @@ export function SavedViewActionPanel({
           <section aria-label="Save as new view" style={sectionStyle}>
             <strong style={sectionTitleStyle}>Create</strong>
             <button
-              ref={navigation.registerItem("create")}
+              ref={registerControl("create")}
               data-testid={savedViewCreateButtonTestId(activeViewSchemaId)}
-              disabled={
-                !resourceReady || actionPending || trimmedDisplayName === ""
-              }
+              disabled={!resourceReady || unavailable("create")}
               style={
                 selectedSavedViewMutable ? panelActionStyle : primaryActionStyle
               }
@@ -211,29 +267,33 @@ export function SavedViewActionPanel({
               onClick={() => {
                 runAction({
                   kind: "create",
-                  displayName: trimmedDisplayName,
-                  scope: control.scope,
                 });
               }}
             >
               Save current configuration as new view
             </button>
           </section>
-          {selectedSavedView === null ? null : (
+          {selectedSavedView === null ? (
+            <button
+              ref={registerControl("reset")}
+              type="button"
+              style={panelActionStyle}
+              disabled={unavailable("reset")}
+              onClick={() => runAction({ kind: "reset" })}
+            >
+              Reset to default configuration
+            </button>
+          ) : (
             <>
               <section aria-label="Selected view actions" style={sectionStyle}>
                 <strong style={sectionTitleStyle}>Selected view</strong>
                 <button
-                  ref={navigation.registerItem("update")}
+                  ref={registerControl("update")}
                   data-testid={savedViewUpdateButtonTestId(
                     activeViewSchemaId,
                     selectedSavedView.saved_view_id,
                   )}
-                  disabled={
-                    actionPending ||
-                    !selectedSavedViewMutable ||
-                    trimmedDisplayName === ""
-                  }
+                  disabled={unavailable("update") || !selectedSavedViewMutable}
                   style={
                     selectedSavedViewMutable
                       ? primaryActionStyle
@@ -243,20 +303,18 @@ export function SavedViewActionPanel({
                   onClick={() => {
                     runAction({
                       kind: "update",
-                      displayName: trimmedDisplayName,
-                      scope: control.scope,
                     });
                   }}
                 >
                   Update selected view
                 </button>
                 <button
-                  ref={navigation.registerItem("reset")}
+                  ref={registerControl("reset")}
                   data-testid={savedViewResetButtonTestId(
                     activeViewSchemaId,
                     selectedSavedView.saved_view_id,
                   )}
-                  disabled={actionPending || !isModified}
+                  disabled={unavailable("reset") || !isModified}
                   style={panelActionStyle}
                   type="button"
                   onClick={() => runAction({ kind: "reset" })}
@@ -267,12 +325,11 @@ export function SavedViewActionPanel({
               <section aria-label="Duplicate view" style={sectionStyle}>
                 <strong style={sectionTitleStyle}>Duplicate</strong>
                 <button
-                  ref={navigation.registerItem("duplicate")}
+                  ref={registerControl("duplicate")}
                   data-testid={savedViewDuplicateButtonTestId(
                     activeViewSchemaId,
                     selectedSavedView.saved_view_id,
                   )}
-                  disabled={actionPending}
                   style={panelActionStyle}
                   type="button"
                   onClick={() => runAction({ kind: "duplicate" })}
@@ -282,10 +339,15 @@ export function SavedViewActionPanel({
               </section>
             </>
           )}
+          <SavedViewRecovery
+            controller={controller}
+            snapshot={operationState}
+            registerItem={registerControl}
+          />
           <section aria-label="Startup view references" style={sectionStyle}>
             <strong style={sectionTitleStyle}>Startup</strong>
             <button
-              ref={navigation.registerItem("set_home")}
+              ref={registerControl("set_home")}
               data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
               aria-disabled={!preferenceController?.canSetCurrent("home")}
               style={panelActionStyle}
@@ -299,7 +361,7 @@ export function SavedViewActionPanel({
               Set as my home
             </button>
             <button
-              ref={navigation.registerItem("set_default")}
+              ref={registerControl("set_default")}
               data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
               aria-disabled={!preferenceController?.canSetCurrent("default")}
               style={panelActionStyle}
@@ -340,7 +402,7 @@ export function SavedViewActionPanel({
             )}
             {onInspectPreferences ? (
               <button
-                ref={navigation.registerItem("preferences")}
+                ref={registerControl("preferences")}
                 type="button"
                 style={panelActionStyle}
                 onClick={() => {
@@ -359,12 +421,12 @@ export function SavedViewActionPanel({
             <section aria-label="Delete saved view" style={dangerSectionStyle}>
               <strong style={sectionTitleStyle}>Delete</strong>
               <button
-                ref={navigation.registerItem("delete")}
+                ref={registerControl("delete")}
                 data-testid={savedViewDeleteButtonTestId(
                   activeViewSchemaId,
                   selectedSavedView.saved_view_id,
                 )}
-                disabled={actionPending || !selectedSavedViewMutable}
+                disabled={unavailable("delete") || !selectedSavedViewMutable}
                 style={dangerPanelActionStyle}
                 type="button"
                 onClick={() => runAction({ kind: "delete" })}

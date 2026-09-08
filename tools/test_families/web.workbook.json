@@ -117,11 +117,14 @@
       "selector": {
         "file": "apps/web/src/workbook/components/ActiveSurfaceSavedViewSelector.test.tsx",
         "titles": [
-          "ActiveSurfaceSavedViewSelector admits only one action and ignores its completion after a surface switch",
-          "ActiveSurfaceSavedViewSelector falls back from an invalid selection with inline notice",
-          "ActiveSurfaceSavedViewSelector renders explicit loading and unavailable feedback",
-          "ActiveSurfaceSavedViewSelector revalidates owner and role before update dispatch",
-          "ActiveSurfaceSavedViewSelector uses a labelled dialog, removes redundant actions, and restores focus on Escape"
+          "ActiveSurfaceSavedViewSelector associates name validation and permits editing an invalid generated copy name",
+          "ActiveSurfaceSavedViewSelector falls back from invalid selection with local notice while preserving list publication",
+          "ActiveSurfaceSavedViewSelector keeps write confirmation local when complete-list refresh fails",
+          "ActiveSurfaceSavedViewSelector preserves system immutability and rechecks permission changes",
+          "ActiveSurfaceSavedViewSelector requires explicit duplicate-risk confirmation before a new uncertain create attempt",
+          "ActiveSurfaceSavedViewSelector retains late confirmation without reopening the panel or navigating after a surface switch",
+          "ActiveSurfaceSavedViewSelector shows submitted and observed conflict configuration and waits for explicit review",
+          "ActiveSurfaceSavedViewSelector uses a labelled dialog and restores keyboard focus on Escape"
         ]
       },
       "evidence_class": "unit",
@@ -912,6 +915,50 @@
           "ReferenceQueryBroker binds incident and authorization generation at construction",
           "ReferenceQueryBroker deduplicates in-flight work while keeping shared-consumer cancellation local",
           "ReferenceQueryBroker keeps identical queries isolated between Workbook broker instances"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.saved_view_operation_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/savedviews/WorkbookSavedViewController.test.ts",
+        "titles": [
+          "Saved-view operation owner bounds access revalidation after a denied list without looping or declaring incident loss",
+          "Saved-view operation owner bounds observation keeps the transport lock and accepts an exact late receipt",
+          "Saved-view operation owner captures one exact intent and admits one synchronous write",
+          "Saved-view operation owner does not infer a create receipt or replay an uncertain create",
+          "Saved-view operation owner does not overwrite working edits or navigate after surface selection changes",
+          "Saved-view operation owner duplicates the canonical source and resets only local configuration",
+          "Saved-view operation owner enforces the complete visible scope ownership and role action matrix",
+          "Saved-view operation owner falls back after confirmed deletion only when its target remains selected while preserving newer edits",
+          "Saved-view operation owner fences late callbacks and sensitive state across incident actor and session replacement",
+          "Saved-view operation owner keeps accepted writes confirmed when list materialization fails",
+          "Saved-view operation owner keeps invalid duplicate names editable through explicit recovery",
+          "Saved-view operation owner observes uncertain updates and deletes without inferring receipts or silently repeating writes",
+          "Saved-view operation owner permits owner viewers and visible system duplication while denying system mutation",
+          "Saved-view operation owner prevents an older list from overwriting a receipt or resurrecting a deletion",
+          "Saved-view operation owner rechecks role before dispatch and clears newly hidden private recovery",
+          "Saved-view operation owner retains a receipt after presentation detaches without navigation",
+          "Saved-view operation owner retains submitted conflict changes and requires current explicit review",
+          "Saved-view operation owner treats saved-view denial as a resource problem and revalidates incident access",
+          "Saved-view operation owner uses authoritative access loss and never publishes a stale access recovery"
         ]
       },
       "evidence_class": "unit",
@@ -1808,14 +1855,10 @@
       "selector": {
         "file": "apps/web/src/workbook/hooks/useWorkbookSavedViewController.test.tsx",
         "titles": [
-          "useWorkbookSavedViewController accumulates explicit pages without publishing a partial list",
-          "useWorkbookSavedViewController admits only one mutation action at a time",
-          "useWorkbookSavedViewController fails closed on cyclic cursors and duplicate resources",
-          "useWorkbookSavedViewController ignores a late accepted mutation after the active surface changes",
-          "useWorkbookSavedViewController owns saved-view loading and query/identity precedence",
-          "useWorkbookSavedViewController publishes an invalid-selection resource only after complete loading",
-          "useWorkbookSavedViewController rejects a late create after the incident-bound port is replaced",
-          "useWorkbookSavedViewController routes semantic access loss and publishes no rejected list state"
+          "useWorkbookSavedViewController captures exact working changes and preserves newer working edits after acknowledgement",
+          "useWorkbookSavedViewController detaches an unmounted workbook while retaining a valid late receipt",
+          "useWorkbookSavedViewController publishes only a complete list and marks unavailable selections after terminal pagination",
+          "useWorkbookSavedViewController selects saved query and layout explicitly while Reset never changes identity"
         ]
       },
       "evidence_class": "unit",
@@ -2152,7 +2195,10 @@
       "selector": {
         "file": "apps/web/src/workbook/adapters/createWorkbookSavedViewAdapter.test.ts",
         "titles": [
+          "Workbook saved-view adapter accepts a normalized no-op with unchanged version and timestamp",
           "Workbook saved-view adapter fails closed on malformed paging, cross-incident resources, and invalid versions",
+          "Workbook saved-view adapter preserves authoritative query normalization and rejects false no-op metadata",
+          "Workbook saved-view adapter preserves typed conflict validation access and uncertain outcomes",
           "Workbook saved-view adapter projects create, patch, and delete requests with CSRF and accepted correlations",
           "Workbook saved-view adapter projects explicit paging and returns only correlated saved-view resources",
           "Workbook saved-view adapter rejects mismatched mutation acknowledgements and system-view mutation locally"
@@ -2516,7 +2562,6 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookSavedViewControl.test.ts",
         "titles": [
-          "workbookSavedViewControl keeps form state surface-keyed and ignores stale action completion",
           "workbookSavedViewControl parses only the editable scope vocabulary",
           "workbookSavedViewControl projects loading, unavailable, invalid, and surface-filtered ready resources"
         ]

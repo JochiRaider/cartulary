@@ -19,6 +19,8 @@ import {
   metadataIncident,
   metadataJSON,
 } from "../../testing/incidentMetadataTestSupport";
+import { workbookAuthorizationRecovery } from "../../testing/workbookAuthorizationTestSupport";
+import { useSavedViewTestApplication } from "../../testing/workbookSavedViewTestSupport";
 import { createWorkbookPreferenceAdapter } from "../adapters/createWorkbookPreferenceAdapter";
 import { ActiveSurfaceSavedViewSelector } from "../components/ActiveSurfaceSavedViewSelector";
 import { useWorkbookStartupController } from "../hooks/useWorkbookStartupController";
@@ -88,9 +90,11 @@ function Surface({ refresh = 0 }: { refresh?: number }) {
     preferences.setInspectionActive(true);
   });
   useLayoutEffect(() => () => preferences.dispose(), [preferences]);
-  const unused = async (): Promise<never> => {
-    throw new Error("Unexpected saved-view mutation");
-  };
+  const savedViews = useSavedViewTestApplication(
+    incidentId,
+    actorId,
+    workbookAuthorizationRecovery(),
+  );
   return (
     <>
       <button
@@ -100,17 +104,13 @@ function Surface({ refresh = 0 }: { refresh?: number }) {
         Select Hosts
       </button>
       <ActiveSurfaceSavedViewSelector
+        controller={savedViews.savedViewController}
         activeViewSchemaId={startup.snapshot.surface}
         chromeMode="base"
         currentIncidentRole="admin"
         currentUserId={actorId}
         selectedSheetRef={startup.snapshot.startupSheetRef}
         savedViewsResource={{ kind: "ready", savedViews: [] }}
-        onCreateSavedView={unused}
-        onDeleteSavedView={unused}
-        onDuplicateSavedView={unused}
-        onUpdateSavedView={unused}
-        onResetToSavedView={() => {}}
         onSelectSavedView={() => {}}
         onSelectBaseSurface={startup.commands.selectWorkbookSurface}
         preferenceController={preferences}

@@ -3,7 +3,34 @@ import type {
   WorkbookSavedViewQueryJson,
 } from "../models/workbookQuery";
 import type { SavedViewResource } from "../models/workbookSavedViews";
-import type { WorkbookPortResult } from "./WorkbookPortResult";
+
+export type SavedViewProblem = {
+  readonly kind:
+    | "validation"
+    | "conflict"
+    | "authentication_required"
+    | "authorization_denied"
+    | "unavailable_target"
+    | "transport"
+    | "invalid_contract"
+    | "terminal";
+  readonly message: string;
+  readonly publicCode?: string;
+  readonly field?: string;
+  readonly reason?: string;
+  readonly conflict?: {
+    readonly savedViewId: string;
+    readonly baseVersion: number;
+    readonly currentVersion: number;
+  };
+};
+
+export type SavedViewResult<T> =
+  | { readonly kind: "accepted"; readonly value: T }
+  | {
+      readonly kind: "rejected" | "uncertain";
+      readonly failure: SavedViewProblem;
+    };
 
 export type WorkbookSavedViewDefinition = {
   readonly displayName: string;
@@ -13,13 +40,17 @@ export type WorkbookSavedViewDefinition = {
   readonly viewSchemaId: string;
 };
 
+export type WorkbookSavedViewChanges = Partial<
+  Omit<WorkbookSavedViewDefinition, "viewSchemaId">
+>;
+
 export interface WorkbookSavedViewPort {
   listPage(input: {
     readonly cursorToken: string | null;
     readonly limit: number;
     readonly signal: AbortSignal;
   }): Promise<
-    WorkbookPortResult<{
+    SavedViewResult<{
       readonly nextCursor: string | null;
       readonly savedViews: readonly SavedViewResource[];
     }>
@@ -27,18 +58,15 @@ export interface WorkbookSavedViewPort {
   create(input: {
     readonly definition: WorkbookSavedViewDefinition;
     readonly signal: AbortSignal;
-  }): Promise<WorkbookPortResult<SavedViewResource>>;
+  }): Promise<SavedViewResult<SavedViewResource>>;
   patch(input: {
-    readonly baseVersion: number;
-    readonly definition: Omit<WorkbookSavedViewDefinition, "viewSchemaId">;
-    readonly savedViewId: string;
-    readonly scope: SavedViewResource["scope"];
+    readonly base: SavedViewResource;
+    readonly changes: WorkbookSavedViewChanges;
     readonly signal: AbortSignal;
-    readonly viewSchemaId: string;
-  }): Promise<WorkbookPortResult<SavedViewResource>>;
+  }): Promise<SavedViewResult<SavedViewResource>>;
   delete(input: {
     readonly savedViewId: string;
     readonly scope: SavedViewResource["scope"];
     readonly signal: AbortSignal;
-  }): Promise<WorkbookPortResult<void>>;
+  }): Promise<SavedViewResult<undefined>>;
 }

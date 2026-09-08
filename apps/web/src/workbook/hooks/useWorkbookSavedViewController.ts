@@ -1,5 +1,11 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import {
   buildSavedViewLayoutJson,
@@ -7,68 +13,31 @@ import {
   type WorkbookLayoutState,
   type WorkbookQueryState,
   workbookLayoutStateFromSavedViewLayoutJson,
+  workbookQueryStateFromSavedViewQueryJson,
 } from "../models/workbookQuery";
 import {
-  type SavedViewActionIdentity,
-  type SavedViewActionKind,
   type WorkbookSavedViewsResource,
   workbookSavedViewsResource,
 } from "../models/workbookSavedViewControl";
 import {
-  acceptWorkbookSavedViewPage,
-  startWorkbookSavedViewPagination,
-  workbookSavedViewPaginationIsCurrent,
-} from "../models/workbookSavedViewPaginationMachine";
-import {
   fallbackIdentityAfterSavedViewDelete,
-  removeSavedViewList,
   savedViewConfigurationIsModified,
   savedViewIdentityForSelection,
-  savedViewQueryStateForRuntime,
-  upsertSavedViewList,
 } from "../models/workbookSavedViewRuntime";
 import {
   type SavedViewResource,
-  savedViewLayoutJsonForPersistence,
-  savedViewQueryJsonForPersistence,
+  savedViewJSONEqual,
 } from "../models/workbookSavedViews";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
-import { knownWorkbookViewSchemaId } from "../models/workbookSurfaceRegistry";
-import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
-import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
-import type { WorkbookSavedViewPort } from "../ports/WorkbookSavedViewPort";
+import type { SavedViewBinding } from "../savedviews/savedViewOperationModel";
+import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
 
 type WorkbookIdentity = {
   readonly sheetRef: SheetRef;
   readonly viewSchemaId: string | null;
 };
 
-type SavedViewLoadState =
-  | { readonly kind: "loading" }
-  | { readonly kind: "ready" }
-  | { readonly kind: "unavailable"; readonly message: string };
-
-type SavedViewActionSubject = Pick<
-  SavedViewActionIdentity,
-  "surface" | "savedViewId" | "savedViewVersion"
->;
-
-function acceptedSavedViewResult<Accepted>(
-  result: WorkbookPortResult<Accepted>,
-  onIncidentAccessLost: (() => void) | undefined,
-): Accepted {
-  if (result.kind === "aborted") {
-    throw new Error("Saved-view request was aborted.");
-  }
-  if (result.kind === "rejected") {
-    if (workbookOperationFailureIsAccessLoss(result.failure)) {
-      onIncidentAccessLost?.();
-    }
-    throw new Error(result.failure.message);
-  }
-  return result.value;
-}
-
+/** Binds portable working configuration and selection effects to the session-owned workflow. */
 export function useWorkbookSavedViewController({
   activeContract,
   applyLayoutStateForSurface,
@@ -76,487 +45,165 @@ export function useWorkbookSavedViewController({
   applyWorkbookIdentity,
   currentLayoutStateForSurface,
   currentQueryStateForSurface,
-  onIncidentAccessLost,
-  savedViewPort,
+  controller,
+  bindWorkbook,
+  incidentId,
+  apiBase,
+  selectionGeneration,
+  authorizationRecovered,
   startupSheetRef,
 }: {
   readonly activeContract: ViewContract;
   readonly applyLayoutStateForSurface: (
-    viewSchemaId: string,
-    layoutState: WorkbookLayoutState,
+    id: string,
+    state: WorkbookLayoutState,
   ) => void;
   readonly applyQueryStateForSurface: (
-    viewSchemaId: string,
-    queryState: WorkbookQueryState,
+    id: string,
+    state: WorkbookQueryState,
   ) => void;
   readonly applyWorkbookIdentity: (
     identity: WorkbookIdentity,
     options?: { readonly reloadSheet?: boolean },
   ) => void;
-  readonly currentLayoutStateForSurface: (
-    viewSchemaId: string,
-  ) => WorkbookLayoutState;
-  readonly currentQueryStateForSurface: (
-    viewSchemaId: string,
-  ) => WorkbookQueryState;
-  readonly onIncidentAccessLost?: (() => void) | undefined;
-  readonly savedViewPort: WorkbookSavedViewPort;
+  readonly currentLayoutStateForSurface: (id: string) => WorkbookLayoutState;
+  readonly currentQueryStateForSurface: (id: string) => WorkbookQueryState;
+  readonly controller: WorkbookSavedViewController;
+  readonly bindWorkbook: (binding: SavedViewBinding | null) => void;
+  readonly incidentId: string;
+  readonly apiBase?: string | undefined;
+  readonly selectionGeneration: number;
+  readonly authorizationRecovered: SavedViewBinding["authorizationRecovered"];
   readonly startupSheetRef: SheetRef;
 }) {
-  const [savedViews, setSavedViews] = useState<SavedViewResource[]>([]);
-  const [loadState, setLoadState] = useState<SavedViewLoadState>({
-    kind: "loading",
-  });
-  const contextVersionRef = useRef(0);
-  const actionGenerationRef = useRef(0);
-  const activeActionRef = useRef<SavedViewActionIdentity | null>(null);
-  const savedViewPortRef = useRef(savedViewPort);
-  if (savedViewPortRef.current !== savedViewPort) {
-    savedViewPortRef.current = savedViewPort;
-    contextVersionRef.current += 1;
-    activeActionRef.current = null;
-  }
-
-  const currentSubjectRef = useRef<{
-    readonly surface: string;
-    readonly selectedSheetRef: SheetRef;
-    readonly savedViews: readonly SavedViewResource[];
-  }>({
+  const state = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+  );
+  const currentLayout = currentLayoutStateForSurface(
+    activeContract.viewSchemaId,
+  );
+  const currentQuery = currentQueryStateForSurface(activeContract.viewSchemaId);
+  const queryJson = buildSavedViewQueryJson(activeContract, currentQuery);
+  const layoutJson = buildSavedViewLayoutJson(activeContract, currentLayout);
+  const configuration = {
+    incidentId,
     surface: activeContract.viewSchemaId,
-    selectedSheetRef: startupSheetRef,
-    savedViews,
-  });
-  currentSubjectRef.current = {
-    surface: activeContract.viewSchemaId,
-    selectedSheetRef: startupSheetRef,
-    savedViews,
+    queryJson,
+    layoutJson,
   };
-
-  const currentActionSubject = useCallback((): SavedViewActionSubject => {
-    const current = currentSubjectRef.current;
-    const selectedSheetRef = current.selectedSheetRef;
-    if (selectedSheetRef.kind !== "saved_view") {
-      return {
-        surface: current.surface,
-        savedViewId: null,
-        savedViewVersion: null,
-      };
-    }
-    const selected = current.savedViews.find(
-      (savedView) =>
-        savedView.saved_view_id === selectedSheetRef.id &&
-        savedView.view_schema_id === current.surface,
-    );
-    return {
-      surface: current.surface,
-      savedViewId: selectedSheetRef.id,
-      savedViewVersion: selected?.saved_view_version ?? null,
+  const working = useRef({ configuration, generation: 0 });
+  if (!savedViewJSONEqual(configuration, working.current.configuration))
+    working.current = {
+      configuration,
+      generation: working.current.generation + 1,
     };
-  }, []);
-
-  const actionSubjectIsCurrent = useCallback(
-    (identity: SavedViewActionIdentity) => {
-      const current = currentActionSubject();
-      return (
-        current.surface === identity.surface &&
-        current.savedViewId === identity.savedViewId &&
-        current.savedViewVersion === identity.savedViewVersion
-      );
-    },
-    [currentActionSubject],
-  );
-
-  if (
-    activeActionRef.current !== null &&
-    !actionSubjectIsCurrent(activeActionRef.current)
-  ) {
-    activeActionRef.current = null;
-  }
-
-  useEffect(
-    () => () => {
-      contextVersionRef.current += 1;
-      activeActionRef.current = null;
-    },
-    [],
-  );
-
-  const beginAction = useCallback(
-    (actionKind: SavedViewActionKind) => {
-      if (activeActionRef.current !== null) {
-        throw new Error("Another saved-view action is already in progress.");
-      }
-      const subject = currentActionSubject();
-      const identity: SavedViewActionIdentity = {
-        ...subject,
-        actionKind,
-        generation: actionGenerationRef.current + 1,
-      };
-      actionGenerationRef.current = identity.generation;
-      if (!actionSubjectIsCurrent(identity)) {
-        throw new Error("Saved-view action subject is no longer current.");
-      }
-      activeActionRef.current = identity;
-      return identity;
-    },
-    [actionSubjectIsCurrent, currentActionSubject],
-  );
-
-  const finishAction = useCallback(
-    (identity: SavedViewActionIdentity) => {
-      if (
-        activeActionRef.current !== identity ||
-        !actionSubjectIsCurrent(identity)
-      ) {
-        throw new Error(`Saved-view ${identity.actionKind} was superseded.`);
-      }
-      activeActionRef.current = null;
-    },
-    [actionSubjectIsCurrent],
-  );
-
-  const abandonAction = useCallback((identity: SavedViewActionIdentity) => {
-    if (activeActionRef.current === identity) {
-      activeActionRef.current = null;
-    }
-  }, []);
-
-  const upsertSavedView = useCallback((savedView: SavedViewResource) => {
-    setSavedViews((current) => upsertSavedViewList(current, savedView));
-  }, []);
-
-  const selectSavedView = useCallback(
-    (savedView: SavedViewResource) => {
-      const nextSurface = knownWorkbookViewSchemaId(savedView.view_schema_id);
-      const contract = workbookContractForViewSchemaId(nextSurface);
+  const selected =
+    startupSheetRef.kind === "saved_view"
+      ? (state.resources.find(
+          (r) =>
+            r.saved_view_id === startupSheetRef.id &&
+            r.view_schema_id === activeContract.viewSchemaId,
+        ) ?? null)
+      : null;
+  const applyConfiguration = useCallback<
+    SavedViewBinding["applyConfiguration"]
+  >(
+    (id, query, layout) => {
+      const contract = workbookContractForViewSchemaId(id);
       applyQueryStateForSurface(
-        nextSurface,
-        savedViewQueryStateForRuntime(contract, savedView),
+        id,
+        workbookQueryStateFromSavedViewQueryJson(contract, query),
       );
       applyLayoutStateForSurface(
-        nextSurface,
+        id,
+        workbookLayoutStateFromSavedViewLayoutJson(contract, layout),
+      );
+    },
+    [applyQueryStateForSurface, applyLayoutStateForSurface],
+  );
+  const selectSavedView = useCallback(
+    (resource: SavedViewResource) => {
+      const current = controller
+        .getSnapshot()
+        .resources.find(
+          (r) =>
+            r.saved_view_id === resource.saved_view_id &&
+            r.saved_view_version === resource.saved_view_version,
+        );
+      if (!current) return;
+      const contract = workbookContractForViewSchemaId(current.view_schema_id);
+      applyQueryStateForSurface(
+        current.view_schema_id,
+        workbookQueryStateFromSavedViewQueryJson(contract, current.query_json),
+      );
+      applyLayoutStateForSurface(
+        current.view_schema_id,
         workbookLayoutStateFromSavedViewLayoutJson(
           contract,
-          savedView.layout_json,
+          current.layout_json,
         ),
       );
-      applyWorkbookIdentity(savedViewIdentityForSelection(savedView), {
+      applyWorkbookIdentity(savedViewIdentityForSelection(current), {
         reloadSheet: true,
       });
     },
     [
+      controller,
       applyLayoutStateForSurface,
       applyQueryStateForSurface,
       applyWorkbookIdentity,
     ],
   );
-
-  const createSavedView = useCallback(
-    async (input: {
-      readonly displayName: string;
-      readonly scope: "private" | "shared";
-    }) => {
-      const identity = beginAction("create");
-      const queryState = currentQueryStateForSurface(identity.surface);
-      const layoutState = currentLayoutStateForSurface(identity.surface);
-      const contextVersion = contextVersionRef.current;
-      try {
-        const result = await savedViewPort.create({
-          definition: {
-            displayName: input.displayName,
-            layoutJson: buildSavedViewLayoutJson(activeContract, layoutState),
-            queryJson: buildSavedViewQueryJson(activeContract, queryState),
-            scope: input.scope,
-            viewSchemaId: identity.surface,
-          },
-          signal: new AbortController().signal,
-        });
-        const savedView = acceptedSavedViewResult(result, onIncidentAccessLost);
-        if (contextVersionRef.current !== contextVersion) {
-          throw new Error("Saved-view create was superseded.");
-        }
-        finishAction(identity);
-        upsertSavedView(savedView);
-        selectSavedView(savedView);
-        return savedView;
-      } catch (error) {
-        abandonAction(identity);
-        throw error;
-      }
-    },
-    [
-      activeContract,
-      abandonAction,
-      beginAction,
-      currentQueryStateForSurface,
-      currentLayoutStateForSurface,
-      finishAction,
-      onIncidentAccessLost,
-      savedViewPort,
-      selectSavedView,
-      upsertSavedView,
-    ],
-  );
-
-  const duplicateSavedView = useCallback(
-    async (source: SavedViewResource) => {
-      const identity = beginAction("duplicate");
-      if (
-        identity.savedViewId !== source.saved_view_id ||
-        identity.savedViewVersion !== source.saved_view_version ||
-        identity.surface !== source.view_schema_id
-      ) {
-        abandonAction(identity);
-        throw new Error("Saved-view duplicate subject is no longer current.");
-      }
-      const contract = workbookContractForViewSchemaId(source.view_schema_id);
-      const contextVersion = contextVersionRef.current;
-      try {
-        const result = await savedViewPort.create({
-          definition: {
-            displayName: `${source.display_name} Copy`,
-            layoutJson: savedViewLayoutJsonForPersistence(
-              contract,
-              source.layout_json,
-            ),
-            queryJson: savedViewQueryJsonForPersistence(
-              contract,
-              source.query_json,
-            ),
-            scope: "private",
-            viewSchemaId: source.view_schema_id,
-          },
-          signal: new AbortController().signal,
-        });
-        const savedView = acceptedSavedViewResult(result, onIncidentAccessLost);
-        if (contextVersionRef.current !== contextVersion) {
-          throw new Error("Saved-view duplicate was superseded.");
-        }
-        finishAction(identity);
-        upsertSavedView(savedView);
-        selectSavedView(savedView);
-        return savedView;
-      } catch (error) {
-        abandonAction(identity);
-        throw error;
-      }
-    },
-    [
-      abandonAction,
-      beginAction,
-      finishAction,
-      onIncidentAccessLost,
-      savedViewPort,
-      selectSavedView,
-      upsertSavedView,
-    ],
-  );
-
-  const updateSavedView = useCallback(
-    async (
-      savedView: SavedViewResource,
-      input: {
-        readonly displayName: string;
-        readonly scope: "private" | "shared";
+  const bindingRef = useRef(bindWorkbook);
+  bindingRef.current = bindWorkbook;
+  useLayoutEffect(() => {
+    bindingRef.current({
+      apiBase,
+      incidentId,
+      subject: {
+        viewSchemaId: activeContract.viewSchemaId,
+        savedViewId:
+          startupSheetRef.kind === "saved_view" ? startupSheetRef.id : null,
+        savedViewVersion: selected?.saved_view_version ?? null,
       },
-    ) => {
-      const identity = beginAction("update");
-      if (
-        identity.savedViewId !== savedView.saved_view_id ||
-        identity.savedViewVersion !== savedView.saved_view_version ||
-        identity.surface !== savedView.view_schema_id
-      ) {
-        abandonAction(identity);
-        throw new Error("Saved-view update subject is no longer current.");
-      }
-      const contract = workbookContractForViewSchemaId(
-        savedView.view_schema_id,
-      );
-      const queryState = currentQueryStateForSurface(savedView.view_schema_id);
-      const layoutState = currentLayoutStateForSurface(
-        savedView.view_schema_id,
-      );
-      const contextVersion = contextVersionRef.current;
-      try {
-        const result = await savedViewPort.patch({
-          baseVersion: savedView.saved_view_version,
-          definition: {
-            displayName: input.displayName,
-            layoutJson: buildSavedViewLayoutJson(contract, layoutState),
-            queryJson: buildSavedViewQueryJson(contract, queryState),
-            scope: input.scope,
-          },
-          savedViewId: savedView.saved_view_id,
-          scope: savedView.scope,
-          signal: new AbortController().signal,
-          viewSchemaId: savedView.view_schema_id,
-        });
-        const updated = acceptedSavedViewResult(result, onIncidentAccessLost);
-        if (contextVersionRef.current !== contextVersion) {
-          throw new Error("Saved-view update was superseded.");
-        }
-        finishAction(identity);
-        upsertSavedView(updated);
-        return updated;
-      } catch (error) {
-        abandonAction(identity);
-        throw error;
-      }
-    },
-    [
-      currentLayoutStateForSurface,
-      currentQueryStateForSurface,
-      abandonAction,
-      beginAction,
-      finishAction,
-      onIncidentAccessLost,
-      savedViewPort,
-      upsertSavedView,
-    ],
-  );
-
-  const deleteSavedView = useCallback(
-    async (savedView: SavedViewResource) => {
-      const identity = beginAction("delete");
-      if (
-        identity.savedViewId !== savedView.saved_view_id ||
-        identity.savedViewVersion !== savedView.saved_view_version ||
-        identity.surface !== savedView.view_schema_id
-      ) {
-        abandonAction(identity);
-        throw new Error("Saved-view delete subject is no longer current.");
-      }
-      const contextVersion = contextVersionRef.current;
-      try {
-        const result = await savedViewPort.delete({
-          savedViewId: savedView.saved_view_id,
-          scope: savedView.scope,
-          signal: new AbortController().signal,
-        });
-        acceptedSavedViewResult(result, onIncidentAccessLost);
-        if (contextVersionRef.current !== contextVersion) {
-          throw new Error("Saved-view delete was superseded.");
-        }
-        finishAction(identity);
-        setSavedViews((current) =>
-          removeSavedViewList(current, savedView.saved_view_id),
-        );
+      sheetRef: startupSheetRef,
+      selectionGeneration,
+      workingGeneration: working.current.generation,
+      queryJson,
+      layoutJson,
+      applyConfiguration,
+      select: selectSavedView,
+      deleted: (resource) => {
         const fallback = fallbackIdentityAfterSavedViewDelete(
           startupSheetRef,
-          savedView,
+          resource,
         );
-        if (fallback !== null) {
-          applyWorkbookIdentity(fallback, { reloadSheet: true });
-        }
-      } catch (error) {
-        abandonAction(identity);
-        throw error;
-      }
-    },
-    [
-      applyWorkbookIdentity,
-      abandonAction,
-      beginAction,
-      finishAction,
-      onIncidentAccessLost,
-      savedViewPort,
-      startupSheetRef,
-    ],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const subjectGeneration = contextVersionRef.current;
-    let pagination = startWorkbookSavedViewPagination(subjectGeneration);
-    setLoadState({ kind: "loading" });
-    const loadSavedViews = async () => {
-      while (true) {
-        const result = await savedViewPort.listPage({
-          cursorToken: pagination.nextCursor,
-          limit: 100,
-          signal: controller.signal,
-        });
-        if (
-          controller.signal.aborted ||
-          result.kind === "aborted" ||
-          !workbookSavedViewPaginationIsCurrent(
-            pagination,
-            contextVersionRef.current,
-          )
-        ) {
-          return;
-        }
-        if (result.kind === "rejected") {
-          if (workbookOperationFailureIsAccessLoss(result.failure)) {
-            onIncidentAccessLost?.();
-          }
-          setSavedViews([]);
-          setLoadState({
-            kind: "unavailable",
-            message: result.failure.message,
-          });
-          return;
-        }
-        const pagePlan = acceptWorkbookSavedViewPage(pagination, result.value);
-        if (pagePlan.kind === "invalid") {
-          setSavedViews([]);
-          setLoadState({ kind: "unavailable", message: pagePlan.message });
-          return;
-        }
-        if (pagePlan.kind === "complete") {
-          setSavedViews([...pagePlan.savedViews]);
-          setLoadState({ kind: "ready" });
-          return;
-        }
-        pagination = pagePlan.machine;
-      }
-    };
-    void loadSavedViews();
-    return () => {
-      controller.abort();
-      if (contextVersionRef.current === subjectGeneration) {
-        contextVersionRef.current += 1;
-      }
-    };
-  }, [onIncidentAccessLost, savedViewPort]);
-
-  const savedViewsResource = useMemo<WorkbookSavedViewsResource>(() => {
-    if (loadState.kind === "loading") return { kind: "loading" };
-    if (loadState.kind === "unavailable") return loadState;
-    return workbookSavedViewsResource(savedViews, startupSheetRef);
-  }, [loadState, savedViews, startupSheetRef]);
-  const activeSavedView = useMemo(
-    () =>
-      savedViewsResource.kind !== "loading" &&
-      savedViewsResource.kind !== "unavailable" &&
-      startupSheetRef.kind === "saved_view"
-        ? (savedViews.find(
-            (savedView) => savedView.saved_view_id === startupSheetRef.id,
-          ) ?? null)
-        : null,
-    [savedViews, savedViewsResource.kind, startupSheetRef],
-  );
-  const activeSavedViewModified = savedViewConfigurationIsModified({
-    contract: activeContract,
-    currentLayoutState: currentLayoutStateForSurface(
-      activeContract.viewSchemaId,
-    ),
-    currentQueryState: currentQueryStateForSurface(activeContract.viewSchemaId),
-    savedView:
-      activeSavedView?.view_schema_id === activeContract.viewSchemaId
-        ? activeSavedView
-        : null,
+        if (fallback) applyWorkbookIdentity(fallback);
+      },
+      authorizationRecovered,
+    });
   });
-
+  useLayoutEffect(() => () => bindingRef.current(null), []);
+  const savedViewsResource = useMemo<WorkbookSavedViewsResource>(() => {
+    if (state.list === "loading") return { kind: "loading" };
+    if (state.list === "unavailable")
+      return {
+        kind: "unavailable",
+        message: state.listProblem?.message ?? "Saved views are unavailable.",
+      };
+    return workbookSavedViewsResource(state.resources, startupSheetRef);
+  }, [state.list, state.listProblem, state.resources, startupSheetRef]);
   return {
-    commands: {
-      createSavedView,
-      deleteSavedView,
-      duplicateSavedView,
-      selectSavedView,
-      updateSavedView,
-      upsertSavedView,
+    commands: { selectSavedView, upsertSavedView: controller.acceptResource },
+    snapshot: {
+      savedViewsResource,
+      activeSavedViewModified: savedViewConfigurationIsModified({
+        contract: activeContract,
+        currentLayoutState: currentLayout,
+        currentQueryState: currentQuery,
+        savedView: selected,
+      }),
     },
-    snapshot: { activeSavedViewModified, savedViewsResource },
   };
 }

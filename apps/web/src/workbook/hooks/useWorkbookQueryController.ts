@@ -3,10 +3,8 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
-  useEffect,
   useMemo,
 } from "react";
-import type { SheetRef } from "../../shared/sheetRef";
 import {
   applyFilterDraft,
   clearFilterDraftValue,
@@ -17,10 +15,7 @@ import {
   updateGroupBy,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
-import {
-  workbookContractForViewSchemaId,
-  workbookQuerySurfaceSlot,
-} from "../models/workbookSurfaceQueryRuntime";
+import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 import {
   assessmentsViewSchemaId,
   hostsViewSchemaId,
@@ -46,10 +41,8 @@ type WorkbookActiveQueryControls = {
 };
 
 export function useWorkbookQueryController({
-  startupSheetRef,
   surface,
 }: {
-  readonly startupSheetRef: SheetRef;
   readonly surface: string;
 }) {
   const viewSchemaIds = useMemo(
@@ -64,18 +57,10 @@ export function useWorkbookQueryController({
   );
   const {
     entryFor,
-    resetEntry,
     setFilterDraftForSurface,
     setQueryStateForSurface,
     updateEntry,
   } = useWorkbookQueryState(viewSchemaIds);
-
-  const resetSurfaceQuery = useCallback(
-    (viewSchemaId: string) => {
-      resetEntry(viewSchemaId);
-    },
-    [resetEntry],
-  );
 
   const applyQueryStateForSurface = useCallback(
     (viewSchemaId: string, queryState: WorkbookQueryState) => {
@@ -121,15 +106,6 @@ export function useWorkbookQueryController({
     () => makeQuerySetter(surface),
     [makeQuerySetter, surface],
   );
-
-  useEffect(() => {
-    if (
-      startupSheetRef.kind === "view_schema" &&
-      workbookQuerySurfaceSlot(surface) === "generic"
-    ) {
-      resetSurfaceQuery(surface);
-    }
-  }, [resetSurfaceQuery, startupSheetRef.kind, surface]);
 
   const activeContract = useMemo(
     () => workbookContractForViewSchemaId(surface),

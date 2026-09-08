@@ -68,6 +68,8 @@ import { WorkbookPreferenceAnnouncements } from "./preferences/WorkbookPreferenc
 import type { PreferenceWorkbookBinding } from "./preferences/workbookPreferenceModel";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
 import { projectWorkbookStatusForSurface } from "./runtime/workbookMutationStatusProjector";
+import type { SavedViewBinding } from "./savedviews/savedViewOperationModel";
+import type { WorkbookSavedViewController } from "./savedviews/WorkbookSavedViewController";
 import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
 
 export type {
@@ -76,6 +78,8 @@ export type {
 };
 
 type WorkbookShellProps = {
+  savedViewController: WorkbookSavedViewController;
+  bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
   preferenceController?: WorkbookPreferenceController | undefined;
   bindWorkbookPreferences?:
     | ((binding: PreferenceWorkbookBinding | null) => void)
@@ -115,6 +119,8 @@ type WorkbookShellContentProps = WorkbookShellProps & {
 const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 
 function WorkbookShellContent({
+  savedViewController,
+  bindWorkbookSavedViews,
   preferenceController,
   bindWorkbookPreferences,
   onIncidentControlsSectionChange,
@@ -140,7 +146,17 @@ function WorkbookShellContent({
     incidentId,
     profiles: extensionProfiles,
   });
+  const authorization = useWorkbookAuthorizationState({
+    onSessionLost,
+    accountUserId: account?.user_id,
+    authorizationRecovery,
+    incidentId,
+    onIncidentAccessLost,
+  });
   const infrastructure = useWorkbookShellInfrastructure({
+    savedViewOwner: savedViewController,
+    bindWorkbookSavedViews,
+    authorizationRecovered: authorization.acceptRecoveredAuthorization,
     apiBase,
     clientInstanceId: collaborationSession.clientInstanceId,
     extensionAvailability: extensionLifecycle.controller,
@@ -150,13 +166,6 @@ function WorkbookShellContent({
     onIncidentAccessLost,
   });
   const { commands, snapshot } = infrastructure.workbookRuntime;
-  const authorization = useWorkbookAuthorizationState({
-    onSessionLost,
-    accountUserId: account?.user_id,
-    authorizationRecovery,
-    incidentId,
-    onIncidentAccessLost,
-  });
   const referenceQueryBroker = useWorkbookReferenceQueryBroker(
     authorization.authorizationGeneration,
     infrastructure.viewQuery,
@@ -516,6 +525,7 @@ export function WorkbookShell(props: WorkbookShellProps) {
       }}
     >
       <WorkbookShellContent
+        key={props.incidentId}
         {...props}
         mutationRuntimeRegistry={mutationRuntimeRegistry}
       />

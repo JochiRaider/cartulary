@@ -1,6 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { SheetRef } from "../../shared/sheetRef";
+import { useCallback, useMemo, useState } from "react";
 import type { WorkbookLayoutState } from "../models/workbookQuery";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 import {
@@ -15,10 +14,8 @@ import {
 
 export function useWorkbookColumnLayoutController({
   activeContract,
-  startupSheetRef,
 }: {
   readonly activeContract: ViewContract;
-  readonly startupSheetRef: SheetRef;
 }) {
   const [entries, setEntries] = useState<
     Readonly<Record<string, WorkbookResolvedLayoutState>>
@@ -60,19 +57,6 @@ export function useWorkbookColumnLayoutController({
     },
     [activeContract],
   );
-
-  useEffect(() => {
-    if (
-      startupSheetRef.kind !== "view_schema" ||
-      startupSheetRef.id !== activeContract.viewSchemaId
-    ) {
-      return;
-    }
-    applyLayoutStateForSurface(
-      activeContract.viewSchemaId,
-      defaultWorkbookLayoutState(activeContract),
-    );
-  }, [activeContract, applyLayoutStateForSurface, startupSheetRef]);
 
   const activeLayoutState = currentLayoutStateForSurface(
     activeContract.viewSchemaId,

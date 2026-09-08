@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { savedViewTestResource } from "../../testing/workbookSavedViewTestSupport";
 import { normalizeWorkbookStartupSelection } from "../models/workbookStartup";
 import {
   hostsViewSchemaId,
@@ -109,16 +110,10 @@ describe("Workbook startup admission machine", () => {
       },
       savedView: null,
     });
-    const savedView = {
+    const savedView = savedViewTestResource({
       display_name: "Hosts",
-      layout_json: {},
-      owner_user_id: "user-1",
-      query_json: {},
-      saved_view_id: "saved-1",
-      saved_view_version: 1,
-      scope: "private",
       view_schema_id: hostsViewSchemaId,
-    };
+    });
     expect(
       planAcceptedWorkbookStartup({
         availabilityAccepted: true,

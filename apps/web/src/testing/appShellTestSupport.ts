@@ -166,6 +166,18 @@ export function installLandingShellFetch(
       });
     }
     if (
+      /^\/api\/v1\/incidents\/[^/]+\/saved-views$/.test(request.path) &&
+      request.method === "GET"
+    ) {
+      return jsonResponse({
+        data: { saved_views: [] },
+        meta: {
+          request_id: "request-test",
+          paging: { limit: 100, has_more: false, next_cursor: null },
+        },
+      });
+    }
+    if (
       request.url === "/api/v1/incidents" &&
       request.method === "POST" &&
       options.onCreateIncident

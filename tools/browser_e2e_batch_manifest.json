@@ -764,6 +764,9 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.savedviews.browser.authoring_recovery_005364829450",
+            "module.savedviews.browser.authoring_recovery_38dcbd1862c5",
+            "module.savedviews.browser.authoring_recovery_5cd20f1b328e",
             "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
             "module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d",
             "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
@@ -1585,6 +1588,9 @@
           "workers": "default",
           "runtime_profile_id": "default",
           "selected_row_ids": [
+            "module.savedviews.browser.authoring_recovery_005364829450",
+            "module.savedviews.browser.authoring_recovery_38dcbd1862c5",
+            "module.savedviews.browser.authoring_recovery_5cd20f1b328e",
             "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
             "module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d",
             "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",

@@ -824,7 +824,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-actions-linux.png",
-      "sha256": "d38758ec228f9782eb274cf7e5571016059faa53786725b599428d5595090549"
+      "sha256": "d3d914bfb1e827aa2e97edca75f695d40427be8c5343f90976befcf7aa3d9bfe"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-saved-view-clean-linux.png",

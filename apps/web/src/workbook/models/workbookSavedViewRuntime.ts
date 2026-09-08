@@ -1,5 +1,10 @@
 import type { ViewContract } from "@cartulary/view-contracts";
+import { validateDisplayName } from "../../shared/displayName";
 import type { SheetRef } from "../../shared/sheetRef";
+import type {
+  WorkbookSavedViewChanges,
+  WorkbookSavedViewDefinition,
+} from "../ports/WorkbookSavedViewPort";
 import {
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
@@ -8,13 +13,34 @@ import {
   workbookLayoutStateFromSavedViewLayoutJson,
   workbookQueryStateFromSavedViewQueryJson,
 } from "./workbookQuery";
-import type { SavedViewResource } from "./workbookSavedViews";
+import {
+  type SavedViewResource,
+  savedViewJSONEqual,
+} from "./workbookSavedViews";
 import { knownWorkbookViewSchemaId } from "./workbookSurfaceRegistry";
 
 export type WorkbookSavedViewIdentity = {
   readonly sheetRef: SheetRef;
   readonly viewSchemaId: string;
 };
+
+export function savedViewChanges(
+  base: SavedViewResource,
+  definition: Omit<WorkbookSavedViewDefinition, "viewSchemaId">,
+): WorkbookSavedViewChanges {
+  return {
+    ...(validateDisplayName(definition.displayName).value === base.display_name
+      ? {}
+      : { displayName: definition.displayName }),
+    ...(definition.scope === base.scope ? {} : { scope: definition.scope }),
+    ...(savedViewJSONEqual(definition.queryJson, base.query_json)
+      ? {}
+      : { queryJson: definition.queryJson }),
+    ...(savedViewJSONEqual(definition.layoutJson, base.layout_json)
+      ? {}
+      : { layoutJson: definition.layoutJson }),
+  };
+}
 
 export function upsertSavedViewList(
   current: readonly SavedViewResource[],

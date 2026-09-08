@@ -15,6 +15,7 @@ import {
   savedViewSelectorTestId,
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
+  savedViewStatusTestId,
   savedViewUpdateButtonTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
@@ -405,6 +406,18 @@ async function waitForSavedViewActionMenuClose(
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     if (!(await isSavedViewLocatorVisible(menu))) {
+      return;
+    }
+    const status = page.getByTestId(savedViewStatusTestId(surface));
+    const evaluate = requireSavedViewEvaluate(
+      status,
+      "Saved-view action observation requires DOM state",
+    );
+    const confirmed = await evaluate(
+      (element) => element.getAttribute("data-feedback-kind") === "success",
+    );
+    if (confirmed) {
+      await page.getByTestId(savedViewActionMenuTriggerTestId(surface)).click();
       return;
     }
     await waitForSavedViewRetry(50);

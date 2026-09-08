@@ -93,6 +93,7 @@ import { useIncidentMembershipManagement } from "./useIncidentMembershipManageme
 import { useIncidentMetadata } from "./useIncidentMetadata";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
 import { useWorkbookPreferences } from "./useWorkbookPreferences";
+import { useWorkbookSavedViews } from "./useWorkbookSavedViews";
 import { WorkbookPreferenceDepartureDialog } from "./WorkbookPreferenceDepartureDialog";
 
 const LazyWorkbookShell = lazy(async () => {
@@ -916,6 +917,13 @@ export function App({
     incidentResources.getSnapshot,
   );
 
+  const savedViews = useWorkbookSavedViews({
+    sessionController,
+    recovery: workbookAuthorizationRecovery,
+    currentIncidentId: () => routeRef.current.incidentId,
+    onIncidentAccessLost: handleIncidentAccessLost,
+    onSessionLost: handleSessionLost,
+  });
   const preferences = useWorkbookPreferences({
     sessionController,
     recovery: workbookAuthorizationRecovery,
@@ -1129,6 +1137,14 @@ export function App({
             }
           >
             <LazyWorkbookShell
+              savedViewController={savedViews.controller}
+              bindWorkbookSavedViews={(binding) => {
+                if (
+                  sessionController.getSnapshot().lifetime ===
+                  sessionSnapshot.lifetime
+                )
+                  savedViews.bindWorkbook(binding);
+              }}
               preferenceController={preferences.controller}
               bindWorkbookPreferences={(binding) => {
                 if (

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionAvailabilityTag } from "../../extensions/extensionAvailability";
+import { savedViewTestResource } from "../../testing/workbookSavedViewTestSupport";
 import { normalizeWorkbookStartupSelection } from "../models/workbookStartup";
 import {
   hostsViewSchemaId,
@@ -64,16 +65,12 @@ function savedViewStartup() {
   return {
     ...baseStartup(hostsViewSchemaId),
     selected_sheet_ref: { kind: "saved_view", id: "saved-view-1" },
-    selected_saved_view: {
+    selected_saved_view: savedViewTestResource({
       saved_view_id: "saved-view-1",
       view_schema_id: hostsViewSchemaId,
       display_name: "Hosts by owner",
-      scope: "private",
-      query_json: { sort: [], filters: [] },
-      layout_json: {},
-      owner_user_id: "user-1",
       saved_view_version: 3,
-    },
+    }),
   };
 }
 

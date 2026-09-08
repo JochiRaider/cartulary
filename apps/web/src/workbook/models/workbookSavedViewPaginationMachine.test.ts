@@ -1,4 +1,6 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
+import { buildSavedViewLayoutJson } from "./workbookQuery";
 import {
   acceptWorkbookSavedViewPage,
   normalizeWorkbookSavedViewPage,
@@ -9,10 +11,15 @@ import {
 function savedView(id: string) {
   return {
     display_name: id,
-    layout_json: {},
+    layout_json: buildSavedViewLayoutJson(
+      requireViewContract("cartulary.view.timeline.v2"),
+    ),
     owner_user_id: "user-1",
-    query_json: {},
+    query_json: { sort: [], filters: [] },
     saved_view_id: id,
+    incident_id: "incident-1",
+    created_at: "2026-07-31T20:00:00Z",
+    updated_at: "2026-07-31T20:00:00Z",
     saved_view_version: 1,
     scope: "private" as const,
     view_schema_id: "cartulary.view.timeline.v2",

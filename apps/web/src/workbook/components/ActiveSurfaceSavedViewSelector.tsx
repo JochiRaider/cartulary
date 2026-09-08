@@ -9,8 +9,9 @@ import {
   type RefObject,
   useEffect,
   useMemo,
-  useReducer,
   useRef,
+  useState,
+  useSyncExternalStore,
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import {
@@ -20,16 +21,15 @@ import {
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
   type ActiveSurfaceSavedViewProjection,
-  createSavedViewControlState,
   projectActiveSurfaceSavedViews,
-  reduceSavedViewControl,
   type SavedViewControlEvent,
   type SavedViewSurfaceControlState,
-  savedViewSurfaceControlState,
   type WorkbookSavedViewsResource,
 } from "../models/workbookSavedViewControl";
 import type { SavedViewResource } from "../models/workbookSavedViews";
 import type { WorkbookPreferenceController } from "../preferences/WorkbookPreferenceController";
+import { savedViewOutcome } from "../savedviews/savedViewOperationModel";
+import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
 import { SavedViewActionPanel } from "./SavedViewActionPanel";
 
@@ -41,47 +41,28 @@ export type ActiveSurfaceSavedViewSelectorProps = {
   readonly isModified?: boolean | undefined;
   readonly savedViewsResource: WorkbookSavedViewsResource;
   readonly selectedSheetRef: SheetRef;
-  readonly onCreateSavedView: (input: {
-    readonly displayName: string;
-    readonly scope: "private" | "shared";
-  }) => Promise<SavedViewResource>;
-  readonly onDeleteSavedView: (savedView: SavedViewResource) => Promise<void>;
-  readonly onDuplicateSavedView: (
-    savedView: SavedViewResource,
-  ) => Promise<SavedViewResource>;
-  readonly onResetToSavedView: (savedView: SavedViewResource) => void;
+  readonly controller: WorkbookSavedViewController;
   readonly onSelectBaseSurface: (viewSchemaId: string) => void;
   readonly onSelectSavedView: (savedView: SavedViewResource) => void;
   readonly preferenceController?: WorkbookPreferenceController | undefined;
   readonly onInspectPreferences?:
     | ((target?: HTMLElement | null) => void)
     | undefined;
-  readonly onUpdateSavedView: (
-    savedView: SavedViewResource,
-    input: {
-      readonly displayName: string;
-      readonly scope: "private" | "shared";
-    },
-  ) => Promise<SavedViewResource>;
 };
 
 export function ActiveSurfaceSavedViewSelector({
   activeViewSchemaId,
   chromeMode,
+  controller,
   currentIncidentRole,
   currentUserId,
   isModified = false,
   savedViewsResource,
   selectedSheetRef,
-  onCreateSavedView,
-  onDeleteSavedView,
-  onDuplicateSavedView,
-  onResetToSavedView,
   onSelectBaseSurface,
   onSelectSavedView,
   preferenceController,
   onInspectPreferences,
-  onUpdateSavedView,
 }: ActiveSurfaceSavedViewSelectorProps) {
   const projection = useMemo(
     () =>
@@ -92,56 +73,86 @@ export function ActiveSurfaceSavedViewSelector({
       ),
     [activeViewSchemaId, savedViewsResource, selectedSheetRef],
   );
-  const [state, dispatch] = useReducer(
-    reduceSavedViewControl,
-    createSavedViewControlState(
-      activeViewSchemaId,
-      projection.selectedSavedView,
-    ),
+  const operationState = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
   );
-  const control = savedViewSurfaceControlState(
-    state,
-    activeViewSchemaId,
-    projection.selectedSavedView,
+  const selected = projection.selectedSavedView;
+  const subject = {
+    viewSchemaId: activeViewSchemaId,
+    savedViewId:
+      selectedSheetRef.kind === "saved_view" ? selectedSheetRef.id : null,
+    savedViewVersion: selected?.saved_view_version ?? null,
+  };
+  const selectionKey = `${activeViewSchemaId}:${subject.savedViewId ?? "base"}`;
+  const [openSelection, setOpenSelection] = useState<string | null>(null);
+  useEffect(
+    () =>
+      setOpenSelection((current) =>
+        current === selectionKey ? current : null,
+      ),
+    [selectionKey],
   );
+  const [notice, setNotice] = useState<string | null>(null);
+  const draft = controller.draftFor(subject);
+  const operation = operationState.operation;
+  const message =
+    operationState.notice ?? notice ?? savedViewOutcome(operation);
+  const control: SavedViewSurfaceControlState = {
+    selectionKey,
+    displayName: draft.displayName,
+    scope: draft.scope,
+    panelOpen: openSelection === selectionKey,
+    busy: operationState.transportPending || operation.kind === "pending",
+    feedback: message
+      ? {
+          kind: ["conflict", "uncertain", "rejected"].includes(operation.kind)
+            ? "error"
+            : operation.kind === "confirmed"
+              ? "success"
+              : "notice",
+          message,
+        }
+      : null,
+  };
+  const dispatch = (event: SavedViewControlEvent) => {
+    if (event.surface !== activeViewSchemaId) return;
+    switch (event.type) {
+      case "toggle_panel":
+        setOpenSelection(control.panelOpen ? null : selectionKey);
+        break;
+      case "close_panel":
+        setOpenSelection(null);
+        break;
+      case "change_name":
+        controller.changeDraft(subject, { displayName: event.displayName });
+        break;
+      case "change_scope":
+        controller.changeDraft(subject, { scope: event.scope });
+        break;
+      case "publish_notice":
+        setNotice(event.message);
+        break;
+      case "clear_feedback":
+        setNotice(null);
+        break;
+    }
+  };
   const selectorRef = useRef<HTMLSelectElement>(null);
-
-  useEffect(() => {
-    dispatch({
-      type: "activate",
-      surface: activeViewSchemaId,
-      selectedSavedView: projection.selectedSavedView,
-    });
-  }, [activeViewSchemaId, projection.selectedSavedView]);
-
   useInvalidSavedViewFallback({
     activeViewSchemaId,
     dispatch,
     onSelectBaseSurface,
     savedViewsResource,
   });
-
-  const { runAction } = useActiveSurfaceSavedViewActions({
-    activeViewSchemaId,
-    currentIncidentRole,
-    currentUserId,
-    dispatch,
-    isModified,
-    ports: {
-      create: onCreateSavedView,
-      delete: onDeleteSavedView,
-      duplicate: onDuplicateSavedView,
-      reset: onResetToSavedView,
-      update: onUpdateSavedView,
-    },
-    projection,
-  });
+  const { runAction } = useActiveSurfaceSavedViewActions(controller, subject);
 
   return (
     <SavedViewControlPresentation
       activeViewSchemaId={activeViewSchemaId}
       chromeMode={chromeMode}
       control={control}
+      controller={controller}
       currentIncidentRole={currentIncidentRole}
       currentUserId={currentUserId}
       dispatch={dispatch}
@@ -191,6 +202,7 @@ function SavedViewControlPresentation({
   activeViewSchemaId,
   chromeMode,
   control,
+  controller,
   currentIncidentRole,
   currentUserId,
   dispatch,
@@ -206,6 +218,7 @@ function SavedViewControlPresentation({
   readonly activeViewSchemaId: string;
   readonly chromeMode: WorkbookChromeMode;
   readonly control: SavedViewSurfaceControlState;
+  readonly controller: WorkbookSavedViewController;
   readonly currentIncidentRole: string | null;
   readonly currentUserId: string | null;
   readonly dispatch: Dispatch<SavedViewControlEvent>;
@@ -251,6 +264,7 @@ function SavedViewControlPresentation({
         selectedSavedView={projection.selectedSavedView}
       />
       <SavedViewActionPanel
+        controller={controller}
         activeViewSchemaId={activeViewSchemaId}
         control={control}
         currentIncidentRole={currentIncidentRole}

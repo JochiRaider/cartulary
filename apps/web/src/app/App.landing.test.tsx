@@ -2617,7 +2617,7 @@ describe("Incident landing", () => {
     expect((workbookFrame as HTMLElement).style.display).toBe("grid");
     expect((workbookFrame as HTMLElement).style.blockSize).toBe("100%");
     expect((workbookFrame as HTMLElement).style.overflow).toBe("hidden");
-    await expectStableFetchCount(fetchMock, 4);
+    await expectStableFetchCount(fetchMock, 5);
   });
 
   it("preserves incident and directory routes across popstate navigation", async () => {
@@ -2774,7 +2774,7 @@ describe("Incident landing", () => {
     renderApp();
 
     expect(await screen.findByTestId("mock-workbook")).toBeTruthy();
-    await expectStableFetchCount(fetchMock, 4);
+    await expectStableFetchCount(fetchMock, 5);
     accessLost = true;
     fireEvent.click(screen.getByTestId("mock-access-lost"));
 
@@ -2787,7 +2787,7 @@ describe("Incident landing", () => {
       screen.getByTestId(incidentLandingTestId("status")).textContent?.trim(),
     ).not.toBe("");
     expect(window.location.search).not.toContain("incident_id=");
-    await expectStableFetchCount(fetchMock, 5);
+    await expectStableFetchCount(fetchMock, 6);
   });
 
   it("cancels an in-flight shell refresh when the app unmounts", async () => {

@@ -1,112 +1,306 @@
-import { normalizeWorkbookSavedViewPage } from "../models/workbookSavedViewPaginationMachine";
-import type { SavedViewResource } from "../models/workbookSavedViews";
-import { normalizeSavedViewResource } from "../models/workbookSavedViews";
 import type {
-  WorkbookSavedViewDefinition,
+  HTTPOperationID,
+  HTTPOperationRequest,
+  HTTPOperationResponse,
+} from "@cartulary/protocol-ts/http";
+import { fetchHTTPOperation } from "../../services/browserApi";
+import { validatedPublicErrorReason } from "../../services/publicErrorIdentity";
+import { validateDisplayName } from "../../shared/displayName";
+import { normalizeWorkbookSavedViewPage } from "../models/workbookSavedViewPaginationMachine";
+import {
+  normalizeSavedViewResource,
+  type SavedViewResource,
+  savedViewJSONEqual,
+} from "../models/workbookSavedViews";
+import type {
+  SavedViewProblem,
+  SavedViewResult,
+  WorkbookSavedViewChanges,
   WorkbookSavedViewPort,
 } from "../ports/WorkbookSavedViewPort";
-import {
-  invalidWorkbookAdapterResult,
-  normalizeWorkbookAdapterFailure,
-  workbookAdapterCaughtResult,
-} from "./workbookAdapterResult";
-import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
+import { decodeWorkbookPublicError } from "./workbookPublicErrorDecoder";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+function problem<T>(
+  kind: SavedViewProblem["kind"],
+  message: string,
+  uncertain = false,
+): SavedViewResult<T> {
+  return {
+    kind: uncertain ? "uncertain" : "rejected",
+    failure: { kind, message },
+  };
 }
 
-function correlatedSavedView(
-  value: unknown,
-  incidentId: string,
-  options: {
-    readonly minimumVersion?: number;
-    readonly savedViewId?: string;
-    readonly viewSchemaId?: string;
-  } = {},
-): SavedViewResource | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  const resource = value;
-  if (
-    resource.incident_id !== incidentId ||
-    (options.savedViewId !== undefined &&
-      resource.saved_view_id !== options.savedViewId) ||
-    (options.viewSchemaId !== undefined &&
-      resource.view_schema_id !== options.viewSchemaId)
-  ) {
-    return null;
-  }
-  const savedView = normalizeSavedViewResource(value);
-  if (
-    savedView === null ||
-    (options.minimumVersion !== undefined &&
-      savedView.saved_view_version < options.minimumVersion)
-  ) {
-    return null;
-  }
-  return savedView;
-}
-
-function generatedPersistenceDefinition(
-  definition: Omit<WorkbookSavedViewDefinition, "viewSchemaId">,
+function persistenceQuery(
+  query: NonNullable<WorkbookSavedViewChanges["queryJson"]>,
 ) {
   return {
-    display_name: definition.displayName,
-    layout_json: {
-      column_order: [...definition.layoutJson.column_order],
-      column_widths: definition.layoutJson.column_widths.map((entry) => ({
-        field_key: entry.field_key,
-        width_px: entry.width_px,
-      })),
-      hidden_field_keys: [...definition.layoutJson.hidden_field_keys],
-      layout_schema_id: definition.layoutJson.layout_schema_id,
-    },
-    query_json: {
-      filters: definition.queryJson.filters.map((filter) => ({
-        arg: { ...filter.arg },
-        field_key: filter.field_key,
-        op: filter.op,
-      })),
-      sort: definition.queryJson.sort.map((entry) => ({
-        direction: entry.direction,
-        field_key: entry.field_key,
-      })),
-      ...(definition.queryJson.group_by === undefined
-        ? {}
-        : { group_by: definition.queryJson.group_by }),
-    },
-    scope: definition.scope,
+    sort: query.sort.map((entry) => ({ ...entry })),
+    filters: query.filters.map((entry) => ({
+      ...entry,
+      arg: structuredClone(entry.arg),
+    })),
+    ...(query.group_by === undefined ? {} : { group_by: query.group_by }),
   };
 }
 
-function generatedDefinition(definition: WorkbookSavedViewDefinition) {
+function persistenceFields(changes: WorkbookSavedViewChanges) {
   return {
-    ...generatedPersistenceDefinition(definition),
-    view_schema_id: definition.viewSchemaId,
+    ...(changes.displayName === undefined
+      ? {}
+      : { display_name: changes.displayName }),
+    ...(changes.scope === undefined ? {} : { scope: changes.scope }),
+    ...(changes.layoutJson === undefined
+      ? {}
+      : {
+          layout_json: {
+            layout_schema_id: changes.layoutJson.layout_schema_id,
+            column_order: [...changes.layoutJson.column_order],
+            hidden_field_keys: [...changes.layoutJson.hidden_field_keys],
+            column_widths: changes.layoutJson.column_widths.map((entry) => ({
+              ...entry,
+            })),
+          },
+        }),
+    ...(changes.queryJson === undefined
+      ? {}
+      : {
+          query_json: persistenceQuery(changes.queryJson),
+        }),
   };
 }
 
-function immutableSystemViewResult(message: string) {
+function failure<T>(
+  status: number,
+  payload: unknown,
+  write: boolean,
+  base?: SavedViewResource,
+): SavedViewResult<T> {
+  const decoded = decodeWorkbookPublicError(payload);
+  if (decoded.kind !== "decoded" || decoded.envelope.error.status !== status) {
+    return problem(
+      "invalid_contract",
+      "The server returned an invalid saved-view response.",
+      write,
+    );
+  }
+  const error = decoded.envelope.error;
+  const common = { publicCode: error.code };
+  if (status === 409 && error.code === "saved_view_version_conflict") {
+    const details = error.details;
+    if (
+      !base ||
+      details.saved_view_id !== base.saved_view_id ||
+      details.base_saved_view_version !== base.saved_view_version ||
+      typeof details.current_saved_view_version !== "number" ||
+      !Number.isSafeInteger(details.current_saved_view_version) ||
+      details.current_saved_view_version <= base.saved_view_version
+    ) {
+      return problem(
+        "invalid_contract",
+        "The server returned an invalid saved-view conflict response.",
+        write,
+      );
+    }
+    return {
+      kind: "rejected",
+      failure: {
+        ...common,
+        kind: "conflict",
+        message:
+          "This saved view changed. Review the current saved configuration before writing again.",
+        conflict: {
+          savedViewId: base.saved_view_id,
+          baseVersion: base.saved_view_version,
+          currentVersion: details.current_saved_view_version,
+        },
+      },
+    };
+  }
+  if (
+    status === 400 &&
+    [
+      "invalid_mutation_payload",
+      "invalid_pagination_request",
+      "invalid_path_parameter",
+    ].includes(error.code)
+  ) {
+    const field = error.details.field;
+    const reason = validatedPublicErrorReason(
+      error.code,
+      error.details.reason_code,
+    );
+    return {
+      kind: "rejected",
+      failure: {
+        ...common,
+        kind: "validation",
+        message: "Check the saved-view values and try again.",
+        ...(typeof field === "string" && /^[a-zA-Z0-9_.[\]]{1,160}$/.test(field)
+          ? { field }
+          : {}),
+        ...(reason === undefined ? {} : { reason }),
+      },
+    };
+  }
+  if (status === 401 && error.code === "authentication_required") {
+    return {
+      kind: "rejected",
+      failure: {
+        ...common,
+        kind: "authentication_required",
+        message: "Sign in again to continue this saved-view action.",
+      },
+    };
+  }
+  if (
+    status === 403 &&
+    ["authorization_denied", "csrf_failed"].includes(error.code)
+  ) {
+    return {
+      kind: "rejected",
+      failure: {
+        ...common,
+        kind: "authorization_denied",
+        message:
+          "This saved-view action was not permitted. Check current access.",
+      },
+    };
+  }
+  if (
+    status === 404 &&
+    ["saved_view_not_found", "incident_not_found"].includes(error.code)
+  ) {
+    return {
+      kind: "rejected",
+      failure: {
+        ...common,
+        kind: "unavailable_target",
+        message:
+          "This saved view is unavailable. Check current access and refresh the list.",
+      },
+    };
+  }
   return {
-    kind: "rejected" as const,
-    failure: { kind: "validation" as const, message },
+    kind: write ? "uncertain" : "rejected",
+    failure: {
+      ...common,
+      kind: "terminal",
+      message: "The saved-view request could not be confirmed.",
+    },
   };
+}
+
+function patchCorrelates(
+  resource: SavedViewResource,
+  base: SavedViewResource,
+  changes: WorkbookSavedViewChanges,
+): boolean {
+  if (
+    resource.saved_view_id !== base.saved_view_id ||
+    resource.incident_id !== base.incident_id ||
+    resource.view_schema_id !== base.view_schema_id ||
+    resource.owner_user_id !== base.owner_user_id ||
+    resource.created_at !== base.created_at
+  )
+    return false;
+  if (
+    resource.display_name !==
+      (changes.displayName === undefined
+        ? base.display_name
+        : validateDisplayName(changes.displayName).value) ||
+    resource.scope !== (changes.scope ?? base.scope) ||
+    (changes.queryJson === undefined &&
+      !savedViewJSONEqual(resource.query_json, base.query_json)) ||
+    (changes.layoutJson === undefined &&
+      !savedViewJSONEqual(resource.layout_json, base.layout_json))
+  )
+    return false;
+  if (resource.saved_view_version === base.saved_view_version)
+    return savedViewJSONEqual(resource, base);
+  return (
+    resource.saved_view_version === base.saved_view_version + 1 &&
+    resource.updated_at !== base.updated_at &&
+    !savedViewJSONEqual(
+      {
+        ...resource,
+        saved_view_version: base.saved_view_version,
+        updated_at: base.updated_at,
+      },
+      base,
+    )
+  );
 }
 
 export function createWorkbookSavedViewAdapter(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
 }): WorkbookSavedViewPort {
-  const operations = createWorkbookOperationExecutor({
-    apiBase: options.apiBase,
-  });
+  async function execute<I extends HTTPOperationID>(
+    operationID: I,
+    signal: AbortSignal,
+    write: boolean,
+    request?: HTTPOperationRequest<I>,
+    base?: SavedViewResource,
+    savedViewId?: string,
+  ) {
+    try {
+      const result = await fetchHTTPOperation<HTTPOperationResponse<I>>({
+        apiBase: options.apiBase,
+        operationID,
+        pathParameters: {
+          incident_id: options.incidentId,
+          ...(savedViewId === undefined ? {} : { saved_view_id: savedViewId }),
+        },
+        init: {
+          signal,
+          method:
+            operationID === "createIncidentSavedView"
+              ? "POST"
+              : operationID === "patchIncidentSavedView"
+                ? "PATCH"
+                : "DELETE",
+          ...(request === undefined ? {} : { body: JSON.stringify(request) }),
+        },
+      });
+      if (!result.ok)
+        return failure<HTTPOperationResponse<I>>(
+          result.status,
+          result.payload,
+          write,
+          base,
+        );
+      if (
+        result.status !==
+        (operationID === "createIncidentSavedView" ? 201 : 200)
+      )
+        return problem<HTTPOperationResponse<I>>(
+          "invalid_contract",
+          "The server returned an invalid saved-view response.",
+          write,
+        );
+      return { kind: "accepted" as const, value: result.payload };
+    } catch (error) {
+      if (error instanceof SyntaxError)
+        return problem<HTTPOperationResponse<I>>(
+          "invalid_contract",
+          "The server returned malformed saved-view JSON.",
+          write,
+        );
+      return problem<HTTPOperationResponse<I>>(
+        "transport",
+        "The saved-view request lost its connection. Its outcome is unknown.",
+        write,
+      );
+    }
+  }
   return {
     async listPage(input) {
-      const message = "Saved views load failed.";
       try {
-        const outcome = await operations.execute({
+        const result = await fetchHTTPOperation<
+          HTTPOperationResponse<"listIncidentSavedViews">
+        >({
+          apiBase: options.apiBase,
           operationID: "listIncidentSavedViews",
           pathParameters: { incident_id: options.incidentId },
           query: {
@@ -115,113 +309,113 @@ export function createWorkbookSavedViewAdapter(options: {
               ? {}
               : { cursor_token: input.cursorToken }),
           },
-          signal: input.signal,
+          init: { method: "GET", signal: input.signal },
         });
-        if (outcome.kind === "rejected") {
-          return normalizeWorkbookAdapterFailure(outcome, message);
-        }
-        const page = normalizeWorkbookSavedViewPage({
-          incidentId: options.incidentId,
-          limit: input.limit,
-          paging: outcome.value.meta.paging,
-          savedViews: outcome.value.data.saved_views,
-        });
+        if (!result.ok) return failure(result.status, result.payload, false);
+        const page =
+          result.status === 200
+            ? normalizeWorkbookSavedViewPage({
+                incidentId: options.incidentId,
+                limit: input.limit,
+                paging: result.payload.meta.paging,
+                savedViews: result.payload.data.saved_views,
+              })
+            : null;
         return page === null
-          ? invalidWorkbookAdapterResult(message)
+          ? problem(
+              "invalid_contract",
+              "Saved views load failed: invalid response.",
+            )
           : { kind: "accepted", value: page };
       } catch (error) {
-        return workbookAdapterCaughtResult(error, input.signal, message);
+        if (error instanceof SyntaxError)
+          return problem(
+            "invalid_contract",
+            "The server returned malformed saved-view JSON.",
+          );
+        return problem("transport", "Saved views could not be loaded.");
       }
     },
     async create(input) {
-      const message = "Saved-view create failed.";
-      try {
-        const outcome = await operations.execute({
-          operationID: "createIncidentSavedView",
-          pathParameters: { incident_id: options.incidentId },
-          request: generatedDefinition(input.definition),
-          signal: input.signal,
-        });
-        if (outcome.kind === "rejected") {
-          return normalizeWorkbookAdapterFailure(outcome, message);
-        }
-        const savedView = correlatedSavedView(
-          outcome.value.data,
-          options.incidentId,
-          { minimumVersion: 1, viewSchemaId: input.definition.viewSchemaId },
-        );
-        return savedView === null
-          ? invalidWorkbookAdapterResult(message)
-          : { kind: "accepted", value: savedView };
-      } catch (error) {
-        return workbookAdapterCaughtResult(error, input.signal, message);
-      }
+      const fields = persistenceFields(input.definition);
+      const request = {
+        ...fields,
+        display_name: input.definition.displayName,
+        query_json: persistenceQuery(input.definition.queryJson),
+        view_schema_id: input.definition.viewSchemaId,
+      } satisfies HTTPOperationRequest<"createIncidentSavedView">;
+      const result = await execute(
+        "createIncidentSavedView",
+        input.signal,
+        true,
+        request,
+      );
+      if (result.kind !== "accepted") return result;
+      const resource = normalizeSavedViewResource(result.value.data);
+      return resource !== null &&
+        resource.incident_id === options.incidentId &&
+        resource.view_schema_id === input.definition.viewSchemaId &&
+        resource.scope === input.definition.scope &&
+        resource.display_name ===
+          validateDisplayName(input.definition.displayName).value
+        ? { kind: "accepted", value: resource }
+        : problem(
+            "invalid_contract",
+            "The server returned an invalid saved-view acknowledgement.",
+            true,
+          );
     },
     async patch(input) {
-      const message = "Saved-view update failed.";
-      if (input.scope === "system") {
-        return immutableSystemViewResult(message);
-      }
-      try {
-        const definition = generatedPersistenceDefinition(input.definition);
-        const outcome = await operations.execute({
-          operationID: "patchIncidentSavedView",
-          pathParameters: {
-            incident_id: options.incidentId,
-            saved_view_id: input.savedViewId,
-          },
-          request: {
-            base_saved_view_version: input.baseVersion,
-            display_name: input.definition.displayName,
-            layout_json: definition.layout_json,
-            query_json: definition.query_json,
-            scope: input.definition.scope,
-          },
-          signal: input.signal,
-        });
-        if (outcome.kind === "rejected") {
-          return normalizeWorkbookAdapterFailure(outcome, message);
-        }
-        const savedView = correlatedSavedView(
-          outcome.value.data,
-          options.incidentId,
-          {
-            minimumVersion: input.baseVersion + 1,
-            savedViewId: input.savedViewId,
-            viewSchemaId: input.viewSchemaId,
-          },
+      if (input.base.scope === "system")
+        return problem("validation", "System saved views cannot be updated.");
+      if (input.base.incident_id !== options.incidentId)
+        return problem(
+          "validation",
+          "The saved-view target is no longer current.",
         );
-        return savedView === null
-          ? invalidWorkbookAdapterResult(message)
-          : { kind: "accepted", value: savedView };
-      } catch (error) {
-        return workbookAdapterCaughtResult(error, input.signal, message);
-      }
+      const request = {
+        base_saved_view_version: input.base.saved_view_version,
+        ...persistenceFields(input.changes),
+      } satisfies HTTPOperationRequest<"patchIncidentSavedView">;
+      const result = await execute(
+        "patchIncidentSavedView",
+        input.signal,
+        true,
+        request,
+        input.base,
+        input.base.saved_view_id,
+      );
+      if (result.kind !== "accepted") return result;
+      const resource = normalizeSavedViewResource(result.value.data);
+      return resource !== null &&
+        patchCorrelates(resource, input.base, input.changes)
+        ? { kind: "accepted", value: resource }
+        : problem(
+            "invalid_contract",
+            "The server returned an invalid saved-view acknowledgement.",
+            true,
+          );
     },
     async delete(input) {
-      const message = "Saved-view delete failed.";
-      if (input.scope === "system") {
-        return immutableSystemViewResult(message);
-      }
-      try {
-        const outcome = await operations.execute({
-          operationID: "deleteIncidentSavedView",
-          pathParameters: {
-            incident_id: options.incidentId,
-            saved_view_id: input.savedViewId,
-          },
-          signal: input.signal,
-        });
-        if (outcome.kind === "rejected") {
-          return normalizeWorkbookAdapterFailure(outcome, message);
-        }
-        return outcome.value.data.deleted === true &&
-          outcome.value.data.saved_view_id === input.savedViewId
-          ? { kind: "accepted", value: undefined }
-          : invalidWorkbookAdapterResult(message);
-      } catch (error) {
-        return workbookAdapterCaughtResult(error, input.signal, message);
-      }
+      if (input.scope === "system")
+        return problem("validation", "System saved views cannot be deleted.");
+      const result = await execute(
+        "deleteIncidentSavedView",
+        input.signal,
+        true,
+        undefined,
+        undefined,
+        input.savedViewId,
+      );
+      if (result.kind !== "accepted") return result;
+      return result.value.data.deleted === true &&
+        result.value.data.saved_view_id === input.savedViewId
+        ? { kind: "accepted", value: undefined }
+        : problem(
+            "invalid_contract",
+            "The server returned an invalid saved-view acknowledgement.",
+            true,
+          );
     },
   };
 }

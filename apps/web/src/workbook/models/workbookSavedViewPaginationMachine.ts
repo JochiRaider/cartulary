@@ -59,6 +59,7 @@ export function normalizeWorkbookSavedViewPage(input: {
   const paging = input.paging;
   if (
     paging === undefined ||
+    input.savedViews.length > input.limit ||
     paging.limit !== input.limit ||
     (paging.has_more &&
       (paging.next_cursor === null || paging.next_cursor.trim() === "")) ||

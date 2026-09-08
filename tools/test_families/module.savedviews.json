@@ -39,6 +39,111 @@
       ]
     },
     {
+      "row_id": "module.savedviews.browser.authoring_recovery_005364829450",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_005364829450"
+        ],
+        "titles": [
+          "Saved-view authoring reviews real conflicts and normalized no-ops while Reset preserves identity"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.savedviews.browser.authoring_recovery_38dcbd1862c5",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_38dcbd1862c5"
+        ],
+        "titles": [
+          "Saved-view authoring accepts delayed receipts after navigation without changing the active surface"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.savedviews.browser.authoring_recovery_5cd20f1b328e",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_5cd20f1b328e"
+        ],
+        "titles": [
+          "Saved-view authoring retains uncertain committed creates and requires a deliberate new attempt"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.browser",

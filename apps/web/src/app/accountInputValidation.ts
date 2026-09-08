@@ -39,22 +39,4 @@ export function validateProvisioningPassword(value: string): string | null {
     : null;
 }
 
-export function validateAccountDisplayName(input: string): {
-  value: string;
-  error: string | null;
-} {
-  const value = normalizedLine(input);
-  const scalars = Array.from(value);
-  const invalid = scalars.some(invalidScalar);
-  return {
-    value,
-    error:
-      value === ""
-        ? "Enter a display name."
-        : invalid
-          ? "Remove control characters from the display name."
-          : scalars.length > 256
-            ? "Use 256 characters or fewer."
-            : null,
-  };
-}
+export { validateDisplayName as validateAccountDisplayName } from "../shared/displayName";

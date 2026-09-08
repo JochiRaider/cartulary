@@ -87,9 +87,14 @@ import {
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
+import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
 import { useGenericPartyLinkWorkflow } from "./features/parties/useGenericPartyLinkWorkflow";
 import { buildGenericPatchChange } from "./models/genericWorkbookModel";
+import {
+  savedViewJSONEqual,
+  savedViewLayoutJsonForPersistence,
+} from "./models/workbookSavedViews";
 import {
   assessmentsViewSchemaId,
   commLogViewSchemaId,
@@ -123,8 +128,16 @@ import { WorkbookPreferenceController } from "./preferences/WorkbookPreferenceCo
 const authorizationRecovery = workbookAuthorizationRecovery();
 
 function WorkbookShell(
-  props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
+  props: Omit<
+    Parameters<typeof WorkbookShellImpl>[0],
+    "authorizationRecovery" | "savedViewController" | "bindWorkbookSavedViews"
+  >,
 ) {
+  const savedViews = useSavedViewTestApplication(
+    props.incidentId,
+    testUserId,
+    authorizationRecovery,
+  );
   const [preferences] = useState(
     () =>
       new WorkbookPreferenceController({
@@ -144,6 +157,7 @@ function WorkbookShell(
   useLayoutEffect(() => () => preferences.dispose(), [preferences]);
   return (
     <WorkbookShellImpl
+      {...savedViews}
       {...props}
       preferenceController={preferences}
       bindWorkbookPreferences={(binding) => {
@@ -329,18 +343,16 @@ function testSavedViewResource(
     created_at: testTimestamp,
     display_name: "Saved view",
     incident_id: "10000000-0000-4000-8000-000000000001",
-    layout_json: {
-      column_order: [],
-      column_widths: [],
-      hidden_field_keys: [],
-      layout_schema_id: "cartulary.layout.v1",
-    },
     owner_user_id: testUserId,
     query_json: { filters: [], sort: [] },
     saved_view_version: 1,
     scope: "private",
     updated_at: testTimestamp,
     ...overrides,
+    layout_json: savedViewLayoutJsonForPersistence(
+      requireViewContract(overrides.view_schema_id),
+      overrides.layout_json ?? {},
+    ),
   };
 }
 
@@ -709,11 +721,21 @@ describe("WorkbookShell surface selection", () => {
         const updated: TestSavedViewResource = {
           ...existing,
           display_name: String(body.display_name ?? existing.display_name),
-          scope: body.scope === "shared" ? "shared" : "private",
+          scope:
+            body.scope === undefined
+              ? existing.scope
+              : body.scope === "shared"
+                ? "shared"
+                : "private",
           query_json: body.query_json ?? existing.query_json,
           layout_json: body.layout_json ?? existing.layout_json,
-          saved_view_version: existing.saved_view_version + 1,
         };
+        if (!savedViewJSONEqual(existing, updated)) {
+          updated.saved_view_version += 1;
+          updated.updated_at = new Date(
+            Date.parse(existing.updated_at) + 1000,
+          ).toISOString();
+        }
         currentScenario.savedViews = currentScenario.savedViews.map(
           (savedView) =>
             savedView.saved_view_id === savedViewID ? updated : savedView,
@@ -1169,6 +1191,40 @@ describe("WorkbookShell surface selection", () => {
         "true",
       );
     });
+    openSavedViewActions(timelineViewSchemaId);
+    const createView = screen.getByTestId(
+      savedViewCreateButtonTestId(timelineViewSchemaId),
+    );
+    expect((createView as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(createView);
+    await waitFor(() => expect(scenario.savedViews).toHaveLength(1));
+    const saved = scenario.savedViews[0];
+    if (!saved) throw new Error("Missing closed-incident saved configuration");
+    await waitFor(() =>
+      expect(window.location.search).toContain(saved.saved_view_id),
+    );
+    openSavedViewActions(timelineViewSchemaId);
+    expect(
+      (
+        screen.getByTestId(
+          savedViewUpdateButtonTestId(
+            timelineViewSchemaId,
+            saved.saved_view_id,
+          ),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          savedViewDeleteButtonTestId(
+            timelineViewSchemaId,
+            saved.saved_view_id,
+          ),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect((addRow as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("opens incident controls from a menu into a bounded drawer without mounting all controls from the trigger", async () => {
@@ -2035,28 +2091,12 @@ describe("WorkbookShell surface selection", () => {
     expect(Object.keys(patchBody).sort()).toEqual([
       "base_saved_view_version",
       "display_name",
-      "layout_json",
-      "query_json",
       "scope",
     ]);
-    expect(patchBody).toMatchObject({
+    expect(patchBody).toEqual({
       base_saved_view_version: 1,
       display_name: "Updated shared view",
       scope: "shared",
-      query_json: {
-        filters: [
-          {
-            arg: { value: "reviewed" },
-            field_key: "timeline.capture_state",
-            op: "eq",
-          },
-        ],
-        group_by: "timeline.capture_state",
-        sort: [{ direction: "desc", field_key: "timeline.activity_sort_ts" }],
-      },
-      layout_json: {
-        layout_schema_id: "cartulary.layout.v1",
-      },
     });
     expect(patchBody).not.toHaveProperty("view_schema_id");
     expect(patchBody).not.toHaveProperty("saved_view_id");

@@ -34,6 +34,7 @@ import {
   workbookCollectionValue,
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
+import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
@@ -51,10 +52,19 @@ vi.mock(
 const authorizationRecovery = workbookAuthorizationRecovery();
 
 function WorkbookShell(
-  props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
+  props: Omit<
+    Parameters<typeof WorkbookShellImpl>[0],
+    "authorizationRecovery" | "savedViewController" | "bindWorkbookSavedViews"
+  >,
 ) {
+  const savedViews = useSavedViewTestApplication(
+    props.incidentId,
+    "40000000-0000-4000-8000-000000000301",
+    authorizationRecovery,
+  );
   return (
     <WorkbookShellImpl
+      {...savedViews}
       {...props}
       authorizationRecovery={authorizationRecovery}
     />

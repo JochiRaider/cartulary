@@ -10,53 +10,54 @@ import {
 
 describe("workbookSavedViews", () => {
   it("normalizes saved views without collapsing saved-view identity into view_schema_id", () => {
-    expect(
-      normalizeSavedViewResource({
-        saved_view_id: "sv-1",
-        view_schema_id: "cartulary.view.timeline.v2",
-        display_name: "Analyst timeline",
-        scope: "private",
-        query_json: { filters: [] },
-        layout_json: { hidden_field_keys: ["timeline.raw_activity_text"] },
-        owner_user_id: "user-1",
-        saved_view_version: 7,
-      }),
-    ).toEqual({
+    const resource = {
+      incident_id: "incident-1",
+      created_at: "2026-07-31T20:00:00Z",
+      updated_at: "2026-07-31T20:00:00Z",
       saved_view_id: "sv-1",
       view_schema_id: "cartulary.view.timeline.v2",
       display_name: "Analyst timeline",
       scope: "private",
-      query_json: { filters: [] },
-      layout_json: { hidden_field_keys: ["timeline.raw_activity_text"] },
+      query_json: { filters: [], sort: [] },
+      layout_json: savedViewLayoutJsonForPersistence(
+        requireViewContract("cartulary.view.timeline.v2"),
+        {},
+      ),
       owner_user_id: "user-1",
       saved_view_version: 7,
-    });
-
-    expect(
-      normalizeSavedViewResource({
-        saved_view_id: "sv-2",
-        view_schema_id: "cartulary.view.unknown.v1",
-        display_name: "Unknown",
-        scope: "private",
-      }),
-    ).toBeNull();
+    };
+    expect(normalizeSavedViewResource(resource)).toEqual(resource);
+    for (const bad of [
+      { view_schema_id: "cartulary.view.unknown.v1" },
+      { query_json: {} },
+      { layout_json: {} },
+      { owner_user_id: null },
+      { saved_view_version: 0 },
+      { display_name: " unnormalized " },
+    ]) {
+      expect(normalizeSavedViewResource({ ...resource, ...bad })).toBeNull();
+    }
   });
 
   it("keeps system saved views immutable while allowing admins and owners to mutate user views", () => {
     const base = normalizeSavedViewResource({
+      incident_id: "incident-1",
+      created_at: "2026-07-31T20:00:00Z",
+      updated_at: "2026-07-31T20:00:00Z",
       saved_view_id: "sv-1",
       view_schema_id: "cartulary.view.timeline.v2",
       display_name: "Analyst timeline",
       scope: "private",
+      query_json: { filters: [], sort: [] },
+      layout_json: savedViewLayoutJsonForPersistence(
+        requireViewContract("cartulary.view.timeline.v2"),
+        {},
+      ),
       owner_user_id: "user-1",
+      saved_view_version: 1,
     });
-    const system = normalizeSavedViewResource({
-      saved_view_id: "sv-system",
-      view_schema_id: "cartulary.view.timeline.v2",
-      display_name: "System timeline",
-      scope: "system",
-    });
-
+    if (!base) throw new Error("Expected valid fixture");
+    const system = { ...base, scope: "system" as const, owner_user_id: null };
     expect(canMutateSavedView(system, "user-1", "admin")).toBe(false);
     expect(canMutateSavedView(base, "user-1", "viewer")).toBe(true);
     expect(canMutateSavedView(base, "user-2", "viewer")).toBe(false);

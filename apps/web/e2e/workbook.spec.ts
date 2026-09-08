@@ -14,13 +14,17 @@ import {
   sortByHeader,
 } from "@cartulary/test-utils/grid";
 import {
+  gridGroupingSelectTestId,
   gridGroupRowsSelector,
   gridGroupRowTestId,
   gridShellTestId,
   rowCellTestId,
+  savedViewActionMenuTriggerTestId,
   savedViewDeleteButtonTestId,
   savedViewOptionTestId,
+  savedViewResetButtonTestId,
   savedViewSelectorTestId,
+  savedViewStatusTestId,
   savedViewUpdateButtonTestId,
   surfaceTabTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -256,27 +260,12 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   expect(Object.keys(patchBody).sort()).toEqual([
     "base_saved_view_version",
     "display_name",
-    "layout_json",
-    "query_json",
     "scope",
   ]);
-  expect(patchBody).toMatchObject({
+  expect(patchBody).toEqual({
     base_saved_view_version: privateSavedView.saved_view_version,
     display_name: "browser.saved-view-integration updated shared",
     scope: "shared",
-    query_json: {
-      filters: [
-        {
-          arg: { value: "rough" },
-          field_key: "timeline.capture_state",
-          op: "eq",
-        },
-      ],
-      group_by: "timeline.capture_state",
-      sort: [
-        { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-      ],
-    },
   });
   expect(patchBody).not.toHaveProperty("saved_view_id");
   expect(patchBody).not.toHaveProperty("view_schema_id");
@@ -614,10 +603,8 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
         { direction: "asc", field_key: "timeline.activity_synopsis_text" },
       ],
     },
-    layout_json: {
-      layout_schema_id: "cartulary.layout.v1",
-    },
   });
+  expect(patchBody).not.toHaveProperty("layout_json");
 
   const savedViewRef = {
     kind: "saved_view",
@@ -1735,3 +1722,267 @@ async function expectFirstDataRow(page: Page, recordId: string) {
 function rowIDs(rows: Array<Record<string, unknown>>) {
   return rows.map((row) => String(row.record_id));
 }
+
+test("Saved-view authoring reviews real conflicts and normalized no-ops while Reset preserves identity", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  const id = await createIncident(
+    page,
+    uniqueIncidentKey("SV-REVIEW"),
+    "Saved-view review",
+  );
+  const saved = await createSavedView(page, id, {
+    display_name: "Original",
+    view_schema_id: timelineViewSchemaId,
+    scope: "shared",
+  });
+  await page.goto(`/?incident_id=${id}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  await selectSavedView(page, timelineViewSchemaId, saved.saved_view_id);
+  await setSavedViewDraftName(page, timelineViewSchemaId, "My submitted draft");
+  const endpoint = `${apiBase}/api/v1/incidents/${id}/saved-views/${saved.saved_view_id}`;
+  const competing = await page.request.patch(endpoint, {
+    headers: await csrfHeaders(page),
+    data: {
+      base_saved_view_version: saved.saved_view_version,
+      display_name: "Another author",
+    },
+  });
+  expect(competing.status()).toBe(200);
+  const observed = (await competing.json()).data as SavedViewApiResource;
+  await page
+    .getByTestId(
+      savedViewUpdateButtonTestId(timelineViewSchemaId, saved.saved_view_id),
+    )
+    .click();
+  await expect(
+    page.getByText(
+      `Observed saved configuration (version ${observed.saved_view_version})`,
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByLabel("Saved view name", { exact: true })).toHaveValue(
+    "My submitted draft",
+  );
+  await page.getByText("Submitted configuration", { exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Saved-view operation" }),
+  ).toContainText("My submitted draft");
+  await testInfo.attach("saved-view-conflict-panel.png", {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: "image/png",
+  });
+  const reviewedResponse = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${id}/saved-views/${saved.saved_view_id}`,
+        ) && response.request().method() === "PATCH",
+  );
+  await page
+    .getByRole("button", {
+      name: "Apply submitted changes to reviewed version",
+      exact: true,
+    })
+    .click();
+  const reviewed = await reviewedResponse;
+  expect(reviewed.status()).toBe(200);
+  expect(reviewed.request().postDataJSON()).toEqual({
+    base_saved_view_version: observed.saved_view_version,
+    display_name: "My submitted draft",
+  });
+  const accepted = (await reviewed.json()).data as SavedViewApiResource;
+  await expect(
+    page.getByRole("button", {
+      name: "Open confirmed saved view",
+      exact: true,
+    }),
+  ).toBeEnabled();
+  await page
+    .getByRole("button", { name: "Open confirmed saved view", exact: true })
+    .click();
+  await setSavedViewDraftName(
+    page,
+    timelineViewSchemaId,
+    "  My submitted draft  ",
+  );
+  const noopResponse = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${id}/saved-views/${saved.saved_view_id}`,
+        ) && response.request().method() === "PATCH",
+  );
+  await page
+    .getByTestId(
+      savedViewUpdateButtonTestId(timelineViewSchemaId, saved.saved_view_id),
+    )
+    .click();
+  const noop = await noopResponse;
+  expect(noop.request().postDataJSON()).toEqual({
+    base_saved_view_version: accepted.saved_view_version,
+  });
+  expect((await noop.json()).data).toEqual(accepted);
+  await expect(
+    page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
+  ).toContainText("no persisted change");
+  await page.getByLabel("Saved view name", { exact: true }).press("Escape");
+  const url = page.url();
+  await page
+    .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
+    .selectOption("timeline.capture_state");
+  await openSavedViewActionMenu(page, timelineViewSchemaId);
+  await page
+    .getByTestId(
+      savedViewResetButtonTestId(timelineViewSchemaId, saved.saved_view_id),
+    )
+    .click();
+  expect(page.url()).toBe(url);
+  await expect(
+    page.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
+  ).toHaveValue("");
+  await page.getByLabel("Saved view name", { exact: true }).press("Escape");
+  await expect(
+    page.getByTestId(savedViewActionMenuTriggerTestId(timelineViewSchemaId)),
+  ).toBeFocused();
+  await testInfo.attach("saved-view-version-review", {
+    body: JSON.stringify({ observed, accepted, noop: await noop.json() }),
+    contentType: "application/json",
+  });
+});
+
+test("Saved-view authoring retains uncertain committed creates and requires a deliberate new attempt", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  const id = await createIncident(
+    page,
+    uniqueIncidentKey("SV-UNCERTAIN"),
+    "Saved-view uncertain create",
+  );
+  await page.goto(`/?incident_id=${id}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  const endpoint = `/api/v1/incidents/${id}/saved-views`;
+  let writes = 0;
+  let failRefresh = false;
+  await page.route(`**${endpoint}*`, async (route) => {
+    if (route.request().method() === "POST") {
+      writes += 1;
+      const response = await route.fetch();
+      expect(response.status()).toBe(201);
+      if (writes === 1) await route.abort("failed");
+      else {
+        failRefresh = true;
+        await route.fulfill({ response });
+      }
+    } else if (failRefresh) await route.abort("failed");
+    else await route.continue();
+  });
+  await setSavedViewDraftName(page, timelineViewSchemaId, "Retained creation");
+  await page
+    .getByRole("button", {
+      name: "Save current configuration as new view",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "End recovery without another write",
+      exact: true,
+    }),
+  ).toBeEnabled();
+  expect(writes).toBe(1);
+  const initial = await page.request.get(`${apiBase}${endpoint}`);
+  expect((await initial.json()).data.saved_views).toHaveLength(1);
+  await page.getByLabel("Saved view name", { exact: true }).press("Escape");
+  await openSavedViewActionMenu(page, timelineViewSchemaId);
+  await expect(
+    page.getByText(/matching name or configuration is not a receipt/),
+  ).toBeVisible();
+  const retry = page.getByRole("button", {
+    name: "Make a new create attempt",
+    exact: true,
+  });
+  await expect(retry).toBeDisabled();
+  await page.setViewportSize({ width: 768, height: 640 });
+  await page
+    .getByRole("checkbox", { name: /may create a duplicate/ })
+    .scrollIntoViewIfNeeded();
+  await testInfo.attach("saved-view-uncertain-panel-compact.png", {
+    body: await page.screenshot({ fullPage: false }),
+    contentType: "image/png",
+  });
+  await page.getByRole("checkbox", { name: /may create a duplicate/ }).check();
+  await retry.click();
+  await expect(page.getByText(/The write is confirmed/)).toBeVisible();
+  expect(writes).toBe(2);
+  await expect(
+    page.getByTestId(savedViewSelectorTestId(timelineViewSchemaId)),
+  ).toHaveValue("");
+  const final = await page.request.get(`${apiBase}${endpoint}`);
+  expect((await final.json()).data.saved_views).toHaveLength(2);
+  await testInfo.attach("uncertain-create-observation", {
+    body: JSON.stringify({
+      writes,
+      resources: (await final.json()).data.saved_views,
+    }),
+    contentType: "application/json",
+  });
+});
+
+test("Saved-view authoring accepts delayed receipts after navigation without changing the active surface", async ({
+  workerAdminPage: page,
+}) => {
+  const id = await createIncident(
+    page,
+    uniqueIncidentKey("SV-LATE"),
+    "Saved-view delayed receipt",
+  );
+  await page.goto(`/?incident_id=${id}`);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let committed = false;
+  await page.route(`**/api/v1/incidents/${id}/saved-views`, async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    expect(response.status()).toBe(201);
+    committed = true;
+    await gate;
+    await route.fulfill({ response });
+  });
+  await setSavedViewDraftName(page, timelineViewSchemaId, "Delayed creation");
+  await page
+    .getByRole("button", {
+      name: "Save current configuration as new view",
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => committed).toBe(true);
+  await page.getByLabel("Saved view name", { exact: true }).press("Escape");
+  await page.getByTestId(surfaceTabTestId(hostsViewSchemaId)).click();
+  const url = page.url();
+  release?.();
+  await expect(
+    page.getByTestId(savedViewStatusTestId(hostsViewSchemaId)),
+  ).toContainText("created");
+  expect(page.url()).toBe(url);
+  await expect(
+    page.getByRole("dialog", { name: "Saved view", exact: true }),
+  ).toHaveCount(0);
+  await openSavedViewActionMenu(page, hostsViewSchemaId);
+  await page
+    .getByRole("button", { name: "Open confirmed saved view", exact: true })
+    .click();
+  await expect(page).toHaveURL(/sheet_ref_kind=saved_view/);
+  await expect(page.getByTestId(workbookShellReadyTestId())).toHaveAttribute(
+    "data-active-view-schema-id",
+    timelineViewSchemaId,
+  );
+});

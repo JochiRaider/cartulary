@@ -16,10 +16,6 @@ function QueryControllerHarness({
   readonly instanceId: string;
 }) {
   const controller = useWorkbookQueryController({
-    startupSheetRef: {
-      kind: "view_schema",
-      id: "cartulary.view.timeline.v2",
-    },
     surface: "cartulary.view.timeline.v2",
   });
   return (

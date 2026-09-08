@@ -6,7 +6,8 @@ import type {
 } from "../../extensions/extensionAvailability";
 import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
-import type { WorkbookSavedViewPort } from "../ports/WorkbookSavedViewPort";
+import type { SavedViewBinding } from "../savedviews/savedViewOperationModel";
+import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
 import { useWorkbookStartupAdmission } from "../startup/useWorkbookStartupAdmission";
 import type {
   WorkbookStartupAvailability,
@@ -26,7 +27,10 @@ export function useWorkbookShellRuntime({
   surfaceSelectionVersionRef,
   extensionAvailability,
   onExtensionAvailabilityChange,
-  savedViewPort,
+  savedViewOwner,
+  bindWorkbookSavedViews,
+  authorizationRecovered,
+  apiBase,
   startupPort,
 }: {
   readonly incidentId: string;
@@ -34,7 +38,10 @@ export function useWorkbookShellRuntime({
   readonly surfaceSelectionVersionRef: WorkbookShellMutableRef<number>;
   readonly extensionAvailability: ExtensionAvailabilityController;
   readonly onExtensionAvailabilityChange: () => void;
-  readonly savedViewPort: WorkbookSavedViewPort;
+  readonly savedViewOwner: WorkbookSavedViewController;
+  readonly bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
+  readonly authorizationRecovered: SavedViewBinding["authorizationRecovered"];
+  readonly apiBase?: string | undefined;
   readonly startupPort: WorkbookStartupPort;
 }) {
   const startupController = useWorkbookStartupController({
@@ -53,7 +60,6 @@ export function useWorkbookShellRuntime({
     selectWorkbookSurface,
   } = startupController.commands;
   const workbookQueries = useWorkbookQueryController({
-    startupSheetRef,
     surface,
   });
   const {
@@ -76,7 +82,6 @@ export function useWorkbookShellRuntime({
   } = workbookQueries.commands;
   const workbookLayouts = useWorkbookColumnLayoutController({
     activeContract,
-    startupSheetRef,
   });
   const { activeLayoutControls, activeLayoutState } = workbookLayouts.snapshot;
   const { applyLayoutStateForSurface, currentLayoutStateForSurface } =
@@ -89,20 +94,17 @@ export function useWorkbookShellRuntime({
     applyWorkbookIdentity,
     currentLayoutStateForSurface,
     currentQueryStateForSurface,
-    onIncidentAccessLost,
-    savedViewPort,
+    controller: savedViewOwner,
+    bindWorkbook: bindWorkbookSavedViews,
+    incidentId,
+    selectionGeneration: surfaceSelectionVersionRef.current,
+    authorizationRecovered,
+    apiBase,
     startupSheetRef,
   });
   const { activeSavedViewModified, savedViewsResource } =
     savedViewController.snapshot;
-  const {
-    createSavedView,
-    deleteSavedView,
-    duplicateSavedView,
-    selectSavedView,
-    updateSavedView,
-    upsertSavedView,
-  } = savedViewController.commands;
+  const { selectSavedView, upsertSavedView } = savedViewController.commands;
 
   const startupSelectionPort = useMemo(
     () => ({
@@ -150,12 +152,10 @@ export function useWorkbookShellRuntime({
   });
 
   return {
+    savedViewOwner,
     commands: {
       acknowledgeGridEntryFocus,
       cancelGridEntryFocus,
-      createSavedView,
-      deleteSavedView,
-      duplicateSavedView,
       selectWorkbookSurface,
       selectExtensionWorkspace,
       setAssessmentQueryState,
@@ -164,7 +164,6 @@ export function useWorkbookShellRuntime({
       setIdentityQueryState,
       setTimelineQueryState,
       selectSavedView,
-      updateSavedView,
     },
     snapshot: {
       activeContract,

@@ -3,7 +3,6 @@ import type { ExtensionAvailabilityController } from "../../extensions/extension
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
-import { createWorkbookSavedViewAdapter } from "../adapters/createWorkbookSavedViewAdapter";
 import { createWorkbookStartupAdapter } from "../adapters/createWorkbookStartupAdapter";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { createWorkbookMutationCommandPorts } from "../mutations/createWorkbookMutationCommandPorts";
@@ -11,6 +10,8 @@ import { createBrowserSecureTransactionIdPort } from "../mutations/secureTransac
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { WorkbookMutationRuntimeRegistry } from "../runtime/WorkbookMutationRuntimeRegistry";
+import type { SavedViewBinding } from "../savedviews/savedViewOperationModel";
+import type { WorkbookSavedViewController } from "../savedviews/WorkbookSavedViewController";
 import {
   createReferenceQueryBroker,
   type ReferenceQueryBrokerPort,
@@ -26,6 +27,9 @@ function recordPendingMutationTiming(
 }
 
 type WorkbookShellInfrastructureOptions = {
+  readonly savedViewOwner: WorkbookSavedViewController;
+  readonly bindWorkbookSavedViews: (binding: SavedViewBinding | null) => void;
+  readonly authorizationRecovered: SavedViewBinding["authorizationRecovered"];
   readonly apiBase: string | undefined;
   readonly clientInstanceId: string;
   readonly extensionAvailability: ExtensionAvailabilityController;
@@ -37,6 +41,9 @@ type WorkbookShellInfrastructureOptions = {
 
 /** Constructs incident-scoped adapters and exactly one registry-owned runtime. */
 export function useWorkbookShellInfrastructure({
+  savedViewOwner,
+  bindWorkbookSavedViews,
+  authorizationRecovered,
   apiBase,
   clientInstanceId,
   extensionAvailability,
@@ -102,10 +109,6 @@ export function useWorkbookShellInfrastructure({
     () => createWorkbookStartupAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
-  const savedViewPort = useMemo(
-    () => createWorkbookSavedViewAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
   const viewQuery = useMemo(
     () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
@@ -116,7 +119,10 @@ export function useWorkbookShellInfrastructure({
     surfaceSelectionVersionRef,
     extensionAvailability,
     onExtensionAvailabilityChange,
-    savedViewPort,
+    savedViewOwner,
+    bindWorkbookSavedViews,
+    authorizationRecovered,
+    apiBase,
     startupPort,
   });
 
