@@ -29,6 +29,7 @@ import {
   type WorkbookSavedViewsResource,
 } from "../models/workbookSavedViewControl";
 import type { SavedViewResource } from "../models/workbookSavedViews";
+import type { WorkbookPreferenceController } from "../preferences/WorkbookPreferenceController";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
 import { SavedViewActionPanel } from "./SavedViewActionPanel";
 
@@ -51,8 +52,10 @@ export type ActiveSurfaceSavedViewSelectorProps = {
   readonly onResetToSavedView: (savedView: SavedViewResource) => void;
   readonly onSelectBaseSurface: (viewSchemaId: string) => void;
   readonly onSelectSavedView: (savedView: SavedViewResource) => void;
-  readonly onSetDefaultSheetRef: () => Promise<void>;
-  readonly onSetHomeSheetRef: () => Promise<void>;
+  readonly preferenceController?: WorkbookPreferenceController | undefined;
+  readonly onInspectPreferences?:
+    | ((target?: HTMLElement | null) => void)
+    | undefined;
   readonly onUpdateSavedView: (
     savedView: SavedViewResource,
     input: {
@@ -76,8 +79,8 @@ export function ActiveSurfaceSavedViewSelector({
   onResetToSavedView,
   onSelectBaseSurface,
   onSelectSavedView,
-  onSetDefaultSheetRef,
-  onSetHomeSheetRef,
+  preferenceController,
+  onInspectPreferences,
   onUpdateSavedView,
 }: ActiveSurfaceSavedViewSelectorProps) {
   const projection = useMemo(
@@ -129,8 +132,6 @@ export function ActiveSurfaceSavedViewSelector({
       delete: onDeleteSavedView,
       duplicate: onDuplicateSavedView,
       reset: onResetToSavedView,
-      setDefault: onSetDefaultSheetRef,
-      setHome: onSetHomeSheetRef,
       update: onUpdateSavedView,
     },
     projection,
@@ -149,6 +150,8 @@ export function ActiveSurfaceSavedViewSelector({
       onSelectSavedView={onSelectSavedView}
       projection={projection}
       runAction={runAction}
+      preferenceController={preferenceController}
+      onInspectPreferences={onInspectPreferences}
       selectorRef={selectorRef}
     />
   );
@@ -196,6 +199,8 @@ function SavedViewControlPresentation({
   onSelectSavedView,
   projection,
   runAction,
+  preferenceController,
+  onInspectPreferences,
   selectorRef,
 }: {
   readonly activeViewSchemaId: string;
@@ -209,6 +214,10 @@ function SavedViewControlPresentation({
   readonly onSelectSavedView: (savedView: SavedViewResource) => void;
   readonly projection: ActiveSurfaceSavedViewProjection;
   readonly runAction: (intent: SavedViewActionIntent) => void;
+  readonly preferenceController?: WorkbookPreferenceController | undefined;
+  readonly onInspectPreferences?:
+    | ((target?: HTMLElement | null) => void)
+    | undefined;
   readonly selectorRef: RefObject<HTMLSelectElement | null>;
 }) {
   const condensedControls = chromeMode !== "base";
@@ -251,6 +260,8 @@ function SavedViewControlPresentation({
         isModified={isModified}
         resourceKind={projection.resourceKind}
         runAction={runAction}
+        preferenceController={preferenceController}
+        onInspectPreferences={onInspectPreferences}
         selectedSavedView={projection.selectedSavedView}
       />
       <SavedViewStatus

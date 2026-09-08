@@ -1,19 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 import { useWorkbookStartupController } from "./useWorkbookStartupController";
-
-const preferencePort: WorkbookPreferencePort = {
-  setDefaultSheet: async () => ({ kind: "accepted", value: undefined }),
-  setHomeSheet: async () => ({ kind: "accepted", value: undefined }),
-};
 
 function StartupControllerHarness() {
   const selectionVersionRef = useRef(0);
   const controller = useWorkbookStartupController({
     incidentId: "incident-1",
-    preferencePort,
     surfaceSelectionVersionRef: selectionVersionRef,
   });
   return (

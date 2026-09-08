@@ -10,6 +10,7 @@ import {
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
+  workbookPreferenceTestId,
 } from "@cartulary/ui-contracts";
 import { MoreHorizontal } from "lucide-react";
 import { type RefObject, useRef } from "react";
@@ -25,6 +26,11 @@ import {
   canMutateSavedView,
   type SavedViewResource,
 } from "../models/workbookSavedViews";
+import type { WorkbookPreferenceController } from "../preferences/WorkbookPreferenceController";
+import {
+  preferenceOutcome,
+  useWorkbookPreferencesSnapshot,
+} from "../preferences/WorkbookPreferencesPanel";
 
 type SavedViewActionControlKey =
   | "create"
@@ -34,6 +40,7 @@ type SavedViewActionControlKey =
   | "reset"
   | "scope"
   | "set_default"
+  | "preferences"
   | "set_home"
   | "update";
 
@@ -46,6 +53,7 @@ const savedViewActionControlKeys: readonly SavedViewActionControlKey[] = [
   "duplicate",
   "set_home",
   "set_default",
+  "preferences",
   "delete",
 ];
 
@@ -59,6 +67,8 @@ export function SavedViewActionPanel({
   isModified,
   resourceKind,
   runAction,
+  preferenceController,
+  onInspectPreferences,
   selectedSavedView,
 }: {
   readonly activeViewSchemaId: string;
@@ -70,8 +80,13 @@ export function SavedViewActionPanel({
   readonly isModified: boolean;
   readonly resourceKind: WorkbookSavedViewsResource["kind"];
   readonly runAction: (intent: SavedViewActionIntent) => void;
+  readonly preferenceController?: WorkbookPreferenceController | undefined;
+  readonly onInspectPreferences?:
+    | ((target?: HTMLElement | null) => void)
+    | undefined;
   readonly selectedSavedView: SavedViewResource | null;
 }) {
+  const preferences = useWorkbookPreferencesSnapshot(preferenceController);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = savedViewActionMenuTestId(activeViewSchemaId);
   const titleId = `${panelId}-title`;
@@ -272,23 +287,73 @@ export function SavedViewActionPanel({
             <button
               ref={navigation.registerItem("set_home")}
               data-testid={savedViewSetHomeButtonTestId(activeViewSchemaId)}
-              disabled={actionPending}
+              aria-disabled={!preferenceController?.canSetCurrent("home")}
               style={panelActionStyle}
               type="button"
-              onClick={() => runAction({ kind: "set_home" })}
+              onClick={() => {
+                if (preferenceController?.canSetCurrent("home")) {
+                  preferenceController.setCurrent("home");
+                }
+              }}
             >
               Set as my home
             </button>
             <button
               ref={navigation.registerItem("set_default")}
               data-testid={savedViewSetDefaultButtonTestId(activeViewSchemaId)}
-              disabled={actionPending || currentIncidentRole !== "admin"}
+              aria-disabled={!preferenceController?.canSetCurrent("default")}
               style={panelActionStyle}
               type="button"
-              onClick={() => runAction({ kind: "set_default" })}
+              onClick={() => {
+                if (preferenceController?.canSetCurrent("default")) {
+                  preferenceController.setCurrent("default");
+                }
+              }}
             >
               Set as incident default
             </button>
+            {preferences ? (
+              <>
+                <p
+                  data-testid={workbookPreferenceTestId(
+                    "home",
+                    "shortcut-outcome",
+                  )}
+                  style={panelLabelStyle}
+                >
+                  {preferenceOutcome("home", preferences.home)}
+                </p>
+                <p
+                  data-testid={workbookPreferenceTestId(
+                    "default",
+                    "shortcut-outcome",
+                  )}
+                  style={panelLabelStyle}
+                >
+                  {preferenceOutcome("default", preferences.default)}
+                </p>
+              </>
+            ) : (
+              <p style={panelLabelStyle}>
+                Workbook preference controls are unavailable.
+              </p>
+            )}
+            {onInspectPreferences ? (
+              <button
+                ref={navigation.registerItem("preferences")}
+                type="button"
+                style={panelActionStyle}
+                onClick={() => {
+                  dispatch({
+                    type: "close_panel",
+                    surface: activeViewSchemaId,
+                  });
+                  onInspectPreferences(triggerRef.current);
+                }}
+              >
+                Inspect and recover workbook preferences…
+              </button>
+            ) : null}
           </section>
           {selectedSavedView === null ? null : (
             <section aria-label="Delete saved view" style={dangerSectionStyle}>

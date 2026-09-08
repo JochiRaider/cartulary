@@ -103,6 +103,51 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	if homePrefs := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession); homePrefs["home_sheet_ref"] != nil {
 		t.Fatalf("startup must persistently clear hidden home pointer before fallback continues: %#v", homePrefs)
 	}
+	t.Run("clear-noop-closed-and-nonmember", func(t *testing.T) {
+		closed := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
+			map[string]any{"base_incident_version": incident["incident_version"], "client_txn_id": "wp-closed", "reason": "Preference closed incident coverage"},
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		httptestx.RequireSuccessEnvelope(t, closed, http.StatusOK)
+		for _, personal := range []bool{true, false} {
+			field := "default_sheet_ref"
+			put := func(body map[string]any) map[string]any {
+				return putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, body)
+			}
+			if personal {
+				field = "home_sheet_ref"
+				put = func(body map[string]any) map[string]any {
+					return putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, body)
+				}
+			}
+			set := put(map[string]any{field: map[string]any{"kind": "view_schema", "id": timeline.TimelineViewSchemaID}})
+			requireSheetRef(t, set[field], "view_schema", timeline.TimelineViewSchemaID)
+			clear := put(map[string]any{field: nil})
+			if value, present := clear[field]; !present || value != nil {
+				t.Fatalf("clear must return explicit null: %#v", clear)
+			}
+			if repeated := put(map[string]any{field: nil}); !reflect.DeepEqual(clear, repeated) {
+				t.Fatalf("clear no-op changed resource: %#v / %#v", clear, repeated)
+			}
+		}
+		flowtest.SeedLocalUserFlags(t, harness.DB, "wp-outsider@example.test", "Deployment admin without membership", "PreferenceOutsider1!", false, true, true)
+		outsider, csrf := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "wp-outsider@example.test", "PreferenceOutsider1!", nil)
+		for _, suffix := range []string{"me", "default"} {
+			path := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/workbook-preferences/" + suffix
+			field := "home_sheet_ref"
+			if suffix == "default" {
+				field = "default_sheet_ref"
+			}
+			for _, method := range []string{http.MethodGet, http.MethodPut} {
+				var body any
+				if method == http.MethodPut {
+					body = map[string]any{field: nil}
+				}
+				response := httptestx.DoJSON(t, method, path, body, httptestx.WithCookies(outsider, csrf), httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value))
+				httptestx.RequireErrorEnvelope(t, response, http.StatusNotFound, "incident_not_found")
+			}
+		}
+	})
+
 }
 
 func TestWorkbookStartupFallback_Integration(t *testing.T) {

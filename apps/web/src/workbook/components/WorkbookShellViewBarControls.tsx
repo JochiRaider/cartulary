@@ -2,6 +2,7 @@ import { sheetRefKey } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { useWorkbookShellRuntime } from "../hooks/useWorkbookShellRuntime";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
+import type { WorkbookPreferenceController } from "../preferences/WorkbookPreferenceController";
 import type { WorkbookViewBarWorkingSetBinding } from "./WorkbookViewBar";
 
 type WorkbookShellRuntime = ReturnType<typeof useWorkbookShellRuntime>;
@@ -13,6 +14,8 @@ export function workbookShellViewBarWorkingSet({
   incidentId,
   networkAnalysisActive,
   runtime,
+  preferenceController,
+  onInspectPreferences,
 }: {
   readonly chromeMode: WorkbookChromeMode;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
@@ -20,6 +23,10 @@ export function workbookShellViewBarWorkingSet({
   readonly incidentId: string;
   readonly networkAnalysisActive: boolean;
   readonly runtime: WorkbookShellRuntime;
+  readonly preferenceController?: WorkbookPreferenceController | undefined;
+  readonly onInspectPreferences?:
+    | ((target?: HTMLElement | null) => void)
+    | undefined;
 }): WorkbookViewBarWorkingSetBinding {
   if (networkAnalysisActive) return { query: null, savedView: null };
 
@@ -68,8 +75,8 @@ export function workbookShellViewBarWorkingSet({
       onResetToSavedView: commands.selectSavedView,
       onSelectBaseSurface: commands.selectWorkbookSurface,
       onSelectSavedView: commands.selectSavedView,
-      onSetDefaultSheetRef: commands.setWorkbookDefaultSheetRef,
-      onSetHomeSheetRef: commands.setWorkbookHomeSheetRef,
+      preferenceController,
+      onInspectPreferences,
       onUpdateSavedView: commands.updateSavedView,
       savedViewsResource: snapshot.savedViewsResource,
       selectedSheetRef,

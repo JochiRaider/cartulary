@@ -4,7 +4,7 @@ import { reviewAppDeparture } from "./appDepartureReview";
 
 describe("App departure review", () => {
   it("reviews all outstanding owners sequentially without overlapping dialogs", async () => {
-    const work = Array.from({ length: 4 }, () => ({
+    const work = Array.from({ length: 5 }, () => ({
       dirty: true,
       decision: metadataDeferred<boolean>(),
     }));
@@ -12,13 +12,21 @@ describe("App departure review", () => {
       hasWork: () => item.dirty,
       requestLeave: vi.fn(() => item.decision.promise),
     }));
-    const [memberships, metadata, lifecycle, deploymentUsers] = participants;
-    if (!memberships || !metadata || !lifecycle || !deploymentUsers)
+    const [memberships, metadata, lifecycle, preferences, deploymentUsers] =
+      participants;
+    if (
+      !memberships ||
+      !metadata ||
+      !lifecycle ||
+      !preferences ||
+      !deploymentUsers
+    )
       throw new Error("Missing departure fixture");
     const result = reviewAppDeparture({
       memberships,
       metadata,
       lifecycle,
+      preferences,
       deploymentUsers,
       isCurrent: () => true,
     });
@@ -39,6 +47,7 @@ describe("App departure review", () => {
         memberships: { hasWork: () => true, requestLeave: async () => false },
         metadata: { hasWork: () => true, requestLeave: metadataLeave },
         lifecycle: { hasWork: () => false, requestLeave: async () => true },
+        preferences: { hasWork: () => false, requestLeave: async () => true },
         deploymentUsers: {
           hasWork: () => false,
           requestLeave: async () => true,
@@ -62,6 +71,7 @@ describe("App departure review", () => {
         },
         metadata: { hasWork: () => true, requestLeave: metadataLeave },
         lifecycle: { hasWork: () => false, requestLeave: async () => true },
+        preferences: { hasWork: () => false, requestLeave: async () => true },
         deploymentUsers: {
           hasWork: () => false,
           requestLeave: async () => true,
@@ -76,6 +86,7 @@ describe("App departure review", () => {
         memberships: stillDirty,
         metadata: stillDirty,
         lifecycle: stillDirty,
+        preferences: stillDirty,
         deploymentUsers: stillDirty,
         isCurrent: () => true,
       }),

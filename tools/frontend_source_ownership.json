@@ -43,6 +43,7 @@
         "apps/web/src/app/LandingAdminLayout.tsx",
         "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "apps/web/src/app/ReferencePackAdminPanel.tsx",
+        "apps/web/src/app/WorkbookPreferenceDepartureDialog.tsx",
         "apps/web/src/app/accountAuthenticationLifecycle.test.ts",
         "apps/web/src/app/accountFrontendBoundaries.test.tsx",
         "apps/web/src/app/accountInputValidation.ts",
@@ -73,6 +74,7 @@
         "apps/web/src/app/api/incidentMetadataClient.test.ts",
         "apps/web/src/app/api/incidentMetadataClient.ts",
         "apps/web/src/app/api/incidentMetadataContracts.ts",
+        "apps/web/src/app/api/incidentResourceClient.ts",
         "apps/web/src/app/api/incidentResourceContracts.ts",
         "apps/web/src/app/api/publicHttpTypes.ts",
         "apps/web/src/app/api/shellHttpClients.routeBoundary.test.ts",
@@ -142,7 +144,9 @@
         "apps/web/src/app/useIncidentMembershipAudit.ts",
         "apps/web/src/app/useIncidentMembershipManagement.ts",
         "apps/web/src/app/useIncidentMetadata.ts",
-        "apps/web/src/app/useReferencePackAdmin.ts"
+        "apps/web/src/app/useReferencePackAdmin.ts",
+        "apps/web/src/app/useWorkbookPreferences.ts",
+        "apps/web/src/app/workbookPreferenceIntegration.test.tsx"
       ]
     },
     {
@@ -291,7 +295,8 @@
         "apps/web/src/testing/transportBoundaryPolicy.test.ts",
         "apps/web/src/testing/workbookAuthorizationTestSupport.ts",
         "apps/web/src/testing/workbookInspectorTestSupport.test.tsx",
-        "apps/web/src/testing/workbookInspectorTestSupport.ts"
+        "apps/web/src/testing/workbookInspectorTestSupport.ts",
+        "apps/web/src/testing/workbookPreferenceTestSupport.ts"
       ]
     },
     {
@@ -321,6 +326,7 @@
         "apps/web/src/workbook/adapters/createWorkbookIncidentAdapter.ts",
         "apps/web/src/workbook/adapters/createWorkbookPendingMutationAdapter.test.ts",
         "apps/web/src/workbook/adapters/createWorkbookPendingMutationAdapter.ts",
+        "apps/web/src/workbook/adapters/createWorkbookPreferenceAdapter.test.ts",
         "apps/web/src/workbook/adapters/createWorkbookPreferenceAdapter.ts",
         "apps/web/src/workbook/adapters/createWorkbookSavedViewAdapter.test.ts",
         "apps/web/src/workbook/adapters/createWorkbookSavedViewAdapter.ts",
@@ -560,6 +566,11 @@
         "apps/web/src/workbook/ports/WorkbookPortResult.ts",
         "apps/web/src/workbook/ports/WorkbookPreferencePort.ts",
         "apps/web/src/workbook/ports/WorkbookSavedViewPort.ts",
+        "apps/web/src/workbook/preferences/WorkbookPreferenceController.test.ts",
+        "apps/web/src/workbook/preferences/WorkbookPreferenceController.ts",
+        "apps/web/src/workbook/preferences/WorkbookPreferencesPanel.tsx",
+        "apps/web/src/workbook/preferences/workbookPreferenceCharacterization.test.tsx",
+        "apps/web/src/workbook/preferences/workbookPreferenceModel.ts",
         "apps/web/src/workbook/query/WorkbookQueryRow.ts",
         "apps/web/src/workbook/query/WorkbookViewQueryPort.ts",
         "apps/web/src/workbook/query/entityLiveEventPatchPlanner.test.ts",

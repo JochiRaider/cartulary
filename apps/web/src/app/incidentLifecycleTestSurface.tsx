@@ -1,4 +1,10 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { IncidentResource } from "../shared/incidentResource";
 import type { WorkbookIncidentControlsRendererProps } from "../shared/workbookShellContracts";
 import { metadataActorId } from "../testing/incidentMetadataTestSupport";
@@ -12,6 +18,7 @@ import { IncidentResourceController } from "./incidentResourceController";
 
 /** Same retained-controller/conditional-surface composition as App. */
 export function LifecycleTestSurface(props: {
+  preferenceControls?: ReactNode;
   activeSection: "summary" | "memberships" | null;
   currentIncidentRole: "admin" | "viewer";
   incidentId: string;
@@ -76,6 +83,7 @@ export function LifecycleTestSurface(props: {
       currentIncidentRole={props.currentIncidentRole}
       activeSection="summary"
       controller={controller}
+      preferenceControls={props.preferenceControls}
       bindSurface={bindSurface}
       acceptedIncident={
         accepted?.incident_id === props.incidentId ? accepted : null

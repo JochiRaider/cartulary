@@ -29,7 +29,6 @@ import {
   savedViewFamilySelector,
   savedViewOptionTestId,
   savedViewSelectorTestId,
-  savedViewStatusTestId,
   surfaceTabTestId,
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
@@ -37,6 +36,7 @@ import {
   timelineScalarEditorTestId,
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
+  workbookPreferenceTestId,
   workbookShellReadyTestId,
   workbookShellSlots,
   workbookShellSlotTestId,
@@ -641,12 +641,12 @@ test("creates an incident, bootstraps the creator as admin, and lands on the wor
   }
   await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
   await expect(
-    page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
-  ).toHaveText("Home view updated.");
+    page.getByTestId(workbookPreferenceTestId("home", "shortcut-outcome")),
+  ).toHaveText("Home update confirmed.");
   await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
   await expect(
-    page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
-  ).toHaveText("Default view updated.");
+    page.getByTestId(workbookPreferenceTestId("default", "shortcut-outcome")),
+  ).toHaveText("Incident default update confirmed.");
 
   await expectWorkbookShellComposition(page, {
     expectIncidentPreferences: true,

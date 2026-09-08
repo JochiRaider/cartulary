@@ -19,6 +19,8 @@ import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
 } from "../shared/workbookShellContracts";
+import type { WorkbookPreferenceController } from "../workbook/preferences/WorkbookPreferenceController";
+import { WorkbookPreferencesPanel } from "../workbook/preferences/WorkbookPreferencesPanel";
 import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
 import { AccountApplicationMenu } from "./AccountApplicationMenu";
 import { AccountSecurityPanel } from "./AccountSecurityPanel";
@@ -90,6 +92,8 @@ import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
 import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
 import { useIncidentMetadata } from "./useIncidentMetadata";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
+import { useWorkbookPreferences } from "./useWorkbookPreferences";
+import { WorkbookPreferenceDepartureDialog } from "./WorkbookPreferenceDepartureDialog";
 
 const LazyWorkbookShell = lazy(async () => {
   const module = await import("../workbook/WorkbookShell");
@@ -139,6 +143,7 @@ export function App({
   themeId,
   authNavigation,
 }: AppProps = {}) {
+  const preferencesRef = useRef<WorkbookPreferenceController | null>(null);
   const metadataRef = useRef<IncidentMetadataController | null>(null);
   const lifecycleRef = useRef<IncidentLifecycleController | null>(null);
   const incidentResourceRef = useRef<IncidentResourceController | null>(null);
@@ -160,6 +165,7 @@ export function App({
   const sessionControllerRef = useRef<AppSessionController | null>(null);
   const { commitRoute, route, routeRef } = useAppRouteRuntime({
     hasPendingEdits: () =>
+      (preferencesRef.current?.hasDepartureWork() ?? false) ||
       (lifecycleRef.current?.hasDepartureWork() ?? false) ||
       (metadataRef.current?.hasDepartureWork() ?? false) ||
       (membershipManagementRef.current?.hasDepartureWork() ?? false) ||
@@ -185,6 +191,11 @@ export function App({
           requestLeave: () =>
             lifecycleRef.current?.requestLeave() ?? Promise.resolve(true),
         },
+        preferences: {
+          hasWork: () => preferencesRef.current?.hasDepartureWork() ?? false,
+          requestLeave: () =>
+            preferencesRef.current?.requestLeave() ?? Promise.resolve(true),
+        },
         deploymentUsers: {
           hasWork: () => deploymentUsersRef.current?.hasDirtyDraft() ?? false,
           requestLeave: () =>
@@ -201,6 +212,7 @@ export function App({
         membershipManagementRef.current?.retire();
         metadataRef.current?.retire();
         lifecycleRef.current?.retire();
+        preferencesRef.current?.retire();
         incidentResourceRef.current?.retire();
       }
       auditControllerRef.current?.setActive(false);
@@ -226,6 +238,7 @@ export function App({
           membershipManagementRef.current?.retire();
           metadataRef.current?.retire();
           lifecycleRef.current?.retire();
+          preferencesRef.current?.retire();
           incidentResourceRef.current?.retire();
           auditControllerRef.current?.retire();
           accountEditingRef.current?.retireLifetime();
@@ -368,7 +381,8 @@ export function App({
         !deploymentUsers.hasDirtyDraft() &&
         !membershipManagementRef.current?.hasDepartureWork() &&
         !metadataRef.current?.hasDepartureWork() &&
-        !lifecycleRef.current?.hasDepartureWork()
+        !lifecycleRef.current?.hasDepartureWork() &&
+        !preferencesRef.current?.hasDepartureWork()
       )
         return;
       event.preventDefault();
@@ -410,6 +424,7 @@ export function App({
     membershipManagementRef.current?.dispose();
     metadataRef.current?.dispose();
     lifecycleRef.current?.dispose();
+    preferencesRef.current?.dispose();
     incidentResourceRef.current?.retire();
     workbookMutationRuntimeRegistry.dispose();
     accountEditing.dispose();
@@ -863,6 +878,7 @@ export function App({
     membershipManagementRef.current?.retire();
     metadataRef.current?.retire();
     lifecycleRef.current?.retire();
+    preferencesRef.current?.retire();
     incidentResourceRef.current?.retire();
     directoryControllerRef.current?.setActive(false);
     navigationFocusRequestRef.current = {
@@ -899,6 +915,15 @@ export function App({
     incidentResources.subscribe,
     incidentResources.getSnapshot,
   );
+
+  const preferences = useWorkbookPreferences({
+    sessionController,
+    recovery: workbookAuthorizationRecovery,
+    currentIncidentId: () => routeRef.current.incidentId,
+    onIncidentAccessLost: handleIncidentAccessLost,
+    onSessionLost: handleSessionLost,
+  });
+  preferencesRef.current = preferences.controller;
 
   const membershipAudit = useIncidentMembershipAudit({
     sessionController,
@@ -1104,6 +1129,14 @@ export function App({
             }
           >
             <LazyWorkbookShell
+              preferenceController={preferences.controller}
+              bindWorkbookPreferences={(binding) => {
+                if (
+                  sessionController.getSnapshot().lifetime ===
+                  sessionSnapshot.lifetime
+                )
+                  preferences.bindWorkbook(binding);
+              }}
               key={sessionSnapshot.lifetime}
               acceptedIncidentResource={acceptedIncident}
               onIncidentResourceObserved={(resource) => {
@@ -1166,6 +1199,12 @@ export function App({
                   <IncidentLifecycleFeature
                     {...props}
                     controller={lifecycle.controller}
+                    preferenceControls={
+                      <WorkbookPreferencesPanel
+                        controller={preferences.controller}
+                        density={props.density}
+                      />
+                    }
                     bindSurface={lifecycle.bindSurface}
                     acceptedIncident={acceptedIncident}
                     onIncidentObserved={(resource) => {
@@ -1184,6 +1223,10 @@ export function App({
           </Suspense>
         </section>
         {renderAccountSettings()}
+        <WorkbookPreferenceDepartureDialog
+          controller={preferences.controller}
+          fallbackFocusRef={accountMenuTriggerRef}
+        />
         <IncidentLifecycleDepartureDialog
           controller={lifecycle.controller}
           fallbackFocusRef={accountMenuTriggerRef}

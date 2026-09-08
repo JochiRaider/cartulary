@@ -23,9 +23,7 @@ export type SavedViewActionIntent =
     }
   | { readonly kind: "duplicate" }
   | { readonly kind: "reset" }
-  | { readonly kind: "delete" }
-  | { readonly kind: "set_home" }
-  | { readonly kind: "set_default" };
+  | { readonly kind: "delete" };
 
 type SavedViewActionPorts = {
   readonly create: (input: {
@@ -37,8 +35,6 @@ type SavedViewActionPorts = {
     savedView: SavedViewResource,
   ) => Promise<SavedViewResource>;
   readonly reset: (savedView: SavedViewResource) => void;
-  readonly setDefault: () => Promise<void>;
-  readonly setHome: () => Promise<void>;
   readonly update: (
     savedView: SavedViewResource,
     input: {
@@ -225,12 +221,7 @@ function admittedActionUnavailableReason(
   const selected = current.projection.selectedSavedView;
   switch (actionKind) {
     case "create":
-    case "set_home":
       return null;
-    case "set_default":
-      return current.currentIncidentRole === "admin"
-        ? null
-        : "Only incident administrators can set the incident default.";
     case "duplicate":
       return selectedRequiredReason(selected, "duplicate");
     case "reset":
@@ -304,12 +295,6 @@ async function executeAction(
       if (selected === null) return;
       await current.ports.delete(selected);
       return;
-    case "set_home":
-      await current.ports.setHome();
-      return;
-    case "set_default":
-      await current.ports.setDefault();
-      return;
   }
 }
 
@@ -325,9 +310,5 @@ function successMessage(kind: SavedViewActionIntent["kind"]): string {
       return "Saved configuration restored.";
     case "delete":
       return "Saved view deleted.";
-    case "set_home":
-      return "Home view updated.";
-    case "set_default":
-      return "Default view updated.";
   }
 }

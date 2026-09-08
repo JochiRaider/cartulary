@@ -10,7 +10,6 @@ import {
   knownWorkbookViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 
 type WorkbookStartupMutableRef<T> = { current: T };
 
@@ -27,11 +26,9 @@ type ApplyWorkbookIdentityOptions = {
 
 export function useWorkbookStartupController({
   incidentId,
-  preferencePort,
   surfaceSelectionVersionRef,
 }: {
   readonly incidentId: string;
-  readonly preferencePort: WorkbookPreferencePort;
   readonly surfaceSelectionVersionRef: WorkbookStartupMutableRef<number>;
 }) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -130,34 +127,6 @@ export function useWorkbookStartupController({
     [applyWorkbookIdentity],
   );
 
-  const setWorkbookHomeSheetRef = useCallback(async () => {
-    const result = await preferencePort.setHomeSheet({
-      sheetRef: startupSheetRef,
-      signal: new AbortController().signal,
-    });
-    if (result.kind !== "accepted") {
-      throw new Error(
-        result.kind === "aborted"
-          ? "Workbook home preference update was aborted."
-          : result.failure.message,
-      );
-    }
-  }, [preferencePort, startupSheetRef]);
-
-  const setWorkbookDefaultSheetRef = useCallback(async () => {
-    const result = await preferencePort.setDefaultSheet({
-      sheetRef: startupSheetRef,
-      signal: new AbortController().signal,
-    });
-    if (result.kind !== "accepted") {
-      throw new Error(
-        result.kind === "aborted"
-          ? "Workbook default preference update was aborted."
-          : result.failure.message,
-      );
-    }
-  }, [preferencePort, startupSheetRef]);
-
   useEffect(() => {
     const next = new URLSearchParams(window.location.search);
     // App owns incident navigation. A retiring workbook may still run an effect
@@ -200,8 +169,6 @@ export function useWorkbookStartupController({
       cancelGridEntryFocus,
       selectExtensionWorkspace,
       selectWorkbookSurface,
-      setWorkbookDefaultSheetRef,
-      setWorkbookHomeSheetRef,
     },
     refs: { params },
     snapshot: {

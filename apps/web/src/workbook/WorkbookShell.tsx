@@ -1,5 +1,12 @@
 import { workbookShellReadyTestId } from "@cartulary/ui-contracts";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import {
   IncidentCollaborationSession,
   useIncidentCollaborationSession,
@@ -56,6 +63,9 @@ import {
   workbookActiveSystemSurfaceTitle,
 } from "./models/workbookShellPresentation";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
+import type { WorkbookPreferenceController } from "./preferences/WorkbookPreferenceController";
+import { WorkbookPreferenceAnnouncements } from "./preferences/WorkbookPreferencesPanel";
+import type { PreferenceWorkbookBinding } from "./preferences/workbookPreferenceModel";
 import { WorkbookMutationRuntimeRegistry } from "./runtime/WorkbookMutationRuntimeRegistry";
 import { projectWorkbookStatusForSurface } from "./runtime/workbookMutationStatusProjector";
 import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
@@ -66,6 +76,10 @@ export type {
 };
 
 type WorkbookShellProps = {
+  preferenceController?: WorkbookPreferenceController | undefined;
+  bindWorkbookPreferences?:
+    | ((binding: PreferenceWorkbookBinding | null) => void)
+    | undefined;
   onIncidentControlsSectionChange?:
     | ((
         section: WorkbookIncidentControlsRendererProps["activeSection"] | null,
@@ -101,6 +115,8 @@ type WorkbookShellContentProps = WorkbookShellProps & {
 const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 
 function WorkbookShellContent({
+  preferenceController,
+  bindWorkbookPreferences,
   onIncidentControlsSectionChange,
   authorizationRecovery,
   incidentId,
@@ -239,6 +255,47 @@ function WorkbookShellContent({
     extensionProfileId: networkFlowActivityProfileId,
     workspaceKey: networkAnalysisWorkspaceKey,
   });
+  const preferenceBinding = useRef(bindWorkbookPreferences);
+  preferenceBinding.current = bindWorkbookPreferences;
+  useLayoutEffect(() => {
+    const selected = snapshot.startupSheetRef;
+    const saved =
+      selected.kind === "saved_view" &&
+      "savedViews" in snapshot.savedViewsResource
+        ? snapshot.savedViewsResource.savedViews.find(
+            (view) => view.saved_view_id === selected.id,
+          )
+        : null;
+    preferenceBinding.current?.({
+      incidentId,
+      actorId: authorization.currentUserId,
+      apiBase,
+      onAuthorizationRecovered: authorization.acceptRecoveredAuthorization,
+      surface: {
+        savedViewLabels:
+          "savedViews" in snapshot.savedViewsResource
+            ? snapshot.savedViewsResource.savedViews.map((view) => ({
+                id: view.saved_view_id,
+                label: view.display_name,
+              }))
+            : [],
+        sheetRef: selected,
+        label: networkAnalysisActive
+          ? "Network Analysis"
+          : (saved?.display_name ?? null),
+        available:
+          !snapshot.startupPending &&
+          authorization.currentUserId !== null &&
+          authorization.currentIncidentRole !== null &&
+          authorization.currentIncidentRole !== "" &&
+          (selected.kind === "extension_workspace"
+            ? networkAnalysisActive && networkAnalysisAvailable
+            : selected.kind !== "saved_view" ||
+              (saved !== null && saved !== undefined)),
+      },
+    });
+  });
+  useLayoutEffect(() => () => preferenceBinding.current?.(null), []);
   const selectTimelineFallback = useCallback(() => {
     commands.selectWorkbookSurface(timelineViewSchemaId);
   }, [commands.selectWorkbookSurface]);
@@ -297,6 +354,12 @@ function WorkbookShellContent({
     incidentId,
     networkAnalysisActive,
     runtime: infrastructure.workbookRuntime,
+    preferenceController,
+    onInspectPreferences: (target) =>
+      incidentControls.accountIncidentControls.onSelectSection(
+        "summary",
+        target,
+      ),
   });
   const facadeProps: WorkbookSurfacesFacadeProps = {
     collaboration: { projection: collaboration.projection },
@@ -397,6 +460,9 @@ function WorkbookShellContent({
           mutationSnapshot={activeStatus}
           onActivateOrigin={selectBaseWorkbookSurface}
         />
+        {preferenceController ? (
+          <WorkbookPreferenceAnnouncements controller={preferenceController} />
+        ) : null}
         <WorkbookIncidentControlsPresentation
           onIncidentResourceAccepted={acceptIncidentResource}
           density={workbookLayout.shell.density}

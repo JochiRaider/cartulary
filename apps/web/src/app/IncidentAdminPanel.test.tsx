@@ -6,7 +6,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { usePreferenceTestController } from "../testing/workbookPreferenceTestSupport";
+import { WorkbookPreferencesPanel } from "../workbook/preferences/WorkbookPreferencesPanel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { LifecycleTestSurface } from "./incidentLifecycleTestSurface";
 
@@ -37,6 +40,9 @@ describe("IncidentAdminPanel", () => {
           jsonResponse({
             data: {
               incident_id: "00000000-0000-4000-8000-000000001001",
+              created_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
+              updated_by_user_id: "00000000-0000-4000-8000-000000000001",
               default_sheet_ref: null,
             },
           }),
@@ -50,6 +56,8 @@ describe("IncidentAdminPanel", () => {
           jsonResponse({
             data: {
               incident_id: "00000000-0000-4000-8000-000000001001",
+              created_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
               user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: {
                 kind: "view_schema",
@@ -63,7 +71,7 @@ describe("IncidentAdminPanel", () => {
     });
 
     render(
-      <IncidentAdminPanel
+      <SummaryTestSurface
         activeSection="summary"
         currentIncidentRole="admin"
         incidentId="00000000-0000-4000-8000-000000001001"
@@ -95,9 +103,12 @@ describe("IncidentAdminPanel", () => {
           jsonResponse({
             data: {
               incident_id: "00000000-0000-4000-8000-000000001001",
+              created_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
+              updated_by_user_id: "00000000-0000-4000-8000-000000000001",
               default_sheet_ref: {
                 kind: "saved_view",
-                id: "saved-view-1",
+                id: "00000000-0000-4000-8000-000000000099",
               },
             },
           }),
@@ -111,6 +122,8 @@ describe("IncidentAdminPanel", () => {
           jsonResponse({
             data: {
               incident_id: "00000000-0000-4000-8000-000000001001",
+              created_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
               user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: {
                 kind: "legacy_workspace",
@@ -124,16 +137,14 @@ describe("IncidentAdminPanel", () => {
     });
 
     render(
-      <IncidentAdminPanel
+      <SummaryTestSurface
         activeSection="summary"
         currentIncidentRole="admin"
         incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
-    await screen.findByText(
-      "Incident summary synced; workbook preferences unavailable.",
-    );
+    await screen.findByText("Incident controls synced.");
     expect(
       screen.getByTestId(incidentAdministrationTestId("summary-key"))
         .textContent,
@@ -141,7 +152,7 @@ describe("IncidentAdminPanel", () => {
     expect(
       screen.getByTestId(incidentAdministrationTestId("pref-default-sheet-ref"))
         .textContent,
-    ).toBe("Saved view: saved-view-1");
+    ).toBe("Saved view: 00000000-0000-4000-8000-000000000099");
     expect(
       screen.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref"))
         .textContent,
@@ -180,12 +191,17 @@ describe("IncidentAdminPanel", () => {
           jsonResponse({
             data: url.endsWith("/default")
               ? {
+                  updated_by_user_id: "00000000-0000-4000-8000-000000000001",
                   default_sheet_ref: null,
                   incident_id: "00000000-0000-4000-8000-000000001001",
+                  created_at: "2026-08-01T00:00:00Z",
+                  updated_at: "2026-08-01T00:00:00Z",
                 }
               : {
                   home_sheet_ref: null,
                   incident_id: "00000000-0000-4000-8000-000000001001",
+                  created_at: "2026-08-01T00:00:00Z",
+                  updated_at: "2026-08-01T00:00:00Z",
                   user_id: "00000000-0000-4000-8000-000000000001",
                 },
           }),
@@ -226,7 +242,7 @@ describe("IncidentAdminPanel", () => {
     });
 
     render(
-      <LifecycleTestSurface
+      <SummaryLifecycleTestSurface
         activeSection="summary"
         currentIncidentRole="admin"
         incidentId="00000000-0000-4000-8000-000000001001"
@@ -326,6 +342,8 @@ describe("IncidentAdminPanel", () => {
           jsonResponse({
             data: {
               incident_id: "00000000-0000-4000-8000-000000001001",
+              created_at: "2026-08-01T00:00:00Z",
+              updated_at: "2026-08-01T00:00:00Z",
               user_id: "00000000-0000-4000-8000-000000000001",
               home_sheet_ref: null,
             },
@@ -336,16 +354,14 @@ describe("IncidentAdminPanel", () => {
     });
 
     render(
-      <IncidentAdminPanel
+      <SummaryTestSurface
         activeSection="summary"
         currentIncidentRole="admin"
         incidentId="00000000-0000-4000-8000-000000001001"
       />,
     );
 
-    await screen.findByText(
-      "Incident summary synced; workbook preferences unavailable.",
-    );
+    await screen.findByText("Incident controls synced.");
     expect(
       screen.getByTestId(incidentAdministrationTestId("summary-title"))
         .textContent,
@@ -383,12 +399,15 @@ function incidentSummary(overrides?: Record<string, unknown>) {
 }
 
 function jsonResponse(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
+  return new Response(
+    JSON.stringify({ meta: { request_id: "summary" }, ...(payload as object) }),
+    {
+      status,
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
 }
 
 function errorResponse(code: string, status: number) {
@@ -399,5 +418,26 @@ function errorResponse(code: string, status: number) {
       },
     },
     status,
+  );
+}
+
+function SummaryTestSurface(props: ComponentProps<typeof IncidentAdminPanel>) {
+  const controller = usePreferenceTestController();
+  return (
+    <IncidentAdminPanel
+      {...props}
+      preferenceControls={<WorkbookPreferencesPanel controller={controller} />}
+    />
+  );
+}
+function SummaryLifecycleTestSurface(
+  props: ComponentProps<typeof LifecycleTestSurface>,
+) {
+  const controller = usePreferenceTestController();
+  return (
+    <LifecycleTestSurface
+      {...props}
+      preferenceControls={<WorkbookPreferencesPanel controller={controller} />}
+    />
   );
 }

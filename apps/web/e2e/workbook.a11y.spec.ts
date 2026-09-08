@@ -112,6 +112,7 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookInspectorFeatureActionTestId,
   workbookInspectorToggleTestId,
+  workbookPreferenceTestId,
   workbookPresenceSummaryTestId,
   workbookQueryEntryTestId,
   workbookQueryOverflowEntryTestId,
@@ -3937,18 +3938,26 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
     );
     await expectVisibleFocus(homeButton);
     await homeButton.press("Enter");
-    await expect(savedViewStatus).toHaveText("Home view updated.");
+    await expect(
+      page.getByTestId(workbookPreferenceTestId("home", "shortcut-outcome")),
+    ).toHaveText("Home update confirmed.");
     await openSavedViewActionMenu(page, timelineViewSchemaId);
     const defaultButton = page.getByTestId(
       savedViewSetDefaultButtonTestId(timelineViewSchemaId),
     );
     await expectVisibleFocus(defaultButton);
     await defaultButton.press("Enter");
-    await expect(savedViewStatus).toHaveText("Default view updated.");
-    await expect(savedViewStatus).toHaveAttribute(
-      "title",
-      "Default view updated.",
-    );
+    await expect(
+      page.getByTestId(workbookPreferenceTestId("default", "shortcut-outcome")),
+    ).toHaveText("Incident default update confirmed.");
+    await expect(
+      page.getByTestId(workbookPreferenceTestId("default", "shortcut-outcome")),
+    ).toBeVisible();
+    await expect(defaultButton).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByTestId(savedViewActionMenuTriggerTestId(timelineViewSchemaId)),
+    ).toBeFocused();
 
     await groupingSelect.selectOption("timeline.has_evidence");
     await expect(
@@ -6744,4 +6753,100 @@ test("a11y.lifecycle multiline reason inline review exact recovery and departure
   await expect(
     panel.getByText("Close confirmed.", { exact: true }),
   ).toBeVisible();
+});
+
+test("a11y.preferences independent clear and recovery controls preserve keyboard focus and responsive reachability", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("WP-A11Y"),
+    "Preference accessibility",
+  );
+  await openIncidentFromLanding(page, incidentId);
+  await openIncidentControls(page);
+  const panel = page.getByRole("region", {
+    name: "Workbook startup preferences",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const kind of ["home", "default"] as const)
+      for (const action of ["set", "clear", "refresh"] as const) {
+        const control = page.getByTestId(
+          workbookPreferenceTestId(kind, action),
+        );
+        await control.scrollIntoViewIfNeeded();
+        await expectVisibleFocus(control);
+        expect(
+          await panel.evaluate(
+            (node) => node.scrollWidth <= node.clientWidth + 1,
+          ),
+        ).toBe(true);
+      }
+  }
+  const home = page.getByTestId(workbookPreferenceTestId("home", "clear"));
+  await home.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId(workbookPreferenceTestId("home", "outcome")),
+  ).toHaveText("Home clear confirmed.");
+  await expect(home).toBeFocused();
+  await page.route(
+    `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+    async (route) => {
+      if (route.request().method() === "PUT") {
+        const response = await route.fetch();
+        expect(response.status()).toBe(200);
+        await route.abort("failed");
+      } else await route.continue();
+    },
+  );
+  await home.press("Enter");
+  const keep = page.getByTestId(
+    workbookPreferenceTestId("home", "keep-observed"),
+  );
+  await expect(keep).toHaveAttribute("aria-disabled", "false");
+  await expect(home).toBeFocused();
+  await expectVisibleFocus(keep);
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByTestId(workbookPreferenceTestId("home", "refresh")),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("status", {
+      name: "Workbook preference updates",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await expect(panel.getByRole("status")).toHaveCount(0);
+  await expectAllInteractiveControlsNamed(page);
+  await testInfo.attach("preferences-accessibility-tree", {
+    body: await panel.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Account and application navigation" }),
+  ).toBeFocused();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openSavedViewActionMenu(page, timelineViewSchemaId);
+  await page
+    .getByRole("button", {
+      name: "Inspect and recover workbook preferences…",
+      exact: true,
+    })
+    .click();
+  await expect(panel).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Close incident controls", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByTestId(savedViewActionMenuTriggerTestId(timelineViewSchemaId)),
+  ).toBeFocused();
 });

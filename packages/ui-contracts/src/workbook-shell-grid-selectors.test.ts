@@ -39,6 +39,7 @@ import {
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
   workbookLayoutMetrics,
+  workbookPreferenceTestId,
   workbookQueryEntryTestId,
   workbookQueryOverflowEntryTestId,
   workbookRowActionMenuButtonTestId,
@@ -50,6 +51,20 @@ import {
 } from "./index";
 
 describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
+  it("distinguishes preference resources and rejects unknown control tokens", () => {
+    expect(workbookPreferenceTestId("home", "clear")).toBe(
+      "workbook-preference-home-clear",
+    );
+    expect(workbookPreferenceTestId("default", "clear")).toBe(
+      "workbook-preference-default-clear",
+    );
+    expect(() =>
+      workbookPreferenceTestId("other" as "home", "clear"),
+    ).toThrow();
+    expect(() =>
+      workbookPreferenceTestId("home", "delete" as "clear"),
+    ).toThrow();
+  });
   it("builds owner-backed group row selectors for both expansion states", () => {
     expect(gridGroupRowSelector()).toBe(
       '[role="row"][aria-level="1"][aria-expanded]',

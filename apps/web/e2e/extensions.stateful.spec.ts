@@ -1,12 +1,15 @@
 import {
+  incidentAdministrationTestId,
   networkAnalysisTestId,
   saveStateTestId,
   surfaceTabTestId,
+  workbookPreferenceTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 
 import { expect, test } from "./fixtures";
+import { openIncidentControls } from "./pages/deploymentAdministration";
 import {
   createTimelineRow,
   editTimelineSummary,
@@ -14,6 +17,7 @@ import {
 } from "./support/collaboration/replay";
 import {
   expectNetworkFlowRuntimeProfile,
+  openClaimedNetworkAnalysis,
   openNetworkFlowIncident,
 } from "./support/extensions/network_flow_activity/workspace";
 import { apiBase } from "./support/runtime/configuration";
@@ -148,4 +152,73 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
     await held.waitForCompletion;
     await patchController.dispose();
   }
+});
+
+test("preferences store and clear the claimed authorized extension workspace without changing active identity", async ({
+  page,
+}) => {
+  const incidentId = await openClaimedNetworkAnalysis(page, "WP-EXTENSION");
+  const original = page.url();
+  const requests: unknown[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "PUT" &&
+      request.url().includes("workbook-preferences")
+    )
+      requests.push(request.postDataJSON());
+  });
+  await openIncidentControls(page);
+  for (const kind of ["home", "default"] as const) {
+    await expect(
+      page.getByTestId(workbookPreferenceTestId(kind, "set")),
+    ).toHaveAttribute("aria-disabled", "false");
+    await page.getByTestId(workbookPreferenceTestId(kind, "set")).click();
+    await expect(
+      page.getByTestId(workbookPreferenceTestId(kind, "outcome")),
+    ).toHaveText(
+      `${kind === "home" ? "Home" : "Incident default"} update confirmed.`,
+    );
+    await expect(
+      page.getByTestId(
+        incidentAdministrationTestId(
+          kind === "home" ? "pref-home-sheet-ref" : "pref-default-sheet-ref",
+        ),
+      ),
+    ).toContainText("network_flow_activity/network_analysis");
+    await expect(
+      page.getByTestId(workbookPreferenceTestId(kind, "clear")),
+    ).toHaveAttribute("aria-disabled", "false");
+    await page.getByTestId(workbookPreferenceTestId(kind, "clear")).click();
+    await expect(
+      page.getByTestId(workbookPreferenceTestId(kind, "outcome")),
+    ).toHaveText(
+      `${kind === "home" ? "Home" : "Incident default"} clear confirmed.`,
+    );
+  }
+  expect(requests).toEqual([
+    {
+      home_sheet_ref: {
+        kind: "extension_workspace",
+        extension_profile_id: "network_flow_activity",
+        workspace_key: "network_analysis",
+      },
+    },
+    { home_sheet_ref: null },
+    {
+      default_sheet_ref: {
+        kind: "extension_workspace",
+        extension_profile_id: "network_flow_activity",
+        workspace_key: "network_analysis",
+      },
+    },
+    { default_sheet_ref: null },
+  ]);
+  expect(page.url()).toBe(original);
+  await page
+    .getByRole("button", { name: "Close incident controls", exact: true })
+    .click();
+  await expect(
+    page.getByTestId(networkAnalysisTestId("workspace")),
+  ).toBeVisible();
+  expect(incidentId).not.toBe("");
 });

@@ -8,6 +8,24 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
+func TestWorkbookPreferenceResponseContracts(t *testing.T) {
+	document := loadWorkbookOpenAPIContract(t)
+	for _, suffix := range []string{"me", "default"} {
+		for _, method := range []string{"get", "put"} {
+			responses := workbookObjectAt(t, document, "paths", "/api/v1/incidents/{incident_id}/workbook-preferences/"+suffix, method, "responses")
+			statuses := []string{"200", "400", "401", "404", "500"}
+			if method == "put" {
+				statuses = append(statuses, "403")
+			}
+			for _, status := range statuses {
+				if _, exists := responses[status]; !exists {
+					t.Errorf("%s %s omits existing response %s", method, suffix, status)
+				}
+			}
+		}
+	}
+}
+
 func TestWorkbookOpenAPIRecordMutationContracts(t *testing.T) {
 	document := loadWorkbookOpenAPIContract(t)
 	schemas := workbookObjectAt(t, document, "components", "schemas")

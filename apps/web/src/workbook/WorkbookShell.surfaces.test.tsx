@@ -75,7 +75,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred } from "../testing/fetchMockTestSupport";
@@ -116,14 +116,49 @@ vi.mock(
   async () => import("@cartulary/grid-adapter/test-support"),
 );
 
+import { observeAccountOperation } from "../app/accountOperation";
+import { createWorkbookPreferenceAdapter } from "./adapters/createWorkbookPreferenceAdapter";
+import { WorkbookPreferenceController } from "./preferences/WorkbookPreferenceController";
+
 const authorizationRecovery = workbookAuthorizationRecovery();
 
 function WorkbookShell(
   props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
 ) {
+  const [preferences] = useState(
+    () =>
+      new WorkbookPreferenceController({
+        port: (a) =>
+          createWorkbookPreferenceAdapter({
+            apiBase: a.apiBase,
+            incidentId: a.incidentId,
+            actorId: a.actorId,
+          }),
+        isCurrent: () => true,
+        lost: () => {},
+        observe: observeAccountOperation,
+        recover: (a, signal) =>
+          authorizationRecovery.recover({ incidentId: a.incidentId, signal }),
+      }),
+  );
+  useLayoutEffect(() => () => preferences.dispose(), [preferences]);
   return (
     <WorkbookShellImpl
       {...props}
+      preferenceController={preferences}
+      bindWorkbookPreferences={(binding) => {
+        if (!binding) {
+          preferences.setSurface(null);
+          return;
+        }
+        preferences.setAuthority({
+          incidentId: props.incidentId,
+          actorId: testUserId,
+          lifetime: "session",
+          role: "admin",
+        });
+        preferences.setSurface(binding.surface);
+      }}
       authorizationRecovery={authorizationRecovery}
     />
   );
@@ -3946,6 +3981,7 @@ function applyGenericFilter(
 function openSavedViewActions(
   surface: Parameters<typeof savedViewSelectorTestId>[0],
 ) {
+  if (screen.queryByTestId(savedViewActionMenuTestId(surface))) return;
   fireEvent.click(
     screen.getByTestId(savedViewActionMenuTriggerTestId(surface)),
   );

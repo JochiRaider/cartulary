@@ -251,7 +251,6 @@ export {
   workbookFocusAnchorTestId,
   workbookPresenceSummaryTestId,
 } from "./workbookInteractionSelectors";
-
 export {
   type WorkbookQueryEntryKind,
   type WorkbookShellSlot,
@@ -270,6 +269,7 @@ export {
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookPreferenceTestId,
   workbookQueryEntryTestId,
   workbookQueryOverflowEntryTestId,
   workbookResponsiveBandTestId,

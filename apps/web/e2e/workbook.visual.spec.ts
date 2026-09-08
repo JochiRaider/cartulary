@@ -102,6 +102,7 @@ import {
   workbookInspectorFeatureActionTestId,
   workbookInspectorPanelTestId,
   workbookInspectorToggleTestId,
+  workbookPreferenceTestId,
   workbookPresenceSummaryTestId,
   workbookQueryOverflowEntryTestId,
   workbookResponsiveBandTestId,
@@ -128,6 +129,7 @@ import {
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
+import { openIncidentControls } from "./pages/deploymentAdministration";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
 import { gridSavedRows } from "./pages/workbookInspector";
 import {
@@ -2967,12 +2969,13 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
     ).toHaveText("Saved view created.");
     await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
     await expect(
-      page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
-    ).toHaveText("Home view updated.");
+      page.getByTestId(workbookPreferenceTestId("home", "shortcut-outcome")),
+    ).toHaveText("Home update confirmed.");
     await setCurrentSavedViewAsDefault(page, timelineViewSchemaId);
     await expect(
-      page.getByTestId(savedViewStatusTestId(timelineViewSchemaId)),
-    ).toHaveText("Default view updated.");
+      page.getByTestId(workbookPreferenceTestId("default", "shortcut-outcome")),
+    ).toHaveText("Incident default update confirmed.");
+    await page.keyboard.press("Escape");
 
     await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
       scroll: { top: 0, left: "left" },
@@ -8052,6 +8055,18 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
 test("Capture Lifecycle review pending exact recovery confirmation responsive and density.", async ({
   workerAdminPage: page,
 }) => {
+  const inspectionReady = async () => {
+    // Independent observations can change the drawer height. Settle them before
+    // focus and scroll establish this lifecycle fixture's capture position.
+    await expect(
+      page.getByText("Incident controls synced.", { exact: true }),
+    ).toBeVisible();
+    for (const kind of ["home", "default"] as const) {
+      await expect(
+        page.getByTestId(workbookPreferenceTestId(kind, "read")),
+      ).toHaveText("");
+    }
+  };
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("LC-VISUAL"),
@@ -8059,6 +8074,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
   );
   await openIncidentFromLanding(page, incidentId);
   const panel = await openLifecycle(page);
+  await inspectionReady();
   await page.setViewportSize({ width: 1280, height: 720 });
   const capture = async (name: string, anchor = panel) => {
     await anchor.scrollIntoViewIfNeeded();
@@ -8168,6 +8184,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
       await setVisualAccountDensity(page, density);
       await page.reload();
       await openLifecycle(page);
+      await inspectionReady();
       await page.setViewportSize({ width: 768, height: 640 });
       await expect(panel).toHaveCSS(
         "font-size",
@@ -8187,6 +8204,129 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
       });
       await expectLifecycleControlReachable(page, reopen);
       await capture(`lifecycle-${density}`, reopen);
+    }
+  } finally {
+    await setVisualAccountDensity(page, originalDensity);
+  }
+});
+
+test("Capture workbook preferences inspection uncertainty confirmation responsive and density.", async ({
+  workerAdminPage: page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("WP-VISUAL"),
+    "Workbook startup preferences",
+  );
+  await openIncidentFromLanding(page, incidentId);
+  await openIncidentControls(page);
+  const panel = page.getByRole("region", {
+    name: "Workbook startup preferences",
+    exact: true,
+  });
+  await expect(
+    page.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref")),
+  ).toHaveText("Unset");
+  const captureCurrent = async (name: string) => {
+    await assertViewportVisualRegression(page, name);
+    await test.info().attach(`${name}-review`, {
+      body: await page.screenshot({
+        animations: "disabled",
+        caret: "hide",
+        fullPage: false,
+      }),
+      contentType: "image/png",
+    });
+  };
+  const capture = async (name: string) => {
+    await panel.scrollIntoViewIfNeeded();
+    await captureCurrent(name);
+  };
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await capture("workbook-preferences-unset");
+  let failRead = false;
+  await page.route(
+    `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+    async (route) => {
+      if (route.request().method() === "PUT") {
+        const response = await route.fetch();
+        expect(response.status()).toBe(200);
+        await route.abort("failed");
+      } else if (failRead)
+        await route.fulfill({
+          status: 503,
+          json: {
+            error: { code: "internal_error" },
+            meta: { request_id: "preference-read" },
+          },
+        });
+      else await route.continue();
+    },
+  );
+  await page.getByTestId(workbookPreferenceTestId("home", "set")).click();
+  const keep = page.getByTestId(
+    workbookPreferenceTestId("home", "keep-observed"),
+  );
+  await expect(keep).toHaveAttribute("aria-disabled", "false");
+  await keep.scrollIntoViewIfNeeded();
+  await captureCurrent("workbook-preferences-uncertain");
+  await page.setViewportSize({ width: 390, height: 480 });
+  await keep.scrollIntoViewIfNeeded();
+  await captureCurrent("workbook-preferences-uncertain-narrow");
+  await keep.click();
+  await page.unroute(
+    `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.route(
+    `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+    async (route) => {
+      if (route.request().method() === "PUT") {
+        const response = await route.fetch();
+        failRead = true;
+        await route.fulfill({ response });
+      } else if (failRead)
+        await route.fulfill({
+          status: 503,
+          json: {
+            error: { code: "internal_error" },
+            meta: { request_id: "preference-read" },
+          },
+        });
+      else await route.continue();
+    },
+  );
+  await page.getByTestId(workbookPreferenceTestId("home", "clear")).click();
+  await expect(
+    page.getByTestId(workbookPreferenceTestId("home", "read")),
+  ).toContainText("may be stale");
+  await page
+    .getByTestId(workbookPreferenceTestId("home", "outcome"))
+    .scrollIntoViewIfNeeded();
+  await captureCurrent("workbook-preferences-confirmed-stale");
+  await page.unroute(
+    `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
+  );
+  const originalDensity = (await readVisualAccountPreferences(page))
+    .density_mode;
+  try {
+    for (const density of ["compact", "comfortable"] as const) {
+      await setVisualAccountDensity(page, density);
+      await page.reload();
+      await openIncidentControls(page);
+      await page.setViewportSize({ width: 768, height: 640 });
+      await expect(panel).toHaveCSS(
+        "font-size",
+        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+      );
+      await expect(panel).toHaveCSS(
+        "padding",
+        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+      );
+      await expect(
+        page.getByTestId(workbookPreferenceTestId("home", "read")),
+      ).toHaveText("");
+      await capture(`workbook-preferences-${density}`);
     }
   } finally {
     await setVisualAccountDensity(page, originalDensity);

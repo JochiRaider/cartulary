@@ -686,6 +686,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-workbook-preferences",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.preferences_1",
+            "module.workbook.browser.preferences_2",
+            "module.workbook.browser.preferences_3",
+            "module.workbook.browser.preferences_4"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-preferences.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-workbook-assessments",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1482,6 +1507,31 @@
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
+          "name": "functional-default-workbook-preferences",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.preferences_1",
+            "module.workbook.browser.preferences_2",
+            "module.workbook.browser.preferences_3",
+            "module.workbook.browser.preferences_4"
+          ],
+          "specs": [
+            "apps/web/e2e/workbook-preferences.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
           "name": "functional-default-workbook-assessments",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
@@ -2030,7 +2080,8 @@
           "browser_session_group": "browser-stateful-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
-            "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38"
+            "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+            "module.workbook.browser_stateful.preferences_extension"
           ],
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts"
@@ -2263,6 +2314,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+            "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
             "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
             "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
@@ -2356,6 +2408,7 @@
             "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+            "module.workbook.visual.preferences",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
@@ -2604,6 +2657,7 @@
             "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+            "module.workbook.visual.preferences",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
@@ -2920,7 +2974,8 @@
           "browser_session_group": "browser-stateful-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
-            "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38"
+            "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+            "module.workbook.browser_stateful.preferences_extension"
           ],
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts"
@@ -3130,6 +3185,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+            "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
             "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
             "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
@@ -3211,6 +3267,7 @@
             "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+            "module.workbook.visual.preferences",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",

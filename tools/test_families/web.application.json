@@ -2317,6 +2317,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.preference_integration",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/workbookPreferenceIntegration.test.tsx",
+        "titles": [
+          "Preference App integration fences late acknowledgements after replacement of the same actors session",
+          "Preference App integration ignores workbook publications addressed to another incident or actor",
+          "Preference App integration retains authorized observations on demotion and clears protected state on membership loss",
+          "Preference App integration retains pending work across drawer closure and confirms the captured target on return"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.public_error_presentation_typed_mapping_1ea7e57fb4",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

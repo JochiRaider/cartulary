@@ -1,6 +1,7 @@
 import { incidentAdministrationTestId } from "@cartulary/ui-contracts";
 import {
   type CSSProperties,
+  type ReactNode,
   type RefObject,
   useId,
   useLayoutEffect,
@@ -23,9 +24,11 @@ export function IncidentLifecycleFeature({
   bindSurface,
   acceptedIncident,
   onIncidentObserved,
+  preferenceControls,
   ...surface
 }: WorkbookIncidentControlsRendererProps & {
   controller: IncidentLifecycleController;
+  preferenceControls?: ReactNode;
   bindSurface: (surface: WorkbookIncidentControlsRendererProps | null) => void;
   acceptedIncident: IncidentResource | null;
   onIncidentObserved: (resource: IncidentResource) => void;
@@ -45,6 +48,7 @@ export function IncidentLifecycleFeature({
     <IncidentAdminPanel
       {...surface}
       acceptedIncident={acceptedIncident}
+      preferenceControls={preferenceControls}
       onIncidentObserved={onIncidentObserved}
       lifecycleControls={
         <IncidentLifecyclePanel

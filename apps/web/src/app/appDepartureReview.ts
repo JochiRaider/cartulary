@@ -8,6 +8,7 @@ export async function reviewAppDeparture(options: {
   memberships: DepartureOwner;
   metadata: DepartureOwner;
   lifecycle: DepartureOwner;
+  preferences: DepartureOwner;
   deploymentUsers: DepartureOwner;
   isCurrent: () => boolean;
 }): Promise<boolean> {
@@ -15,6 +16,7 @@ export async function reviewAppDeparture(options: {
     options.memberships,
     options.metadata,
     options.lifecycle,
+    options.preferences,
     options.deploymentUsers,
   ];
   for (const owner of owners) {

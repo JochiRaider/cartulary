@@ -338,11 +338,8 @@ export async function setCurrentSavedViewAsHome(
   page: SavedViewPageLike,
   surface: string,
 ) {
-  await clickSavedViewMenuActionAndWaitForClose(
-    page,
-    surface,
-    savedViewSetHomeButtonTestId(surface),
-  );
+  await openSavedViewActionMenu(page, surface);
+  await page.getByTestId(savedViewSetHomeButtonTestId(surface)).click();
 }
 
 export async function setCurrentSavedViewAsHomeAndWait(
@@ -366,11 +363,8 @@ export async function setCurrentSavedViewAsDefault(
   page: SavedViewPageLike,
   surface: string,
 ) {
-  await clickSavedViewMenuActionAndWaitForClose(
-    page,
-    surface,
-    savedViewSetDefaultButtonTestId(surface),
-  );
+  await openSavedViewActionMenu(page, surface);
+  await page.getByTestId(savedViewSetDefaultButtonTestId(surface)).click();
 }
 
 export async function setCurrentSavedViewAsDefaultAndWait(
@@ -453,7 +447,6 @@ async function setCurrentSavedViewPreferenceAndWait(
     requestPromise,
     responsePromise,
   ]);
-  await waitForSavedViewActionMenuClose(page, surface);
   const requestBody = readRequestJSON(request, options.field);
   assertPreferenceBody(options.field, requestBody, options.expectedSheetRef);
   const responseBody = await readResponseJSON(response, options.field);

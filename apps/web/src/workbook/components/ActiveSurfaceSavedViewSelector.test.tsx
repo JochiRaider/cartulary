@@ -62,8 +62,6 @@ function renderSelector({
       onResetToSavedView={vi.fn()}
       onSelectBaseSurface={onSelectBaseSurface}
       onSelectSavedView={vi.fn()}
-      onSetDefaultSheetRef={vi.fn(async () => undefined)}
-      onSetHomeSheetRef={vi.fn(async () => undefined)}
       onUpdateSavedView={vi.fn(async () => selectedSavedView)}
       savedViewsResource={resource}
       selectedSheetRef={
@@ -93,8 +91,6 @@ describe("ActiveSurfaceSavedViewSelector", () => {
         onResetToSavedView={vi.fn()}
         onSelectBaseSurface={vi.fn()}
         onSelectSavedView={vi.fn()}
-        onSetDefaultSheetRef={vi.fn(async () => undefined)}
-        onSetHomeSheetRef={vi.fn(async () => undefined)}
         onUpdateSavedView={vi.fn(async () => selectedSavedView)}
         savedViewsResource={{ kind: "loading" }}
         selectedSheetRef={{ kind: "view_schema", id: surface }}
@@ -119,8 +115,6 @@ describe("ActiveSurfaceSavedViewSelector", () => {
         onResetToSavedView={vi.fn()}
         onSelectBaseSurface={vi.fn()}
         onSelectSavedView={vi.fn()}
-        onSetDefaultSheetRef={vi.fn(async () => undefined)}
-        onSetHomeSheetRef={vi.fn(async () => undefined)}
         onUpdateSavedView={vi.fn(async () => selectedSavedView)}
         savedViewsResource={{
           kind: "unavailable",
@@ -184,8 +178,6 @@ describe("ActiveSurfaceSavedViewSelector", () => {
         onResetToSavedView={vi.fn()}
         onSelectBaseSurface={vi.fn()}
         onSelectSavedView={vi.fn()}
-        onSetDefaultSheetRef={vi.fn(async () => undefined)}
-        onSetHomeSheetRef={vi.fn(async () => undefined)}
         onUpdateSavedView={vi.fn(async () => selectedSavedView)}
         savedViewsResource={{ kind: "ready", savedViews: [] }}
         selectedSheetRef={{ kind: "view_schema", id: nextSurface }}

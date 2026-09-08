@@ -21,9 +21,7 @@ export type SavedViewActionKind =
   | "update"
   | "duplicate"
   | "reset"
-  | "delete"
-  | "set_home"
-  | "set_default";
+  | "delete";
 
 export type SavedViewActionIdentity = {
   readonly surface: string;

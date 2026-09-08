@@ -3,22 +3,13 @@ import {
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
 } from "@cartulary/ui-contracts";
-import { getViewContract } from "@cartulary/view-contracts";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { type APIError, extractError, fetchJSON } from "../services/browserApi";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   type IncidentResource,
-  incidentResourceOrder,
   validIncidentResource,
 } from "../shared/incidentResource";
-import type { SheetRef } from "../shared/sheetRef";
-import { isSheetRef } from "../shared/sheetRef";
+import { observeAccountOperation } from "./accountOperation";
+import { readIncidentSummary } from "./api/incidentResourceClient";
 import type {
   IncidentControlsLoadState,
   IncidentControlsSection,
@@ -28,18 +19,6 @@ type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
 
 type IncidentSummary = IncidentResource;
 
-type WorkbookPreferences = {
-  default_sheet_ref?: SheetRef | null;
-  home_sheet_ref?: SheetRef | null;
-};
-
-type PreferenceSlot = {
-  readonly sheetRef: SheetRef | null;
-  readonly status: "loading" | "loaded" | "unavailable";
-};
-
-type WorkbookPreferenceField = "default_sheet_ref" | "home_sheet_ref";
-
 type IncidentAdminPanelProps = {
   acceptedIncident?: IncidentSummary | null | undefined;
   onIncidentObserved?: ((incident: IncidentSummary) => void) | undefined;
@@ -48,84 +27,13 @@ type IncidentAdminPanelProps = {
   activeSection?: IncidentControlsSection | undefined;
   apiBase?: string | undefined;
   onIncidentAccessLost?: (() => void) | undefined;
+  onSessionRoleChange?: (() => Promise<void> | void) | undefined;
   lifecycleControls?: ReactNode;
+  preferenceControls?: ReactNode;
 };
-
-type IncidentSurfaceLoadTarget = {
-  readonly activeSection: IncidentControlsSection;
-  readonly apiBase: string | undefined;
-  readonly incidentId: string;
-};
-
-function apiPath(base: string | undefined, path: string): string {
-  const trimmedBase = (base ?? "").trim();
-  if (trimmedBase === "") {
-    return path;
-  }
-  return `${trimmedBase.replace(/\/$/, "")}${path}`;
-}
 
 function displayValue(value: string | null | undefined): string {
   return value && value.trim() !== "" ? value : "Unset";
-}
-
-function unavailablePreferenceSlot(): PreferenceSlot {
-  return { sheetRef: null, status: "unavailable" };
-}
-
-function loadingPreferenceSlot(): PreferenceSlot {
-  return { sheetRef: null, status: "loading" };
-}
-
-function loadedPreferenceSlot(sheetRef: SheetRef | null): PreferenceSlot {
-  return { sheetRef, status: "loaded" };
-}
-
-function preferenceSlotFromPayload(
-  payload: unknown,
-  field: WorkbookPreferenceField,
-): PreferenceSlot {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return unavailablePreferenceSlot();
-  }
-  const data = (payload as { readonly data?: unknown }).data;
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return unavailablePreferenceSlot();
-  }
-  const record = data as Record<string, unknown>;
-  if (!Object.hasOwn(record, field)) {
-    return unavailablePreferenceSlot();
-  }
-  const value = record[field];
-  if (value === null) {
-    return loadedPreferenceSlot(null);
-  }
-  if (isSheetRef(value)) {
-    return loadedPreferenceSlot({ ...value });
-  }
-  return unavailablePreferenceSlot();
-}
-
-function formatSheetRef(slot: PreferenceSlot): string {
-  if (slot.status === "loading") {
-    return "Loading…";
-  }
-  if (slot.status === "unavailable") {
-    return "Unavailable";
-  }
-  const sheetRef = slot.sheetRef;
-  if (sheetRef === null) {
-    return "Unset";
-  }
-  if (sheetRef.kind === "view_schema") {
-    const contract = getViewContract(sheetRef.id);
-    const label = contract?.title ?? sheetRef.id;
-    return `View schema: ${label} (${sheetRef.id})`;
-  }
-  if (sheetRef.kind === "saved_view") {
-    return `Saved view: ${sheetRef.id}`;
-  }
-  return `Extension workspace: ${sheetRef.extension_profile_id}/${sheetRef.workspace_key}`;
 }
 
 export function IncidentAdminPanel({
@@ -135,169 +43,67 @@ export function IncidentAdminPanel({
   currentIncidentRole,
   activeSection = "summary",
   apiBase,
-  onIncidentAccessLost,
+  onSessionRoleChange,
   lifecycleControls,
+  preferenceControls,
 }: IncidentAdminPanelProps) {
-  const [incident, setIncident] = useState<IncidentSummary | null>(null);
-  const [defaultPreference, setDefaultPreference] = useState<PreferenceSlot>(
-    loadingPreferenceSlot,
-  );
-  const [userPreference, setUserPreference] = useState<PreferenceSlot>(
-    loadingPreferenceSlot,
-  );
+  const [observedIncident, setObservedIncident] =
+    useState<IncidentSummary | null>(null);
+  const incident =
+    acceptedIncident && validIncidentResource(acceptedIncident, incidentId)
+      ? acceptedIncident
+      : observedIncident?.incident_id === incidentId
+        ? observedIncident
+        : null;
   const [surfaceLoadState, setSurfaceLoadState] =
     useState<IncidentControlsLoadState>("loading");
   const [surfaceStatusText, setSurfaceStatusText] = useState(
     "Loading incident controls…",
   );
-  const [error, setError] = useState<APIError | null>(null);
+  const [error, setError] = useState<{ code: string } | null>(null);
   const observedRef = useRef(onIncidentObserved);
   observedRef.current = onIncidentObserved;
-  const acceptedIncidentRef = useRef(acceptedIncident);
-  acceptedIncidentRef.current = acceptedIncident;
+  const accessCheckRef = useRef(onSessionRoleChange);
+  accessCheckRef.current = onSessionRoleChange;
+  const generation = useRef(0);
   useEffect(() => {
-    if (acceptedIncident && validIncidentResource(acceptedIncident, incidentId))
-      setIncident((current) =>
-        incidentResourceOrder(current, acceptedIncident, incidentId) === "new"
-          ? acceptedIncident
-          : current,
-      );
-  }, [acceptedIncident, incidentId]);
-  const loadRequestIdRef = useRef(0);
-  const activeSectionRef = useRef(activeSection);
-  const apiBaseRef = useRef(apiBase);
-  const incidentIdRef = useRef(incidentId);
-
-  activeSectionRef.current = activeSection;
-  apiBaseRef.current = apiBase;
-  incidentIdRef.current = incidentId;
-  const loadIncidentSurface = useCallback(
-    async (target?: IncidentSurfaceLoadTarget) => {
-      const requestId = loadRequestIdRef.current + 1;
-      loadRequestIdRef.current = requestId;
-      const requestedSection =
-        target?.activeSection ?? activeSectionRef.current;
-      const requestedApiBase = target?.apiBase ?? apiBaseRef.current;
-      const requestedIncidentId = target?.incidentId ?? incidentIdRef.current;
-      const isLatestRequest = () => loadRequestIdRef.current === requestId;
-
-      setSurfaceLoadState("loading");
-      setSurfaceStatusText("Loading incident controls…");
-      if (requestedSection === "summary") {
-        setDefaultPreference(loadingPreferenceSlot());
-        setUserPreference(loadingPreferenceSlot());
-      }
-
-      const incidentRequest = fetchJSON<{ data: IncidentSummary }>(
-        apiPath(requestedApiBase, `/api/v1/incidents/${requestedIncidentId}`),
-      );
-      const defaultPrefsRequest =
-        requestedSection === "summary"
-          ? fetchJSON<{ data: WorkbookPreferences }>(
-              apiPath(
-                requestedApiBase,
-                `/api/v1/incidents/${requestedIncidentId}/workbook-preferences/default`,
-              ),
-            )
-          : Promise.resolve(null);
-      const userPrefsRequest =
-        requestedSection === "summary"
-          ? fetchJSON<{ data: WorkbookPreferences }>(
-              apiPath(
-                requestedApiBase,
-                `/api/v1/incidents/${requestedIncidentId}/workbook-preferences/me`,
-              ),
-            )
-          : Promise.resolve(null);
-
-      const [incidentResult, defaultPrefsResult, userPrefsResult] =
-        await Promise.all([
-          incidentRequest,
-          defaultPrefsRequest,
-          userPrefsRequest,
-        ]);
-
-      if (!isLatestRequest()) {
-        return;
-      }
-
-      if (!incidentResult.ok) {
-        const incidentError = extractError(incidentResult.payload);
-        setError(incidentError);
-        setDefaultPreference(unavailablePreferenceSlot());
-        setUserPreference(unavailablePreferenceSlot());
+    if (activeSection !== "summary") return;
+    const request = ++generation.current;
+    const current = () => request === generation.current;
+    setSurfaceLoadState("loading");
+    setSurfaceStatusText("Loading incident controls…");
+    setError(null);
+    const observation = observeAccountOperation(async (signal) => {
+      const result = await readIncidentSummary(incidentId, apiBase, signal);
+      if (!current()) return;
+      if (!result.ok) {
         setSurfaceLoadState("unavailable");
         setSurfaceStatusText("Incident controls unavailable.");
+        setError({ code: result.code });
         if (
-          incidentError?.code === "incident_not_found" ||
-          incidentError?.code === "authorization_denied"
-        ) {
-          onIncidentAccessLost?.();
-        }
+          result.code === "incident_not_found" ||
+          result.code === "authorization_denied"
+        )
+          void accessCheckRef.current?.();
         return;
       }
-
-      const nextIncident = (incidentResult.payload as { data: IncidentSummary })
-        .data;
-      if (!validIncidentResource(nextIncident, requestedIncidentId)) {
-        setSurfaceLoadState("unavailable");
-        setSurfaceStatusText("Incident controls unavailable.");
-        return;
-      }
-      observedRef.current?.(nextIncident);
-      const published = acceptedIncidentRef.current;
-      setIncident((current) => {
-        const base =
-          published &&
-          incidentResourceOrder(current, published, requestedIncidentId) ===
-            "new"
-            ? published
-            : current;
-        return incidentResourceOrder(
-          base,
-          nextIncident,
-          requestedIncidentId,
-        ) === "new"
-          ? nextIncident
-          : base;
-      });
-
-      let partialFailure = false;
-
-      if (requestedSection === "summary") {
-        const nextDefaultPreference = defaultPrefsResult?.ok
-          ? preferenceSlotFromPayload(
-              defaultPrefsResult.payload,
-              "default_sheet_ref",
-            )
-          : unavailablePreferenceSlot();
-        const nextUserPreference = userPrefsResult?.ok
-          ? preferenceSlotFromPayload(userPrefsResult.payload, "home_sheet_ref")
-          : unavailablePreferenceSlot();
-        setDefaultPreference(nextDefaultPreference);
-        setUserPreference(nextUserPreference);
-        partialFailure =
-          nextDefaultPreference.status === "unavailable" ||
-          nextUserPreference.status === "unavailable";
-      }
-
-      setError(null);
-      setSurfaceLoadState(partialFailure ? "partial" : "synced");
-      setSurfaceStatusText(
-        partialFailure
-          ? "Incident summary synced; workbook preferences unavailable."
-          : "Incident controls synced.",
-      );
-    },
-    [onIncidentAccessLost],
-  );
-
-  useEffect(() => {
-    void loadIncidentSurface({ activeSection, apiBase, incidentId });
+      observedRef.current?.(result.resource);
+      setObservedIncident(result.resource);
+      setSurfaceLoadState("synced");
+      setSurfaceStatusText("Incident controls synced.");
+    });
+    void observation.result.then((outcome) => {
+      if (!current() || outcome.kind === "completed") return;
+      ++generation.current;
+      setSurfaceLoadState("unavailable");
+      setSurfaceStatusText("Incident controls unavailable.");
+      setError({ code: "incident_summary_unavailable" });
+    });
     return () => {
-      ++loadRequestIdRef.current;
+      ++generation.current;
+      observation.cancel();
     };
-  }, [activeSection, apiBase, incidentId, loadIncidentSurface]);
+  }, [activeSection, apiBase, incidentId]);
 
   const activeSectionMeta = incidentControlsSectionMeta[activeSection];
 
@@ -349,10 +155,9 @@ export function IncidentAdminPanel({
         <div style={gridStyle}>
           {renderIncidentSummary({
             currentIncidentRole,
-            defaultPreference,
             lifecycleControls,
+            preferenceControls,
             incident,
-            userPreference,
           })}
         </div>
       ) : null}
@@ -369,7 +174,7 @@ const incidentControlsSectionMeta = {
   summary: {
     title: "Summary and preferences",
     description:
-      "Read incident summary fields and workbook bootstrap defaults.",
+      "Inspect incident summary and manage workbook startup preferences.",
   },
   "incident-fields": {
     title: "Promoted fields",
@@ -391,16 +196,14 @@ const incidentControlsSectionMeta = {
 
 function renderIncidentSummary({
   currentIncidentRole,
-  defaultPreference,
   lifecycleControls,
+  preferenceControls,
   incident,
-  userPreference,
 }: {
   readonly currentIncidentRole: IncidentRole | null;
-  readonly defaultPreference: PreferenceSlot;
   readonly lifecycleControls: ReactNode;
+  readonly preferenceControls: ReactNode;
   readonly incident: IncidentSummary | null;
-  readonly userPreference: PreferenceSlot;
 }) {
   return (
     <>
@@ -512,7 +315,7 @@ function renderIncidentSummary({
               data-testid={incidentAdministrationTestId("summary-role")}
               style={valueStyle}
             >
-              {currentIncidentRole || "viewer"}
+              {currentIncidentRole || "Current access unresolved"}
             </dd>
           </div>
         </dl>
@@ -520,37 +323,7 @@ function renderIncidentSummary({
 
       {lifecycleControls}
 
-      <section style={cardStyle}>
-        <div style={cardHeaderStyle}>
-          <div>
-            <p style={cardEyebrowStyle}>Workbook preferences</p>
-            <h3 style={cardTitleStyle}>Bootstrap defaults</h3>
-          </div>
-        </div>
-
-        <dl style={definitionGridStyle}>
-          <div>
-            <dt style={labelStyle}>Incident default sheet</dt>
-            <dd
-              data-testid={incidentAdministrationTestId(
-                "pref-default-sheet-ref",
-              )}
-              style={valueStyle}
-            >
-              {formatSheetRef(defaultPreference)}
-            </dd>
-          </div>
-          <div>
-            <dt style={labelStyle}>My home sheet</dt>
-            <dd
-              data-testid={incidentAdministrationTestId("pref-home-sheet-ref")}
-              style={valueStyle}
-            >
-              {formatSheetRef(userPreference)}
-            </dd>
-          </div>
-        </dl>
-      </section>
+      {preferenceControls}
     </>
   );
 }

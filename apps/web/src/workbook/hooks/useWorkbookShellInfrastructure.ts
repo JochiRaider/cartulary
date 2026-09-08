@@ -3,7 +3,6 @@ import type { ExtensionAvailabilityController } from "../../extensions/extension
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
-import { createWorkbookPreferenceAdapter } from "../adapters/createWorkbookPreferenceAdapter";
 import { createWorkbookSavedViewAdapter } from "../adapters/createWorkbookSavedViewAdapter";
 import { createWorkbookStartupAdapter } from "../adapters/createWorkbookStartupAdapter";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
@@ -99,10 +98,6 @@ export function useWorkbookShellInfrastructure({
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
-  const preferencePort = useMemo(
-    () => createWorkbookPreferenceAdapter({ apiBase, incidentId }),
-    [apiBase, incidentId],
-  );
   const startupPort = useMemo(
     () => createWorkbookStartupAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
@@ -121,7 +116,6 @@ export function useWorkbookShellInfrastructure({
     surfaceSelectionVersionRef,
     extensionAvailability,
     onExtensionAvailabilityChange,
-    preferencePort,
     savedViewPort,
     startupPort,
   });

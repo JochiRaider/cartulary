@@ -272,3 +272,22 @@ function requireWorkbookInspectorPanelId(
     "workbook inspector panel",
   );
 }
+
+export function workbookPreferenceTestId(
+  kind: "home" | "default",
+  action:
+    | "row"
+    | "set"
+    | "clear"
+    | "refresh"
+    | "read"
+    | "outcome"
+    | "shortcut-outcome"
+    | "recovery"
+    | "write-captured"
+    | "keep-observed",
+): StableTestId {
+  return stableTestId(
+    `workbook-preference-${requireClosedToken(["home", "default"] as const, kind, "preference resource")}-${requireClosedToken(["row", "set", "clear", "refresh", "read", "outcome", "shortcut-outcome", "recovery", "write-captured", "keep-observed"] as const, action, "preference control")}`,
+  );
+}

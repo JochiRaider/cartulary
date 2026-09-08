@@ -786,6 +786,116 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.preference_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.workbook",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/preferences/workbookPreferenceCharacterization.test.tsx",
+        "titles": [
+          "Workbook preference characterization does not display loading or missing preference data as Unset",
+          "Workbook preference characterization keeps a confirmed write when a subsequent preference read fails",
+          "Workbook preference characterization keeps admission when a surface switch exposes another shortcut",
+          "Workbook preference characterization labels stored saved pointers from already authorized metadata without target discovery",
+          "Workbook preference characterization provides explicit clear actions for both inspected resources",
+          "Workbook preference characterization publishes summary and home while the default read is delayed",
+          "Workbook preference characterization rejects wrong incident and wrong user preference observations",
+          "Workbook preference characterization retains the captured target and acknowledgement after a surface switch",
+          "Workbook preference characterization updates the inspected value after the existing Set shortcut"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.preference_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.workbook",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/preferences/WorkbookPreferenceController.test.ts",
+        "titles": [
+          "Workbook preference owner admits home independently of a delayed or failed default read",
+          "Workbook preference owner admits personal viewer writes and denies default writes including preflight demotion",
+          "Workbook preference owner allows read recovery after preflight failure interrupted an initial observation",
+          "Workbook preference owner bounds observation but retains the transport lock and accepts a late exact receipt",
+          "Workbook preference owner captures the target before authorization and preserves it across a surface switch",
+          "Workbook preference owner does not automatically repeat failed observations",
+          "Workbook preference owner does not publish late reads errors or writes into a replacement lifetime",
+          "Workbook preference owner ignores a delayed read that predates an acknowledged write",
+          "Workbook preference owner keeps a divergent observation without writing and rejects obsolete review decisions",
+          "Workbook preference owner keeps acknowledgement and stale retained value after failed follow-up without resending",
+          "Workbook preference owner locks each resource synchronously across entry points while allowing the other write",
+          "Workbook preference owner permits clear without an available surface and preserves extension and saved-view targets",
+          "Workbook preference owner preserves unsettled work across panel closure and reviews explicit departure",
+          "Workbook preference owner rejects mismatched acknowledgement as uncertain and malformed reads as unavailable",
+          "Workbook preference owner retains authorized recovery on role demotion but clears on incident actor or session retirement",
+          "Workbook preference owner retains state during temporary access failure and retires only on confirmed loss",
+          "Workbook preference owner retains uncertainty after a matching GET and requires an explicit new write",
+          "Workbook preference owner sets clears and repeats both resources without changing surface identity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.preference_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.workbook",
+        "web.application"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createWorkbookPreferenceAdapter.test.ts",
+        "titles": [
+          "Workbook preference transport rejects wrong incident wrong user missing and malformed GET resources",
+          "Workbook preference transport requires an exact nullable pointer and current actor in PUT acknowledgement",
+          "Workbook preference transport returns no-op attribution unchanged and detaches immutable accepted resources",
+          "Workbook preference transport separates known rejection from uncertain server transport and invalid success outcomes",
+          "Workbook preference transport uses all four generated operations and explicit nullable PUT bodies with CSRF"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.referencequerybroker_suite_7bd36b209a",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2104,8 +2214,6 @@
         "titles": [
           "Workbook incident adapter fails closed on malformed or cross-incident resources and classifies access loss",
           "Workbook incident adapter uses projected routes and returns only correlated semantic identity and members",
-          "Workbook preference adapter rejects malformed, cross-incident, and mismatched preference acknowledgements",
-          "Workbook preference adapter uses PUT plus CSRF and accepts only exact incident and sheet correlations",
           "Workbook startup adapter derives the exact projected query and accepts correlated availability",
           "Workbook startup adapter rejects malformed and mismatched startup resources and contains aborts"
         ]

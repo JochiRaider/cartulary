@@ -1370,6 +1370,114 @@
       "classification": "additive",
       "owner_id": "module.incidents",
       "rationale": "Correct the lifecycle reason projection to describe the existing required normalized-scalar limit; raw decomposed or padded text accepted by server normalization must not be rejected by a pre-normalization length constraint."
+    },
+    {
+      "fingerprint": "eafd85ffe542cbbb58f1bad0e4f1d8354f78c568f7df18358dc923d0f3c04791",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "58f502c5e21f0909a05b78d0a5dd44ba6f1e5738db4db7eeb374396920a65dae",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "fecfef5c273170ffb1197966f09c32d91390466e52c10178dfeb8ac1b92c18ce",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "81af5f17656e2a315c210210a2f3c794bfac2c1962f37b64c6552a1e318bfa74",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "2faff2efe7c1b46b75df775fa0793750b197874cc37c4dfd7fc6ac9253520a3d",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "8ff1b7da798efb16ab77c3b07058ba25ee7f1de2b0394cbba01a949be1df5722",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "8b4eac599382f43e78eacadf98b03dd313886e37d294306fc2afea1f2e455724",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "84842ef9ffad28060367926cb632d7f23636df1e5642f73e4c90de6947156c8a",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "cc1206c8cd7a3e8b7b0d34e564fcab80b08e7c09941c1cfa3b9538e281d8f64e",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "1388290868ccedde928095c9f73e9c5ccd0058139b5b21de1adb24123c4e344f",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "1999d4a217832cf2f0ab6b14bb75a6fce87a41b98fa03aca896058981920fba1",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "7ac92c8d17241eb3a033ec606d51aec6c3214fb7f45d0ba5b236e6d6076ec40c",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "a26f5d35074ab5a48802fc30f558e9ef721fcc26b0c93ab932d6aba69b1e2767",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "6a4633f220107a358d312f097f654a3e783c438629a6f03d007d958099551fea",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "b17b1e306b6665ab3555c8693a5735ce1b096decde2efca59d4044b7121806bc",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "1b8509c0899da5f32a275d95bd2d08a18a89b88dc13f11e217825c4e7dc19a13",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "5200db7a34a3eb63909c5abc481dda2b6f2c17fae2a3755645ae27066de12a85",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
+    },
+    {
+      "fingerprint": "63e11190431db8f5ce5cf3d478c5b9432fc439cb8ee8569a6de24474d2e36a21",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Project existing workbook preference validation, current-session/role, hidden-incident and internal-error responses under Core 01 REQ-01-148–151 and Core 04 authorization/CSRF; no runtime wire behavior changes."
     }
   ]
 }

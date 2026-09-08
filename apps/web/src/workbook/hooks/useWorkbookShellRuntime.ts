@@ -6,7 +6,6 @@ import type {
 } from "../../extensions/extensionAvailability";
 import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
-import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 import type { WorkbookSavedViewPort } from "../ports/WorkbookSavedViewPort";
 import { useWorkbookStartupAdmission } from "../startup/useWorkbookStartupAdmission";
 import type {
@@ -27,7 +26,6 @@ export function useWorkbookShellRuntime({
   surfaceSelectionVersionRef,
   extensionAvailability,
   onExtensionAvailabilityChange,
-  preferencePort,
   savedViewPort,
   startupPort,
 }: {
@@ -36,13 +34,11 @@ export function useWorkbookShellRuntime({
   readonly surfaceSelectionVersionRef: WorkbookShellMutableRef<number>;
   readonly extensionAvailability: ExtensionAvailabilityController;
   readonly onExtensionAvailabilityChange: () => void;
-  readonly preferencePort: WorkbookPreferencePort;
   readonly savedViewPort: WorkbookSavedViewPort;
   readonly startupPort: WorkbookStartupPort;
 }) {
   const startupController = useWorkbookStartupController({
     incidentId,
-    preferencePort,
     surfaceSelectionVersionRef,
   });
   const { gridEntryFocusRequest, sheetReloadToken, startupSheetRef, surface } =
@@ -55,8 +51,6 @@ export function useWorkbookShellRuntime({
     cancelGridEntryFocus,
     selectExtensionWorkspace,
     selectWorkbookSurface,
-    setWorkbookDefaultSheetRef,
-    setWorkbookHomeSheetRef,
   } = startupController.commands;
   const workbookQueries = useWorkbookQueryController({
     startupSheetRef,
@@ -164,8 +158,6 @@ export function useWorkbookShellRuntime({
       duplicateSavedView,
       selectWorkbookSurface,
       selectExtensionWorkspace,
-      setWorkbookDefaultSheetRef,
-      setWorkbookHomeSheetRef,
       setAssessmentQueryState,
       setGenericQueryState,
       setHostQueryState,
