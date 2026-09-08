@@ -4,7 +4,6 @@ import {
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
   incidentMembershipAdminNoteTestId,
-  incidentMembershipAuditRowTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
   incidentMembershipEmailInputTestId,
@@ -31,7 +30,6 @@ import { useTransientMessageController } from "../shared/useTransientMessageCont
 import type {
   CloseIncidentRequest,
   CloseIncidentResponse,
-  ListIncidentMembershipAuditEventsResponse,
   ReopenIncidentRequest,
   ReopenIncidentResponse,
 } from "./api/publicHttpTypes";
@@ -52,9 +50,6 @@ type MembershipRecord = {
   role: MembershipRole;
   membership_version: number;
 };
-
-type MembershipAuditEvent =
-  ListIncidentMembershipAuditEventsResponse["data"]["audit_events"][number];
 
 type WorkbookPreferences = {
   default_sheet_ref?: SheetRef | null;
@@ -194,23 +189,6 @@ export function IncidentAdminPanel({
   const [membershipRoleDrafts, setMembershipRoleDrafts] = useState<
     Record<string, MembershipRole>
   >({});
-  const [membershipAuditEvents, setMembershipAuditEvents] = useState<
-    MembershipAuditEvent[]
-  >([]);
-  const [membershipAuditAction, setMembershipAuditAction] = useState("");
-  const [membershipAuditActor, setMembershipAuditActor] = useState("");
-  const [membershipAuditTargetID, setMembershipAuditTargetID] = useState("");
-  const [membershipAuditNextCursor, setMembershipAuditNextCursor] = useState<
-    string | null
-  >(null);
-  const [membershipAuditStatus, setMembershipAuditStatus] = useState(
-    "Membership audit idle.",
-  );
-  const membershipAuditFiltersRef = useRef({
-    action: membershipAuditAction,
-    actor: membershipAuditActor,
-    targetID: membershipAuditTargetID,
-  });
   const [surfaceLoadState, setSurfaceLoadState] =
     useState<IncidentControlsLoadState>("loading");
   const [surfaceStatusText, setSurfaceStatusText] = useState(
@@ -227,12 +205,6 @@ export function IncidentAdminPanel({
   activeSectionRef.current = activeSection;
   apiBaseRef.current = apiBase;
   incidentIdRef.current = incidentId;
-  membershipAuditFiltersRef.current = {
-    action: membershipAuditAction,
-    actor: membershipAuditActor,
-    targetID: membershipAuditTargetID,
-  };
-
   const canEditIncident =
     incident?.status !== "closed" &&
     (currentIncidentRole === "reviewer" || currentIncidentRole === "admin");
@@ -421,82 +393,6 @@ export function IncidentAdminPanel({
         : { incidentId, text: "", transient: false },
     );
   }, [incidentId]);
-
-  const loadMembershipAudit = useCallback(
-    async (cursorToken?: string) => {
-      if (currentIncidentRole !== "admin") {
-        setMembershipAuditEvents([]);
-        setMembershipAuditNextCursor(null);
-        setMembershipAuditStatus(
-          "Only incident admins can review membership audit.",
-        );
-        return;
-      }
-      setMembershipAuditStatus("Loading membership audit…");
-      const query: Record<string, string | number> = { limit: 50 };
-      const filters = membershipAuditFiltersRef.current;
-      if (filters.action !== "") {
-        query.action_code = filters.action;
-      }
-      if (filters.actor.trim() !== "") {
-        query.actor_user_id = filters.actor.trim();
-      }
-      if (filters.targetID.trim() !== "") {
-        query.target_kind = "incident_membership";
-        query.target_id = filters.targetID.trim();
-      }
-      if (cursorToken !== undefined) {
-        query.cursor_token = cursorToken;
-      }
-      const result =
-        await fetchHTTPOperation<ListIncidentMembershipAuditEventsResponse>({
-          apiBase,
-          operationID: "listIncidentMembershipAuditEvents",
-          pathParameters: { incident_id: incidentId },
-          query,
-        });
-      if (!result.ok) {
-        setError(extractError(result.payload));
-        setMembershipAuditStatus("Membership audit unavailable.");
-        return;
-      }
-      const payload =
-        result.payload as ListIncidentMembershipAuditEventsResponse;
-      if (typeof payload.meta.paging === "undefined") {
-        setError({
-          code: "invalid_membership_audit_response",
-          details: {
-            instance_path: "/meta/paging",
-            schema_id: "cartulary.core_http.AdministrativeAuditEnvelope.v1",
-          },
-          message: "Membership audit response omitted paging metadata.",
-          retryable: true,
-          status: 502,
-        });
-        setMembershipAuditStatus("Membership audit unavailable.");
-        return;
-      }
-      setMembershipAuditEvents((current) =>
-        cursorToken === undefined
-          ? payload.data.audit_events
-          : [...current, ...payload.data.audit_events],
-      );
-      setMembershipAuditNextCursor(payload.meta.paging.next_cursor);
-      setError(null);
-      setMembershipAuditStatus(
-        payload.data.audit_events.length === 0 && cursorToken === undefined
-          ? "No membership audit events matched."
-          : "Membership audit loaded.",
-      );
-    },
-    [apiBase, currentIncidentRole, incidentId],
-  );
-
-  useEffect(() => {
-    if (activeSection === "membership-audit") {
-      void loadMembershipAudit();
-    }
-  }, [activeSection, loadMembershipAudit]);
 
   async function handlePatchIncident() {
     if (!incident) {
@@ -1025,190 +921,8 @@ export function IncidentAdminPanel({
           </div>
         </section>
       ) : null}
-
-      {activeSection === "membership-audit" ? (
-        <section style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <div>
-              <p style={cardEyebrowStyle}>Membership audit</p>
-              <h3 style={cardTitleStyle}>Incident membership audit</h3>
-            </div>
-          </div>
-          {canManageMemberships ? (
-            <>
-              <div style={formGridStyle}>
-                <label style={fieldLabelStyle}>
-                  Action
-                  <select
-                    aria-label="Membership audit action"
-                    style={inputStyle}
-                    value={membershipAuditAction}
-                    onChange={(event) => {
-                      setMembershipAuditAction(event.target.value);
-                    }}
-                  >
-                    <option value="">Any action</option>
-                    <option value="membership_created">Created</option>
-                    <option value="membership_role_changed">
-                      Role changed
-                    </option>
-                    <option value="membership_deleted">Deleted</option>
-                  </select>
-                </label>
-                <label style={fieldLabelStyle}>
-                  Actor user ID
-                  <input
-                    aria-label="Membership audit actor user id"
-                    style={inputStyle}
-                    value={membershipAuditActor}
-                    onChange={(event) => {
-                      setMembershipAuditActor(event.target.value);
-                    }}
-                  />
-                </label>
-                <label style={fieldLabelStyle}>
-                  Target user ID
-                  <input
-                    aria-label="Membership audit target user id"
-                    style={inputStyle}
-                    value={membershipAuditTargetID}
-                    onChange={(event) => {
-                      setMembershipAuditTargetID(event.target.value);
-                    }}
-                  />
-                </label>
-                <button
-                  data-testid={incidentAdministrationTestId(
-                    "membership-audit-apply-filters",
-                  )}
-                  style={secondaryButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void loadMembershipAudit();
-                  }}
-                >
-                  Apply filters
-                </button>
-              </div>
-              <p
-                aria-live="polite"
-                data-testid={incidentAdministrationTestId(
-                  "membership-audit-status",
-                )}
-                role="status"
-                style={mutedBodyStyle}
-              >
-                {membershipAuditStatus}
-              </p>
-              {membershipAuditEvents.length === 0 ? (
-                <p
-                  data-testid={incidentAdministrationTestId(
-                    "membership-audit-empty",
-                  )}
-                  style={bodyStyle}
-                >
-                  No membership audit events loaded.
-                </p>
-              ) : (
-                <ul
-                  aria-label="Incident membership audit events"
-                  data-testid={incidentAdministrationTestId(
-                    "membership-audit-list",
-                  )}
-                  style={membershipListStyle}
-                >
-                  {membershipAuditEvents.map((event) => (
-                    <li
-                      data-testid={incidentMembershipAuditRowTestId(
-                        event.audit_event_id,
-                      )}
-                      key={event.audit_event_id}
-                      style={membershipCardStyle}
-                    >
-                      <div>
-                        <strong>{formatMembershipAuditAction(event)}</strong>
-                        <p style={mutedBodyStyle}>
-                          {new Date(event.occurred_at).toLocaleString(
-                            undefined,
-                            {
-                              dateStyle: "medium",
-                              timeStyle: "medium",
-                              timeZone: "UTC",
-                            },
-                          )}{" "}
-                          UTC
-                        </p>
-                      </div>
-                      <dl style={definitionGridStyle}>
-                        <div>
-                          <dt style={labelStyle}>Actor</dt>
-                          <dd style={valueStyle}>
-                            {event.actor_user_id ?? event.actor_kind}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt style={labelStyle}>Target</dt>
-                          <dd style={valueStyle}>
-                            {event.target_id ?? "Unset"}
-                          </dd>
-                        </div>
-                      </dl>
-                      <ul>
-                        {event.changes.map((change) => (
-                          <li key={change.field_path}>
-                            {change.field_path}:{" "}
-                            {change.value_state === "redacted"
-                              ? "redacted"
-                              : `${String(change.before)} → ${String(change.after)}`}
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {membershipAuditNextCursor !== null ? (
-                <button
-                  data-testid={incidentAdministrationTestId(
-                    "membership-audit-load-more",
-                  )}
-                  style={secondaryButtonStyle}
-                  type="button"
-                  onClick={() => {
-                    void loadMembershipAudit(membershipAuditNextCursor);
-                  }}
-                >
-                  Load more
-                </button>
-              ) : null}
-            </>
-          ) : (
-            <p
-              data-testid={incidentAdministrationTestId(
-                "membership-audit-note",
-              )}
-              style={mutedBodyStyle}
-            >
-              Only incident admins can review incident membership audit.
-            </p>
-          )}
-        </section>
-      ) : null}
     </section>
   );
-}
-
-function formatMembershipAuditAction(event: MembershipAuditEvent): string {
-  switch (event.action_code) {
-    case "membership_created":
-      return "Membership created";
-    case "membership_role_changed":
-      return "Membership role changed";
-    case "membership_deleted":
-      return "Membership deleted";
-    default:
-      return event.action_code;
-  }
 }
 
 const incidentControlsSectionMeta = {

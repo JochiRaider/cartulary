@@ -324,6 +324,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-incident-membership-audit",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.incidents.browser.membership_audit_access_recovery",
+            "module.incidents.browser.membership_audit_read_recovery",
+            "module.incidents.browser.membership_audit_real_browsing",
+            "module.incidents.browser.membership_audit_response_inspection"
+          ],
+          "specs": [
+            "apps/web/e2e/incident-membership-audit.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-inspector-actions",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1008,6 +1033,31 @@
           ],
           "specs": [
             "apps/web/e2e/incident-import.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-incident-membership-audit",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.incidents.browser.membership_audit_access_recovery",
+            "module.incidents.browser.membership_audit_read_recovery",
+            "module.incidents.browser.membership_audit_real_browsing",
+            "module.incidents.browser.membership_audit_response_inspection"
+          ],
+          "specs": [
+            "apps/web/e2e/incident-membership-audit.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
@@ -2071,6 +2121,7 @@
             "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.incident_import_workflow",
+            "web.design.accessibility.membership_audit_browsing",
             "web.design.accessibility.reference_pack_administration",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
@@ -2156,6 +2207,7 @@
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
             "web.design.visual.incident_import_workflow",
+            "web.design.visual.membership_audit_browsing",
             "web.design.visual.reference_pack_administration",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
@@ -2400,6 +2452,7 @@
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
             "web.design.visual.incident_import_workflow",
+            "web.design.visual.membership_audit_browsing",
             "web.design.visual.reference_pack_administration",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],
@@ -2926,6 +2979,7 @@
             "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.incident_import_workflow",
+            "web.design.accessibility.membership_audit_browsing",
             "web.design.accessibility.reference_pack_administration",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
@@ -2999,6 +3053,7 @@
             "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
             "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
             "web.design.visual.incident_import_workflow",
+            "web.design.visual.membership_audit_browsing",
             "web.design.visual.reference_pack_administration",
             "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
           ],

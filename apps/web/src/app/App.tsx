@@ -43,12 +43,14 @@ import { DeploymentUsersController } from "./deploymentUsersModel";
 import { IncidentAdminPanel } from "./IncidentAdminPanel";
 import { IncidentImportPanel } from "./IncidentImportPanel";
 import { IncidentLanding } from "./IncidentLanding";
+import { IncidentMembershipAuditFeature } from "./IncidentMembershipAuditPanel";
 import type { IncidentCreationController } from "./incidentCreationModel";
 import {
   type IncidentDirectoryController,
   incidentDirectoryStatusText,
 } from "./incidentDirectoryModel";
 import type { IncidentImportController } from "./incidentImportModel";
+import type { IncidentMembershipAuditController } from "./incidentMembershipAuditController";
 import {
   IncidentDirectoryShell,
   LandingAdminShell,
@@ -67,6 +69,7 @@ import { useAppSession } from "./useAppSession";
 import { useIncidentCreation } from "./useIncidentCreation";
 import { useIncidentDirectory } from "./useIncidentDirectory";
 import { useIncidentImport } from "./useIncidentImport";
+import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
 
 const LazyWorkbookShell = lazy(async () => {
@@ -118,6 +121,9 @@ export function App({
   authNavigation,
 }: AppProps = {}) {
   const deploymentUsersRef = useRef<DeploymentUsersController | null>(null);
+  const membershipAuditRef = useRef<IncidentMembershipAuditController | null>(
+    null,
+  );
   const auditControllerRef = useRef<AdministrativeAuditController | null>(null);
   const accountEditingRef = useRef<AccountSettingsController | null>(null);
   const creationControllerRef = useRef<IncidentCreationController | null>(null);
@@ -133,6 +139,8 @@ export function App({
     requestLeave: () =>
       deploymentUsersRef.current?.requestLeave() ?? Promise.resolve(true),
     beforeCommit: (next) => {
+      if (next.incidentId !== routeRef.current.incidentId)
+        membershipAuditRef.current?.retire();
       auditControllerRef.current?.setActive(false);
       importControllerRef.current?.setActive(false);
       referencePackControllerRef.current?.setActive(false);
@@ -152,6 +160,7 @@ export function App({
     () =>
       new AppSessionController({
         retireLifetime: (lifetime) => {
+          membershipAuditRef.current?.retire();
           auditControllerRef.current?.retire();
           accountEditingRef.current?.retireLifetime();
           authenticationRef.current?.retire();
@@ -325,6 +334,7 @@ export function App({
   );
   accountEditingRef.current = accountEditing;
   const sessionSnapshot = useAppSession(sessionController, () => {
+    membershipAuditRef.current?.dispose();
     workbookMutationRuntimeRegistry.dispose();
     accountEditing.dispose();
     authentication.dispose();
@@ -784,6 +794,15 @@ export function App({
     commitRoute({ incidentId: "", deploymentAdministration: false }, "replace");
   }, [accountNavigationIdentity, commitRoute, route.incidentId]);
 
+  const membershipAudit = useIncidentMembershipAudit({
+    sessionController,
+    recovery: workbookAuthorizationRecovery,
+    currentIncidentId: () => routeRef.current.incidentId,
+    onIncidentAccessLost: handleIncidentAccessLost,
+    onSessionLost: handleSessionLost,
+  });
+  membershipAuditRef.current = membershipAudit.controller;
+
   const renderAccountMenu = useCallback(
     (currentContext: AccountMenuContext, options: AccountMenuOptions = {}) => (
       <AccountApplicationMenu
@@ -973,9 +992,21 @@ export function App({
               incidentId={route.incidentId}
               extensionProfiles={extensionProfiles}
               onIncidentAccessLost={handleIncidentAccessLost}
-              renderIncidentControls={(props) => (
-                <IncidentAdminPanel {...props} />
-              )}
+              onIncidentControlsSectionChange={(section) => {
+                if (section !== "membership-audit")
+                  membershipAudit.controller.setActive(false);
+              }}
+              renderIncidentControls={(props) =>
+                props.activeSection === "membership-audit" ? (
+                  <IncidentMembershipAuditFeature
+                    {...props}
+                    controller={membershipAudit.controller}
+                    bindSurface={membershipAudit.bindSurface}
+                  />
+                ) : (
+                  <IncidentAdminPanel {...props} />
+                )
+              }
               mutationRuntimeRegistry={workbookMutationRuntimeRegistry}
             />
           </Suspense>

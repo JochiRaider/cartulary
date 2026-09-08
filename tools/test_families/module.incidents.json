@@ -180,6 +180,146 @@
       ]
     },
     {
+      "row_id": "module.incidents.browser.membership_audit_access_recovery",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-audit.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_0b61b135c791"
+        ],
+        "titles": [
+          "membership audit distinguishes temporary observation failure role downgrade hidden incident and session loss"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.membership_audit_read_recovery",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-audit.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_d8f8c46dbe24"
+        ],
+        "titles": [
+          "membership audit fences delayed reads across query drawer section and visibility with explicit cursor recovery"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.membership_audit_real_browsing",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-audit.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_da52a9fc1592"
+        ],
+        "titles": [
+          "membership audit browses 105 real exact role changes with accepted query pagination and instant boundaries"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.incidents.browser.membership_audit_response_inspection",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/incident-membership-audit.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_da73fe10b909"
+        ],
+        "titles": [
+          "membership audit rejects malformed scope and preserves additive inert JSON inspection"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.browser",
@@ -456,6 +596,38 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.incidents.frontend.membership_audit_characterization",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.frontend",
+      "collaborator_ids": [
+        "package.protocol_ts",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.incidents.verification.membership_audit_alignment"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMembershipAuditCharacterization.test.tsx",
+        "titles": [
+          "Incident membership audit characterization coalesces repeated Apply and page admissions",
+          "Incident membership audit characterization continues the accepted query despite unsubmitted filter edits",
+          "Incident membership audit characterization does not present initial loading as a successful empty result",
+          "Incident membership audit characterization does not publish delayed audit failure into another section",
+          "Incident membership audit characterization keeps visible JSON strings distinct from null and structured values",
+          "Incident membership audit characterization rejects a delayed success after a newer accepted query"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.incidents.frontend.membership_audit_product_surface",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.frontend",
@@ -468,9 +640,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+        "file": "apps/web/src/app/IncidentMembershipAuditPanel.test.tsx",
         "titles": [
-          "IncidentAdminPanel keeps membership audit placement inside incident admin controls"
+          "Incident membership audit presentation distinguishes unavailable initial reads from stale refresh and explicit retry",
+          "Incident membership audit presentation keeps membership audit placement inside incident admin controls",
+          "Incident membership audit presentation preserves expanded identity and focused controls until replacement removes the event",
+          "Incident membership audit presentation uses a native form with local exact target and timestamp errors"
         ]
       },
       "evidence_class": "unit",

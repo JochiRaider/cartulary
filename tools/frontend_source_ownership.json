@@ -33,6 +33,8 @@
         "apps/web/src/app/IncidentImportPanel.test.tsx",
         "apps/web/src/app/IncidentImportPanel.tsx",
         "apps/web/src/app/IncidentLanding.tsx",
+        "apps/web/src/app/IncidentMembershipAuditPanel.test.tsx",
+        "apps/web/src/app/IncidentMembershipAuditPanel.tsx",
         "apps/web/src/app/LandingAdminDisplay.tsx",
         "apps/web/src/app/LandingAdminLayout.tsx",
         "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
@@ -58,6 +60,8 @@
         "apps/web/src/app/api/incidentDirectoryClient.test.ts",
         "apps/web/src/app/api/incidentImportClient.test.ts",
         "apps/web/src/app/api/incidentImportClient.ts",
+        "apps/web/src/app/api/incidentMembershipAuditClient.test.ts",
+        "apps/web/src/app/api/incidentMembershipAuditClient.ts",
         "apps/web/src/app/api/publicHttpTypes.ts",
         "apps/web/src/app/api/shellHttpClients.routeBoundary.test.ts",
         "apps/web/src/app/appSessionController.test.tsx",
@@ -76,6 +80,12 @@
         "apps/web/src/app/incidentImportModel.ts",
         "apps/web/src/app/incidentImportState.test.ts",
         "apps/web/src/app/incidentImportState.ts",
+        "apps/web/src/app/incidentMembershipAuditCharacterization.test.tsx",
+        "apps/web/src/app/incidentMembershipAuditController.test.ts",
+        "apps/web/src/app/incidentMembershipAuditController.ts",
+        "apps/web/src/app/incidentMembershipAuditLifecycle.test.tsx",
+        "apps/web/src/app/incidentMembershipAuditModel.test.ts",
+        "apps/web/src/app/incidentMembershipAuditModel.ts",
         "apps/web/src/app/landingAdminStyles.ts",
         "apps/web/src/app/landingAdminTypes.ts",
         "apps/web/src/app/otelBoundary.test.ts",
@@ -95,6 +105,7 @@
         "apps/web/src/app/useIncidentCreation.ts",
         "apps/web/src/app/useIncidentDirectory.ts",
         "apps/web/src/app/useIncidentImport.ts",
+        "apps/web/src/app/useIncidentMembershipAudit.ts",
         "apps/web/src/app/useReferencePackAdmin.ts"
       ]
     },
@@ -206,6 +217,7 @@
     {
       "owner_id": "web.shared",
       "paths": [
+        "apps/web/src/shared/auditReadValues.ts",
         "apps/web/src/shared/authorizationRecovery.ts",
         "apps/web/src/shared/publicError.test.ts",
         "apps/web/src/shared/publicError.ts",
@@ -216,7 +228,8 @@
         "apps/web/src/shared/useRegisteredOverlayNavigation.ts",
         "apps/web/src/shared/useTransientMessageController.test.tsx",
         "apps/web/src/shared/useTransientMessageController.ts",
-        "apps/web/src/shared/workbookShellContracts.ts"
+        "apps/web/src/shared/workbookShellContracts.ts",
+        "apps/web/src/testing/incidentMembershipAuditTestSupport.tsx"
       ]
     },
     {

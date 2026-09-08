@@ -576,6 +576,16 @@ export function incidentMembershipRoleDisplayTestId(userId: string): string {
   return incidentMembershipControlTestId("roleDisplay", userId);
 }
 
+export function incidentMembershipAuditDetailTestId(
+  auditEventId: string,
+): StableTestId {
+  return stableEncodedTestId(
+    "membership-audit-detail",
+    auditEventId,
+    "audit_event_id",
+  );
+}
+
 export function incidentMembershipAuditRowTestId(
   auditEventId: string,
 ): StableTestId {

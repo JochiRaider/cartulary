@@ -65,6 +65,11 @@ export type {
 };
 
 type WorkbookShellProps = {
+  onIncidentControlsSectionChange?:
+    | ((
+        section: WorkbookIncidentControlsRendererProps["activeSection"] | null,
+      ) => void)
+    | undefined;
   authorizationRecovery: AuthorizationRecoveryPort;
   incidentId: string;
   apiBase?: string | undefined;
@@ -91,6 +96,7 @@ type WorkbookShellContentProps = WorkbookShellProps & {
 const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 
 function WorkbookShellContent({
+  onIncidentControlsSectionChange,
   authorizationRecovery,
   incidentId,
   apiBase,
@@ -251,7 +257,10 @@ function WorkbookShellContent({
       importProfileId,
       importRouteFamily,
     );
-  const incidentControls = useIncidentControlsDrawer(importAssistantAvailable);
+  const incidentControls = useIncidentControlsDrawer(
+    importAssistantAvailable,
+    onIncidentControlsSectionChange,
+  );
   const accountApplication = accountApplicationMenu?.({
     currentIncidentRole: authorization.currentIncidentRole,
     incidentControls: incidentControls.accountIncidentControls,
@@ -373,6 +382,8 @@ function WorkbookShellContent({
           onActivateOrigin={selectBaseWorkbookSurface}
         />
         <WorkbookIncidentControlsPresentation
+          density={workbookLayout.shell.density}
+          onAuthorizationRecovered={authorization.acceptRecoveredAuthorization}
           activeMenuItem={incidentControls.activeMenuItem}
           apiBase={apiBase}
           availability={extensionLifecycle.controller}

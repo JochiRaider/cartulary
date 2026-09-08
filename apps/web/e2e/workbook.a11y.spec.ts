@@ -191,6 +191,12 @@ import {
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
 import {
+  expectMembershipControlReachable,
+  installMembershipAuditPresentation,
+  membershipBrowserEvent,
+  openMembershipAudit,
+} from "./support/incidentMembershipAudit";
+import {
   expectCreationControlReachable,
   openCreationPresentation,
   responseBarrier,
@@ -6325,4 +6331,94 @@ test("a11y.incident-import upload recovery progress and cancellation remain keyb
     contentType: "text/plain",
   });
   await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+});
+
+test("a11y.membership-audit exact filters inspection paging recovery and drawer focus remain reachable", async ({
+  workerAdminPage: page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const fixture = await installMembershipAuditPresentation(page);
+  fixture.setPage([membershipBrowserEvent(fixture.incidentId)], "next-page");
+  const panel = await openMembershipAudit(page);
+  await expect(panel.getByRole("status")).toContainText("Page 1:");
+  await panel.getByLabel("Target ID", { exact: true }).fill("exact-target");
+  await panel.getByLabel("Target ID", { exact: true }).press("Enter");
+  const kind = panel.getByLabel("Target kind", { exact: true });
+  await expect(kind).toBeFocused();
+  await expect(kind).toHaveAccessibleDescription(/Choose/);
+  await expectVisibleFocus(kind);
+  await panel
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  await panel.getByRole("button", { name: /^Inspect / }).focus();
+  await page.keyboard.press("Enter");
+  const hide = panel.getByRole("button", { name: /^Hide / });
+  await expect(hide).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    panel.getByRole("region", { name: /^Details for / }),
+  ).toContainText("Redacted");
+  await expect(panel.locator("script")).toHaveCount(0);
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1024, height: 720 },
+    { width: 768, height: 640 },
+    { width: 640, height: 480 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [
+      hide,
+      panel.getByRole("button", { name: "Next page", exact: true }),
+      panel.getByRole("button", { name: "Apply filters", exact: true }),
+      panel.getByRole("button", { name: "Refresh", exact: true }),
+      page.getByRole("button", {
+        name: "Close incident controls",
+        exact: true,
+      }),
+    ]) {
+      await expectMembershipControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectMembershipControlReachable(page, hide);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await expectMembershipControlReachable(page, hide);
+  await expectAllInteractiveControlsNamed(page);
+  fixture.fail();
+  await panel.getByRole("button", { name: "Refresh", exact: true }).click();
+  const retry = panel.getByRole("button", {
+    name: "Try the read again",
+    exact: true,
+  });
+  await expect(retry).toBeVisible();
+  await expectMembershipControlReachable(page, retry);
+  await expectVisibleFocus(retry);
+  await testInfo.attach("membership-audit-accessibility-tree", {
+    body: await panel.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  fixture.setPage([]);
+  await page.keyboard.press("Enter");
+  await expect(
+    panel.getByText("No membership audit events yet."),
+  ).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "Refresh", exact: true }),
+  ).toBeFocused();
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByLabel("Account and application navigation"),
+  ).toBeFocused();
 });

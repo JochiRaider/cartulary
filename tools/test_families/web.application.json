@@ -1791,6 +1791,121 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.incident_membership_audit_lifetime_integration",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMembershipAuditLifecycle.test.tsx",
+        "titles": [
+          "Incident membership audit lifetime integration clears protected filters and late publication when the application retires the session",
+          "Incident membership audit lifetime integration does not grant incident access through deployment administration and delegates hidden incident loss",
+          "Incident membership audit lifetime integration retains only filters across actual drawer and section transitions under Strict Mode",
+          "Incident membership audit lifetime integration synchronously clears accepted session role loss while preserving visible incident navigation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_membership_audit_query",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMembershipAuditModel.test.ts",
+        "titles": [
+          "Incident membership audit query formats all JSON kinds faithfully without interpreting strings as markup",
+          "Incident membership audit query matches authored incident request vocabulary without admitting additive response choices",
+          "Incident membership audit query preserves nanosecond instants explicit offsets and inclusive exclusive ordering",
+          "Incident membership audit query requires exact targets and binds incident actor session query and route context"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_membership_audit_read_ownership",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/incidentMembershipAuditController.test.ts",
+        "titles": [
+          "Incident membership audit read ownership bounds the entire observation and ignores transport completion after timeout or disposal",
+          "Incident membership audit read ownership clears queries details and admissions on incident actor session and role retirement without resurrection",
+          "Incident membership audit read ownership coalesces duplicate first reads and pages while replacements fence delayed success and errors",
+          "Incident membership audit read ownership distinguishes current session hidden incident and visible role rejection and clears protected state",
+          "Incident membership audit read ownership distinguishes nonadmin recovery from temporary and cancelled observation without assuming revocation",
+          "Incident membership audit read ownership does not publish status details or callbacks when the external authority is no longer current",
+          "Incident membership audit read ownership fences late access observation success and losses across every retired admission",
+          "Incident membership audit read ownership preserves only filters on section drawer and visibility exit and fences late results",
+          "Incident membership audit read ownership rejects cyclic cursor history without accumulating rows",
+          "Incident membership audit read ownership requires explicit first page after cursor rejection including close and reopen",
+          "Incident membership audit read ownership retains one page and twenty prior cursors while permitting older traversal and bounded backward navigation",
+          "Incident membership audit read ownership separates drafts applied intent and accepted page through validation and replacement failure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.application.regression.incident_membership_audit_typed_client",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/api/incidentMembershipAuditClient.test.ts",
+        "titles": [
+          "Incident membership audit typed client accepts additive read vocabulary and safe redaction without weakening response validation",
+          "Incident membership audit typed client rejects malformed wrong scope unordered duplicate and inconsistent paging responses",
+          "Incident membership audit typed client uses the generated incident operation with only exact filters and captured cursor context"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.incidentadminpanel_keeps_incident_summary_visibl_d7a6f59072",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

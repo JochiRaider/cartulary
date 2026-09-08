@@ -4,6 +4,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { formatAuditJSON } from "../shared/auditReadValues";
 import type { AdministrativeAuditController } from "./administrativeAuditController";
 import {
   type AuditEvent,
@@ -585,7 +586,7 @@ export function AdministrativeAuditPanel({
 function renderAuditValue(state: "visible" | "redacted", value: unknown) {
   if (state === "redacted")
     return <span style={redactedBadgeStyle}>Redacted</span>;
-  return <span style={auditValueStyle}>{JSON.stringify(value, null, 2)}</span>;
+  return <span style={auditValueStyle}>{formatAuditJSON(value)}</span>;
 }
 function auditActionLabel(code: string) {
   return auditActionLabels.get(code) ?? code;

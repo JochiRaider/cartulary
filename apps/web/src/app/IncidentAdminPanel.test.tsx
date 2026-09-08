@@ -4,7 +4,6 @@ import {
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
   incidentMembershipAdminNoteTestId,
-  incidentMembershipAuditRowTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
   incidentMembershipEmailInputTestId,
@@ -585,113 +584,6 @@ describe("IncidentAdminPanel", () => {
     ).toBeNull();
   });
 
-  it("keeps membership audit placement inside incident admin controls", async () => {
-    let auditReads = 0;
-    fetchMock.mockImplementation((input) => {
-      const url = String(input);
-      if (url === "/api/v1/incidents/00000000-0000-4000-8000-000000001001") {
-        return Promise.resolve(jsonResponse({ data: incidentSummary() }));
-      }
-      if (
-        url.startsWith(
-          "/api/v1/incidents/00000000-0000-4000-8000-000000001001/membership-audit-events?",
-        )
-      ) {
-        auditReads += 1;
-        const continuation = url.includes("cursor_token=membership-next");
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              audit_events: [
-                membershipAuditEvent(
-                  continuation
-                    ? "00000000-0000-4000-8000-000000002002"
-                    : "00000000-0000-4000-8000-000000002001",
-                  continuation
-                    ? "membership_deleted"
-                    : "membership_role_changed",
-                ),
-              ],
-            },
-            meta: {
-              paging: {
-                has_more: !continuation,
-                limit: 50,
-                next_cursor: continuation ? null : "membership-next",
-              },
-              request_id: `request-${auditReads}`,
-            },
-          }),
-        );
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    });
-
-    const view = render(
-      <IncidentAdminPanel
-        activeSection="membership-audit"
-        currentIncidentRole="admin"
-        incidentId="00000000-0000-4000-8000-000000001001"
-      />,
-    );
-
-    expect(
-      await screen.findByTestId(
-        incidentMembershipAuditRowTestId(
-          "00000000-0000-4000-8000-000000002001",
-        ),
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByTestId(
-        incidentAdministrationTestId("membership-audit-status"),
-      ).textContent,
-    ).toBe("Membership audit loaded.");
-    expect(
-      screen.getByTestId(
-        incidentMembershipAuditRowTestId(
-          "00000000-0000-4000-8000-000000002001",
-        ),
-      ).textContent,
-    ).toContain("redacted");
-    fireEvent.click(
-      screen.getByTestId(
-        incidentAdministrationTestId("membership-audit-load-more"),
-      ),
-    );
-    expect(
-      await screen.findByTestId(
-        incidentMembershipAuditRowTestId(
-          "00000000-0000-4000-8000-000000002002",
-        ),
-      ),
-    ).toBeTruthy();
-    expect(auditReads).toBe(2);
-    expect(
-      fetchMock.mock.calls.some(([input]) =>
-        String(input).includes("/api/v1/administrative-audit-events"),
-      ),
-    ).toBe(false);
-
-    view.rerender(
-      <IncidentAdminPanel
-        activeSection="membership-audit"
-        currentIncidentRole="reviewer"
-        incidentId="00000000-0000-4000-8000-000000001001"
-      />,
-    );
-    expect(
-      await screen.findByTestId(
-        incidentAdministrationTestId("membership-audit-note"),
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByTestId(incidentAdministrationTestId("membership-audit-note"))
-        .textContent,
-    ).toContain("Only incident admins");
-    expect(auditReads).toBe(2);
-  });
-
   it("uses generated lifecycle bindings, replaces returned state, and refreshes conflicts for explicit retry", async () => {
     const lifecycleRequests: Array<Record<string, unknown>> = [];
     let currentIncident = incidentSummary();
@@ -1174,30 +1066,6 @@ function membershipRecord(
     display_name: displayName,
     role,
     membership_version: membershipVersion,
-  };
-}
-
-function membershipAuditEvent(auditEventID: string, actionCode: string) {
-  return {
-    action_code: actionCode,
-    actor_kind: "user",
-    actor_user_id: "00000000-0000-4000-8000-000000000010",
-    audit_event_id: auditEventID,
-    changes: [
-      {
-        after: null,
-        before: null,
-        field_path: "role",
-        value_state: "redacted",
-      },
-    ],
-    occurred_at: "2026-07-26T12:00:00Z",
-    reason_code: null,
-    scope_id: "00000000-0000-4000-8000-000000001001",
-    scope_kind: "incident",
-    source: "ui",
-    target_id: "00000000-0000-4000-8000-000000000020",
-    target_kind: "incident_membership",
   };
 }
 

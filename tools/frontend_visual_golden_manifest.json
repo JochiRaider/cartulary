@@ -383,6 +383,46 @@
       "sha256": "f501b17664396c888cd59f57fd0ed0f883a32fd2ab3f11f48566f9244d533f51"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-comfortable-linux.png",
+      "sha256": "9cb282bb6e31b3bd5e9d009f3ab363cd6dcecf5a8d64f760ff4607b87094a7a6"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-compact-linux.png",
+      "sha256": "6f5edfd26d6eeabdfbdd2f4b197dcc46c2b213a722c9807b2f710f33b134759c"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-cursor-recovery-linux.png",
+      "sha256": "a3e9a46ffe27906afafdf2f02564f749e0c2ce16366eb77ec230877ce5da7ae3"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-empty-linux.png",
+      "sha256": "b258e0acc1454c7944411978ccc0a9285d926315ec8246af3dd3eb4498e9f2ae"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-linux.png",
+      "sha256": "2a6f9ce6ca9b83611a19ffa5f42a09e53c4c6e52708986d6c1dddb52919cb208"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-narrow-linux.png",
+      "sha256": "e4eaa23c189ea80b39396d76a4d804a8bcc146c27f47847077b52ae2268f926e"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-spacing-linux.png",
+      "sha256": "4c387b92eb5fd43f0c558586689dcd3ad195fbfe31d892a4afe352f25e2d2630"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-zoom-linux.png",
+      "sha256": "94c90755c1425320ed7eb3b42ca1d3ba49a018c7d54c670823685e1cb95ae37a"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-loading-linux.png",
+      "sha256": "955baac95a835650b371584fe13940ded16a95b8ebca5bf86154d0c1152ab779"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-stale-linux.png",
+      "sha256": "cb0bbcd58d3694b03b16c455829123bbe35f5e277ba262f2a7cdaebe7e566a85"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
       "sha256": "2da397d8afe110953fd0fed35383b12846622641fb7e942dcbeca98527fcd674"
     },

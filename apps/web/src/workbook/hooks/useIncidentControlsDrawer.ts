@@ -53,7 +53,12 @@ function requireIncidentControlsMenuItem(
   );
 }
 
-export function useIncidentControlsDrawer(importAssistantAvailable = false) {
+export function useIncidentControlsDrawer(
+  importAssistantAvailable = false,
+  onSectionChange?: (section: IncidentControlsSection | null) => void,
+) {
+  const sectionChange = useRef(onSectionChange);
+  sectionChange.current = onSectionChange;
   const [drawerSection, setDrawerSection] =
     useState<IncidentControlsSection | null>(null);
   const [lastSection, setLastSection] =
@@ -66,6 +71,7 @@ export function useIncidentControlsDrawer(importAssistantAvailable = false) {
   const closeDrawer = useCallback(
     (options: { readonly restoreTriggerFocus: boolean }) => {
       restoreFocusOnCloseRef.current = options.restoreTriggerFocus;
+      sectionChange.current?.(null);
       setDrawerSection(null);
     },
     [],
@@ -77,6 +83,7 @@ export function useIncidentControlsDrawer(importAssistantAvailable = false) {
       returnFocusTarget?: HTMLElement | null,
     ) => {
       returnFocusTargetRef.current = returnFocusTarget ?? null;
+      sectionChange.current?.(section);
       restoreFocusOnCloseRef.current = false;
       setLastSection(section);
       setDrawerSection(section);

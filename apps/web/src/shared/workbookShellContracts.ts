@@ -34,6 +34,13 @@ export type WorkbookAccountModel = {
 };
 
 export type WorkbookIncidentControlsRendererProps = {
+  readonly density?: WorkbookDensityMode | undefined;
+  readonly onAuthorizationRecovered?:
+    | ((result: {
+        readonly role: WorkbookIncidentRole;
+        readonly userId: string;
+      }) => void)
+    | undefined;
   readonly activeSection: IncidentControlsSection;
   readonly apiBase?: string | undefined;
   readonly currentIncidentRole: WorkbookIncidentRole | null;

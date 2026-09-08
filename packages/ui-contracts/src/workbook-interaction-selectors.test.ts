@@ -38,6 +38,7 @@ import {
   genericEditValueTestId,
   genericWorkbookTestId,
   gridRowTestId,
+  incidentMembershipAuditDetailTestId,
   mentionCreateEntityButtonTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -316,6 +317,9 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     expect(referencePackErrorTestId()).toBe("reference-pack-error");
     expect(administrativeAuditEventTestId("event/id")).toBe(
       "administrative-audit-event-event%2Fid",
+    );
+    expect(incidentMembershipAuditDetailTestId("event-1")).toContain(
+      "membership-audit-detail",
     );
     expect(administrativeAuditDetailTestId("event/id")).toBe(
       "administrative-audit-detail-event%2Fid",

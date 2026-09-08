@@ -21,6 +21,7 @@ export {
   incidentImportTestId,
   incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
+  incidentMembershipAuditDetailTestId,
   incidentMembershipAuditRowTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,

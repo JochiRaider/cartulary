@@ -21,6 +21,7 @@ import {
   accountTestId,
   authTestId,
   cartularyDefaultThemeId,
+  cartularyDesignTokenVars,
   cellPresenceMarkerTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
@@ -162,6 +163,11 @@ import {
   networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
+import {
+  installMembershipAuditPresentation,
+  membershipBrowserEvent,
+  openMembershipAudit,
+} from "./support/incidentMembershipAudit";
 import {
   expectCreationControlReachable,
   openCreationPresentation,
@@ -7631,4 +7637,124 @@ test("Capture incident import admission observation cancellation and result reco
   await expect(retryAccess).toBeVisible();
   await expectImportControlReachable(page, retryAccess);
   await assertViewportVisualRegression(page, "incident-import-access-retry");
+});
+
+test("Capture Membership audit loading inspected stale empty cursor recovery and density.", async ({
+  workerAdminPage: page,
+}) => {
+  const fixture = await installMembershipAuditPresentation(page);
+  await maskIncidentIdentity(page, fixture.incidentId);
+  const loading = auditBrowserBarrier();
+  fixture.gateRead(loading.promise);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const panel = await openMembershipAudit(page);
+  await expect(panel.getByRole("status")).toContainText("Loading");
+  await assertViewportVisualRegression(page, "membership-audit-loading");
+  loading.release();
+  await expect(panel.getByRole("status")).toContainText("Page 1:");
+  await panel.getByRole("button", { name: /^Inspect / }).click();
+  const changes = panel.getByRole("region", {
+    name: "Published field changes",
+    exact: true,
+  });
+  const scrollChanges = async () => {
+    await changes.evaluate((element) =>
+      element.scrollIntoView({ block: "start", behavior: "instant" }),
+    );
+  };
+  await scrollChanges();
+  await assertViewportVisualRegression(page, "membership-audit-inspected");
+  fixture.fail();
+  await panel.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(
+    panel.getByRole("button", { name: "Try the read again", exact: true }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(page, "membership-audit-stale");
+  fixture.setPage([]);
+  await panel
+    .getByRole("button", { name: "Try the read again", exact: true })
+    .click();
+  await expect(
+    panel.getByText("No membership audit events yet."),
+  ).toBeVisible();
+  await assertViewportVisualRegression(page, "membership-audit-empty");
+  fixture.setPage([membershipBrowserEvent(fixture.incidentId)], "next-page");
+  await panel.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(
+    panel.getByRole("button", { name: "Next page", exact: true }),
+  ).toBeEnabled();
+  fixture.fail("invalid_pagination_request", "cursor_expired");
+  await panel.getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(
+    panel.getByRole("button", { name: "Reload first page", exact: true }),
+  ).toBeVisible();
+  await assertViewportVisualRegression(
+    page,
+    "membership-audit-cursor-recovery",
+  );
+  fixture.setPage([membershipBrowserEvent(fixture.incidentId)]);
+  await panel
+    .getByRole("button", { name: "Reload first page", exact: true })
+    .click();
+  await expect(panel.getByRole("status")).toContainText("Page 1:");
+  await panel.getByRole("button", { name: /^Inspect / }).click();
+  await page.setViewportSize({ width: 390, height: 480 });
+  await scrollChanges();
+  await assertViewportVisualRegression(
+    page,
+    "membership-audit-inspected-narrow",
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await scrollChanges();
+  await assertViewportVisualRegression(page, "membership-audit-inspected-zoom");
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await scrollChanges();
+  await assertViewportVisualRegression(
+    page,
+    "membership-audit-inspected-spacing",
+  );
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  const originalDensity = (await readVisualAccountPreferences(page))
+    .density_mode;
+  try {
+    for (const density of ["compact", "comfortable"] as const) {
+      await setVisualAccountDensity(page, density);
+      await page.reload();
+      await maskIncidentIdentity(page, fixture.incidentId);
+      await openMembershipAudit(page);
+      await expect(panel.getByRole("status")).toContainText("Page 1:");
+      await expect(panel).toHaveCSS(
+        "font-size",
+        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+      );
+      await expect(panel.getByRole("listitem")).toHaveCSS(
+        "padding",
+        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+      );
+      await test.info().attach(`membership-audit-density-${density}`, {
+        body: JSON.stringify(
+          await panel.evaluate((element) => ({
+            fontSize: getComputedStyle(element).fontSize,
+            lineHeight: getComputedStyle(element).lineHeight,
+          })),
+        ),
+        contentType: "application/json",
+      });
+      await panel.getByRole("button", { name: /^Inspect / }).click();
+      await scrollChanges();
+      await assertViewportVisualRegression(page, `membership-audit-${density}`);
+    }
+  } finally {
+    await setVisualAccountDensity(page, originalDensity);
+  }
 });
