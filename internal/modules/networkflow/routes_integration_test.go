@@ -1,10 +1,12 @@
 package networkflow_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -14,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
@@ -697,6 +700,9 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	}
 	linkResp := httptestx.DoJSON(t, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	linkResult := httptestx.RequireSuccessEnvelope(t, linkResp, http.StatusCreated)["data"].(map[string]any)
+	if linkResult["schema_id"] != "cartulary.network_flow_indicator_link_result.v1" {
+		t.Fatal("incorrect indicator link result contract")
+	}
 	if linkResult["duplicate"] != false {
 		t.Fatalf("new binding reported duplicate: %#v", linkResult)
 	}
@@ -745,6 +751,296 @@ SELECT COUNT(*)
 `, incidentID); got != 1 {
 		t.Fatalf("expected one binding-reused audit event for new txn duplicate, got %d", got)
 	}
+	if got := networkFlowRouteCountRows(t, harness.DB, `
+SELECT COUNT(*) FROM deployment_admin_audit_events
+ WHERE incident_id = $1 AND event_source = 'network_flow'
+   AND event_kind IN ('network_flow_indicator_binding_created', 'network_flow_indicator_binding_reused')
+   AND (after_json::text LIKE '%192.0.2.10%' OR after_json::text LIKE '%2001:db8::1%'
+        OR NOT (after_json ? 'candidate_value_digest') OR NOT (after_json ? 'candidate_value_digest_key_id'))
+`, incidentID); got != 0 {
+		t.Fatalf("binding audit violated candidate privacy or digest key pairing: %d", got)
+	}
+	t.Run("link selector target and replay matrix", func(t *testing.T) {
+		post := func(body map[string]any) *http.Response {
+			return httptestx.DoJSON(t, http.MethodPost, linkPath, body, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		}
+		body := func(txn string, selector map[string]any, target map[string]any, value string) map[string]any {
+			return map[string]any{"schema_id": "cartulary.network_flow.indicator_link_request.v1", "client_txn_id": txn, "selector": selector, "target": target, "confirm_exact_value": value, "observation_mode": "binding_only"}
+		}
+		create := map[string]any{"mode": "create_indicator", "indicator_type": "ipv4_addr"}
+		existing := map[string]any{"mode": "existing_indicator", "indicator_id": target["indicator_id"]}
+		row := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": first.RowID, "field_key": FieldSrcIP}
+		refs := map[string]any{"kind": "row_refs", "field_key": FieldSrcIP, "row_refs": examples}
+		vertex := map[string]any{"kind": "graph_vertex", "graph_query": semanticQuery, "graph_query_digest": graphDigest, "vertex_id": EndpointID(incidentID, "ip", first.SrcIP)}
+		temporalVertex := map[string]any{"kind": "graph_vertex", "graph_query": temporal["semantic_query"], "graph_query_digest": temporal["graph_query_digest"], "vertex_id": EndpointID(incidentID, "ip", first.SrcIP)}
+		for index, selector := range []map[string]any{refs, vertex, temporalVertex} {
+			result := httptestx.RequireSuccessEnvelope(t, post(body("matrix-reuse-"+string(rune('a'+index)), selector, existing, first.SrcIP)), http.StatusOK)["data"].(map[string]any)
+			if result["duplicate"] != true || !reflect.DeepEqual(result["binding"], binding) {
+				t.Fatal("selector-shape reuse changed original binding metadata")
+			}
+		}
+		bucketEdge := map[string]any{"kind": "graph_edge", "graph_query": temporal["semantic_query"], "graph_query_digest": temporal["graph_query_digest"], "edge_id": temporalSelector["source_edge_id"], "field_key": FieldSrcIP}
+		httptestx.RequireErrorEnvelope(t, post(body("matrix-bucket-edge", bucketEdge, existing, first.SrcIP)), http.StatusBadRequest, "network_flow_invalid_request")
+		before := networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE incident_id=$1`, incidentID)
+		one := httptestx.RequireSuccessEnvelope(t, post(body("matrix-single", row, create, first.SrcIP)), http.StatusCreated)["data"].(map[string]any)
+		if one["binding"].(map[string]any)["target_indicator_ref"].(map[string]any)["indicator_id"] != target["indicator_id"] || networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE incident_id=$1`, incidentID) != before {
+			t.Fatal("new binding must reuse the Core-owned canonical indicator")
+		}
+		oneRef := map[string]any{"kind": "row_refs", "field_key": FieldSrcIP, "row_refs": examples[:1]}
+		oneReuse := httptestx.RequireSuccessEnvelope(t, post(body("matrix-one-ref", oneRef, existing, first.SrcIP)), http.StatusOK)["data"].(map[string]any)
+		if !reflect.DeepEqual(oneReuse["binding"], one["binding"]) {
+			t.Fatal("row-ref reuse must preserve original row-field metadata")
+		}
+		otherRow := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": second.RowID, "field_key": FieldSrcIP}
+		other := httptestx.RequireSuccessEnvelope(t, post(body("matrix-other-row", otherRow, existing, first.SrcIP)), http.StatusCreated)["data"].(map[string]any)
+		if other["binding"].(map[string]any)["network_flow_indicator_binding_id"] == one["binding"].(map[string]any)["network_flow_indicator_binding_id"] {
+			t.Fatal("different source sets must remain distinct bindings")
+		}
+		destination := map[string]any{"kind": "graph_edge", "graph_query": semanticQuery, "graph_query_digest": graphDigest, "edge_id": edgeID, "field_key": FieldDstIP}
+		dst := httptestx.RequireSuccessEnvelope(t, post(body("matrix-destination", destination, map[string]any{"mode": "create_indicator", "indicator_type": "ipv6_addr"}, first.DstIP)), http.StatusCreated)["data"].(map[string]any)["binding"].(map[string]any)
+		mismatch := map[string]any{"mode": "existing_indicator", "indicator_id": dst["target_indicator_ref"].(map[string]any)["indicator_id"]}
+		for index, selector := range []map[string]any{
+			{"kind": "row_refs", "field_key": FieldDstIP, "row_refs": examples},
+			{"kind": "graph_vertex", "graph_query": semanticQuery, "graph_query_digest": graphDigest, "vertex_id": EndpointID(incidentID, "ip", first.DstIP)},
+		} {
+			result := httptestx.RequireSuccessEnvelope(t, post(body(fmt.Sprintf("matrix-destination-reuse-%d", index), selector, mismatch, first.DstIP)), http.StatusOK)["data"].(map[string]any)
+			if !reflect.DeepEqual(result["binding"], dst) {
+				t.Fatal("destination selector reuse changed binding identity")
+			}
+		}
+		dstRow := map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": first.RowID, "field_key": FieldDstIP}
+		httptestx.RequireSuccessEnvelope(t, post(body("matrix-destination-single", dstRow, mismatch, first.DstIP)), http.StatusCreated)
+		coreResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.indicators.v1/rows", map[string]any{"client_txn_id": "matrix-other-canonical", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": "203.0.113.77"}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		incompatibleID := httptestx.RequireSuccessEnvelope(t, coreResp, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)["record_id"]
+		httptestx.RequireErrorEnvelope(t, post(body("matrix-existing-value", row, map[string]any{"mode": "existing_indicator", "indicator_id": incompatibleID}, first.SrcIP)), http.StatusBadRequest, "network_flow_invalid_indicator_target")
+		for _, check := range []struct {
+			txn, value, code, reason string
+			selector, target         map[string]any
+			status                   int
+		}{
+			{"space", first.SrcIP + " ", "network_flow_indicator_link_ambiguous", "candidate_mismatch", row, create, 400},
+			{"existing-type", first.SrcIP, "network_flow_invalid_indicator_target", "target_type_mismatch", row, mismatch, 400},
+			{"hidden", first.SrcIP, "network_flow_indicator_link_forbidden", "target_not_visible", row, map[string]any{"mode": "existing_indicator", "indicator_id": uuid.New().String()}, 403},
+			{"type", first.SrcIP, "network_flow_invalid_indicator_target", "target_type_mismatch", row, map[string]any{"mode": "create_indicator", "indicator_type": "ipv6_addr"}, 400},
+			{"field", first.SrcIP, "network_flow_invalid_indicator_selector", "field_not_linkable", map[string]any{"kind": "row_field_value", "network_flow_table_id": table.TableID, "network_flow_row_id": first.RowID, "field_key": FieldSrcPort}, create, 400},
+		} {
+			err := httptestx.RequireErrorEnvelope(t, post(body("matrix-invalid-"+check.txn, check.selector, check.target, check.value)), check.status, check.code)["error"].(map[string]any)["details"].(map[string]any)
+			if err["reason_code"] != check.reason {
+				t.Fatalf("unexpected link reason for %s", check.txn)
+			}
+			for _, key := range []string{"selector_kind", "field_key", "target_mode", "resolved_candidate_value", "retry_action"} {
+				if _, ok := err[key]; !ok {
+					t.Fatalf("missing link detail %s", key)
+				}
+			}
+		}
+		foreignIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{"client_txn_id": "matrix-foreign-incident", "incident_key": "IR-NF-LINK-FOREIGN", "title": "Foreign indicator"})
+		foreignPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + foreignIncident["incident_id"].(string) + "/views/cartulary.view.indicators.v1/rows"
+		foreignResp := httptestx.DoJSON(t, http.MethodPost, foreignPath, map[string]any{"client_txn_id": "matrix-foreign-indicator", "indicator.indicator_type": "ipv4_addr", "indicator.value_kind": "atomic", "indicator.display_value": first.SrcIP}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+		foreignID := httptestx.RequireSuccessEnvelope(t, foreignResp, http.StatusCreated)["data"].(map[string]any)["row"].(map[string]any)["record_id"]
+		httptestx.RequireErrorEnvelope(t, post(body("matrix-foreign", row, map[string]any{"mode": "existing_indicator", "indicator_id": foreignID}, first.SrcIP)), http.StatusForbidden, "network_flow_indicator_link_forbidden")
+		v6Rows := make([]FlowRow, 0, 18)
+		for index := 0; index < 18; index++ {
+			r := testFlowRow(int64(index+1), "d")
+			r.RowID = "nfr_" + fmt.Sprintf("%064x", index+100)
+			r.SrcIP = "2001:db8::10"
+			r.DstIP = "2001:db8::20"
+			if index == 17 {
+				r.SrcIP = "2001:db8::30"
+			}
+			v6Rows = append(v6Rows, r)
+		}
+		v6Session, v6Unit := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "ipv6-link.csv")
+		v6Table, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incidentID, ActorUserID: adminID, ImportSessionID: v6Session, ImportUnitID: v6Unit, SourceContentSHA256: strings.Repeat("7", 64), OriginalFilename: "ipv6-link.csv", SourceFilenameDigest: strings.Repeat("8", 64), SourceFilenameDigestKeyID: "route-test-key", MappingFingerprint: strings.Repeat("9", 64), SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: v6Rows, Now: time.Now().UTC()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		v6GraphResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": v6Table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}}, httptestx.WithCookies(adminLogin.SessionCookie))
+		v6Graph := httptestx.RequireSuccessEnvelope(t, v6GraphResp, http.StatusOK)["data"].(map[string]any)
+		v6Vertex := map[string]any{"kind": "graph_vertex", "graph_query": v6Graph["semantic_query"], "graph_query_digest": v6Graph["graph_query_digest"], "vertex_id": EndpointID(incidentID, "ip", "2001:db8::10")}
+		v6Create := map[string]any{"mode": "create_indicator", "indicator_type": "ipv6_addr"}
+		v6Receipt := httptestx.RequireSuccessEnvelope(t, post(body("matrix-v6-truncated", v6Vertex, v6Create, "2001:db8::10")), http.StatusCreated)["data"].(map[string]any)
+		v6Binding := v6Receipt["binding"].(map[string]any)
+		if v6Binding["source_row_refs_truncated"] != true || v6Binding["source_row_refs_total_count"] != float64(17) || len(v6Binding["source_row_refs"].([]any)) != 16 {
+			t.Fatal("graph binding lost truncated full-source count")
+		}
+		v6Refs := map[string]any{"kind": "row_refs", "field_key": FieldSrcIP, "row_refs": v6Binding["source_row_refs"]}
+		v6Reuse := httptestx.RequireSuccessEnvelope(t, post(body("matrix-v6-reuse-prefix", v6Refs, v6Create, "2001:db8::10")), http.StatusOK)["data"].(map[string]any)
+		if !reflect.DeepEqual(v6Reuse["binding"], v6Binding) {
+			t.Fatal("row-ref reuse changed original graph truncation metadata")
+		}
+		refFor := func(index int) map[string]any {
+			return map[string]any{"network_flow_table_id": v6Table.TableID, "network_flow_row_id": v6Rows[index].RowID, "source_row_number": v6Rows[index].SourceRowNumber, "mapping_fingerprint": strings.Repeat("9", 64)}
+		}
+		mixed := map[string]any{"kind": "row_refs", "field_key": FieldSrcIP, "row_refs": []any{refFor(0), refFor(17)}}
+		httptestx.RequireErrorEnvelope(t, post(body("matrix-mixed", mixed, v6Create, "2001:db8::10")), http.StatusBadRequest, "network_flow_indicator_link_ambiguous")
+		tooMany := make([]any, 17)
+		for index := range tooMany {
+			tooMany[index] = refFor(index)
+		}
+		limitError := httptestx.RequireErrorEnvelope(t, post(body("matrix-limit", map[string]any{"kind": "row_refs", "field_key": FieldSrcIP, "row_refs": tooMany}, v6Create, "2001:db8::10")), http.StatusRequestEntityTooLarge, "network_flow_resource_limit_exceeded")
+		if httptestx.RequireErrorDetails(t, limitError)["reason_code"] != "row_limit_exceeded" {
+			t.Fatalf("missing link source-limit reason: %#v", httptestx.RequireErrorDetails(t, limitError))
+		}
+		staleVertex := map[string]any{"kind": "graph_vertex", "graph_query": semanticQuery, "graph_query_digest": strings.Repeat("0", 64), "vertex_id": EndpointID(incidentID, "ip", first.SrcIP)}
+		httptestx.RequireErrorEnvelope(t, post(body("matrix-stale", staleVertex, create, first.SrcIP)), http.StatusConflict, "network_flow_graph_query_stale")
+		for _, race := range []struct {
+			name, change, restore, code string
+			status                      int
+		}{
+			{"closure", `UPDATE incidents SET status='closed',closed_at=now() WHERE id=$1`, `UPDATE incidents SET status='active',closed_at=NULL WHERE id=$1`, "incident_closed", 409},
+			{"role", `UPDATE incident_memberships SET role='reviewer' WHERE incident_id=$1 AND user_id=$2`, `UPDATE incident_memberships SET role='admin' WHERE incident_id=$1 AND user_id=$2`, "authorization_denied", 403},
+			{"source", `UPDATE network_flow_tables SET table_status='soft_deleted',deleted_at=now() WHERE incident_id=$1 AND network_flow_table_id=$2`, `UPDATE network_flow_tables SET table_status='active',deleted_at=NULL WHERE incident_id=$1 AND network_flow_table_id=$2`, "network_flow_table_not_active", 409},
+		} {
+			t.Run("transaction rechecks "+race.name, func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				tx, err := harness.Pool.BeginTx(ctx, pgx.TxOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tx.Rollback(context.Background())
+				var locked uuid.UUID
+				if err = tx.QueryRow(ctx, `SELECT id FROM incidents WHERE id=$1 FOR UPDATE`, incidentID).Scan(&locked); err != nil {
+					t.Fatal(err)
+				}
+				args := []any{incidentID}
+				if race.name == "role" {
+					args = append(args, adminID)
+				}
+				if race.name == "source" {
+					args = append(args, v6Table.TableID)
+				}
+				if _, err = tx.Exec(ctx, race.change, args...); err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					_ = tx.Rollback(context.Background())
+					if _, err := harness.Pool.Exec(context.Background(), race.restore, args...); err != nil {
+						t.Error(err)
+					}
+				}()
+				racedBody := body("matrix-race-"+race.name, map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": v6Rows[17].RowID, "field_key": FieldSrcIP}, v6Create, "2001:db8::30")
+				encoded, _ := json.Marshal(racedBody)
+				request, err := http.NewRequestWithContext(ctx, http.MethodPost, linkPath, bytes.NewReader(encoded))
+				if err != nil {
+					t.Fatal(err)
+				}
+				request.Header.Set("Content-Type", "application/json")
+				request.Header.Set(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)
+				request.AddCookie(adminLogin.SessionCookie)
+				request.AddCookie(adminLogin.CSRFCookie)
+				type response struct {
+					value *http.Response
+					err   error
+				}
+				settled := make(chan response, 1)
+				go func() { value, err := http.DefaultClient.Do(request); settled <- response{value, err} }()
+				ticker := time.NewTicker(10 * time.Millisecond)
+				defer ticker.Stop()
+				for {
+					var waiting bool
+					err = harness.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)))`, int32(tx.Conn().PgConn().PID())).Scan(&waiting)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if waiting {
+						break
+					}
+					select {
+					case <-ctx.Done():
+						t.Fatal("link never reached the transaction lock")
+					case result := <-settled:
+						if result.value != nil {
+							result.value.Body.Close()
+						}
+						t.Fatalf("link settled before transaction admission: %v", result.err)
+					case <-ticker.C:
+					}
+				}
+				if err = tx.Commit(ctx); err != nil {
+					t.Fatal(err)
+				}
+				result := <-settled
+				if result.err != nil {
+					t.Fatal(result.err)
+				}
+				httptestx.RequireErrorEnvelope(t, result.value, race.status, race.code)
+				if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE client_txn_id=$1`, racedBody["client_txn_id"]) != 0 {
+					t.Fatal("rejected transaction retained a link receipt")
+				}
+				if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE incident_id=$1 AND normalized_value='2001:db8::30'`, incidentID) != 0 {
+					t.Fatal("rejected transaction committed a Core indicator")
+				}
+			})
+		}
+		t.Run("audit failure rolls back the complete link transaction", func(t *testing.T) {
+			// A test-database constraint fails the real audit insert after Core
+			// resolution and binding insertion, without a production fault hook.
+			if _, err := harness.DB.Exec(`ALTER TABLE deployment_admin_audit_events ADD CONSTRAINT indicator_link_audit_failure CHECK (client_txn_id IS DISTINCT FROM 'matrix-audit-rollback') NOT VALID`); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if _, err := harness.DB.Exec(`ALTER TABLE deployment_admin_audit_events DROP CONSTRAINT indicator_link_audit_failure`); err != nil {
+					t.Error(err)
+				}
+			}()
+			bindings := networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM network_flow_indicator_bindings WHERE incident_id=$1`, incidentID)
+			audits := networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id=$1`, incidentID)
+			selector := map[string]any{"kind": "row_field_value", "network_flow_table_id": v6Table.TableID, "network_flow_row_id": v6Rows[17].RowID, "field_key": FieldSrcIP}
+			httptestx.RequireErrorEnvelope(t, post(body("matrix-audit-rollback", selector, v6Create, "2001:db8::30")), http.StatusInternalServerError, "internal_error")
+			if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM network_flow_indicator_bindings WHERE incident_id=$1`, incidentID) != bindings || networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id=$1`, incidentID) != audits || networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE incident_id=$1 AND normalized_value='2001:db8::30'`, incidentID) != 0 || networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE client_txn_id=$1`, "matrix-audit-rollback") != 0 {
+				t.Fatal("failed audit retained an indicator, binding, receipt or audit occurrence")
+			}
+		})
+		for _, role := range []string{"viewer", "reviewer", "editor", "admin"} {
+			if _, err := harness.Pool.Exec(context.Background(), "UPDATE incident_memberships SET role=$3 WHERE incident_id=$1 AND user_id=$2", incidentID, adminID, role); err != nil {
+				t.Fatal(err)
+			}
+			status := http.StatusCreated
+			if role == "viewer" || role == "reviewer" {
+				status = http.StatusForbidden
+			}
+			httptestx.RequireStatus(t, post(linkBody), status)
+		}
+		if _, err := harness.Pool.Exec(context.Background(), `UPDATE records SET deleted_at=now(),deleted_by_user_id=$2 WHERE record_id=$1`, target["indicator_id"], adminID); err != nil {
+			t.Fatal(err)
+		}
+		httptestx.RequireErrorEnvelope(t, post(linkBody), http.StatusForbidden, "network_flow_indicator_link_forbidden")
+		if _, err := harness.Pool.Exec(context.Background(), `UPDATE records SET deleted_at=NULL,deleted_by_user_id=NULL WHERE record_id=$1`, target["indicator_id"]); err != nil {
+			t.Fatal(err)
+		}
+		if networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM indicator_observations WHERE incident_id=$1`, incidentID) != 0 {
+			t.Fatal("binding-only linking created Core observations")
+		}
+	})
+	if err := ValidateRetainedExtensionState(context.Background(), harness.Pool); err != nil {
+		t.Fatalf("current link receipts fail read-only admission: %v", err)
+	}
+	t.Run("incompatible receipt blocks admission without rewriting", func(t *testing.T) {
+		tx, err := harness.Pool.BeginTx(context.Background(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(context.Background())
+		if _, err := tx.Exec(context.Background(), `UPDATE route_idempotency SET response_json = jsonb_set(response_json, '{schema_id}', '"cartulary.network_flow.indicator_link_result.v1"') WHERE client_txn_id = $1`, linkBody["client_txn_id"]); err != nil {
+			t.Fatal(err)
+		}
+		read := func() string {
+			var value string
+			if err := tx.QueryRow(context.Background(), `SELECT response_json::text FROM route_idempotency WHERE client_txn_id = $1`, linkBody["client_txn_id"]).Scan(&value); err != nil {
+				t.Fatal(err)
+			}
+			return value
+		}
+		before := read()
+		if err := ValidateRetainedExtensionState(context.Background(), tx); err == nil {
+			t.Fatal("old receipt admitted")
+		}
+		if after := read(); after != before {
+			t.Fatal("admission rewrote retained receipt")
+		}
+	})
 	if _, err := store.SoftDeleteTable(context.Background(), SoftDeleteTableParams{
 		IncidentID: incidentID, ActorUserID: adminID, TableID: table.TableID,
 		BaseTableVersion: table.TableVersion, ClientTxnID: "txn-network-flow-contributor-source-delete",
@@ -763,6 +1059,13 @@ SELECT COUNT(*)
 	if deletedSourceError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "soft_deleted" {
 		t.Fatalf("deleted contributor source error = %#v", deletedSourceError)
 	}
+	replayAfterRemoval := httptestx.DoJSON(t, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	if receipt := httptestx.RequireSuccessEnvelope(t, replayAfterRemoval, http.StatusCreated)["data"]; !reflect.DeepEqual(receipt, linkResult) {
+		t.Fatal("committed replay changed after source removal")
+	}
+	duplicateBody["client_txn_id"] = "txn-network-flow-link-after-removal"
+	rejectedAfterRemoval := httptestx.DoJSON(t, http.MethodPost, linkPath, duplicateBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	httptestx.RequireErrorEnvelope(t, rejectedAfterRemoval, http.StatusConflict, "network_flow_table_not_active")
 	if _, err := harness.Pool.Exec(context.Background(), `
 DELETE FROM incident_memberships
  WHERE incident_id = $1

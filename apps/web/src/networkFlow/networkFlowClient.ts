@@ -3,7 +3,12 @@ import {
   networkFlowActivityProfileId,
   networkFlowRouteFamily,
 } from "../extensions/extensionWorkspaceIdentities";
-import { apiPath, clientTxnID, fetchJSON } from "../services/browserApi";
+import {
+  apiPath,
+  clientTxnID,
+  extractError,
+  fetchJSON,
+} from "../services/browserApi";
 import type {
   NetworkFlowContributorPageRequest,
   NetworkFlowContributorResult,
@@ -11,10 +16,7 @@ import type {
   NetworkFlowFilter,
   NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
-  NetworkFlowIndicatorLinkRequest,
   NetworkFlowIndicatorLinkResult,
-  NetworkFlowIndicatorSelector,
-  NetworkFlowIndicatorTarget,
   NetworkFlowPaging,
   NetworkFlowRow,
   NetworkFlowSavedGraph,
@@ -44,6 +46,12 @@ import {
   validNetworkFlowErrorEnvelope,
 } from "../services/networkFlowContractAdapter";
 import { networkFlowRequestError } from "./networkFlowErrors";
+import {
+  type IndicatorLinkAttempt,
+  IndicatorLinkWriteError,
+  validateIndicatorLinkReceipt,
+  validIndicatorLinkRejection,
+} from "./networkFlowIndicatorLinkOperation";
 import type {
   NetworkFlowAcceptedPageRequest,
   NetworkFlowRejectedPageRequest,
@@ -571,39 +579,87 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
   return page;
 }
 
+/** Dispatches only the immutable body owned by the captured link attempt. */
 export async function linkNetworkFlowIndicator(options: {
   readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
-  readonly incidentId: string;
-  readonly selector: NetworkFlowIndicatorSelector;
-  readonly target: NetworkFlowIndicatorTarget;
-  readonly confirmExactValue: string;
+  readonly attempt: IndicatorLinkAttempt;
+  readonly signal: AbortSignal;
+  readonly authorizeDispatch: () => void;
 }): Promise<NetworkFlowIndicatorLinkResult> {
-  const request: NetworkFlowIndicatorLinkRequest = {
-    schema_id: "cartulary.network_flow.indicator_link_request.v1",
-    client_txn_id: clientTxnID("nf-indicator-link"),
-    selector: options.selector,
-    target: options.target,
-    observation_mode: "binding_only",
-    confirm_exact_value: options.confirmExactValue,
-  };
+  const { attempt } = options;
   const result = await fetchNetworkFlowJSON<unknown>(
     options.availability,
     apiPath(
       options.apiBase,
-      `/api/v1/incidents/${options.incidentId}/network-flow/indicator-links`,
+      `/api/v1/incidents/${attempt.authority.incidentId}/network-flow/indicator-links`,
     ),
-    {
-      method: "POST",
-      body: JSON.stringify(request),
+    { method: "POST", body: attempt.body, signal: options.signal },
+    () => {
+      options.signal.throwIfAborted();
+      options.authorizeDispatch();
     },
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    const error = networkFlowRequestError(result.status, result.payload);
+    const wire = extractError(result.payload);
+    const details = wire?.details;
+    const provenTimeout =
+      result.status === 503 &&
+      wire?.code === "service_unavailable" &&
+      wire.retryable === true &&
+      details?.reason_code === "extension_transaction_timeout" &&
+      details.operation_id ===
+        `network-flow-indicator-link:${attempt.authority.incidentId}:${attempt.request.client_txn_id}` &&
+      typeof details.timeout_seconds === "number" &&
+      Number.isFinite(details.timeout_seconds) &&
+      details.timeout_seconds > 0;
+    const rejected =
+      validIndicatorLinkRejection(result.status, result.payload) ||
+      (validNetworkFlowErrorEnvelope(result.status, result.payload) &&
+        provenTimeout);
+    const targetError =
+      error.code.includes("indicator_target") ||
+      error.code === "network_flow_indicator_link_forbidden" ||
+      error.field?.startsWith("target") === true;
+    throw new IndicatorLinkWriteError(rejected ? "rejected" : "uncertain", {
+      kind:
+        result.status === 401 || result.status === 403
+          ? "denied"
+          : error.retryAction === "refresh_resource"
+            ? "stale"
+            : rejected
+              ? "validation"
+              : "recovery",
+      field: targetError
+        ? "target"
+        : error.code === "network_flow_indicator_link_ambiguous" ||
+            error.field === "confirm_exact_value"
+          ? "confirmation"
+          : null,
+      message: targetError
+        ? "The selected indicator is unavailable or incompatible. Choose a currently visible atomic IP indicator with the same canonical value."
+        : rejected
+          ? error.message
+          : "The server response did not establish whether linking committed. Recover this exact request before starting another link.",
+    });
   }
-  return decodeNetworkFlowIndicatorLinkResult(
-    networkFlowResponseData(result.payload),
-  );
+  try {
+    return validateIndicatorLinkReceipt(
+      decodeNetworkFlowIndicatorLinkResult(
+        networkFlowResponseData(result.payload),
+      ),
+      result.status,
+      attempt,
+    );
+  } catch {
+    throw new IndicatorLinkWriteError("uncertain", {
+      kind: "read_failed",
+      field: null,
+      message:
+        "The link response could not be verified. The binding may exist. Recover this exact request before starting another link.",
+    });
+  }
 }
 
 export async function getNetworkFlowBindingSourceRowLimit(options: {

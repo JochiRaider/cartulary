@@ -450,18 +450,22 @@ func AssertGraphContractBoundary(t *testing.T) {
 func AssertIndicatorLinkContractBoundary(t *testing.T) {
 	t.Helper()
 	limits := DefaultLimits()
-	base := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_field_value","network_flow_table_id":"nft","network_flow_row_id":"nfr","field_key":"network_flow.src_ip"},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
+	base := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_field_value","network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","field_key":"network_flow.src_ip"},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
 	request, apiErr := decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(base)), limits)
 	if apiErr != nil || request.Selector.Kind != "row_field_value" || request.Target.Mode != "create_indicator" {
 		t.Fatalf("baseline indicator link decode request=%#v err=%v", request, apiErr)
 	}
 	_, apiErr = decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"binding_only"`, `"create_observation"`, 1))), limits)
-	requireAPIError(t, apiErr, "network_flow_invalid_request", "invalid_value")
+	requireAPIError(t, apiErr, "network_flow_invalid_request", "type_mismatch")
 	_, apiErr = decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(strings.Replace(base, `"network_flow.src_ip"`, `"network_flow.bytes_count"`, 1))), limits)
+	if apiErr != nil {
+		t.Fatalf("field policy ran before freshness: %v", apiErr)
+	}
+	_, apiErr = candidateValueFromRow(FlowRow{}, "network_flow.bytes_count")
 	requireAPIError(t, apiErr, "network_flow_invalid_indicator_selector", "field_not_linkable")
-	rowRefs := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_refs","field_key":"network_flow.src_ip","row_refs":[{"network_flow_table_id":"nft","network_flow_row_id":"nfr","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"},{"network_flow_table_id":"nft","network_flow_row_id":"nfr","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"}]},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
+	rowRefs := `{"schema_id":"cartulary.network_flow.indicator_link_request.v1","client_txn_id":"txn","selector":{"kind":"row_refs","field_key":"network_flow.src_ip","row_refs":[{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"},{"network_flow_table_id":"nft_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","network_flow_row_id":"nfr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","source_row_number":2,"mapping_fingerprint":"` + strings.Repeat("a", 64) + `"}]},"target":{"mode":"create_indicator","indicator_type":"ipv4_addr"},"observation_mode":"binding_only","confirm_exact_value":"192.0.2.10"}`
 	_, apiErr = decodeIndicatorLinkRequest(httptest.NewRequest("POST", "/indicator-links", strings.NewReader(rowRefs)), limits)
-	requireAPIError(t, apiErr, "network_flow_invalid_indicator_selector", "duplicate_row_ref")
+	requireAPIError(t, apiErr, "network_flow_invalid_indicator_selector", "variant_member_conflict")
 	if !canonicalIPLiteral("192.0.2.10") || canonicalIPLiteral("192.168.001.010") {
 		t.Fatalf("confirm_exact_value canonical IP predicate drifted")
 	}

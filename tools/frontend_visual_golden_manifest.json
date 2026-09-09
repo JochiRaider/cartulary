@@ -556,15 +556,15 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
-      "sha256": "1454311197fa9f9724e34a9b005136df69b3165772087e4593b93081f33c1913"
+      "sha256": "1b50a90944229dc37a900670d2f9ca701304f4999904ef375a5fe0ecd66df635"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png",
-      "sha256": "56ee25e1c1c8172fa5fa3e1ddb927065d8d06e109c6e6cc724e145b30caa1a5f"
+      "sha256": "ada56fc90e85a7b5e94b0a6554d435998e2c23dd2b757058ffa635584aadea8b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png",
-      "sha256": "c0584147c122d6311386dd3c488c47b25e5d021c4c0cb88761d4d20a61d83997"
+      "sha256": "0091c434e38bcc870e923a29c1712ddf4d04eda81534cec19ad63ecb47fa3684"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-filtered-empty-grid-linux.png",
@@ -572,23 +572,23 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
-      "sha256": "8b25b53dbad3e8cbd18392c7d4eb6896b82386eb1f3de616f762530d687d15e1"
+      "sha256": "8e98cf6837d74dbd4e1b7f1f3320edd74fd938e1fc582b66b787f1c3770b00c4"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",
-      "sha256": "f5191fe856f86de3a5da6af1a43e21205130af36ee26e99bcd4fec4d1edd69a4"
+      "sha256": "489185595714720be5183a416a97a080676f34c94fb363af3c828b9873a4579f"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png",
-      "sha256": "279ba6a6d8e40594153235afbf6b0700c3d51de31ce3958e4053b29a3857003f"
+      "sha256": "ade777c37f081db78c1c2d3558b5cdf090388a9960bd7b961a149345519200ed"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
-      "sha256": "07036d0d37c7fdd722df52c5caf8bfa52a6e0ed222c8e9d4e8d0fab156398ea5"
+      "sha256": "b5a68a88e7d10ba4004a301ab03677eaa9f716b75d34c4a1b9e3a4f95031e5f4"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",
-      "sha256": "3ef61c0302426d82014fa9fa53b20dc63c1759ae5ca53aa45769887df93dd91d"
+      "sha256": "70cd79b0b8d82e00a1908d372898237a04457a9b2e9336fd8c1a6a28e920ade5"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",

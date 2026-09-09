@@ -4,10 +4,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
+
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// CanonicalIPIndicatorType supplies Core's atomic IP policy to source owners.
+// It recognizes exact canonical values; it never repairs a confirmation.
+func CanonicalIPIndicatorType(value string) (string, bool) {
+	addr, err := netip.ParseAddr(value)
+	if err != nil {
+		return "", false
+	}
+	kind := "ipv6_addr"
+	if addr.Is4() {
+		kind = "ipv4_addr"
+	}
+	canonical, err := identity.Canonicalize(identity.Input{IndicatorType: kind, ValueKind: "atomic", DisplayValue: value})
+	if err != nil || canonical.DisplayValue != value {
+		return "", false
+	}
+	return canonical.IndicatorType, true
+}
 
 type indicatorRecordQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row

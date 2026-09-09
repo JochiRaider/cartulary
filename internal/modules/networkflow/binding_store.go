@@ -1,6 +1,7 @@
 package networkflow
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -66,7 +67,7 @@ func (s *Store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, 
 	if params.TargetIndicator.ValueKind != "atomic" || params.TargetIndicator.NormalizedValue == nil || *params.TargetIndicator.NormalizedValue != params.CandidateValue {
 		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
 	}
-	if params.TargetIndicator.IndicatorType != "ipv4_addr" && params.TargetIndicator.IndicatorType != "ipv6_addr" {
+	if kind, ok := indicators.CanonicalIPIndicatorType(params.CandidateValue); !ok || params.TargetIndicator.IndicatorType != kind {
 		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
 	}
 	if !validBindingSelectorKind(params.SelectorKind) || params.CandidateValue == "" {
@@ -74,6 +75,16 @@ func (s *Store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, 
 	}
 	if len(params.SourceRowRefs) == 0 || int64(len(params.SourceRowRefs)) > s.limits.MaxBindingSourceRowRefs || params.SourceRowRefsTotalCount < int64(len(params.SourceRowRefs)) || params.SourceRowRefsTotalCount <= 0 {
 		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+	}
+	if params.SourceRowRefsTruncated != (params.SourceRowRefsTotalCount > int64(len(params.SourceRowRefs))) || (params.SelectorKind == "row_field_value" && (len(params.SourceRowRefs) != 1 || params.SourceRowRefsTruncated)) || (params.SelectorKind == "row_refs" && params.SourceRowRefsTruncated) {
+		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+	}
+	seen := map[string]bool{}
+	for _, ref := range params.SourceRowRefs {
+		if !validLinkRowRef(ref) || seen[ref.NetworkFlowRowID] {
+			return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
+		}
+		seen[ref.NetworkFlowRowID] = true
 	}
 	sourceRefs := append([]NetworkFlowRowRef(nil), params.SourceRowRefs...)
 	sourceRefRowIDs := bindingSourceRowIDs(sourceRefs)
@@ -224,7 +235,9 @@ func scanIndicatorBinding(row pgx.Row) (IndicatorBindingRecord, error) {
 	); err != nil {
 		return IndicatorBindingRecord{}, err
 	}
-	if err := json.Unmarshal(sourceRefsJSON, &record.SourceRowRefs); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(sourceRefsJSON))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&record.SourceRowRefs); err != nil {
 		return IndicatorBindingRecord{}, fmt.Errorf("decode network flow indicator binding source refs: %w", err)
 	}
 	record.TargetIndicator.RecordID = indicatorID

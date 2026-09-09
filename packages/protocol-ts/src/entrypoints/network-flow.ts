@@ -109,7 +109,7 @@ export const networkFlowDecoders = Object.freeze({
       validateCartularyNetworkFlowGraphViewContributorQueryResultV2,
     ),
   indicatorLinkResult: createDecoder<IndicatorLinkResult>(
-    "cartulary.network_flow.indicator_link_result.v1",
+    "cartulary.network_flow_indicator_link_result.v1",
     validateCartularyNetworkFlowIndicatorLinkResultV1,
   ),
   importPreviewResult: createDecoder<ImportPreviewResult>(

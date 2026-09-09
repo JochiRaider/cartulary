@@ -3,8 +3,8 @@ package networkflow
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,7 +21,7 @@ import (
 
 const (
 	schemaIndicatorLinkRequest   = "cartulary.network_flow.indicator_link_request.v1"
-	schemaIndicatorLinkResult    = "cartulary.network_flow.indicator_link_result.v1"
+	schemaIndicatorLinkResult    = "cartulary.network_flow_indicator_link_result.v1"
 	routeKeyIndicatorLinksCreate = "nf.indicator_links.create"
 )
 
@@ -59,20 +59,32 @@ type resolvedIndicatorLinkSelector struct {
 }
 
 func (s *Service) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := parseIncidentPathValue(w, r)
-	if !ok {
-		return
-	}
 	principal, apiErr := s.authenticate(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	incidentID, pathErr := uuid.Parse(r.PathValue("incident_id"))
+	if pathErr == nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+	}
+	raw, apiErr := decodeNetworkFlowObject(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, completeLinkError(apiErr, indicatorLinkRequest{}, ""))
 		return
 	}
-	request, apiErr := decodeIndicatorLinkRequest(r, s.store.limits)
+	if pathErr != nil {
+		writeAPIError(w, r, completeLinkError(invalidNetworkFlowRequest("incident_id", "type_mismatch"), indicatorLinkRequest{}, ""))
+		return
+	}
+	if r.URL.RawQuery != "" {
+		writeAPIError(w, r, completeLinkError(invalidNetworkFlowRequest("query", "unknown_member"), indicatorLinkRequest{}, ""))
+		return
+	}
+	request, apiErr := decodeIndicatorLinkObject(raw, s.store.limits)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -89,219 +101,51 @@ func (s *Service) handleIndicatorLinks(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, status, payload)
 }
 
-func decodeIndicatorLinkRequest(r *http.Request, limits EffectiveLimits) (indicatorLinkRequest, *httpapi.APIError) {
-	raw, apiErr := decodeNetworkFlowObject(r.Body)
-	if apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	schemaID, apiErr := requiredJSONString(raw, "schema_id")
-	if apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	if schemaID != schemaIndicatorLinkRequest {
-		return indicatorLinkRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
-	}
-	if apiErr := ensureAllowedMembers(raw, "schema_id", "client_txn_id", "selector", "target", "observation_mode", "confirm_exact_value"); apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	clientTxnID, apiErr := requiredJSONString(raw, "client_txn_id")
-	if apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	mode, apiErr := requiredJSONString(raw, "observation_mode")
-	if apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	if mode != "binding_only" {
-		return indicatorLinkRequest{}, invalidNetworkFlowRequest("observation_mode", "invalid_value")
-	}
-	confirm, apiErr := requiredJSONString(raw, "confirm_exact_value")
-	if apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	selector, apiErr := decodeIndicatorSelector(raw["selector"], limits)
-	if apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	target, apiErr := decodeIndicatorTarget(raw["target"])
-	if apiErr != nil {
-		return indicatorLinkRequest{}, apiErr
-	}
-	return indicatorLinkRequest{ClientTxnID: clientTxnID, Selector: selector, Target: target, ConfirmExactValue: confirm}, nil
-}
-
-func decodeIndicatorSelector(raw json.RawMessage, limits EffectiveLimits) (indicatorLinkSelector, *httpapi.APIError) {
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return indicatorLinkSelector{}, invalidIndicatorSelector("", "missing_member")
-	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return indicatorLinkSelector{}, invalidIndicatorSelector("selector", "type_mismatch")
-	}
-	kind, apiErr := requiredJSONString(object, "kind")
-	if apiErr != nil {
-		return indicatorLinkSelector{}, invalidIndicatorSelector("kind", "unknown_selector_kind")
-	}
-	switch kind {
-	case "row_field_value":
-		if apiErr := ensureAllowedMembers(object, "kind", "network_flow_table_id", "network_flow_row_id", "field_key"); apiErr != nil {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("selector", "variant_member_conflict")
-		}
-		tableID, apiErr := requiredJSONString(object, "network_flow_table_id")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		rowID, apiErr := requiredJSONString(object, "network_flow_row_id")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		fieldKey, apiErr := requiredJSONString(object, "field_key")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		if !networkFlowLinkableIPField(fieldKey) {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("field_key", "field_not_linkable")
-		}
-		return indicatorLinkSelector{Kind: kind, TableID: tableID, RowID: rowID, FieldKey: fieldKey}, nil
-	case "row_refs":
-		if apiErr := ensureAllowedMembers(object, "kind", "row_refs", "field_key"); apiErr != nil {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("selector", "variant_member_conflict")
-		}
-		fieldKey, apiErr := requiredJSONString(object, "field_key")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		if !networkFlowLinkableIPField(fieldKey) {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("field_key", "field_not_linkable")
-		}
-		var refs []NetworkFlowRowRef
-		if err := json.Unmarshal(object["row_refs"], &refs); err != nil {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("row_refs", "type_mismatch")
-		}
-		if len(refs) == 0 || int64(len(refs)) > limits.MaxBindingSourceRowRefs {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("row_refs", "row_ref_count_invalid")
-		}
-		seen := map[string]struct{}{}
-		for _, ref := range refs {
-			if ref.NetworkFlowTableID == "" || ref.NetworkFlowRowID == "" || ref.SourceRowNumber <= 0 || ref.MappingFingerprint == "" {
-				return indicatorLinkSelector{}, invalidIndicatorSelector("row_refs", "invalid_row_ref")
-			}
-			if _, exists := seen[ref.NetworkFlowRowID]; exists {
-				return indicatorLinkSelector{}, invalidIndicatorSelector("row_refs", "duplicate_row_ref")
-			}
-			seen[ref.NetworkFlowRowID] = struct{}{}
-		}
-		return indicatorLinkSelector{Kind: kind, RowRefs: refs, FieldKey: fieldKey}, nil
-	case "graph_vertex":
-		if apiErr := ensureAllowedMembers(object, "kind", "graph_query", "graph_query_digest", "vertex_id"); apiErr != nil {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("selector", "variant_member_conflict")
-		}
-		graphQuery, apiErr := decodeGraphSemanticRequest(object["graph_query"], limits)
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		if graphQuery.SchemaID != schemaGraphSemanticQueryV2 {
-			return indicatorLinkSelector{}, invalidNetworkFlowRequest("selector.graph_query.schema_id", "invalid_schema_id")
-		}
-		digest, apiErr := requiredJSONString(object, "graph_query_digest")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		vertexID, apiErr := requiredJSONString(object, "vertex_id")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		return indicatorLinkSelector{Kind: kind, GraphQuery: graphQuery, GraphQueryDigest: digest, VertexID: vertexID}, nil
-	case "graph_edge":
-		if apiErr := ensureAllowedMembers(object, "kind", "graph_query", "graph_query_digest", "edge_id", "field_key"); apiErr != nil {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("selector", "variant_member_conflict")
-		}
-		graphQuery, apiErr := decodeGraphSemanticRequest(object["graph_query"], limits)
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		if graphQuery.SchemaID != schemaGraphSemanticQueryV2 {
-			return indicatorLinkSelector{}, invalidNetworkFlowRequest("selector.graph_query.schema_id", "invalid_schema_id")
-		}
-		digest, apiErr := requiredJSONString(object, "graph_query_digest")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		edgeID, apiErr := requiredJSONString(object, "edge_id")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		fieldKey, apiErr := requiredJSONString(object, "field_key")
-		if apiErr != nil {
-			return indicatorLinkSelector{}, apiErr
-		}
-		if !networkFlowLinkableIPField(fieldKey) {
-			return indicatorLinkSelector{}, invalidIndicatorSelector("field_key", "field_not_linkable")
-		}
-		return indicatorLinkSelector{Kind: kind, GraphQuery: graphQuery, GraphQueryDigest: digest, EdgeID: edgeID, FieldKey: fieldKey}, nil
-	default:
-		return indicatorLinkSelector{}, invalidIndicatorSelector("kind", "unknown_selector_kind")
-	}
-}
-
-func decodeIndicatorTarget(raw json.RawMessage) (indicatorLinkTarget, *httpapi.APIError) {
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return indicatorLinkTarget{}, invalidIndicatorTarget("", "missing_member")
-	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return indicatorLinkTarget{}, invalidIndicatorTarget("target", "type_mismatch")
-	}
-	mode, apiErr := requiredJSONString(object, "mode")
-	if apiErr != nil {
-		return indicatorLinkTarget{}, invalidIndicatorTarget("mode", "unknown_target_mode")
-	}
-	switch mode {
-	case "existing_indicator":
-		if apiErr := ensureAllowedMembers(object, "mode", "indicator_id"); apiErr != nil {
-			return indicatorLinkTarget{}, invalidIndicatorTarget("target", "variant_member_conflict")
-		}
-		indicatorText, apiErr := requiredJSONString(object, "indicator_id")
-		if apiErr != nil {
-			return indicatorLinkTarget{}, apiErr
-		}
-		indicatorID, err := uuid.Parse(indicatorText)
-		if err != nil {
-			return indicatorLinkTarget{}, invalidIndicatorTarget("indicator_id", "invalid_value")
-		}
-		return indicatorLinkTarget{Mode: mode, IndicatorID: indicatorID}, nil
-	case "create_indicator":
-		if apiErr := ensureAllowedMembers(object, "mode", "indicator_type"); apiErr != nil {
-			return indicatorLinkTarget{}, invalidIndicatorTarget("target", "variant_member_conflict")
-		}
-		indicatorType, apiErr := requiredJSONString(object, "indicator_type")
-		if apiErr != nil {
-			return indicatorLinkTarget{}, apiErr
-		}
-		if indicatorType != "ipv4_addr" && indicatorType != "ipv6_addr" {
-			return indicatorLinkTarget{}, invalidIndicatorTarget("indicator_type", "target_type_mismatch")
-		}
-		return indicatorLinkTarget{Mode: mode, IndicatorType: indicatorType}, nil
-	default:
-		return indicatorLinkTarget{}, invalidIndicatorTarget("mode", "unknown_target_mode")
-	}
-}
-
-func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.UUID, actor authn.UserRecord, request indicatorLinkRequest, requestHash []byte, requestID string) (map[string]any, int, *httpapi.APIError) {
+func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.UUID, actor authn.UserRecord, request indicatorLinkRequest, requestHash []byte, requestID string) (payload map[string]any, status int, apiErr *httpapi.APIError) {
+	candidate := ""
+	defer func() { apiErr = completeLinkError(apiErr, request, candidate) }()
 	idempotencyKey := indicatorLinkIdempotencyKey(actor.ID, incidentID, request.ClientTxnID)
 	if payload, status, replayed, apiErr := s.replayIndicatorLinkIfPresent(ctx, idempotencyKey, requestHash, incidentID); replayed || apiErr != nil {
 		return payload, status, apiErr
+	}
+	if _, err := s.incidentAccess.Check(ctx, incidentID, actor.ID, admission.Requirement{AllowedRoles: admission.RolesEditorAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
+		return nil, 0, savedGraphAdmissionError(err, "editor|admin")
 	}
 	resolved, apiErr := s.resolveIndicatorSelector(ctx, incidentID, actor.ID, request.Selector)
 	if apiErr != nil {
 		return nil, 0, apiErr
 	}
+	candidate = resolved.CandidateValue
 	if !canonicalIPLiteral(request.ConfirmExactValue) || request.ConfirmExactValue != resolved.CandidateValue {
 		return nil, 0, indicatorLinkAmbiguous(resolved.SelectorKind, request.Selector.FieldKey, "candidate_mismatch", resolved.CandidateValue)
 	}
-	targetType := indicatorTypeForIP(resolved.CandidateValue)
+	targetType, representable := indicators.CanonicalIPIndicatorType(resolved.CandidateValue)
+	if !representable {
+		return nil, 0, invalidIndicatorTarget("indicator_type", "core_ip_indicator_type_unavailable")
+	}
 	if request.Target.Mode == "create_indicator" && request.Target.IndicatorType != targetType {
 		return nil, 0, invalidIndicatorTarget("indicator_type", "target_type_mismatch")
+	}
+	if request.Target.Mode == "existing_indicator" {
+		target, err := s.store.GetActiveIndicator(ctx, incidentID, request.Target.IndicatorID)
+		if errors.Is(err, ErrTableNotFound) {
+			return nil, 0, indicatorLinkForbidden(request.Selector.Kind, request.Selector.FieldKey, request.Target.Mode, "target_not_visible")
+		}
+		if err != nil {
+			return nil, 0, httpapi.InternalAPIError(err)
+		}
+		if err := validateIndicatorTargetLogical(target, candidate, targetType); err != nil {
+			return nil, 0, invalidIndicatorTarget("target", indicatorParticipantReason(err))
+		}
+	}
+	if int64(len(resolved.SourceRowRefs)) > s.store.limits.MaxBindingSourceRowRefs {
+		return nil, 0, &httpapi.APIError{Status: http.StatusRequestEntityTooLarge, Code: "network_flow_resource_limit_exceeded", Details: map[string]any{"reason_code": "row_limit_exceeded", "limit_key": "max_binding_source_row_refs", "limit": s.store.limits.MaxBindingSourceRowRefs, "actual": len(resolved.SourceRowRefs), "phase": "indicator_link", "retry_action": "reduce_scope_or_limits"}}
+	}
+	if int64(len(request.Selector.GraphQuery.SelectedTableIDs)) > s.store.limits.MaxSelectedTablesPerQuery {
+		return nil, 0, &httpapi.APIError{Status: 400, Code: "network_flow_invalid_table_scope", Details: map[string]any{"reason_code": "selected_table_limit_exceeded", "mode": "selected_tables", "table_ids": request.Selector.GraphQuery.SelectedTableIDs, "limit_key": "network_flow.max_selected_tables_per_query", "retry_action": "correct_request"}}
+	}
+	if int64(len(request.Selector.GraphQuery.Filters)) > s.store.limits.MaxFiltersPerQuery {
+		return nil, 0, &httpapi.APIError{Status: 400, Code: "network_flow_invalid_filter", Details: map[string]any{"reason_code": "too_many_filters", "field_key": nil, "op": nil, "filter_index": nil, "retry_action": "correct_request"}}
 	}
 	if s.transactions == nil {
 		return nil, 0, httpapi.InternalAPIError(crossownertransaction.ErrUnavailable)
@@ -323,12 +167,20 @@ func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.
 		if authn.IsUniqueViolation(err) {
 			return nil, 0, httpapi.ClientTxnConflictError(request.ClientTxnID)
 		}
+		var currentError *indicatorLinkPreconditionError
+		if errors.As(err, &currentError) {
+			return nil, 0, currentError.APIError
+		}
+		var denied *admission.Denied
+		if errors.As(err, &denied) {
+			return nil, 0, savedGraphAdmissionError(err, "editor|admin")
+		}
 		if errors.Is(err, indicators.ErrIndicatorNotFound) {
 			return nil, 0, indicatorLinkForbidden(request.Selector.Kind, request.Selector.FieldKey, request.Target.Mode, "target_not_visible")
 		}
 		var validation *indicators.IndicatorCreateValidationError
 		if errors.As(err, &validation) {
-			return nil, 0, invalidIndicatorTarget(validation.Field, validation.ReasonCode)
+			return nil, 0, invalidIndicatorTarget("target", "target_value_mismatch")
 		}
 		if reason := indicatorParticipantReason(err); reason != "" {
 			return nil, 0, invalidIndicatorTargetWithContext(request.Selector.Kind, request.Selector.FieldKey, request.Target.Mode, reason)
@@ -343,7 +195,7 @@ func (s *Service) commitIndicatorLinkRoute(ctx context.Context, incidentID uuid.
 		if errors.Is(err, crossownertransaction.ErrTimeout) {
 			return nil, 0, &httpapi.APIError{
 				Status: http.StatusServiceUnavailable, Code: "service_unavailable", Retryable: true,
-				Details: map[string]any{"reason_code": "extension_transaction_timeout"},
+				Details: map[string]any{"reason_code": "extension_transaction_timeout", "operation_id": "network-flow-indicator-link:" + incidentID.String() + ":" + request.ClientTxnID, "timeout_seconds": s.transactions.Timeout().Seconds()},
 			}
 		}
 		if errors.Is(err, ErrInvalidStorageArgument) {
@@ -366,6 +218,9 @@ func (s *Service) replayIndicatorLinkIfPresent(ctx context.Context, key authn.Ro
 		}
 		payload, err := decodeStoredNetworkFlowResponse(existing.ResponseJSON)
 		if err != nil {
+			return nil, 0, true, httpapi.InternalAPIError(err)
+		}
+		if err := validateIndicatorLinkReceipt(payload, existing.StatusCode, incidentID); err != nil {
 			return nil, 0, true, httpapi.InternalAPIError(err)
 		}
 		indicatorID, err := indicatorIDFromLinkPayload(payload)
@@ -428,6 +283,9 @@ func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UU
 		if apiErr != nil {
 			return resolvedIndicatorLinkSelector{}, apiErr
 		}
+		rows = append(rows, row)
+	}
+	for _, row := range rows {
 		value, apiErr := candidateValueFromRow(row, selector.FieldKey)
 		if apiErr != nil {
 			return resolvedIndicatorLinkSelector{}, apiErr
@@ -437,7 +295,6 @@ func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UU
 		} else if candidate != value {
 			return resolvedIndicatorLinkSelector{}, indicatorLinkAmbiguous(selector.Kind, selector.FieldKey, "candidate_mismatch", candidate)
 		}
-		rows = append(rows, row)
 	}
 	sortContributorRows(rows, tableRanks)
 	refs := make([]NetworkFlowRowRef, 0, len(rows))
@@ -454,6 +311,11 @@ func (s *Service) resolveRowRefsSelector(ctx context.Context, incidentID uuid.UU
 
 func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, selector indicatorLinkSelector) (resolvedIndicatorLinkSelector, *httpapi.APIError) {
 	_ = actorUserID
+	for _, tableID := range selector.GraphQuery.SelectedTableIDs {
+		if apiErr := s.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
+			return resolvedIndicatorLinkSelector{}, linkSourceTableError(apiErr, tableID)
+		}
+	}
 	composition, apiErr := s.composeGraphSourceFromSemantic(ctx, incidentID, selector.GraphQuery)
 	if apiErr != nil {
 		return resolvedIndicatorLinkSelector{}, apiErr
@@ -535,7 +397,7 @@ func (s *Service) resolveGraphSelector(ctx context.Context, incidentID uuid.UUID
 
 func (s *Service) getAcceptedRowForLink(ctx context.Context, incidentID uuid.UUID, tableID string, rowID string, suppliedRef *NetworkFlowRowRef) (FlowRow, *httpapi.APIError) {
 	if apiErr := s.ensureActiveTables(ctx, incidentID, []string{tableID}); apiErr != nil {
-		return FlowRow{}, apiErr
+		return FlowRow{}, linkSourceTableError(apiErr, tableID)
 	}
 	rows, err := s.store.ListRows(ctx, incidentID, tableID)
 	if err != nil {
@@ -591,13 +453,13 @@ func indicatorLinkIdempotencyKey(actorUserID uuid.UUID, incidentID uuid.UUID, cl
 }
 
 func indicatorLinkRequestHash(request indicatorLinkRequest) []byte {
-	return networkFlowRequestHash(map[string]any{
-		"route_key":           routeKeyIndicatorLinksCreate,
+	digest := sha256.Sum256(graphViewMutationBytes(routeKeyIndicatorLinksCreate, "indicator-links", map[string]any{
 		"selector":            indicatorSelectorHashResource(request.Selector),
 		"target":              indicatorTargetHashResource(request.Target),
 		"observation_mode":    "binding_only",
 		"confirm_exact_value": request.ConfirmExactValue,
-	})
+	}))
+	return digest[:]
 }
 
 func indicatorSelectorHashResource(selector indicatorLinkSelector) map[string]any {
@@ -660,14 +522,6 @@ func canonicalIPLiteral(value string) bool {
 		return false
 	}
 	return addr.String() == value
-}
-
-func indicatorTypeForIP(value string) string {
-	addr, err := netip.ParseAddr(value)
-	if err == nil && addr.Is4() {
-		return "ipv4_addr"
-	}
-	return "ipv6_addr"
 }
 
 func invalidIndicatorSelector(field string, reason string) *httpapi.APIError {

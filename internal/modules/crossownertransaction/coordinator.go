@@ -58,6 +58,9 @@ func New(options Options) (*Coordinator, error) {
 	}, nil
 }
 
+// Timeout exposes the effective default for owner-required public diagnostics.
+func (c *Coordinator) Timeout() time.Duration { return c.timeout }
+
 func (c *Coordinator) Execute(ctx context.Context, operation Operation) (Result, error) {
 	if c == nil || c.backend == nil || c.clock == nil || c.fatalSink == nil {
 		return Result{}, ErrUnavailable

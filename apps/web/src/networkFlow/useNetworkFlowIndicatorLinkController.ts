@@ -1,161 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
-import type {
-  NetworkFlowIndicatorSelector,
-  NetworkFlowIndicatorTarget,
-} from "./networkFlowClient";
-import {
-  getNetworkFlowBindingSourceRowLimit,
-  linkNetworkFlowIndicator,
-} from "./networkFlowClient";
-import {
-  type NetworkFlowWorkspaceError,
-  networkFlowErrorFromUnknown,
-} from "./networkFlowErrors";
+import { useEffect, useLayoutEffect, useSyncExternalStore } from "react";
+import type { NetworkFlowIndicatorLinkController } from "./NetworkFlowIndicatorLinkController";
 
-export type NetworkFlowIndicatorLinkCandidate = {
-  readonly candidateValue: string;
-  readonly key: string;
-  readonly label: string;
-  readonly selector: NetworkFlowIndicatorSelector;
-};
-
-export function useNetworkFlowIndicatorLinkController({
-  availability,
-  activeCandidateKey,
-  apiBase,
-  enabled,
-  incidentId,
-  onError,
-  onGraphStale,
-  onMessage,
-}: {
-  readonly availability: ExtensionAvailabilityController;
-  readonly activeCandidateKey: string | null;
-  readonly apiBase: string | undefined;
-  readonly enabled: boolean;
-  readonly incidentId: string;
-  readonly onError: (error: NetworkFlowWorkspaceError | null) => void;
-  readonly onGraphStale: () => void;
-  readonly onMessage: (message: string) => void;
+/** Presentation subscribes; the workbook owns admission, settlement and recovery. */
+export function useNetworkFlowIndicatorLinkController(options: {
+  readonly controller: NetworkFlowIndicatorLinkController;
+  readonly selectionContext: string;
 }) {
-  const [bindingSourceRowLimit, setBindingSourceRowLimit] = useState(0);
-  const [linking, setLinking] = useState(false);
-  const candidateKeyRef = useRef(activeCandidateKey);
-  const generationRef = useRef(0);
-  candidateKeyRef.current = activeCandidateKey;
-
-  useEffect(() => {
-    void activeCandidateKey;
-    void enabled;
-    void incidentId;
-    generationRef.current += 1;
-    setLinking(false);
-  }, [activeCandidateKey, enabled, incidentId]);
-
-  useEffect(() => {
-    if (!enabled) {
-      setBindingSourceRowLimit(0);
-      return;
-    }
-    const controller = new AbortController();
-    void getNetworkFlowBindingSourceRowLimit({
-      availability,
-      apiBase,
-      incidentId,
-      signal: controller.signal,
-    })
-      .then((limit) => {
-        if (!controller.signal.aborted) {
-          setBindingSourceRowLimit(limit);
-        }
-      })
-      .catch((caught: unknown) => {
-        if (!controller.signal.aborted) {
-          setBindingSourceRowLimit(0);
-          onError(
-            networkFlowErrorFromUnknown(
-              caught,
-              "Network Flow link limits could not be loaded.",
-            ),
-          );
-        }
-      });
-    return () => controller.abort();
-  }, [availability, apiBase, enabled, incidentId, onError]);
-
-  const link = useCallback(
-    async (options: {
-      readonly candidate: NetworkFlowIndicatorLinkCandidate;
-      readonly confirmExactValue: string;
-      readonly target: NetworkFlowIndicatorTarget;
-    }): Promise<boolean> => {
-      if (
-        !enabled ||
-        linking ||
-        options.confirmExactValue !== options.candidate.candidateValue ||
-        candidateKeyRef.current !== options.candidate.key
-      ) {
-        return false;
-      }
-      generationRef.current += 1;
-      const generation = generationRef.current;
-      const candidateKey = options.candidate.key;
-      setLinking(true);
-      onError(null);
-      try {
-        const result = await linkNetworkFlowIndicator({
-          availability,
-          apiBase,
-          confirmExactValue: options.confirmExactValue,
-          incidentId,
-          selector: options.candidate.selector,
-          target: options.target,
-        });
-        if (
-          generation !== generationRef.current ||
-          candidateKey !== candidateKeyRef.current
-        ) {
-          return false;
-        }
-        onMessage(
-          result.duplicate
-            ? "Indicator link already exists."
-            : "Indicator link created.",
-        );
-        onError(null);
-        setLinking(false);
-        return true;
-      } catch (caught) {
-        if (
-          generation !== generationRef.current ||
-          candidateKey !== candidateKeyRef.current
-        ) {
-          return false;
-        }
-        const requestError = networkFlowErrorFromUnknown(
-          caught,
-          "Network Flow indicator link failed.",
-        );
-        if (requestError.code === "network_flow_graph_query_stale") {
-          onGraphStale();
-        }
-        onError(requestError);
-        setLinking(false);
-        return false;
-      }
-    },
-    [
-      availability,
-      apiBase,
-      enabled,
-      incidentId,
-      linking,
-      onError,
-      onGraphStale,
-      onMessage,
-    ],
+  const { controller } = options;
+  const state = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
   );
-
-  return { bindingSourceRowLimit, link, linking };
+  useEffect(() => controller.activate(), [controller]);
+  useLayoutEffect(
+    () => controller.setSelectionContext(options.selectionContext),
+    [controller, options.selectionContext],
+  );
+  return state;
 }

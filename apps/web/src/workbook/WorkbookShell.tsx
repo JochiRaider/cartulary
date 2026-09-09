@@ -42,6 +42,9 @@ import {
   type NetworkFlowImportController,
   NetworkFlowImportRecovery,
   NetworkFlowImportSurface,
+  NetworkFlowIndicatorLinkRecovery,
+  NetworkFlowIndicatorLinkSurface,
+  useNetworkFlowIndicatorLinkOwner,
   useNetworkFlowSavedGraphOwner,
 } from "./features/NetworkFlowOperations";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
@@ -204,6 +207,15 @@ function WorkbookShellContent({
       onIncidentAccessLost,
     });
   const networkFlowSavedGraphController = useNetworkFlowSavedGraphOwner({
+    availability: extensionLifecycle.controller,
+    apiBase,
+    incidentId,
+    actorId: authorization.currentUserId,
+    sessionIdentity,
+    role: authorization.currentIncidentRole,
+    open: incidentIdentity?.status === "active",
+  });
+  const networkFlowIndicatorLinkController = useNetworkFlowIndicatorLinkOwner({
     availability: extensionLifecycle.controller,
     apiBase,
     incidentId,
@@ -494,6 +506,7 @@ function WorkbookShellContent({
       }}
       extensionRenderer={{
         savedGraphController: networkFlowSavedGraphController,
+        indicatorLinkController: networkFlowIndicatorLinkController,
         importController: networkFlowImportController,
         currentUserId: authorization.currentUserId,
         workbookStatus: (
@@ -526,13 +539,21 @@ function WorkbookShellContent({
     >
       <WorkbookSaveAnnouncements runtime={infrastructure.mutationRuntime} />
       <NetworkFlowImportSurface controller={networkFlowImportController} />
+      <NetworkFlowIndicatorLinkSurface
+        controller={networkFlowIndicatorLinkController}
+      />
       <WorkbookShellTopBar
         importRecovery={
-          !networkAnalysisActive || !networkAnalysisAvailable ? (
-            <NetworkFlowImportRecovery
-              controller={networkFlowImportController}
+          <>
+            {!networkAnalysisActive || !networkAnalysisAvailable ? (
+              <NetworkFlowImportRecovery
+                controller={networkFlowImportController}
+              />
+            ) : null}
+            <NetworkFlowIndicatorLinkRecovery
+              controller={networkFlowIndicatorLinkController}
             />
-          ) : null
+          </>
         }
         account={{
           applicationMenu: accountApplication,

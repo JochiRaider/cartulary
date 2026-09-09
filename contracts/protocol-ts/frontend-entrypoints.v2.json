@@ -64,6 +64,7 @@
       "generated_module_allowlist": [
         "packages/protocol-ts/src/generated/core-http-types.ts",
         "packages/protocol-ts/src/generated/core-http-validators.ts",
+        "packages/protocol-ts/src/generated/core-indicator-registry.ts",
         "packages/protocol-ts/src/generated/http-operation-bindings.ts"
       ]
     },

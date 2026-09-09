@@ -9,6 +9,7 @@ import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type {
   NetworkFlowImportController,
+  NetworkFlowIndicatorLinkController,
   SavedGraphController,
 } from "../features/NetworkFlowOperations";
 import { shellContentNoticeStyle } from "../layout/workbookShellStyles";
@@ -18,6 +19,7 @@ import {
 } from "../surfaces/WorkbookSurfacesFacade";
 
 type ExtensionWorkspaceRendererProps = {
+  readonly indicatorLinkController: NetworkFlowIndicatorLinkController;
   readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;
   readonly workbookStatus: ReactNode;

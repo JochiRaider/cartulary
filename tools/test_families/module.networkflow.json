@@ -3,6 +3,42 @@
   "owner_id": "module.networkflow",
   "rows": [
     {
+      "row_id": "module.networkflow.accessibility.indicator_link_keyboard_recovery",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "network_flow_indicator_link_accessibility"
+        ],
+        "titles": [
+          "a11y.network-analysis.indicator-link keyboard target selection local errors and responsive recovery"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.accessibility",
@@ -100,6 +136,44 @@
         ],
         "titles": [
           "Network Analysis retains mapping review across workspace departure and incident closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.browser.indicator_link_recovery",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.imports",
+        "web.application",
+        "web.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "network_flow_indicator_link_recovery"
+        ],
+        "titles": [
+          "Network Analysis links compatible targets and recovers exact committed requests across workspace departure"
         ]
       },
       "evidence_class": "browser",
@@ -1912,6 +1986,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
+          "TestIndicatorLinkPublicBoundary",
           "TestNetworkFlow_ExistingIndicatorBindingEvidence_Integration"
         ]
       },

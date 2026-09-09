@@ -849,6 +849,7 @@
           "selected_row_ids": [
             "module.networkflow.browser.import_recovery",
             "module.networkflow.browser.import_retained_draft",
+            "module.networkflow.browser.indicator_link_recovery",
             "module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619",
             "module.networkflow.browser.network_flow_selector_covers_default_graph_mode_fc65f0ecfd",
             "module.networkflow.browser.network_flow_selector_covers_importing_nf_fix_00_094b0f779b",
@@ -1703,6 +1704,7 @@
           "selected_row_ids": [
             "module.networkflow.browser.import_recovery",
             "module.networkflow.browser.import_retained_draft",
+            "module.networkflow.browser.indicator_link_recovery",
             "module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619",
             "module.networkflow.browser.network_flow_selector_covers_default_graph_mode_fc65f0ecfd",
             "module.networkflow.browser.network_flow_selector_covers_importing_nf_fix_00_094b0f779b",
@@ -2424,6 +2426,7 @@
           "browser_session_group": "browser-a11y-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
+            "module.networkflow.accessibility.indicator_link_keyboard_recovery",
             "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1"
           ],
           "specs": [
@@ -3298,6 +3301,7 @@
           "browser_session_group": "browser-a11y-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
+            "module.networkflow.accessibility.indicator_link_keyboard_recovery",
             "module.networkflow.accessibility.verify_claimed_network_analysis_keyboard_focus_a_c81856fdc1"
           ],
           "specs": [

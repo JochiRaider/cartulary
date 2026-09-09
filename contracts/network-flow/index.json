@@ -64,7 +64,7 @@
     "cartulary.network_flow.graph_view_result.v4",
     "cartulary.network_flow.indicator_link_request.v1",
     "cartulary.network_flow.indicator_binding.v1",
-    "cartulary.network_flow.indicator_link_result.v1",
+    "cartulary.network_flow_indicator_link_result.v1",
     "cartulary.network_flow.source_profile_list.v1",
     "cartulary.network_flow.source_profile_list.v2",
     "cartulary.network_flow.table_list.v1",

@@ -1,10 +1,14 @@
 import type { GridCellAnchor, GridCellRange } from "@cartulary/grid-adapter";
+import { coreAtomicIPType } from "../services/networkFlowIndicatorAdapter";
 import type {
+  NetworkFlowGraphEdge,
+  NetworkFlowGraphResult,
+  NetworkFlowGraphVertex,
   NetworkFlowIndicatorSelector,
   NetworkFlowRow,
   NetworkFlowRowRef,
 } from "./networkFlowClient";
-import type { NetworkFlowIndicatorLinkCandidate } from "./useNetworkFlowIndicatorLinkController";
+import type { NetworkFlowIndicatorLinkCandidate } from "./networkFlowIndicatorLinkOperation";
 
 export type NetworkFlowLinkableFieldKey =
   | "network_flow.src_ip"
@@ -46,12 +50,92 @@ export function resolveNetworkFlowRowLinkSelection(options: {
   }
   const candidateValue = String(selectedRows[0]?.[fieldKey] ?? "");
   if (
-    candidateValue.trim() === "" ||
+    coreAtomicIPType(candidateValue) === null ||
     selectedRows.some((row) => row[fieldKey] !== candidateValue)
   ) {
     return null;
   }
   return { candidateValue, fieldKey, rows: selectedRows };
+}
+
+export function networkFlowVertexLinkCandidate(
+  graph: NetworkFlowGraphResult | null,
+  vertex: NetworkFlowGraphVertex | null,
+): NetworkFlowIndicatorLinkCandidate | null {
+  if (graph === null || vertex === null) return null;
+  const bindings = graph.vertex_selectors.filter(
+    (binding) => binding.projected_vertex_id === vertex.vertex_id,
+  );
+  const semantic = bindings[0]?.selector;
+  if (
+    bindings.length !== 1 ||
+    semantic === undefined ||
+    !/^nfe_[a-f0-9]{64}$/u.test(semantic.source_vertex_id) ||
+    coreAtomicIPType(semantic.endpoint_value) === null
+  )
+    return null;
+  const selector: NetworkFlowIndicatorSelector = {
+    kind: "graph_vertex",
+    graph_query: graph.semantic_query,
+    graph_query_digest: graph.graph_query_digest,
+    vertex_id: semantic.source_vertex_id,
+  };
+  return {
+    candidateValue: semantic.endpoint_value,
+    key: JSON.stringify([
+      selector,
+      semantic.endpoint_value,
+      graph.source_table_refs,
+    ]),
+    label: "Selected graph endpoint",
+    selector,
+    sourceRefs: [],
+    sourceTableIds: graph.semantic_query.selected_table_ids,
+    sourceTableRefs: graph.source_table_refs,
+  };
+}
+
+export function networkFlowEdgeLinkCandidate(options: {
+  readonly edge: NetworkFlowGraphEdge | null;
+  readonly graph: NetworkFlowGraphResult | null;
+  readonly fieldKey: NetworkFlowLinkableFieldKey;
+}): NetworkFlowIndicatorLinkCandidate | null {
+  const { edge, graph, fieldKey } = options;
+  if (edge === null || graph === null) return null;
+  const annotations = graph.edge_annotations.filter(
+    (annotation) => annotation.projected_edge_id === edge.edge_id,
+  );
+  const semantic = annotations[0]?.selector;
+  if (
+    annotations.length !== 1 ||
+    semantic?.kind !== "default_edge" ||
+    !/^nff_[a-f0-9]{64}$/u.test(semantic.source_edge_id)
+  )
+    return null;
+  const value =
+    fieldKey === "network_flow.src_ip"
+      ? semantic.source_endpoint_value
+      : semantic.destination_endpoint_value;
+  if (coreAtomicIPType(value) === null) return null;
+  const selector: NetworkFlowIndicatorSelector = {
+    kind: "graph_edge",
+    graph_query: graph.semantic_query,
+    graph_query_digest: graph.graph_query_digest,
+    edge_id: semantic.source_edge_id,
+    field_key: fieldKey,
+  };
+  return {
+    candidateValue: value,
+    key: JSON.stringify([selector, value, graph.source_table_refs]),
+    label:
+      fieldKey === "network_flow.src_ip"
+        ? "Selected edge source endpoint"
+        : "Selected edge destination endpoint",
+    selector,
+    sourceRefs: [],
+    sourceTableIds: graph.semantic_query.selected_table_ids,
+    sourceTableRefs: graph.source_table_refs,
+  };
 }
 
 export function networkFlowRowLinkCandidate(
@@ -72,14 +156,23 @@ export function networkFlowRowLinkCandidate(
         };
   return {
     candidateValue: selection.candidateValue,
-    key: `${selector.kind}:${selection.fieldKey}:${selection.rows
-      .map((row) => row.network_flow_row_id)
-      .join(",")}:${selection.candidateValue}`,
+    key: JSON.stringify([
+      selector,
+      rowRefs(selection.rows),
+      selection.candidateValue,
+    ]),
     label:
       selection.rows.length === 1
-        ? `Selected ${selection.fieldKey}`
-        : `${selection.rows.length} selected rows`,
+        ? selection.fieldKey === "network_flow.src_ip"
+          ? "Selected source IP"
+          : "Selected destination IP"
+        : `${selection.rows.length} selected rows · ${selection.fieldKey === "network_flow.src_ip" ? "Source IP" : "Destination IP"}`,
     selector,
+    sourceRefs: rowRefs(selection.rows),
+    sourceTableRefs: [],
+    sourceTableIds: [
+      ...new Set(selection.rows.map((row) => row.network_flow_table_id)),
+    ],
   };
 }
 

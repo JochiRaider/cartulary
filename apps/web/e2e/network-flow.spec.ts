@@ -19,6 +19,137 @@ import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 
+test("Network Analysis links compatible targets and recovers exact committed requests across workspace departure", async ({
+  page,
+}) => {
+  await openClaimedNetworkAnalysis(page, "NFLINKRECOVERY");
+  await importNetworkFlowCSV(page, { displayName: "link-source" });
+  const sourceCell = page
+    .getByRole("gridcell", { name: /Source IP: 192\.0\.2\.10/u })
+    .first();
+  await sourceCell.click();
+  const trigger = page.getByRole("button", {
+    name: "Link 1 selected row",
+    exact: true,
+  });
+  await trigger.focus();
+  await trigger.press("Enter");
+  const dialog = page.getByTestId(
+    networkAnalysisTestId("indicator-link-dialog"),
+  );
+  const confirmation = page.getByTestId(
+    networkAnalysisTestId("indicator-link-confirmation"),
+  );
+  const submit = page.getByTestId(
+    networkAnalysisTestId("indicator-link-submit"),
+  );
+  await expect(confirmation).toBeFocused();
+  await confirmation.fill("192.0.2.10 ");
+  await confirmation.press("Enter");
+  await expect(confirmation).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    dialog.getByText(/Enter the canonical candidate exactly/u),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await trigger.press("Enter");
+  await confirmation.fill("192.0.2.10");
+  const requests: string[] = [];
+  let loseReceipt = true;
+  let committedBinding = "";
+  await page.route("**/network-flow/indicator-links", async (route) => {
+    requests.push(route.request().postData() ?? "");
+    const response = await route.fetch();
+    if (loseReceipt) {
+      loseReceipt = false;
+      expect(response.status()).toBe(201);
+      committedBinding = (await response.json()).data.binding
+        .network_flow_indicator_binding_id;
+      await route.abort("failed");
+    } else await route.fulfill({ response });
+  });
+  await submit.press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("may have committed");
+  await page.keyboard.press("Escape");
+  await page
+    .getByTestId(surfaceTabTestId("cartulary.view.timeline.v2"))
+    .click();
+  const recovery = page.getByRole("button", {
+    name: "Review retained indicator link",
+  });
+  await expect(recovery).toBeVisible();
+  await recovery.focus();
+  await recovery.press("Enter");
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Replay exact request", exact: true })
+    .press("Enter");
+  await expect(dialog.getByRole("status")).toHaveText(
+    "Indicator binding created.",
+  );
+  await expect(dialog).toContainText(committedBinding);
+  await expect(dialog).toContainText(
+    "Recovered by replaying the exact original request.",
+  );
+  expect(requests).toHaveLength(2);
+  expect(requests[1]).toBe(requests[0]);
+  await dialog
+    .getByRole("button", { name: "Done", exact: true })
+    .press("Enter");
+  await expect(recovery).toHaveCount(0);
+  await expect(page.getByTestId(networkAnalysisTestId("tab"))).toBeFocused();
+  await page.getByTestId(networkAnalysisTestId("tab")).click();
+  await sourceCell.click();
+  await trigger.click();
+  await dialog.getByLabel("Existing indicator", { exact: true }).check();
+  const choices = dialog.getByLabel("Compatible indicators on this page", {
+    exact: true,
+  });
+  await expect(choices.locator("option")).toHaveCount(2);
+  await choices.focus();
+  await choices.press("ArrowDown");
+  await choices.press("Enter");
+  await expect(
+    dialog.getByLabel("Known indicator ID (alternative)"),
+  ).not.toHaveValue("");
+  await confirmation.fill("192.0.2.10");
+  await confirmation.press("Enter");
+  await expect(dialog.getByRole("status")).toHaveText(
+    "Existing indicator binding reused.",
+  );
+  await expect(dialog).toContainText(committedBinding);
+  expect(requests).toHaveLength(3);
+  expect(JSON.parse(requests[2] ?? "{}").client_txn_id).not.toBe(
+    JSON.parse(requests[0] ?? "{}").client_txn_id,
+  );
+  await test.info().attach("indicator-link-reused-receipt", {
+    body: await dialog.screenshot(),
+    contentType: "image/png",
+  });
+  await dialog
+    .getByRole("button", { name: "Done", exact: true })
+    .press("Enter");
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  await page
+    .getByTestId(/^network-flow-edge-/u)
+    .first()
+    .getByRole("button", { name: "Select edge" })
+    .click();
+  await page
+    .getByRole("button", { name: "Link destination", exact: true })
+    .click();
+  const value = await dialog.locator(".network-flow-link-value").innerText();
+  await confirmation.fill(value);
+  await confirmation.press("Enter");
+  await expect(dialog.getByRole("status")).toHaveText(
+    "Indicator binding created.",
+  );
+  await dialog
+    .getByRole("button", { name: "Done", exact: true })
+    .press("Enter");
+});
+
 test("Network Flow unclaimed workspace remains unavailable", async ({
   page,
 }) => {

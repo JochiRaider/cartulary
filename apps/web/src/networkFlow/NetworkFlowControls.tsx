@@ -547,6 +547,39 @@ export const networkFlowChromeCssText = `
   gap: ${cssToken("--ct-spacing-md")};
 }
 
+.${networkFlowChromeRootClassName} .network-flow-link-dialog {
+  inline-size: min(40rem, 100%);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+}
+
+.${networkFlowChromeRootClassName} .network-flow-link-dialog p,
+.${networkFlowChromeRootClassName} .network-flow-link-dialog h3 {
+  margin: 0;
+}
+
+.${networkFlowChromeRootClassName} .network-flow-link-dialog h3:focus-visible,
+.${networkFlowChromeRootClassName} .network-flow-link-dialog summary:focus-visible {
+  outline: ${cssToken("--ct-component-focus-ring-border")};
+  outline-offset: ${cssToken("--ct-component-focus-ring-offset")};
+}
+
+.${networkFlowChromeRootClassName} .network-flow-link-value,
+.${networkFlowChromeRootClassName} .network-flow-link-dialog code {
+  font-family: ${cssToken("--ct-typography-mono-fontFamily")};
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.${networkFlowChromeRootClassName} .network-flow-link-targets {
+  min-inline-size: 0;
+  display: grid;
+  gap: ${cssToken("--ct-spacing-xs")};
+  border: ${cssToken("--ct-border-hairline")};
+  padding: ${cssToken("--ct-spacing-sm")};
+}
+
 .${networkFlowChromeRootClassName} .network-flow-saved-workspace {
   min-inline-size: 0;
   display: grid;

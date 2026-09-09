@@ -1,4 +1,7 @@
-import { networkAnalysisTestId } from "@cartulary/ui-contracts";
+import {
+  networkAnalysisTestId,
+  workbookIncidentIdentityTestId,
+} from "@cartulary/ui-contracts";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -8,6 +11,7 @@ import {
 
 const focusableSelector = [
   "a[href]",
+  "summary",
   "button:not([disabled])",
   "input:not([disabled])",
   "select:not([disabled])",
@@ -19,11 +23,14 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
   readonly dismissDisabled?: boolean | undefined;
   readonly initialFocusTestId?: string | undefined;
   readonly fallbackFocusTestId?: string | undefined;
+  readonly restoreFallbackFocus?: (() => boolean) | undefined;
   readonly onDismiss: () => void;
 }) {
   const dialogRef = useRef<Element | null>(null);
   const dismissDisabledRef = useRef(options.dismissDisabled ?? false);
   const onDismissRef = useRef(options.onDismiss);
+  const restoreFallbackRef = useRef(options.restoreFallbackFocus);
+  restoreFallbackRef.current = options.restoreFallbackFocus;
   dismissDisabledRef.current = options.dismissDisabled ?? false;
   onDismissRef.current = options.onDismiss;
 
@@ -34,7 +41,9 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
         : null;
     const dialog = dialogRef.current;
     if (dialog === null) return;
+    let mounted = true;
     queueMicrotask(() => {
+      if (!mounted) return;
       const preferred =
         options.initialFocusTestId === undefined
           ? null
@@ -50,18 +59,36 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
       target.focus({ preventScroll: true });
     });
     return () => {
+      mounted = false;
       queueMicrotask(() => {
+        if (
+          document.querySelector('[role="dialog"][aria-modal="true"]') !== null
+        )
+          return;
+        if (
+          (previouslyFocused?.isConnected !== true ||
+            previouslyFocused.hasAttribute("disabled")) &&
+          restoreFallbackRef.current?.() === true
+        )
+          return;
         const target =
           previouslyFocused?.isConnected === true &&
           !previouslyFocused.hasAttribute("disabled")
             ? previouslyFocused
-            : (Array.from(document.getElementsByTagName("*")).find(
-                (element): element is HTMLElement =>
-                  element instanceof HTMLElement &&
-                  element.dataset.testid ===
-                    (options.fallbackFocusTestId ??
-                      networkAnalysisTestId("workspace")),
-              ) ?? null);
+            : ([
+                options.fallbackFocusTestId ??
+                  networkAnalysisTestId("workspace"),
+                networkAnalysisTestId("tab"),
+                workbookIncidentIdentityTestId(),
+              ].flatMap((testId) =>
+                Array.from(document.getElementsByTagName("*")).filter(
+                  (element): element is HTMLElement =>
+                    element instanceof HTMLElement &&
+                    element.dataset.testid === testId &&
+                    !element.hidden &&
+                    !element.hasAttribute("disabled"),
+                ),
+              )[0] ?? null);
         if (target === null) return;
         if (!target.matches(focusableSelector)) target.tabIndex = -1;
         target.focus({ preventScroll: true });
@@ -87,7 +114,11 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
     }
     const first = focusable[0] as HTMLElement;
     const last = focusable.at(-1) as HTMLElement;
-    if (event.shiftKey && document.activeElement === first) {
+    if (
+      event.shiftKey &&
+      (document.activeElement === first ||
+        !focusable.includes(document.activeElement as HTMLElement))
+    ) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -105,6 +136,9 @@ function modalFocusableElements(dialog: HTMLElement): HTMLElement[] {
   ).filter(
     (element) =>
       !element.hidden &&
+      element.closest('[hidden], [aria-hidden="true"]') === null &&
+      (element.closest("details:not([open])") === null ||
+        element.tagName === "SUMMARY") &&
       element.getAttribute("aria-hidden") !== "true" &&
       element.tabIndex >= 0,
   );

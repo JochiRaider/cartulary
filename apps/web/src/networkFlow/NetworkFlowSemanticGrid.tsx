@@ -49,6 +49,7 @@ import { useNetworkFlowGridLayout } from "./useNetworkFlowGridLayout";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 
 export function NetworkFlowAcceptedGrid({
+  gridRef,
   error,
   filtered,
   loadGenerationKey = 0,
@@ -61,6 +62,7 @@ export function NetworkFlowAcceptedGrid({
   sort,
   onSelectionChange,
 }: {
+  readonly gridRef?: RefObject<GridHandle | null> | undefined;
   readonly error: NetworkFlowRequestError | null;
   readonly filtered: boolean;
   readonly loadGenerationKey?: string | number | undefined;
@@ -108,6 +110,7 @@ export function NetworkFlowAcceptedGrid({
   });
   return (
     <NetworkFlowGridFrame
+      externalGridRef={gridRef}
       columnsControl={layout}
       gridSchemaId="network_flow.accepted_rows.v1"
       onSelectionChange={onSelectionChange}
@@ -348,6 +351,7 @@ export function NetworkFlowContributorGrid({
 }
 
 function NetworkFlowGridFrame<Row extends object>({
+  externalGridRef,
   children,
   columnsControl,
   gridSchemaId,
@@ -355,6 +359,7 @@ function NetworkFlowGridFrame<Row extends object>({
   resetKey,
   rows,
 }: {
+  readonly externalGridRef?: RefObject<GridHandle | null> | undefined;
   readonly children: (state: {
     readonly activeAnchor: GridCellAnchor | null;
     readonly cellRange: GridCellRange | null;
@@ -379,20 +384,24 @@ function NetworkFlowGridFrame<Row extends object>({
   const [activeAnchor, setActiveAnchor] = useState<GridCellAnchor | null>(null);
   const [cellRange, setCellRange] = useState<GridCellRange | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const gridRef = useRef<GridHandle | null>(null);
+  const localGridRef = useRef<GridHandle | null>(null);
+  const gridRef = externalGridRef ?? localGridRef;
   const focusRestorationRef = useRef(false);
   const lastRowIndexRef = useRef(0);
-  const restoreGridAnchor = useCallback((anchor: GridCellAnchor) => {
-    focusRestorationRef.current = true;
-    queueMicrotask(() => {
-      if (gridRef.current?.focusAnchor(anchor) !== true) {
-        gridRef.current?.focusRoot();
-      }
-      window.setTimeout(() => {
-        focusRestorationRef.current = false;
-      }, 0);
-    });
-  }, []);
+  const restoreGridAnchor = useCallback(
+    (anchor: GridCellAnchor) => {
+      focusRestorationRef.current = true;
+      queueMicrotask(() => {
+        if (gridRef.current?.focusAnchor(anchor) !== true) {
+          gridRef.current?.focusRoot();
+        }
+        window.setTimeout(() => {
+          focusRestorationRef.current = false;
+        }, 0);
+      });
+    },
+    [gridRef],
+  );
   const rowResourceIds = useMemo(
     () =>
       rows.flatMap((row) => {
@@ -478,6 +487,7 @@ function NetworkFlowGridFrame<Row extends object>({
     restoreGridAnchor,
     rowResourceIds,
     rowResourceKey,
+    gridRef,
   ]);
   const visibleFieldKey = columnsControl.orderedVisibleFieldKeys.join("\u0000");
   useEffect(() => {
@@ -492,7 +502,12 @@ function NetworkFlowGridFrame<Row extends object>({
     setCellRange(null);
     setInspectorOpen(false);
     focusGridRoot(gridRef);
-  }, [activeAnchor, columnsControl.orderedVisibleFieldKeys, visibleFieldKey]);
+  }, [
+    activeAnchor,
+    columnsControl.orderedVisibleFieldKeys,
+    visibleFieldKey,
+    gridRef,
+  ]);
   useEffect(() => {
     onSelectionChange?.(activeAnchor, cellRange);
   }, [activeAnchor, cellRange, onSelectionChange]);

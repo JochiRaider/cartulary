@@ -266,6 +266,7 @@ export type IndicatorSelector =
       kind: "row_refs";
       /**
        * @minItems 1
+       * @maxItems 1000
        */
       row_refs: [NetworkFlowRowRef, ...NetworkFlowRowRef[]];
       field_key: "network_flow.src_ip" | "network_flow.dst_ip";
@@ -280,7 +281,7 @@ export type IndicatorSelector =
       kind: "graph_edge";
       graph_query: GraphSemanticQueryV2;
       graph_query_digest: SHA256;
-      edge_id: FlowEdgeID | BucketEdgeID;
+      edge_id: FlowEdgeID;
       field_key: "network_flow.src_ip" | "network_flow.dst_ip";
     };
 /**
@@ -300,17 +301,12 @@ export type EndpointID = string;
 export type FlowEdgeID = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "BucketEdgeID".
- */
-export type BucketEdgeID = string;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IndicatorTarget".
  */
 export type IndicatorTarget =
   | {
       mode: "existing_indicator";
-      indicator_id: OpaqueID;
+      indicator_id: UUID;
     }
   | {
       mode: "create_indicator";
@@ -417,6 +413,11 @@ export type GraphTemporalEdgeSelectorV2 =
       destination_port_present: true;
       destination_port: Port;
     };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "BucketEdgeID".
+ */
+export type BucketEdgeID = string;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "GraphResultVariantV2".
@@ -1120,6 +1121,7 @@ export interface IndicatorBinding {
   candidate_value: IPLiteral;
   /**
    * @minItems 1
+   * @maxItems 1000
    */
   source_row_refs: [NetworkFlowRowRef, ...NetworkFlowRowRef[]];
   source_row_refs_truncated: boolean;
@@ -1128,7 +1130,7 @@ export interface IndicatorBinding {
    * @maxItems 0
    */
   created_observation_refs: [];
-  created_by_user_id: OpaqueID;
+  created_by_user_id: UUID;
   created_at: TimestampUTC;
 }
 /**
@@ -1136,7 +1138,7 @@ export interface IndicatorBinding {
  * via the `definition` "CoreIndicatorRef".
  */
 export interface CoreIndicatorRef {
-  indicator_id: OpaqueID;
+  indicator_id: UUID;
   indicator_type: "ipv4_addr" | "ipv6_addr";
   value_kind: "atomic";
   normalized_value: IPLiteral;
@@ -1146,7 +1148,7 @@ export interface CoreIndicatorRef {
  * via the `definition` "IndicatorLinkResult".
  */
 export interface IndicatorLinkResult {
-  schema_id: "cartulary.network_flow.indicator_link_result.v1";
+  schema_id: "cartulary.network_flow_indicator_link_result.v1";
   binding: IndicatorBinding;
   duplicate: boolean;
 }

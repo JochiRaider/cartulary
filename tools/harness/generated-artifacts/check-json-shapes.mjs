@@ -1813,7 +1813,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.indicator_link_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.indicator_link_result.v1",
+      success_schema_id: "cartulary.network_flow_indicator_link_result.v1",
       success_http_statuses: [200, 201],
       idempotency: "client_txn_id_required",
       primary_errors: [

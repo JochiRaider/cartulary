@@ -190,6 +190,7 @@ import {
   type EvidenceUploadOptions,
 } from "./support/evidence/fixtures";
 import {
+  importNetworkFlowCSV,
   networkFlowMinimalCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
@@ -7099,3 +7100,133 @@ test("a11y.preferences independent clear and recovery controls preserve keyboard
     page.getByTestId(savedViewActionMenuTriggerTestId(timelineViewSchemaId)),
   ).toBeFocused();
 });
+
+if (
+  (process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID ?? "default") ===
+  "network_flow_claimed"
+) {
+  test("a11y.network-analysis.indicator-link keyboard target selection local errors and responsive recovery", async ({
+    page,
+  }) => {
+    await openClaimedNetworkAnalysis(page, "NFLINKA11Y");
+    const value = "2001:db8:1234:5678:9abc:def0:1234:5678";
+    await importNetworkFlowCSV(page, {
+      displayName: "IPv6 link source",
+      file: {
+        name: "ipv6-link.csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from(
+          `Start Time,End Time,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets\n2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,${value},2001:db8::20,443,51515,6,1200,12\n`,
+        ),
+      },
+    });
+    await page
+      .getByRole("gridcell", { name: /Source IP:/u })
+      .first()
+      .click();
+    const trigger = page.getByRole("button", {
+      name: "Link 1 selected row",
+      exact: true,
+    });
+    await trigger.focus();
+    await trigger.press("Enter");
+    const dialog = page.getByTestId(
+      networkAnalysisTestId("indicator-link-dialog"),
+    );
+    const confirmation = page.getByTestId(
+      networkAnalysisTestId("indicator-link-confirmation"),
+    );
+    await expect(confirmation).toBeFocused();
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
+    await confirmation.fill(value.toUpperCase());
+    await confirmation.press("Enter");
+    await expect(confirmation).toHaveAttribute("aria-invalid", "true");
+    const errorId = await confirmation.getAttribute("aria-describedby");
+    expect(errorId).toContain("network-flow-indicator-confirmation-error");
+    await expect(
+      dialog.locator("#network-flow-indicator-confirmation-error"),
+    ).toContainText("exactly");
+    for (const viewport of [
+      { width: 390, height: 720 },
+      { width: 768, height: 320 },
+    ]) {
+      await page.setViewportSize(viewport);
+      expect(
+        await dialog.evaluate(
+          (node) => node.scrollWidth <= node.clientWidth + 1,
+        ),
+      ).toBe(true);
+      await dialog
+        .getByRole("button", { name: "Link Indicator", exact: true })
+        .focus();
+      await page.keyboard.press("Tab");
+      await expect(
+        dialog.getByLabel("Create or reuse indicator", { exact: true }),
+      ).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(
+        dialog.getByRole("button", { name: "Link Indicator", exact: true }),
+      ).toBeFocused();
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    expect(
+      await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+    ).toBe(true);
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+    const spacing = await page.addStyleTag({
+      content:
+        ".network-flow-link-dialog * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } .network-flow-link-dialog p { margin-block-end: 2em !important; }",
+    });
+    await page.setViewportSize({ width: 768, height: 480 });
+    expect(
+      await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+    ).toBe(true);
+    await confirmation.focus();
+    await expectAllInteractiveControlsNamed(page);
+    await test.info().attach("indicator-link-ipv6-spacing", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await test.info().attach("indicator-link-accessibility-tree", {
+      body: await dialog.ariaSnapshot(),
+      contentType: "text/plain",
+    });
+    await spacing.evaluate((node) => node.parentNode?.removeChild(node));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await trigger.press("Enter");
+    const create = dialog.getByLabel("Create or reuse indicator", {
+      exact: true,
+    });
+    await create.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      dialog.getByLabel("Existing indicator", { exact: true }),
+    ).toBeChecked();
+    const knownId = dialog.getByLabel("Known indicator ID (alternative)");
+    await knownId.fill("invalid-id");
+    await confirmation.fill(value);
+    await confirmation.press("Enter");
+    await expect(knownId).toHaveAttribute("aria-invalid", "true");
+    await expect(knownId).toBeFocused();
+    await create.focus();
+    await page.keyboard.press("Space");
+    await expect(confirmation).toHaveValue("");
+    await confirmation.fill(value);
+    await confirmation.press("Enter");
+    await expect(dialog.getByRole("status")).toHaveText(
+      "Indicator binding created.",
+    );
+    await dialog.getByRole("button", { name: "Done", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+}

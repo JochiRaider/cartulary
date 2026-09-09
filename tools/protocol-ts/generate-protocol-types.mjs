@@ -1206,6 +1206,16 @@ const descriptor = {
 };
 writeFilesAtomically([
   {
+    path: path.join(generatedRoot, "core-indicator-registry.ts"),
+    content: generatedConstSource(
+      "coreIndicatorTypes",
+      requireStringArray(
+        openAPI.components.schemas.IndicatorObservationCreateRequest.properties.parsed_indicator_type.enum,
+        "Core Indicator type registry",
+      ),
+    ),
+  },
+  {
     path: path.join(generatedRoot, "network-flow-types.ts"),
     content: networkFlowTypes,
   },

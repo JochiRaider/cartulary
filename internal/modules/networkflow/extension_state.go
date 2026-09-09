@@ -39,8 +39,10 @@ type ExtensionStateReader interface {
 func ExtensionStateFamilyCounters() []extensionstore.FamilyCounter {
 	graphViews := countExtensionFamily(ExtensionFamilyGraphViews, `SELECT COUNT(*) FROM network_flow_graph_views`)
 	graphViews.Validate = validatePersistedGraphViewFamily
+	bindings := countExtensionFamily(ExtensionFamilyIndicatorBindings, `SELECT COUNT(*) FROM network_flow_indicator_bindings`)
+	bindings.Validate = validatePersistedIndicatorLinkFamily
 	return []extensionstore.FamilyCounter{
-		countExtensionFamily(ExtensionFamilyIndicatorBindings, `SELECT COUNT(*) FROM network_flow_indicator_bindings`),
+		bindings,
 		countExtensionFamily(ExtensionFamilyRejectedRowDiagnostics, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics`),
 		countExtensionFamily(ExtensionFamilyRows, `SELECT COUNT(*) FROM network_flow_rows`),
 		countExtensionFamily(ExtensionFamilyTables, `SELECT COUNT(*) FROM network_flow_tables`),
@@ -130,5 +132,8 @@ func ValidateExtensionState(ctx context.Context, reader ExtensionStateReader) er
 			counts[ExtensionFamilyGraphViews] != 0) {
 		return fmt.Errorf("network flow dependent state exists without table state")
 	}
-	return reader.ValidateFamilyState(ctx, ExtensionFamilyGraphViews)
+	if err := reader.ValidateFamilyState(ctx, ExtensionFamilyGraphViews); err != nil {
+		return err
+	}
+	return reader.ValidateFamilyState(ctx, ExtensionFamilyIndicatorBindings)
 }

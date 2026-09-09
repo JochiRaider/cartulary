@@ -16,6 +16,7 @@ import (
 // inventory. New root exports require an explicit owner-contract decision.
 var indicatorExportedSurfaceAllowlist = map[string]struct{}{
 	"AffectedRecordVersion":                             {},
+	"CanonicalIPIndicatorType":                          {},
 	"CreateCommand":                                     {},
 	"CreateResult":                                      {},
 	"ErrIllegalTransition":                              {},
@@ -84,7 +85,7 @@ var indicatorExportRoles = indicatorExportRoleInventory(map[string]string{
 		IndicatorObservationActionParams IndicatorObservationCreateParams IndicatorObservationMutationResult
 		IndicatorObservationRecord IndicatorObservationResolveParams IndicatorReference
 		IdempotencyPort IncidentStatePort RevisionPort SourceTextPort SourceTextValue
-		ValidateCreateCommand ViewSchemaID
+		ValidateCreateCommand ViewSchemaID CanonicalIPIndicatorType
 	`,
 	"typed source-owner contribution consumed by application assembly": `
 		IncidentBundleContribution NewImportContribution NewIncidentBundleContribution
@@ -117,8 +118,8 @@ func TestIndicatorExportedSurfaceReachabilityLock(t *testing.T) {
 	if len(missingRoles) != 0 || len(staleRoles) != 0 {
 		t.Fatalf("Indicator exported surface role inventory disagrees with allowlist: missing=%v stale=%v", missingRoles, staleRoles)
 	}
-	if len(actual) != 54 {
-		t.Fatalf("Indicator exported surface contains %d declarations, want exact reviewed Iteration 3 surface of 54", len(actual))
+	if len(actual) != 55 {
+		t.Fatalf("Indicator exported surface contains %d declarations, want reviewed surface of 55 including Core IP classification", len(actual))
 	}
 	for declaration, role := range indicatorExportRoles {
 		if strings.TrimSpace(role) == "" {

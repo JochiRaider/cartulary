@@ -15,6 +15,12 @@ import (
 
 func TestIndicatorVocabularyMatchesPortableAndOpenAPIContracts(t *testing.T) {
 	t.Parallel()
+	for value, want := range map[string]string{"192.0.2.1": "ipv4_addr", "2001:db8::1": "ipv6_addr", "::": "ipv6_addr", "192.000.2.1": "", "2001:DB8::1": "", "::ffff:c000:201": "", "::ffff:192.0.2.1": "", "fe80::1%eth0": "", "2001:db8::1/64": "", "192.0.2.1 ": ""} {
+		got, ok := CanonicalIPIndicatorType(value)
+		if got != want || ok != (want != "") {
+			t.Fatalf("Core atomic IP classification differs for fixture %q", value)
+		}
+	}
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	openAPI := readIndicatorContractJSON(t, filepath.Join(root, "contracts/openapi/cartulary.openapi.yaml"))
 	indicatorSchema := readIndicatorContractJSON(t, filepath.Join(root, "contracts/incident-bundles/indicators.row.v1.schema.json"))

@@ -996,6 +996,10 @@
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/core-http-types"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/core-indicator-registry"
         }
       ]
     },

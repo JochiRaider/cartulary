@@ -13,8 +13,10 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -89,6 +91,12 @@ func (c *transactionCapability) ValidateIndicatorLinkTarget(ctx context.Context,
 	if err := c.store.lockIncidentTx(ctx, c.tx, mutation.IncidentID); err != nil {
 		return err
 	}
+	if _, err := admission.NewChecker(c.store.pool).CheckTx(ctx, c.tx, mutation.IncidentID, mutation.Actor.ID, admission.Requirement{AllowedRoles: admission.RolesEditorAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
+		return err
+	}
+	if err := validateIndicatorLinkSourcesTx(ctx, c.tx, mutation); err != nil {
+		return err
+	}
 	if mutation.Request.Target.Mode != "existing_indicator" {
 		return nil
 	}
@@ -97,6 +105,54 @@ func (c *transactionCapability) ValidateIndicatorLinkTarget(ctx context.Context,
 		return err
 	}
 	return validateIndicatorTargetLogical(record, mutation.Resolved.CandidateValue, mutation.TargetType)
+}
+
+// Accepted flow rows and mappings are immutable. Under the incident lock,
+// checking every selected table and captured row closes the deletion race,
+// including graph tables whose contributors fall beyond the retained prefix.
+func validateIndicatorLinkSourcesTx(ctx context.Context, tx pgx.Tx, mutation indicatorLinkMutation) error {
+	tableIDs := map[string]bool{}
+	for _, id := range mutation.Request.Selector.GraphQuery.SelectedTableIDs {
+		tableIDs[id] = true
+	}
+	for _, ref := range mutation.Resolved.SourceRowRefs {
+		tableIDs[ref.NetworkFlowTableID] = true
+	}
+	ordered := make([]string, 0, len(tableIDs))
+	for id := range tableIDs {
+		ordered = append(ordered, id)
+	}
+	sort.Strings(ordered)
+	for _, id := range ordered {
+		var status string
+		err := tx.QueryRow(ctx, `SELECT table_status FROM network_flow_tables WHERE incident_id = $1 AND network_flow_table_id = $2`, mutation.IncidentID, id).Scan(&status)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &indicatorLinkPreconditionError{APIError: linkSourceTableError(tableReadError(ErrTableNotFound), id)}
+		}
+		if err == nil && status != "active" {
+			return &indicatorLinkPreconditionError{APIError: &httpapi.APIError{Status: 409, Code: "network_flow_table_not_active", Details: map[string]any{"reason_code": "soft_deleted", "network_flow_table_id": id, "table_status": linkNullable(status), "allowed_states": []string{"active"}, "retry_action": "refresh_resource"}}}
+		}
+		if err != nil {
+			return err
+		}
+	}
+	for _, ref := range mutation.Resolved.SourceRowRefs {
+		var accepted bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM network_flow_rows WHERE incident_id = $1 AND network_flow_table_id = $2 AND network_flow_row_id = $3 AND source_row_number = $4 AND mapping_fingerprint = $5)`, mutation.IncidentID, ref.NetworkFlowTableID, ref.NetworkFlowRowID, ref.SourceRowNumber, ref.MappingFingerprint).Scan(&accepted)
+		if err != nil {
+			return err
+		}
+		if !accepted {
+			return &indicatorLinkPreconditionError{APIError: invalidIndicatorSelector("row_refs", "row_not_accepted")}
+		}
+	}
+	return nil
+}
+
+type indicatorLinkPreconditionError struct{ APIError *httpapi.APIError }
+
+func (*indicatorLinkPreconditionError) Error() string {
+	return "indicator link source is no longer applicable"
 }
 
 func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation indicatorLinkMutation) (indicatorLinkCommitResult, error) {

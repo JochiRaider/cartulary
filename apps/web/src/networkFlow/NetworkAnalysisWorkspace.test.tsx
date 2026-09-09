@@ -19,17 +19,22 @@ import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollabor
 import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
 import { ImportClient } from "../services/importClient";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
+import {
+  NetworkFlowIndicatorLinkRecovery,
+  NetworkFlowIndicatorLinkSurface,
+} from "./IndicatorLinkDialog";
 import { NetworkAnalysisWorkspace as ProductionNetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
 import { NetworkFlowImportController } from "./NetworkFlowImportController";
 import { NetworkFlowImportSurface } from "./NetworkFlowImportSurface";
 import { networkAnalysisSheetRef } from "./networkFlowClient";
 import { savedGraphJobFixture } from "./savedGraphTestFixtures";
+import { useNetworkFlowIndicatorLinkOwner } from "./useNetworkFlowIndicatorLinkOwner";
 import { useNetworkFlowSavedGraphOwner } from "./useNetworkFlowSavedGraphOwner";
 
 function NetworkAnalysisWorkspace(
   props: Omit<
     ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
-    "importController" | "savedGraphController"
+    "importController" | "savedGraphController" | "indicatorLinkController"
   >,
 ) {
   return (
@@ -49,7 +54,7 @@ function NetworkAnalysisWorkspace(
 function NetworkAnalysisWorkspaceOwner(
   props: Omit<
     ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
-    "importController" | "savedGraphController"
+    "importController" | "savedGraphController" | "indicatorLinkController"
   >,
 ) {
   const [controller] = useState(() => new NetworkFlowImportController());
@@ -58,6 +63,15 @@ function NetworkAnalysisWorkspaceOwner(
     [props.incidentId],
   );
   const savedGraphController = useNetworkFlowSavedGraphOwner({
+    availability,
+    apiBase: props.apiBase,
+    incidentId: props.incidentId,
+    actorId: props.currentUserId ?? importActorId,
+    sessionIdentity: "workspace-test",
+    role: props.currentIncidentRole,
+    open: true,
+  });
+  const indicatorLinkController = useNetworkFlowIndicatorLinkOwner({
     availability,
     apiBase: props.apiBase,
     incidentId: props.incidentId,
@@ -102,10 +116,13 @@ function NetworkAnalysisWorkspaceOwner(
       <ProductionNetworkAnalysisWorkspace
         importController={controller}
         savedGraphController={savedGraphController}
+        indicatorLinkController={indicatorLinkController}
         currentUserId={importActorId}
         {...props}
       />
       <NetworkFlowImportSurface controller={controller} />
+      <NetworkFlowIndicatorLinkSurface controller={indicatorLinkController} />
+      <NetworkFlowIndicatorLinkRecovery controller={indicatorLinkController} />
     </ExtensionAvailabilityProvider>
   );
 }
@@ -222,6 +239,19 @@ describe("NetworkAnalysisWorkspace", () => {
     );
     fireEvent.change(
       screen.getByTestId(networkAnalysisTestId("indicator-link-confirmation")),
+      { target: { value: "192.0.2.10 " } },
+    );
+    fireEvent.click(
+      screen.getByTestId(networkAnalysisTestId("indicator-link-submit")),
+    );
+    expect(
+      screen
+        .getByTestId(networkAnalysisTestId("indicator-link-confirmation"))
+        .getAttribute("aria-invalid"),
+    ).toBe("true");
+    expect(indicatorLinkRequestBodies(fetchSpy)).toHaveLength(0);
+    fireEvent.change(
+      screen.getByTestId(networkAnalysisTestId("indicator-link-confirmation")),
       { target: { value: "192.0.2.10" } },
     );
     fireEvent.click(
@@ -239,6 +269,8 @@ describe("NetworkAnalysisWorkspace", () => {
       },
       confirm_exact_value: "192.0.2.10",
     });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Done" }));
 
     const initialRowsCall = fetchSpy.mock.calls.find(([input]) =>
       requestURL(input).endsWith(
@@ -444,6 +476,7 @@ describe("NetworkAnalysisWorkspace", () => {
       confirm_exact_value: "192.0.2.10",
     });
 
+    fireEvent.click(await screen.findByRole("button", { name: "Done" }));
     fireEvent.click(
       screen.getByTestId(networkAnalysisTestId("contributor-close")),
     );
@@ -455,15 +488,19 @@ describe("NetworkAnalysisWorkspace", () => {
       await screen.findByTestId(networkAnalysisTestId("contributor-drawer")),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Link vertex" }));
-    fireEvent.click(screen.getByLabelText("Existing Indicator"));
+    fireEvent.click(screen.getByLabelText("Existing indicator"));
+    await screen.findByRole("option", { name: /192\.0\.2\.10 · 44444444/u });
     fireEvent.change(
-      screen.getByTestId(networkAnalysisTestId("indicator-link-existing-id")),
-      {
-        target: {
-          value: "44444444-4444-4444-8444-444444444444",
-        },
-      },
+      screen.getByLabelText("Compatible indicators on this page"),
+      { target: { value: "44444444-4444-4444-8444-444444444444" } },
     );
+    expect(
+      (
+        screen.getByTestId(
+          networkAnalysisTestId("indicator-link-existing-id"),
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("44444444-4444-4444-8444-444444444444");
     fireEvent.change(
       screen.getByTestId(networkAnalysisTestId("indicator-link-confirmation")),
       { target: { value: "192.0.2.10" } },
@@ -509,24 +546,28 @@ describe("NetworkAnalysisWorkspace", () => {
     const expectations = [
       {
         role: "viewer" as const,
+        canLink: false,
         canImport: false,
         canRename: false,
         canDelete: false,
       },
       {
         role: "editor" as const,
+        canLink: true,
         canImport: true,
         canRename: true,
         canDelete: false,
       },
       {
         role: "reviewer" as const,
+        canLink: false,
         canImport: true,
         canRename: true,
         canDelete: true,
       },
       {
         role: "admin" as const,
+        canLink: true,
         canImport: true,
         canRename: true,
         canDelete: true,
@@ -545,6 +586,11 @@ describe("NetworkAnalysisWorkspace", () => {
       expect(
         screen.queryByTestId(networkAnalysisTestId("import-trigger")) !== null,
       ).toBe(expectation.canImport);
+      expect(
+        screen.queryByRole("button", {
+          name: "Select one IP cell or same-value IP range",
+        }) !== null,
+      ).toBe(expectation.canLink);
       expect(
         screen.queryByTestId(networkAnalysisTestId("rename-trigger")) !== null,
       ).toBe(expectation.canRename);
@@ -2412,37 +2458,66 @@ function installNetworkFlowFetchMock(
       }
       if (
         method === "POST" &&
+        url.endsWith("/views/cartulary.view.indicators.v1/query")
+      )
+        return jsonResponse({
+          data: {
+            incident_id: incidentResourceId,
+            view_schema_id: "cartulary.view.indicators.v1",
+            rows: [
+              {
+                record_id: "44444444-4444-4444-8444-444444444444",
+                row_version: 1,
+                cells: {
+                  "indicator.indicator_type": { value: "ipv4_addr" },
+                  "indicator.value_kind": { value: "atomic" },
+                  "indicator.normalized_value": { value: "192.0.2.10" },
+                },
+              },
+            ],
+          },
+          meta: {
+            request_id: "req-indicator-query",
+            query: { filters: [], sort: [] },
+            paging: { limit: 100, has_more: false, next_cursor: null },
+          },
+        });
+      if (
+        method === "POST" &&
         url.endsWith(
           "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/indicator-links",
         )
       ) {
-        return jsonResponse({
-          schema_id: "cartulary.network_flow.indicator_link_result.v1",
-          duplicate: false,
-          binding: {
-            network_flow_indicator_binding_id:
-              "nfb_33333333333333333333333333333333",
-            incident_id: incidentResourceId,
-            target_indicator_ref: {
-              indicator_id: "44444444-4444-4444-8444-444444444444",
-              indicator_type: "ipv4_addr",
-              value_kind: "atomic",
-              normalized_value: "192.0.2.10",
+        return jsonResponse(
+          {
+            schema_id: "cartulary.network_flow_indicator_link_result.v1",
+            duplicate: false,
+            binding: {
+              network_flow_indicator_binding_id:
+                "nfb_33333333333333333333333333333333",
+              incident_id: incidentResourceId,
+              target_indicator_ref: {
+                indicator_id: "44444444-4444-4444-8444-444444444444",
+                indicator_type: "ipv4_addr",
+                value_kind: "atomic",
+                normalized_value: "192.0.2.10",
+              },
+              selector_kind: (
+                JSON.parse(String(init?.body)) as {
+                  selector: { kind: string };
+                }
+              ).selector.kind,
+              candidate_value: "192.0.2.10",
+              source_row_refs: [rowRefResource()],
+              source_row_refs_truncated: false,
+              source_row_refs_total_count: 1,
+              created_observation_refs: [],
+              created_by_user_id: importActorId,
+              created_at: "2026-07-10T12:00:00Z",
             },
-            selector_kind: (
-              JSON.parse(String(init?.body)) as {
-                selector: { kind: string };
-              }
-            ).selector.kind,
-            candidate_value: "192.0.2.10",
-            source_row_refs: [rowRefResource()],
-            source_row_refs_truncated: false,
-            source_row_refs_total_count: 1,
-            created_observation_refs: [],
-            created_by_user_id: "user-1",
-            created_at: "2026-07-10T12:00:00Z",
           },
-        });
+          201,
+        );
       }
       return jsonResponse({ error: { code: "unexpected_request" } }, 404);
     },
@@ -3046,7 +3121,8 @@ function jsonResponse(body: unknown, status = 200): Response {
     !Array.isArray(body) &&
     "schema_id" in body &&
     typeof body.schema_id === "string" &&
-    body.schema_id.startsWith("cartulary.network_flow.")
+    (body.schema_id.startsWith("cartulary.network_flow.") ||
+      body.schema_id === "cartulary.network_flow_indicator_link_result.v1")
       ? { data: body, meta: { request_id: "req-network-flow-unit" } }
       : body;
   return new Response(JSON.stringify(envelope), {

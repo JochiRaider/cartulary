@@ -130,6 +130,42 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.captured_indicator_linking_admission_replay_and_f337b28fac",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkOperation.test.ts",
+        "titles": [
+          "Indicator link captured operation accepts a late current receipt without closing or replacing a newer draft",
+          "Indicator link captured operation admits once synchronously and freezes the exact request",
+          "Indicator link captured operation bounds observation and explicitly replays unchanged bytes while failed replay preserves uncertainty",
+          "Indicator link captured operation derives exact IPv4 and IPv6 types from Core registry facts",
+          "Indicator link captured operation discovers one compatible visible page with stable IDs and opaque continuation",
+          "Indicator link captured operation distinguishes reuse metadata from binding identity and validates source refs",
+          "Indicator link captured operation fences actual queued dispatch after authority changes",
+          "Indicator link captured operation fences discovery generations and bounds failed reads independently of writes",
+          "Indicator link captured operation invalidates exact confirmation without silently normalizing or retargeting",
+          "Indicator link captured operation pauses session recovery and purges different actors incidents claims and removed sources",
+          "Indicator link captured operation projects one status by precedence and expires success without discarding the receipt",
+          "Indicator link captured operation uses captured transport bytes CSRF and a validated receipt",
+          "Indicator link captured operation withdraws writes synchronously while retaining copyable drafts and never automatically resubmits"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.network_flow_client_transport_boundary_suite_480693e8c8",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",
