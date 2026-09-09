@@ -68,7 +68,8 @@ import {
   createSuiteRuntime,
   scanRetainedRoot,
 } from "../runtime/suite-runtime.mjs";
-import { directoryDigest, validateFrontendAttachment } from "../browser/browser-session-evidence.mjs";
+import { validateFrontendAttachment } from "../browser/browser-session-evidence.mjs";
+import { resolveFrontendArtifact, sealFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
 const root = path.resolve(import.meta.dirname, "../../..");
 
@@ -136,7 +137,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
     );
   }
   for (const schemaID of [
-    "cartulary.browser_target_result.v3",
+    "cartulary.browser_target_result.v4",
     "cartulary.frontend_measurement_aggregate.v3",
     "cartulary.frontend_measurement_observation.v2",
     "cartulary.frontend_measurement_summary.v3",
@@ -1965,18 +1966,29 @@ suiteCases.evidence.push(semanticCase(
       assert.notEqual(production.producer_target, measurement.producer_target);
       assert.notEqual(production.path, measurement.path);
       for (const artifact of [production, measurement]) {
-        const directory = path.join(temporaryRoot, artifact.path);
-        mkdirSync(directory, { recursive: true });
-        for (const entry of artifact.entries) writeFileSync(path.join(directory, entry), entry);
-        const frontend = { build_artifact_ref: artifact.path, build_artifact_sha256: directoryDigest(directory) };
-        validateFrontendAttachment(temporaryRoot, artifact, frontend);
-        const other = artifact === production ? measurement : production;
-        assert.throws(() => validateFrontendAttachment(temporaryRoot, other, frontend), /does not match selected stage/u);
-        assert.throws(() => validateFrontendAttachment(temporaryRoot, artifact, { ...frontend, build_artifact_sha256: `sha256:${"0".repeat(64)}` }), /digest mismatch/u);
-        writeFileSync(path.join(directory, "index.html"), "changed after publication");
-        assert.throws(() => validateFrontendAttachment(temporaryRoot, artifact, frontend), /digest mismatch/u);
-        rmSync(path.join(directory, artifact.entries.at(-1)));
-        assert.throws(() => validateFrontendAttachment(temporaryRoot, artifact, frontend));
+        const runID = artifact.producer_target;
+        const runRoot = path.join(temporaryRoot, runID);
+        mkdirSync(runRoot, { mode: 0o700 });
+        writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({ source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}` }));
+        const runtime = createSuiteRuntime({ repoRoot: root, runRoot, runID, scratchRoot: path.join(temporaryRoot, "private") });
+        try {
+          const environment = { CARTULARY_TEST_RESULTS_DIR: temporaryRoot, CARTULARY_TEST_RUN_ID: runID, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID };
+          const staging = runtime.privatePath("staging");
+          mkdirSync(staging, { mode: 0o700 });
+          for (const entry of artifact.entries) writeFileSync(path.join(staging, entry), entry);
+          const profile = { ...artifact, id: artifact === production ? "production" : "measurement" };
+          const directory = sealFrontendArtifact({ repoRoot: root, runRoot, runtime, profile, staging });
+          const sealed = resolveFrontendArtifact(root, artifact.producer_target, environment);
+          const frontend = { build_artifact_ref: sealed.receiptRef, build_receipt_sha256: sealed.receiptDigest, build_artifact_sha256: sealed.receipt.content_digest };
+          validateFrontendAttachment(root, artifact, frontend, environment);
+          const other = artifact === production ? measurement : production;
+          assert.throws(() => validateFrontendAttachment(root, other, frontend, environment), /does not match selected stage/u);
+          assert.throws(() => validateFrontendAttachment(root, artifact, { ...frontend, build_artifact_sha256: `sha256:${"0".repeat(64)}` }, environment), /digest mismatch/u);
+          writeFileSync(path.join(directory, "index.html"), "changed after publication");
+          assert.throws(() => validateFrontendAttachment(root, artifact, frontend, environment), /digest mismatch/u);
+          rmSync(path.join(directory, artifact.entries.at(-1)));
+          assert.throws(() => validateFrontendAttachment(root, artifact, frontend, environment));
+        } finally { runtime.close(); }
       }
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });

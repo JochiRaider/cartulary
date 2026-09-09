@@ -127,7 +127,7 @@ import {
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
@@ -140,6 +140,10 @@ import {
 } from "./support/administrativeAudit";
 import { installAccountEditingFixture } from "./support/auth/accountEditingFixture";
 import { csrfHeaders } from "./support/auth/browserSession";
+import {
+  selectVisualDensity,
+  visualPreferences,
+} from "./support/auth/visualPreferences";
 import {
   driveRealTimelineSummaryConflict,
   focusRemoteTimelineCellAndWaitForPresence,
@@ -167,7 +171,7 @@ import {
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
 import {
-  expectLifecycleControlReachable,
+  assertLifecycleControlReachable,
   openLifecycle,
 } from "./support/incidentLifecycle";
 import {
@@ -181,7 +185,7 @@ import {
   openMembershipManagement,
 } from "./support/incidentMembershipManagement";
 import {
-  expectMetadataControlReachable,
+  assertMetadataControlReachable,
   installMetadataPresentation,
   openMetadata,
 } from "./support/incidentMetadata";
@@ -203,6 +207,10 @@ import {
   openReferencePacks,
   referencePackBarrier,
 } from "./support/referencePacks";
+import {
+  navigateVisualApplication,
+  reloadVisualApplication,
+} from "./support/runtime/applicationReadiness";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -212,7 +220,17 @@ import {
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
-import { injectDesignFixture } from "./support/visual/fixtures";
+import {
+  settleVisualGeometry,
+  type VisualAnchor,
+  verifyVisualGeometry,
+} from "./support/visual/capture";
+import {
+  initializeVisualPage,
+  injectDesignFixture,
+  test,
+} from "./support/visual/fixtures";
+import { assertVisualPresentation } from "./support/visual/profile";
 import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
@@ -234,12 +252,20 @@ import {
 } from "./support/workbook/savedViews";
 
 type FrontendVisualFixture = {
+  capture_profiles: Record<
+    string,
+    {
+      viewport_css_px: string;
+      device_scale_factor: number;
+      browser_zoom_percent: number;
+      theme_id: string;
+      density_id: string | null;
+      surface_kind: string;
+    }
+  >;
   blocked_reason: string;
-  browser_zoom_percent: number;
   capture_scope: { kind: string; selector?: string };
   design_contract_id?: string;
-  density_id: string;
-  device_scale_factor: number;
   dynamic_masks: string[];
   fixture_id: string;
   fixture_title: string;
@@ -255,8 +281,6 @@ type FrontendVisualFixture = {
   scroll_normalization: { kind: string; anchor?: string; reason?: string };
   seed_id: string;
   status: string;
-  theme_id: string;
-  viewport_css_px: string;
 };
 
 type FrontendVisualFixtureRegistry = {
@@ -264,13 +288,6 @@ type FrontendVisualFixtureRegistry = {
   owner_id: string;
   schema_id: string;
   verification_id: string;
-};
-
-type VisualAccountDensity = "compact" | "comfortable" | "default" | null;
-
-type VisualAccountPreferences = {
-  readonly density_mode: VisualAccountDensity;
-  readonly preferences_version: number;
 };
 
 const expectedFrontendVisualFixtureIds = [
@@ -358,11 +375,16 @@ function expectCurrentFrontendVisualFixtureMetadata(
   expect(fixture.catalog_row_ids.length).toBeGreaterThan(0);
   expect(fixture.playwright_scenario_title.length).toBeGreaterThan(0);
   expect(fixture.seed_id.length).toBeGreaterThan(0);
-  expect(fixture.viewport_css_px).toMatch(/^[0-9]+x[0-9]+$/);
-  expect(fixture.device_scale_factor).toBeGreaterThanOrEqual(1);
-  expect(fixture.browser_zoom_percent).toBe(100);
-  expect(fixture.theme_id).toBe("dark_graphite");
-  expect(fixture.density_id.length).toBeGreaterThan(0);
+  expect(Object.keys(fixture.capture_profiles).sort()).toEqual(
+    [...fixture.golden_artifacts].sort(),
+  );
+  for (const profile of Object.values(fixture.capture_profiles)) {
+    expect(profile.viewport_css_px).toMatch(/^[0-9]+x[0-9]+$/);
+    expect(profile.device_scale_factor).toBeGreaterThanOrEqual(1);
+    expect(profile.browser_zoom_percent).toBeGreaterThanOrEqual(100);
+    expect(profile.theme_id).toBe("dark_graphite");
+    expect(["compact", "default", "comfortable"]).toContain(profile.density_id);
+  }
   expect(fixture.capture_scope.kind).toMatch(
     /^(full_viewport|selector|region)$/,
   );
@@ -636,7 +658,7 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
       await fulfillAuthVisualLogin(route, mode);
     });
 
-    await page.goto("/");
+    await navigateVisualApplication(page, "/");
     await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "loading",
@@ -689,7 +711,8 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     await assertAuthGatewayVisual(page, "auth-invalid-mfa");
 
     loginMode = "mfa_setup_required";
-    await page.reload();
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
     await fillAuthVisualCredentials(page);
     await page.getByTestId(authTestId("login-submit")).click();
     await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
@@ -699,7 +722,8 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     await assertAuthGatewayVisual(page, "auth-mfa-setup-required");
 
     loginMode = "service_unavailable";
-    await page.reload();
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
     await fillAuthVisualCredentials(page);
     await page.getByTestId(authTestId("login-submit")).click();
     await expect(page.getByTestId(authTestId("feedback"))).toHaveText(
@@ -711,7 +735,8 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     await assertAuthGatewayVisual(page, "auth-service-unavailable");
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.reload();
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
     await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
       "data-bootstrap-state",
       "anonymous",
@@ -720,7 +745,8 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.reload();
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
     await assertAuthGatewayVisual(page, "auth-reduced-motion");
     await page.emulateMedia({ reducedMotion: "no-preference" });
 
@@ -821,7 +847,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
       view_schema_id: timelineViewSchemaId,
     });
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
 
     const shell = page.getByTestId(workbookShellReadyTestId());
@@ -1253,7 +1279,7 @@ test.describe("workbook visual evidence", () => {
       },
     );
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
 
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -1300,7 +1326,7 @@ test.describe("workbook visual evidence", () => {
       },
     );
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
 
     const saveState = page.getByTestId(saveStateTestId());
@@ -1441,7 +1467,7 @@ test.describe("workbook visual evidence", () => {
       "timeline.activity_synopsis_text": "Beta grouped row",
     });
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     await clickTimelineRowAction(
       page,
@@ -1508,7 +1534,7 @@ test.describe("browser.grid-interaction visual readiness", () => {
         "browser.grid-interaction visual adapter row",
     });
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await injectFeP3GridAdapterVisualFixture(page);
@@ -1558,7 +1584,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       },
     );
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -1692,7 +1718,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       uniqueIncidentKey("VISUALEMPTYQUERY"),
       "browser.mutation-lifecycle empty Timeline query",
     );
-    await page.goto(`/?incident_id=${emptyIncidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${emptyIncidentId}`);
     await maskIncidentIdentity(page, emptyIncidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
@@ -1784,7 +1810,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       txnPrefix: "visual-entity-linking",
     });
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
@@ -1838,7 +1864,8 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
         .getByTestId(relationshipChipTestId(String(autoItem.item_ref))),
     ).toContainText("auto");
 
-    await page.reload();
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
     await maskIncidentIdentity(page, incidentId);
     await showTimelineCollectionColumns(page);
     await openTimelineInspector(page, dismissedRow.record_id);
@@ -1958,7 +1985,7 @@ test.describe("workbook visual evidence", () => {
       },
     );
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     await showTimelineCollectionColumns(page, ["Hosts", "Identities", "Tags"]);
     await openTimelineInspector(page, unresolvedRow.record_id);
@@ -2045,7 +2072,8 @@ test.describe("workbook visual evidence", () => {
       },
     );
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         evidenceViewSchemaId,
       )}`,
@@ -2100,7 +2128,8 @@ test.describe("workbook visual evidence", () => {
       },
     );
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         evidenceViewSchemaId,
       )}`,
@@ -2189,7 +2218,8 @@ test.describe("workbook visual evidence", () => {
       },
     );
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         evidenceViewSchemaId,
       )}`,
@@ -2209,7 +2239,8 @@ test.describe("workbook visual evidence", () => {
       { scroll: { top: 0, left: "left" } },
     );
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         timelineViewSchemaId,
       )}`,
@@ -2364,7 +2395,8 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       },
     );
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         evidenceViewSchemaId,
       )}`,
@@ -2494,7 +2526,8 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       availablePreview.record_id,
     );
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         timelineViewSchemaId,
       )}`,
@@ -2586,7 +2619,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
 
     const remotePages: Page[] = [];
     try {
-      await page.goto(`/?incident_id=${incidentId}`);
+      await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
       await primarySocket.waitForAcceptedSocket();
       await maskIncidentIdentity(page, incidentId);
 
@@ -2595,6 +2628,9 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           browser,
           sessionTracker,
           {
+            preparePage: async (visualPage) => {
+              await initializeVisualPage(visualPage, remoteActor.user.user_id);
+            },
             createdBy: `visual.collaboration.presence-${index + 1}`,
             email: remoteActor.user.email,
             incidentId,
@@ -2615,6 +2651,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         });
         if (index === 0) {
           const duplicatePage = await remoteSession.page.context().newPage();
+          await initializeVisualPage(duplicatePage, remoteActor.user.user_id);
           const duplicateSocket = installIncidentSocketMonitor(
             duplicatePage,
             incidentId,
@@ -2630,60 +2667,57 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           });
         }
       }
-      const originalDensity = (await readVisualAccountPreferences(page))
-        .density_mode;
-      try {
-        for (const density of ["compact", "comfortable", "default"] as const) {
-          await setVisualAccountDensity(page, density);
-          await page.reload();
-          const spacing = await page.addStyleTag({
-            content:
-              "#root * { letter-spacing: 0.12em !important; line-height: 1.5 !important; word-spacing: 0.16em !important; }",
-          });
-          await scrollGridTargetIntoView({
-            page,
-            surface: timelineViewSchemaId,
-            targetTestId: cellPresenceMarkerTestId(
-              presenceRow.record_id,
-              "timeline.activity_synopsis_text",
-            ),
-          });
-          for (const id of [
-            rowPresenceMarkerTestId(presenceRow.record_id),
-            cellPresenceMarkerTestId(
-              presenceRow.record_id,
-              "timeline.activity_synopsis_text",
-            ),
-          ]) {
-            const marker = page.getByTestId(id);
-            await expect(marker).toHaveAccessibleName(/^6 collaborators/);
-            expect(
-              await marker.evaluate((element) => {
-                const cell = element
-                  .closest("[data-grid-field-key]")
-                  ?.getBoundingClientRect();
-                if (!cell) return false;
-                return Array.from(element.children).every((child) => {
-                  const rect = child.getBoundingClientRect();
-                  return (
-                    rect.left >= cell.left &&
-                    rect.right <= cell.right &&
-                    rect.top >= cell.top &&
-                    rect.bottom <= cell.bottom
-                  );
-                });
-              }),
-            ).toBe(true);
-          }
-          await spacing.evaluate((element) =>
-            element.parentNode?.removeChild(element),
-          );
+      for (const density of ["compact", "comfortable", "default"] as const) {
+        await selectVisualDensity(page, density);
+        await test.step("reload visual application", () =>
+          reloadVisualApplication(page));
+        const spacing = await page.addStyleTag({
+          content:
+            "#root * { letter-spacing: 0.12em !important; line-height: 1.5 !important; word-spacing: 0.16em !important; }",
+        });
+        await scrollGridTargetIntoView({
+          page,
+          surface: timelineViewSchemaId,
+          targetTestId: cellPresenceMarkerTestId(
+            presenceRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
+        });
+        for (const id of [
+          rowPresenceMarkerTestId(presenceRow.record_id),
+          cellPresenceMarkerTestId(
+            presenceRow.record_id,
+            "timeline.activity_synopsis_text",
+          ),
+        ]) {
+          const marker = page.getByTestId(id);
+          await expect(marker).toHaveAccessibleName(/^6 collaborators/);
+          expect(
+            await marker.evaluate((element) => {
+              const cell = element
+                .closest("[data-grid-field-key]")
+                ?.getBoundingClientRect();
+              if (!cell) return false;
+              return Array.from(element.children).every((child) => {
+                const rect = child.getBoundingClientRect();
+                return (
+                  rect.left >= cell.left &&
+                  rect.right <= cell.right &&
+                  rect.top >= cell.top &&
+                  rect.bottom <= cell.bottom
+                );
+              });
+            }),
+          ).toBe(true);
         }
-      } finally {
-        await setVisualAccountDensity(page, originalDensity);
-        await page.reload();
-        await maskIncidentIdentity(page, incidentId);
+        await spacing.evaluate((element) =>
+          element.parentNode?.removeChild(element),
+        );
       }
+      await selectVisualDensity(page, null);
+      await test.step("reload visual application", () =>
+        reloadVisualApplication(page));
+      await maskIncidentIdentity(page, incidentId);
       await scrollGridTargetIntoView({
         page,
         surface: timelineViewSchemaId,
@@ -2883,7 +2917,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
         "browser.saved-view-query rough grouped visual row",
     });
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(
@@ -3164,7 +3198,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       "browser.saved-view-query empty successful Timeline query",
     );
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto(`/?incident_id=${emptyIncidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${emptyIncidentId}`);
     await maskIncidentIdentity(page, emptyIncidentId);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(
@@ -3284,35 +3318,33 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       element.parentNode?.removeChild(element);
     });
 
-    const originalDensity = (await readVisualAccountPreferences(page))
-      .density_mode;
-    try {
-      for (const density of ["compact", "comfortable"] as const) {
-        await setVisualAccountDensity(page, density);
-        await page.reload();
-        const densityGrid = page.getByTestId(
-          gridShellTestId(timelineViewSchemaId),
-        );
-        await expect(densityGrid).toContainText(
-          "No Timeline records have been added.",
-        );
-        await densityGrid.evaluate((element) => {
-          element.setAttribute("data-design-fixture", "empty-state");
-        });
-        await assertWorkbookGridVisualRegression(
-          page,
-          `workbook-query-empty-density-${density}`,
-          timelineViewSchemaId,
-          { scroll: { top: 0, left: "left" } },
-        );
-      }
-    } finally {
-      await setVisualAccountDensity(page, originalDensity);
-      await page.reload();
+    for (const density of ["compact", "comfortable"] as const) {
+      await selectVisualDensity(page, density);
+      await test.step("reload visual application", () =>
+        reloadVisualApplication(page));
+      const densityGrid = page.getByTestId(
+        gridShellTestId(timelineViewSchemaId),
+      );
+      await expect(densityGrid).toContainText(
+        "No Timeline records have been added.",
+      );
+      await densityGrid.evaluate((element) => {
+        element.setAttribute("data-design-fixture", "empty-state");
+      });
+      await assertWorkbookGridVisualRegression(
+        page,
+        `workbook-query-empty-density-${density}`,
+        timelineViewSchemaId,
+        { scroll: { top: 0, left: "left" } },
+      );
     }
+    await selectVisualDensity(page, null);
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
 
     await closeIncidentForVisual(page, emptyIncidentId);
-    await page.reload();
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
     await expect(
       page.getByText("Closed, read-only", { exact: true }),
     ).toBeVisible();
@@ -3402,7 +3434,8 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       mfa_required: false,
     });
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         timelineViewSchemaId,
       )}`,
@@ -3456,6 +3489,9 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       browser,
       sessionTracker,
       {
+        preparePage: async (visualPage) => {
+          await initializeVisualPage(visualPage, narrowViewer.user_id);
+        },
         createdBy: "visual.inspector.narrow",
         email: narrowViewer.email,
         incidentId,
@@ -3711,7 +3747,7 @@ async function prepareFeP7ConflictVisual(
   );
   const patchController = await installPatchController(page);
 
-  await page.goto(`/?incident_id=${incidentId}`);
+  await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
   await maskIncidentIdentity(page, incidentId);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await driveRealTimelineSummaryConflict({
@@ -3759,7 +3795,7 @@ test.describe("workbook visual evidence", () => {
 
     let remotePage: Page | null = null;
     try {
-      await page.goto(`/?incident_id=${incidentId}`);
+      await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
       await primarySocket.waitForAcceptedSocket();
       await maskIncidentIdentity(page, incidentId);
       await expect(
@@ -3775,6 +3811,9 @@ test.describe("workbook visual evidence", () => {
         browser,
         sessionTracker,
         {
+          preparePage: async (visualPage) => {
+            await initializeVisualPage(visualPage, remote.user_id);
+          },
           createdBy: "collaboration-visual",
           email: remote.email,
           incidentId,
@@ -3858,7 +3897,7 @@ test.describe("workbook visual evidence", () => {
       },
     );
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     const patchController = await installPatchController(page);
     try {
@@ -3936,7 +3975,7 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_synopsis_text": "Pending conflict visual base",
       },
     );
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     const summaryInput = await mountedGridCell(
       page,
@@ -4094,7 +4133,8 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       "lesson.summary": "browser.coordination-review visual lesson",
     });
 
-    await page.goto(
+    await navigateVisualApplication(
+      page,
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
         taskRequestsViewSchemaId,
       )}`,
@@ -4178,7 +4218,8 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       },
     ] as const;
     for (const expectation of surfaceExpectations) {
-      await page.goto(
+      await navigateVisualApplication(
+        page,
         `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
           expectation.surface,
         )}`,
@@ -4259,7 +4300,7 @@ test.describe("browser.design-readiness visual readiness", () => {
   }, testInfo) => {
     const registry = loadFrontendVisualFixtureRegistry();
     expect(registry.schema_id).toBe(
-      "cartulary.frontend_visual_fixture_registry.v5",
+      "cartulary.frontend_visual_fixture_registry.v6",
     );
     expect(registry.owner_id).toBe("harness.visual");
     expect(registry.verification_id).toBe(
@@ -4338,7 +4379,10 @@ test.describe("browser.design-readiness visual readiness", () => {
       selector: "[data-design-fixture='components']",
     });
     expect(componentStates?.scroll_normalization.kind).toBe("not_applicable");
-    expect(componentStates?.viewport_css_px).toBe("1280x720");
+    expect(
+      Object.values(componentStates?.capture_profiles ?? {})[0]
+        ?.viewport_css_px,
+    ).toBe("1280x720");
     expect(componentStates?.dynamic_masks).toEqual([]);
     expect(componentStates?.no_dynamic_regions).toBe(true);
 
@@ -4353,7 +4397,7 @@ test.describe("browser.design-readiness visual readiness", () => {
         capture_scope: fixture.capture_scope,
         design_contract_id: fixture.design_contract_id,
         fixture_id: fixture.fixture_id,
-        viewport_css_px: fixture.viewport_css_px,
+        capture_profiles: fixture.capture_profiles,
       }))
       .sort((left, right) =>
         left.design_contract_id.localeCompare(right.design_contract_id),
@@ -4402,7 +4446,7 @@ test.describe("browser.design-readiness visual readiness", () => {
         "browser.design-readiness exposed theme fixture row",
     });
 
-    await page.goto(`/?incident_id=${incidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await expect(page.locator("main.cartulary-shell").first()).toHaveAttribute(
       "data-cartulary-theme",
@@ -4425,7 +4469,10 @@ test.describe("browser.design-readiness visual readiness", () => {
       path: `/api/v1/incidents/${loadingIncidentId}/views/${timelineViewSchemaId}/query`,
     });
     try {
-      await page.goto(`/?incident_id=${loadingIncidentId}`);
+      await navigateVisualApplication(
+        page,
+        `/?incident_id=${loadingIncidentId}`,
+      );
       await heldInitialQuery.waitForHit;
       const loadingGrid = page.getByTestId(
         gridShellTestId(timelineViewSchemaId),
@@ -4479,7 +4526,7 @@ test.describe("browser.design-readiness visual readiness", () => {
           "Previously authorized row retained during stale refresh",
       },
     );
-    await page.goto(`/?incident_id=${staleIncidentId}`);
+    await navigateVisualApplication(page, `/?incident_id=${staleIncidentId}`);
     await expect(
       page.getByTestId(gridRowTestId(timelineViewSchemaId, staleRow.record_id)),
     ).toBeVisible();
@@ -4570,7 +4617,8 @@ test.describe("browser.design-readiness visual readiness", () => {
       await page.unroute(staleQueryPattern, staleQueryFailure);
     }
     await closeIncidentForVisual(page, staleIncidentId);
-    await page.reload();
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
     await expect(
       page.getByText("Closed, read-only", { exact: true }),
     ).toBeVisible();
@@ -4602,7 +4650,10 @@ test.describe("browser.design-readiness visual readiness", () => {
     };
     await page.route(unavailableQueryPattern, unavailableQueryFailure);
     try {
-      await page.goto(`/?incident_id=${unavailableIncidentId}`);
+      await navigateVisualApplication(
+        page,
+        `/?incident_id=${unavailableIncidentId}`,
+      );
       const unavailableGrid = page.getByTestId(
         gridShellTestId(timelineViewSchemaId),
       );
@@ -4738,19 +4789,72 @@ async function armVisualPublicErrorFault(
   expect(response.status).toBe(201);
 }
 
+async function visualCaptureStep<T>(
+  capture: string,
+  stage: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  return await test.step(stage, async () => {
+    const started = Date.now();
+    const errorsBefore = test.info().errors.length;
+    let failed = false;
+    try {
+      return await work();
+    } catch (error) {
+      failed = true;
+      throw error;
+    } finally {
+      try {
+        await test.info().attach(`${capture}-${stage}`, {
+          body: JSON.stringify({
+            stage,
+            elapsed_ms: Date.now() - started,
+            status:
+              failed || test.info().errors.length > errorsBefore
+                ? "fail"
+                : "pass",
+          }),
+          contentType: "application/json",
+        });
+      } catch {
+        /* Retain the primary failure if attachment cleanup also fails. */
+      }
+    }
+  });
+}
+
 async function assertVisualRegression(
   page: Page,
   name: string,
   locator = page.getByRole("main"),
-  options: { maxDiffPixels?: number; renderSurface?: string } = {},
+  options: {
+    maxDiffPixels?: number;
+    renderSurface?: string;
+    prepareState?: () => Promise<void>;
+    verifyFraming?: () => Promise<void>;
+  } = {},
 ) {
   await expect(locator).toBeVisible();
-  await prepareVisualRegressionState(page);
+  await visualCaptureStep(name, "presentation and font readiness", () =>
+    prepareVisualPresentation(page),
+  );
+  await visualCaptureStep(name, "prepare declared surface", async () => {
+    await options.prepareState?.();
+  });
+  await visualCaptureStep(name, "normalize visual presentation", () =>
+    maskVisualDynamicText(page),
+  );
+  await visualCaptureStep(name, "settle layout geometry", () =>
+    settleVisualGeometry(page),
+  );
+  await options.verifyFraming?.();
   await attachVisualRenderDiagnostics(page, name, options.renderSurface);
-  await emitVisualCaptureIntent(
-    page,
-    name,
-    "apps/web/e2e/workbook.visual.spec.ts#assertVisualRegression",
+  await visualCaptureStep(name, "validate capture evidence", () =>
+    emitVisualCaptureIntent(
+      page,
+      name,
+      "apps/web/e2e/workbook.visual.spec.ts#assertVisualRegression",
+    ),
   );
   // Retain every comparison failure while collecting later capture intents for
   // complete ordinary-run reconciliation before any golden refresh.
@@ -4761,24 +4865,56 @@ async function assertVisualRegression(
       ? {}
       : { maxDiffPixels: options.maxDiffPixels }),
   });
+  await options.verifyFraming?.();
 }
 
 async function assertViewportVisualRegression(
   page: Page,
   name: string,
-  options: { renderSurface?: string } = {},
+  options: {
+    renderSurface?: string;
+    anchor?: VisualAnchor;
+    ready?: () => Promise<void>;
+  } = {},
 ) {
-  await prepareVisualRegressionState(page);
-  await attachVisualRenderDiagnostics(page, name, options.renderSurface);
-  await emitVisualCaptureIntent(
-    page,
-    name,
-    "apps/web/e2e/workbook.visual.spec.ts#assertViewportVisualRegression",
+  const started = Date.now();
+  await visualCaptureStep(name, "scenario and drawer readiness", async () => {
+    await options.ready?.();
+  });
+  await visualCaptureStep(name, "normalize visual presentation", () =>
+    prepareVisualRegressionState(page),
   );
-  await expect.soft(page).toHaveScreenshot(`${name}.png`, {
-    animations: "disabled",
-    caret: "hide",
-    fullPage: false,
+  await visualCaptureStep(name, "settle layout geometry", () =>
+    settleVisualGeometry(page),
+  );
+  const geometry = await visualCaptureStep(
+    name,
+    "establish and verify visual anchor",
+    () => settleVisualGeometry(page, options.anchor),
+  );
+  await test.info().attach(`${name}-capture-geometry`, {
+    body: JSON.stringify({
+      stage: "anchored",
+      elapsed_ms: Date.now() - started,
+      geometry,
+    }),
+    contentType: "application/json",
+  });
+  await attachVisualRenderDiagnostics(page, name, options.renderSurface);
+  await visualCaptureStep(name, "validate capture evidence", () =>
+    emitVisualCaptureIntent(
+      page,
+      name,
+      "apps/web/e2e/workbook.visual.spec.ts#assertViewportVisualRegression",
+    ),
+  );
+  await visualCaptureStep(name, "compare visual screenshot", async () => {
+    await expect.soft(page).toHaveScreenshot(`${name}.png`, {
+      animations: "disabled",
+      caret: "hide",
+      fullPage: false,
+    });
+    await verifyVisualGeometry(page, options.anchor);
   });
 }
 
@@ -4792,6 +4928,19 @@ async function emitVisualCaptureIntent(
   if (viewport === null) {
     throw new Error(`visual capture ${captureIntent} requires a viewport`);
   }
+  const densityApplies =
+    (await page.getByTestId(workbookShellReadyTestId()).count()) > 0;
+  const surfaceDefault =
+    densityApplies &&
+    (await page
+      .getByTestId(workbookShellReadyTestId())
+      .getAttribute("data-active-view-schema-id")) === timelineViewSchemaId
+      ? "compact"
+      : "default";
+  const expectedDensity = densityApplies
+    ? (visualPreferences(page).read().density_mode ?? surfaceDefault)
+    : null;
+  const expectedTheme = cartularyDefaultThemeId;
   const browserProfile = await page.evaluate(() => {
     const zoom = Number.parseFloat(document.documentElement.style.zoom);
     return {
@@ -4800,14 +4949,26 @@ async function emitVisualCaptureIntent(
         ? "dark"
         : "light",
       density_id:
-        document.documentElement.getAttribute("data-cartulary-density") ?? "",
+        document
+          .querySelector("[data-cartulary-density]")
+          ?.getAttribute("data-cartulary-density") ?? null,
       device_scale_factor: window.devicePixelRatio,
       reduced_motion: window.matchMedia("(prefers-reduced-motion: reduce)")
         .matches,
       theme_id:
-        document.documentElement.getAttribute("data-cartulary-theme") ?? "",
+        document
+          .querySelector("[data-cartulary-theme]")
+          ?.getAttribute("data-cartulary-theme") ?? null,
     };
   });
+  const presentation = {
+    surface_kind: densityApplies
+      ? ("workbook_shell" as const)
+      : ("application_shell" as const),
+    density_id: expectedDensity,
+    theme_id: expectedTheme,
+  };
+  assertVisualPresentation(presentation, browserProfile);
   const rendererProfileId =
     process.env.CARTULARY_VISUAL_RENDERER_PROFILE_ID ?? "";
   if (
@@ -4822,6 +4983,27 @@ async function emitVisualCaptureIntent(
   const expectedGoldenPath = process.env.CARTULARY_VISUAL_SNAPSHOT_ROOT
     ? `apps/web/e2e/workbook.visual.spec.ts-snapshots/${path.basename(snapshotPath)}`
     : path.relative(findRepoRoot(), snapshotPath).replaceAll(path.sep, "/");
+  for (const fixture of loadFrontendVisualFixtureRegistry().fixtures) {
+    if (!fixture.golden_artifacts.includes(expectedGoldenPath)) continue;
+    const registered = fixture.capture_profiles[expectedGoldenPath];
+    const observed = {
+      ...browserProfile,
+      surface_kind: presentation.surface_kind,
+      viewport_css_px: `${viewport.width}x${viewport.height}`,
+    };
+    if (
+      !registered ||
+      Object.entries(registered).some(
+        ([key, value]) => observed[key as keyof typeof observed] !== value,
+      )
+    ) {
+      const error = new Error(
+        `Registered capture profile mismatch for ${fixture.fixture_id}: ${captureIntent}`,
+      );
+      error.name = "CartularyVisualCaptureError";
+      throw error;
+    }
+  }
   const captureId = `visual.capture.${createHash("sha256")
     .update(
       JSON.stringify([
@@ -4835,7 +5017,7 @@ async function emitVisualCaptureIntent(
   await testInfo.attach(`cartulary-visual-capture-intent-${captureId}.json`, {
     body: Buffer.from(
       `${JSON.stringify({
-        schema_id: "cartulary.frontend_visual_capture_intent.v1",
+        schema_id: "cartulary.frontend_visual_capture_intent.v2",
         capture_id: captureId,
         capture_intent: captureIntent,
         expected_golden_path: expectedGoldenPath,
@@ -4844,6 +5026,9 @@ async function emitVisualCaptureIntent(
         screenshot_assertion_location: screenshotAssertionLocation,
         capture_profile: {
           ...browserProfile,
+          surface_kind: presentation.surface_kind,
+          expected_density_id: expectedDensity,
+          expected_theme_id: expectedTheme,
           project_id: testInfo.project.name,
           snapshot_path_template:
             "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}",
@@ -4953,35 +5138,6 @@ async function closeIncidentForVisual(page: Page, incidentId: string) {
         base_incident_version: incident.data.incident_version,
         client_txn_id: uniqueTxn("visual-grid-state-close-incident"),
         reason: "Visual read-only state evidence",
-      },
-      headers: await csrfHeaders(page),
-    },
-  );
-  expect(response.ok()).toBeTruthy();
-}
-
-async function readVisualAccountPreferences(
-  page: Page,
-): Promise<VisualAccountPreferences> {
-  const response = await page.request.get(
-    `${apiBase}/api/v1/account/preferences`,
-  );
-  expect(response.ok()).toBeTruthy();
-  return ((await response.json()) as { data: VisualAccountPreferences }).data;
-}
-
-async function setVisualAccountDensity(
-  page: Page,
-  densityMode: VisualAccountDensity,
-) {
-  const current = await readVisualAccountPreferences(page);
-  const response = await page.request.put(
-    `${apiBase}/api/v1/account/preferences`,
-    {
-      data: {
-        base_preferences_version: current.preferences_version,
-        client_txn_id: uniqueTxn("visual-grid-state-density"),
-        density_mode: densityMode,
       },
       headers: await csrfHeaders(page),
     },
@@ -5571,17 +5727,31 @@ async function assertWorkbookGridVisualRegression(
   surface: string,
   options: GridVisualRegressionOptions,
 ) {
+  let expectedScroll: WorkbookGridVisualScrollSnapshot;
   try {
-    await prepareVisualRegressionState(page);
-    await normalizeWorkbookGridVisualState(page, surface, options);
-    await normalizeWorkbookInspectorVisualState(page, options);
     await assertVisualRegression(
       page,
       name,
       page.getByTestId(gridShellTestId(surface)),
-      options.maxDiffPixels === undefined
-        ? { renderSurface: surface }
-        : { maxDiffPixels: options.maxDiffPixels, renderSurface: surface },
+      {
+        ...(options.maxDiffPixels === undefined
+          ? {}
+          : { maxDiffPixels: options.maxDiffPixels }),
+        renderSurface: surface,
+        verifyFraming: async () => {
+          await expect
+            .poll(() => readWorkbookGridScroll(page, surface))
+            .toEqual(expectedScroll);
+        },
+        prepareState: async () => {
+          await normalizeWorkbookGridVisualState(page, surface, options);
+          await normalizeWorkbookInspectorVisualState(page, options);
+          expectedScroll =
+            "scroll" in options
+              ? await setWorkbookGridScroll(page, surface, options.scroll)
+              : await readWorkbookGridScroll(page, surface);
+        },
+      },
     );
   } catch (error) {
     try {
@@ -5618,25 +5788,36 @@ async function assertEvidenceAccessVisualRegression(
   name: string,
   actionRecordId: string,
 ) {
+  let expectedScroll: WorkbookGridVisualScrollSnapshot;
   try {
-    await prepareVisualRegressionState(page);
-    await setWorkbookGridScroll(page, evidenceViewSchemaId, {
-      top: 0,
-      left: "right",
-    });
-    const actionButton = await mountedGridTarget(
-      page,
-      evidenceViewSchemaId,
-      evidencePreviewButtonTestId(actionRecordId),
-    );
-    await waitForVisualLayoutFrame(page);
-    await expect(actionButton).toBeVisible();
     const evidenceFixture = page.getByRole("region", {
       name: "Workbook work area",
       exact: true,
     });
     await assertVisualRegression(page, name, evidenceFixture, {
       renderSurface: evidenceViewSchemaId,
+      verifyFraming: async () => {
+        await expect
+          .poll(() => readWorkbookGridScroll(page, evidenceViewSchemaId))
+          .toEqual(expectedScroll);
+      },
+      prepareState: async () => {
+        await setWorkbookGridScroll(page, evidenceViewSchemaId, {
+          top: 0,
+          left: "right",
+        });
+        const actionButton = await mountedGridTarget(
+          page,
+          evidenceViewSchemaId,
+          evidencePreviewButtonTestId(actionRecordId),
+        );
+        await waitForVisualLayoutFrame(page);
+        await expect(actionButton).toBeVisible();
+        expectedScroll = await readWorkbookGridScroll(
+          page,
+          evidenceViewSchemaId,
+        );
+      },
     });
   } catch (error) {
     try {
@@ -5654,6 +5835,11 @@ async function assertEvidenceAccessVisualRegression(
 }
 
 async function prepareVisualRegressionState(page: Page) {
+  await prepareVisualPresentation(page);
+  await maskVisualDynamicText(page);
+}
+
+async function prepareVisualPresentation(page: Page) {
   const responsiveBand = page.getByTestId(workbookResponsiveBandTestId());
   if ((await responsiveBand.count()) > 0) {
     const viewportWidth = await page.evaluate(() => {
@@ -5692,7 +5878,6 @@ async function prepareVisualRegressionState(page: Page) {
   });
   await waitForVendoredFonts(page);
   await attachFontManifestDigest();
-  await maskVisualDynamicText(page);
 }
 
 async function parkVisualPointer(page: Page) {
@@ -7017,13 +7202,14 @@ test("Capture account application menu root and nested Controls across contexts 
   workerAdminPage: page,
   workerAdmin,
 }) => {
+  await installAccountEditingFixture(page, { profileOnly: true });
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("VISUALMENU"),
     "Account menu navigation",
   );
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto(`/?incident_id=${incidentId}`);
+  await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   const trigger = page.getByRole("button", {
     name: "Account and application navigation",
@@ -7073,7 +7259,7 @@ test("Capture account application menu root and nested Controls across contexts 
   ).toHaveCount(1);
   await trigger.click();
   await assertViewportVisualRegression(page, "account-menu-deployment-root");
-  await page.goto(`/?incident_id=${incidentId}`);
+  await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   for (const [name, width, height] of [
     ["account-menu-controls-narrow", 1024, 720],
@@ -7139,7 +7325,7 @@ test("Capture account settings drafts pending conflict recovery and responsive s
 }) => {
   const fixture = await installAccountEditingFixture(page);
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto("/");
+  await navigateVisualApplication(page, "/");
   const settings = new AccountSettings(page);
   await settings.openProfile();
   const field = page.getByRole("textbox", { name: "Display name" });
@@ -7667,7 +7853,9 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
   await page.setViewportSize({ width: 1280, height: 720 });
   const panel = await openMembershipAudit(page);
   await expect(panel.getByRole("status")).toContainText("Loading");
-  await assertViewportVisualRegression(page, "membership-audit-loading");
+  await assertViewportVisualRegression(page, "membership-audit-loading", {
+    anchor: { locator: panel, align: "start" },
+  });
   loading.release();
   await expect(panel.getByRole("status")).toContainText("Page 1:");
   await panel.getByRole("button", { name: /^Inspect / }).click();
@@ -7676,18 +7864,20 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
     exact: true,
   });
   const scrollChanges = async () => {
-    await changes.evaluate((element) =>
-      element.scrollIntoView({ block: "start", behavior: "instant" }),
-    );
+    await expect(changes).toBeVisible();
   };
   await scrollChanges();
-  await assertViewportVisualRegression(page, "membership-audit-inspected");
+  await assertViewportVisualRegression(page, "membership-audit-inspected", {
+    anchor: { locator: changes, align: "start" },
+  });
   fixture.fail();
   await panel.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(
     panel.getByRole("button", { name: "Try the read again", exact: true }),
   ).toBeVisible();
-  await assertViewportVisualRegression(page, "membership-audit-stale");
+  await assertViewportVisualRegression(page, "membership-audit-stale", {
+    anchor: { locator: panel, align: "start" },
+  });
   fixture.setPage([]);
   await panel
     .getByRole("button", { name: "Try the read again", exact: true })
@@ -7695,7 +7885,9 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
   await expect(
     panel.getByText("No membership audit events yet."),
   ).toBeVisible();
-  await assertViewportVisualRegression(page, "membership-audit-empty");
+  await assertViewportVisualRegression(page, "membership-audit-empty", {
+    anchor: { locator: panel, align: "start" },
+  });
   fixture.setPage([membershipBrowserEvent(fixture.incidentId)], "next-page");
   await panel.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(
@@ -7709,6 +7901,7 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
   await assertViewportVisualRegression(
     page,
     "membership-audit-cursor-recovery",
+    { anchor: { locator: panel, align: "start" } },
   );
   fixture.setPage([membershipBrowserEvent(fixture.incidentId)]);
   await panel
@@ -7721,13 +7914,18 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
   await assertViewportVisualRegression(
     page,
     "membership-audit-inspected-narrow",
+    { anchor: { locator: changes, align: "start" } },
   );
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.evaluate(() => {
     document.documentElement.style.zoom = "200%";
   });
   await scrollChanges();
-  await assertViewportVisualRegression(page, "membership-audit-inspected-zoom");
+  await assertViewportVisualRegression(
+    page,
+    "membership-audit-inspected-zoom",
+    { anchor: { locator: changes, align: "start", outerScroll: "drawer_end" } },
+  );
   await page.evaluate(() => {
     document.documentElement.style.zoom = "";
   });
@@ -7740,40 +7938,38 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
   await assertViewportVisualRegression(
     page,
     "membership-audit-inspected-spacing",
+    { anchor: { locator: changes, align: "start" } },
   );
   await spacing.evaluate((element) => element.parentNode?.removeChild(element));
-  const originalDensity = (await readVisualAccountPreferences(page))
-    .density_mode;
-  try {
-    for (const density of ["compact", "comfortable"] as const) {
-      await setVisualAccountDensity(page, density);
-      await page.reload();
-      await maskIncidentIdentity(page, fixture.incidentId);
-      await openMembershipAudit(page);
-      await expect(panel.getByRole("status")).toContainText("Page 1:");
-      await expect(panel).toHaveCSS(
-        "font-size",
-        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
-      );
-      await expect(panel.getByRole("listitem")).toHaveCSS(
-        "padding",
-        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
-      );
-      await test.info().attach(`membership-audit-density-${density}`, {
-        body: JSON.stringify(
-          await panel.evaluate((element) => ({
-            fontSize: getComputedStyle(element).fontSize,
-            lineHeight: getComputedStyle(element).lineHeight,
-          })),
-        ),
-        contentType: "application/json",
-      });
-      await panel.getByRole("button", { name: /^Inspect / }).click();
-      await scrollChanges();
-      await assertViewportVisualRegression(page, `membership-audit-${density}`);
-    }
-  } finally {
-    await setVisualAccountDensity(page, originalDensity);
+  for (const density of ["compact", "comfortable"] as const) {
+    await selectVisualDensity(page, density);
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
+    await maskIncidentIdentity(page, fixture.incidentId);
+    await openMembershipAudit(page);
+    await expect(panel.getByRole("status")).toContainText("Page 1:");
+    await expect(panel).toHaveCSS(
+      "font-size",
+      cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+    );
+    await expect(panel.getByRole("listitem")).toHaveCSS(
+      "padding",
+      cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+    );
+    await test.info().attach(`membership-audit-density-${density}`, {
+      body: JSON.stringify(
+        await panel.evaluate((element) => ({
+          fontSize: getComputedStyle(element).fontSize,
+          lineHeight: getComputedStyle(element).lineHeight,
+        })),
+      ),
+      contentType: "application/json",
+    });
+    await panel.getByRole("button", { name: /^Inspect / }).click();
+    await scrollChanges();
+    await assertViewportVisualRegression(page, `membership-audit-${density}`, {
+      anchor: { locator: changes, align: "start" },
+    });
   }
 });
 
@@ -7789,7 +7985,9 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
   await expect(
     panel.getByText("Loading memberships…", { exact: true }),
   ).toBeVisible();
-  await assertViewportVisualRegression(page, "membership-management-loading");
+  await assertViewportVisualRegression(page, "membership-management-loading", {
+    anchor: { locator: panel, align: "start" },
+  });
   loading.release();
   await expect(
     panel.getByText("Response analyst", { exact: true }),
@@ -7801,7 +7999,9 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
     name: /^Role for Response analyst/u,
   });
   await role.selectOption("reviewer");
-  await assertViewportVisualRegression(page, "membership-management-role");
+  await assertViewportVisualRegression(page, "membership-management-role", {
+    anchor: { locator: panel, align: "start" },
+  });
   const pending = auditBrowserBarrier();
   fixture.gateWrite(pending.promise);
   fixture.mutation(503);
@@ -7809,10 +8009,16 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
   await expect(
     panel.getByText(/Saving the reviewed membership action/u),
   ).toBeVisible();
-  await assertViewportVisualRegression(page, "membership-management-pending");
+  await assertViewportVisualRegression(page, "membership-management-pending", {
+    anchor: { locator: panel, align: "start" },
+  });
   pending.release();
   await expect(panel.getByText(/has an uncertain outcome/u)).toBeVisible();
-  await assertViewportVisualRegression(page, "membership-management-uncertain");
+  await assertViewportVisualRegression(
+    page,
+    "membership-management-uncertain",
+    { anchor: { locator: panel, align: "start" } },
+  );
   fixture.setPage([
     membershipBrowserMember(fixture.incidentId, {
       role: "reviewer",
@@ -7844,6 +8050,7 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
   await assertViewportVisualRegression(
     page,
     "membership-management-confirmed-refresh-failure",
+    { anchor: { locator: panel, align: "start" } },
   );
   fixture.setPage([membershipBrowserMember(fixture.incidentId)]);
   await panel
@@ -7856,25 +8063,29 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
     })
     .click();
   const review = panel.getByRole("form");
-  const scrollReview = async () => {
-    await review.evaluate((element) =>
-      element.scrollIntoView({ block: "start", behavior: "instant" }),
-    );
-  };
   await page.setViewportSize({ width: 390, height: 480 });
-  await scrollReview();
   await assertViewportVisualRegression(
     page,
     "membership-management-removal-narrow",
+    { anchor: { locator: review, align: "start" } },
   );
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.evaluate(() => {
     document.documentElement.style.zoom = "200%";
   });
-  await scrollReview();
   await assertViewportVisualRegression(
     page,
     "membership-management-removal-zoom",
+    {
+      anchor: {
+        locator: review.getByRole("button", {
+          name: "Confirm removal",
+          exact: true,
+        }),
+        align: "center",
+        outerScroll: "drawer_end",
+      },
+    },
   );
   await page.evaluate(() => {
     document.documentElement.style.zoom = "";
@@ -7884,40 +8095,35 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
       "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
   });
   await page.setViewportSize({ width: 768, height: 640 });
-  await scrollReview();
   await assertViewportVisualRegression(
     page,
     "membership-management-removal-spacing",
+    { anchor: { locator: review, align: "start" } },
   );
   await spacing.evaluate((element) => element.parentNode?.removeChild(element));
-  const originalDensity = (await readVisualAccountPreferences(page))
-    .density_mode;
-  try {
-    for (const density of ["compact", "comfortable"] as const) {
-      await setVisualAccountDensity(page, density);
-      await page.reload();
-      await maskIncidentIdentity(page, fixture.incidentId);
-      await openMembershipManagement(page);
-      await expect(panel.getByText(/Page 1:/u)).toBeVisible();
-      await expect(panel).toHaveCSS(
-        "font-size",
-        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
-      );
-      await expect(panel.getByRole("article")).toHaveCSS(
-        "padding",
-        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
-      );
-      await panel
-        .getByRole("button", { name: /^Change role for Response analyst/u })
-        .click();
-      await scrollReview();
-      await assertViewportVisualRegression(
-        page,
-        `membership-management-${density}`,
-      );
-    }
-  } finally {
-    await setVisualAccountDensity(page, originalDensity);
+  for (const density of ["compact", "comfortable"] as const) {
+    await selectVisualDensity(page, density);
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
+    await maskIncidentIdentity(page, fixture.incidentId);
+    await openMembershipManagement(page);
+    await expect(panel.getByText(/Page 1:/u)).toBeVisible();
+    await expect(panel).toHaveCSS(
+      "font-size",
+      cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+    );
+    await expect(panel.getByRole("article")).toHaveCSS(
+      "padding",
+      cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+    );
+    await panel
+      .getByRole("button", { name: /^Change role for Response analyst/u })
+      .click();
+    await assertViewportVisualRegression(
+      page,
+      `membership-management-${density}`,
+      { anchor: { locator: review, align: "start" } },
+    );
   }
 });
 
@@ -7933,11 +8139,15 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
   await expect(
     panel.getByText("Refreshing promoted fields…", { exact: true }),
   ).toBeVisible();
-  await assertViewportVisualRegression(page, "metadata-loading");
+  await assertViewportVisualRegression(page, "metadata-loading", {
+    anchor: { locator: panel, align: "start" },
+  });
   gate.release();
   const severity = panel.getByLabel("Severity", { exact: true });
   await severity.fill("critical");
-  await assertViewportVisualRegression(page, "metadata-dirty");
+  await assertViewportVisualRegression(page, "metadata-dirty", {
+    anchor: { locator: panel, align: "start" },
+  });
   const pending = auditBrowserBarrier();
   fixture.gateWrite(pending.promise);
   fixture.mutation(503);
@@ -7947,17 +8157,17 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
   await expect(
     panel.getByText("Saving promoted incident fields…", { exact: true }),
   ).toBeVisible();
-  await panel.evaluate((node) =>
-    node.scrollIntoView({ block: "start", behavior: "instant" }),
-  );
-  await assertViewportVisualRegression(page, "metadata-saving");
+  await assertViewportVisualRegression(page, "metadata-saving", {
+    anchor: { locator: panel, align: "start" },
+  });
   pending.release();
   await expect(panel).toHaveAttribute("data-metadata-operation", "uncertain");
   const review = panel.getByRole("region", {
     name: "Review promoted field changes",
   });
-  await review.scrollIntoViewIfNeeded();
-  await assertViewportVisualRegression(page, "metadata-uncertain");
+  await assertViewportVisualRegression(page, "metadata-uncertain", {
+    anchor: { locator: review, align: "start" },
+  });
   await panel
     .getByRole("button", { name: "Observe current values", exact: true })
     .click();
@@ -7973,20 +8183,30 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
     .getByRole("button", { name: "Save promoted fields", exact: true })
     .click();
   await expect(review.getByText("concurrent", { exact: true })).toBeVisible();
-  await review.scrollIntoViewIfNeeded();
-  await assertViewportVisualRegression(page, "metadata-conflict");
+  await assertViewportVisualRegression(page, "metadata-conflict", {
+    anchor: { locator: review, align: "start" },
+  });
   await page.setViewportSize({ width: 390, height: 480 });
-  await expectMetadataControlReachable(
-    page,
-    panel.getByRole("button", { name: "Use this version", exact: true }),
-  );
-  await assertViewportVisualRegression(page, "metadata-review-narrow");
+  const useVersion = panel.getByRole("button", {
+    name: "Use this version",
+    exact: true,
+  });
+  await assertViewportVisualRegression(page, "metadata-review-narrow", {
+    anchor: { locator: useVersion, align: "center", focus: true },
+  });
+  await assertMetadataControlReachable(page, useVersion);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.evaluate(() => {
     document.documentElement.style.zoom = "200%";
   });
-  await review.scrollIntoViewIfNeeded();
-  await assertViewportVisualRegression(page, "metadata-review-zoom");
+  await assertViewportVisualRegression(page, "metadata-review-zoom", {
+    anchor: {
+      locator: useVersion,
+      align: "center",
+      focus: true,
+      outerScroll: "drawer_end",
+    },
+  });
   await page.evaluate(() => {
     document.documentElement.style.zoom = "";
   });
@@ -7995,8 +8215,9 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
       "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
   });
   await page.setViewportSize({ width: 768, height: 640 });
-  await review.scrollIntoViewIfNeeded();
-  await assertViewportVisualRegression(page, "metadata-review-spacing");
+  await assertViewportVisualRegression(page, "metadata-review-spacing", {
+    anchor: { locator: review, align: "start" },
+  });
   await spacing.evaluate((node) => node.parentNode?.removeChild(node));
   await panel
     .getByRole("button", { name: "Use this version", exact: true })
@@ -8007,12 +8228,10 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
     .getByRole("button", { name: "Save promoted fields", exact: true })
     .click();
   await expect(panel.getByText(/Metadata refresh failed/u)).toBeVisible();
-  await panel.evaluate((node) =>
-    node.scrollIntoView({ block: "start", behavior: "instant" }),
-  );
   await assertViewportVisualRegression(
     page,
     "metadata-confirmed-refresh-failure",
+    { anchor: { locator: panel, align: "start" } },
   );
   fixture.observe({
     severity: "critical",
@@ -8024,31 +8243,30 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
     .getByRole("button", { name: "Check access and refresh", exact: true })
     .click();
   await expect(panel.getByText(/This incident is closed/u)).toBeVisible();
-  await assertViewportVisualRegression(page, "metadata-closed");
+  await assertViewportVisualRegression(page, "metadata-closed", {
+    anchor: { locator: panel, align: "start" },
+  });
   fixture.observe({ status: "active", closed_at: null, incident_version: 5 });
-  const originalDensity = (await readVisualAccountPreferences(page))
-    .density_mode;
-  try {
-    for (const density of ["compact", "comfortable"] as const) {
-      await setVisualAccountDensity(page, density);
-      await page.reload();
-      await maskIncidentIdentity(page, fixture.incidentId);
-      await page.setViewportSize({ width: 768, height: 640 });
-      await openMetadata(page);
-      await expect(severity).toBeVisible();
-      await expect(panel).toHaveCSS(
-        "font-size",
-        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
-      );
-      await expect(panel.locator("[data-metadata-field]").first()).toHaveCSS(
-        "padding",
-        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
-      );
-      await severity.fill("critical exact input");
-      await assertViewportVisualRegression(page, `metadata-${density}`);
-    }
-  } finally {
-    await setVisualAccountDensity(page, originalDensity);
+  for (const density of ["compact", "comfortable"] as const) {
+    await selectVisualDensity(page, density);
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
+    await maskIncidentIdentity(page, fixture.incidentId);
+    await page.setViewportSize({ width: 768, height: 640 });
+    await openMetadata(page);
+    await expect(severity).toBeVisible();
+    await expect(panel).toHaveCSS(
+      "font-size",
+      cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+    );
+    await expect(panel.locator("[data-metadata-field]").first()).toHaveCSS(
+      "padding",
+      cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+    );
+    await severity.fill("critical exact input");
+    await assertViewportVisualRegression(page, `metadata-${density}`, {
+      anchor: { locator: panel, align: "start" },
+    });
   }
 });
 
@@ -8077,8 +8295,16 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
   await inspectionReady();
   await page.setViewportSize({ width: 1280, height: 720 });
   const capture = async (name: string, anchor = panel) => {
-    await anchor.scrollIntoViewIfNeeded();
-    await assertViewportVisualRegression(page, name);
+    const focus = anchor !== panel && (await anchor.isEnabled());
+    await assertViewportVisualRegression(page, name, {
+      anchor: {
+        locator: anchor,
+        align: anchor === panel ? "start" : "center",
+        focus,
+      },
+      ready: inspectionReady,
+    });
+    if (focus) await assertLifecycleControlReachable(page, anchor);
     await test.info().attach(`${name}-review`, {
       body: await page.screenshot({
         animations: "disabled",
@@ -8100,16 +8326,16 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
     name: "Confirm Close incident",
     exact: true,
   });
-  await expectLifecycleControlReachable(page, confirm);
+
   await capture("lifecycle-review", confirm);
   await page.setViewportSize({ width: 390, height: 480 });
-  await expectLifecycleControlReachable(page, confirm);
+
   await capture("lifecycle-review-narrow", confirm);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.evaluate(() => {
     document.documentElement.style.zoom = "200%";
   });
-  await expectLifecycleControlReachable(page, confirm);
+
   await capture("lifecycle-review-zoom", confirm);
   await page.evaluate(() => {
     document.documentElement.style.zoom = "";
@@ -8119,7 +8345,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
       "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
   });
   await page.setViewportSize({ width: 768, height: 640 });
-  await expectLifecycleControlReachable(page, confirm);
+
   await capture("lifecycle-review-spacing", confirm);
   await spacing.evaluate((e) => e.parentNode?.removeChild(e));
   await page.setViewportSize({ width: 1024, height: 720 });
@@ -8156,7 +8382,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
     name: "Replay original action",
     exact: true,
   });
-  await expectLifecycleControlReachable(page, replay);
+
   await capture("lifecycle-uncertain", replay);
   failedReads = true;
   await replay.click();
@@ -8169,7 +8395,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
     name: "Refresh current incident",
     exact: true,
   });
-  await expectLifecycleControlReachable(page, refresh);
+
   await capture("lifecycle-confirmed-refresh-failure", refresh);
   failedReads = false;
   await refresh.click();
@@ -8177,36 +8403,31 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
     panel.getByText(/Current accepted state: Closed, read-only · Version 2/u),
   ).toBeVisible();
   await capture("lifecycle-closed", panel);
-  const originalDensity = (await readVisualAccountPreferences(page))
-    .density_mode;
-  try {
-    for (const density of ["compact", "comfortable"] as const) {
-      await setVisualAccountDensity(page, density);
-      await page.reload();
-      await openLifecycle(page);
-      await inspectionReady();
-      await page.setViewportSize({ width: 768, height: 640 });
-      await expect(panel).toHaveCSS(
-        "font-size",
-        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
-      );
-      await expect(panel).toHaveCSS(
-        "padding",
-        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
-      );
-      await reason.fill("Review new evidence before reopening.");
-      await panel
-        .getByRole("button", { name: "Reopen incident", exact: true })
-        .click();
-      const reopen = panel.getByRole("button", {
-        name: "Confirm Reopen incident",
-        exact: true,
-      });
-      await expectLifecycleControlReachable(page, reopen);
-      await capture(`lifecycle-${density}`, reopen);
-    }
-  } finally {
-    await setVisualAccountDensity(page, originalDensity);
+  for (const density of ["compact", "comfortable"] as const) {
+    await selectVisualDensity(page, density);
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
+    await openLifecycle(page);
+    await inspectionReady();
+    await page.setViewportSize({ width: 768, height: 640 });
+    await expect(panel).toHaveCSS(
+      "font-size",
+      cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+    );
+    await expect(panel).toHaveCSS(
+      "padding",
+      cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+    );
+    await reason.fill("Review new evidence before reopening.");
+    await panel
+      .getByRole("button", { name: "Reopen incident", exact: true })
+      .click();
+    const reopen = panel.getByRole("button", {
+      name: "Confirm Reopen incident",
+      exact: true,
+    });
+
+    await capture(`lifecycle-${density}`, reopen);
   }
 });
 
@@ -8227,8 +8448,10 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
   await expect(
     page.getByTestId(incidentAdministrationTestId("pref-home-sheet-ref")),
   ).toHaveText("Unset");
-  const captureCurrent = async (name: string) => {
-    await assertViewportVisualRegression(page, name);
+  const captureCurrent = async (name: string, anchor = panel) => {
+    await assertViewportVisualRegression(page, name, {
+      anchor: { locator: anchor, align: anchor === panel ? "start" : "center" },
+    });
     await test.info().attach(`${name}-review`, {
       body: await page.screenshot({
         animations: "disabled",
@@ -8239,7 +8462,6 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
     });
   };
   const capture = async (name: string) => {
-    await panel.scrollIntoViewIfNeeded();
     await captureCurrent(name);
   };
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -8269,10 +8491,10 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
   );
   await expect(keep).toHaveAttribute("aria-disabled", "false");
   await keep.scrollIntoViewIfNeeded();
-  await captureCurrent("workbook-preferences-uncertain");
+  await captureCurrent("workbook-preferences-uncertain", keep);
   await page.setViewportSize({ width: 390, height: 480 });
   await keep.scrollIntoViewIfNeeded();
-  await captureCurrent("workbook-preferences-uncertain-narrow");
+  await captureCurrent("workbook-preferences-uncertain-narrow", keep);
   await keep.click();
   await page.unroute(
     `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
@@ -8307,28 +8529,23 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
   await page.unroute(
     `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
   );
-  const originalDensity = (await readVisualAccountPreferences(page))
-    .density_mode;
-  try {
-    for (const density of ["compact", "comfortable"] as const) {
-      await setVisualAccountDensity(page, density);
-      await page.reload();
-      await openIncidentControls(page);
-      await page.setViewportSize({ width: 768, height: 640 });
-      await expect(panel).toHaveCSS(
-        "font-size",
-        cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
-      );
-      await expect(panel).toHaveCSS(
-        "padding",
-        cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
-      );
-      await expect(
-        page.getByTestId(workbookPreferenceTestId("home", "read")),
-      ).toHaveText("");
-      await capture(`workbook-preferences-${density}`);
-    }
-  } finally {
-    await setVisualAccountDensity(page, originalDensity);
+  for (const density of ["compact", "comfortable"] as const) {
+    await selectVisualDensity(page, density);
+    await test.step("reload visual application", () =>
+      reloadVisualApplication(page));
+    await openIncidentControls(page);
+    await page.setViewportSize({ width: 768, height: 640 });
+    await expect(panel).toHaveCSS(
+      "font-size",
+      cartularyDesignTokenVars[`--ct-density-${density}-fontSize`],
+    );
+    await expect(panel).toHaveCSS(
+      "padding",
+      cartularyDesignTokenVars[`--ct-density-${density}-cellPadding`],
+    );
+    await expect(
+      page.getByTestId(workbookPreferenceTestId("home", "read")),
+    ).toHaveText("");
+    await capture(`workbook-preferences-${density}`);
   }
 });

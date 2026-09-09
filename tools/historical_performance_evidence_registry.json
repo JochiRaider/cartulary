@@ -3,6 +3,11 @@
   "scope": "diagnostic_inspection_only",
   "schemas": [
     {
+      "schema_id": "cartulary.browser_group_result.v5",
+      "path": "tools/historical-schemas/performance/cartulary.browser_group_result.v5.schema.json",
+      "sha256": "31aeaad207bfcbe86967dcef0e954ea40afea5ae08c554344e7ac1a76d35be4e"
+    },
+    {
       "schema_id": "cartulary.browser_target_result.v2",
       "path": "tools/historical-schemas/performance/cartulary.browser_target_result.v2.schema.json",
       "sha256": "297d92f960373fed1d08ce037a1cadf951a8ae8f0c2fe07ecfb06e30aaa87ebb"

@@ -1143,6 +1143,28 @@ v3 inputs, and current commands MUST NOT read or translate them.
 
 Embedded web asset preparation is a build-artifact producer in the current profile. When the embedded output is consumed by Go `//go:embed`, the publisher MUST update the embedded source-tree artifact atomically from Go embed's point of view. It MUST NOT delete or rewrite a directory of hashed frontend assets in place while concurrently scheduled Go compilation can traverse that directory. Harness-only readiness stamps, cache records, and other operational metadata MUST remain outside the embedded content root unless the owning product spec explicitly makes that file served application content.
 
+Frontend builds MUST render each selected production or measurement profile in
+a unique current-run private staging directory. The producer MUST validate and
+seal the complete directory before browser admission. Compatible sessions in a
+run share that completed artifact; another build MUST NOT replace its bytes.
+Browser consumers MUST NOT copy or serve an actively mutable conventional build
+output. Conventional packaging outputs MAY be published from completed builds.
+An owned artifact remains available until all its browser consumers terminate;
+suite cleanup removes it on success, failure, or cancellation after consumer
+cleanup. Existing private-runtime containment, ownership, permission, and
+symlink-rejection rules apply. Production and measurement artifacts are distinct.
+
+Each completed build retains one closed
+`cartulary.frontend_build_artifact.v1` receipt at
+`<build-target>/frontend-artifact.json`. It binds the current run, artifact
+profile, producer unit, source and toolchain digests, and complete content digest.
+Private filesystem locations are resolved through the current suite runtime
+lease and MUST NOT appear in this receipt. Browser stack v7 binds the exact
+run-relative receipt and its digest plus the frontend content digest. Attachment
+MUST reject profile, producer, source, toolchain, receipt, or content mismatch
+before product work. Stack v6 is historical only; aliases and fallback readers
+are forbidden. A missing or invalid artifact is `artifact_error` (exit 11).
+
 Every cached Go binary whose transitive package closure consumes the embedded web asset root MUST depend on the complete embedded asset producer tuple before compilation starts and MUST include that root in its build-artifact cache key. The authored execution topology MUST represent the same dependency whenever the producer and consumer are scheduled together. A source-file-only key, ambient Make ordering, or concurrent publisher/consumer execution is not valid evidence for such a binary.
 
 Every content-addressed key MUST include the cache schema ID, profile ID,
@@ -1236,9 +1258,9 @@ owners are joined without duplicating authority.
 
 For a managed browser session, the suite-scoped browser lifecycle adapter is the
 only owner of backend and frontend startup, readiness, startup events,
-terminal startup diagnostics, v6 stack publication, and teardown. The
+terminal startup diagnostics, v7 stack publication, and teardown. The
 Playwright-facing adapter is attach-only. Before workers start it MUST validate
-an exact `cartulary.web_e2e_stack.v6`, the suite/session/profile identities, all
+an exact `cartulary.web_e2e_stack.v7`, the suite/session/profile identities, all
 referenced byte digests, the active schema/template/bucket/endpoint identities,
 the frontend build digest, and live backend/frontend process proofs.
 Missing, stale, v3-only, profile-mismatched, digest-mismatched, development-stack,
@@ -1367,7 +1389,7 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Browser target execution and group dispatch. | `browser_target_execution` | Browser graph and single-group runner boundary. | `owner_facade` | Target selection, group execution, broker-owned stack attachment, resets, canonical group/row results, cleanup, and public failure mapping. |
 | Browser Playwright selection, webserver-batch execution, report parsing, and selection artifacts. | `browser_playwright_execution` | Browser Playwright execution plus test-output adapter boundary; current stable adapter `tools/harness/output/test-output/playwright-artifacts.mjs`. | `owner_facade` | Exact catalog row and scenario selection, Playwright runner report interpretation, selected-test title/file indexing, merged report behavior, owner summaries, stdout/stderr/output artifact paths, and failure normalization. |
 | Browser estimated-work and performance accounting. | `browser_duration_accounting` | Work-graph cost model and canonical performance boundary. | `owner_facade` | Exact group and row identities, event-derived intervals, readiness attribution, accepted performance windows, and no hidden shell-batch timing. |
-| Browser owned-stack lifecycle, runtime identity proof, and reset controller. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter boundary; current entrypoints `tools/harness/browser/start-web-e2e.sh` and `tools/harness/browser/reset-web-e2e-stack.sh`. | `owner_facade` | `cartulary.web_e2e_stack.v6`, `cartulary.web_e2e_backend_generation.v1`, per-session startup event and terminal-diagnostic ownership, immutable attachment evidence, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, backend replacement, reset diagnostics/taint, and Playwright state cleanup. |
+| Browser owned-stack lifecycle, runtime identity proof, and reset controller. | `browser_lifecycle_adapter` | Browser lifecycle/test-route adapter boundary; current entrypoints `tools/harness/browser/start-web-e2e.sh` and `tools/harness/browser/reset-web-e2e-stack.sh`. | `owner_facade` | `cartulary.web_e2e_stack.v7`, `cartulary.web_e2e_backend_generation.v1`, per-session startup event and terminal-diagnostic ownership, immutable attachment evidence, preview-mode startup, port ownership, runtime root/session files, process-group cleanup, runtime identity proof, backend replacement, reset diagnostics/taint, and Playwright state cleanup. |
 | Browser accessibility evidence summaries. | `browser_accessibility_evidence` | Browser helper boundary; current canonical path `tools/harness/browser/browser-catalog-group-cli.mjs`. | `owner_facade` | Accessibility summary schema, contrast record handling, retained Playwright runner references, and browser a11y target artifact paths. |
 | Browser visual snapshot update helper. | `browser_visual_update_helper` | Work-graph browser compiler plus current single-group entrypoint `tools/harness/browser/browser-catalog-group-cli.mjs`. | `owner_facade` | Helper-only visual update target posture, snapshot-update mode propagation, authorized authored snapshot write path, retained browser evidence, and exclusion from default `check`, `test`, `ci`, and release gates unless separately declared. |
 
@@ -2590,12 +2612,14 @@ parity-checked with every harness-public row in this table.
 | `cartulary.test_services.journal_event.v1`      | `tools/schemas/cartulary.test_services.journal_event.v1.schema.json`      | present           | Service suite            | Before a completed producer journal record is collated. |
 | `cartulary.test_services.resource_ledger.v1`    | `tools/schemas/cartulary.test_services.resource_ledger.v1.schema.json`    | private           | Service suite            | Before exact owned-resource cleanup or stale recovery. |
 | `cartulary.test_services.browser_admission.v1`  | `tools/schemas/cartulary.test_services.browser_admission.v1.schema.json`  | present           | Browser session lifecycle | Before browser service admission is accepted. |
-| `cartulary.web_e2e_stack.v6`                    | `tools/schemas/cartulary.web_e2e_stack.v6.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
+| `cartulary.frontend_build_artifact.v1` | `tools/schemas/cartulary.frontend_build_artifact.v1.schema.json` | present | Frontend build producer | Before admitting a browser consumer. |
+| `cartulary.frontend_visual_capture_intent.v2` | `tools/schemas/cartulary.frontend_visual_capture_intent.v2.schema.json` | present | Visual capture helper | Before reconciliation accepts a capture. |
+| `cartulary.web_e2e_stack.v7`                    | `tools/schemas/cartulary.web_e2e_stack.v7.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
 | `cartulary.web_e2e_backend_generation.v1`       | `tools/schemas/cartulary.web_e2e_backend_generation.v1.schema.json`       | present           | Browser reset lifecycle  | Before a replacement backend is attached. |
 | `cartulary.browser_startup_event.v1`             | `tools/schemas/cartulary.browser_startup_event.v1.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
 | `cartulary.browser_startup_diagnostics.v2`       | `tools/schemas/cartulary.browser_startup_diagnostics.v2.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
-| `cartulary.browser_group_result.v5`              | `tools/schemas/cartulary.browser_group_result.v5.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
-| `cartulary.browser_target_result.v2`             | `tools/schemas/cartulary.browser_target_result.v2.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
+| `cartulary.browser_group_result.v6`              | `tools/schemas/cartulary.browser_group_result.v6.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
+| `cartulary.browser_target_result.v4`             | `tools/schemas/cartulary.browser_target_result.v4.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
 | `cartulary.local_object_store_proxy_start_attempt.v1` | `tools/schemas/cartulary.local_object_store_proxy_start_attempt.v1.schema.json` | present | Local development proxy lifecycle | Before a startup attempt is recovered or promoted. |
 | `cartulary.local_object_store_proxy_lease.v1`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v1.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
 | `cartulary.local_object_store_proxy_health.v1`   | `tools/schemas/cartulary.local_object_store_proxy_health.v1.schema.json`   | present           | Local development proxy lifecycle | During ownership and configuration proof. |
@@ -2613,7 +2637,7 @@ parity-checked with every harness-public row in this table.
 | `cartulary.network_flow_fixture_scenario.v2`    | `tools/schemas/cartulary.network_flow_fixture_scenario.v2.schema.json`    | present           | Network Flow fixture scenario validator | Before a Network Flow fixture scenario is selected for behavior execution. |
 | `cartulary.network_flow_timezone_ruleset_provenance.v2` | `tools/schemas/cartulary.network_flow_timezone_ruleset_provenance.v2.schema.json` | present | Network Flow timezone provenance validator | During JSON shape checks and before timestamp fixtures are accepted. |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
-| `cartulary.frontend_visual_fixture_registry.v5` | `tools/schemas/cartulary.frontend_visual_fixture_registry.v5.schema.json` | present           | Semantic frontend visual fixture registry and one-to-one design-contract projection validation | During JSON shape checks, catalog checks, and visual readiness validation. |
+| `cartulary.frontend_visual_fixture_registry.v6` | `tools/schemas/cartulary.frontend_visual_fixture_registry.v6.schema.json` | present           | Semantic frontend visual fixture registry and one-to-one design-contract projection validation | During JSON shape checks, catalog checks, and visual readiness validation. |
 | `cartulary.frontend_claim_publication_review.v1` | `tools/schemas/cartulary.frontend_claim_publication_review.v1.schema.json` | present          | Conditional frontend claim-publication review metadata; no default target emits it | Before any future or explicit frontend claim-review artifact is accepted as Core 05-routed release evidence. |
 | `cartulary.otel_conformance_summary.v1`         | `tools/schemas/cartulary.otel_conformance_summary.v1.schema.json`         | present           | OpenTelemetry conformance target | Before `otel-conformance` success. |
 
@@ -2686,13 +2710,80 @@ Generated-drift replay MUST be driven by a declared scratch-input manifest. The 
 Verified by: TH-HARNESS-AC-000
 
 **TH-HARNESS-REQ-255**
+Visual capture preparation MUST establish the declared viewport, zoom, spacing,
+presentation preference, and scenario readiness before applying dynamic-text
+normalization. It MUST wait for vendored fonts and settled layout, then establish
+the declared focus and scroll anchor, and verify the resulting geometry before
+comparison. No layout-changing normalization may follow that anchor. The anchor
+relationship, relevant rectangles, and scroll offsets MUST remain correct for
+three consecutive animation frames within the ordinary assertion budget.
+Screenshot pixel stability alone does not prove the intended scroll position.
+Update mode MUST retain goldens that already satisfy ordinary comparison and
+replace only missing or failing captures through the reviewed candidate path.
+Drawer control captures center their declared control in the drawer body,
+using the visible intersection of the scrollport and viewport, clamped to the
+legal scroll range; drawer panel captures align their declared
+panel start. An oversized scrollport at CSS zoom MAY explicitly declare
+`outerScroll=drawer_end` to reveal the drawer end through document scrolling
+before positioning its inner anchor. Legal clamping MUST NOT accept an offscreen
+anchor. Undeclared outer/document scroll MUST be reset. Existing explicit
+grid scroll contracts remain applicable. Focus/scroll setup MUST be separate
+from observation-only product focus-continuity assertions.
+
+Visual density variants MUST use a test-local account-preference presentation
+resource initialized with `density_mode=null` before navigation. The fixture
+MUST serve generated-protocol-shaped responses, select each variant explicitly,
+and never persist its presentation changes to the shared worker account.
+Account Settings presentation scenarios MUST delegate to that same resource
+for simulated writes and faults. Unexpected writes MUST fail locally. Fixture
+state dies with its page/context; visual preference restoration against a shared
+account is unsupported. Real preference persistence remains independently
+verified by its product-owner browser row.
+Visual account-label variants MUST likewise remain page-local. A navigation
+presentation scenario MUST NOT persist its long-label specimen into the shared
+worker profile or make later captures depend on its execution order.
+
+Capture declarations MUST identify the surface, expected presentation profile,
+viewport conditions, readiness predicate, and any scroll anchor. Observed theme
+and density MUST come from the rendered surface or its owning shell, agree with
+the declaration, and agree with registered fixture profiles when applicable.
+Applicable profile identifiers MUST be valid owner-derived values; missing,
+empty, unknown, or mismatched observations fail before comparison. An explicitly
+inapplicable property is represented by JSON null, never an empty string.
+The current surface declaration is `workbook_shell` (density required) or
+`application_shell` (density inapplicable). Both render the adopted theme.
+Registry v6 assigns one complete `capture_profiles` entry to every exact golden
+path; a single profile MUST NOT stand for differently sized or differently dense
+captures. Its keys and `golden_artifacts` MUST match exactly. The owning shell's
+resolved density is the declared property, including inherited Timeline compact
+density when no account override exists. No theme is inapplicable in the current
+application profile.
+Capture intent v2, reconciliation v3, fixture registry v6, browser group result
+v6, and browser target result v4 replace their predecessors atomically;
+predecessor artifacts remain historical investigation evidence only.
+Browser group v6 records `stack_v7` and admits artifact failures from the capture
+and asset classifiers. Group v5 remains only in the existing diagnostic archive
+to close historical inspection references; current producers and consumers MUST
+NOT load it.
+
+Preparation diagnostics MUST name the preparation stage and elapsed time and,
+for anchored drawer captures, include scrollport/anchor rectangles, scroll
+offsets, and the focused element's stable identity. They MUST NOT contain
+credentials, cookies, account identities, or preference response bodies.
+Navigation readiness MUST be bounded and retain failed application-asset
+requests separately from product assertions and secondary cleanup failures.
+A primary Playwright error named `CartularyFrontendArtifactError` or
+`CartularyVisualCaptureError` maps to `artifact/artifact_error`; later cleanup
+errors MUST NOT replace it. An earlier product assertion retains its ordinary
+classification. The error markers are harness-owned, not public API errors.
+
 `browser-e2e-a11y` MUST emit exactly one retained `cartulary.frontend_accessibility_summary.v4` artifact for a completed accessibility target attempt. The artifact MUST contain active catalog accessibility rows only and MUST be a JSON object with `schema_id`, `rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]`. Scenario status fields MUST use only `pass`, `fail`, `missing`, or `skipped`; check result fields MUST use only `pass` or `fail`; nested objects MUST be schema-closed. Inactive or unauthorized rows MUST NOT appear in this row-evidence artifact.
 
 `browser-e2e-visual` MUST select active visual catalog rows whose Playwright selector stage is `visual`. Direct execution runs the full target inventory; an owner slice constrains selection to the resolved owner rows. Exact Playwright title patterns MUST come from catalog selectors. Matching screenshots remain implementation-readiness evidence and MUST NOT be inferred from snapshot filenames, deleted ledgers, or visual fixture registry text alone.
 
 The frontend visual fixture registry is exhaustive only for the semantic fixtures and design projections it explicitly declares. It is not an inventory of every active screenshot assertion or committed golden. An active screenshot and golden MAY have no fixture-registry mapping when its catalog row and emitted capture intent establish an exact consumer. Registry absence alone MUST NOT classify an active golden as drift or an orphan, and a harness MUST NOT manufacture a fixture ID from a filename, title, or path. Every declared registry fixture and every path named by that fixture MUST still reconcile exactly.
 
-Each completed `browser-e2e-visual` attempt MUST retain exactly one non-claim-bearing `cartulary.frontend_visual_reconciliation.v2` artifact. The artifact MUST be a schema-closed JSON object containing `schema_id`, `status`, `renderer`, `golden_manifest`, `source_refs`, `capture_intents`, `goldens`, `counts`, `artifact_refs`, and `errors`. `status` is exactly `pass` or `fail`. `renderer` MUST attest the one active `cartulary.frontend_visual_renderer_profile.v1`; every capture intent MUST name that profile. `golden_manifest` MUST identify and validate the current `cartulary.frontend_visual_golden_manifest.v1`. `source_refs` MUST identify the authored catalog/family inputs, visual fixture registry, renderer profile, golden manifest, Playwright project/snapshot template, and screenshot-helper source used by the run; it MUST NOT use Markdown as executable input. Reconciliation v1 is historical diagnostic input only and MUST NOT be emitted or accepted as current evidence.
+Each completed `browser-e2e-visual` attempt MUST retain exactly one non-claim-bearing `cartulary.frontend_visual_reconciliation.v3` artifact. The artifact MUST be a schema-closed JSON object containing `schema_id`, `status`, `renderer`, `golden_manifest`, `source_refs`, `capture_intents`, `goldens`, `counts`, `artifact_refs`, and `errors`. `status` is exactly `pass` or `fail`. `renderer` MUST attest the one active `cartulary.frontend_visual_renderer_profile.v1`; every capture intent MUST name that profile. `golden_manifest` MUST identify and validate the current `cartulary.frontend_visual_golden_manifest.v1`. `source_refs` MUST identify the authored catalog/family inputs, visual fixture registry, renderer profile, golden manifest, Playwright project/snapshot template, and screenshot-helper source used by the run; it MUST NOT use Markdown as executable input. Reconciliation v1 and v2 are historical diagnostic inputs only and MUST NOT be emitted or accepted as current evidence.
 
 Each `capture_intents[]` item MUST contain a stable `capture_id`, exact catalog `row_id`, stable `scenario_id`, `project_id`, screenshot assertion location, semantic `capture_intent`, and the normalized repo-relative `expected_golden_path`. One assertion that intentionally emits multiple captures MUST emit one item per expected path. Each `goldens[]` item MUST contain `golden_path`, `sha256` or `null` when the expected file is absent, exact `consumer_capture_ids[]`, `catalog_row_ids[]`, `scenario_ids[]`, `project_ids[]`, `fixture_ids[]`, non-Playwright `consumer_refs[]`, and `classification`. `fixture_ids[]` MAY be empty for an active nonregistry golden. `classification` is exactly `active`, `orphan`, `missing_golden`, or `ambiguous_mapping`.
 
@@ -2971,10 +3062,10 @@ Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
 | Browser service admission                            | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/service-admission.json` | `cartulary.test_services.browser_admission.v1` | Suite/session identity, readiness generation, required services, container proof, source digest, and service-scope digest | Retained for the session; contains no exhaustive service inventory. |
 | Browser startup events                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-events.jsonl` | `cartulary.browser_startup_event.v1` | Exact suite/session/profile identity and validated append-only state transitions | Retained for the session; lifecycle adapter is sole writer. |
 | Browser startup diagnostics                          | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/startup-diagnostics.json` | `cartulary.browser_startup_diagnostics.v2` | Immutable terminal state, event reference/digest, classification, redaction-safe message, origins, and artifact references | Retained for the session; group and target evidence consume by reference. |
-| Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v6.json` | `cartulary.web_e2e_stack.v6` | Immutable suite/session/mode/profile identity, compact service admission, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
+| Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v7.json` | `cartulary.web_e2e_stack.v7` | Immutable suite/session/mode/profile identity, compact service admission, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
 | Browser backend generation                           | Browser reset lifecycle                         | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/backend-generations/<reset-id>.json` | `cartulary.web_e2e_backend_generation.v1` | Reset ID, monotonic generation, unchanged runtime/config identity, base stack reference/digest, and replacement backend process proof | Immutable current-run attachment overlay. |
-| Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v5` | Exact selected rows, terminal observations, lease reference, and ordered session artifact references/digests | Retained for target accounting. |
-| Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v2` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
+| Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v6` | Exact selected rows, terminal observations, lease reference, and ordered session artifact references/digests | Retained for target accounting. |
+| Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v4` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
 | Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v1`, `cartulary.local_object_store_proxy_lease.v1`, `cartulary.local_object_store_proxy_health.v1` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
 | Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v1`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
 | Browser reset attempt                                | Browser reset lifecycle                         | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v1`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative lifecycle-unit failure evidence. |
@@ -4231,18 +4322,20 @@ Browser owned-stack readiness is an ownership predicate, not only an HTTP availa
 
 The canonical browser E2E frontend startup mode is a built preview. Authored
 execution topology MUST select one Make-owned artifact for each browser stage:
-ordinary stages use `build-web` and `apps/web/dist`; measurement uses
-`build-web-measurement` and `apps/web/dist-measurement`. The selected build MUST
-complete and its `index.html` MUST exist before the preview process starts.
+ordinary stages use the production receipt produced by `build-web`; measurement
+uses the measurement receipt produced by `build-web-measurement`. Conventional
+`apps/web/dist` and `apps/web/dist-measurement` publications are packaging outputs,
+not browser attachment inputs. The selected private build MUST complete and its
+`index.html` MUST exist before the preview process starts.
 Measurement output contains ordinary application entries and isolated measurement
 entries; production and embedded production output MUST exclude measurement entries
 and fixture modules. The two artifacts MUST have distinct build/cache identities.
 The wrapper MUST launch a non-watching preview against the selected directory.
-Missing built artifacts are `configuration_error`, exit `2`, not service-readiness
-failures.
+Missing or invalid built artifacts are `artifact/artifact_error`, exit `11`,
+not service-readiness failures.
 
-Browser startup and attachment MUST bind the selected artifact path and exact
-byte digest using the existing stack frontend artifact fields. An artifact for a
+Browser startup and attachment MUST bind the selected run-relative receipt, its
+digest, and the exact content digest using the stack v7 frontend artifact fields. An artifact for a
 different stage, a stale or mismatched digest, or an unrecognized path MUST fail
 before browser assertions. Artifact selection MUST come from authored topology,
 not target-name substring inference or a client query parameter. The ordinary

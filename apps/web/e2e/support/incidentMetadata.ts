@@ -191,6 +191,15 @@ export async function expectMetadataControlReachable(
   page: Page,
   control: Locator,
 ) {
+  await control.focus();
+  await control.scrollIntoViewIfNeeded();
+  await assertMetadataControlReachable(page, control);
+}
+
+export async function assertMetadataControlReachable(
+  page: Page,
+  control: Locator,
+) {
   const panel = page.getByRole("region", {
     name: "Promoted incident fields",
     exact: true,
@@ -203,8 +212,6 @@ export async function expectMetadataControlReachable(
           document.documentElement.clientWidth + 1,
     ),
   ).toBe(true);
-  await control.focus();
-  await control.scrollIntoViewIfNeeded();
   await expect(control).toBeFocused();
   const box = await control.boundingBox();
   const viewport = page.viewportSize();

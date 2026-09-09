@@ -1,6 +1,7 @@
 import {
   incidentControlsCloseButtonTestId,
   incidentControlsPanelTestId,
+  incidentControlsScrollportTestId,
 } from "@cartulary/ui-contracts";
 import { X } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
@@ -65,7 +66,12 @@ export function IncidentControlsDrawer({
           <X aria-hidden="true" size={16} />
         </button>
       </header>
-      <div style={supportRegionBodyStyle}>{children}</div>
+      <div
+        data-testid={incidentControlsScrollportTestId()}
+        style={supportRegionBodyStyle}
+      >
+        {children}
+      </div>
     </section>
   );
 }

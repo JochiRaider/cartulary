@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_build_artifact.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "artifact_id",
+    "producer_unit_id",
+    "source_digest",
+    "toolchain_digest",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.frontend_build_artifact.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "artifact_id": {
+      "enum": [
+        "production",
+        "measurement"
+      ]
+    },
+    "producer_unit_id": {
+      "enum": [
+        "target:build-web",
+        "target:build-web-measurement"
+      ]
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "toolchain_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

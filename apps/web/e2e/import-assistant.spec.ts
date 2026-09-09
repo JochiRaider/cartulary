@@ -322,9 +322,7 @@ test("Workbook Import Assistant resumes its known job and recovers only selectio
   await assistant
     .getByRole("button", { name: "Apply 1 selected unit" })
     .press("Enter");
-  await expect(
-    assistant.getByRole("heading", { name: "Outcomes", exact: true }),
-  ).toBeVisible();
+  await expect(assistant.getByRole("status")).toContainText("Import completed");
   await assistant.getByRole("button", { name: "Open Timeline" }).press("Enter");
   await expect(page.getByTestId(incidentControlsPanelTestId())).toHaveCount(0);
   await expect(

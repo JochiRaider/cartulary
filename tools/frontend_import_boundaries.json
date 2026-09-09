@@ -1530,6 +1530,34 @@
           "path": "apps/web/src/measurement"
         }
       ]
+    },
+    {
+      "id": "frontend-network-flow-protocol-adapter-owner",
+      "level": "error",
+      "message": "Network Flow protocol behavior enters application code only through its generated-contract adapter.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [
+        "apps/web/src/services/networkFlowContractAdapter.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/protocol-ts/network-flow",
+          "include_subpaths": false
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/entrypoints/network-flow"
+        }
+      ]
     }
   ],
   "raw_design_token_literal_checks": [

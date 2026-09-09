@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cpSync, existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -25,6 +25,7 @@ import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
 import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
 import { startVisualRendererLease } from "./visual-renderer-lease.mjs";
+import { stageVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -92,7 +93,7 @@ function sessionArtifacts() {
   }
   return [
     {
-      kind: "stack_v5",
+      kind: "stack_v7",
       ref: path.relative(runRoot(), stackPath).replaceAll("\\", "/"),
       sha256: stackDigest,
     },
@@ -197,7 +198,7 @@ function commandForGroup(rows, group, artifactRoot) {
   ];
   if (group.workers !== "default") args.push(`--workers=${group.workers}`);
   if (group.kind === "visual" && process.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1") {
-    args.push("--update-snapshots=all");
+    args.push("--update-snapshots=changed");
   }
   return { command: pnpm, args };
 }
@@ -205,13 +206,10 @@ function commandForGroup(rows, group, artifactRoot) {
 function visualSnapshotScratch(target) {
   if (target !== "browser-e2e-visual-update") return "";
   const scratch = path.join(runRoot(), target, "snapshot-scratch");
-  if (!existsSync(scratch)) {
-    cpSync(
-      path.join(root, "apps/web/e2e/workbook.visual.spec.ts-snapshots"),
-      scratch,
-      { recursive: true, errorOnExist: true, preserveTimestamps: true },
-    );
-  }
+  stageVisualSnapshotCandidate(
+    path.join(root, "apps/web/e2e/workbook.visual.spec.ts-snapshots"),
+    scratch,
+  );
   return scratch;
 }
 
@@ -348,7 +346,7 @@ async function main() {
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v5",
+    schema_id: "cartulary.browser_group_result.v6",
     target_id: target,
     stage_id: stage.name,
     group_id: group.name,

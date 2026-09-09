@@ -14,6 +14,7 @@ export {
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
   incidentControlsPanelTestId,
+  incidentControlsScrollportTestId,
   incidentControlsStatusTestId,
   incidentControlsSurfaceTestId,
   incidentControlsTriggerTestId,

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import process from "node:process";
 import test from "node:test";
+import { validateSchemaSync } from "../../contract/index.mjs";
 
 import {
   publicExitCodeForFailure,
@@ -46,6 +47,36 @@ function adapt(singleRow, playwrightReport, processStatus = 0, processSignal = n
     processSignal,
   )[0];
 }
+
+test("Playwright row adapter distinguishes primary asset failure from secondary cleanup and product failure", () => {
+  const broken = spec("assets", "failed");
+  const result = broken.tests[0].results[0];
+  result.errors = [
+    { message: "CartularyFrontendArtifactError: Required frontend assets failed" },
+    { message: "Error: browser context has closed during cleanup" },
+  ];
+  const assetResult = adapt(row("harness.browser.boundary_support.asset_probe", "assets"), report(broken));
+  assert.equal(assetResult.failure_class, "artifact");
+  const group = {
+    schema_id: "cartulary.browser_group_result.v6", target_id: "browser-e2e-visual",
+    stage_id: "visual", group_id: "asset-probe", browser_session_id: "session",
+    runtime_profile_id: "default", service_requirement: "test-services",
+    fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
+    resource_profile_ids: ["browser_isolated"], selected_rows: ["harness.browser.boundary_support.asset_probe"],
+    started_at: "2026-09-09T00:00:00Z", finished_at: "2026-09-09T00:00:01Z",
+    duration_ms: 1000, status: "fail", exit_code: 11, row_results: [assetResult],
+    session_artifacts: ["stack_v7", "startup_diagnostics_v2"].map((kind) => ({
+      kind, ref: `${kind}.json`, sha256: `sha256:${"0".repeat(64)}`,
+    })),
+    artifacts: { playwright_report: "report.json", stdout: "stdout.log", stderr: "stderr.log" },
+  };
+  validateSchemaSync(group.schema_id, group);
+  assert.throws(() => validateSchemaSync(group.schema_id, {
+    ...group, session_artifacts: group.session_artifacts.map((entry) => ({ ...entry, kind: "stack_v5" })),
+  }));
+  result.errors.unshift({ message: "Error: expected product behavior" });
+  assert.equal(adapt(row("harness.browser.boundary_support.asset_probe", "assets"), report(broken)).failure_class, "product");
+});
 
 test("Playwright row adapter preserves the closed status and exit matrix", () => {
   const cases = [

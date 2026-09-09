@@ -42,6 +42,40 @@ The two targets must otherwise use the same application server, viewport,
 fixture lifecycle, and per-row accounting. An update may change snapshot bytes;
 it may not bypass functional assertions or start an unowned application server.
 
+## Capture and Fixture Preparation
+
+Every page used by a visual scenario, including auxiliary user pages, installs
+its local preference resource before navigating. Start with a null override and
+assert the owning surface's resolved default; Timeline inherits compact density.
+Use the resource to select each density variant. Account Settings presentation
+writes delegate to the same route owner. Real persistence remains covered by the
+Account Settings integration row. Never restore visual density through a shared
+account request.
+Keep account-menu long-label writes in the local profile fixture as well; later
+captures must not inherit a presentation scenario's saved display name.
+
+Prepare viewport, zoom, spacing and scenario state; wait for responsive layout
+and vendored fonts; normalize dynamic text; settle layout; then establish focus
+and the explicit scroll anchor. Center drawer controls in the visible drawer
+scrollport and align panel starts, clamping to legal scroll offsets. Observe the
+anchor and intended focus across three animation frames. Product focus-continuity
+assertions remain observation-only. Preserve intentional workbook-grid framing.
+No normalization, arbitrary pixel correction, sleep, retry, or tolerance change
+may repair a mismatch after anchoring.
+
+Capture intent v2 records the surface, declared and observed presentation, and
+viewport. Registry v6 contains a profile for each exact golden path, including
+variant viewport, zoom, and density. Reconciliation v3, browser group result v6,
+and browser target result v4 reject old or mismatched current evidence. Null density means an application
+shell without workbook density; missing observations and empty strings fail.
+
+The browser stack v7 references a frontend build receipt v1 and its digest. The
+preview serves that run's completed private artifact until its consumers exit.
+A separate build may publish conventional output without changing active browser
+inputs. Investigate resource failures and preparation-stage diagnostics before
+interpreting a navigation timeout or a secondary cleanup failure. The restricted
+traces and images do not become product conformance evidence.
+
 ## Accepted Refresh Triggers
 
 Refresh a golden only when at least one of these is true:
@@ -80,7 +114,7 @@ absence alone is neither drift nor an orphan and never permits filename-derived
 ownership.
 
 Before moving, refreshing, deleting, or re-accounting a golden, review the
-retained `cartulary.frontend_visual_reconciliation.v2` artifact from an ordinary
+retained `cartulary.frontend_visual_reconciliation.v3` artifact from an ordinary
 visual run. It must account for every active capture intent, every committed PNG,
 every declared registry fixture, SHA-256, exact catalog/scenario/project identity,
 and any declared non-Playwright consumer. Ambiguous mappings and active missing
@@ -128,6 +162,10 @@ group, reconciliation check, and schema check passes. If the update fails, the
 tracked snapshot directory and manifest must remain byte-identical. After an
 accepted renderer or golden refresh, require two fresh ordinary visual runs to
 pass against the promoted manifest.
+
+Update mode retains existing goldens that already satisfy the ordinary comparison
+contract. Only missing or failing comparisons produce replacement candidates;
+incidental byte differences within the existing tolerance do not justify churn.
 
 If the visual validation fails before screenshot comparison, fix the functional
 or infrastructure defect first. A successful refresh never substitutes for

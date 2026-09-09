@@ -9564,7 +9564,10 @@
     {
       "name": "protocol-ts-browser-artifact-reachability",
       "backing_scripts": [
-        "tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs"
+        "tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs",
+        "tools/frontend_import_boundaries.json",
+        "tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs",
+        "tools/harness/readiness/frontend-artifact.mjs"
       ],
       "command_id": "cartulary.harness.command.protocol_ts_browser_artifact_reachability.v1",
       "target_class": "check_internal",
@@ -13399,8 +13402,8 @@
     {
       "name": "build-web",
       "backing_scripts": [
-        "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/readiness/build-web-artifact.sh"
+        "tools/harness/readiness/build-web-artifact.sh",
+        "tools/harness/readiness/frontend-artifact.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13462,8 +13465,8 @@
     {
       "name": "build-web-measurement",
       "backing_scripts": [
-        "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/readiness/build-web-artifact.sh"
+        "tools/harness/readiness/build-web-artifact.sh",
+        "tools/harness/readiness/frontend-artifact.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -14181,7 +14184,9 @@
       "name": "harness-smoke-browser-work-graph",
       "backing_scripts": [
         "tools/harness/browser/tests/test-browser-work-graph.mjs",
-        "tools/harness/browser/frontend-visual-reconciliation.mjs"
+        "tools/harness/browser/frontend-visual-reconciliation.mjs",
+        "tools/harness/browser/tests/test-frontend-artifact.mjs",
+        "tools/harness/readiness/frontend-artifact.mjs"
       ],
       "command": [
         "$(NODE_BIN)",

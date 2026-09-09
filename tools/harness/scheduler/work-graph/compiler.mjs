@@ -140,6 +140,9 @@ function boundedGoClaims(claims, requestedParallelism, availablePostgresLanes) {
 }
 
 function policyEvidenceOutputs(target) {
+  if (target === "build-web" || target === "build-web-measurement") {
+    return [`${target}/frontend-artifact.json`];
+  }
   if (target === "go-vulncheck") {
     return [
       "unit-artifacts/target-go-vulncheck/govulncheck-findings.json",

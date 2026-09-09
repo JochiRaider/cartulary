@@ -20,6 +20,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
+import { resolveFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 
 import { validateSchemaSync } from "../contract/index.mjs";
 
@@ -29,7 +30,7 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const identityPattern = /^[a-zA-Z0-9_.-]+$/u;
 
 function usage() {
-  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | write-service-admission | lease | stack | backend-generation <reset-id> <generation> | attach <stack-v6.json> | attach-json <stack-v6.json>";
+  return "usage: browser-session-evidence.mjs event <state> <message> [failure-class failure-reason] | terminal <ready|failed> <message> [failure-class failure-reason] | write-service-admission | lease | stack | backend-generation <reset-id> <generation> | attach <stack-v7.json> | attach-json <stack-v7.json>";
 }
 
 function requiredEnv(name) {
@@ -375,45 +376,14 @@ function writeLease() {
   return output;
 }
 
-export function directoryDigest(directory) {
-  const hash = createHash("sha256");
-  function walk(current) {
-    const names = readdirSync(current).sort();
-    for (const name of names) {
-      const absolute = path.join(current, name);
-      const relative = path.relative(directory, absolute).replaceAll("\\", "/");
-      const info = lstatSync(absolute);
-      if (info.isSymbolicLink()) throw new Error(`build artifact contains symlink ${relative}`);
-      if (info.isDirectory()) {
-        hash.update(`d\0${relative}\0`);
-        walk(absolute);
-      } else if (info.isFile()) {
-        hash.update(`f\0${relative}\0${info.mode & 0o777}\0`);
-        hash.update(readFileSync(absolute));
-        hash.update("\0");
-      } else {
-        throw new Error(`build artifact contains unsupported entry ${relative}`);
-      }
-    }
-  }
-  walk(directory);
-  return `sha256:${hash.digest("hex")}`;
-}
-
-export function validateFrontendAttachment(root, artifact, frontend) {
-  if (frontend.build_artifact_ref !== artifact.path) {
+export function validateFrontendAttachment(root, artifact, frontend, environment = process.env) {
+  if (frontend.build_artifact_ref !== `${artifact.producer_target}/frontend-artifact.json`) {
     throw new Error("browser attachment frontend artifact does not match selected stage");
   }
-  const directory = path.join(root, artifact.path);
-  requireArtifactEntries(directory, artifact);
-  if (directoryDigest(directory) !== frontend.build_artifact_sha256) {
-    throw new Error("browser v6 attachment frontend build digest mismatch");
-  }
-}
-
-function requireArtifactEntries(directory, artifact) {
-  for (const entry of artifact.entries) {
-    requireRegularNoSymlink(path.join(directory, entry), "frontend artifact entry");
+  const sealed = resolveFrontendArtifact(root, artifact.producer_target, environment);
+  if (sealed.receiptDigest !== frontend.build_receipt_sha256 ||
+      sealed.receipt.content_digest !== frontend.build_artifact_sha256) {
+    throw new Error("browser v7 attachment frontend build digest mismatch");
   }
 }
 
@@ -508,12 +478,11 @@ function writeStack() {
     terminalDiagnostic.schema_id !== "cartulary.browser_startup_diagnostics.v2" ||
     terminalDiagnostic.status !== "ready"
   ) {
-    throw new Error("v6 stack publication requires a terminal ready diagnostic");
+    throw new Error("v7 stack publication requires a terminal ready diagnostic");
   }
   const fixture = JSON.parse(readFileSync(metadataFile, "utf8"));
   const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
-  const buildDirectory = path.join(repoRoot, artifact.path);
-  requireArtifactEntries(buildDirectory, artifact);
+  const sealedFrontend = resolveFrontendArtifact(repoRoot, artifact.producer_target);
   const runtimeProfileFingerprint = normalizeDigest(
     requiredEnv("CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT"),
     "runtime profile fingerprint",
@@ -527,7 +496,7 @@ function writeStack() {
   });
   const performanceFixture = performanceFixtureEvidence(fixture);
   const payload = {
-    schema_id: "cartulary.web_e2e_stack.v6",
+    schema_id: "cartulary.web_e2e_stack.v7",
     suite_id: identityEnv("CARTULARY_TEST_SUITE_ID"),
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     service_mode: requiredEnv("CARTULARY_TEST_SERVICES_CALL_MODE"),
@@ -570,8 +539,9 @@ function writeStack() {
       port: Number.parseInt(requiredEnv("CARTULARY_WEB_E2E_FRONTEND_PORT"), 10),
       frontend_mode: "preview",
       frontend_command_kind: "vite-preview",
-      build_artifact_ref: artifact.path,
-      build_artifact_sha256: directoryDigest(buildDirectory),
+      build_artifact_ref: sealedFrontend.receiptRef,
+      build_receipt_sha256: sealedFrontend.receiptDigest,
+      build_artifact_sha256: sealedFrontend.receipt.content_digest,
       ready_at: requiredEnv("CARTULARY_WEB_E2E_FRONTEND_READY_AT"),
     },
     fixture_identity: {
@@ -587,8 +557,8 @@ function writeStack() {
     ready_at: new Date().toISOString(),
   };
   validateSchemaSync(payload.schema_id, payload);
-  const output = path.join(sessionRoot(), "stack-v6.json");
-  if (existsSync(output)) throw new Error("v6 browser stack evidence is immutable");
+  const output = path.join(sessionRoot(), "stack-v7.json");
+  if (existsSync(output)) throw new Error("v7 browser stack evidence is immutable");
   atomicWrite(output, `${JSON.stringify(payload, null, 2)}\n`);
   return output;
 }
@@ -699,7 +669,7 @@ function verifyProcessProof(proof, label) {
     "executable_sha256",
   ]) {
     if (current[key] !== proof[key]) {
-      throw new Error(`browser v6 attachment ${label} process proof mismatch`);
+      throw new Error(`browser v7 attachment ${label} process proof mismatch`);
     }
   }
 }
@@ -726,12 +696,12 @@ export function attachmentAssignments(stackPath) {
     throw new Error("Playwright state must be beneath the private browser runtime root");
   }
   if (
-    resolvedStack !== path.join(expectedRoot, "stack-v6.json") ||
+    resolvedStack !== path.join(expectedRoot, "stack-v7.json") ||
     !resolvedStack.startsWith(`${runRoot()}${path.sep}`)
   ) {
     throw new Error("browser stack path does not identify the current session");
   }
-  requireRegularNoSymlink(resolvedStack, "v6 browser stack");
+  requireRegularNoSymlink(resolvedStack, "v7 browser stack");
   const stack = JSON.parse(readFileSync(resolvedStack, "utf8"));
   validateSchemaSync(stack.schema_id, stack);
   const currentBackend = activeBackend(stack, resolvedStack);
@@ -742,7 +712,7 @@ export function attachmentAssignments(stackPath) {
   };
   for (const [key, value] of Object.entries(expected)) {
     if (stack[key] !== value) {
-      throw new Error(`browser v6 attachment ${key} mismatch`);
+      throw new Error(`browser v7 attachment ${key} mismatch`);
     }
   }
   for (const [referenceKey, digestKey] of [
@@ -752,7 +722,7 @@ export function attachmentAssignments(stackPath) {
   ]) {
     const artifact = resolveRunArtifact(stack[referenceKey]);
     if (sha256File(artifact) !== stack[digestKey]) {
-      throw new Error(`browser v6 attachment ${referenceKey} digest mismatch`);
+      throw new Error(`browser v7 attachment ${referenceKey} digest mismatch`);
     }
   }
   const retainedLease = JSON.parse(
@@ -765,7 +735,7 @@ export function attachmentAssignments(stackPath) {
     retainedLease.browser_session_id !== expected.browser_session_id ||
     retainedLease.runtime_profile_id !== expected.runtime_profile_id
   ) {
-    throw new Error("browser v6 attachment retained lease identity mismatch");
+    throw new Error("browser v7 attachment retained lease identity mismatch");
   }
   if (stack.performance_fixture) {
     const active = stack.performance_fixture;
@@ -775,11 +745,11 @@ export function attachmentAssignments(stackPath) {
       active.builder_unit_id !== requiredEnv("CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID") ||
       active.clone_ordinal !== Number.parseInt(requiredEnv("CARTULARY_FIXTURE_CLONE_ORDINAL"), 10)
     ) {
-      throw new Error("browser v6 attachment performance fixture identity mismatch");
+      throw new Error("browser v7 attachment performance fixture identity mismatch");
     }
     const buildArtifact = resolveRunArtifact(active.build_artifact_ref);
     if (sha256File(buildArtifact) !== active.build_artifact_sha256) {
-      throw new Error("browser v6 attachment performance fixture build digest mismatch");
+      throw new Error("browser v7 attachment performance fixture build digest mismatch");
     }
     const build = JSON.parse(readFileSync(buildArtifact, "utf8"));
     validateSchemaSync(build.schema_id, build);
@@ -789,7 +759,7 @@ export function attachmentAssignments(stackPath) {
       build.snapshot_key !== active.snapshot_key ||
       build.builder_unit_id !== active.builder_unit_id
     ) {
-      throw new Error("browser v6 attachment does not reference its exact sealed build");
+      throw new Error("browser v7 attachment does not reference its exact sealed build");
     }
     const runtimeBundle = requiredEnv("CARTULARY_PERFORMANCE_FIXTURE_RUNTIME_BUNDLE");
     requireRegularNoSymlink(runtimeBundle, "private performance fixture runtime bundle");
@@ -799,7 +769,7 @@ export function attachmentAssignments(stackPath) {
       bundle.fixture_profile_id !== active.fixture_profile_id ||
       bundle.snapshot_key !== active.snapshot_key
     ) {
-      throw new Error("browser v6 attachment runtime bundle identity mismatch");
+      throw new Error("browser v7 attachment runtime bundle identity mismatch");
     }
   }
   const serviceAdmission = JSON.parse(
@@ -812,7 +782,7 @@ export function attachmentAssignments(stackPath) {
     serviceAdmission.browser_session_id !== stack.browser_session_id ||
     serviceAdmission.required_services.join("\0") !== "object_store\0postgres"
   ) {
-    throw new Error("browser v6 attachment service-admission identity mismatch");
+    throw new Error("browser v7 attachment service-admission identity mismatch");
   }
   const diagnostic = JSON.parse(
     readFileSync(resolveRunArtifact(stack.startup_diagnostics_ref), "utf8"),
@@ -824,7 +794,7 @@ export function attachmentAssignments(stackPath) {
     diagnostic.browser_session_id !== stack.browser_session_id ||
     diagnostic.runtime_profile_id !== stack.runtime_profile_id
   ) {
-    throw new Error("browser v6 attachment diagnostic identity mismatch");
+    throw new Error("browser v7 attachment diagnostic identity mismatch");
   }
   if (
     stack.postgres_identity.schema_hash !==
@@ -842,7 +812,7 @@ export function attachmentAssignments(stackPath) {
         requiredEnv("CARTULARY_S3_OBJECT_PRIMARY_SECURE"),
       )
   ) {
-    throw new Error("browser v6 attachment active service identity mismatch");
+    throw new Error("browser v7 attachment active service identity mismatch");
   }
   const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
   validateFrontendAttachment(repoRoot, artifact, stack.frontend);
@@ -852,7 +822,7 @@ export function attachmentAssignments(stackPath) {
   const stateDirInfo = lstatSync(playwrightStateDir);
   if (!stateDirInfo.isDirectory() || stateDirInfo.isSymbolicLink()) {
     throw new Error(
-      "browser v6 attachment Playwright state path must be a non-symlink directory",
+      "browser v7 attachment Playwright state path must be a non-symlink directory",
     );
   }
   return {
@@ -903,7 +873,8 @@ function attach(stackPath) {
 function main(argv) {
   const [command, ...args] = argv;
   if (command === "frontend-artifact" && args.length === 0) {
-    process.stdout.write(resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE")).path + "\n");
+    const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
+    process.stdout.write(resolveFrontendArtifact(repoRoot, artifact.producer_target).directory + "\n");
     return;
   }
   if (command === "event" && (args.length === 2 || args.length === 4)) {

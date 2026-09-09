@@ -526,10 +526,10 @@ export function productionFixtureProviders({
         try {
           stackEnvironment = readEnvironmentFile(envFile);
           const stackFile = stackEnvironment.CARTULARY_WEB_E2E_STACK_JSON_FILE;
-          if (!stackFile || path.basename(stackFile) !== "stack-v6.json") {
-            throw new Error("browser session did not publish its stack-v6 attachment path");
+          if (!stackFile || path.basename(stackFile) !== "stack-v7.json") {
+            throw new Error("browser session did not publish its stack-v7 attachment path");
           }
-          requireOwnerOnlyRegularFile(stackFile, "browser stack-v6 evidence");
+          requireOwnerOnlyRegularFile(stackFile, "browser stack-v7 evidence");
           requireOwnerOnlyRegularFile(
             path.join(path.dirname(stackFile), "service-admission.json"),
             "browser service-admission evidence",

@@ -93,7 +93,7 @@ const networkFlowGraphSemanticsSchemaID =
 const networkFlowTimezoneRulesetProvenanceSchemaID =
   "cartulary.network_flow_timezone_ruleset_provenance.v2";
 const frontendVisualFixtureRegistrySchemaID =
-  "cartulary.frontend_visual_fixture_registry.v5";
+  "cartulary.frontend_visual_fixture_registry.v6";
 const frontendVisualDesignContractIDs = Object.freeze(
   Array.from(
     { length: 14 },
@@ -3592,6 +3592,15 @@ function validateAll(root) {
       );
     }
     fixtureIDs.add(fixture.fixture_id);
+    if (JSON.stringify(Object.keys(fixture.capture_profiles).sort()) !== JSON.stringify([...fixture.golden_artifacts].sort())) {
+      throw new Error(`visual fixture ${fixture.fixture_id} must declare exactly one profile per golden`);
+    }
+    for (const profile of Object.values(fixture.capture_profiles)) {
+      if ((profile.surface_kind === "application_shell") !== (profile.density_id === null)) {
+        throw new Error(`visual fixture ${fixture.fixture_id} has invalid density applicability`);
+      }
+    }
+
     if (fixture.design_contract_id !== undefined) {
       designFixtureCounts.set(
         fixture.design_contract_id,

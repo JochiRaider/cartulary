@@ -16,3 +16,4 @@ export {
   goTargetForFamily,
   targetForCatalogRow,
 } from "./target-routing.mjs";
+export { buildSourceSnapshot } from "./source-snapshot.mjs";

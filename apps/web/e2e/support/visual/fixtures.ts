@@ -1,4 +1,45 @@
+import { test as base, expect } from "../../fixtures";
+import { installVisualPreferences } from "../auth/visualPreferences";
+import {
+  assertApplicationAssetsReady,
+  installApplicationAssetMonitor,
+} from "../runtime/applicationReadiness";
+
+export const test = base.extend({
+  page: async ({ page, workerAdmin }, use, testInfo) => {
+    const { preferences, assets } = await initializeVisualPage(
+      page,
+      workerAdmin.user_id,
+    );
+    await use(page);
+    if (assets.length) {
+      try {
+        await testInfo.attach("application-asset-failures", {
+          body: JSON.stringify({
+            stage: "application_readiness",
+            failures: assets,
+          }),
+          contentType: "application/json",
+        });
+      } catch {
+        /* Preserve the resource failure if diagnostic attachment also fails. */
+      }
+      assertApplicationAssetsReady(page);
+    }
+    expect(
+      preferences.unexpectedWrites,
+      "visual preferences must not escape to the shared account",
+    ).toEqual([]);
+  },
+});
+
 import type { Page } from "@playwright/test";
+
+export async function initializeVisualPage(page: Page, userId: string) {
+  const preferences = await installVisualPreferences(page, userId);
+  const assets = installApplicationAssetMonitor(page);
+  return { preferences, assets };
+}
 
 export async function injectDesignFixture(
   page: Page,

@@ -8,6 +8,7 @@
       "profile": "support",
       "evidence_kinds": [
         "go_test",
+        "playwright",
         "vitest"
       ]
     }

@@ -11,6 +11,7 @@ import {
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import { expectApplicationReady } from "../support/runtime/applicationReadiness";
 
 type DeploymentAdministrationPanelSelectorId =
   | "administrative-audit"
@@ -31,6 +32,7 @@ export async function openIncidentControls(
   page: Page,
   section: IncidentControlsSectionSelectorId = "summary",
 ) {
+  await expectApplicationReady(page);
   await page.getByLabel("Account and application navigation").click();
   const trigger = page.getByTestId(incidentControlsTriggerTestId());
   await expect(trigger).toHaveAttribute("aria-haspopup", "menu");

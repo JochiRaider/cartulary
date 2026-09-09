@@ -1,4 +1,4 @@
-import { authTestId } from "@cartulary/ui-contracts";
+import { authTestId, cartularyDefaultThemeId } from "@cartulary/ui-contracts";
 import { Eye, EyeOff } from "lucide-react";
 import { normalizeTotpCode, useAuthentication } from "./useAuthentication";
 
@@ -47,6 +47,7 @@ export function AuthGateway(props: AuthGatewayProps) {
         readingProfile === "hyperlegible" ? "hyperlegible" : undefined
       }
       data-testid={authTestId("shell")}
+      data-cartulary-theme={cartularyDefaultThemeId}
     >
       <style>{authGatewayStyleText}</style>
       <section className="cartulary-auth-identity" aria-label="Cartulary">

@@ -11,8 +11,6 @@
         "build-operator",
         "build-server",
         "build-server-harness",
-        "build-web",
-        "build-web-measurement",
         "embedded-web-assets"
       ],
       "input_roots": [

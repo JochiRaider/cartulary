@@ -1,7 +1,11 @@
 import type { GetCurrentSessionResponse } from "@cartulary/protocol-ts/http";
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { apiBase } from "../runtime/configuration";
+import {
+  installVisualPreferences,
+  type VisualDensity,
+} from "./visualPreferences";
 
 type Kind = "profile" | "appearance";
 type Fault = "conflict" | "lost" | "transaction";
@@ -14,7 +18,10 @@ export function accountResponseGate() {
 }
 
 /** Browser-only deterministic resources and response gates; never used by production. */
-export async function installAccountEditingFixture(page: Page) {
+export async function installAccountEditingFixture(
+  page: Page,
+  options: { profileOnly?: boolean } = {},
+) {
   const sessionResponse = await page.request.get(
     `${apiBase}/api/v1/auth/session`,
   );
@@ -25,18 +32,14 @@ export async function installAccountEditingFixture(page: Page) {
   let profile = {
     user_id: session.user_id,
     email: "analyst@example.test",
-    display_name: "Account Analyst",
+    display_name: options.profileOnly
+      ? session.display_name
+      : "Account Analyst",
     user_version: 1,
     created_at: timestamp,
     updated_at: timestamp,
   };
-  let preferences = {
-    user_id: session.user_id,
-    density_mode: null as "compact" | "default" | "comfortable" | null,
-    preferences_version: 1,
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
+  const preferences = await installVisualPreferences(page, session.user_id);
   const faults = new Map<Kind, Fault>();
   const holds = new Map<
     Kind,
@@ -53,37 +56,49 @@ export async function installAccountEditingFixture(page: Page) {
     string,
     { request: Record<string, unknown>; resource: unknown }
   >();
-  await page.route("**/api/v1/auth/session", (route) =>
-    route.fulfill({
+  await page.route("**/api/v1/auth/session", async (route) => {
+    let currentSession = session;
+    if (options.profileOnly) {
+      const response = await route.fetch();
+      if (!response.ok()) return route.fulfill({ response });
+      currentSession = ((await response.json()) as GetCurrentSessionResponse)
+        .data;
+    }
+    await route.fulfill({
       json: {
         data: {
-          ...session,
+          ...currentSession,
           display_name: profile.display_name,
-          memberships: [],
-          is_deployment_admin: false,
+          ...(options.profileOnly
+            ? {}
+            : { memberships: [], is_deployment_admin: false }),
         },
         meta: { request_id: "account-fixture-session" },
       },
-    }),
-  );
-  await page.route("**/api/v1/incidents?*", (route) =>
-    route.fulfill({
-      json: {
-        data: { incidents: [] },
-        meta: {
-          request_id: "account-fixture-directory",
-          paging: { limit: 100, has_more: false, next_cursor: null },
+    });
+  });
+  if (!options.profileOnly)
+    await page.route("**/api/v1/incidents?*", (route) =>
+      route.fulfill({
+        json: {
+          data: { incidents: [] },
+          meta: {
+            request_id: "account-fixture-directory",
+            paging: { limit: 100, has_more: false, next_cursor: null },
+          },
         },
-      },
-    }),
-  );
-  for (const kind of ["profile", "appearance"] as const) {
+      }),
+    );
+  const kinds: Kind[] = options.profileOnly
+    ? ["profile"]
+    : ["profile", "appearance"];
+  for (const kind of kinds) {
     const path = kind === "profile" ? "profile" : "preferences";
-    await page.route(`**/api/v1/account/${path}`, async (route) => {
+    const handler = async (route: Route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           json: {
-            data: kind === "profile" ? profile : preferences,
+            data: kind === "profile" ? profile : preferences.read(),
             meta: { request_id: "account-fixture-read" },
           },
         });
@@ -118,12 +133,7 @@ export async function installAccountEditingFixture(page: Page) {
               display_name: "Saved by another session",
               user_version: profile.user_version + 1,
             };
-          else
-            preferences = {
-              ...preferences,
-              density_mode: "default",
-              preferences_version: preferences.preferences_version + 1,
-            };
+          else preferences.select("default");
         }
         await route.fulfill({
           status: 409,
@@ -148,13 +158,8 @@ export async function installAccountEditingFixture(page: Page) {
           display_name: String(request.display_name),
           user_version: profile.user_version + 1,
         };
-      else
-        preferences = {
-          ...preferences,
-          density_mode: request.density_mode as typeof preferences.density_mode,
-          preferences_version: preferences.preferences_version + 1,
-        };
-      const resource = kind === "profile" ? profile : preferences;
+      else preferences.select(request.density_mode as VisualDensity);
+      const resource = kind === "profile" ? profile : preferences.read();
       committed.set(`${kind}:${request.client_txn_id}`, { request, resource });
       if (fault === "lost") {
         await route.abort("failed");
@@ -163,7 +168,9 @@ export async function installAccountEditingFixture(page: Page) {
       await route.fulfill({
         json: { data: resource, meta: { request_id: "account-fixture-save" } },
       });
-    });
+    };
+    if (kind === "appearance") preferences.handleWrites(handler);
+    else await page.route(`**/api/v1/account/${path}`, handler);
   }
   return {
     requests,

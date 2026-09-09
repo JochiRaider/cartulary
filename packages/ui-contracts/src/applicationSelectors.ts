@@ -514,6 +514,10 @@ export function incidentControlsPanelTestId(): StableTestId {
   return stableTestId("incident-controls-panel");
 }
 
+export function incidentControlsScrollportTestId(): StableTestId {
+  return stableTestId("incident-controls-scrollport");
+}
+
 export function workbookImportAssistantTestId(): StableTestId {
   return stableTestId("workbook-import-assistant");
 }

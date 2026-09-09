@@ -46,6 +46,10 @@ function selectorObservation(spec) {
     0,
   );
   const status = resultStatus(test);
+  const firstError = test.results?.at(-1)?.errors?.[0];
+  if (status === "failed" && /^Cartulary(?:FrontendArtifact|VisualCapture)Error:/u.test(firstError?.message ?? "")) {
+    return { status: "artifact_failed", durationMs };
+  }
   if (status === "passed") return { status, durationMs };
   if (status === "failed") return { status, durationMs };
   if (status === "timedOut" || statuses.includes("timedOut")) {
@@ -59,6 +63,9 @@ function selectorObservation(spec) {
 }
 
 function observationFailure(observation) {
+  if (observation.status === "artifact_failed") {
+    return { failure_class: "artifact", failure_reason: "artifact_error" };
+  }
   if (["failed", "timed_out"].includes(observation.status)) {
     return {
       failure_class: "product",

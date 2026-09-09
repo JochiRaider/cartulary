@@ -176,6 +176,38 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.frontend_artifact_lifetime",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/visual-harness.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_1fc4932fab42"
+        ],
+        "titles": [
+          "visual harness retains loaded assets across an independent frontend publication"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "harness.browser.boundary_support.harnessstate_suite_a4c7c5d935",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -477,6 +509,154 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.visual_anchor_geometry",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/visual-harness.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_b4c37b43465b"
+        ],
+        "titles": [
+          "visual harness anchors converge after viewport focus scroll and delayed layout changes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.boundary_support.visual_asset_failure",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/visual-harness.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_707e5f1e0636"
+        ],
+        "titles": [
+          "visual harness identifies a missing asset before a secondary page closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.boundary_support.visual_preference_isolation",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/auth/visualPreferences.test.ts",
+        "titles": [
+          "visual preference isolation blocks undeclared writes without forwarding requests to persistence",
+          "visual preference isolation has one presentation write owner and immutable read snapshots",
+          "visual preference isolation starts each page from no override despite previous variants and failures"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.visual_preference_lifetime",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/visual-harness.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_8c56bafc97b7"
+        ],
+        "titles": [
+          "visual harness preferences remain local across density order and page closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.boundary_support.visual_presentation_profiles",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/visual/profile.test.ts",
+        "titles": [
+          "visual presentation declarations accepts every declared workbook density and classifies invalid evidence",
+          "visual presentation declarations permits inapplicable density only on an application shell",
+          "visual presentation declarations rejects missing empty unknown and mismatched applicable observations"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.integration.performance_fixture_snapshot_lifecycle",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
@@ -562,13 +742,13 @@
       "selector": {
         "package": "./internal/platform/harnessruntime",
         "tests": [
-			"TestDatabaseResetFailurePreservesCauseAndExposesOnlyStageAndSQLState",
-			"TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata",
-			"TestTestRuntimeIdentityRouteDisabledByDefault",
-			"TestTestRuntimeIdentityRouteRejectsInvalidHarnessPredicates",
-			"TestTestRuntimeIdentityRouteRejectsNonHarnessOriginAndHost",
+          "TestDatabaseResetFailurePreservesCauseAndExposesOnlyStageAndSQLState",
+          "TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata",
+          "TestTestRuntimeIdentityRouteDisabledByDefault",
+          "TestTestRuntimeIdentityRouteRejectsInvalidHarnessPredicates",
+          "TestTestRuntimeIdentityRouteRejectsNonHarnessOriginAndHost",
           "TestTestRuntimeIdentityRouteRequiresHarnessAuthorization",
-			"TestTestRuntimeResetRouteIsRetired"
+          "TestTestRuntimeResetRouteIsRetired"
         ]
       },
       "evidence_class": "integration",

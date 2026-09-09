@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { spawnSync } from "node:child_process";
+import { resolveFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -216,9 +218,19 @@ function scanSignals(text, emittedPath, signals, findings) {
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
+  if (process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT) {
+    options.dist = resolveFrontendArtifact(repositoryRoot, "build-web").directory;
+  }
+  // Chunk names are bundler choices. The session-owned import controller and
+  // lazy workspace share projections; authored import rules enforce ownership.
+  const boundary = spawnSync(process.execPath, [
+    path.join(repositoryRoot, "tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs"),
+  ], { cwd: repositoryRoot, stdio: "inherit" });
+  if (boundary.error) throw boundary.error;
+  if (boundary.status !== 0) throw new Error("frontend protocol ownership check failed");
   const files = await emittedFiles(options.dist);
   if (files.length === 0) {
-    throw new Error(`no emitted JavaScript or source maps found under ${options.dist}`);
+    throw new Error("no emitted JavaScript or source maps found in frontend artifact");
   }
 
   const { protectedModules, signals } = await forbiddenEvidence();
@@ -230,7 +242,7 @@ async function main() {
   let javascriptCount = 0;
   let sourceMapCount = 0;
   for (const emittedPath of files) {
-    const relativePath = path.relative(repositoryRoot, emittedPath);
+    const relativePath = `frontend-production/${path.relative(options.dist, emittedPath)}`;
     const text = await readFile(emittedPath, "utf8");
     scanSignals(text, relativePath, signals, findings);
     if (emittedPath.endsWith(".js")) {
@@ -265,13 +277,6 @@ async function main() {
           continue;
         }
         networkFlowRuntimeModulesSeen.add(modulePath);
-        if (!path.basename(emittedPath).startsWith("NetworkFlowFeature-")) {
-          findings.push({
-            emittedPath: relativePath,
-            kind: "network_flow_graph_escape",
-            value: modulePath,
-          });
-        }
       }
     }
     const sourcesContent = Array.isArray(sourceMap.sourcesContent)
@@ -287,7 +292,7 @@ async function main() {
   for (const modulePath of requiredNetworkFlowRuntimeModules) {
     if (!networkFlowRuntimeModulesSeen.has(modulePath)) {
       findings.push({
-        emittedPath: path.relative(repositoryRoot, options.dist),
+        emittedPath: "frontend-production",
         kind: "network_flow_graph_missing",
         value: modulePath,
       });

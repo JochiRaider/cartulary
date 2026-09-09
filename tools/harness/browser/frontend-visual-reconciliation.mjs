@@ -1,3 +1,4 @@
+import { validateSchemaSync } from "../contract/index.mjs";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -15,9 +16,9 @@ import {
 } from "./frontend-visual-golden-manifest.mjs";
 
 const captureIntentSchemaID =
-  "cartulary.frontend_visual_capture_intent.v1";
+  "cartulary.frontend_visual_capture_intent.v2";
 const reconciliationSchemaID =
-  "cartulary.frontend_visual_reconciliation.v2";
+  "cartulary.frontend_visual_reconciliation.v3";
 const captureAttachmentPrefix = "cartulary-visual-capture-intent-";
 const snapshotRoot = visualSnapshotRoot;
 const playwrightConfigPath = "apps/web/playwright.config.ts";
@@ -146,7 +147,8 @@ function resolveAttachmentPath(root, reportPath, attachmentPath) {
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
 }
 
-function validateCapturePayload(payload) {
+export function validateCapturePayload(payload) {
+  validateSchemaSync(captureIntentSchemaID, payload);
   const requiredStrings = [
     "capture_id",
     "capture_intent",
@@ -170,6 +172,21 @@ function validateCapturePayload(payload) {
     payload.capture_profile === null
   ) {
     throw new Error("capture intent requires capture_profile");
+  }
+  const profile = payload.capture_profile;
+  if (!["workbook_shell", "application_shell"].includes(profile.surface_kind) ||
+      (profile.surface_kind === "application_shell") !== (profile.density_id === null) ||
+      profile.theme_id !== "dark_graphite") {
+    throw new Error("capture profile applicability must match its declared surface");
+  }
+
+  for (const [field, permitted] of [
+    ["density_id", ["compact", "default", "comfortable", null]],
+    ["theme_id", ["dark_graphite", null]],
+  ]) {
+    if (!permitted.includes(profile[field]) || profile[field] !== profile[`expected_${field}`]) {
+      throw new Error(`capture profile ${field} must match its applicable declaration`);
+    }
   }
   if (
     !payload.expected_golden_path.startsWith(`${snapshotRoot}/`) ||
@@ -452,6 +469,17 @@ export function buildFrontendVisualReconciliation({
     catalogEntries,
     captureIntents,
   );
+  for (const fixture of registry.fixtures ?? []) {
+    if (JSON.stringify(Object.keys(fixture.capture_profiles ?? {}).sort()) !== JSON.stringify([...fixture.golden_artifacts].sort())) {
+      errors.push(`${fixture.fixture_id}: every golden requires exactly one capture profile`);
+    }
+    for (const capture of captureIntents.filter((item) => fixture.golden_artifacts.includes(item.expected_golden_path))) {
+      const expected = fixture.capture_profiles?.[capture.expected_golden_path];
+      if (!expected || Object.entries(expected).some(([key, value]) => capture.capture_profile[key] !== value)) {
+        errors.push(`${fixture.fixture_id}: capture profile mismatch for ${capture.capture_id}`);
+      }
+    }
+  }
   const countClassification = (classification) =>
     goldens.filter((golden) => golden.classification === classification).length;
   const counts = {

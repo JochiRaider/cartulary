@@ -686,6 +686,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-visual-harness",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "harness.browser.boundary_support.frontend_artifact_lifetime",
+            "harness.browser.boundary_support.visual_anchor_geometry",
+            "harness.browser.boundary_support.visual_asset_failure",
+            "harness.browser.boundary_support.visual_preference_lifetime"
+          ],
+          "specs": [
+            "apps/web/e2e/visual-harness.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-workbook-preferences",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1505,6 +1530,31 @@
           ],
           "specs": [
             "apps/web/e2e/timeline-workbook.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-visual-harness",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "harness.browser.boundary_support.frontend_artifact_lifetime",
+            "harness.browser.boundary_support.visual_anchor_geometry",
+            "harness.browser.boundary_support.visual_asset_failure",
+            "harness.browser.boundary_support.visual_preference_lifetime"
+          ],
+          "specs": [
+            "apps/web/e2e/visual-harness.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

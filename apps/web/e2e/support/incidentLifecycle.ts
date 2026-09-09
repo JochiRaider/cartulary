@@ -63,6 +63,15 @@ export async function expectLifecycleControlReachable(
   page: Page,
   control: import("@playwright/test").Locator,
 ) {
+  await control.focus();
+  await control.scrollIntoViewIfNeeded();
+  await assertLifecycleControlReachable(page, control);
+}
+
+export async function assertLifecycleControlReachable(
+  page: Page,
+  control: import("@playwright/test").Locator,
+) {
   const panel = page.getByRole("region", {
     name: "Incident lifecycle",
     exact: true,
@@ -75,8 +84,6 @@ export async function expectLifecycleControlReachable(
           document.documentElement.clientWidth + 1,
     ),
   ).toBe(true);
-  await control.focus();
-  await control.scrollIntoViewIfNeeded();
   await expect(control).toBeFocused();
   const box = await control.boundingBox();
   const viewport = page.viewportSize();

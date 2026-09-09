@@ -91,7 +91,7 @@ function groupResult(base, groupID, target) {
   }
   const bytes = readFileSync(file);
   const result = JSON.parse(bytes.toString("utf8"));
-  validateSchemaSync("cartulary.browser_group_result.v5", result);
+  validateSchemaSync("cartulary.browser_group_result.v6", result);
   return {
     file,
     bytes,
@@ -391,7 +391,7 @@ async function writeTargetResult(base, options, groups, resets) {
     );
     secureWriteFile(reconciliationOutput, reconciliationBytes);
     artifacts.push({
-      kind: "frontend_visual_reconciliation_v2",
+      kind: "frontend_visual_reconciliation_v3",
       ref: relativeToRun(base, reconciliationOutput),
       sha256: sha256(reconciliationBytes),
     });
@@ -413,7 +413,7 @@ async function writeTargetResult(base, options, groups, resets) {
     sessionsByID.set(group.result.browser_session_id, session);
   }
   const payload = {
-    schema_id: "cartulary.browser_target_result.v3",
+    schema_id: "cartulary.browser_target_result.v4",
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&

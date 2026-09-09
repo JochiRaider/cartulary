@@ -271,7 +271,7 @@ prepare_runtime_root() {
   SERVER_LOG="${PRIVATE_SESSION_ROOT}/logs/server.log"
   WEB_LOG="${PRIVATE_SESSION_ROOT}/logs/web.log"
   STACK_ENV_FILE="${PRIVATE_SESSION_ROOT}/stack.env"
-  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v6.json"
+  STACK_JSON_FILE="${TARGET_ARTIFACT_DIR}/stack-v7.json"
   STARTUP_DIAGNOSTIC_FILE="${TARGET_ARTIFACT_DIR}/startup-diagnostics.json"
   STACK_LEASE_FILE="${TARGET_ARTIFACT_DIR}/browser-stack-lease.json"
   SERVICE_ADMISSION_FILE="${TARGET_ARTIFACT_DIR}/service-admission.json"
@@ -387,11 +387,11 @@ write_stack_metadata() {
   local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
 
   if [[ -z "${BACKEND_READY_AT}" || -z "${FRONTEND_READY_AT}" ]]; then
-    echo "v6 browser stack publication requires bound backend and frontend readiness" >&2
+    echo "v7 browser stack publication requires bound backend and frontend readiness" >&2
     return 1
   fi
   if [[ ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
-    echo "v6 browser stack publication requires terminal startup diagnostics" >&2
+    echo "v7 browser stack publication requires terminal startup diagnostics" >&2
     return 1
   fi
   if [[ ! -x "${node_bin}" ]]; then
@@ -434,7 +434,7 @@ EOF
 }
 
 publish_stack_metadata() {
-  run_timing_span "setup" "browser-e2e publish immutable v6 stack" write_stack_metadata || return $?
+  run_timing_span "setup" "browser-e2e publish immutable v7 stack" write_stack_metadata || return $?
 }
 
 verify_stack_publication() {
@@ -517,8 +517,11 @@ snapshot_service_scope() {
 
 require_frontend_preview_artifacts() {
   local artifact_ref
-  artifact_ref="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${SESSION_EVIDENCE_HELPER}" frontend-artifact)" || return $?
-  WEB_DIST_DIR="${ROOT_DIR}/${artifact_ref}"
+  if ! artifact_ref="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" "${SESSION_EVIDENCE_HELPER}" frontend-artifact)"; then
+    write_startup_diagnostics "fail" "frontend_artifact" "artifact" "artifact_error" "selected frontend artifact is missing or invalid" || true
+    return 11
+  fi
+  WEB_DIST_DIR="${artifact_ref}"
   WEB_DIST_INDEX="${WEB_DIST_DIR}/index.html"
   if [[ -f "${WEB_DIST_INDEX}" ]]; then
     return 0
@@ -526,8 +529,8 @@ require_frontend_preview_artifacts() {
 
   local message="built frontend artifact missing at ${WEB_DIST_INDEX}; run the selected Make frontend build before browser e2e"
   echo "${message}" >&2
-  write_startup_diagnostics "fail" "frontend_artifact" "config" "configuration_error" "${message}" || true
-  return 2
+  write_startup_diagnostics "fail" "frontend_artifact" "artifact" "artifact_error" "${message}" || true
+  return 11
 }
 
 browser_prepare_frontend_toolchain() {

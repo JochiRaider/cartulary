@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import "./test-frontend-artifact.mjs";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   closeSync,
+  lstatSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -19,6 +22,7 @@ import path from "node:path";
 
 import {
   classifyFrontendVisualGoldens,
+  validateCapturePayload,
   resolveRegisteredFixtures,
 } from "../frontend-visual-reconciliation.mjs";
 import {
@@ -29,7 +33,8 @@ import {
   assertVisualRendererEnvironmentIsPrivate,
   loadVisualRendererProfile,
 } from "../visual-renderer-lease.mjs";
-import { promoteVisualSnapshotCandidate } from "../visual-snapshot-promotion.mjs";
+import { promoteVisualSnapshotCandidate, stageVisualSnapshotCandidate } from "../visual-snapshot-promotion.mjs";
+import { scanRetainedRoot } from "../../runtime/suite-runtime.mjs";
 import {
   collectFinalizedMeasurementSummaries,
   collectFrontendMeasurementObservations,
@@ -749,8 +754,13 @@ try {
   const snapshotBackup = path.join(promotionRoot, "snapshot-backup");
   const manifestBackup = path.join(promotionRoot, "manifest-backup.json");
   mkdirSync(sourceSnapshots);
-  mkdirSync(candidateSnapshots);
-  writeFileSync(path.join(sourceSnapshots, "fixture.png"), "old-golden");
+  writeFileSync(path.join(sourceSnapshots, "fixture.png"), "old-golden", { mode: 0o644 });
+  chmodSync(path.join(sourceSnapshots, "fixture.png"), 0o644);
+  stageVisualSnapshotCandidate(sourceSnapshots, candidateSnapshots);
+  assert.equal(lstatSync(path.join(candidateSnapshots, "fixture.png")).mode & 0o777, 0o600);
+  assert.equal(readFileSync(path.join(candidateSnapshots, "fixture.png"), "utf8"), "old-golden");
+  assert.equal((await scanRetainedRoot(candidateSnapshots)).status, "pass");
+  stageVisualSnapshotCandidate(sourceSnapshots, candidateSnapshots);
   writeFileSync(path.join(candidateSnapshots, "fixture.png"), "new-golden");
   writeFileSync(sourceManifest, "old-manifest");
   writeFileSync(candidateManifest, "new-manifest");
@@ -1406,3 +1416,17 @@ assert.deepEqual(
   ["visual.fixture.selected"],
   "a selected fixture must resolve its exact runtime catalog row",
 );
+
+const validCapturePayload = {
+  schema_id: "cartulary.frontend_visual_capture_intent.v2", capture_id: "visual.capture." + "a".repeat(20),
+  capture_intent: "test", expected_golden_path: "apps/web/e2e/workbook.visual.spec.ts-snapshots/test.png",
+  project_id: "chromium", renderer_profile_id: "visual.renderer.playwright_1_59_1_chromium_1217_linux_amd64", screenshot_assertion_location: "test",
+  test_file: "apps/web/e2e/workbook.visual.spec.ts", test_title: "test",
+  capture_profile: { browser_zoom_percent: 100, color_scheme: "dark", device_scale_factor: 1, reduced_motion: true, project_id: "chromium", snapshot_path_template: "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}", snapshot_suffix: "linux", viewport_css_px: "1280x720", surface_kind: "workbook_shell", density_id: "compact", expected_density_id: "compact", theme_id: "dark_graphite", expected_theme_id: "dark_graphite" },
+};
+validateCapturePayload(validCapturePayload);
+for (const density of [undefined, null, "", "unknown", "comfortable"]) {
+  assert.throws(() => validateCapturePayload({ ...validCapturePayload, capture_profile: { ...validCapturePayload.capture_profile, density_id: density } }));
+}
+validateCapturePayload({ ...validCapturePayload, capture_profile: { ...validCapturePayload.capture_profile, surface_kind: "application_shell", density_id: null, expected_density_id: null } });
+assert.throws(() => validateCapturePayload({ ...validCapturePayload, schema_id: "cartulary.frontend_visual_capture_intent.v1" }));

@@ -58,10 +58,7 @@ describe("generated import target frontend semantics", () => {
       "utf8",
     );
     const networkFlowController = readFileSync(
-      path.join(
-        sourceDirectory,
-        "networkFlow/useNetworkFlowImportController.ts",
-      ),
+      path.join(sourceDirectory, "networkFlow/NetworkFlowImportController.ts"),
       "utf8",
     );
 
@@ -78,7 +75,9 @@ describe("generated import target frontend semantics", () => {
     expect(mapping).not.toMatch(/cartulary\.view\.[a-z_]+\.v[0-9]+/u);
     expect(assistant).not.toContain("importableViewSchemaIds");
     expect(assistant).not.toMatch(/cartulary\.view\.[a-z_]+\.v[0-9]+/u);
-    expect(networkFlowController).toContain("networkFlowImportTarget");
+    expect(networkFlowController).toContain(
+      "requireClaimGatedAnalyticalImportTarget(",
+    );
     expect(networkFlowController).not.toContain(
       'targetKind: "network_flow_table"',
     );

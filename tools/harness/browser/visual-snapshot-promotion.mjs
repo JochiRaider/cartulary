@@ -1,4 +1,38 @@
-import { existsSync, renameSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+export function stageVisualSnapshotCandidate(source, destination) {
+  const validateExisting = () => {
+    const info = lstatSync(destination);
+    if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) throw new Error("visual snapshot candidate must be an owned private directory");
+  };
+  if (existsSync(destination)) { validateExisting(); return; }
+  const staging = mkdtempSync(path.join(path.dirname(destination), ".snapshot-staging-"));
+  const copy = (from, to) => {
+    const info = lstatSync(from);
+    if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid()) throw new Error("visual snapshot source must be an owned directory");
+    for (const name of readdirSync(from).sort()) {
+      const input = path.join(from, name);
+      const output = path.join(to, name);
+      const entry = lstatSync(input);
+      if (entry.isSymbolicLink() || entry.uid !== process.getuid()) throw new Error("visual snapshot source contains an unowned entry or symlink");
+      if (entry.isDirectory()) {
+        mkdirSync(output, { mode: 0o700 });
+        copy(input, output);
+      } else if (entry.isFile()) {
+        writeFileSync(output, readFileSync(input), { mode: 0o600, flag: "wx" });
+      } else throw new Error("visual snapshot source contains a non-regular entry");
+    }
+  };
+  try {
+    copy(source, staging);
+    try { renameSync(staging, destination); }
+    catch (error) {
+      if (!["EEXIST", "ENOTEMPTY"].includes(error.code) || !existsSync(destination)) throw error;
+      validateExisting();
+    }
+  } finally { rmSync(staging, { recursive: true, force: true }); }
+}
 
 const defaultFileSystem = Object.freeze({ existsSync, renameSync, rmSync });
 

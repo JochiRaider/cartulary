@@ -508,6 +508,7 @@ function WorkbookShellContent({
       data-active-view-schema-id={snapshot.surface}
       data-testid={workbookShellReadyTestId()}
       data-workbook-shell-id={workbookShellId}
+      data-cartulary-density={workbookLayout.shell.density}
       style={panelStyle}
     >
       <WorkbookSaveAnnouncements runtime={infrastructure.mutationRuntime} />

@@ -68,8 +68,8 @@ assert_file_not_contains "$START_SCRIPT" 'CARTULARY_TEST_SERVICES_ACTIVE' "ambie
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" '_shared/test-services/${SUITE_ID}/browser-sessions/${BROWSER_SESSION_ID}' "session artifact cardinality"
 assert_file_contains "$START_SCRIPT" 'finalize startup diagnostics' "terminal diagnostic precedes publication"
-assert_file_contains "$START_SCRIPT" 'publish immutable v6 stack' "v6 publication"
-assert_file_contains "$START_SCRIPT" 'v6 browser stack publication requires bound backend and frontend readiness' "missing readiness fails publication"
+assert_file_contains "$START_SCRIPT" 'publish immutable v7 stack' "v7 publication"
+assert_file_contains "$START_SCRIPT" 'v7 browser stack publication requires bound backend and frontend readiness' "missing readiness fails publication"
 assert_file_contains "$START_SCRIPT" 'snapshot_service_scope || return $?' "admission publication failure propagates"
 assert_file_contains "$START_SCRIPT" 'verify_stack_publication' "terminal publication verification"
 # shellcheck disable=SC2016
@@ -172,16 +172,16 @@ assert_stack_publication_failure() {
 
 assert_stack_publication_failure \
   "missing-backend-readiness" "" "2026-08-19T12:00:01Z" "present" \
-  "v6 browser stack publication requires bound backend and frontend readiness"
+  "v7 browser stack publication requires bound backend and frontend readiness"
 assert_stack_publication_failure \
   "missing-frontend-readiness" "2026-08-19T12:00:00Z" "" "present" \
-  "v6 browser stack publication requires bound backend and frontend readiness"
+  "v7 browser stack publication requires bound backend and frontend readiness"
 assert_stack_publication_failure \
   "missing-both-readiness" "" "" "present" \
-  "v6 browser stack publication requires bound backend and frontend readiness"
+  "v7 browser stack publication requires bound backend and frontend readiness"
 assert_stack_publication_failure \
   "missing-terminal-diagnostic" "2026-08-19T12:00:00Z" "2026-08-19T12:00:01Z" "missing" \
-  "v6 browser stack publication requires terminal startup diagnostics"
+  "v7 browser stack publication requires terminal startup diagnostics"
 
 verification_case_root="$tmp_dir/publication-verification-failure"
 mkdir -p "$verification_case_root/private-runtime"
@@ -416,7 +416,7 @@ mkdir -p "$session_root" "$private_session_root/logs" "$runtime_root/playwright-
 chmod 700 "$private_suite_root" "$private_session_root" "$runtime_root" "$runtime_root/playwright-state"
 printf '{"schema_id":"cartulary.test_services.scope.v2","target":"browser-e2e","suite_id":"%s","run_id":"%s","artifact_dir":"%s","readiness_generation":"sha256:%s","wrapper":{"owned_count":1,"pass_through_count":0},"preflight":{"docker_ok":true,"reaper_ready":true,"stale_containers_scanned":0,"stale_containers_removed":0,"stale_containers_deferred":0,"ryuk_disabled_for_suite_startup":true},"failures":{},"cleanup":{},"postgres":{"started":true,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"created_database_count":1,"migrated_database_count":1,"template_clone_count":1},"object_store":{"started":true,"secure":false,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"bucket_create_count":1,"bucket_cleanup_count":0},"browser_e2e":{"retired_fixture_count":0,"cleaned_fixture_count":0,"reclaimed_fixture_count":0},"fixture":{"total_count":2,"total_duration_ms":0,"strategy_aggregate_count":0},"started_services":{"names":["object_store","postgres"]}}\n' \
   "$suite_id" "$run_id" "$suite_root" "$(printf '4%.0s' {1..64})" >"$suite_root/service-scope.json"
-printf '{"schema_id":"cartulary.run_manifest.v3","source_digest":"sha256:%s"}\n' \
+printf '{"schema_id":"cartulary.harness_run_manifest.v1","toolchain_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222","source_digest":"sha256:%s"}\n' \
   "$(printf '3%.0s' {1..64})" >"$run_root/run-manifest.json"
 mkdir -p "$private_suite_root/test-services"
 chmod 700 "$private_suite_root/test-services"
@@ -470,6 +470,24 @@ export CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT=127.0.0.1:39000
 export CARTULARY_S3_OBJECT_PRIMARY_SECURE=false
 export CARTULARY_S3_OBJECT_PRIMARY_BUCKET=ct-web-test
 
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$run_root" "$private_suite_root" "$run_id" <<'JS'
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+const [root, runRoot, privateRoot, runID] = process.argv.slice(2);
+const { sealFrontendArtifact } = await import(path.join(root, "tools/harness/readiness/frontend-artifact.mjs"));
+writeFileSync(path.join(privateRoot, "runtime-owner.json"), JSON.stringify({
+  schema_id: "cartulary.harness_suite_runtime_owner.v1", run_id: runID,
+  lease_id: process.env.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID,
+}), { mode: 0o600 });
+const staging = path.join(privateRoot, "frontend-staging");
+mkdirSync(staging, { mode: 0o700 });
+writeFileSync(path.join(staging, "index.html"), "<main>synthetic frontend</main>");
+sealFrontendArtifact({ repoRoot: root, runRoot,
+  runtime: { root: privateRoot, runID, privatePath: (...parts) => path.join(privateRoot, ...parts) },
+  profile: { id: "production", producer_target: "build-web", entries: ["index.html"] }, staging,
+});
+JS
+
 "$NODE_BIN" "$EVIDENCE_HELPER" event initializing "initializing test session"
 "$NODE_BIN" "$EVIDENCE_HELPER" event service_attached "attached exact suite"
 "$NODE_BIN" "$EVIDENCE_HELPER" write-service-admission
@@ -481,12 +499,12 @@ export CARTULARY_S3_OBJECT_PRIMARY_BUCKET=ct-web-test
 stack_file="$("$NODE_BIN" "$EVIDENCE_HELPER" stack)"
 export CARTULARY_WEB_E2E_STACK_JSON_FILE="$stack_file"
 
-assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v6"' "v4 schema identity"
+assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v7"' "v4 schema identity"
 assert_json "$stack_file" 'value.suite_id === "suite-test" && value.browser_session_id === "session-default"' "v4 suite/session identity"
 assert_json "$stack_file" 'value.postgres_identity.database_name === "ct_web_test" && value.object_store_identity.bucket === "ct-web-test"' "v4 isolated resource identity"
 assert_json "$stack_file" 'value.frontend.frontend_command_kind === "vite-preview"' "v4 preview identity"
 if grep -Eq 'access_key|secret|postgres://' "$stack_file"; then
-  fail "v6 stack must not contain credentials or DSNs"
+  fail "v7 stack must not contain credentials or DSNs"
 fi
 
 attachment_exports="$("$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file")"
@@ -547,7 +565,7 @@ fi
 assert_file_contains "$tmp_dir/stale-build.log" 'frontend build digest mismatch' "stale build rejection"
 cp "$tmp_dir/original-stack.json" "$stack_file"
 if "$NODE_BIN" "$EVIDENCE_HELPER" stack >/dev/null 2>&1; then
-  fail "v6 stack publication must be immutable"
+  fail "v7 stack publication must be immutable"
 fi
 printf '\n' >>"$session_root/startup-diagnostics.json"
 if "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then

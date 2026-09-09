@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.frontend_visual_fixture_registry.v5",
+  "$id": "cartulary.frontend_visual_fixture_registry.v6",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.frontend_visual_fixture_registry.v5"
+      "const": "cartulary.frontend_visual_fixture_registry.v6"
     },
     "owner_id": {
       "const": "harness.visual"
@@ -103,11 +103,6 @@
         "golden_filename",
         "golden_artifacts",
         "seed_id",
-        "viewport_css_px",
-        "device_scale_factor",
-        "browser_zoom_percent",
-        "theme_id",
-        "density_id",
         "scroll_normalization",
         "capture_scope",
         "focus_state",
@@ -116,7 +111,8 @@
         "dynamic_masks",
         "no_dynamic_regions",
         "blocked_reason",
-        "replacement_fixture_id"
+        "replacement_fixture_id",
+        "capture_profiles"
       ],
       "properties": {
         "fixture_id": {
@@ -166,26 +162,6 @@
         "seed_id": {
           "type": "string"
         },
-        "viewport_css_px": {
-          "type": "string",
-          "pattern": "^[0-9]+x[0-9]+$"
-        },
-        "device_scale_factor": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "browser_zoom_percent": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "theme_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "density_id": {
-          "type": "string",
-          "minLength": 1
-        },
         "scroll_normalization": {
           "type": "object"
         },
@@ -226,6 +202,56 @@
             "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
           },
           "uniqueItems": true
+        },
+        "capture_profiles": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/capture_profile"
+          }
+        }
+      }
+    },
+    "capture_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "viewport_css_px",
+        "device_scale_factor",
+        "browser_zoom_percent",
+        "theme_id",
+        "density_id",
+        "surface_kind"
+      ],
+      "properties": {
+        "viewport_css_px": {
+          "type": "string",
+          "pattern": "^[0-9]+x[0-9]+$"
+        },
+        "device_scale_factor": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "browser_zoom_percent": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "theme_id": {
+          "const": "dark_graphite"
+        },
+        "density_id": {
+          "enum": [
+            "compact",
+            "default",
+            "comfortable",
+            null
+          ]
+        },
+        "surface_kind": {
+          "enum": [
+            "workbook_shell",
+            "application_shell"
+          ]
         }
       }
     }

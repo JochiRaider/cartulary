@@ -17,7 +17,7 @@
     "backend": {
       "unevaluatedProperties": false,
       "allOf": [
-        { "$ref": "cartulary.web_e2e_stack.v6#/$defs/process_proof" },
+        { "$ref": "cartulary.web_e2e_stack.v7#/$defs/process_proof" },
         {
           "type": "object",
           "required": ["origin", "port", "ready_at"],

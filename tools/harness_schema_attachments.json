@@ -37,8 +37,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_group_result.v5",
-      "path": "tools/schemas/cartulary.browser_group_result.v5.schema.json",
+      "schema_id": "cartulary.browser_group_result.v6",
+      "path": "tools/schemas/cartulary.browser_group_result.v6.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence adapter",
       "validation": "json-shape-check"
@@ -72,8 +72,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_target_result.v3",
-      "path": "tools/schemas/cartulary.browser_target_result.v3.schema.json",
+      "schema_id": "cartulary.browser_target_result.v4",
+      "path": "tools/schemas/cartulary.browser_target_result.v4.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence finalizer",
       "validation": "json-shape-check"
@@ -142,6 +142,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.frontend_build_artifact.v1",
+      "path": "tools/schemas/cartulary.frontend_build_artifact.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "frontend build artifact producer",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.frontend_claim_publication_review.v1",
       "path": "tools/schemas/cartulary.frontend_claim_publication_review.v1.schema.json",
       "classification": "public_contract",
@@ -177,8 +184,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_fixture_registry.v5",
-      "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v5.schema.json",
+      "schema_id": "cartulary.frontend_visual_capture_intent.v2",
+      "path": "tools/schemas/cartulary.frontend_visual_capture_intent.v2.schema.json",
+      "classification": "public_contract",
+      "producer": "visual capture helper",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_visual_fixture_registry.v6",
+      "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v6.schema.json",
       "classification": "owner_input",
       "producer": "visual fixture owner",
       "validation": "json-shape-check"
@@ -191,8 +205,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.frontend_visual_reconciliation.v2",
-      "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v2.schema.json",
+      "schema_id": "cartulary.frontend_visual_reconciliation.v3",
+      "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v3.schema.json",
       "classification": "public_contract",
       "producer": "browser visual target summary",
       "validation": "json-shape-check"
@@ -1004,8 +1018,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.web_e2e_stack.v6",
-      "path": "tools/schemas/cartulary.web_e2e_stack.v6.schema.json",
+      "schema_id": "cartulary.web_e2e_stack.v7",
+      "path": "tools/schemas/cartulary.web_e2e_stack.v7.schema.json",
       "classification": "public_contract",
       "producer": "browser session lifecycle",
       "validation": "json-shape-check"

@@ -91,6 +91,7 @@ export async function openIncidentAsTrackedUserReady(
   browser: Browser,
   sessionTracker: SessionTracker,
   options: {
+    preparePage?: (page: Page) => Promise<void>;
     createdBy: string;
     email: string;
     incidentId: string;
@@ -102,6 +103,7 @@ export async function openIncidentAsTrackedUserReady(
 ) {
   const context = await browser.newContext();
   const page = await context.newPage();
+  await options.preparePage?.(page);
   await sessionTracker.loginTrackedUser(page, {
     createdBy: options.createdBy,
     email: options.email,
