@@ -11,7 +11,11 @@ import {
   terminalCommonJob,
   validCommonJob,
 } from "../services/commonJobContract";
-import { networkFlowRequestError } from "./networkFlowErrors";
+import type { NetworkFlowRequestError } from "./networkFlowErrors";
+import {
+  savedGraphReadFailure,
+  savedGraphResponseError,
+} from "./savedGraphReadFailure";
 
 export type SavedGraphJobTarget = {
   readonly incidentId: string;
@@ -24,6 +28,7 @@ export type SavedGraphObservation = {
   readonly state: "observing" | "paused" | "terminal";
   readonly job: CommonJobResource | null;
   readonly message: string | null;
+  readonly failure?: NetworkFlowRequestError;
 };
 export const savedGraphObservationTiming = {
   interval: 1_500,
@@ -57,7 +62,7 @@ export async function readSavedGraphJob(
   signal: AbortSignal,
 ): Promise<CommonJobResource> {
   if (target.statusRoute !== `/api/v1/jobs/${target.jobId}`)
-    throw new Error("Invalid job reference.");
+    throw new SyntaxError("Invalid job reference.");
   const response = await fetchHTTPOperation<{ data: CommonJobResource }>({
     apiBase,
     operationID: "getJob",
@@ -65,16 +70,12 @@ export async function readSavedGraphJob(
     init: { method: "GET", signal },
   });
   if (!response.ok)
-    throw networkFlowRequestError(
-      response.status,
-      response.payload,
-      "Job status is unavailable. Server work may continue.",
-    );
+    throw savedGraphResponseError(response.status, response.payload);
   if (
     response.status !== 200 ||
     !validSavedGraphJob(response.payload.data, target)
   )
-    throw new Error("Job status does not match the saved graph.");
+    throw new SyntaxError("Job status does not match the saved graph.");
   return response.payload.data;
 }
 /** A serial window with bounded reads; callers own explicit resume and scope fencing. */
@@ -105,7 +106,7 @@ export async function observeSavedGraphJob(options: {
         !validSavedGraphJob(next, options.target) ||
         (job !== null && !commonJobDoesNotRegress(job, next))
       )
-        throw new Error(
+        throw new SyntaxError(
           "The observed job identity or status progression is invalid.",
         );
       job = next;
@@ -130,8 +131,12 @@ export async function observeSavedGraphJob(options: {
       message:
         "Observation stopped. Server work may continue. Resume observation or reload the declaration.",
     };
-  } catch {
+  } catch (caught) {
     return {
+      failure: savedGraphReadFailure(
+        caught,
+        "Job status could not be observed. Server work may continue.",
+      ),
       target: options.target,
       state: "paused",
       job,

@@ -1,5 +1,255 @@
 # Network Analysis saved-graph lifecycle remediation
 
+## Current audit and gap closure
+
+Authorized follow-up baseline: clean `main` at
+`03af0570c492997d8466b45eb8f3298e80180600`, revalidated on 2026-09-09.
+Root `AGENTS.md` remains the only applicable instruction file. The completed
+implementation and all evidence below this follow-up are historical; they do
+not establish completion of the new acceptance cases.
+
+| Workstream | Status | Exit |
+| --- | --- | --- |
+| SG-01 — Reconciliation and characterization | DONE | Owner mappings, compatibility assessment and executable reproductions. |
+| SG-02 — Transport and captured operations | DONE | Admission, replay, conflict, typed errors and route checks. |
+| SG-03 — Observation and continuity | DONE | Declaration races, authority withdrawal, recovery and last-safe results. |
+| SG-04 — UI and browser integration | DONE | Accessible recovery, real workflows and mounting limits. |
+| SG-05 — Final validation | DONE | Fresh verification, acceptance and final scope audit. |
+
+### Follow-up authority and compatibility
+
+The localized digest was read in its declared order during planning and its
+applicable paths revalidated. ADOPT semantic continuity, local recovery and
+keyboard access; ADAPT confirmations and responsive presentation to existing
+controls; REJECT redesigns and generic workflow machinery. The digest is
+unchanged. `domain.md` supplies vocabulary; `design.md` supplies design direction;
+the NLSpec research article supplies no product authority. The current visual
+maintenance guide governs any golden maintenance.
+
+| Correction | Adopted owner | Implementation boundary |
+| --- | --- | --- |
+| Replay uncertainty, immutable attempt context and dispatch fencing | NF-REQ-024–027, 170b, 206; Core 04 REQ-04-023 | Saved operation owner and narrow transport. |
+| Historical receipt and declaration/read races | NF-REQ-170a–d, 208; Core 01 §3.3.9.1 | Saved controller and navigation. |
+| Protected exposure and functional recovery | NF-REQ-022, 170d–e, 207–208 | Saved read outcomes, observation and presentation. |
+| Error classification and query admission | NF-REQ-021, 173–176; Core idempotency/error contracts | Saved transport and saved HTTP routes only. |
+| Accessible errors and distinct async states | NF-REQ-170e; design §§12.5, 12.8, 14 | Existing saved-graph panel and browser evidence. |
+
+Current Network Flow major 6, declaration/receipt v4, all seven selected-binding
+members, request versions, narrow job references and empty 204 retirement/replay
+are retained. Private `SelectedResult` storage naming is a legitimate internal
+projection, not a public alias. Publication can replace the binding without
+incrementing declaration version; historical receipts are never current read
+authority. Graph Projection v2 identity and Reporting lease ownership remain
+unchanged. No owner contradiction was found in the reviewed seam.
+
+No stored-data migration or additional public projection change is planned.
+Rejecting undeclared saved-route query parameters tightens previously permissive
+invalid-input handling under the existing owner contract; valid requests retain
+their contract. No route, dependency, compatibility alias, browser persistence,
+worker, scheduler or cutover change is authorized. Rollback is a coherent
+follow-up code/test/routing/golden revert within major 6, not a rollback to the
+pre-cutover release. No reset, commit, push or deployment is authorized.
+
+Planning evidence: frontend operation/transport/continuity 4/4 in
+`20260909T160716Z-p69331`; observer/local-recovery/lifecycle 4/4 in
+`20260909T161108Z-p71520`; backend receipt integrity 1/1 in
+`20260909T160842Z-p70278`. These passed baseline tests do not cover the newly
+identified gaps. Both required owner task guides passed again at follow-up entry.
+
+### Follow-up SG-01 exit
+
+Executable characterizations added in `SavedGraphRecovery.test.ts` demonstrate
+all nine controller boundaries: failed replay, historical publication regression,
+selection retargeting, retired conflict review, concurrent declarations, dropped
+invalidation, list denial, contributor denial and queued dispatch. All nine fail
+at their intended assertions in `20260909T162151Z-p95760` (harness 1/2).
+Transport classification and accessible name validation fail in
+`20260909T162059Z-p77678` (1/4); that first run also exposed a test syntax typo,
+corrected before the nine controller assertions were rerun.
+
+`make service-backed-test-slice OWNER=module.networkflow
+ROWS=module.networkflow.integration.saved_graph_lifecycle_v2` fails at saved-query
+admission in `20260909T162101Z-p77921` (2/3). Runtime remains unchanged at this
+checkpoint. Authored routing was updated through `make generate`, passing in
+`20260909T162019Z-p74641`. The unchanged result-retry callback also has a traced
+no-op after navigation identity withdrawal; integration coverage will exercise
+its declaration-read prerequisite when the recovery action is added.
+
+SG-01 exit: owner mapping, compatibility assessment and executable failures
+recorded before runtime changes. No structural movement is planned. Next action:
+SG-02 transport validation, immutable attempt context and saved-query admission.
+
+### Follow-up SG-02 exit
+
+Corrected captured attempt revisions, replay uncertainty, historical receipt
+admission, queued dispatch revalidation, exact error-code classification and
+validated mutation rejection envelopes. Read status and active-target checks
+were tightened without changing wire schemas. Saved HTTP query rejection now
+runs after authentication and the exact per-action role/lifecycle gate. Only
+`graph_view_routes.go` and its lifecycle fixture changed on the backend.
+
+`make test-slice OWNER=web.networkflow` with the captured-operations,
+receipt-transport and replay-admission rows passes 4/4 in
+`20260909T163017Z-p24882`. This includes the real availability request queue.
+The saved lifecycle service row passes 3/3 in `20260909T162849Z-p3585`, including
+all eight saved-route query gates and role precedence. `make frontend-typecheck`
+passes 2/2 in `20260909T162930Z-p21247`. Public routing generation passes in
+`20260909T162955Z-p21925`; the remaining recovery cases retain their own row.
+The earlier combined 3/4 run (`20260909T162839Z-p2799`) now fails only at the five
+SG-03 read/authority assertions. No structural code movement occurred.
+
+SG-02 exit passed. Next action: SG-03 per-declaration read generations,
+central read-failure disposition and functional binding recovery.
+
+### Follow-up SG-03 exit
+
+The operation owner now fences independent declaration reads and conflict review,
+retains invalidations through mutation admission, and reconciles historical
+receipts without replacing current declarations. `savedGraphReadFailure.ts`
+centralizes typed errors and scoped disposition across declarations, list,
+results, contributors and Common Job observation. Missing jobs and transient
+failures retain authorized bytes; explicit access loss clears exposure. A
+collaboration removal additionally requires fresh authority before reads resume.
+The navigation owner restarts interrupted initial reads and result recovery
+reconciles a withdrawn binding before issuing its result request.
+
+Six focused frontend rows pass 7/7 in `20260909T163604Z-p35532`, including the five
+new binding recovery, interrupted-load, contributor transport/stale-binding,
+typed job-error and late-receipt tests. The previous 6/7 run
+`20260909T163341Z-p30638` caught the collaboration-removal recovery distinction;
+its original tombstone/access test was preserved and the implementation corrected.
+Typecheck passes 2/2 in `20260909T163342Z-p30915`; public generation passes in
+`20260909T163535Z-p32569`. The immutable seven-member identity, observer bounds,
+100-row contributor pages and 500/1,000 mounting limits remain intact.
+
+SG-03 exit passed. Next action: SG-04 honest local states, accessible name errors
+and controlled browser recovery/race evidence in the real application.
+
+### Follow-up SG-04 exit
+
+Saved surfaces now distinguish initial list/result failures, confirmed emptiness,
+materialization failure and binding withdrawal. Recovery labels follow their
+prerequisites. Name invalid state and local error associations retain byte-based
+NFC validation and drafts. Controls, density, layout and mounting bounds are
+preserved. Protocol envelope validation belongs in the existing service adapter;
+feature files do not import protocol facades directly.
+
+Focused UI/lifecycle/bounds/roles pass 5/5 in `20260909T163804Z-p41340`.
+The new real-application deferred navigation test, existing saved lifecycle,
+a11y (including narrow/short layouts, zoom, Escape and name descriptions), and
+measurement rows pass in `20260909T164043Z-p46716` (combined run 14/16).
+Its new replay/read-recovery row exposed lost creation selection when a newer
+reconciliation superseded the first. Selection intent now survives superseding
+reads and remains fenced by the original user-selection revision. That browser
+row passes 11/11 in `20260909T164411Z-p95684`.
+
+Current local recovery/receipt/declaration tests pass 4/4 in
+`20260909T164829Z-p40537`; five operation/continuity rows pass 6/6 in
+`20260909T164548Z-p33382`. Typecheck passes in `20260909T164654Z-p34682` after
+correcting an unsupported test-only locator option. Import boundaries pass 2/2
+in `20260909T164828Z-p40194` after the adapter correction (the earlier boundary
+failure was `20260909T164655Z-p35116`). New browser routes are controlled test
+responses over actual committed operations; no production route was added.
+
+SG-04 exit passed. Next action: SG-05 finalizer, affected owner verification,
+ordinary visual validation and final acceptance/scope audit. Retained-run
+maintenance will be skipped with `RESULTS_DIR` unset: no qualifying exact-source
+successful full warm check exists for this follow-up.
+
+### Follow-up SG-05 validation and acceptance
+
+`make agent-finalize` passed before broader verification in
+`20260909T164912Z-p41423`. Its generated-structure, JSON shape and catalog coverage
+actions passed. Canonical retained-evidence and scheduler maintenance were
+explicitly skipped (`results-dir-not-provided`); `RESULTS_DIR` remained unset.
+The final audit made the private transport dispatch guard mandatory at its type
+boundary; current callers already supplied it. Its receipt tests and typecheck
+were rerun on that final signature.
+
+All run IDs below are under `.cartulary/test-results/`; their row results,
+unit results and target summaries retain the executable evidence.
+
+| Command | Result | Run ID |
+| --- | --- | --- |
+| `make test-slice OWNER=web.networkflow` | PASS 49/49 | `20260909T165000Z-p44974` |
+| `make test-slice OWNER=module.networkflow` | PASS 35/35, all 81 owner rows | `20260909T165317Z-p62951` |
+| `make service-backed-test-slice OWNER=module.networkflow` | PASS 29/29, all 34 service-backed rows | `20260909T165000Z-p45066` |
+| `make test-slice OWNER=web.workbook ROWS=web.workbook.regression.extension_availability_lifecycle_792bc604af` | PASS 2/2 | `20260909T165000Z-p45060` |
+| `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.saved_graph_replay_admission,web.networkflow.regression.saved_graph_recovery_boundaries` | PASS 3/3 after test lint corrections | `20260909T165318Z-p64720` |
+| `make test-slice OWNER=web.networkflow ROWS=web.networkflow.regression.saved_graph_receipt_transport` | PASS 2/2, mandatory dispatch guard | `20260909T165705Z-p21683` |
+| `make frontend-typecheck` | PASS 2/2, final signature | `20260909T165704Z-p21311` |
+| `make frontend-import-boundary-check` | PASS 2/2 | `20260909T165219Z-p30730` |
+| `make lint-biome` | PASS 2/2, final signature | `20260909T165744Z-p22455` |
+| `make generate-drift` | PASS 4/4 | `20260909T165219Z-p30536` |
+| `make go-gosec-targeted` | PASS 4/4 | `20260909T165032Z-p81072` |
+| `make browser-e2e-visual` | PASS 12/12 | `20260909T165305Z-p35663` |
+| `make lint-markdown` | PASS complete follow-up handoff before DONE marker | `20260909T165913Z-p23221` |
+
+The first final lint run (`20260909T165000Z-p45268`) rejected three non-null
+assertions in new tests; these were replaced with explicit checks or a failing
+lookup. No lint rule was relaxed. A planning invocation of `target-plan` with
+unsupported `OWNER` failed usage validation; `make explain-test-owner
+OWNER=module.networkflow` supplied the routing inventory. Neither was a runtime
+or service failure.
+
+The owner runs include saved/temporal lifecycle and receipt integrity, exact
+replay, roles, quota/version admission, leased-result cleanup, source deletion,
+protected browser state, imports, retained import drafts, unsaved exploration,
+a11y and both graph and contributor bounds. The complete visual reconciliation
+is PASS: 210/210 active captures, zero missing goldens, ambiguous mappings or
+orphans. The promoted manifest remains unchanged at SHA-256
+`3ed785363470b97580ba6047197abaab9e875edf8d2ad1c8f47139c6ac23f168`.
+
+Reviewed unchanged images:
+`network-flow-analysis-saved-graph-result-linux.png` (1440×900) and
+`network-flow-analysis-compact-saved-graphs-linux.png` (768×640), under the
+committed visual snapshot directory. Controls, focus framing, density and layout
+are preserved. No golden, capture preparation, mask, anchor, tolerance, renderer
+or shared preference changed. Golden promotion and its two subsequent ordinary
+passes were unnecessary because no golden changed. Existing owner visual passes
+also succeeded in both full module runs.
+
+| Follow-up binary acceptance | Status | Evidence |
+| --- | --- | --- |
+| Owner and wire reconciliation; major 6/v4/204 retained; query admission corrected after authorization | PASS | SG-01 mapping, saved route lifecycle and receipt suites. |
+| Immutable attempts, synchronous admission, required dispatch guard, exact replay and honest uncertain recovery | PASS | Operation/replay/transport rows; real committed-create replay recovery. |
+| Current reads and retirement tombstones fence conflict review, historical receipts and independent reconciliations | PASS | Recovery row and deferred real-application navigation. |
+| Accepted writes remain acknowledged across subsequent list/job/result failures | PASS | Captured-operation, typed observation and last-safe-result tests. |
+| Seven-member authorized continuity preserves results, contributors and bounded navigation across unchanged metadata | PASS | Semantic continuity, lifecycle, a11y and measurement rows. |
+| Session/incident/claim loss, target absence and binding/source invalidation have scoped withdrawal and usable recovery | PASS | Recovery, protected-state, lifecycle and availability integration rows. |
+| Initial/retained failure states, NFC/UTF-8 drafts, roles, duplicate names, keyboard access and responsive presentation | PASS | Local recovery/role/bounds rows; real lifecycle/recovery/a11y tests. |
+| Generation, type/import boundaries, security, owner regression and ordinary visuals | PASS | Fresh SG-05 command table. |
+| Final handoff bytes, whitespace and scope audit | PASS | Markdown run `20260909T165913Z-p23221`; `git diff --check`; explicit 22-path scope audit. |
+
+Actual scope: 22 authorized paths. Runtime changes stay in the saved-graph
+controller, navigation, error/observation helpers, transport/adapter, owner hook,
+presentation and saved-route query gates. Supporting changes are focused tests,
+authored owner routing and generator-produced browser/topology projections.
+No structural workflow extraction or generic engine was introduced. The original
+handoff body remains byte-for-byte intact below this follow-up.
+
+Actual compatibility impact: unsupported saved-route query input now receives
+`network_flow_invalid_request` (400) after authorization. Invalid response
+payloads are treated as uncertain or invalid reads rather than trustworthy
+acknowledgements. Valid major-6 requests and existing stored data retain their
+schemas and lifecycle. No migration, new route, compatibility alias, browser
+persistence, dependency or owner revision is needed. Roll back the follow-up
+runtime, tests and authored routing together and regenerate their projections
+within major 6; the pre-cutover baseline is not a compatible rollback.
+
+Limitations and skipped checks: client observation remains bounded and cannot
+prove cancellation or failure after timeout. Recovery uses existing current-read
+and exact-replay routes. Full-repository `make check` and release/deployment gates
+were not run; affected owner, service, browser, generation and security checks
+cover this change. Retained-run maintenance was skipped as described above. No
+reset, commit, push or deployment occurred.
+
+SG-05 exit passed: all current tracker rows are DONE and all follow-up binary
+acceptance criteria are PASS. The Markdown, whitespace and explicit 22-path
+scope checks are repeated against these final handoff bytes after the DONE
+marker, as required; their terminal results remain in the session evidence.
+Next action: none.
+
 ## Execution contract and baseline
 
 The approved implementation coordinates Network Flow contract major 6. Network

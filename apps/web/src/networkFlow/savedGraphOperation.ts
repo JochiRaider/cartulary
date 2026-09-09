@@ -1,6 +1,7 @@
 import type { ExtensionAvailabilityTag } from "../extensions/extensionAvailability";
 import { createClientTransactionId } from "../services/clientTransactionId";
 import {
+  NetworkFlowContractDecodeError,
   type NetworkFlowGraphSemanticQuery,
   type NetworkFlowSavedGraph,
   type NetworkFlowSavedGraphAccepted,
@@ -57,28 +58,7 @@ export class SavedGraphWriteError extends Error {
 export function savedGraphWriteFailure(caught: unknown): SavedGraphWriteError {
   if (caught instanceof SavedGraphWriteError) return caught;
   if (caught instanceof NetworkFlowRequestError) {
-    const category: SavedGraphFailureCategory = caught.code.includes(
-      "version_conflict",
-    )
-      ? "version_conflict"
-      : caught.code.includes("idempotency") ||
-          caught.code.includes("transaction")
-        ? "transaction_conflict"
-        : caught.code.includes("limit") ||
-            caught.code.includes("quota") ||
-            caught.status === 429
-          ? "quota"
-          : caught.status === 401 ||
-              caught.status === 403 ||
-              caught.code === "incident_not_found"
-            ? "authorization"
-            : caught.status === 404 ||
-                caught.code === "incident_closed" ||
-                caught.code.includes("source")
-              ? "lifecycle"
-              : caught.status >= 500 || caught.status === 0
-                ? "transport"
-                : "validation";
+    const category = savedGraphFailureCategory(caught);
     return new SavedGraphWriteError(
       category,
       caught.status >= 400 && caught.status < 500 ? "rejected" : "uncertain",
@@ -87,10 +67,52 @@ export function savedGraphWriteFailure(caught: unknown): SavedGraphWriteError {
     );
   }
   return new SavedGraphWriteError(
-    "transport",
+    caught instanceof SyntaxError ||
+      caught instanceof NetworkFlowContractDecodeError
+      ? "invalid_response"
+      : "transport",
     "uncertain",
     "The acknowledgement was not received. The request may have committed. Replay this exact attempt to recover its receipt.",
   );
+}
+/** Exact public codes keep invalid limits distinct from exhausted quotas. */
+export function savedGraphFailureCategory(
+  error: NetworkFlowRequestError,
+): SavedGraphFailureCategory {
+  switch (error.code) {
+    case "network_flow_graph_view_version_conflict":
+      return "version_conflict";
+    case "client_txn_conflict":
+      return "transaction_conflict";
+    case "network_flow_table_limit_exceeded":
+    case "network_flow_resource_limit_exceeded":
+    case "network_flow_graph_limit_exceeded":
+    case "network_flow_counter_sum_limit_exceeded":
+    case "network_flow_graph_view_limit_exceeded":
+    case "network_flow_graph_materialization_limit_exceeded":
+      return "quota";
+    case "session_required":
+    case "authorization_denied":
+    case "incident_not_found":
+    case "extension_workspace_unavailable":
+      return "authorization";
+    case "incident_closed":
+    case "network_flow_table_not_found":
+    case "network_flow_table_not_active":
+    case "network_flow_source_changed":
+    case "network_flow_graph_view_not_found":
+    case "network_flow_graph_view_not_materialized":
+    case "network_flow_graph_query_stale":
+      return "lifecycle";
+    case "network_flow_invalid_response":
+      return "invalid_response";
+    default:
+      if (error.status === 401 || error.status === 403) return "authorization";
+      if (error.status === 429) return "quota";
+      return error.status >= 500 || error.status === 0
+        ? "transport"
+        : "validation";
+  }
 }
 export function sameSavedGraphScope(
   a: SavedGraphAuthority,

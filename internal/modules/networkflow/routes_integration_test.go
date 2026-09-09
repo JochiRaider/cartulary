@@ -955,6 +955,22 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	}
 	resourcePath := collectionPath + "/" + graphViewID
 	// Exercise authorization before request decoding without admitting additional work.
+	for _, target := range []struct {
+		method, path string
+		body         any
+	}{
+		{http.MethodGet, collectionPath, nil},
+		{http.MethodGet, resourcePath, nil},
+		{http.MethodGet, resourcePath + "/result", nil},
+		{http.MethodPost, collectionPath, createBody},
+		{http.MethodPatch, resourcePath, map[string]any{"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": "invalid-query-rename", "base_graph_view_version": 1, "display_name": "Invalid query"}},
+		{http.MethodDelete, resourcePath, map[string]any{"schema_id": "cartulary.network_flow.graph_view_retire_request.v1", "client_txn_id": "invalid-query-retire", "base_graph_view_version": 1}},
+		{http.MethodPost, resourcePath + "/refresh", map[string]any{"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "invalid-query-refresh", "base_graph_view_version": 1}},
+		{http.MethodPost, resourcePath + "/contributors/query", map[string]any{}},
+	} {
+		resp := httptestx.DoJSON(t, target.method, target.path+"?undeclared=1", target.body, mutationOptions...)
+		httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "network_flow_invalid_request")
+	}
 	for _, role := range []string{"viewer", "editor", "reviewer", "admin"} {
 		if _, err := harness.Pool.Exec(context.Background(), "UPDATE incident_memberships SET role = $3 WHERE incident_id = $1 AND user_id = $2", incidentID, adminID, role); err != nil {
 			t.Fatal(err)
@@ -974,6 +990,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 				status = http.StatusBadRequest
 			}
 			httptestx.RequireStatus(t, httptestx.DoJSON(t, action.method, action.path, map[string]any{}, mutationOptions...), status)
+			httptestx.RequireStatus(t, httptestx.DoJSON(t, action.method, action.path+"?undeclared=1", map[string]any{}, mutationOptions...), status)
 		}
 	}
 	if _, err := harness.Pool.Exec(context.Background(), "UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1", incidentID); err != nil {

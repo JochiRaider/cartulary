@@ -33,7 +33,7 @@ export function useNetworkFlowSavedGraphController(options: {
     replay: controller.replay,
     reviewCurrent: controller.reviewCurrent,
     resumeObservation: controller.resumeObservation,
-    loadResult: controller.navigation.loadResult,
+    loadResult: controller.recoverResult,
     selectObject: controller.navigation.selectObject,
     loadContributors: controller.navigation.loadContributors,
     setPage: controller.navigation.setPage,

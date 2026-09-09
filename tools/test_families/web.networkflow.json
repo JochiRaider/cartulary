@@ -875,6 +875,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
+          "NetworkAnalysisWorkspace distinguishes initial saved declaration and result failures from empty and unmaterialized states",
           "NetworkAnalysisWorkspace recovers saved graph drafts, conflicts, and uncertain writes locally with keyboard focus"
         ]
       },
@@ -953,10 +954,44 @@
       "selector": {
         "file": "apps/web/src/networkFlow/savedGraphTransport.test.ts",
         "titles": [
+          "Saved graph transport integrity classifies transaction conflicts and invalid limits without losing malformed acknowledgement uncertainty",
           "Saved graph transport integrity preserves typed rejection and uncertain transport outcomes",
           "Saved graph transport integrity requires empty 204 retirement on initial response and replay",
           "Saved graph transport integrity sends identical captured bytes on replay and accepts only the scoped narrow job receipt",
           "Saved graph transport integrity uses NFC and exact whitespace with UTF-8 byte limits and rejects controls before trimming"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.saved_graph_recovery_boundaries",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/SavedGraphRecovery.test.ts",
+        "titles": [
+          "Saved graph recovery boundaries accepts a late original receipt after replay denial without installing the historical binding",
+          "Saved graph recovery boundaries fences conflict review after retirement without resurrecting a declaration",
+          "Saved graph recovery boundaries keeps authorized contributor context during transport failure and withdraws only its invalidated binding",
+          "Saved graph recovery boundaries preserves typed job read failures without treating missing jobs as lost incident access",
+          "Saved graph recovery boundaries reconciles independent graphs without dropping either accepted read",
+          "Saved graph recovery boundaries reconciles invalidations received while a rejected mutation holds admission",
+          "Saved graph recovery boundaries recovers a withdrawn result through its current declaration before loading authorized bytes",
+          "Saved graph recovery boundaries restarts an interrupted initial result read after valid authority reconciliation",
+          "Saved graph recovery boundaries withdraws cached exposure on an authoritative list denial and permits explicit current-state recovery",
+          "Saved graph recovery boundaries withdraws result and contributors when a contributor request reports lost read authority"
         ]
       },
       "evidence_class": "unit",
@@ -984,6 +1019,33 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace bounds saved graph rendering to 500 vertices and 1000 edges with paged navigation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.saved_graph_replay_admission",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/SavedGraphRecovery.test.ts",
+        "titles": [
+          "Saved graph recovery boundaries aborts a queued mutation when its captured authority changes before dispatch",
+          "Saved graph recovery boundaries does not replace a materialized declaration with its historical creation receipt",
+          "Saved graph recovery boundaries preserves selection made after the original attempt across explicit replay",
+          "Saved graph recovery boundaries retains original uncertainty after a denied replay and resolves only the same attempt"
         ]
       },
       "evidence_class": "unit",

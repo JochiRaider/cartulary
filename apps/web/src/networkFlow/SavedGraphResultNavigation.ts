@@ -11,11 +11,12 @@ import {
   type NetworkFlowSavedGraphResult,
   savedGraphBindingIdentity,
 } from "../services/networkFlowContractAdapter";
-import {
-  type NetworkFlowRequestError,
-  networkFlowErrorFromUnknown,
-} from "./networkFlowErrors";
+import type { NetworkFlowRequestError } from "./networkFlowErrors";
 import type { SavedGraphLoadState } from "./savedGraphOperation";
+import {
+  savedGraphReadDisposition,
+  savedGraphReadFailure,
+} from "./savedGraphReadFailure";
 
 export type SavedGraphResultState = {
   readonly identity: string | null;
@@ -75,6 +76,11 @@ export class SavedGraphResultNavigation {
     private readonly publish: (state: SavedGraphResultState) => void,
     private readonly clock?: ObservationClock,
     private readonly invalidated?: (graphId: string) => void,
+    private readonly readFailed?: (
+      graphId: string,
+      error: NetworkFlowRequestError,
+      surface: "result" | "contributors",
+    ) => void,
   ) {}
   bind(port: SavedGraphResultPort): void {
     this.port = port;
@@ -86,7 +92,23 @@ export class SavedGraphResultNavigation {
     this.graph = graph;
     this.valid = publicationIsCurrent;
     const identity = graph === null ? null : savedGraphBindingIdentity(graph);
-    if (identity === this.state.identity) return;
+    if (identity === this.state.identity) {
+      if (
+        identity !== null &&
+        this.active &&
+        this.state.result === null &&
+        this.state.resultState === "idle"
+      )
+        void this.loadResult();
+      else if (
+        identity !== null &&
+        this.active &&
+        this.state.selection !== null &&
+        this.state.contributorState === "idle"
+      )
+        void this.loadContributors();
+      return;
+    }
     this.clear();
     this.update({ identity });
     if (identity !== null && this.active) void this.loadResult();
@@ -197,8 +219,8 @@ export class SavedGraphResultNavigation {
         this.invalidated?.(graph.graph_view_id);
         this.update({
           resultState: "error",
-          resultError: networkFlowErrorFromUnknown(
-            null,
+          resultError: savedGraphReadFailure(
+            new SyntaxError(),
             "The result binding changed. Reload the current declaration.",
           ),
         });
@@ -216,21 +238,15 @@ export class SavedGraphResultNavigation {
         identity !== this.state.identity
       )
         return;
-      const error = networkFlowErrorFromUnknown(
+      const error = savedGraphReadFailure(
         caught,
         "The selected immutable result could not be loaded. Retry the result or reload its declaration.",
       );
-      if (
-        error.status === 401 ||
-        error.status === 403 ||
-        error.status === 404 ||
-        error.code === "incident_closed" ||
-        error.code === "network_flow_graph_view_not_materialized" ||
-        error.code === "network_flow_graph_query_stale"
-      ) {
+      if (savedGraphReadDisposition(error, "result") !== "retain") {
         this.clear();
-        this.invalidated?.(graph.graph_view_id);
+        if (!this.readFailed) this.invalidated?.(graph.graph_view_id);
       }
+      this.readFailed?.(graph.graph_view_id, error, "result");
       this.update({ resultState: "error", resultError: error });
     } finally {
       if (this.resultRequest === request) this.resultRequest = null;
@@ -302,7 +318,7 @@ export class SavedGraphResultNavigation {
         !equalJSONResource(result.selector, selector) ||
         result.contributors.length > 100
       )
-        throw new Error(
+        throw new SyntaxError(
           "Contributors do not match the selected immutable result.",
         );
       this.update({
@@ -319,13 +335,21 @@ export class SavedGraphResultNavigation {
         !equalJSONResource(selector, this.state.selection)
       )
         return;
+      const error = savedGraphReadFailure(
+        caught,
+        "Contributors could not be loaded. Restart from the current immutable result.",
+      );
+      if (savedGraphReadDisposition(error, "contributors") !== "retain") {
+        this.clear();
+        if (!this.readFailed) this.invalidated?.(graph.graph_view_id);
+      }
+      this.readFailed?.(graph.graph_view_id, error, "contributors");
       this.update({
         contributorState: "error",
-        contributorError: networkFlowErrorFromUnknown(
-          caught,
-          "Contributors could not be loaded. Restart from the current immutable result.",
-        ),
-        nextContributorCursor: null,
+        contributorError: error,
+        ...(error.code === "network_flow_cursor_invalid"
+          ? { nextContributorCursor: null }
+          : {}),
       });
     } finally {
       if (this.contributorRequest === request) this.contributorRequest = null;

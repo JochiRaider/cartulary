@@ -50,6 +50,9 @@ export function NetworkFlowSavedGraphPanel({
   const setVertexPage = (page: number) =>
     controller.setPage("vertexPage", page);
   const setEdgePage = (page: number) => controller.setPage("edgePage", page);
+  const bindingWithdrawn =
+    controller.selectedGraph?.selected_result_binding != null &&
+    controller.identity === null;
   const selectedObservation = controller.selectedGraph?.latest_job_id
     ? controller.observations[controller.selectedGraph.latest_job_id]
     : undefined;
@@ -214,7 +217,9 @@ export function NetworkFlowSavedGraphPanel({
             <p role="alert">{controller.listError.message}</p>
           ) : null}
           {controller.graphs.length === 0 ? (
-            <p>No saved graphs yet.</p>
+            controller.listState === "ready" ? (
+              <p>No saved graphs yet.</p>
+            ) : null
           ) : (
             <ul style={plainListStyle}>
               {controller.graphs.map((graph) => (
@@ -257,7 +262,14 @@ export function NetworkFlowSavedGraphPanel({
         <div className="network-flow-saved-result">
           {controller.selectedGraph === null ? (
             <div style={emptyStyle}>
-              <strong>Select or create a saved graph.</strong>
+              <strong>
+                {controller.listState === "loading" ||
+                controller.listState === "idle"
+                  ? "Loading saved graph declarations…"
+                  : controller.listError
+                    ? "Saved graphs are unavailable. Reload to review current access."
+                    : "Select or create a saved graph."}
+              </strong>
               <span>
                 Unsaved exploration remains available in the current graph view.
               </span>
@@ -276,6 +288,7 @@ export function NetworkFlowSavedGraphPanel({
                     {savedGraphStatusMessage(
                       controller.selectedGraph,
                       selectedObservation,
+                      bindingWithdrawn,
                     )}
                   </p>
                 </div>
@@ -342,13 +355,19 @@ export function NetworkFlowSavedGraphPanel({
                   </NetworkFlowButton>
                 </div>
               ) : null}
-              {controller.resultError ? (
+              {controller.resultError || bindingWithdrawn ? (
                 <div role="alert" style={noticeStyle}>
-                  <p>{controller.resultError.message}</p>
+                  <p>
+                    {controller.resultError?.message ??
+                      controller.contributorError?.message ??
+                      "Result access was withdrawn. Reload the declaration to review its current binding."}
+                  </p>
                   <NetworkFlowButton
                     onClick={() => void controller.loadResult()}
                   >
-                    Retry result
+                    {controller.identity === null
+                      ? "Reload saved graph"
+                      : "Retry result"}
                   </NetworkFlowButton>
                 </div>
               ) : null}
@@ -356,11 +375,22 @@ export function NetworkFlowSavedGraphPanel({
                 <p role="status">Loading immutable graph result…</p>
               ) : result === null ? (
                 <div style={emptyStyle}>
-                  <strong>No materialized result yet.</strong>
+                  <strong>
+                    {bindingWithdrawn
+                      ? "Result access requires review."
+                      : controller.resultError
+                        ? "The immutable result could not be loaded."
+                        : controller.selectedGraph.last_failure_code !== null ||
+                            selectedObservation?.job?.status === "failed"
+                          ? "Materialization failed; no successful result is available."
+                          : "No materialized result yet."}
+                  </strong>
                   <span>
-                    {controller.selectedGraph.last_failure_code !== null
-                      ? `The last attempt failed${controller.selectedGraph.last_failure_code ? ` (${controller.selectedGraph.last_failure_code})` : ""}. Refresh to retry.`
-                      : "The result will appear after the materialization job succeeds."}
+                    {bindingWithdrawn || controller.resultError
+                      ? "Use the recovery action above to read the authorized result."
+                      : controller.selectedGraph.last_failure_code !== null
+                        ? `The last attempt failed${controller.selectedGraph.last_failure_code ? ` (${controller.selectedGraph.last_failure_code})` : ""}. Refresh to retry.`
+                        : "The result will appear after the materialization job succeeds."}
                   </span>
                 </div>
               ) : (
@@ -649,8 +679,11 @@ function BoundedPager({
 function savedGraphStatusMessage(
   graph: NetworkFlowSavedGraphPanelController["selectedGraph"],
   observation: SavedGraphObservation | undefined,
+  bindingWithdrawn: boolean,
 ): string {
   if (graph === null) return "";
+  if (bindingWithdrawn)
+    return "The selected result is unavailable until its declaration is revalidated.";
   const retained = graph.selected_result_binding !== null;
   if (observation?.job?.status === "failed" || graph.last_failure_code !== null)
     return retained
@@ -697,6 +730,8 @@ function SavedGraphDialog({
   if (operation === null) return null;
   const named = kind === "create" || kind === "rename";
   const name = normalizeSavedGraphDisplayName(operation.draft);
+  const nameRejected =
+    operation.failure?.detail?.code === "network_flow_invalid_display_name";
   const locked =
     operation.phase === "submitting" ||
     operation.phase === "uncertain" ||
@@ -763,12 +798,17 @@ function SavedGraphDialog({
                 required
                 value={operation.draft}
                 disabled={locked}
-                aria-describedby="saved-graph-name-guidance"
+                aria-invalid={!name.ok || nameRejected || undefined}
+                aria-describedby={
+                  nameRejected
+                    ? "saved-graph-name-guidance saved-graph-operation-error"
+                    : "saved-graph-name-guidance"
+                }
                 onChange={(event) =>
                   controller.setDraft(event.currentTarget.value)
                 }
               />
-              <span id="saved-graph-name-guidance">
+              <span id="saved-graph-name-guidance" aria-live="polite">
                 Up to 64 UTF-8 bytes after normalization. Duplicate names are
                 allowed.
                 {name.ok
@@ -782,7 +822,11 @@ function SavedGraphDialog({
             </NetworkFlowField>
           ) : null}
           {operation.failure ? (
-            <div role="alert" className="network-flow-status">
+            <div
+              id="saved-graph-operation-error"
+              role="alert"
+              className="network-flow-status"
+            >
               <p>{operation.failure.message}</p>
               <p>
                 {operation.failure.category.replaceAll("_", " ")}

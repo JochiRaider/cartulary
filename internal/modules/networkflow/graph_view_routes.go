@@ -64,14 +64,14 @@ func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
 	switch r.Method {
 	case http.MethodGet:
 		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 			writeAPIError(w, r, apiErr)
+			return
+		}
+		if r.URL.RawQuery != "" {
+			writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
 			return
 		}
 		declarations, err := s.store.ListActiveGraphViewDeclarations(r.Context(), incidentID)
@@ -93,6 +93,10 @@ func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Requ
 	case http.MethodPost:
 		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
+			return
+		}
+		if r.URL.RawQuery != "" {
+			writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
 			return
 		}
 		request, apiErr := decodeGraphViewCreateRequest(r, s.store.limits)
@@ -132,14 +136,14 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
 	switch r.Method {
 	case http.MethodGet:
 		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 			writeAPIError(w, r, apiErr)
+			return
+		}
+		if r.URL.RawQuery != "" {
+			writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
 			return
 		}
 		declaration, apiErr := s.activeGraphView(r.Context(), incidentID, graphViewID)
@@ -160,6 +164,10 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 			writeAPIError(w, r, apiErr)
 			return
 		}
+		if r.URL.RawQuery != "" {
+			writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
+			return
+		}
 		request, apiErr := decodeGraphViewRenameRequest(r)
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
@@ -178,6 +186,10 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 	case http.MethodDelete:
 		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
+			return
+		}
+		if r.URL.RawQuery != "" {
+			writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
 			return
 		}
 		request, apiErr := decodeGraphViewVersionRequest(r, "cartulary.network_flow.graph_view_retire_request.v1")
@@ -210,12 +222,12 @@ func (s *Service) handleGraphViewRefresh(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	if r.URL.RawQuery != "" {
+		writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
 		return
 	}
 	request, apiErr := decodeGraphViewVersionRequest(r, "cartulary.network_flow.graph_view_refresh_request.v1")
@@ -248,12 +260,12 @@ func (s *Service) handleGraphViewResult(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	if r.URL.RawQuery != "" {
+		writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
 		return
 	}
 	declaration, apiErr := s.activeGraphView(r.Context(), incidentID, graphViewID)
@@ -331,12 +343,12 @@ func (s *Service) handleGraphViewContributorsQuery(w http.ResponseWriter, r *htt
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	if r.URL.RawQuery != "" {
+		writeAPIError(w, r, invalidNetworkFlowRequest("query", "unknown_member"))
 		return
 	}
 	declaration, apiErr := s.activeGraphView(r.Context(), incidentID, graphViewID)

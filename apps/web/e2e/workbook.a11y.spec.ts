@@ -2249,6 +2249,8 @@ if (
     await page.keyboard.press("Tab");
     await expect(savedName).toBeFocused();
     await savedName.fill("é".repeat(33));
+    await expect(savedName).toHaveAttribute("aria-invalid", "true");
+    await expect(savedName).toHaveAccessibleDescription(/exceeds 64 bytes/);
     await expect(
       page.getByRole("button", { name: "Save graph", exact: true }),
     ).toBeDisabled();

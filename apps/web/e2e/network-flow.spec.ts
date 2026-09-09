@@ -1,4 +1,5 @@
 import {
+  networkAnalysisSavedGraphTestId,
   networkAnalysisTestId,
   surfaceTabTestId,
   workbookPresenceSummaryTestId,
@@ -510,6 +511,262 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
   await expect(
     panel.getByRole("button", { name: "Reload", exact: true }),
   ).toBeFocused();
+});
+
+test("Network Analysis saved graphs recover denied replay and withdrawn read authority", async ({
+  page,
+}) => {
+  await openClaimedNetworkAnalysis(page, "NFGRAPHRECOVERY");
+  await importNetworkFlowCSV(page, {
+    displayName: "recovery-source",
+    file: networkFlowMinimalCSV,
+  });
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Saved graphs" }).click();
+  const panel = page.getByRole("region", { name: "Saved Network Flow graphs" });
+  const writes: string[] = [];
+  let denyList = false;
+  await page.route("**/network-flow/graph-views", async (route) => {
+    if (route.request().method() === "GET") {
+      if (denyList)
+        await route.fulfill({
+          status: 403,
+          json: {
+            error: {
+              code: "authorization_denied",
+              status: 403,
+              message: "Current read access was withdrawn.",
+              request_id: "req-saved-read-denial",
+              retryable: false,
+              details: {},
+            },
+          },
+        });
+      else await route.continue();
+      return;
+    }
+    writes.push(route.request().postData() ?? "");
+    if (writes.length === 1) {
+      const response = await route.fetch();
+      expect(response.status()).toBe(202);
+      await route.abort("failed");
+    } else if (writes.length === 2) {
+      await route.fulfill({
+        status: 403,
+        json: {
+          error: {
+            code: "authorization_denied",
+            status: 403,
+            message: "Replay recovery request denied.",
+            request_id: "req-saved-replay-denial",
+            retryable: false,
+            details: {},
+          },
+        },
+      });
+    } else await route.continue();
+  });
+  await panel.getByRole("button", { name: "Save current graph" }).click();
+  const dialog = page.getByRole("dialog", { name: "Save current graph" });
+  await dialog
+    .getByRole("textbox", { name: "Display name" })
+    .fill("Recovered evidence");
+  await dialog.getByRole("button", { name: "Save graph", exact: true }).click();
+  await dialog.getByRole("button", { name: "Replay exact attempt" }).click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Replay recovery request denied",
+  );
+  await expect(
+    dialog.getByRole("textbox", { name: "Display name" }),
+  ).toBeDisabled();
+  await expect(dialog).toContainText("The outcome is uncertain");
+  await dialog.getByRole("button", { name: "Replay exact attempt" }).click();
+  expect(writes).toHaveLength(3);
+  expect(new Set(writes).size).toBe(1);
+  await expect(
+    panel.getByRole("heading", { name: "Recovered evidence" }),
+  ).toBeVisible();
+  const result = panel.getByTestId(networkAnalysisTestId("saved-graph-result"));
+  await expect(result).toBeVisible();
+  const vertex = page
+    .getByTestId(/^network-flow-saved-graph-vertex-/u)
+    .first()
+    .getByRole("button");
+  let staleContributors = true;
+  await page.route(
+    "**/network-flow/graph-views/*/contributors/query",
+    async (route) => {
+      if (staleContributors) {
+        staleContributors = false;
+        await route.fulfill({
+          status: 409,
+          json: {
+            error: {
+              code: "network_flow_graph_query_stale",
+              status: 409,
+              message: "The binding requires current-state review.",
+              request_id: "req-saved-binding",
+              retryable: false,
+              details: {},
+            },
+          },
+        });
+      } else await route.continue();
+    },
+  );
+  await vertex.click();
+  await expect(result).toHaveCount(0);
+  const declarationRead = page.waitForRequest(
+    (request) =>
+      request.method() === "GET" &&
+      /\/graph-views\/nfgv_[a-f0-9]+$/.test(request.url()),
+  );
+  await panel.getByRole("button", { name: "Reload saved graph" }).click();
+  await declarationRead;
+  await expect(result).toBeVisible();
+  await vertex.click();
+  const contributors = page.getByRole("complementary", {
+    name: "Saved graph contributors",
+  });
+  await expect(contributors).toContainText("Row");
+  const retained = await vertex.elementHandle();
+  await panel.getByRole("button", { name: "Reload", exact: true }).click();
+  await expect(contributors).toContainText("Row");
+  expect(
+    await vertex.evaluate((node, previous) => node === previous, retained),
+  ).toBe(true);
+  denyList = true;
+  await panel.getByRole("button", { name: "Reload", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText(
+    "Current read access was withdrawn",
+  );
+  await expect(result).toHaveCount(0);
+  await expect(contributors).toHaveCount(0);
+  await expect(panel.getByText("No saved graphs yet.")).toHaveCount(0);
+  denyList = false;
+  await panel.getByRole("button", { name: "Reload", exact: true }).click();
+  await expect(result).toBeVisible();
+  await retained?.dispose();
+});
+
+test("Network Analysis saved graphs fence deferred results and contributors across stable-ID selection", async ({
+  page,
+}) => {
+  await openClaimedNetworkAnalysis(page, "NFGRAPHRACES");
+  await importNetworkFlowCSV(page, {
+    displayName: "race-source",
+    file: networkFlowMinimalCSV,
+  });
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Saved graphs" }).click();
+  const panel = page.getByRole("region", { name: "Saved Network Flow graphs" });
+  const ids: string[] = [];
+  for (let index = 0; index < 2; index++) {
+    await panel.getByRole("button", { name: "Save current graph" }).click();
+    await page
+      .getByRole("textbox", { name: "Display name" })
+      .fill("Duplicate graph");
+    const accepted = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith("/graph-views"),
+    );
+    await page.getByRole("button", { name: "Save graph", exact: true }).click();
+    ids.push((await (await accepted).json()).data.graph_view.graph_view_id);
+    await expect(
+      panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
+    ).toBeVisible();
+  }
+  expect(ids[0]).not.toBe(ids[1]);
+  const [firstId, secondId] = ids;
+  if (!firstId || !secondId)
+    throw new Error("Both saved declarations must be acknowledged.");
+  const graphA = panel.getByTestId(networkAnalysisSavedGraphTestId(firstId));
+  const graphB = panel.getByTestId(networkAnalysisSavedGraphTestId(secondId));
+  await expect(graphA).toContainText("Duplicate graph");
+  await expect(graphB).toContainText("Duplicate graph");
+  await panel.getByRole("button", { name: "Rename", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Display name" })
+    .fill("Second graph");
+  await page.getByRole("button", { name: "Rename graph", exact: true }).click();
+  await expect(graphB).toContainText("Second graph");
+  let releaseResult = () => {};
+  const resultGate = new Promise<void>((resolve) => {
+    releaseResult = resolve;
+  });
+  let resultStarted = () => {};
+  const resultWaiting = new Promise<void>((resolve) => {
+    resultStarted = resolve;
+  });
+  const resultRoute = `**/network-flow/graph-views/${ids[0]}/result`;
+  await page.route(resultRoute, async (route) => {
+    const response = await route.fetch();
+    resultStarted();
+    await resultGate;
+    await route.fulfill({ response });
+  });
+  try {
+    await graphA.click();
+    await resultWaiting;
+    await graphB.click();
+    await expect(graphB).toHaveAttribute("aria-current", "true");
+    releaseResult();
+    await expect(
+      panel.getByRole("heading", { name: "Second graph" }),
+    ).toBeVisible();
+    await expect(
+      panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
+    ).toBeVisible();
+  } finally {
+    releaseResult();
+    await page.unroute(resultRoute);
+  }
+  await graphA.click();
+  await expect(
+    panel.getByRole("heading", { name: "Duplicate graph" }),
+  ).toBeVisible();
+  const vertex = page
+    .getByTestId(/^network-flow-saved-graph-vertex-/u)
+    .first()
+    .getByRole("button");
+  await expect(vertex).toBeVisible();
+  let releaseContributors = () => {};
+  const contributorGate = new Promise<void>((resolve) => {
+    releaseContributors = resolve;
+  });
+  let contributorsStarted = () => {};
+  const contributorsWaiting = new Promise<void>((resolve) => {
+    contributorsStarted = resolve;
+  });
+  const contributorRoute = `**/network-flow/graph-views/${ids[0]}/contributors/query`;
+  await page.route(contributorRoute, async (route) => {
+    const response = await route.fetch();
+    contributorsStarted();
+    await contributorGate;
+    await route.fulfill({ response });
+  });
+  try {
+    await vertex.click();
+    await contributorsWaiting;
+    await graphB.click();
+    releaseContributors();
+    await expect(
+      panel.getByRole("heading", { name: "Second graph" }),
+    ).toBeVisible();
+    await expect(
+      panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("complementary", { name: "Saved graph contributors" }),
+    ).toHaveCount(0);
+    await expect(graphB).toHaveAttribute("aria-current", "true");
+  } finally {
+    releaseContributors();
+    await page.unroute(contributorRoute);
+  }
 });
 
 test("Network Analysis alias collision requires explicit approval", async ({

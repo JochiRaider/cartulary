@@ -1271,6 +1271,7 @@ describe("NetworkAnalysisWorkspace", () => {
         .hasAttribute("disabled"),
     ).toBe(true);
     expect(dialog.textContent).toContain("exceeds 64 bytes");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
     fireEvent.change(input, { target: { value: "é".repeat(32) } });
     await user.keyboard("{Escape}");
     await waitFor(() => expect(document.activeElement).toBe(rename));
@@ -1334,6 +1335,44 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(creates).toHaveLength(2);
     expect(creates[0]?.[1]?.body).toBe(creates[1]?.[1]?.body);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("distinguishes initial saved declaration and result failures from empty and unmaterialized states", async () => {
+    const user = userEvent.setup();
+    installNetworkFlowFetchMock({
+      savedGraphs: [savedGraphResource()],
+      savedGraphListFailureOnce: true,
+      savedGraphResultFailureOnce: true,
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="admin"
+        incidentId={incidentResourceId}
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    await screen.findByText("Graph ready");
+    await user.click(screen.getByRole("button", { name: "Saved graphs" }));
+    const panel = screen.getByRole("region", {
+      name: "Saved Network Flow graphs",
+    });
+    await within(panel).findByText(
+      "Saved graphs are unavailable. Reload to review current access.",
+    );
+    expect(within(panel).queryByText("No saved graphs yet.")).toBeNull();
+    await user.click(within(panel).getByRole("button", { name: "Reload" }));
+    await within(panel).findByText("The immutable result could not be loaded.");
+    expect(within(panel).queryByText("No materialized result yet.")).toBeNull();
+    await user.click(
+      within(panel).getByRole("button", { name: "Retry result" }),
+    );
+    await within(panel).findByTestId(
+      networkAnalysisTestId("saved-graph-result"),
+    );
+    expect(
+      within(panel).queryByRole("button", { name: "Retry result" }),
+    ).toBeNull();
   });
 
   it("bounds saved graph rendering to 500 vertices and 1000 edges with paged navigation", async () => {
@@ -1732,6 +1771,8 @@ function installNetworkFlowFetchMock(
       typeof graphResource
     >["graph_projection_result"];
     readonly savedGraphs?: Array<Record<string, unknown>>;
+    readonly savedGraphResultFailureOnce?: boolean;
+    readonly savedGraphListFailureOnce?: boolean;
     readonly savedGraphCreateUncertainOnce?: boolean;
     readonly savedGraphRenameConflictOnce?: boolean;
     readonly tables?: Array<Record<string, unknown>>;
@@ -1746,6 +1787,8 @@ function installNetworkFlowFetchMock(
   if (!savedFixture.ok) throw new Error(JSON.stringify(savedFixture.error));
   let renameConflictUsed = false;
   let savedGraphRenameConflictUsed = false;
+  let savedGraphResultFailureUsed = false;
+  let savedGraphListFailureUsed = false;
   let uncertainCreateReceipt: { body: string; value: unknown } | null = null;
   let rowQueryCount = 0;
   let contributorSelector: Record<string, unknown> =
@@ -1820,6 +1863,10 @@ function installNetworkFlowFetchMock(
           "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views",
         )
       ) {
+        if (options.savedGraphListFailureOnce && !savedGraphListFailureUsed) {
+          savedGraphListFailureUsed = true;
+          throw new TypeError("Declarations unavailable");
+        }
         return jsonResponse({
           schema_id: "cartulary.network_flow.graph_view_list.v4",
           graph_views: savedGraphs,
@@ -1880,6 +1927,13 @@ function installNetworkFlowFetchMock(
           `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views/${graphViewId}/result`,
         )
       ) {
+        if (
+          options.savedGraphResultFailureOnce &&
+          !savedGraphResultFailureUsed
+        ) {
+          savedGraphResultFailureUsed = true;
+          throw new TypeError("Result unavailable");
+        }
         const graphView = savedGraphs.find(
           (candidate) => candidate.graph_view_id === graphViewId,
         );
@@ -1949,6 +2003,9 @@ function installNetworkFlowFetchMock(
             {
               error: {
                 code: "network_flow_graph_view_version_conflict",
+                status: 409,
+                request_id: "req-saved-conflict",
+                retryable: false,
                 message: "The graph changed. Review current state.",
                 details: {
                   field: "base_graph_view_version",

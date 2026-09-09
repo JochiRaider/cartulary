@@ -41,6 +41,7 @@ import {
   decodeNetworkFlowTableList,
   decodeNetworkFlowTableMutationResult,
   decodeNetworkFlowTableQueryResult,
+  validNetworkFlowErrorEnvelope,
 } from "../services/networkFlowContractAdapter";
 import { networkFlowRequestError } from "./networkFlowErrors";
 import type {
@@ -53,6 +54,7 @@ import {
   SavedGraphWriteError,
   savedGraphWriteFailure,
 } from "./savedGraphOperation";
+import { savedGraphResponseError } from "./savedGraphReadFailure";
 
 export {
   networkAnalysisSheetRef,
@@ -323,7 +325,7 @@ export async function listNetworkFlowSavedGraphs(options: {
     requestInit({ method: "GET" }, options.signal),
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    throw savedGraphResponseError(result.status, result.payload);
   }
   const graphs = decodeNetworkFlowSavedGraphList(
     networkFlowResponseData(result.payload),
@@ -336,7 +338,7 @@ export async function listNetworkFlowSavedGraphs(options: {
     ) ||
     new Set(graphs.map((graph) => graph.graph_view_id)).size !== graphs.length
   )
-    throw new Error("invalid_saved_graph_list_scope");
+    throw new SyntaxError("invalid_saved_graph_list_scope");
   return graphs;
 }
 
@@ -346,6 +348,7 @@ export async function submitNetworkFlowSavedGraphMutation(options: {
   readonly apiBase?: string | undefined;
   readonly attempt: SavedGraphAttempt;
   readonly signal: AbortSignal;
+  readonly authorizeDispatch: () => void;
 }): Promise<SavedGraphReceipt> {
   const { attempt } = options;
   const { intent } = attempt;
@@ -366,14 +369,25 @@ export async function submitNetworkFlowSavedGraphMutation(options: {
         body: attempt.body,
         signal: options.signal,
       },
+      () => {
+        options.signal.throwIfAborted();
+        options.authorizeDispatch();
+      },
     );
   } catch (caught) {
     throw savedGraphWriteFailure(caught);
   }
-  if (!result.ok)
+  if (!result.ok) {
+    if (!validNetworkFlowErrorEnvelope(result.status, result.payload))
+      throw new SavedGraphWriteError(
+        "invalid_response",
+        "uncertain",
+        "The rejection envelope is invalid. The original write may have committed; replay this exact attempt to recover.",
+      );
     throw savedGraphWriteFailure(
       networkFlowRequestError(result.status, result.payload),
     );
+  }
   try {
     if (intent.kind === "retire") {
       if (result.status !== 204 || result.payload !== "")
@@ -449,16 +463,17 @@ export async function getNetworkFlowSavedGraph(options: {
     requestInit({ method: "GET" }, options.signal),
   );
   if (!response.ok)
-    throw networkFlowRequestError(response.status, response.payload);
+    throw savedGraphResponseError(response.status, response.payload);
   const graph = decodeNetworkFlowSavedGraphGet(
     networkFlowResponseData(response.payload),
   ).graph_view;
   if (
     response.status !== 200 ||
     graph.incident_id !== options.incidentId ||
-    graph.graph_view_id !== options.graphViewId
+    graph.graph_view_id !== options.graphViewId ||
+    graph.state !== "active"
   )
-    throw new Error("invalid_saved_graph_target");
+    throw new SyntaxError("invalid_saved_graph_target");
   return graph;
 }
 
@@ -495,8 +510,10 @@ export async function getNetworkFlowSavedGraphResult(options: {
     requestInit({ method: "GET" }, options.signal),
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    throw savedGraphResponseError(result.status, result.payload);
   }
+  if (result.status !== 200)
+    throw new SyntaxError("Unexpected saved-result status.");
   return decodeNetworkFlowSavedGraphResult(
     networkFlowResponseData(result.payload),
   );
@@ -538,7 +555,7 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
     ),
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    throw savedGraphResponseError(result.status, result.payload);
   }
   const page = decodeNetworkFlowSavedGraphContributorResult(
     networkFlowResponseData(result.payload),
@@ -550,7 +567,7 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
     !equalJSON(page.selector, options.selector) ||
     page.contributors.length > 100
   )
-    throw new Error("invalid_saved_graph_contributor_target");
+    throw new SyntaxError("invalid_saved_graph_contributor_target");
   return page;
 }
 
@@ -673,10 +690,14 @@ function fetchNetworkFlowJSON<T>(
   availability: ExtensionAvailabilityController,
   input: RequestInfo | URL,
   init?: RequestInit,
+  authorizeDispatch?: () => void,
 ) {
   return availability.runProfileRequest(
     networkFlowActivityProfileId,
     networkFlowRouteFamily,
-    () => fetchJSON<T>(input, init),
+    () => {
+      authorizeDispatch?.();
+      return fetchJSON<T>(input, init);
+    },
   );
 }

@@ -466,6 +466,43 @@
       ]
     },
     {
+      "row_id": "module.networkflow.browser_stateful.saved_graph_deferred_navigation",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "platform.jobs",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "network_flow_saved_graph_deferred_navigation"
+        ],
+        "titles": [
+          "Network Analysis saved graphs fence deferred results and contributors across stable-ID selection"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser_stateful",
@@ -488,6 +525,43 @@
         ],
         "titles": [
           "Network Analysis saved graphs complete exact-result lifecycle through the real application"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.browser_stateful.saved_graph_read_recovery",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "platform.jobs",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "network_flow_saved_graph_read_recovery"
+        ],
+        "titles": [
+          "Network Analysis saved graphs recover denied replay and withdrawn read authority"
         ]
       },
       "evidence_class": "browser",

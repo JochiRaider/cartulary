@@ -1,3 +1,4 @@
+import { errorEnvelopeDecoder } from "@cartulary/protocol-ts/http";
 import {
   type Contributor,
   type DecodeFailure,
@@ -140,6 +141,15 @@ export function isNetworkFlowClaimed(
         profile.claimed,
     )
   );
+}
+
+/** Saved-route error certainty requires a complete envelope matching the HTTP status. */
+export function validNetworkFlowErrorEnvelope(
+  status: number,
+  payload: unknown,
+): boolean {
+  const decoded = errorEnvelopeDecoder.decode(payload);
+  return decoded.ok && decoded.value.error.status === status;
 }
 
 export class NetworkFlowContractDecodeError extends Error {

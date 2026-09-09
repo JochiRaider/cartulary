@@ -86,12 +86,14 @@ export function useNetworkFlowSavedGraphOwner(options: {
           typeof submitNetworkFlowSavedGraphMutation
         >[0]["attempt"],
         signal: AbortSignal,
+        authorizeDispatch: () => void,
       ) =>
         submitNetworkFlowSavedGraphMutation({
           availability: options.availability,
           apiBase: options.apiBase,
           attempt,
           signal,
+          authorizeDispatch,
         }),
     }),
     [options.availability, options.apiBase, options.incidentId],

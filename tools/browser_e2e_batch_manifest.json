@@ -2170,7 +2170,9 @@
           "browser_session_group": "browser-stateful-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
+            "module.networkflow.browser_stateful.saved_graph_deferred_navigation",
             "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
+            "module.networkflow.browser_stateful.saved_graph_read_recovery",
             "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf"
           ],
           "specs": [
@@ -3064,7 +3066,9 @@
           "browser_session_group": "browser-stateful-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
+            "module.networkflow.browser_stateful.saved_graph_deferred_navigation",
             "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
+            "module.networkflow.browser_stateful.saved_graph_read_recovery",
             "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf"
           ],
           "specs": [
