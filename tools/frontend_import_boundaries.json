@@ -579,9 +579,7 @@
         ]
       },
       "allowed_importers": [
-        "apps/web/src/networkFlow/NetworkFlowMappingModal.tsx",
-        "apps/web/src/networkFlow/networkFlowImportModel.ts",
-        "apps/web/src/networkFlow/useNetworkFlowImportController.ts",
+        "apps/web/src/networkFlow/NetworkFlowImportController.ts",
         "apps/web/src/workbook/features/ImportAssistantFeature.tsx"
       ],
       "restricted_imports": [

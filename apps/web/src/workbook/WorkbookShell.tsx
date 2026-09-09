@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import type { NetworkFlowImportSurfaceBinding } from "../app/useNetworkFlowImport";
 import type { WorkbookImportSurfaceBinding } from "../app/useWorkbookImport";
 import {
   IncidentCollaborationSession,
@@ -19,6 +20,7 @@ import {
   networkAnalysisSheetRef,
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
+  networkFlowRouteFamily,
 } from "../extensions/extensionWorkspaceIdentities";
 import type { WorkbookImportController } from "../imports/WorkbookImportController";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
@@ -36,7 +38,13 @@ import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
+import {
+  type NetworkFlowImportController,
+  NetworkFlowImportRecovery,
+  NetworkFlowImportSurface,
+} from "./features/NetworkFlowFeature";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
+import { useNetworkFlowImportBinding } from "./hooks/useNetworkFlowImportBinding";
 import { useWorkbookAuthorizationState } from "./hooks/useWorkbookAuthorizationState";
 import { useWorkbookCollaborationLifecycle } from "./hooks/useWorkbookCollaborationLifecycle";
 import {
@@ -81,6 +89,10 @@ export type {
 };
 
 type WorkbookShellProps = {
+  networkFlowImportController: NetworkFlowImportController;
+  bindNetworkFlowImport: (
+    binding: NetworkFlowImportSurfaceBinding | null,
+  ) => void;
   importController: WorkbookImportController;
   bindWorkbookImport: (binding: WorkbookImportSurfaceBinding | null) => void;
   savedViewController: WorkbookSavedViewController;
@@ -124,6 +136,8 @@ type WorkbookShellContentProps = WorkbookShellProps & {
 const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 
 function WorkbookShellContent({
+  networkFlowImportController,
+  bindNetworkFlowImport,
   importController,
   bindWorkbookImport,
   savedViewController,
@@ -186,6 +200,26 @@ function WorkbookShellContent({
       onIncidentResourceObserved,
       onIncidentAccessLost,
     });
+  const incidentRead = useRef<AbortController | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: An incident replacement must abort the previous incident's resource read.
+  useLayoutEffect(() => () => incidentRead.current?.abort(), [incidentId]);
+  const recoverImportIncident = useCallback(async () => {
+    incidentRead.current?.abort();
+    const stop = new AbortController();
+    incidentRead.current = stop;
+    const result = await infrastructure.incidentPort.getIdentity({
+      signal: stop.signal,
+    });
+    if (!stop.signal.aborted && result.kind === "accepted") {
+      acceptIncidentResource(result.value);
+      if (result.value.resource)
+        onIncidentResourceObserved?.(result.value.resource);
+    }
+  }, [
+    infrastructure.incidentPort,
+    acceptIncidentResource,
+    onIncidentResourceObserved,
+  ]);
   const queries = useWorkbookSurfaceQueries({
     activeContract: snapshot.activeContract,
     assessment: {
@@ -267,10 +301,12 @@ function WorkbookShellContent({
   const networkAnalysisActive = isNetworkAnalysisSheetRef(
     snapshot.startupSheetRef,
   );
-  const networkAnalysisAvailable = extensionLifecycle.controller.isRenderable({
-    extensionProfileId: networkFlowActivityProfileId,
-    workspaceKey: networkAnalysisWorkspaceKey,
-  });
+  const networkAnalysisAvailable =
+    incidentIdentity?.status !== "closed" &&
+    extensionLifecycle.controller.isRenderable({
+      extensionProfileId: networkFlowActivityProfileId,
+      workspaceKey: networkAnalysisWorkspaceKey,
+    });
   const preferenceBinding = useRef(bindWorkbookPreferences);
   preferenceBinding.current = bindWorkbookPreferences;
   useLayoutEffect(() => {
@@ -361,6 +397,24 @@ function WorkbookShellContent({
     importAssistantAvailable,
     onIncidentControlsSectionChange,
   );
+  useNetworkFlowImportBinding({
+    controller: networkFlowImportController,
+    bind: bindNetworkFlowImport,
+    incidentId,
+    apiBase,
+    availability: extensionLifecycle.controller,
+    available:
+      importAssistantAvailable &&
+      extensionLifecycle.controller.isRouteAvailable(
+        networkFlowActivityProfileId,
+        networkFlowRouteFamily,
+      ),
+    role: authorization.currentIncidentRole,
+    closed: incidentIdentity?.status !== "active",
+    lifecycleVersion: incidentIdentity?.incident_version,
+    recoverIncident: recoverImportIncident,
+    recoverAccess: authorization.loadSessionRole,
+  });
   const accountApplication = accountApplicationMenu?.({
     currentIncidentRole: authorization.currentIncidentRole,
     incidentControls: incidentControls.accountIncidentControls,
@@ -427,6 +481,7 @@ function WorkbookShellContent({
         revision: extensionLifecycle.revision,
       }}
       extensionRenderer={{
+        importController: networkFlowImportController,
         currentUserId: authorization.currentUserId,
         workbookStatus: (
           <WorkbookStatusStrip
@@ -456,7 +511,15 @@ function WorkbookShellContent({
       style={panelStyle}
     >
       <WorkbookSaveAnnouncements runtime={infrastructure.mutationRuntime} />
+      <NetworkFlowImportSurface controller={networkFlowImportController} />
       <WorkbookShellTopBar
+        importRecovery={
+          !networkAnalysisActive || !networkAnalysisAvailable ? (
+            <NetworkFlowImportRecovery
+              controller={networkFlowImportController}
+            />
+          ) : null
+        }
         account={{
           applicationMenu: accountApplication,
           displayName: accountPresentation.displayName,

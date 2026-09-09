@@ -33,6 +33,103 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.analytical_import_dispatch",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [
+        "module.imports",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowImportAdmission.test.ts",
+        "titles": [
+          "Network Flow import dispatch admission rechecks the analytical claim after shared queue admission before transmitting bytes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.analytical_import_ownership",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [
+        "module.imports",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowImportController.test.ts",
+        "titles": [
+          "Network Flow import ownership admits one upload synchronously and keeps preview separate from durable approval",
+          "Network Flow import ownership blocks changed profiles and incomplete mappings while keeping preview rejection counts separate",
+          "Network Flow import ownership discards stale preview success and failure after a candidate changes",
+          "Network Flow import ownership invalidates approval applicability on fingerprint mismatch without selecting or applying",
+          "Network Flow import ownership preserves copyable drafts on write loss and closure and purges replaced authority",
+          "Network Flow import ownership retains the immutable submitted candidate and typed definite rejection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.analytical_import_recovery",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [
+        "module.imports",
+        "module.jobapi",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowImportController.test.ts",
+        "titles": [
+          "Network Flow import recovery accepts a late receipt only for the same unresolved workflow",
+          "Network Flow import recovery continues selection after acknowledged approval and exactly replays uncertain apply",
+          "Network Flow import recovery expires bounded observation and pauses workspace departure without canceling server work",
+          "Network Flow import recovery fences delayed handoff selection across workspace departure and authority replacement",
+          "Network Flow import recovery hides uncertain authority and retires incident actor and independent claim replacement",
+          "Network Flow import recovery replays uncertain cancellation and reconciles cancel requested with completion races",
+          "Network Flow import recovery resumes known apply jobs and recovers only handoff after confirmed success",
+          "Network Flow import recovery retains discovery receipts through each source read failure without uploading again",
+          "Network Flow import recovery retains resource-specific denials without declaring lost incident access",
+          "Network Flow import recovery retains terminal job success when a delayed cancellation acknowledgement arrives",
+          "Network Flow import recovery revalidates retained intent after authority changes before replaying selection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.network_flow_client_transport_boundary_suite_480693e8c8",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",

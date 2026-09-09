@@ -38,6 +38,7 @@ import {
   networkFlowErrorRegistry,
   networkFlowMappingRegistry,
   networkFlowPresentationRegistry,
+  networkFlowTimestampMetadata,
   type PagingMeta,
   type RejectedRowDiagnostic,
   type RejectedRowsQueryContinuation,
@@ -108,6 +109,7 @@ export type NetworkFlowTableSoftDeleteRequest = TableSoftDeleteRequest;
 
 export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
+export { networkFlowTimestampMetadata };
 export const networkFlowMappingCandidateSchemaId =
   "cartulary.network_flow.mapping_candidate.v1";
 export const networkFlowErrorMetadata = networkFlowErrorRegistry;

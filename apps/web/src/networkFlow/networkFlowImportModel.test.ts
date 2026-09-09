@@ -43,6 +43,9 @@ describe("Network Flow import mapping model", () => {
       "Source IP · column 2",
     );
     expect(sourceColumnLabel(column(3, null))).toBe("(unnamed) · column 3");
+    expect(sourceColumnLabel(column(4, " Source IP "))).toBe(
+      " Source IP  · column 4",
+    );
   });
 
   it("builds mappings from generated transforms without a compatibility schema_id", () => {

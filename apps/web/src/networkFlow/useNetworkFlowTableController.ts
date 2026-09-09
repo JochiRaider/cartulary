@@ -8,6 +8,10 @@ import {
 } from "react";
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
 import {
+  type ImportFailure,
+  importContractFailure,
+} from "../services/importClient";
+import {
   listNetworkFlowTables,
   renameNetworkFlowTable,
   softDeleteNetworkFlowTable,
@@ -22,6 +26,11 @@ import {
   type NetworkFlowRequestError,
   networkFlowErrorFromUnknown,
 } from "./networkFlowErrors";
+import {
+  type NetworkFlowImportHandoffRequest,
+  type NetworkFlowImportHandoffResult,
+  networkFlowImportTableMatches,
+} from "./networkFlowImportState";
 
 export type NetworkFlowTableLoadState =
   | "loading"
@@ -145,6 +154,64 @@ export function useNetworkFlowTableController({
     void loadTables();
     return () => listController.current?.abort();
   }, [loadTables]);
+
+  const handoffImportedTable = useCallback(
+    async (
+      request: NetworkFlowImportHandoffRequest,
+    ): Promise<NetworkFlowImportHandoffResult> => {
+      if (!enabled || request.incidentId !== incidentId || !request.current())
+        return { kind: "superseded" };
+      listController.current?.abort();
+      const controller = new AbortController(),
+        generation = ++listGeneration.current;
+      listController.current = controller;
+      const signal = AbortSignal.any([controller.signal, request.signal]);
+      const current = () =>
+        !signal.aborted &&
+        generation === listGeneration.current &&
+        request.current();
+      try {
+        const nextTables = await listNetworkFlowTables({
+          availability,
+          apiBase,
+          incidentId,
+          signal,
+        });
+        if (!current()) return { kind: "superseded" };
+        const table = nextTables.find(
+          (t) => t.network_flow_table_id === request.tableId,
+        );
+        if (!table) return { kind: "unavailable" };
+        if (!networkFlowImportTableMatches(table, request))
+          return { kind: "failed", failure: importContractFailure() };
+        dispatch({ type: "replace_tables", tables: nextTables });
+        dispatch({
+          type: "select_table",
+          tableId: table.network_flow_table_id,
+        });
+        setLoadState("ready");
+        setError(null);
+        return { kind: "selected", table };
+      } catch (caught) {
+        if (!current()) return { kind: "superseded" };
+        const error = networkFlowErrorFromUnknown(
+          caught,
+          "The imported table could not be loaded.",
+        );
+        // A table-specific denial is local; the import receipt remains acknowledged.
+        const failure: ImportFailure = {
+          kind: error.status ? "public" : "transport",
+          status: error.status,
+          code: error.code,
+          reason: error.reasonCode ?? null,
+          field: null,
+          retryable: error.retryable,
+        };
+        return { kind: "failed", failure };
+      }
+    },
+    [enabled, incidentId, availability, apiBase],
+  );
 
   const renameTable = useCallback(
     async (options: {
@@ -279,6 +346,7 @@ export function useNetworkFlowTableController({
     error,
     loadState,
     loadTables,
+    handoffImportedTable,
     mutationState,
     renameTable,
     softDeleteTable,

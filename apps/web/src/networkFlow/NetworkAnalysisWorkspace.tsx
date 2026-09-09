@@ -38,7 +38,7 @@ import {
   NetworkFlowTextInput,
   networkFlowChromeRootClassName,
 } from "./NetworkFlowControls";
-import { NetworkFlowMappingModal } from "./NetworkFlowMappingModal";
+import type { NetworkFlowImportController } from "./NetworkFlowImportController";
 import {
   NetworkFlowAcceptedQueryControls,
   NetworkFlowRejectedQueryControls,
@@ -70,6 +70,7 @@ import {
   type NetworkFlowWorkspaceError,
   networkFlowErrorMessage,
 } from "./networkFlowErrors";
+import { networkFlowImportStatus } from "./networkFlowImportState";
 import {
   type NetworkFlowRowLinkSelection,
   networkFlowRowLinkCandidate,
@@ -105,6 +106,7 @@ type NetworkAnalysisMode = "rows" | "rejected" | "graph";
 type NetworkFlowGraphSurface = "explore" | "saved";
 
 export type NetworkAnalysisWorkspaceProps = {
+  readonly importController: NetworkFlowImportController;
   readonly workbookStatus?: ReactNode;
   readonly apiBase?: string | undefined;
   readonly currentUserId?: string | null | undefined;
@@ -118,10 +120,10 @@ const graphVertexRenderLimit = 500;
 const graphEdgeRenderLimit = 1_000;
 
 function NetworkAnalysisWorkspaceContent({
+  importController: importOperation,
   workbookStatus,
   apiBase,
   currentIncidentRole,
-  currentUserId,
   incidentId,
   onIncidentAccessLost,
 }: NetworkAnalysisWorkspaceProps) {
@@ -213,29 +215,21 @@ function NetworkAnalysisWorkspaceContent({
     onIncidentAccessLost,
   });
   const importController = useNetworkFlowImportController({
-    availability: extensionAvailability,
-    apiBase,
-    canImport,
-    actorId: currentUserId ?? null,
-    incidentId,
-    onError: handleWorkspaceError,
-    onImported: tableController.loadTables,
-    onMessage: setMessage,
+    controller: importOperation,
+    onImported: tableController.handoffImportedTable,
   });
   const clearRows = rowsController.clearRows;
   const clearDiagnostics = rejectedRowsController.clearDiagnostics;
   const clearGraph = graphController.clearGraph;
-  const resetImport = importController.reset;
   const clearResources = useCallback(() => {
     clearRows();
     clearDiagnostics();
     clearGraph();
-    resetImport();
     setLinkCandidate(null);
     setRowGridSelection({ activeAnchor: null, cellRange: null });
     setMode("rows");
     setGraphSurface("explore");
-  }, [clearDiagnostics, clearGraph, clearRows, resetImport]);
+  }, [clearDiagnostics, clearGraph, clearRows]);
   useNetworkFlowCollaborationController({
     apiBase,
     clearResources,
@@ -278,11 +272,6 @@ function NetworkAnalysisWorkspaceContent({
     },
     [],
   );
-  useEffect(() => {
-    if (!canImport) {
-      resetImport();
-    }
-  }, [canImport, resetImport]);
   useEffect(() => {
     if (!canLink) {
       setLinkCandidate(null);
@@ -438,15 +427,23 @@ function NetworkAnalysisWorkspaceContent({
             type="file"
             onChange={importController.handleImportChange}
           />
-          {canImport ? (
+          {canImport || importController.hasWork ? (
             <NetworkFlowButton
               data-testid={networkAnalysisTestId("import-trigger")}
-              pending={importController.importing}
               variant="primary"
-              onClick={() => fileInputRef.current?.click()}
+              disabled={
+                !importController.state.canWrite && !importController.hasWork
+              }
+              onClick={() =>
+                importController.hasWork
+                  ? importOperation.setPresented(true)
+                  : fileInputRef.current?.click()
+              }
             >
               <Upload aria-hidden="true" size={16} />
-              Import NetFlow CSV
+              {importController.hasWork
+                ? "Review current import"
+                : "Import NetFlow CSV"}
             </NetworkFlowButton>
           ) : null}
         </div>
@@ -768,6 +765,19 @@ function NetworkAnalysisWorkspaceContent({
               {message}
             </span>
           ) : null}
+          {importController.hasWork ? (
+            <span
+              data-network-flow-state={
+                networkFlowImportStatus(importController.state) ?? undefined
+              }
+            >
+              {networkFlowImportStatus(importController.state)?.replaceAll(
+                "_",
+                " ",
+              )}{" "}
+              · {importController.state.message}
+            </span>
+          ) : null}
         </span>
         {visibleError ? (
           <span aria-atomic="true" role="alert" style={errorTextStyle}>
@@ -775,25 +785,6 @@ function NetworkAnalysisWorkspaceContent({
           </span>
         ) : null}
       </div>
-      {importController.mappingOpen &&
-      importController.discovery !== null &&
-      importController.draft !== null ? (
-        <NetworkFlowMappingModal
-          canApply={importController.canApply}
-          discovery={importController.discovery}
-          draft={importController.draft}
-          preview={importController.preview}
-          stage={importController.stage}
-          onApply={() => {
-            void importController.apply();
-          }}
-          onCancel={importController.reset}
-          onDraftChange={importController.updateDraft}
-          onPreview={() => {
-            void importController.requestPreview();
-          }}
-        />
-      ) : null}
       {linkCandidate !== null ? (
         <IndicatorLinkDialog
           candidate={linkCandidate}

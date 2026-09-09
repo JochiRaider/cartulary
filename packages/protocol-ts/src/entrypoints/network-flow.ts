@@ -1,6 +1,9 @@
 import { networkFlowContractDescriptor } from "../generated/network-flow-descriptor.js";
 import { networkFlowErrorRegistry } from "../generated/network-flow-error-registry.js";
-import { networkFlowMappingRegistry } from "../generated/network-flow-mapping-registry.js";
+import {
+  networkFlowMappingRegistry,
+  networkFlowTimestampMetadata,
+} from "../generated/network-flow-mapping-registry.js";
 import { networkFlowPresentationRegistry } from "../generated/network-flow-presentation.js";
 import type {
   GraphContributorQueryResultV2,
@@ -48,6 +51,7 @@ export {
   networkFlowErrorRegistry,
   networkFlowMappingRegistry,
   networkFlowPresentationRegistry,
+  networkFlowTimestampMetadata,
 };
 
 export const networkFlowDecoders = Object.freeze({

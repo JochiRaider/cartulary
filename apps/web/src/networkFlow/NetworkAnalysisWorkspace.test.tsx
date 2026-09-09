@@ -13,23 +13,65 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ComponentProps } from "react";
+import { type ComponentProps, useLayoutEffect, useMemo, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
+import { ImportClient } from "../services/importClient";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
 import { NetworkAnalysisWorkspace as ProductionNetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
+import { NetworkFlowImportController } from "./NetworkFlowImportController";
+import { NetworkFlowImportSurface } from "./NetworkFlowImportSurface";
 
 function NetworkAnalysisWorkspace(
-  props: ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
+  props: Omit<
+    ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
+    "importController"
+  >,
 ) {
+  const [controller] = useState(() => new NetworkFlowImportController());
+  const availability = useMemo(
+    () => readyExtensionAvailability(props.incidentId),
+    [props.incidentId],
+  );
+  const client = useMemo(
+    () =>
+      new ImportClient({
+        availability,
+        apiBase: props.apiBase,
+        incidentId: props.incidentId,
+      }),
+    [availability, props.apiBase, props.incidentId],
+  );
+  useLayoutEffect(() => {
+    controller.bind({
+      scope: {
+        actorId: props.currentUserId ?? importActorId,
+        incidentId: props.incidentId,
+        lifetime: "workspace-test",
+      },
+      role: props.currentIncidentRole,
+      closed: false,
+      available: true,
+      current: () => true,
+      client,
+      accessFailure: () => {},
+    });
+  }, [
+    controller,
+    client,
+    props.currentUserId,
+    props.incidentId,
+    props.currentIncidentRole,
+  ]);
+  useLayoutEffect(() => () => controller.retire(), [controller]);
   return (
-    <ExtensionAvailabilityProvider
-      controller={readyExtensionAvailability(props.incidentId)}
-    >
+    <ExtensionAvailabilityProvider controller={availability}>
       <ProductionNetworkAnalysisWorkspace
+        importController={controller}
         currentUserId={importActorId}
         {...props}
       />
+      <NetworkFlowImportSurface controller={controller} />
     </ExtensionAvailabilityProvider>
   );
 }
@@ -1179,6 +1221,20 @@ describe("NetworkAnalysisWorkspace", () => {
 function installImportFlowFetchMock(returnedTableId: string) {
   let tableListRequests = 0;
   const columns = importColumns();
+  const approvedMapping = {
+    target_kind: "network_flow_table",
+    extension_profile_id: "network_flow_activity",
+    owner_mapping_schema_id: "cartulary.network_flow.mapping_candidate.v1",
+    owner_mapping: {},
+    source_columns: columns.map((column) => ({
+      ...column,
+      field_key: null,
+      entity_binding_mode: null,
+      transform_id: null,
+      transform_options: {},
+      empty_value_policy: "omit_field",
+    })),
+  };
   const fetchSpy = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = requestURL(input).replace(incidentResourceId, "incident-1");
@@ -1198,6 +1254,10 @@ function installImportFlowFetchMock(returnedTableId: string) {
                   network_flow_table_id: returnedTableId,
                   display_name: "new-flows.csv",
                   source_filename_display: "new-flows.csv",
+                  source_import_session_id: importSessionId,
+                  source_import_unit_id: importUnitId,
+                  source_content_sha256: sourceDigest,
+                  mapping_fingerprint: mappingFingerprint,
                 },
               ];
         return jsonResponse({
@@ -1326,7 +1386,11 @@ function installImportFlowFetchMock(returnedTableId: string) {
             import_session_id: importSessionId,
             session_status: "ready_to_apply",
             selected_unit_ids: [importUnitId],
-            unit: importUnitResource("ready"),
+            unit: {
+              ...importUnitResource("ready"),
+              mapping_fingerprint: mappingFingerprint,
+              approved_mapping: approvedMapping,
+            },
           }),
         );
       }

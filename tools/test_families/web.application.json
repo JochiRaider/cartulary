@@ -2293,6 +2293,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.application.regression.network_flow_import_lifetime",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [
+        "module.imports",
+        "module.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/useNetworkFlowImport.test.tsx",
+        "titles": [
+          "Network Flow import application binding fences incident and account replacement before accepting a pending analytical write",
+          "Network Flow import application binding hides protected state while the shell is absent and restores only explicit recovery",
+          "Network Flow import application binding retains submitted intent on write loss and retires either withdrawn extension claim"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.application.regression.obsolete_debug_query_ordinary_navigation_dc33fdc25c",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

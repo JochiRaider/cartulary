@@ -3,15 +3,17 @@ import type {
   DiscoveredImportPreview,
   DiscoveredImportUnit,
   ImportMappingRequest,
+  ImportSessionResource,
 } from "../services/importContractAdapter";
 
 export type NetworkFlowImportDiscovery = {
   readonly sessionId: string;
+  readonly session: ImportSessionResource;
   readonly unit: DiscoveredImportUnit;
   readonly preview: DiscoveredImportPreview;
 };
 export function networkFlowApprovalRequest(
-  discovery: NetworkFlowImportDiscovery,
+  discovery: Pick<NetworkFlowImportDiscovery, "preview">,
   candidate: {
     readonly target_kind: string;
     readonly extension_profile_id: string;
@@ -43,20 +45,19 @@ export function networkFlowApprovedPreviewMatches(
 }
 
 import type { NetworkFlowMappingCandidate } from "../services/networkFlowContractAdapter";
-import { networkFlowMappingMetadata } from "../services/networkFlowContractAdapter";
+import {
+  networkFlowMappingMetadata,
+  networkFlowTimestampMetadata,
+} from "../services/networkFlowContractAdapter";
 
 export const ignoredColumnChoice = "__ignore__";
 
 export type NetworkFlowTimestampMode =
-  | "rfc3339"
-  | "epoch_seconds"
-  | "epoch_milliseconds"
-  | "netflow_sys_uptime_milliseconds";
+  NetworkFlowMappingCandidate["timestamp_profile"]["mode"];
 
-export type NetworkFlowUnknownColumnPolicy =
-  | "preserve_unmapped_raw"
-  | "reject_unmapped_columns"
-  | "ignore_unmapped_columns";
+export type NetworkFlowUnknownColumnPolicy = NonNullable<
+  NetworkFlowMappingCandidate["unknown_column_policy"]
+>;
 
 export type NetworkFlowMappingDraft = {
   readonly sourceProfileId: string;
@@ -74,21 +75,33 @@ export type NetworkFlowMappingDraft = {
   readonly unresolvedAliasCollisionOrdinals: readonly number[];
 };
 
-const sourceProfile = networkFlowMappingMetadata.source_profiles[0];
+export function networkFlowSourceProfile(id: string) {
+  return networkFlowMappingMetadata.source_profiles.find(
+    (profile) =>
+      profile.source_profile_id === id &&
+      profile.conformance_status === "required_v1",
+  );
+}
 
-export const networkFlowMappingFields = sourceProfile.fields.filter(
-  (field) =>
-    field.requirement === "required" ||
-    field.requirement === "optional_map_when_present",
-);
+export const networkFlowMappingFields = (profileId: string) =>
+  networkFlowSourceProfile(profileId)?.fields.filter(
+    (field) =>
+      field.requirement === "required" ||
+      field.requirement === "optional_map_when_present",
+  ) ?? [];
 
-export const networkFlowRequiredFieldKeys = sourceProfile.fields
-  .filter((field) => field.requirement === "required")
-  .map((field) => field.field_key);
+export const networkFlowRequiredFieldKeys = (profileId: string) =>
+  networkFlowMappingFields(profileId)
+    .filter((field) => field.requirement === "required")
+    .map((field) => field.field_key);
 
 export function createNetworkFlowMappingDraft(
   columns: readonly DiscoveredImportColumn[],
+  profileId: string = networkFlowMappingMetadata.source_profiles[0]
+    .source_profile_id,
 ): NetworkFlowMappingDraft {
+  const sourceProfile = networkFlowSourceProfile(profileId);
+  if (!sourceProfile) throw new Error("Unsupported source profile");
   const fieldOwnerOrdinals = new Map<string, number>();
   const collisionOrdinals = new Set<number>();
   const columnChoices: Record<number, string | null> = {};
@@ -96,7 +109,7 @@ export function createNetworkFlowMappingDraft(
     const matchKey = sourceAliasMatchKey(
       importHeaderText(column.source_header_text),
     );
-    const suggested = networkFlowMappingFields.find((field) =>
+    const suggested = networkFlowMappingFields(profileId).find((field) =>
       field.aliases.some((alias) => sourceAliasMatchKey(alias) === matchKey),
     );
     const ordinal = column.source_column_ordinal;
@@ -123,7 +136,7 @@ export function createNetworkFlowMappingDraft(
     timezone: sourceProfile.default_timestamp_profile.timezone ?? "",
     displayNameOverride: "",
     netflowExportTimeColumnOrdinal: null,
-    netflowExportTimeMode: "rfc3339",
+    netflowExportTimeMode: networkFlowTimestampMetadata.exportTimeModes[0],
     netflowExporterUptimeColumnOrdinal: null,
     columnChoices,
     unresolvedAliasCollisionOrdinals: [...collisionOrdinals].sort(
@@ -169,6 +182,8 @@ export function buildNetworkFlowMappingCandidate(
   draft: NetworkFlowMappingDraft,
   columns: readonly DiscoveredImportColumn[],
 ): NetworkFlowMappingCandidate {
+  const sourceProfile = networkFlowSourceProfile(draft.sourceProfileId);
+  if (!sourceProfile) throw new Error("Unsupported source profile");
   const fieldMappings: NetworkFlowMappingCandidate["field_mappings"] = [];
   for (const column of columns) {
     const choice = draft.columnChoices[column.source_column_ordinal] ?? null;
@@ -187,7 +202,7 @@ export function buildNetworkFlowMappingCandidate(
     if (choice === null) {
       continue;
     }
-    const field = networkFlowMappingFields.find(
+    const field = networkFlowMappingFields(draft.sourceProfileId).find(
       (candidate) => candidate.field_key === choice,
     );
     if (
@@ -211,7 +226,7 @@ export function buildNetworkFlowMappingCandidate(
   return {
     target_kind: networkFlowMappingMetadata.target_kind,
     target_table_schema_id: networkFlowMappingMetadata.target_table_schema_id,
-    source_profile_id: draft.sourceProfileId as "cisco_sna_netflow_csv_v1",
+    source_profile_id: sourceProfile.source_profile_id,
     parser_profile_id: sourceProfile.parser_profile_id,
     unknown_column_policy: draft.unknownColumnPolicy,
     ...(draft.displayNameOverride.trim() === ""
@@ -226,14 +241,16 @@ export function mappedRequiredFieldCount(
   draft: NetworkFlowMappingDraft,
 ): number {
   const mapped = new Set(Object.values(draft.columnChoices));
-  return networkFlowRequiredFieldKeys.filter((fieldKey) => mapped.has(fieldKey))
-    .length;
+  return networkFlowRequiredFieldKeys(draft.sourceProfileId).filter(
+    (fieldKey) => mapped.has(fieldKey),
+  ).length;
 }
 
 export function networkFlowMappingDraftReadyForPreview(
   draft: NetworkFlowMappingDraft,
 ): boolean {
   return (
+    networkFlowSourceProfile(draft.sourceProfileId) !== undefined &&
     draft.unresolvedAliasCollisionOrdinals.length === 0 &&
     (draft.timestampMode !== "netflow_sys_uptime_milliseconds" ||
       (draft.netflowExportTimeColumnOrdinal !== null &&
@@ -243,8 +260,98 @@ export function networkFlowMappingDraftReadyForPreview(
   );
 }
 
+export type NetworkFlowMappingIssue = {
+  readonly field: string;
+  readonly message: string;
+};
+export function networkFlowMappingIssues(
+  draft: NetworkFlowMappingDraft,
+): readonly NetworkFlowMappingIssue[] {
+  const profile = networkFlowSourceProfile(draft.sourceProfileId);
+  if (!profile)
+    return [
+      {
+        field: "sourceProfileId",
+        message: "Choose a supported source profile.",
+      },
+    ];
+  const issues: NetworkFlowMappingIssue[] = [];
+  const choices = Object.values(draft.columnChoices);
+  for (const field of networkFlowRequiredFieldKeys(draft.sourceProfileId)) {
+    if (!choices.includes(field))
+      issues.push({
+        field,
+        message: `Map required field ${field.replace("network_flow.", "")}.`,
+      });
+  }
+  for (const [ordinal, field] of Object.entries(draft.columnChoices)) {
+    if (
+      field &&
+      field !== ignoredColumnChoice &&
+      (!networkFlowMappingFields(draft.sourceProfileId).some(
+        (f) => f.field_key === field,
+      ) ||
+        choices.filter((v) => v === field).length > 1)
+    ) {
+      issues.push({
+        field: `column:${ordinal}`,
+        message: "Choose one supported target for this column.",
+      });
+    }
+    if (
+      field === null &&
+      draft.unknownColumnPolicy === "reject_unmapped_columns"
+    )
+      issues.push({
+        field: `column:${ordinal}`,
+        message:
+          "Map or explicitly ignore this column under the selected policy.",
+      });
+  }
+  if (
+    !profile.supported_timestamp_modes.some(
+      (mode) => mode === draft.timestampMode,
+    ) ||
+    !networkFlowMappingDraftReadyForPreview(draft)
+  )
+    issues.push({
+      field: "timestampMode",
+      message:
+        "Resolve alias collisions and choose valid, distinct timestamp source columns.",
+    });
+  if (draft.timestampMode === "netflow_sys_uptime_milliseconds") {
+    for (const ordinal of [
+      draft.netflowExportTimeColumnOrdinal,
+      draft.netflowExporterUptimeColumnOrdinal,
+    ]) {
+      if (
+        ordinal === null ||
+        !Object.hasOwn(draft.columnChoices, ordinal) ||
+        ["network_flow.flow_start_utc", "network_flow.flow_end_utc"].includes(
+          draft.columnChoices[ordinal] ?? "",
+        )
+      )
+        issues.push({
+          field: "timestampMode",
+          message:
+            "Timestamp context columns must exist and differ from event-time columns.",
+        });
+    }
+  }
+  if (
+    !profile.supported_unknown_column_policies.some(
+      (p) => p === draft.unknownColumnPolicy,
+    )
+  )
+    issues.push({
+      field: "unknownColumnPolicy",
+      message: "Choose a supported unknown-column policy.",
+    });
+  return issues;
+}
+
 export function sourceColumnLabel(column: DiscoveredImportColumn): string {
-  const header = importHeaderText(column.source_header_text).trim();
+  const header = importHeaderText(column.source_header_text);
   return `${header === "" ? "(unnamed)" : header} · column ${column.source_column_ordinal}`;
 }
 
@@ -260,21 +367,16 @@ function timestampProfileFromDraft(
   switch (draft.timestampMode) {
     case "epoch_seconds":
       return {
-        schema_id: "cartulary.network_flow.timestamp_profile.v1",
-        mode: "epoch_seconds",
-        precision: "seconds",
+        ...networkFlowTimestampMetadata.defaults.epoch_seconds,
       };
     case "epoch_milliseconds":
       return {
-        schema_id: "cartulary.network_flow.timestamp_profile.v1",
-        mode: "epoch_milliseconds",
-        precision: "milliseconds",
+        ...networkFlowTimestampMetadata.defaults.epoch_milliseconds,
       };
     case "netflow_sys_uptime_milliseconds":
       return {
-        schema_id: "cartulary.network_flow.timestamp_profile.v1",
-        mode: "netflow_sys_uptime_milliseconds",
-        precision: "milliseconds",
+        ...networkFlowTimestampMetadata.defaults
+          .netflow_sys_uptime_milliseconds,
         netflow_export_time_column_ordinal:
           draft.netflowExportTimeColumnOrdinal ?? 0,
         netflow_export_time_mode: draft.netflowExportTimeMode,
@@ -283,16 +385,12 @@ function timestampProfileFromDraft(
       };
     default:
       return {
-        schema_id: "cartulary.network_flow.timestamp_profile.v1",
-        mode: "rfc3339",
-        precision: "microseconds",
+        ...networkFlowTimestampMetadata.defaults.rfc3339,
         timezone: draft.timezone.trim() === "" ? null : draft.timezone.trim(),
         timezone_ruleset_id:
           draft.timezone.trim() === "" || draft.timezone.trim() === "UTC"
             ? null
-            : "tzdb-2026c",
-        ambiguous_local_time_policy: "reject",
-        local_time_gap_policy: "reject",
+            : networkFlowTimestampMetadata.timezoneRulesetId,
       };
   }
 }

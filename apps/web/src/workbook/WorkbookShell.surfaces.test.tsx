@@ -90,6 +90,7 @@ import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationT
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
+import { NetworkFlowImportController } from "./features/NetworkFlowFeature";
 import { useGenericPartyLinkWorkflow } from "./features/parties/useGenericPartyLinkWorkflow";
 import { buildGenericPatchChange } from "./models/genericWorkbookModel";
 import {
@@ -135,6 +136,8 @@ function WorkbookShell(
     | "savedViewController"
     | "bindWorkbookSavedViews"
     | "importController"
+    | "networkFlowImportController"
+    | "bindNetworkFlowImport"
     | "bindWorkbookImport"
   >,
 ) {
@@ -163,6 +166,8 @@ function WorkbookShell(
   return (
     <WorkbookShellImpl
       importController={new WorkbookImportController()}
+      networkFlowImportController={new NetworkFlowImportController()}
+      bindNetworkFlowImport={() => {}}
       bindWorkbookImport={() => {}}
       {...savedViews}
       {...props}

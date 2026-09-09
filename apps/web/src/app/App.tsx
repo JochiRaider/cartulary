@@ -20,6 +20,7 @@ import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
 } from "../shared/workbookShellContracts";
+import type { NetworkFlowImportController } from "../workbook/features/NetworkFlowFeature";
 import type { WorkbookPreferenceController } from "../workbook/preferences/WorkbookPreferenceController";
 import { WorkbookPreferencesPanel } from "../workbook/preferences/WorkbookPreferencesPanel";
 import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
@@ -92,6 +93,7 @@ import { useIncidentLifecycle } from "./useIncidentLifecycle";
 import { useIncidentMembershipAudit } from "./useIncidentMembershipAudit";
 import { useIncidentMembershipManagement } from "./useIncidentMembershipManagement";
 import { useIncidentMetadata } from "./useIncidentMetadata";
+import { useNetworkFlowImport } from "./useNetworkFlowImport";
 import { useReferencePackAdmin } from "./useReferencePackAdmin";
 import { useWorkbookImport } from "./useWorkbookImport";
 import { useWorkbookPreferences } from "./useWorkbookPreferences";
@@ -147,6 +149,7 @@ export function App({
   authNavigation,
 }: AppProps = {}) {
   const workbookImportRef = useRef<WorkbookImportController | null>(null);
+  const networkFlowImportRef = useRef<NetworkFlowImportController | null>(null);
   const preferencesRef = useRef<WorkbookPreferenceController | null>(null);
   const metadataRef = useRef<IncidentMetadataController | null>(null);
   const lifecycleRef = useRef<IncidentLifecycleController | null>(null);
@@ -213,6 +216,7 @@ export function App({
     beforeCommit: (next) => {
       if (next.incidentId !== routeRef.current.incidentId) {
         workbookImportRef.current?.retire();
+        networkFlowImportRef.current?.retire();
         membershipAuditRef.current?.retire();
         membershipManagementRef.current?.retire();
         metadataRef.current?.retire();
@@ -240,6 +244,7 @@ export function App({
       new AppSessionController({
         retireLifetime: (lifetime) => {
           workbookImportRef.current?.retire();
+          networkFlowImportRef.current?.retire();
           membershipAuditRef.current?.retire();
           membershipManagementRef.current?.retire();
           metadataRef.current?.retire();
@@ -927,6 +932,11 @@ export function App({
     currentIncidentId: () => routeRef.current.incidentId,
   });
   workbookImportRef.current = workbookImport.controller;
+  const networkFlowImport = useNetworkFlowImport({
+    sessionController,
+    currentIncidentId: () => routeRef.current.incidentId,
+  });
+  networkFlowImportRef.current = networkFlowImport.controller;
 
   const savedViews = useWorkbookSavedViews({
     sessionController,
@@ -1150,6 +1160,8 @@ export function App({
             <LazyWorkbookShell
               importController={workbookImport.controller}
               bindWorkbookImport={workbookImport.bindWorkbook}
+              networkFlowImportController={networkFlowImport.controller}
+              bindNetworkFlowImport={networkFlowImport.bindWorkbook}
               savedViewController={savedViews.controller}
               bindWorkbookSavedViews={(binding) => {
                 if (

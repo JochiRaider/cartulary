@@ -1087,6 +1087,27 @@ const networkFlowDefinitions = requireObject(
   networkFlowSchema.$defs,
   "network-flow definitions",
 );
+// Browser choices are projections of existing owner schemas, never runtime schemas.
+const timestampVariants = networkFlowDefinitions.TimestampProfile.oneOf;
+const timestampDefaults = Object.fromEntries(timestampVariants.map(({ properties }) => {
+  const mode = properties.mode.const;
+  const defaults = Object.fromEntries(Object.entries(properties)
+    .filter(([, value]) => Object.hasOwn(value, "const"))
+    .map(([key, value]) => [key, value.const]));
+  const profileDefault = networkFlowMappingRegistry.source_profiles
+    .find((profile) => profile.default_timestamp_profile.mode === mode)?.default_timestamp_profile;
+  if (!defaults.precision && !profileDefault?.precision) {
+    throw new Error(`Missing owner timestamp precision default for ${mode}`);
+  }
+  return [mode, { ...defaults, ...profileDefault }];
+}));
+const networkFlowTimestampMetadata = {
+  defaults: timestampDefaults,
+  timezoneRulesetId: timestampVariants.find((v) => v.properties.timezone_ruleset_id)
+    .properties.timezone_ruleset_id.enum.filter((v) => v !== null)[0],
+  exportTimeModes: timestampVariants.find((v) => v.properties.netflow_export_time_mode)
+    .properties.netflow_export_time_mode.enum,
+};
 const networkFlowPublicDefinitions = publicDefinitionsBySchemaID(
   networkFlowIndex,
   networkFlowSchema,
@@ -1247,7 +1268,7 @@ writeFilesAtomically([
     content: generatedConstSource(
       "networkFlowMappingRegistry",
       networkFlowMappingRegistry,
-    ),
+    ) + generatedConstSource("networkFlowTimestampMetadata", networkFlowTimestampMetadata),
   },
 ]);
 removeObsoleteGeneratedOutputs([

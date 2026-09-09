@@ -153,6 +153,8 @@ export class ImportClient {
       readonly availability: ExtensionAvailabilityController;
       readonly apiBase?: string | undefined;
       readonly incidentId: string;
+      /** Revalidate consumer authority inside the extension dispatch queue. */
+      readonly canDispatch?: () => boolean;
     },
   ) {}
 
@@ -169,13 +171,14 @@ export class ImportClient {
   ): Promise<ImportReadResult<T>> {
     let status = 0;
     try {
-      if (signal.aborted) return failed(importInterruptedFailure());
+      if (signal.aborted || this.options.canDispatch?.() === false)
+        return failed(importInterruptedFailure());
       const result = await abortable(
         this.options.availability.runProfileRequest(
           importProfileId,
           importRouteFamily,
           async () => {
-            if (signal.aborted)
+            if (signal.aborted || this.options.canDispatch?.() === false)
               throw new DOMException("Request interrupted", "AbortError");
             const onResponse = (response: Response) => {
               status = response.status;
@@ -209,6 +212,8 @@ export class ImportClient {
         ),
         signal,
       );
+      if (signal.aborted || this.options.canDispatch?.() === false)
+        return failed(importInterruptedFailure());
       if (result.ok) {
         const statuses =
           operationID === "createImportSession" ||

@@ -1,5 +1,6 @@
 import {
   networkAnalysisTestId,
+  surfaceTabTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Request } from "@playwright/test";
@@ -12,7 +13,9 @@ import {
   openClaimedNetworkAnalysis,
   openNetworkFlowIncident,
 } from "./support/extensions/network_flow_activity/workspace";
+import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { apiBase } from "./support/runtime/configuration";
+import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 
 test("Network Flow unclaimed workspace remains unavailable", async ({
@@ -86,6 +89,188 @@ test("Network Analysis import creates one inner table tab", async ({
   await expect(
     page.getByTestId(networkAnalysisTestId("accepted-grid")),
   ).toBeVisible();
+});
+
+test("Network Analysis recovers discovery selection exact apply and published table handoff", async ({
+  page,
+}) => {
+  await openClaimedNetworkAnalysis(page, "NFRECOVERY");
+  let uploads = 0,
+    approvals = 0,
+    sourceFailures = 0,
+    observationFailures = 0;
+  let applyJobId = "",
+    blockTables = false;
+  const selections: unknown[] = [],
+    applies: unknown[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().endsWith("/api/v1/import-sessions")
+    )
+      uploads++;
+    if (request.method() === "PUT" && request.url().endsWith("/mapping"))
+      approvals++;
+  });
+  await page.route(
+    "**/api/v1/import-sessions/*/units/*/preview",
+    async (route) => {
+      if (sourceFailures++ === 0) await route.abort("failed");
+      else await route.continue();
+    },
+  );
+  await page.route(
+    "**/api/v1/import-sessions/*/units/*/select",
+    async (route) => {
+      selections.push(route.request().postDataJSON());
+      if (selections.length === 1)
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: {
+              code: "import_apply_blocked",
+              message: "Selection must be retried.",
+              retryable: false,
+              details: { reason_code: "unit_not_ready" },
+            },
+          }),
+        });
+      else await route.continue();
+    },
+  );
+  await page.route("**/api/v1/import-sessions/*/apply", async (route) => {
+    applies.push(route.request().postDataJSON());
+    if (applies.length === 1) {
+      const response = await route.fetch();
+      expect(response.status()).toBe(202);
+      applyJobId = (await response.json()).data.job_id;
+      blockTables = true;
+      await route.abort("failed");
+    } else await route.continue();
+  });
+  await page.route("**/api/v1/jobs/*", async (route) => {
+    if (
+      applyJobId &&
+      route.request().url().endsWith(applyJobId) &&
+      observationFailures++ === 0
+    )
+      await route.abort("failed");
+    else await route.continue();
+  });
+  await page.route("**/network-flow/tables", async (route) => {
+    if (blockTables) await route.abort("failed");
+    else await route.continue();
+  });
+  await page
+    .getByTestId(networkAnalysisTestId("import-input"))
+    .setInputFiles(networkFlowMinimalCSV);
+  const dialog = page.getByTestId(networkAnalysisTestId("mapping-dialog"));
+  await dialog
+    .getByTestId(networkAnalysisTestId("import-source-reload"))
+    .click();
+  await dialog
+    .getByTestId(networkAnalysisTestId("mapping-display-name"))
+    .fill("recovered-table");
+  await dialog.getByTestId(networkAnalysisTestId("mapping-preview")).click();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("mapping-preview-summary")),
+  ).toContainText("only the preview slice");
+  await dialog.getByTestId(networkAnalysisTestId("mapping-apply")).click();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("import-progress")),
+  ).toContainText("selecting");
+  await dialog.getByTestId(networkAnalysisTestId("import-replay")).click();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("import-replay")),
+  ).toHaveText("Retry exact request");
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("mapping-preview")),
+  ).toBeDisabled();
+  await dialog.getByTestId(networkAnalysisTestId("import-replay")).click();
+  await dialog.getByTestId(networkAnalysisTestId("import-resume")).click();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("import-progress")),
+  ).toContainText("Import succeeded");
+  blockTables = false;
+  await dialog.getByTestId(networkAnalysisTestId("import-handoff")).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("tab", { name: /recovered-table/u }),
+  ).toHaveAttribute("aria-selected", "true");
+  expect(uploads).toBe(1);
+  expect(approvals).toBe(1);
+  expect(selections).toHaveLength(2);
+  expect(applies).toHaveLength(2);
+  expect(selections[0]).not.toEqual(selections[1]);
+  expect(applies[0]).toEqual(applies[1]);
+  await page.getByTestId(networkAnalysisTestId("import-trigger")).click();
+  await dialog
+    .getByRole("button", { name: "Start another import", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByTestId(networkAnalysisTestId("import-trigger")),
+  ).toContainText("Import");
+  expect(uploads).toBe(1);
+});
+
+test("Network Analysis retains mapping review across workspace departure and incident closure", async ({
+  page,
+}) => {
+  const incidentId = await openClaimedNetworkAnalysis(page, "NFRETAIN");
+  const trigger = page.getByTestId(networkAnalysisTestId("import-trigger"));
+  await trigger.focus();
+  await page
+    .getByTestId(networkAnalysisTestId("import-input"))
+    .setInputFiles(networkFlowMinimalCSV);
+  const dialog = page.getByTestId(networkAnalysisTestId("mapping-dialog"));
+  await dialog
+    .getByTestId(networkAnalysisTestId("mapping-display-name"))
+    .fill("copyable-retained-mapping");
+  await dialog.press("Escape");
+  await expect(trigger).toBeFocused();
+  await page
+    .getByTestId(surfaceTabTestId("cartulary.view.timeline.v2"))
+    .click();
+  await page.getByTestId(networkAnalysisTestId("import-recovery")).click();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("mapping-display-name")),
+  ).toHaveValue("copyable-retained-mapping");
+  await dialog.press("Escape");
+  await page.getByTestId(networkAnalysisTestId("tab")).click();
+  await trigger.click();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("mapping-display-name")),
+  ).toHaveValue("copyable-retained-mapping");
+  await dialog.press("Escape");
+  const incident = await currentLifecycle(page, incidentId);
+  expect(
+    (
+      await lifecycleAction(page, incidentId, "closeIncident", {
+        base_incident_version: incident.incident_version,
+        client_txn_id: uniqueTxn("nf-close"),
+        reason: "Verify retained analytical draft",
+      })
+    ).ok,
+  ).toBe(true);
+  await expect(
+    page.getByTestId(networkAnalysisTestId("workspace")),
+  ).toHaveCount(0);
+  await page.getByTestId(networkAnalysisTestId("import-recovery")).click();
+  await expect(dialog).toContainText("Closed, read-only");
+  await expect(
+    dialog.getByLabel("Retained mapping draft (copy only)"),
+  ).toContainText("copyable-retained-mapping");
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("mapping-preview")),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("mapping-apply")),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("import-cancel")),
+  ).toHaveCount(0);
 });
 
 test("Network Analysis soft delete removes active table tab", async ({
@@ -341,6 +526,14 @@ test("Network Analysis alias collision requires explicit approval", async ({
   await expect(
     page.getByTestId(networkAnalysisTestId("mapping-preview")),
   ).toBeDisabled();
+  await page.setViewportSize({ width: 390, height: 480 });
+  await expect(
+    dialog.getByRole("region", { name: "Mapping requirements" }),
+  ).toContainText("Resolve alias collisions");
+  expect(
+    await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+  ).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await dialog
     .getByLabel("Target for Source IP · column 3")
     .selectOption("network_flow.src_ip");

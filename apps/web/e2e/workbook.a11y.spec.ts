@@ -2105,6 +2105,62 @@ if (
       networkAnalysisTestId("mapping-profile"),
     );
     await expect(mappingProfile).toBeFocused();
+    // Inspect the retained import surface itself; it lives above workspace unmount.
+    for (const viewport of [
+      { width: 390, height: 480 },
+      { width: 768, height: 360 },
+      { width: 1440, height: 450 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const geometry = await mappingDialog.evaluate((node) => ({
+        width: node.clientWidth,
+        scroll: node.scrollWidth,
+        left: node.getBoundingClientRect().left,
+        right: node.getBoundingClientRect().right,
+      }));
+      expect(geometry.scroll).toBeLessThanOrEqual(geometry.width + 1);
+      expect(geometry.left).toBeGreaterThanOrEqual(0);
+      expect(geometry.right).toBeLessThanOrEqual(viewport.width + 1);
+      const previewAction = mappingDialog.getByTestId(
+        networkAnalysisTestId("mapping-preview"),
+      );
+      await previewAction.focus();
+      await previewAction.scrollIntoViewIfNeeded();
+      await expect(previewAction).toBeInViewport();
+      await previewAction.press("Tab");
+      await expect(
+        mappingDialog.getByRole("button", { name: "Close", exact: true }),
+      ).toBeFocused();
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    expect(
+      await mappingDialog.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1,
+      ),
+    ).toBe(true);
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+    const mappingSpacing = await page.addStyleTag({
+      content:
+        ".network-flow-dialog * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } .network-flow-dialog p { margin-block-end: 2em !important; }",
+    });
+    await page.setViewportSize({ width: 768, height: 480 });
+    expect(
+      await mappingDialog.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1,
+      ),
+    ).toBe(true);
+    await test.info().attach("network-flow-mapping-text-spacing", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await mappingSpacing.evaluate((node) => node.parentNode?.removeChild(node));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mappingProfile.focus();
     await expectAllInteractiveControlsNamed(page);
     await expectAndRecordContrast(page, [
       networkAnalysisTestId("mapping-dialog"),
