@@ -132,7 +132,8 @@ target-specific mapping interpretation remains with the consuming feature.
 Network Flow is an extension feature. It owns Network Analysis behavior and
 typed presentation adaptation, but it is not a Base Profile workbook surface
 or `view_schema` owner. Workbook composition consumes it only through
-`workbook/features/NetworkFlowFeature.tsx`.
+`workbook/features/NetworkFlowFeature.tsx` for lazy presentation and
+`workbook/features/NetworkFlowOperations.ts` for persistent operation ownership.
 
 | File | Responsibility |
 | --- | --- |
@@ -496,7 +497,8 @@ identity into the Base surface registry.
 | --- | --- |
 | `workbook/features/ImportAssistantFeature.tsx` | Availability-gated workbook import assistant for discovery, ordinal mapping, approval, unit selection, apply/cancel, and result navigation. |
 | `workbook/features/ImportAssistantFeature.test.tsx` | Import assistant discovery, approval, cancellation, and returned-selection characterization. |
-| `workbook/features/NetworkFlowFeature.tsx` | Workbook/app-facing Network Flow facade for workspace rendering and stable extension identity. |
+| `workbook/features/NetworkFlowFeature.tsx` | Lazy Network Analysis presentation entrypoint. |
+| `workbook/features/NetworkFlowOperations.ts` | Workbook/app-facing persistent Network Flow operation ownership. |
 | `workbook/features/coordination/CoordinationWorkflowBindings.tsx` | Coordination-owned task lifecycle and decision supersession presentation over semantic commands. |
 | `workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Evidence-owned access, preview, download, and semantic attachment binding for the contract surface. |
 

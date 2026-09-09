@@ -13,7 +13,7 @@ const discovery = [
     profile_id: "network_flow_activity",
     claimable: true,
     claimed: true,
-    contract_major: 5,
+    contract_major: 6,
     route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
     workspace_keys: ["network_analysis"],
     capabilities: [],
@@ -61,6 +61,37 @@ describe("extension availability lifecycle", () => {
     expect(controller.renderableWorkspaces()).toEqual([]);
   });
 
+  it("keeps authority identity stable across reads and synchronously withdraws it on claim changes", async () => {
+    const controller = new ExtensionAvailabilityController({
+      incidentId: "incident-1",
+      randomValues: deterministicRandom(4),
+    });
+    controller.setDiscovery(discovery);
+    const tag = controller.reserve();
+    if (tag === null) throw new Error("fixture reservation");
+    controller.acceptWorkbookStartup(tag, availability);
+    const authority = controller.authorityTag();
+    const changed = vi.fn();
+    const unsubscribe = controller.subscribeAuthority(changed);
+    await controller.runProfileRequest(
+      "network_flow_activity",
+      discovery[0].route_families[0],
+      async () => true,
+    );
+    await controller.runProfileRequest(
+      "network_flow_activity",
+      discovery[0].route_families[0],
+      async () => true,
+    );
+    expect(controller.authorityTag()).toEqual(authority);
+    expect(changed).not.toHaveBeenCalled();
+    controller.setDiscovery([{ ...discovery[0], claimed: false }]);
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect(controller.authorityTag()).not.toEqual(authority);
+    expect(controller.renderableWorkspaces()).toEqual([]);
+    unsubscribe();
+  });
+
   it("loads the generated standard support registry and rejects capability facts", () => {
     const support = packagedClientExtensionSupportRegistry();
     expect(support).not.toBeNull();
@@ -74,7 +105,7 @@ describe("extension availability lifecycle", () => {
       }),
       expect.objectContaining({
         profile_id: "network_flow_activity",
-        supported_contract_majors: [5],
+        supported_contract_majors: [6],
         workspace_keys: ["network_analysis"],
         capability_ids: [],
       }),

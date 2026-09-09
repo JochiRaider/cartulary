@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -191,6 +192,16 @@ func (runner serverRunner) writeFatalDiagnostic(signal processlifecycle.FatalSig
 }
 
 func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, action string) {
+	var admissionErr *extensions.AdmissionValidationError
+	if errors.As(err, &admissionErr) {
+		diagnostic := struct {
+			Code        string                        `json:"code"`
+			Diagnostics []extensions.AdmissionFinding `json:"diagnostics"`
+		}{Code: "invalid_deployment_config", Diagnostics: admissionErr.Findings}
+		encoded, _ := json.Marshal(diagnostic)
+		_, _ = runner.stderr.Write(append(encoded, '\n'))
+		return
+	}
 	var diagnosticsErr *config.DiagnosticsError
 	if errors.As(err, &diagnosticsErr) {
 		_, _ = io.WriteString(runner.stderr, diagnosticsErr.JSON())

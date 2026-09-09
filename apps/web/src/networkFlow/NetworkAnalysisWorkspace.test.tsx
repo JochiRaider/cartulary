@@ -15,17 +15,41 @@ import {
 import userEvent from "@testing-library/user-event";
 import { type ComponentProps, useLayoutEffect, useMemo, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollaborationSession";
 import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
 import { ImportClient } from "../services/importClient";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
 import { NetworkAnalysisWorkspace as ProductionNetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
 import { NetworkFlowImportController } from "./NetworkFlowImportController";
 import { NetworkFlowImportSurface } from "./NetworkFlowImportSurface";
+import { networkAnalysisSheetRef } from "./networkFlowClient";
+import { savedGraphJobFixture } from "./savedGraphTestFixtures";
+import { useNetworkFlowSavedGraphOwner } from "./useNetworkFlowSavedGraphOwner";
 
 function NetworkAnalysisWorkspace(
   props: Omit<
     ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
-    "importController"
+    "importController" | "savedGraphController"
+  >,
+) {
+  return (
+    <IncidentCollaborationBoundary
+      apiBase={props.apiBase}
+      incidentId={props.incidentId}
+      initialPresence={{
+        sheet_ref: networkAnalysisSheetRef(),
+        mode: "viewing",
+      }}
+    >
+      <NetworkAnalysisWorkspaceOwner {...props} />
+    </IncidentCollaborationBoundary>
+  );
+}
+
+function NetworkAnalysisWorkspaceOwner(
+  props: Omit<
+    ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
+    "importController" | "savedGraphController"
   >,
 ) {
   const [controller] = useState(() => new NetworkFlowImportController());
@@ -33,6 +57,15 @@ function NetworkAnalysisWorkspace(
     () => readyExtensionAvailability(props.incidentId),
     [props.incidentId],
   );
+  const savedGraphController = useNetworkFlowSavedGraphOwner({
+    availability,
+    apiBase: props.apiBase,
+    incidentId: props.incidentId,
+    actorId: props.currentUserId ?? importActorId,
+    sessionIdentity: "workspace-test",
+    role: props.currentIncidentRole,
+    open: true,
+  });
   const client = useMemo(
     () =>
       new ImportClient({
@@ -68,6 +101,7 @@ function NetworkAnalysisWorkspace(
     <ExtensionAvailabilityProvider controller={availability}>
       <ProductionNetworkAnalysisWorkspace
         importController={controller}
+        savedGraphController={savedGraphController}
         currentUserId={importActorId}
         {...props}
       />
@@ -138,7 +172,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="editor"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -208,7 +242,7 @@ describe("NetworkAnalysisWorkspace", () => {
 
     const initialRowsCall = fetchSpy.mock.calls.find(([input]) =>
       requestURL(input).endsWith(
-        `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/query`,
+        `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables/${tableId}/query`,
       ),
     );
     expect(JSON.parse(String(initialRowsCall?.[1]?.body))).toEqual({
@@ -232,7 +266,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await waitFor(() => {
       const rowQueries = fetchSpy.mock.calls.filter(([input]) =>
         requestURL(input).endsWith(
-          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/query`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables/${tableId}/query`,
         ),
       );
       expect(rowQueries.length).toBeGreaterThanOrEqual(2);
@@ -269,14 +303,14 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       fetchSpy.mock.calls.some(([input]) =>
         requestURL(input).endsWith(
-          "/api/v1/incidents/incident-1/network-flow/graphs/contributors/query",
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/contributors/query",
         ),
       ),
     ).toBe(false);
 
     const graphCall = fetchSpy.mock.calls.find(([input]) =>
       requestURL(input).endsWith(
-        "/api/v1/incidents/incident-1/network-flow/graphs/query",
+        "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/query",
       ),
     );
     expect(JSON.parse(String(graphCall?.[1]?.body))).toEqual({
@@ -328,7 +362,7 @@ describe("NetworkAnalysisWorkspace", () => {
 
     const contributorCall = fetchSpy.mock.calls.find(([input]) =>
       requestURL(input).endsWith(
-        "/api/v1/incidents/incident-1/network-flow/graphs/contributors/query",
+        "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/contributors/query",
       ),
     );
     expect(JSON.parse(String(contributorCall?.[1]?.body))).toEqual({
@@ -375,7 +409,7 @@ describe("NetworkAnalysisWorkspace", () => {
           const url = requestURL(input);
           return (
             url.endsWith(
-              "/api/v1/incidents/incident-1/network-flow/indicator-links",
+              "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/indicator-links",
             ) &&
             init?.method === "POST" &&
             (
@@ -391,7 +425,7 @@ describe("NetworkAnalysisWorkspace", () => {
     const linkCall = fetchSpy.mock.calls.find(
       ([input, init]) =>
         requestURL(input).endsWith(
-          "/api/v1/incidents/incident-1/network-flow/indicator-links",
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/indicator-links",
         ) &&
         (JSON.parse(String(init?.body)) as { selector: { kind: string } })
           .selector.kind === "graph_edge",
@@ -461,7 +495,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="viewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -504,7 +538,7 @@ describe("NetworkAnalysisWorkspace", () => {
       const rendered = render(
         <NetworkAnalysisWorkspace
           currentIncidentRole={expectation.role}
-          incidentId="incident-1"
+          incidentId="11111111-1111-4111-8111-111111111111"
         />,
       );
       await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
@@ -536,7 +570,7 @@ describe("NetworkAnalysisWorkspace", () => {
     const rendered = render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="editor"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
     await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
@@ -550,7 +584,7 @@ describe("NetworkAnalysisWorkspace", () => {
     rendered.rerender(
       <NetworkAnalysisWorkspace
         currentIncidentRole="viewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -575,7 +609,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
     await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
@@ -639,7 +673,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="editor"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
     await screen.findByTestId(networkAnalysisTestId("accepted-grid"));
@@ -677,7 +711,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="viewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -708,7 +742,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
     await screen.findByText("192.0.2.10");
@@ -729,7 +763,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -844,7 +878,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -905,7 +939,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -935,7 +969,12 @@ describe("NetworkAnalysisWorkspace", () => {
       }),
     ).toBeTruthy();
     expect(await screen.findByText(/Row 2/u)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    const retainedVertex = screen.getByRole("button", { name: "192.0.2.10" });
+    const resultReadCount = () =>
+      fetchSpy.mock.calls.filter(([input]) =>
+        requestURL(input).endsWith(`/graph-views/${graphViewId}/result`),
+      ).length;
+    const initialReads = resultReadCount();
 
     await user.click(
       within(savedGraphPanel).getByRole("button", { name: "Rename" }),
@@ -948,9 +987,36 @@ describe("NetworkAnalysisWorkspace", () => {
       await screen.findByRole("heading", { name: "Renamed investigation" }),
     ).toBeTruthy();
 
+    expect(screen.getByRole("button", { name: "192.0.2.10" })).toBe(
+      retainedVertex,
+    );
+    expect(
+      screen.getByRole("complementary", { name: "Saved graph contributors" })
+        .textContent,
+    ).toContain("Renamed investigation");
+    await user.click(
+      within(savedGraphPanel).getByRole("button", { name: "Reload" }),
+    );
+    await waitFor(() =>
+      expect(
+        within(savedGraphPanel)
+          .getByRole("button", { name: "Reload" })
+          .hasAttribute("disabled"),
+      ).toBe(false),
+    );
+    expect(resultReadCount()).toBe(initialReads);
+    const closeContributors = screen.getByRole("button", { name: "Close" });
+    closeContributors.focus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(document.activeElement).toBe(retainedVertex));
+    expect(
+      screen.queryByRole("complementary", { name: "Saved graph contributors" }),
+    ).toBeNull();
+
     await user.click(
       within(savedGraphPanel).getByRole("button", { name: "Refresh" }),
     );
+    await user.click(screen.getByRole("button", { name: "Refresh graph" }));
     expect(
       await screen.findByText(
         "Showing the last successful result while refresh continues.",
@@ -1003,7 +1069,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="editor"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -1085,7 +1151,7 @@ describe("NetworkAnalysisWorkspace", () => {
     const rendered = render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="viewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -1113,7 +1179,7 @@ describe("NetworkAnalysisWorkspace", () => {
     rendered.rerender(
       <NetworkAnalysisWorkspace
         currentIncidentRole="editor"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
     await screen.findByRole("heading", { name: "Investigation graph" });
@@ -1133,7 +1199,7 @@ describe("NetworkAnalysisWorkspace", () => {
     rendered.rerender(
       <NetworkAnalysisWorkspace
         currentIncidentRole="reviewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
     await screen.findByRole("heading", { name: "Investigation graph" });
@@ -1153,7 +1219,7 @@ describe("NetworkAnalysisWorkspace", () => {
     rendered.rerender(
       <NetworkAnalysisWorkspace
         currentIncidentRole="admin"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
     await screen.findByRole("heading", { name: "Investigation graph" });
@@ -1171,6 +1237,105 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toBeTruthy();
   });
 
+  it("recovers saved graph drafts, conflicts, and uncertain writes locally with keyboard focus", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = installNetworkFlowFetchMock({
+      savedGraphs: [savedGraphResource()],
+      savedGraphCreateUncertainOnce: true,
+      savedGraphRenameConflictOnce: true,
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="admin"
+        incidentId={incidentResourceId}
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    await screen.findByText("Graph ready");
+    await user.click(screen.getByRole("button", { name: "Saved graphs" }));
+    await screen.findByRole("heading", { name: "Investigation graph" });
+    const panel = screen.getByRole("region", {
+      name: "Saved Network Flow graphs",
+    });
+    const rename = within(panel).getByRole("button", { name: "Rename" });
+    rename.focus();
+    await user.keyboard("{Enter}");
+    let dialog = screen.getByRole("dialog", { name: "Rename saved graph" });
+    let input = within(dialog).getByRole("textbox", { name: "Display name" });
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    fireEvent.change(input, { target: { value: "é".repeat(33) } });
+    expect(
+      within(dialog)
+        .getByRole("button", { name: "Rename graph" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(dialog.textContent).toContain("exceeds 64 bytes");
+    fireEvent.change(input, { target: { value: "é".repeat(32) } });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(document.activeElement).toBe(rename));
+    expect(rename.tabIndex).toBe(0);
+    await user.keyboard("{Enter}");
+    dialog = screen.getByRole("dialog", { name: "Rename saved graph" });
+    input = within(dialog).getByRole("textbox", { name: "Display name" });
+    expect((input as HTMLInputElement).value).toBe("é".repeat(32));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Rename graph" }),
+    );
+    expect((await within(dialog).findByRole("alert")).textContent).toContain(
+      "graph changed",
+    );
+    expect((input as HTMLInputElement).value).toBe("é".repeat(32));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Review current graph" }),
+    );
+    await waitFor(() =>
+      expect(dialog.textContent).toContain("Changed remotely"),
+    );
+    expect(dialog.textContent).toContain("version 2");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Rename graph" }),
+    );
+    await screen.findByRole("heading", { name: "é".repeat(32) });
+    await user.click(
+      within(panel).getByRole("button", { name: "Save current graph" }),
+    );
+    dialog = screen.getByRole("dialog", { name: "Save current graph" });
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Display name" }),
+      { target: { value: "Recovered graph" } },
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save graph" }),
+    );
+    await within(dialog).findByRole("button", { name: "Replay exact attempt" });
+    expect(
+      (
+        within(dialog).getByRole("textbox", {
+          name: "Display name",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("Recovered graph");
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    await user.click(
+      within(panel).getByRole("button", {
+        name: "Review saved graph operation",
+      }),
+    );
+    dialog = screen.getByRole("dialog", { name: "Save current graph" });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Replay exact attempt" }),
+    );
+    await screen.findByRole("heading", { name: "Recovered graph" });
+    const creates = fetchSpy.mock.calls.filter(
+      ([input, init]) =>
+        requestURL(input).endsWith("/graph-views") && init?.method === "POST",
+    );
+    expect(creates).toHaveLength(2);
+    expect(creates[0]?.[1]?.body).toBe(creates[1]?.[1]?.body);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("bounds saved graph rendering to 500 vertices and 1000 edges with paged navigation", async () => {
     const user = userEvent.setup();
     installNetworkFlowFetchMock({
@@ -1180,7 +1345,7 @@ describe("NetworkAnalysisWorkspace", () => {
     render(
       <NetworkAnalysisWorkspace
         currentIncidentRole="viewer"
-        incidentId="incident-1"
+        incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
 
@@ -1237,11 +1402,16 @@ function installImportFlowFetchMock(returnedTableId: string) {
   };
   const fetchSpy = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = requestURL(input).replace(incidentResourceId, "incident-1");
+      const url = requestURL(input).replace(
+        incidentResourceId,
+        "11111111-1111-4111-8111-111111111111",
+      );
       const method = init?.method ?? "GET";
       if (
         method === "GET" &&
-        url.endsWith("/api/v1/incidents/incident-1/network-flow/tables")
+        url.endsWith(
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables",
+        )
       ) {
         tableListRequests += 1;
         const tables =
@@ -1269,7 +1439,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
       if (
         method === "GET" &&
         url.endsWith(
-          "/api/v1/incidents/incident-1/network-flow/source-profiles",
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/source-profiles",
         )
       ) {
         return jsonResponse(sourceProfileListResource());
@@ -1562,12 +1732,21 @@ function installNetworkFlowFetchMock(
       typeof graphResource
     >["graph_projection_result"];
     readonly savedGraphs?: Array<Record<string, unknown>>;
+    readonly savedGraphCreateUncertainOnce?: boolean;
+    readonly savedGraphRenameConflictOnce?: boolean;
     readonly tables?: Array<Record<string, unknown>>;
   } = {},
 ) {
   let tables = options.tables ?? [tableResource()];
   let savedGraphs = options.savedGraphs ?? [];
+  const savedFixture = networkFlowDecoders.graphViewList.decode({
+    schema_id: "cartulary.network_flow.graph_view_list.v4",
+    graph_views: savedGraphs,
+  });
+  if (!savedFixture.ok) throw new Error(JSON.stringify(savedFixture.error));
   let renameConflictUsed = false;
+  let savedGraphRenameConflictUsed = false;
+  let uncertainCreateReceipt: { body: string; value: unknown } | null = null;
   let rowQueryCount = 0;
   let contributorSelector: Record<string, unknown> =
     graphDefaultEdgeSelectorResource();
@@ -1577,7 +1756,57 @@ function installNetworkFlowFetchMock(
       const method = init?.method ?? "GET";
       if (
         method === "GET" &&
-        url.endsWith("/api/v1/incidents/incident-1/network-flow/tables")
+        /\/api\/v1\/jobs\/(77777777|88888888|99999999)/u.test(url)
+      ) {
+        const id = url.split("/").at(-1) ?? "";
+        const status = id.startsWith("77777777")
+          ? "succeeded"
+          : id.startsWith("99999999")
+            ? "running"
+            : "queued";
+        const job = savedGraphJobFixture(status);
+        return jsonResponse(
+          importEnvelope({
+            ...job,
+            job_id: id,
+            status_route: `/api/v1/jobs/${id}`,
+            submitted_by_user_id: importActorId,
+            scope: { kind: "incident", incident_id: incidentResourceId },
+            result_summary:
+              status === "succeeded"
+                ? {
+                    code: "network_flow_graph_view_materialized",
+                    message: "Materialized",
+                    resource_refs: [
+                      {
+                        kind: "network_flow_graph_view",
+                        id: graphViewId,
+                        route: `/api/v1/incidents/${incidentResourceId}/network-flow/graph-views/${graphViewId}`,
+                      },
+                    ],
+                  }
+                : null,
+          }),
+        );
+      }
+      if (
+        method === "GET" &&
+        /\/network-flow\/graph-views\/nfgv_[a-f0-9]+$/u.test(url)
+      ) {
+        const graph = savedGraphs.find(
+          (g) => g.graph_view_id === url.split("/").at(-1),
+        );
+        return jsonResponse({
+          schema_id: "cartulary.network_flow.graph_view_get.v4",
+          graph_view: graph,
+        });
+      }
+
+      if (
+        method === "GET" &&
+        url.endsWith(
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables",
+        )
       ) {
         return jsonResponse({
           schema_id: "cartulary.network_flow.table_list.v1",
@@ -1587,21 +1816,29 @@ function installNetworkFlowFetchMock(
       }
       if (
         method === "GET" &&
-        url.endsWith("/api/v1/incidents/incident-1/network-flow/graph-views")
+        url.endsWith(
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views",
+        )
       ) {
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_list.v3",
+          schema_id: "cartulary.network_flow.graph_view_list.v4",
           graph_views: savedGraphs,
         });
       }
       if (
         method === "POST" &&
-        url.endsWith("/api/v1/incidents/incident-1/network-flow/graph-views")
+        url.endsWith(
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views",
+        )
       ) {
         const request = JSON.parse(String(init?.body)) as {
           display_name: string;
           semantic_query: ReturnType<typeof graphSemanticQueryResource>;
         };
+        if (uncertainCreateReceipt !== null) {
+          expect(String(init?.body)).toBe(uncertainCreateReceipt.body);
+          return jsonResponse(uncertainCreateReceipt.value, 202);
+        }
         const created = savedGraphResource({
           displayName: request.display_name,
           graphViewID: "nfgv_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -1610,12 +1847,29 @@ function installNetworkFlowFetchMock(
           status: "queued",
         });
         savedGraphs = [...savedGraphs, created];
+        if (options.savedGraphCreateUncertainOnce) {
+          uncertainCreateReceipt = {
+            body: String(init?.body),
+            value: {
+              schema_id: "cartulary.network_flow.graph_view_accepted.v4",
+              graph_view: created,
+              job: {
+                job_id: "88888888-8888-4888-8888-888888888888",
+                status_route:
+                  "/api/v1/jobs/88888888-8888-4888-8888-888888888888",
+              },
+            },
+          };
+          throw new TypeError("Lost acknowledgement after commit");
+        }
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v3",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v4",
             graph_view: created,
-            job_id: "graph-job-create",
-            job_kind: "network_flow_activity.graph_view_materialize_v1",
+            job: {
+              job_id: "88888888-8888-4888-8888-888888888888",
+              status_route: "/api/v1/jobs/88888888-8888-4888-8888-888888888888",
+            },
           },
           202,
         );
@@ -1623,7 +1877,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "GET" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}/result`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views/${graphViewId}/result`,
         )
       ) {
         const graphView = savedGraphs.find(
@@ -1635,7 +1889,7 @@ function installNetworkFlowFetchMock(
           graph_view_id: graphViewId,
         };
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_result.v3",
+          schema_id: "cartulary.network_flow.graph_view_result.v4",
           graph_view: graphView,
           result: graphResultForProjection(projection),
         });
@@ -1643,7 +1897,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "POST" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}/contributors/query`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views/${graphViewId}/contributors/query`,
         )
       ) {
         const request = JSON.parse(String(init?.body)) as {
@@ -1668,7 +1922,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "PATCH" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views/${graphViewId}`,
         )
       ) {
         const request = JSON.parse(String(init?.body)) as {
@@ -1677,24 +1931,51 @@ function installNetworkFlowFetchMock(
         const current = savedGraphs.find(
           (candidate) => candidate.graph_view_id === graphViewId,
         );
+        if (
+          options.savedGraphRenameConflictOnce &&
+          !savedGraphRenameConflictUsed
+        ) {
+          savedGraphRenameConflictUsed = true;
+          savedGraphs = savedGraphs.map((g) =>
+            g.graph_view_id === graphViewId
+              ? {
+                  ...g,
+                  display_name: "Changed remotely",
+                  graph_view_version: 2,
+                }
+              : g,
+          );
+          return jsonResponse(
+            {
+              error: {
+                code: "network_flow_graph_view_version_conflict",
+                message: "The graph changed. Review current state.",
+                details: {
+                  field: "base_graph_view_version",
+                  reason_code: "stale_version",
+                },
+              },
+            },
+            409,
+          );
+        }
         const renamed = {
           ...current,
           display_name: request.display_name,
-          normalized_display_name: request.display_name.toLowerCase(),
           graph_view_version: Number(current?.graph_view_version ?? 1) + 1,
         };
         savedGraphs = savedGraphs.map((candidate) =>
           candidate.graph_view_id === graphViewId ? renamed : candidate,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
+          schema_id: "cartulary.network_flow.graph_view_mutation_result.v4",
           graph_view: renamed,
         });
       }
       if (
         method === "POST" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}/refresh`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views/${graphViewId}/refresh`,
         )
       ) {
         const current = savedGraphs.find(
@@ -1705,18 +1986,19 @@ function installNetworkFlowFetchMock(
           graph_view_version: Number(current?.graph_view_version ?? 1) + 1,
           materialization_generation:
             Number(current?.materialization_generation ?? 1) + 1,
-          last_materialization_job_id: "graph-job-refresh",
-          last_materialization_status: "running",
+          latest_job_id: "99999999-9999-4999-8999-999999999999",
         };
         savedGraphs = savedGraphs.map((candidate) =>
           candidate.graph_view_id === graphViewId ? refreshing : candidate,
         );
         return jsonResponse(
           {
-            schema_id: "cartulary.network_flow.graph_view_accepted.v3",
+            schema_id: "cartulary.network_flow.graph_view_accepted.v4",
             graph_view: refreshing,
-            job_id: "graph-job-refresh",
-            job_kind: "network_flow_activity.graph_view_materialize_v1",
+            job: {
+              job_id: "99999999-9999-4999-8999-999999999999",
+              status_route: "/api/v1/jobs/99999999-9999-4999-8999-999999999999",
+            },
           },
           202,
         );
@@ -1724,32 +2006,18 @@ function installNetworkFlowFetchMock(
       if (
         method === "DELETE" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/graph-views/${graphViewId}`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graph-views/${graphViewId}`,
         )
       ) {
-        const current = savedGraphs.find(
-          (candidate) => candidate.graph_view_id === graphViewId,
-        );
-        const retired = {
-          ...current,
-          state: "retired",
-          graph_view_version: Number(current?.graph_view_version ?? 1) + 1,
-          materialization_generation:
-            Number(current?.materialization_generation ?? 1) + 1,
-          selected_result: null,
-        };
         savedGraphs = savedGraphs.filter(
           (candidate) => candidate.graph_view_id !== graphViewId,
         );
-        return jsonResponse({
-          schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
-          graph_view: retired,
-        });
+        return new Response(null, { status: 204 });
       }
       if (
         method === "GET" &&
         url.endsWith(
-          "/api/v1/incidents/incident-1/network-flow/source-profiles",
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/source-profiles",
         )
       ) {
         return jsonResponse(sourceProfileListResource());
@@ -1757,7 +2025,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "PATCH" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables/${tableId}`,
         )
       ) {
         if (options.renameConflictOnce && !renameConflictUsed) {
@@ -1816,7 +2084,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "DELETE" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables/${tableId}`,
         )
       ) {
         const current = tables.find(
@@ -1843,7 +2111,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "POST" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/rejected-rows/query`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables/${tableId}/rejected-rows/query`,
         )
       ) {
         rowQueryCount += 1;
@@ -1889,7 +2157,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "POST" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/network-flow/tables/${tableId}/query`,
+          `/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/tables/${tableId}/query`,
         )
       ) {
         rowQueryCount += 1;
@@ -1934,7 +2202,9 @@ function installNetworkFlowFetchMock(
       }
       if (
         method === "POST" &&
-        url.endsWith("/api/v1/incidents/incident-1/network-flow/graphs/query")
+        url.endsWith(
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/query",
+        )
       ) {
         const request = JSON.parse(String(init?.body)) as {
           aggregation: ReturnType<
@@ -1970,7 +2240,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "POST" &&
         url.endsWith(
-          "/api/v1/incidents/incident-1/network-flow/graphs/contributors/query",
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/contributors/query",
         )
       ) {
         const request = JSON.parse(String(init?.body)) as {
@@ -2001,7 +2271,7 @@ function installNetworkFlowFetchMock(
       if (
         method === "POST" &&
         url.endsWith(
-          "/api/v1/incidents/incident-1/network-flow/indicator-links",
+          "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/indicator-links",
         )
       ) {
         return jsonResponse({
@@ -2341,18 +2611,15 @@ function savedGraphResource(
 ) {
   const selected = options.selected ?? true;
   return {
-    schema_id: "cartulary.network_flow.graph_view.v3",
+    schema_id: "cartulary.network_flow.graph_view.v4",
     graph_view_id: options.graphViewID ?? graphViewId,
     incident_id: incidentResourceId,
     display_name: options.displayName ?? "Investigation graph",
-    normalized_display_name: (
-      options.displayName ?? "Investigation graph"
-    ).toLowerCase(),
     graph_view_version: 1,
     materialization_generation: 1,
     state: "active",
     semantic_query: options.semanticQuery ?? graphSemanticQueryResource(),
-    selected_result: selected
+    selected_result_binding: selected
       ? {
           projection_result_id: projectionResultId,
           source_snapshot_id: "snapshot-1",
@@ -2364,10 +2631,17 @@ function savedGraphResource(
             "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         }
       : null,
-    last_materialization_job_id: selected ? "graph-job-1" : "graph-job-create",
-    last_materialization_status:
-      options.status ?? (selected ? "succeeded" : "queued"),
-    last_failure_code: null,
+    latest_job_id: selected
+      ? "77777777-7777-4777-8777-777777777777"
+      : "88888888-8888-4888-8888-888888888888",
+    semantic_query_sha256: graphDigest,
+    desired_source_snapshot_id: "snapshot-1",
+    created_by: importActorId,
+    last_failure_code:
+      options.status === "failed"
+        ? "network_flow_graph_materialization_timeout"
+        : null,
+    last_failed_at: options.status === "failed" ? "2026-07-10T12:00:00Z" : null,
     created_at: "2026-07-10T12:00:00Z",
     updated_at: "2026-07-10T12:00:00Z",
   };
@@ -2645,7 +2919,7 @@ function graphRequestBodies(
   return fetchSpy.mock.calls
     .filter(([input]) =>
       requestURL(input).endsWith(
-        "/api/v1/incidents/incident-1/network-flow/graphs/query",
+        "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/query",
       ),
     )
     .map(
@@ -2659,7 +2933,7 @@ function indicatorLinkRequestBodies(
   return fetchSpy.mock.calls
     .filter(([input]) =>
       requestURL(input).endsWith(
-        "/api/v1/incidents/incident-1/network-flow/indicator-links",
+        "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/indicator-links",
       ),
     )
     .map(
@@ -2673,7 +2947,7 @@ function contributorRequestBodies(
   return fetchSpy.mock.calls
     .filter(([input]) =>
       requestURL(input).endsWith(
-        "/api/v1/incidents/incident-1/network-flow/graphs/contributors/query",
+        "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/contributors/query",
       ),
     )
     .map(

@@ -32,8 +32,8 @@ type JobFailureFinalizationRequest struct {
 	Mutate     OwnerMutation
 }
 
-type FinalIdempotencyPort interface {
-	UpdateFinalIdempotencyOutcomeTx(context.Context, pgx.Tx, jobs.RouteIdempotencyKey, []byte, jobs.Resource) (bool, error)
+type FinalReceiptReconciliationPort interface {
+	ReconcileFinalIdempotencyOutcomeTx(context.Context, pgx.Tx, jobs.RouteIdempotencyKey, []byte, jobs.Resource) (bool, error)
 }
 
 type JobFinalizationPort interface {
@@ -45,13 +45,13 @@ type JobFinalizationPort interface {
 type OwnerFinalizer struct {
 	store        *Store
 	transactions JobFinalizationPort
-	idempotency  FinalIdempotencyPort
+	idempotency  FinalReceiptReconciliationPort
 	now          func() time.Time
 	fatalSink    func(error)
 	commit       func(context.Context, pgx.Tx) error
 }
 
-func NewOwnerFinalizer(store *Store, transactions JobFinalizationPort, idempotency FinalIdempotencyPort, now func() time.Time, fatalSink func(error)) (*OwnerFinalizer, error) {
+func NewOwnerFinalizer(store *Store, transactions JobFinalizationPort, idempotency FinalReceiptReconciliationPort, now func() time.Time, fatalSink func(error)) (*OwnerFinalizer, error) {
 	if store == nil || store.pool == nil || transactions == nil || idempotency == nil {
 		return nil, errors.New("extension owner finalizer requires store, job manager, job transaction service, and Auth idempotency port")
 	}
@@ -128,13 +128,13 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 		AuditCorrelationID:      request.AuditCorrelationID,
 		CommittedAt:             committedAt.UTC(),
 	}
-	if err := validateProofSize(proof, contract.Extension.MaxProofBytes); err != nil {
+	if err := ValidateJobCommitProofSize(proof, contract.Extension.MaxProofBytes); err != nil {
 		return jobs.Resource{}, err
 	}
 	if err := InsertJobCommitProof(ctx, tx, proof); err != nil {
 		return jobs.Resource{}, err
 	}
-	if err := f.updateFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
+	if err := f.reconcileFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
 		return jobs.Resource{}, err
 	}
 	return resource, nil
@@ -162,7 +162,7 @@ func (f *OwnerFinalizer) FinalizeFailure(ctx context.Context, request JobFailure
 	if err != nil {
 		return jobs.Resource{}, err
 	}
-	if err := f.updateFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
+	if err := f.reconcileFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
 		return jobs.Resource{}, err
 	}
 	if err := f.commit(ctx, tx); err != nil {
@@ -172,7 +172,8 @@ func (f *OwnerFinalizer) FinalizeFailure(ctx context.Context, request JobFailure
 	return resource, nil
 }
 
-func validateProofSize(proof JobCommitProof, maxBytes int) error {
+// ValidateJobCommitProofSize applies the same canonical bound at final commit and read-only admission.
+func ValidateJobCommitProofSize(proof JobCommitProof, maxBytes int) error {
 	payload := map[string]any{
 		"schema_id":                 "cartulary.extension_job_commit_proof.v1",
 		"job_id":                    proof.JobID.String(),
@@ -197,19 +198,19 @@ func validateProofSize(proof JobCommitProof, maxBytes int) error {
 	return nil
 }
 
-func (f *OwnerFinalizer) updateFinalIdempotencyOutcome(ctx context.Context, tx pgx.Tx, metadata jobs.ExtensionFinalizationContext, resource jobs.Resource) error {
+func (f *OwnerFinalizer) reconcileFinalIdempotencyOutcome(ctx context.Context, tx pgx.Tx, metadata jobs.ExtensionFinalizationContext, resource jobs.Resource) error {
 	requestDigest, err := hex.DecodeString(metadata.NormalizedRequestSHA256)
 	if err != nil {
 		return ErrIntegrity
 	}
-	updated, err := f.idempotency.UpdateFinalIdempotencyOutcomeTx(ctx, tx, jobs.RouteIdempotencyKey{
+	reconciled, err := f.idempotency.ReconcileFinalIdempotencyOutcomeTx(ctx, tx, jobs.RouteIdempotencyKey{
 		RouteKey: metadata.IdempotencyRouteKey, ActorUserID: metadata.ActorUserID,
 		ScopeKey: metadata.IdempotencyScopeKey, ClientTxnID: metadata.ClientTxnID,
 	}, requestDigest, resource)
 	if err != nil {
 		return err
 	}
-	if !updated {
+	if !reconciled {
 		return ErrIntegrity
 	}
 	return nil

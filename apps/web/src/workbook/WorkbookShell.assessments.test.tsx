@@ -33,7 +33,7 @@ import {
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
-import { NetworkFlowImportController } from "./features/NetworkFlowFeature";
+import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
 import {
   buildAssessmentCreatePayload,
   confidenceScoreFromBand,
@@ -50,6 +50,7 @@ const authorizationRecovery = workbookAuthorizationRecovery();
 function WorkbookShell(
   props: Omit<
     Parameters<typeof WorkbookShellImpl>[0],
+    | "sessionIdentity"
     | "authorizationRecovery"
     | "savedViewController"
     | "bindWorkbookSavedViews"
@@ -66,6 +67,7 @@ function WorkbookShell(
   );
   return (
     <WorkbookShellImpl
+      sessionIdentity="workbook-test"
       importController={new WorkbookImportController()}
       networkFlowImportController={new NetworkFlowImportController()}
       bindNetworkFlowImport={() => {}}

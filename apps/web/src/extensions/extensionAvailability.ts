@@ -279,6 +279,8 @@ export class ExtensionAvailabilityController {
   #discovery: readonly ExtensionDiscoveryProfile[] | null = null;
   #epochId = "";
   #generation = 0n;
+  #authorityRevision = 0n;
+  readonly #authorityListeners = new Set<() => void>();
   #enabled = true;
   #requestTail: Promise<void> = Promise.resolve();
   readonly #randomValues: (bytes: Uint8Array) => Uint8Array;
@@ -367,10 +369,12 @@ export class ExtensionAvailabilityController {
       } catch {
         this.#enabled = false;
         this.#availability.clear();
+        this.authorityChanged();
         return null;
       }
       this.#generation = 1n;
       this.#availability.clear();
+      this.authorityChanged();
     } else {
       this.#generation += 1n;
     }
@@ -396,13 +400,17 @@ export class ExtensionAvailabilityController {
       availability,
       this.incidentId,
     );
+    const previous = [...this.#availability].sort().join("\u0001");
     this.#availability.clear();
     if (rows === null) {
+      this.authorityChanged();
       return false;
     }
     for (const row of rows) {
       this.#availability.add(workspaceIdentityKey(row));
     }
+    if (previous !== [...this.#availability].sort().join("\u0001"))
+      this.authorityChanged();
     return true;
   }
 
@@ -413,16 +421,40 @@ export class ExtensionAvailabilityController {
     if (!this.isCurrent(tag)) {
       return false;
     }
+    const previous = [...this.#availability].sort().join("\u0001");
     this.#availability.clear();
     for (const workspace of workspaces) {
       this.#availability.add(workspaceIdentityKey(workspace));
     }
+    if (previous !== [...this.#availability].sort().join("\u0001"))
+      this.authorityChanged();
     return true;
   }
 
   invalidate(): ExtensionAvailabilityTag | null {
     this.#availability.clear();
-    return this.reserve();
+    const tag = this.reserve();
+    this.authorityChanged();
+    return tag;
+  }
+
+  /** Identity of accepted authority; request reservations do not change it. */
+  authorityTag(): ExtensionAvailabilityTag | null {
+    return this.#enabled
+      ? { epochId: this.#epochId, generation: this.#authorityRevision }
+      : null;
+  }
+
+  subscribeAuthority(listener: () => void): () => void {
+    this.#authorityListeners.add(listener);
+    return () => {
+      this.#authorityListeners.delete(listener);
+    };
+  }
+
+  private authorityChanged(): void {
+    this.#authorityRevision += 1n;
+    for (const listener of this.#authorityListeners) listener();
   }
 
   isRenderable(identity: ExtensionWorkspaceIdentity): boolean {

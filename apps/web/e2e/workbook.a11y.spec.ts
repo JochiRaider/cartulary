@@ -2243,9 +2243,70 @@ if (
     );
     await expect(savedName).toBeFocused();
     await savedName.press("Shift+Tab");
-    await expect(page.getByRole("button", { name: "Cancel" })).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "Close", exact: true }),
+    ).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(savedName).toBeFocused();
+    await savedName.fill("é".repeat(33));
+    await expect(
+      page.getByRole("button", { name: "Save graph", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText("This name exceeds 64 bytes.", { exact: false }),
+    ).toBeVisible();
+    await savedName.fill("é".repeat(32));
+    const savedDialog = page.getByTestId(
+      networkAnalysisTestId("saved-graph-dialog"),
+    );
+    for (const viewport of [
+      { width: 390, height: 480 },
+      { width: 768, height: 360 },
+    ]) {
+      await page.setViewportSize(viewport);
+      expect(
+        await savedDialog.evaluate(
+          (node) => node.scrollWidth <= node.clientWidth + 1,
+        ),
+      ).toBe(true);
+      const submit = savedDialog.getByRole("button", {
+        name: "Save graph",
+        exact: true,
+      });
+      await submit.focus();
+      await submit.scrollIntoViewIfNeeded();
+      await expect(submit).toBeInViewport();
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    expect(
+      await savedDialog.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1,
+      ),
+    ).toBe(true);
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+    const savedSpacing = await page.addStyleTag({
+      content:
+        ".network-flow-dialog * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }",
+    });
+    expect(
+      await savedDialog.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1,
+      ),
+    ).toBe(true);
+    await test.info().attach("saved-graph-name-spacing", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+    await savedSpacing.evaluate((node) => node.parentNode?.removeChild(node));
+    await page.keyboard.press("Escape");
+    await expect(saveTrigger).toBeFocused();
+    await saveTrigger.press("Enter");
+    await expect(savedName).toHaveValue("é".repeat(32));
     await savedName.fill("Accessible saved graph");
     await page.getByRole("button", { name: "Save graph" }).click();
     await expect(
@@ -2272,8 +2333,53 @@ if (
       networkAnalysisTestId("saved-graph-result"),
       networkAnalysisTestId("saved-graph-contributors"),
     ]);
-    await savedContributors.getByRole("button", { name: "Close" }).click();
+    const retainedVertex = await savedVertex.elementHandle();
+    const renameSaved = savedPanel.getByRole("button", {
+      name: "Rename",
+      exact: true,
+    });
+    await renameSaved.focus();
+    await renameSaved.press("Enter");
+    await savedName.fill("Renamed accessible graph");
+    await page
+      .getByRole("button", { name: "Rename graph", exact: true })
+      .press("Enter");
+    await expect(renameSaved).toBeFocused();
+    await expect(savedContributors).toContainText("Renamed accessible graph");
+    expect(
+      await savedVertex.evaluate(
+        (node, retained) => node === retained,
+        retainedVertex,
+      ),
+    ).toBe(true);
+    await savedContributors
+      .getByRole("button", { name: "Close", exact: true })
+      .focus();
+    await page.keyboard.press("Escape");
     await expect(savedVertex).toBeFocused();
+    await retainedVertex?.dispose();
+    const refreshSaved = savedPanel.getByRole("button", {
+      name: "Refresh",
+      exact: true,
+    });
+    await refreshSaved.focus();
+    await refreshSaved.press("Enter");
+    await expect(
+      page.getByRole("dialog", { name: "Refresh saved graph" }),
+    ).toContainText("Renamed accessible graph");
+    await page.keyboard.press("Escape");
+    await expect(refreshSaved).toBeFocused();
+    const retireSaved = savedPanel.getByRole("button", {
+      name: "Retire",
+      exact: true,
+    });
+    await retireSaved.focus();
+    await retireSaved.press("Enter");
+    await expect(
+      page.getByRole("dialog", { name: "Retire saved graph" }),
+    ).toContainText("Leased immutable results remain protected");
+    await page.keyboard.press("Escape");
+    await expect(retireSaved).toBeFocused();
 
     await page
       .getByTestId(networkAnalysisTestId("graph-surface-explore"))

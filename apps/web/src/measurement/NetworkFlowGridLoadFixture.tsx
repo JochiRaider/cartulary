@@ -1,15 +1,18 @@
 import type { GridCellAnchor, GridCellRange } from "@cartulary/grid-adapter";
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
-import { type CSSProperties, useCallback, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   NetworkFlowButton,
   NetworkFlowChromeStyles,
   networkFlowChromeRootClassName,
 } from "../networkFlow/NetworkFlowControls";
-import {
-  NetworkFlowSavedGraphPanel,
-  type NetworkFlowSavedGraphPanelController,
-} from "../networkFlow/NetworkFlowSavedGraphPanel";
+import { NetworkFlowSavedGraphPanel } from "../networkFlow/NetworkFlowSavedGraphPanel";
 import {
   NetworkFlowAcceptedGrid,
   NetworkFlowContributorGrid,
@@ -25,6 +28,8 @@ import {
   reconcileNetworkFlowDiagnostics,
   reconcileNetworkFlowRows,
 } from "../networkFlow/networkFlowQueryModel";
+import { SavedGraphController } from "../networkFlow/SavedGraphController";
+import { useNetworkFlowSavedGraphController } from "../networkFlow/useNetworkFlowSavedGraphController";
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
@@ -47,7 +52,9 @@ export function NetworkFlowGridLoadFixture() {
     readonly NetworkFlowContributor[]
   >(() => fixtureContributors(logicalRowCount));
   const tables = useMemo(() => fixtureTables(), []);
-  const savedGraphController = useMemo(() => fixtureSavedGraphController(), []);
+  const savedGraphController = useFixtureSavedGraphController(
+    surface === "saved",
+  );
   const [refreshCount, setRefreshCount] = useState(0);
   const [selectionSummary, setSelectionSummary] = useState("No selection");
   const handleSelectionChange = useCallback(
@@ -162,6 +169,7 @@ export function NetworkFlowGridLoadFixture() {
             canCreate={false}
             canRetire={false}
             controller={savedGraphController}
+            tables={tables}
             currentGraph={null}
           />
         ) : null}
@@ -271,30 +279,54 @@ function fixtureSurfaceLabel(surface: FixtureSurface): string {
   }
 }
 
-function fixtureSavedGraphController(): NetworkFlowSavedGraphPanelController {
-  const result = fixtureSavedGraphResult();
-  const graph = result.graph_view;
-  return {
-    contributorState: "idle",
-    contributors: [],
-    createGraph: async () => true,
-    graphs: [graph],
-    listState: "ready",
-    loadGraphs: async () => undefined,
-    loadResult: async () => undefined,
-    mutationPending: false,
-    notice: null,
-    refreshGraph: async () => true,
-    renameGraph: async () => true,
-    result,
-    resultState: "ready",
-    retireGraph: async () => true,
-    selectedGraph: graph,
-    selectedGraphViewId: graph.graph_view_id,
-    selection: null,
-    selectGraphView: () => undefined,
-    selectObject: async () => undefined,
-  };
+function useFixtureSavedGraphController(enabled: boolean) {
+  const [controller] = useState(() => new SavedGraphController());
+  const result = useMemo(() => fixtureSavedGraphResult(), []);
+  useLayoutEffect(() => {
+    controller.bind(
+      {
+        list: async () => [result.graph_view],
+        get: async () => result.graph_view,
+        observationLimit: async () => 4,
+        submit: async () => {
+          throw new Error("This rendering fixture is read-only.");
+        },
+        readJob: async () => {
+          throw new Error("This fixture has no current execution.");
+        },
+        navigation: {
+          result: async () => result,
+          contributors: async (graph, selector) => ({
+            schema_id:
+              "cartulary.network_flow.graph_view_contributor_query_result.v2",
+            graph_view_id: graph.graph_view_id,
+            projection_result_id:
+              result.result.graph_projection_result.projection_result_id,
+            selector,
+            contributors: [],
+            meta: {
+              paging: {
+                limit: 100,
+                returned_count: 0,
+                next_cursor_token: null,
+              },
+            },
+          }),
+        },
+      },
+      () => ({
+        incidentId: result.graph_view.incident_id,
+        actorId: result.graph_view.created_by,
+        session: "measurement-fixture",
+        role: "viewer",
+        open: true,
+        available: true,
+        availabilityTag: { epochId: "measurement-fixture", generation: 1n },
+      }),
+    );
+    return () => controller.dispose();
+  }, [controller, result]);
+  return useNetworkFlowSavedGraphController({ controller, enabled });
 }
 
 function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
@@ -373,17 +405,16 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
       include_example_row_refs: false,
     },
   };
-  const graph = {
-    schema_id: "cartulary.network_flow.graph_view.v3",
-    graph_view_id: "nfgv_load_fixture_0000000000000001",
+  const graph: NetworkFlowSavedGraph = {
+    schema_id: "cartulary.network_flow.graph_view.v4",
+    graph_view_id: "nfgv_11111111111111111111111111111111",
     incident_id: "00000000-0000-0000-0000-000000000000",
     display_name: "Supported-load saved graph",
-    normalized_display_name: "supported-load saved graph",
     graph_view_version: 1,
     materialization_generation: 1,
     state: "active",
     semantic_query: semanticQuery,
-    selected_result: {
+    selected_result_binding: {
       projection_result_id: `gpres_${"1".repeat(64)}`,
       source_snapshot_id: "supported-load-snapshot",
       projection_schema_id: "graph_projection.v2",
@@ -392,15 +423,19 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
       normalized_source_sha256: "3".repeat(64),
       canonical_output_sha256: "4".repeat(64),
     },
-    last_materialization_job_id: "supported-load-job",
-    last_materialization_status: "succeeded",
+    latest_job_id: null,
+    semantic_query_sha256: "6".repeat(64),
+    desired_source_snapshot_id: "supported-load-snapshot",
+    created_by: "00000000-0000-4000-8000-000000000001",
+    last_failed_at: null,
     last_failure_code: null,
     created_at: "2026-07-16T00:00:00Z",
     updated_at: "2026-07-16T00:00:00Z",
-  } as NetworkFlowSavedGraph;
+  };
   const projectionResult: NetworkFlowGraphResult["graph_projection_result"] = {
     projection_schema_id: "graph_projection.v2" as const,
-    projection_result_id: graph.selected_result?.projection_result_id ?? "",
+    projection_result_id:
+      graph.selected_result_binding?.projection_result_id ?? "",
     graph_view_id: graph.graph_view_id,
     source_owner_id: "network_flow_activity" as const,
     source_snapshot_id: "supported-load-snapshot",
@@ -438,7 +473,7 @@ function fixtureSavedGraphResult(): NetworkFlowSavedGraphResult {
     },
   };
   return {
-    schema_id: "cartulary.network_flow.graph_view_result.v3",
+    schema_id: "cartulary.network_flow.graph_view_result.v4",
     graph_view: graph,
     result: {
       schema_id: "cartulary.network_flow.graph_query_result.v2",

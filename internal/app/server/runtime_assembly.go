@@ -454,6 +454,22 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 		return nil, err
 	}
+	recognizedJobDefinitions, err := extensionassembly.RecognizedJobDefinitions(extensionCoordinator.JobKindContracts(), extensionCoordinator.WorkerRuntimeContracts())
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose recognized extension job definitions: %w", err)
+	}
+	networkFlowKeyRings, err := loadNetworkFlowKeyRings(
+		networkFlowConfiguration,
+		options.Env,
+		now(),
+		secretPurposes,
+		dependencies.readSecureFile,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	var extensionStateStore *extensionstore.Store
 	if postgresPool != nil {
 		stateStore, stateStoreErr := extensionstore.New(postgresPool, networkflow.ExtensionStateFamilyCounters())
@@ -523,9 +539,22 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("compose extension state runtime: %w", stateRuntimeErr)
 		}
+		admissionViews, admissionAlgorithms, admissionErr := networkFlowAdmissionPorts(extensionCoordinator, stateStore, networkFlowConfiguration, recognizedJobDefinitions)
+		if admissionErr != nil {
+			runtime.Close()
+			return nil, admissionErr
+		}
+		if admissionErr := stateRuntime.ValidateClaimAdmission(ctx, extensionCoordinator, resolvedClaims, "preflight", admissionViews, admissionAlgorithms); admissionErr != nil {
+			runtime.Close()
+			return nil, admissionErr
+		}
 		if stateAdmissionErr := stateRuntime.AdmitClaims(ctx, extensionCoordinator, resolvedClaims); stateAdmissionErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("admit extension state: %w", stateAdmissionErr)
+		}
+		if admissionErr := stateRuntime.ValidateClaimAdmission(ctx, extensionCoordinator, resolvedClaims, "post_migration", admissionViews, admissionAlgorithms); admissionErr != nil {
+			runtime.Close()
+			return nil, admissionErr
 		}
 		extensionStateStore = stateStore
 	}
@@ -636,17 +665,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, deploymentEnterpriseAuthenticationError(err)
 		}
 	}
-	networkFlowKeyRings, err := loadNetworkFlowKeyRings(
-		networkFlowConfiguration,
-		options.Env,
-		now(),
-		secretPurposes,
-		dependencies.readSecureFile,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, err
-	}
 	if referencePackRouteAdmitted {
 		referenceLimits := settingsProjection.ReferenceData()
 		if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, reference_data.MinimumDisconnectedBundleOptions{
@@ -701,11 +719,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose extension job definitions: %w", err)
-	}
-	recognizedJobDefinitions, err := extensionassembly.RecognizedJobDefinitions(extensionCoordinator.JobKindContracts(), extensionCoordinator.WorkerRuntimeContracts())
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose recognized extension job definitions: %w", err)
 	}
 	jobCatalog, err := jobs.NewCatalog(recognizedJobDefinitions)
 	if err != nil {
@@ -795,6 +808,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 	}
 	var extensionJobFinalizer *extensionstore.OwnerFinalizer
+	var networkFlowJobFinalizer *extensionstore.OwnerFinalizer
 	if extensionStateStore != nil {
 		extensionJobFinalizer, err = extensionstore.NewOwnerFinalizer(
 			extensionStateStore,
@@ -809,6 +823,15 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("compose extension job finalizer: %w", err)
 		}
+		networkFlowJobFinalizer, err = extensionstore.NewOwnerFinalizer(
+			extensionStateStore, jobTransactions, networkflow.GraphViewReceiptReconciler{}, now,
+			func(error) { runtime.lifecycle.Fatal("indeterminate_database_commit") },
+		)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose saved graph receipt finalizer: %w", err)
+		}
+
 	}
 	listenerPlanSHA256 := extensionPlan.Summary().ListenerPlanSHA256
 
@@ -977,7 +1000,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		GraphViewJobs:   jobTransactions,
 		JobManager:      jobManager,
 		JobRunner:       runtime.jobRunner,
-		JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(extensionJobFinalizer),
+		JobFinalizer:    extensionassembly.NewNetworkFlowGraphViewJobFinalizer(networkFlowJobFinalizer),
 		GraphTelemetry:  networkFlowTelemetry,
 	})
 	if err != nil {

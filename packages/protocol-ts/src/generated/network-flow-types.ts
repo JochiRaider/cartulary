@@ -440,6 +440,56 @@ export type GraphResultVariantV2 =
 export type GraphSelectorV2 = GraphVertexSelectorV2 | GraphDefaultEdgeSelectorV2 | GraphTemporalEdgeSelectorV2;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewV4".
+ */
+export type GraphViewV4 = {
+  schema_id: "cartulary.network_flow.graph_view.v4";
+  graph_view_id: GraphViewID;
+  incident_id: UUID;
+  display_name: GraphViewDisplayName;
+  state: "active" | "retired";
+  semantic_query: GraphSemanticQueryV2;
+  semantic_query_sha256: SHA256;
+  desired_source_snapshot_id: OpaqueID;
+  selected_result_binding: null | GraphViewSelectedResult;
+  graph_view_version: PositiveInt;
+  materialization_generation: PositiveInt;
+  created_by: UUID;
+  created_at: TimestampUTC;
+  updated_at: TimestampUTC;
+  latest_job_id: null | UUID;
+  last_failure_code:
+    | null
+    | "network_flow_source_table_deleted"
+    | "network_flow_graph_materialization_source_invalid"
+    | "network_flow_graph_materialization_projection_rejected"
+    | "network_flow_graph_materialization_projection_unavailable"
+    | "network_flow_graph_materialization_publication_conflict"
+    | "network_flow_graph_materialization_cancelled"
+    | "network_flow_graph_materialization_timeout"
+    | "network_flow_graph_materialization_retry_exhausted";
+  last_failed_at: null | TimestampUTC;
+} & GraphViewV41;
+/**
+ * NFC; exact Network Flow Unicode whitespace trimming; 1..64 UTF-8 bytes. Semantic validation also enforces normalization and byte length. Duplicates allowed.
+ *
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "GraphViewDisplayName".
+ */
+export type GraphViewDisplayName = string;
+export type GraphViewV41 =
+  | {
+      last_failure_code?: null;
+      last_failed_at?: null;
+      [k: string]: unknown;
+    }
+  | {
+      last_failure_code?: string;
+      last_failed_at?: string;
+      [k: string]: unknown;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "GraphAggregationV2".
  */
 export type GraphAggregationV2 = DefaultGraphAggregationV2 | TimeBucketGraphAggregationV2;
@@ -1451,11 +1501,14 @@ export interface GraphViewSelectedResult {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewRenameRequest".
+ * via the `definition` "GraphViewRenameRequestV2".
  */
-export interface GraphViewRenameRequest {
-  schema_id: "cartulary.network_flow.graph_view_rename_request.v1";
+export interface GraphViewRenameRequestV2 {
+  schema_id: "cartulary.network_flow.graph_view_rename_request.v2";
   client_txn_id: OpaqueID;
+  /**
+   * Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes.
+   */
   display_name: string;
   base_graph_view_version: PositiveInt;
 }
@@ -1807,79 +1860,68 @@ export interface EffectiveLimitsV2 {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewV3".
+ * via the `definition` "CommonJobReference".
  */
-export interface GraphViewV3 {
-  schema_id: "cartulary.network_flow.graph_view.v3";
-  graph_view_id: GraphViewID;
-  incident_id: UUID;
-  display_name: string;
-  normalized_display_name: string;
-  graph_view_version: PositiveInt;
-  materialization_generation: PositiveInt;
-  state: "active" | "retired";
-  semantic_query: GraphSemanticQueryV2;
-  selected_result: null | GraphViewSelectedResult;
-  last_materialization_job_id: string | null;
-  last_materialization_status: "not_started" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
-  last_failure_code: string | null;
-  created_at: TimestampUTC;
-  updated_at: TimestampUTC;
+export interface CommonJobReference {
+  job_id: UUID;
+  status_route: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewListV3".
+ * via the `definition` "GraphViewListV4".
  */
-export interface GraphViewListV3 {
-  schema_id: "cartulary.network_flow.graph_view_list.v3";
+export interface GraphViewListV4 {
+  schema_id: "cartulary.network_flow.graph_view_list.v4";
   /**
    * @maxItems 128
    */
-  graph_views: GraphViewV3[];
+  graph_views: GraphViewV4[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewGetV3".
+ * via the `definition` "GraphViewGetV4".
  */
-export interface GraphViewGetV3 {
-  schema_id: "cartulary.network_flow.graph_view_get.v3";
-  graph_view: GraphViewV3;
+export interface GraphViewGetV4 {
+  schema_id: "cartulary.network_flow.graph_view_get.v4";
+  graph_view: GraphViewV4;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewCreateRequestV2".
+ * via the `definition` "GraphViewCreateRequestV3".
  */
-export interface GraphViewCreateRequestV2 {
-  schema_id: "cartulary.network_flow.graph_view_create_request.v2";
+export interface GraphViewCreateRequestV3 {
+  schema_id: "cartulary.network_flow.graph_view_create_request.v3";
   client_txn_id: OpaqueID;
+  /**
+   * Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes.
+   */
   display_name: string;
   semantic_query: GraphSemanticQueryV2;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewAcceptedV3".
+ * via the `definition` "GraphViewAcceptedV4".
  */
-export interface GraphViewAcceptedV3 {
-  schema_id: "cartulary.network_flow.graph_view_accepted.v3";
-  graph_view: GraphViewV3;
-  job_id: string;
-  job_kind: "network_flow_activity.graph_view_materialize_v1";
+export interface GraphViewAcceptedV4 {
+  schema_id: "cartulary.network_flow.graph_view_accepted.v4";
+  graph_view: GraphViewV4;
+  job: CommonJobReference;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewMutationResultV3".
+ * via the `definition` "GraphViewMutationResultV4".
  */
-export interface GraphViewMutationResultV3 {
-  schema_id: "cartulary.network_flow.graph_view_mutation_result.v3";
-  graph_view: GraphViewV3;
+export interface GraphViewMutationResultV4 {
+  schema_id: "cartulary.network_flow.graph_view_mutation_result.v4";
+  graph_view: GraphViewV4;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "GraphViewResultV3".
+ * via the `definition` "GraphViewResultV4".
  */
-export interface GraphViewResultV3 {
-  schema_id: "cartulary.network_flow.graph_view_result.v3";
-  graph_view: GraphViewV3;
+export interface GraphViewResultV4 {
+  schema_id: "cartulary.network_flow.graph_view_result.v4";
+  graph_view: GraphViewV4;
   result: GraphQueryResultV2;
 }
 /**

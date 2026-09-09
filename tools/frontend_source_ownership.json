@@ -428,6 +428,7 @@
         "apps/web/src/workbook/features/ImportOperationNotice.tsx",
         "apps/web/src/workbook/features/ImportUnitCard.tsx",
         "apps/web/src/workbook/features/NetworkFlowFeature.tsx",
+        "apps/web/src/workbook/features/NetworkFlowOperations.ts",
         "apps/web/src/workbook/features/assessments/AssessmentWorkbookInspector.tsx",
         "apps/web/src/workbook/features/assessments/useAssessmentCreationController.test.tsx",
         "apps/web/src/workbook/features/assessments/useAssessmentCreationController.ts",

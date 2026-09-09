@@ -59,8 +59,8 @@ type VerificationTarget struct {
 	AvailabilityKind string
 }
 
-const SourceSHA256 = "3eb7764fe8a4d062f6340d3b803bb3910bf9db29d8857baa76dec8214bf53698"
-const RegistrySHA256 = "0951bc007d993878666417be808e02e86969d3e0e0ce54ef8b4e3453333f8ef8"
+const SourceSHA256 = "a53de6453dc9b93f9251f2f518926f7daaf081914e82c42b955a71e4859e0298"
+const RegistrySHA256 = "251bf798e0de6c32634ba5af33e2e637ab85e236c4c08e683dc2c98080e002cf"
 
 func stringPointer(value string) *string { return &value }
 func intPointer(value int) *int          { return &value }
@@ -439,12 +439,12 @@ var Targets = []Target{
 		TargetID:                    "network_flow_table:network_flow_activity",
 		TargetKind:                  "network_flow_table",
 		ExtensionProfileID:          stringPointer("network_flow_activity"),
-		OwnerContractRef:            "network_flow_activity@5",
+		OwnerContractRef:            "network_flow_activity@6",
 		SourceResourceFamily:        "network_flow_table",
 		FacadeKind:                  "owner_preview_apply",
 		FacadeBindingID:             stringPointer("network_flow_activity.import_facade.v1"),
 		BindingSchemaID:             stringPointer("cartulary.imports.analytical_facade_binding.v1"),
-		ContractMajor:               intPointer(5),
+		ContractMajor:               intPointer(6),
 		FacadeID:                    stringPointer("network_flow_import_facade_v1"),
 		AvailabilityKind:            "claim_gated",
 		ActivationPolicy:            "extension_claim_required",
@@ -459,7 +459,7 @@ var Targets = []Target{
 		DefaultUnknownColumnPolicy:  "target_owned",
 		EntityBearingDefault:        "target_owned_explicit_binding_only",
 		PublicProjectionDisposition: "extension_claim_gated",
-		RowSHA256:                   "2631544495e7f132beec5173b21f0b79c6d6a6290793a21b631677b16739ff93",
+		RowSHA256:                   "d13de1bfe20718e4146851700ee09943cd3583b330342e72e172e4312c2056a1",
 	},
 }
 
@@ -650,9 +650,9 @@ var AdapterDescriptors = []AdapterDescriptor{
 		FacadeKind:             "owner_preview_apply",
 		FacadeBindingID:        stringPointer("network_flow_activity.import_facade.v1"),
 		BindingSchemaID:        stringPointer("cartulary.imports.analytical_facade_binding.v1"),
-		ContractMajor:          intPointer(5),
+		ContractMajor:          intPointer(6),
 		FacadeID:               stringPointer("network_flow_import_facade_v1"),
-		OwnerContractRef:       "network_flow_activity@5",
+		OwnerContractRef:       "network_flow_activity@6",
 		PreviewRequestSchemaID: stringPointer("cartulary.network_flow.import_preview_request.v1"),
 		PreviewResultSchemaID:  stringPointer("cartulary.network_flow.import_preview_result.v1"),
 		ApplyRequestSchemaID:   stringPointer("cartulary.network_flow.import_apply_request.v1"),

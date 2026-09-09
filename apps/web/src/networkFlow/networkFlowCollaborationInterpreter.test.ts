@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { interpretNetworkFlowCollaborationMessage } from "./networkFlowCollaborationInterpreter";
 
 describe("interpretNetworkFlowCollaborationMessage", () => {
-  it("admits only closed Network Flow table changes", () => {
+  it("preserves table and saved graph identities and rejects unrelated resources", () => {
     const envelope = {
       emitted_at: "2026-07-13T12:00:00Z",
       event_id: "event-1",
@@ -24,7 +24,27 @@ describe("interpretNetworkFlowCollaborationMessage", () => {
     ).toEqual({
       changeKind: "invalidate",
       reasonCode: "renamed",
+      resourceKind: "network_flow_table",
       resourceId: "nft_a",
+    });
+    expect(
+      interpretNetworkFlowCollaborationMessage({
+        ...envelope,
+        type: "extension_resource_changed",
+        stream_seq: 2,
+        payload: {
+          extension_profile_id: "network_flow_activity",
+          resource_kind: "network_flow_graph_view",
+          resource_id: "nfgv_a",
+          change_kind: "remove",
+          reason_code: "soft_deleted",
+        },
+      }),
+    ).toEqual({
+      resourceKind: "network_flow_graph_view",
+      resourceId: "nfgv_a",
+      changeKind: "remove",
+      reasonCode: "soft_deleted",
     });
     expect(
       interpretNetworkFlowCollaborationMessage({

@@ -70,7 +70,7 @@ func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Requ
 	}
 	switch r.Method {
 	case http.MethodGet:
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -81,22 +81,17 @@ func (s *Service) handleGraphViewsCollection(w http.ResponseWriter, r *http.Requ
 		}
 		resources := make([]any, 0, len(declarations))
 		for _, declaration := range declarations {
-			status, statusErr := s.graphViewMaterializationStatus(r.Context(), declaration)
-			if statusErr != nil {
-				writeAPIError(w, r, httpapi.InternalAPIError(statusErr))
-				return
-			}
-			resources = append(resources, graphViewResource(declaration, status))
+			resources = append(resources, graphViewResource(declaration))
 		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, httpapi.InternalAPIError(err))
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow.graph_view_list.v3", "graph_views": resources,
+			"schema_id": "cartulary.network_flow.graph_view_list.v4", "graph_views": resources,
 		})
 	case http.MethodPost:
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -143,7 +138,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 	}
 	switch r.Method {
 	case http.MethodGet:
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -152,21 +147,16 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		status, err := s.graphViewMaterializationStatus(r.Context(), declaration)
-		if err != nil {
-			writeAPIError(w, r, httpapi.InternalAPIError(err))
-			return
-		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 			writeAPIError(w, r, httpapi.InternalAPIError(err))
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id":  "cartulary.network_flow.graph_view_get.v3",
-			"graph_view": graphViewResource(declaration, status),
+			"schema_id":  "cartulary.network_flow.graph_view_get.v4",
+			"graph_view": graphViewResource(declaration),
 		})
 	case http.MethodPatch:
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -186,7 +176,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 		}
 		_ = httpapi.WriteSuccess(w, r, status, payload)
 	case http.MethodDelete:
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
+		if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -195,7 +185,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		payload, status, apiErr := s.commitGraphViewRetire(r.Context(), incidentID, graphViewID, principal.User.ID, request, httpapi.RequestIDFromContext(r.Context()))
+		_, status, apiErr := s.commitGraphViewRetire(r.Context(), incidentID, graphViewID, principal.User.ID, request, httpapi.RequestIDFromContext(r.Context()))
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -204,7 +194,7 @@ func (s *Service) handleGraphViewResource(w http.ResponseWriter, r *http.Request
 			writeAPIError(w, r, httpapi.InternalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, status, payload)
+		w.WriteHeader(status)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -224,7 +214,7 @@ func (s *Service) handleGraphViewRefresh(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -262,7 +252,7 @@ func (s *Service) handleGraphViewResult(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -288,11 +278,6 @@ func (s *Service) handleGraphViewResult(w http.ResponseWriter, r *http.Request) 
 	}
 	var result map[string]any
 	if err := json.Unmarshal(completed.ResultJSON, &result); err != nil {
-		writeAPIError(w, r, httpapi.InternalAPIError(err))
-		return
-	}
-	status, err := s.graphViewMaterializationStatus(r.Context(), declaration)
-	if err != nil {
 		writeAPIError(w, r, httpapi.InternalAPIError(err))
 		return
 	}
@@ -331,8 +316,8 @@ func (s *Service) handleGraphViewResult(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_result.v3",
-		"graph_view": graphViewResource(declaration, status), "result": graphQueryResultResource(composition),
+		"schema_id":  "cartulary.network_flow.graph_view_result.v4",
+		"graph_view": graphViewResource(declaration), "result": graphQueryResultResource(composition),
 	})
 }
 
@@ -350,7 +335,7 @@ func (s *Service) handleGraphViewContributorsQuery(w http.ResponseWriter, r *htt
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+	if _, apiErr := s.requireSavedGraphRole(r.Context(), incidentID, principal.User.ID, admission.RolesMember, ""); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -443,7 +428,7 @@ func (s *Service) querySavedGraphContributors(
 			return nil, cursorInvalid("semantic_query_mismatch")
 		}
 	} else if request.ProjectionResultID != selectedResultID {
-		return nil, graphQueryStale("projection_result_mismatch", request.ProjectionResultID)
+		return nil, graphQueryStale("digest_mismatch", request.ProjectionResultID)
 	}
 
 	rows, hasMore, tableRanks, apiErr := s.queryGraphContributorPage(ctx, incidentID, semantic, digest, request.Selector, position, limit)
@@ -494,7 +479,7 @@ func decodeGraphViewCreateRequest(r *http.Request, limits EffectiveLimits) (grap
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "client_txn_id", "display_name", "semantic_query"); apiErr != nil {
 		return graphViewCreateRequest{}, apiErr
 	}
-	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v2" {
+	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_create_request.v3" {
 		return graphViewCreateRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	clientTxnID, apiErr := requiredJSONString(raw, "client_txn_id")
@@ -523,7 +508,7 @@ func decodeGraphViewRenameRequest(r *http.Request) (graphViewRenameRequest, *htt
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "client_txn_id", "display_name", "base_graph_view_version"); apiErr != nil {
 		return graphViewRenameRequest{}, apiErr
 	}
-	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_rename_request.v1" {
+	if schemaID, err := requiredJSONString(raw, "schema_id"); err != nil || schemaID != "cartulary.network_flow.graph_view_rename_request.v2" {
 		return graphViewRenameRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	clientTxnID, apiErr := requiredJSONString(raw, "client_txn_id")
@@ -616,16 +601,15 @@ func (s *Service) commitGraphViewCreate(ctx context.Context, incidentID, actorUs
 	if s.graphViewJobs == nil || s.jobManager == nil {
 		return nil, 0, uuid.Nil, httpapi.InternalAPIError(errors.New("graph view jobs unavailable"))
 	}
-	displayName, err := normalizeGraphViewDisplayName(request.DisplayName)
+	displayName, err := NormalizeGraphViewDisplayName(request.DisplayName)
 	if err != nil {
 		return nil, 0, uuid.Nil, graphViewMutationError(err)
 	}
-	normalizedRequest := canonicalJSON(map[string]any{
-		"route_key": routeKeyGraphViewsCreate, "client_txn_id": request.ClientTxnID,
+	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsCreate, "graph-views", map[string]any{
 		"display_name": displayName, "semantic_query": request.Semantic.Raw,
 	})
 	requestHash := sha256Bytes(normalizedRequest)
-	key := graphViewIdempotencyKey(routeKeyGraphViewsCreate, actorUserID, incidentID, "collection", request.ClientTxnID)
+	key := graphViewIdempotencyKey(routeKeyGraphViewsCreate, actorUserID, incidentID, "graph-views", request.ClientTxnID)
 	if payload, status, replayed, apiErr := s.replayGraphViewMutationIfPresent(ctx, key, requestHash); replayed || apiErr != nil {
 		return payload, status, uuid.Nil, apiErr
 	}
@@ -635,12 +619,18 @@ func (s *Service) commitGraphViewCreate(ctx context.Context, incidentID, actorUs
 		if err := s.store.lockIncidentTx(ctx, tx, incidentID); err != nil {
 			return err
 		}
+		if _, err := s.incidentAccess.CheckTx(ctx, tx, incidentID, actorUserID, admission.Requirement{AllowedRoles: admission.RolesEditorAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
+			return err
+		}
 		counts, err := s.store.CountGraphViewDeclarationsTx(ctx, tx, incidentID, s.store.limits.MaxRetainedGraphViewsPerIncident)
 		if err != nil {
 			return err
 		}
-		if counts.Active >= s.store.limits.MaxActiveGraphViewsPerIncident || counts.Retained >= s.store.limits.MaxRetainedGraphViewsPerIncident {
-			return ErrGraphViewDeclarationLimit
+		if counts.Active >= s.store.limits.MaxActiveGraphViewsPerIncident {
+			return ErrGraphViewActiveLimit
+		}
+		if counts.Retained >= s.store.limits.MaxRetainedGraphViewsPerIncident {
+			return ErrGraphViewRetainedLimit
 		}
 		if err := s.requireGraphViewJobCapacityTx(ctx, tx, incidentID); err != nil {
 			return err
@@ -685,7 +675,7 @@ func (s *Service) commitGraphViewCreate(ctx context.Context, incidentID, actorUs
 		if err != nil {
 			return err
 		}
-		payload = graphViewAcceptedPayload(declaration, jobs.StatusQueued, jobID)
+		payload = graphViewAcceptedPayload(declaration, jobID)
 		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, payload); err != nil {
 			return err
 		}
@@ -704,7 +694,7 @@ func (s *Service) commitGraphViewRefresh(ctx context.Context, incidentID uuid.UU
 	if s.graphViewJobs == nil || s.jobManager == nil {
 		return nil, 0, uuid.Nil, httpapi.InternalAPIError(errors.New("graph view jobs unavailable"))
 	}
-	normalizedRequest := canonicalJSON(map[string]any{"route_key": routeKeyGraphViewsRefresh, "graph_view_id": graphViewID, "client_txn_id": request.ClientTxnID, "base_graph_view_version": request.BaseGraphViewVersion})
+	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsRefresh, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion})
 	requestHash := sha256Bytes(normalizedRequest)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsRefresh, actorUserID, incidentID, graphViewID, request.ClientTxnID)
 	if payload, status, replayed, apiErr := s.replayGraphViewMutationIfPresent(ctx, key, requestHash); replayed || apiErr != nil {
@@ -714,6 +704,9 @@ func (s *Service) commitGraphViewRefresh(ctx context.Context, incidentID uuid.UU
 	var jobID uuid.UUID
 	err := withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		if err := s.store.lockIncidentTx(ctx, tx, incidentID); err != nil {
+			return err
+		}
+		if _, err := s.incidentAccess.CheckTx(ctx, tx, incidentID, actorUserID, admission.Requirement{AllowedRoles: admission.RolesEditorAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
 			return err
 		}
 		declaration, err := s.store.GetGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, true)
@@ -751,7 +744,7 @@ func (s *Service) commitGraphViewRefresh(ctx context.Context, incidentID uuid.UU
 		if err != nil {
 			return err
 		}
-		payload = graphViewAcceptedPayload(declaration, jobs.StatusQueued, jobID)
+		payload = graphViewAcceptedPayload(declaration, jobID)
 		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, payload); err != nil {
 			return err
 		}
@@ -767,11 +760,11 @@ func (s *Service) commitGraphViewRefresh(ctx context.Context, incidentID uuid.UU
 }
 
 func (s *Service) commitGraphViewRename(ctx context.Context, incidentID uuid.UUID, graphViewID string, actorUserID uuid.UUID, request graphViewRenameRequest, requestID string) (map[string]any, int, *httpapi.APIError) {
-	displayName, err := normalizeGraphViewDisplayName(request.DisplayName)
+	displayName, err := NormalizeGraphViewDisplayName(request.DisplayName)
 	if err != nil {
 		return nil, 0, graphViewMutationError(err)
 	}
-	normalizedRequest := canonicalJSON(map[string]any{"route_key": routeKeyGraphViewsPatch, "graph_view_id": graphViewID, "client_txn_id": request.ClientTxnID, "base_graph_view_version": request.BaseGraphViewVersion, "display_name": displayName})
+	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsPatch, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion, "display_name": displayName})
 	requestHash := sha256Bytes(normalizedRequest)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsPatch, actorUserID, incidentID, graphViewID, request.ClientTxnID)
 	if payload, status, replayed, apiErr := s.replayGraphViewMutationIfPresent(ctx, key, requestHash); replayed || apiErr != nil {
@@ -782,17 +775,19 @@ func (s *Service) commitGraphViewRename(ctx context.Context, incidentID uuid.UUI
 		if err := s.store.lockIncidentTx(ctx, tx, incidentID); err != nil {
 			return err
 		}
+		if _, err := s.incidentAccess.CheckTx(ctx, tx, incidentID, actorUserID, admission.Requirement{AllowedRoles: admission.RolesEditorAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
+			return err
+		}
 		declaration, err := s.store.RenameGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, request.BaseGraphViewVersion, displayName, strings.ToLower(displayName), s.now())
 		if err != nil {
 			return err
 		}
-		status, err := s.graphViewMaterializationStatus(ctx, declaration)
-		if err != nil {
-			return err
-		}
-		payload = graphViewMutationPayload(declaration, status)
+		payload = graphViewMutationPayload(declaration)
 		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusOK, payload); err != nil {
 			return err
+		}
+		if declaration.GraphViewVersion == request.BaseGraphViewVersion {
+			return nil
 		}
 		return s.appendGraphViewAuditTx(ctx, tx, "network_flow_graph_view_renamed", actorUserID, incidentID, graphViewID, request.ClientTxnID, requestID, declaration.GraphViewVersion, declaration.MaterializationGeneration)
 	})
@@ -806,7 +801,7 @@ func (s *Service) commitGraphViewRename(ctx context.Context, incidentID uuid.UUI
 }
 
 func (s *Service) commitGraphViewRetire(ctx context.Context, incidentID uuid.UUID, graphViewID string, actorUserID uuid.UUID, request graphViewVersionRequest, requestID string) (map[string]any, int, *httpapi.APIError) {
-	normalizedRequest := canonicalJSON(map[string]any{"route_key": routeKeyGraphViewsDelete, "graph_view_id": graphViewID, "client_txn_id": request.ClientTxnID, "base_graph_view_version": request.BaseGraphViewVersion})
+	normalizedRequest := graphViewMutationBytes(routeKeyGraphViewsDelete, "graph_view_id:"+graphViewID, map[string]any{"base_graph_view_version": request.BaseGraphViewVersion})
 	requestHash := sha256Bytes(normalizedRequest)
 	key := graphViewIdempotencyKey(routeKeyGraphViewsDelete, actorUserID, incidentID, graphViewID, request.ClientTxnID)
 	if payload, status, replayed, apiErr := s.replayGraphViewMutationIfPresent(ctx, key, requestHash); replayed || apiErr != nil {
@@ -817,12 +812,15 @@ func (s *Service) commitGraphViewRetire(ctx context.Context, incidentID uuid.UUI
 		if err := s.store.lockIncidentTx(ctx, tx, incidentID); err != nil {
 			return err
 		}
+		if _, err := s.incidentAccess.CheckTx(ctx, tx, incidentID, actorUserID, admission.Requirement{AllowedRoles: admission.RolesReviewerAdmin, Lifecycle: admission.LifecycleOpen}); err != nil {
+			return err
+		}
 		declaration, err := s.store.RetireGraphViewDeclarationTx(ctx, tx, incidentID, graphViewID, request.BaseGraphViewVersion, s.now())
 		if err != nil {
 			return err
 		}
-		payload = graphViewMutationPayload(declaration, "not_started")
-		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusOK, payload); err != nil {
+		payload = map[string]any{}
+		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusNoContent, payload); err != nil {
 			return err
 		}
 		return s.appendGraphViewAuditTx(ctx, tx, "network_flow_graph_view_retired", actorUserID, incidentID, graphViewID, request.ClientTxnID, requestID, declaration.GraphViewVersion, declaration.MaterializationGeneration)
@@ -833,7 +831,7 @@ func (s *Service) commitGraphViewRetire(ctx context.Context, incidentID uuid.UUI
 		}
 		return nil, 0, graphViewMutationAPIError(err, request.ClientTxnID)
 	}
-	return payload, http.StatusOK, nil
+	return payload, http.StatusNoContent, nil
 }
 
 func (s *Service) enqueueGraphViewMaterializationTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, normalizedRequest []byte, declaration GraphViewDeclaration, actorUserID uuid.UUID, now time.Time) (jobs.Resource, error) {
@@ -887,28 +885,10 @@ func (s *Service) replayGraphViewMutationIfPresent(ctx context.Context, key auth
 	if err != nil {
 		return nil, 0, true, httpapi.InternalAPIError(err)
 	}
-	if _, present := payload["graph_view"]; present {
-		return payload, existing.StatusCode, true, nil
-	}
-	jobIDText, _ := payload["job_id"].(string)
-	jobID, parseErr := uuid.Parse(jobIDText)
-	if parseErr != nil || s.jobManager == nil {
-		return nil, 0, true, httpapi.InternalAPIError(errors.New("graph view replay payload unavailable"))
-	}
-	raw, err := s.jobManager.RetainedHandlerPayload(ctx, jobID)
-	if err != nil {
+	if err := validateGraphViewReceipt(key, existing.StatusCode, payload, nil); err != nil {
 		return nil, 0, true, httpapi.InternalAPIError(err)
 	}
-	var materialization graphViewMaterializationPayload
-	if err := json.Unmarshal(raw, &materialization); err != nil || !materialization.valid() {
-		return nil, 0, true, httpapi.InternalAPIError(errors.New("graph view replay materialization payload invalid"))
-	}
-	declaration, err := s.store.GetGraphViewDeclaration(ctx, materialization.IncidentID, materialization.GraphViewID)
-	if err != nil {
-		return nil, 0, true, httpapi.InternalAPIError(err)
-	}
-	status := graphViewStatusFromJobStatus(stringValue(payload["status"]))
-	return graphViewAcceptedPayload(declaration, status, jobID), http.StatusAccepted, true, nil
+	return payload, existing.StatusCode, true, nil
 }
 
 func (s *Service) activeGraphView(ctx context.Context, incidentID uuid.UUID, graphViewID string) (GraphViewDeclaration, *httpapi.APIError) {
@@ -920,7 +900,7 @@ func (s *Service) activeGraphView(ctx context.Context, incidentID uuid.UUID, gra
 		return GraphViewDeclaration{}, httpapi.InternalAPIError(err)
 	}
 	if declaration.DeclarationState != GraphViewDeclarationStateActive {
-		return GraphViewDeclaration{}, networkFlowAPIError(http.StatusConflict, "network_flow_graph_view_not_active", "graph_view_id", "retired")
+		return GraphViewDeclaration{}, networkFlowAPIError(http.StatusNotFound, "network_flow_graph_view_not_found", "graph_view_id", "not_found")
 	}
 	return declaration, nil
 }
@@ -971,7 +951,7 @@ func graphViewStatusFromJobStatus(status string) string {
 	}
 }
 
-func graphViewResource(declaration GraphViewDeclaration, status string) map[string]any {
+func graphViewResource(declaration GraphViewDeclaration) map[string]any {
 	var selected any
 	if declaration.SelectedResult != nil {
 		selected = map[string]any{
@@ -993,32 +973,36 @@ func graphViewResource(declaration GraphViewDeclaration, status string) map[stri
 		failure = *declaration.LastFailureCode
 	}
 	return map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view.v3", "graph_view_id": declaration.GraphViewID,
+		"schema_id": "cartulary.network_flow.graph_view.v4", "graph_view_id": declaration.GraphViewID,
 		"incident_id": declaration.IncidentID.String(), "display_name": declaration.DisplayName,
-		"normalized_display_name": declaration.NormalizedDisplayName,
-		"graph_view_version":      declaration.GraphViewVersion, "materialization_generation": declaration.MaterializationGeneration,
+		"semantic_query_sha256":      declaration.SemanticQuerySHA256,
+		"desired_source_snapshot_id": declaration.DesiredSourceSnapshotID,
+		"created_by":                 declaration.CreatedByUserID.String(),
+		"graph_view_version":         declaration.GraphViewVersion, "materialization_generation": declaration.MaterializationGeneration,
 		"state": declaration.DeclarationState, "semantic_query": rawJSONValue(declaration.SemanticQueryJSON),
-		"selected_result": selected, "last_materialization_job_id": latestJobID,
-		"last_materialization_status": status, "last_failure_code": failure,
+		"selected_result_binding": selected, "latest_job_id": latestJobID,
+		"last_failure_code": failure, "last_failed_at": nullableGraphViewTimestamp(declaration.LastFailedAt),
 		"created_at": timestamp(declaration.CreatedAt), "updated_at": timestamp(declaration.UpdatedAt),
 	}
 }
 
-func graphViewAcceptedPayload(declaration GraphViewDeclaration, status string, jobID uuid.UUID) map[string]any {
-	materializationStatus := status
-	switch status {
-	case jobs.StatusQueued, jobs.StatusRunning, jobs.StatusCancelRequested, jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
-		materializationStatus = graphViewStatusFromJobStatus(status)
+func nullableGraphViewTimestamp(value *time.Time) any {
+	if value == nil {
+		return nil
 	}
+	return timestamp(*value)
+}
+
+func graphViewAcceptedPayload(declaration GraphViewDeclaration, jobID uuid.UUID) map[string]any {
 	return map[string]any{
-		"schema_id":  "cartulary.network_flow.graph_view_accepted.v3",
-		"graph_view": graphViewResource(declaration, materializationStatus),
-		"job_id":     jobID.String(), "job_kind": GraphViewMaterializationJobKind,
+		"schema_id":  "cartulary.network_flow.graph_view_accepted.v4",
+		"graph_view": graphViewResource(declaration),
+		"job":        map[string]any{"job_id": jobID.String(), "status_route": "/api/v1/jobs/" + jobID.String()},
 	}
 }
 
-func graphViewMutationPayload(declaration GraphViewDeclaration, status string) map[string]any {
-	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v3", "graph_view": graphViewResource(declaration, status)}
+func graphViewMutationPayload(declaration GraphViewDeclaration) map[string]any {
+	return map[string]any{"schema_id": "cartulary.network_flow.graph_view_mutation_result.v4", "graph_view": graphViewResource(declaration)}
 }
 
 func graphViewResultBinding(declaration GraphViewDeclaration) graphprojection.ResultBindingV2 {
@@ -1033,6 +1017,9 @@ func graphViewResultBinding(declaration GraphViewDeclaration) graphprojection.Re
 }
 
 func graphViewIdempotencyKey(routeKey string, actorUserID, incidentID uuid.UUID, resourceID, clientTxnID string) authn.RouteIdempotencyKey {
+	if resourceID != "graph-views" {
+		resourceID = "graph_view_id:" + resourceID
+	}
 	return authn.RouteIdempotencyKey{RouteKey: routeKey, ActorUserID: actorUserID, ScopeKey: incidentID.String() + ":" + resourceID, ClientTxnID: clientTxnID}
 }
 
@@ -1041,18 +1028,12 @@ func sha256Bytes(value []byte) []byte {
 	return digest[:]
 }
 
-func normalizeGraphViewDisplayName(value string) (string, error) {
-	normalized, err := normalizeExplicitDisplayName(value)
-	if err != nil {
-		return "", err
-	}
-	return normalized, nil
-}
-
 func graphViewMutationError(err error) *httpapi.APIError {
 	var displayName *InvalidDisplayNameError
 	var version *GraphViewVersionConflictError
 	switch {
+	case admission.IsDenied(err, admission.DenialNotVisible), admission.IsDenied(err, admission.DenialInsufficientRole), admission.IsDenied(err, admission.DenialIncidentClosed):
+		return savedGraphAdmissionError(err, "")
 	case errors.As(err, &displayName):
 		return networkFlowAPIError(http.StatusBadRequest, "network_flow_invalid_display_name", "display_name", displayName.ReasonCode)
 	case errors.As(err, &version):
@@ -1060,13 +1041,15 @@ func graphViewMutationError(err error) *httpapi.APIError {
 	case errors.Is(err, ErrGraphViewDeclarationNotFound):
 		return networkFlowAPIError(http.StatusNotFound, "network_flow_graph_view_not_found", "graph_view_id", "not_found")
 	case errors.Is(err, ErrGraphViewDeclarationNotActive):
-		return networkFlowAPIError(http.StatusConflict, "network_flow_graph_view_not_active", "graph_view_id", "retired")
-	case errors.Is(err, ErrGraphViewDeclarationLimit):
-		return networkFlowAPIError(http.StatusConflict, "network_flow_graph_view_limit_exceeded", "graph_view_id", "declaration_limit_exceeded")
+		return networkFlowAPIError(http.StatusNotFound, "network_flow_graph_view_not_found", "graph_view_id", "not_found")
+	case errors.Is(err, ErrGraphViewActiveLimit):
+		return networkFlowAPIError(http.StatusConflict, "network_flow_graph_view_limit_exceeded", "graph_view_id", "active_graph_view_limit_exceeded")
+	case errors.Is(err, ErrGraphViewRetainedLimit):
+		return networkFlowAPIError(http.StatusConflict, "network_flow_graph_view_limit_exceeded", "graph_view_id", "retained_graph_view_limit_exceeded")
 	case errors.Is(err, errGraphViewJobLimit):
 		return networkFlowAPIError(http.StatusConflict, "network_flow_graph_materialization_limit_exceeded", "graph_view_id", "nonterminal_job_limit_exceeded")
 	case errors.Is(err, ErrGraphViewPublicationStale):
-		return graphQueryStale("source_state_changed", "")
+		return graphQueryStale("scope_stale", "")
 	default:
 		return httpapi.InternalAPIError(err)
 	}
@@ -1080,14 +1063,9 @@ func graphViewMutationAPIError(err error, clientTxnID string) *httpapi.APIError 
 }
 
 func graphViewNotMaterialized(status string) *httpapi.APIError {
-	reason := "never_materialized"
-	switch status {
-	case "queued", "running":
-		reason = "materialization_pending"
-	case "failed":
-		reason = "failed_without_prior_result"
-	case "cancelled":
-		reason = "cancelled_without_prior_result"
+	reason := "initial_materialization_pending"
+	if status == "failed" || status == "cancelled" {
+		reason = "initial_materialization_failed"
 	}
 	return networkFlowAPIError(http.StatusConflict, "network_flow_graph_view_not_materialized", "graph_view_id", reason)
 }
@@ -1116,9 +1094,4 @@ func parseIncidentGraphViewPathValues(w http.ResponseWriter, r *http.Request) (u
 		return uuid.Nil, "", false
 	}
 	return incidentID, graphViewID, true
-}
-
-func stringValue(value any) string {
-	text, _ := value.(string)
-	return text
 }

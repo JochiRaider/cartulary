@@ -3,8 +3,9 @@ import {
   networkAnalysisTestId,
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useEffect, useRef } from "react";
+import { terminalCommonJob } from "../services/commonJobContract";
 import { importFailureMessage } from "../services/importClient";
-import { terminalImportJob } from "../services/importJobContract";
+
 import type { NetworkFlowImportPreviewResult } from "../services/networkFlowContractAdapter";
 import {
   networkFlowMappingMetadata,
@@ -168,7 +169,7 @@ export function NetworkFlowMappingModal({
             <p>
               Cancellation:{" "}
               {state.cancellation.disposition === "accepted"
-                ? job && terminalImportJob(job.resource)
+                ? job && terminalCommonJob(job.resource)
                   ? "acknowledged; terminal job outcome shown above"
                   : "acknowledged; awaiting terminal job outcome"
                 : state.cancellation.disposition}
@@ -225,7 +226,7 @@ export function NetworkFlowMappingModal({
           ) : null}
           {job &&
           !job.observing &&
-          (!job.current || !terminalImportJob(job.resource)) ? (
+          (!job.current || !terminalCommonJob(job.resource)) ? (
             <NetworkFlowButton
               data-testid={networkAnalysisTestId("import-resume")}
               disabled={state.closed || !state.workspaceActive}

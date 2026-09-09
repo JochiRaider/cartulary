@@ -8,12 +8,12 @@ import { networkFlowPresentationRegistry } from "../generated/network-flow-prese
 import type {
   GraphContributorQueryResultV2,
   GraphQueryResultV2,
-  GraphViewAcceptedV3,
+  GraphViewAcceptedV4,
   GraphViewContributorQueryResultV2,
-  GraphViewGetV3,
-  GraphViewListV3,
-  GraphViewMutationResultV3,
-  GraphViewResultV3,
+  GraphViewGetV4,
+  GraphViewListV4,
+  GraphViewMutationResultV4,
+  GraphViewResultV4,
   ImportPreviewResult,
   IndicatorLinkResult,
   RejectedRowsQueryResult,
@@ -25,12 +25,12 @@ import type {
 import {
   validateCartularyNetworkFlowGraphContributorQueryResultV2,
   validateCartularyNetworkFlowGraphQueryResultV2,
-  validateCartularyNetworkFlowGraphViewAcceptedV3,
+  validateCartularyNetworkFlowGraphViewAcceptedV4,
   validateCartularyNetworkFlowGraphViewContributorQueryResultV2,
-  validateCartularyNetworkFlowGraphViewGetV3,
-  validateCartularyNetworkFlowGraphViewListV3,
-  validateCartularyNetworkFlowGraphViewMutationResultV3,
-  validateCartularyNetworkFlowGraphViewResultV3,
+  validateCartularyNetworkFlowGraphViewGetV4,
+  validateCartularyNetworkFlowGraphViewListV4,
+  validateCartularyNetworkFlowGraphViewMutationResultV4,
+  validateCartularyNetworkFlowGraphViewResultV4,
   validateCartularyNetworkFlowImportPreviewResultV1,
   validateCartularyNetworkFlowIndicatorLinkResultV1,
   validateCartularyNetworkFlowRejectedRowsQueryResultV1,
@@ -83,25 +83,25 @@ export const networkFlowDecoders = Object.freeze({
     "cartulary.network_flow.graph_contributor_query_result.v2",
     validateCartularyNetworkFlowGraphContributorQueryResultV2,
   ),
-  graphViewList: createDecoder<GraphViewListV3>(
-    "cartulary.network_flow.graph_view_list.v3",
-    validateCartularyNetworkFlowGraphViewListV3,
+  graphViewList: createDecoder<GraphViewListV4>(
+    "cartulary.network_flow.graph_view_list.v4",
+    validateCartularyNetworkFlowGraphViewListV4,
   ),
-  graphViewGet: createDecoder<GraphViewGetV3>(
-    "cartulary.network_flow.graph_view_get.v3",
-    validateCartularyNetworkFlowGraphViewGetV3,
+  graphViewGet: createDecoder<GraphViewGetV4>(
+    "cartulary.network_flow.graph_view_get.v4",
+    validateCartularyNetworkFlowGraphViewGetV4,
   ),
-  graphViewAccepted: createDecoder<GraphViewAcceptedV3>(
-    "cartulary.network_flow.graph_view_accepted.v3",
-    validateCartularyNetworkFlowGraphViewAcceptedV3,
+  graphViewAccepted: createDecoder<GraphViewAcceptedV4>(
+    "cartulary.network_flow.graph_view_accepted.v4",
+    validateCartularyNetworkFlowGraphViewAcceptedV4,
   ),
-  graphViewMutationResult: createDecoder<GraphViewMutationResultV3>(
-    "cartulary.network_flow.graph_view_mutation_result.v3",
-    validateCartularyNetworkFlowGraphViewMutationResultV3,
+  graphViewMutationResult: createDecoder<GraphViewMutationResultV4>(
+    "cartulary.network_flow.graph_view_mutation_result.v4",
+    validateCartularyNetworkFlowGraphViewMutationResultV4,
   ),
-  graphViewResult: createDecoder<GraphViewResultV3>(
-    "cartulary.network_flow.graph_view_result.v3",
-    validateCartularyNetworkFlowGraphViewResultV3,
+  graphViewResult: createDecoder<GraphViewResultV4>(
+    "cartulary.network_flow.graph_view_result.v4",
+    validateCartularyNetworkFlowGraphViewResultV4,
   ),
   graphViewContributorQueryResult:
     createDecoder<GraphViewContributorQueryResultV2>(

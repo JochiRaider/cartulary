@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/networkflowsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -30,7 +31,7 @@ func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.
 		t, pool, "network-flow-cleanup-races@example.test", "Cleanup Race Tester", "NetworkFlowPass!", false, false, true,
 	)
 	incident := appsupport.CreateIncidentInStore(t, pool, actor, "txn-network-flow-cleanup-races", "IR-NFCLEANRACE", "Network Flow cleanup races")
-	store := NewStore(pool, DefaultEffectiveLimits())
+	store := NewStore(pool, DefaultEffectiveLimits(), WithResourceIntentAppender(networkflowsupport.NewResourceIntentAppender()))
 	now := time.Date(2026, 8, 16, 18, 0, 0, 0, time.UTC)
 
 	graphViewID := "nfgv_dddddddddddddddddddddddddddddddd"

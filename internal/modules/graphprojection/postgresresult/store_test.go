@@ -39,6 +39,10 @@ func TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration(t *testing.
 	if err != nil {
 		t.Fatalf("construct exact result reader: %v", err)
 	}
+	envelope, err := reader.ReadResultEnvelope(ctx, result.Binding.ProjectionResultID)
+	if err != nil || envelope != result.Binding {
+		t.Fatalf("read immutable envelope = %#v %v", envelope, err)
+	}
 	loaded, err := reader.ReadExactResult(ctx, result.Binding)
 	if err != nil {
 		t.Fatalf("read exact result: %v", err)

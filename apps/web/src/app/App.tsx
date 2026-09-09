@@ -20,7 +20,7 @@ import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
 } from "../shared/workbookShellContracts";
-import type { NetworkFlowImportController } from "../workbook/features/NetworkFlowFeature";
+import type { NetworkFlowImportController } from "../workbook/features/NetworkFlowOperations";
 import type { WorkbookPreferenceController } from "../workbook/preferences/WorkbookPreferenceController";
 import { WorkbookPreferencesPanel } from "../workbook/preferences/WorkbookPreferencesPanel";
 import { WorkbookMutationRuntimeRegistry } from "../workbook/runtime/WorkbookMutationRuntimeRegistry";
@@ -1158,6 +1158,7 @@ export function App({
             }
           >
             <LazyWorkbookShell
+              sessionIdentity={sessionSnapshot.lifetime}
               importController={workbookImport.controller}
               bindWorkbookImport={workbookImport.bindWorkbook}
               networkFlowImportController={networkFlowImport.controller}

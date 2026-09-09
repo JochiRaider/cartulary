@@ -80,6 +80,7 @@ import type {
   NetworkFlowAcceptedQuery,
   NetworkFlowRejectedQuery,
 } from "./networkFlowQueryModel";
+import type { SavedGraphController } from "./SavedGraphController";
 import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollaborationController";
 import {
   type NetworkFlowGraphAggregationMode,
@@ -106,6 +107,7 @@ type NetworkAnalysisMode = "rows" | "rejected" | "graph";
 type NetworkFlowGraphSurface = "explore" | "saved";
 
 export type NetworkAnalysisWorkspaceProps = {
+  readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;
   readonly workbookStatus?: ReactNode;
   readonly apiBase?: string | undefined;
@@ -121,6 +123,7 @@ const graphEdgeRenderLimit = 1_000;
 
 function NetworkAnalysisWorkspaceContent({
   importController: importOperation,
+  savedGraphController: savedGraphOperation,
   workbookStatus,
   apiBase,
   currentIncidentRole,
@@ -207,12 +210,8 @@ function NetworkAnalysisWorkspaceContent({
     tables: tableController.tables,
   });
   const savedGraphController = useNetworkFlowSavedGraphController({
-    availability: extensionAvailability,
-    apiBase,
+    controller: savedGraphOperation,
     enabled: mode === "graph" && graphSurface === "saved" && canRead,
-    incidentId,
-    onError: handleWorkspaceError,
-    onIncidentAccessLost,
   });
   const importController = useNetworkFlowImportController({
     controller: importOperation,
@@ -613,6 +612,7 @@ function NetworkAnalysisWorkspaceContent({
                 canCreate={canManageSavedGraphs}
                 canRetire={canDelete}
                 controller={savedGraphController}
+                tables={tableController.tables}
                 currentGraph={graphController.graph}
               />
             ) : (

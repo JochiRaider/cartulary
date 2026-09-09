@@ -38,6 +38,7 @@ export function useNetworkFlowExtensionEvents({
         event.kind === "incident_closed"
       ) {
         void onResourceChange({
+          resourceKind: "*",
           changeKind: "remove",
           reasonCode:
             event.kind === "incident_closed"
@@ -50,6 +51,7 @@ export function useNetworkFlowExtensionEvents({
       if (event.kind === "reset_required") {
         void Promise.resolve(
           onResourceChange({
+            resourceKind: "*",
             changeKind: "invalidate",
             reasonCode: event.reason,
             resourceId: "*",

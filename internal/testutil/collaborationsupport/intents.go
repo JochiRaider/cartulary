@@ -226,7 +226,7 @@ func (JobOwnerTransactionAdapters) CommitRouteIdempotencyTx(ctx context.Context,
 	return authn.InsertRouteIdempotencyPayload(ctx, tx, testAuthRouteKey(key), nil, requestHash, statusCode, payload)
 }
 
-func (JobOwnerTransactionAdapters) UpdateFinalIdempotencyOutcomeTx(ctx context.Context, tx pgx.Tx, key jobs.RouteIdempotencyKey, requestHash []byte, resource jobs.Resource) (bool, error) {
+func (JobOwnerTransactionAdapters) ReconcileFinalIdempotencyOutcomeTx(ctx context.Context, tx pgx.Tx, key jobs.RouteIdempotencyKey, requestHash []byte, resource jobs.Resource) (bool, error) {
 	return authn.UpdateRouteIdempotencyPayload(ctx, tx, testAuthRouteKey(key), requestHash, resource)
 }
 

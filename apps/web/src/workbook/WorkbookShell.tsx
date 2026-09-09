@@ -42,7 +42,8 @@ import {
   type NetworkFlowImportController,
   NetworkFlowImportRecovery,
   NetworkFlowImportSurface,
-} from "./features/NetworkFlowFeature";
+  useNetworkFlowSavedGraphOwner,
+} from "./features/NetworkFlowOperations";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useNetworkFlowImportBinding } from "./hooks/useNetworkFlowImportBinding";
 import { useWorkbookAuthorizationState } from "./hooks/useWorkbookAuthorizationState";
@@ -89,6 +90,7 @@ export type {
 };
 
 type WorkbookShellProps = {
+  sessionIdentity: string | null;
   networkFlowImportController: NetworkFlowImportController;
   bindNetworkFlowImport: (
     binding: NetworkFlowImportSurfaceBinding | null,
@@ -136,6 +138,7 @@ type WorkbookShellContentProps = WorkbookShellProps & {
 const noExtensionProfiles: readonly ExtensionDiscoveryProfile[] = [];
 
 function WorkbookShellContent({
+  sessionIdentity,
   networkFlowImportController,
   bindNetworkFlowImport,
   importController,
@@ -200,6 +203,15 @@ function WorkbookShellContent({
       onIncidentResourceObserved,
       onIncidentAccessLost,
     });
+  const networkFlowSavedGraphController = useNetworkFlowSavedGraphOwner({
+    availability: extensionLifecycle.controller,
+    apiBase,
+    incidentId,
+    actorId: authorization.currentUserId,
+    sessionIdentity,
+    role: authorization.currentIncidentRole,
+    open: incidentIdentity?.status === "active",
+  });
   const incidentRead = useRef<AbortController | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: An incident replacement must abort the previous incident's resource read.
   useLayoutEffect(() => () => incidentRead.current?.abort(), [incidentId]);
@@ -481,6 +493,7 @@ function WorkbookShellContent({
         revision: extensionLifecycle.revision,
       }}
       extensionRenderer={{
+        savedGraphController: networkFlowSavedGraphController,
         importController: networkFlowImportController,
         currentUserId: authorization.currentUserId,
         workbookStatus: (

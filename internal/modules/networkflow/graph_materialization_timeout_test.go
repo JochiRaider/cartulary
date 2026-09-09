@@ -52,10 +52,6 @@ func (*deadlineGraphViewJobManager) HandlerPayload(context.Context, jobs.Executi
 	return nil, nil
 }
 
-func (*deadlineGraphViewJobManager) RetainedHandlerPayload(context.Context, uuid.UUID) (json.RawMessage, error) {
-	return nil, nil
-}
-
 func (*deadlineGraphViewJobManager) CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error) {
 	return jobs.Resource{}, nil
 }

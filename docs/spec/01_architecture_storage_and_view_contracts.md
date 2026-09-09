@@ -4236,7 +4236,7 @@ This subsection declares the base route family only. Core 01 §16 is the primary
 #### 3.3.9 Background-job routes
 
 **REQ-01-248**
-Routes that start long-running operations MUST return `202 Accepted` with the common success envelope from §3.3.6 and `data` equal to the canonical job resource defined in §3.3.9.1. The initial job resource returned by an initiating route MUST use `status` equal to `queued` or `running`, and `status_route` MUST be the same-origin path `/api/v1/jobs/{job_id}` for that resource.
+Routes that start long-running operations MUST return `202 Accepted` with the common success envelope from §3.3.6 and `data` equal to the canonical job resource defined in §3.3.9.1, except when an adopted initiating owner explicitly requires its committed resource plus the narrow Common Job reference defined there. The initial job resource returned by an initiating route MUST use `status` equal to `queued` or `running`, and `status_route` MUST be the same-origin path `/api/v1/jobs/{job_id}` for that resource.
 
 An exact idempotent replay identifies the original operation rather than starting
 another operation. Its canonical job receipt MAY already be terminal. A replay
@@ -4255,7 +4255,17 @@ Verified by: AC-046, AC-129, AC-231, AC-257, AC-258, AC-259, AC-260, AC-261
 
 For REQ-01-248 and REQ-01-249, the canonical public job contract is:
 
-- The canonical HTTP job resource returned by initiating routes, `GET /api/v1/jobs/{job_id}`, and successful cancel responses MUST use the common success envelope from §3.3.6 with `data` equal to one job resource object. That object MUST include `job_id`, `scope`, `status_route`, `status`, `cancelable`, `submitted_by_user_id`, `submitted_at`, `updated_at`, `progress`, `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary`. `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary` are required-but-nullable. The resource MAY include optional `message` for short operator-visible status text.
+The Core-owned `cartulary.common_job_reference.v1` contains exactly `job_id`
+and `status_route`, the latter exactly `/api/v1/jobs/{job_id}` on the same
+origin without query or fragment. An adopted initiating owner may return its
+committed resource alongside one such reference. This receipt acknowledges
+admission, never successful materialization. Current execution facts come from
+the canonical job read. Existing Core initiating routes retain their canonical
+job-resource responses. Initiating receipt reconciliation is transaction-bound
+and owner-specific: immutable owner admission receipts are validated without
+replacement; Core terminal-receipt behavior remains as declared by its route.
+
+- The canonical HTTP job resource returned by initiating routes that use the canonical job resource, `GET /api/v1/jobs/{job_id}`, and successful cancel responses MUST use the common success envelope from §3.3.6 with `data` equal to one job resource object. That object MUST include `job_id`, `scope`, `status_route`, `status`, `cancelable`, `submitted_by_user_id`, `submitted_at`, `updated_at`, `progress`, `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary`. `started_at`, `finished_at`, `retained_until`, `result_summary`, and `error_summary` are required-but-nullable. The resource MAY include optional `message` for short operator-visible status text.
 - `scope` is required and is the authorization and live-update boundary. In `/api/v1/`, the closed `scope.kind` vocabulary is `incident | deployment`. When `scope.kind = incident`, `scope.incident_id` is required. When `scope.kind = deployment`, `scope.incident_id` is forbidden.
 - The common job shell MUST preserve the initiating route family's authorization contract rather than replacing it with submitter-only access. Incident-scoped jobs admitted by a route that also requires `deployment_admin` MUST require current `deployment_admin` plus current membership in the job incident for job reads. Cancel for that policy MUST additionally require either the original submitter relationship or current incident role `admin`.
 - `status` is a closed six-token vocabulary: `queued`, `running`, `cancel_requested`, `succeeded`, `failed`, and `canceled`. The public job shell MUST NOT introduce `completed`, `done`, `warning`, or job-family-specific phase tokens as alternate `status` values.
@@ -4264,10 +4274,10 @@ For REQ-01-248 and REQ-01-249, the canonical public job contract is:
 - `submitted_at` and `updated_at` are required timestamps. `started_at` MUST be `null` until work begins. `finished_at` MUST be `null` until the job reaches a terminal state. `retained_until` MUST be `null` until the job reaches a terminal state.
 - `progress` MUST be an object of the form `{ completed, total }`, never a bare percentage. `completed` MUST be a non-negative integer and MUST be monotonically non-decreasing for one job resource. `total` MUST be either `null` or a positive integer. Once `total` becomes non-null, it MUST NOT decrease and MUST NOT change unit semantics. When `total` is non-null, `completed` MUST be less than or equal to `total`. On `succeeded`, if `total` is non-null, `completed` MUST equal `total`. Clients MAY derive `floor(100 * completed / total)` when `total` is non-null, but percent is not part of the wire contract and clients MUST render indeterminate progress when `total = null`.
 - `result_summary` and `error_summary` are mutually exclusive. On non-terminal states, both MUST be `null`. On `succeeded` and `canceled`, `result_summary` is required and `error_summary` MUST be `null`. On `failed`, `error_summary` is required and `result_summary` MUST be `null`. When `status = canceled`, `result_summary.code` MUST be exactly `job_canceled`.
-- `result_summary` MUST be compact and generic: `{ code, message, resource_refs? }`. `result_summary.code` is registry-backed, not opaque. When `status = succeeded`, `result_summary.code` MUST use one of the stable success codes declared by the initiating route family in this document; in the current profile, those success-code registries are defined in §17. `result_summary.message` remains operator-visible text only, and clients MUST NOT branch protocol behavior on its contents.
-- `resource_refs[]` is a compact, non-exhaustive navigation summary of durable outputs or newly relevant durable resources, not a deep result payload. The current-profile closed `resource_refs[].kind` vocabulary is exactly `incident`, `import_session`, `snapshot`, `release`, `reference_pack_version`, `incident_bundle`, and `network_flow_table`. Current-profile emissions MUST NOT use `job`, `blob`, `preview_handle`, `download_handle`, `saved_view`, `view_schema`, or free-form family-defined kinds. `network_flow_table` refs MUST be emitted only by an adopted and claimed Network Flow Activity import apply path and MUST NOT be emitted while `network_flow_activity` is unclaimed.
+- `result_summary` MUST be compact and generic: `{ code, message, resource_refs? }`. `result_summary.code` is registry-backed, not opaque. When `status = succeeded`, `result_summary.code` MUST use one of the stable success codes declared by the adopted initiating route owner; Core initiating families are defined in §17 and Network Flow saved-graph success is owned by NF-REQ-170c. `result_summary.message` remains operator-visible text only, and clients MUST NOT branch protocol behavior on its contents.
+- `resource_refs[]` is a compact, non-exhaustive navigation summary of durable outputs or newly relevant durable resources, not a deep result payload. The current-profile closed `resource_refs[].kind` vocabulary is exactly `incident`, `import_session`, `snapshot`, `release`, `reference_pack_version`, `incident_bundle`, `network_flow_table`, and `network_flow_graph_view`. Current-profile emissions MUST NOT use `job`, `blob`, `preview_handle`, `download_handle`, `saved_view`, `view_schema`, or free-form family-defined kinds. `network_flow_graph_view` refs MUST identify the declaration ID and canonical `/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}` read route, only while Network Flow is claimed. `network_flow_table` refs MUST be emitted only by an adopted and claimed Network Flow Activity import apply path and MUST NOT be emitted while `network_flow_activity` is unclaimed.
 - `resource_refs[].route` is the canonical same-origin `GET` path for the referenced durable resource. It MUST begin with `/api/v1/`, MUST use the canonical public read route for that durable resource, and MUST NOT include a query string or fragment. It MUST NOT be a UI-local route, a presigned URL, a preview handle, a download handle, or the job-status route. Clients MAY dereference `route` or resolve the target by `kind` and `id`, but they MUST treat `route` as opaque.
-- For `incident`, `import_session`, `snapshot`, `release`, `incident_bundle`, and `network_flow_table`, `resource_refs[].id` MUST equal the existing public identifier for that resource kind. For `reference_pack_version`, `route` is required and `id` MUST equal the exact canonical `route` string.
+- For `incident`, `import_session`, `snapshot`, `release`, `incident_bundle`, `network_flow_table`, and `network_flow_graph_view`, `resource_refs[].id` MUST equal the existing public identifier for that resource kind. For `reference_pack_version`, `route` is required and `id` MUST equal the exact canonical `route` string.
 - Although `route` remains optional in the abstract job shell for forward compatibility, every current-profile `resource_ref` emitted by the route families in §17 MUST include `route`. If more than one current-profile ref is emitted, ordering MUST be deterministic. For `reference_packs_refreshed`, emitted refs MUST sort by `route asc`. Clients MUST ignore unknown future `kind` values rather than fail job rendering, even though current-profile servers are closed to the allowlist above.
 - `error_summary` MUST be compact and generic: `{ code, message, retryable, details? }`, where `details` is an optional JSON object. The common job resource MUST NOT carry job-family-specific deep result payloads.
 - `POST /api/v1/jobs/{job_id}/cancel` MUST require a JSON object containing required `client_txn_id` and optional `reason`. For idempotency comparison, omitted `reason` and explicit JSON `null` for `reason` compare equal. A cancel request body that is not a JSON object, omits required `client_txn_id`, or includes unknown top-level members MUST fail with `400` and `error.code = invalid_mutation_payload`.
@@ -4462,7 +4472,7 @@ Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-368
 
 **REQ-01-267A**
-`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; for Network Flow Activity v1, the only admitted resource kind is `network_flow_table`. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
+`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; Network Flow Activity contract major 6 registers `network_flow_table`, `network_flow_graph_view`, and `network_flow_indicator_binding` within their adopted Network Flow scopes. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
 
 An `extension_resource_changed` event MAY include `workspace_refs[]`. When present, every item MUST be an `extension_workspace` `sheet_ref` for the same `extension_profile_id`, sorted by `workspace_key asc`, and duplicate workspace keys are forbidden. The event MUST NOT include raw row values, source bytes, import-source locators, cursor payloads, graph payloads, old labels, new labels, or authorization diagnostics. Rename is represented by `change_kind='invalidate'` and `reason_code='renamed'`; soft delete and authorization loss are represented by `change_kind='remove'` with their matching reason codes.
 Profiles: base, network_flow_activity
@@ -8734,7 +8744,7 @@ kind set, and `max_active_attempts_per_process`. The complete runnable selection
 MUST assign every admitted job kind to exactly one worker contract and MUST
 reject a missing, duplicate, empty, unknown, or cross-handler assignment before
 readiness. Existing non-graph workers have a per-process maximum of `8` active
-attempts; `network_flow_activity.graph_materialization` has a maximum of `1`.
+attempts; `network_flow_activity.graph_view_worker_v1` has a maximum of `1`.
 These values are packaging facts, not deployment configuration. A hardcoded
 job-to-worker switch or a handler-local semaphore is not conformant.
 
@@ -10987,8 +10997,12 @@ Every resource-ref row above uses
 `cartulary.common_job_resource_ref_id.v1`. The exact Core-owned worker kinds
 are `import.discovery_worker_v1`, `import.apply_worker_v1`,
 `incident_portability.bundle_worker_v1`, and
-`reference_pack.lifecycle_worker_v1`. Network Flow Activity remains scheduled
-by Import and defines no worker kind of its own. Snapshot/Reporting owns its
+`reference_pack.lifecycle_worker_v1`. Core Import owns Network Flow import scheduling. Network Flow owns its
+saved-graph job kind `network_flow_activity.graph_view_materialize_v1`, worker
+kind `network_flow_activity.graph_view_worker_v1`, progress unit, terminal
+success code and maximum-one-worker assignment under NF-REQ-170c. These facts
+belong to the Network Flow owner fragment, not the Core job fragment. Common
+Jobs owns execution mechanics for both families. Snapshot/Reporting owns its
 job and worker facts in the adopted Reporting NLSpec.
 
 Profiles: base, import, incident_portability, reference_pack, snapshot_reporting

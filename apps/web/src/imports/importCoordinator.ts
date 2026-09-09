@@ -1,26 +1,23 @@
 import {
+  commonJobDoesNotRegress,
+  terminalCommonJob,
+} from "../services/commonJobContract";
+import {
   type ImportFailure,
   type ImportReadResult,
   importContractFailure,
   importInterruptedFailure,
 } from "../services/importClient";
 import type { ImportJobResource } from "../services/importContractAdapter";
-import {
-  importJobDoesNotRegress,
-  terminalImportJob,
-} from "../services/importJobContract";
 
-export type ImportClock = {
-  readonly now: () => number;
-  readonly schedule: (callback: () => void, milliseconds: number) => () => void;
-};
-export const browserImportClock: ImportClock = {
-  now: () => performance.now(),
-  schedule: (callback, milliseconds) => {
-    const id = setTimeout(callback, milliseconds);
-    return () => clearTimeout(id);
-  },
-};
+export { browserObservationClock as browserImportClock } from "../services/asyncObservation";
+
+import {
+  boundedRead,
+  browserObservationClock as browserImportClock,
+  type ObservationClock,
+} from "../services/asyncObservation";
+export type ImportClock = ObservationClock;
 export const importTiming = {
   upload: 120_000,
   request: 30_000,
@@ -34,28 +31,10 @@ export async function boundedImportRead<T>(
   timeout: number = importTiming.request,
   clock: ImportClock = browserImportClock,
 ): Promise<ImportReadResult<T>> {
-  const controller = new AbortController();
-  let cancelTimer = () => {};
-  let stop = () => {};
   try {
-    return await new Promise<ImportReadResult<T>>((resolve) => {
-      stop = () => {
-        controller.abort();
-        resolve({ kind: "failed", failure: importInterruptedFailure() });
-      };
-      if (signal.aborted) {
-        stop();
-        return;
-      }
-      signal.addEventListener("abort", stop, { once: true });
-      cancelTimer = clock.schedule(stop, timeout);
-      void run(controller.signal).then(resolve, () =>
-        resolve({ kind: "failed", failure: importInterruptedFailure() }),
-      );
-    });
-  } finally {
-    cancelTimer();
-    signal.removeEventListener("abort", stop);
+    return await boundedRead(run, signal, timeout, clock);
+  } catch {
+    return { kind: "failed", failure: importInterruptedFailure() };
   }
 }
 
@@ -99,11 +78,11 @@ export async function observeImportJob(options: {
       return { kind: "paused", job, failure: importInterruptedFailure() };
     if (next.kind === "failed")
       return { kind: "paused", job, failure: next.failure };
-    if (!importJobDoesNotRegress(job, next.value))
+    if (!commonJobDoesNotRegress(job, next.value))
       return { kind: "paused", job, failure: importContractFailure() };
     job = next.value;
     options.onJob(job);
-    if (terminalImportJob(job)) return { kind: "terminal", job };
+    if (terminalCommonJob(job)) return { kind: "terminal", job };
     await new Promise<void>((resolve) => {
       let cancel = () => {};
       const finish = () => {

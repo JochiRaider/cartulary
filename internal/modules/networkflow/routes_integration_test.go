@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -821,7 +823,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, unsupportedResp, http.StatusBadRequest, "network_flow_invalid_request")
 
 	createBody := map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_create_request.v2", "client_txn_id": "txn-temporal-saved-create", "display_name": "Temporal graph",
+		"schema_id": "cartulary.network_flow.graph_view_create_request.v3", "client_txn_id": "txn-temporal-saved-create", "display_name": "Temporal graph",
 		"semantic_query": map[string]any{
 			"schema_id": "cartulary.network_flow.graph_semantic_query.v2", "selected_table_ids": []string{table.TableID}, "filters": []any{},
 			"time_range":  map[string]any{"start_utc": "2026-07-10T09:00:00Z", "end_utc": "2026-07-10T09:04:00Z"},
@@ -831,14 +833,14 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 	createResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
 	graphViewID := created["graph_view"].(map[string]any)["graph_view_id"].(string)
-	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, created["job_id"].(string), "succeeded")
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, created["job"].(map[string]any)["job_id"].(string), "succeeded")
 
 	resourcePath := collectionPath + "/" + graphViewID
 	resultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	resource := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
 	result := resource["result"].(map[string]any)
 	projection := result["graph_projection_result"].(map[string]any)
-	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v3" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || projection["projection_version"] != "network_flow_activity.time_bucket.v1" {
+	if resource["schema_id"] != "cartulary.network_flow.graph_view_result.v4" || result["schema_id"] != "cartulary.network_flow.graph_query_result.v2" || projection["projection_version"] != "network_flow_activity.time_bucket.v1" {
 		t.Fatalf("temporal saved result contract = %#v", resource)
 	}
 	buckets := result["result_variant"].(map[string]any)["time_buckets"].([]any)
@@ -882,7 +884,7 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 		"schema_id": "cartulary.network_flow.graph_view_refresh_request.v1", "client_txn_id": "txn-temporal-saved-refresh", "base_graph_view_version": 1,
 	}, mutationOptions...)
 	refreshed := httptestx.RequireSuccessEnvelope(t, refreshResp, http.StatusAccepted)["data"].(map[string]any)
-	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job_id"].(string), "succeeded")
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job"].(map[string]any)["job_id"].(string), "succeeded")
 	refreshedResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	refreshedProjection := httptestx.RequireSuccessEnvelope(t, refreshedResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	if refreshedProjection["projection_result_id"] != projection["projection_result_id"] {
@@ -917,7 +919,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 
 	collectionPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graph-views"
 	createBody := map[string]any{
-		"schema_id":     "cartulary.network_flow.graph_view_create_request.v2",
+		"schema_id":     "cartulary.network_flow.graph_view_create_request.v3",
 		"client_txn_id": "txn-network-flow-graph-create",
 		"display_name":  "Shared flow graph",
 		"semantic_query": map[string]any{
@@ -935,23 +937,54 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusAccepted)["data"].(map[string]any)
 	graphView := created["graph_view"].(map[string]any)
 	graphViewID := graphView["graph_view_id"].(string)
-	jobID := created["job_id"].(string)
-	if graphView["graph_view_version"] != float64(1) || graphView["materialization_generation"] != float64(1) || graphView["last_materialization_status"] != "queued" {
+	jobID := created["job"].(map[string]any)["job_id"].(string)
+	if graphView["graph_view_version"] != float64(1) || graphView["materialization_generation"] != float64(1) || graphView["latest_job_id"] != jobID || created["job"].(map[string]any)["status_route"] != "/api/v1/jobs/"+jobID {
 		t.Fatalf("unexpected created graph view: %#v", graphView)
 	}
 	replayResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	replayed := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusAccepted)["data"].(map[string]any)
-	if replayed["job_id"] != jobID || replayed["graph_view"].(map[string]any)["graph_view_id"] != graphViewID {
+	if !reflect.DeepEqual(replayed, created) {
 		t.Fatalf("create replay drifted: %#v", replayed)
 	}
 
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, jobID, "succeeded")
 	terminalReplayResp := httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...)
 	terminalReplay := httptestx.RequireSuccessEnvelope(t, terminalReplayResp, http.StatusAccepted)["data"].(map[string]any)
-	if terminalReplay["job_id"] != jobID || terminalReplay["graph_view"].(map[string]any)["graph_view_id"] != graphViewID {
+	if !reflect.DeepEqual(terminalReplay, created) {
 		t.Fatalf("terminal create replay drifted: %#v", terminalReplay)
 	}
 	resourcePath := collectionPath + "/" + graphViewID
+	// Exercise authorization before request decoding without admitting additional work.
+	for _, role := range []string{"viewer", "editor", "reviewer", "admin"} {
+		if _, err := harness.Pool.Exec(context.Background(), "UPDATE incident_memberships SET role = $3 WHERE incident_id = $1 AND user_id = $2", incidentID, adminID, role); err != nil {
+			t.Fatal(err)
+		}
+		httptestx.RequireStatus(t, httptestx.DoJSON(t, http.MethodGet, collectionPath, nil, httptestx.WithCookies(adminLogin.SessionCookie)), http.StatusOK)
+		for _, action := range []struct {
+			method, path string
+			allowed      bool
+		}{
+			{http.MethodPost, collectionPath, role == "editor" || role == "admin"},
+			{http.MethodPatch, resourcePath, role == "editor" || role == "admin"},
+			{http.MethodPost, resourcePath + "/refresh", role == "editor" || role == "admin"},
+			{http.MethodDelete, resourcePath, role == "reviewer" || role == "admin"},
+		} {
+			status := http.StatusForbidden
+			if action.allowed {
+				status = http.StatusBadRequest
+			}
+			httptestx.RequireStatus(t, httptestx.DoJSON(t, action.method, action.path, map[string]any{}, mutationOptions...), status)
+		}
+	}
+	if _, err := harness.Pool.Exec(context.Background(), "UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1", incidentID); err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []struct{ method, path string }{{http.MethodGet, collectionPath}, {http.MethodGet, resourcePath}, {http.MethodGet, resourcePath + "/result"}, {http.MethodPost, collectionPath}, {http.MethodPatch, resourcePath}, {http.MethodPost, resourcePath + "/refresh"}, {http.MethodDelete, resourcePath}} {
+		httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, action.method, action.path, map[string]any{}, mutationOptions...), http.StatusConflict, "incident_closed")
+	}
+	if _, err := harness.Pool.Exec(context.Background(), "UPDATE incidents SET status = 'active', closed_at = NULL WHERE id = $1", incidentID); err != nil {
+		t.Fatal(err)
+	}
 	resultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	result := httptestx.RequireSuccessEnvelope(t, resultResp, http.StatusOK)["data"].(map[string]any)
 	projection := result["result"].(map[string]any)["graph_projection_result"].(map[string]any)
@@ -1082,13 +1115,26 @@ SELECT
 	}
 
 	renameBody := map[string]any{
-		"schema_id": "cartulary.network_flow.graph_view_rename_request.v1", "client_txn_id": "txn-network-flow-graph-rename",
+		"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": "txn-network-flow-graph-rename",
 		"base_graph_view_version": 1, "display_name": "Renamed flow graph",
 	}
 	renameResp := httptestx.DoJSON(t, http.MethodPatch, resourcePath, renameBody, mutationOptions...)
 	renamed := httptestx.RequireSuccessEnvelope(t, renameResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
-	if renamed["graph_view_version"] != float64(2) || renamed["materialization_generation"] != float64(1) || renamed["selected_result"] == nil {
+	if renamed["graph_view_version"] != float64(2) || renamed["materialization_generation"] != float64(1) || renamed["selected_result_binding"] == nil {
 		t.Fatalf("rename changed materialization identity: %#v", renamed)
+	}
+
+	noOpResp := httptestx.DoJSON(t, http.MethodPatch, resourcePath, map[string]any{
+		"schema_id": "cartulary.network_flow.graph_view_rename_request.v2", "client_txn_id": "txn-graph-noop",
+		"base_graph_view_version": 2, "display_name": "  Renamed flow graph  ",
+	}, mutationOptions...)
+	noOp := httptestx.RequireSuccessEnvelope(t, noOpResp, http.StatusOK)["data"].(map[string]any)["graph_view"]
+	if !reflect.DeepEqual(noOp, renamed) {
+		t.Fatalf("same normalized name changed declaration: %#v", noOp)
+	}
+	renamedReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
+	if !reflect.DeepEqual(renamedReplay, created) {
+		t.Fatal("rename altered original creation receipt")
 	}
 
 	refreshBody := map[string]any{
@@ -1098,10 +1144,10 @@ SELECT
 	refreshResp := httptestx.DoJSON(t, http.MethodPost, resourcePath+"/refresh", refreshBody, mutationOptions...)
 	refreshed := httptestx.RequireSuccessEnvelope(t, refreshResp, http.StatusAccepted)["data"].(map[string]any)
 	refreshedGraph := refreshed["graph_view"].(map[string]any)
-	if refreshedGraph["graph_view_version"] != float64(3) || refreshedGraph["materialization_generation"] != float64(2) || refreshedGraph["selected_result"] == nil {
+	if refreshedGraph["graph_view_version"] != float64(3) || refreshedGraph["materialization_generation"] != float64(2) || refreshedGraph["selected_result_binding"] == nil {
 		t.Fatalf("refresh did not preserve last-safe result: %#v", refreshedGraph)
 	}
-	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job_id"].(string), "succeeded")
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, refreshed["job"].(map[string]any)["job_id"].(string), "succeeded")
 	refreshedResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	refreshedResult := httptestx.RequireSuccessEnvelope(t, refreshedResultResp, http.StatusOK)["data"].(map[string]any)["result"].(map[string]any)["graph_projection_result"].(map[string]any)
 	if refreshedResult["projection_result_id"] != projection["projection_result_id"] {
@@ -1115,22 +1161,55 @@ SELECT
 	httptestx.RequireSuccessEnvelope(t, deleteTableResp, http.StatusOK)
 	invalidatedResp := httptestx.DoJSON(t, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	invalidated := httptestx.RequireSuccessEnvelope(t, invalidatedResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
-	if invalidated["graph_view_version"] != float64(4) || invalidated["materialization_generation"] != float64(3) || invalidated["selected_result"] != nil || invalidated["last_failure_code"] != "network_flow_source_table_deleted" {
+	if invalidated["graph_view_version"] != float64(4) || invalidated["materialization_generation"] != float64(3) || invalidated["selected_result_binding"] != nil || invalidated["last_failure_code"] != "network_flow_source_table_deleted" {
 		t.Fatalf("source retirement did not invalidate saved graph: %#v", invalidated)
 	}
 	invalidatedResultResp := httptestx.DoJSON(t, http.MethodGet, resourcePath+"/result", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, invalidatedResultResp, http.StatusConflict, "network_flow_graph_view_not_materialized")
 
-	retireResp := httptestx.DoJSON(t, http.MethodDelete, resourcePath, map[string]any{
+	retireBody := map[string]any{
 		"schema_id": "cartulary.network_flow.graph_view_retire_request.v1", "client_txn_id": "txn-network-flow-graph-retire",
 		"base_graph_view_version": 4,
-	}, mutationOptions...)
-	retired := httptestx.RequireSuccessEnvelope(t, retireResp, http.StatusOK)["data"].(map[string]any)["graph_view"].(map[string]any)
-	if retired["state"] != "retired" || retired["graph_view_version"] != float64(5) || retired["materialization_generation"] != float64(4) || retired["selected_result"] != nil {
-		t.Fatalf("retired graph view drifted: %#v", retired)
+	}
+	for range 2 {
+		retireResp := httptestx.DoJSON(t, http.MethodDelete, resourcePath, retireBody, mutationOptions...)
+		httptestx.RequireStatus(t, retireResp, http.StatusNoContent)
+		body, err := io.ReadAll(retireResp.Body)
+		_ = retireResp.Body.Close()
+		if err != nil || len(body) != 0 {
+			t.Fatalf("retirement must be bodyless: %q %v", body, err)
+		}
+	}
+	retired, err := store.GetGraphViewDeclaration(context.Background(), incidentID, graphViewID)
+	if err != nil || retired.DeclarationState != GraphViewDeclarationStateRetired || retired.GraphViewVersion != 5 || retired.MaterializationGeneration != 4 || retired.SelectedResult != nil {
+		t.Fatalf("retired declaration drifted: %#v %v", retired, err)
 	}
 	getRetired := httptestx.DoJSON(t, http.MethodGet, resourcePath, nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	httptestx.RequireErrorEnvelope(t, getRetired, http.StatusConflict, "network_flow_graph_view_not_active")
+	httptestx.RequireErrorEnvelope(t, getRetired, http.StatusNotFound, "network_flow_graph_view_not_found")
+	retiredReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
+	if !reflect.DeepEqual(retiredReplay, created) {
+		t.Fatal("retirement altered original creation receipt")
+	}
+	if _, err := harness.Pool.Exec(context.Background(), `UPDATE jobs SET retained_until = $2 WHERE job_id = $1`, uuid.MustParse(jobID), time.Now().UTC().Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	expired := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, expired, http.StatusNotFound, "job_not_found")
+	expiredReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, collectionPath, createBody, mutationOptions...), http.StatusAccepted)["data"]
+	if !reflect.DeepEqual(expiredReplay, created) {
+		t.Fatal("job expiry altered original creation receipt")
+	}
+	intentSelector := collaborationsupport.IntentSelector{IncidentID: incidentID.String(), SourceIdentity: "network_flow_graph_view:" + graphViewID}
+	intentCount := collaborationsupport.CountIntents(t, harness.Pool, intentSelector)
+	intentSelector.PayloadReasonCode = "renamed"
+	renamedCount := collaborationsupport.CountIntents(t, harness.Pool, intentSelector)
+	intentSelector.PayloadReasonCode = ""
+	intentSelector.PayloadChangeKind = "remove"
+	removalCount := collaborationsupport.CountIntents(t, harness.Pool, intentSelector)
+	if intentCount != 7 || renamedCount != 1 || removalCount != 1 {
+		t.Fatalf("saved graph outbox duplicated or omitted lifecycle effects: total=%d renamed=%d removed=%d", intentCount, renamedCount, removalCount)
+	}
+
 }
 
 func projectionObjectIDs(t testing.TB, projection map[string]any) ([]string, []string) {

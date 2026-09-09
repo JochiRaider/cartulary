@@ -156,6 +156,7 @@ describe("useNetworkFlowExtensionEvents", () => {
       changeKind: "remove",
       reasonCode: "incident_closed",
       resourceId: "*",
+      resourceKind: "*",
     });
   });
 });

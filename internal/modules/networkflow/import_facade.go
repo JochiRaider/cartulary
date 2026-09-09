@@ -27,7 +27,7 @@ type importFacade struct {
 const (
 	importFacadeBindingSchemaID = "cartulary.imports.analytical_facade_binding.v1"
 	importFacadeID              = "network_flow_import_facade_v1"
-	importOwnerContractRef      = "network_flow_activity@5"
+	importOwnerContractRef      = "network_flow_activity@6"
 	importMappingSchemaID       = "cartulary.network_flow.approved_mapping.v1"
 	importPreviewRequestID      = "cartulary.network_flow.import_preview_request.v1"
 	importPreviewResultSchemaID = "cartulary.network_flow.import_preview_result.v1"
@@ -47,7 +47,7 @@ func (f *importFacade) Binding() imports.ExtensionImportFacadeBinding {
 		ExtensionProfileID:     ProfileID,
 		OwnerContractRef:       importOwnerContractRef,
 		FacadeID:               importFacadeID,
-		ContractMajor:          5,
+		ContractMajor:          6,
 		MappingSchemaID:        importMappingSchemaID,
 		PreviewRequestSchemaID: importPreviewRequestID,
 		PreviewResultSchemaID:  importPreviewResultSchemaID,

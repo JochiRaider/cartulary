@@ -139,13 +139,13 @@ const value = {
       "admission_validation": {
         "dependency_probes": [],
         "post_migration_algorithmid": "network_flow_activity.validate_state_v4",
-        "preflight_algorithmid": null,
+        "preflight_algorithmid": "network_flow_activity.saved_graph_cutover_v6",
         "schema_id": "cartulary.extension_admission_validation.v1"
       },
       "capability_ids": [],
       "claim_config_key": "network_flow_activity.claimed",
       "claimable": true,
-      "contract_major": 5,
+      "contract_major": 6,
       "contributions": [
         {
           "contribution_id": "network_flow_activity.backup_restore",

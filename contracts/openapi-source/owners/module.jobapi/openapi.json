@@ -411,6 +411,24 @@
           "message",
           "retryable"
         ]
+      },
+      "CommonJobReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "job_id",
+          "status_route"
+        ],
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status_route": {
+            "type": "string",
+            "pattern": "^/api/v1/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
       }
     }
   }

@@ -87,7 +87,7 @@ func TestImportTargetRegistryDerivationIsDeterministicAndComplete(t *testing.T) 
 		analyticalAdapter.BindingSchemaID == nil ||
 		*analyticalAdapter.BindingSchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
 		analyticalAdapter.ContractMajor == nil ||
-		*analyticalAdapter.ContractMajor != 5 {
+		*analyticalAdapter.ContractMajor != 6 {
 		t.Fatalf("analytical adapter omitted binding identity: %#v", analyticalAdapter)
 	}
 }

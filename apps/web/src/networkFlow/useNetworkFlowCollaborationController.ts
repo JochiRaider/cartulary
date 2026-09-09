@@ -36,6 +36,7 @@ export function useNetworkFlowCollaborationController({
 }) {
   const handleResourceChange = useCallback(
     async (change: NetworkFlowExtensionResourceChange) => {
+      if (change.resourceKind === "network_flow_graph_view") return;
       if (
         change.reasonCode === "authorization_lost" ||
         (change.changeKind === "remove" && change.resourceId === "*")

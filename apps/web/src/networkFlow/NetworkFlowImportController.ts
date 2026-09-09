@@ -16,6 +16,10 @@ import {
 } from "../imports/importRequests";
 import { clientTxnID } from "../services/browserApi";
 import {
+  commonJobDoesNotRegress,
+  terminalCommonJob,
+} from "../services/commonJobContract";
+import {
   type ImportClient,
   type ImportFailure,
   type ImportWriteReceipt,
@@ -25,11 +29,7 @@ import {
   sameImportSessionSource,
   sameImportUnitSource,
 } from "../services/importClient";
-import {
-  importJobDoesNotRegress,
-  importSessionIdFromReceipt,
-  terminalImportJob,
-} from "../services/importJobContract";
+import { importSessionIdFromReceipt } from "../services/importJobContract";
 import { requireClaimGatedAnalyticalImportTarget } from "../services/importTargetContractAdapter";
 import {
   decodeNetworkFlowImportPreviewResult,
@@ -310,7 +310,7 @@ export class NetworkFlowImportController {
       this.state.applyJob ||
       this.state.approval ||
       (this.state.discoveryJob &&
-        !terminalImportJob(this.state.discoveryJob.resource))
+        !terminalCommonJob(this.state.discoveryJob.resource))
     )
       return false;
     return true;
@@ -328,7 +328,7 @@ export class NetworkFlowImportController {
       unresolvedNetworkFlowWrite(this.state) ||
       this.state.cancellation?.disposition === "uncertain" ||
       this.state.cancellation?.disposition === "pending" ||
-      (job && !terminalImportJob(job.resource)) ||
+      (job && !terminalCommonJob(job.resource)) ||
       (this.state.handoff && this.state.handoff.status !== "selected")
     )
       return false;
@@ -1166,7 +1166,7 @@ export class NetworkFlowImportController {
       this.canRead() &&
         !this.binding?.closed &&
         job &&
-        !terminalImportJob(job) &&
+        !terminalCommonJob(job) &&
         job.cancelable &&
         (job.submitted_by_user_id === this.scope?.actorId ||
           this.binding?.role === "admin") &&
@@ -1224,7 +1224,7 @@ export class NetworkFlowImportController {
       this.failure(read.failure, "job");
       return;
     }
-    if (!importJobDoesNotRegress(known.resource, read.value)) {
+    if (!commonJobDoesNotRegress(known.resource, read.value)) {
       this.release(stop);
       this.publish({
         [key]: { ...known, observing: false, failure: importContractFailure() },
@@ -1240,7 +1240,7 @@ export class NetworkFlowImportController {
         failure: null,
       },
     });
-    if (!replay && (!read.value.cancelable || terminalImportJob(read.value))) {
+    if (!replay && (!read.value.cancelable || terminalCommonJob(read.value))) {
       this.release(stop);
       await this.resumeObservation();
       return;
@@ -1272,7 +1272,7 @@ export class NetworkFlowImportController {
     const acceptCancellation = (receipt: ImportWriteReceipt) => {
       if (
         receipt.kind !== "job" ||
-        !importJobDoesNotRegress(read.value, receipt.job)
+        !commonJobDoesNotRegress(read.value, receipt.job)
       ) {
         this.publish({
           cancellation: {
@@ -1285,10 +1285,10 @@ export class NetworkFlowImportController {
         return false;
       }
       const latest = this.state[key]?.resource ?? read.value;
-      const resource = importJobDoesNotRegress(latest, receipt.job)
+      const resource = commonJobDoesNotRegress(latest, receipt.job)
         ? receipt.job
         : latest;
-      if (!importJobDoesNotRegress(receipt.job, resource)) {
+      if (!commonJobDoesNotRegress(receipt.job, resource)) {
         this.publish({
           cancellation: {
             request,

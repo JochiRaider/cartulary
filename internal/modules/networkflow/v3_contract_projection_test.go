@@ -10,12 +10,12 @@ import (
 	contractnetworkflow "github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow"
 )
 
-func TestNetworkFlowV5GraphContractProjection_Unit(t *testing.T) {
+func TestNetworkFlowV6GraphContractProjection_Unit(t *testing.T) {
 	t.Parallel()
 
 	index := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/index.json")
-	if index["contract_major"] != float64(5) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
-		t.Fatalf("Network Flow contract identity = %#v; want major 5/index v3", index)
+	if index["contract_major"] != float64(6) || index["schema_id"] != "cartulary.network_flow_contract_index.v3" {
+		t.Fatalf("Network Flow contract identity = %#v; want major 6/index v3", index)
 	}
 	graphSchemas := make([]string, 0)
 	for _, rawSchemaID := range index["public_schema_ids"].([]any) {
@@ -25,7 +25,7 @@ func TestNetworkFlowV5GraphContractProjection_Unit(t *testing.T) {
 		}
 	}
 	wantGraphSchemas := []string{
-		"cartulary.network_flow.graph_view_rename_request.v1",
+		"cartulary.network_flow.graph_view_rename_request.v2",
 		"cartulary.network_flow.graph_view_refresh_request.v1",
 		"cartulary.network_flow.graph_view_retire_request.v1",
 		"cartulary.network_flow.graph_query_request.v2",
@@ -34,18 +34,18 @@ func TestNetworkFlowV5GraphContractProjection_Unit(t *testing.T) {
 		"cartulary.network_flow.graph_contributor_query_request.v2",
 		"cartulary.network_flow.graph_contributor_query_continuation.v1",
 		"cartulary.network_flow.graph_contributor_query_result.v2",
-		"cartulary.network_flow.graph_view_create_request.v2",
+		"cartulary.network_flow.graph_view_create_request.v3",
 		"cartulary.network_flow.graph_view_contributor_query_request.v2",
 		"cartulary.network_flow.graph_view_contributor_query_result.v2",
-		"cartulary.network_flow.graph_view.v3",
-		"cartulary.network_flow.graph_view_list.v3",
-		"cartulary.network_flow.graph_view_get.v3",
-		"cartulary.network_flow.graph_view_accepted.v3",
-		"cartulary.network_flow.graph_view_mutation_result.v3",
-		"cartulary.network_flow.graph_view_result.v3",
+		"cartulary.network_flow.graph_view.v4",
+		"cartulary.network_flow.graph_view_list.v4",
+		"cartulary.network_flow.graph_view_get.v4",
+		"cartulary.network_flow.graph_view_accepted.v4",
+		"cartulary.network_flow.graph_view_mutation_result.v4",
+		"cartulary.network_flow.graph_view_result.v4",
 	}
 	if !slices.Equal(graphSchemas, wantGraphSchemas) {
-		t.Fatalf("Network Flow v5 Graph schema allowlist = %#v; want %#v", graphSchemas, wantGraphSchemas)
+		t.Fatalf("Network Flow v6 Graph schema allowlist = %#v; want %#v", graphSchemas, wantGraphSchemas)
 	}
 
 	routesDocument := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/routes.v1.json")
@@ -64,7 +64,7 @@ func TestNetworkFlowV5GraphContractProjection_Unit(t *testing.T) {
 	}
 	assertNetworkFlowGraphRoute(t, graphRoutes, "nf.graph_views.create", "editor", "client_txn_id_required", 202)
 	assertNetworkFlowGraphRoute(t, graphRoutes, "nf.graph_views.patch", "editor", "client_txn_id_required", 200)
-	assertNetworkFlowGraphRoute(t, graphRoutes, "nf.graph_views.delete", "reviewer", "client_txn_id_required", 200)
+	assertNetworkFlowGraphRoute(t, graphRoutes, "nf.graph_views.delete", "reviewer", "client_txn_id_required", 204)
 	assertNetworkFlowGraphRoute(t, graphRoutes, "nf.graph_views.refresh", "editor", "client_txn_id_required", 202)
 	for _, routeID := range []string{"nf.graph_views.list", "nf.graph_views.get", "nf.graph_views.result", "nf.graph_views.contributors.query"} {
 		assertNetworkFlowGraphRoute(t, graphRoutes, routeID, "viewer", "read_route", 200)
@@ -72,6 +72,42 @@ func TestNetworkFlowV5GraphContractProjection_Unit(t *testing.T) {
 
 	schemas := decodeNetworkFlowContractArtifact(t, "contracts/network-flow/schemas.v3.json")
 	definitions := schemas["$defs"].(map[string]any)
+	declaration := definitions["GraphViewV4"].(map[string]any)
+	wantDeclaration := []string{
+		"schema_id", "graph_view_id", "incident_id", "display_name", "state",
+		"semantic_query", "semantic_query_sha256", "desired_source_snapshot_id",
+		"selected_result_binding", "graph_view_version", "materialization_generation",
+		"created_by", "created_at", "updated_at", "latest_job_id", "last_failure_code", "last_failed_at",
+	}
+	declarationProperties := declaration["properties"].(map[string]any)
+	if len(declarationProperties) != len(wantDeclaration) || declaration["additionalProperties"] != false {
+		t.Fatalf("declaration must expose exactly the complete owner resource: %#v", declaration)
+	}
+	declarationRequired := anyStringBoolSet(declaration["required"].([]any))
+	for _, member := range wantDeclaration {
+		if _, present := declarationProperties[member]; !present || !declarationRequired[member] {
+			t.Fatalf("declaration omits required owner fact %q", member)
+		}
+	}
+	if len(declaration["oneOf"].([]any)) != 2 {
+		t.Fatal("declaration must pair nullable failure code and time")
+	}
+	binding := definitions["GraphViewSelectedResult"].(map[string]any)
+	if len(binding["required"].([]any)) != 7 || len(binding["properties"].(map[string]any)) != 7 {
+		t.Fatal("immutable result binding must retain all seven identity members")
+	}
+	receipt := definitions["GraphViewAcceptedV4"].(map[string]any)
+	if len(receipt["properties"].(map[string]any)) != 3 || !anyStringBoolSet(receipt["required"].([]any))["job"] {
+		t.Fatal("accepted receipt must contain only schema, declaration and narrow job reference")
+	}
+	jobReference := definitions["CommonJobReference"].(map[string]any)
+	jobMembers := anyStringBoolSet(jobReference["required"].([]any))
+	if len(jobReference["properties"].(map[string]any)) != 2 || !jobMembers["job_id"] || !jobMembers["status_route"] {
+		t.Fatal("initiating job reference must not copy execution metadata")
+	}
+	if graphRoutes["nf.graph_views.delete"]["success_schema_id"] != nil {
+		t.Fatal("retirement must have no response schema or body")
+	}
 	graphResult := definitions["GraphProjectionResultV2"].(map[string]any)
 	if graphResult["additionalProperties"] != false {
 		t.Fatalf("nested Graph Projection v2 result must be closed: %#v", graphResult)
@@ -80,7 +116,7 @@ func TestNetworkFlowV5GraphContractProjection_Unit(t *testing.T) {
 	if properties["projection_schema_id"].(map[string]any)["const"] != "graph_projection.v2" {
 		t.Fatalf("ephemeral graph result did not cut directly to v2: %#v", properties["projection_schema_id"])
 	}
-	for _, definitionName := range []string{"GraphViewCreateRequestV2", "GraphViewRenameRequest", "GraphViewRefreshRequest", "GraphViewRetireRequest"} {
+	for _, definitionName := range []string{"GraphViewCreateRequestV3", "GraphViewRenameRequestV2", "GraphViewRefreshRequest", "GraphViewRetireRequest"} {
 		definition := definitions[definitionName].(map[string]any)
 		required := anyStringBoolSet(definition["required"].([]any))
 		if !required["client_txn_id"] {

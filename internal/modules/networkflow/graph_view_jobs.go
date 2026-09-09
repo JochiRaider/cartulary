@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
@@ -30,7 +31,6 @@ type GraphViewJobManager interface {
 	Get(context.Context, uuid.UUID) (jobs.Resource, error)
 	ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error)
 	HandlerPayload(context.Context, jobs.Execution) (json.RawMessage, error)
-	RetainedHandlerPayload(context.Context, uuid.UUID) (json.RawMessage, error)
 	CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error)
 }
 
@@ -100,6 +100,11 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	}
 	if err := json.Unmarshal(rawPayload, &payload); err != nil || !payload.valid() {
 		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
+	}
+	if err := withinTransaction(ctx, m.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
+		return admission.NewChecker(m.store.pool).RequireOpenTx(ctx, tx, payload.IncidentID)
+	}); err != nil {
+		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "publication_conflict", false)
 	}
 	declaration, err := m.store.GetGraphViewDeclaration(ctx, payload.IncidentID, payload.GraphViewID)
 	if graphViewMaterializationTimedOut(ctx) {
@@ -193,6 +198,9 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		},
 		FinalCommitID: completed.Binding.ProjectionResultID + ":" + execution.JobID().String(),
 		Mutate: func(finalizeCtx context.Context, tx pgx.Tx) error {
+			if err := admission.NewChecker(m.store.pool).RequireOpenTx(finalizeCtx, tx, payload.IncidentID); err != nil {
+				return ErrGraphViewPublicationStale
+			}
 			currentSourceSnapshot, sourceErr := m.graphViewSourceSnapshotTx(finalizeCtx, tx, payload.IncidentID, semantic)
 			if sourceErr != nil || currentSourceSnapshot != payload.SourceSnapshotID {
 				return ErrGraphViewPublicationStale
@@ -310,7 +318,7 @@ func (m *Module) cancelGraphViewMaterialization(ctx context.Context, execution j
 	total := 1
 	_, err := m.jobManager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{
 		Progress:      jobs.Progress{Completed: 0, Total: &total},
-		ResultSummary: jobs.ResultSummary{Code: "network_flow_graph_materialization_cancelled", Message: "Saved graph materialization canceled."},
+		ResultSummary: jobs.ResultSummary{Code: "job_canceled", Message: "Saved graph materialization canceled."},
 	})
 	return err
 }

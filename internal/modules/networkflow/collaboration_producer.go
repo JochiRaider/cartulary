@@ -58,3 +58,27 @@ func (s *Store) appendTableResourceIntentTx(ctx context.Context, tx pgx.Tx, tabl
 		CreatedAt:        table.UpdatedAt.UTC(),
 	})
 }
+
+func (s *Store) appendGraphViewResourceIntentTx(ctx context.Context, tx pgx.Tx, graph GraphViewDeclaration, reasonCode string) error {
+	if s == nil || s.resourceIntents == nil {
+		return fmt.Errorf("network flow resource intent appender is not configured")
+	}
+	changeKind := "invalidate"
+	if graph.DeclarationState == GraphViewDeclarationStateRetired {
+		changeKind = "remove"
+		reasonCode = "soft_deleted"
+	}
+	payload := map[string]any{
+		"extension_profile_id": ProfileID, "resource_kind": "network_flow_graph_view", "resource_id": graph.GraphViewID,
+		"change_kind": changeKind, "reason_code": reasonCode,
+		"workspace_refs": []map[string]any{{"kind": "extension_workspace", "extension_profile_id": ProfileID, "workspace_key": "network_analysis"}},
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal saved graph collaboration intent: %w", err)
+	}
+	return s.resourceIntents.AppendResourceIntentTx(ctx, tx, ResourceIntent{
+		IntentKey:  fmt.Sprintf("extension_resource_changed:network_flow_graph_view:%s:%d:%d:%s", graph.GraphViewID, graph.GraphViewVersion, graph.MaterializationGeneration, reasonCode),
+		IncidentID: graph.IncidentID, CanonicalPayload: encoded, SourceIdentity: "network_flow_graph_view:" + graph.GraphViewID, CreatedAt: graph.UpdatedAt.UTC(),
+	})
+}

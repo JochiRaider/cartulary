@@ -105,13 +105,15 @@ func cloneDescriptor(descriptor Descriptor) Descriptor {
 }
 
 type profileRecord struct {
-	descriptor             Descriptor
-	descriptorObject       map[string]any
-	descriptorSHA256       string
-	bindingObject          map[string]any
-	bindingSHA256          string
-	jobContracts           []JobKindContract
-	workerRuntimeContracts []WorkerPublication
+	configurationContract       map[string]any
+	configurationContractSHA256 string
+	descriptor                  Descriptor
+	descriptorObject            map[string]any
+	descriptorSHA256            string
+	bindingObject               map[string]any
+	bindingSHA256               string
+	jobContracts                []JobKindContract
+	workerRuntimeContracts      []WorkerPublication
 }
 
 // Coordinator is an immutable coordination facade over generated build inputs.
@@ -202,6 +204,22 @@ func NewCoordinator(source ArtifactSource) (*Coordinator, error) {
 		}
 		if bindingErr := validateBinding(descriptor, descriptorArtifact.SHA256, bindingObject); bindingErr != nil {
 			return nil, unavailableBinding(descriptor.ProfileID, bindingErr.Error())
+		}
+		admission, ok := descriptorObject["admission_validation"].(map[string]any)
+		if !ok || len(admission) != 4 || admission["schema_id"] != "cartulary.extension_admission_validation.v1" {
+			return nil, unavailableBinding(descriptor.ProfileID, "admission_validation_invalid")
+		}
+		for _, phase := range []string{"preflight", "post_migration"} {
+			value, present := admission[phase+"_algorithmid"]
+			if !present || value != bindingObject[phase+"_algorithm_id"] {
+				return nil, unavailableBinding(descriptor.ProfileID, "admission_algorithm_mismatch")
+			}
+			if value != nil {
+				id, ok := value.(string)
+				if !ok || !strings.HasPrefix(id, descriptor.ProfileID+".") {
+					return nil, unavailableBinding(descriptor.ProfileID, "admission_algorithm_invalid")
+				}
+			}
 		}
 		jobContracts, parseErr := parseJobKindContracts(descriptor.ProfileID, bindingObject["job_kind_contracts"])
 		if parseErr != nil {

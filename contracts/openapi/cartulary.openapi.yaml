@@ -10124,6 +10124,24 @@
         ],
         "type": "object"
       },
+      "CommonJobReference": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status_route": {
+            "pattern": "^/api/v1/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "status_route"
+        ],
+        "type": "object"
+      },
       "CompositionAnchor": {
         "additionalProperties": false,
         "properties": {

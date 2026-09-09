@@ -19,7 +19,7 @@
       "imported_artifacts": [
         {
           "artifact_id": "cartulary.base_route_reservation_registry.current",
-        "artifact_sha256": "51efa3711759449d1ce72ad710bd484d5c0de43d074900e25095d2a5f565297f",
+          "artifact_sha256": "51efa3711759449d1ce72ad710bd484d5c0de43d074900e25095d2a5f565297f",
           "safe_ref": "artifact:cartulary.base_route_reservation_registry.current",
           "schema_id": "cartulary.base_route_reservation_registry.v3"
         }
@@ -60,6 +60,7 @@
         "network_flow_activity.migrate_state_3_to_4_v1",
         "network_flow_activity.reporting_graph_order_v1",
         "network_flow_activity.reporting_graph_source_v1",
+        "network_flow_activity.saved_graph_cutover_v6",
         "network_flow_activity.validate_state_v4"
       ],
       "imported_artifacts": []

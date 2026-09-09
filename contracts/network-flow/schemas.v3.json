@@ -3,7 +3,7 @@
   "$id": "cartulary.network_flow_public_schemas.v3",
   "schema_id": "cartulary.network_flow_public_schemas.v3",
   "profile_id": "network_flow_activity",
-  "contract_major": 5,
+  "contract_major": 6,
   "$defs": {
     "TimestampProfile": {
       "x_schema_id": "cartulary.network_flow.timestamp_profile.v1",
@@ -834,15 +834,15 @@
         "canonical_output_sha256": { "$ref": "#/$defs/SHA256" }
       }
     },
-    "GraphViewRenameRequest": {
-      "x_schema_id": "cartulary.network_flow.graph_view_rename_request.v1",
+    "GraphViewRenameRequestV2": {
+      "x_schema_id": "cartulary.network_flow.graph_view_rename_request.v2",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "client_txn_id", "display_name", "base_graph_view_version"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_rename_request.v1" },
+        "schema_id": { "const": "cartulary.network_flow.graph_view_rename_request.v2" },
         "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "display_name": { "type": "string", "description": "Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes." },
         "base_graph_view_version": { "$ref": "#/$defs/PositiveInt" }
       }
     },
@@ -1299,91 +1299,112 @@
         "meta": { "$ref": "#/$defs/CountMeta" }
       }
     },
-    "GraphViewV3": {
-      "x_schema_id": "cartulary.network_flow.graph_view.v3",
+    "GraphViewV4": {
+      "x_schema_id": "cartulary.network_flow.graph_view.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view_id", "incident_id", "display_name", "normalized_display_name", "graph_view_version", "materialization_generation", "state", "semantic_query", "selected_result", "last_materialization_job_id", "last_materialization_status", "last_failure_code", "created_at", "updated_at"],
+      "required": ["schema_id", "graph_view_id", "incident_id", "display_name", "state", "semantic_query", "semantic_query_sha256", "desired_source_snapshot_id", "selected_result_binding", "graph_view_version", "materialization_generation", "created_by", "created_at", "updated_at", "latest_job_id", "last_failure_code", "last_failed_at"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view.v3" },
+        "schema_id": { "const": "cartulary.network_flow.graph_view.v4" },
         "graph_view_id": { "$ref": "#/$defs/GraphViewID" },
         "incident_id": { "$ref": "#/$defs/UUID" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "normalized_display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "graph_view_version": { "$ref": "#/$defs/PositiveInt" },
-        "materialization_generation": { "$ref": "#/$defs/PositiveInt" },
+        "display_name": { "$ref": "#/$defs/GraphViewDisplayName" },
         "state": { "enum": ["active", "retired"] },
         "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" },
-        "selected_result": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/GraphViewSelectedResult" }] },
-        "last_materialization_job_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 160 },
-        "last_materialization_status": { "enum": ["not_started", "queued", "running", "succeeded", "failed", "cancelled"] },
-        "last_failure_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+        "semantic_query_sha256": { "$ref": "#/$defs/SHA256" },
+        "desired_source_snapshot_id": { "$ref": "#/$defs/OpaqueID" },
+        "selected_result_binding": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/GraphViewSelectedResult" }] },
+        "graph_view_version": { "$ref": "#/$defs/PositiveInt" },
+        "materialization_generation": { "$ref": "#/$defs/PositiveInt" },
+        "created_by": { "$ref": "#/$defs/UUID" },
         "created_at": { "$ref": "#/$defs/TimestampUTC" },
-        "updated_at": { "$ref": "#/$defs/TimestampUTC" }
+        "updated_at": { "$ref": "#/$defs/TimestampUTC" },
+        "latest_job_id": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/UUID" }] },
+        "last_failure_code": { "enum": [null, "network_flow_source_table_deleted", "network_flow_graph_materialization_source_invalid", "network_flow_graph_materialization_projection_rejected", "network_flow_graph_materialization_projection_unavailable", "network_flow_graph_materialization_publication_conflict", "network_flow_graph_materialization_cancelled", "network_flow_graph_materialization_timeout", "network_flow_graph_materialization_retry_exhausted"] },
+        "last_failed_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/TimestampUTC" }] }
+      },
+      "oneOf": [
+        { "properties": { "last_failure_code": { "type": "null" }, "last_failed_at": { "type": "null" } } },
+        { "properties": { "last_failure_code": { "type": "string" }, "last_failed_at": { "type": "string" } } }
+      ]
+    },
+    "GraphViewDisplayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+      "description": "NFC; exact Network Flow Unicode whitespace trimming; 1..64 UTF-8 bytes. Semantic validation also enforces normalization and byte length. Duplicates allowed."
+    },
+    "CommonJobReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["job_id", "status_route"],
+      "properties": {
+        "job_id": { "$ref": "#/$defs/UUID" },
+        "status_route": { "type": "string", "pattern": "^/api/v1/jobs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" }
       }
     },
-    "GraphViewListV3": {
-      "x_schema_id": "cartulary.network_flow.graph_view_list.v3",
+    "GraphViewListV4": {
+      "x_schema_id": "cartulary.network_flow.graph_view_list.v4",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_views"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v3" },
-        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphViewV3" } }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_list.v4" },
+        "graph_views": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/GraphViewV4" } }
       }
     },
-    "GraphViewGetV3": {
-      "x_schema_id": "cartulary.network_flow.graph_view_get.v3",
+    "GraphViewGetV4": {
+      "x_schema_id": "cartulary.network_flow.graph_view_get.v4",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v3" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV3" }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_get.v4" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV4" }
       }
     },
-    "GraphViewCreateRequestV2": {
-      "x_schema_id": "cartulary.network_flow.graph_view_create_request.v2",
+    "GraphViewCreateRequestV3": {
+      "x_schema_id": "cartulary.network_flow.graph_view_create_request.v3",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "client_txn_id", "display_name", "semantic_query"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_create_request.v2" },
+        "schema_id": { "const": "cartulary.network_flow.graph_view_create_request.v3" },
         "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "display_name": { "type": "string", "description": "Normalize NFC, reject C0/C1, trim exact owner whitespace, then require 1..64 UTF-8 bytes." },
         "semantic_query": { "$ref": "#/$defs/GraphSemanticQueryV2" }
       }
     },
-    "GraphViewAcceptedV3": {
-      "x_schema_id": "cartulary.network_flow.graph_view_accepted.v3",
+    "GraphViewAcceptedV4": {
+      "x_schema_id": "cartulary.network_flow.graph_view_accepted.v4",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_id", "graph_view", "job_id", "job_kind"],
+      "required": ["schema_id", "graph_view", "job"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v3" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV3" },
-        "job_id": { "type": "string", "minLength": 1, "maxLength": 160 },
-        "job_kind": { "const": "network_flow_activity.graph_view_materialize_v1" }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_accepted.v4" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV4" },
+        "job": { "$ref": "#/$defs/CommonJobReference" }
       }
     },
-    "GraphViewMutationResultV3": {
-      "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v3",
+    "GraphViewMutationResultV4": {
+      "x_schema_id": "cartulary.network_flow.graph_view_mutation_result.v4",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v3" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV3" }
+        "schema_id": { "const": "cartulary.network_flow.graph_view_mutation_result.v4" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV4" }
       }
     },
-    "GraphViewResultV3": {
-      "x_schema_id": "cartulary.network_flow.graph_view_result.v3",
+    "GraphViewResultV4": {
+      "x_schema_id": "cartulary.network_flow.graph_view_result.v4",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "graph_view", "result"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v3" },
-        "graph_view": { "$ref": "#/$defs/GraphViewV3" },
+        "schema_id": { "const": "cartulary.network_flow.graph_view_result.v4" },
+        "graph_view": { "$ref": "#/$defs/GraphViewV4" },
         "result": { "$ref": "#/$defs/GraphQueryResultV2" }
       }
     },

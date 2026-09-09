@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -36,7 +35,8 @@ var (
 	ErrGraphViewDeclarationInvalid   = errors.New("network flow graph view declaration invalid")
 	ErrGraphViewDeclarationNotActive = errors.New("network flow graph view declaration not active")
 	ErrGraphViewVersionConflict      = errors.New("network flow graph view version conflict")
-	ErrGraphViewDeclarationLimit     = errors.New("network flow graph view declaration limit exceeded")
+	ErrGraphViewActiveLimit          = errors.New("network flow active graph view limit exceeded")
+	ErrGraphViewRetainedLimit        = errors.New("network flow retained graph view limit exceeded")
 	ErrGraphViewPublicationStale     = errors.New("network flow graph view publication stale")
 )
 
@@ -126,7 +126,7 @@ INSERT INTO network_flow_graph_views (
 	if err != nil {
 		return fmt.Errorf("insert Network Flow graph view declaration: %w", err)
 	}
-	return nil
+	return s.appendGraphViewResourceIntentTx(ctx, tx, declaration, "created")
 }
 
 func (s *Store) GetGraphViewDeclaration(ctx context.Context, incidentID uuid.UUID, graphViewID string) (GraphViewDeclaration, error) {
@@ -150,7 +150,7 @@ func (s *Store) ListActiveGraphViewDeclarations(ctx context.Context, incidentID 
 	rows, err := s.pool.Query(ctx, graphViewDeclarationSelect+`
  WHERE incident_id = $1
    AND declaration_state = 'active'
- ORDER BY normalized_display_name ASC, graph_view_id ASC
+ ORDER BY display_name COLLATE "C" ASC, graph_view_id ASC
 `, incidentID)
 	if err != nil {
 		return nil, fmt.Errorf("list Network Flow graph view declarations: %w", err)
@@ -219,6 +219,12 @@ func (s *Store) RenameGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, inc
 	if declaration.GraphViewVersion != baseVersion {
 		return GraphViewDeclaration{}, &GraphViewVersionConflictError{Current: declaration.GraphViewVersion, Base: baseVersion}
 	}
+	if normalized, err := NormalizeGraphViewDisplayName(displayName); err != nil || normalized != displayName {
+		return GraphViewDeclaration{}, ErrGraphViewDeclarationInvalid
+	}
+	if declaration.DisplayName == displayName {
+		return declaration, nil
+	}
 	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
    SET display_name = $3,
@@ -228,7 +234,11 @@ UPDATE network_flow_graph_views
  WHERE incident_id = $1
    AND graph_view_id = $2
 RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, displayName, normalizedDisplayName, now.UTC())
-	return scanGraphViewDeclaration(row)
+	changed, err := scanGraphViewDeclaration(row)
+	if err == nil {
+		err = s.appendGraphViewResourceIntentTx(ctx, tx, changed, "renamed")
+	}
+	return changed, err
 }
 
 func (s *Store) RefreshGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, desiredSourceSnapshotID string, now time.Time) (GraphViewDeclaration, error) {
@@ -254,7 +264,11 @@ UPDATE network_flow_graph_views
  WHERE incident_id = $1
    AND graph_view_id = $2
 RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, desiredSourceSnapshotID, now.UTC())
-	return scanGraphViewDeclaration(row)
+	changed, err := scanGraphViewDeclaration(row)
+	if err == nil {
+		err = s.appendGraphViewResourceIntentTx(ctx, tx, changed, "refresh_requested")
+	}
+	return changed, err
 }
 
 func (s *Store) RetireGraphViewDeclarationTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, baseVersion int64, now time.Time) (GraphViewDeclaration, error) {
@@ -286,7 +300,11 @@ UPDATE network_flow_graph_views
  WHERE incident_id = $1
    AND graph_view_id = $2
 RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, now.UTC())
-	return scanGraphViewDeclaration(row)
+	changed, err := scanGraphViewDeclaration(row)
+	if err == nil {
+		err = s.appendGraphViewResourceIntentTx(ctx, tx, changed, "retired")
+	}
+	return changed, err
 }
 
 func (s *Store) PublishGraphViewResultTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, sourceSnapshotID string, jobID uuid.UUID, selected GraphViewSelectedResultBinding, now time.Time) (GraphViewDeclaration, error) {
@@ -340,6 +358,9 @@ RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, so
 	if errors.Is(err, pgx.ErrNoRows) {
 		return GraphViewDeclaration{}, ErrGraphViewPublicationStale
 	}
+	if err == nil {
+		err = s.appendGraphViewResourceIntentTx(ctx, tx, declaration, "materialized")
+	}
 	return declaration, err
 }
 
@@ -376,10 +397,10 @@ SELECT graph_view_id
 }
 
 func (s *Store) RecordGraphViewMaterializationFailureTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, graphViewID string, generation int64, jobID uuid.UUID, failureCode string, now time.Time) error {
-	if s == nil || tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil || generation < 1 || !strings.HasPrefix(failureCode, "network_flow_") {
+	if s == nil || tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil || generation < 1 || !validGraphViewFailureCode(failureCode) {
 		return ErrGraphViewDeclarationInvalid
 	}
-	_, err := tx.Exec(ctx, `
+	row := tx.QueryRow(ctx, `
 UPDATE network_flow_graph_views
    SET last_failure_code = $6,
        last_failed_at = $5,
@@ -389,15 +410,22 @@ UPDATE network_flow_graph_views
    AND declaration_state = 'active'
    AND materialization_generation = $3
    AND latest_job_id = $4
-`, incidentID, graphViewID, generation, jobID, now.UTC(), failureCode)
-	return err
+RETURNING `+graphViewDeclarationColumns, incidentID, graphViewID, generation, jobID, now.UTC(), failureCode)
+	graph, err := scanGraphViewDeclaration(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return s.appendGraphViewResourceIntentTx(ctx, tx, graph, "materialization_failed")
 }
 
 func (s *Store) InvalidateGraphViewsForTableTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, tableID string, now time.Time) error {
 	if s == nil || tx == nil || incidentID == uuid.Nil || tableID == "" {
 		return ErrGraphViewDeclarationInvalid
 	}
-	_, err := tx.Exec(ctx, `
+	rows, err := tx.Query(ctx, `
 UPDATE network_flow_graph_views
    SET graph_view_version = graph_view_version + 1,
        materialization_generation = materialization_generation + 1,
@@ -415,9 +443,27 @@ UPDATE network_flow_graph_views
  WHERE incident_id = $1
    AND declaration_state = 'active'
    AND semantic_query_json -> 'selected_table_ids' @> jsonb_build_array($2::text)
-`, incidentID, tableID, now.UTC())
+RETURNING `+graphViewDeclarationColumns, incidentID, tableID, now.UTC())
 	if err != nil {
 		return fmt.Errorf("invalidate Network Flow graph views for source table: %w", err)
+	}
+	var changed []GraphViewDeclaration
+	for rows.Next() {
+		graph, scanErr := scanGraphViewDeclaration(rows)
+		if scanErr != nil {
+			rows.Close()
+			return scanErr
+		}
+		changed = append(changed, graph)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, graph := range changed {
+		if err := s.appendGraphViewResourceIntentTx(ctx, tx, graph, "source_invalidated"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -527,11 +573,17 @@ func scanGraphViewDeclaration(row graphViewRow) (GraphViewDeclaration, error) {
 }
 
 func validGraphViewDeclaration(declaration GraphViewDeclaration) bool {
+	normalized, nameErr := NormalizeGraphViewDisplayName(declaration.DisplayName)
+	if nameErr != nil || normalized != declaration.DisplayName {
+		return false
+	}
+	if declaration.LatestJobID != nil && *declaration.LatestJobID == uuid.Nil {
+		return false
+	}
 	if !graphViewIDPattern.MatchString(declaration.GraphViewID) || declaration.IncidentID == uuid.Nil ||
 		declaration.CreatedByUserID == uuid.Nil || declaration.GraphViewVersion < 1 || declaration.MaterializationGeneration < 1 ||
 		declaration.CreatedAt.IsZero() || declaration.UpdatedAt.Before(declaration.CreatedAt) ||
-		utf8.RuneCountInString(declaration.DisplayName) < 1 || utf8.RuneCountInString(declaration.DisplayName) > 64 ||
-		utf8.RuneCountInString(declaration.NormalizedDisplayName) < 1 || utf8.RuneCountInString(declaration.NormalizedDisplayName) > 64 ||
+		len(declaration.NormalizedDisplayName) == 0 ||
 		strings.ContainsAny(declaration.DisplayName, "\x00\n\r") || strings.ContainsAny(declaration.NormalizedDisplayName, "\x00\n\r") ||
 		!validJSONObjectBytes(declaration.SemanticQueryJSON) || !graphViewSHA256Pattern.MatchString(declaration.SemanticQuerySHA256) ||
 		strings.TrimSpace(declaration.DesiredSourceSnapshotID) == "" {
@@ -549,7 +601,7 @@ func validGraphViewDeclaration(declaration GraphViewDeclaration) bool {
 	if (declaration.LastFailureCode == nil) != (declaration.LastFailedAt == nil) {
 		return false
 	}
-	if declaration.LastFailureCode != nil && !strings.HasPrefix(*declaration.LastFailureCode, "network_flow_") {
+	if declaration.LastFailureCode != nil && !validGraphViewFailureCode(*declaration.LastFailureCode) {
 		return false
 	}
 	if declaration.SelectedResult != nil {

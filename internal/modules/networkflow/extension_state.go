@@ -62,12 +62,7 @@ func countExtensionFamily(familyID, query string) extensionstore.FamilyCounter {
 }
 
 func validatePersistedGraphViewFamily(ctx context.Context, querier extensionstore.Querier) error {
-	rows, err := querier.Query(ctx, `
-SELECT graph_view_id, semantic_query_json, semantic_query_sha256,
-       COALESCE(selected_projection_version, '')
-  FROM network_flow_graph_views
- ORDER BY graph_view_id ASC
-`)
+	rows, err := querier.Query(ctx, graphViewDeclarationSelect+` ORDER BY graph_view_id ASC`)
 	if err != nil {
 		return err
 	}
@@ -80,13 +75,19 @@ SELECT graph_view_id, semantic_query_json, semantic_query_sha256,
 	limits.MaxContributingRowsPerGraph = 5000000
 	limits.MaxTimeBucketsPerGraph = 1024
 	for rows.Next() {
-		var graphViewID string
-		var semanticQuery []byte
-		var semanticDigest string
-		var selectedProjectionVersion string
-		if err := rows.Scan(&graphViewID, &semanticQuery, &semanticDigest, &selectedProjectionVersion); err != nil {
+		declaration, err := scanGraphViewDeclaration(rows)
+		if err != nil {
 			return err
 		}
+		if !validGraphViewDeclaration(declaration) {
+			return ErrSavedGraphCutoverIncompatible
+		}
+		graphViewID, semanticQuery, semanticDigest := declaration.GraphViewID, declaration.SemanticQueryJSON, declaration.SemanticQuerySHA256
+		selectedProjectionVersion := ""
+		if declaration.SelectedResult != nil {
+			selectedProjectionVersion = declaration.SelectedResult.ProjectionVersion
+		}
+
 		semantic, apiErr := decodeGraphSemanticRequest(semanticQuery, limits)
 		if apiErr != nil {
 			return fmt.Errorf("saved graph %s has an unsupported semantic query", graphViewID)

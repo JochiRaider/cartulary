@@ -14,6 +14,8 @@ import (
 )
 
 type IntentSelector struct {
+	PayloadReasonCode string
+	PayloadChangeKind string
 	IntentKey         string
 	IncidentID        string
 	EventFamily       string
@@ -248,6 +250,12 @@ func intentWhere(selector IntentSelector) (string, []any) {
 	add := func(column string, value any) {
 		args = append(args, value)
 		clauses = append(clauses, fmt.Sprintf("%s = $%d", column, len(args)))
+	}
+	if selector.PayloadReasonCode != "" {
+		add("canonical_payload->>'reason_code'", selector.PayloadReasonCode)
+	}
+	if selector.PayloadChangeKind != "" {
+		add("canonical_payload->>'change_kind'", selector.PayloadChangeKind)
 	}
 	if selector.IntentKey != "" {
 		add("intent_key", selector.IntentKey)

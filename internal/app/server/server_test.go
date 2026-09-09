@@ -3,7 +3,9 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"io"
 	"net/http"
 	"strings"
@@ -439,5 +441,24 @@ func TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed(t *testing.T)
 	}
 	if exitCode := runner.run(context.Background()); exitCode != 2 {
 		t.Fatalf("exit code got %d want 2", exitCode)
+	}
+}
+
+func TestSavedGraphAdmissionStartupDiagnostic(t *testing.T) {
+	var stderr bytes.Buffer
+	runner := newServerRunner(io.Discard, &stderr)
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+		return serverRuntime{}, &extensions.AdmissionValidationError{Findings: []extensions.AdmissionFinding{{Path: "$", ReasonCode: "extension_admission_validation_failed", Message: "Extension admission validation failed.", Details: map[string]any{"profile_id": "network_flow_activity", "phase": "profile_preflight", "algorithm_id": "network_flow_activity.saved_graph_cutover_v6", "timed_out": false, "timeout_seconds": int64(60)}}}}
+	}
+	if code := runner.run(context.Background()); code != 2 {
+		t.Fatalf("exit=%d", code)
+	}
+	var diagnostic struct {
+		Code        string                        `json:"code"`
+		Diagnostics []extensions.AdmissionFinding `json:"diagnostics"`
+	}
+	if err := json.Unmarshal(stderr.Bytes(), &diagnostic); err != nil || diagnostic.Code != "invalid_deployment_config" || len(diagnostic.Diagnostics) != 1 || diagnostic.Diagnostics[0].Details["timed_out"] != false {
+		t.Fatalf("startup diagnostic=%s err=%v", stderr.String(), err)
 	}
 }

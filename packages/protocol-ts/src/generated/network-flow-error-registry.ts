@@ -11,7 +11,7 @@ function deepFreeze<Value>(value: Value): Value {
 }
 
 const value = {
-  "contract_major": 5,
+  "contract_major": 6,
   "errors": [
     {
       "code": "network_flow_invalid_request",
@@ -238,12 +238,6 @@ const value = {
     {
       "code": "network_flow_graph_view_not_found",
       "http_status": 404,
-      "retry_action": "refresh_resource",
-      "scope": "route"
-    },
-    {
-      "code": "network_flow_graph_view_not_active",
-      "http_status": 409,
       "retry_action": "refresh_resource",
       "scope": "route"
     },
@@ -609,13 +603,6 @@ const value = {
       "error_code": "network_flow_graph_view_not_found",
       "reason_codes": [
         "not_found"
-      ]
-    },
-    {
-      "error_code": "network_flow_graph_view_not_active",
-      "reason_codes": [
-        "retired",
-        "source_retired"
       ]
     },
     {

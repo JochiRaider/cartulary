@@ -115,8 +115,13 @@ func (s *Store) JobCommitProof(ctx context.Context, jobID uuid.UUID) (*JobCommit
 	if s == nil || s.pool == nil || jobID == uuid.Nil {
 		return nil, ErrInvalidTransition
 	}
+	return ReadJobCommitProof(ctx, s.pool, jobID)
+}
+
+// ReadJobCommitProof joins an owner-supplied read-only admission snapshot.
+func ReadJobCommitProof(ctx context.Context, reader Querier, jobID uuid.UUID) (*JobCommitProof, error) {
 	var proof JobCommitProof
-	err := s.pool.QueryRow(ctx, `
+	err := reader.QueryRow(ctx, `
 SELECT job_id, owner_profile_id, operation_kind, final_commit_id,
        idempotency_identity, normalized_request_sha256, terminal_result,
        terminal_result_sha256, resource_refs, audit_correlation_id, committed_at

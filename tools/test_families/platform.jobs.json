@@ -364,7 +364,8 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
-          "TestRemovedJobsSurfacesRemainAbsent_Architecture"
+          "TestRemovedJobsSurfacesRemainAbsent_Architecture",
+          "TestRetainedJobAdmissionResource_Unit"
         ]
       },
       "evidence_class": "unit",

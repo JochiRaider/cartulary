@@ -706,6 +706,7 @@
         "package": "./internal/app/server",
         "tests": [
           "TestModuleSettingsProjection_Unit",
+          "TestSavedGraphAdmissionStartupDiagnostic",
           "TestServerRunnerCancellationBeforeStartupReturnsSuccess",
           "TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess",
           "TestServerRunnerClosesRuntimeAndMapsServeFailure",

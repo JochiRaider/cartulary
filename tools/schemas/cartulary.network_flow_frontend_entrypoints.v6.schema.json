@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.network_flow_frontend_entrypoints.v5",
+  "$id": "cartulary.network_flow_frontend_entrypoints.v6",
   "type": "object",
   "additionalProperties": false,
   "required": ["$schema", "schema_id", "profile_id", "contract_major", "network_flow"],
   "properties": {
     "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" },
-    "schema_id": { "const": "cartulary.network_flow_frontend_entrypoints.v5" },
+    "schema_id": { "const": "cartulary.network_flow_frontend_entrypoints.v6" },
     "profile_id": { "const": "network_flow_activity" },
-    "contract_major": { "const": 5 },
+    "contract_major": { "const": 6 },
     "network_flow": {
       "type": "object",
       "additionalProperties": false,

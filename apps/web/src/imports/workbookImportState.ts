@@ -1,3 +1,4 @@
+import { terminalCommonJob } from "../services/commonJobContract";
 import type { ImportFailure } from "../services/importClient";
 import type {
   DiscoveredImportPreview,
@@ -5,7 +6,7 @@ import type {
   ImportJobResource,
   ImportSessionResource,
 } from "../services/importContractAdapter";
-import { terminalImportJob } from "../services/importJobContract";
+
 import { workbookImportTargets } from "../services/importTargetContractAdapter";
 import type { ImportWriteAttempt } from "./importRequests";
 import {
@@ -85,7 +86,7 @@ export function importApplyBlocker(state: WorkbookImportState): string | null {
     !state.session ||
     terminalImportSession(state.session) ||
     state.session.session_status === "applying" ||
-    (state.job && !terminalImportJob(state.job))
+    (state.job && !terminalCommonJob(state.job))
   )
     return "This session is not available for a new apply.";
   const ids = state.session.selected_unit_ids;

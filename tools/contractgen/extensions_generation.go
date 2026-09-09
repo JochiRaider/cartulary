@@ -653,7 +653,7 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 				}
 			}
 		}
-		for _, requiredAlgorithm := range []any{initializationAlgorithmID, finalValidation} {
+		for _, requiredAlgorithm := range []any{initializationAlgorithmID, finalValidation, descriptor["admission_validation"].(map[string]any)["preflight_algorithmid"], descriptor["admission_validation"].(map[string]any)["post_migration_algorithmid"]} {
 			if requiredAlgorithm == nil {
 				continue
 			}
@@ -698,8 +698,8 @@ func materializeExtensionBindings(indexed map[string]map[string]any, descriptors
 			"implemented_contribution_ids":        stringsToAny(requiredContributionIDs),
 			"supported_capability_ids":            []any{},
 			"state_ownership_kind":                state["kind"],
-			"preflight_algorithm_id":              extensionAlgorithmID(admission["preflight_algorithm_ref"]),
-			"post_migration_algorithm_id":         extensionAlgorithmID(admission["post_migration_algorithm_ref"]),
+			"preflight_algorithm_id":              admission["preflight_algorithmid"],
+			"post_migration_algorithm_id":         admission["post_migration_algorithmid"],
 			"initialization_definition_sha256":    initializationDigest,
 			"initialization_algorithm_id":         initializationAlgorithmID,
 			"final_state_validation_algorithm_id": finalValidation,
@@ -992,21 +992,6 @@ func materializeExtensionRuntimeRegistries(indexed map[string]map[string]any, de
 		"schema_id":    "cartulary.extension_participant_registry.v1",
 		"participants": objectsToAny(participantRows),
 	}, nil
-}
-
-func extensionAlgorithmID(value any) any {
-	if value == nil {
-		return nil
-	}
-	ref, ok := value.(string)
-	if !ok {
-		return nil
-	}
-	parts := strings.SplitN(ref, "#algorithm:", 2)
-	if len(parts) != 2 {
-		return nil
-	}
-	return parts[1]
 }
 
 func extensionSupportingSchemas(profileID string, indexed map[string]map[string]any, participants []map[string]any, jobContracts []map[string]any) []string {

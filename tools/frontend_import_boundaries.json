@@ -550,7 +550,8 @@
         "exclude": []
       },
       "allowed_importers": [
-        "apps/web/src/workbook/features/NetworkFlowFeature.tsx"
+        "apps/web/src/workbook/features/NetworkFlowFeature.tsx",
+        "apps/web/src/workbook/features/NetworkFlowOperations.ts"
       ],
       "restricted_imports": [
         {

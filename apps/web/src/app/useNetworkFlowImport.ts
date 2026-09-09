@@ -8,7 +8,7 @@ import {
 import {
   type NetworkFlowImportBinding,
   NetworkFlowImportController,
-} from "../workbook/features/NetworkFlowFeature";
+} from "../workbook/features/NetworkFlowOperations";
 import type {
   AppSessionController,
   AppSessionSnapshot,

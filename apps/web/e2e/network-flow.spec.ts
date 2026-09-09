@@ -412,9 +412,9 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
   await page.getByLabel("Time buckets").check();
-  await expect(page.getByRole("alert")).toContainText(
-    "require both UTC range bounds",
-  );
+  await expect(
+    page.getByTestId(networkAnalysisTestId("workspace")).getByRole("alert"),
+  ).toContainText("require both UTC range bounds");
   await page.getByLabel("Flow overlap starts at").fill("2026-07-10T12:00:00Z");
   await page
     .getByLabel("Flow overlap ends before")
@@ -491,6 +491,7 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
   ).toHaveText("Renamed evidence graph");
 
   await panel.getByRole("button", { name: "Refresh" }).click();
+  await page.getByRole("button", { name: "Refresh graph" }).click();
   await expect(
     panel.getByText(
       "Showing the last successful result while refresh continues.",
@@ -506,6 +507,9 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
   await panel.getByRole("button", { name: "Retire" }).click();
   await page.getByRole("button", { name: "Retire graph" }).click();
   await expect(panel.getByText("No saved graphs yet.")).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "Reload", exact: true }),
+  ).toBeFocused();
 });
 
 test("Network Analysis alias collision requires explicit approval", async ({

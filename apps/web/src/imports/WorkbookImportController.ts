@@ -1,5 +1,9 @@
 import { clientTxnID } from "../services/browserApi";
 import {
+  commonJobDoesNotRegress,
+  terminalCommonJob,
+} from "../services/commonJobContract";
+import {
   type ImportClient,
   type ImportFailure,
   type ImportWriteReceipt,
@@ -10,11 +14,7 @@ import {
   sameImportSessionSource,
   sameImportUnitSource,
 } from "../services/importClient";
-import {
-  importJobDoesNotRegress,
-  importSessionIdFromReceipt,
-  terminalImportJob,
-} from "../services/importJobContract";
+import { importSessionIdFromReceipt } from "../services/importJobContract";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import {
   boundedImportRead,
@@ -210,7 +210,7 @@ export class WorkbookImportController {
       (!this.state.session ||
         (!terminalImportSession(this.state.session) &&
           this.state.session.session_status !== "applying")) &&
-      !(this.state.job && !terminalImportJob(this.state.job))
+      !(this.state.job && !terminalCommonJob(this.state.job))
     );
   }
   private canMutateUnit(unitId: string) {
@@ -338,7 +338,7 @@ export class WorkbookImportController {
       !this.canWrite() ||
       this.writeBusy() ||
       this.state.session ||
-      (this.state.job && !terminalImportJob(this.state.job))
+      (this.state.job && !terminalCommonJob(this.state.job))
     )
       return;
     this.publish({ file, operation: null });
@@ -347,7 +347,7 @@ export class WorkbookImportController {
     if (
       !this.canWrite() ||
       this.writeBusy() ||
-      (this.state.job && !terminalImportJob(this.state.job))
+      (this.state.job && !terminalCommonJob(this.state.job))
     )
       return;
     const binding = this.binding;
@@ -905,7 +905,7 @@ export class WorkbookImportController {
           this.publish({
             job,
             jobCurrent: true,
-            ...(job.status === "cancel_requested" || terminalImportJob(job)
+            ...(job.status === "cancel_requested" || terminalCommonJob(job)
               ? { cancellation: null }
               : {}),
           });
@@ -984,7 +984,7 @@ export class WorkbookImportController {
       (job.submitted_by_user_id === binding.scope.actorId ||
         binding.role === "admin") &&
       job.cancelable &&
-      !terminalImportJob(job) &&
+      !terminalCommonJob(job) &&
       job.status !== "cancel_requested" &&
       this.state.cancellation?.phase !== "pending"
     );
@@ -1042,7 +1042,7 @@ export class WorkbookImportController {
     }
     if (
       current.kind === "failed" ||
-      !importJobDoesNotRegress(job, current.value)
+      !commonJobDoesNotRegress(job, current.value)
     ) {
       const failure =
         current.kind === "failed" ? current.failure : importContractFailure();
@@ -1061,7 +1061,7 @@ export class WorkbookImportController {
     this.publish({ job: current.value, jobCurrent: true });
     if (
       !current.value.cancelable ||
-      terminalImportJob(current.value) ||
+      terminalCommonJob(current.value) ||
       current.value.status === "cancel_requested"
     ) {
       this.publish({
@@ -1101,7 +1101,7 @@ export class WorkbookImportController {
     if (
       outcome.kind === "accepted" &&
       outcome.receipt.kind === "job" &&
-      importJobDoesNotRegress(current.value, outcome.receipt.job)
+      commonJobDoesNotRegress(current.value, outcome.receipt.job)
     ) {
       const next = outcome.receipt.job;
       this.publish({
@@ -1160,7 +1160,7 @@ export class WorkbookImportController {
       this.current(epoch) &&
       !stop.signal.aborted &&
       result.kind === "received" &&
-      importJobDoesNotRegress(job, result.value)
+      commonJobDoesNotRegress(job, result.value)
     ) {
       this.publish({ job: result.value, jobCurrent: true });
       if (

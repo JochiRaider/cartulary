@@ -84,6 +84,7 @@ const networkAnalysisSelectors = [
   "saved-graph-dialog",
   "saved-graph-heading",
   "saved-graph-name",
+  "saved-graph-reload",
   "saved-graph-result",
   "saved-graphs",
   "stale-state",

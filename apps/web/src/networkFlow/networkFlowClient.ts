@@ -18,14 +18,9 @@ import type {
   NetworkFlowPaging,
   NetworkFlowRow,
   NetworkFlowSavedGraph,
-  NetworkFlowSavedGraphAccepted,
   NetworkFlowSavedGraphContributorQueryRequest,
   NetworkFlowSavedGraphContributorResult,
-  NetworkFlowSavedGraphCreateRequest,
-  NetworkFlowSavedGraphRefreshRequest,
-  NetworkFlowSavedGraphRenameRequest,
   NetworkFlowSavedGraphResult,
-  NetworkFlowSavedGraphRetireRequest,
   NetworkFlowTable,
   NetworkFlowTableRenameRequest,
   NetworkFlowTableScope,
@@ -38,6 +33,7 @@ import {
   decodeNetworkFlowRejectedRowsQueryResult,
   decodeNetworkFlowSavedGraphAccepted,
   decodeNetworkFlowSavedGraphContributorResult,
+  decodeNetworkFlowSavedGraphGet,
   decodeNetworkFlowSavedGraphList,
   decodeNetworkFlowSavedGraphMutationResult,
   decodeNetworkFlowSavedGraphResult,
@@ -51,6 +47,12 @@ import type {
   NetworkFlowAcceptedPageRequest,
   NetworkFlowRejectedPageRequest,
 } from "./networkFlowQueryModel";
+import {
+  type SavedGraphAttempt,
+  type SavedGraphReceipt,
+  SavedGraphWriteError,
+  savedGraphWriteFailure,
+} from "./savedGraphOperation";
 
 export {
   networkAnalysisSheetRef,
@@ -75,7 +77,6 @@ export type {
   NetworkFlowRow,
   NetworkFlowRowRef,
   NetworkFlowSavedGraph,
-  NetworkFlowSavedGraphAccepted,
   NetworkFlowSavedGraphContributorResult,
   NetworkFlowSavedGraphResult,
   NetworkFlowTable,
@@ -324,112 +325,161 @@ export async function listNetworkFlowSavedGraphs(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowSavedGraphList(
+  const graphs = decodeNetworkFlowSavedGraphList(
     networkFlowResponseData(result.payload),
   ).graph_views;
+  if (
+    result.status !== 200 ||
+    graphs.some(
+      (graph) =>
+        graph.incident_id !== options.incidentId || graph.state !== "active",
+    ) ||
+    new Set(graphs.map((graph) => graph.graph_view_id)).size !== graphs.length
+  )
+    throw new Error("invalid_saved_graph_list_scope");
+  return graphs;
 }
 
-export async function createNetworkFlowSavedGraph(options: {
+/** Sends the immutable bytes captured by the saved-graph operation owner. */
+export async function submitNetworkFlowSavedGraphMutation(options: {
   readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
-  readonly displayName: string;
-  readonly incidentId: string;
-  readonly semanticQuery: NetworkFlowGraphResult["semantic_query"];
-}): Promise<NetworkFlowSavedGraphAccepted> {
-  const request: NetworkFlowSavedGraphCreateRequest = {
-    schema_id: "cartulary.network_flow.graph_view_create_request.v2",
-    client_txn_id: clientTxnID("nf-graph-view-create"),
-    display_name: options.displayName,
-    semantic_query: options.semanticQuery,
-  };
-  const result = await fetchNetworkFlowJSON<unknown>(
-    options.availability,
-    graphViewsURL(options),
-    requestInit({ method: "POST", body: JSON.stringify(request) }, undefined),
-  );
-  if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+  readonly attempt: SavedGraphAttempt;
+  readonly signal: AbortSignal;
+}): Promise<SavedGraphReceipt> {
+  const { attempt } = options;
+  const { intent } = attempt;
+  const target = intent.target;
+  const route = `/api/v1/incidents/${intent.authority.incidentId}/network-flow/graph-views${target === null ? "" : `/${target.graph_view_id}`}${intent.kind === "refresh" ? "/refresh" : ""}`;
+  let result: Awaited<ReturnType<typeof fetchNetworkFlowJSON<unknown>>>;
+  try {
+    result = await fetchNetworkFlowJSON<unknown>(
+      options.availability,
+      apiPath(options.apiBase, route),
+      {
+        method:
+          intent.kind === "rename"
+            ? "PATCH"
+            : intent.kind === "retire"
+              ? "DELETE"
+              : "POST",
+        body: attempt.body,
+        signal: options.signal,
+      },
+    );
+  } catch (caught) {
+    throw savedGraphWriteFailure(caught);
   }
-  return decodeNetworkFlowSavedGraphAccepted(
-    networkFlowResponseData(result.payload),
-  );
+  if (!result.ok)
+    throw savedGraphWriteFailure(
+      networkFlowRequestError(result.status, result.payload),
+    );
+  try {
+    if (intent.kind === "retire") {
+      if (result.status !== 204 || result.payload !== "")
+        throw new Error("nonempty_retirement_receipt");
+      return { kind: "retired" };
+    }
+    if (result.status !== (intent.kind === "rename" ? 200 : 202))
+      throw new Error("unexpected_receipt_status");
+    const data = networkFlowResponseData(result.payload);
+    const receipt: SavedGraphReceipt =
+      intent.kind === "rename"
+        ? {
+            kind: "renamed",
+            value: decodeNetworkFlowSavedGraphMutationResult(data).graph_view,
+          }
+        : {
+            kind: "accepted",
+            value: decodeNetworkFlowSavedGraphAccepted(data),
+          };
+    const graph =
+      receipt.kind === "renamed" ? receipt.value : receipt.value.graph_view;
+    if (
+      graph.incident_id !== intent.authority.incidentId ||
+      graph.state !== "active" ||
+      (target !== null && graph.graph_view_id !== target.graph_view_id) ||
+      (attempt.name !== null && graph.display_name !== attempt.name) ||
+      (intent.kind === "create" &&
+        (graph.created_by !== intent.authority.actorId ||
+          graph.graph_view_version !== 1 ||
+          graph.materialization_generation !== 1 ||
+          !equalJSON(graph.semantic_query, intent.query))) ||
+      (target !== null &&
+        (graph.created_by !== target.created_by ||
+          graph.created_at !== target.created_at ||
+          graph.semantic_query_sha256 !== target.semantic_query_sha256 ||
+          !equalJSON(graph.semantic_query, target.semantic_query))) ||
+      (intent.kind === "rename" &&
+        target !== null &&
+        (graph.graph_view_version !==
+          target.graph_view_version +
+            (attempt.name === target.display_name ? 0 : 1) ||
+          graph.materialization_generation !==
+            target.materialization_generation ||
+          graph.latest_job_id !== target.latest_job_id)) ||
+      (intent.kind === "refresh" &&
+        target !== null &&
+        (graph.graph_view_version !== target.graph_view_version + 1 ||
+          graph.materialization_generation !==
+            target.materialization_generation + 1 ||
+          graph.latest_job_id === target.latest_job_id))
+    )
+      throw new Error("receipt_target_mismatch");
+    return receipt;
+  } catch {
+    throw new SavedGraphWriteError(
+      "invalid_response",
+      "uncertain",
+      "The server returned an invalid acknowledgement. The request may have committed. Replay the exact attempt to recover.",
+    );
+  }
 }
 
-export async function renameNetworkFlowSavedGraph(options: {
+export async function getNetworkFlowSavedGraph(options: {
   readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
-  readonly baseGraphViewVersion: number;
-  readonly displayName: string;
   readonly graphViewId: string;
   readonly incidentId: string;
+  readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowSavedGraph> {
-  const request: NetworkFlowSavedGraphRenameRequest = {
-    schema_id: "cartulary.network_flow.graph_view_rename_request.v1",
-    client_txn_id: clientTxnID("nf-graph-view-rename"),
-    base_graph_view_version: options.baseGraphViewVersion,
-    display_name: options.displayName,
-  };
-  const result = await fetchNetworkFlowJSON<unknown>(
+  const response = await fetchNetworkFlowJSON<unknown>(
     options.availability,
     graphViewURL(options),
-    requestInit({ method: "PATCH", body: JSON.stringify(request) }, undefined),
+    requestInit({ method: "GET" }, options.signal),
   );
-  if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
-  }
-  return decodeNetworkFlowSavedGraphMutationResult(
-    networkFlowResponseData(result.payload),
+  if (!response.ok)
+    throw networkFlowRequestError(response.status, response.payload);
+  const graph = decodeNetworkFlowSavedGraphGet(
+    networkFlowResponseData(response.payload),
   ).graph_view;
+  if (
+    response.status !== 200 ||
+    graph.incident_id !== options.incidentId ||
+    graph.graph_view_id !== options.graphViewId
+  )
+    throw new Error("invalid_saved_graph_target");
+  return graph;
 }
 
-export async function refreshNetworkFlowSavedGraph(options: {
-  readonly availability: ExtensionAvailabilityController;
-  readonly apiBase?: string | undefined;
-  readonly baseGraphViewVersion: number;
-  readonly graphViewId: string;
-  readonly incidentId: string;
-}): Promise<NetworkFlowSavedGraphAccepted> {
-  const request: NetworkFlowSavedGraphRefreshRequest = {
-    schema_id: "cartulary.network_flow.graph_view_refresh_request.v1",
-    client_txn_id: clientTxnID("nf-graph-view-refresh"),
-    base_graph_view_version: options.baseGraphViewVersion,
-  };
-  const result = await fetchNetworkFlowJSON<unknown>(
-    options.availability,
-    `${graphViewURL(options)}/refresh`,
-    requestInit({ method: "POST", body: JSON.stringify(request) }, undefined),
+function equalJSON(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (
+    a === null ||
+    b === null ||
+    typeof a !== "object" ||
+    typeof b !== "object" ||
+    Array.isArray(a) !== Array.isArray(b)
+  )
+    return false;
+  return (
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.entries(a).every(
+      ([key, value]) =>
+        Object.hasOwn(b, key) &&
+        equalJSON(value, (b as Record<string, unknown>)[key]),
+    )
   );
-  if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
-  }
-  return decodeNetworkFlowSavedGraphAccepted(
-    networkFlowResponseData(result.payload),
-  );
-}
-
-export async function retireNetworkFlowSavedGraph(options: {
-  readonly availability: ExtensionAvailabilityController;
-  readonly apiBase?: string | undefined;
-  readonly baseGraphViewVersion: number;
-  readonly graphViewId: string;
-  readonly incidentId: string;
-}): Promise<NetworkFlowSavedGraph> {
-  const request: NetworkFlowSavedGraphRetireRequest = {
-    schema_id: "cartulary.network_flow.graph_view_retire_request.v1",
-    client_txn_id: clientTxnID("nf-graph-view-retire"),
-    base_graph_view_version: options.baseGraphViewVersion,
-  };
-  const result = await fetchNetworkFlowJSON<unknown>(
-    options.availability,
-    graphViewURL(options),
-    requestInit({ method: "DELETE", body: JSON.stringify(request) }, undefined),
-  );
-  if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
-  }
-  return decodeNetworkFlowSavedGraphMutationResult(
-    networkFlowResponseData(result.payload),
-  ).graph_view;
 }
 
 export async function getNetworkFlowSavedGraphResult(options: {
@@ -459,6 +509,7 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
   readonly incidentId: string;
   readonly projectionResultId: string;
   readonly selector: NetworkFlowSavedGraphContributorQueryRequest["selector"];
+  readonly cursorToken?: string | undefined;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowSavedGraphContributorResult> {
   const request: NetworkFlowSavedGraphContributorQueryRequest = {
@@ -471,16 +522,36 @@ export async function queryNetworkFlowSavedGraphContributors(options: {
     options.availability,
     `${graphViewURL(options)}/contributors/query`,
     requestInit(
-      { method: "POST", body: JSON.stringify(request) },
+      {
+        method: "POST",
+        body: JSON.stringify(
+          options.cursorToken === undefined
+            ? request
+            : {
+                schema_id:
+                  "cartulary.network_flow.graph_contributor_query_continuation.v1",
+                cursor_token: options.cursorToken,
+              },
+        ),
+      },
       options.signal,
     ),
   );
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowSavedGraphContributorResult(
+  const page = decodeNetworkFlowSavedGraphContributorResult(
     networkFlowResponseData(result.payload),
   );
+  if (
+    result.status !== 200 ||
+    page.graph_view_id !== options.graphViewId ||
+    page.projection_result_id !== options.projectionResultId ||
+    !equalJSON(page.selector, options.selector) ||
+    page.contributors.length > 100
+  )
+    throw new Error("invalid_saved_graph_contributor_target");
+  return page;
 }
 
 export async function linkNetworkFlowIndicator(options: {
@@ -539,6 +610,27 @@ export async function getNetworkFlowBindingSourceRowLimit(options: {
     networkFlowResponseData(result.payload),
   );
   return response.effective_limits["network_flow.max_binding_source_row_refs"];
+}
+
+export async function getSavedGraphObservationLimit(options: {
+  readonly availability: ExtensionAvailabilityController;
+  readonly apiBase?: string | undefined;
+  readonly incidentId: string;
+  readonly signal: AbortSignal;
+}): Promise<number> {
+  const response = await fetchNetworkFlowJSON<unknown>(
+    options.availability,
+    apiPath(
+      options.apiBase,
+      `/api/v1/incidents/${options.incidentId}/network-flow/source-profiles`,
+    ),
+    { method: "GET", signal: options.signal },
+  );
+  if (!response.ok)
+    throw networkFlowRequestError(response.status, response.payload);
+  return decodeNetworkFlowSourceProfileList(
+    networkFlowResponseData(response.payload),
+  ).effective_limits["network_flow.max_nonterminal_graph_jobs_per_incident"];
 }
 
 function tableURL(options: {

@@ -1502,6 +1502,12 @@
       "classification": "additive",
       "owner_id": "module.imports",
       "rationale": "Constrain selection receipts to the same adopted session lifecycle as session resources."
+    },
+    {
+      "fingerprint": "1fafe745b7ac82994f2baafa6093c3fffc3d400569334505965b547cb6bfd9b7",
+      "classification": "additive",
+      "owner_id": "module.jobapi",
+      "rationale": "Publish the Core-owned narrow Common Job reference for adopted initiating resource receipts; existing Core initiating job responses remain unchanged. Network Flow coordinates its resource cutover under public major 6."
     }
   ]
 }

@@ -8,7 +8,7 @@ import {
 } from "../../extensions/extensionWorkspaceIdentities";
 import { ImportClient } from "../../services/importClient";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
-import type { NetworkFlowImportController } from "../features/NetworkFlowFeature";
+import type { NetworkFlowImportController } from "../features/NetworkFlowOperations";
 
 export function useNetworkFlowImportBinding(options: {
   readonly controller: NetworkFlowImportController;

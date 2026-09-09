@@ -33,7 +33,7 @@ func (jobOwnerTransactionAdapters) CommitRouteIdempotencyTx(ctx context.Context,
 	return authn.InsertRouteIdempotencyPayload(ctx, tx, authRouteIdempotencyKey(key), nil, requestHash, statusCode, payload)
 }
 
-func (jobOwnerTransactionAdapters) UpdateFinalIdempotencyOutcomeTx(ctx context.Context, tx pgx.Tx, key jobs.RouteIdempotencyKey, requestHash []byte, resource jobs.Resource) (bool, error) {
+func (jobOwnerTransactionAdapters) ReconcileFinalIdempotencyOutcomeTx(ctx context.Context, tx pgx.Tx, key jobs.RouteIdempotencyKey, requestHash []byte, resource jobs.Resource) (bool, error) {
 	return authn.UpdateRouteIdempotencyPayload(ctx, tx, authRouteIdempotencyKey(key), requestHash, resource)
 }
 

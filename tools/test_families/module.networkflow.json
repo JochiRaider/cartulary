@@ -798,6 +798,38 @@
       ]
     },
     {
+      "row_id": "module.networkflow.integration.saved_graph_cutover_v6",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.extensions",
+        "module.graphprojection",
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestSavedGraphCutoverAdmission_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.integration.saved_graph_lifecycle_v2",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1901,7 +1933,7 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowV5GraphContractProjection_Unit",
+          "TestNetworkFlowV6GraphContractProjection_Unit",
           "TestNetworkFlow_CrossTableGraphEvidence_Integration"
         ]
       },
@@ -2095,6 +2127,31 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestNetworkFlow_UnmappedRawInertEvidence_Integration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.saved_graph_receipt_integrity",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestGraphViewNameByteContract_Unit",
+          "TestGraphViewReceiptIntegrityAndComparison_Unit"
         ]
       },
       "evidence_class": "unit",

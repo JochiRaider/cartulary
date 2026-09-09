@@ -2,7 +2,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { importTestIds as ids } from "../testing/workbookImportTestSupport";
-import type { NetworkFlowImportPort } from "../workbook/features/NetworkFlowFeature";
+import type { NetworkFlowImportPort } from "../workbook/features/NetworkFlowOperations";
 import { AppSessionController } from "./appSessionController";
 import { useNetworkFlowImport } from "./useNetworkFlowImport";
 
@@ -43,7 +43,7 @@ function setup() {
               profile_id: "network_flow_activity",
               claimed: withdrawn !== "network_flow_activity",
               claimable: true,
-              contract_major: 5,
+              contract_major: 6,
               route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
               workspace_keys: ["network_analysis"],
               capabilities: [],

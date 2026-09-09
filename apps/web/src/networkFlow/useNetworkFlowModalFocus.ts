@@ -18,6 +18,7 @@ const focusableSelector = [
 export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
   readonly dismissDisabled?: boolean | undefined;
   readonly initialFocusTestId?: string | undefined;
+  readonly fallbackFocusTestId?: string | undefined;
   readonly onDismiss: () => void;
 }) {
   const dialogRef = useRef<Element | null>(null);
@@ -51,19 +52,22 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
     return () => {
       queueMicrotask(() => {
         const target =
-          previouslyFocused?.isConnected === true
+          previouslyFocused?.isConnected === true &&
+          !previouslyFocused.hasAttribute("disabled")
             ? previouslyFocused
             : (Array.from(document.getElementsByTagName("*")).find(
                 (element): element is HTMLElement =>
                   element instanceof HTMLElement &&
-                  element.dataset.testid === networkAnalysisTestId("workspace"),
+                  element.dataset.testid ===
+                    (options.fallbackFocusTestId ??
+                      networkAnalysisTestId("workspace")),
               ) ?? null);
         if (target === null) return;
-        if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+        if (!target.matches(focusableSelector)) target.tabIndex = -1;
         target.focus({ preventScroll: true });
       });
     };
-  }, [options.initialFocusTestId]);
+  }, [options.initialFocusTestId, options.fallbackFocusTestId]);
 
   const onKeyDown = useCallback((event: ReactKeyboardEvent<Element>) => {
     if (event.key === "Escape") {

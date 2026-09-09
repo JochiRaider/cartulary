@@ -1148,7 +1148,7 @@ function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   assertRequiredKeys(contractIndex, networkFlowContractIndexKeys, file);
   requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
   requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(contractIndex.contract_major, 5, `${file}.contract_major`);
+  requireExact(contractIndex.contract_major, 6, `${file}.contract_major`);
   requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
   requireExact(contractIndex.owner_id, "module.networkflow", `${file}.owner_id`);
 
@@ -1440,7 +1440,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
   assertRequiredKeys(routeContracts, networkFlowRouteContractKeys, file);
   requireSchemaID(routeContracts, "cartulary.network_flow_route_contracts.v1", file);
   requireExact(routeContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(routeContracts.contract_major, 5, `${file}.contract_major`);
+  requireExact(routeContracts.contract_major, 6, `${file}.contract_major`);
   requireExact(
     routeContracts.route_root,
     "/api/v1/incidents/{incident_id}/network-flow",
@@ -1682,7 +1682,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_list.v3",
+      success_schema_id: "cartulary.network_flow.graph_view_list.v4",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_invalid_request"],
@@ -1693,9 +1693,9 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "POST",
       path: "/api/v1/incidents/{incident_id}/network-flow/graph-views",
       auth_context: "editor",
-      request_schema_id: "cartulary.network_flow.graph_view_create_request.v2",
+      request_schema_id: "cartulary.network_flow.graph_view_create_request.v3",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_accepted.v3",
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v4",
       success_http_statuses: [202],
       idempotency: "client_txn_id_required",
       primary_errors: [
@@ -1716,7 +1716,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_get.v3",
+      success_schema_id: "cartulary.network_flow.graph_view_get.v4",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: ["network_flow_graph_view_not_found"],
@@ -1727,14 +1727,13 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       method: "PATCH",
       path: "/api/v1/incidents/{incident_id}/network-flow/graph-views/{graph_view_id}",
       auth_context: "editor",
-      request_schema_id: "cartulary.network_flow.graph_view_rename_request.v1",
+      request_schema_id: "cartulary.network_flow.graph_view_rename_request.v2",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
+      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v4",
       success_http_statuses: [200],
       idempotency: "client_txn_id_required",
       primary_errors: [
         "network_flow_graph_view_not_found",
-        "network_flow_graph_view_not_active",
         "network_flow_graph_view_version_conflict",
         "network_flow_invalid_display_name",
       ],
@@ -1747,12 +1746,11 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "reviewer",
       request_schema_id: "cartulary.network_flow.graph_view_retire_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_mutation_result.v3",
-      success_http_statuses: [200],
+      success_schema_id: null,
+      success_http_statuses: [204],
       idempotency: "client_txn_id_required",
       primary_errors: [
         "network_flow_graph_view_not_found",
-        "network_flow_graph_view_not_active",
         "network_flow_graph_view_version_conflict",
       ],
       audit_event: "network_flow_graph_view_retired",
@@ -1764,12 +1762,11 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "editor",
       request_schema_id: "cartulary.network_flow.graph_view_refresh_request.v1",
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_accepted.v3",
+      success_schema_id: "cartulary.network_flow.graph_view_accepted.v4",
       success_http_statuses: [202],
       idempotency: "client_txn_id_required",
       primary_errors: [
         "network_flow_graph_view_not_found",
-        "network_flow_graph_view_not_active",
         "network_flow_graph_view_version_conflict",
         "network_flow_graph_materialization_limit_exceeded",
       ],
@@ -1782,12 +1779,11 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       auth_context: "viewer",
       request_schema_id: null,
       continuation_schema_id: null,
-      success_schema_id: "cartulary.network_flow.graph_view_result.v3",
+      success_schema_id: "cartulary.network_flow.graph_view_result.v4",
       success_http_statuses: [200],
       idempotency: "read_route",
       primary_errors: [
         "network_flow_graph_view_not_found",
-        "network_flow_graph_view_not_active",
         "network_flow_graph_view_not_materialized",
       ],
       audit_event: null,
@@ -1804,7 +1800,6 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       idempotency: "read_route",
       primary_errors: [
         "network_flow_graph_view_not_found",
-        "network_flow_graph_view_not_active",
         "network_flow_graph_view_not_materialized",
         "network_flow_graph_query_stale",
         "network_flow_invalid_limit",
@@ -1854,7 +1849,7 @@ function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
       expected.continuation_schema_id,
       `${label}.continuation_schema_id`,
     );
-    requirePublicSchemaID(route.success_schema_id, publicSchemaIDs, `${label}.success_schema_id`);
+    requireNullOrPublicSchemaID(route.success_schema_id, publicSchemaIDs, `${label}.success_schema_id`);
     requireExact(route.success_schema_id, expected.success_schema_id, `${label}.success_schema_id`);
     requireExactArray(
       requireArray(route.success_http_statuses, `${label}.success_http_statuses`, { nonEmpty: true }),
@@ -1905,7 +1900,7 @@ function validateNetworkFlowErrorContractsShape(file) {
   assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
   requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
   requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(errorContracts.contract_major, 5, `${file}.contract_major`);
+  requireExact(errorContracts.contract_major, 6, `${file}.contract_major`);
   assertExactIDSet(
     new Set(requireStringArray(errorContracts.retry_actions, `${file}.retry_actions`, { nonEmpty: true })),
     new Set([
@@ -1959,7 +1954,6 @@ function validateNetworkFlowErrorContractsShape(file) {
       ["network_flow_graph_projection_failed", "route", 502, "do_not_retry"],
       ["network_flow_graph_query_stale", "route", 409, "refresh_resource"],
       ["network_flow_graph_view_not_found", "route", 404, "refresh_resource"],
-      ["network_flow_graph_view_not_active", "route", 409, "refresh_resource"],
       ["network_flow_graph_view_not_materialized", "route", 409, "retry_with_backoff"],
       ["network_flow_graph_view_version_conflict", "route", 409, "refresh_resource"],
       ["network_flow_graph_view_limit_exceeded", "route", 409, "reduce_scope_or_limits"],
@@ -2029,7 +2023,6 @@ function validateNetworkFlowErrorContractsShape(file) {
         "network_flow_cursor_invalid",
         "network_flow_graph_projection_failed",
         "network_flow_graph_view_not_found",
-        "network_flow_graph_view_not_active",
         "network_flow_graph_view_not_materialized",
         "network_flow_graph_view_version_conflict",
         "network_flow_graph_view_limit_exceeded",
@@ -2046,7 +2039,6 @@ function validateNetworkFlowErrorContractsShape(file) {
       "network_flow_cursor_invalid",
       "network_flow_graph_projection_failed",
       "network_flow_graph_view_not_found",
-      "network_flow_graph_view_not_active",
       "network_flow_graph_view_not_materialized",
       "network_flow_graph_view_version_conflict",
       "network_flow_graph_view_limit_exceeded",
@@ -2068,7 +2060,7 @@ function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
   requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v3", `${file}.$id`);
   requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v3", file);
   requireExact(bundle.profile_id, "network_flow_activity", `${file}.profile_id`);
-  requireExact(bundle.contract_major, 5, `${file}.contract_major`);
+  requireExact(bundle.contract_major, 6, `${file}.contract_major`);
   const defs = requireObject(bundle.$defs, `${file}.$defs`);
   const actualSchemaIDs = new Set();
   for (const [defName, def] of Object.entries(defs)) {
@@ -2112,10 +2104,10 @@ function validateNetworkFlowPublicSchemaIDConstants(node, label, schemaID) {
   }
 }
 
-function validateNetworkFlowSchemaClosure(node, label) {
+function validateNetworkFlowSchemaClosure(node, label, enclosingObjectClosed = false) {
   if (Array.isArray(node)) {
     for (const [index, entry] of node.entries()) {
-      validateNetworkFlowSchemaClosure(entry, `${label}[${index + 1}]`);
+      validateNetworkFlowSchemaClosure(entry, `${label}[${index + 1}]`, enclosingObjectClosed);
     }
     return;
   }
@@ -2132,6 +2124,7 @@ function validateNetworkFlowSchemaClosure(node, label) {
     Object.hasOwn(node, "propertyNames");
   if (objectLike) {
     const closed =
+      enclosingObjectClosed ||
       node.additionalProperties === false ||
       node.unevaluatedProperties === false ||
       (Object.hasOwn(node, "propertyNames") &&
@@ -2149,6 +2142,17 @@ function validateNetworkFlowSchemaClosure(node, label) {
       for (const [propertyKey, propertySchema] of Object.entries(value)) {
         validateNetworkFlowSchemaClosure(propertySchema, `${label}.properties.${propertyKey}`);
       }
+      continue;
+    }
+    // Applicators constrain the same instance. A closed enclosing object also
+    // closes its failure-pair alternatives; nested property objects remain
+    // independently subject to closure above.
+    if (["oneOf", "anyOf", "allOf", "if", "then", "else", "not"].includes(key)) {
+      validateNetworkFlowSchemaClosure(
+        value,
+        `${label}.${key}`,
+        enclosingObjectClosed || node.additionalProperties === false || node.unevaluatedProperties === false,
+      );
       continue;
     }
     validateNetworkFlowSchemaClosure(value, `${label}.${key}`);

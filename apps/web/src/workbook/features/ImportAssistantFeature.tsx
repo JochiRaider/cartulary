@@ -6,8 +6,9 @@ import {
   importOutcomeViews,
   terminalImportSession,
 } from "../../imports/workbookImportState";
+import { terminalCommonJob } from "../../services/commonJobContract";
 import { importFailureMessage } from "../../services/importClient";
-import { terminalImportJob } from "../../services/importJobContract";
+
 import type { WorkbookDensityMode } from "../../shared/workbookShellContracts";
 import {
   ImportOperationNotice,
@@ -46,7 +47,7 @@ export function ImportAssistantFeature({
     !pending &&
     !terminal &&
     state.session?.session_status !== "applying" &&
-    !(state.job && !terminalImportJob(state.job));
+    !(state.job && !terminalCommonJob(state.job));
   return (
     <div
       data-testid={workbookImportAssistantTestId()}
@@ -126,7 +127,7 @@ export function ImportAssistantFeature({
                   {state.job.progress.total ?? "unknown"}.{" "}
                   {state.observing
                     ? "Observing server work."
-                    : terminalImportJob(state.job)
+                    : terminalCommonJob(state.job)
                       ? "Job is terminal."
                       : "Observation is paused; server work may continue."}
                 </p>
@@ -163,7 +164,7 @@ export function ImportAssistantFeature({
                       ? "Pause observation"
                       : "Refresh / Resume job"}
                   </button>
-                  {!terminalImportJob(state.job) ? (
+                  {!terminalCommonJob(state.job) ? (
                     <button
                       type="button"
                       disabled={!controller.canCancel()}
@@ -305,7 +306,7 @@ export function ImportAssistantFeature({
           ) : null}
           {(state.session || state.job) &&
           !pending &&
-          (!state.job || terminalImportJob(state.job)) ? (
+          (!state.job || terminalCommonJob(state.job)) ? (
             <button
               type="button"
               disabled={!state.canWrite}

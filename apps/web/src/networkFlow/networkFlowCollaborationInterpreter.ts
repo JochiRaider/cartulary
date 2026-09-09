@@ -2,6 +2,7 @@ import type { IncidentCollaborationMessage } from "../collaboration/IncidentColl
 import { networkFlowActivityProfileId } from "./networkFlowClient";
 
 export type NetworkFlowExtensionResourceChange = {
+  readonly resourceKind: "network_flow_table" | "network_flow_graph_view" | "*";
   readonly changeKind: "invalidate" | "remove";
   readonly reasonCode: string;
   readonly resourceId: string;
@@ -20,7 +21,8 @@ export function interpretNetworkFlowCollaborationMessage(
   const payload = message.payload;
   if (
     payload?.extension_profile_id !== networkFlowActivityProfileId ||
-    payload.resource_kind !== "network_flow_table" ||
+    (payload.resource_kind !== "network_flow_table" &&
+      payload.resource_kind !== "network_flow_graph_view") ||
     typeof payload.resource_id !== "string" ||
     (payload.change_kind !== "invalidate" &&
       payload.change_kind !== "remove") ||
@@ -29,6 +31,7 @@ export function interpretNetworkFlowCollaborationMessage(
     return null;
   }
   return {
+    resourceKind: payload.resource_kind,
     changeKind: payload.change_kind,
     reasonCode: payload.reason_code,
     resourceId: payload.resource_id,

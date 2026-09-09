@@ -79,6 +79,39 @@ func normalizeExplicitDisplayName(value string) (string, error) {
 	}
 }
 
+// NormalizeGraphViewDisplayName is the saved declaration's byte-bounded name
+// contract. Table naming has independent scalar and uniqueness rules.
+func NormalizeGraphViewDisplayName(value string) (string, error) {
+	if !utf8.ValidString(value) || containsC0C1Control(value) {
+		return "", &InvalidDisplayNameError{ReasonCode: "forbidden_control"}
+	}
+	normalized := trimUnicodeWhitespace(norm.NFC.String(value))
+	switch {
+	case normalized == "":
+		return "", &InvalidDisplayNameError{ReasonCode: "empty_display_name"}
+	case len(normalized) > 64:
+		return "", &InvalidDisplayNameError{ReasonCode: "display_name_too_long"}
+	default:
+		return normalized, nil
+	}
+}
+
+func validGraphViewFailureCode(code string) bool {
+	switch code {
+	case "network_flow_source_table_deleted",
+		"network_flow_graph_materialization_source_invalid",
+		"network_flow_graph_materialization_projection_rejected",
+		"network_flow_graph_materialization_projection_unavailable",
+		"network_flow_graph_materialization_publication_conflict",
+		"network_flow_graph_materialization_cancelled",
+		"network_flow_graph_materialization_timeout",
+		"network_flow_graph_materialization_retry_exhausted":
+		return true
+	default:
+		return false
+	}
+}
+
 func filenameStemAfterPathStripping(sourceFilenameDisplay string) string {
 	runes := []rune(sourceFilenameDisplay)
 	if len(runes) > 1 && runes[len(runes)-1] == '.' {

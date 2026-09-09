@@ -207,7 +207,10 @@ func ValidateExtensionResourceChangePayload(payload ExtensionResourceChangePaylo
 			return fmt.Errorf("extension_resource_changed.%s requires remove", payload.ReasonCode)
 		}
 	default:
-		return fmt.Errorf("extension_resource_changed.reason_code is invalid")
+		// Core admits owner-declared additive reasons only as invalidations.
+		if payload.ChangeKind != ExtensionResourceChangeKindInvalidate || strings.TrimSpace(payload.ReasonCode) == "" {
+			return fmt.Errorf("extension_resource_changed.reason_code is invalid")
+		}
 	}
 	lastWorkspaceKey := ""
 	seenWorkspaceKeys := map[string]struct{}{}

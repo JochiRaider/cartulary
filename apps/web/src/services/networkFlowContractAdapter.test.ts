@@ -24,23 +24,24 @@ describe("networkFlowContractAdapter", () => {
         },
       ]),
     ).toBe(false);
-    expect(isSupportedNetworkFlowContract({ contract_major: 5 })).toBe(true);
+    expect(isSupportedNetworkFlowContract({ contract_major: 6 })).toBe(true);
+    expect(isSupportedNetworkFlowContract({ contract_major: 5 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 4 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 3 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 2 })).toBe(false);
     expect(isSupportedNetworkFlowContract({ contract_major: 1 })).toBe(false);
   });
 
-  it("decodes saved graphs only through the generated major-5 contract", () => {
+  it("decodes saved graphs only through the generated major-6 contract", () => {
     expect(
       decodeNetworkFlowSavedGraphList({
-        schema_id: "cartulary.network_flow.graph_view_list.v3",
+        schema_id: "cartulary.network_flow.graph_view_list.v4",
         graph_views: [],
       }).graph_views,
     ).toEqual([]);
     expect(() =>
       decodeNetworkFlowSavedGraphList({
-        schema_id: "cartulary.network_flow.graph_view_list.v3",
+        schema_id: "cartulary.network_flow.graph_view_list.v4",
         graph_views: [],
         legacy_graph_projection: true,
       }),

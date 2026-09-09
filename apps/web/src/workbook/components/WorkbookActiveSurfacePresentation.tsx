@@ -7,7 +7,10 @@ import {
 } from "../../extensions/extensionWorkspaceIdentities";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
-import type { NetworkFlowImportController } from "../features/NetworkFlowFeature";
+import type {
+  NetworkFlowImportController,
+  SavedGraphController,
+} from "../features/NetworkFlowOperations";
 import { shellContentNoticeStyle } from "../layout/workbookShellStyles";
 import {
   WorkbookSurfacesFacade,
@@ -15,6 +18,7 @@ import {
 } from "../surfaces/WorkbookSurfacesFacade";
 
 type ExtensionWorkspaceRendererProps = {
+  readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;
   readonly workbookStatus: ReactNode;
   readonly apiBase: string | undefined;

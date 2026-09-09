@@ -147,33 +147,51 @@ func (publisher *Publisher) requireExactExistingResult(ctx context.Context, want
 	return nil
 }
 
-type Reader struct {
-	db queryer
+type resultReader interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func NewReader(db queryer) (*Reader, error) {
+type Reader struct {
+	db resultReader
+}
+
+func NewReader(db resultReader) (*Reader, error) {
 	if db == nil {
 		return nil, fmt.Errorf("graph projection result reader database is required")
 	}
 	return &Reader{db: db}, nil
 }
 
+// ReadResultEnvelope reads only immutable identity metadata, without mounting
+// graph objects or acquiring a publication lock.
+func (reader *Reader) ReadResultEnvelope(ctx context.Context, projectionResultID string) (graphprojection.ResultBindingV2, error) {
+	return reader.readResultEnvelope(ctx, projectionResultID, false)
+}
+
 // LockResultEnvelope locks one immutable result and returns its stored binding
 // without interpreting a source owner's declaration. Source-owner adapters use
 // it before taking their declaration lock, then apply their own error ordering.
 func (reader *Reader) LockResultEnvelope(ctx context.Context, projectionResultID string) (graphprojection.ResultBindingV2, error) {
+	return reader.readResultEnvelope(ctx, projectionResultID, true)
+}
+
+func (reader *Reader) readResultEnvelope(ctx context.Context, projectionResultID string, lock bool) (graphprojection.ResultBindingV2, error) {
 	if reader == nil || reader.db == nil || !resultIDPattern.MatchString(projectionResultID) {
 		return graphprojection.ResultBindingV2{}, graphprojection.ErrResultV2Invalid
 	}
 	binding := graphprojection.ResultBindingV2{ProjectionResultID: projectionResultID}
-	err := reader.db.QueryRow(ctx, `
+	query := `
 SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
        projection_version, normalized_configuration_sha256, normalized_source_sha256,
        canonical_output_sha256
   FROM graph_projection_results
  WHERE projection_result_id = $1
- FOR UPDATE
-`, projectionResultID).Scan(
+`
+	if lock {
+		query += ` FOR UPDATE`
+	}
+	err := reader.db.QueryRow(ctx, query, projectionResultID).Scan(
 		&binding.GraphViewID, &binding.SourceOwnerID, &binding.SourceSnapshotID,
 		&binding.ProjectionSchemaID, &binding.ProjectionVersion,
 		&binding.NormalizedConfigurationSHA256, &binding.NormalizedSourceSHA256,
@@ -183,7 +201,7 @@ SELECT graph_view_id, source_owner_id, source_snapshot_id, projection_schema_id,
 		return graphprojection.ResultBindingV2{}, graphprojection.ErrResultV2NotFound
 	}
 	if err != nil {
-		return graphprojection.ResultBindingV2{}, fmt.Errorf("lock Graph Projection result envelope: %w", err)
+		return graphprojection.ResultBindingV2{}, fmt.Errorf("read Graph Projection result envelope: %w", err)
 	}
 	return binding, nil
 }

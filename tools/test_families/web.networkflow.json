@@ -461,7 +461,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowCollaborationInterpreter.test.ts",
         "titles": [
-          "interpretNetworkFlowCollaborationMessage admits only closed Network Flow table changes"
+          "interpretNetworkFlowCollaborationMessage preserves table and saved graph identities and rejects unrelated resources"
         ]
       },
       "evidence_class": "unit",
@@ -829,6 +829,65 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.saved_graph_captured_operations",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/SavedGraphController.test.ts",
+        "titles": [
+          "Saved graph captured operations admits one same-tick submission and keeps the exact confirmed target after selection changes",
+          "Saved graph captured operations enforces exact roles at dispatch and preserves duplicate names in code-point order",
+          "Saved graph captured operations fences stale lists and receipts after retirement and protected-scope replacement",
+          "Saved graph captured operations fills a freed observation slot while retaining explicit recovery for the paused job",
+          "Saved graph captured operations keeps acknowledgement independent of follow-up list failure and dialog closure",
+          "Saved graph captured operations keeps uncertain bytes and transaction identity for explicit replay and blocks changed intent",
+          "Saved graph captured operations requires current-state review after a metadata or version conflict and retains the draft",
+          "Saved graph captured operations resolves the actual uncertain attempt from a late acknowledgement after observation deadline",
+          "Saved graph captured operations withdraws only affected source bindings and preserves retirement tombstones across stale reads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.saved_graph_local_recovery",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [
+        "module.graphprojection",
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace recovers saved graph drafts, conflicts, and uncertain writes locally with keyboard focus"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.saved_graph_major5_decoder_and_lifecycle",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",
@@ -843,7 +902,61 @@
       "selector": {
         "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "titles": [
-          "networkFlowContractAdapter decodes saved graphs only through the generated major-5 contract"
+          "networkFlowContractAdapter decodes saved graphs only through the generated major-6 contract"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.saved_graph_observation",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/savedGraphObservation.test.ts",
+        "titles": [
+          "Saved graph bounded observation bounds hung reads without turning expiry or abort into server failure",
+          "Saved graph bounded observation expires the observation window and permits explicit resume from retained progress",
+          "Saved graph bounded observation observes serially and requires a correctly scoped terminal graph reference",
+          "Saved graph bounded observation rejects regressing terminal status and pauses on a missing job without inferring failure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.saved_graph_receipt_transport",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/savedGraphTransport.test.ts",
+        "titles": [
+          "Saved graph transport integrity preserves typed rejection and uncertain transport outcomes",
+          "Saved graph transport integrity requires empty 204 retirement on initial response and replay",
+          "Saved graph transport integrity sends identical captured bytes on replay and accepts only the scoped narrow job receipt",
+          "Saved graph transport integrity uses NFC and exact whitespace with UTF-8 byte limits and rejects controls before trimming"
         ]
       },
       "evidence_class": "unit",
@@ -898,6 +1011,34 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace enforces viewer, editor, reviewer, and administrator controls for saved graphs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.saved_graph_semantic_continuity",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/SavedGraphResultNavigation.test.ts",
+        "titles": [
+          "Saved graph semantic result continuity distinguishes initial failure from a failed reread and rejects cross-binding result labeling",
+          "Saved graph semantic result continuity fences contributors by graph binding selector and request generation and keeps only one page",
+          "Saved graph semantic result continuity fences deferred results across A to B to A and protected-scope replacement",
+          "Saved graph semantic result continuity keeps a prior result during pending refresh and failed reads but clears removed bindings immediately",
+          "Saved graph semantic result continuity retains the exact result and contributor context through rename and unchanged declaration polling"
         ]
       },
       "evidence_class": "unit",

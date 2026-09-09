@@ -3391,6 +3391,18 @@ Network Flow cursor token TTL is fixed at `15` minutes from `issued_at` in the c
 Profiles: network_flow_activity
 Verified by: AC-298, AC-375
 
+Saved-graph lifecycle conformance additionally follows Network Flow
+NF-REQ-170a–f and NF-REQ-205–209. Saved-graph reads require current membership
+and an open incident; create, rename and refresh require editor/admin, and
+retirement requires reviewer/admin. Mutations revalidate incident lifecycle
+and role within the admission transaction. Materialization publication
+revalidates incident lifecycle, source scope, desired boundary, generation and
+job identity before exposing a selected binding. A resource-specific denial
+does not by itself establish loss of all incident access. Retirement and source
+invalidation remove ordinary exposure without deleting Reporting-leased results.
+Major-6 admission rejects incompatible retained state without modification;
+job expiry does not erase route-idempotency replay obligations.
+
 #### Network Flow safe-digest key ring
 
 **REQ-04-131**
@@ -3959,3 +3971,16 @@ post-readiness loop is installed leaves readiness closed. An unclaimed profile
 constructs and starts no Network Flow dispatcher.
 Profiles: base, network_flow_activity
 Verified by: AC-537
+
+
+### Saved-graph cutover configuration boundary
+
+For Extensions admission, a normalized `regular_file_ref` in
+`cartulary.extension_profile_configuration_view.v1` is the closed object
+`{kind: "regular_file_ref", key: <fully-qualified configuration key>}`. Core 04
+retains the admitted absolute path and resolves this key only inside its
+process-local file-availability boundary. The logical admission context carries
+neither that path nor file contents. Network Flow's required manifest reference
+has source `explicit`; its omitted resource-limits object has source `default`
+and value `{}`. An explicitly supplied limits object retains source `explicit`.
+This does not change deployment configuration syntax or file resolution.

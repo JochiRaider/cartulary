@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.10.0
+document_version: 0.11.0
 contract_major: 2
 ---
 
@@ -12,9 +12,11 @@ contract_major: 2
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Version `0.10.0` separates
+This document is `status: adopted/current`. Version `0.11.0` reconciles Core
+registered job references, immutable initiating receipts and read-only saved-graph
+cutover admission with Network Flow major 6. Version `0.10.0` separates
 executable migration definitions from inert committed-ledger verification,
-coordinates Network Flow Activity 5.0.0/major 5/state 4, and selects only the
+coordinates Network Flow Activity 6.0.0/major 6/state 4, and selects only the
 Graph Recovery v4 contribution without changing extension contract major `2`.
 Version `0.9.1` clarified the transaction-bound Incident Portability
 publication guard and the closed shared capability error. Version `0.9.0` made the breaking projection
@@ -24,7 +26,7 @@ identity, coordinates the Core-owned analytical import binding shape with target
 schemas, requires every analytical `import_target` contribution to name its binding, and adopts the
 generated worker runtime contract used by Jobs to enforce per-worker process capacity.
 Its coordinated owner repair is adopted with Core 00/Core 01, Core 03/Core 04, Domain vocabulary,
-and Network Flow Activity `5.0.0`; the machine projection and implementation evidence remain
+and Network Flow Activity `6.0.0`; the machine projection and implementation evidence remain
 governed by the controlling remediation tracker.
 
 ## 1.1 Current projection and evidence boundary
@@ -355,7 +357,7 @@ Verified by: EXT-AC-004, EXT-AC-021, EXT-AC-040, EXT-AC-077
 | `panel_key` | `<profile_id>.<local_key>`; maximum 129 ASCII bytes. |
 | `entry_key` | `<profile_id>.<local_key>`; maximum 129 ASCII bytes. |
 | `target_kind` | `<profile_id>.<local_key>` unless an already adopted owner fragment declares one exact legacy token; maximum 129 ASCII bytes. |
-| `resource_ref_kind` | `<profile_id>.<local_key>`; maximum 129 ASCII bytes. |
+| `resource_ref_kind` | Exact Core 01 §3.3.9.1 registered kind, or qualified `<profile_id>.<local_key>` contribution admitted by that owner; maximum 129 ASCII bytes. This admits owner-registered identities, not compatibility aliases. |
 | `participant_id` | `<profile_id>.<local_key>`; maximum 129 ASCII bytes. |
 | Extension resource kind | `<profile_id>.<local_key>` unless an already adopted owner fragment declares one exact legacy token; maximum 129 ASCII bytes. |
 | `final_commit_id` | Exact EXT-REQ-233 safe identifier; deployment-unique. |
@@ -414,6 +416,16 @@ Verified by: EXT-AC-006, EXT-AC-073, EXT-AC-076
 
 **EXT-REQ-176**
 `cartulary.extension_owner_fragment.v3` MUST be a closed canonical object containing exactly `schema_id`, `owner_fragment_id`, `owner_id`, and `facts[]`. An owner fragment contains only typed operational facts allocated by Table 5-A. Every fact contains `fact_kind`, `profile_id`, and its variant-specific executable members. Requirement identifiers, acceptance identifiers, owner-document fields, document digests, owner locators, conformance declarations, and static status claims are forbidden.
+
+The typed `admission_validation` fact carries `preflight_algorithmid` and
+`post_migration_algorithmid` as exact nullable algorithm identities, alongside
+`schema_id` and `dependency_probes`. Its descriptor projection retains those
+identities. The implementation binding projects them to
+`preflight_algorithm_id` and `post_migration_algorithm_id`; a non-null identity
+MUST resolve to a statically packaged implementation. References in the logical
+admission procedure identify these same algorithms; generators MUST NOT look
+for prohibited owner locators in typed fragments or silently turn an algorithm
+identity into `null`.
 
 The authored `cartulary.extension_authored_input_catalog.v3` is the complete input allowlist. It MUST enumerate every owner fragment and supporting typed contract by normalized repository-relative JSON path, schema ID, owner ID, and operational artifact class. Directory scanning, filename inference, documentation parsing, and generated-output discovery MUST NOT add an input. Catalog paths MUST remain contained beneath `contracts/extensions`, reject traversal, absolute paths, backslashes, symlinks, non-regular files, duplicates, missing files, and unlisted JSON files.
 
@@ -488,7 +500,7 @@ Verified by: EXT-AC-003, EXT-AC-004, EXT-AC-011, EXT-AC-016, EXT-AC-024, EXT-AC-
 | `enterprise_authentication` | `true` | `1` | `enterprise_authentication.claimed` | `/api/v1/auth/oidc`; `/api/v1/auth/providers`; `/api/v1/auth/saml`; `/api/v1/users/{user_id}/auth-bindings` | `[]` | none |
 | `import` | `true` | `1` | `import.claimed` | `/api/v1/import-sessions` | `[]` | none |
 | `incident_portability` | `true` | `1` | `incident_portability.claimed` | `/api/v1/incident-bundles` | `[]` | none |
-| `network_flow_activity` | `true` | `5` | `network_flow_activity.claimed` | `/api/v1/incidents/{incident_id}/network-flow` | `["network_analysis"]` | `import`, major `1` |
+| `network_flow_activity` | `true` | `6` | `network_flow_activity.claimed` | `/api/v1/incidents/{incident_id}/network-flow` | `["network_analysis"]` | `import`, major `1` |
 | `reference_pack` | `true` | `1` | `reference_pack.claimed` | `/api/v1/reference-packs` | `[]` | none |
 | `snapshot_reporting` | `true` | `1` | `snapshot_reporting.claimed` | `/api/v1/incidents/{incident_id}/report-compositions`; `/api/v1/releases`; `/api/v1/snapshots` | `[]` | none |
 
@@ -1775,7 +1787,7 @@ Profiles: base
 Verified by: EXT-AC-023, EXT-AC-039, EXT-AC-091
 
 **EXT-REQ-086**
-For the coordinated adoption baseline, the `network_flow_activity` discovery item MUST report `claimable=true`, `contract_major=5`, the reserved Network Flow route family, `workspace_keys=["network_analysis"]`, and `capabilities=[]` whether claimed or unclaimed; only `claimed` changes with the resolved claim set.
+For the coordinated adoption baseline, the `network_flow_activity` discovery item MUST report `claimable=true`, `contract_major=6`, the reserved Network Flow route family, `workspace_keys=["network_analysis"]`, and `capabilities=[]` whether claimed or unclaimed; only `claimed` changes with the resolved claim set.
 
 Profiles: base, network_flow_activity
 Verified by: EXT-AC-003, EXT-AC-016, EXT-AC-027, EXT-AC-028, EXT-AC-029
@@ -1819,12 +1831,12 @@ Verified by: EXT-AC-092
 
 **EXT-REQ-231**
 The generic seven-member discovery item is the sole discovery contract. Network
-Flow Activity contract major `5` retains semantic-query v2, effective-limit,
+Flow Activity contract major `6` retains semantic-query v2, effective-limit,
 and time-bucket graph routes and schemas while removing the v1 query union and
 MUST be
 projected atomically through Core 00 recognition, owner fragments, dependency
 snapshots, descriptors, implementation bindings, client support, and behavioral
-verification routing. A client that does not support major `5` omits the
+verification routing. A client that does not support major `6` omits the
 workspace. A profile-local
 item, dual decoder, compatibility alias, or partial major update is invalid.
 
@@ -2013,7 +2025,7 @@ Each `profiles[]` row MUST contain exactly:
 - `capability_ids[]`;
 - `public_schema_ids[]`.
 
-`client_build_class` has no omission default; `standard` is the only admitted build class in this revision. `profiles[]` MUST contain `0..256` rows, reject duplicate profile IDs, and sort by ascending UTF-8 bytes of `profile_id`. A row is required for every canonical descriptor with `claimable=true` and a nonempty `workspace_keys[]`; omission of any such row is invalid. Omission of a row for a claimable profile without a workspace means that browser build supports no contract major, capability, or public schema for that profile. A profile row is valid only when the canonical descriptor has `claimable=true` and a non-null `contract_major`; a recognized-unclaimable profile MUST be omitted. In contract major `1`, each `supported_contract_majors[]` array MUST contain exactly one positive integer equal to the canonical descriptor's current `contract_major` for that profile. Supporting more than one profile contract major in one browser build is future-only until a later revision defines digest-bound historical owner inputs and decoder-selection behavior. `workspace_keys[]` MUST exactly equal the descriptor workspaces for every required row and contain `0..64` values; `capability_ids[]` MUST equal `[]`; `public_schema_ids[]` MUST contain `0..256` values. Each array must reject duplicates and sort by ascending UTF-8 bytes. The required Network Flow row MUST select contract major `5` and workspace `network_analysis` exactly.
+`client_build_class` has no omission default; `standard` is the only admitted build class in this revision. `profiles[]` MUST contain `0..256` rows, reject duplicate profile IDs, and sort by ascending UTF-8 bytes of `profile_id`. A row is required for every canonical descriptor with `claimable=true` and a nonempty `workspace_keys[]`; omission of any such row is invalid. Omission of a row for a claimable profile without a workspace means that browser build supports no contract major, capability, or public schema for that profile. A profile row is valid only when the canonical descriptor has `claimable=true` and a non-null `contract_major`; a recognized-unclaimable profile MUST be omitted. In contract major `1`, each `supported_contract_majors[]` array MUST contain exactly one positive integer equal to the canonical descriptor's current `contract_major` for that profile. Supporting more than one profile contract major in one browser build is future-only until a later revision defines digest-bound historical owner inputs and decoder-selection behavior. `workspace_keys[]` MUST exactly equal the descriptor workspaces for every required row and contain `0..64` values; `capability_ids[]` MUST equal `[]`; `public_schema_ids[]` MUST contain `0..256` values. Each array must reject duplicates and sort by ascending UTF-8 bytes. The required Network Flow row MUST select contract major `6` and workspace `network_analysis` exactly.
 
 The registry declares semantic support only. It MUST NOT contain React component names, source-package paths, chunk names, URLs, DOM selectors, display labels, icons, or callback identifiers. It MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_client_support_registry_sha256_v1`. Build validation MUST fail when the registry advertises a profile absent from the canonical extension registry; when its one supported major differs from the canonical descriptor; when it advertises a workspace, capability, or public schema absent from that descriptor; when packaged assets do not match `asset_set_sha256`; or when an implementation binding claims client participation absent from this registry.
 
@@ -3989,7 +4001,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-107` | Every Base public path namespace appears exactly once in the canonical Base route-reservation registry, and exact/descendant overlap with every extension route family is deterministic. |
 | `EXT-AC-108` | The packaged client support registry advertises only digest-bound current profile majors, workspace keys, capabilities, and public schemas present in the canonical extension registry. |
 | `EXT-AC-109` | The no-store workbook-startup member and local epoch/generation tuple gate the exact discovery/support/authorization intersection; stale or defective extension responses cannot render or alter Base behavior. |
-| `EXT-AC-110` | Network Flow discovery uses only the generic seven-member discovery item under explicitly adopted contract major 5; an unsupported client omits the workspace and no dual profile decoder is current. |
+| `EXT-AC-110` | Network Flow discovery uses only the generic seven-member discovery item under explicitly adopted contract major 6; an unsupported client omits the workspace and no dual profile decoder is current. |
 | `EXT-AC-111` | Cross-owner participants satisfy exact input, result, key, finding, deadline, ordering, cancellation, conflict, timeout, replay, and final-commit outcomes with no automatic retry or partial result. |
 | `EXT-AC-112` | At expiry, unpublished staged bytes fail before storage access independently of cleanup; cutoff batches and every physical-deletion outcome follow the closed table, and integrity contradictions are fatal. |
 | `EXT-AC-113` | Every migration receives only its closed scoped context and returns only the closed apply and validation result variants; undeclared state and cross-owner access are impossible through the interface. |
@@ -4035,7 +4047,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-153` | Transaction participant counts `0`, `1`, `16384`, and `16385`, every 64 MiB boundary, first-invalid order, result validity, and cancellation checkpoint execute exactly with no partial effects. |
 | `EXT-AC-154` | Every staged-object default, expiry/retry predicate, upload abandonment, deletion outcome/order, transaction-free delete, serialized sweep, missed-interval coalescing, startup dependency, and readiness branch executes exactly. |
 | `EXT-AC-155` | Restore accepts only stopped empty targets, processes numeric groups and sequential bindings with validation before advance, never serves failure, invokes no inactive code, uses only digest-bound codecs, and rebuilds only after claim. |
-| `EXT-AC-156` | The standard client registry covers every claimable workspace profile including Network Flow major `5`/`network_analysis`, and linearized reservation, stale/current generation, concurrency, rollover, authorization loss, and Base identity preservation are exact. |
+| `EXT-AC-156` | The standard client registry covers every claimable workspace profile including Network Flow major `6`/`network_analysis`, and linearized reservation, stale/current generation, concurrency, rollover, authorization loss, and Base identity preservation are exact. |
 | `EXT-AC-157` | Every capability surface emits `[]`; nonempty facts, arrays, and activation attempts are rejected with `extension_capability_not_supported` and execute no behavior. |
 | `EXT-AC-158` | Loss of each mandatory listener, dequeue gate, or worker before bind, before serving, or while serving is distinguished from operation failure, drains and preserves state, exits `70`, and never restarts in-process. |
 | `EXT-AC-159` | Generated worker runtime contracts assign every runnable job kind exactly once, enforce maximum `1` for Network Flow graph materialization and `8` for existing workers, reject malformed or duplicate assignments before readiness, and let non-saturated worker kinds progress while another kind is saturated. |
@@ -4053,13 +4065,13 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 
 | Gate ID | Required closure |
 | --- | --- |
-| `EXT-GATE-001` | Core 00 adopts this NLSpec for shared extension mechanics, associates every adopted owner document with one digest-bound owner contract manifest, sets every current profile major, sets `network_flow_activity@5`, and records `network_flow_activity -> import@1`. |
+| `EXT-GATE-001` | Core 00 adopts this NLSpec for shared extension mechanics, associates every adopted owner document with one digest-bound owner contract manifest, sets every current profile major, sets `network_flow_activity@6`, and records `network_flow_activity -> import@1`. |
 | `EXT-GATE-002` | Core 01 adopts the strict seven-member discovery producer, tolerant decoder, Base route reservations, exact workbook-startup availability member and no-store behavior, reserved inactive routes, route overlap, and public dispatch precedence. |
 | `EXT-GATE-003` | Core 01 adopts the bounded transaction protocol and errors, staged-object access/cleanup and errors, backup codec selection/error, job proof/reconciliation, typed portability/reporting/backup participation, final-commit boundary, and recovery. |
 | `EXT-GATE-004` | Core 02 adopts or confirms the generic extension-resource boundary, authoritative/derived logical state-family ownership boundary, state-presence exclusion rules, and cross-owner authoritative-write prohibition. |
 | `EXT-GATE-005` | Core 03 adopts availability epoch/generation, stable `client_instance_id` and WebSocket identity, exact discovery/support/authorization intersection, lazy loading, unsupported-major behavior, Base fallback, authorization-loss disposal, and Base cache/request/queue/draft preservation. |
 | `EXT-GATE-006` | Core 04 adopts forbidden/syntax-only inactive processing, every timeout, process lease, single-active-process rule, Stage 6 publication, readiness including cleanup dependency degradation, `fatal_integrity_shutdown_v1`, and exit codes `2` and `70`. |
-| `EXT-GATE-007` | Network Flow Activity publishes its typed owner fragments, removes its competing discovery shape, adopts major 5/state 4/minimum 3/configuration major 2, and declares Import dependency, empty initialization, executable `3 -> 4` migration, inert `1 -> 2` and `2 -> 3` ledger facts, state-4 final validation, state presence/bindings/codecs, saved-graph job/worker/resource, generated graph-worker capacity `1`, Reporting participant, current-only Graph rebuild v4, and portability blocking. |
+| `EXT-GATE-007` | Network Flow Activity publishes its typed owner fragments, removes its competing discovery shape, adopts major 6/state 4/minimum 3/configuration major 2, and declares Import dependency, empty initialization, executable `3 -> 4` migration, inert `1 -> 2` and `2 -> 3` ledger facts, state-4 final validation, state presence/bindings/codecs, saved-graph job/worker/resource, generated graph-worker capacity `1`, Reporting participant, current-only Graph rebuild v4, and portability blocking. |
 | `EXT-GATE-008` | Reporting and Report Composition import the generic descriptor, claim, compatibility, state-presence, participant-context, result, and lifecycle contracts without transferring reporting or composition ownership. |
 | `EXT-GATE-009` | The Testing Harness remains adopted/current; every Extensions verification routes to a real test or public target; runner and execution profiles validate; and no compatibility reader or historical run can close adoption. |
 | `EXT-GATE-010` | OpenTelemetry derives `cartulary.profile.claims` only from the canonical resolved claim set and its published digest and records no profile-local secret or incident content. |
@@ -4091,8 +4103,8 @@ Verified by: EXT-AC-003, EXT-AC-072
 **EXT-REQ-170**
 Core 00, Core 01, Core 03, Core 04, and the Network Flow Activity NLSpec MUST be amended together so that discovery has one generic seven-member shape, inactive dispatch has one precedence, client support uses one major, and the current Network Flow contract-major action is explicit.
 
-The current coordinated action is Network Flow `contract_major=5`, document
-version `5.0.0`, state version `4`, minimum migratable state `3`, configuration
+The current coordinated action is Network Flow `contract_major=6`, document
+version `6.0.0`, state version `4`, minimum migratable state `3`, configuration
 contract major `2`, and the exact owner-declared semantic-query-v2-only,
 ledger-verification, saved-graph, worker-runtime, cleanup, Recovery-v4, and
 Reporting contributions. A partial major, state, job,
@@ -4312,3 +4324,20 @@ A bounded integer still requires exact executable selector inventory for both ad
 [^7]: `docs/research/R07-spreadsheet-of-doom-sod-report.cr.md`, §§1–2, lines 7–21. The report is practitioner-architecture evidence only.
 [^8]: `docs/research/R08-handsontable-react-research-report.md`, “Plugin / Extension Flow,” lines 602–628. The cited pattern is informative and does not authorize a runtime plugin system.
 [^9]: `docs/research/R09-react-data-grid-research-report.md`, “Row model,” “Controlled versus internal props,” and row-key discussion, lines 95–119 and 259–265. The repository report is implementation evidence only.
+
+## Saved-graph initiating receipt boundary
+
+Core 01 owns the narrow Common Job reference and permits adopted initiating
+owners to return their committed resource alongside that reference. This does
+not expose job/worker kinds or execution metadata. Network Flow owns its exact
+saved-graph receipt and preserves it immutably. Finalization reconciles that
+receipt through a transaction-bound owner port that validates request hash,
+target and job identity without replacing bytes. Other Core job owners retain
+their declared terminal-receipt behavior. Proof validation and job execution
+remain Extensions/Common Jobs responsibilities; neither current declaration
+reads nor retained handler payloads reconstruct historical acknowledgement.
+
+Network Flow major-6 admission uses its declared read-only preflight algorithm
+through existing admission and owner ports. Incompatible retained declarations,
+receipts, jobs or proofs block readiness without modification. Job retention
+expiry does not waive route-idempotency obligations.

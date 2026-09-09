@@ -14,6 +14,7 @@ import {
   type HTTPOperationResult,
   publicErrorView,
 } from "./browserApi";
+import { equalJSONResource } from "./commonJobContract";
 import type {
   DiscoveredImportPreview,
   DiscoveredImportUnit,
@@ -24,10 +25,7 @@ import type {
   ImportSessionResource,
   ListImportUnitsResponse,
 } from "./importContractAdapter";
-import {
-  equalImportResource,
-  validWorkbookImportJob,
-} from "./importJobContract";
+import { validWorkbookImportJob } from "./importJobContract";
 
 export type ImportFailure = {
   readonly kind: "public" | "transport" | "contract" | "authority";
@@ -519,7 +517,7 @@ export class ImportClient {
       p.import_unit_id !== unit.import_unit_id ||
       p.source_rect_a1 !== unit.source_rect_a1 ||
       p.locator_kind !== unit.locator_kind ||
-      !equalImportResource(p.locator, unit.locator) ||
+      !equalJSONResource(p.locator, unit.locator) ||
       p.header_row_ref !== unit.header_row_ref ||
       p.data_start_row_ref !== unit.data_start_row_ref ||
       p.inferred_column_count !== unit.inferred_column_count ||
@@ -628,6 +626,6 @@ export function sameImportUnitSource(
     previous.import_unit_id === next.import_unit_id &&
     previous.locator_kind === next.locator_kind &&
     previous.source_rect_a1 === next.source_rect_a1 &&
-    equalImportResource(previous.locator, next.locator)
+    equalJSONResource(previous.locator, next.locator)
   );
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -44,6 +45,7 @@ type Service struct {
 
 type incidentAdmissionChecker interface {
 	Check(context.Context, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
+	CheckTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, admission.Requirement) (admission.Grant, error)
 }
 
 func newRouteService(deps httpapi.DependencySet, module *Module) (*Service, error) {

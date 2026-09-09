@@ -39,6 +39,35 @@
       ]
     },
     {
+      "row_id": "module.extensions.integration.admission_preflight_v6",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestClaimAdmissionPreflightBeforeState_ServiceBacked"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.extensions.integration.bc011_deadline_precedence_ef23af86ac",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
@@ -464,6 +493,32 @@
       ]
     },
     {
+      "row_id": "module.extensions.unit.admission_invocation_v6",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestAdmissionAlgorithmResultAndDeadline_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.extensions.unit.bc001_empty_state_7ca75ba0bc",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
@@ -810,7 +865,7 @@
       "selector": {
         "package": "./internal/modules/extensions",
         "tests": [
-          "TestNetworkFlowV5StateJobsAndReportingProjection_Unit"
+          "TestNetworkFlowV6StateJobsAndReportingProjection_Unit"
         ]
       },
       "evidence_class": "unit",

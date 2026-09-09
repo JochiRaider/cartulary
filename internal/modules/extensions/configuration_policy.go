@@ -60,13 +60,17 @@ func admitInactiveConfigurationPolicies(source ArtifactSource, records map[strin
 	policies := make([]InactiveConfigurationPolicy, 0)
 	seenKeys := map[string]struct{}{}
 	for _, profileID := range orderedProfileIDs {
-		contract, _, readErr := readArtifactObject(source, "contracts/extensions/profiles/"+profileID+"/configuration.json")
+		contract, contractArtifact, readErr := readArtifactObject(source, "contracts/extensions/profiles/"+profileID+"/configuration.json")
 		if readErr != nil {
 			return nil, readErr
 		}
 		if contract["schema_id"] != "cartulary.extension_profile_configuration_contract.v3" || stringValue(contract["profile_id"]) != profileID {
 			return nil, invalidArtifact("configuration_contract", fmt.Errorf("profile mismatch for %s", profileID))
 		}
+		record := records[profileID]
+		record.configurationContract = cloneObject(contract)
+		record.configurationContractSHA256 = contractArtifact.SHA256
+		records[profileID] = record
 		keys, ok := objectSlice(contract["keys"])
 		if !ok {
 			return nil, invalidArtifact("configuration_contract", fmt.Errorf("keys are not an array for %s", profileID))

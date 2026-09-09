@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/admission"
@@ -124,9 +125,9 @@ func TestNetworkFlowImportFacadePublishesCompleteBinding(t *testing.T) {
 	if binding.SchemaID != "cartulary.imports.analytical_facade_binding.v1" ||
 		binding.TargetKind != TargetKindNetworkFlowTable ||
 		binding.ExtensionProfileID != ProfileID ||
-		binding.OwnerContractRef != "network_flow_activity@5" ||
+		binding.OwnerContractRef != "network_flow_activity@6" ||
 		binding.FacadeID != "network_flow_import_facade_v1" ||
-		binding.ContractMajor != 5 ||
+		binding.ContractMajor != 6 ||
 		binding.MappingSchemaID != "cartulary.network_flow.approved_mapping.v1" ||
 		binding.PreviewRequestSchemaID != "cartulary.network_flow.import_preview_request.v1" ||
 		binding.PreviewResultSchemaID != "cartulary.network_flow.import_preview_result.v1" ||
@@ -662,4 +663,8 @@ func (a *authorizationAccess) Check(context.Context, uuid.UUID, uuid.UUID, admis
 		return admission.Grant{}, &admission.Denied{Code: admission.DenialInsufficientRole}
 	}
 	return a.grant, nil
+}
+
+func (a *authorizationAccess) CheckTx(ctx context.Context, _ pgx.Tx, incidentID, actorID uuid.UUID, requirement admission.Requirement) (admission.Grant, error) {
+	return a.Check(ctx, incidentID, actorID, requirement)
 }

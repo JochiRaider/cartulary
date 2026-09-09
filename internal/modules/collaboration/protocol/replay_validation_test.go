@@ -55,6 +55,16 @@ func TestReplayValidationCoversEveryFamilyAndAcceptsAdditiveMembers(t *testing.T
 		},
 	}
 
+	for _, reason := range []string{"created", "refresh_requested", "materialized", "materialization_failed", "source_invalidated"} {
+		payload := protocol.ExtensionResourceChangePayload{ExtensionProfileID: "network_flow_activity", ResourceKind: "network_flow_graph_view", ResourceID: "nfgv_additive", ChangeKind: protocol.ExtensionResourceChangeKindInvalidate, ReasonCode: reason}
+		if err := protocol.ValidateExtensionResourceChangePayload(payload); err != nil {
+			t.Fatalf("additive invalidation %s: %v", reason, err)
+		}
+		payload.ChangeKind = protocol.ExtensionResourceChangeKindRemove
+		if err := protocol.ValidateExtensionResourceChangePayload(payload); err == nil {
+			t.Fatalf("additive reason %s admitted removal", reason)
+		}
+	}
 	for _, test := range tests {
 		t.Run(test.family, func(t *testing.T) {
 			payload := collabtestprotocol.RawPayload(test.payload)
