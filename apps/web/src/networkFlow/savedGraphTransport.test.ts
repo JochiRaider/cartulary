@@ -5,6 +5,7 @@ import {
 } from "../extensions/extensionWorkspaceIdentities";
 import {
   decodeNetworkFlowSavedGraphAccepted,
+  decodeNetworkFlowSavedGraphResult,
   normalizeSavedGraphDisplayName,
 } from "../services/networkFlowContractAdapter";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
@@ -17,7 +18,9 @@ import {
 import {
   deferredSavedGraph,
   savedGraphAccepted,
+  savedGraphBindingFixture,
   savedGraphFixture,
+  savedGraphResultFixture,
   savedGraphTestAuthority,
 } from "./savedGraphTestFixtures";
 
@@ -100,6 +103,17 @@ describe("Saved graph transport integrity", () => {
       Promise.resolve(response(acceptedResponse())),
     );
     decodeNetworkFlowSavedGraphAccepted(acceptedResponse());
+    const selected = savedGraphResultFixture(
+      savedGraphFixture({ selected_result_binding: savedGraphBindingFixture }),
+    );
+    expect(() => decodeNetworkFlowSavedGraphResult(selected)).not.toThrow();
+    const retired = structuredClone(selected);
+    retired.graph_view.state = "retired";
+    expect(() => decodeNetworkFlowSavedGraphResult(retired)).toThrow();
+    const wrongBinding = structuredClone(selected);
+    wrongBinding.result.graph_projection_result.source_snapshot_id =
+      "different-boundary";
+    expect(() => decodeNetworkFlowSavedGraphResult(wrongBinding)).toThrow();
     await expect(send()).resolves.toMatchObject({ kind: "accepted" });
     await send();
     expect(fetch.mock.calls.map((call) => call[1].body)).toEqual([

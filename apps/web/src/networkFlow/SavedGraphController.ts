@@ -25,6 +25,7 @@ import {
   canMutateSavedGraph,
   canReadSavedGraphs,
   captureSavedGraphIntent,
+  captureSavedGraphReceipt,
   prepareSavedGraphAttempt,
   type SavedGraphAction,
   type SavedGraphAttempt,
@@ -35,6 +36,7 @@ import {
   SavedGraphWriteError,
   sameSavedGraphAuthority,
   sameSavedGraphScope,
+  savedGraphOperationGraphId,
   savedGraphWriteFailure,
 } from "./savedGraphOperation";
 import {
@@ -43,21 +45,45 @@ import {
   savedGraphReadFailure,
 } from "./savedGraphReadFailure";
 
-export type SavedGraphOperationPhase =
-  | "preparing"
-  | "submitting"
-  | "acknowledged"
-  | "rejected"
-  | "uncertain"
-  | "awaiting_review";
-export type SavedGraphOperation = {
+type SavedGraphPreparation = {
   readonly intent: SavedGraphIntent;
-  readonly phase: SavedGraphOperationPhase;
   readonly draft: string;
-  readonly attempt: SavedGraphAttempt | null;
-  readonly failure: SavedGraphWriteError | null;
-  readonly receipt: SavedGraphReceipt | null;
 };
+export type SavedGraphOperation = SavedGraphPreparation &
+  (
+    | {
+        readonly phase: "preparing";
+        readonly attempt: null;
+        readonly failure: null;
+        readonly receipt: null;
+      }
+    | {
+        readonly phase: "rejected" | "awaiting_review";
+        readonly attempt: SavedGraphAttempt | null;
+        readonly failure: SavedGraphWriteError | null;
+        readonly receipt: null;
+      }
+    | {
+        readonly phase: "submitting";
+        readonly attempt: SavedGraphAttempt;
+        readonly dispatch: "queued" | "sent";
+        readonly failure: null;
+        readonly receipt: null;
+      }
+    | {
+        readonly phase: "uncertain";
+        readonly attempt: SavedGraphAttempt;
+        readonly failure: SavedGraphWriteError;
+        readonly receipt: null;
+      }
+    | {
+        readonly phase: "acknowledged";
+        readonly attempt: SavedGraphAttempt;
+        readonly failure: null;
+        readonly receipt: SavedGraphReceipt;
+      }
+  );
+export type SavedGraphOperationPhase = SavedGraphOperation["phase"];
 export type SavedGraphSnapshot = {
   readonly navigation: SavedGraphResultState;
   readonly observations: Readonly<Record<string, SavedGraphObservation>>;
@@ -65,6 +91,7 @@ export type SavedGraphSnapshot = {
   readonly selectedGraphViewId: string | null;
   readonly listState: SavedGraphLoadState;
   readonly listError: NetworkFlowRequestError | null;
+  readonly declarationErrors: Readonly<Record<string, NetworkFlowRequestError>>;
   readonly operation: SavedGraphOperation | null;
   readonly dialogOpen: boolean;
   readonly notice: string | null;
@@ -94,6 +121,7 @@ const initialSnapshot = (): SavedGraphSnapshot => ({
   selectedGraphViewId: null,
   listState: "idle",
   listError: null,
+  declarationErrors: {},
   operation: null,
   dialogOpen: false,
   notice: null,
@@ -106,6 +134,7 @@ export class SavedGraphController {
   private readonly observations = new Map<string, AbortController>();
   private readonly acceptedTargets = new Map<string, SavedGraphJobTarget>();
   private reconcilingNavigation = false;
+  private publicationDepth = 0;
   private readonly listeners = new Set<() => void>();
   private authority: SavedGraphAuthority | null = null;
   private transport: SavedGraphTransport | null = null;
@@ -120,7 +149,6 @@ export class SavedGraphController {
     revision: number;
     scope: SavedGraphAuthority;
   } | null = null;
-  private reconciliationRevision = 0;
   private listRequest: AbortController | null = null;
   private readonly graphRequests = new Map<string, AbortController>();
   private readonly pendingGraphs = new Set<string>();
@@ -129,7 +157,7 @@ export class SavedGraphController {
   private attemptContext: {
     attempt: SavedGraphAttempt;
     selectionRevision: number;
-    reconciliationRevision: number;
+    dispatched: boolean;
     uncertain: boolean;
   } | null = null;
   private readonly retired = new Set<string>();
@@ -137,7 +165,11 @@ export class SavedGraphController {
   private readonly removedSources = new Set<string>();
   private protectedReadWithdrawn = false;
   private authorityRemoved = false;
-  private readonly drafts = new Map<string, string>();
+  private suspendedSession: {
+    scope: SavedGraphAuthority;
+    operation: SavedGraphOperation | null;
+  } | null = null;
+  private readonly drafts = new Map<string, SavedGraphPreparation>();
   constructor(
     private readonly options: {
       readonly clock?: ObservationClock;
@@ -180,13 +212,56 @@ export class SavedGraphController {
     this.revalidateAuthority();
   }
   revalidateAuthority(): void {
+    this.batch(() => this.reconcileAuthority());
+  }
+  private reconcileAuthority(): void {
     const next = this.currentAuthority?.() ?? null;
     if (next === null) {
       this.clear();
       return;
     }
+    if (this.suspendedSession !== null) {
+      const suspended = this.suspendedSession;
+      if (
+        next.incidentId !== suspended.scope.incidentId ||
+        (next.actorId !== null && next.actorId !== suspended.scope.actorId)
+      )
+        this.clear();
+      else if (
+        next.session !== suspended.scope.session &&
+        next.sessionResolved !== false &&
+        next.actorId !== null &&
+        !(next.profileAvailable ?? next.available)
+      ) {
+        this.clear();
+        this.authority = next;
+        return;
+      } else if (
+        next.session === suspended.scope.session ||
+        !canReadSavedGraphs(next)
+      )
+        return;
+      else {
+        this.suspendedSession = null;
+        this.authority = next;
+        this.authorityRemoved = false;
+        this.protectedReadWithdrawn = false;
+        this.update({ operation: suspended.operation });
+        if (this.active) void this.loadGraphs();
+        return;
+      }
+    }
+    if (next.sessionResolved === false || next.actorId === null) {
+      this.pauseSession();
+      return;
+    }
     if (this.authority !== null && !sameSavedGraphScope(this.authority, next))
       this.clear();
+    if (!(next.profileAvailable ?? next.available)) {
+      this.clear();
+      this.authority = next;
+      return;
+    }
     const previousAuthority = this.authority;
     const changed =
       this.authority !== null && !sameSavedGraphAuthority(this.authority, next);
@@ -194,7 +269,10 @@ export class SavedGraphController {
     if (changed) {
       if (canReadSavedGraphs(next)) this.authorityRemoved = false;
       this.writeRequest?.abort();
-      if (this.attemptContext && this.state.operation?.phase === "submitting")
+      if (
+        this.attemptContext?.dispatched &&
+        this.state.operation?.phase === "submitting"
+      )
         this.attemptContext.uncertain = true;
       if (
         previousAuthority !== null &&
@@ -207,21 +285,29 @@ export class SavedGraphController {
       this.navigation.stopReads();
       const operation = this.state.operation;
       if (operation !== null && operation.phase !== "acknowledged") {
+        const uncertain =
+          this.attemptContext?.uncertain === true && operation.attempt !== null;
+        const failure = new SavedGraphWriteError(
+          "authorization",
+          uncertain ? "uncertain" : "rejected",
+          "Authority changed. Review current access before continuing.",
+        );
         this.update({
-          operation: {
-            ...operation,
-            phase:
-              operation.attempt !== null &&
-              (operation.phase === "submitting" ||
-                operation.phase === "uncertain")
-                ? "uncertain"
-                : "awaiting_review",
-            failure: new SavedGraphWriteError(
-              "authorization",
-              operation.attempt === null ? "rejected" : "uncertain",
-              "Authority changed. Review current access before continuing.",
-            ),
-          },
+          operation:
+            uncertain && operation.attempt !== null
+              ? {
+                  ...operation,
+                  phase: "uncertain",
+                  attempt: operation.attempt,
+                  receipt: null,
+                  failure,
+                }
+              : {
+                  ...operation,
+                  phase: "awaiting_review",
+                  receipt: null,
+                  failure,
+                },
         });
       }
     }
@@ -254,6 +340,9 @@ export class SavedGraphController {
     this.active = false;
   }
   private clear(): void {
+    this.batch(() => this.clearState());
+  }
+  private clearState(): void {
     this.stopObservations();
     this.acceptedTargets.clear();
     this.navigation.clear();
@@ -261,6 +350,7 @@ export class SavedGraphController {
     this.writeRequest?.abort();
     this.writeRequest = null;
     this.attemptContext = null;
+    this.suspendedSession = null;
     this.admission = false;
     this.authority = null;
     this.pendingGraphs.clear();
@@ -275,6 +365,51 @@ export class SavedGraphController {
     this.drafts.clear();
     this.selectionRevision++;
     this.update(initialSnapshot());
+  }
+  readonly pauseSession = (): void => {
+    this.batch(() => this.suspendSession());
+  };
+  private suspendSession(): void {
+    if (this.suspendedSession !== null || this.authority === null) return;
+    const op = this.state.operation;
+    let operation = op;
+    if (op !== null && op.phase !== "acknowledged") {
+      const uncertain =
+        this.attemptContext?.uncertain === true ||
+        (op.phase === "submitting" && this.attemptContext?.dispatched === true);
+      if (this.attemptContext) this.attemptContext.uncertain = uncertain;
+      const failure = new SavedGraphWriteError(
+        "authorization",
+        uncertain ? "uncertain" : "rejected",
+        "Session paused. Reauthenticate and review current access before continuing.",
+      );
+      operation =
+        uncertain && op.attempt !== null
+          ? {
+              ...op,
+              phase: "uncertain",
+              attempt: op.attempt,
+              failure,
+              receipt: null,
+            }
+          : { ...op, phase: "awaiting_review", failure, receipt: null };
+    }
+    this.suspendedSession = { scope: this.authority, operation };
+    this.writeRequest?.abort();
+    this.writeRequest = null;
+    this.admission = false;
+    this.invalidateReads();
+    this.stopObservations();
+    this.navigation.clear();
+    this.update(initialSnapshot());
+  }
+  private purgeProtectedState(): void {
+    this.batch(() => {
+      const authority = this.authority;
+      this.clear();
+      this.authority = authority;
+      this.protectedReadWithdrawn = true;
+    });
   }
   private invalidateReads(): void {
     for (const request of this.graphRequests.values()) request.abort();
@@ -301,6 +436,17 @@ export class SavedGraphController {
     }
     this.listRequest = null;
   }
+  private batch(action: () => void): void {
+    const previous = this.state;
+    this.publicationDepth++;
+    try {
+      action();
+    } finally {
+      this.publicationDepth--;
+      if (this.publicationDepth === 0 && previous !== this.state)
+        for (const listener of this.listeners) listener();
+    }
+  }
   private update(patch: Partial<SavedGraphSnapshot>): void {
     this.state = { ...this.state, ...patch };
     if (
@@ -323,7 +469,9 @@ export class SavedGraphController {
       );
       this.reconcilingNavigation = false;
     }
-    for (const listener of this.listeners) listener();
+    if (this.reconcilingNavigation) return;
+    if (this.publicationDepth === 0)
+      for (const listener of this.listeners) listener();
     if (patch.graphs !== undefined || patch.selectedGraphViewId !== undefined)
       this.observeCurrent();
   }
@@ -331,6 +479,7 @@ export class SavedGraphController {
   private readable(reconcileAuthority = false): SavedGraphAuthority | null {
     this.revalidateAuthority();
     return this.authority !== null &&
+      this.suspendedSession === null &&
       !this.authorityRemoved &&
       (reconcileAuthority || !this.protectedReadWithdrawn) &&
       canReadSavedGraphs(this.authority)
@@ -343,6 +492,7 @@ export class SavedGraphController {
   ): boolean {
     const now = this.currentAuthority?.();
     return (
+      this.suspendedSession === null &&
       !this.authorityRemoved &&
       (reconcileAuthority || !this.protectedReadWithdrawn) &&
       now !== undefined &&
@@ -389,9 +539,11 @@ export class SavedGraphController {
             this.observationLimit =
               limit.status === "fulfilled" &&
               Number.isInteger(limit.value) &&
-              limit.value >= 1 &&
-              limit.value <= savedGraphObservationTiming.maximumActive
-                ? limit.value
+              limit.value >= 1
+                ? Math.min(
+                    limit.value,
+                    savedGraphObservationTiming.maximumActive,
+                  )
                 : 1;
           return graphs.value;
         },
@@ -405,7 +557,6 @@ export class SavedGraphController {
         graphs.filter((graph) => !this.retired.has(graph.graph_view_id)),
       );
       const selected = this.state.selectedGraphViewId;
-      this.reconciliationRevision++;
       for (const graph of active)
         this.invalidatedGraphs.delete(graph.graph_view_id);
       this.update({
@@ -445,14 +596,45 @@ export class SavedGraphController {
     const target = kind === "create" ? null : this.selectedGraph;
     if (kind !== "create" && target === null) return;
     const key = `${kind}:${target?.graph_view_id ?? "new"}`;
+    const retained = this.drafts.get(key);
+    const intent =
+      retained?.intent ?? captureSavedGraphIntent(kind, scope, target, query);
     const draft =
-      this.drafts.get(key) ??
+      retained?.draft ??
       (kind === "rename" ? (target?.display_name ?? "") : "");
+    this.drafts.set(key, { intent, draft });
     this.update({
       dialogOpen: true,
       operation: {
-        intent: captureSavedGraphIntent(kind, scope, target, query),
+        intent,
         draft,
+        phase: "preparing",
+        attempt: null,
+        receipt: null,
+        failure: null,
+      },
+    });
+  };
+  readonly prepareCurrentQuery = (
+    query: NetworkFlowGraphSemanticQuery,
+  ): void => {
+    const op = this.state.operation,
+      scope = this.readable();
+    if (
+      op?.intent.kind !== "create" ||
+      this.mutationPending ||
+      op.phase === "acknowledged" ||
+      scope === null ||
+      !canMutateSavedGraph(scope, "create")
+    )
+      return;
+    const intent = captureSavedGraphIntent("create", scope, null, query);
+    this.drafts.set("create:new", { intent, draft: op.draft });
+    this.attemptContext = null;
+    this.update({
+      operation: {
+        intent,
+        draft: op.draft,
         phase: "preparing",
         attempt: null,
         receipt: null,
@@ -477,7 +659,7 @@ export class SavedGraphController {
       return;
     this.drafts.set(
       `${op.intent.kind}:${op.intent.target?.graph_view_id ?? "new"}`,
-      draft,
+      { intent: op.intent, draft },
     );
     this.update({
       operation: {
@@ -517,6 +699,7 @@ export class SavedGraphController {
         operation: {
           ...op,
           phase: "rejected",
+          receipt: null,
           failure:
             caught instanceof SavedGraphWriteError
               ? caught
@@ -532,7 +715,7 @@ export class SavedGraphController {
     this.attemptContext = {
       attempt,
       selectionRevision: this.selectionRevision,
-      reconciliationRevision: this.reconciliationRevision,
+      dispatched: false,
       uncertain: false,
     };
     return this.send(attempt);
@@ -551,6 +734,7 @@ export class SavedGraphController {
         operation: {
           ...op,
           phase: "awaiting_review",
+          receipt: null,
           failure: new SavedGraphWriteError(
             "version_conflict",
             "rejected",
@@ -588,7 +772,8 @@ export class SavedGraphController {
     const authority = this.readable();
     if (
       authority === null ||
-      !sameSavedGraphScope(op.intent.authority, authority) ||
+      op.intent.authority.incidentId !== authority.incidentId ||
+      op.intent.authority.actorId !== authority.actorId ||
       !canMutateSavedGraph(authority, op.intent.kind)
     )
       return false;
@@ -611,7 +796,14 @@ export class SavedGraphController {
     }
     const recovering = context.uncertain;
     this.update({
-      operation: { ...op, attempt, phase: "submitting", failure: null },
+      operation: {
+        ...op,
+        attempt,
+        phase: "submitting",
+        dispatch: "queued",
+        receipt: null,
+        failure: null,
+      },
     });
     const request = new AbortController();
     this.writeRequest = request;
@@ -639,19 +831,25 @@ export class SavedGraphController {
                 "rejected",
                 "The captured target changed before dispatch. Review its current state.",
               );
+            context.dispatched = true;
+            this.update({
+              operation: {
+                intent: attempt.intent,
+                draft: op.draft,
+                attempt,
+                phase: "submitting",
+                dispatch: "sent",
+                failure: null,
+                receipt: null,
+              },
+            });
           });
           // A late acknowledgement can still resolve this exact uncertain attempt.
           if (
             this.state.operation?.attempt === attempt &&
             this.current(authority)
           )
-            this.acceptReceipt(
-              attempt,
-              receipt,
-              context.selectionRevision,
-              context.reconciliationRevision,
-              context.uncertain,
-            );
+            this.acceptReceipt(attempt, receipt, context.selectionRevision);
           return receipt;
         },
         request.signal,
@@ -667,15 +865,34 @@ export class SavedGraphController {
       if (current?.attempt !== attempt || current.phase === "acknowledged")
         return current?.phase === "acknowledged";
       if (this.writeRequest !== request) return false;
-      const failure = savedGraphWriteFailure(caught);
-      context.uncertain ||= recovering || failure.certainty === "uncertain";
+      const classified =
+        !context.dispatched &&
+        current.phase === "awaiting_review" &&
+        current.failure !== null
+          ? current.failure
+          : savedGraphWriteFailure(caught);
+      context.uncertain ||=
+        recovering ||
+        (context.dispatched && classified.certainty === "uncertain");
+      const failure = new SavedGraphWriteError(
+        classified.category,
+        context.uncertain ? "uncertain" : "rejected",
+        !context.dispatched && classified.certainty === "uncertain"
+          ? "The request was stopped before dispatch. Nothing was submitted. Review current access before trying again."
+          : classified.message,
+        classified.detail,
+      );
       this.update({
         operation: {
           ...current,
+          attempt,
+          receipt: null,
           failure,
           phase: context.uncertain
             ? "uncertain"
-            : failure.category === "version_conflict"
+            : current.phase === "awaiting_review" ||
+                failure.category === "version_conflict" ||
+                failure.category === "authorization"
               ? "awaiting_review"
               : "rejected",
         },
@@ -693,11 +910,10 @@ export class SavedGraphController {
     attempt: SavedGraphAttempt,
     receipt: SavedGraphReceipt,
     selectionRevision: number,
-    reconciliationRevision: number,
-    historical: boolean,
   ): void {
     const op = this.state.operation;
     if (op?.attempt !== attempt || op.phase === "acknowledged") return;
+    receipt = captureSavedGraphReceipt(receipt);
     this.invalidateReads();
     this.admission = false;
     let graphs = this.state.graphs,
@@ -706,33 +922,10 @@ export class SavedGraphController {
       const id = attempt.intent.target?.graph_view_id;
       if (id !== undefined) {
         this.retired.add(id);
-        this.acceptedTargets.delete(id);
+        for (const [jobId, target] of this.acceptedTargets)
+          if (target.graphId === id) this.acceptedTargets.delete(jobId);
         graphs = graphs.filter((g) => g.graph_view_id !== id);
         if (selected === id) selected = null;
-      }
-    } else if (
-      !historical &&
-      reconciliationRevision === this.reconciliationRevision
-    ) {
-      const graph =
-        receipt.kind === "accepted" ? receipt.value.graph_view : receipt.value;
-      if (!this.retired.has(graph.graph_view_id)) {
-        const current = graphs.find(
-          (g) => g.graph_view_id === graph.graph_view_id,
-        );
-        if (
-          current === undefined ||
-          current.graph_view_version <= graph.graph_view_version
-        )
-          graphs = sortSavedGraphs([
-            ...graphs.filter((g) => g.graph_view_id !== graph.graph_view_id),
-            graph,
-          ]);
-        if (
-          attempt.intent.kind === "create" &&
-          selectionRevision === this.selectionRevision
-        )
-          selected = graph.graph_view_id;
       }
     }
     if (receipt.kind === "accepted") {
@@ -751,7 +944,7 @@ export class SavedGraphController {
         jobId: receipt.value.job.job_id,
         statusRoute: receipt.value.job.status_route,
       };
-      this.acceptedTargets.set(target.graphId, target);
+      this.acceptedTargets.set(target.jobId, target);
     }
     const name =
       receipt.kind === "retired"
@@ -762,15 +955,24 @@ export class SavedGraphController {
     this.update({
       graphs,
       selectedGraphViewId: selected,
-      operation: { ...op, phase: "acknowledged", receipt, failure: null },
+      operation: {
+        ...op,
+        attempt,
+        phase: "acknowledged",
+        receipt,
+        failure: null,
+      },
       dialogOpen: false,
       notice:
         receipt.kind === "accepted"
           ? `${name}: ${attempt.intent.kind === "create" ? "saved graph created" : "refresh accepted"}.`
           : `${name}: ${receipt.kind === "retired" ? "retired" : "rename acknowledged"}.`,
     });
-    // Historical receipts acknowledge the attempt; only a current read can expose its declaration.
-    if (historical && receipt.kind !== "retired") {
+    this.drafts.delete(
+      `${attempt.intent.kind}:${attempt.intent.target?.graph_view_id ?? "new"}`,
+    );
+    // Receipts acknowledge writes. Only current reads can install declarations.
+    if (receipt.kind !== "retired") {
       const graph =
         receipt.kind === "accepted" ? receipt.value.graph_view : receipt.value;
       void this.reconcileGraph(graph.graph_view_id);
@@ -798,17 +1000,23 @@ export class SavedGraphController {
             ) !== graph))
       )
         return;
+      const intent = captureSavedGraphIntent(
+        op.intent.kind,
+        scope,
+        graph,
+        op.intent.query,
+      );
+      this.drafts.set(
+        `${intent.kind}:${intent.target?.graph_view_id ?? "new"}`,
+        { intent, draft: op.draft },
+      );
       this.update({
         operation: {
           ...op,
-          intent: captureSavedGraphIntent(
-            op.intent.kind,
-            scope,
-            graph,
-            op.intent.query,
-          ),
+          intent,
           phase: "preparing",
           attempt: null,
+          receipt: null,
           failure: null,
         },
         notice:
@@ -900,13 +1108,25 @@ export class SavedGraphController {
       if (this.state.observations[target.jobId] === undefined)
         void this.observe(target);
   }
+  readonly reloadOperationGraph = async (): Promise<void> => {
+    const graphId = savedGraphOperationGraphId(this.state.operation);
+    if (graphId !== null) await this.reconcileGraph(graphId);
+  };
+  readonly resumeOperationObservation = (): void => {
+    const receipt = this.state.operation?.receipt;
+    if (receipt?.kind === "accepted")
+      this.resumeObservation(receipt.value.job.job_id);
+  };
   readonly resumeObservation = (jobId?: string): void => {
     const selected = this.selectedGraph;
     const id = jobId ?? selected?.latest_job_id;
     if (!id) return;
     const known = this.state.observations[id];
     if (known) void this.observe(known.target);
-    else if (selected?.latest_job_id === id)
+    else if (this.acceptedTargets.has(id)) {
+      const target = this.acceptedTargets.get(id);
+      if (target) void this.observe(target);
+    } else if (selected?.latest_job_id === id)
       void this.observe({
         incidentId: selected.incident_id,
         graphId: selected.graph_view_id,
@@ -976,8 +1196,8 @@ export class SavedGraphController {
       observations: { ...this.state.observations, [target.jobId]: result },
     });
     if (result.state === "terminal") {
-      if (this.acceptedTargets.get(target.graphId)?.jobId === target.jobId)
-        this.acceptedTargets.delete(target.graphId);
+      // Retain the immutable accepted target for recovery independently of selection.
+      // Its terminal observation prevents automatic polling.
       // A terminal job is execution evidence; only the current declaration grants result exposure.
       await this.reconcileGraph(target.graphId);
     }
@@ -1000,6 +1220,9 @@ export class SavedGraphController {
     this.cancelGraphRead(graphId);
     const request = new AbortController();
     this.graphRequests.set(graphId, request);
+    const declarationErrors = { ...this.state.declarationErrors };
+    delete declarationErrors[graphId];
+    this.update({ declarationErrors });
     const current = () =>
       this.graphRequests.get(graphId) === request &&
       this.current(scope) &&
@@ -1021,8 +1244,14 @@ export class SavedGraphController {
           "Current declaration does not match its authorized target.",
         );
       this.cancelListRead();
-      this.reconciliationRevision++;
       this.invalidatedGraphs.delete(graphId);
+      for (const [jobId, target] of this.acceptedTargets) {
+        if (
+          target.graphId === graphId &&
+          this.state.observations[jobId]?.state === "terminal"
+        )
+          this.acceptedTargets.delete(jobId);
+      }
       this.update({
         graphs: sortSavedGraphs([
           ...this.state.graphs.filter((g) => g.graph_view_id !== graphId),
@@ -1040,8 +1269,14 @@ export class SavedGraphController {
         "The current declaration could not be read. Reload to recover.",
       );
       this.handleReadFailure(error, "declaration", graphId);
+      const disposition = savedGraphReadDisposition(error, "declaration");
+      if (disposition === "scope" || disposition === "declaration") return null;
       const op = this.state.operation;
       this.update({
+        declarationErrors: {
+          ...this.state.declarationErrors,
+          [graphId]: error,
+        },
         listError: error,
         listState: "error",
         ...(op?.phase === "awaiting_review" &&
@@ -1100,19 +1335,25 @@ export class SavedGraphController {
     surface: SavedGraphReadSurface,
     graphId?: string,
   ): void {
+    this.batch(() => this.applyReadFailure(error, surface, graphId));
+  }
+  private applyReadFailure(
+    error: NetworkFlowRequestError,
+    surface: SavedGraphReadSurface,
+    graphId?: string,
+  ): void {
     switch (savedGraphReadDisposition(error, surface)) {
       case "scope":
-        this.protectedReadWithdrawn = true;
-        this.invalidateReads();
-        this.stopObservations();
-        this.navigation.clear();
-        this.update({
-          graphs: [],
-          selectedGraphViewId: null,
-          observations: {},
-          listState: "error",
-          listError: error,
-        });
+        if (error.code === "session_required") this.pauseSession();
+        else if (error.code === "incident_closed") {
+          this.writeRequest?.abort();
+          this.protectedReadWithdrawn = true;
+          this.invalidateReads();
+          this.stopObservations();
+          this.navigation.clear();
+          this.update({ graphs: [], selectedGraphViewId: null });
+        } else this.purgeProtectedState();
+        this.update({ listState: "error", listError: error });
         break;
       case "declaration":
         if (graphId !== undefined) this.removeGraph(graphId);
@@ -1125,25 +1366,45 @@ export class SavedGraphController {
     }
   }
 
-  readonly onResourceChange = async (
+  readonly onResourceChange = (
     change: NetworkFlowExtensionResourceChange,
   ): Promise<void> => {
+    let pending: Promise<void> = Promise.resolve();
+    this.batch(() => {
+      pending = this.applyResourceChange(change);
+    });
+    return pending;
+  };
+  private async applyResourceChange(
+    change: NetworkFlowExtensionResourceChange,
+  ): Promise<void> {
     if (change.resourceKind === "*") {
+      if (change.changeKind === "remove") {
+        if (change.reasonCode === "session_revoked") this.pauseSession();
+        else if (change.reasonCode === "incident_closed") {
+          this.writeRequest?.abort();
+          this.invalidateReads();
+          this.stopObservations();
+          this.navigation.clear();
+          this.protectedReadWithdrawn = true;
+          this.authorityRemoved = true;
+          this.update({ graphs: [], selectedGraphViewId: null });
+        } else {
+          this.purgeProtectedState();
+          this.authorityRemoved = true;
+        }
+        return;
+      }
       this.invalidateReads();
       this.stopObservations();
       this.navigation.clear();
-      if (change.changeKind === "remove") {
-        this.protectedReadWithdrawn = true;
-        this.authorityRemoved = true;
-        this.update({ graphs: [], selectedGraphViewId: null });
-        return;
-      }
       await this.loadGraphs();
       return;
     }
     if (change.resourceKind === "network_flow_graph_view") {
       if (change.changeKind === "remove") {
         this.removeGraph(change.resourceId);
+        await this.loadGraphs();
         return;
       }
       // An invalidation withdraws current exposure until the declaration is observed.
@@ -1157,34 +1418,91 @@ export class SavedGraphController {
     );
     if (change.changeKind === "remove") {
       this.removedSources.add(change.resourceId);
+      for (const [key, draft] of this.drafts) {
+        if (
+          (
+            draft.intent.query ?? draft.intent.target?.semantic_query
+          )?.selected_table_ids.includes(change.resourceId)
+        )
+          this.drafts.delete(key);
+      }
+      const op = this.state.operation;
+      if (
+        op !== null &&
+        (
+          op.intent.query ?? op.intent.target?.semantic_query
+        )?.selected_table_ids.includes(change.resourceId)
+      ) {
+        this.writeRequest?.abort();
+        this.writeRequest = null;
+        this.attemptContext = null;
+        this.admission = false;
+        this.update({ operation: null, dialogOpen: false, notice: null });
+      }
       for (const graph of affected)
         this.withdrawGraphResult(graph.graph_view_id);
       await this.loadGraphs();
     }
     // Table rename changes only labels; immutable result and contributor identities remain valid.
-  };
+  }
   private withdrawGraphResult(graphId: string): void {
-    this.cancelGraphRead(graphId);
-    this.reconciliationRevision++;
-    this.invalidatedGraphs.add(graphId);
-    if (this.state.selectedGraphViewId === graphId)
-      this.navigation.authorize(null, () => false);
+    this.batch(() => {
+      this.cancelGraphRead(graphId);
+      this.invalidatedGraphs.add(graphId);
+      if (this.state.selectedGraphViewId === graphId)
+        this.navigation.authorize(null, () => false);
+    });
   }
 
   readonly removeGraph = (id: string): void => {
+    this.batch(() => this.removeGraphState(id));
+  };
+  private removeGraphState(id: string): void {
     this.retired.add(id);
-    this.acceptedTargets.delete(id);
+    for (const [jobId, target] of this.acceptedTargets)
+      if (target.graphId === id) this.acceptedTargets.delete(jobId);
+    for (const [key, draft] of this.drafts) {
+      if (draft.intent.target?.graph_view_id === id) this.drafts.delete(key);
+    }
+    const operationTargetsResource =
+      savedGraphOperationGraphId(this.state.operation) === id;
+    if (operationTargetsResource) {
+      this.writeRequest?.abort();
+      this.writeRequest = null;
+      this.attemptContext = null;
+      this.admission = false;
+    }
+    for (const [jobId, observation] of Object.entries(
+      this.state.observations,
+    )) {
+      if (observation.target.graphId === id) {
+        this.observations.get(jobId)?.abort();
+        this.observations.delete(jobId);
+      }
+    }
     this.pendingGraphs.delete(id);
     this.cancelGraphRead(id);
-    this.reconciliationRevision++;
     this.update({
+      ...(operationTargetsResource
+        ? { operation: null, dialogOpen: false, notice: null }
+        : {}),
+      observations: Object.fromEntries(
+        Object.entries(this.state.observations).filter(
+          ([, observation]) => observation.target.graphId !== id,
+        ),
+      ),
+      declarationErrors: Object.fromEntries(
+        Object.entries(this.state.declarationErrors).filter(
+          ([graphId]) => graphId !== id,
+        ),
+      ),
       graphs: this.state.graphs.filter((g) => g.graph_view_id !== id),
       selectedGraphViewId:
         this.state.selectedGraphViewId === id
           ? null
           : this.state.selectedGraphViewId,
     });
-  };
+  }
 }
 
 /** Unicode code-point ordering, independent of browser locale and UTF-16 pairs. */

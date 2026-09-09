@@ -20,7 +20,7 @@ import {
 
 export type SavedGraphResultState = {
   readonly identity: string | null;
-  readonly result: NetworkFlowSavedGraphResult | null;
+  readonly result: Pick<NetworkFlowSavedGraphResult, "result"> | null;
   readonly resultState: SavedGraphLoadState;
   readonly resultError: NetworkFlowRequestError | null;
   readonly selection: NetworkFlowGraphSelector | null;
@@ -124,16 +124,19 @@ export class SavedGraphResultNavigation {
       void this.loadResult();
   }
   clear(): void {
-    this.stopReads();
+    this.stopRequests();
     this.update(initialSavedGraphResultState());
   }
-  stopReads(): void {
+  private stopRequests(): void {
     this.resultGeneration++;
     this.contributorGeneration++;
     this.resultRequest?.abort();
     this.contributorRequest?.abort();
     this.resultRequest = null;
     this.contributorRequest = null;
+  }
+  stopReads(): void {
+    this.stopRequests();
     this.update({
       resultState:
         this.state.resultState === "loading" ||
@@ -211,6 +214,7 @@ export class SavedGraphResultNavigation {
       )
         return;
       if (
+        result.graph_view.state !== "active" ||
         result.graph_view.incident_id !== graph.incident_id ||
         result.graph_view.graph_view_id !== graph.graph_view_id ||
         savedGraphBindingIdentity(result.graph_view) !== identity
@@ -228,7 +232,7 @@ export class SavedGraphResultNavigation {
       }
       // Unchanged results keep the original object and all navigation context.
       this.update({
-        result: this.state.result ?? result,
+        result: this.state.result ?? { result: result.result },
         resultState: "ready",
       });
     } catch (caught) {

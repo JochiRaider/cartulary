@@ -920,7 +920,8 @@
       "selector": {
         "package": "./internal/modules/networkflow",
         "tests": [
-          "TestNetworkFlowSavedGraphLifecycleRoutes_Integration"
+          "TestNetworkFlowSavedGraphLifecycleRoutes_Integration",
+          "TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration"
         ]
       },
       "evidence_class": "integration",

@@ -42,6 +42,9 @@ async function setup() {
     graph_view_id: `nfgv_${"b".repeat(32)}`,
     display_name: "Graph B",
   });
+  const receipt = vi.fn<() => ReturnType<SavedGraphTransport["submit"]>>(
+    async () => savedGraphAccepted(a),
+  );
   const transport = {
     observationLimit: vi.fn(async () => 4),
     list: vi.fn<SavedGraphTransport["list"]>(async () => [a, b]),
@@ -49,8 +52,12 @@ async function setup() {
     readJob: vi.fn<SavedGraphTransport["readJob"]>(async () => {
       throw new Error("Job unobserved");
     }),
-    submit: vi.fn<SavedGraphTransport["submit"]>(async () =>
-      savedGraphAccepted(a),
+    receipt,
+    submit: vi.fn<SavedGraphTransport["submit"]>(
+      async (_attempt, _signal, dispatch) => {
+        dispatch();
+        return receipt();
+      },
     ),
     navigation: {
       result: vi.fn<SavedGraphTransport["navigation"]["result"]>(async () =>
@@ -99,14 +106,268 @@ async function setup() {
 }
 
 describe("Saved graph recovery boundaries", () => {
+  it("reconciles retirement removal after it interrupts the acknowledged list read", async () => {
+    const { owner, transport, a, setAuthority } = await setup();
+    setAuthority({ role: "admin" });
+    transport.list.mockResolvedValue([a]);
+    await owner.loadGraphs();
+    const interrupted = deferredSavedGraph<NetworkFlowSavedGraph[]>();
+    transport.list
+      .mockReturnValueOnce(interrupted.promise)
+      .mockResolvedValue([]);
+    transport.receipt.mockResolvedValue({ kind: "retired" });
+    owner.openAction("retire");
+    expect(await owner.submit()).toBe(true);
+    await owner.onResourceChange({
+      resourceKind: "network_flow_graph_view",
+      resourceId: a.graph_view_id,
+      changeKind: "remove",
+      reasonCode: "retired",
+    });
+    interrupted.resolve([a]);
+    await vi.waitFor(() => expect(owner.getSnapshot().listState).toBe("ready"));
+    expect(owner.getSnapshot().graphs).toEqual([]);
+    expect(owner.getSnapshot().navigation.result).toBeNull();
+  });
+
+  it("keeps a queued unsent abort definite and requires review instead of replay", async () => {
+    const { owner, transport, setAuthority } = await setup();
+    const queue = deferredSavedGraph<void>();
+    transport.submit.mockImplementation(async (_attempt, signal, dispatch) => {
+      await queue.promise;
+      signal.throwIfAborted();
+      dispatch();
+      return savedGraphAccepted();
+    });
+    owner.openAction("rename");
+    owner.setDraft("Queued draft");
+    const writing = owner.submit();
+    setAuthority({ role: "viewer" });
+    queue.resolve();
+    await writing;
+    expect(owner.getSnapshot().operation?.phase).toBe("awaiting_review");
+    expect(owner.getSnapshot().operation?.failure?.certainty).toBe("rejected");
+    expect(owner.getSnapshot().operation?.failure?.category).toBe(
+      "authorization",
+    );
+    expect(owner.getSnapshot().operation?.draft).toBe("Queued draft");
+  });
+
+  it("resumes the captured create query after definite failure and dialog closure", async () => {
+    const { owner, transport, a } = await setup();
+    owner.openAction("create", a.semantic_query);
+    owner.setDraft("Retained create");
+    transport.receipt.mockRejectedValueOnce(
+      failure("network_flow_graph_view_limit_exceeded", 409),
+    );
+    await owner.submit();
+    owner.closeDialog();
+    owner.openAction("create", {
+      ...a.semantic_query,
+      selected_table_ids: [`nft_${"d".repeat(32)}`],
+    });
+    expect(owner.getSnapshot().operation?.intent.query).toEqual(
+      a.semantic_query,
+    );
+    expect(owner.getSnapshot().operation?.draft).toBe("Retained create");
+  });
+
+  it("replaces a rejected captured query only through explicit current-query preparation", async () => {
+    const { owner, transport, a } = await setup();
+    owner.openAction("create", a.semantic_query);
+    owner.setDraft("Same name");
+    transport.receipt.mockRejectedValueOnce(
+      failure("network_flow_graph_view_limit_exceeded", 409),
+    );
+    await owner.submit();
+    const original = owner.getSnapshot().operation?.attempt;
+    const query: typeof a.semantic_query = {
+      ...a.semantic_query,
+      selected_table_ids: [`nft_${"d".repeat(32)}`],
+    };
+    owner.prepareCurrentQuery(query);
+    expect(owner.getSnapshot().operation?.draft).toBe("Same name");
+    expect(owner.getSnapshot().operation?.intent.query).toEqual(query);
+    transport.receipt.mockRejectedValueOnce(new Error("Lost acknowledgement"));
+    await owner.submit();
+    const uncertain = owner.getSnapshot().operation?.attempt;
+    expect(uncertain?.transactionId).not.toBe(original?.transactionId);
+    owner.prepareCurrentQuery(a.semantic_query);
+    expect(owner.getSnapshot().operation?.attempt).toBe(uncertain);
+  });
+
+  it("hides paused session drafts and fences old acknowledgements until current authorization returns", async () => {
+    const { owner, transport, a, setAuthority } = await setup();
+    owner.openAction("create", a.semantic_query);
+    owner.setDraft("Paused draft");
+    const pending = deferredSavedGraph<ReturnType<typeof savedGraphAccepted>>();
+    transport.receipt.mockReturnValueOnce(pending.promise);
+    const writing = owner.submit();
+    const attempt = owner.getSnapshot().operation?.attempt;
+    owner.pauseSession();
+    expect(owner.getSnapshot().operation).toBeNull();
+    expect(owner.getSnapshot().navigation.result).toBeNull();
+    expect(owner.getSnapshot().graphs).toEqual([]);
+    pending.resolve(savedGraphAccepted(a));
+    await writing;
+    expect(owner.getSnapshot().operation).toBeNull();
+    setAuthority({ session: {}, sessionResolved: true });
+    expect(owner.getSnapshot().operation?.phase).toBe("uncertain");
+    expect(owner.getSnapshot().operation?.attempt).toBe(attempt);
+    expect(transport.submit).toHaveBeenCalledTimes(1);
+    await owner.replay();
+    expect(transport.submit.mock.calls.at(-1)?.[0]).toBe(attempt);
+    expect(owner.getSnapshot().operation?.phase).toBe("acknowledged");
+  });
+
+  it("retains a copyable write-loss draft but purges it when the profile is withdrawn", async () => {
+    const { owner, setAuthority } = await setup();
+    owner.openAction("rename");
+    owner.setDraft("Copyable draft");
+    setAuthority({ role: "viewer" });
+    expect(owner.getSnapshot().operation?.draft).toBe("Copyable draft");
+    expect(owner.getSnapshot().operation?.phase).toBe("awaiting_review");
+    expect(await owner.submit()).toBe(false);
+    setAuthority({ available: false, profileAvailable: true, open: false });
+    expect(owner.getSnapshot().operation?.draft).toBe("Copyable draft");
+    expect(owner.getSnapshot().navigation.result).toBeNull();
+    setAuthority({ available: false, profileAvailable: false });
+    expect(owner.getSnapshot().operation).toBeNull();
+    expect(owner.getSnapshot().graphs).toEqual([]);
+  });
+
+  it("withdraws saved exposure for the canonical unclaimed profile response", async () => {
+    const { owner, transport } = await setup();
+    transport.list.mockRejectedValueOnce(
+      failure("extension_profile_not_claimed", 404),
+    );
+    await owner.loadGraphs();
+    expect(owner.getSnapshot().graphs).toEqual([]);
+    expect(owner.getSnapshot().navigation.result).toBeNull();
+  });
+
+  it("publishes selection and immutable result exposure atomically to subscribers", async () => {
+    const { owner, b } = await setup();
+    const inconsistent: string[] = [];
+    const unsubscribe = owner.subscribe(() => {
+      const snapshot = owner.getSnapshot();
+      const resultGraph =
+        snapshot.navigation.result?.result.graph_projection_result
+          .graph_view_id;
+      if (resultGraph && resultGraph !== snapshot.selectedGraphViewId)
+        inconsistent.push(resultGraph);
+    });
+    owner.selectGraphView(b.graph_view_id);
+    unsubscribe();
+    expect(inconsistent).toEqual([]);
+  });
+
+  it("recovers an accepted job and declaration by their operation target after selection and read failure", async () => {
+    const { owner, transport, a, b } = await setup();
+    owner.openAction("refresh");
+    transport.get.mockRejectedValueOnce(new Error("Declaration unavailable"));
+    await owner.submit();
+    const receipt = owner.getSnapshot().operation?.receipt;
+    if (receipt?.kind !== "accepted") throw new Error("Expected receipt");
+    const jobId = receipt.value.job.job_id;
+    await vi.waitFor(() =>
+      expect(owner.getSnapshot().observations[jobId]?.state).toBe("paused"),
+    );
+    owner.selectGraphView(b.graph_view_id);
+    const count = transport.readJob.mock.calls.length;
+    owner.resumeOperationObservation();
+    await vi.waitFor(() =>
+      expect(transport.readJob.mock.calls.length).toBe(count + 1),
+    );
+    expect(transport.readJob.mock.calls.at(-1)?.[0]).toMatchObject({
+      jobId,
+      graphId: a.graph_view_id,
+    });
+    await owner.reloadOperationGraph();
+    expect(transport.get.mock.calls.at(-1)?.[0]).toBe(a.graph_view_id);
+    expect(owner.getSnapshot().selectedGraphViewId).toBe(b.graph_view_id);
+    expect(owner.getSnapshot().operation?.receipt).toBe(receipt);
+    expect(Object.isFrozen(receipt)).toBe(true);
+  });
+
+  it("publishes source and scope withdrawal without intermediate protected exposure", async () => {
+    for (const kind of ["source", "scope"] as const) {
+      const { owner, a } = await setup();
+      const exposed: unknown[] = [];
+      const unsubscribe = owner.subscribe(() => {
+        if (owner.getSnapshot().navigation.result !== null)
+          exposed.push(owner.getSnapshot().navigation.result);
+      });
+      await owner.onResourceChange(
+        kind === "scope"
+          ? {
+              resourceKind: "*",
+              resourceId: "*",
+              changeKind: "remove",
+              reasonCode: "authorization_lost",
+            }
+          : {
+              resourceKind: "network_flow_table",
+              resourceId: a.semantic_query.selected_table_ids[0],
+              changeKind: "remove",
+              reasonCode: "soft_deleted",
+            },
+      );
+      unsubscribe();
+      expect(exposed).toEqual([]);
+    }
+  });
+
+  it("purges resource drafts and all protected operation state on explicit removal", async () => {
+    const { owner, a } = await setup();
+    owner.openAction("rename");
+    owner.setDraft("Protected name");
+    owner.removeGraph(a.graph_view_id);
+    expect(owner.getSnapshot().operation).toBeNull();
+    owner.selectGraphView(owner.getSnapshot().graphs[0]?.graph_view_id ?? null);
+    owner.openAction("rename");
+    await owner.onResourceChange({
+      resourceKind: "*",
+      resourceId: "*",
+      changeKind: "remove",
+      reasonCode: "authorization_lost",
+    });
+    expect(owner.getSnapshot().operation).toBeNull();
+    expect(owner.getSnapshot().notice).toBeNull();
+    expect(owner.getSnapshot().observations).toEqual({});
+    const other = await setup();
+    other.owner.openAction("rename");
+    other.transport.get.mockRejectedValueOnce(
+      failure("authorization_denied", 403),
+    );
+    await other.owner.reconcileGraph(other.a.graph_view_id);
+    expect(other.owner.getSnapshot().declarationErrors).toEqual({});
+    expect(other.owner.getSnapshot().operation).toBeNull();
+  });
+
+  it("keeps receipt declarations out of the current catalog when follow-up reads fail", async () => {
+    const { owner, transport, a } = await setup();
+    owner.openAction("rename");
+    owner.setDraft("Acknowledged name");
+    transport.receipt.mockResolvedValueOnce({
+      kind: "renamed",
+      value: { ...a, display_name: "Acknowledged name", graph_view_version: 2 },
+    });
+    transport.get.mockRejectedValue(new Error("Read unavailable"));
+    transport.list.mockRejectedValue(new Error("List unavailable"));
+    await owner.submit();
+    expect(owner.getSnapshot().operation?.phase).toBe("acknowledged");
+    expect(owner.selectedGraph?.display_name).toBe(a.display_name);
+  });
+
   it("retains original uncertainty after a denied replay and resolves only the same attempt", async () => {
     const { owner, transport, a } = await setup();
     owner.openAction("create", a.semantic_query);
     owner.setDraft("Created graph");
-    transport.submit.mockRejectedValueOnce(new Error("Lost acknowledgement"));
+    transport.receipt.mockRejectedValueOnce(new Error("Lost acknowledgement"));
     await owner.submit();
     const attempt = owner.getSnapshot().operation?.attempt;
-    transport.submit.mockRejectedValueOnce(
+    transport.receipt.mockRejectedValueOnce(
       failure("authorization_denied", 403),
     );
     await owner.replay();
@@ -118,7 +379,7 @@ describe("Saved graph recovery boundaries", () => {
     owner.selectGraphView(null);
     const declaration = deferredSavedGraph<NetworkFlowSavedGraph>();
     transport.get.mockReturnValueOnce(declaration.promise);
-    transport.submit.mockResolvedValueOnce(savedGraphAccepted(a));
+    transport.receipt.mockResolvedValueOnce(savedGraphAccepted(a));
     await owner.replay();
     await owner.reconcileGraph(a.graph_view_id);
     declaration.resolve(a);
@@ -131,12 +392,12 @@ describe("Saved graph recovery boundaries", () => {
     const { owner, transport, a } = await setup();
     owner.openAction("create", a.semantic_query);
     owner.setDraft(a.display_name);
-    transport.submit.mockRejectedValueOnce(new Error("Lost acknowledgement"));
+    transport.receipt.mockRejectedValueOnce(new Error("Lost acknowledgement"));
     await owner.submit();
     await owner.loadGraphs();
     const result = owner.getSnapshot().navigation.result;
     transport.list.mockRejectedValue(new Error("Follow-up unavailable"));
-    transport.submit.mockResolvedValueOnce(
+    transport.receipt.mockResolvedValueOnce(
       savedGraphAccepted({ ...a, selected_result_binding: null }),
     );
     await owner.replay();
@@ -151,7 +412,7 @@ describe("Saved graph recovery boundaries", () => {
     const { owner, transport, a, b } = await setup();
     owner.openAction("create", a.semantic_query);
     owner.setDraft(a.display_name);
-    transport.submit.mockRejectedValueOnce(new Error("Lost acknowledgement"));
+    transport.receipt.mockRejectedValueOnce(new Error("Lost acknowledgement"));
     await owner.submit();
     owner.selectGraphView(b.graph_view_id);
     await owner.replay();
@@ -162,7 +423,7 @@ describe("Saved graph recovery boundaries", () => {
     const { owner, transport, a } = await setup();
     owner.openAction("rename");
     owner.setDraft("Retained draft");
-    transport.submit.mockRejectedValueOnce(
+    transport.receipt.mockRejectedValueOnce(
       failure("network_flow_graph_view_version_conflict", 409),
     );
     await owner.submit();
@@ -177,8 +438,7 @@ describe("Saved graph recovery boundaries", () => {
         .getSnapshot()
         .graphs.some((graph) => graph.graph_view_id === a.graph_view_id),
     ).toBe(false);
-    expect(owner.getSnapshot().operation?.draft).toBe("Retained draft");
-    expect(owner.getSnapshot().operation?.phase).toBe("awaiting_review");
+    expect(owner.getSnapshot().operation).toBeNull();
   });
 
   it("reconciles independent graphs without dropping either accepted read", async () => {
@@ -202,7 +462,7 @@ describe("Saved graph recovery boundaries", () => {
   it("reconciles invalidations received while a rejected mutation holds admission", async () => {
     const { owner, transport, a } = await setup();
     const pending = deferredSavedGraph<never>();
-    transport.submit.mockReturnValueOnce(pending.promise);
+    transport.receipt.mockReturnValueOnce(pending.promise);
     transport.get.mockResolvedValue({
       ...a,
       display_name: "Remote rename",
@@ -283,7 +543,7 @@ describe("Saved graph recovery boundaries", () => {
     waiting.resolve();
     await queued;
     expect(sending).not.toHaveBeenCalled();
-    expect(other.owner.getSnapshot().operation?.phase).toBe("awaiting_review");
+    expect(other.owner.getSnapshot().operation).toBeNull();
   });
   it("recovers a withdrawn result through its current declaration before loading authorized bytes", async () => {
     const { owner, transport, a } = await setup();
@@ -308,9 +568,10 @@ describe("Saved graph recovery boundaries", () => {
     );
     await owner.recoverResult();
     await vi.waitFor(() =>
-      expect(owner.getSnapshot().navigation.result?.graph_view).toEqual(
-        changed,
-      ),
+      expect(
+        owner.getSnapshot().navigation.result?.result.graph_projection_result
+          .projection_result_id,
+      ).toBe(changed.selected_result_binding?.projection_result_id),
     );
     expect(transport.get).toHaveBeenCalledWith(
       a.graph_view_id,
@@ -388,13 +649,15 @@ describe("Saved graph recovery boundaries", () => {
     const { owner, transport, a } = await setup();
     vi.useFakeTimers();
     const pending = deferredSavedGraph<ReturnType<typeof savedGraphAccepted>>();
-    transport.submit.mockReturnValueOnce(pending.promise);
+    transport.receipt.mockReturnValueOnce(pending.promise);
     owner.openAction("create", a.semantic_query);
     owner.setDraft(a.display_name);
     const writing = owner.submit();
     await vi.advanceTimersByTimeAsync(30_000);
     await writing;
-    transport.submit.mockRejectedValueOnce(failure("client_txn_conflict", 409));
+    transport.receipt.mockRejectedValueOnce(
+      failure("client_txn_conflict", 409),
+    );
     await owner.replay();
     expect(owner.getSnapshot().operation?.phase).toBe("uncertain");
     pending.resolve(

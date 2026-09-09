@@ -14,9 +14,11 @@ export type SavedGraphAuthority = {
   readonly incidentId: string;
   readonly actorId: string | null;
   readonly session: string | object;
+  readonly sessionResolved?: boolean;
   readonly role: string | null;
   readonly open: boolean;
   readonly available: boolean;
+  readonly profileAvailable?: boolean;
   readonly availabilityTag: ExtensionAvailabilityTag | null;
 };
 export type SavedGraphIntent = {
@@ -35,6 +37,23 @@ export type SavedGraphReceipt =
   | { readonly kind: "accepted"; readonly value: NetworkFlowSavedGraphAccepted }
   | { readonly kind: "renamed"; readonly value: NetworkFlowSavedGraph }
   | { readonly kind: "retired" };
+export function captureSavedGraphReceipt(
+  receipt: SavedGraphReceipt,
+): SavedGraphReceipt {
+  return freezeJSON(receipt);
+}
+export function savedGraphOperationGraphId(
+  operation: {
+    readonly intent: SavedGraphIntent;
+    readonly receipt: SavedGraphReceipt | null;
+  } | null,
+): string | null {
+  if (operation?.receipt?.kind === "accepted")
+    return operation.receipt.value.graph_view.graph_view_id;
+  if (operation?.receipt?.kind === "renamed")
+    return operation.receipt.value.graph_view_id;
+  return operation?.intent.target?.graph_view_id ?? null;
+}
 export type SavedGraphFailureCategory =
   | "validation"
   | "version_conflict"
@@ -95,6 +114,7 @@ export function savedGraphFailureCategory(
     case "authorization_denied":
     case "incident_not_found":
     case "extension_workspace_unavailable":
+    case "extension_profile_not_claimed":
       return "authorization";
     case "incident_closed":
     case "network_flow_table_not_found":
@@ -130,9 +150,11 @@ export function sameSavedGraphAuthority(
 ): boolean {
   return (
     sameSavedGraphScope(a, b) &&
+    a.sessionResolved === b.sessionResolved &&
     a.role === b.role &&
     a.open === b.open &&
     a.available === b.available &&
+    a.profileAvailable === b.profileAvailable &&
     a.availabilityTag?.epochId === b.availabilityTag?.epochId &&
     a.availabilityTag?.generation === b.availabilityTag?.generation
   );
@@ -140,8 +162,10 @@ export function sameSavedGraphAuthority(
 export function canReadSavedGraphs(a: SavedGraphAuthority): boolean {
   return (
     a.actorId !== null &&
+    a.sessionResolved !== false &&
     a.open &&
     a.available &&
+    a.profileAvailable !== false &&
     a.availabilityTag !== null &&
     ["viewer", "editor", "reviewer", "admin"].includes(a.role ?? "")
   );

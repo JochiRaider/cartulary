@@ -1,5 +1,424 @@
 # Network Analysis saved-graph lifecycle remediation
 
+## Design reassessment at 1e85da38
+
+Implementation baseline: clean `main` at
+`1e85da38cddd3fd5b40502756979db122840c191`, revalidated on 2026-09-09.
+Root `AGENTS.md` is the only applicable instruction file. Earlier records below
+remain historical evidence. The approved reassessment preserves owner-correct
+behavior and separates behavioral corrections from structural movement.
+
+| Workstream | Status | Exit |
+| --- | --- | --- |
+| SG-01 — Contracts and characterization | DONE | Owner matrix, compatibility and focused reproductions. |
+| SG-02 — Captured operations and transport | DONE | Admission, receipts, drafts, cleanup and publication authorization. |
+| SG-03 — Observation and continuity | DONE | Atomic exposure, races, retained results and target recovery. |
+| SG-04 — UI and browser evidence | DONE | Accessible workflows, visual review and rendering bounds. |
+| SG-05 — Final validation | DONE | Fresh affected-owner evidence and final scope audit. |
+
+### Reassessment authority and wire decisions
+
+The digest read order and exact owners were inspected during planning and their
+paths revalidated. ADOPT semantic continuity, local recovery and keyboard access;
+ADAPT draft recovery and responsive presentation to existing controls; REJECT
+redesigns, generic workflow machinery and alternate authorities. The digest is
+unchanged. Domain vocabulary, design direction and the NLSpec research article
+retain their distinct authority boundaries.
+
+| Contract fact | Owner and current projection | Decision |
+| --- | --- | --- |
+| Declaration identity | NF-REQ-170a; graph-view v4, stable graph/incident IDs | Preserve; never identify by display name. |
+| Selected result | NF-REQ-170a, 208; seven-member `selected_result_binding` | Private `SelectedResult` is a legitimate projection; preserve wire. |
+| Source boundary | NF-REQ-170a–d; desired boundary distinct from selected binding | Preserve; rename cannot change semantic identity. |
+| Job reference | Core 01 §3.3.9.1; exactly job ID and canonical status route | Preserve immutable admission receipt, observe execution separately. |
+| Mutation bodies | NF-REQ-170b and Table 5-B; create v3, rename v2, refresh/retire v1 | Preserve exact discriminators, transaction ID, query/name/base version members. |
+| Envelopes/status | NF-REQ-018, 170b; accepted v4/202, rename v4/200, empty retirement/204 | Normal retirement and replay agree; no alias or replacement envelope. |
+| Replay | NF-REQ-024–027, 206; actor/incident/route/target/transaction identity | Preserve bytes; distinguish unsent from uncertain and receipts from current reads. |
+| Versions | NF-REQ-170b–d; version and generation independent | Create 1/1; rename version only; refresh/retire/source removal advance both; publication does not advance version. |
+| Errors and cleanup | NF-REQ-022, 173–176, 205–208; Core 04 REQ-04-023; EXT-REQ-201 | Typed failures and cause-specific cleanup; canonical claim-loss token. |
+| Publication authority | NF-REQ-205; current job submitter, role and open incident | Add missing current-member checks using existing admission port and failure vocabulary. |
+| Rendering and recovery | NF-REQ-170e, 207–208; design §§12–14 | Atomic authorized exposure; local recovery; bounded observation and navigation. |
+
+
+The exact declaration member set is `schema_id`, `graph_view_id`, `incident_id`,
+`display_name`, `state`, `semantic_query`, `semantic_query_sha256`,
+`desired_source_snapshot_id`, `selected_result_binding`, `graph_view_version`,
+`materialization_generation`, `created_by`, `created_at`, `updated_at`,
+`latest_job_id`, `last_failure_code`, and `last_failed_at`. Public active reads
+exclude retired records. The private store declaration maps these facts without
+exposing `SelectedResult` or copying Common Job execution status into the graph.
+
+The binding contains exactly `projection_result_id`, `source_snapshot_id`,
+`projection_schema_id` (`graph_projection.v2`), `projection_version`,
+`normalized_configuration_sha256`, `normalized_source_sha256`, and
+`canonical_output_sha256`. The desired boundary may differ from the selected
+result's boundary during refresh. Result adapters verify every binding member,
+the graph ID and source owner, and require an active embedded declaration;
+navigation keeps only the result payload after that validation.
+
+| Wire operation | Exact body/data members and status | Replay/version consequence |
+| --- | --- | --- |
+| Create | Body: `schema_id`, `client_txn_id`, `display_name`, `semantic_query`; common envelope data: `schema_id`, `graph_view`, `job`; 202 | Declaration version/generation 1/1, one admitted job; original receipt on exact replay. |
+| Rename | Body: `schema_id`, `client_txn_id`, `display_name`, `base_graph_view_version`; envelope data: `schema_id`, `graph_view`; 200 | Changed normalized name advances version only; same name changes no version, timestamp or audit fact. |
+| Refresh | Body: `schema_id`, `client_txn_id`, `base_graph_view_version`; accepted v4 data as create; 202 | Advances version and generation, captures desired boundary, clears prior failure; selected binding survives pending/failure. |
+| Retire | Body: `schema_id`, `client_txn_id`, `base_graph_view_version`; empty 204 | Advances version/generation and withdraws binding; initial and replay responses are identically empty. Leases remain independent. |
+| List/get/result | No request body; common envelope data uses list/get/result v4; 200 | Current read authority only; ordinary routes hide retired declarations. Result response pairs current declaration with its exact selected result. |
+| Contributors | Body: `schema_id`, `projection_result_id`, `selector`, `limit` (100), optional `cursor_token`; result v2 data; 200 | Single-page Next/Restart navigation, no alternative result authority. |
+
+All saved-route query parameters remain closed. Authentication/CSRF, current
+membership, exact per-action roles, open incident and profile claims precede
+resource disclosure. Core idempotency scopes actor, incident, route, target and
+transaction ID; normalized semantic comparison excludes the discriminator.
+Client exact replay nevertheless preserves the full serialized body. Accepted
+jobs contain exactly `job_id` and `/api/v1/jobs/{job_id}`, agreeing with
+`latest_job_id`; Common Jobs subsequently owns execution status and terminal
+references. Publication changes the selected binding without incrementing the
+user optimistic version.
+
+The unchanged error projections preserve 400 validation, 404 hidden/missing
+resources, 409 version/source/materialization/quota failures and 413 graph or
+resource bounds, together with Core authentication/authorization/lifecycle and
+Extensions claim errors. `client_txn_conflict` remains distinct from graph
+version conflict; `extension_profile_not_claimed` is the canonical claim-loss
+code. Malformed responses and interrupted transmitted writes remain uncertain,
+while a prevented first dispatch is definitely unsubmitted. HTTP errors,
+Common Job status and NF-REQ-205's eight safe declaration failure codes are
+separate facts. No new public error is introduced.
+
+Authored Network Flow routes/schemas remain under `contracts/network-flow`;
+Core's job-reference OpenAPI input belongs to `module.jobapi`. No public
+projection or stored-data migration is planned. The current major-6 cutover and
+retained-receipt obligations remain intact. Correcting previously missing
+publication authorization tightens nonconforming behavior without adding a new
+wire error. Rollback must remain compatible with major-6 retained state.
+
+Both required `make task-guide` commands passed at implementation entry.
+Planning evidence: frontend saved operation/transport/observation/continuity
+7/7 in `20260909T181947Z-p43344`; backend receipt integrity 1/1 in
+`20260909T183022Z-p46822`. These do not substitute for the new reproductions.
+
+### Reassessment SG-01 exit
+
+Six new controller characterizations fail at their intended assertions in
+`20260909T184425Z-p60688`: queued unsent uncertainty, captured create query,
+canonical unclaim cleanup, intermediate selection/result publication, resource
+purge and receipt/catalog separation. The local UI characterization also fails
+at the absent target-specific accepted-operation recovery surface (1/3 units).
+Each correction maps to the authority matrix above; no runtime changed before
+these reproductions. Existing retirement-review expectations will be adapted to
+EXT-REQ-201 resource-draft disposal while preserving the no-resurrection check.
+
+The service lifecycle row fails 2/3 in `20260909T184425Z-p60698`: viewer before
+computation and reviewer before publication incorrectly publish; editor/admin
+cases and existing HTTP lifecycle coverage pass. The controlled handler uses
+real job execution and publication transactions through a test-only bridge.
+No owner contradiction was found. NF-REQ-205 closes saved-graph route access on
+incident closure; Extensions draft retention still applies independently.
+
+Public `make generate` passes in `20260909T184407Z-p57655` after correcting
+ASCII ordering in authored routing. Earlier generation attempts
+`20260909T184031Z-p51048` and `20260909T184123Z-p54103` failed at that routing
+validation, before generated outputs were promoted.
+
+SG-01 exit passed. Next action: SG-02 operation states, dispatch certainty,
+captured drafts, current-read reconciliation, cleanup and publication roles.
+
+### Reassessment SG-02 exit
+
+Owner-backed corrections: synchronous dispatch recording distinguishes prevented
+submission from transmitted uncertainty; replay preserves original uncertainty
+and bytes. Captured name/query/target drafts survive closure, with explicit
+current-query preparation after definite rejection. Receipts are frozen history;
+current declaration reads alone install catalog entries. Canonical unclaim
+classification and active-result adapter validation are corrected. Cleanup now
+separates copyable write-loss drafts, hidden volatile session recovery, and
+incident/profile/resource purges. Old-session completions cannot publish.
+
+Structural change: operation phases are discriminated TypeScript states, while
+the workbook controller and its existing transport/navigation ports remain the
+single saved operation owner. Test transports explicitly model dispatch instead
+of treating mocked receipt delivery as transmission. No runtime files moved.
+
+`make test-slice OWNER=web.networkflow` with captured-operations,
+receipt-transport, replay-admission and reassessment-operations passes 5/5 in
+`20260909T185153Z-p3361`; frontend typecheck passes 2/2 in
+`20260909T185153Z-p3440`. Earlier iterations caught test-transport inference,
+query tuple typing and a follow-up-read expectation, corrected without dropping
+coverage (`20260909T184910Z-p79910`, `20260909T185102Z-p1805`,
+`20260909T185102Z-p1908`). Routing generation passes in
+`20260909T185025Z-p98258`.
+
+The service lifecycle row passes 3/3 in `20260909T184921Z-p80378` after adding
+current editor/admin submitter admission before computation and within the
+publication transaction in `graph_view_jobs.go`. Denial uses existing safe
+publication-conflict failure and retains the previous selected binding.
+
+SG-02 exit passed. Next action: SG-03 atomic declaration/result publication,
+payload-only navigation state and recoverable accepted-job observation.
+
+### Reassessment SG-03 exit
+
+Controller notifications now publish selection and authorized navigation
+atomically, including source/resource/scope cleanup. Navigation retains the
+immutable payload and binding identity, without storing the response's embedded
+declaration as a second catalog. Metadata polling, rename and failed refresh
+retain payload identity and navigation context. Source removal also discards
+source-dependent drafts. Per-declaration errors retain their actual target.
+
+Accepted job targets are keyed by job identity and survive selection changes;
+explicit operation reload/resume uses the receipt's actual graph and job.
+Observation remains serial at 1,500 ms with 30-second reads and 120-second
+windows, capped at four and the effective incident limit. Existing independent
+read fences, selection revisions, tombstones, opaque contributor paging and
+500/1,000 mounting limits remain in place.
+
+Seven focused frontend rows pass 8/8 in `20260909T185617Z-p10363`; typecheck
+passes 2/2 in `20260909T185617Z-p10440`. These cover subscriber snapshots,
+source/scope withdrawal, accepted-target recovery, deferred results/contributors,
+last-safe-result preservation and observation bounds. Public generation passes
+in `20260909T185547Z-p7358`. An initial invocation used nonexistent row names
+and was rejected before execution; the corrected routed run exposed one old
+embedded-declaration assertion (`20260909T185456Z-p5993`, 7/8), updated to assert
+the authorized immutable result identity. Its corresponding type error was
+`20260909T185406Z-p5254`; no behavioral coverage was removed.
+
+SG-03 exit passed. Next action: SG-04 local recovery presentation and browser,
+accessibility, regression and visual evidence.
+
+### Reassessment SG-04 progress and visual review
+
+Local UI/lifecycle/role/rendering checks pass 5/5 in `20260909T185730Z-p12397`.
+Browser recovery/lifecycle, a11y and measurement pass in the first combined run
+`20260909T185935Z-p19043` (14/16); the second-window race failed only at an
+ambiguous test locator. After scoping it to saved controls, the real remote
+confirmation conflict, deferred A/B responses, source deletion and expanded
+keyboard/reflow checks pass 13/13 in `20260909T190213Z-p60877`.
+
+All web Network Flow rows pass 50/50 in `20260909T190323Z-p29091`, including
+imports and unsaved exploration. Other-job recovery remains accessible when a
+new dialog replaces the most recent operation; focused recovery/controller
+checks pass 4/4 in `20260909T190503Z-p43836`. Import boundaries pass 2/2 in
+`20260909T190213Z-p60953`. Format passes after naming the private preparation
+method without the React hook prefix; no unsafe unrelated formatter fixes were
+applied. A Testing Library-only `exact` option was removed after typecheck
+`20260909T190503Z-p43912` identified it.
+
+Ordinary visual reconciliation `20260909T190251Z-p96266` accounts for all 210
+active captures/goldens and 26 registered fixtures, with zero missing,
+ambiguous, orphan or unresolved entries. Only the Network Analysis visual row
+fails image comparison; other visual rows pass (target 10/12 execution units).
+The reviewed actual/diff images explain the new acknowledgement/recovery row
+and resulting saved-workspace framing, including behind the unchanged delete
+modal. Accepted trigger: owner-required local acknowledged-operation recovery.
+
+Affected owner row:
+`module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6`.
+Fixture: `visual.fixture.claimed_network_analysis_workspace_states`.
+Goldens: `network-flow-analysis-saved-graph-result-linux.png` and
+`network-flow-analysis-delete-dialog-linux.png`, under the existing snapshot
+root. Viewport, zoom, renderer, fonts, density, masks, anchor preparation and
+screenshot scope are unchanged. No golden mutation preceded reconciliation.
+Update and two fresh ordinary passes remain pending; SG-04 stays IN_PROGRESS.
+
+SG-04's final integration audit additionally reproduced two cause-classification
+issues in `20260909T191721Z-p9448`: an unsent authority abort lost its typed
+authorization category, and temporary workbook unavailability/closure discarded
+a copyable draft despite a still-claimed route family. The owner now uses the
+existing route-availability port separately from workbook renderability and
+preserves the explicit pre-dispatch review cause. No Extensions controller,
+profile projection or route changed. Declaration read-denial cleanup also avoids
+reintroducing a resource-keyed error after resource/scope purge.
+
+These checks pass 5/5 in `20260909T191811Z-p10393`; typecheck passes 2/2 in
+`20260909T191834Z-p15351`; fresh browser races, accepted-read recovery and a11y
+pass 13/13 in `20260909T191835Z-p15718`. The initial update
+`20260909T190842Z-p50803` rejected overlapping formatter changes before build.
+A stable-source update `20260909T191012Z-p74450` then passed all 37 default
+visual tests but failed Network Flow fixture startup: retained service-scope
+failure reports object-store `service_readiness_timeout`, with transport and
+operation timeouts before browser capture. Both failed updates left tracked
+PNG and manifest bytes unchanged. The subsequent successful focused browser
+startup supports retrying the ordinary public update without harness changes.
+
+Visual update passes 12/12 in `20260909T192002Z-p50474`. It promotes exactly the
+two reviewed PNGs listed above plus `frontend_visual_golden_manifest.json`;
+all 210 captures reconcile with no errors. Both promoted images were inspected:
+the added acknowledgement/recovery surface explains the changes, with no
+unrelated typography, modal, focus, density, renderer or capture-policy changes.
+Two fresh ordinary validations against this promoted manifest are in progress.
+
+First fresh ordinary visual validation passes 12/12 in
+`20260909T192513Z-p86214`, against the promoted manifest. The second ordinary
+validation passed 12/12 in `20260909T192858Z-p21603`; no runtime or golden
+bytes changed between these runs.
+
+SG-04 exit passed: local acknowledged and other-job recovery, explicit query
+recapture, remote confirmation conflicts, lost acknowledgements, deferred
+navigation, authority/source withdrawal, retained contributors, keyboard/reflow,
+import/unsaved regressions and rendering bounds are covered. Both promoted
+images were reviewed and both required fresh ordinary visual passes succeeded.
+Next action: SG-05 finalizer, fresh affected-owner verification and final audit.
+
+### Reassessment SG-05 verification
+
+`RESULTS_DIR` is unset for `make agent-finalize`: no qualifying exact-source
+successful full warm check exists. Retained-run maintenance is intentionally
+skipped; focused evidence below does not claim full release verification.
+
+The finalizer passes 1/1 in `20260909T193408Z-p57220`, before broader final
+verification. Its retained `unit-artifacts/finalize-summary.json` confirms zero
+updated files. Canonical retained-run evidence and scheduler/timing maintenance
+were skipped with `results-dir-not-provided`; schema, catalog, tier and generated
+artifact checks passed. Guide-required artifact policy and JSON shape checks
+also pass 3/3 each in `20260909T192859Z-p22984` and
+`20260909T192859Z-p23021`.
+
+| Final command | Result and retained run under `.cartulary/test-results/` |
+| --- | --- |
+| `make test-slice OWNER=web.networkflow` | PASS 50/50, `20260909T194152Z-p53972`. |
+| `make test-slice OWNER=module.networkflow` | PASS 35/35, `20260909T193440Z-p61134`; affected browser coverage repeated after the final retirement correction below. |
+| `make service-backed-test-slice OWNER=module.networkflow` | PASS 29/29, `20260909T194152Z-p53986`, including the formerly failing retirement workflow. |
+| `make test-slice OWNER=web.workbook ROWS=web.workbook.regression.extension_availability_lifecycle_792bc604af` | PASS 2/2, `20260909T193440Z-p61164`. |
+| `make test-slice OWNER=package.ui ROWS=package.ui.frontend_unit.network_flow_selector_contracts_b95d925bdf` | PASS 2/2, `20260909T193440Z-p61204`. |
+| `make test-slice OWNER=module.incidents ROWS=module.incidents.unit.incident_admission_role_sets_and_denials_are_closed_0ed8398f44` | PASS 1/1, `20260909T193440Z-p61215`. |
+| `make frontend-typecheck` | PASS 2/2, `20260909T194106Z-p49404`. |
+| `make frontend-import-boundary-check` | PASS 2/2, `20260909T194152Z-p54279`. |
+| `make lint-biome` | PASS 2/2, `20260909T194152Z-p54352`. |
+| `make backend-module-boundary-check` | PASS 3/3, `20260909T193509Z-p5759`. |
+| `make generate-drift` | PASS 4/4, `20260909T194152Z-p53880`. |
+| `make go-gosec-targeted` | PASS 4/4, `20260909T193509Z-p6073`. |
+
+### Reassessment change ownership and scope
+
+| Owner-backed behavior | Changed implementation and evidence |
+| --- | --- |
+| NF-REQ-170b/206, Core idempotency/security: immutable intent, dispatch certainty, replay and current review | `SavedGraphController.ts`, `savedGraphOperation.ts`, controller/recovery/transport tests. |
+| NF-REQ-170a/208: catalog authority and seven-member result identity | `SavedGraphController.ts`, `SavedGraphResultNavigation.ts`, `networkFlowContractAdapter.ts`, navigation/recovery/adapter tests. |
+| EXT-REQ-201 and NF-REQ-022/205: cause-specific protected-state cleanup | `useNetworkFlowSavedGraphOwner.ts`, `savedGraphReadFailure.ts`, controller/recovery tests; existing workbook availability port retained. |
+| NF-REQ-205: submitter authorization before computation and publication | `internal/modules/networkflow/graph_view_jobs.go`, `graph_view_authority_integration_test.go`, test-only `graph_view_authority_test_bridge_test.go`; existing incident admission checker. |
+| NF-REQ-170e/207/208 and design: local recovery, honest materialization states and keyboard access | `NetworkFlowSavedGraphPanel.tsx`, `useNetworkFlowSavedGraphController.ts`, `NetworkAnalysisWorkspace.test.tsx`, `apps/web/e2e/network-flow.spec.ts`, `workbook.a11y.spec.ts`. |
+| Verification routing and reviewed visual maintenance | Authored `tools/test_families/{web,module}.networkflow.json`, generated `tools/execution_topology_render_index.json`, two reviewed Network Analysis PNGs and `tools/frontend_visual_golden_manifest.json`. |
+
+Frontend basenames above are under `apps/web/src/networkFlow`, except the
+adapter under `apps/web/src/services`. Structural work is limited to
+discriminated operation states, captured preparation records, immutable receipt
+history, payload-only navigation state and atomic notification batching inside
+the existing saved-graph owner. No runtime files moved, no coverage removed and
+no generic workflow framework or additional authority was introduced.
+
+The owner/wire audit inspected `graph_view_routes.go`, `graph_view_store.go`,
+`graph_view_jobs.go`, saved client/transport adapters, Network Flow authored
+contracts/OpenAPI, Core job-reference input and Graph Projection binding
+contracts. Current downstream identity, statuses and retirement replay already
+conform; no public contract input needed changing. Current Network Analysis
+chrome, imports, unsaved query behavior, table management, graph algorithms,
+storage, Reporting leases, worker scheduling and visual harness remain intact.
+
+### Reassessment SG-05 retirement reconciliation finding
+
+The full Network Flow owner slice passes 35/35 in `20260909T193440Z-p61134`;
+the focused final lifecycle/race/recovery/a11y/measurement slice passes 16/16 in
+`20260909T193543Z-p59437`. The broader service-backed slice fails 27/29 in
+`20260909T193440Z-p61162`, solely in the stateful lifecycle row and its summary.
+All other selected service, protected-state and browser rows pass. The retained
+Playwright trace shows retirement returned 204, then a collaboration removal
+event canceled the follow-up list/limit read; the catalog had zero graphs but
+the surface still rendered initial loading. This is a product race, not a
+timeout-tolerance issue. SG-05 remains IN_PROGRESS while it is corrected.
+
+NF-REQ-170d/e and 207 require a usable retired declaration surface. A new routed
+recovery characterization forces that exact interruption and a late stale list
+completion. The correction reconciles the current list after a graph removal
+event while preserving the existing synchronous tombstone, cleanup and stale
+response fences. No other ownership boundary or public contract changes.
+
+The new characterization fails at `idle` versus `ready` in
+`20260909T194033Z-p44276` (1/2). Its first fixture attempt
+`20260909T193959Z-p39210` correctly rejected editor retirement; the test now
+uses admin authority. After the one-line current-list reconciliation correction,
+the recovery row passes 2/2 in `20260909T194106Z-p49325`; typecheck passes 2/2
+in `20260909T194106Z-p49404`. Format passes in `20260909T194051Z-p44969`;
+routing generation passed in `20260909T193935Z-p36226`. Finalization and
+affected verification are repeated for these final source bytes. The two PNGs
+and promoted manifest are unchanged; two ordinary visual passes are repeated
+without another update or changed tolerance.
+
+The repeated finalizer passes 1/1 in `20260909T194132Z-p50418`, with
+`RESULTS_DIR` still unset and zero generated changes. The final full frontend
+owner slice passes 50/50; final type/import boundaries, lint and generation drift
+pass as recorded above. Backend code is unchanged since its successful admission,
+module-boundary and targeted-security evidence.
+
+The complete service-backed Network Flow rerun passes 29/29 in
+`20260909T194152Z-p53986`, including lifecycle, remote confirmation, exact
+replay/read recovery, protected-state withdrawal, imports, accessibility,
+measurement and its Network Analysis visual row. The first final ordinary full
+visual pass succeeds 12/12 in `20260909T194152Z-p54397`, without golden changes.
+The second final ordinary pass succeeds 12/12 in `20260909T194600Z-p48337`,
+against the same promoted manifest. Both final-source full visual runs reconcile
+all 210 captures and 26 fixtures with no missing, ambiguous, orphan or unresolved
+entries. Only the two previously reviewed PNGs and matching manifest hashes
+changed; no further promotion, preference writes, sleep, tolerance or anchor
+adjustment was introduced.
+
+### Reassessment compatibility, limitations and rollback
+
+Actual compatibility impact: existing valid major-6 requests, resource v4
+responses, empty 204 retirement/replay, persisted declarations, retained receipts
+and immutable Graph Projection v2 results remain compatible. No stored-data
+migration, route, alias, dependency, browser persistence or public projection was
+added. Publication now rejects work whose submitter no longer has current
+editor/admin membership or an open incident, using the existing safe
+publication-conflict failure and retaining the selected result. The existing
+major-6 cutover requirements remain mandatory.
+
+Operation recovery remains volatile within the workbook lifetime. Observation
+expiry pauses client reads; it does not prove server failure or cancel work.
+The new publication fixture exercises real job execution and real publication
+transactions with a test-only finalizer; existing service lifecycle/finalizer
+coverage supplies Common Job terminal bookkeeping evidence. Visual and a11y
+artifacts remain implementation/design evidence, not new Core claim publication.
+Full `make check`, release checks and retained warm-run timing maintenance were
+not selected: this work uses the routed affected-owner checks and claims no full
+release or performance certification.
+
+A coherent rollback reverts this reassessment's frontend/controller, backend
+admission check, tests and authored routing together, regenerates topology,
+and restores the two PNGs with their matching promoted manifest entries. It must
+remain on major-6-compatible code and retained state; it cannot roll back the
+earlier major-6 cutover. No reset, commit, push, deployment or migration was
+performed. The final audit checks the exact 25 changed/new paths, unchanged
+`main`/HEAD, empty index and byte-preserved historical handoff suffix.
+
+### Reassessment binary acceptance
+
+| Criterion | Status | Evidence |
+| --- | --- | --- |
+| Owner/wire matrix, legitimate private projection, major 6/resource v4 and empty 204 retirement/replay | PASS | SG-01 matrix; receipt/adapter/lifecycle owner rows. |
+| Four mutations, exact roles, normalized byte-limited names, duplicate names, quotas and version conflicts | PASS | Full frontend and backend owner slices; service lifecycle and real browser workflows. |
+| Synchronous admission, immutable request/ID, prevented dispatch, interrupted writes, failed replay and late acknowledgements | PASS | Captured operation, reassessment, replay and transport rows. |
+| Captured query/name/target drafts, explicit current query and mandatory current-state review | PASS | Reassessment/local recovery rows; real remote confirmation conflict and a11y. |
+| Immutable receipts remain separate from current catalog; accepted jobs recover by their actual targets | PASS | Receipt/catalog and accepted-read recovery characterizations; real lost-acknowledgement/read-failure workflow. |
+| Current submitter editor/admin/open-incident authorization before computation and publication | PASS | New service admission fixture, existing lifecycle/finalizer coverage and incident admission row. |
+| Atomic graph/result exposure and all-seven-member identity preserve valid navigation through rename/polling/refresh | PASS | Subscriber, semantic continuity and deferred A/B tests; retained real contributors and a11y. |
+| Tombstones, per-request fences, source/retirement withdrawal and post-retirement current-list reconciliation | PASS | Recovery row including final retirement reproduction; source deletion and full service rerun. |
+| Typed, serial bounded job observation, explicit resume, honest expiry/cancellation states and concurrency cap | PASS | Observation, recovery and local UI rows; paused-job browser recovery. |
+| One opaque contributor page, stale-response fencing, empty results and 500-vertex/1,000-edge mounting bounds | PASS | Navigation/rendering rows, lifecycle and measurement browser groups. |
+| Session pause, old-session fencing, write-loss draft retention and incident/profile/resource cleanup | PASS | Reassessment/protected-state rows, workbook availability row and real authority withdrawal. |
+| Local recovery, keyboard/Escape/focus, accessible names, non-color states, narrow/short/zoom and long content | PASS | Local recovery tests and expanded real-application accessibility row. |
+| Import and unsaved-exploration regressions, type/import/backend boundaries, security and generated routing | PASS | Full affected-owner slices and final verification command table. |
+| Two explained, reviewed PNG changes and two fresh ordinary visual passes on final source | PASS | `20260909T194152Z-p54397` and `20260909T194600Z-p48337`, each 12/12; no further golden promotion. |
+| Final handoff bytes, Markdown, whitespace, exact scope and preserved historical records | PASS | Markdown `20260909T195020Z-p83260`, `git diff --check` and explicit 25-path audit; repeated after this completion record. |
+
+SG-05 exit passed. All 15 binary acceptance criteria are PASS, and all five
+reassessment workstreams are DONE. The final source has full affected-owner,
+service, browser, accessibility, measurement, security and two fresh ordinary
+visual passes. The completed handoff records the final retirement race and
+correction separately from structural changes, compatibility, reviewed artifacts,
+skipped retained-run maintenance and coherent major-6 rollback. Markdown,
+whitespace and the exact scope audit are repeated against these final handoff
+bytes. Next action: **none**.
+
 ## Current audit and gap closure
 
 Authorized follow-up baseline: clean `main` at

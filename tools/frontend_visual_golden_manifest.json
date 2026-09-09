@@ -564,7 +564,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png",
-      "sha256": "6f2e0c1da62db99c51d1924d1393e9bd4e146723416fc9f13e4e8b368d4816c7"
+      "sha256": "c0584147c122d6311386dd3c488c47b25e5d021c4c0cb88761d4d20a61d83997"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-filtered-empty-grid-linux.png",
@@ -588,7 +588,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",
-      "sha256": "d1fc229d6601b524ab5d32ba5ffad79dfe31018b516dba4a1acbe0b4742a6692"
+      "sha256": "3ef61c0302426d82014fa9fa53b20dc63c1759ae5ca53aa45769887df93dd91d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",

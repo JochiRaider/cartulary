@@ -29,6 +29,9 @@ async function setup() {
       graph_view_id: `nfgv_${"b".repeat(32)}`,
       display_name: "Graph B",
     });
+  const receipt = vi.fn<() => ReturnType<SavedGraphTransport["submit"]>>(
+    async () => savedGraphAccepted(a),
+  );
   const transport = {
     observationLimit: vi.fn(async () => 4),
     readJob: vi.fn<SavedGraphTransport["readJob"]>(async () => {
@@ -46,8 +49,12 @@ async function setup() {
     },
     list: vi.fn(async () => [a, b]),
     get: vi.fn(async () => a),
-    submit: vi.fn<SavedGraphTransport["submit"]>(async () =>
-      savedGraphAccepted(a),
+    receipt,
+    submit: vi.fn<SavedGraphTransport["submit"]>(
+      async (_attempt, _signal, dispatch) => {
+        dispatch();
+        return receipt();
+      },
     ),
   };
   let id = 0;
@@ -90,7 +97,7 @@ describe("Saved graph captured operations", () => {
       ...a,
       latest_job_id: "00000000-0000-4000-8000-000000000006",
     };
-    transport.submit.mockResolvedValue(savedGraphAccepted(created));
+    transport.receipt.mockResolvedValue(savedGraphAccepted(created));
     const reads: string[] = [];
     transport.readJob.mockImplementation((...args: unknown[]) => {
       const target = args[0] as { jobId: string };
@@ -117,7 +124,7 @@ describe("Saved graph captured operations", () => {
   it("admits one same-tick submission and keeps the exact confirmed target after selection changes", async () => {
     const { controller, transport, identify, a, b } = await setup();
     const pending = deferredSavedGraph<SavedGraphReceipt>();
-    transport.submit.mockReturnValue(pending.promise);
+    transport.receipt.mockReturnValue(pending.promise);
     controller.openAction("rename");
     controller.setDraft("Renamed A");
     controller.selectGraphView(b.graph_view_id);
@@ -158,7 +165,7 @@ describe("Saved graph captured operations", () => {
     ).toBe(2);
     expect(controller.getSnapshot().operation?.draft).toBe("My draft");
     expect(transport.submit).not.toHaveBeenCalled();
-    transport.submit.mockRejectedValueOnce(
+    transport.receipt.mockRejectedValueOnce(
       new SavedGraphWriteError(
         "version_conflict",
         "rejected",
@@ -172,7 +179,7 @@ describe("Saved graph captured operations", () => {
     const { controller, transport, identify, a } = await setup();
     controller.openAction("create", a.semantic_query);
     controller.setDraft("New graph");
-    transport.submit.mockRejectedValueOnce(new Error("lost acknowledgement"));
+    transport.receipt.mockRejectedValueOnce(new Error("lost acknowledgement"));
     await controller.submit();
     const attempt = controller.getSnapshot().operation?.attempt;
     expect(controller.getSnapshot().operation?.phase).toBe("uncertain");
@@ -181,7 +188,7 @@ describe("Saved graph captured operations", () => {
     controller.openAction("refresh");
     expect(controller.getSnapshot().operation?.attempt).toBe(attempt);
     expect(await controller.submit()).toBe(false);
-    transport.submit.mockResolvedValue(savedGraphAccepted());
+    transport.receipt.mockResolvedValue(savedGraphAccepted());
     await controller.replay();
     expect(transport.submit.mock.calls[1]?.[0]).toBe(attempt);
     expect(identify).toHaveBeenCalledTimes(1);
@@ -194,6 +201,7 @@ describe("Saved graph captured operations", () => {
     transport.list.mockRejectedValue(new Error("read unavailable"));
     controller.closeDialog();
     expect(await controller.submit()).toBe(true);
+    await controller.loadGraphs();
     await vi.waitFor(() =>
       expect(controller.getSnapshot().listState).toBe("error"),
     );
@@ -204,7 +212,7 @@ describe("Saved graph captured operations", () => {
     const { controller, transport, a } = await setup();
     vi.useFakeTimers();
     const pending = deferredSavedGraph<SavedGraphReceipt>();
-    transport.submit.mockReturnValue(pending.promise);
+    transport.receipt.mockReturnValue(pending.promise);
     controller.openAction("create", a.semantic_query);
     controller.setDraft("New graph");
     const submitting = controller.submit();
@@ -230,7 +238,7 @@ describe("Saved graph captured operations", () => {
         .graphs.some((g) => g.graph_view_id === a.graph_view_id),
     ).toBe(false);
     const pending = deferredSavedGraph<SavedGraphReceipt>();
-    transport.submit.mockReturnValue(pending.promise);
+    transport.receipt.mockReturnValue(pending.promise);
     controller.openAction("create", a.semantic_query);
     controller.setDraft("Draft");
     const submitting = controller.submit();

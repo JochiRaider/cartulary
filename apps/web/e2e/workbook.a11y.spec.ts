@@ -2310,6 +2310,13 @@ if (
     await saveTrigger.press("Enter");
     await expect(savedName).toHaveValue("é".repeat(32));
     await savedName.fill("Accessible saved graph");
+    const captureQuery = savedDialog.getByRole("button", {
+      name: "Use current query",
+    });
+    await captureQuery.focus();
+    await expectVisibleFocus(captureQuery);
+    await captureQuery.press("Enter");
+    await expect(savedName).toHaveValue("Accessible saved graph");
     await page.getByRole("button", { name: "Save graph" }).click();
     await expect(
       page.getByTestId(networkAnalysisTestId("saved-graph-dialog")),
@@ -2318,6 +2325,24 @@ if (
     await expect(
       savedPanel.getByText("Materialization succeeded.", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
+
+    const savedOperation = savedPanel.getByRole("region", {
+      name: "Saved graph operation",
+    });
+    const reloadOperation = savedOperation.getByRole("button", {
+      name: "Reload operation graph",
+    });
+    await page.setViewportSize({ width: 768, height: 540 });
+    await reloadOperation.focus();
+    await expectVisibleFocus(reloadOperation);
+    await reloadOperation.press("Enter");
+    await expect(reloadOperation).toBeFocused();
+    expect(
+      await savedOperation.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1,
+      ),
+    ).toBe(true);
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     const savedVertex = page
       .getByTestId(/^network-flow-saved-graph-vertex-/u)

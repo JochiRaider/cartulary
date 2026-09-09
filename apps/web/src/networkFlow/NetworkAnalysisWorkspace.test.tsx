@@ -1237,6 +1237,91 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toBeTruthy();
   });
 
+  it("recovers an acknowledged graph and paused job independently of the selected declaration", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = installNetworkFlowFetchMock({
+      savedGraphs: [savedGraphResource()],
+    });
+    const original = fetchSpy.getMockImplementation();
+    if (!original) throw new Error("Missing fixture transport");
+    let accepted = false;
+    let failReads = true;
+    fetchSpy.mockImplementation(async (input, init) => {
+      const url = requestURL(input);
+      if (
+        accepted &&
+        failReads &&
+        (init?.method ?? "GET") === "GET" &&
+        (url.includes("/graph-views") || url.includes("/api/v1/jobs/"))
+      )
+        throw new TypeError("Follow-up unavailable");
+      const result = await original(input, init);
+      if (url.endsWith("/graph-views") && init?.method === "POST")
+        accepted = true;
+      return result;
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="admin"
+        incidentId={incidentResourceId}
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    await screen.findByText("Graph ready");
+    await user.click(screen.getByRole("button", { name: "Saved graphs" }));
+    await screen.findByRole("heading", { name: "Investigation graph" });
+    await user.click(
+      screen.getByRole("button", { name: "Save current graph" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Save current graph" });
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Display name" }),
+      { target: { value: "Accepted target" } },
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save graph" }),
+    );
+    const recovery = await screen.findByRole("region", {
+      name: "Saved graph operation",
+    });
+    expect(recovery.textContent).toContain("Accepted target");
+    const resume = await within(recovery).findByRole("button", {
+      name: "Resume operation observation",
+    });
+    expect(resume).toBeTruthy();
+    expect(
+      within(recovery).getByRole("button", { name: "Reload operation graph" }),
+    ).toBeTruthy();
+    const panel = screen.getByRole("region", {
+      name: "Saved Network Flow graphs",
+    });
+    await user.click(within(panel).getByRole("button", { name: "Rename" }));
+    await user.click(
+      within(
+        screen.getByRole("dialog", { name: "Rename saved graph" }),
+      ).getByRole("button", { name: "Close" }),
+    );
+    const otherJob = screen.getByRole("region", {
+      name: "Saved graph job recovery",
+    });
+    failReads = false;
+    await user.click(
+      within(otherJob).getByRole("button", { name: /^Resume observation for/ }),
+    );
+    await user.click(
+      within(otherJob).getByRole("button", { name: /^Reload graph/ }),
+    );
+    await screen.findByRole("heading", { name: "Accepted target" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      fetchSpy.mock.calls.filter(
+        ([input, init]) =>
+          requestURL(input).endsWith("/graph-views") && init?.method === "POST",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("recovers saved graph drafts, conflicts, and uncertain writes locally with keyboard focus", async () => {
     const user = userEvent.setup();
     const fetchSpy = installNetworkFlowFetchMock({

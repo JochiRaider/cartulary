@@ -185,7 +185,7 @@ describe("Saved graph semantic result continuity", () => {
     expect(state().result).toBeNull();
     navigation.authorize(selected(), () => true);
     await navigation.loadResult();
-    expect(state().result?.graph_view.graph_view_id).toBe(
+    expect(state().result?.result.graph_projection_result.graph_view_id).toBe(
       selected().graph_view_id,
     );
   });

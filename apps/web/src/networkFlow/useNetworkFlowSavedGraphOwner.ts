@@ -105,6 +105,11 @@ export function useNetworkFlowSavedGraphOwner(options: {
         incidentId: value.incidentId,
         actorId: value.actorId,
         session: value.sessionIdentity ?? "unresolved",
+        sessionResolved: value.sessionIdentity !== null,
+        profileAvailable: value.availability.isRouteAvailable(
+          networkFlowActivityProfileId,
+          networkFlowRouteFamily,
+        ),
         role: value.role,
         open: value.open,
         available:
@@ -139,10 +144,7 @@ export function useNetworkFlowSavedGraphOwner(options: {
             resourceKind: "*",
             resourceId: "*",
             changeKind: "remove",
-            reasonCode:
-              event.kind === "incident_closed"
-                ? "incident_closed"
-                : "authorization_lost",
+            reasonCode: event.kind,
           });
         } else if (event.kind === "reset_required") {
           void controller

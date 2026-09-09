@@ -876,6 +876,7 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace distinguishes initial saved declaration and result failures from empty and unmaterialized states",
+          "NetworkAnalysisWorkspace recovers an acknowledged graph and paused job independently of the selected declaration",
           "NetworkAnalysisWorkspace recovers saved graph drafts, conflicts, and uncertain writes locally with keyboard focus"
         ]
       },
@@ -943,6 +944,37 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.saved_graph_reassessment_operations",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/SavedGraphRecovery.test.ts",
+        "titles": [
+          "Saved graph recovery boundaries hides paused session drafts and fences old acknowledgements until current authorization returns",
+          "Saved graph recovery boundaries keeps a queued unsent abort definite and requires review instead of replay",
+          "Saved graph recovery boundaries keeps receipt declarations out of the current catalog when follow-up reads fail",
+          "Saved graph recovery boundaries purges resource drafts and all protected operation state on explicit removal",
+          "Saved graph recovery boundaries replaces a rejected captured query only through explicit current-query preparation",
+          "Saved graph recovery boundaries resumes the captured create query after definite failure and dialog closure",
+          "Saved graph recovery boundaries retains a copyable write-loss draft but purges it when the profile is withdrawn",
+          "Saved graph recovery boundaries withdraws saved exposure for the canonical unclaimed profile response"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.saved_graph_receipt_transport",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",
@@ -986,9 +1018,13 @@
           "Saved graph recovery boundaries fences conflict review after retirement without resurrecting a declaration",
           "Saved graph recovery boundaries keeps authorized contributor context during transport failure and withdraws only its invalidated binding",
           "Saved graph recovery boundaries preserves typed job read failures without treating missing jobs as lost incident access",
+          "Saved graph recovery boundaries publishes selection and immutable result exposure atomically to subscribers",
+          "Saved graph recovery boundaries publishes source and scope withdrawal without intermediate protected exposure",
           "Saved graph recovery boundaries reconciles independent graphs without dropping either accepted read",
           "Saved graph recovery boundaries reconciles invalidations received while a rejected mutation holds admission",
+          "Saved graph recovery boundaries reconciles retirement removal after it interrupts the acknowledged list read",
           "Saved graph recovery boundaries recovers a withdrawn result through its current declaration before loading authorized bytes",
+          "Saved graph recovery boundaries recovers an accepted job and declaration by their operation target after selection and read failure",
           "Saved graph recovery boundaries restarts an interrupted initial result read after valid authority reconciliation",
           "Saved graph recovery boundaries withdraws cached exposure on an authoritative list denial and permits explicit current-state recovery",
           "Saved graph recovery boundaries withdraws result and contributors when a contributor request reports lost read authority"

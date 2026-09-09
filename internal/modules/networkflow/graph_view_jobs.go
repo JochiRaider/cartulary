@@ -101,8 +101,19 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 	if err := json.Unmarshal(rawPayload, &payload); err != nil || !payload.valid() {
 		return m.failGraphViewMaterialization(ctx, execution, payload, "source_invalid", false)
 	}
+	submitterID, err := uuid.Parse(job.SubmittedByUserID)
+	if err != nil {
+		return m.failGraphViewMaterialization(ctx, execution, payload, "publication_conflict", false)
+	}
+	admit := func(checkCtx context.Context, tx pgx.Tx) error {
+		_, err := admission.NewChecker(m.store.pool).CheckTx(checkCtx, tx, payload.IncidentID, submitterID, admission.Requirement{
+			AllowedRoles: admission.RolesEditorAdmin,
+			Lifecycle:    admission.LifecycleOpen,
+		})
+		return err
+	}
 	if err := withinTransaction(ctx, m.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		return admission.NewChecker(m.store.pool).RequireOpenTx(ctx, tx, payload.IncidentID)
+		return admit(ctx, tx)
 	}); err != nil {
 		return m.failGraphViewMaterialization(context.WithoutCancel(ctx), execution, payload, "publication_conflict", false)
 	}
@@ -198,7 +209,7 @@ func (m *Module) handleGraphViewMaterialization(ctx context.Context, execution j
 		},
 		FinalCommitID: completed.Binding.ProjectionResultID + ":" + execution.JobID().String(),
 		Mutate: func(finalizeCtx context.Context, tx pgx.Tx) error {
-			if err := admission.NewChecker(m.store.pool).RequireOpenTx(finalizeCtx, tx, payload.IncidentID); err != nil {
+			if err := admit(finalizeCtx, tx); err != nil {
 				return ErrGraphViewPublicationStale
 			}
 			currentSourceSnapshot, sourceErr := m.graphViewSourceSnapshotTx(finalizeCtx, tx, payload.IncidentID, semantic)

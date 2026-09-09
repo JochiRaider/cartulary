@@ -20,6 +20,7 @@ import type {
   NetworkFlowTable,
 } from "./networkFlowClient";
 import type { SavedGraphObservation } from "./savedGraphObservation";
+import { savedGraphOperationGraphId } from "./savedGraphOperation";
 import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
 import type { useNetworkFlowSavedGraphController } from "./useNetworkFlowSavedGraphController";
 
@@ -615,6 +616,10 @@ export function NetworkFlowSavedGraphPanel({
           {controller.notice}
         </p>
       ) : null}
+      <SavedGraphOtherJobs controller={controller} />
+      {controller.operation?.phase === "acknowledged" ? (
+        <SavedGraphAcknowledgement controller={controller} />
+      ) : null}
       {controller.operation !== null &&
       !controller.dialogOpen &&
       controller.operation.phase !== "acknowledged" ? (
@@ -632,8 +637,123 @@ export function NetworkFlowSavedGraphPanel({
         </div>
       ) : null}
       {controller.dialogOpen && controller.operation !== null ? (
-        <SavedGraphDialog controller={controller} />
+        <SavedGraphDialog controller={controller} currentGraph={currentGraph} />
       ) : null}
+    </section>
+  );
+}
+
+function SavedGraphOtherJobs({
+  controller,
+}: {
+  readonly controller: NetworkFlowSavedGraphPanelController;
+}) {
+  const receipt = controller.operation?.receipt;
+  const operationJob =
+    receipt?.kind === "accepted" ? receipt.value.job.job_id : null;
+  const otherJobs = Object.values(controller.observations).filter(
+    (observation) =>
+      observation.target.jobId !== operationJob &&
+      observation.target.jobId !== controller.selectedGraph?.latest_job_id,
+  );
+  if (otherJobs.length === 0) return null;
+  return (
+    <section aria-label="Saved graph job recovery" style={noticeStyle}>
+      {otherJobs.map((observation) => {
+        const graphId = observation.target.graphId;
+        const name =
+          controller.graphs.find((graph) => graph.graph_view_id === graphId)
+            ?.display_name ?? shortIdentity(graphId);
+        return (
+          <div key={observation.target.jobId}>
+            <p role="status">
+              {name} · {shortIdentity(observation.target.jobId)}:{" "}
+              {observation.message ??
+                `Job ${observation.job?.status.replaceAll("_", " ") ?? "unobserved"}.`}
+            </p>
+            {controller.declarationErrors[graphId] ? (
+              <p role="alert">
+                {controller.declarationErrors[graphId]?.message}
+              </p>
+            ) : null}
+            <NetworkFlowActionGroup>
+              <NetworkFlowButton
+                disabled={observation.state !== "paused"}
+                onClick={() =>
+                  controller.resumeObservation(observation.target.jobId)
+                }
+              >
+                Resume observation for {name}
+              </NetworkFlowButton>
+              <NetworkFlowButton
+                onClick={() => void controller.reloadGraph(graphId)}
+              >
+                Reload graph {name}
+              </NetworkFlowButton>
+            </NetworkFlowActionGroup>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function SavedGraphAcknowledgement({
+  controller,
+}: {
+  readonly controller: NetworkFlowSavedGraphPanelController;
+}) {
+  const operation = controller.operation;
+  if (
+    operation?.phase !== "acknowledged" ||
+    operation.receipt.kind === "retired"
+  )
+    return null;
+  const graphId = savedGraphOperationGraphId(operation);
+  const graph =
+    operation.receipt.kind === "accepted"
+      ? operation.receipt.value.graph_view
+      : operation.receipt.value;
+  const job =
+    operation.receipt.kind === "accepted" ? operation.receipt.value.job : null;
+  const observation =
+    job === null ? undefined : controller.observations[job.job_id];
+  const error =
+    graphId === null ? undefined : controller.declarationErrors[graphId];
+  return (
+    <section
+      aria-label="Saved graph operation"
+      className="network-flow-status"
+      style={noticeStyle}
+    >
+      <p role="status">
+        {graph.display_name} ·{" "}
+        {operation.intent.kind === "create"
+          ? "Creation acknowledged"
+          : operation.intent.kind === "refresh"
+            ? "Refresh accepted"
+            : "Rename acknowledged"}
+        .{job ? " Materialization is separate from this acknowledgement." : ""}
+      </p>
+      {error ? <p role="alert">{error.message}</p> : null}
+      {observation?.state === "paused" ? (
+        <p role="status">{observation.message}</p>
+      ) : null}
+      <NetworkFlowActionGroup>
+        <NetworkFlowButton
+          onClick={() => void controller.reloadOperationGraph()}
+        >
+          Reload operation graph
+        </NetworkFlowButton>
+        {job !== null && observation?.state !== "terminal" ? (
+          <NetworkFlowButton
+            disabled={observation?.state === "observing"}
+            onClick={controller.resumeOperationObservation}
+          >
+            Resume operation observation
+          </NetworkFlowButton>
+        ) : null}
+      </NetworkFlowActionGroup>
     </section>
   );
 }
@@ -689,6 +809,10 @@ function savedGraphStatusMessage(
     return retained
       ? "Refresh failed; the last successful result remains available."
       : "Materialization failed; no successful result is available.";
+  if (observation?.job?.status === "cancel_requested")
+    return retained
+      ? "Refresh cancellation requested; server work may continue. The last successful result remains available."
+      : "Materialization cancellation requested; server work may continue.";
   if (observation?.job?.status === "canceled")
     return retained
       ? "Refresh was canceled; the last successful result remains available."
@@ -706,8 +830,10 @@ function savedGraphStatusMessage(
 
 function SavedGraphDialog({
   controller,
+  currentGraph,
 }: {
   readonly controller: NetworkFlowSavedGraphPanelController;
+  readonly currentGraph: NetworkFlowGraphResult | null;
 }) {
   const operation = controller.operation;
   const kind = operation?.intent.kind ?? "create";
@@ -820,6 +946,15 @@ function SavedGraphDialog({
                       : " Enter a nonempty name."}
               </span>
             </NetworkFlowField>
+          ) : null}
+          {kind === "create" && currentGraph !== null && !locked ? (
+            <NetworkFlowButton
+              onClick={() =>
+                controller.prepareCurrentQuery(currentGraph.semantic_query)
+              }
+            >
+              Use current query
+            </NetworkFlowButton>
           ) : null}
           {operation.failure ? (
             <div

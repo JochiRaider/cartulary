@@ -527,9 +527,21 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
   const panel = page.getByRole("region", { name: "Saved Network Flow graphs" });
   const writes: string[] = [];
   let denyList = false;
+  let failOperationReads = false;
+  await page.route("**/api/v1/jobs/*", async (route) => {
+    if (failOperationReads && route.request().method() === "GET")
+      await route.abort("failed");
+    else await route.continue();
+  });
+  await page.route("**/network-flow/graph-views/*", async (route) => {
+    if (failOperationReads && route.request().method() === "GET")
+      await route.abort("failed");
+    else await route.continue();
+  });
   await page.route("**/network-flow/graph-views", async (route) => {
     if (route.request().method() === "GET") {
-      if (denyList)
+      if (failOperationReads) await route.abort("failed");
+      else if (denyList)
         await route.fulfill({
           status: 403,
           json: {
@@ -565,7 +577,10 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
           },
         },
       });
-    } else await route.continue();
+    } else {
+      failOperationReads = true;
+      await route.continue();
+    }
   });
   await panel.getByRole("button", { name: "Save current graph" }).click();
   const dialog = page.getByRole("dialog", { name: "Save current graph" });
@@ -584,6 +599,19 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
   await dialog.getByRole("button", { name: "Replay exact attempt" }).click();
   expect(writes).toHaveLength(3);
   expect(new Set(writes).size).toBe(1);
+  const recovery = panel.getByRole("region", { name: "Saved graph operation" });
+  await expect(recovery).toContainText("Recovered evidence");
+  await expect(
+    recovery.getByRole("button", { name: "Resume operation observation" }),
+  ).toBeEnabled();
+  await expect(dialog).toHaveCount(0);
+  failOperationReads = false;
+  await recovery
+    .getByRole("button", { name: "Resume operation observation" })
+    .click();
+  await recovery
+    .getByRole("button", { name: "Reload operation graph" })
+    .click();
   await expect(
     panel.getByRole("heading", { name: "Recovered evidence" }),
   ).toBeVisible();
@@ -653,7 +681,7 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
 test("Network Analysis saved graphs fence deferred results and contributors across stable-ID selection", async ({
   page,
 }) => {
-  await openClaimedNetworkAnalysis(page, "NFGRAPHRACES");
+  const incidentId = await openClaimedNetworkAnalysis(page, "NFGRAPHRACES");
   await importNetworkFlowCSV(page, {
     displayName: "race-source",
     file: networkFlowMinimalCSV,
@@ -691,8 +719,44 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
   await page
     .getByRole("textbox", { name: "Display name" })
     .fill("Second graph");
-  await page.getByRole("button", { name: "Rename graph", exact: true }).click();
-  await expect(graphB).toContainText("Second graph");
+  const confirmation = page.getByRole("dialog", { name: "Rename saved graph" });
+  const other = await page.context().newPage();
+  try {
+    await other.goto(`/?incident_id=${incidentId}`);
+    await other.getByTestId(networkAnalysisTestId("tab")).click();
+    await other.getByTestId(networkAnalysisTestId("mode-graph")).click();
+    await other.getByRole("button", { name: "Saved graphs" }).click();
+    await other.getByTestId(networkAnalysisSavedGraphTestId(secondId)).click();
+    await other
+      .getByRole("region", { name: "Saved Network Flow graphs" })
+      .getByRole("button", { name: "Rename", exact: true })
+      .click();
+    await other
+      .getByRole("textbox", { name: "Display name" })
+      .fill("Remote graph");
+    await other
+      .getByRole("button", { name: "Rename graph", exact: true })
+      .click();
+    await expect(graphB).toContainText("Remote graph");
+    await expect(confirmation).toContainText("Target: Duplicate graph");
+    await confirmation
+      .getByRole("button", { name: "Rename graph", exact: true })
+      .click();
+    await expect(confirmation.getByRole("alert")).toContainText("Review");
+    await confirmation
+      .getByRole("button", { name: "Review current graph" })
+      .click();
+    await expect(confirmation).toContainText("Target: Remote graph");
+    await expect(
+      confirmation.getByRole("textbox", { name: "Display name" }),
+    ).toHaveValue("Second graph");
+    await confirmation
+      .getByRole("button", { name: "Rename graph", exact: true })
+      .click();
+    await expect(graphB).toContainText("Second graph");
+  } finally {
+    await other.close();
+  }
   let releaseResult = () => {};
   const resultGate = new Promise<void>((resolve) => {
     releaseResult = resolve;
@@ -767,6 +831,27 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
     releaseContributors();
     await page.unroute(contributorRoute);
   }
+  await page
+    .getByTestId(/^network-flow-saved-graph-vertex-/u)
+    .first()
+    .getByRole("button")
+    .click();
+  const retainedContributors = page.getByRole("complementary", {
+    name: "Saved graph contributors",
+  });
+  await expect(retainedContributors).toContainText("Row");
+  await page.getByTestId(networkAnalysisTestId("delete-trigger")).click();
+  await page
+    .getByTestId(networkAnalysisTestId("delete-confirmation"))
+    .fill("race-source");
+  await page.getByTestId(networkAnalysisTestId("delete-confirm")).click();
+  await expect(
+    panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
+  ).toHaveCount(0);
+  await expect(retainedContributors).toHaveCount(0);
+  await expect(
+    panel.getByTestId(/^network-flow-saved-graph-vertex-/u),
+  ).toHaveCount(0);
 });
 
 test("Network Analysis alias collision requires explicit approval", async ({

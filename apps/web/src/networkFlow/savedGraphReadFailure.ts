@@ -67,7 +67,7 @@ export function savedGraphReadDisposition(
     isNetworkFlowAuthorizationLoss(error) ||
     error.code === "incident_closed" ||
     error.code === "extension_workspace_unavailable" ||
-    error.code === "extension_profile_unclaimed"
+    error.code === "extension_profile_not_claimed"
   )
     return "scope";
   // A retained job can expire independently of its declaration or selected result.

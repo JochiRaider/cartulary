@@ -249,6 +249,7 @@ export function decodeNetworkFlowSavedGraphResult(
   const binding = result.graph_view.selected_result_binding;
   const projection = result.result.graph_projection_result;
   if (
+    result.graph_view.state !== "active" ||
     binding === null ||
     projection.graph_view_id !== result.graph_view.graph_view_id ||
     projection.source_owner_id !== "network_flow_activity" ||
