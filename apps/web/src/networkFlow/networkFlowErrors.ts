@@ -12,6 +12,8 @@ export type NetworkFlowRetryAction =
 export class NetworkFlowRequestError extends Error {
   readonly code: string;
   readonly field: string | null;
+  readonly filterIndex: number | null;
+  readonly operator: string | null;
   readonly reasonCode: string | null;
   readonly retryAction: NetworkFlowRetryAction;
   readonly retryable: boolean;
@@ -20,6 +22,8 @@ export class NetworkFlowRequestError extends Error {
   constructor(options: {
     readonly code: string;
     readonly field?: string | null;
+    readonly filterIndex?: number | null;
+    readonly operator?: string | null;
     readonly reasonCode?: string | null;
     readonly retryAction: NetworkFlowRetryAction;
     readonly retryable: boolean;
@@ -30,6 +34,8 @@ export class NetworkFlowRequestError extends Error {
     this.name = "NetworkFlowRequestError";
     this.code = options.code;
     this.field = options.field ?? null;
+    this.filterIndex = options.filterIndex ?? null;
+    this.operator = options.operator ?? null;
     this.reasonCode = options.reasonCode ?? null;
     this.retryAction = options.retryAction;
     this.retryable = options.retryable;
@@ -60,7 +66,16 @@ export function networkFlowRequestError(
     contract?.retry_action ?? defaultRetryAction(status, code);
   return new NetworkFlowRequestError({
     code,
-    field: safeDetail(apiError?.details?.field),
+    field:
+      safeDetail(apiError?.details?.field_key) ??
+      safeDetail(apiError?.details?.field),
+    filterIndex:
+      typeof apiError?.details?.filter_index === "number" &&
+      Number.isSafeInteger(apiError.details.filter_index) &&
+      apiError.details.filter_index >= 0
+        ? apiError.details.filter_index
+        : null,
+    operator: safeDetail(apiError?.details?.op),
     reasonCode: safeDetail(apiError?.details?.reason_code),
     retryAction,
     retryable:

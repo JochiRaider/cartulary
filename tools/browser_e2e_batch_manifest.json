@@ -858,6 +858,7 @@
             "module.networkflow.browser.network_flow_selector_covers_soft_deleting_a_tab_537fbd618e",
             "module.networkflow.browser.network_flow_selector_covers_the_filter_selector_12b0cf1448",
             "module.networkflow.browser.network_flow_selector_covers_when_the_extension_4ce49e0d6f",
+            "module.networkflow.browser.query_authoring_integrity",
             "module.networkflow.browser.table_lifecycle_continuity",
             "module.networkflow.browser.verify_claimed_network_analysis_discovery_import_f977242343"
           ],
@@ -1714,6 +1715,7 @@
             "module.networkflow.browser.network_flow_selector_covers_soft_deleting_a_tab_537fbd618e",
             "module.networkflow.browser.network_flow_selector_covers_the_filter_selector_12b0cf1448",
             "module.networkflow.browser.network_flow_selector_covers_when_the_extension_4ce49e0d6f",
+            "module.networkflow.browser.query_authoring_integrity",
             "module.networkflow.browser.table_lifecycle_continuity",
             "module.networkflow.browser.verify_claimed_network_analysis_discovery_import_f977242343"
           ],

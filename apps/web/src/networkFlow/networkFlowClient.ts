@@ -49,6 +49,7 @@ import type {
   NetworkFlowAcceptedPageRequest,
   NetworkFlowRejectedPageRequest,
 } from "./networkFlowQueryModel";
+import { graphInitialRequest } from "./networkFlowQueryModel";
 import {
   type TableAttempt,
   TableWriteError,
@@ -277,19 +278,7 @@ export async function queryNetworkFlowGraph(options: {
   > | null;
   readonly signal?: AbortSignal | undefined;
 }): Promise<NetworkFlowGraphResult> {
-  if (
-    options.aggregation.mode === "time_bucket_v1" &&
-    (options.timeRange?.start_utc == null || options.timeRange.end_utc == null)
-  ) {
-    throw new Error("network_flow_complete_graph_time_range_required");
-  }
-  const request = {
-    schema_id: "cartulary.network_flow.graph_query_request.v2",
-    table_scope: options.tableScope,
-    ...(options.filters.length === 0 ? {} : { filters: [...options.filters] }),
-    ...(options.timeRange === null ? {} : { time_range: options.timeRange }),
-    aggregation: options.aggregation,
-  } as NetworkFlowGraphQueryRequest;
+  const request = graphInitialRequest(options);
   const result = await fetchNetworkFlowJSON<unknown>(
     options.availability,
     apiPath(

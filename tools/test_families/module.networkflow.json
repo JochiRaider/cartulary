@@ -505,6 +505,44 @@
       ]
     },
     {
+      "row_id": "module.networkflow.browser.query_authoring_integrity",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.imports",
+        "web.application",
+        "web.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "network_flow_query_authoring_integrity"
+        ],
+        "titles": [
+          "Network Analysis authors lossless typed queries and applies exact row and graph scopes"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.browser.table_lifecycle_continuity",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser",
@@ -2345,6 +2383,30 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestNetworkFlow_UnmappedRawInertEvidence_Integration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.query_authoring_admission",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestQueryAuthoringAdmission_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -119,6 +119,18 @@ export class NetworkFlowTableController {
     private readonly clock: ObservationClock = browserObservationClock,
   ) {}
   readonly getSnapshot = (): TableSnapshot => this.snapshot;
+  /** Query drafts survive metadata refreshes, but never a replaced reader. */
+  readonly queryContextIdentity = (): string | null => {
+    const authority = this.authority;
+    return authority && canReadTables(authority) && !this.snapshot.hidden
+      ? JSON.stringify([
+          authority.incidentId,
+          authority.actorId,
+          authority.sessionIdentity,
+          authority.availabilityTag?.epochId,
+        ])
+      : null;
+  };
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

@@ -16,6 +16,26 @@ describe("Network Flow structured errors", () => {
       },
     });
 
+    const filterError = networkFlowRequestError(400, {
+      error: {
+        code: "network_flow_invalid_filter",
+        message: "Correct the filter.",
+        details: {
+          reason_code: "duplicate_filter",
+          field_key: "network_flow.ip_protocol",
+          op: "in",
+          filter_index: 2,
+          retry_action: "correct_request",
+        },
+      },
+    });
+    expect(filterError).toMatchObject({
+      field: "network_flow.ip_protocol",
+      operator: "in",
+      filterIndex: 2,
+      reasonCode: "duplicate_filter",
+      retryAction: "correct_request",
+    });
     expect(error).toMatchObject({
       status: 400,
       code: "network_flow_cursor_invalid",

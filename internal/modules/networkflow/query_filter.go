@@ -3,6 +3,8 @@ package networkflow
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	contractnetworkflow "github.com/JochiRaider/cartulary/internal/gen/contractnetworkflow"
 	"net/netip"
 	"sort"
 	"strconv"
@@ -27,52 +29,82 @@ func decodeAndNormalizeFilters(raw json.RawMessage, limits EffectiveLimits) ([]F
 	}
 	filters := make([]Filter, 0, len(entries))
 	seen := map[string]struct{}{}
-	for _, entry := range entries {
-		var object map[string]json.RawMessage
-		if err := json.Unmarshal(entry, &object); err != nil || object == nil {
-			return nil, invalidFilter("filters", "invalid_value")
-		}
-		if apiErr := ensureAllowedMembers(object, "field_key", "op", "value"); apiErr != nil {
-			return nil, invalidFilter("filters", "unknown_member")
-		}
-		field, apiErr := requiredJSONString(object, "field_key")
-		if apiErr != nil || !isFilterField(field) {
-			return nil, invalidFilter("field_key", "unknown_field")
-		}
-		op, apiErr := requiredJSONString(object, "op")
+	for index, entry := range entries {
+		filter, apiErr := decodeFilterEntry(entry)
 		if apiErr != nil {
-			return nil, invalidFilter("op", "operator_not_allowed")
-		}
-		filter := Filter{FieldKey: field, Op: op}
-		if !filterOpAllowed(filter) {
-			return nil, invalidFilter("op", "operator_not_allowed")
-		}
-		valueRaw, hasValue := object["value"]
-		if op == "is_null" || op == "not_null" {
-			if hasValue {
-				return nil, invalidFilter("value", "value_forbidden")
-			}
-		} else {
-			if !hasValue || bytes.Equal(bytes.TrimSpace(valueRaw), []byte("null")) {
-				return nil, invalidFilter("value", "invalid_value")
-			}
-			value, apiErr := normalizeFilterValue(field, op, valueRaw)
-			if apiErr != nil {
-				return nil, apiErr
-			}
-			filter.Value = value
+			apiErr.Details["filter_index"] = index
+			return nil, apiErr
 		}
 		key := string(canonicalJSON(filter))
 		if _, exists := seen[key]; exists {
-			return nil, invalidFilter("filters", "duplicate_filter")
+			apiErr := invalidFilter("filters", "duplicate_filter")
+			apiErr.Details["field_key"] = filter.FieldKey
+			apiErr.Details["op"] = filter.Op
+			apiErr.Details["filter_index"] = index
+			return nil, apiErr
 		}
 		seen[key] = struct{}{}
 		filters = append(filters, filter)
 	}
+
 	sort.SliceStable(filters, func(i, j int) bool {
 		return string(canonicalJSON(filters[i])) < string(canonicalJSON(filters[j]))
 	})
 	return filters, nil
+}
+
+func decodeFilterEntry(entry json.RawMessage) (filter Filter, apiErr *httpapi.APIError) {
+	defer func() {
+		if apiErr == nil {
+			return
+		}
+		var context map[string]json.RawMessage
+		_ = json.Unmarshal(entry, &context)
+		var field, op string
+		_ = json.Unmarshal(context["field_key"], &field)
+		_ = json.Unmarshal(context["op"], &op)
+		if isFilterField(field) {
+			apiErr.Details["field_key"] = field
+		}
+		if len(op) <= 32 {
+			apiErr.Details["op"] = op
+		}
+	}()
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(entry, &object); err != nil || object == nil {
+		return Filter{}, invalidFilter("filters", "invalid_value")
+	}
+	if apiErr := ensureAllowedMembers(object, "field_key", "op", "value"); apiErr != nil {
+		return Filter{}, invalidFilter("filters", "unknown_member")
+	}
+	field, apiErr := requiredJSONString(object, "field_key")
+	if apiErr != nil || !isFilterField(field) {
+		return Filter{}, invalidFilter("field_key", "unknown_field")
+	}
+	op, apiErr := requiredJSONString(object, "op")
+	if apiErr != nil {
+		return Filter{}, invalidFilter("op", "operator_not_allowed")
+	}
+	filter = Filter{FieldKey: field, Op: op}
+	if !filterOpAllowed(filter) {
+		return Filter{}, invalidFilter("op", "operator_not_allowed")
+	}
+	valueRaw, hasValue := object["value"]
+	if op == "is_null" || op == "not_null" {
+		if hasValue {
+			return Filter{}, invalidFilter("value", "value_forbidden")
+		}
+	} else {
+		if !hasValue || bytes.Equal(bytes.TrimSpace(valueRaw), []byte("null")) {
+			return Filter{}, invalidFilter("value", "invalid_value")
+		}
+		value, apiErr := normalizeFilterValue(field, op, valueRaw)
+		if apiErr != nil {
+			return Filter{}, apiErr
+		}
+		filter.Value = value
+	}
+	return filter, nil
 }
 
 func normalizeFilterValue(field, op string, raw json.RawMessage) (any, *httpapi.APIError) {
@@ -227,8 +259,54 @@ func normalizeFilterRange(field string, raw json.RawMessage) (any, *httpapi.APIE
 }
 
 func compareFilterValues(field string, left, right any) int {
+	if left == nil || right == nil {
+		return compareScalar(left, right)
+	}
+	if field == FieldExporterID || field == FieldInputInterface || field == FieldOutputInterface {
+		return strings.Compare(fmt.Sprint(left), fmt.Sprint(right))
+	}
 	if field == FieldSrcIP || field == FieldDstIP || field == FieldEndpointIP {
 		return compareIPValues(left, right)
 	}
 	return compareScalar(left, right)
+}
+
+// Closed query tokens are compiled contract inputs, never documentation reads.
+var diagnosticQueryTokens = func() map[string]map[string]bool {
+	artifact := contractnetworkflow.Index["contracts/network-flow/schemas.v3.json"]
+	var schema struct {
+		Definitions map[string]struct {
+			Enum []string `json:"enum"`
+		} `json:"$defs"`
+	}
+	if err := json.Unmarshal([]byte(artifact.JSON), &schema); err != nil {
+		panic(err)
+	}
+	result := map[string]map[string]bool{}
+	for field, definition := range map[string]string{"error_codes": "QueryErrorCode", "field_keys": "FieldKey"} {
+		result[field] = map[string]bool{}
+		for _, token := range schema.Definitions[definition].Enum {
+			result[field][token] = true
+		}
+	}
+	return result
+}()
+
+func decodeDiagnosticTokens(raw json.RawMessage, field string) ([]string, *httpapi.APIError) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, invalidFilter(field, "invalid_value")
+	}
+	values, apiErr := decodeStringArray(raw, field, 64)
+	if apiErr != nil {
+		return nil, invalidFilter(field, "invalid_value")
+	}
+	for _, value := range values {
+		if !diagnosticQueryTokens[field][value] {
+			return nil, invalidFilter(field, "invalid_value")
+		}
+	}
+	return values, nil
 }

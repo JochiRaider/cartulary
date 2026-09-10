@@ -68,40 +68,61 @@ describe("useNetworkFlowPagedQuery", () => {
   });
 
   it("aborts superseded requests and rejects late responses after a query change", async () => {
-    const alpha = deferred<ReturnType<typeof page>>();
-    const bravo = deferred<ReturnType<typeof page>>();
-    const signals: AbortSignal[] = [];
-    const fetchPage = vi.fn((request: Request, signal: AbortSignal) => {
-      signals.push(signal);
-      return request.schema_id === "initial" && request.query === "alpha"
-        ? alpha.promise
-        : bravo.promise;
-    });
-    const { result, rerender } = renderHook(
-      ({ query }) =>
-        useNetworkFlowPagedQuery<string, Request>({
-          enabled: true,
-          fetchPage,
-          initialRequest: { schema_id: "initial", query },
-          isContinuation: (request) => request.schema_id === "continuation",
-          makeContinuation: (cursorToken) => ({
-            schema_id: "continuation",
-            cursor_token: cursorToken,
+    for (const lateFailure of [false, true]) {
+      const alpha = deferred<ReturnType<typeof page>>();
+      const bravo = deferred<ReturnType<typeof page>>();
+      const signals: AbortSignal[] = [];
+      const onError = vi.fn();
+      const onIncidentAccessLost = vi.fn();
+      const fetchPage = vi.fn((request: Request, signal: AbortSignal) => {
+        signals.push(signal);
+        return request.schema_id === "initial" && request.query === "alpha"
+          ? alpha.promise
+          : bravo.promise;
+      });
+      const { result, rerender, unmount } = renderHook(
+        ({ query }) =>
+          useNetworkFlowPagedQuery<string, Request>({
+            enabled: true,
+            fetchPage,
+            initialRequest: { schema_id: "initial", query },
+            isContinuation: (request) => request.schema_id === "continuation",
+            makeContinuation: (cursorToken) => ({
+              schema_id: "continuation",
+              cursor_token: cursorToken,
+            }),
+            onError,
+            onIncidentAccessLost,
+            queryKey: query,
+            reconcile: (_previous, incoming) => [...incoming],
           }),
-          onError: vi.fn(),
-          onIncidentAccessLost: undefined,
-          queryKey: query,
-          reconcile: (_previous, incoming) => [...incoming],
-        }),
-      { initialProps: { query: "alpha" } },
-    );
+        { initialProps: { query: "alpha" } },
+      );
 
-    rerender({ query: "bravo" });
-    expect(signals[0]?.aborted).toBe(true);
-    await act(async () => bravo.resolve(page(["bravo"], null)));
-    await waitFor(() => expect(result.current.items).toEqual(["bravo"]));
-    await act(async () => alpha.resolve(page(["late-alpha"], null)));
-    expect(result.current.items).toEqual(["bravo"]);
+      rerender({ query: "bravo" });
+      expect(signals[0]?.aborted).toBe(true);
+      await act(async () => bravo.resolve(page(["bravo"], null)));
+      await waitFor(() => expect(result.current.items).toEqual(["bravo"]));
+      const errorCount = onError.mock.calls.length;
+      await act(async () => {
+        if (lateFailure)
+          alpha.reject(
+            new NetworkFlowRequestError({
+              code: "authorization_denied",
+              safeMessage: "Access denied.",
+              status: 403,
+              retryAction: "do_not_retry",
+              retryable: false,
+            }),
+          );
+        else alpha.resolve(page(["late-alpha"], null));
+      });
+      expect(onError).toHaveBeenCalledTimes(errorCount);
+      expect(onIncidentAccessLost).not.toHaveBeenCalled();
+      expect(result.current.loadState).toBe("ready");
+      expect(result.current.items).toEqual(["bravo"]);
+      unmount();
+    }
   });
 });
 
@@ -142,8 +163,10 @@ function page(items: readonly string[], nextCursorToken: string | null) {
 
 function deferred<T>() {
   let resolvePromise: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((resolve) => {
+  let rejectPromise: (reason: unknown) => void = () => undefined;
+  const promise = new Promise<T>((resolve, reject) => {
     resolvePromise = resolve;
+    rejectPromise = reject;
   });
-  return { promise, resolve: resolvePromise };
+  return { promise, resolve: resolvePromise, reject: rejectPromise };
 }

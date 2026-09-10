@@ -1087,6 +1087,26 @@ const networkFlowDefinitions = requireObject(
   networkFlowSchema.$defs,
   "network-flow definitions",
 );
+// Project the closed filter variants; the browser never reads JSON Schema.
+const networkFlowQueryMetadata = {
+  fields: Object.entries({
+    IP: "ip", Port: "port", Protocol: "protocol", Timestamp: "timestamp",
+    Counter: "counter", Text: "text", SourceRow: "positive_integer",
+  }).flatMap(([name, kind]) => {
+    const variants = networkFlowDefinitions[`${name}Filter`].oneOf;
+    const operators = variants.flatMap((variant) => variant.properties.op.enum);
+    return variants[0].properties.field_key.enum.map((field_key) => ({ field_key, kind, operators }));
+  }),
+  filterMaximum: networkFlowDefinitions.DefaultGraphQueryRequestV2.properties.filters.maxItems,
+  bucketWidths: networkFlowDefinitions.TimeBucketGraphAggregationV2.properties.bucket_width_seconds.enum,
+  diagnosticFields: networkFlowDefinitions.FieldKey.enum,
+  diagnosticErrors: networkFlowDefinitions.QueryErrorCode.enum,
+  portMaximum: networkFlowDefinitions.QueryPort.maximum,
+  protocolMaximum: networkFlowDefinitions.QueryProtocol.maximum,
+  textMaximum: networkFlowDefinitions.QueryText.maxLength,
+  listMaximum: networkFlowDefinitions.IPFilter.oneOf.find((variant) => variant.properties.op.enum.includes("in")).properties.value.maxItems,
+  diagnosticListMaximum: networkFlowDefinitions.RejectedRowsQueryRequest.properties.field_keys.maxItems,
+};
 // Browser choices are projections of existing owner schemas, never runtime schemas.
 const timestampVariants = networkFlowDefinitions.TimestampProfile.oneOf;
 const timestampDefaults = Object.fromEntries(timestampVariants.map(({ properties }) => {
@@ -1271,7 +1291,7 @@ writeFilesAtomically([
     content: generatedConstSource(
       "networkFlowPresentationRegistry",
       networkFlowPresentation,
-    ),
+    ) + generatedConstSource("networkFlowQueryMetadata", networkFlowQueryMetadata),
   },
   {
     path: path.join(generatedRoot, "network-flow-mapping-registry.ts"),

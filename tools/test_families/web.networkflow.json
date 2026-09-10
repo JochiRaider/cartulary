@@ -222,6 +222,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.network_flow_query_authoring_preserves_complete_b69b5349e3",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowQueryControls.test.tsx",
+        "titles": [
+          "Network Flow query authoring integrity retains protocol lists and complete counter predicates on unchanged Apply"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_protected_data_i_eaa7eef8ae",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",
@@ -853,6 +877,63 @@
         "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
         "titles": [
           "NetworkFlowSemanticGrid accessibility supports keyboard column reordering with a polite semantic announcement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.query_application_ownership",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/useNetworkFlowQueryAuthoring.test.ts",
+        "titles": [
+          "Network Flow query application ownership applies graph scope and aggregation atomically and retains invalid selected IDs",
+          "Network Flow query application ownership attributes rejection to the submitted entry without rewriting a newer draft",
+          "Network Flow query application ownership captures attempts retains successful state and ignores superseded success and failure",
+          "Network Flow query application ownership retains separate drafts through navigation and purges authority replacements"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.query_authoring_compilation",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowQueryAuthoring.test.ts",
+        "titles": [
+          "Network Flow typed query compilation compiles every offered presentation operator into an owner-valid filter shape",
+          "Network Flow typed query compilation preserves diagnostic lists and rejects unknown duplicate empty and reversed inputs",
+          "Network Flow typed query compilation rejects canonical duplicates and invalid list members without removing entries",
+          "Network Flow typed query compilation round trips lists equality both bounds null tests and repeated fields without rewriting",
+          "Network Flow typed query compilation uses inclusive numeric and half-open timestamp ranges without epsilon",
+          "Network Flow typed query compilation validates exact uint64 bounds and rejects numeric coercion",
+          "Network Flow typed query compilation validates overlap filters together while keeping graph time range separate"
         ]
       },
       "evidence_class": "unit",

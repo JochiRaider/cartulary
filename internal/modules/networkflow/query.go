@@ -177,11 +177,11 @@ func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (R
 	}
 	request := RejectedRowsQueryRequest{SchemaID: schemaID, Limit: defaultQueryLimit(limits)}
 	var err *httpapi.APIError
-	request.ErrorCodes, err = decodeStringArray(raw["error_codes"], "error_codes", 64)
+	request.ErrorCodes, err = decodeDiagnosticTokens(raw["error_codes"], "error_codes")
 	if err != nil {
 		return RejectedRowsQueryRequest{}, err
 	}
-	request.FieldKeys, err = decodeStringArray(raw["field_keys"], "field_keys", 64)
+	request.FieldKeys, err = decodeDiagnosticTokens(raw["field_keys"], "field_keys")
 	if err != nil {
 		return RejectedRowsQueryRequest{}, err
 	}
@@ -424,7 +424,7 @@ func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
 	case "not_null":
 		return value != nil, nil
 	case "eq":
-		return compareScalar(value, filter.Value) == 0, nil
+		return value != nil && compareFilterValues(filter.FieldKey, value, filter.Value) == 0, nil
 	case "in":
 		values, ok := filter.Value.([]any)
 		if !ok || len(values) == 0 {
@@ -437,7 +437,7 @@ func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
 				return false, invalidFilter("value", "duplicate_in_value")
 			}
 			seen[key] = struct{}{}
-			if compareScalar(value, candidate) == 0 {
+			if value != nil && compareFilterValues(filter.FieldKey, value, candidate) == 0 {
 				return true, nil
 			}
 		}
@@ -447,16 +447,28 @@ func rowMatchesFilter(row FlowRow, filter Filter) (bool, *httpapi.APIError) {
 		if !ok {
 			return false, invalidFilter("value", "invalid_value")
 		}
+		if value == nil {
+			return false, nil
+		}
 		gte, hasGTE := object["gte"]
-		lte, hasLTE := object["lte"]
-		if !hasGTE && !hasLTE {
+		upperKey := "lte"
+		if filter.FieldKey == FieldFlowStartUTC || filter.FieldKey == FieldFlowEndUTC {
+			upperKey = "lt"
+		}
+		upper, hasUpper := object[upperKey]
+		hasGTE = hasGTE && gte != nil
+		hasUpper = hasUpper && upper != nil
+		if !hasGTE && !hasUpper {
 			return false, invalidFilter("value", "empty_range")
 		}
-		if hasGTE && compareScalar(value, gte) < 0 {
+		if hasGTE && compareFilterValues(filter.FieldKey, value, gte) < 0 {
 			return false, nil
 		}
-		if hasLTE && compareScalar(value, lte) > 0 {
-			return false, nil
+		if hasUpper {
+			comparison := compareFilterValues(filter.FieldKey, value, upper)
+			if comparison > 0 || upperKey == "lt" && comparison == 0 {
+				return false, nil
+			}
 		}
 		return true, nil
 	case "prefix":
@@ -532,7 +544,7 @@ func compareRowField(a, b FlowRow, field string) int {
 	if field == FieldSrcIP || field == FieldDstIP {
 		return compareIPValues(left, right)
 	}
-	return compareScalar(left, right)
+	return compareFilterValues(field, left, right)
 }
 
 func compareRowFieldForSort(a, b FlowRow, spec SortSpec) int {
@@ -749,7 +761,7 @@ func compareRowToPosition(row FlowRow, position rowCursorPosition) int {
 			}
 			continue
 		}
-		cmp := compareScalar(left, right)
+		cmp := compareFilterValues(spec.FieldKey, left, right)
 		if spec.FieldKey == FieldSrcIP || spec.FieldKey == FieldDstIP {
 			cmp = compareIPValues(left, right)
 		}
@@ -893,8 +905,8 @@ func decodeStringArray(raw json.RawMessage, field string, max int) ([]string, *h
 }
 
 func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *httpapi.APIError) {
-	if bytes.Equal(raw, []byte("null")) {
-		return nil, nil, nil
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, nil, invalidFilter("source_row_range", "invalid_value")
 	}
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
@@ -921,7 +933,7 @@ func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *httpapi.APIError)
 		v := int64(parsed)
 		lte = &v
 	}
-	if gte != nil && lte != nil && *gte > *lte {
+	if (gte == nil && lte == nil) || (gte != nil && lte != nil && *gte > *lte) {
 		return nil, nil, invalidFilter("source_row_range", "empty_range")
 	}
 	return gte, lte, nil
@@ -942,7 +954,12 @@ func invalidNetworkFlowRequest(field string, reason string) *httpapi.APIError {
 }
 
 func invalidFilter(field string, reason string) *httpapi.APIError {
-	return networkFlowAPIError(400, "network_flow_invalid_filter", field, reason)
+	if reason == "value_forbidden" || reason == "unknown_member" {
+		reason = "invalid_value"
+	}
+	return &httpapi.APIError{Status: 400, Code: "network_flow_invalid_filter", Message: "network_flow_invalid_filter", Details: map[string]any{
+		"reason_code": reason, "field_key": nil, "op": nil, "filter_index": nil, "retry_action": "correct_request",
+	}}
 }
 
 func invalidSort(field string, reason string) *httpapi.APIError {

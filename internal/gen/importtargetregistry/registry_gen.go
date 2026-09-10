@@ -59,8 +59,8 @@ type VerificationTarget struct {
 	AvailabilityKind string
 }
 
-const SourceSHA256 = "2bff33cede5794c1da45c3e2ee2cb690198793b6f7564bcf5d7e06acc0a9172c"
-const RegistrySHA256 = "19f3f3518b07a82d91c6a2e0afdaf59d9246253740ba4773b0a0e9afbd44f8ae"
+const SourceSHA256 = "1d91bd8be34b0b90149c3cfd3420509b8ce01ad2ea7d977d0e388ffa90d0fb04"
+const RegistrySHA256 = "71643d7dd91b00ca6746ae408c92b71a36050aea66be8c904dcfb5972e723194"
 
 func stringPointer(value string) *string { return &value }
 func intPointer(value int) *int          { return &value }

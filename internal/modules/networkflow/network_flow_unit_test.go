@@ -417,7 +417,7 @@ func AssertErrorDetailShape(t *testing.T) {
 		t.Fatalf("unexpected API error envelope core fields: %#v", err)
 	}
 	details := err.Details
-	if details["field"] != "value" || details["reason_code"] != "duplicate_in_value" {
+	if len(details) != 5 || details["field_key"] != nil || details["op"] != nil || details["filter_index"] != nil || details["retry_action"] != "correct_request" || details["reason_code"] != "duplicate_in_value" {
 		t.Fatalf("unexpected API error details: %#v", details)
 	}
 }

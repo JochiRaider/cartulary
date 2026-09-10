@@ -498,6 +498,57 @@ export const networkFlowChromeCssText = `
   gap: ${cssToken("--ct-spacing-sm")};
 }
 
+.${networkFlowChromeRootClassName} .network-flow-query-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${cssToken("--ct-spacing-sm")};
+  align-items: baseline;
+}
+.${networkFlowChromeRootClassName} .network-flow-query-meta > details {
+  margin-inline-start: auto;
+}
+.${networkFlowChromeRootClassName} .network-flow-endpoint-input {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.8fr) minmax(6rem, 1.2fr);
+  gap: ${cssToken("--ct-spacing-xs")};
+}
+.${networkFlowChromeRootClassName} .network-flow-query-feedback,
+.${networkFlowChromeRootClassName} .network-flow-graph-query-controls,
+.${networkFlowChromeRootClassName} .network-flow-applied-query {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+
+.${networkFlowChromeRootClassName} .network-flow-graph-query-controls,
+.${networkFlowChromeRootClassName} .network-flow-predicate-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: ${cssToken("--ct-spacing-sm")};
+  align-items: end;
+}
+
+.${networkFlowChromeRootClassName} .network-flow-graph-query-controls fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${cssToken("--ct-spacing-sm")};
+  min-inline-size: 0;
+}
+
+.${networkFlowChromeRootClassName} .network-flow-graph-query-controls label {
+  display: inline-flex;
+  gap: ${cssToken("--ct-spacing-xs")};
+  align-items: center;
+}
+
+.${networkFlowChromeRootClassName} .network-flow-advanced__editor > fieldset {
+  min-inline-size: 0;
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+  border-block-start: ${cssToken("--ct-border-hairline")};
+  padding-block: ${cssToken("--ct-spacing-sm")};
+}
+
 .${networkFlowChromeRootClassName} .network-flow-filter-chip {
   min-inline-size: 0;
   overflow-wrap: anywhere;

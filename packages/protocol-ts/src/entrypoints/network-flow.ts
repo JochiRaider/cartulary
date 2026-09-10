@@ -4,9 +4,14 @@ import {
   networkFlowMappingRegistry,
   networkFlowTimestampMetadata,
 } from "../generated/network-flow-mapping-registry.js";
-import { networkFlowPresentationRegistry } from "../generated/network-flow-presentation.js";
+import {
+  networkFlowPresentationRegistry,
+  networkFlowQueryMetadata,
+} from "../generated/network-flow-presentation.js";
 import type {
+  Filter,
   GraphContributorQueryResultV2,
+  GraphQueryRequestV2,
   GraphQueryResultV2,
   GraphViewAcceptedV4,
   GraphViewContributorQueryResultV2,
@@ -23,7 +28,9 @@ import type {
   TableQueryResult,
 } from "../generated/network-flow-types.js";
 import {
+  validateCartularyNetworkFlowFilterV1,
   validateCartularyNetworkFlowGraphContributorQueryResultV2,
+  validateCartularyNetworkFlowGraphQueryRequestV2,
   validateCartularyNetworkFlowGraphQueryResultV2,
   validateCartularyNetworkFlowGraphViewAcceptedV4,
   validateCartularyNetworkFlowGraphViewContributorQueryResultV2,
@@ -51,10 +58,19 @@ export {
   networkFlowErrorRegistry,
   networkFlowMappingRegistry,
   networkFlowPresentationRegistry,
+  networkFlowQueryMetadata,
   networkFlowTimestampMetadata,
 };
 
 export const networkFlowDecoders = Object.freeze({
+  graphQueryRequest: createDecoder<GraphQueryRequestV2>(
+    "cartulary.network_flow.graph_query_request.v2",
+    validateCartularyNetworkFlowGraphQueryRequestV2,
+  ),
+  filter: createDecoder<Filter>(
+    "cartulary.network_flow.filter.v1",
+    validateCartularyNetworkFlowFilterV1,
+  ),
   tableList: createDecoder<TableList>(
     "cartulary.network_flow_table_list.v1",
     validateCartularyNetworkFlowTableListV1,

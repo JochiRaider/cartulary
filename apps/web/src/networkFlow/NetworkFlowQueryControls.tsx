@@ -1,14 +1,18 @@
 import { networkAnalysisTestId } from "@cartulary/ui-contracts";
-import { useEffect, useMemo, useState } from "react";
-import type {
-  NetworkFlowFilter,
-  NetworkFlowRejectedRowsQueryRequest,
-} from "../services/networkFlowContractAdapter";
+import {
+  type ReactNode,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import type { NetworkFlowTable } from "../services/networkFlowContractAdapter";
+import { networkFlowQueryMetadata } from "../services/networkFlowContractAdapter";
 import {
   NetworkFlowActionGroup,
   NetworkFlowButton,
+  NetworkFlowChoice,
   NetworkFlowField,
-  NetworkFlowNumberInput,
   NetworkFlowSelect,
   NetworkFlowTextInput,
 } from "./NetworkFlowControls";
@@ -17,342 +21,370 @@ import {
   networkFlowPresentationColumns,
 } from "./networkFlowPresentation";
 import {
-  emptyNetworkFlowAcceptedQuery,
-  emptyNetworkFlowRejectedQuery,
+  acceptedQueryIdentity,
+  canonicalFilterKey,
+  compileAcceptedDraft,
+  compilePredicate,
+  defaultGraphQuerySettings,
+  emptyPredicateInput,
+  type GraphQuerySettings,
+  type NetworkFlowAcceptedDraft,
   type NetworkFlowAcceptedQuery,
+  type NetworkFlowRejectedDraft,
   type NetworkFlowRejectedQuery,
+  predicateSummary,
+  type QueryBasicSlot,
+  type QueryInput,
+  type QueryIssue,
+  type QueryPredicateDraft,
+  queryField,
+  queryOperator,
 } from "./networkFlowQueryModel";
 
+type Feedback = {
+  readonly issues: readonly QueryIssue[];
+  readonly status: "applied" | "pending" | "failed";
+};
+function fieldLabel(field: string): string {
+  return networkFlowColumnLabel(
+    "network_flow.column." + field.replace("network_flow.", ""),
+  );
+}
+const basics = [
+  {
+    slot: "endpoint",
+    field: "network_flow.endpoint_ip",
+    label: "Endpoint IP",
+    id: "endpoint",
+  },
+  {
+    slot: "protocol",
+    field: "network_flow.ip_protocol",
+    label: "Protocol",
+    id: "protocol",
+  },
+  {
+    slot: "bytesMinimum",
+    field: "network_flow.bytes_count",
+    label: "Minimum bytes",
+    id: "minimum-bytes",
+  },
+  {
+    slot: "packetsMinimum",
+    field: "network_flow.packets_count",
+    label: "Minimum packets",
+    id: "minimum-packets",
+  },
+] as const;
+
 export function NetworkFlowAcceptedQueryControls({
+  draft,
+  onDraftChange,
+  onApply,
+  onClear,
+  issues,
+  status,
+  appliedQuery,
   graphMode,
-  onChange,
-  query,
+  graphControls,
+  graphDirty = false,
+  temporal = false,
+  tableLabel,
 }: {
+  readonly draft: NetworkFlowAcceptedDraft;
+  readonly onDraftChange: (draft: NetworkFlowAcceptedDraft) => void;
+  readonly onApply: () => boolean;
+  readonly onClear: () => void;
+  readonly appliedQuery: NetworkFlowAcceptedQuery;
+  readonly graphDirty?: boolean;
   readonly graphMode: boolean;
-  readonly onChange: (query: NetworkFlowAcceptedQuery) => void;
-  readonly query: NetworkFlowAcceptedQuery;
-}) {
-  const [startUTC, setStartUTC] = useState(query.timeWindow?.startUTC ?? "");
-  const [endUTC, setEndUTC] = useState(query.timeWindow?.endUTC ?? "");
-  const [endpoint, setEndpoint] = useState("");
-  const [endpointOperator, setEndpointOperator] = useState<
-    "eq" | "cidr_contains"
-  >("eq");
-  const [protocol, setProtocol] = useState("");
-  const [bytesMinimum, setBytesMinimum] = useState("");
-  const [packetsMinimum, setPacketsMinimum] = useState("");
-  const [advanced, setAdvanced] = useState<readonly NetworkFlowFilter[]>([]);
-  const [advancedField, setAdvancedField] = useState("network_flow.src_ip");
-  const [advancedOperator, setAdvancedOperator] = useState("eq");
-  const [advancedValue, setAdvancedValue] = useState("");
-  const filterableColumns = useMemo(
-    () =>
-      networkFlowPresentationColumns("network_flow.accepted_rows.v1").filter(
-        (column) =>
-          !column.inspector_only && column.filter_operators.length > 0,
-      ),
-    [],
-  );
-  const selectedMetadata = filterableColumns.find(
-    (column) => column.field_key === advancedField,
-  );
-
-  useEffect(() => {
-    const endpointFilter = query.filters.find(
-      (filter) => filter.field_key === "network_flow.endpoint_ip",
+  readonly graphControls?: ReactNode;
+  readonly temporal?: boolean;
+  readonly tableLabel: string;
+} & Feedback) {
+  const prefix = useId();
+  const nextID = useRef(0);
+  const [editing, setEditing] = useState<string | null>(null);
+  const root = useRef<HTMLElement | null>(null);
+  const focusRequested = useRef(false);
+  useLayoutEffect(() => {
+    if (!focusRequested.current || issues.length === 0) return;
+    focusRequested.current = false;
+    const target = root.current?.querySelector<HTMLElement>(
+      '[aria-invalid="true"]',
     );
-    const protocolFilter = query.filters.find(
-      (filter) => filter.field_key === "network_flow.ip_protocol",
-    );
-    const bytesFilter = query.filters.find(
-      (filter) => filter.field_key === "network_flow.bytes_count",
-    );
-    const packetsFilter = query.filters.find(
-      (filter) => filter.field_key === "network_flow.packets_count",
-    );
-    setStartUTC(query.timeWindow?.startUTC ?? "");
-    setEndUTC(query.timeWindow?.endUTC ?? "");
-    setEndpoint(filterScalarText(endpointFilter));
-    setEndpointOperator(
-      endpointFilter?.op === "cidr_contains" ? "cidr_contains" : "eq",
-    );
-    setProtocol(filterScalarText(protocolFilter));
-    setBytesMinimum(filterRangeBoundText(bytesFilter, "gte"));
-    setPacketsMinimum(filterRangeBoundText(packetsFilter, "gte"));
-    setAdvanced(
-      query.filters.filter(
-        (filter) =>
-          filter !== endpointFilter &&
-          filter !== protocolFilter &&
-          filter !== bytesFilter &&
-          filter !== packetsFilter,
-      ),
-    );
-  }, [query.filters, query.timeWindow]);
-
-  const apply = () => {
-    const filters: NetworkFlowFilter[] = [...advanced];
-    if (endpoint.trim() !== "") {
-      filters.push({
-        field_key: "network_flow.endpoint_ip",
-        op: endpointOperator,
-        value: endpoint.trim(),
-      });
+    if (target) {
+      let parent: HTMLElement | null = target.parentElement;
+      while (parent) {
+        if (parent instanceof HTMLDetailsElement) parent.open = true;
+        parent = parent.parentElement;
+      }
+      target.focus();
     }
-    if (protocol.trim() !== "") {
-      filters.push({
-        field_key: "network_flow.ip_protocol",
-        op: "eq",
-        value: Number(protocol),
-      });
-    }
-    if (bytesMinimum.trim() !== "") {
-      filters.push({
-        field_key: "network_flow.bytes_count",
-        op: "range",
-        value: { gte: bytesMinimum.trim(), lte: null },
-      });
-    }
-    if (packetsMinimum.trim() !== "") {
-      filters.push({
-        field_key: "network_flow.packets_count",
-        op: "range",
-        value: { gte: packetsMinimum.trim(), lte: null },
-      });
-    }
-    onChange({
-      filters,
-      sort: query.sort,
-      timeWindow:
-        startUTC.trim() === "" && endUTC.trim() === ""
-          ? null
-          : {
-              startUTC: startUTC.trim() === "" ? null : startUTC.trim(),
-              endUTC: endUTC.trim() === "" ? null : endUTC.trim(),
-            },
+  }, [issues]);
+  const issue = (path: string) => issues.find((v) => v.path === path)?.message;
+  const updateEntry = (entry: QueryPredicateDraft) =>
+    onDraftChange({
+      ...draft,
+      predicates: draft.predicates.map((p) => (p.id === entry.id ? entry : p)),
     });
+  const changeBasic = (
+    slot: QueryBasicSlot,
+    text: string,
+    op?: "eq" | "cidr_contains",
+  ) => {
+    const basic = basics.find((b) => b.slot === slot);
+    if (!basic) return;
+    const previous = draft.predicates.find((p) => p.slot === slot);
+    const predicates = draft.predicates.filter((p) => p !== previous);
+    if (text !== "" || op !== undefined) {
+      const entry: QueryPredicateDraft = {
+        id: previous?.id ?? prefix + "-" + nextID.current++,
+        slot,
+        field: basic.field,
+        op:
+          slot === "endpoint"
+            ? (op ??
+              (previous?.op === "cidr_contains" ? "cidr_contains" : "eq"))
+            : slot === "protocol"
+              ? "eq"
+              : "range",
+        input:
+          slot === "bytesMinimum" || slot === "packetsMinimum"
+            ? { kind: "range", lower: text, upper: "" }
+            : { kind: "scalar", text },
+      };
+      if (previous)
+        onDraftChange({
+          ...draft,
+          predicates: draft.predicates.map((p) => (p === previous ? entry : p)),
+        });
+      else onDraftChange({ ...draft, predicates: [...predicates, entry] });
+    } else onDraftChange({ ...draft, predicates });
   };
-
-  const reset = () => {
-    setStartUTC("");
-    setEndUTC("");
-    setEndpoint("");
-    setProtocol("");
-    setBytesMinimum("");
-    setPacketsMinimum("");
-    setAdvanced([]);
-    setAdvancedValue("");
-    onChange({ ...emptyNetworkFlowAcceptedQuery, sort: [] });
-  };
-
+  const compiled = compileAcceptedDraft(draft, graphMode ? "graph" : "rows");
+  const dirty =
+    !compiled.ok ||
+    acceptedQueryIdentity(compiled.value) !==
+      acceptedQueryIdentity(appliedQuery);
   return (
     <section
+      ref={root}
       aria-label="Network Flow filters"
       className="network-flow-query-band"
       data-testid={networkAnalysisTestId("filters")}
     >
-      <NetworkFlowField
-        htmlFor="network-flow-query-table-scope"
-        label="Table scope"
-      >
-        <NetworkFlowSelect
-          defaultValue="active_table"
-          disabled={!graphMode}
-          id="network-flow-query-table-scope"
-        >
-          <option value="active_table">Active table</option>
-          <option value="selected_tables">Selected tables</option>
-          <option value="all_active_tables">All active tables</option>
-        </NetworkFlowSelect>
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-query-start"
-        label="Flow overlap starts at"
-      >
-        <NetworkFlowTextInput
-          id="network-flow-query-start"
-          placeholder="2026-07-16T00:00:00Z"
-          value={startUTC}
-          onChange={(event) => setStartUTC(event.currentTarget.value)}
+      {graphMode ? graphControls : null}
+      <div className="network-flow-query-meta">
+        {!graphMode ? (
+          <span>
+            Table scope: {tableLabel}. Column sorting applies immediately.
+          </span>
+        ) : null}
+        <DraftFeedback
+          issues={issues}
+          status={status}
+          dirty={dirty || (graphMode && graphDirty)}
         />
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-query-end"
-        label="Flow overlap ends before"
-      >
-        <NetworkFlowTextInput
-          id="network-flow-query-end"
-          placeholder="2026-07-17T00:00:00Z"
-          value={endUTC}
-          onChange={(event) => setEndUTC(event.currentTarget.value)}
+        <details className="network-flow-applied-query">
+          <summary>
+            Applied filters ({appliedQuery.filters.length})
+            {appliedQuery.timeWindow ? " · time window" : ""}
+          </summary>
+          {appliedQuery.filters.length === 0 ? (
+            <span>No field filters.</span>
+          ) : (
+            <ul>
+              {appliedQuery.filters.map((filter) => (
+                <li key={canonicalFilterKey(filter)}>
+                  {predicateSummary(filter)}
+                </li>
+              ))}
+            </ul>
+          )}
+          {appliedQuery.timeWindow ? (
+            <p>
+              Time window: {appliedQuery.timeWindow.startUTC ?? "unbounded"} to{" "}
+              {appliedQuery.timeWindow.endUTC ?? "unbounded"} (end exclusive).
+            </p>
+          ) : null}
+        </details>
+      </div>
+      {(["startUTC", "endUTC"] as const).map((key) => (
+        <QueryText
+          key={key}
+          id={"network-flow-query-" + (key === "startUTC" ? "start" : "end")}
+          label={
+            temporal
+              ? key === "startUTC"
+                ? "Flow starts at or after"
+                : "Flow starts before"
+              : key === "startUTC"
+                ? "Flow overlap starts at"
+                : "Flow overlap ends before"
+          }
+          value={draft[key]}
+          error={issue(key)}
+          onChange={(value) => onDraftChange({ ...draft, [key]: value })}
         />
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-query-endpoint"
-        label="Endpoint IP"
-      >
-        <span className="network-flow-inline-fields">
-          <NetworkFlowSelect
-            aria-label="Endpoint IP operator"
-            value={endpointOperator}
-            onChange={(event) =>
-              setEndpointOperator(
-                event.currentTarget.value as "eq" | "cidr_contains",
-              )
-            }
+      ))}
+      {basics.map((basic) => {
+        const entry = draft.predicates.find((p) => p.slot === basic.slot);
+        const value =
+          entry?.input.kind === "scalar"
+            ? entry.input.text
+            : entry?.input.kind === "range"
+              ? entry.input.lower
+              : "";
+        const error = entry
+          ? (issue(entry.id + ".value") ?? issue(entry.id + ".lower"))
+          : undefined;
+        return (
+          <NetworkFlowField
+            key={basic.slot}
+            htmlFor={"network-flow-query-" + basic.id}
+            label={basic.label}
+            error={error}
+            errorId={"network-flow-query-" + basic.id + "-error"}
           >
-            <option value="eq">equals</option>
-            <option value="cidr_contains">in CIDR</option>
-          </NetworkFlowSelect>
-          <NetworkFlowTextInput
-            aria-label="Endpoint IP value"
-            id="network-flow-query-endpoint"
-            value={endpoint}
-            onChange={(event) => setEndpoint(event.currentTarget.value)}
-          />
-        </span>
-      </NetworkFlowField>
-      <NetworkFlowField htmlFor="network-flow-query-protocol" label="Protocol">
-        <NetworkFlowNumberInput
-          id="network-flow-query-protocol"
-          min={0}
-          max={255}
-          value={protocol}
-          onChange={(event) => setProtocol(event.currentTarget.value)}
-        />
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-query-minimum-bytes"
-        label="Minimum bytes"
-      >
-        <NetworkFlowTextInput
-          id="network-flow-query-minimum-bytes"
-          inputMode="numeric"
-          value={bytesMinimum}
-          onChange={(event) => setBytesMinimum(event.currentTarget.value)}
-        />
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-query-minimum-packets"
-        label="Minimum packets"
-      >
-        <NetworkFlowTextInput
-          id="network-flow-query-minimum-packets"
-          inputMode="numeric"
-          value={packetsMinimum}
-          onChange={(event) => setPacketsMinimum(event.currentTarget.value)}
-        />
-      </NetworkFlowField>
+            <div
+              className={
+                basic.slot === "endpoint"
+                  ? "network-flow-endpoint-input"
+                  : undefined
+              }
+            >
+              {basic.slot === "endpoint" ? (
+                <NetworkFlowSelect
+                  aria-label="Endpoint IP operator"
+                  value={entry?.op ?? "eq"}
+                  onChange={(e) => {
+                    const op = e.currentTarget.value;
+                    if (op === "eq" || op === "cidr_contains")
+                      changeBasic("endpoint", value, op);
+                  }}
+                >
+                  <option value="eq">equals</option>
+                  <option value="cidr_contains">in CIDR</option>
+                </NetworkFlowSelect>
+              ) : null}
+              <NetworkFlowTextInput
+                id={"network-flow-query-" + basic.id}
+                aria-label={
+                  basic.slot === "endpoint" ? "Endpoint IP value" : undefined
+                }
+                inputMode={basic.slot === "endpoint" ? "text" : "numeric"}
+                value={value}
+                aria-invalid={!!error}
+                aria-describedby={
+                  error
+                    ? "network-flow-query-" + basic.id + "-error"
+                    : undefined
+                }
+                onChange={(e) => changeBasic(basic.slot, e.currentTarget.value)}
+              />
+            </div>
+          </NetworkFlowField>
+        );
+      })}
       <details
         className="network-flow-advanced"
         data-testid={networkAnalysisTestId("advanced-filters")}
       >
-        <summary>Advanced field filters ({advanced.length})</summary>
+        <summary>
+          Advanced field filters (
+          {draft.predicates.filter((p) => p.slot === "advanced").length})
+        </summary>
         <div className="network-flow-popover network-flow-advanced__editor">
-          <NetworkFlowField
-            htmlFor="network-flow-query-advanced-field"
-            label="Field"
-          >
-            <NetworkFlowSelect
-              id="network-flow-query-advanced-field"
-              value={advancedField}
-              onChange={(event) => {
-                setAdvancedField(event.currentTarget.value);
-                setAdvancedOperator("eq");
-              }}
-            >
-              {filterableColumns.map((column) => (
-                <option key={column.field_key} value={column.field_key}>
-                  {networkFlowColumnLabel(column.label_key)}
-                </option>
-              ))}
-            </NetworkFlowSelect>
-          </NetworkFlowField>
-          <NetworkFlowField
-            htmlFor="network-flow-query-advanced-operator"
-            label="Operator"
-          >
-            <NetworkFlowSelect
-              id="network-flow-query-advanced-operator"
-              value={advancedOperator}
-              onChange={(event) =>
-                setAdvancedOperator(event.currentTarget.value)
-              }
-            >
-              {(selectedMetadata?.filter_operators ?? ["eq"]).map(
-                (operator) => (
-                  <option key={operator} value={operator}>
-                    {operator}
-                  </option>
-                ),
-              )}
-            </NetworkFlowSelect>
-          </NetworkFlowField>
-          <NetworkFlowField
-            htmlFor="network-flow-query-advanced-value"
-            label="Value"
-          >
-            <NetworkFlowTextInput
-              id="network-flow-query-advanced-value"
-              disabled={
-                advancedOperator === "is_null" ||
-                advancedOperator === "not_null"
-              }
-              value={advancedValue}
-              onChange={(event) => setAdvancedValue(event.currentTarget.value)}
-            />
-          </NetworkFlowField>
           <NetworkFlowButton
-            variant="secondary"
             onClick={() => {
-              const filter = advancedFilter(
-                advancedField,
-                advancedOperator,
-                advancedValue,
-              );
-              if (filter !== null) {
-                setAdvanced((current) =>
-                  current.some(
-                    (candidate) =>
-                      JSON.stringify(candidate) === JSON.stringify(filter),
-                  )
-                    ? current
-                    : [...current, filter],
-                );
-                setAdvancedValue("");
-              }
+              const id = prefix + "-" + nextID.current++;
+              onDraftChange({
+                ...draft,
+                predicates: [
+                  ...draft.predicates,
+                  {
+                    id,
+                    field: "network_flow.src_ip",
+                    op: "eq",
+                    input: { kind: "scalar", text: "" },
+                    slot: "advanced",
+                  },
+                ],
+              });
+              setEditing(id);
             }}
           >
             Add filter
           </NetworkFlowButton>
-          {advanced.map((filter) => (
-            <NetworkFlowButton
-              className="network-flow-filter-chip"
-              key={JSON.stringify(filter)}
-              variant="ghost"
-              onClick={() =>
-                setAdvanced((current) =>
-                  current.filter((candidate) => candidate !== filter),
-                )
-              }
-            >
-              Remove {filter.field_key} {filter.op}
-            </NetworkFlowButton>
-          ))}
+          {draft.predicates
+            .filter((p) => p.slot === "advanced")
+            .map((entry) => {
+              const result = compilePredicate(entry);
+              const summary = result.ok
+                ? predicateSummary(result.value)
+                : fieldLabel(entry.field) + " " + entry.op + " — incomplete";
+              const hasError = issues.some((v) =>
+                v.path.startsWith(entry.id + "."),
+              );
+              return (
+                <fieldset key={entry.id} aria-label={"Filter: " + summary}>
+                  <span>{summary}</span>
+                  <NetworkFlowButton
+                    variant="ghost"
+                    aria-label={"Edit " + summary}
+                    onClick={() => setEditing(entry.id)}
+                  >
+                    Edit
+                  </NetworkFlowButton>
+                  <NetworkFlowButton
+                    variant="ghost"
+                    aria-label={"Remove " + summary}
+                    onClick={(event) => {
+                      onDraftChange({
+                        ...draft,
+                        predicates: draft.predicates.filter(
+                          (p) => p.id !== entry.id,
+                        ),
+                      });
+                      setEditing(null);
+                      event.currentTarget
+                        .closest("details")
+                        ?.querySelector<HTMLButtonElement>("button")
+                        ?.focus();
+                    }}
+                  >
+                    Remove
+                  </NetworkFlowButton>
+                  {editing === entry.id || hasError ? (
+                    <PredicateEditor
+                      entry={entry}
+                      issues={issues}
+                      onChange={updateEntry}
+                    />
+                  ) : null}
+                </fieldset>
+              );
+            })}
         </div>
       </details>
       <NetworkFlowActionGroup>
         <NetworkFlowButton
           data-testid={networkAnalysisTestId("accepted-query-apply")}
           variant="primary"
-          onClick={apply}
+          onClick={() => {
+            focusRequested.current = true;
+            if (onApply()) focusRequested.current = false;
+          }}
         >
           Apply query
         </NetworkFlowButton>
         <NetworkFlowButton
           data-testid={networkAnalysisTestId("accepted-query-clear")}
-          variant="secondary"
-          onClick={reset}
+          onClick={() => {
+            setEditing(null);
+            onClear();
+          }}
         >
           Clear query
         </NetworkFlowButton>
@@ -360,205 +392,578 @@ export function NetworkFlowAcceptedQueryControls({
     </section>
   );
 }
-
-export function NetworkFlowRejectedQueryControls({
+function PredicateEditor({
+  entry,
+  issues,
   onChange,
-  query,
 }: {
-  readonly onChange: (query: NetworkFlowRejectedQuery) => void;
-  readonly query: NetworkFlowRejectedQuery;
+  readonly entry: QueryPredicateDraft;
+  readonly issues: readonly QueryIssue[];
+  readonly onChange: (entry: QueryPredicateDraft) => void;
 }) {
-  const [errorCodes, setErrorCodes] = useState(query.errorCodes.join(", "));
-  const [fieldKey, setFieldKey] = useState(query.fieldKeys[0] ?? "");
-  const [rowStart, setRowStart] = useState(
-    query.sourceRowRange?.gte?.toString() ?? "",
-  );
-  const [rowEnd, setRowEnd] = useState(
-    query.sourceRowRange?.lte?.toString() ?? "",
-  );
-  useEffect(() => {
-    setErrorCodes(query.errorCodes.join(", "));
-    setFieldKey(query.fieldKeys[0] ?? "");
-    setRowStart(query.sourceRowRange?.gte?.toString() ?? "");
-    setRowEnd(query.sourceRowRange?.lte?.toString() ?? "");
-  }, [query.errorCodes, query.fieldKeys, query.sourceRowRange]);
-  const fieldOptions = networkFlowPresentationColumns(
+  const columns = networkFlowPresentationColumns(
     "network_flow.accepted_rows.v1",
-  ).filter(
-    (column) => !column.inspector_only && column.filter_operators.length > 0,
+  ).filter((c) => c.filter_operators.length > 0);
+  const selected = queryField(entry.field);
+  const offered =
+    columns.find((c) => c.field_key === entry.field)?.filter_operators ??
+    selected?.operators ??
+    [];
+  const operators = [...offered];
+  if (!operators.some((op) => op === entry.op)) operators.push(entry.op);
+  const error = (part: string) =>
+    issues.find((i) => i.path === entry.id + "." + part)?.message ??
+    (part !== "op" || entry.input.kind === "null"
+      ? issues.find((i) => i.path === entry.id + ".value")?.message
+      : undefined);
+  return (
+    <div className="network-flow-predicate-editor">
+      <NetworkFlowField htmlFor={entry.id + "-field"} label="Field">
+        <NetworkFlowSelect
+          id={entry.id + "-field"}
+          value={entry.field}
+          onChange={(e) => {
+            const field = queryField(e.currentTarget.value);
+            if (!field) return;
+            const first = queryOperator(
+              columns.find((c) => c.field_key === field.field_key)
+                ?.filter_operators[0] ?? field.operators[0],
+            );
+            if (!first) return;
+            onChange({
+              ...entry,
+              field: field.field_key,
+              op: first,
+              input: emptyPredicateInput(first),
+            });
+          }}
+        >
+          {!columns.some((c) => c.field_key === entry.field) ? (
+            <option value={entry.field}>{fieldLabel(entry.field)}</option>
+          ) : null}
+          {columns.map((c) => (
+            <option key={c.field_key} value={c.field_key}>
+              {networkFlowColumnLabel(c.label_key)}
+            </option>
+          ))}
+        </NetworkFlowSelect>
+      </NetworkFlowField>
+      <NetworkFlowField
+        htmlFor={entry.id + "-op"}
+        label="Operator"
+        errorId={entry.id + "-op-error"}
+        error={error("op")}
+      >
+        <NetworkFlowSelect
+          id={entry.id + "-op"}
+          value={entry.op}
+          aria-invalid={!!error("op")}
+          aria-describedby={error("op") ? entry.id + "-op-error" : undefined}
+          onChange={(e) => {
+            const op = queryOperator(e.currentTarget.value);
+            if (op) onChange({ ...entry, op, input: emptyPredicateInput(op) });
+          }}
+        >
+          {operators.map((op) => (
+            <option key={op} value={op}>
+              {op === "range" ? "range" : op}
+            </option>
+          ))}
+        </NetworkFlowSelect>
+      </NetworkFlowField>
+      <PredicateInput
+        input={entry.input}
+        id={entry.id}
+        timestamp={selected?.kind === "timestamp"}
+        error={error}
+        onChange={(input) => onChange({ ...entry, input })}
+      />
+    </div>
   );
-  const apply = () => {
-    const nextFieldKeys = fieldKey === "" ? [] : [fieldKey];
-    onChange({
-      errorCodes: errorCodes
-        .split(",")
-        .map((value) => value.trim())
-        .filter((value) => value !== ""),
-      fieldKeys:
-        nextFieldKeys as NetworkFlowRejectedRowsQueryRequest["field_keys"] &
-          readonly string[],
-      sourceRowRange:
-        rowStart === "" && rowEnd === ""
-          ? null
-          : {
-              gte: rowStart === "" ? null : Number(rowStart),
-              lte: rowEnd === "" ? null : Number(rowEnd),
-            },
-    });
-  };
+}
+function PredicateInput({
+  input,
+  id,
+  timestamp,
+  error,
+  onChange,
+}: {
+  readonly input: QueryInput;
+  readonly id: string;
+  readonly timestamp: boolean;
+  readonly error: (part: string) => string | undefined;
+  readonly onChange: (input: QueryInput) => void;
+}) {
+  if (input.kind === "null") return <span>This operation has no value.</span>;
+  if (input.kind === "list")
+    return (
+      <QueryList
+        id={id}
+        label="Value"
+        members={input.members}
+        error={error}
+        onChange={(members) => onChange({ kind: "list", members })}
+      />
+    );
+  if (input.kind === "range")
+    return (
+      <>
+        <QueryText
+          id={id + "-lower"}
+          label="At least (inclusive)"
+          value={input.lower}
+          error={error("lower")}
+          onChange={(lower) => onChange({ ...input, lower })}
+        />
+        <QueryText
+          id={id + "-upper"}
+          label={timestamp ? "Before (exclusive)" : "At most (inclusive)"}
+          value={input.upper}
+          error={error("upper")}
+          onChange={(upper) => onChange({ ...input, upper })}
+        />
+      </>
+    );
+  return (
+    <QueryText
+      id={id + "-value"}
+      label="Value"
+      value={input.text}
+      error={error("value")}
+      onChange={(text) => onChange({ kind: "scalar", text })}
+    />
+  );
+}
+function QueryText({
+  id,
+  label,
+  value,
+  error,
+  onChange,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly value: string;
+  readonly error: string | undefined;
+  readonly onChange: (value: string) => void;
+}) {
+  return (
+    <NetworkFlowField
+      htmlFor={id}
+      label={label}
+      error={error}
+      errorId={id + "-error"}
+    >
+      <NetworkFlowTextInput
+        id={id}
+        value={value}
+        aria-invalid={!!error}
+        aria-describedby={error ? id + "-error" : undefined}
+        onChange={(e) => onChange(e.currentTarget.value)}
+      />
+    </NetworkFlowField>
+  );
+}
+function QueryList({
+  id,
+  label,
+  members,
+  error,
+  onChange,
+  choices,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly members: readonly string[];
+  readonly error: (part: string) => string | undefined;
+  readonly onChange: (members: readonly string[]) => void;
+  readonly choices?: readonly string[];
+}) {
+  const prefix = useId();
+  const nextId = useRef(0);
+  const memberIds = useRef<string[]>([]);
+  while (memberIds.current.length < members.length)
+    memberIds.current.push(prefix + "-" + nextId.current++);
+  memberIds.current.length = members.length;
+  return (
+    <fieldset aria-label={label + " list"}>
+      {members.map((member, index) => (
+        <div
+          key={memberIds.current[index]}
+          className="network-flow-inline-fields"
+        >
+          {choices ? (
+            <NetworkFlowField
+              htmlFor={id + "-" + index}
+              label={label + " " + (index + 1)}
+              error={error("member-" + index)}
+              errorId={id + "-" + index + "-error"}
+            >
+              <NetworkFlowSelect
+                id={id + "-" + index}
+                value={member}
+                aria-invalid={!!error("member-" + index)}
+                aria-describedby={
+                  error("member-" + index)
+                    ? id + "-" + index + "-error"
+                    : undefined
+                }
+                onChange={(e) =>
+                  onChange(
+                    members.map((v, i) =>
+                      i === index ? e.currentTarget.value : v,
+                    ),
+                  )
+                }
+              >
+                <option value="">Select a value</option>
+                {choices.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </NetworkFlowSelect>
+            </NetworkFlowField>
+          ) : (
+            <QueryText
+              id={id + "-" + index}
+              label={label + " " + (index + 1)}
+              value={member}
+              error={error("member-" + index)}
+              onChange={(text) =>
+                onChange(members.map((v, i) => (i === index ? text : v)))
+              }
+            />
+          )}
+          <NetworkFlowButton
+            aria-label={"Remove " + label + " " + (index + 1)}
+            onClick={(e) => {
+              const group = e.currentTarget.parentElement?.parentElement;
+              memberIds.current.splice(index, 1);
+              onChange(members.filter((_, i) => i !== index));
+              group
+                ?.querySelector<HTMLButtonElement>("[data-query-add-member]")
+                ?.focus();
+            }}
+          >
+            Remove
+          </NetworkFlowButton>
+        </div>
+      ))}
+      <NetworkFlowButton
+        data-query-add-member=""
+        onClick={() => onChange([...members, ""])}
+      >
+        Add {label.toLowerCase()}
+      </NetworkFlowButton>
+    </fieldset>
+  );
+}
+function DraftFeedback({
+  issues,
+  status,
+  dirty,
+}: { readonly dirty: boolean } & Feedback) {
+  return (
+    <div className="network-flow-query-feedback">
+      <output>
+        {status === "pending"
+          ? "Applying query…"
+          : status === "failed"
+            ? "Query failed. The last successful query remains applied."
+            : dirty
+              ? "Unapplied draft changes."
+              : "Query applied."}
+      </output>
+      {issues.length ? (
+        <div role="alert">
+          {issues.map((issue) => (
+            <p key={issue.path + issue.message}>{issue.message}</p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+export function NetworkFlowRejectedQueryControls({
+  draft,
+  onDraftChange,
+  onApply,
+  onClear,
+  issues,
+  status,
+  appliedQuery,
+}: {
+  readonly draft: NetworkFlowRejectedDraft;
+  readonly onDraftChange: (draft: NetworkFlowRejectedDraft) => void;
+  readonly onApply: () => boolean;
+  readonly onClear: () => void;
+  readonly appliedQuery: NetworkFlowRejectedQuery;
+} & Feedback) {
+  const root = useRef<HTMLElement | null>(null);
+  const focusRequested = useRef(false);
+  useLayoutEffect(() => {
+    if (focusRequested.current && issues.length) {
+      focusRequested.current = false;
+      root.current
+        ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+        ?.focus();
+    }
+  }, [issues]);
+  const error = (path: string) => issues.find((i) => i.path === path)?.message;
   return (
     <section
+      ref={root}
       aria-label="Diagnostic filters"
       className="network-flow-query-band"
     >
-      <NetworkFlowField
-        htmlFor="network-flow-diagnostic-error-codes"
-        label="Error codes"
-      >
-        <NetworkFlowTextInput
-          id="network-flow-diagnostic-error-codes"
-          placeholder="Comma-separated codes"
-          value={errorCodes}
-          onChange={(event) => setErrorCodes(event.currentTarget.value)}
-        />
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-diagnostic-field-key"
+      <DraftFeedback
+        issues={issues}
+        status={status}
+        dirty={
+          draft.lower !== String(appliedQuery.sourceRowRange?.gte ?? "") ||
+          draft.upper !== String(appliedQuery.sourceRowRange?.lte ?? "") ||
+          JSON.stringify(draft.fieldKeys) !==
+            JSON.stringify(appliedQuery.fieldKeys) ||
+          JSON.stringify(draft.errorCodes) !==
+            JSON.stringify(appliedQuery.errorCodes)
+        }
+      />
+      <QueryList
+        id="network-flow-diagnostic-errors"
+        label="Error code"
+        members={draft.errorCodes}
+        choices={networkFlowQueryMetadata.diagnosticErrors}
+        error={(part) => error("errorCodes." + part)}
+        onChange={(errorCodes) => onDraftChange({ ...draft, errorCodes })}
+      />
+      <QueryList
+        id="network-flow-diagnostic-fields"
         label="Field key"
-      >
-        <NetworkFlowTextInput
-          id="network-flow-diagnostic-field-key"
-          list="network-flow-diagnostic-field-keys"
-          value={fieldKey}
-          onChange={(event) => setFieldKey(event.currentTarget.value)}
-        />
-        <datalist id="network-flow-diagnostic-field-keys">
-          {fieldOptions.map((column) => (
-            <option key={column.field_key} value={column.field_key} />
-          ))}
-        </datalist>
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-diagnostic-row-start"
+        members={draft.fieldKeys}
+        choices={networkFlowQueryMetadata.diagnosticFields}
+        error={(part) => error("fieldKeys." + part)}
+        onChange={(fieldKeys) => onDraftChange({ ...draft, fieldKeys })}
+      />
+      <QueryText
+        id="network-flow-diagnostic-row-start"
         label="First source row"
-      >
-        <NetworkFlowNumberInput
-          id="network-flow-diagnostic-row-start"
-          min={1}
-          value={rowStart}
-          onChange={(event) => setRowStart(event.currentTarget.value)}
-        />
-      </NetworkFlowField>
-      <NetworkFlowField
-        htmlFor="network-flow-diagnostic-row-end"
+        value={draft.lower}
+        error={error("lower")}
+        onChange={(lower) => onDraftChange({ ...draft, lower })}
+      />
+      <QueryText
+        id="network-flow-diagnostic-row-end"
         label="Last source row"
-      >
-        <NetworkFlowNumberInput
-          id="network-flow-diagnostic-row-end"
-          min={1}
-          value={rowEnd}
-          onChange={(event) => setRowEnd(event.currentTarget.value)}
-        />
-      </NetworkFlowField>
+        value={draft.upper}
+        error={error("upper")}
+        onChange={(upper) => onDraftChange({ ...draft, upper })}
+      />
       <NetworkFlowActionGroup>
         <NetworkFlowButton
           data-testid={networkAnalysisTestId("rejected-query-apply")}
           variant="primary"
-          onClick={apply}
+          onClick={() => {
+            focusRequested.current = true;
+            if (onApply()) focusRequested.current = false;
+          }}
         >
           Apply diagnostics query
         </NetworkFlowButton>
         <NetworkFlowButton
           data-testid={networkAnalysisTestId("rejected-query-clear")}
-          variant="secondary"
-          onClick={() => {
-            setErrorCodes("");
-            setFieldKey("");
-            setRowStart("");
-            setRowEnd("");
-            onChange(emptyNetworkFlowRejectedQuery);
-          }}
+          onClick={onClear}
         >
           Clear diagnostics query
         </NetworkFlowButton>
       </NetworkFlowActionGroup>
+      <details>
+        <summary>Applied diagnostic filters</summary>
+        <p>
+          Error codes: {appliedQuery.errorCodes.join(", ") || "all"}; fields:{" "}
+          {appliedQuery.fieldKeys.join(", ") || "all"}; source rows:{" "}
+          {appliedQuery.sourceRowRange?.gte ?? "unbounded"} through{" "}
+          {appliedQuery.sourceRowRange?.lte ?? "unbounded"}.
+        </p>
+      </details>
     </section>
   );
 }
-
-function advancedFilter(
-  fieldKey: string,
-  operator: string,
-  rawValue: string,
-): NetworkFlowFilter | null {
-  const field_key = fieldKey as NetworkFlowFilter["field_key"];
-  if (operator === "is_null" || operator === "not_null") {
-    return { field_key, op: operator };
-  }
-  const value = rawValue.trim();
-  if (value === "") {
-    return null;
-  }
-  if (operator === "in") {
-    return {
-      field_key,
-      op: "in",
-      value: value.split(",").map((entry) => semanticScalar(fieldKey, entry)),
-    };
-  }
-  if (operator === "gte" || operator === "lte" || operator === "between") {
-    const [first, second] = value.split(",", 2);
-    const timestamp = fieldKey.endsWith("_utc");
-    return {
-      field_key,
-      op: "range",
-      value: timestamp
-        ? {
-            gte: operator === "lte" ? null : first,
-            lt: operator === "gte" ? null : (second ?? first),
-          }
-        : {
-            gte:
-              operator === "lte" ? null : semanticScalar(fieldKey, first ?? ""),
-            lte:
-              operator === "gte"
-                ? null
-                : semanticScalar(fieldKey, second ?? first ?? ""),
-          },
-    };
-  }
-  return {
-    field_key,
-    op: operator as NetworkFlowFilter["op"],
-    value: semanticScalar(fieldKey, value),
-  };
-}
-
-function semanticScalar(fieldKey: string, value: string): string | number {
-  return fieldKey.endsWith("_port") ||
-    fieldKey === "network_flow.ip_protocol" ||
-    fieldKey === "source_row_number"
-    ? Number(value.trim())
-    : value.trim();
-}
-
-function filterScalarText(filter: NetworkFlowFilter | undefined): string {
-  const value = filter?.value;
-  return typeof value === "string" || typeof value === "number"
-    ? String(value)
-    : "";
-}
-
-function filterRangeBoundText(
-  filter: NetworkFlowFilter | undefined,
-  bound: "gte" | "lte" | "lt",
-): string {
-  const value = filter?.value;
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return "";
-  }
-  const candidate = (value as Record<string, unknown>)[bound];
-  return typeof candidate === "string" || typeof candidate === "number"
-    ? String(candidate)
-    : "";
+export function NetworkFlowGraphQueryControls({
+  draft,
+  applied,
+  onChange,
+  tables,
+  activeTableId,
+  issues,
+}: {
+  readonly draft: GraphQuerySettings;
+  readonly applied: GraphQuerySettings;
+  readonly onChange: (draft: GraphQuerySettings) => void;
+  readonly tables: readonly NetworkFlowTable[];
+  readonly activeTableId: string | null;
+  readonly issues: readonly QueryIssue[];
+}) {
+  const scopeError = issues.find((v) => v.path === "scope")?.message;
+  const label = (id: string) =>
+    tables.find((t) => t.network_flow_table_id === id)?.display_name ??
+    "Unavailable table (" + id + ")";
+  const appliedScope =
+    applied.scopeMode === "all_active_tables"
+      ? "All active tables"
+      : applied.scopeMode === "selected_tables"
+        ? applied.selectedTableIds.map(label).join(", ")
+        : label(activeTableId ?? "");
+  return (
+    <div className="network-flow-graph-query-controls">
+      <fieldset data-testid={networkAnalysisTestId("graph-scope")}>
+        <legend>Graph scope (Apply to query)</legend>
+        {(
+          ["active_table", "selected_tables", "all_active_tables"] as const
+        ).map((mode) => (
+          <label key={mode} htmlFor={"graph-scope-" + mode}>
+            <NetworkFlowChoice
+              id={"graph-scope-" + mode}
+              type="radio"
+              name="network-flow-graph-scope"
+              checked={draft.scopeMode === mode}
+              aria-invalid={!!scopeError}
+              aria-describedby={
+                scopeError ? "network-flow-scope-error" : undefined
+              }
+              onChange={() =>
+                onChange({
+                  ...draft,
+                  scopeMode: mode,
+                  selectedTableIds:
+                    mode === "selected_tables" &&
+                    draft.selectedTableIds.length === 0 &&
+                    activeTableId
+                      ? [activeTableId]
+                      : draft.selectedTableIds,
+                })
+              }
+            />
+            {mode === "active_table"
+              ? "Active table"
+              : mode === "selected_tables"
+                ? "Selected tables"
+                : "All active tables"}
+          </label>
+        ))}
+        {draft.scopeMode === "selected_tables"
+          ? [
+              ...tables.map((t) => t.network_flow_table_id),
+              ...draft.selectedTableIds.filter(
+                (id) => !tables.some((t) => t.network_flow_table_id === id),
+              ),
+            ].map((id) => (
+              <label key={id} htmlFor={"graph-table-" + id}>
+                <NetworkFlowChoice
+                  id={"graph-table-" + id}
+                  checked={draft.selectedTableIds.includes(id)}
+                  onChange={(e) =>
+                    onChange({
+                      ...draft,
+                      selectedTableIds: e.currentTarget.checked
+                        ? [...draft.selectedTableIds, id]
+                        : draft.selectedTableIds.filter((v) => v !== id),
+                    })
+                  }
+                />
+                {label(id)}
+              </label>
+            ))
+          : null}
+        {scopeError ? (
+          <span id="network-flow-scope-error">{scopeError}</span>
+        ) : null}
+      </fieldset>
+      <fieldset>
+        <legend>Aggregation (Apply to query)</legend>
+        <label htmlFor="graph-aggregation-default">
+          <NetworkFlowChoice
+            id="graph-aggregation-default"
+            type="radio"
+            name="network-flow-aggregation"
+            checked={draft.aggregation.mode === "default_flow_edge_v1"}
+            onChange={() =>
+              onChange({
+                ...draft,
+                aggregation: defaultGraphQuerySettings.aggregation,
+              })
+            }
+          />
+          Default flow edges
+        </label>
+        <label htmlFor="graph-aggregation-temporal">
+          <NetworkFlowChoice
+            id="graph-aggregation-temporal"
+            type="radio"
+            name="network-flow-aggregation"
+            checked={draft.aggregation.mode === "time_bucket_v1"}
+            onChange={() =>
+              onChange({
+                ...draft,
+                aggregation: {
+                  mode: "time_bucket_v1",
+                  bucket_width_seconds: 3600,
+                  include_example_row_refs: true,
+                },
+              })
+            }
+          />
+          Time buckets
+        </label>
+        {draft.aggregation.mode === "time_bucket_v1" ? (
+          <NetworkFlowField
+            htmlFor="network-flow-bucket-width"
+            label="Bucket width"
+          >
+            <NetworkFlowSelect
+              id="network-flow-bucket-width"
+              value={draft.aggregation.bucket_width_seconds}
+              onChange={(e) => {
+                const width = networkFlowQueryMetadata.bucketWidths.find(
+                  (v) => String(v) === e.currentTarget.value,
+                );
+                if (width)
+                  onChange({
+                    ...draft,
+                    aggregation: {
+                      mode: "time_bucket_v1",
+                      bucket_width_seconds: width,
+                      include_example_row_refs: true,
+                    },
+                  });
+              }}
+            >
+              {networkFlowQueryMetadata.bucketWidths.map((v) => (
+                <option key={v} value={v}>
+                  {v === 60
+                    ? "1 minute"
+                    : v === 300
+                      ? "5 minutes"
+                      : v === 900
+                        ? "15 minutes"
+                        : v === 3600
+                          ? "1 hour"
+                          : v === 21600
+                            ? "6 hours"
+                            : "1 day"}
+                </option>
+              ))}
+            </NetworkFlowSelect>
+          </NetworkFlowField>
+        ) : null}
+      </fieldset>
+      <span>
+        Applied graph scope: {appliedScope}. Aggregation:{" "}
+        {applied.aggregation.mode === "time_bucket_v1"
+          ? applied.aggregation.bucket_width_seconds + " second buckets"
+          : "default flow edges"}
+        .
+      </span>
+    </div>
+  );
 }

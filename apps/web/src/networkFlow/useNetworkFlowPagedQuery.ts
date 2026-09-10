@@ -100,7 +100,10 @@ export function useNetworkFlowPagedQuery<Item, Request>(options: {
         onErrorRef.current(null);
         return;
       } catch (caught) {
-        if (activeController.signal.aborted) {
+        if (
+          activeController.signal.aborted ||
+          generation.current !== activeGeneration
+        ) {
           return;
         }
         const requestError = networkFlowErrorFromUnknown(

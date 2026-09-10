@@ -209,23 +209,275 @@ export type TableScope =
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "FilterFieldKey".
+ * via the `definition` "Filter".
  */
-export type FilterFieldKey =
-  | "network_flow.src_ip"
-  | "network_flow.dst_ip"
-  | "network_flow.endpoint_ip"
-  | "network_flow.src_port"
-  | "network_flow.dst_port"
-  | "network_flow.ip_protocol"
-  | "network_flow.flow_start_utc"
-  | "network_flow.flow_end_utc"
-  | "network_flow.bytes_count"
-  | "network_flow.packets_count"
-  | "network_flow.exporter_id"
-  | "network_flow.input_interface"
-  | "network_flow.output_interface"
-  | "source_row_number";
+export type Filter =
+  IPFilter | PortFilter | ProtocolFilter | TimestampFilter | CounterFilter | TextFilter | SourceRowFilter;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "IPFilter".
+ */
+export type IPFilter =
+  | {
+      field_key: "network_flow.src_ip" | "network_flow.dst_ip" | "network_flow.endpoint_ip";
+      op: "eq";
+      value: IPLiteral;
+    }
+  | {
+      field_key: "network_flow.src_ip" | "network_flow.dst_ip" | "network_flow.endpoint_ip";
+      op: "in";
+      /**
+       * @minItems 1
+       * @maxItems 256
+       */
+      value: [IPLiteral, ...IPLiteral[]];
+    }
+  | {
+      field_key: "network_flow.src_ip" | "network_flow.dst_ip" | "network_flow.endpoint_ip";
+      op: "cidr_contains";
+      value: string;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "PortFilter".
+ */
+export type PortFilter =
+  | {
+      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      op: "eq";
+      value: QueryPort;
+    }
+  | {
+      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      op: "in";
+      /**
+       * @minItems 1
+       * @maxItems 256
+       */
+      value: [QueryPort, ...QueryPort[]];
+    }
+  | {
+      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      op: "range";
+      value: PortFilterRange;
+    }
+  | {
+      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      op: "is_null";
+    }
+  | {
+      field_key: "network_flow.src_port" | "network_flow.dst_port";
+      op: "not_null";
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "QueryPort".
+ */
+export type QueryPort = number;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "PortFilterRange".
+ */
+export type PortFilterRange = PortFilterRange1 & {
+  gte?: QueryPort | null;
+  lte?: QueryPort | null;
+};
+export type PortFilterRange1 =
+  | {
+      gte: QueryPort;
+      lte?: QueryPort | null;
+    }
+  | {
+      gte?: QueryPort | null;
+      lte: QueryPort;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "ProtocolFilter".
+ */
+export type ProtocolFilter =
+  | {
+      field_key: "network_flow.ip_protocol";
+      op: "eq";
+      value: QueryProtocol;
+    }
+  | {
+      field_key: "network_flow.ip_protocol";
+      op: "in";
+      /**
+       * @minItems 1
+       * @maxItems 256
+       */
+      value: [QueryProtocol, ...QueryProtocol[]];
+    }
+  | {
+      field_key: "network_flow.ip_protocol";
+      op: "range";
+      value: ProtocolFilterRange;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "QueryProtocol".
+ */
+export type QueryProtocol = number;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "ProtocolFilterRange".
+ */
+export type ProtocolFilterRange = ProtocolFilterRange1 & {
+  gte?: QueryProtocol | null;
+  lte?: QueryProtocol | null;
+};
+export type ProtocolFilterRange1 =
+  | {
+      gte: QueryProtocol;
+      lte?: QueryProtocol | null;
+    }
+  | {
+      gte?: QueryProtocol | null;
+      lte: QueryProtocol;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimestampFilter".
+ */
+export type TimestampFilter = {
+  field_key: "network_flow.flow_start_utc" | "network_flow.flow_end_utc";
+  op: "range";
+  value: TimestampFilterRange;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TimestampFilterRange".
+ */
+export type TimestampFilterRange = TimestampFilterRange1 & {
+  gte?: TimestampUTC | null;
+  lt?: TimestampUTC | null;
+};
+export type TimestampFilterRange1 =
+  | {
+      gte: TimestampUTC;
+      lt?: TimestampUTC | null;
+    }
+  | {
+      gte?: TimestampUTC | null;
+      lt: TimestampUTC;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "CounterFilter".
+ */
+export type CounterFilter =
+  | {
+      field_key: "network_flow.bytes_count" | "network_flow.packets_count";
+      op: "eq";
+      value: Uint64DecimalString;
+    }
+  | {
+      field_key: "network_flow.bytes_count" | "network_flow.packets_count";
+      op: "range";
+      value: CounterFilterRange;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "CounterFilterRange".
+ */
+export type CounterFilterRange = CounterFilterRange1 & {
+  gte?: Uint64DecimalString | null;
+  lte?: Uint64DecimalString | null;
+};
+export type CounterFilterRange1 =
+  | {
+      gte: Uint64DecimalString;
+      lte?: Uint64DecimalString | null;
+    }
+  | {
+      gte?: Uint64DecimalString | null;
+      lte: Uint64DecimalString;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "TextFilter".
+ */
+export type TextFilter =
+  | {
+      field_key: "network_flow.exporter_id" | "network_flow.input_interface" | "network_flow.output_interface";
+      op: "eq";
+      value: QueryText;
+    }
+  | {
+      field_key: "network_flow.exporter_id" | "network_flow.input_interface" | "network_flow.output_interface";
+      op: "in";
+      /**
+       * @minItems 1
+       * @maxItems 256
+       */
+      value: [QueryText, ...QueryText[]];
+    }
+  | {
+      field_key: "network_flow.exporter_id" | "network_flow.input_interface" | "network_flow.output_interface";
+      op: "prefix";
+      value: string;
+    }
+  | {
+      field_key: "network_flow.exporter_id" | "network_flow.input_interface" | "network_flow.output_interface";
+      op: "contains";
+      value: string;
+    }
+  | {
+      field_key: "network_flow.exporter_id" | "network_flow.input_interface" | "network_flow.output_interface";
+      op: "is_null";
+    }
+  | {
+      field_key: "network_flow.exporter_id" | "network_flow.input_interface" | "network_flow.output_interface";
+      op: "not_null";
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "QueryText".
+ */
+export type QueryText = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "SourceRowFilter".
+ */
+export type SourceRowFilter =
+  | {
+      field_key: "source_row_number";
+      op: "eq";
+      value: PositiveInt;
+    }
+  | {
+      field_key: "source_row_number";
+      op: "in";
+      /**
+       * @minItems 1
+       * @maxItems 256
+       */
+      value: [PositiveInt, ...PositiveInt[]];
+    }
+  | {
+      field_key: "source_row_number";
+      op: "range";
+      value: SourceRowFilterRange;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "SourceRowFilterRange".
+ */
+export type SourceRowFilterRange = SourceRowFilterRange1 & {
+  gte?: PositiveInt | null;
+  lte?: PositiveInt | null;
+};
+export type SourceRowFilterRange1 =
+  | {
+      gte: PositiveInt;
+      lte?: PositiveInt | null;
+    }
+  | {
+      gte?: PositiveInt | null;
+      lte: PositiveInt;
+    };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "SortFieldKey".
@@ -251,6 +503,77 @@ export type SortFieldKey =
  * via the `definition` "CursorToken".
  */
 export type CursorToken = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "QueryErrorCode".
+ */
+export type QueryErrorCode =
+  | "network_flow_invalid_request"
+  | "network_flow_unsupported_source_profile"
+  | "network_flow_invalid_utf8"
+  | "network_flow_csv_empty_file"
+  | "network_flow_invalid_header"
+  | "network_flow_no_data_rows"
+  | "network_flow_csv_malformed_quote"
+  | "network_flow_source_changed"
+  | "network_flow_csv_field_count_mismatch"
+  | "network_flow_mapping_required"
+  | "network_flow_mapping_conflict"
+  | "network_flow_invalid_timestamp"
+  | "network_flow_end_before_start"
+  | "network_flow_invalid_ip"
+  | "network_flow_invalid_port"
+  | "network_flow_invalid_protocol"
+  | "network_flow_invalid_counter"
+  | "network_flow_all_rows_rejected"
+  | "network_flow_table_limit_exceeded"
+  | "network_flow_resource_limit_exceeded"
+  | "network_flow_table_name_exhausted"
+  | "network_flow_table_not_found"
+  | "network_flow_table_not_active"
+  | "network_flow_table_version_conflict"
+  | "network_flow_invalid_display_name"
+  | "network_flow_invalid_table_scope"
+  | "network_flow_invalid_filter"
+  | "network_flow_invalid_sort"
+  | "network_flow_invalid_limit"
+  | "network_flow_cursor_invalid"
+  | "network_flow_invalid_time_range"
+  | "network_flow_invalid_graph_aggregation"
+  | "network_flow_invalid_limit_override"
+  | "network_flow_graph_limit_exceeded"
+  | "network_flow_counter_sum_limit_exceeded"
+  | "network_flow_graph_projection_failed"
+  | "network_flow_graph_query_stale"
+  | "network_flow_graph_view_not_found"
+  | "network_flow_graph_view_not_materialized"
+  | "network_flow_graph_view_version_conflict"
+  | "network_flow_graph_view_limit_exceeded"
+  | "network_flow_graph_materialization_limit_exceeded"
+  | "network_flow_graph_materialization_failed"
+  | "network_flow_indicator_link_ambiguous"
+  | "network_flow_invalid_indicator_selector"
+  | "network_flow_invalid_indicator_target"
+  | "network_flow_indicator_link_forbidden"
+  | "network_flow_external_enrichment_forbidden"
+  | "network_flow_id_generation_failed";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "IntegerRange".
+ */
+export type IntegerRange = IntegerRange1 & {
+  gte?: number | null;
+  lte?: number | null;
+};
+export type IntegerRange1 =
+  | {
+      gte: PositiveInt;
+      lte?: number | null;
+    }
+  | {
+      gte?: number | null;
+      lte: PositiveInt;
+    };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "IndicatorSelector".
@@ -340,6 +663,25 @@ export type ProjectionResultID = string;
  * via the `definition` "GraphViewID".
  */
 export type GraphViewID = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
+ * via the `definition` "FilterFieldKey".
+ */
+export type FilterFieldKey =
+  | "network_flow.src_ip"
+  | "network_flow.dst_ip"
+  | "network_flow.endpoint_ip"
+  | "network_flow.src_port"
+  | "network_flow.dst_port"
+  | "network_flow.ip_protocol"
+  | "network_flow.flow_start_utc"
+  | "network_flow.flow_end_utc"
+  | "network_flow.bytes_count"
+  | "network_flow.packets_count"
+  | "network_flow.exporter_id"
+  | "network_flow.input_interface"
+  | "network_flow.output_interface"
+  | "source_row_number";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "GraphQueryRequestV2".
@@ -751,15 +1093,6 @@ export interface NetworkFlowRowRef {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "Filter".
- */
-export interface Filter {
-  field_key: FilterFieldKey;
-  op: "eq" | "in" | "range" | "cidr_contains" | "prefix" | "contains" | "is_null" | "not_null";
-  value?: unknown;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
  * via the `definition` "Sort".
  */
 export interface Sort {
@@ -867,21 +1200,13 @@ export interface RejectedRowsQueryRequest {
   /**
    * @maxItems 64
    */
-  error_codes?: ErrorCode[];
+  error_codes?: QueryErrorCode[];
   /**
    * @maxItems 64
    */
   field_keys?: FieldKey[];
   source_row_range?: IntegerRange;
   limit?: PositiveInt;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema
- * via the `definition` "IntegerRange".
- */
-export interface IntegerRange {
-  gte?: number | null;
-  lte?: number | null;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedNetworkFlowPublicV1`'s JSON-Schema

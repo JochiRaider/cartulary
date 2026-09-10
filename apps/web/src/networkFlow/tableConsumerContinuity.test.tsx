@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
 import { NetworkFlowTableController } from "./NetworkFlowTableController";
 import * as client from "./networkFlowClient";
+import { defaultGraphQuerySettings } from "./networkFlowQueryModel";
 import { savedGraphResultFixture } from "./savedGraphTestFixtures";
 import {
   tableAuthority,
@@ -31,6 +32,10 @@ describe("Table consumer continuity", () => {
     );
     await owner.loadTables();
     const fixed = {
+      settings: defaultGraphQuerySettings,
+      applicationRevision: 0,
+      revision: 0,
+      onQueryResult: vi.fn(),
       availability: readyExtensionAvailability(tableIncidentId),
       tableLifecycle: owner,
       activeTableId: tableFixture().network_flow_table_id,
@@ -77,6 +82,8 @@ describe("Table consumer continuity", () => {
         reasonCode: "soft_deleted",
       }),
     );
+    fixed.revision += 1;
+    hook.rerender({ tables: [tableFixture("a", 2, "Peer name")] });
     expect(hook.result.current.graphStale).toBe(true);
     expect(hook.result.current.graph).toBeNull();
     expect(hook.result.current.selection).toBeNull();
@@ -92,6 +99,10 @@ describe("Table consumer continuity", () => {
       .mockResolvedValue(graph);
     const owner = new NetworkFlowTableController();
     const fixed = {
+      settings: defaultGraphQuerySettings,
+      applicationRevision: 0,
+      revision: 0,
+      onQueryResult: vi.fn(),
       availability: readyExtensionAvailability(tableIncidentId),
       tableLifecycle: owner,
       activeTableId: tableFixture().network_flow_table_id,
@@ -107,7 +118,12 @@ describe("Table consumer continuity", () => {
       { initialProps: { tables: [tableFixture()] } },
     );
     await waitFor(() => expect(hook.result.current.graph).toBe(graph));
-    act(() => hook.result.current.setScopeMode("all_active_tables"));
+    fixed.settings = {
+      ...defaultGraphQuerySettings,
+      scopeMode: "all_active_tables",
+    };
+    fixed.revision += 1;
+    hook.rerender({ tables: [tableFixture()] });
     await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
     hook.rerender({ tables: [tableFixture("a", 2, "Metadata")] });
     expect(request).toHaveBeenCalledTimes(2);

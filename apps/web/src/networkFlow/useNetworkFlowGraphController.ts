@@ -31,8 +31,10 @@ import {
   networkFlowErrorFromUnknown,
 } from "./networkFlowErrors";
 import {
+  type GraphQuerySettings,
   type NetworkFlowAcceptedQuery,
   reconcileNetworkFlowContributors,
+  validateGraphDraft,
 } from "./networkFlowQueryModel";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 
@@ -60,7 +62,18 @@ export function useNetworkFlowGraphController({
   onIncidentAccessLost,
   query,
   tables,
+  settings,
+  revision,
+  applicationRevision,
+  onQueryResult,
 }: {
+  readonly settings: GraphQuerySettings;
+  readonly applicationRevision: number;
+  readonly revision: number;
+  readonly onQueryResult: (
+    revision: number,
+    error: NetworkFlowRequestError | null,
+  ) => void;
   readonly tableLifecycle: NetworkFlowTableController;
   readonly availability: ExtensionAvailabilityController;
   readonly activeTableId: string | null;
@@ -79,15 +92,12 @@ export function useNetworkFlowGraphController({
     () => JSON.parse(tableIdsKey),
     [tableIdsKey],
   );
-  const [scopeMode, setScopeModeState] =
-    useState<NetworkFlowGraphScopeMode>("active_table");
-  const [aggregationMode, setAggregationMode] =
-    useState<NetworkFlowGraphAggregationMode>("default_flow_edge_v1");
-  const [bucketWidthSeconds, setBucketWidthSeconds] =
-    useState<NetworkFlowGraphBucketWidth>(3600);
-  const [selectedTableIds, setSelectedTableIds] = useState<readonly string[]>(
-    () => (activeTableId === null ? [] : [activeTableId]),
-  );
+  const { scopeMode, selectedTableIds, aggregation } = settings;
+  const aggregationMode = aggregation.mode;
+  const bucketWidthSeconds =
+    aggregation.mode === "time_bucket_v1"
+      ? aggregation.bucket_width_seconds
+      : 3600;
   const staleRef = useRef(false);
   const [graphStale, setGraphStale] = useState(false);
   const [graph, setGraph] = useState<NetworkFlowGraphResult | null>(null);
@@ -116,19 +126,6 @@ export function useNetworkFlowGraphController({
   const contributorPagingRef = useRef<NetworkFlowPaging | null>(null);
   const contributorSelectionKeyRef = useRef("");
 
-  useEffect(() => {
-    setSelectedTableIds((current) => {
-      const retained = tableIds.filter((tableId) => current.includes(tableId));
-      const next =
-        retained.length > 0
-          ? retained
-          : activeTableId !== null && tableIds.includes(activeTableId)
-            ? [activeTableId]
-            : tableIds.slice(0, 1);
-      return equalStrings(current, next) ? current : next;
-    });
-  }, [activeTableId, tableIds]);
-
   const derivedTableScope = useMemo<NetworkFlowTableScope | null>(() => {
     if (tableIds.length === 0) {
       return null;
@@ -137,9 +134,7 @@ export function useNetworkFlowGraphController({
       return { mode: "all_active_tables" };
     }
     if (scopeMode === "selected_tables") {
-      const ordered = tableIds.filter((tableId) =>
-        selectedTableIds.includes(tableId),
-      );
+      const ordered = selectedTableIds;
       const [first, ...remaining] = ordered;
       return first === undefined
         ? null
@@ -153,27 +148,30 @@ export function useNetworkFlowGraphController({
       : { mode: "active_table", active_table_id: activeTableId };
   }, [activeTableId, scopeMode, selectedTableIds, tableIds]);
   const tableScopeKey = JSON.stringify(derivedTableScope);
-  const tableScope = useMemo<NetworkFlowTableScope | null>(
-    () => JSON.parse(tableScopeKey),
-    [tableScopeKey],
-  );
+  const stableScope = useRef({ key: tableScopeKey, value: derivedTableScope });
+  if (stableScope.current.key !== tableScopeKey)
+    stableScope.current = { key: tableScopeKey, value: derivedTableScope };
+  const tableScope = stableScope.current.value;
   const resolvedSourceIds =
     scopeMode === "all_active_tables"
       ? tableIds
       : scopeMode === "selected_tables"
-        ? tableIds.filter((id) => selectedTableIds.includes(id))
+        ? selectedTableIds
         : activeTableId
           ? [activeTableId]
           : [];
   const resolvedSourceKey = JSON.stringify(resolvedSourceIds);
-  const completeTemporalRange =
-    query.timeWindow?.startUTC != null && query.timeWindow.endUTC != null;
   const validationMessage =
-    aggregationMode === "time_bucket_v1" && !completeTemporalRange
-      ? "Time-bucketed graphs require both UTC range bounds. Apply a start and end before querying."
-      : null;
+    validateGraphDraft(settings, query, activeTableId, tables)[0]?.message ??
+    null;
+  useLayoutEffect(() => {
+    void applicationRevision;
+    staleRef.current = false;
+    setGraphStale(false);
+  }, [applicationRevision]);
 
   useEffect(() => {
+    void revision;
     void graphGeneration;
     void tableScopeKey;
     void resolvedSourceKey;
@@ -238,6 +236,7 @@ export function useNetworkFlowGraphController({
         if (controller.signal.aborted) {
           return;
         }
+        onQueryResult(revision, null);
         setGraph(nextGraph);
         setGraphLoadState("ready");
         onError(null);
@@ -253,6 +252,7 @@ export function useNetworkFlowGraphController({
         if (isNetworkFlowAuthorizationLoss(requestError)) {
           onIncidentAccessLost?.();
         }
+        onQueryResult(revision, requestError);
         setGraph(null);
         setGraphLoadState("error");
         onError(requestError);
@@ -260,6 +260,8 @@ export function useNetworkFlowGraphController({
     return () => controller.abort();
   }, [
     availability,
+    revision,
+    onQueryResult,
     aggregationMode,
     apiBase,
     enabled,
@@ -418,35 +420,6 @@ export function useNetworkFlowGraphController({
     },
     [],
   );
-  const setScopeMode = useCallback(
-    (mode: NetworkFlowGraphScopeMode) => {
-      if (mode === "selected_tables" && selectedTableIds.length === 0) {
-        const fallback = activeTableId ?? tableIds[0];
-        if (fallback !== undefined) {
-          setSelectedTableIds([fallback]);
-        }
-      }
-      setScopeModeState(mode);
-    },
-    [activeTableId, selectedTableIds.length, tableIds],
-  );
-  const setTableSelected = useCallback(
-    (tableId: string, selected: boolean) => {
-      if (!tableIds.includes(tableId)) {
-        return;
-      }
-      setSelectedTableIds((current) => {
-        const nextSet = new Set(current);
-        if (selected) {
-          nextSet.add(tableId);
-        } else if (nextSet.size > 1) {
-          nextSet.delete(tableId);
-        }
-        return tableIds.filter((candidate) => nextSet.has(candidate));
-      });
-    },
-    [tableIds],
-  );
   const nextContributorPage = useCallback(() => {
     const cursor = contributorPagingRef.current?.next_cursor_token ?? null;
     if (cursor === null || selectionKey === "") {
@@ -589,10 +562,6 @@ export function useNetworkFlowGraphController({
     selectedTableIds,
     selectedVertex,
     selection,
-    setScopeMode,
-    setAggregationMode,
-    setBucketWidthSeconds,
-    setTableSelected,
     validationMessage,
   };
 }
@@ -620,14 +589,4 @@ function graphSelectionEqual(
     return false;
   }
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function equalStrings(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
 }

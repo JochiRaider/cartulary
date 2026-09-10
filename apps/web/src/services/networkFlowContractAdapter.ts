@@ -40,6 +40,7 @@ import {
   networkFlowErrorRegistry,
   networkFlowMappingRegistry,
   networkFlowPresentationRegistry,
+  networkFlowQueryMetadata,
   networkFlowTimestampMetadata,
   type PagingMeta,
   type RejectedRowDiagnostic,
@@ -116,6 +117,8 @@ export const networkFlowMappingCandidateSchemaId =
   "cartulary.network_flow.mapping_candidate.v1";
 export const networkFlowErrorMetadata = networkFlowErrorRegistry;
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
+export { networkFlowQueryMetadata };
+export const decodeNetworkFlowFilter = networkFlowDecoders.filter.decode;
 
 const supportedNetworkFlowContractMajors = new Set([6]);
 
@@ -361,3 +364,6 @@ function rejectSavedGraphProjection(instancePath: string): never {
     reasonCategory: "constraint_violation",
   });
 }
+
+export const decodeNetworkFlowGraphRequest =
+  networkFlowDecoders.graphQueryRequest.decode;

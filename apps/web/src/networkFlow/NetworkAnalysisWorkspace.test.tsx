@@ -399,6 +399,7 @@ describe("NetworkAnalysisWorkspace", () => {
     });
 
     fireEvent.click(screen.getByLabelText("Selected tables"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply query" }));
     await waitFor(() => {
       expect(graphRequestBodies(fetchSpy).at(-1)?.table_scope).toEqual({
         mode: "selected_tables",
@@ -406,12 +407,14 @@ describe("NetworkAnalysisWorkspace", () => {
       });
     });
     fireEvent.click(screen.getByLabelText("All active tables"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply query" }));
     await waitFor(() => {
       expect(graphRequestBodies(fetchSpy).at(-1)?.table_scope).toEqual({
         mode: "all_active_tables",
       });
     });
     fireEvent.click(screen.getByLabelText("Active table"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply query" }));
     await screen.findByTestId(networkAnalysisEdgeTestId(edgeId));
 
     const selectEdgeButton = screen.getByRole("button", {
@@ -864,7 +867,8 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       await screen.findByText("The value is not a valid IP address."),
     ).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Error codes"), {
+    fireEvent.click(screen.getByRole("button", { name: "Add error code" }));
+    fireEvent.change(screen.getByLabelText("Error code 1"), {
       target: { value: "network_flow_invalid_ip" },
     });
     fireEvent.click(
@@ -1164,6 +1168,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
     await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
     await user.click(screen.getByLabelText("Time buckets"));
+    await user.click(screen.getByRole("button", { name: "Apply query" }));
     expect(
       screen.getByRole("alert", {
         name: "",
@@ -1171,11 +1176,11 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toContain("require both UTC range bounds");
 
     await user.type(
-      screen.getByLabelText("Flow overlap starts at"),
+      screen.getByLabelText("Flow starts at or after"),
       "2026-07-10T00:00:00Z",
     );
     await user.type(
-      screen.getByLabelText("Flow overlap ends before"),
+      screen.getByLabelText("Flow starts before"),
       "2026-07-10T02:00:00Z",
     );
     await user.click(
@@ -1223,6 +1228,7 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toBeNull();
 
     await user.selectOptions(screen.getByLabelText("Bucket width"), "300");
+    await user.click(screen.getByRole("button", { name: "Apply query" }));
     await waitFor(() => {
       expect(graphRequestBodies(fetchSpy).at(-1)).toMatchObject({
         aggregation: {

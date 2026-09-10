@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import {
   networkAnalysisSavedGraphTestId,
   networkAnalysisTestId,
@@ -19,6 +20,273 @@ import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+
+test("Network Analysis authors lossless typed queries and applies exact row and graph scopes", async ({
+  page,
+}) => {
+  await openClaimedNetworkAnalysis(page, "NFQUERY");
+  const fixture =
+    [
+      "Start Time,End Time,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets,Input Interface,Output Interface",
+      "2026-07-10T12:00:00Z,2026-07-10T12:00:00Z,192.0.2.1,192.0.2.2,443,80,6,18446744073709551615,1,01,out",
+      "2026-07-10T12:00:00.000001Z,2026-07-10T12:01:00Z,192.0.2.1,192.0.2.2,53,80,17,9007199254740993,2,1,out",
+      "2026-07-10T11:59:59Z,2026-07-10T12:00:00Z,192.0.2.1,192.0.2.2,0,80,1,0,3,,out",
+      "2026-07-10T12:01:00Z,2026-07-10T12:01:05Z,192.0.2.1,192.0.2.2,443,80,6,42,4,01,out",
+      "2026-07-10T12:00:30Z,2026-07-10T12:00:31Z,192.0.2.1,192.0.2.2,53,80,17,100,5,1,out",
+      "2026-07-10T12:00:30Z,2026-07-10T12:00:31Z,invalid,192.0.2.2,53,80,17,100,5,1,out",
+      "2026-07-10T12:00:30Z,2026-07-10T12:00:31Z,192.0.2.1,invalid,53,80,17,100,5,1,out",
+    ].join("\n") + "\n";
+  await importNetworkFlowCSV(page, {
+    displayName: "query-a",
+    file: {
+      name: "query.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(fixture),
+    },
+  });
+  const advanced = page.getByTestId(networkAnalysisTestId("advanced-filters"));
+  const apply = page.getByRole("button", { name: "Apply query", exact: true });
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (/\/tables\/nft_[^/]+\/query$/.test(request.url()))
+      requests.push(request.postData() ?? "");
+  });
+  const closeAdvanced = async () => {
+    if ((await advanced.getAttribute("open")) !== null)
+      await advanced.locator("summary").click();
+  };
+  const add = async (field: string, op: string) => {
+    if ((await advanced.getAttribute("open")) === null)
+      await advanced.locator("summary").click();
+    await advanced
+      .getByRole("button", { name: "Add filter", exact: true })
+      .click();
+    const editor = advanced
+      .locator("fieldset")
+      .filter({ has: page.getByLabel("Field", { exact: true }) })
+      .last();
+    await editor.getByLabel("Field", { exact: true }).selectOption(field);
+    await editor.getByLabel("Operator", { exact: true }).selectOption(op);
+    return editor;
+  };
+  const applyRows = async (expected: number[]) => {
+    await closeAdvanced();
+    const response = page.waitForResponse(
+      (r) =>
+        /\/tables\/nft_[^/]+\/query$/.test(r.url()) &&
+        r.request().method() === "POST",
+    );
+    await apply.click();
+    const result = await response;
+    expect(result.status()).toBe(200);
+    const body = await result.json();
+    expect(
+      body.data.rows
+        .map((row: { source_row_number: number }) => row.source_row_number)
+        .sort((a: number, b: number) => a - b),
+    ).toEqual(expected);
+    await expect(
+      page.getByRole("status").filter({ hasText: "Query applied." }),
+    ).toBeVisible();
+    return body.data.rows as {
+      "network_flow.bytes_count": string;
+      source_row_number: number;
+    }[];
+  };
+  const clear = async () => {
+    await closeAdvanced();
+    const response = page.waitForResponse((r) =>
+      /\/tables\/nft_[^/]+\/query$/.test(r.url()),
+    );
+    await page
+      .getByRole("button", { name: "Clear query", exact: true })
+      .click();
+    expect((await response).status()).toBe(200);
+  };
+  let editor = await add("network_flow.ip_protocol", "in");
+  await editor.getByLabel("Value 1", { exact: true }).fill("6");
+  await editor.getByRole("button", { name: "Add value", exact: true }).click();
+  await editor.getByLabel("Value 2", { exact: true }).fill("17");
+  await applyRows([2, 3, 5, 6]);
+  const count = requests.length;
+  await apply.focus();
+  await apply.press("Enter");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Query applied." }),
+  ).toBeVisible();
+  expect(requests).toHaveLength(count);
+  await page.getByLabel("Endpoint IP value").fill("192.0.2.1");
+  await applyRows([2, 3, 5, 6]);
+  expect(JSON.parse(requests.at(-1) ?? "{}").filters).toContainEqual({
+    field_key: "network_flow.ip_protocol",
+    op: "in",
+    value: [6, 17],
+  });
+  editor = await add("network_flow.bytes_count", "eq");
+  await editor
+    .getByLabel("Value", { exact: true })
+    .fill("18446744073709551615");
+  expect((await applyRows([2]))[0]?.["network_flow.bytes_count"]).toBe(
+    "18446744073709551615",
+  );
+  await advanced.locator("summary").click();
+  await advanced.getByRole("button", { name: /Edit bytes count eq/ }).click();
+  await advanced
+    .getByLabel("Value", { exact: true })
+    .fill("18446744073709551616");
+  await closeAdvanced();
+  const beforeInvalid = requests.length;
+  await apply.focus();
+  await apply.press("Enter");
+  await expect(advanced.getByLabel("Value", { exact: true })).toBeFocused();
+  await expect(advanced.getByLabel("Value", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  expect(requests).toHaveLength(beforeInvalid);
+  await expect(
+    advanced.getByLabel("Value", { exact: true }),
+  ).toHaveAccessibleDescription(
+    /Enter an integer from 0 through 18446744073709551615/,
+  );
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Enter an integer" }),
+  ).toBeVisible();
+  await closeAdvanced();
+  const appliedSummary = page.locator("details").filter({
+    has: page.locator("summary").filter({ hasText: /^Applied filters/ }),
+  });
+  await appliedSummary.locator("summary").click();
+  await expect(appliedSummary).toContainText(
+    'bytes count eq "18446744073709551615"',
+  );
+  await appliedSummary.locator("summary").click();
+  await clear();
+  editor = await add("network_flow.bytes_count", "range");
+  await editor.getByLabel("At most (inclusive)").fill("42");
+  await applyRows([4, 5]);
+  await advanced.locator("summary").click();
+  await editor.getByLabel("At least (inclusive)").fill("42");
+  await applyRows([5]);
+  await clear();
+  editor = await add("network_flow.input_interface", "is_null");
+  await applyRows([4]);
+  expect(JSON.parse(requests.at(-1) ?? "{}").filters).toEqual([
+    { field_key: "network_flow.input_interface", op: "is_null" },
+  ]);
+  await clear();
+  await page.getByTestId(networkAnalysisTestId("mode-rejected")).click();
+  await page
+    .getByRole("button", { name: "Add error code", exact: true })
+    .click();
+  await page
+    .getByLabel("Error code 1", { exact: true })
+    .selectOption("network_flow_invalid_ip");
+  await page
+    .getByRole("button", { name: "Add field key", exact: true })
+    .click();
+  await page
+    .getByLabel("Field key 1", { exact: true })
+    .selectOption("network_flow.src_ip");
+  await page
+    .getByRole("button", { name: "Add field key", exact: true })
+    .click();
+  await page
+    .getByLabel("Field key 2", { exact: true })
+    .selectOption("network_flow.dst_ip");
+  await page.getByLabel("First source row").fill("7");
+  await page.getByLabel("Last source row").fill("8");
+  const diagnosticsResponse = page.waitForResponse((r) =>
+    r.url().endsWith("/rejected-rows/query"),
+  );
+  await page
+    .getByRole("button", { name: "Apply diagnostics query", exact: true })
+    .click();
+  const diagnostics = await diagnosticsResponse;
+  expect(diagnostics.status()).toBe(200);
+  expect(
+    (await diagnostics.json()).data.diagnostics
+      .map((d: { source_row_number: number }) => d.source_row_number)
+      .toSorted(),
+  ).toEqual([7, 8]);
+  expect(
+    JSON.parse(diagnostics.request().postData() ?? "{}").field_keys,
+  ).toEqual(["network_flow.src_ip", "network_flow.dst_ip"]);
+  await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
+  editor = await add("network_flow.input_interface", "eq");
+  await editor.getByLabel("Value", { exact: true }).fill("x".repeat(256));
+  const popup = advanced.locator(".network-flow-popover");
+  expect(
+    await popup.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1,
+    ),
+  ).toBe(true);
+  await applyRows([]);
+  await advanced.locator("summary").click();
+  const beforeRemoval = requests.length;
+  await advanced
+    .getByRole("button", { name: /Remove input interface eq/ })
+    .click();
+  expect(requests).toHaveLength(beforeRemoval);
+  await applyRows([2, 3, 4, 5, 6]);
+  await page.getByLabel("Flow overlap starts at").fill("2026-07-10T12:00:00Z");
+  await page
+    .getByLabel("Flow overlap ends before")
+    .fill("2026-07-10T12:01:00Z");
+  await applyRows([2, 3, 4, 6]);
+  const graphResponse = page.waitForResponse((r) =>
+    r.url().endsWith("/graphs/query"),
+  );
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  const graph = await (await graphResponse).json();
+  expect(
+    graph.data.edge_annotations.reduce(
+      (sum: number, edge: { example_refs_total_count: number }) =>
+        sum + edge.example_refs_total_count,
+      0,
+    ),
+  ).toBe(4);
+  await page.getByLabel("Time buckets").check();
+  const temporalResponse = page.waitForResponse((r) =>
+    r.url().endsWith("/graphs/query"),
+  );
+  await apply.click();
+  const temporal = await temporalResponse;
+  expect(temporal.status()).toBe(200);
+  expect(
+    (await temporal.json()).data.result_variant.time_buckets[0]
+      .contributing_row_count,
+  ).toBe(3);
+  await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
+  await clear();
+  await importNetworkFlowCSV(page, { displayName: "query-b" });
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
+  const scope = page.getByTestId(networkAnalysisTestId("graph-scope"));
+  await scope.getByLabel("Selected tables", { exact: true }).check();
+  await scope.getByLabel("query-a", { exact: true }).check();
+  await scope.getByLabel("query-b", { exact: true }).check();
+  const scopedResponse = page.waitForResponse((r) =>
+    r.url().endsWith("/graphs/query"),
+  );
+  await apply.click();
+  const scoped = await scopedResponse;
+  expect(scoped.status()).toBe(200);
+  const scopedBody = await scoped.json();
+  const selected = JSON.parse(scoped.request().postData() ?? "{}").table_scope
+    .selected_table_ids;
+  expect(selected).toHaveLength(2);
+  expect(scopedBody.data.semantic_query.selected_table_ids.toSorted()).toEqual(
+    selected.toSorted(),
+  );
+  expect(
+    scopedBody.data.edge_annotations.reduce(
+      (sum: number, edge: { example_refs_total_count: number }) =>
+        sum + edge.example_refs_total_count,
+      0,
+    ),
+  ).toBe(8);
+});
 
 test("Network Analysis links compatible targets and recovers exact committed requests across workspace departure", async ({
   page,
@@ -450,9 +718,10 @@ test("Network Analysis graph mode exposes table selection controls", async ({
   const scope = page.getByTestId(networkAnalysisTestId("graph-scope"));
   await expect(scope).toBeVisible();
   await scope.getByLabel("Selected tables").check();
-  await expect(scope.getByRole("checkbox", { name: "scope-a" })).toBeChecked();
-  await scope.getByRole("checkbox", { name: "scope-b" }).check();
   await expect(scope.getByRole("checkbox", { name: "scope-b" })).toBeChecked();
+  await scope.getByRole("checkbox", { name: "scope-a" }).check();
+  await expect(scope.getByRole("checkbox", { name: "scope-a" })).toBeChecked();
+  await page.getByRole("button", { name: "Apply query", exact: true }).click();
 });
 
 test("Network Analysis table graph defaults to active-table scope", async ({
@@ -524,6 +793,7 @@ test("Network Analysis edge selection opens ordered contributor drawer", async (
     .getByTestId(networkAnalysisTestId("graph-scope"))
     .getByLabel("All active tables")
     .check();
+  await page.getByRole("button", { name: "Apply query", exact: true }).click();
 
   const edge = page.getByTestId(/^network-flow-edge-/).first();
   await expect(edge).toBeVisible();
@@ -545,13 +815,12 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   await expect(page.getByTestId(/^network-flow-vertex-/).first()).toBeVisible();
   await page.getByLabel("Time buckets").check();
+  await page.getByRole("button", { name: "Apply query", exact: true }).click();
   await expect(
     page.getByTestId(networkAnalysisTestId("workspace")).getByRole("alert"),
   ).toContainText("require both UTC range bounds");
-  await page.getByLabel("Flow overlap starts at").fill("2026-07-10T12:00:00Z");
-  await page
-    .getByLabel("Flow overlap ends before")
-    .fill("2026-07-10T14:00:00Z");
+  await page.getByLabel("Flow starts at or after").fill("2026-07-10T12:00:00Z");
+  await page.getByLabel("Flow starts before").fill("2026-07-10T14:00:00Z");
   const temporalGraphRequest = page.waitForRequest(
     (request) =>
       request.url().endsWith("/network-flow/graphs/query") &&

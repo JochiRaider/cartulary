@@ -26,17 +26,15 @@ import { useExtensionAvailabilityController } from "../extensions/ExtensionAvail
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import {
   NetworkFlowButton,
-  NetworkFlowChoice,
   NetworkFlowChromeStyles,
-  NetworkFlowField,
   NetworkFlowIconButton,
-  NetworkFlowSelect,
   networkFlowChromeRootClassName,
 } from "./NetworkFlowControls";
 import type { NetworkFlowImportController } from "./NetworkFlowImportController";
 import type { NetworkFlowIndicatorLinkController } from "./NetworkFlowIndicatorLinkController";
 import {
   NetworkFlowAcceptedQueryControls,
+  NetworkFlowGraphQueryControls,
   NetworkFlowRejectedQueryControls,
 } from "./NetworkFlowQueryControls";
 import { NetworkFlowSavedGraphPanel } from "./NetworkFlowSavedGraphPanel";
@@ -82,15 +80,11 @@ import type {
 import { networkFlowWorkspaceStatus } from "./networkFlowWorkspaceStatus";
 import type { SavedGraphController } from "./SavedGraphController";
 import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollaborationController";
-import {
-  type NetworkFlowGraphAggregationMode,
-  type NetworkFlowGraphBucketWidth,
-  type NetworkFlowGraphScopeMode,
-  useNetworkFlowGraphController,
-} from "./useNetworkFlowGraphController";
+import { useNetworkFlowGraphController } from "./useNetworkFlowGraphController";
 import { useNetworkFlowImportController } from "./useNetworkFlowImportController";
 import { useNetworkFlowIndicatorLinkController } from "./useNetworkFlowIndicatorLinkController";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
+import { useNetworkFlowQueryAuthoring } from "./useNetworkFlowQueryAuthoring";
 import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
 import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
 import { useNetworkFlowSavedGraphController } from "./useNetworkFlowSavedGraphController";
@@ -175,30 +169,50 @@ function NetworkAnalysisWorkspaceContent({
     controller: tableOperation,
     enabled: canRead,
   });
+  const queryAuthoring = useNetworkFlowQueryAuthoring({
+    contextKey:
+      protectedStateError !== null &&
+      isNetworkFlowAuthorizationLoss(protectedStateError)
+        ? null
+        : tableOperation.queryContextIdentity(),
+    activeTableId: tableController.activeTableId,
+    mode,
+    tables: tableController.tables,
+  });
   const rowsController = useNetworkFlowRowsController({
+    query: queryAuthoring.acceptedQuery,
+    revision: queryAuthoring.acceptedRevision,
+    onQueryResult: queryAuthoring.acceptedResult,
     activeTableId: tableController.activeTableId,
     availability: extensionAvailability,
     apiBase,
-    enabled: mode === "rows",
+    enabled: mode === "rows" && queryAuthoring.contextKey !== null,
     incidentId,
     onError: handleWorkspaceError,
     onIncidentAccessLost,
   });
   const rejectedRowsController = useNetworkFlowRejectedRowsController({
+    query: queryAuthoring.rejectedQuery,
+    revision: queryAuthoring.rejectedRevision,
+    onQueryResult: queryAuthoring.rejectedResult,
     activeTableId: tableController.activeTableId,
     availability: extensionAvailability,
     apiBase,
-    enabled: mode === "rejected",
+    enabled: mode === "rejected" && queryAuthoring.contextKey !== null,
     incidentId,
     onError: handleWorkspaceError,
     onIncidentAccessLost,
   });
   const graphController = useNetworkFlowGraphController({
+    settings: queryAuthoring.graphSettings,
+    applicationRevision: queryAuthoring.graphApplicationRevision,
+    revision: queryAuthoring.acceptedRevision,
+    onQueryResult: queryAuthoring.acceptedResult,
     tableLifecycle: tableOperation,
     activeTableId: tableController.activeTableId,
     availability: extensionAvailability,
     apiBase,
-    enabled: mode === "graph",
+    enabled: mode === "graph" && queryAuthoring.contextKey !== null,
     incidentId,
     onError: handleWorkspaceError,
     onIncidentAccessLost,
@@ -216,14 +230,16 @@ function NetworkAnalysisWorkspaceContent({
   const clearRows = rowsController.clearRows;
   const clearDiagnostics = rejectedRowsController.clearDiagnostics;
   const clearGraph = graphController.clearGraph;
+  const purgeQueries = queryAuthoring.purge;
   const clearResources = useCallback(() => {
+    purgeQueries();
     clearRows();
     clearDiagnostics();
     clearGraph();
     setRowGridSelection({ activeAnchor: null, cellRange: null });
     setMode("rows");
     setGraphSurface("explore");
-  }, [clearDiagnostics, clearGraph, clearRows]);
+  }, [clearDiagnostics, clearGraph, clearRows, purgeQueries]);
   const clearActiveTable = useCallback(() => {
     clearRows();
     clearDiagnostics();
@@ -560,14 +576,46 @@ function NetworkAnalysisWorkspaceContent({
             <DiagnosticsSummary table={tableController.activeTable} />
             {mode === "rejected" ? (
               <NetworkFlowRejectedQueryControls
-                query={rejectedRowsController.query}
-                onChange={rejectedRowsController.setQuery}
+                draft={queryAuthoring.rejectedDraft}
+                onDraftChange={queryAuthoring.setRejectedDraft}
+                onApply={queryAuthoring.applyRejected}
+                onClear={queryAuthoring.clearRejected}
+                appliedQuery={queryAuthoring.appliedRejected}
+                issues={queryAuthoring.rejectedIssues}
+                status={queryAuthoring.rejectedStatus}
               />
+            ) : mode === "graph" && graphSurface === "saved" ? (
+              <span>
+                Saved graphs use their saved queries. The unsaved exploration
+                draft is retained.
+              </span>
             ) : (
               <NetworkFlowAcceptedQueryControls
                 graphMode={mode === "graph"}
-                query={rowsController.query}
-                onChange={rowsController.setQuery}
+                graphDirty={queryAuthoring.graphDirty}
+                temporal={
+                  mode === "graph" &&
+                  queryAuthoring.graphDraft.aggregation.mode ===
+                    "time_bucket_v1"
+                }
+                tableLabel={tableController.activeTable.display_name}
+                draft={queryAuthoring.acceptedDraft}
+                onDraftChange={queryAuthoring.setAcceptedDraft}
+                onApply={queryAuthoring.applyAccepted}
+                onClear={queryAuthoring.clearAccepted}
+                appliedQuery={queryAuthoring.appliedAccepted}
+                issues={queryAuthoring.acceptedIssues}
+                status={queryAuthoring.acceptedStatus}
+                graphControls={
+                  <NetworkFlowGraphQueryControls
+                    draft={queryAuthoring.graphDraft}
+                    applied={queryAuthoring.appliedGraph}
+                    onChange={queryAuthoring.setGraphDraft}
+                    tables={tableController.tables}
+                    activeTableId={tableController.activeTableId}
+                    issues={queryAuthoring.acceptedIssues}
+                  />
+                }
               />
             )}
           </>
@@ -620,13 +668,15 @@ function NetworkAnalysisWorkspaceContent({
                 canRetire={canDelete}
                 controller={savedGraphController}
                 tables={tableController.tables}
-                currentGraph={graphController.graph}
+                currentGraph={
+                  queryAuthoring.acceptedStatus === "applied"
+                    ? graphController.graph
+                    : null
+                }
               />
             ) : (
               <GraphPanel
-                aggregationMode={graphController.aggregationMode}
-                bucketWidthSeconds={graphController.bucketWidthSeconds}
-                canLink={canLink}
+                canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
                 canNextContributorPage={graphController.canNextContributorPage}
                 canPreviousContributorPage={
                   graphController.canPreviousContributorPage
@@ -640,9 +690,7 @@ function NetworkAnalysisWorkspaceContent({
                 contributors={graphController.contributors}
                 graph={graphController.graph}
                 graphLoadState={graphController.graphLoadState}
-                scopeMode={graphController.scopeMode}
                 selectedEdge={graphController.selectedEdge}
-                selectedTableIds={graphController.selectedTableIds}
                 selectedVertex={graphController.selectedVertex}
                 tables={tableController.tables}
                 validationMessage={graphController.validationMessage}
@@ -670,11 +718,7 @@ function NetworkAnalysisWorkspaceContent({
                 }
                 onRefreshGraph={graphController.refreshGraph}
                 onRetryContributors={graphController.retryContributorPage}
-                onAggregationModeChange={graphController.setAggregationMode}
-                onBucketWidthChange={graphController.setBucketWidthSeconds}
-                onScopeModeChange={graphController.setScopeMode}
                 onSelectEdge={graphController.selectGraphObject}
-                onSelectTable={graphController.setTableSelected}
                 onSelectVertex={graphController.selectGraphObject}
               />
             )}
@@ -693,13 +737,7 @@ function NetworkAnalysisWorkspaceContent({
             query={rejectedRowsController.query}
             onNext={rejectedRowsController.nextPage}
             onPrevious={rejectedRowsController.previousPage}
-            onResetQuery={() =>
-              rejectedRowsController.setQuery({
-                errorCodes: [],
-                fieldKeys: [],
-                sourceRowRange: null,
-              })
-            }
+            onResetQuery={queryAuthoring.clearRejected}
             onRetry={rejectedRowsController.refresh}
           />
         ) : (
@@ -708,7 +746,7 @@ function NetworkAnalysisWorkspaceContent({
             linkLimitError={indicatorLinkController.limitError}
             onRetryLinkLimit={indicatorLinkOperation.loadLimit}
             activeTable={tableController.activeTable}
-            canLink={canLink}
+            canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
             canNext={rowsController.canNext}
             canPrevious={rowsController.canPrevious}
             loadGenerationKey={rowsController.loadGenerationKey}
@@ -727,17 +765,9 @@ function NetworkAnalysisWorkspaceContent({
             }}
             onNext={rowsController.nextPage}
             onPrevious={rowsController.previousPage}
-            onResetQuery={() =>
-              rowsController.setQuery({
-                filters: [],
-                sort: [],
-                timeWindow: null,
-              })
-            }
+            onResetQuery={queryAuthoring.clearAccepted}
             onRetry={rowsController.refresh}
-            onSortChange={(sort) =>
-              rowsController.setQuery((current) => ({ ...current, sort }))
-            }
+            onSortChange={queryAuthoring.sortAccepted}
             onSelectionChange={handleRowGridSelectionChange}
           />
         )}
@@ -1145,8 +1175,6 @@ function QueryPagination({
 }
 
 function GraphPanel({
-  aggregationMode,
-  bucketWidthSeconds,
   canLink,
   canNextContributorPage,
   canPreviousContributorPage,
@@ -1157,9 +1185,7 @@ function GraphPanel({
   contributors,
   graph,
   graphLoadState,
-  scopeMode,
   selectedEdge,
-  selectedTableIds,
   selectedVertex,
   tables,
   validationMessage,
@@ -1170,15 +1196,9 @@ function GraphPanel({
   onPreviousContributorPage,
   onRefreshGraph,
   onRetryContributors,
-  onAggregationModeChange,
-  onBucketWidthChange,
-  onScopeModeChange,
   onSelectEdge,
-  onSelectTable,
   onSelectVertex,
 }: {
-  readonly aggregationMode: NetworkFlowGraphAggregationMode;
-  readonly bucketWidthSeconds: NetworkFlowGraphBucketWidth;
   readonly canLink: boolean;
   readonly canNextContributorPage: boolean;
   readonly canPreviousContributorPage: boolean;
@@ -1189,9 +1209,7 @@ function GraphPanel({
   readonly contributors: readonly NetworkFlowContributor[];
   readonly graph: NetworkFlowGraphResult | null;
   readonly graphLoadState: NetworkFlowQueryLoadState;
-  readonly scopeMode: NetworkFlowGraphScopeMode;
   readonly selectedEdge: NetworkFlowGraphEdge | null;
-  readonly selectedTableIds: readonly string[];
   readonly selectedVertex: NetworkFlowGraphVertex | null;
   readonly tables: readonly NetworkFlowTable[];
   readonly validationMessage: string | null;
@@ -1204,13 +1222,7 @@ function GraphPanel({
   readonly onPreviousContributorPage: () => void;
   readonly onRefreshGraph: () => void;
   readonly onRetryContributors: () => void;
-  readonly onAggregationModeChange: (
-    mode: NetworkFlowGraphAggregationMode,
-  ) => void;
-  readonly onBucketWidthChange: (width: NetworkFlowGraphBucketWidth) => void;
-  readonly onScopeModeChange: (mode: NetworkFlowGraphScopeMode) => void;
   readonly onSelectEdge: (selector: NetworkFlowGraphSelector) => void;
-  readonly onSelectTable: (tableId: string, selected: boolean) => void;
   readonly onSelectVertex: (selector: NetworkFlowGraphSelector) => void;
 }) {
   const selectedGraphButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1323,125 +1335,11 @@ function GraphPanel({
       style={graphLayoutStyle}
     >
       <div style={graphTableStyle}>
-        <fieldset
-          data-testid={networkAnalysisTestId("graph-scope")}
-          style={graphScopeStyle}
-        >
-          <legend>Graph scope</legend>
-          {(
-            [
-              ["active_table", "Active table"],
-              ["selected_tables", "Selected tables"],
-              ["all_active_tables", "All active tables"],
-            ] as const
-          ).map(([value, label]) => (
-            <label
-              key={value}
-              htmlFor={`network-flow-graph-scope-${value}`}
-              style={inlineControlStyle}
-            >
-              <NetworkFlowChoice
-                checked={scopeMode === value}
-                id={`network-flow-graph-scope-${value}`}
-                name="network-flow-graph-scope"
-                type="radio"
-                value={value}
-                onChange={() => onScopeModeChange(value)}
-              />
-              {label}
-            </label>
-          ))}
-          {scopeMode === "selected_tables" ? (
-            <div style={graphTableSelectionStyle}>
-              {tables.map((table) => {
-                const checked = selectedTableIds.includes(
-                  table.network_flow_table_id,
-                );
-                return (
-                  <label
-                    key={table.network_flow_table_id}
-                    htmlFor={`network-flow-graph-table-${table.network_flow_table_id}`}
-                    style={inlineControlStyle}
-                  >
-                    <NetworkFlowChoice
-                      checked={checked}
-                      disabled={checked && selectedTableIds.length === 1}
-                      id={`network-flow-graph-table-${table.network_flow_table_id}`}
-                      type="checkbox"
-                      onChange={(event) =>
-                        onSelectTable(
-                          table.network_flow_table_id,
-                          event.currentTarget.checked,
-                        )
-                      }
-                    />
-                    {table.display_name}
-                  </label>
-                );
-              })}
-            </div>
-          ) : null}
-        </fieldset>
-        <fieldset style={graphScopeStyle}>
-          <legend>Graph aggregation</legend>
-          <label
-            htmlFor="network-flow-graph-aggregation-default"
-            style={inlineControlStyle}
-          >
-            <NetworkFlowChoice
-              checked={aggregationMode === "default_flow_edge_v1"}
-              id="network-flow-graph-aggregation-default"
-              name="network-flow-graph-aggregation"
-              type="radio"
-              onChange={() => onAggregationModeChange("default_flow_edge_v1")}
-            />
-            Default flow edges
-          </label>
-          <label
-            htmlFor="network-flow-graph-aggregation-time"
-            style={inlineControlStyle}
-          >
-            <NetworkFlowChoice
-              checked={aggregationMode === "time_bucket_v1"}
-              id="network-flow-graph-aggregation-time"
-              name="network-flow-graph-aggregation"
-              type="radio"
-              onChange={() => onAggregationModeChange("time_bucket_v1")}
-            />
-            Time buckets
-          </label>
-          {aggregationMode === "time_bucket_v1" ? (
-            <NetworkFlowField
-              htmlFor="network-flow-graph-bucket-width"
-              label="Bucket width"
-            >
-              <NetworkFlowSelect
-                aria-label="Bucket width"
-                id="network-flow-graph-bucket-width"
-                value={bucketWidthSeconds}
-                onChange={(event) =>
-                  onBucketWidthChange(
-                    Number(
-                      event.currentTarget.value,
-                    ) as NetworkFlowGraphBucketWidth,
-                  )
-                }
-              >
-                <option value={60}>1 minute</option>
-                <option value={300}>5 minutes</option>
-                <option value={900}>15 minutes</option>
-                <option value={3600}>1 hour</option>
-                <option value={21600}>6 hours</option>
-                <option value={86400}>1 day</option>
-              </NetworkFlowSelect>
-            </NetworkFlowField>
-          ) : null}
-          {validationMessage === null ? null : (
-            <p className="network-flow-status" data-tone="error" role="alert">
-              {validationMessage}
-            </p>
-          )}
-        </fieldset>
+        {validationMessage === null ? null : (
+          <p className="network-flow-status" data-tone="error" role="alert">
+            {validationMessage}
+          </p>
+        )}
         {selectedBucket === null ? null : (
           <nav
             aria-label="Time bucket navigation"
@@ -1977,12 +1875,6 @@ const viewActionsStyle = {
   minWidth: 0,
 } satisfies CSSProperties;
 
-const inlineControlStyle = {
-  alignItems: "center",
-  display: "inline-flex",
-  gap: "var(--ct-spacing-xs)",
-} satisfies CSSProperties;
-
 const modeBarStyle = {
   display: "flex",
   flexWrap: "wrap",
@@ -2111,25 +2003,6 @@ const graphTableStyle = {
   gridTemplateRows: "auto auto minmax(0, 1fr)",
   minBlockSize: 0,
   minWidth: 0,
-} satisfies CSSProperties;
-
-const graphScopeStyle = {
-  alignItems: "center",
-  background: "var(--ct-colors-surface-1)",
-  border: 0,
-  borderBlockEnd: "var(--ct-border-hairline)",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-md)",
-  margin: 0,
-  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
-} satisfies CSSProperties;
-
-const graphTableSelectionStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-sm)",
 } satisfies CSSProperties;
 
 const graphSummaryStyle = {
