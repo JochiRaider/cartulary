@@ -1,8 +1,10 @@
 import { Buffer } from "node:buffer";
 import { networkFlowDecoders } from "@cartulary/protocol-ts/network-flow";
 import {
+  networkAnalysisEdgeFamilySelector,
   networkAnalysisEdgeTestId,
   networkAnalysisTestId,
+  networkAnalysisVertexFamilySelector,
   networkAnalysisVertexTestId,
 } from "@cartulary/ui-contracts";
 import type { Page, Response } from "@playwright/test";
@@ -212,42 +214,46 @@ test("Network Analysis measures bounded exploration and reveals selection across
           networkAnalysisEdgeTestId(entry.selector.source_edge_id),
         ),
   );
-  await page.evaluate((expected) => {
-    const result: RenderObservation = {
-      samples: 0,
-      maxVertices: 0,
-      maxEdges: 0,
-      wrongBucket: [],
-    };
-    const record = () => {
-      const edges = [
-        ...document.querySelectorAll<HTMLElement>(
-          '[data-testid^="network-flow-edge-"]',
-        ),
-      ];
-      const vertices = document.querySelectorAll(
-        '[data-testid^="network-flow-vertex-"]',
-      );
-      const label =
-        document.querySelector(
-          'nav[aria-label="Time bucket navigation"] strong',
-        )?.textContent ?? "";
-      const bucket = Number(/Bucket (\d+)/u.exec(label)?.[1]) - 1;
-      result.samples++;
-      result.maxVertices = Math.max(result.maxVertices, vertices.length);
-      result.maxEdges = Math.max(result.maxEdges, edges.length);
-      for (const edge of edges)
-        if (!expected[bucket]?.includes(edge.dataset.testid ?? ""))
-          result.wrongBucket.push(edge.dataset.testid ?? "missing");
-    };
-    const observer = new MutationObserver(record);
-    observer.observe(document.body, { childList: true, subtree: true });
-    (window as ObservationWindow).explorationObservation = { observer, result };
-    record();
-  }, expectedBuckets);
+  await page.evaluate(
+    ({ expected, edgeSelector, vertexSelector }) => {
+      const result: RenderObservation = {
+        samples: 0,
+        maxVertices: 0,
+        maxEdges: 0,
+        wrongBucket: [],
+      };
+      const record = () => {
+        const edges = [...document.querySelectorAll<HTMLElement>(edgeSelector)];
+        const vertices = document.querySelectorAll(vertexSelector);
+        const label =
+          document.querySelector(
+            'nav[aria-label="Time bucket navigation"] strong',
+          )?.textContent ?? "";
+        const bucket = Number(/Bucket (\d+)/u.exec(label)?.[1]) - 1;
+        result.samples++;
+        result.maxVertices = Math.max(result.maxVertices, vertices.length);
+        result.maxEdges = Math.max(result.maxEdges, edges.length);
+        for (const edge of edges)
+          if (!expected[bucket]?.includes(edge.dataset.testid ?? ""))
+            result.wrongBucket.push(edge.dataset.testid ?? "missing");
+      };
+      const observer = new MutationObserver(record);
+      observer.observe(document.body, { childList: true, subtree: true });
+      (window as ObservationWindow).explorationObservation = {
+        observer,
+        result,
+      };
+      record();
+    },
+    {
+      expected: expectedBuckets,
+      edgeSelector: networkAnalysisEdgeFamilySelector(),
+      vertexSelector: networkAnalysisVertexFamilySelector(),
+    },
+  );
 
-  const mountedVertices = page.getByTestId(/^network-flow-vertex-/u),
-    mountedEdges = page.getByTestId(/^network-flow-edge-/u);
+  const mountedVertices = page.locator(networkAnalysisVertexFamilySelector()),
+    mountedEdges = page.locator(networkAnalysisEdgeFamilySelector());
   await expect(mountedVertices).toHaveCount(500);
   await expect(mountedEdges).toHaveCount(1000);
   let graphQueries = 0,

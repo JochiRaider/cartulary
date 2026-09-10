@@ -4,6 +4,7 @@ import {
   networkAnalysisColumnActionTestId,
   networkAnalysisDiagnosticCellTestId,
   networkAnalysisDiagnosticTestId,
+  networkAnalysisEdgeFamilySelector,
   networkAnalysisEdgeTestId,
   networkAnalysisMappingColumnTestId,
   networkAnalysisRowCellTestId,
@@ -13,6 +14,7 @@ import {
   networkAnalysisSavedGraphVertexTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
+  networkAnalysisVertexFamilySelector,
   networkAnalysisVertexTestId,
 } from "./index";
 
@@ -107,6 +109,12 @@ describe("@cartulary/ui-contracts Network Flow selectors", () => {
   it("encodes stable Network Flow table, graph, row, and diagnostic identities", () => {
     expect(networkAnalysisTableTabTestId("table/1")).toBe(
       "network-flow-table-tab-table%2F1",
+    );
+    expect(networkAnalysisEdgeFamilySelector()).toBe(
+      '[data-testid^="network-flow-edge-"]',
+    );
+    expect(networkAnalysisVertexFamilySelector()).toBe(
+      '[data-testid^="network-flow-vertex-"]',
     );
     expect(networkAnalysisEdgeTestId("edge:1")).toBe(
       "network-flow-edge-edge%3A1",

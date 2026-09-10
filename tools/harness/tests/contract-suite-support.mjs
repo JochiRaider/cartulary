@@ -29,7 +29,6 @@ import {
 import {
   canonicalSnapshotKeyInput,
   groupRowsByPerformanceFixture,
-  loadPerformanceFixtureBuilderPolicy,
   loadPerformanceFixtureSnapshotRegistry,
   postgresMigrationDigest,
   snapshotKey,
@@ -47,7 +46,6 @@ import {
   buildWorkGraph,
   captureCapabilitySnapshot,
   cpuCapacityWithSafetyMargin,
-  loadCacheRegistry,
   assertScannerEvidenceParity,
   cacheInputRootDigest,
   resolveVulnerabilityDatabaseRevision,
@@ -55,12 +53,10 @@ import {
   simulateWorkGraph,
   validateWorkGraph,
   WorkGraphCache,
-  WorkGraphCompiler,
   resolveCacheDependencyClosure,
 } from "../scheduler/work-graph/index.mjs";
 import { buildSourceSnapshot } from "../test-catalog/source-snapshot.mjs";
-import { loadTestCatalog, validateFixtureProfile } from "../test-catalog/index.mjs";
-import { validatePostgresFixturePolicy } from "../test-catalog/postgres-fixture-policy.mjs";
+import { validateFixtureProfile } from "../test-catalog/index.mjs";
 import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 import { startManagedSuite } from "../scheduler/fixture-broker/providers.mjs";
 import {
@@ -71,6 +67,10 @@ import {
 import { validateFrontendAttachment } from "../browser/browser-session-evidence.mjs";
 import { resolveFrontendArtifact, sealFrontendArtifact } from "../readiness/frontend-artifact.mjs";
 import { resolveBrowserFrontendArtifact } from "../generated-artifacts/execution-topology.mjs";
+import { createContractTestContext } from "./contract-test-context.mjs";
+import { assertLazyCaseContext, assertImportAndFailureIsolation } from "./contract-initialization-cases.mjs";
+import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure } from "./contract-catalog-cases.mjs";
+
 const root = path.resolve(import.meta.dirname, "../../..");
 
 function compareASCII(left, right) {
@@ -81,40 +81,6 @@ function readJSON(relative) {
   return JSON.parse(readFileSync(path.join(root, relative), "utf8"));
 }
 
-const taskSurface = readJSON("tools/task_surface_owner.json");
-const topology = readJSON("tools/execution_topology_manifest.json");
-const rowMigrations = readJSON("tools/test_catalog_row_migrations.json");
-const catalog = loadTestCatalog(root);
-const compiler = new WorkGraphCompiler(root);
-const cacheRegistry = loadCacheRegistry(root).registry;
-const fixtureBuilderPolicy = loadPerformanceFixtureBuilderPolicy(root);
-assert.deepEqual(
-  [...fixtureBuilderPolicy.byFixtureProfileID.keys()],
-  ["ac043_large_grid_snapshot_v1"],
-);
-assert.deepEqual(catalog.postgresFixturePolicy.counts, {
-  postgres_dedicated: 258,
-  postgres_migration: 11,
-  postgres_transaction: 87,
-});
-
-function assertPostgresFixturePolicyClosesSharedRows() {
-  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-postgres-policy."));
-  const policyPath = path.join(fixtureRoot, "policy.json");
-  try {
-    const policy = readJSON("tools/postgres_fixture_policy_registry.json");
-    policy.transaction_row_approvals.pop();
-    writeFileSync(policyPath, JSON.stringify(policy));
-    assert.throws(
-      () => validatePostgresFixturePolicy(root, catalog.rows, { policyPath }),
-      /must exactly cover current transaction rows/u,
-    );
-  } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
-  }
-}
-
-assertPostgresFixturePolicyClosesSharedRows();
 const retiredTargets = [
   "check-service-backed",
   "release-browser-readiness",
@@ -207,9 +173,9 @@ function assertPerformanceEvidenceGenerationBoundary() {
   );
 }
 
-function assertPerformanceFixtureSnapshotContract() {
-  const fixtureProfiles = catalog.fixtureProfiles;
-  const profile = fixtureProfiles.profiles.get("ac043_large_grid_snapshot_v1");
+function assertPerformanceFixtureSnapshotContract(context) {
+  const fixtureProfiles = context.catalog.fixtureProfiles;
+  const profile = [...fixtureProfiles.profiles.values()].find((entry) => entry.status === "active");
   assert.ok(profile);
   assert.match(profile.source_contract_digest, /^[a-f0-9]{64}$/u);
   const migrationDigest = postgresMigrationDigest(root);
@@ -253,14 +219,13 @@ function assertPerformanceFixtureSnapshotContract() {
   );
   assert.deepEqual(
     syntheticVectors.vectors.map((entry) => entry.name),
-    ["ac043_large_grid_snapshot_v1", "synthetic_grid_snapshot_v1"],
+    [profile.fixture_profile_id, syntheticProfile.fixture_profile_id].sort(compareASCII),
   );
-  validateSchemaSync(
-    "cartulary.performance_fixture_snapshot_key.v2",
-    syntheticVectors.vectors[1].input,
-  );
+  const syntheticVector = syntheticVectors.vectors.find((entry) => entry.name === syntheticProfile.fixture_profile_id);
+  assert.ok(syntheticVector);
+  validateSchemaSync("cartulary.performance_fixture_snapshot_key.v2", syntheticVector.input);
   assert.equal(
-    syntheticVectors.vectors[1].input.fixture_profile_id,
+    syntheticVector.input.fixture_profile_id,
     syntheticProfile.fixture_profile_id,
   );
   const syntheticGo = renderPerformanceFixtureProfilesGo([profile, syntheticProfile]);
@@ -275,7 +240,7 @@ function assertPerformanceFixtureSnapshotContract() {
     "generated Go descriptors must not contain source paths or runtime routing identities",
   );
 
-  const row = catalog.rows.find((entry) => entry.fixture_profile_id);
+  const row = context.catalog.rows.find((entry) => entry.fixture_profile_id === profile.fixture_profile_id);
   assert.ok(row);
   const syntheticVerificationID = "module.synthetic.verification.fixture_profile";
   const syntheticRegistry = {
@@ -302,10 +267,16 @@ function assertPerformanceFixtureSnapshotContract() {
   ], { registry: syntheticRegistry });
   assert.deepEqual(
     grouped.map((entry) => entry.fixture_profile_id),
-    ["ac043_large_grid_snapshot_v1", "synthetic_grid_snapshot_v1"],
+    [profile.fixture_profile_id, syntheticProfile.fixture_profile_id].sort(compareASCII),
   );
-  assert.deepEqual(grouped[1].predicate_ids, ["perf.synthetic.fixture_profile.v1"]);
-  assert.deepEqual(grouped[1].row_ids, ["module.synthetic.measurement.fixture_profile"]);
+  const syntheticGroup = grouped.find((entry) => entry.fixture_profile_id === syntheticProfile.fixture_profile_id);
+  assert.ok(syntheticGroup);
+  assert.deepEqual(syntheticGroup.predicate_ids, ["perf.synthetic.fixture_profile.v1"]);
+  assert.deepEqual(syntheticGroup.row_ids, ["module.synthetic.measurement.fixture_profile"]);
+  const sameProfile = groupRowsByPerformanceFixture(root, [row, { ...row, row_id: "module.synthetic.measurement.same_profile" }], { registry: syntheticRegistry });
+  assert.equal(sameProfile.length, 1);
+  assert.deepEqual(sameProfile[0].row_ids, [row.row_id, "module.synthetic.measurement.same_profile"].sort(compareASCII));
+  assert.deepEqual(groupRowsByPerformanceFixture(root, [{ ...row, fixture_profile_id: undefined, verification_ids: [] }], { registry: syntheticRegistry }), []);
   validateFixtureProfile({ row, fixtureProfiles, label: "valid_row" });
   assert.throws(
     () => validateFixtureProfile({
@@ -346,9 +317,9 @@ function assertPerformanceFixtureSnapshotContract() {
     /migration_digest/u,
   );
 
+  const original = context.readJSON("tools/performance_fixture_snapshot_owner.json");
   const fixtureRoot = mkdtempSync(path.join(tmpdir(), "cartulary-fixture-registry."));
   const registryFile = path.join(fixtureRoot, "registry.json");
-  const original = readJSON("tools/performance_fixture_snapshot_owner.json");
   const expectRegistryFailure = (mutate, pattern) => {
     const candidate = structuredClone(original);
     mutate(candidate.profiles[0]);
@@ -436,57 +407,42 @@ const generalCases = [
     id: "current_owner_and_topology_identity",
     name: "current task-surface and topology identities are exact",
     acceptance_ids: ["TH-HARNESS-AC-082"],
-    run() {
-      assert.equal(taskSurface.schema_id, "cartulary.task_surface_owner.v2");
-      assert.equal(topology.schema_id, "cartulary.execution_topology.v8");
+    run(context) {
+      assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v2");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v8");
     },
   },
   {
     id: "current_target_roster",
     name: "current target roster and public surface are exact",
     acceptance_ids: ["TH-HARNESS-AC-001"],
-    run() {
-      assert.equal(taskSurface.targets.length, 151);
-      assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 103);
+    run(context) {
+      const identity = (entry) => [entry.name, entry.command_id, entry.target_class];
+      const targets = context.taskSurface.targets;
+      assert.equal(new Set(targets.map((entry) => entry.name)).size, targets.length);
+      const publicTargets = targets.filter((entry) => entry.target_class === "public");
+      assert.equal(new Set(publicTargets.map((entry) => entry.command_id)).size, publicTargets.length);
+      assert.deepEqual(context.readJSON("tools/task_surface_manifest.json").targets.map(identity), targets.map(identity));
     },
   },
   {
     id: "catalog_tier_closure",
     name: "catalog rows use only current minimum tiers",
     acceptance_ids: ["TH-HARNESS-AC-018"],
-    run() {
-      assert.ok(catalog.rows.length > 0);
-      assert.ok(catalog.rows.every((row) => tiers.includes(row.minimum_tier)));
+    run(context) {
+      assert.ok(context.catalog.rows.length > 0);
+      assert.ok(context.catalog.rows.every((row) => tiers.includes(row.minimum_tier)));
     },
   },
   {
     id: "fixture_profile_closure",
     name: "fixture profiles, retired rows, and canonical construction are closed",
     acceptance_ids: ["TH-HARNESS-AC-086", "TH-HARNESS-AC-096", "TH-HARNESS-AC-098"],
-    run() {
-      assert.ok(catalog.rows.every((row) => typeof row.fixture_capability === "string"));
-      const profiledRows = catalog.rows.filter((row) => row.fixture_profile_id);
-      assert.equal(profiledRows.length, 4);
-      assert.ok(profiledRows.every((row) =>
-        row.fixture_profile_id === "ac043_large_grid_snapshot_v1"));
-      assert.ok(catalog.rows.every((row) => !("default_check" in row)));
-      for (let mask = 1; mask < (1 << profiledRows.length); mask += 1) {
-        const rowIDs = profiledRows
-          .filter((_, index) => (mask & (1 << index)) !== 0)
-          .map((row) => row.row_id);
-        const graph = compiler.compile({ kind: "rows", row_ids: rowIDs });
-        assert.equal(
-          graph.units.filter((unit) => unit.kind === "fixture_builder").length,
-          1,
-          `profiled subset ${rowIDs.join(",")} must have one canonical construction`,
-        );
-      }
-      const nonMeasurement = compiler.compile({
-        kind: "rows",
-        row_ids: ["harness.browser.unit.source_owner_contribution_assembler"],
-      });
-      assert.equal(nonMeasurement.units.some((unit) => unit.kind === "fixture_builder"), false);
-      const migration = rowMigrations.migrations.find((entry) =>
+    run(context) {
+      assert.ok(context.catalog.rows.every((row) => typeof row.fixture_capability === "string"));
+      assert.ok(context.catalog.rows.every((row) => !("default_check" in row)));
+      assertFixtureBuilderClosure(context);
+      const migration = context.rowMigrations.migrations.find((entry) =>
         entry.retired_row_id ===
           "harness.browser.integration.performance_fixture_source_owner_assembly");
       assert.deepEqual(migration?.replacement_row_ids, [
@@ -499,29 +455,29 @@ const generalCases = [
     id: "retired_target_absence",
     name: "retired public target aliases remain absent",
     acceptance_ids: ["TH-HARNESS-AC-001"],
-    run() {
+    run(context) {
       assert.ok(retiredTargets.every((target) =>
-        !taskSurface.targets.some((entry) => entry.name === target)));
+        !context.taskSurface.targets.some((entry) => entry.name === target)));
     },
   },
   {
     id: "retired_topology_field_absence",
     name: "retired schedule and fixture fields remain absent",
     acceptance_ids: ["TH-HARNESS-AC-082"],
-    run() {
-      assert.equal("sequence_schedules" in topology, false);
-      assert.equal("check_schedules" in topology, false);
-      assert.equal("service_backed_schedules" in topology, false);
-      assert.equal("fixture_profiles" in topology, false);
+    run(context) {
+      assert.equal("sequence_schedules" in context.topology, false);
+      assert.equal("check_schedules" in context.topology, false);
+      assert.equal("service_backed_schedules" in context.topology, false);
+      assert.equal("fixture_profiles" in context.topology, false);
     },
   },
   {
     id: "cache_registry_identity",
     name: "cache registry exposes the current test-row profile",
     acceptance_ids: ["TH-HARNESS-AC-091"],
-    run() {
-      assert.equal(cacheRegistry.schema_id, "cartulary.harness_cache_registry.v1");
-      assert.ok(cacheRegistry.profiles.some((profile) => profile.profile_id === "test_rows"));
+    run(context) {
+      assert.equal(context.cacheRegistry.schema_id, "cartulary.harness_cache_registry.v1");
+      assert.ok(context.cacheRegistry.profiles.some((profile) => profile.profile_id === "test_rows"));
     },
   },
 ];
@@ -678,10 +634,10 @@ async function assertSuiteRuntimeBoundary() {
   }
 }
 
-async function assertBoundaryContract(kind) {
+async function assertBoundaryContract(context, kind) {
   switch (kind) {
     case "performance_and_runtime":
-      assertPerformanceFixtureSnapshotContract();
+      assertPerformanceFixtureSnapshotContract(context);
       assertPerformanceEvidenceGenerationBoundary();
       await assertSuiteRuntimeBoundary();
       return;
@@ -718,7 +674,7 @@ async function assertBoundaryContract(kind) {
       );
       return;
     case "relative_backing_scripts":
-      assert.ok(taskSurface.targets.every((entry) =>
+      assert.ok(context.taskSurface.targets.every((entry) =>
         (entry.backing_scripts ?? []).every((file) => !path.isAbsolute(file))));
       return;
     case "exact_file_sets":
@@ -826,31 +782,31 @@ function assertExactFileSetContract() {
   }
 }
 
-function assertCommandSurfaceContract(kind) {
+function assertCommandSurfaceContract(context, kind) {
   const graphTargets = ["test-slice", "service-backed-test-slice", "test-fast", "test", "check", "ci", "release-check", "lint"];
   switch (kind) {
     case "graph_entrypoints":
-      assert.ok(graphTargets.every((target) => taskSurface.make_recipes[target]?.type === "work_graph"));
-      assert.ok(taskSurface.observability_policy.required_targets.every((target) => {
-        const recipe = taskSurface.make_recipes[target];
+      assert.ok(graphTargets.every((target) => context.taskSurface.make_recipes[target]?.type === "work_graph"));
+      assert.ok(context.taskSurface.observability_policy.required_targets.every((target) => {
+        const recipe = context.taskSurface.make_recipes[target];
         return recipe?.type === "work_graph" || recipe?.graph_entry === true;
       }));
       return;
     case "command_identities":
-      assert.ok(taskSurface.targets.filter((entry) => entry.target_class === "public").every((entry) =>
+      assert.ok(context.taskSurface.targets.filter((entry) => entry.target_class === "public").every((entry) =>
         /^cartulary\.harness\.command\.[a-z0-9_]+\.v[1-9][0-9]*$/u.test(entry.command_id)));
       return;
     case "graph_inputs":
-      for (const target of taskSurface.observability_policy.required_targets) {
-        const inputNames = (taskSurface.targets.find((entry) => entry.name === target)?.input_contract?.inputs ?? []).map((input) => input.name);
+      for (const target of context.taskSurface.observability_policy.required_targets) {
+        const inputNames = (context.taskSurface.targets.find((entry) => entry.name === target)?.input_contract?.inputs ?? []).map((input) => input.name);
         assert.ok(inputNames.includes("CARTULARY_HARNESS_CACHE_MODE"));
         assert.ok(inputNames.includes("CARTULARY_HARNESS_CAPACITY_OVERRIDE"));
       }
       return;
     case "output_contracts":
-      assert.ok(!JSON.stringify(taskSurface.make_recipes).includes("nested_scheduler"));
-      assert.ok(taskSurface.observability_policy.required_targets.every((target) => {
-        const entry = taskSurface.targets.find((candidate) => candidate.name === target);
+      assert.ok(!JSON.stringify(context.taskSurface.make_recipes).includes("nested_scheduler"));
+      assert.ok(context.taskSurface.observability_policy.required_targets.every((target) => {
+        const entry = context.taskSurface.targets.find((candidate) => candidate.name === target);
         return entry.output_policy.summary_schema === "cartulary.harness_run_summary.v1" &&
           entry.output_policy.artifact_policy === "run_and_target_summaries";
       }));
@@ -904,60 +860,61 @@ function assertGoSelectorBuildContextContract() {
   }
 }
 
-function assertEvidenceContract(kind) {
-  const tierCounts = Object.fromEntries(tiers.map((tier) => [tier, catalog.rows.filter((row) => row.minimum_tier === tier).length]));
+function assertEvidenceContract(context, kind) {
   switch (kind) {
     case "selector_build_context":
       assertGoSelectorBuildContextContract();
       return;
-    case "tier_partition":
+    case "tier_partition": {
+      const tierCounts = Object.fromEntries(tiers.map((tier) => [tier, context.catalog.rows.filter((row) => row.minimum_tier === tier).length]));
       assert.deepEqual(Object.keys(tierCounts), tiers);
-      assert.equal(Object.values(tierCounts).reduce((sum, count) => sum + count, 0), catalog.rows.length);
+      assert.equal(Object.values(tierCounts).reduce((sum, count) => sum + count, 0), context.catalog.rows.length);
       return;
+    }
     case "tier_monotonicity": {
       const reached = tiers.map((tier, rank) =>
-        catalog.rows.filter((row) => tiers.indexOf(row.minimum_tier) <= rank).length);
+        context.catalog.rows.filter((row) => tiers.indexOf(row.minimum_tier) <= rank).length);
       assert.ok(reached.every((count, rank) => rank === 0 || count >= reached[rank - 1]));
-      assert.equal(reached.at(-1), catalog.rows.length);
+      assert.equal(reached.at(-1), context.catalog.rows.length);
       return;
     }
     case "fixture_partition": {
       const fixtureCounts = new Map();
-      for (const row of catalog.rows) {
+      for (const row of context.catalog.rows) {
         fixtureCounts.set(row.fixture_capability, (fixtureCounts.get(row.fixture_capability) ?? 0) + 1);
       }
-      assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), catalog.rows.length);
+      assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), context.catalog.rows.length);
       assert.equal(
         fixtureCounts.get("browser_stack"),
-        catalog.rows.filter((row) => row.runner === "playwright").length,
+        context.catalog.rows.filter((row) => row.runner === "playwright").length,
       );
       return;
     }
     case "active_owner_coverage":
-      assert.ok(catalog.registry.owners.filter((owner) => owner.status === "active").every((owner) =>
-        catalog.rows.some((row) => row.owner_id === owner.owner_id)));
+      assert.ok(context.catalog.registry.owners.filter((owner) => owner.status === "active").every((owner) =>
+        context.catalog.rows.some((row) => row.owner_id === owner.owner_id)));
       return;
     default:
       throw new Error(`unknown evidence contract ${kind}`);
   }
 }
 
-function assertGraphContract(kind) {
+function assertGraphContract(context, kind) {
   const roots = ["test-fast", "check", "test", "ci", "release-check"];
   switch (kind) {
     case "aggregate_determinism":
       for (const target of roots) {
-        const graph = compiler.compile({ kind: "aggregate", target });
+        const graph = context.compiler.compile({ kind: "aggregate", target });
         validateWorkGraph(graph);
         assert.equal(
           graph.graph_digest,
-          compiler.compile({ kind: "aggregate", target }).graph_digest,
+          context.compiler.compile({ kind: "aggregate", target }).graph_digest,
         );
       }
       return;
     case "row_evidence_outputs": {
-      const row = catalog.rows.find((entry) => entry.runner === "go" && entry.fixture_capability === "none");
-      const graph = compiler.compile({ kind: "rows", row_ids: [row.row_id] });
+      const row = context.catalog.rows.find((entry) => entry.runner === "go" && entry.fixture_capability === "none");
+      const graph = context.compiler.compile({ kind: "rows", row_ids: [row.row_id] });
       assert.deepEqual(
         graph.units.flatMap((unit) => unit.current_run_evidence_outputs),
         [`rows/${row.row_id}.json`, `unit-results/go-${graph.units[0].unit_id.split(":").slice(1).join("-")}.json`],
@@ -998,7 +955,7 @@ function assertGraphContract(kind) {
       return;
     }
     case "target_graph_validation": {
-      const graph = compiler.compile({ kind: "target", target: "lint" });
+      const graph = context.compiler.compile({ kind: "target", target: "lint" });
       validateWorkGraph(graph);
       assert.ok(graph.units.length >= 7);
       return;
@@ -1424,35 +1381,35 @@ function changedDigest(entry, fill) {
   return { ...entry, byte_digest: `sha256:${fill.repeat(64)}` };
 }
 
-function cacheableRowUnit(row) {
-  return compiler.compile({ kind: "rows", row_ids: [row.row_id] }).units.find((unit) =>
+function cacheableRowUnit(context, row) {
+  return context.compiler.compile({ kind: "rows", row_ids: [row.row_id] }).units.find((unit) =>
     unit.current_run_evidence_outputs.includes(`rows/${row.row_id}.json`),
   );
 }
 
-async function assertDependencyClosureContract() {
+async function assertDependencyClosureContract(context) {
   const source = buildSourceSnapshot(root);
-  const profile = cacheRegistry.profiles.find((entry) => entry.profile_id === "test_rows");
-  const goRow = catalog.rows.find((row) => row.runner === "go" && row.fixture_capability === "none");
-  const goUnit = cacheableRowUnit(goRow);
-  const statefulRow = catalog.rows.find((row) =>
+  const profile = context.cacheRegistry.profiles.find((entry) => entry.profile_id === "test_rows");
+  const goRow = context.catalog.rows.find((row) => row.runner === "go" && row.fixture_capability === "none");
+  const goUnit = cacheableRowUnit(context, goRow);
+  const statefulRow = context.catalog.rows.find((row) =>
     new Set(["go", "vitest"]).has(row.runner) &&
     (row.fixture_capability !== "none" || row.service_dependencies.length > 0),
   );
   assert.ok(statefulRow, "the catalog must retain a stateful row cache boundary fixture");
-  assert.equal(cacheableRowUnit(statefulRow).cache_policy, "none");
-  const securityRow = catalog.rows.find((row) =>
+  assert.equal(cacheableRowUnit(context, statefulRow).cache_policy, "none");
+  const securityRow = context.catalog.rows.find((row) =>
     new Set(["go", "vitest"]).has(row.runner) && row.evidence_class === "security",
   );
   assert.ok(securityRow, "the catalog must retain a security row cache boundary fixture");
-  assert.equal(cacheableRowUnit(securityRow).cache_policy, "none");
+  assert.equal(cacheableRowUnit(context, securityRow).cache_policy, "none");
   const goClosure = resolveCacheDependencyClosure({
     root,
     entries: source.entries,
     profile,
     unit: goUnit,
   });
-  assert.equal(goClosure.strategy, "go_packages");
+  assert.equal(goClosure.strategy, "go_packages", JSON.stringify(goClosure.metadata));
   assert.ok(goClosure.entries.some((entry) => entry.path === "go.mod"));
   assert.ok(goClosure.entries.some((entry) => entry.path === "pnpm-lock.yaml"));
   assert.ok(goClosure.entries.some((entry) => entry.path.startsWith("tools/harness/")));
@@ -1526,8 +1483,8 @@ async function assertDependencyClosureContract() {
     "broad_fallback",
   );
 
-  const vitestRow = catalog.rows.find((row) => row.runner === "vitest");
-  const vitestUnit = cacheableRowUnit(vitestRow);
+  const vitestRow = context.catalog.rows.find((row) => row.runner === "vitest");
+  const vitestUnit = cacheableRowUnit(context, vitestRow);
   const tsClosure = resolveCacheDependencyClosure({ root, entries: source.entries, profile, unit: vitestUnit });
   assert.equal(tsClosure.strategy, "typescript_workspaces");
   assert.ok(tsClosure.entries.some((entry) => entry.path === vitestRow.selector.file));
@@ -1595,7 +1552,7 @@ async function assertDependencyClosureContract() {
       root,
       runRoot,
       cacheRoot: path.join(fixtureRoot, "cache"),
-      registry: cacheRegistry,
+      registry: context.cacheRegistry,
       toolchainDigest: `sha256:${"8".repeat(64)}`,
       helperDigest: `sha256:${"9".repeat(64)}`,
       sourceEntries: source.entries,
@@ -1614,8 +1571,8 @@ async function assertDependencyClosureContract() {
   }
 }
 
-function assertReleaseInventoryContract() {
-  const producerGraph = compiler.compile({
+function assertReleaseInventoryContract(context) {
+  const producerGraph = context.compiler.compile({
     kind: "target",
     target: "release-inventory-artifacts",
   });
@@ -1640,7 +1597,7 @@ function assertReleaseInventoryContract() {
       producer_identity: "target:release-inventory-artifacts",
     },
   ]);
-  const profile = cacheRegistry.profiles.find(
+  const profile = context.cacheRegistry.profiles.find(
     (entry) => entry.profile_id === "release_artifacts",
   );
   assert.deepEqual(profile.targets, ["release-inventory-artifacts"]);
@@ -1691,7 +1648,7 @@ function assertReleaseInventoryContract() {
     );
   }
   for (const target of ["license-report", "sbom"]) {
-    const graph = compiler.compile({ kind: "target", target });
+    const graph = context.compiler.compile({ kind: "target", target });
     const validator = graph.units.find((unit) => unit.unit_id === `target:${target}`);
     assert.equal(validator.cache_policy, "none");
     assert.ok(
@@ -1702,11 +1659,11 @@ function assertReleaseInventoryContract() {
   }
 }
 
-async function assertExtendedCacheContract() {
+async function assertExtendedCacheContract(context) {
   await assertCacheContainmentMatrix();
   await assertDirectoryAndConcurrentCacheContract();
   await assertDestinationRollbackContract();
-  await assertDependencyClosureContract();
+  await assertDependencyClosureContract(context);
 }
 
 function assertVulnerabilityRevisionContract() {
@@ -1739,7 +1696,7 @@ function assertScannerParityContract() {
   );
 }
 
-async function assertSchedulerContract(kind) {
+async function assertSchedulerContract(context, kind) {
   if (kind === "execution_and_cache_admission") {
     const graph = schedulerFixture();
     const result = simulateWorkGraph({ graph, capacities: new Map([["cpu", 2], ["process", 2]]), durations: new Map([["a", 10], ["b", 20], ["c", 5]]) });
@@ -1876,14 +1833,14 @@ async function assertSchedulerContract(kind) {
       /postgres_lanes=3 exceeds the detected policy bound 2/u,
     );
   } else if (kind === "cache_registry_targets") {
-    assert.ok(cacheRegistry.profiles.every((profile) => new Set(profile.targets).size === profile.targets.length));
+    assert.ok(context.cacheRegistry.profiles.every((profile) => new Set(profile.targets).size === profile.targets.length));
   } else if (kind === "content_cache") {
     await assertContentCacheContract();
-    await assertExtendedCacheContract();
+    await assertExtendedCacheContract(context);
   } else if (kind === "cache_modes") {
     await assertCacheModeContract();
   } else if (kind === "release_inventory") {
-    assertReleaseInventoryContract();
+    assertReleaseInventoryContract(context);
   } else if (kind === "vulnerability_revision") {
     assertVulnerabilityRevisionContract();
   } else if (kind === "scanner_parity") {
@@ -1899,54 +1856,58 @@ function semanticCase(id, name, acceptanceIDs, run) {
 
 const suiteCases = {
   boundaries: [
+    semanticCase("lazy_case_context", "case contexts load only their own dependencies", ["TH-HARNESS-AC-016"], assertLazyCaseContext),
+    semanticCase("import_and_failure_isolation", "support imports are inert and policy failures remain case-local", ["TH-HARNESS-AC-016"], assertImportAndFailureIsolation),
     ...generalCases,
     semanticCase(
       "performance_evidence_and_runtime_boundary",
       "performance evidence generations and suite runtime are isolated",
       ["TH-HARNESS-AC-099", "TH-HARNESS-AC-100"],
-      () => assertBoundaryContract("performance_and_runtime"),
+      (context) => assertBoundaryContract(context, "performance_and_runtime"),
     ),
-    semanticCase("schema_attachment_uniqueness", "active schema attachments are unique", ["TH-HARNESS-AC-005"], () => assertBoundaryContract("attachment_uniqueness")),
-    semanticCase("current_schema_presence", "current harness schemas are present", ["TH-HARNESS-AC-005"], () => assertBoundaryContract("current_schema_presence")),
-    semanticCase("retired_schema_absence", "retired harness schemas remain absent", ["TH-HARNESS-AC-005"], () => assertBoundaryContract("retired_schema_absence")),
-    semanticCase("work_graph_owner_validation", "work graph owner validates against its current schema", ["TH-HARNESS-AC-082"], () => assertBoundaryContract("work_graph_owner_validation")),
-    semanticCase("relative_backing_script_paths", "task-surface backing scripts are repository-relative", ["TH-HARNESS-AC-016"], () => assertBoundaryContract("relative_backing_scripts")),
-    semanticCase("exact_boundary_file_sets", "exact boundary file sets reject stale, unsafe, and omitted paths", ["TH-HARNESS-AC-039"], () => assertBoundaryContract("exact_file_sets")),
+    semanticCase("schema_attachment_uniqueness", "active schema attachments are unique", ["TH-HARNESS-AC-005"], (context) => assertBoundaryContract(context, "attachment_uniqueness")),
+    semanticCase("current_schema_presence", "current harness schemas are present", ["TH-HARNESS-AC-005"], (context) => assertBoundaryContract(context, "current_schema_presence")),
+    semanticCase("retired_schema_absence", "retired harness schemas remain absent", ["TH-HARNESS-AC-005"], (context) => assertBoundaryContract(context, "retired_schema_absence")),
+    semanticCase("work_graph_owner_validation", "work graph owner validates against its current schema", ["TH-HARNESS-AC-082"], (context) => assertBoundaryContract(context, "work_graph_owner_validation")),
+    semanticCase("relative_backing_script_paths", "task-surface backing scripts are repository-relative", ["TH-HARNESS-AC-016"], (context) => assertBoundaryContract(context, "relative_backing_scripts")),
+    semanticCase("exact_boundary_file_sets", "exact boundary file sets reject stale, unsafe, and omitted paths", ["TH-HARNESS-AC-039"], (context) => assertBoundaryContract(context, "exact_file_sets")),
   ],
   command_surface: [
-    semanticCase("graph_entrypoint_contract", "graph entrypoints use one work-graph command model", ["TH-HARNESS-AC-082"], () => assertCommandSurfaceContract("graph_entrypoints")),
-    semanticCase("public_command_identity_contract", "public command identities are closed and versioned", ["TH-HARNESS-AC-001"], () => assertCommandSurfaceContract("command_identities")),
-    semanticCase("graph_input_contract", "observable graph targets expose cache and capacity inputs", ["TH-HARNESS-AC-083"], () => assertCommandSurfaceContract("graph_inputs")),
-    semanticCase("public_output_contract", "observable targets publish current run and target summaries", ["TH-HARNESS-AC-004"], () => assertCommandSurfaceContract("output_contracts")),
+    semanticCase("graph_entrypoint_contract", "graph entrypoints use one work-graph command model", ["TH-HARNESS-AC-082"], (context) => assertCommandSurfaceContract(context, "graph_entrypoints")),
+    semanticCase("public_command_identity_contract", "public command identities are closed and versioned", ["TH-HARNESS-AC-001"], (context) => assertCommandSurfaceContract(context, "command_identities")),
+    semanticCase("graph_input_contract", "observable graph targets expose cache and capacity inputs", ["TH-HARNESS-AC-083"], (context) => assertCommandSurfaceContract(context, "graph_inputs")),
+    semanticCase("public_output_contract", "observable targets publish current run and target summaries", ["TH-HARNESS-AC-004"], (context) => assertCommandSurfaceContract(context, "output_contracts")),
   ],
   evidence: [
-    semanticCase("go_selector_build_context", "Go selectors honor the canonical build context", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("selector_build_context")),
-    semanticCase("tier_partition_closure", "catalog tier partitions close every row exactly once", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("tier_partition")),
-    semanticCase("tier_monotonic_closure", "catalog tier reachability is monotonic", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("tier_monotonicity")),
-    semanticCase("fixture_partition_closure", "fixture capabilities partition current rows", ["TH-HARNESS-AC-086"], () => assertEvidenceContract("fixture_partition")),
-    semanticCase("active_owner_row_coverage", "every active owner retains current row coverage", ["TH-HARNESS-AC-018"], () => assertEvidenceContract("active_owner_coverage")),
+    semanticCase("postgres_catalog_closure", "Postgres fixture counts reconcile with active policy partitions", ["TH-HARNESS-AC-086"], assertPostgresCatalogClosure),
+    semanticCase("postgres_policy_growth_and_rejection", "Postgres policy admits growth and rejects invalid isolation approvals", ["TH-HARNESS-AC-086"], assertPostgresPolicyFixtures),
+    semanticCase("go_selector_build_context", "Go selectors honor the canonical build context", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "selector_build_context")),
+    semanticCase("tier_partition_closure", "catalog tier partitions close every row exactly once", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "tier_partition")),
+    semanticCase("tier_monotonic_closure", "catalog tier reachability is monotonic", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "tier_monotonicity")),
+    semanticCase("fixture_partition_closure", "fixture capabilities partition current rows", ["TH-HARNESS-AC-086"], (context) => assertEvidenceContract(context, "fixture_partition")),
+    semanticCase("active_owner_row_coverage", "every active owner retains current row coverage", ["TH-HARNESS-AC-018"], (context) => assertEvidenceContract(context, "active_owner_coverage")),
   ],
   graph: [
-    semanticCase("aggregate_graph_determinism", "aggregate work graphs are deterministic", ["TH-HARNESS-AC-082"], () => assertGraphContract("aggregate_determinism")),
-    semanticCase("row_evidence_output_contract", "row graphs declare exact current-run evidence outputs", ["TH-HARNESS-AC-087"], () => assertGraphContract("row_evidence_outputs")),
-    semanticCase("go_lpt_cpu_budget", "Go LPT planning preserves row closure and CPU budgets", ["TH-HARNESS-AC-087"], () => assertGraphContract("go_lpt_budget")),
-    semanticCase("target_graph_validation", "target graphs validate before execution", ["TH-HARNESS-AC-082"], () => assertGraphContract("target_graph_validation")),
+    semanticCase("aggregate_graph_determinism", "aggregate work graphs are deterministic", ["TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "aggregate_determinism")),
+    semanticCase("row_evidence_output_contract", "row graphs declare exact current-run evidence outputs", ["TH-HARNESS-AC-087"], (context) => assertGraphContract(context, "row_evidence_outputs")),
+    semanticCase("go_lpt_cpu_budget", "Go LPT planning preserves row closure and CPU budgets", ["TH-HARNESS-AC-087"], (context) => assertGraphContract(context, "go_lpt_budget")),
+    semanticCase("target_graph_validation", "target graphs validate before execution", ["TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "target_graph_validation")),
   ],
   scheduler: [
-    semanticCase("scheduler_execution_and_cache_admission", "scheduler dependency, fixture, and cache admission lifecycles are exact", ["TH-HARNESS-AC-089", "TH-HARNESS-AC-091"], () => assertSchedulerContract("execution_and_cache_admission")),
-    semanticCase("scheduler_cancellation", "scheduler cancellation emits terminal evidence", ["TH-HARNESS-AC-089"], () => assertSchedulerContract("cancellation")),
-    semanticCase("capacity_snapshot_contract", "capacity snapshots enforce detected resource bounds", ["TH-HARNESS-AC-085"], () => assertSchedulerContract("capacity_snapshot")),
-    semanticCase("cache_registry_target_uniqueness", "cache registry target bindings are unique", ["TH-HARNESS-AC-091"], () => assertSchedulerContract("cache_registry_targets")),
-    semanticCase("content_cache_security_and_closure", "content cache restore is complete, contained, and dependency-closed", ["TH-HARNESS-AC-091", "TH-HARNESS-AC-101"], () => assertSchedulerContract("content_cache")),
-    semanticCase("cache_mode_contract", "cache modes preserve explicit read and write behavior", ["TH-HARNESS-AC-091"], () => assertSchedulerContract("cache_modes")),
-    semanticCase("release_inventory_contract", "release inventory has one deterministic paired cache producer and fresh validators", ["TH-HARNESS-AC-101"], () => assertSchedulerContract("release_inventory")),
-    semanticCase("vulnerability_revision_contract", "vulnerability database revisions are content-proven", ["TH-HARNESS-AC-098"], () => assertSchedulerContract("vulnerability_revision")),
-    semanticCase("scanner_evidence_parity", "scanner evidence parity rejects divergent executions", ["TH-HARNESS-AC-098"], () => assertSchedulerContract("scanner_parity")),
+    semanticCase("scheduler_execution_and_cache_admission", "scheduler dependency, fixture, and cache admission lifecycles are exact", ["TH-HARNESS-AC-089", "TH-HARNESS-AC-091"], (context) => assertSchedulerContract(context, "execution_and_cache_admission")),
+    semanticCase("scheduler_cancellation", "scheduler cancellation emits terminal evidence", ["TH-HARNESS-AC-089"], (context) => assertSchedulerContract(context, "cancellation")),
+    semanticCase("capacity_snapshot_contract", "capacity snapshots enforce detected resource bounds", ["TH-HARNESS-AC-085"], (context) => assertSchedulerContract(context, "capacity_snapshot")),
+    semanticCase("cache_registry_target_uniqueness", "cache registry target bindings are unique", ["TH-HARNESS-AC-091"], (context) => assertSchedulerContract(context, "cache_registry_targets")),
+    semanticCase("content_cache_security_and_closure", "content cache restore is complete, contained, and dependency-closed", ["TH-HARNESS-AC-091", "TH-HARNESS-AC-101"], (context) => assertSchedulerContract(context, "content_cache")),
+    semanticCase("cache_mode_contract", "cache modes preserve explicit read and write behavior", ["TH-HARNESS-AC-091"], (context) => assertSchedulerContract(context, "cache_modes")),
+    semanticCase("release_inventory_contract", "release inventory has one deterministic paired cache producer and fresh validators", ["TH-HARNESS-AC-101"], (context) => assertSchedulerContract(context, "release_inventory")),
+    semanticCase("vulnerability_revision_contract", "vulnerability database revisions are content-proven", ["TH-HARNESS-AC-098"], (context) => assertSchedulerContract(context, "vulnerability_revision")),
+    semanticCase("scanner_evidence_parity", "scanner evidence parity rejects divergent executions", ["TH-HARNESS-AC-098"], (context) => assertSchedulerContract(context, "scanner_parity")),
   ],
 };
 
 suiteCases.evidence.push(semanticCase(
-  "browser_artifact_admission", "browser attachments bind the selected artifact and current complete build", ["TH-HARNESS-AC-086"], () => {
+  "browser_artifact_admission", "browser attachments bind the selected artifact and current complete build", ["TH-HARNESS-AC-086"], (context) => {
     const temporaryRoot = mkdtempSync(path.join(tmpdir(), "cartulary-browser-artifact-"));
     try {
       const production = resolveBrowserFrontendArtifact(root, "functional");
@@ -1957,7 +1918,7 @@ suiteCases.evidence.push(semanticCase(
         ["web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde", "build-web"],
         ["module.networkflow.measurement.saved_graph_dom_ceiling", "build-web-measurement"],
       ]) {
-        const graph = compiler.compileRows([rowID]);
+        const graph = context.compiler.compileRows([rowID]);
         assert.ok(graph.units.some((unit) => unit.unit_id === `target:${expectedProducer}`), `row ${rowID} must build ${expectedProducer}`);
         // Measurement still builds the backend's embedded production assets.
         // Production work must never acquire the measurement producer.
@@ -1996,21 +1957,26 @@ suiteCases.evidence.push(semanticCase(
   },
 ));
 
-const allCases = Object.values(suiteCases).flat();
-assert.equal(new Set(allCases.map((entry) => entry.id)).size, allCases.length);
-for (const entry of allCases) {
-  assert.match(entry.id, /^[a-z][a-z0-9_]*$/u);
-  assert.ok(entry.acceptance_ids.length > 0);
-  assert.equal(new Set(entry.acceptance_ids).size, entry.acceptance_ids.length);
-  assert.ok(entry.acceptance_ids.every((id) => /^TH-HARNESS-AC-[0-9]{3}$/u.test(id)));
+function assertCaseDefinitions() {
+  const allCases = Object.values(suiteCases).flat();
+  assert.equal(new Set(allCases.map((entry) => entry.id)).size, allCases.length);
+  for (const entry of allCases) {
+    assert.match(entry.id, /^[a-z][a-z0-9_]*$/u);
+    assert.ok(entry.acceptance_ids.length > 0);
+    assert.equal(new Set(entry.acceptance_ids).size, entry.acceptance_ids.length);
+    assert.ok(entry.acceptance_ids.every((id) => /^TH-HARNESS-AC-[0-9]{3}$/u.test(id)));
+  }
 }
 
-export function runContractSuite(suite) {
+export function runContractSuite(suite, { contextFactory = () => createContractTestContext(root) } = {}) {
   const cases = suiteCases[suite];
-  assert.ok(cases?.length > 0, `contract suite ${suite} is empty`);
-  for (const entry of cases) {
+  test(`${suite}: case definitions are unique and valid`, () => {
+    assert.ok(cases?.length > 0, `contract suite ${suite} is empty`);
+    assertCaseDefinitions();
+  });
+  for (const entry of cases ?? []) {
     test(`${entry.id}: ${entry.name}`, async () => {
-      await entry.run();
+      await entry.run(contextFactory());
     });
   }
 }

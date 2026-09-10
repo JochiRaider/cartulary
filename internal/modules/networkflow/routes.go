@@ -2,7 +2,6 @@ package networkflow
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -746,13 +745,6 @@ func tableSoftDeleteRequestHash(tableID string, request tableSoftDeleteRequest) 
 	return sha256Bytes(graphViewMutationBytes(routeKeyTablesDelete, "network_flow_table_id:"+tableID, map[string]any{
 		"base_table_version": request.BaseTableVersion,
 	}))
-}
-
-func networkFlowRequestHash(value any) []byte {
-	sum := sha256.Sum256(canonicalJSON(value))
-	out := make([]byte, len(sum))
-	copy(out, sum[:])
-	return out
 }
 
 func decodeStoredNetworkFlowResponse(data []byte) (map[string]any, error) {

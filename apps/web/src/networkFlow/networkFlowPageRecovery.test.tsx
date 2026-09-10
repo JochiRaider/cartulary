@@ -624,6 +624,7 @@ describe("Network Flow page recovery boundaries", () => {
       decodeNetworkFlowContributorResult(response, context).contributors,
     ).toHaveLength(1);
     for (const patch of [
+      { meta: { paging: { ...response.meta.paging, limit: 50 } } },
       { graph_query_digest: "b".repeat(64) },
       {
         selector: { ...savedGraphSelectorFixture, endpoint_value: "192.0.2.9" },

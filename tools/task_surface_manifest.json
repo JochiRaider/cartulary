@@ -10047,16 +10047,19 @@
       "name": "harness-contract-tests",
       "backing_scripts": [
         "tools/harness/browser/tests/test-playwright-row-runner.mjs",
+        "tools/harness/observability/tests/test-observability.mjs",
+        "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/services/tests/test-local-session.mjs",
+        "tools/harness/static-analysis/exact-file-sets.mjs",
+        "tools/harness/tests/contract-catalog-cases.mjs",
+        "tools/harness/tests/contract-initialization-cases.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
+        "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "tools/harness/static-analysis/exact-file-sets.mjs",
-        "tools/harness/observability/tests/test-observability.mjs",
-        "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_test_catalog_tests.v2",
       "target_class": "check_internal",
@@ -10066,7 +10069,10 @@
     {
       "name": "harness-command-surface-contract",
       "backing_scripts": [
+        "tools/harness/tests/contract-catalog-cases.mjs",
+        "tools/harness/tests/contract-initialization-cases.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
+        "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_command_surface_contract.v2",
@@ -10077,7 +10083,10 @@
     {
       "name": "harness-evidence-contract",
       "backing_scripts": [
+        "tools/harness/tests/contract-catalog-cases.mjs",
+        "tools/harness/tests/contract-initialization-cases.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
+        "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_evidence_contract.v2",
@@ -10094,13 +10103,16 @@
         "tools/harness/services/local-session-cli.mjs",
         "tools/harness/services/local-session.mjs",
         "tools/harness/services/tests/test-local-session.mjs",
+        "tools/harness/static-analysis/exact-file-sets.mjs",
+        "tools/harness/tests/contract-catalog-cases.mjs",
+        "tools/harness/tests/contract-initialization-cases.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
+        "tools/harness/tests/contract-test-context.mjs",
         "tools/harness/tests/test-harness-boundary-contracts.mjs",
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "tools/harness/static-analysis/exact-file-sets.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",

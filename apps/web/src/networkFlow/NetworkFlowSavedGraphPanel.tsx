@@ -395,7 +395,11 @@ export function NetworkFlowSavedGraphPanel({
                   </span>
                 </div>
               ) : (
-                <div data-testid={networkAnalysisTestId("saved-graph-result")}>
+                <div
+                  data-testid={networkAnalysisTestId("saved-graph-result")}
+                  data-graph-view-id={result.graph_view_id}
+                  data-projection-result-id={result.projection_result_id}
+                >
                   <p style={summaryStyle}>
                     Result {shortIdentity(result.projection_result_id)} ·{" "}
                     {vertices.length} vertices · {edges.length} edges

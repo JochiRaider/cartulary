@@ -1,11 +1,12 @@
 import { Buffer } from "node:buffer";
+import { networkFlowDecoders } from "@cartulary/protocol-ts/network-flow";
 import {
   networkAnalysisSavedGraphTestId,
   networkAnalysisTestId,
   surfaceTabTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import type { Request } from "@playwright/test";
+import type { Locator, Page, Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
@@ -20,6 +21,43 @@ import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+
+function nextSavedGraphResult(page: Page) {
+  return page
+    .waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        /\/network-flow\/graph-views\/[^/]+\/result$/u.test(response.url()) &&
+        response.status() === 200,
+    )
+    .then(async (response) => {
+      const decoded = networkFlowDecoders.graphViewResult.decode(
+        (await response.json()).data,
+      );
+      if (!decoded.ok) throw new Error(JSON.stringify(decoded.error));
+      return {
+        graphId: decoded.value.graph_view.graph_view_id,
+        projectionId:
+          decoded.value.result.graph_projection_result.projection_result_id,
+      };
+    });
+}
+
+async function expectSavedGraphResult(
+  panel: Locator,
+  identity: { graphId: string; projectionId: string },
+) {
+  await expect(
+    panel.getByTestId(networkAnalysisSavedGraphTestId(identity.graphId)),
+  ).toHaveAttribute("aria-current", "true");
+  const result = panel.getByTestId(networkAnalysisTestId("saved-graph-result"));
+  await expect(result).toHaveAttribute("data-graph-view-id", identity.graphId);
+  await expect(result).toHaveAttribute(
+    "data-projection-result-id",
+    identity.projectionId,
+  );
+  await expect(result).toBeVisible();
+}
 
 test("Network Analysis authors lossless typed queries and applies exact row and graph scopes", async ({
   page,
@@ -1007,15 +1045,17 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
   ).toBeEnabled();
   await expect(dialog).toHaveCount(0);
   failOperationReads = false;
+  const recoveredResult = nextSavedGraphResult(page);
   await recovery
     .getByRole("button", { name: "Resume operation observation" })
     .click();
   await recovery
     .getByRole("button", { name: "Reload operation graph" })
     .click();
+  await expectSavedGraphResult(panel, await recoveredResult);
   await expect(
-    panel.getByRole("heading", { name: "Recovered evidence" }),
-  ).toBeVisible();
+    panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
+  ).toHaveText("Recovered evidence");
   const result = panel.getByTestId(networkAnalysisTestId("saved-graph-result"));
   await expect(result).toBeVisible();
   const vertex = page
@@ -1092,6 +1132,7 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
   await page.getByRole("button", { name: "Saved graphs" }).click();
   const panel = page.getByRole("region", { name: "Saved Network Flow graphs" });
   const ids: string[] = [];
+  const results: Array<{ graphId: string; projectionId: string }> = [];
   for (let index = 0; index < 2; index++) {
     await panel.getByRole("button", { name: "Save current graph" }).click();
     await page
@@ -1102,15 +1143,18 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
         response.request().method() === "POST" &&
         response.url().endsWith("/graph-views"),
     );
+    const materialized = nextSavedGraphResult(page);
     await page.getByRole("button", { name: "Save graph", exact: true }).click();
     ids.push((await (await accepted).json()).data.graph_view.graph_view_id);
-    await expect(
-      panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
-    ).toBeVisible();
+    const identity = await materialized;
+    expect(identity.graphId).toBe(ids[index]);
+    results.push(identity);
+    await expectSavedGraphResult(panel, identity);
   }
   expect(ids[0]).not.toBe(ids[1]);
   const [firstId, secondId] = ids;
-  if (!firstId || !secondId)
+  const [firstResult, secondResult] = results;
+  if (!firstId || !secondId || !firstResult || !secondResult)
     throw new Error("Both saved declarations must be acknowledged.");
   const graphA = panel.getByTestId(networkAnalysisSavedGraphTestId(firstId));
   const graphB = panel.getByTestId(networkAnalysisSavedGraphTestId(secondId));
@@ -1179,9 +1223,10 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
     await graphB.click();
     await expect(graphB).toHaveAttribute("aria-current", "true");
     releaseResult();
+    await expectSavedGraphResult(panel, secondResult);
     await expect(
-      panel.getByRole("heading", { name: "Second graph" }),
-    ).toBeVisible();
+      panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
+    ).toHaveText("Second graph");
     await expect(
       panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
     ).toBeVisible();
@@ -1190,9 +1235,10 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
     await page.unroute(resultRoute);
   }
   await graphA.click();
+  await expectSavedGraphResult(panel, firstResult);
   await expect(
-    panel.getByRole("heading", { name: "Duplicate graph" }),
-  ).toBeVisible();
+    panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
+  ).toHaveText("Duplicate graph");
   const vertex = page
     .getByTestId(/^network-flow-saved-graph-vertex-/u)
     .first()
@@ -1218,9 +1264,10 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
     await contributorsWaiting;
     await graphB.click();
     releaseContributors();
+    await expectSavedGraphResult(panel, secondResult);
     await expect(
-      panel.getByRole("heading", { name: "Second graph" }),
-    ).toBeVisible();
+      panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
+    ).toHaveText("Second graph");
     await expect(
       panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
     ).toBeVisible();

@@ -1,5 +1,6 @@
 import type { StableTestId } from "./selectorCore";
 import {
+  dataTestIdPrefixSelector,
   encodedTestId,
   encodeSelectorSegment,
   stableTestId,
@@ -95,6 +96,14 @@ export function networkAnalysisTableTabTestId(
   return stableTestId(
     encodedTestId("network-flow-table-tab", networkFlowTableId, "table_id"),
   );
+}
+
+export function networkAnalysisEdgeFamilySelector(): string {
+  return dataTestIdPrefixSelector("network-flow-edge-");
+}
+
+export function networkAnalysisVertexFamilySelector(): string {
+  return dataTestIdPrefixSelector("network-flow-vertex-");
 }
 
 export function networkAnalysisEdgeTestId(edgeId: string): StableTestId {

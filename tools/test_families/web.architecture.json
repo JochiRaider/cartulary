@@ -112,7 +112,8 @@
         "titles": [
           "frontend source ownership policy accounts for every live TypeScript path exactly once without Markdown input",
           "frontend source ownership policy centralizes transaction identity and confines wire intents to owner-local command modules",
-          "frontend source ownership policy keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation"
+          "frontend source ownership policy keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation",
+          "frontend source ownership policy reports missing duplicate stale and unsafe paths explicitly"
         ]
       },
       "evidence_class": "static",

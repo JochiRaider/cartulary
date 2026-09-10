@@ -216,8 +216,13 @@ describe("NetworkAnalysisWorkspace", () => {
     if (!decodedSourceProfiles.ok) {
       throw new Error(JSON.stringify(decodedSourceProfiles.error));
     }
+    let releaseContributors = () => {};
+    const contributorResponseGate = new Promise<void>((resolve) => {
+      releaseContributors = resolve;
+    });
     const fetchSpy = installNetworkFlowFetchMock({
       contributorNextCursor: "contributor-cursor-2",
+      contributorResponseGate,
     });
     render(
       <NetworkAnalysisWorkspace
@@ -440,7 +445,16 @@ describe("NetworkAnalysisWorkspace", () => {
       selector: graphDefaultEdgeSelectorResource(),
       limit: 500,
     });
-    fireEvent.click(screen.getByTestId(networkAnalysisTestId("page-next")));
+    const nextPage = screen.getByTestId(networkAnalysisTestId("page-next"));
+    expect(nextPage.getAttribute("aria-disabled")).toBe("true");
+    releaseContributors();
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(networkAnalysisTestId("page-status")).textContent,
+      ).toBe("Page 1");
+      expect(nextPage.getAttribute("aria-disabled")).toBe("false");
+    });
+    fireEvent.click(nextPage);
     await waitFor(() => {
       expect(contributorRequestBodies(fetchSpy).at(-1)).toEqual({
         schema_id:
@@ -448,7 +462,16 @@ describe("NetworkAnalysisWorkspace", () => {
         cursor_token: "contributor-cursor-2",
       });
     });
-    fireEvent.click(screen.getByTestId(networkAnalysisTestId("page-previous")));
+    const previousPage = screen.getByTestId(
+      networkAnalysisTestId("page-previous"),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(networkAnalysisTestId("page-status")).textContent,
+      ).toBe("Page 2");
+      expect(previousPage.getAttribute("aria-disabled")).toBe("false");
+    });
+    fireEvent.click(previousPage);
     await waitFor(() => {
       expect(contributorRequestBodies(fetchSpy).at(-1)).toEqual({
         schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
@@ -459,6 +482,11 @@ describe("NetworkAnalysisWorkspace", () => {
       });
     });
 
+    await waitFor(() => {
+      expect(
+        screen.getByTestId(networkAnalysisTestId("page-status")).textContent,
+      ).toBe("Page 1");
+    });
     fireEvent.click(screen.getByRole("button", { name: /link source/i }));
     expect(
       screen.getByTestId(networkAnalysisTestId("indicator-link-dialog")),
@@ -2049,6 +2077,7 @@ function installNetworkFlowFetchMock(
       typeof graphResource
     >["graph_projection_result"];
     readonly contributorNextCursor?: string;
+    readonly contributorResponseGate?: Promise<void>;
     readonly renameConflictOnce?: boolean;
     readonly removeTablesOnRowFailure?: boolean;
     readonly rowFailureAfter?: number;
@@ -2079,8 +2108,12 @@ function installNetworkFlowFetchMock(
   let savedGraphListFailureUsed = false;
   let uncertainCreateReceipt: { body: string; value: unknown } | null = null;
   let rowQueryCount = 0;
-  let contributorSelector: Record<string, unknown> =
-    graphDefaultEdgeSelectorResource();
+  type ContributorContext = {
+    limit: number;
+    graph_query_digest: string;
+    selector: Record<string, unknown>;
+  };
+  const contributorCursors = new Map<string, ContributorContext>();
   const fetchSpy = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = requestURL(input);
@@ -2601,27 +2634,36 @@ function installNetworkFlowFetchMock(
           "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/contributors/query",
         )
       ) {
-        const request = JSON.parse(String(init?.body)) as {
-          schema_id: string;
-          selector?: Record<string, unknown>;
-        };
-        if (request.selector !== undefined) {
-          contributorSelector = request.selector;
-        }
+        const request = JSON.parse(String(init?.body)) as
+          | (ContributorContext & {
+              schema_id: "cartulary.network_flow.graph_contributor_query_request.v2";
+            })
+          | {
+              schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1";
+              cursor_token: string;
+            };
+        const initial =
+          request.schema_id ===
+          "cartulary.network_flow.graph_contributor_query_request.v2";
+        const context = initial
+          ? request
+          : contributorCursors.get(request.cursor_token);
+        if (!context) throw new Error("Unknown contributor fixture cursor");
+        const nextCursor = initial
+          ? (options.contributorNextCursor ?? null)
+          : null;
+        if (nextCursor !== null) contributorCursors.set(nextCursor, context);
+        await options.contributorResponseGate;
         return jsonResponse({
           schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
-          graph_query_digest: graphDigest,
-          selector: contributorSelector,
+          graph_query_digest: context.graph_query_digest,
+          selector: context.selector,
           contributors: [{ row_ref: rowRefResource(), row: rowResource() }],
           meta: {
             paging: {
-              limit: 50,
+              limit: context.limit,
               returned_count: 1,
-              next_cursor_token:
-                request.schema_id ===
-                "cartulary.network_flow.graph_contributor_query_request.v2"
-                  ? (options.contributorNextCursor ?? null)
-                  : null,
+              next_cursor_token: nextCursor,
             },
           },
         });

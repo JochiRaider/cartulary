@@ -133,6 +133,7 @@ export {
   networkAnalysisColumnActionTestId,
   networkAnalysisDiagnosticCellTestId,
   networkAnalysisDiagnosticTestId,
+  networkAnalysisEdgeFamilySelector,
   networkAnalysisEdgeTestId,
   networkAnalysisMappingColumnTestId,
   networkAnalysisRowCellTestId,
@@ -142,6 +143,7 @@ export {
   networkAnalysisSavedGraphVertexTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
+  networkAnalysisVertexFamilySelector,
   networkAnalysisVertexTestId,
 } from "./networkFlowSelectors";
 export {

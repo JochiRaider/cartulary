@@ -42,6 +42,46 @@ function liveTypeScriptPaths(directory: string): string[] {
   return paths.sort();
 }
 
+function sourceOwnershipProblems(
+  manifest: SourceOwnershipManifest,
+  livePaths: readonly string[],
+): string[] {
+  const problems: string[] = [];
+  const owners = new Set<string>();
+  const declared = new Map<string, string[]>();
+  const live = new Set(livePaths);
+  const ownerIds = manifest.entries.map((entry) => entry.owner_id);
+  if (ownerIds.join("\n") !== [...ownerIds].sort().join("\n"))
+    problems.push("Unsorted owner IDs");
+  for (const entry of manifest.entries) {
+    if (owners.has(entry.owner_id))
+      problems.push(`Duplicate owner: ${entry.owner_id}`);
+    owners.add(entry.owner_id);
+    if (entry.paths.join("\n") !== [...entry.paths].sort().join("\n"))
+      problems.push(`Unsorted paths: ${entry.owner_id}`);
+    for (const sourcePath of entry.paths) {
+      if (
+        !sourcePath.startsWith(`${manifest.source_root}/`) ||
+        sourcePath.includes("\\") ||
+        path.posix.normalize(sourcePath) !== sourcePath ||
+        !manifest.included_extensions.includes(path.posix.extname(sourcePath))
+      )
+        problems.push(`Unsafe path: ${sourcePath}`);
+      const pathOwners = declared.get(sourcePath) ?? [];
+      pathOwners.push(entry.owner_id);
+      declared.set(sourcePath, pathOwners);
+    }
+  }
+  for (const [sourcePath, pathOwners] of declared) {
+    if (pathOwners.length > 1)
+      problems.push(`Duplicate path: ${sourcePath} (${pathOwners.join(", ")})`);
+    if (!live.has(sourcePath)) problems.push(`Stale path: ${sourcePath}`);
+  }
+  for (const sourcePath of live)
+    if (!declared.has(sourcePath)) problems.push(`Missing path: ${sourcePath}`);
+  return problems.sort();
+}
+
 describe("frontend source ownership policy", () => {
   it("accounts for every live TypeScript path exactly once without Markdown input", () => {
     const manifest = JSON.parse(
@@ -51,29 +91,78 @@ describe("frontend source ownership policy", () => {
     expect(manifest.source_root).toBe("apps/web/src");
     expect(manifest.included_extensions).toEqual([".ts", ".tsx"]);
 
-    const ownerIds = manifest.entries.map((entry) => entry.owner_id);
-    expect(ownerIds).toEqual([...ownerIds].sort());
-    expect(new Set(ownerIds).size).toBe(ownerIds.length);
-
-    const accountedPaths = manifest.entries.flatMap((entry) => {
-      expect(entry.paths).toEqual([...entry.paths].sort());
-      return entry.paths;
-    });
-    expect(new Set(accountedPaths).size).toBe(accountedPaths.length);
-    for (const sourcePath of accountedPaths) {
-      expect(sourcePath.startsWith(`${manifest.source_root}/`)).toBe(true);
-      expect(
-        manifest.included_extensions.includes(path.posix.extname(sourcePath)),
-      ).toBe(true);
-      expect(path.posix.normalize(sourcePath)).toBe(sourcePath);
-      const sourceStats = lstatSync(path.join(repoRoot, sourcePath));
-      expect(sourceStats.isFile()).toBe(true);
-      expect(sourceStats.isSymbolicLink()).toBe(false);
+    expect(
+      sourceOwnershipProblems(
+        manifest,
+        liveTypeScriptPaths(path.join(repoRoot, manifest.source_root)),
+      ),
+    ).toEqual([]);
+    for (const entry of manifest.entries) {
+      for (const sourcePath of entry.paths) {
+        const sourceStats = lstatSync(path.join(repoRoot, sourcePath));
+        expect(sourceStats.isFile(), sourcePath).toBe(true);
+        expect(sourceStats.isSymbolicLink(), sourcePath).toBe(false);
+      }
     }
+  });
 
-    expect(accountedPaths.sort()).toEqual(
-      liveTypeScriptPaths(path.join(repoRoot, manifest.source_root)),
+  it("reports missing duplicate stale and unsafe paths explicitly", () => {
+    const live = ["apps/web/src/example.ts"];
+    const fixture = (paths: readonly string[]): SourceOwnershipManifest => ({
+      schema_id: "cartulary.frontend_source_ownership.v1",
+      source_root: "apps/web/src",
+      included_extensions: [".ts", ".tsx"],
+      entries: [{ owner_id: "web.example", paths }],
+    });
+    expect(sourceOwnershipProblems(fixture(live), live)).toEqual([]);
+    expect(sourceOwnershipProblems(fixture([]), live)).toEqual([
+      "Missing path: apps/web/src/example.ts",
+    ]);
+    expect(sourceOwnershipProblems(fixture([...live, ...live]), live)).toEqual([
+      "Duplicate path: apps/web/src/example.ts (web.example, web.example)",
+    ]);
+    expect(
+      sourceOwnershipProblems(
+        fixture([...live, "apps/web/src/removed.ts"]),
+        live,
+      ),
+    ).toEqual(["Stale path: apps/web/src/removed.ts"]);
+    for (const unsafe of [
+      "/tmp/outside.ts",
+      "apps/web/src/../outside.ts",
+      "apps/web/src/file.js",
+      "apps/web/src/dir\\file.ts",
+    ]) {
+      expect(sourceOwnershipProblems(fixture([unsafe]), live)).toContain(
+        `Unsafe path: ${unsafe}`,
+      );
+    }
+    expect(
+      sourceOwnershipProblems(fixture(["apps/web/src/z.ts", ...live]), live),
+    ).toContain("Unsorted paths: web.example");
+    const duplicateOwner = {
+      ...fixture(live),
+      entries: [...fixture(live).entries, ...fixture([]).entries],
+    };
+    expect(sourceOwnershipProblems(duplicateOwner, live)).toContain(
+      "Duplicate owner: web.example",
     );
+    const crossOwner = {
+      ...fixture(live),
+      entries: [
+        ...fixture(live).entries,
+        { owner_id: "web.other", paths: live },
+      ],
+    };
+    expect(sourceOwnershipProblems(crossOwner, live)).toContain(
+      "Duplicate path: apps/web/src/example.ts (web.example, web.other)",
+    );
+    expect(
+      sourceOwnershipProblems(
+        { ...crossOwner, entries: [...crossOwner.entries].reverse() },
+        live,
+      ),
+    ).toContain("Unsorted owner IDs");
   });
 
   it("centralizes transaction identity and confines wire intents to owner-local command modules", () => {
