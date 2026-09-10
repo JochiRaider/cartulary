@@ -418,7 +418,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await screen.findByTestId(networkAnalysisEdgeTestId(edgeId));
 
     const selectEdgeButton = screen.getByRole("button", {
-      name: "Select edge",
+      name: /^Select edge/u,
     });
     fireEvent.click(selectEdgeButton);
     expect(
@@ -518,7 +518,7 @@ describe("NetworkAnalysisWorkspace", () => {
     );
     await waitFor(() => expect(document.activeElement).toBe(selectEdgeButton));
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Select vertex" })[0] as Element,
+      screen.getAllByRole("button", { name: /^Select vertex/u })[0] as Element,
     );
     expect(
       await screen.findByTestId(networkAnalysisTestId("contributor-drawer")),
@@ -1208,7 +1208,7 @@ describe("NetworkAnalysisWorkspace", () => {
       },
     });
 
-    await user.click(screen.getByRole("button", { name: "Select edge" }));
+    await user.click(screen.getByRole("button", { name: /^Select edge/u }));
     await waitFor(() => {
       expect(contributorRequestBodies(fetchSpy).at(-1)).toMatchObject({
         schema_id: "cartulary.network_flow.graph_contributor_query_request.v2",
@@ -1226,6 +1226,19 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       screen.queryByTestId(networkAnalysisEdgeTestId(temporalEdgeId)),
     ).toBeNull();
+    expect(
+      screen.queryByTestId(networkAnalysisTestId("contributor-drawer")),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Next bucket" })).toBe(
+      document.activeElement,
+    );
+    const requestsBeforeSubview = graphRequestBodies(fetchSpy).length;
+    await user.click(screen.getByRole("button", { name: "Saved graphs" }));
+    await user.click(
+      screen.getByRole("button", { name: "Unsaved exploration" }),
+    );
+    expect(screen.getByText("Bucket 2 of 2")).toBeTruthy();
+    expect(graphRequestBodies(fetchSpy)).toHaveLength(requestsBeforeSubview);
 
     await user.selectOptions(screen.getByLabelText("Bucket width"), "300");
     await user.click(screen.getByRole("button", { name: "Apply query" }));
@@ -1599,6 +1612,99 @@ describe("NetworkAnalysisWorkspace", () => {
       screen.getAllByTestId(/^network-flow-saved-graph-edge-/u),
     ).toHaveLength(1);
   });
+
+  it("preserves off-page exploration selection and restores semantic focus through reveal close Escape and Saved", async () => {
+    const user = userEvent.setup();
+    const tables = [tableResource()];
+    const requests = installNetworkFlowFetchMock({
+      explorationProjection: largeSavedGraphProjectionResult(),
+      tables,
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="editor"
+        incidentId={incidentResourceId}
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    const vertices = await screen.findAllByTestId(/^network-flow-vertex-/u);
+    expect(vertices).toHaveLength(500);
+    expect(screen.getAllByTestId(/^network-flow-edge-/u)).toHaveLength(1000);
+    const first = within(vertices[0] as HTMLElement).getByRole("button", {
+      name: /^Select vertex/u,
+    });
+    const firstName = first.getAttribute("aria-label");
+    await user.click(first);
+    await screen.findByTestId(networkAnalysisTestId("contributor-grid"));
+    const drawer = () =>
+      within(screen.getByTestId(networkAnalysisTestId("contributor-drawer")));
+    const vertexNav = () =>
+      screen.getByRole("navigation", { name: "vertices navigation" });
+    await user.click(within(vertexNav()).getByRole("button", { name: "Next" }));
+    expect(screen.getAllByTestId(/^network-flow-vertex-/u)).toHaveLength(1);
+    expect(
+      within(
+        screen.getByTestId(networkAnalysisTestId("contributor-drawer")),
+      ).getByText(/Selected object is off-page/u),
+    ).toBeTruthy();
+    const reads = contributorRequestBodies(requests).length;
+    await user.click(
+      drawer().getByRole("button", { name: "Reveal selected object" }),
+    );
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(firstName);
+    expect(contributorRequestBodies(requests)).toHaveLength(reads);
+    await user.click(within(vertexNav()).getByRole("button", { name: "Next" }));
+    await user.click(
+      drawer().getByRole("button", { name: "Close graph contributors" }),
+    );
+    expect(document.activeElement).toBe(
+      within(vertexNav()).getByRole("button", { name: "Previous" }),
+    );
+    expect(
+      screen.queryByTestId(networkAnalysisTestId("contributor-drawer")),
+    ).toBeNull();
+    const selectedControl = () =>
+      within(screen.getByTestId(/^network-flow-vertex-/u)).getByRole("button", {
+        name: /^Select vertex/u,
+      });
+    const last = selectedControl();
+    await user.click(last);
+    const selectedName = last.getAttribute("aria-label");
+    await waitFor(() =>
+      expect(contributorRequestBodies(requests).length).toBeGreaterThan(reads),
+    );
+    const graphReads = graphRequestBodies(requests).length;
+    await user.click(
+      screen.getByTestId(networkAnalysisTestId("graph-surface-saved")),
+    );
+    await user.click(
+      screen.getByTestId(networkAnalysisTestId("graph-surface-explore")),
+    );
+    expect(screen.getAllByTestId(/^network-flow-vertex-/u)).toHaveLength(1);
+    expect(selectedControl().getAttribute("aria-pressed")).toBe("true");
+    expect(graphRequestBodies(requests)).toHaveLength(graphReads);
+    expect(document.activeElement).toBe(
+      screen.getByTestId(networkAnalysisTestId("graph-surface-explore")),
+    );
+    tables[0] = {
+      ...tableResource(),
+      display_name: "Renamed source",
+      table_version: 2,
+    };
+    await user.click(screen.getByRole("button", { name: "Refresh tables" }));
+    await screen.findByRole("tab", { name: /Renamed source/u });
+    expect(selectedControl().getAttribute("aria-label")).toBe(selectedName);
+    expect(graphRequestBodies(requests)).toHaveLength(graphReads);
+    drawer().getByRole("button", { name: "Close graph contributors" }).focus();
+    await user.keyboard("{Escape}");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(
+      selectedName,
+    );
+    expect(
+      screen.queryByTestId(networkAnalysisTestId("contributor-drawer")),
+    ).toBeNull();
+  });
 });
 
 function installImportFlowFetchMock(returnedTableId: string) {
@@ -1939,6 +2045,9 @@ function importEnvelope<T>(data: T) {
 
 function installNetworkFlowFetchMock(
   options: {
+    readonly explorationProjection?: ReturnType<
+      typeof graphResource
+    >["graph_projection_result"];
     readonly contributorNextCursor?: string;
     readonly renameConflictOnce?: boolean;
     readonly removeTablesOnRowFailure?: boolean;
@@ -2451,6 +2560,10 @@ function installNetworkFlowFetchMock(
           "/api/v1/incidents/11111111-1111-4111-8111-111111111111/network-flow/graphs/query",
         )
       ) {
+        if (options.explorationProjection)
+          return jsonResponse(
+            graphResultForProjection(options.explorationProjection),
+          );
         const request = JSON.parse(String(init?.body)) as {
           aggregation: ReturnType<
             typeof graphSemanticQueryResource

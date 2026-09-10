@@ -4,19 +4,14 @@ import {
   ExtensionAvailabilityUnavailableError,
 } from "../extensions/extensionAvailability";
 import { boundedRead } from "../services/asyncObservation";
-import {
-  networkFlowContractEqual,
-  validateNetworkFlowPageContinuation,
-} from "../services/networkFlowContractAdapter";
+import { validateNetworkFlowPageContinuation } from "../services/networkFlowContractAdapter";
 import type { NetworkFlowTableController } from "./NetworkFlowTableController";
 import type {
   NetworkFlowContributor,
   NetworkFlowContributorPageRequest,
-  NetworkFlowGraphEdge,
   NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
   NetworkFlowGraphSelector,
-  NetworkFlowGraphVertex,
   NetworkFlowTable,
   NetworkFlowTableScope,
 } from "./networkFlowClient";
@@ -30,6 +25,14 @@ import {
   networkFlowErrorFromUnknown,
 } from "./networkFlowErrors";
 import {
+  type ExplorationAction,
+  type ExplorationNavigation,
+  emptyExploration,
+  explorationFocusCurrent,
+  explorationPresentation,
+  transitionExploration,
+} from "./networkFlowExplorationNavigation";
+import {
   type GraphQuerySettings,
   type NetworkFlowAcceptedQuery,
   reconcileNetworkFlowContributors,
@@ -39,6 +42,15 @@ import {
   type NetworkFlowQueryLoadState,
   useNetworkFlowPagedQuery,
 } from "./useNetworkFlowPagedQuery";
+
+function selectionContext(state: ExplorationNavigation): string {
+  return JSON.stringify([
+    state.contextKey,
+    state.identity,
+    state.selectionRevision,
+    state.selection,
+  ]);
+}
 
 export type NetworkFlowGraphScopeMode =
   | "active_table"
@@ -59,6 +71,8 @@ export function useNetworkFlowGraphController({
   activeTableId,
   apiBase,
   enabled,
+  active = enabled,
+  onNavigationContextChange,
   incidentId,
   onError,
   onIncidentAccessLost,
@@ -72,6 +86,8 @@ export function useNetworkFlowGraphController({
   onProtectedStateLoss,
   onQueryResult,
 }: {
+  readonly active?: boolean;
+  readonly onNavigationContextChange?: (context: string) => void;
   readonly readIdentity?: string | null;
   readonly isCurrentRead?: () => boolean;
   readonly onProtectedStateLoss?: (error: NetworkFlowRequestError) => void;
@@ -108,14 +124,36 @@ export function useNetworkFlowGraphController({
       : 3600;
   const staleRef = useRef(false);
   const [graphStale, setGraphStale] = useState(false);
-  const [graph, setGraph] = useState<NetworkFlowGraphResult | null>(null);
+  const [storedNavigation, setNavigation] = useState(() =>
+    emptyExploration("", active),
+  );
+  const navigationRef = useRef(storedNavigation);
+  const navigationChanged = useRef(onNavigationContextChange);
+  navigationChanged.current = onNavigationContextChange;
+  const contributorContext = useRef("");
+  const clearContributors = useRef<() => void>(() => {});
+  const navigate = useCallback((action: ExplorationAction) => {
+    const previous = navigationRef.current;
+    const next = transitionExploration(previous, action);
+    if (next === previous) return;
+    navigationRef.current = next;
+    if (selectionContext(previous) !== selectionContext(next)) {
+      contributorContext.current = "";
+      clearContributors.current();
+      navigationChanged.current?.(selectionContext(next));
+    }
+    setNavigation(next);
+  }, []);
+  const setGraph = useCallback(
+    (result: NetworkFlowGraphResult | null) => {
+      navigate(result ? { type: "accept", result } : { type: "clear" });
+    },
+    [navigate],
+  );
   const [graphLoadState, setGraphLoadState] =
     useState<NetworkFlowQueryLoadState>("idle");
-  const [selection, setSelectionState] =
-    useState<NetworkFlowGraphSelection | null>(null);
   const [graphGeneration, setGraphGeneration] = useState(0);
   const graphControllerRef = useRef<AbortController | null>(null);
-  const clearContributors = useRef<() => void>(() => {});
 
   const clearGraph = useCallback(() => {
     staleRef.current = false;
@@ -124,8 +162,7 @@ export function useNetworkFlowGraphController({
     clearContributors.current();
     setGraph(null);
     setGraphLoadState("idle");
-    setSelectionState(null);
-  }, []);
+  }, [setGraph]);
   const markGraphStale = useCallback(() => {
     graphControllerRef.current?.abort();
     clearContributors.current();
@@ -133,8 +170,7 @@ export function useNetworkFlowGraphController({
     setGraphStale(true);
     setGraph(null);
     setGraphLoadState("error");
-    setSelectionState(null);
-  }, []);
+  }, [setGraph]);
   const derivedTableScope = useMemo<NetworkFlowTableScope | null>(() => {
     if (tableIds.length === 0) {
       return null;
@@ -180,12 +216,18 @@ export function useNetworkFlowGraphController({
   }, [applicationRevision]);
 
   const sourceState = useRef({
-    ids: resolvedSourceIds,
-    displayed: graph !== null || graphLoadState === "loading",
+    ids:
+      navigationRef.current.result?.semantic_query.selected_table_ids ??
+      resolvedSourceIds,
+    displayed:
+      navigationRef.current.result !== null || graphLoadState === "loading",
   });
   sourceState.current = {
-    ids: resolvedSourceIds,
-    displayed: graph !== null || graphLoadState === "loading",
+    ids:
+      navigationRef.current.result?.semantic_query.selected_table_ids ??
+      resolvedSourceIds,
+    displayed:
+      navigationRef.current.result !== null || graphLoadState === "loading",
   };
   useLayoutEffect(
     () =>
@@ -223,16 +265,33 @@ export function useNetworkFlowGraphController({
     aggregation,
     enabled,
   ]);
+  // Withdraw mismatched exposure during render; request effects never repair visible bounds.
+  if (navigationRef.current.contextKey !== graphContextKey) {
+    navigationRef.current = transitionExploration(navigationRef.current, {
+      type: "context",
+      contextKey: graphContextKey,
+      active,
+    });
+  }
+  const navigation = navigationRef.current;
+  const graph = navigation.result;
+  const selection = navigation.selection;
+  const presentation = explorationPresentation(navigation);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const graphContext = useRef(graphContextKey);
   graphContext.current = graphContextKey;
   useLayoutEffect(() => {
-    void revision;
-    void graphGeneration;
-    void tableScopeKey;
-    void resolvedSourceKey;
+    navigate({ type: "active", active });
+    if (!active) {
+      graphControllerRef.current?.abort();
+      setGraphLoadState((current) =>
+        current === "loading" ? "idle" : current,
+      );
+    }
+  }, [active, navigate]);
+  useLayoutEffect(() => {
     graphControllerRef.current?.abort();
-    clearContributors.current();
-    setSelectionState(null);
     if (!enabled) {
       staleRef.current = false;
       setGraphStale(false);
@@ -248,8 +307,11 @@ export function useNetworkFlowGraphController({
       setGraphLoadState(graphStale && enabled ? "error" : "idle");
       return;
     }
+    if (!active || navigationRef.current.result !== null) return;
     const accepts = () =>
-      graphContext.current === graphContextKey && isCurrentRead?.() !== false;
+      activeRef.current &&
+      graphContext.current === graphContextKey &&
+      isCurrentRead?.() !== false;
     const controller = new AbortController();
     graphControllerRef.current = controller;
     const settleStoppedRead = () => {
@@ -338,6 +400,8 @@ export function useNetworkFlowGraphController({
       });
     return () => controller.abort();
   }, [
+    active,
+    setGraph,
     availability,
     graphContextKey,
     isCurrentRead,
@@ -349,61 +413,27 @@ export function useNetworkFlowGraphController({
     aggregationMode,
     apiBase,
     enabled,
-    graphGeneration,
     graphStale,
-    resolvedSourceKey,
     incidentId,
     onError,
     onIncidentAccessLost,
     query,
     bucketWidthSeconds,
     tableScope,
-    tableScopeKey,
     validationMessage,
   ]);
 
-  const selectedVertex = useMemo<NetworkFlowGraphVertex | null>(() => {
-    if (selection?.kind !== "vertex") {
-      return null;
-    }
-    const binding = graph?.vertex_selectors.find((candidate) =>
-      graphSelectionEqual(candidate.selector, selection),
-    );
-    return binding === undefined
-      ? null
-      : (graph?.graph_projection_result.vertices.find(
-          (vertex) => vertex.vertex_id === binding.projected_vertex_id,
-        ) ?? null);
-  }, [graph, selection]);
-  const selectedEdge = useMemo<NetworkFlowGraphEdge | null>(() => {
-    if (
-      selection?.kind !== "default_edge" &&
-      selection?.kind !== "time_bucket_edge"
-    ) {
-      return null;
-    }
-    const annotation = graph?.edge_annotations.find((candidate) =>
-      graphSelectionEqual(candidate.selector, selection),
-    );
-    return annotation === undefined
-      ? null
-      : (graph?.graph_projection_result.edges.find(
-          (edge) => edge.edge_id === annotation.projected_edge_id,
-        ) ?? null);
-  }, [graph, selection]);
-
-  const selectionKey =
-    graph === null || selection === null
-      ? ""
-      : JSON.stringify([
-          apiBase,
-          incidentId,
-          revision,
-          graph.graph_query_digest,
-          graph.semantic_query,
-          selection,
-        ]);
-  const contributorContext = useRef(selectionKey);
+  const selectedVertex =
+    selection?.kind === "vertex"
+      ? (navigation.index?.vertexById.get(selection.source_vertex_id)?.object ??
+        null)
+      : null;
+  const selectedEdge =
+    selection && selection.kind !== "vertex"
+      ? (navigation.index?.edgeById.get(selection.source_edge_id)?.object ??
+        null)
+      : null;
+  const selectionKey = graph && selection ? selectionContext(navigation) : "";
   contributorContext.current = selectionKey;
   const contributorInitial = useMemo<Extract<
     NetworkFlowContributorPageRequest,
@@ -426,6 +456,7 @@ export function useNetworkFlowGraphController({
     NetworkFlowContributor,
     NetworkFlowContributorPageRequest
   >({
+    active,
     enabled: enabled && !graphStale && contributorInitial !== null,
     // The disabled hook never dispatches this placeholder.
     initialRequest: contributorInitial ?? {
@@ -493,17 +524,30 @@ export function useNetworkFlowGraphController({
   });
   clearContributors.current = contributorPage.clear;
   const selectGraphObject = useCallback(
-    (next: NetworkFlowGraphSelection | null) => {
-      if (!graphSelectionEqual(selection, next)) {
-        contributorContext.current = "";
-        clearContributors.current();
-        setSelectionState(next);
-      }
+    (selector: NetworkFlowGraphSelection | null) => {
+      navigate({ type: "select", selector });
     },
-    [selection],
+    [navigate],
   );
 
   return {
+    navigation,
+    presentation,
+    navigate,
+    selectionContext: selectionContext(navigation),
+    setActive: (value: boolean) => {
+      activeRef.current = value;
+      if (!value) {
+        graphControllerRef.current?.abort();
+        contributorPage.pause();
+      }
+      navigate({ type: "active", active: value });
+    },
+    isFocusCurrent: (focus: NonNullable<ExplorationNavigation["focus"]>) =>
+      activeRef.current &&
+      isCurrentRead?.() !== false &&
+      explorationFocusCurrent(navigationRef.current, focus) &&
+      graphContext.current === graphContextKey,
     graphStale,
     aggregationMode,
     bucketWidthSeconds,
@@ -523,6 +567,7 @@ export function useNetworkFlowGraphController({
     nextContributorPage: contributorPage.nextPage,
     previousContributorPage: contributorPage.previousPage,
     refreshGraph: () => {
+      setGraph(null);
       staleRef.current = false;
       setGraphStale(false);
       setGraphGeneration((current) => current + 1);
@@ -546,17 +591,4 @@ function isGraphSourceLoss(error: NetworkFlowRequestError): boolean {
     (error.code === "network_flow_cursor_invalid" &&
       error.reasonCode === "scope_stale")
   );
-}
-
-function graphSelectionEqual(
-  left: NetworkFlowGraphSelection | null,
-  right: NetworkFlowGraphSelection | null,
-): boolean {
-  if (left === right) {
-    return true;
-  }
-  if (left === null || right === null || left.kind !== right.kind) {
-    return false;
-  }
-  return networkFlowContractEqual(left, right);
 }

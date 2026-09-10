@@ -2213,7 +2213,7 @@ if (
     const edgeSelect = page
       .getByTestId(/^network-flow-edge-/)
       .first()
-      .getByRole("button", { name: "Select edge" });
+      .getByRole("button", { name: /^Select edge/u });
     await expect(edgeSelect).toBeVisible();
     await edgeSelect.click();
     const drawer = page.getByTestId(

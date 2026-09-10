@@ -572,7 +572,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
-      "sha256": "aa407de134c0a83b1d6c7bd7e8bf47742511e52ab9b6852a37cca28f2e0d2218"
+      "sha256": "8b34f9c2d2b94244bbff55a4fec23c67bf38f55c586564bc5fe8aec942c9f9e4"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",

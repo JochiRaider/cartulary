@@ -3,6 +3,42 @@
   "owner_id": "module.networkflow",
   "rows": [
     {
+      "row_id": "module.networkflow.accessibility.exploration_navigation",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow-navigation.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "network_flow_accessibility_exploration_navigation"
+        ],
+        "titles": [
+          "a11y Network Analysis temporal navigation keeps focus and announces selection clearing"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.accessibility.indicator_link_keyboard_recovery",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.accessibility",
@@ -606,6 +642,42 @@
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
       "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.browser_stateful.exploration_navigation",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow-navigation.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "network_flow_browser_stateful_exploration_navigation"
+        ],
+        "titles": [
+          "Network Analysis navigates exact temporal contributors and rejects superseded exposure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
@@ -1238,6 +1310,42 @@
       "fixture_capability": "none",
       "minimum_tier": "release",
       "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.measurement.exploration_graph_dom_ceiling",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.graphprojection",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow-navigation.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "network_flow_measurement_exploration_graph_dom_ceiling"
+        ],
+        "titles": [
+          "Network Analysis measures bounded exploration and reveals selection across subviews"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",

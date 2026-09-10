@@ -166,6 +166,109 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.exploration_continuity",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/explorationContinuity.test.tsx",
+        "titles": [
+          "Exploration continuity cancels an unfinished hidden graph and resumes only the missing initial read",
+          "Exploration continuity fences late contributor success and failure after bucket and selection changes",
+          "Exploration continuity pauses hidden reads and restores a noninitial bucket page selection and committed contributors",
+          "Exploration continuity withdraws navigation and pending contributors for replacement source staleness and authority changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.exploration_focus",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+        "titles": [
+          "NetworkAnalysisWorkspace preserves off-page exploration selection and restores semantic focus through reveal close Escape and Saved"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.exploration_focus_withdrawal",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/explorationFocus.test.tsx",
+        "titles": [
+          "withdraws removed graph focus safely and cancels an older semantic focus intent"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.exploration_navigation",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowExplorationNavigation.test.ts",
+        "titles": [
+          "Exploration navigation bounds every presentation synchronously at exact limits and after shrinking replacement",
+          "Exploration navigation clears selection and both pages on populated and empty bucket transitions",
+          "Exploration navigation preserves metadata and subview continuity but resets a different accepted result",
+          "Exploration navigation retains exact off-page selection and computes reveal and close focus semantically",
+          "Exploration navigation uses complete selectors and stable ordering without inventing link or contributor meaning"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.network_flow_client_transport_boundary_suite_480693e8c8",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",

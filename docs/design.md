@@ -1693,6 +1693,12 @@ Design contract. Table, query, graph, contributor, and indicator-link flows MUST
 
 Design contract. Stale, invalidated, unauthorized, superseded, and partially unavailable Network Analysis states MUST use local workbook semantic-state styling from existing tokens such as `{colors.semantic-caution}`, `{colors.semantic-conflict}`, `{colors.ink-muted}`, and `{components.focus-ring.border}`. Network Analysis MUST NOT introduce a Network Flow-only color scale, hidden instruction text, or label-only state that lacks a non-color cue.
 
+Design contract. Unsaved graph exploration MUST present selected-object identity and visible temporal context together. Changing the selected bucket clears the prior object interaction and resets bounded object pages. Moving between object pages in the same bucket preserves a valid selection, identifies it as off-page when absent, and exposes `Reveal selected object`. Closing the contributor drawer, including through Escape, clears the object interaction. These local UI policies refine the existing Network Flow navigation surface; they do not change server graph or contributor semantics.
+
+Design contract. Graph count labels MUST distinguish query-wide totals and vertex flow counts from server-issued bucket totals and temporal-edge counts. A temporal vertex's contributor context MUST identify the full query range; a temporal edge's context MUST identify its exact bucket. An empty bucket MUST have an explicit local empty state distinct from a missing, loading, failed, or stale graph.
+
+Design contract. Graph drawer focus return MUST resolve the selected semantic control in the current presentation. If it is absent, focus returns to visible object-page navigation, then temporal navigation, then the graph region, then the existing workspace fallback. Explicit Reveal navigates to and focuses the selected semantic control. Newer interaction, result replacement, subview departure, and authority loss invalidate obsolete focus intentions. Bucket/page changes and selection clearing use concise polite announcements; inactive exploration emits no active announcement.
+
 Non-goal. This subsection does not define Network Flow route behavior, WebSocket payloads, table lifecycle, authorization, graph algorithms, fixture conformance, adoption status, storage behavior, or public wire shapes. Product conformance remains owned by Core owner documents and any adopted Network Flow owner document, not by design-direction evidence.
 
 ## 14. Accessibility contract

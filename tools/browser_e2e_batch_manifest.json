@@ -2166,6 +2166,29 @@
           ]
         },
         {
+          "name": "stateful-network-flow-claimed-network-flow-navigation",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-stateful-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.browser_stateful.exploration_navigation"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-navigation.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
           "name": "stateful-network-flow-claimed-network-flow-pagination",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
@@ -2384,6 +2407,29 @@
             "object_store",
             "postgres"
           ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-network-flow-navigation-om_ceiling",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.measurement.exploration_graph_dom_ceiling"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-navigation.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ],
       "frontend_artifact_id": "measurement"
@@ -2435,6 +2481,29 @@
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "a11y-network-flow-claimed-network-flow-navigation",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-a11y-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.accessibility.exploration_navigation"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-navigation.spec.ts"
+          ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "service_dependencies": [
@@ -2720,6 +2789,29 @@
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-network-flow-navigation-om_ceiling",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.measurement.exploration_graph_dom_ceiling"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-navigation.spec.ts"
           ],
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
@@ -3086,6 +3178,29 @@
           ]
         },
         {
+          "name": "stateful-network-flow-claimed-network-flow-navigation",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-stateful-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.browser_stateful.exploration_navigation"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-navigation.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
           "name": "stateful-network-flow-claimed-network-flow-pagination",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
@@ -3296,6 +3411,29 @@
           ]
         },
         {
+          "name": "measurement-network-flow-claimed-network-flow-navigation-om_ceiling",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-om_ceiling",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.measurement.exploration_graph_dom_ceiling"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-navigation.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
           "name": "a11y-workbook-a11y",
           "target": "browser-e2e-a11y",
           "kind": "a11y",
@@ -3339,6 +3477,29 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-default"
+        },
+        {
+          "name": "a11y-network-flow-claimed-network-flow-navigation",
+          "target": "browser-e2e-a11y",
+          "kind": "a11y",
+          "coverage": "supplemental",
+          "execution_dependency": "browser_a11y",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-a11y-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow accessibility evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.accessibility.exploration_navigation"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-navigation.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "a11y-network-flow-claimed-workbook-a11y",

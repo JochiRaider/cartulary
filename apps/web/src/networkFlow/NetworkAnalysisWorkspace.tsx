@@ -4,12 +4,10 @@ import type {
   GridHandle,
 } from "@cartulary/grid-adapter";
 import {
-  networkAnalysisEdgeTestId,
   networkAnalysisTableTabTestId,
   networkAnalysisTestId,
-  networkAnalysisVertexTestId,
 } from "@cartulary/ui-contracts";
-import { Link2, Network, RefreshCw, Table2, Upload, X } from "lucide-react";
+import { Link2, Network, RefreshCw, Table2, Upload } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   type CSSProperties,
@@ -30,6 +28,7 @@ import {
   NetworkFlowIconButton,
   networkFlowChromeRootClassName,
 } from "./NetworkFlowControls";
+import { NetworkFlowExplorationPanel } from "./NetworkFlowExplorationPanel";
 import type { NetworkFlowImportController } from "./NetworkFlowImportController";
 import type { NetworkFlowIndicatorLinkController } from "./NetworkFlowIndicatorLinkController";
 import {
@@ -44,19 +43,12 @@ import {
 import { NetworkFlowSavedGraphPanel } from "./NetworkFlowSavedGraphPanel";
 import {
   NetworkFlowAcceptedGrid,
-  NetworkFlowContributorGrid,
   NetworkFlowRejectedGrid,
 } from "./NetworkFlowSemanticGrid";
 import type { NetworkFlowTableController } from "./NetworkFlowTableController";
 import { TableLifecycleControls } from "./NetworkFlowTableLifecycle";
 import type {
-  NetworkFlowContributor,
   NetworkFlowDiagnostic,
-  NetworkFlowEdgeAnnotation,
-  NetworkFlowGraphEdge,
-  NetworkFlowGraphResult,
-  NetworkFlowGraphSelector,
-  NetworkFlowGraphVertex,
   NetworkFlowRow,
   NetworkFlowTable,
 } from "./networkFlowClient";
@@ -114,8 +106,6 @@ export type NetworkAnalysisWorkspaceProps = {
 };
 
 const activeTableScopeLabel = networkAnalysisSheetRef();
-const graphVertexRenderLimit = 500;
-const graphEdgeRenderLimit = 1_000;
 
 function NetworkAnalysisWorkspaceContent({
   tableController: tableOperation,
@@ -233,7 +223,11 @@ function NetworkAnalysisWorkspaceContent({
     onError: handleWorkspaceError,
     onIncidentAccessLost,
   });
+  const graphSelectionChanged = useRef<(context: string) => void>(() => {});
   const graphController = useNetworkFlowGraphController({
+    active: graphSurface === "explore" && mode === "graph",
+    onNavigationContextChange: (context) =>
+      graphSelectionChanged.current(context),
     readIdentity,
     isCurrentRead,
     onProtectedStateLoss: onQueryProtectedStateLoss,
@@ -287,9 +281,19 @@ function NetworkAnalysisWorkspaceContent({
     onProtectedStateLoss: handleWorkspaceError,
   });
   const acceptedGridRef = useRef<GridHandle | null>(null);
+  const graphFocusRestorer = useRef<(() => boolean) | null>(null);
+  const bindGraphFocusRestoration = useCallback((restore: () => boolean) => {
+    graphFocusRestorer.current = restore;
+    return () => {
+      if (graphFocusRestorer.current === restore)
+        graphFocusRestorer.current = null;
+    };
+  }, []);
   useLayoutEffect(
     () =>
       indicatorLinkOperation.bindFocusRestoration(() => {
+        if (mode === "graph" && graphSurface === "explore")
+          return graphFocusRestorer.current?.() ?? false;
         if (
           rowGridSelection.activeAnchor !== null &&
           acceptedGridRef.current?.focusAnchor(
@@ -303,19 +307,20 @@ function NetworkAnalysisWorkspaceContent({
         }
         return false;
       }),
-    [indicatorLinkOperation, rowGridSelection.activeAnchor],
+    [indicatorLinkOperation, rowGridSelection.activeAnchor, mode, graphSurface],
   );
-  const indicatorLinkController = useNetworkFlowIndicatorLinkController({
-    controller: indicatorLinkOperation,
-    selectionContext: JSON.stringify([
+  const workspaceSelectionContext = (
+    graphContext: string,
+    surface = graphSurface,
+  ) =>
+    JSON.stringify([
       incidentId,
       mode,
-      graphSurface,
+      surface,
       tableController.activeTableId,
       rowsController.query,
       rowGridSelection,
-      graphController.graph?.graph_query_digest,
-      graphController.selection,
+      graphContext,
       graphController.aggregationMode,
       graphController.bucketWidthSeconds,
       graphController.scopeMode,
@@ -323,7 +328,24 @@ function NetworkAnalysisWorkspaceContent({
       tableController.activeTable?.mapping_fingerprint,
       importController.state.write?.request,
       importController.state.draft,
-    ]),
+    ]);
+  graphSelectionChanged.current = (context) =>
+    indicatorLinkOperation.setSelectionContext(
+      workspaceSelectionContext(context),
+    );
+  const changeGraphSurface = (surface: NetworkFlowGraphSurface) => {
+    graphController.setActive(surface === "explore");
+    indicatorLinkOperation.setSelectionContext(
+      workspaceSelectionContext(graphController.selectionContext, surface),
+    );
+    setGraphSurface(surface);
+    setErrorMessage(null);
+  };
+  const indicatorLinkController = useNetworkFlowIndicatorLinkController({
+    controller: indicatorLinkOperation,
+    selectionContext: workspaceSelectionContext(
+      graphController.selectionContext,
+    ),
   });
   const effectiveStatus = networkFlowWorkspaceStatus({
     graphStale:
@@ -681,7 +703,7 @@ function NetworkAnalysisWorkspaceContent({
                 data-testid={networkAnalysisTestId("graph-surface-explore")}
                 selected={graphSurface === "explore"}
                 variant="mode"
-                onClick={() => setGraphSurface("explore")}
+                onClick={() => changeGraphSurface("explore")}
               >
                 Unsaved exploration
               </NetworkFlowButton>
@@ -690,7 +712,7 @@ function NetworkAnalysisWorkspaceContent({
                 data-testid={networkAnalysisTestId("graph-surface-saved")}
                 selected={graphSurface === "saved"}
                 variant="mode"
-                onClick={() => setGraphSurface("saved")}
+                onClick={() => changeGraphSurface("saved")}
               >
                 Saved graphs
               </NetworkFlowButton>
@@ -708,23 +730,19 @@ function NetworkAnalysisWorkspaceContent({
                 }
               />
             ) : (
-              <GraphPanel
+              <NetworkFlowExplorationPanel
                 canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
                 contributorPage={graphController.contributorPage}
-                graphStale={graphController.graphStale}
-                contributorLoadState={graphController.contributorLoadState}
-                contributorLoadGenerationKey={
-                  graphController.contributorLoadGenerationKey
-                }
-                contributorError={graphController.contributorError}
-                contributors={graphController.contributors}
-                graph={graphController.graph}
-                graphLoadState={graphController.graphLoadState}
-                selectedEdge={graphController.selectedEdge}
-                selectedVertex={graphController.selectedVertex}
+                navigation={graphController.navigation}
+                status={{
+                  loadState: graphController.graphLoadState,
+                  stale: graphController.graphStale,
+                  validationMessage: graphController.validationMessage,
+                }}
                 tables={tableController.tables}
-                validationMessage={graphController.validationMessage}
-                onCloseDrawer={() => graphController.selectGraphObject(null)}
+                onNavigate={graphController.navigate}
+                isFocusCurrent={graphController.isFocusCurrent}
+                bindFocusRestoration={bindGraphFocusRestoration}
                 onLinkEdge={(fieldKey) => {
                   const candidate = networkFlowEdgeLinkCandidate({
                     edge: graphController.selectedEdge,
@@ -743,8 +761,6 @@ function NetworkAnalysisWorkspaceContent({
                     indicatorLinkOperation.openDraft(candidate);
                 }}
                 onRefreshGraph={graphController.refreshGraph}
-                onSelectEdge={graphController.selectGraphObject}
-                onSelectVertex={graphController.selectGraphObject}
               />
             )}
           </section>
@@ -1121,578 +1137,6 @@ function RejectedRowsPanel({
   );
 }
 
-function GraphPanel({
-  canLink,
-  contributorPage,
-  graphStale,
-  contributorLoadState,
-  contributorLoadGenerationKey,
-  contributorError,
-  contributors,
-  graph,
-  graphLoadState,
-  selectedEdge,
-  selectedVertex,
-  tables,
-  validationMessage,
-  onCloseDrawer,
-  onLinkEdge,
-  onLinkVertex,
-  onRefreshGraph,
-  onSelectEdge,
-  onSelectVertex,
-}: {
-  readonly contributorPage: NetworkFlowPageNavigation;
-  readonly graphStale: boolean;
-  readonly canLink: boolean;
-  readonly contributorLoadState: NetworkFlowQueryLoadState;
-  readonly contributorLoadGenerationKey: string | number;
-  readonly contributorError: NetworkFlowRequestError | null;
-  readonly contributors: readonly NetworkFlowContributor[];
-  readonly graph: NetworkFlowGraphResult | null;
-  readonly graphLoadState: NetworkFlowQueryLoadState;
-  readonly selectedEdge: NetworkFlowGraphEdge | null;
-  readonly selectedVertex: NetworkFlowGraphVertex | null;
-  readonly tables: readonly NetworkFlowTable[];
-  readonly validationMessage: string | null;
-  readonly onCloseDrawer: () => void;
-  readonly onLinkEdge: (
-    fieldKey: "network_flow.src_ip" | "network_flow.dst_ip",
-  ) => void;
-  readonly onLinkVertex: () => void;
-  readonly onRefreshGraph: () => void;
-  readonly onSelectEdge: (selector: NetworkFlowGraphSelector) => void;
-  readonly onSelectVertex: (selector: NetworkFlowGraphSelector) => void;
-}) {
-  const selectedGraphButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [vertexPage, setVertexPage] = useState(0);
-  const [edgePage, setEdgePage] = useState(0);
-  const [bucketIndex, setBucketIndex] = useState(0);
-  const selectedObject = selectedVertex ?? selectedEdge;
-  const timeBuckets =
-    graph?.result_variant.kind === "time_bucket_v1"
-      ? graph.result_variant.time_buckets
-      : [];
-  const selectedBucket = timeBuckets[bucketIndex] ?? null;
-  const visibleTemporalEdgeIDs = useMemo(
-    () =>
-      new Set(
-        graph?.edge_annotations.flatMap((annotation) =>
-          annotation.selector.kind === "time_bucket_edge" &&
-          selectedBucket !== null &&
-          annotation.selector.bucket_start_utc === selectedBucket.start_utc &&
-          annotation.selector.bucket_end_utc === selectedBucket.end_utc
-            ? [annotation.projected_edge_id]
-            : [],
-        ) ?? [],
-      ),
-    [graph, selectedBucket],
-  );
-  const visibleTemporalVertexIDs = useMemo(() => {
-    const ids = new Set<string>();
-    if (selectedBucket === null) return ids;
-    for (const edge of graph?.graph_projection_result.edges ?? []) {
-      if (visibleTemporalEdgeIDs.has(edge.edge_id)) {
-        ids.add(edge.src_vertex_id);
-        ids.add(edge.dst_vertex_id);
-      }
-    }
-    return ids;
-  }, [graph, selectedBucket, visibleTemporalEdgeIDs]);
-  const graphAllVertices = useMemo(
-    () =>
-      [...(graph?.graph_projection_result.vertices ?? [])]
-        .filter(
-          (vertex) =>
-            selectedBucket === null ||
-            visibleTemporalVertexIDs.has(vertex.vertex_id),
-        )
-        .sort((left, right) =>
-          graphVertexLabel(left).localeCompare(graphVertexLabel(right)),
-        ),
-    [graph, selectedBucket, visibleTemporalVertexIDs],
-  );
-  const graphVertices = graphAllVertices.slice(
-    vertexPage * graphVertexRenderLimit,
-    (vertexPage + 1) * graphVertexRenderLimit,
-  );
-  const graphEndpointLabels = useMemo(
-    () =>
-      new Map(
-        graphAllVertices.flatMap((vertex) => {
-          const endpointId = semanticGraphVertexId(graph, vertex);
-          return endpointId === null
-            ? []
-            : ([[endpointId, graphVertexLabel(vertex)]] as const);
-        }),
-      ),
-    [graph, graphAllVertices],
-  );
-  const graphAllEdges = useMemo(
-    () =>
-      [...(graph?.graph_projection_result.edges ?? [])]
-        .filter(
-          (edge) =>
-            selectedBucket === null || visibleTemporalEdgeIDs.has(edge.edge_id),
-        )
-        .sort((left, right) =>
-          graphEdgeLabel(left, graphEndpointLabels).localeCompare(
-            graphEdgeLabel(right, graphEndpointLabels),
-          ),
-        ),
-    [graph, graphEndpointLabels, selectedBucket, visibleTemporalEdgeIDs],
-  );
-  const graphEdges = graphAllEdges.slice(
-    edgePage * graphEdgeRenderLimit,
-    (edgePage + 1) * graphEdgeRenderLimit,
-  );
-  // biome-ignore lint/correctness/useExhaustiveDependencies: immutable result identity resets bounded navigation.
-  useEffect(() => {
-    setVertexPage(0);
-    setEdgePage(0);
-    setBucketIndex(0);
-  }, [graph?.graph_projection_result.projection_result_id]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: bucket navigation resets bounded object pages.
-  useEffect(() => {
-    setVertexPage(0);
-    setEdgePage(0);
-  }, [bucketIndex]);
-  const graphTableLabels = useMemo(
-    () =>
-      new Map(
-        tables.map((table) => [
-          table.network_flow_table_id,
-          table.display_name,
-        ]),
-      ),
-    [tables],
-  );
-  return (
-    <section
-      aria-label="Network Flow graph"
-      data-testid={networkAnalysisTestId("graph-panel")}
-      style={graphLayoutStyle}
-    >
-      <div style={graphTableStyle}>
-        {validationMessage === null ? null : (
-          <p className="network-flow-status" data-tone="error" role="alert">
-            {validationMessage}
-          </p>
-        )}
-        {selectedBucket === null ? null : (
-          <nav
-            aria-label="Time bucket navigation"
-            style={boundedNavigationStyle}
-          >
-            <NetworkFlowButton
-              disabled={bucketIndex === 0}
-              variant="secondary"
-              onClick={() => setBucketIndex((current) => current - 1)}
-            >
-              Previous bucket
-            </NetworkFlowButton>
-            <strong>
-              Bucket {bucketIndex + 1} of {timeBuckets.length}
-            </strong>
-            <span>
-              [{selectedBucket.start_utc}, {selectedBucket.end_utc}) ·{" "}
-              {selectedBucket.unique_vertex_count} vertices ·{" "}
-              {selectedBucket.edge_count} edges ·{" "}
-              {selectedBucket.contributing_row_count} rows
-            </span>
-            <NetworkFlowButton
-              disabled={bucketIndex + 1 >= timeBuckets.length}
-              variant="secondary"
-              onClick={() => setBucketIndex((current) => current + 1)}
-            >
-              Next bucket
-            </NetworkFlowButton>
-          </nav>
-        )}
-        <div style={graphSummaryStyle}>
-          <Network aria-hidden="true" size={18} />
-          <span>
-            {graphLoadState === "loading"
-              ? "Loading graph…"
-              : graphStale
-                ? "Graph sources changed. Recompute to continue."
-                : graph
-                  ? "Graph ready"
-                  : "No graph"}
-          </span>
-          <span style={mutedTextStyle}>
-            {graph?.source_table_refs.length ?? 0} tables ·{" "}
-            {graph?.graph_projection_result.vertices.length ?? 0} vertices ·{" "}
-            {graph?.graph_projection_result.edges.length ?? 0} edges
-          </span>
-          {graphAllVertices.length > graphVertexRenderLimit ||
-          graphAllEdges.length > graphEdgeRenderLimit ? (
-            <span style={mutedTextStyle}>
-              Large results are paged: at most {graphVertexRenderLimit} vertices
-              and {graphEdgeRenderLimit} edges are mounted at once.
-            </span>
-          ) : null}
-          {graphAllVertices.length > graphVertexRenderLimit ? (
-            <BoundedGraphNavigation
-              itemLabel="vertices"
-              page={vertexPage}
-              pageSize={graphVertexRenderLimit}
-              total={graphAllVertices.length}
-              onPageChange={setVertexPage}
-            />
-          ) : null}
-          {graphAllEdges.length > graphEdgeRenderLimit ? (
-            <BoundedGraphNavigation
-              itemLabel="edges"
-              page={edgePage}
-              pageSize={graphEdgeRenderLimit}
-              total={graphAllEdges.length}
-              onPageChange={setEdgePage}
-            />
-          ) : null}
-          {graphStale || graphLoadState === "error" ? (
-            <NetworkFlowButton variant="secondary" onClick={onRefreshGraph}>
-              <RefreshCw aria-hidden="true" size={14} />{" "}
-              {graphStale ? "Recompute graph" : "Retry graph"}
-            </NetworkFlowButton>
-          ) : null}
-        </div>
-        <div style={tableScrollStyle}>
-          <h3 style={graphSectionTitleStyle}>Vertices</h3>
-          <table style={dataTableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Endpoint</th>
-                <th style={thStyle}>Flows</th>
-                <th style={thStyle}>Tables</th>
-                <th style={thStyle}>Select</th>
-              </tr>
-            </thead>
-            <tbody>
-              {graphVertices.map((vertex) => {
-                const selector = graphVertexSelector(graph, vertex);
-                if (selector === null) {
-                  return null;
-                }
-                return (
-                  <tr
-                    key={vertex.vertex_id}
-                    data-testid={networkAnalysisVertexTestId(
-                      selector.source_vertex_id,
-                    )}
-                  >
-                    <td style={tdMonoStyle}>
-                      {graphScalar(vertex.properties.endpoint_value)}
-                    </td>
-                    <td style={tdMonoStyle}>
-                      {graphScalar(vertex.properties.flow_row_count)}
-                    </td>
-                    <td style={tdMonoStyle}>
-                      {graphTableList(
-                        vertex.properties.contributing_table_ids,
-                        graphTableLabels,
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <NetworkFlowButton
-                        ref={
-                          selectedVertex === vertex
-                            ? selectedGraphButtonRef
-                            : undefined
-                        }
-                        aria-pressed={selectedVertex === vertex}
-                        selected={selectedVertex === vertex}
-                        variant="mode"
-                        onClick={() => onSelectVertex(selector)}
-                      >
-                        Select vertex
-                      </NetworkFlowButton>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <h3 style={graphSectionTitleStyle}>Edges</h3>
-          <table style={dataTableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Source</th>
-                <th style={thStyle}>Destination</th>
-                <th style={thStyle}>Protocol</th>
-                <th style={thStyle}>Rows</th>
-                <th style={thStyle}>Select</th>
-              </tr>
-            </thead>
-            <tbody>
-              {graphEdges.map((edge) => {
-                const annotation = graphEdgeAnnotation(graph, edge);
-                if (annotation === null) {
-                  return null;
-                }
-                const edgeId = annotation.selector.source_edge_id;
-                return (
-                  <tr
-                    key={edge.edge_id}
-                    data-testid={networkAnalysisEdgeTestId(edgeId)}
-                  >
-                    <td style={tdMonoStyle}>
-                      {graphEndpointLabel(
-                        edge.properties.src_endpoint_id,
-                        graphEndpointLabels,
-                      )}
-                    </td>
-                    <td style={tdMonoStyle}>
-                      {graphEndpointLabel(
-                        edge.properties.dst_endpoint_id,
-                        graphEndpointLabels,
-                      )}
-                    </td>
-                    <td style={tdMonoStyle}>
-                      {graphScalar(edge.properties.ip_protocol)}
-                    </td>
-                    <td style={tdMonoStyle}>
-                      {annotation.example_refs_total_count ??
-                        graphScalar(edge.properties.flow_row_count)}
-                    </td>
-                    <td style={tdStyle}>
-                      <NetworkFlowButton
-                        ref={
-                          selectedEdge === edge
-                            ? selectedGraphButtonRef
-                            : undefined
-                        }
-                        aria-pressed={selectedEdge === edge}
-                        selected={selectedEdge === edge}
-                        variant="mode"
-                        onClick={() => onSelectEdge(annotation.selector)}
-                      >
-                        Select edge
-                      </NetworkFlowButton>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {selectedObject ? (
-        <aside
-          aria-label="Graph contributors"
-          data-testid={networkAnalysisTestId("contributor-drawer")}
-          style={drawerStyle}
-          onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            const returnTarget = selectedGraphButtonRef.current;
-            onCloseDrawer();
-            queueMicrotask(() => returnTarget?.focus());
-          }}
-        >
-          <div style={drawerHeaderStyle}>
-            <strong>
-              {selectedVertex
-                ? `Vertex ${graphVertexLabel(selectedVertex)}`
-                : `Edge ${graphEdgeLabel(selectedEdge as NetworkFlowGraphEdge, graphEndpointLabels)}`}
-            </strong>
-            <NetworkFlowIconButton
-              aria-label="Close graph contributors"
-              data-testid={networkAnalysisTestId("contributor-close")}
-              title="Close"
-              onClick={() => {
-                const returnTarget = selectedGraphButtonRef.current;
-                onCloseDrawer();
-                queueMicrotask(() => returnTarget?.focus());
-              }}
-            >
-              <X aria-hidden="true" size={15} />
-            </NetworkFlowIconButton>
-          </div>
-          <div style={linkActionsStyle}>
-            {canLink &&
-            graphLoadState === "ready" &&
-            networkFlowVertexLinkCandidate(graph, selectedVertex) !== null ? (
-              <NetworkFlowButton variant="secondary" onClick={onLinkVertex}>
-                <Link2 aria-hidden="true" size={15} />
-                Link vertex
-              </NetworkFlowButton>
-            ) : null}
-            {(["network_flow.src_ip", "network_flow.dst_ip"] as const).map(
-              (fieldKey) =>
-                canLink &&
-                graphLoadState === "ready" &&
-                networkFlowEdgeLinkCandidate({
-                  graph,
-                  edge: selectedEdge,
-                  fieldKey,
-                }) !== null ? (
-                  <NetworkFlowButton
-                    key={fieldKey}
-                    variant="secondary"
-                    onClick={() => onLinkEdge(fieldKey)}
-                  >
-                    <Link2 aria-hidden="true" size={15} />
-                    {fieldKey === "network_flow.src_ip"
-                      ? "Link source"
-                      : "Link destination"}
-                  </NetworkFlowButton>
-                ) : null,
-            )}
-          </div>
-          <NetworkFlowContributorGrid
-            contributors={contributors}
-            error={contributorError}
-            loadGenerationKey={contributorLoadGenerationKey}
-            loadState={contributorLoadState}
-            tables={tables}
-            onRetry={contributorPage.retry}
-            pageFeedback={pageFailureFeedback(contributorPage)}
-            semanticPageSelection
-          />
-          <NetworkFlowQueryPagination
-            page={contributorPage}
-            onRefreshResource={onRefreshGraph}
-          />
-        </aside>
-      ) : null}
-      <span
-        aria-live="polite"
-        data-testid={networkAnalysisTestId("graph-live-region")}
-        style={visuallyHiddenStyle}
-      >
-        {selectedVertex
-          ? "Vertex selected."
-          : selectedEdge
-            ? "Edge selected."
-            : graphLoadState === "loading"
-              ? "Loading Network Flow graph."
-              : graph
-                ? "Network Flow graph ready. Select a vertex or edge to inspect contributors."
-                : "Network Flow graph unavailable."}
-      </span>
-    </section>
-  );
-}
-
-function BoundedGraphNavigation({
-  itemLabel,
-  onPageChange,
-  page,
-  pageSize,
-  total,
-}: {
-  readonly itemLabel: string;
-  readonly onPageChange: (page: number) => void;
-  readonly page: number;
-  readonly pageSize: number;
-  readonly total: number;
-}) {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <nav aria-label={`${itemLabel} navigation`} style={boundedNavigationStyle}>
-      <span>
-        {itemLabel} {page + 1}/{pageCount}
-      </span>
-      <NetworkFlowButton
-        disabled={page === 0}
-        variant="secondary"
-        onClick={() => onPageChange(page - 1)}
-      >
-        Previous
-      </NetworkFlowButton>
-      <NetworkFlowButton
-        disabled={page + 1 >= pageCount}
-        variant="secondary"
-        onClick={() => onPageChange(page + 1)}
-      >
-        Next
-      </NetworkFlowButton>
-    </nav>
-  );
-}
-
-function graphVertexSelector(
-  graph: NetworkFlowGraphResult | null,
-  vertex: NetworkFlowGraphVertex,
-): Extract<NetworkFlowGraphSelector, { readonly kind: "vertex" }> | null {
-  return (
-    graph?.vertex_selectors.find(
-      (binding) => binding.projected_vertex_id === vertex.vertex_id,
-    )?.selector ?? null
-  );
-}
-
-function graphEdgeAnnotation(
-  graph: NetworkFlowGraphResult | null,
-  edge: NetworkFlowGraphEdge,
-): NetworkFlowEdgeAnnotation | null {
-  return (
-    graph?.edge_annotations.find(
-      (annotation) => annotation.projected_edge_id === edge.edge_id,
-    ) ?? null
-  );
-}
-
-function semanticGraphVertexId(
-  graph: NetworkFlowGraphResult | null,
-  vertex: NetworkFlowGraphVertex,
-): string | null {
-  return graphVertexSelector(graph, vertex)?.source_vertex_id ?? null;
-}
-
-function graphString(value: unknown): string | null {
-  return typeof value === "string" && value !== "" ? value : null;
-}
-
-function graphScalar(value: unknown): string {
-  return typeof value === "string" || typeof value === "number"
-    ? String(value)
-    : "—";
-}
-
-function graphVertexLabel(vertex: NetworkFlowGraphVertex): string {
-  return graphScalar(vertex.properties.endpoint_value);
-}
-
-function graphEndpointLabel(
-  value: unknown,
-  labels: ReadonlyMap<string, string>,
-): string {
-  const endpointId = graphString(value);
-  return endpointId === null
-    ? "—"
-    : (labels.get(endpointId) ?? "Unavailable endpoint");
-}
-
-function graphEdgeLabel(
-  edge: NetworkFlowGraphEdge,
-  endpointLabels: ReadonlyMap<string, string>,
-): string {
-  const source = graphEndpointLabel(
-    edge.properties.src_endpoint_id,
-    endpointLabels,
-  );
-  const destination = graphEndpointLabel(
-    edge.properties.dst_endpoint_id,
-    endpointLabels,
-  );
-  const protocol = graphScalar(edge.properties.ip_protocol);
-  const port = graphScalar(edge.properties.dst_port);
-  return `${source} → ${destination} · protocol ${protocol} · port ${port}`;
-}
-
-function graphTableList(
-  value: unknown,
-  labels: ReadonlyMap<string, string>,
-): string {
-  if (!Array.isArray(value)) return "—";
-  return value
-    .filter((item): item is string => typeof item === "string")
-    .map((tableId) => labels.get(tableId) ?? "Unavailable table")
-    .join(", ");
-}
-
 function DiagnosticsSummary({ table }: { readonly table: NetworkFlowTable }) {
   return (
     <section
@@ -1876,118 +1320,6 @@ const panelHeaderStyle = {
   background: "var(--ct-colors-surface-1)",
 } satisfies CSSProperties;
 
-const tableScrollStyle = {
-  minBlockSize: 0,
-  minWidth: 0,
-  overflow: "auto",
-  background: "var(--ct-colors-surface-1)",
-} satisfies CSSProperties;
-
-const dataTableStyle = {
-  borderCollapse: "collapse",
-  inlineSize: "100%",
-  minInlineSize: "48rem",
-  fontSize: "0.8125rem",
-} satisfies CSSProperties;
-
-const thStyle = {
-  position: "sticky",
-  top: 0,
-  zIndex: 1,
-  textAlign: "start",
-  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-2)",
-  color: "var(--ct-colors-ink-muted)",
-  fontWeight: 600,
-} satisfies CSSProperties;
-
-const tdStyle = {
-  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-  verticalAlign: "top",
-} satisfies CSSProperties;
-
-const tdMonoStyle = {
-  ...tdStyle,
-  fontFamily: "var(--ct-typography-mono-fontFamily)",
-  fontVariantNumeric: "tabular-nums",
-} satisfies CSSProperties;
-
-const graphLayoutStyle = {
-  position: "relative",
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  blockSize: "100%",
-  minBlockSize: 0,
-  minWidth: 0,
-} satisfies CSSProperties;
-
-const graphTableStyle = {
-  display: "grid",
-  gridTemplateRows: "auto auto minmax(0, 1fr)",
-  minBlockSize: 0,
-  minWidth: 0,
-} satisfies CSSProperties;
-
-const graphSummaryStyle = {
-  display: "flex",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-sm)",
-  padding: "var(--ct-spacing-sm) var(--ct-spacing-md)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-} satisfies CSSProperties;
-
-const boundedNavigationStyle = {
-  alignItems: "center",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-xs)",
-} satisfies CSSProperties;
-
-const graphSectionTitleStyle = {
-  background: "var(--ct-colors-surface-2)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-  fontSize: "0.8125rem",
-  margin: 0,
-  padding: "var(--ct-spacing-xs) var(--ct-spacing-sm)",
-} satisfies CSSProperties;
-
-const drawerStyle = {
-  position: "absolute",
-  insetBlock: 0,
-  insetInlineEnd: 0,
-  display: "grid",
-  gridTemplateRows: "auto auto minmax(0, 1fr) auto",
-  inlineSize:
-    "min(var(--ct-layout-inspectorDefaultWidth), calc(100% - var(--ct-spacing-xl)))",
-  minInlineSize:
-    "min(var(--ct-layout-inspectorMinWidth), calc(100% - var(--ct-spacing-xl)))",
-  borderInlineStart: "var(--ct-border-hairline)",
-  background: "var(--ct-component-inspector-backgroundColor)",
-  boxShadow: "var(--ct-elevation-drawer)",
-  zIndex: 3,
-} satisfies CSSProperties;
-
-const drawerHeaderStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "var(--ct-spacing-sm)",
-  padding: "var(--ct-spacing-sm)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-} satisfies CSSProperties;
-
-const linkActionsStyle = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "var(--ct-spacing-xs)",
-  padding: "var(--ct-spacing-sm)",
-  borderBlockEnd: "var(--ct-border-hairline)",
-} satisfies CSSProperties;
-
 const statusStripStyle = {
   display: "flex",
   alignItems: "center",
@@ -2000,6 +1332,14 @@ const statusStripStyle = {
   fontSize: "0.75rem",
   overflowX: "auto",
   whiteSpace: "nowrap",
+} satisfies CSSProperties;
+
+const linkActionsStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "var(--ct-spacing-xs)",
+  padding: "var(--ct-spacing-sm)",
+  borderBlockEnd: "var(--ct-border-hairline)",
 } satisfies CSSProperties;
 
 const mutedTextStyle = {

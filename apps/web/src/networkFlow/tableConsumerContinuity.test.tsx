@@ -1,10 +1,10 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
+import { explorationFixture } from "./explorationTestFixtures";
 import { NetworkFlowTableController } from "./NetworkFlowTableController";
 import * as client from "./networkFlowClient";
 import { defaultGraphQuerySettings } from "./networkFlowQueryModel";
-import { savedGraphResultFixture } from "./savedGraphTestFixtures";
 import {
   tableAuthority,
   tableFixture,
@@ -18,7 +18,7 @@ afterEach(() => {
 });
 describe("Table consumer continuity", () => {
   it("preserves graph identity through rename and unrelated removal then requires affected recomputation", async () => {
-    const graph = savedGraphResultFixture().result;
+    const graph = explorationFixture(2, 1);
     const request = vi
       .spyOn(client, "queryNetworkFlowGraph")
       .mockResolvedValue(graph);
@@ -93,7 +93,7 @@ describe("Table consumer continuity", () => {
     expect(hook.result.current.graphStale).toBe(false);
   });
   it("tracks all-active membership independently of names and resolves fresh sources on recompute", async () => {
-    const graph = savedGraphResultFixture().result;
+    const graph = explorationFixture(2, 1);
     const request = vi
       .spyOn(client, "queryNetworkFlowGraph")
       .mockResolvedValue(graph);

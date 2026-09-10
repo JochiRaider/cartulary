@@ -55,6 +55,7 @@ export type NetworkFlowPageRecovery =
   | "none";
 
 type Options<Item, Request, Metadata> = {
+  readonly active?: boolean;
   readonly enabled: boolean;
   readonly fetchPage: (
     request: Request,
@@ -115,6 +116,8 @@ export function useNetworkFlowPagedQuery<Item, Request, Metadata = unknown>(
   latest.current = { options, contextKey };
   const generation = useRef(0);
   const controller = useRef<AbortController | null>(null);
+  const paused = useRef(options.active === false);
+  paused.current = options.active === false;
   const [stored, setStored] = useState(() =>
     empty<Item, Request, Metadata>(contextKey),
   );
@@ -134,7 +137,11 @@ export function useNetworkFlowPagedQuery<Item, Request, Metadata = unknown>(
       input: Omit<NetworkFlowPageAttempt<Request>, "generation" | "contextKey">,
     ) => {
       const captured = latest.current;
-      if (!captured.options.enabled || captured.options.isCurrent?.() === false)
+      if (
+        paused.current ||
+        !captured.options.enabled ||
+        captured.options.isCurrent?.() === false
+      )
         return;
       const before = current.current;
       if (before.pending !== null) {
@@ -153,6 +160,7 @@ export function useNetworkFlowPagedQuery<Item, Request, Metadata = unknown>(
         contextKey: captured.contextKey,
       };
       const accepts = () =>
+        !paused.current &&
         !stop.signal.aborted &&
         generation.current === activeGeneration &&
         latest.current.contextKey === captured.contextKey &&
@@ -339,6 +347,44 @@ export function useNetworkFlowPagedQuery<Item, Request, Metadata = unknown>(
     return cancel;
   }, [cancel, contextKey, execute, options.enabled, publish]);
 
+  // Visibility suspends observation, independently of query/authority ownership.
+  const pause = useCallback(() => {
+    paused.current = true;
+    cancel();
+    const state = current.current;
+    if (state.pending !== null)
+      publish({
+        ...state,
+        pending: null,
+        loadState: state.committed === null ? "idle" : "ready",
+        notice: null,
+      });
+  }, [cancel, publish]);
+  useLayoutEffect(() => {
+    if (options.active === false) {
+      pause();
+      return;
+    }
+    paused.current = false;
+    const state = current.current;
+    if (
+      options.enabled &&
+      state.committed === null &&
+      state.pending === null &&
+      state.failed === null
+    ) {
+      const initialRequest = latest.current.options.initialRequest;
+      void execute({
+        command: "initial",
+        destination: 1,
+        request: initialRequest,
+        initialRequest,
+        automaticRestart: false,
+        notifyQuery: true,
+      });
+    }
+  }, [execute, options.active, options.enabled, pause]);
+
   const nextPage = useCallback(() => {
     const state = current.current;
     const cursor = state.committed?.paging.next_cursor_token;
@@ -443,6 +489,7 @@ export function useNetworkFlowPagedQuery<Item, Request, Metadata = unknown>(
       ? stored
       : empty<Item, Request, Metadata>(contextKey);
   return {
+    pause,
     committed: state.committed,
     pending: state.pending,
     failed: state.failed,

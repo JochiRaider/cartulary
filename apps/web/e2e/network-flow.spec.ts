@@ -403,7 +403,7 @@ test("Network Analysis links compatible targets and recovers exact committed req
   await page
     .getByTestId(/^network-flow-edge-/u)
     .first()
-    .getByRole("button", { name: "Select edge" })
+    .getByRole("button", { name: /^Select edge/u })
     .click();
   await page
     .getByRole("button", { name: "Link destination", exact: true })
@@ -764,7 +764,7 @@ test("Network Analysis vertex selection uses stable graph identity", async ({
   await expect(vertex).toBeVisible();
   const semanticTestId = await vertex.getAttribute("data-testid");
   expect(semanticTestId).toMatch(/^network-flow-vertex-/);
-  await vertex.getByRole("button", { name: "Select vertex" }).click();
+  await vertex.getByRole("button", { name: /^Select vertex/u }).click();
   await expect(
     page.getByTestId(networkAnalysisTestId("contributor-drawer")),
   ).toBeVisible();
@@ -797,7 +797,7 @@ test("Network Analysis edge selection opens ordered contributor drawer", async (
 
   const edge = page.getByTestId(/^network-flow-edge-/).first();
   await expect(edge).toBeVisible();
-  await edge.getByRole("button", { name: "Select edge" }).click();
+  await edge.getByRole("button", { name: /^Select edge/u }).click();
   const drawer = page.getByTestId(networkAnalysisTestId("contributor-drawer"));
   await expect(drawer).toBeVisible();
   await expect(drawer).toContainText("contributors-a");
@@ -1326,7 +1326,7 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   const edge = page.getByTestId(/^network-flow-edge-/).first();
   await expect(edge).toBeVisible();
-  await edge.getByRole("button", { name: "Select edge" }).click();
+  await edge.getByRole("button", { name: /^Select edge/u }).click();
   await expect(
     page.getByTestId(networkAnalysisTestId("contributor-drawer")),
   ).toBeVisible();
@@ -1373,7 +1373,7 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
   await page
     .getByTestId(/^network-flow-vertex-/)
     .first()
-    .getByRole("button", { name: "Select vertex" })
+    .getByRole("button", { name: /^Select vertex/u })
     .click();
   await expect(
     page.getByTestId(networkAnalysisTestId("contributor-drawer")),
@@ -1408,7 +1408,7 @@ test("Verify claimed Network Analysis discovery, import, mapping approval, seman
   await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
   const edge = page.getByTestId(/^network-flow-edge-/).first();
   await expect(edge).toBeVisible();
-  await edge.getByRole("button", { name: "Select edge" }).click();
+  await edge.getByRole("button", { name: /^Select edge/u }).click();
   await expect(
     page.getByTestId(networkAnalysisTestId("contributor-drawer")),
   ).toBeVisible();
@@ -1473,7 +1473,7 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
   const edge = page
     .getByTestId(/^network-flow-edge-/u)
     .first()
-    .getByRole("button", { name: "Select edge" });
+    .getByRole("button", { name: /^Select edge/u });
   await edge.click();
   const contributors = page.getByRole("complementary", {
     name: /contributors/iu,

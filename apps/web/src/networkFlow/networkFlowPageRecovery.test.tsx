@@ -9,6 +9,7 @@ import {
   type NetworkFlowRow,
 } from "../services/networkFlowContractAdapter";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
+import { explorationFixture } from "./explorationTestFixtures";
 import { NetworkFlowTableController } from "./NetworkFlowTableController";
 import * as client from "./networkFlowClient";
 import { NetworkFlowRequestError } from "./networkFlowErrors";
@@ -55,7 +56,9 @@ const expired = () =>
 describe("Network Flow page recovery boundaries", () => {
   it("discards late contributor success and authorization failure after selector replacement", async () => {
     for (const failure of [false, true]) {
-      const graph = savedGraphResultFixture().result;
+      const graph = explorationFixture(2, 1);
+      const selected = graph.vertex_selectors[0]?.selector;
+      if (!selected) throw new Error("Missing fixture vertex");
       vi.spyOn(client, "queryNetworkFlowGraph").mockResolvedValue(graph);
       const pending =
         deferredSavedGraph<
@@ -65,7 +68,7 @@ describe("Network Flow page recovery boundaries", () => {
         schema_id:
           "cartulary.network_flow.graph_contributor_query_result.v2" as const,
         graph_query_digest: graph.graph_query_digest,
-        selector: savedGraphSelectorFixture,
+        selector: selected,
         contributors: [],
         meta: { paging: paging(null, 0) },
       };
@@ -93,14 +96,10 @@ describe("Network Flow page recovery boundaries", () => {
       };
       const hook = renderHook(() => useNetworkFlowGraphController(options));
       await waitFor(() => expect(hook.result.current.graph).toBe(graph));
-      act(() =>
-        hook.result.current.selectGraphObject(savedGraphSelectorFixture),
-      );
+      act(() => hook.result.current.selectGraphObject(selected));
       await waitFor(() => expect(pages).toHaveBeenCalledTimes(1));
-      const next = {
-        ...savedGraphSelectorFixture,
-        endpoint_value: "192.0.2.2",
-      };
+      const next = graph.vertex_selectors[1]?.selector;
+      if (!next) throw new Error("Missing second fixture vertex");
       act(() => hook.result.current.selectGraphObject(next));
       await waitFor(() =>
         expect(hook.result.current.contributorLoadState).toBe("ready"),
@@ -192,7 +191,9 @@ describe("Network Flow page recovery boundaries", () => {
   });
 
   it("recovers contributor expiry on the same graph and routes stale composition through recomputation", async () => {
-    const graph = savedGraphResultFixture().result;
+    const graph = explorationFixture(2, 1);
+    const selected = graph.vertex_selectors[0]?.selector;
+    if (!selected) throw new Error("Missing fixture vertex");
     const graphRequest = vi
       .spyOn(client, "queryNetworkFlowGraph")
       .mockResolvedValue(graph);
@@ -201,7 +202,7 @@ describe("Network Flow page recovery boundaries", () => {
       .mockResolvedValue({
         schema_id: "cartulary.network_flow.graph_contributor_query_result.v2",
         graph_query_digest: graph.graph_query_digest,
-        selector: savedGraphSelectorFixture,
+        selector: selected,
         contributors: [
           {
             row: pageRow(),
@@ -233,7 +234,7 @@ describe("Network Flow page recovery boundaries", () => {
     };
     const hook = renderHook(() => useNetworkFlowGraphController(options));
     await waitFor(() => expect(hook.result.current.graph).toBe(graph));
-    act(() => hook.result.current.selectGraphObject(savedGraphSelectorFixture));
+    act(() => hook.result.current.selectGraphObject(selected));
     await waitFor(() =>
       expect(hook.result.current.contributorLoadState).toBe("ready"),
     );
@@ -266,7 +267,7 @@ describe("Network Flow page recovery boundaries", () => {
     const resourceRefresh = vi
       .spyOn(options.tableLifecycle, "loadTables")
       .mockResolvedValue(true);
-    act(() => hook.result.current.selectGraphObject(savedGraphSelectorFixture));
+    act(() => hook.result.current.selectGraphObject(selected));
     await waitFor(() =>
       expect(hook.result.current.contributorLoadState).toBe("ready"),
     );

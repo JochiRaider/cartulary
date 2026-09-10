@@ -7028,7 +7028,7 @@ if (
     await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
     const edge = page.getByTestId(/^network-flow-edge-/).first();
     await expect(edge).toBeVisible();
-    await edge.getByRole("button", { name: "Select edge" }).click();
+    await edge.getByRole("button", { name: /^Select edge/u }).click();
     const contributorDrawer = page.getByTestId(
       networkAnalysisTestId("contributor-drawer"),
     );

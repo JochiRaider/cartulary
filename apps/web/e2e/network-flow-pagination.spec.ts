@@ -57,7 +57,7 @@ test("Network Analysis preserves committed pages and recovers real expired curso
       await page
         .getByTestId(/^network-flow-vertex-/)
         .first()
-        .getByRole("button", { name: "Select vertex" })
+        .getByRole("button", { name: /^Select vertex/u })
         .click();
     }
     const nav = page.getByRole("navigation", {
