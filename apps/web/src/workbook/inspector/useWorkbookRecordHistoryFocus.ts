@@ -28,6 +28,9 @@ export function useWorkbookRecordHistoryFocus({
   readonly onConfirmPendingAction: () => void;
 }) {
   const actionElementsRef = useRef(new Map<string, HTMLButtonElement>());
+  const interactionGeneration = useRef(0);
+  const cancelRef = useRef(onCancelPendingAction);
+  cancelRef.current = onCancelPendingAction;
   const focusRequestRef = useRef<HistoryFocusRequest | null>(null);
   const panelRef = useRef<HTMLElement>(null);
   const currentSubjectIdentity = historySubjectIdentity(state.subject);
@@ -35,7 +38,9 @@ export function useWorkbookRecordHistoryFocus({
   const loadError = workbookRecordHistoryLoadError(state);
 
   const queueActionFocus = useCallback((actionIdentity: string) => {
+    const generation = interactionGeneration.current;
     queueMicrotask(() => {
+      if (generation !== interactionGeneration.current) return;
       const action = actionElementsRef.current.get(actionIdentity);
       if (historyFocusElementIsAvailable(action)) {
         action.focus({ preventScroll: true });
@@ -46,7 +51,37 @@ export function useWorkbookRecordHistoryFocus({
   }, []);
 
   const queuePanelFocus = useCallback(() => {
-    queueMicrotask(() => focusHistoryPanel(panelRef.current));
+    const generation = interactionGeneration.current;
+    queueMicrotask(() => {
+      if (generation === interactionGeneration.current)
+        focusHistoryPanel(panelRef.current);
+    });
+  }, []);
+
+  useEffect(() => {
+    const interact = (event: Event) => {
+      const inside =
+        event.target instanceof Node &&
+        panelRef.current?.contains(event.target);
+      if (
+        inside &&
+        (event.type === "focusin" ||
+          focusRequestRef.current?.stage !== "submitted")
+      )
+        return;
+      interactionGeneration.current += 1;
+      if (focusRequestRef.current?.stage === "preview") cancelRef.current();
+      focusRequestRef.current = null;
+    };
+    document.addEventListener("pointerdown", interact, true);
+    document.addEventListener("keydown", interact, true);
+    document.addEventListener("focusin", interact, true);
+    return () => {
+      interactionGeneration.current += 1;
+      document.removeEventListener("pointerdown", interact, true);
+      document.removeEventListener("keydown", interact, true);
+      document.removeEventListener("focusin", interact, true);
+    };
   }, []);
 
   useEffect(() => {

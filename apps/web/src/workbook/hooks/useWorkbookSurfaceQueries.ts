@@ -60,7 +60,9 @@ export function useWorkbookSurfaceQueries({
   readonly invalidateAll: (reason: WorkbookQueryInvalidationReason) => void;
   readonly refreshProjection: {
     readonly assessment: () => Promise<void>;
-    readonly entities: () => Promise<void>;
+    readonly entities: (options?: {
+      readonly requireAcceptance?: boolean;
+    }) => Promise<void>;
     readonly generic: () => Promise<void>;
   };
 } {

@@ -99,6 +99,10 @@ export function useWorkbookShellInfrastructure({
       }),
     [apiBase, incidentId, transactionIds],
   );
+  useMemo(
+    () => mutationRuntime.history.configure(mutationCommands.records),
+    [mutationRuntime, mutationCommands],
+  );
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const surfaceSelectionVersionRef = useRef(0);
   const incidentPort = useMemo(

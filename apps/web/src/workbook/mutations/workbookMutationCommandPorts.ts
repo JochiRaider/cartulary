@@ -1,10 +1,7 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookOperationResponse } from "../adapters/workbookOperationContract";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
-import type {
-  RecordHistoryData,
-  RecordHistoryRollbackTarget,
-} from "../inspector/workbookRecordHistoryModel";
+import type { WorkbookRecordHistoryPort } from "../history/workbookHistoryOperation";
 import type { AssessmentCreateDraft } from "../models/assessmentWorkbookModel";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type {
@@ -24,28 +21,7 @@ type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 export type GenericMutationOutcome =
   WorkbookOperationOutcome<GenericViewMutationAccepted>;
 
-export type RecordLifecycleAccepted = {
-  readonly recordId: string;
-  readonly rowVersion: number;
-};
-
-export interface RecordRouteCommandPort {
-  execute(input: {
-    readonly action: "delete" | "restore";
-    readonly baseRowVersion: number;
-    readonly reason: string;
-    readonly recordId: string;
-  }): Promise<WorkbookOperationOutcome<RecordLifecycleAccepted>>;
-  loadHistory(input: {
-    readonly recordId: string;
-  }): Promise<WorkbookOperationOutcome<RecordHistoryData>>;
-  rollback(input: {
-    readonly baseRowVersion: number;
-    readonly reason: string;
-    readonly recordId: string;
-    readonly target: RecordHistoryRollbackTarget;
-  }): Promise<WorkbookOperationOutcome<RecordLifecycleAccepted>>;
-}
+export type RecordRouteCommandPort = WorkbookRecordHistoryPort;
 
 export type EntityCreateAccepted = {
   readonly changeSetId: string;

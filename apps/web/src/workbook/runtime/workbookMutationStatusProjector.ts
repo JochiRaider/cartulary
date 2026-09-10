@@ -50,6 +50,7 @@ export type WorkbookRefreshStatusFact = {
 };
 
 type WorkbookMutationStatusInput = {
+  readonly explicitRecoveryBlocked?: boolean;
   readonly conflictPanelOpen: boolean;
   readonly conflicts: readonly WorkbookConflictEntry[];
   readonly explicitInFlightCount: number;
@@ -59,6 +60,7 @@ type WorkbookMutationStatusInput = {
 
 export function projectWorkbookMutationStatus({
   conflictPanelOpen,
+  explicitRecoveryBlocked = false,
   conflicts,
   explicitInFlightCount,
   queue,
@@ -191,7 +193,7 @@ export function projectWorkbookMutationStatus({
     explicitInFlightCount,
     queuedCount: queue.queuedCount,
     inFlightCount: queue.inFlightCount + explicitInFlightCount,
-    primaryLabel: derived.primaryLabel,
+    primaryLabel: explicitRecoveryBlocked ? "Conflict" : derived.primaryLabel,
     unresolvedConflictCount: derived.conflictAnchors.length,
     overflowMessage,
     secondaryCandidates: candidates,

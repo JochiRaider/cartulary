@@ -182,7 +182,11 @@ describe("workbook history support coverage", () => {
       );
 
     render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await findWorkbookCell(
       document.body,
@@ -288,7 +292,11 @@ describe("workbook history support coverage", () => {
       .mockImplementationOnce(() => record2HistoryResponse.promise);
 
     render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await findWorkbookCell(
       document.body,
@@ -372,10 +380,21 @@ describe("workbook history support coverage", () => {
           rowVersion: 4,
         }),
       )
+      .mockResolvedValueOnce(
+        historyEnvelope({
+          items: [record1History],
+          recordId: "20000000-0000-4000-8000-000000000001",
+          rowVersion: 4,
+        }),
+      )
       .mockImplementationOnce(() => record2HistoryResponse.promise);
 
     render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await findWorkbookCell(
       document.body,
@@ -393,7 +412,7 @@ describe("workbook history support coverage", () => {
       screen.getByTestId(historyActionTestId(record1History, "history_entry")),
     );
     expect(
-      screen.getByTestId(
+      await screen.findByTestId(
         rowHistoryRollbackPreviewTestId({
           action: "history_entry",
           historyItemRef: record1History.history_item_ref,
@@ -506,7 +525,11 @@ describe("workbook history support coverage", () => {
       );
 
     render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await findWorkbookCell(
       document.body,
@@ -565,6 +588,8 @@ describe("workbook history support coverage", () => {
         }),
       )
       .mockResolvedValueOnce(historyEnvelope({ rowVersion: 4 }))
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 4 }))
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 4 }))
       .mockResolvedValueOnce(
         successEnvelope({
           incident_id: "10000000-0000-4000-8000-000000000001",
@@ -596,7 +621,11 @@ describe("workbook history support coverage", () => {
       );
 
     render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await findWorkbookCell(
       document.body,
@@ -615,7 +644,7 @@ describe("workbook history support coverage", () => {
       screen.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
     );
     fireEvent.click(
-      screen.getByTestId(
+      await screen.findByTestId(
         rowHistoryRollbackConfirmButtonTestId({
           action: "history_entry",
           historyItemRef: rollbackItem.history_item_ref,
@@ -674,6 +703,8 @@ describe("workbook history support coverage", () => {
         }),
       )
       .mockResolvedValueOnce(historyEnvelope({ rowVersion: 5 }))
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 5 }))
+      .mockResolvedValueOnce(historyEnvelope({ rowVersion: 5 }))
       .mockResolvedValueOnce(
         successEnvelope({
           incident_id: "10000000-0000-4000-8000-000000000001",
@@ -700,6 +731,8 @@ describe("workbook history support coverage", () => {
           ],
         }),
       )
+      .mockResolvedValueOnce(historyEnvelope({ deleted: true, rowVersion: 6 }))
+      .mockResolvedValueOnce(historyEnvelope({ deleted: true, rowVersion: 6 }))
       .mockResolvedValueOnce(
         successEnvelope({
           incident_id: "10000000-0000-4000-8000-000000000001",
@@ -734,7 +767,11 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await findWorkbookCell(
       document.body,
@@ -773,11 +810,10 @@ describe("workbook history support coverage", () => {
 
     fireEvent.click(screen.getByTestId(rowHistoryRestoreButtonTestId()));
     fireEvent.click(await findHistoryDestructiveConfirmButton("restore"));
-    await findWorkbookCell(
-      document.body,
-      timelineViewSchemaId,
-      "20000000-0000-4000-8000-000000000001",
-      "timeline.activity_synopsis_text",
+    await waitFor(() =>
+      expect(visibleGridRowRecordIds(container)).toContain(
+        "20000000-0000-4000-8000-000000000001",
+      ),
     );
     const restoreCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith(
@@ -832,7 +868,11 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await findWorkbookCell(
       document.body,
@@ -959,7 +999,11 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await waitForVisibleGridRowRecordIds(container, [
       "20000000-0000-4000-8000-000000000001",
@@ -1076,7 +1120,11 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     await waitForVisibleGridRowRecordIds(container, [
       "20000000-0000-4000-8000-000000000001",
@@ -1169,7 +1217,11 @@ describe("workbook history support coverage", () => {
       );
 
     render(
-      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+      <TimelineWorkbookRuntimeFixture
+        currentIncidentRole="reviewer"
+        currentUserId={actorUserId}
+        incidentId="10000000-0000-4000-8000-000000000001"
+      />,
     );
     const input = (await findWorkbookCell(
       document.body,

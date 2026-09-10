@@ -8,6 +8,7 @@ import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineCommittedRecordIdleOptions = {
+  readonly signal?: AbortSignal;
   readonly fallbackRowVersion?: number | null | undefined;
   readonly refreshIfMissing?: boolean;
 };
@@ -36,6 +37,7 @@ export function useTimelineCommittedRecordIdle({
     ): Promise<TimelineCommittedRecordIdleResult | null> => {
       let attemptedRefresh = false;
       for (;;) {
+        if (options.signal?.aborted) return null;
         const pending = pendingSavesRefs.pendingQueueRef.current;
         const snapshot = pending.model.snapshot();
         const hasPendingRecordWork = snapshot.units.some(

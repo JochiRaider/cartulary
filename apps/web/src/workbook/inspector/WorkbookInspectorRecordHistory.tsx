@@ -4,6 +4,11 @@ import {
   rowHistoryPanelTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
+import {
+  useHistoryRecordPending,
+  useWorkbookHistoryRuntime,
+} from "../history/WorkbookHistoryContext";
+import { WorkbookHistoryLocalStatus } from "../history/WorkbookHistoryLocalStatus";
 import type { RecordRouteCommandPort } from "../mutations/workbookMutationCommandPorts";
 import type { InspectorRecordHistoryAction } from "./inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
@@ -102,6 +107,10 @@ export function WorkbookRecordHistoryPanel({
     action: RecordHistoryRollbackAction,
   ) => void;
 }) {
+  const runtime = useWorkbookHistoryRuntime();
+  const retainedPending = useHistoryRecordPending(
+    state.subject?.recordId ?? idleRecordId ?? null,
+  );
   const data = workbookRecordHistoryLoadedData(state);
   const error = workbookRecordHistoryLoadError(state);
   const feedback = workbookRecordHistoryFeedback(state);
@@ -114,7 +123,21 @@ export function WorkbookRecordHistoryPanel({
   });
   const presentedRecordId = state.subject?.recordId ?? idleRecordId ?? null;
   if (presentedRecordId === null) return null;
-  const busy = state.phase === "loading" || state.phase === "submitting";
+  if (runtime?.history.readable === false)
+    return (
+      <WorkbookInspectorPublicError
+        error={{
+          primaryMessage:
+            "History access is unavailable. Refresh your session to review your current access.",
+          technicalFields: [],
+        }}
+        testId={rowHistoryMessageTestId()}
+      />
+    );
+  const busy =
+    retainedPending ||
+    state.phase === "loading" ||
+    state.phase === "submitting";
   return (
     <section
       data-testid={rowHistoryPanelTestId()}
@@ -158,6 +181,7 @@ export function WorkbookRecordHistoryPanel({
         neutralStyle={metadataStyle}
         testId={rowHistoryMessageTestId()}
       />
+      <WorkbookHistoryLocalStatus recordId={presentedRecordId} />
       {data === null || state.subject === null ? null : (
         <>
           <WorkbookInspectorTechnicalDetails

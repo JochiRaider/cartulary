@@ -4,17 +4,16 @@ import type {
   IssueEvidencePreviewHandleRequest,
   MergeEntityRecordRequest,
   PatchRecordRequest,
-  RollbackRecordRequest,
   SupersedeRecordRequest,
   SupersedeRecordResponse,
 } from "@cartulary/protocol-ts/http";
 import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence";
+import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
 import type { WorkbookOperationExecutor } from "../adapters/workbookOperationContract";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
 import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
 import { createGenericMutationCommandPort } from "../features/generic/createGenericMutationCommandPort";
 import { buildGenericCreateRequest } from "../features/generic/genericCreateRequestBuilder";
-import { normalizeRecordHistoryData } from "../inspector/workbookRecordHistoryModel";
 import { buildAssessmentCreatePayload } from "../models/assessmentWorkbookModel";
 import {
   buildPatchRecordRequest,
@@ -36,7 +35,6 @@ import type {
   EntityMergeOutcome,
   EntityPatchOutcome,
   GenericViewMutationAccepted,
-  RecordLifecycleAccepted,
   TaskLifecycleOutcome,
   TimelineFillOutcome,
   WorkbookMutationCommandPorts,
@@ -345,64 +343,7 @@ export function createWorkbookMutationCommandPorts(
     apiBase: context.apiBase,
   });
   return {
-    records: {
-      async execute(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          `record-${input.action}`,
-        );
-        if (clientTxnId === null) return operationIdentityFailure();
-        try {
-          const outcome = await operations.execute({
-            operationID:
-              input.action === "delete" ? "deleteRecord" : "restoreRecord",
-            pathParameters: { record_id: input.recordId },
-            request: {
-              base_row_version: input.baseRowVersion,
-              client_txn_id: clientTxnId,
-              reason: input.reason,
-            },
-          });
-          return normalizeRecordLifecycleOutcome(outcome, input.recordId);
-        } catch {
-          return retryableOperationFailure();
-        }
-      },
-      async loadHistory(input) {
-        try {
-          const outcome = await operations.execute({
-            operationID: "getRecordHistory",
-            pathParameters: { record_id: input.recordId },
-          });
-          if (outcome.kind === "rejected") return outcome;
-          const data = normalizeRecordHistoryData(outcome.value.data);
-          return data !== null && data.record_id === input.recordId
-            ? { kind: "accepted", value: data }
-            : invalidOperationContract();
-        } catch {
-          return retryableOperationFailure();
-        }
-      },
-      async rollback(input) {
-        const clientTxnId = createId(context.transactionIds, "record-rollback");
-        if (clientTxnId === null) return operationIdentityFailure();
-        try {
-          const outcome = await operations.execute({
-            operationID: "rollbackRecord",
-            pathParameters: { record_id: input.recordId },
-            request: {
-              base_row_version: input.baseRowVersion,
-              client_txn_id: clientTxnId,
-              reason: input.reason,
-              target: input.target,
-            } satisfies RollbackRecordRequest,
-          });
-          return normalizeRecordLifecycleOutcome(outcome, input.recordId);
-        } catch {
-          return retryableOperationFailure();
-        }
-      },
-    },
+    records: createWorkbookRecordHistoryAdapter(context),
     indicators: createIndicatorWorkflowPort({
       createMutationID: (prefix) => createId(context.transactionIds, prefix),
       operations,
@@ -688,25 +629,4 @@ export function createWorkbookMutationCommandPorts(
       },
     },
   };
-}
-
-function normalizeRecordLifecycleOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly record_id: string;
-      readonly row_version: number;
-    };
-  }>,
-  recordId: string,
-): WorkbookOperationOutcome<RecordLifecycleAccepted> {
-  if (outcome.kind === "rejected") return outcome;
-  return outcome.value.data.record_id === recordId
-    ? {
-        kind: "accepted",
-        value: {
-          recordId: outcome.value.data.record_id,
-          rowVersion: outcome.value.data.row_version,
-        },
-      }
-    : invalidOperationContract();
 }

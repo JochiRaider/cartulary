@@ -7,6 +7,7 @@ import type {
 import { useCallback, useMemo, useState } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { WorkbookRecordCandidatePicker } from "../../components/WorkbookRecordCandidatePicker";
+import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import { useAssessmentSupportCandidates } from "../../hooks/useAssessmentSupportCandidates";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
@@ -74,7 +75,9 @@ export function useAssessmentWorkbookInspectorComposition({
   readonly onCaptureFocus: () => void;
   readonly onClearSelectedAssessment: () => void;
   readonly onClearSurfaceSelection: () => void;
-  readonly onRefreshAssessmentRows: () => Promise<void>;
+  readonly onRefreshAssessmentRows: (options?: {
+    readonly requireAcceptance?: boolean;
+  }) => Promise<void>;
   readonly onRestoreFocus: () => void;
   readonly onSelectAssessment: (recordId: string) => void;
   readonly recordMutationCommands: RecordRouteCommandPort;
@@ -84,6 +87,9 @@ export function useAssessmentWorkbookInspectorComposition({
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
   const inspectorConfig = contract.inspectorConfig;
+  useWorkbookHistorySurfaceRefresh(inspectorConfig.viewSchemaId, () =>
+    onRefreshAssessmentRows({ requireAcceptance: true }),
+  );
   const [deletedHistorySubject, setDeletedHistorySubject] =
     useState<WorkbookInspectorSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
@@ -203,13 +209,12 @@ export function useAssessmentWorkbookInspectorComposition({
         beginMutation,
         actions: recordHistoryActions,
         canMutate:
-          canCreate &&
           interactionMode.kind === "editable" &&
           currentIncidentRole !== null &&
           currentIncidentRole !== "viewer",
         commands: recordMutationCommands,
         effects: {
-          deleteAccepted: async (accepted) => {
+          deleteAccepted: (accepted) => {
             related.commands.cancel();
             creation.commands.reset();
             onClearSelectedAssessment();
@@ -224,14 +229,13 @@ export function useAssessmentWorkbookInspectorComposition({
                 surfaceLabel: contract.title,
               }),
             );
-            await onRefreshAssessmentRows();
           },
-          restoreAccepted: async (accepted) => {
-            await onRefreshAssessmentRows();
+          restoreAccepted: (accepted) => {
             setDeletedHistorySubject(null);
             onSelectAssessment(accepted.recordId);
           },
-          rollbackAccepted: onRefreshAssessmentRows,
+          rollbackAccepted: () => {},
+          refresh: () => onRefreshAssessmentRows({ requireAcceptance: true }),
         },
       }}
       relationshipsContent={

@@ -4,6 +4,7 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +13,7 @@ import type { SheetRef } from "../shared/sheetRef";
 import { createWorkbookClipboardPasteAdapter } from "../workbook/adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
+import { createWorkbookRecordHistoryAdapter } from "../workbook/adapters/createWorkbookRecordHistoryAdapter";
 import { createWorkbookViewQueryAdapter } from "../workbook/adapters/createWorkbookViewQueryAdapter";
 import { createWorkbookCollaborationCoordinator } from "../workbook/collaboration/WorkbookCollaborationCoordinator";
 import {
@@ -21,6 +23,7 @@ import {
 import { WorkbookEditRecoveryPanel } from "../workbook/components/WorkbookEditRecoveryPanel";
 import { WorkbookQueueOverflowNotice } from "../workbook/components/WorkbookQueueOverflowNotice";
 import { WorkbookSameFieldConflictResolver } from "../workbook/components/WorkbookSameFieldConflictResolver";
+import { WorkbookHistoryContext } from "../workbook/history/WorkbookHistoryContext";
 import {
   defaultWorkbookLayoutState,
   moveWorkbookColumn,
@@ -204,6 +207,28 @@ export function TimelineWorkbookRuntimeFixture({
     };
   });
   const { clipboardPaste, mutationCommands, mutationRuntime } = runtimeAssembly;
+  useLayoutEffect(() => {
+    mutationRuntime.history.configure(
+      createWorkbookRecordHistoryAdapter({ apiBase, incidentId }),
+    );
+    mutationRuntime.history.setAuthority({
+      actorId: currentUserId ?? "fixture-actor",
+      incidentId,
+      role: currentIncidentRole ?? "",
+      closed: incidentClosed,
+    });
+  }, [
+    mutationRuntime,
+    apiBase,
+    incidentId,
+    currentUserId,
+    currentIncidentRole,
+    incidentClosed,
+  ]);
+  useLayoutEffect(
+    () => () => mutationRuntime.history.retire(),
+    [mutationRuntime],
+  );
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const editRecoveryPanelRef = useRef<HTMLElement | null>(null);
   const overflowNoticeRef = useRef<HTMLElement | null>(null);
@@ -253,88 +278,90 @@ export function TimelineWorkbookRuntimeFixture({
   );
 
   return (
-    <div style={{ position: "relative", blockSize: "100%" }}>
-      <TimelineWorkbook
-        runtime={{
-          attachCollaborationSession: true,
-          clipboardPaste,
-          collaborationProjection,
-          mutationRuntime,
-          mutationCommands: mutationCommands.timeline,
-          indicatorWorkflow: mutationCommands.indicators,
-          gridEntryFocus: idleGridEntryFocus,
-          incident: {
-            id: incidentId,
-            apiBase,
-            continuityResetKey: inspectorResetKey,
-            currentUserId,
-            currentRole: currentIncidentRole,
-            incidentPort,
-            sheetRef,
-            inspectorResetKey,
-            reloadToken,
-          },
-          query: {
-            viewQuery,
-            state: providedQueryState ?? queryState,
-            setState: onQueryStateChange ?? setQueryState,
-            filterDraft: providedFilterDraft ?? filterDraft,
-            setFilterDraft: onFilterDraftChange ?? setFilterDraft,
-            renderInlineControls: renderInlineQueryControls,
-            viewBarWorkingSet: null,
-          },
-          entities: {
-            hosts: hostEntities,
-            identities: identityEntities,
-            index: entityIndex,
-            refresh: onRefreshEntities,
-          },
-          layout: {
-            commands: {
-              onColumnHiddenChange: onColumnHiddenChange ?? setColumnHidden,
-              onColumnMove: onColumnMove ?? moveColumn,
-              onColumnReorder: onColumnReorder ?? reorderColumn,
-              onColumnWidthChange: onColumnWidthChange ?? setColumnWidth,
-              onResetColumns: onResetColumns ?? resetColumns,
+    <WorkbookHistoryContext.Provider value={mutationRuntime}>
+      <div style={{ position: "relative", blockSize: "100%" }}>
+        <TimelineWorkbook
+          runtime={{
+            attachCollaborationSession: true,
+            clipboardPaste,
+            collaborationProjection,
+            mutationRuntime,
+            mutationCommands: mutationCommands.timeline,
+            indicatorWorkflow: mutationCommands.indicators,
+            gridEntryFocus: idleGridEntryFocus,
+            incident: {
+              id: incidentId,
+              apiBase,
+              continuityResetKey: inspectorResetKey,
+              currentUserId,
+              currentRole: currentIncidentRole,
+              incidentPort,
+              sheetRef,
+              inspectorResetKey,
+              reloadToken,
             },
-            snapshot: {
-              chromeMode,
-              density,
-              incidentClosed,
-              interactionMode,
-              showStatusPresence,
-              state: providedLayoutState ?? layoutState,
+            query: {
+              viewQuery,
+              state: providedQueryState ?? queryState,
+              setState: onQueryStateChange ?? setQueryState,
+              filterDraft: providedFilterDraft ?? filterDraft,
+              setFilterDraft: onFilterDraftChange ?? setFilterDraft,
+              renderInlineControls: renderInlineQueryControls,
+              viewBarWorkingSet: null,
             },
-          },
-          onActivateConflict: activateConflict,
-          onIncidentAccessLost,
-        }}
-      />
-      {mutationSnapshot.blockedEdit !== null ? (
-        <WorkbookEditRecoveryPanel
-          blockedEdit={mutationSnapshot.blockedEdit}
-          key={mutationSnapshot.blockedEdit.unitId}
-          onDiscard={() => mutationRuntime.discardBlockedEdit()}
-          onFocusWithinChange={() => undefined}
-          onRetry={() => mutationRuntime.retryBlockedEdit()}
-          ref={editRecoveryPanelRef}
+            entities: {
+              hosts: hostEntities,
+              identities: identityEntities,
+              index: entityIndex,
+              refresh: onRefreshEntities,
+            },
+            layout: {
+              commands: {
+                onColumnHiddenChange: onColumnHiddenChange ?? setColumnHidden,
+                onColumnMove: onColumnMove ?? moveColumn,
+                onColumnReorder: onColumnReorder ?? reorderColumn,
+                onColumnWidthChange: onColumnWidthChange ?? setColumnWidth,
+                onResetColumns: onResetColumns ?? resetColumns,
+              },
+              snapshot: {
+                chromeMode,
+                density,
+                incidentClosed,
+                interactionMode,
+                showStatusPresence,
+                state: providedLayoutState ?? layoutState,
+              },
+            },
+            onActivateConflict: activateConflict,
+            onIncidentAccessLost,
+          }}
         />
-      ) : mutationSnapshot.overflowMessage !== null ? (
-        <WorkbookQueueOverflowNotice
-          message={mutationSnapshot.overflowMessage}
-          onFocusWithinChange={() => undefined}
-          ref={overflowNoticeRef}
-        />
-      ) : (
-        <WorkbookSameFieldConflictResolver
-          apiBase={apiBase}
-          focusSummary={focusSameFieldSummary}
-          mutationRuntime={mutationRuntime}
-          onActivateOrigin={() => undefined}
-          snapshot={mutationSnapshot}
-          summaryRef={sameFieldSummaryRef}
-        />
-      )}
-    </div>
+        {mutationSnapshot.blockedEdit !== null ? (
+          <WorkbookEditRecoveryPanel
+            blockedEdit={mutationSnapshot.blockedEdit}
+            key={mutationSnapshot.blockedEdit.unitId}
+            onDiscard={() => mutationRuntime.discardBlockedEdit()}
+            onFocusWithinChange={() => undefined}
+            onRetry={() => mutationRuntime.retryBlockedEdit()}
+            ref={editRecoveryPanelRef}
+          />
+        ) : mutationSnapshot.overflowMessage !== null ? (
+          <WorkbookQueueOverflowNotice
+            message={mutationSnapshot.overflowMessage}
+            onFocusWithinChange={() => undefined}
+            ref={overflowNoticeRef}
+          />
+        ) : (
+          <WorkbookSameFieldConflictResolver
+            apiBase={apiBase}
+            focusSummary={focusSameFieldSummary}
+            mutationRuntime={mutationRuntime}
+            onActivateOrigin={() => undefined}
+            snapshot={mutationSnapshot}
+            summaryRef={sameFieldSummaryRef}
+          />
+        )}
+      </div>
+    </WorkbookHistoryContext.Provider>
   );
 }

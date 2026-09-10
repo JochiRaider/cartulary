@@ -400,7 +400,6 @@ export function useTimelineInspectorRowInteractions({
 }
 
 export function useTimelineInspectorLifecycle({
-  cancelRowHistoryRequests,
   clearRowHistory,
   gridShellRef,
   inspectorInvalidationCause,
@@ -419,7 +418,6 @@ export function useTimelineInspectorLifecycle({
   setSelectedRowId,
   workbookFocusAnchorRef,
 }: {
-  readonly cancelRowHistoryRequests: () => void;
   readonly clearRowHistory: () => void;
   readonly gridShellRef: MutableRefObject<HTMLDivElement | null>;
   readonly inspectorInvalidationCause: WorkbookInspectorState["invalidationCause"];
@@ -463,7 +461,6 @@ export function useTimelineInspectorLifecycle({
         rowHistory.subject?.recordId === selectedRowId &&
         rowHistoryData?.deleted !== true
       ) {
-        cancelRowHistoryRequests();
         dispatchRowHistory({ type: "clear" });
       }
       dispatchRowHistory({ type: "cancel" });
@@ -505,7 +502,6 @@ export function useTimelineInspectorLifecycle({
       }, 0);
     }
   }, [
-    cancelRowHistoryRequests,
     dispatchRowHistory,
     gridShellRef,
     restoreTimelineFocusAnchor,

@@ -222,6 +222,35 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-history-recovery",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.revisions.browser.history_recovery_074ea859ee8b",
+            "module.revisions.browser.history_recovery_2f1e64594ac3",
+            "module.revisions.browser.history_recovery_4ce1b29fca56",
+            "module.revisions.browser.history_recovery_7daa846195aa",
+            "module.revisions.browser.history_recovery_9eb7b152cf68",
+            "module.revisions.browser.history_recovery_ac26758a459a",
+            "module.revisions.browser.history_recovery_ed12d3c33549",
+            "module.revisions.browser.history_recovery_fdfce91b2066"
+          ],
+          "specs": [
+            "apps/web/e2e/history-recovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-history",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1069,6 +1098,35 @@
           ],
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-history-recovery",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.revisions.browser.history_recovery_074ea859ee8b",
+            "module.revisions.browser.history_recovery_2f1e64594ac3",
+            "module.revisions.browser.history_recovery_4ce1b29fca56",
+            "module.revisions.browser.history_recovery_7daa846195aa",
+            "module.revisions.browser.history_recovery_9eb7b152cf68",
+            "module.revisions.browser.history_recovery_ac26758a459a",
+            "module.revisions.browser.history_recovery_ed12d3c33549",
+            "module.revisions.browser.history_recovery_fdfce91b2066"
+          ],
+          "specs": [
+            "apps/web/e2e/history-recovery.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

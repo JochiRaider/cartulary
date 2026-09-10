@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { createTimelineBulkTagCommandAdapter } from "../adapters/createTimelineBulkTagCommandAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "../adapters/createTimelineEvidenceAttachmentAdapter";
-import { createTimelineHistoryAdapter } from "../adapters/createTimelineHistoryAdapter";
 import { createTimelineMentionEntityCreationAdapter } from "../adapters/createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "../adapters/createTimelineMentionResolutionAdapter";
 import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRecordActionAdapter";
@@ -33,10 +32,6 @@ export function useTimelineSurfaceFoundation({
   mutationRuntime,
   query,
 }: TimelineSurfaceFoundationInput) {
-  const historyPort = useMemo(
-    () => createTimelineHistoryAdapter({ apiBase }),
-    [apiBase],
-  );
   const recordActionPort = useMemo(
     () => createTimelineRecordActionAdapter({ apiBase }),
     [apiBase],
@@ -132,7 +127,6 @@ export function useTimelineSurfaceFoundation({
       bulkTag: bulkTagPort,
       clipboardPaste,
       evidenceAttachment: evidenceAttachmentPort,
-      history: historyPort,
       mentions: mentionPorts,
       recordActions: recordActionPort,
     },

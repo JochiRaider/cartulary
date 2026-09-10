@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { useWorkbookHistoryRuntime } from "../../history/WorkbookHistoryContext";
 import { createTimelineCommittedVersionLedger } from "../models/timelineCommittedVersionLedger";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineRecordActionAccepted } from "../ports/TimelineRecordActionPort";
@@ -8,6 +9,7 @@ export function useTimelineCommittedRows({
 }: {
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
 }) {
+  const history = useWorkbookHistoryRuntime()?.history;
   const ledgerRef = useRef(createTimelineCommittedVersionLedger());
   const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
@@ -23,8 +25,12 @@ export function useTimelineCommittedRows({
   );
 
   const acceptCommittedTimelineRow = useCallback(
-    (row: WorkbookRow) => ledgerRef.current.accept(row, rowsRef.current),
-    [rowsRef],
+    (row: WorkbookRow) => {
+      if (row.recordId && row.rowVersion !== null)
+        history?.acceptVersion(row.recordId, row.rowVersion);
+      return ledgerRef.current.accept(row, rowsRef.current);
+    },
+    [rowsRef, history],
   );
 
   const acceptCommittedTimelineRows = useCallback(
@@ -41,13 +47,20 @@ export function useTimelineCommittedRows({
   );
 
   const acceptTimelineRecordVersion = useCallback(
-    (recordId: string, rowVersion: number) =>
-      ledgerRef.current.acceptVersion(recordId, rowVersion, rowsRef.current),
-    [rowsRef],
+    (recordId: string, rowVersion: number) => {
+      history?.acceptVersion(recordId, rowVersion);
+      return ledgerRef.current.acceptVersion(
+        recordId,
+        rowVersion,
+        rowsRef.current,
+      );
+    },
+    [rowsRef, history],
   );
 
   const acceptTimelineActionResult = useCallback(
     (result: TimelineRecordActionAccepted) => {
+      history?.acceptVersion(result.recordId, result.rowVersion);
       const existing = ledgerRef.current.current(
         result.recordId,
         rowsRef.current,
@@ -82,7 +95,7 @@ export function useTimelineCommittedRows({
         rowsRef.current,
       );
     },
-    [rowsRef],
+    [rowsRef, history],
   );
 
   const latestCommittedTimelineRow = useCallback(

@@ -1,13 +1,8 @@
-import type { RecordLifecycleAccepted } from "../mutations/workbookMutationCommandPorts";
+import type { HistoryReceipt } from "../history/workbookHistoryOperation";
 
 export type WorkbookRecordHistoryOwnerEffects = {
-  readonly deleteAccepted: (
-    accepted: RecordLifecycleAccepted,
-  ) => Promise<void> | void;
-  readonly restoreAccepted: (
-    accepted: RecordLifecycleAccepted,
-  ) => Promise<void> | void;
-  readonly rollbackAccepted: (
-    accepted: RecordLifecycleAccepted,
-  ) => Promise<void> | void;
+  readonly refresh: () => Promise<void> | void;
+  readonly deleteAccepted: (accepted: HistoryReceipt) => void;
+  readonly restoreAccepted: (accepted: HistoryReceipt) => void;
+  readonly rollbackAccepted: (accepted: HistoryReceipt) => void;
 };

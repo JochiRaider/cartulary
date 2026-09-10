@@ -1,5 +1,6 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
+import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import { executeWorkbookConflictResolution } from "../mutations/workbookConflictResolutionAdapter";
@@ -90,6 +91,7 @@ export type WorkbookEditRecoveryActionResult =
  */
 export class WorkbookMutationRuntime {
   readonly scope: PendingReplayScope;
+  readonly history: WorkbookRecordHistoryOwner;
   private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime;
   private readonly pendingMutationPort: WorkbookPendingMutationPort;
@@ -118,6 +120,10 @@ export class WorkbookMutationRuntime {
     dependencies: WorkbookRuntimeDependencies = browserWorkbookRuntimeDependencies,
   ) {
     this.scope = { ...scope };
+    this.history = new WorkbookRecordHistoryOwner(
+      scope.incidentId,
+      transactionIds,
+    );
     this.transactionIds = transactionIds;
     this.pendingMutationPort = pendingMutationPort;
     this.pendingRuntime = createWorkbookPendingQueueRuntime(this.scope);
@@ -150,6 +156,28 @@ export class WorkbookMutationRuntime {
       throw new Error("managed-patch mutation driver registration failed");
     }
     this.snapshot = this.calculateSnapshot();
+    this.history.subscribe(() => this.emit());
+  }
+
+  async coordinateHistory(
+    recordId: string,
+    signal: AbortSignal,
+  ): Promise<number | null> {
+    while (!signal.aborted && !this.lifecycle.disposed) {
+      const queue = this.pendingRuntime.model.snapshot();
+      if (
+        queue.authPaused ||
+        queue.halted ||
+        queue.overflow ||
+        queue.sameFieldConflicts.length ||
+        this.conflicts.entries().length
+      )
+        return null;
+      if (!queue.units.some((unit) => unit.recordId === recordId))
+        return this.history.latestVersion(recordId);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 16));
+    }
+    return null;
   }
 
   pendingQueue(): WorkbookPendingQueueRuntime {
@@ -170,7 +198,9 @@ export class WorkbookMutationRuntime {
     return projectWorkbookMutationStatus({
       conflictPanelOpen: this.conflicts.panelOpen,
       conflicts: this.conflicts.entries(),
-      explicitInFlightCount: this.explicitInFlightCount,
+      explicitInFlightCount:
+        this.explicitInFlightCount + this.history.pendingCount,
+      explicitRecoveryBlocked: this.history.blockedCount > 0,
       queue: this.pendingRuntime.model.snapshot(),
       refreshes: Array.from(this.refreshStatusBySheet.values()),
     });
@@ -455,6 +485,7 @@ export class WorkbookMutationRuntime {
 
   applyAuthorizationRecoveryState(state: "paused" | "resumed"): void {
     if (state === "paused") {
+      this.history.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
       this.emit();
       return;
@@ -478,6 +509,7 @@ export class WorkbookMutationRuntime {
   invalidate(reason: WorkbookMutationInvalidationReason): void {
     if (reason.kind === "runtime_disposed") {
       if (this.lifecycle.disposed) return;
+      this.history.retire();
       this.retryScheduler.cancel();
       this.managedPatches.dispose();
       for (const unit of this.pendingRuntime.model.snapshot().units)
@@ -492,14 +524,17 @@ export class WorkbookMutationRuntime {
       return;
     }
     if (reason.kind === "incident_closed") {
+      this.history.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
       this.emit();
       return;
     }
     if (reason.kind === "incident_changed") {
+      this.history.retire();
       this.pauseForTerminalLifecycle();
       return;
     }
+    this.history.suspend();
     this.applyAuthorizationRecoveryState("paused");
   }
 

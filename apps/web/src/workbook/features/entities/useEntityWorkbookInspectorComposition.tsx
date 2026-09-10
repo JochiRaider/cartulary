@@ -33,6 +33,7 @@ import {
   WorkbookRelationshipChip,
   WorkbookRelationshipChipDetails,
 } from "../../components/WorkbookRelationshipChip";
+import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import { useEntityTimelinePreview } from "../../hooks/useEntityTimelinePreview";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
@@ -115,7 +116,9 @@ export function useEntityWorkbookInspectorComposition({
   readonly sheetRef: SheetRef;
   readonly mutationPending: boolean;
   readonly onClearSurfaceSelection: () => void;
-  readonly onRefreshEntities: () => Promise<void>;
+  readonly onRefreshEntities: (options?: {
+    readonly requireAcceptance?: boolean;
+  }) => Promise<void>;
   readonly onResetOwnerState: () => void;
   readonly onRestoreFocus: () => void;
   readonly recordMutationCommands: RecordRouteCommandPort;
@@ -133,6 +136,9 @@ export function useEntityWorkbookInspectorComposition({
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
   const inspectorConfig = contract.inspectorConfig;
+  useWorkbookHistorySurfaceRefresh(inspectorConfig.viewSchemaId, () =>
+    onRefreshEntities({ requireAcceptance: true }),
+  );
   const [deletedHistorySubject, setDeletedHistorySubject] =
     useState<WorkbookInspectorSubject | null>(null);
   const [editRecordId, setEditRecordId] = useState("");
@@ -411,7 +417,7 @@ export function useEntityWorkbookInspectorComposition({
             currentIncidentRole !== "viewer",
           commands: recordMutationCommands,
           effects: {
-            deleteAccepted: async (accepted) => {
+            deleteAccepted: (accepted) => {
               related.commands.cancel();
               clearTimelinePreview();
               setSelectedRecordId(null);
@@ -426,14 +432,13 @@ export function useEntityWorkbookInspectorComposition({
                   surfaceLabel: contract.title,
                 }),
               );
-              await onRefreshEntities();
             },
-            restoreAccepted: async (accepted) => {
-              await onRefreshEntities();
+            restoreAccepted: (accepted) => {
               setDeletedHistorySubject(null);
               setSelectedRecordId(accepted.recordId);
             },
-            rollbackAccepted: onRefreshEntities,
+            rollbackAccepted: () => {},
+            refresh: () => onRefreshEntities({ requireAcceptance: true }),
           },
         },
         mergeFeedback: mergeSnapshot.feedback,

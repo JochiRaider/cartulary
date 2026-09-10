@@ -40,10 +40,10 @@ describe("workbook history presentation model", () => {
 
   it("shares rollback labels and pending field order", () => {
     expect(workbookHistoryRollbackLabel("history_entry")).toBe(
-      "Rollback entry",
+      "Reverse history entry",
     );
     expect(workbookHistoryRollbackLabel("change_set")).toBe(
-      "Rollback change set",
+      "Reverse change set",
     );
     expect(workbookHistoryRollbackLabel("row_restore")).toBe(
       "Restore row fields",

@@ -3,6 +3,8 @@ import {
   successEnvelope,
   timelineRow,
 } from "../../../testing/timelineWorkbookTestSupport";
+import { createWorkbookRecordHistoryAdapter } from "../../adapters/createWorkbookRecordHistoryAdapter";
+import type { HistoryAttempt } from "../../history/workbookHistoryOperation";
 import {
   evidenceViewSchemaId,
   hostsViewSchemaId,
@@ -11,7 +13,6 @@ import {
 import { createDraftRowForKey, rowFromApi } from "../models/timelineRowModel";
 import { createTimelineBulkTagCommandAdapter } from "./createTimelineBulkTagCommandAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "./createTimelineEvidenceAttachmentAdapter";
-import { createTimelineHistoryAdapter } from "./createTimelineHistoryAdapter";
 import { createTimelineMentionEntityCreationAdapter } from "./createTimelineMentionEntityCreationAdapter";
 import { createTimelineMentionResolutionAdapter } from "./createTimelineMentionResolutionAdapter";
 import { createTimelineRecordActionAdapter } from "./createTimelineRecordActionAdapter";
@@ -82,34 +83,26 @@ it("derives history routes and rejects target-inconsistent history responses", a
       }),
     );
   vi.stubGlobal("fetch", fetchMock);
-  const history = createTimelineHistoryAdapter({ apiBase: "/base" });
+  const history = createWorkbookRecordHistoryAdapter({
+    apiBase: "/base",
+    incidentId,
+  });
 
-  await expect(history.load({ recordId })).resolves.toMatchObject({
+  await expect(
+    history.load(recordId, new AbortController().signal),
+  ).resolves.toMatchObject({
     kind: "accepted",
     value: { record_id: recordId, row_version: 4 },
   });
   await expect(
-    history.deleteOrRestore({
-      baseRowVersion: 4,
-      clientTxnId: "txn-delete",
-      operation: "delete",
-      recordId,
-    }),
-  ).resolves.toEqual({
-    kind: "accepted",
-    value: { recordId, rowVersion: 5 },
+    history.send(historyAttempt("delete"), new AbortController().signal),
+  ).resolves.toMatchObject({
+    kind: "acknowledged",
+    receipt: { kind: "delete", recordId, rowVersion: 5 },
   });
   await expect(
-    history.rollback({
-      baseRowVersion: 5,
-      clientTxnId: "txn-rollback",
-      recordId,
-      target: { change_set_id: changeSetId, kind: "change_set" },
-    }),
-  ).resolves.toMatchObject({
-    kind: "rejected",
-    failure: { kind: "invalid_contract" },
-  });
+    history.send(historyAttempt("rollback"), new AbortController().signal),
+  ).resolves.toEqual({ kind: "uncertain" });
   expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
     `/base/api/v1/records/${recordId}/history`,
     `/base/api/v1/records/${recordId}`,
@@ -588,4 +581,44 @@ function requestBody(fetchMock: ReturnType<typeof vi.fn>, index: number) {
   return JSON.parse(
     String((fetchMock.mock.calls[index]?.[1] as RequestInit).body),
   );
+}
+
+function historyAttempt(operation: "delete" | "rollback"): HistoryAttempt {
+  const rowVersion = operation === "delete" ? 4 : 5;
+  const id = `txn-${operation}`;
+  const target = { kind: "change_set" as const, change_set_id: changeSetId };
+  return {
+    id,
+    actorId: "actor",
+    incidentId,
+    operation,
+    subject: {
+      kind: "live",
+      recordId,
+      rowVersion,
+      label: "A row",
+      surfaceLabel: "Timeline",
+      viewSchemaId: timelineViewSchemaId,
+    },
+    pending:
+      operation === "delete"
+        ? { kind: "destructive", operation, recordId, rowVersion }
+        : {
+            kind: "rollback",
+            action: "change_set",
+            historyItemRef: "hitem-timeline-1",
+            recordId,
+            rowVersion,
+            target,
+          },
+    body: JSON.stringify({
+      base_row_version: rowVersion,
+      client_txn_id: id,
+      reason:
+        operation === "delete"
+          ? "Deleted from workbook history"
+          : "Rollback from workbook history",
+      ...(operation === "rollback" ? { target } : {}),
+    }),
+  };
 }

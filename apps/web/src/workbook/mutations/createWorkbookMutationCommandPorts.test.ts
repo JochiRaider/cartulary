@@ -442,15 +442,37 @@ describe("semantic mutation command ports", () => {
     });
 
     await expect(
-      commands.records.execute({
-        action: "delete",
-        baseRowVersion: 5,
-        reason: "Deleted from the inspector",
-        recordId,
-      }),
-    ).resolves.toEqual({
-      kind: "accepted",
-      value: { recordId, rowVersion: 6 },
+      commands.records.send(
+        {
+          id: "record-delete-id",
+          actorId: "reviewer",
+          incidentId: "10000000-0000-4000-8000-000000000001",
+          operation: "delete",
+          subject: {
+            kind: "live",
+            recordId,
+            rowVersion: 5,
+            viewSchemaId: "cartulary.view.timeline.v2",
+            surfaceLabel: "Timeline",
+            label: "A row",
+          },
+          pending: {
+            kind: "destructive",
+            operation: "delete",
+            recordId,
+            rowVersion: 5,
+          },
+          body: JSON.stringify({
+            base_row_version: 5,
+            client_txn_id: "record-delete-id",
+            reason: "Deleted from the inspector",
+          }),
+        },
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({
+      kind: "acknowledged",
+      receipt: { kind: "delete", recordId, rowVersion: 6 },
     });
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/v1/records/${recordId}`,

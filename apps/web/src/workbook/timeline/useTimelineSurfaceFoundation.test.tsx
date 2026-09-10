@@ -62,7 +62,7 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
     },
     { initialProps: { apiBase: undefined as string | undefined } },
   );
-  const initialHistoryPort = result.current.ports.history;
+  const initialRecordActionPort = result.current.ports.recordActions;
   const initialPendingRefs = result.current.refs.pendingSaves;
   const initialRowsRef = result.current.refs.rows;
 
@@ -102,7 +102,7 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
 
   rerender({ apiBase: undefined });
 
-  expect(result.current.ports.history).toBe(initialHistoryPort);
+  expect(result.current.ports.recordActions).toBe(initialRecordActionPort);
   expect(result.current.refs.pendingSaves).toBe(initialPendingRefs);
   expect(result.current.refs.rows).toBe(initialRowsRef);
   expect(result.current.snapshot.query.queryState).toEqual(

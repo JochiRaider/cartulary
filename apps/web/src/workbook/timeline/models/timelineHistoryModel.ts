@@ -31,6 +31,13 @@ export function selectTimelineInspectorHistorySubject({
   const deletedRowHistoryData =
     matchedRowHistoryData?.deleted === true ? matchedRowHistoryData : null;
   const selectedLiveRecordId = selectedRow?.recordId ?? null;
+  if (
+    rowHistory.subject?.kind === "deleted" &&
+    (selectedLiveRecordId === null ||
+      (selectedLiveRecordId === rowHistory.subject.recordId &&
+        (selectedRow?.rowVersion ?? 0) <= rowHistory.subject.rowVersion))
+  )
+    return rowHistory.subject;
   const deletedRowIsActiveSubject =
     deletedRowHistoryData !== null &&
     (selectedLiveRecordId === null ||
@@ -57,6 +64,12 @@ export function selectTimelineInspectorHistorySubject({
       surfaceLabel: "Timeline",
     });
   }
+  // An acknowledged restore remains the subject while its row projection reloads.
+  if (
+    (rowHistory.phase === "idle" || rowHistory.phase === "ready") &&
+    rowHistory.feedback
+  )
+    return rowHistory.subject;
   if (draftRow !== null) return null;
   return null;
 }

@@ -3,6 +3,294 @@
   "owner_id": "module.revisions",
   "rows": [
     {
+      "row_id": "module.revisions.browser.history_recovery_074ea859ee8b",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_074ea859ee8b"
+        ],
+        "titles": [
+          "Timeline history recovers loss before commit without duplicate history"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.browser.history_recovery_2f1e64594ac3",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_2f1e64594ac3"
+        ],
+        "titles": [
+          "Entity history recovers a committed delete after inspector closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.browser.history_recovery_4ce1b29fca56",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_4ce1b29fca56"
+        ],
+        "titles": [
+          "Timeline history recovers a committed delete after inspector closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.browser.history_recovery_7daa846195aa",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_7daa846195aa"
+        ],
+        "titles": [
+          "Timeline history recovers malformed success without duplicate history"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.browser.history_recovery_9eb7b152cf68",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_9eb7b152cf68"
+        ],
+        "titles": [
+          "Assessment history recovers a committed delete after inspector closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.browser.history_recovery_ac26758a459a",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_ac26758a459a"
+        ],
+        "titles": [
+          "Timeline historical replay preserves a newer accepted row"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.browser.history_recovery_ed12d3c33549",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_ed12d3c33549"
+        ],
+        "titles": [
+          "Generic history recovers a committed delete after inspector closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.browser.history_recovery_fdfce91b2066",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_fdfce91b2066"
+        ],
+        "titles": [
+          "Timeline acknowledged delete survives a failed history refresh"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.browser",

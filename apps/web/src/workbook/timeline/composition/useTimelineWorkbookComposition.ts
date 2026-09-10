@@ -102,7 +102,6 @@ export function useTimelineWorkbookComposition({
     ),
     foundation: {
       evidenceAttachmentPort: foundation.ports.evidenceAttachment,
-      historyPort: foundation.ports.history,
       loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
       mentionPorts: foundation.ports.mentions,
       rows: foundation.snapshot.rows,

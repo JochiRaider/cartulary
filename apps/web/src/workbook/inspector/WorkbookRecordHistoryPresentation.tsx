@@ -11,6 +11,8 @@ import {
   rowHistoryRollbackPreviewTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
+import { useHistoryActionPermission } from "../history/WorkbookHistoryContext";
+import { historyOperationLabel } from "../history/workbookHistoryOperation";
 import type { InspectorRecordHistoryAction } from "./inspectorCapabilityResolver";
 import {
   WorkbookHistoryEvent,
@@ -124,6 +126,8 @@ function WorkbookRecordHistoryDestructiveActions({
   readonly subject: WorkbookInspectorSubject;
   readonly onPreviewDeleteRestore: (operation: "delete" | "restore") => void;
 }) {
+  const mayDelete = useHistoryActionPermission("delete");
+  const mayRestore = useHistoryActionPermission("restore");
   const operation = availableDestructiveOperation(actions, subject, data);
   if (operation === null) return null;
   const identity = historyActionIdentity(subject, operation);
@@ -135,7 +139,11 @@ function WorkbookRecordHistoryDestructiveActions({
             ? rowHistoryDeleteButtonTestId()
             : rowHistoryRestoreButtonTestId()
         }
-        disabled={!canMutate || busy}
+        disabled={
+          !canMutate ||
+          busy ||
+          !(operation === "delete" ? mayDelete : mayRestore)
+        }
         ref={(element) => focus.register(identity, element)}
         tone={operation === "delete" ? "destructive" : "ordinary"}
         onClick={(event) => {
@@ -143,7 +151,7 @@ function WorkbookRecordHistoryDestructiveActions({
           onPreviewDeleteRestore(operation);
         }}
       >
-        {operation === "delete" ? "Soft-delete row" : "Restore row"}
+        {operation === "delete" ? "Soft-delete row" : "Restore deleted row"}
       </WorkbookInspectorActionButton>
     </div>
   );
@@ -196,8 +204,14 @@ function WorkbookRecordHistoryConfirmation({
         action: pendingAction.action,
         historyItemRef: pendingAction.historyItemRef,
       })}
-      operation={`${workbookHistoryRollbackLabel(pendingAction.action)} rollback`}
-      subject="this history state"
+      operation={historyOperationLabel({ pending: pendingAction })}
+      subject={
+        pendingAction.target.kind === "row_restore"
+          ? "for this row; independent relationships and evidence remain unchanged"
+          : pendingAction.target.kind === "change_set"
+            ? "including its source-owned affected records"
+            : "for this history entry"
+      }
       technicalFields={[
         ...workbookHistoryPendingTechnicalFields(pendingAction),
         { label: "History item", value: pendingAction.historyItemRef },
@@ -281,6 +295,7 @@ function WorkbookRecordHistoryRollbackActions({
     action: RecordHistoryRollbackAction,
   ) => void;
 }) {
+  const permitted = useHistoryActionPermission("rollback");
   if (item.available_rollback_actions.length === 0) {
     return <p style={emptyStateStyle}>No rollback action</p>;
   }
@@ -298,7 +313,7 @@ function WorkbookRecordHistoryRollbackActions({
               action,
               historyItemRef: item.history_item_ref,
             })}
-            disabled={!canMutate || busy}
+            disabled={!canMutate || busy || !permitted}
             key={action}
             ref={(element) => focus.register(identity, element)}
             tone={action === "row_restore" ? "ordinary" : "secondary"}

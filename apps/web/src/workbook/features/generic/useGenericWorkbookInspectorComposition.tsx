@@ -15,6 +15,7 @@ import {
 } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { WorkbookProtocolPatchRecordRequest } from "../../adapters/workbookProtocolTypes";
+import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
@@ -89,7 +90,9 @@ export function useGenericWorkbookInspectorComposition({
   readonly mutation: GenericSurfaceMutationController;
   readonly mutationCommands: WorkbookMutationCommandPorts;
   readonly onClearSurfaceSelection: () => void;
-  readonly onRefresh: () => Promise<void> | void;
+  readonly onRefresh: (options?: {
+    readonly requireAcceptance?: boolean;
+  }) => Promise<void> | void;
   readonly onRestoreFocus: () => void;
   readonly onSelectRecord: (recordId: string) => void;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
@@ -101,6 +104,9 @@ export function useGenericWorkbookInspectorComposition({
   readonly setCreateDraft: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
   const inspectorConfig = contract.inspectorConfig;
+  useWorkbookHistorySurfaceRefresh(inspectorConfig.viewSchemaId, () =>
+    onRefresh({ requireAcceptance: true }),
+  );
   const editableFields = useMemo(
     () => contract.fields.filter((field) => field.writeKind !== "read_only"),
     [contract],
@@ -372,7 +378,7 @@ export function useGenericWorkbookInspectorComposition({
             currentIncidentRole !== "viewer",
           commands: mutationCommands.records,
           effects: {
-            deleteAccepted: async (accepted) => {
+            deleteAccepted: (accepted) => {
               setIndicatorInspectorHandler(null);
               createRelatedWorkflow.commands.cancel();
               onSelectRecord("");
@@ -387,16 +393,13 @@ export function useGenericWorkbookInspectorComposition({
                   surfaceLabel: contract.title,
                 }),
               );
-              await onRefresh();
             },
-            restoreAccepted: async (accepted) => {
-              await onRefresh();
+            restoreAccepted: (accepted) => {
               setDeletedHistorySubject(null);
               onSelectRecord(accepted.recordId);
             },
-            rollbackAccepted: async () => {
-              await onRefresh();
-            },
+            rollbackAccepted: () => {},
+            refresh: () => onRefresh({ requireAcceptance: true }),
           },
         },
         indicator:

@@ -6862,30 +6862,6 @@ async function readWorkbookGridScroll(
 
 async function maskVisualDynamicText(page: Page) {
   await page.evaluate(() => {
-    const styleId = "visual-dynamic-input-mask";
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement("style");
-      style.id = styleId;
-      style.textContent = `
-        html[data-visual-snapshot="true"]
-          .visual-row-history-rollback-preview > p:first-child {
-          block-size: 4.5rem !important;
-          color: transparent !important;
-          inline-size: 100% !important;
-          overflow: hidden !important;
-          position: relative !important;
-        }
-
-        html[data-visual-snapshot="true"]
-          .visual-row-history-rollback-preview > p:first-child::after {
-          color: var(--ct-colors-ink-muted);
-          content: "Preview rollback history_entry for history item hitem.VISUAL-FIXTURE on record 00000000-0000-0000-0000-000000000000 at row version 2.";
-          inset: 0;
-          position: absolute;
-        }
-      `;
-      document.head.append(style);
-    }
     const timestampReplacement: [RegExp, string] = [
       /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g,
       "2025-01-01T00:00:00Z",

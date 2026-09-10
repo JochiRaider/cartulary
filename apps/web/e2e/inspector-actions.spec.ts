@@ -180,6 +180,9 @@ test("Verify history and rollback preview/action use public route contracts, pre
   await page
     .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
     .click();
+  await expect(
+    page.getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor)),
+  ).toBeVisible();
   await patchRecord(page, row.record_id, {
     base_row_version: linkedRow.row_version,
     changes: [
@@ -192,6 +195,48 @@ test("Verify history and rollback preview/action use public route contracts, pre
     view_schema_id: timelineViewSchemaId,
   });
 
+  const rollbackRequests: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().endsWith(`/api/v1/records/${row.record_id}/rollback`)
+    )
+      rollbackRequests.push(request.postData() ?? "");
+  });
+  await page
+    .getByTestId(rowHistoryRollbackConfirmButtonTestId(rollbackAnchor))
+    .click();
+  await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
+    "Review current history and confirm the action again.",
+  );
+  expect(rollbackRequests).toEqual([]);
+  const reviewedHistory = await fetchRecordHistory(page, row.record_id);
+  await page
+    .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
+    .click();
+  await expect(
+    page.getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor)),
+  ).toBeVisible();
+  // A second peer edit lands after the final admitted read, exercising the authoritative 409.
+  await page.route(
+    `**/api/v1/records/${row.record_id}/history`,
+    async (route) => {
+      const reviewedResponse = await route.fetch();
+      await patchRecord(page, row.record_id, {
+        base_row_version: reviewedHistory.row_version,
+        client_txn_id: uniqueTxn("workbook-inspector-dispatch-race"),
+        view_schema_id: timelineViewSchemaId,
+        changes: [
+          {
+            field_key: "timeline.activity_synopsis_text",
+            value: "Peer edit after the final history read",
+          },
+        ],
+      });
+      await route.fulfill({ response: reviewedResponse });
+    },
+    { times: 1 },
+  );
   const rollbackResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
@@ -207,12 +252,14 @@ test("Verify history and rollback preview/action use public route contracts, pre
   };
   expect(responseBody.error.code).toBe("row_version_conflict");
   const requestBody = JSON.parse(response.request().postData() ?? "{}");
-  expect(requestBody.base_row_version).toBe(history.row_version);
+  expect(requestBody.base_row_version).toBe(reviewedHistory.row_version);
   expect(requestBody.target).toEqual({
     history_entry_ref: rollbackItem.history_entry_ref,
     kind: "history_entry",
   });
-  expect(String(requestBody.client_txn_id)).toMatch(/^timeline-client-/u);
+  expect(String(requestBody.client_txn_id)).toMatch(
+    /^history-rollback-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+  );
   await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
     "row_version_conflict",
   );
@@ -354,7 +401,9 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
   expect(deleted.ok()).toBeTruthy();
   const deleteBody = JSON.parse(deleted.request().postData() ?? "{}");
   expect(deleteBody.base_row_version).toBe(linkedTarget.row_version);
-  expect(String(deleteBody.client_txn_id)).toMatch(/^timeline-client-/u);
+  expect(String(deleteBody.client_txn_id)).toMatch(
+    /^history-delete-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+  );
   const deletedEnvelope = (await deleted.json()) as {
     data: { row_version: number };
   };
@@ -387,7 +436,9 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
   expect(restored.ok()).toBeTruthy();
   const restoreBody = JSON.parse(restored.request().postData() ?? "{}");
   expect(restoreBody.base_row_version).toBe(deletedEnvelope.data.row_version);
-  expect(String(restoreBody.client_txn_id)).toMatch(/^timeline-client-/u);
+  expect(String(restoreBody.client_txn_id)).toMatch(
+    /^history-restore-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+  );
 
   const memberPassword = "WorkbookInteractionReviewer1!";
   const member = await createIncidentMemberUser(page, incidentId, {
@@ -464,7 +515,20 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     expect(deniedBody.error.code).toBe("authorization_denied");
     await expect(
       memberPage.getByTestId(rowHistoryMessageTestId()),
-    ).toContainText("authorization denied");
+    ).toContainText("History access is unavailable");
+    await expect(
+      memberPage.getByTestId(
+        historyActionTestId(retainedRollbackItem, "history_entry"),
+      ),
+    ).toHaveCount(0);
+    await expect(
+      memberPage.getByTestId(
+        rowHistoryRollbackPreviewTestId(retainedRollbackAnchor),
+      ),
+    ).toHaveCount(0);
+    await expect(
+      memberPage.getByRole("button", { name: /^History actions/ }),
+    ).toHaveCount(0);
   } finally {
     await memberContext.close();
   }

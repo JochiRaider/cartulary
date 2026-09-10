@@ -4,19 +4,21 @@ import {
   render,
   renderHook,
   screen,
+  waitFor,
 } from "@testing-library/react";
+import { type Dispatch, useReducer } from "react";
 import { expect, it, vi } from "vitest";
 import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
+import { WorkbookHistoryContext } from "../history/WorkbookHistoryContext";
+import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import {
   type RecordHistoryData,
   type WorkbookRecordHistoryEvent,
   type WorkbookRecordHistoryState,
-  workbookRecordHistoryOperationId,
   workbookRecordHistoryReducer,
-  workbookRecordHistoryRequestId,
 } from "../inspector/workbookRecordHistoryModel";
 import { workbookInspectorStateIsOpen } from "../models/workbookInspectorModel";
 import { useTimelineGridEnvironment } from "./composition/useTimelineGridEnvironment";
@@ -24,7 +26,6 @@ import { useTimelineInspectorStateComposition } from "./composition/useTimelineI
 import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";
 import { useTimelineHistoryActions } from "./hooks/useTimelineHistoryActions";
 import { createDraftRow } from "./models/timelineRowModel";
-import type { TimelineHistoryPort } from "./ports/TimelineHistoryPort";
 
 it("useTimelineGridEnvironment owns rounded measurement and observer cleanup", () => {
   let clientWidth = 413.8;
@@ -158,109 +159,209 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
     recordId: subject.recordId,
     rowVersion: subject.rowVersion,
   };
-  const operationId = workbookRecordHistoryOperationId(1);
   let historyState: WorkbookRecordHistoryState = {
     pendingAction,
     phase: "ready",
     result: { data, kind: "loaded" },
     subject,
   };
+  let publish: Dispatch<WorkbookRecordHistoryEvent> | undefined;
   const dispatchRowHistory = (event: WorkbookRecordHistoryEvent) => {
     trace.push(`history:${event.type}`);
     historyState = workbookRecordHistoryReducer(historyState, event);
+    publish?.(event);
     return historyState;
   };
   let queuedWork: (() => Promise<void>) | null = null;
-  const historyPort: TimelineHistoryPort = {
-    deleteOrRestore: vi.fn(async () => {
-      trace.push("route:delete");
-      return {
-        kind: "accepted" as const,
-        value: { recordId: subject.recordId, rowVersion: 5 },
-      };
-    }),
-    load: vi.fn(async () => {
+  const owner = new WorkbookRecordHistoryOwner("incident-1", {
+    create: () => {
+      trace.push("txn:next");
+      return "txn-1";
+    },
+  });
+  owner.setAuthority({
+    actorId: "reviewer",
+    incidentId: "incident-1",
+    role: "reviewer",
+    closed: false,
+  });
+  let committed = false;
+  owner.configure({
+    load: async () => {
       trace.push("route:load");
       return {
-        kind: "accepted" as const,
-        value: { ...data, deleted: true, row_version: 5 },
+        kind: "accepted",
+        value: { ...data, deleted: committed, row_version: committed ? 5 : 4 },
       };
-    }),
-    rollback: vi.fn(),
-  };
-  const { result } = renderHook(() =>
-    useTimelineHistoryActions({
-      acceptTimelineRecordVersion: (_recordId, rowVersion) =>
-        trace.push(`version:${rowVersion}`),
-      activeHistoryLiveRecordId: subject.recordId,
-      activeHistorySubject: subject,
-      beginRowHistoryOperation: () => operationId,
-      beginRowHistoryRequest: () => {
-        trace.push("history:request");
-        return workbookRecordHistoryRequestId(2);
-      },
-      beginViewportContinuity: () => {
-        trace.push("viewport:begin");
-        return 41;
-      },
-      clearViewportContinuity: () => trace.push("viewport:clear"),
-      currentHistoryRecordId: subject.recordId,
-      currentHistoryRecordIdMatches: (recordId) =>
-        recordId === subject.recordId,
-      currentHistoryRowVersion: subject.rowVersion,
-      dispatchRowHistory,
-      enqueueSaveWork: (work) => {
-        trace.push("save:enqueue");
-        queuedWork = work;
-      },
-      historyPort,
-      loadRows: async () => {
-        trace.push("rows:load");
-      },
-      nextClientTxnId: () => {
-        trace.push("txn:next");
-        return "txn-1";
-      },
-      resolvePendingSocketTxn: () => trace.push("socket:resolve"),
-      retargetRowHistory: (nextSubject) => {
-        dispatchRowHistory({ subject: nextSubject, type: "retarget" });
-      },
-      rowHistory: historyState,
-      rowHistoryPendingAction: pendingAction,
-      rowHistoryRequestIsCurrent: () => true,
-      selectedRowRecordId: subject.recordId,
-      setIsInspectorOpen: vi.fn(),
-      setSelectedRowId: vi.fn(),
-      trackPendingSocketTxn: () => trace.push("socket:track"),
-      waitForCommittedRecordIdle: async () => {
-        trace.push("record:idle");
-        return { row: null, rowVersion: subject.rowVersion };
-      },
-    }),
+    },
+    send: async () => {
+      trace.push("route:delete");
+      committed = true;
+      return {
+        kind: "acknowledged",
+        receipt: {
+          kind: "delete",
+          incidentId: "incident-1",
+          recordId: subject.recordId,
+          rowVersion: 5,
+          deleted: true,
+          deletedAt: "2026-09-10T00:00:00Z",
+          deletedByUserId: "reviewer",
+          changeSetId: "change-1",
+        },
+      };
+    },
+  });
+  const { result } = renderHook(
+    () => {
+      const [state, dispatch] = useReducer(
+        workbookRecordHistoryReducer,
+        historyState,
+      );
+      publish = dispatch;
+      return useTimelineHistoryActions({
+        acceptTimelineRecordVersion: (_recordId, rowVersion) =>
+          trace.push(`version:${rowVersion}`),
+        activeHistorySubject: subject,
+        dispatchRowHistory,
+        enqueueSaveWork: (work) => {
+          trace.push("save:enqueue");
+          queuedWork = work;
+        },
+        loadRows: async () => {
+          trace.push("rows:load");
+        },
+        rowHistory: state,
+        setIsInspectorOpen: vi.fn(),
+        setSelectedRowId: vi.fn(),
+        waitForCommittedRecordIdle: async () => {
+          trace.push("record:idle");
+          return { row: null, rowVersion: subject.rowVersion };
+        },
+      });
+    },
+    {
+      wrapper: ({ children }) => (
+        <WorkbookHistoryContext.Provider
+          value={{ history: owner, coordinateHistory: async () => 4 }}
+        >
+          {children}
+        </WorkbookHistoryContext.Provider>
+      ),
+    },
   );
 
-  act(() => result.current.confirmRowHistoryPendingAction());
+  trace.length = 0;
+  act(() => {
+    result.current.confirmRowHistoryPendingAction();
+    result.current.confirmRowHistoryPendingAction();
+  });
   expect(queuedWork).not.toBeNull();
   await act(async () => {
     await queuedWork?.();
   });
 
+  await waitFor(() =>
+    expect(owner.getSnapshot()[0]?.reconciliation).toBe("complete"),
+  );
   expect(trace).toEqual([
     "history:submit",
     "txn:next",
-    "viewport:begin",
     "save:enqueue",
     "record:idle",
-    "socket:track",
-    "route:delete",
-    "version:5",
-    "history:operation_accepted",
-    "history:request",
-    "history:retarget",
-    "history:load_requested",
     "route:load",
+    "route:delete",
+    "history:operation_accepted",
     "version:5",
+    "route:load",
+    "history:load_requested",
     "history:load_accepted",
     "rows:load",
   ]);
+});
+
+it("Timeline history rejects queued version changes without replacing the confirmed base", async () => {
+  const subject = {
+    kind: "live" as const,
+    label: "Row",
+    recordId: "record-queued",
+    rowVersion: 4,
+    surfaceLabel: "Timeline",
+    viewSchemaId: "cartulary.view.timeline.v2",
+  };
+  const data: RecordHistoryData = {
+    deleted: false,
+    incident_id: "incident-queued",
+    items: [],
+    record_id: subject.recordId,
+    row_version: 4,
+  };
+  let snapshot: WorkbookRecordHistoryState = {
+    phase: "ready",
+    subject,
+    result: { kind: "loaded", data },
+    pendingAction: {
+      kind: "destructive",
+      operation: "delete",
+      recordId: subject.recordId,
+      rowVersion: 4,
+    },
+  };
+  let queuedWork: (() => Promise<void>) | undefined;
+  const owner = new WorkbookRecordHistoryOwner("incident-queued", {
+    create: () => "queued-action",
+  });
+  owner.setAuthority({
+    actorId: "reviewer",
+    incidentId: "incident-queued",
+    role: "reviewer",
+    closed: false,
+  });
+  const send = vi.fn(async () => ({ kind: "uncertain" as const }));
+  owner.configure({
+    load: async () => ({
+      kind: "accepted",
+      value: { ...data, row_version: 6 },
+    }),
+    send,
+  });
+  const { result } = renderHook(
+    () =>
+      useTimelineHistoryActions({
+        activeHistorySubject: subject,
+        rowHistory: snapshot,
+        dispatchRowHistory: (event) => {
+          snapshot = workbookRecordHistoryReducer(snapshot, event);
+          return snapshot;
+        },
+        acceptTimelineRecordVersion: vi.fn(),
+        enqueueSaveWork: (work) => {
+          queuedWork = work;
+        },
+        waitForCommittedRecordIdle: async () => ({ row: null, rowVersion: 6 }),
+        loadRows: vi.fn(async () => {}),
+        setIsInspectorOpen: vi.fn(),
+        setSelectedRowId: vi.fn(),
+      }),
+    {
+      wrapper: ({ children }) => (
+        <WorkbookHistoryContext.Provider
+          value={{ history: owner, coordinateHistory: async () => 6 }}
+        >
+          {children}
+        </WorkbookHistoryContext.Provider>
+      ),
+    },
+  );
+  act(() => result.current.confirmRowHistoryPendingAction());
+  expect(queuedWork).toBeDefined();
+  await act(async () => {
+    await queuedWork?.();
+  });
+  await waitFor(() => expect(owner.getSnapshot()[0]?.phase).toBe("rejected"));
+  expect(send).not.toHaveBeenCalled();
+  expect(owner.getSnapshot()[0]?.dispatched).toBe(false);
+  expect(
+    JSON.parse(owner.getSnapshot()[0]?.attempt.body ?? "{}").base_row_version,
+  ).toBe(4);
 });

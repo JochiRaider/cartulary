@@ -8,7 +8,6 @@ it("useTimelineInspectorLifecycle shares one close command across explicit and l
   const setIsInspectorOpen = vi.fn();
   const { result } = renderHook(() =>
     useTimelineInspectorLifecycle({
-      cancelRowHistoryRequests: vi.fn(),
       clearRowHistory,
       gridShellRef: { current: null },
       inspectorInvalidationCause: null,

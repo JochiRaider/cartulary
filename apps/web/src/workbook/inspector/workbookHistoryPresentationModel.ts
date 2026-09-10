@@ -24,8 +24,8 @@ export function workbookHistoryEventPresentation(
 export function workbookHistoryRollbackLabel(
   action: RecordHistoryRollbackAction,
 ): string {
-  if (action === "history_entry") return "Rollback entry";
-  if (action === "change_set") return "Rollback change set";
+  if (action === "history_entry") return "Reverse history entry";
+  if (action === "change_set") return "Reverse change set";
   return "Restore row fields";
 }
 

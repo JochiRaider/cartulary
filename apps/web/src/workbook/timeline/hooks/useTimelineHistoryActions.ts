@@ -1,535 +1,115 @@
-import { useCallback, useEffect } from "react";
-import {
-  workbookInspectorErrorPresentation,
-  workbookInspectorLocalErrorPresentation,
-  workbookInspectorMessageFeedback,
-} from "../../inspector/workbookInspectorErrorModel";
+import { useEffect, useRef } from "react";
+import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
+import { useWorkbookRecordHistoryController } from "../../inspector/useWorkbookRecordHistoryController";
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
-import {
-  buildRecordRollbackTargetFromHistoryAction,
-  type RecordHistoryData,
-  type RecordHistoryItem,
-  type RecordHistoryRollbackAction,
-  type WorkbookRecordHistoryEvent,
-  type WorkbookRecordHistoryOperationId,
-  type WorkbookRecordHistoryPendingAction,
-  type WorkbookRecordHistoryRequestId,
-  type WorkbookRecordHistoryState,
-} from "../../inspector/workbookRecordHistoryModel";
-import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
 import type {
-  TimelineHistoryMutationAccepted,
-  TimelineHistoryPort,
-} from "../ports/TimelineHistoryPort";
-
-type TimelineHistoryViewportContinuityTarget =
-  | { kind: "row-inspect"; recordId: string }
-  | { kind: "input"; focusKey: string }
-  | { kind: "scroll-only" };
+  WorkbookRecordHistoryEvent,
+  WorkbookRecordHistoryState,
+} from "../../inspector/workbookRecordHistoryModel";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
 
 type TimelineHistoryLoadRowsOptions = {
   showLoading: boolean;
-  freshnessRetryDepth?: number;
-  viewportContinuityToken?: number;
+  requireAcceptance?: boolean;
 };
 
 export function useTimelineHistoryActions({
   acceptTimelineRecordVersion,
   activeHistorySubject,
-  activeHistoryLiveRecordId,
-  beginRowHistoryOperation,
-  beginRowHistoryRequest,
-  beginViewportContinuity,
-  clearViewportContinuity,
-  currentHistoryRecordId,
-  currentHistoryRecordIdMatches,
-  currentHistoryRowVersion,
-  enqueueSaveWork,
-  historyPort,
-  loadRows,
-  nextClientTxnId,
-  resolvePendingSocketTxn,
-  rowHistory,
-  rowHistoryPendingAction,
-  rowHistoryRequestIsCurrent,
-  selectedRowRecordId,
-  setIsInspectorOpen,
   dispatchRowHistory,
-  retargetRowHistory,
+  rowHistory,
+  loadRows,
+  setIsInspectorOpen,
   setSelectedRowId,
-  trackPendingSocketTxn,
   waitForCommittedRecordIdle,
+  enqueueSaveWork,
+  presentationActive = true,
 }: {
+  readonly presentationActive?: boolean;
   readonly acceptTimelineRecordVersion: (
     recordId: string,
     rowVersion: number,
   ) => void;
   readonly activeHistorySubject: WorkbookInspectorSubject | null;
-  readonly activeHistoryLiveRecordId: string | null;
-  readonly beginRowHistoryOperation: () => WorkbookRecordHistoryOperationId;
-  readonly beginRowHistoryRequest: () => WorkbookRecordHistoryRequestId;
-
-  readonly beginViewportContinuity: (
-    target: TimelineHistoryViewportContinuityTarget,
-  ) => number;
-  readonly clearViewportContinuity: (token: number) => void;
-  readonly currentHistoryRecordId: string | null;
-  readonly currentHistoryRecordIdMatches: (recordId: string) => boolean;
-  readonly currentHistoryRowVersion: number | null;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
-  readonly historyPort: TimelineHistoryPort;
   readonly loadRows: (options: TimelineHistoryLoadRowsOptions) => Promise<void>;
-  readonly nextClientTxnId: () => string;
-  readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly dispatchRowHistory: (
     event: WorkbookRecordHistoryEvent,
   ) => WorkbookRecordHistoryState;
-  readonly retargetRowHistory: (
-    subject: WorkbookInspectorSubject | null,
-  ) => void;
   readonly rowHistory: WorkbookRecordHistoryState;
-  readonly rowHistoryPendingAction: WorkbookRecordHistoryPendingAction | null;
-  readonly rowHistoryRequestIsCurrent: (
-    requestId: WorkbookRecordHistoryRequestId,
-  ) => boolean;
-  readonly selectedRowRecordId: string | null;
   readonly setIsInspectorOpen: (isOpen: boolean) => void;
   readonly setSelectedRowId: (recordId: string | null) => void;
-  readonly trackPendingSocketTxn: (clientTxnId: string) => void;
   readonly waitForCommittedRecordIdle: (
     recordId: string,
     options?: {
       readonly fallbackRowVersion?: number | null | undefined;
       readonly refreshIfMissing?: boolean;
+      readonly signal?: AbortSignal;
     },
   ) => Promise<TimelineCommittedRecordIdleResult | null>;
 }) {
-  const fetchRecordHistory = useCallback(
-    async (
-      recordId: string,
-      options: {
-        readonly completionFeedback?: ReturnType<
-          typeof workbookInspectorMessageFeedback
-        >;
-        readonly setLoading?: boolean;
-        readonly subject?: WorkbookInspectorSubject;
-      } = {},
-    ): Promise<RecordHistoryData | null> => {
-      const requestId = beginRowHistoryRequest();
-      const activeSubject = resolveTimelineHistoryLoadSubject({
-        activeHistorySubject,
-        currentHistoryRowVersion,
-        currentSubject: rowHistory.subject,
-        explicitSubject: options.subject,
-        recordId,
-      });
-      if (activeSubject === null) return null;
-      retargetRowHistory(activeSubject);
-      if (options.setLoading === true) {
-        dispatchRowHistory({
-          requestId,
-          subject: activeSubject,
-          type: "load_requested",
-        });
-      }
-      const result = await historyPort.load({ recordId });
-      if (!rowHistoryRequestIsCurrent(requestId)) return null;
-      if (result.kind === "rejected") {
-        dispatchRowHistory({
-          error: workbookInspectorErrorPresentation(result.failure),
-          feedback: options.completionFeedback,
-          requestId,
-          subject: activeSubject,
-          type: "load_rejected",
-        });
-        return null;
-      }
-      const historyData = result.value;
-      acceptTimelineRecordVersion(recordId, historyData.row_version);
-      dispatchRowHistory({
-        data: historyData,
-        feedback: options.completionFeedback,
-        requestId,
-        subject: activeSubject,
-        type: "load_accepted",
-      });
-      return historyData;
-    },
-    [
-      acceptTimelineRecordVersion,
-      activeHistorySubject,
-      beginRowHistoryRequest,
-      currentHistoryRowVersion,
-      dispatchRowHistory,
-      historyPort,
-      retargetRowHistory,
-      rowHistory.subject,
-      rowHistoryRequestIsCurrent,
-    ],
+  const requestedRecord = useRef<string | null>(null);
+  useWorkbookHistorySurfaceRefresh(timelineViewSchemaId, () =>
+    loadRows({ showLoading: false, requireAcceptance: true }),
   );
-
-  const openRowHistory = useCallback(
-    (recordId: string) => {
-      setSelectedRowId(recordId);
-      setIsInspectorOpen(true);
-      void fetchRecordHistory(recordId, {
-        setLoading: true,
-      });
+  const controller = useWorkbookRecordHistoryController({
+    canMutate: presentationActive,
+    subject: activeHistorySubject,
+    presentationActive,
+    presentation: { snapshot: rowHistory, dispatch: dispatchRowHistory },
+    coordinate: (recordId, signal) =>
+      new Promise<number | null>((resolve) => {
+        signal.addEventListener("abort", () => resolve(null), { once: true });
+        enqueueSaveWork(async () => {
+          if (signal.aborted) {
+            resolve(null);
+            return;
+          }
+          try {
+            const idle = await waitForCommittedRecordIdle(recordId, {
+              signal,
+              fallbackRowVersion: activeHistorySubject?.rowVersion,
+              refreshIfMissing: activeHistorySubject?.kind !== "deleted",
+            });
+            resolve(signal.aborted ? null : (idle?.rowVersion ?? null));
+          } catch {
+            resolve(null);
+          }
+        });
+      }),
+    ownerEffects: {
+      deleteAccepted: (receipt) =>
+        acceptTimelineRecordVersion(receipt.recordId, receipt.rowVersion),
+      restoreAccepted: (receipt) => {
+        acceptTimelineRecordVersion(receipt.recordId, receipt.rowVersion);
+        setSelectedRowId(receipt.recordId);
+      },
+      rollbackAccepted: (receipt) =>
+        acceptTimelineRecordVersion(receipt.recordId, receipt.rowVersion),
+      refresh: () => loadRows({ showLoading: false, requireAcceptance: true }),
     },
-    [fetchRecordHistory, setIsInspectorOpen, setSelectedRowId],
-  );
-
+  });
+  const open = controller.commands.open;
   useEffect(() => {
     if (
-      activeHistoryLiveRecordId === null ||
-      rowHistory.phase === "idle" ||
-      rowHistory.subject?.recordId === activeHistoryLiveRecordId
+      requestedRecord.current &&
+      requestedRecord.current === activeHistorySubject?.recordId
     ) {
-      return;
+      requestedRecord.current = null;
+      open();
     }
-    void fetchRecordHistory(activeHistoryLiveRecordId, {
-      setLoading: true,
-    });
-  }, [
-    activeHistoryLiveRecordId,
-    fetchRecordHistory,
-    rowHistory.phase,
-    rowHistory.subject,
-  ]);
-
-  const submitRowHistoryMutation = useCallback(
-    ({
-      idleOptions,
-      missingVersionMessage,
-      onSuccess,
-      operationId,
-      recordId,
-      request,
-      viewportContinuityTarget,
-    }: {
-      idleOptions?: {
-        readonly fallbackRowVersion?: number | null | undefined;
-        readonly refreshIfMissing?: boolean;
-      };
-      missingVersionMessage: string;
-      onSuccess: (
-        accepted: TimelineHistoryMutationAccepted,
-        viewportContinuityToken: number,
-      ) => Promise<void>;
-      operationId: WorkbookRecordHistoryOperationId;
-      recordId: string;
-      request: (
-        baseRowVersion: number,
-        clientTxnId: string,
-      ) => Promise<WorkbookOperationOutcome<TimelineHistoryMutationAccepted>>;
-      viewportContinuityTarget: TimelineHistoryViewportContinuityTarget;
-    }) => {
-      const clientTxnId = nextClientTxnId();
-      const viewportContinuityToken = beginViewportContinuity(
-        viewportContinuityTarget,
-      );
-      enqueueSaveWork(async () => {
-        const idleRecord = await waitForCommittedRecordIdle(
-          recordId,
-          idleOptions,
-        );
-        if (idleRecord === null) {
-          clearViewportContinuity(viewportContinuityToken);
-          dispatchRowHistory({
-            feedback: {
-              error: workbookInspectorLocalErrorPresentation(
-                missingVersionMessage,
-              ),
-              kind: "error",
-            },
-            operationId,
-            type: "operation_rejected",
-          });
-          return;
-        }
-        trackPendingSocketTxn(clientTxnId);
-        const result = await request(idleRecord.rowVersion, clientTxnId);
-        if (result.kind === "rejected") {
-          resolvePendingSocketTxn(clientTxnId);
-          clearViewportContinuity(viewportContinuityToken);
-          dispatchRowHistory({
-            feedback: {
-              error: workbookInspectorErrorPresentation(result.failure),
-              kind: "error",
-            },
-            operationId,
-            type: "operation_rejected",
-          });
-          return;
-        }
-        await onSuccess(result.value, viewportContinuityToken);
-      });
-    },
-    [
-      beginViewportContinuity,
-      clearViewportContinuity,
-      dispatchRowHistory,
-      enqueueSaveWork,
-      nextClientTxnId,
-      resolvePendingSocketTxn,
-      trackPendingSocketTxn,
-      waitForCommittedRecordIdle,
-    ],
-  );
-
-  const submitRowHistoryDeleteRestore = useCallback(
-    (
-      pending: Extract<
-        WorkbookRecordHistoryPendingAction,
-        { readonly kind: "destructive" }
-      >,
-      operationId: WorkbookRecordHistoryOperationId,
-    ) => {
-      const { operation, recordId } = pending;
-      const viewportContinuityTarget: TimelineHistoryViewportContinuityTarget =
-        selectedRowRecordId === recordId
-          ? { kind: "row-inspect", recordId }
-          : { kind: "scroll-only" };
-      submitRowHistoryMutation({
-        idleOptions: {
-          fallbackRowVersion: pending.rowVersion,
-          refreshIfMissing: operation !== "restore",
-        },
-        missingVersionMessage: "Missing row version for destructive action.",
-        operationId,
-        recordId,
-        viewportContinuityTarget,
-        request: (baseRowVersion, clientTxnId) =>
-          historyPort.deleteOrRestore({
-            baseRowVersion,
-            clientTxnId,
-            operation,
-            recordId,
-          }),
-        onSuccess: async (accepted, viewportContinuityToken) => {
-          acceptTimelineRecordVersion(recordId, accepted.rowVersion);
-          const feedback = workbookInspectorMessageFeedback(
-            operation === "delete"
-              ? `Deleted record ${recordId}.`
-              : `Restored record ${recordId}.`,
-            "polite",
-          );
-          const acceptedState = dispatchRowHistory({
-            feedback,
-            operationId,
-            recordId,
-            rowVersion: accepted.rowVersion,
-            type: "operation_accepted",
-          });
-          const nextSubject =
-            acceptedState.phase === "idle" ? acceptedState.subject : null;
-          if (nextSubject === null) return;
-          if (currentHistoryRecordIdMatches(recordId)) {
-            await fetchRecordHistory(recordId, {
-              completionFeedback: feedback,
-              setLoading: true,
-              subject: nextSubject,
-            });
-          }
-          if (operation === "restore") {
-            setSelectedRowId(recordId);
-          }
-          await loadRows({
-            showLoading: false,
-            viewportContinuityToken,
-          });
-        },
-      });
-    },
-    [
-      acceptTimelineRecordVersion,
-      currentHistoryRecordIdMatches,
-      dispatchRowHistory,
-      fetchRecordHistory,
-      historyPort,
-      loadRows,
-      selectedRowRecordId,
-      setSelectedRowId,
-      submitRowHistoryMutation,
-    ],
-  );
-
-  const submitRowHistoryRollbackTarget = useCallback(
-    (
-      pending: Extract<
-        WorkbookRecordHistoryPendingAction,
-        { readonly kind: "rollback" }
-      >,
-      operationId: WorkbookRecordHistoryOperationId,
-    ) => {
-      const { recordId, target } = pending;
-      if (recordId.trim() === "") {
-        return;
-      }
-      const viewportContinuityTarget: TimelineHistoryViewportContinuityTarget =
-        selectedRowRecordId === recordId
-          ? { kind: "row-inspect", recordId }
-          : { kind: "scroll-only" };
-      submitRowHistoryMutation({
-        idleOptions: {
-          fallbackRowVersion:
-            currentHistoryRecordId === recordId
-              ? currentHistoryRowVersion
-              : pending.rowVersion,
-        },
-        missingVersionMessage: "Missing row version for rollback.",
-        operationId,
-        recordId,
-        viewportContinuityTarget,
-        request: (baseRowVersion, clientTxnId) =>
-          historyPort.rollback({
-            baseRowVersion,
-            clientTxnId,
-            recordId,
-            target,
-          }),
-        onSuccess: async (accepted, viewportContinuityToken) => {
-          acceptTimelineRecordVersion(recordId, accepted.rowVersion);
-          const feedback = workbookInspectorMessageFeedback(
-            `Rolled back record ${recordId}.`,
-            "polite",
-          );
-          const acceptedState = dispatchRowHistory({
-            feedback,
-            operationId,
-            recordId,
-            rowVersion: accepted.rowVersion,
-            type: "operation_accepted",
-          });
-          const nextSubject =
-            acceptedState.phase === "idle" ? acceptedState.subject : null;
-          if (nextSubject === null) return;
-          if (currentHistoryRecordIdMatches(recordId)) {
-            await fetchRecordHistory(recordId, {
-              completionFeedback: feedback,
-              setLoading: true,
-              subject: nextSubject,
-            });
-          }
-          await loadRows({
-            showLoading: false,
-            viewportContinuityToken,
-          });
-        },
-      });
-    },
-    [
-      acceptTimelineRecordVersion,
-      currentHistoryRecordId,
-      currentHistoryRecordIdMatches,
-      currentHistoryRowVersion,
-      dispatchRowHistory,
-      fetchRecordHistory,
-      historyPort,
-      loadRows,
-      selectedRowRecordId,
-      submitRowHistoryMutation,
-    ],
-  );
-
-  const previewRowHistoryDeleteRestore = useCallback(
-    (operation: "delete" | "restore") => {
-      const recordId = currentHistoryRecordId;
-      if (recordId === null || recordId === undefined) {
-        return;
-      }
-      if (currentHistoryRowVersion === null) return;
-      dispatchRowHistory({
-        pendingAction: {
-          kind: "destructive",
-          operation,
-          recordId,
-          rowVersion: currentHistoryRowVersion,
-        },
-        type: "preview",
-      });
-    },
-    [currentHistoryRecordId, currentHistoryRowVersion, dispatchRowHistory],
-  );
-
-  const previewRowHistoryRollback = useCallback(
-    (item: RecordHistoryItem, action: RecordHistoryRollbackAction) => {
-      const recordId = currentHistoryRecordId;
-      if (recordId === null || recordId === undefined) {
-        return;
-      }
-      const target = buildRecordRollbackTargetFromHistoryAction(item, action);
-      if (target === null) {
-        return;
-      }
-      if (currentHistoryRowVersion === null) return;
-      dispatchRowHistory({
-        pendingAction: {
-          action,
-          historyItemRef: item.history_item_ref,
-          kind: "rollback",
-          recordId,
-          rowVersion: currentHistoryRowVersion,
-          target,
-        },
-        type: "preview",
-      });
-    },
-    [currentHistoryRecordId, currentHistoryRowVersion, dispatchRowHistory],
-  );
-
-  const confirmRowHistoryPendingAction = useCallback(() => {
-    const pending = rowHistoryPendingAction;
-    if (pending === null) {
-      return;
-    }
-    const operationId = beginRowHistoryOperation();
-    dispatchRowHistory({ operationId, type: "submit" });
-    if (pending.kind === "destructive") {
-      submitRowHistoryDeleteRestore(pending, operationId);
-      return;
-    }
-    submitRowHistoryRollbackTarget(pending, operationId);
-  }, [
-    beginRowHistoryOperation,
-    dispatchRowHistory,
-    rowHistoryPendingAction,
-    submitRowHistoryDeleteRestore,
-    submitRowHistoryRollbackTarget,
-  ]);
-
+  }, [activeHistorySubject?.recordId, open]);
   return {
-    cancelRowHistoryPendingAction: () => dispatchRowHistory({ type: "cancel" }),
-    confirmRowHistoryPendingAction,
-    fetchRecordHistory,
-    openRowHistory,
-    previewRowHistoryDeleteRestore,
-    previewRowHistoryRollback,
+    cancelRowHistoryPendingAction: controller.commands.cancel,
+    confirmRowHistoryPendingAction: () => void controller.commands.confirm(),
+    openRowHistory: (recordId: string) => {
+      setSelectedRowId(recordId);
+      setIsInspectorOpen(true);
+      if (activeHistorySubject?.recordId === recordId) open();
+      else requestedRecord.current = recordId;
+    },
+    previewRowHistoryDeleteRestore: controller.commands.previewDeleteRestore,
+    previewRowHistoryRollback: controller.commands.previewRollback,
   };
-}
-
-function resolveTimelineHistoryLoadSubject({
-  activeHistorySubject,
-  currentHistoryRowVersion,
-  currentSubject,
-  explicitSubject,
-  recordId,
-}: {
-  readonly activeHistorySubject: WorkbookInspectorSubject | null;
-  readonly currentHistoryRowVersion: number | null;
-  readonly currentSubject: WorkbookInspectorSubject | null;
-  readonly explicitSubject?: WorkbookInspectorSubject | undefined;
-  readonly recordId: string;
-}): WorkbookInspectorSubject | null {
-  const rowVersion =
-    currentSubject?.recordId === recordId
-      ? currentSubject.rowVersion
-      : currentHistoryRowVersion;
-  if (rowVersion === null) return null;
-  if (explicitSubject !== undefined) return explicitSubject;
-  if (currentSubject?.recordId === recordId) return currentSubject;
-  return activeHistorySubject?.recordId === recordId
-    ? activeHistorySubject
-    : null;
 }

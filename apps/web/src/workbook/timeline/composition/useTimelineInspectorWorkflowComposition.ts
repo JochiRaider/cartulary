@@ -13,6 +13,7 @@ import type { TimelineInspectorElementRegistry } from "../focus/timelineInspecto
 import { useTimelineCreateRelatedWorkflow } from "../hooks/useTimelineCreateRelatedWorkflow";
 import { useTimelineEvidenceAttach } from "../hooks/useTimelineEvidenceAttach";
 import { useTimelineHistoryActions } from "../hooks/useTimelineHistoryActions";
+import type { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
 import { useTimelineInspectorFeatureController } from "../hooks/useTimelineInspectorFeatureController";
 import {
   useTimelineInspectorEscape,
@@ -40,7 +41,6 @@ type TimelineInspectorWorkflowCompositionInput = {
   readonly knownEntityTypes: ReadonlyMap<string, "host" | "identity">;
   readonly foundation: {
     readonly evidenceAttachmentPort: EvidenceInput["evidenceAttachmentPort"];
-    readonly historyPort: HistoryInput["historyPort"];
     readonly loadAccessLost: boolean;
     readonly mentionPorts: MentionInput["mentionPorts"];
     readonly rows: InspectorLifecycleInput["rows"];
@@ -51,8 +51,8 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly setSelectedResolveTargetId: InspectorLifecycleInput["setSelectedResolveTargetId"];
   };
   readonly grid: {
-    readonly beginViewportContinuity: HistoryInput["beginViewportContinuity"];
-    readonly clearViewportContinuity: HistoryInput["clearViewportContinuity"];
+    readonly beginViewportContinuity: MentionInput["beginViewportContinuity"];
+    readonly clearViewportContinuity: MentionInput["clearViewportContinuity"];
     readonly gridShellRef: InspectorLifecycleInput["gridShellRef"];
     readonly requireViewportContinuitySourceRecord: MentionInput["requireViewportContinuitySourceRecord"];
     readonly restoreTimelineFocusAnchor: InspectorLifecycleInput["restoreTimelineFocusAnchor"];
@@ -69,31 +69,7 @@ type TimelineInspectorWorkflowCompositionInput = {
   >;
   readonly inspector: {
     readonly elementRegistry: TimelineInspectorElementRegistry;
-    readonly history: {
-      readonly commands: Pick<
-        HistoryInput,
-        | "beginRowHistoryOperation"
-        | "beginRowHistoryRequest"
-        | "currentHistoryRecordIdMatches"
-        | "dispatchRowHistory"
-        | "retargetRowHistory"
-        | "rowHistoryRequestIsCurrent"
-      > &
-        Pick<
-          InspectorLifecycleInput,
-          "cancelRowHistoryRequests" | "clearRowHistory"
-        >;
-      readonly snapshot: Pick<
-        HistoryInput,
-        | "activeHistoryLiveRecordId"
-        | "currentHistoryRecordId"
-        | "currentHistoryRowVersion"
-        | "rowHistory"
-        | "rowHistoryPendingAction"
-      > & {
-        readonly inspectorHistorySubject: HistoryInput["activeHistorySubject"];
-      };
-    };
+    readonly history: ReturnType<typeof useTimelineHistoryState>;
     readonly lifecycle: WorkbookInspectorState;
     readonly selection: {
       readonly inspectorMentions: InspectorLifecycleInput["inspectorMentions"];
@@ -111,13 +87,13 @@ type TimelineInspectorWorkflowCompositionInput = {
     >[0]["activeConflict"];
     readonly applyAcceptedRowMutation: EvidenceInput["applyAcceptedRowMutation"];
     readonly commands: Pick<
-      HistoryInput,
-      | "acceptTimelineRecordVersion"
+      MentionInput,
       | "enqueueSaveWork"
       | "nextClientTxnId"
       | "resolvePendingSocketTxn"
       | "trackPendingSocketTxn"
-    >;
+    > &
+      Pick<HistoryInput, "acceptTimelineRecordVersion">;
     readonly waitForCommittedRecordIdle: EvidenceInput["waitForCommittedRecordIdle"];
     readonly loadRows: HistoryInput["loadRows"];
     readonly publishViewingPresence: InspectorRowInteractionsInput["publishViewingPresence"];
@@ -206,8 +182,6 @@ export function useTimelineInspectorWorkflowComposition({
     setSelectedRowId: inspector.selectRow,
   });
   const close = useTimelineInspectorLifecycle({
-    cancelRowHistoryRequests:
-      inspector.history.commands.cancelRowHistoryRequests,
     clearRowHistory: inspector.history.commands.clearRowHistory,
     dispatchRowHistory: inspector.history.commands.dispatchRowHistory,
     gridShellRef: grid.gridShellRef,
@@ -227,35 +201,15 @@ export function useTimelineInspectorWorkflowComposition({
     workbookFocusAnchorRef: grid.workbookFocusAnchorRef,
   });
   const history = useTimelineHistoryActions({
+    presentationActive: workbookInspectorStateIsOpen(inspector.lifecycle),
     acceptTimelineRecordVersion: mutation.commands.acceptTimelineRecordVersion,
     activeHistorySubject: inspector.history.snapshot.inspectorHistorySubject,
-    activeHistoryLiveRecordId:
-      inspector.history.snapshot.activeHistoryLiveRecordId,
-    beginRowHistoryOperation:
-      inspector.history.commands.beginRowHistoryOperation,
-    beginRowHistoryRequest: inspector.history.commands.beginRowHistoryRequest,
-    beginViewportContinuity: grid.beginViewportContinuity,
-    clearViewportContinuity: grid.clearViewportContinuity,
-    currentHistoryRecordId: inspector.history.snapshot.currentHistoryRecordId,
-    currentHistoryRecordIdMatches:
-      inspector.history.commands.currentHistoryRecordIdMatches,
-    currentHistoryRowVersion:
-      inspector.history.snapshot.currentHistoryRowVersion,
     dispatchRowHistory: inspector.history.commands.dispatchRowHistory,
     enqueueSaveWork: mutation.commands.enqueueSaveWork,
-    historyPort: foundation.historyPort,
     loadRows: mutation.loadRows,
-    nextClientTxnId: mutation.commands.nextClientTxnId,
-    resolvePendingSocketTxn: mutation.commands.resolvePendingSocketTxn,
-    retargetRowHistory: inspector.history.commands.retargetRowHistory,
     rowHistory: inspector.history.snapshot.rowHistory,
-    rowHistoryPendingAction: inspector.history.snapshot.rowHistoryPendingAction,
-    rowHistoryRequestIsCurrent:
-      inspector.history.commands.rowHistoryRequestIsCurrent,
-    selectedRowRecordId: inspector.selection.selectedRow?.recordId ?? null,
     setIsInspectorOpen: inspector.setOpen,
     setSelectedRowId: inspector.selectRow,
-    trackPendingSocketTxn: mutation.commands.trackPendingSocketTxn,
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   });
   const mentions = useTimelineMentionActions({

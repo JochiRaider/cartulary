@@ -16,6 +16,43 @@ export class ObservationStopped extends Error {
     this.name = "ObservationStopped";
   }
 }
+
+/** A bounded observation with separately observable transport settlement. */
+export function observeAsyncOperation<T>(
+  request: (signal: AbortSignal) => Promise<T>,
+  clock: ObservationClock = browserObservationClock,
+) {
+  const controller = new AbortController();
+  type Outcome =
+    | { kind: "completed"; value: T }
+    | { kind: "timeout" | "transport" | "cancelled" };
+  let finish!: (outcome: Outcome) => void;
+  const result = new Promise<Outcome>((resolve) => {
+    let completed = false;
+    const cancelTimer = clock.schedule(
+      () => finish({ kind: "timeout" }),
+      30_000,
+    );
+    finish = (outcome) => {
+      if (completed) return;
+      completed = true;
+      cancelTimer();
+      controller.abort();
+      resolve(outcome);
+    };
+  });
+  let transport: Promise<T>;
+  try {
+    transport = request(controller.signal);
+  } catch {
+    transport = Promise.reject();
+  }
+  const settled = transport.then(
+    (value) => finish({ kind: "completed", value }),
+    () => finish({ kind: "transport" }),
+  );
+  return { result, settled, cancel: () => finish({ kind: "cancelled" }) };
+}
 export async function boundedRead<T>(
   run: (signal: AbortSignal) => Promise<T>,
   signal: AbortSignal,

@@ -681,6 +681,218 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.history_captured_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createWorkbookRecordHistoryAdapter.test.ts",
+        "titles": [
+          "History captured transport distinguishes authoritative rejection from uncertainty",
+          "History captured transport keeps malformed success transport loss and server failure uncertain",
+          "History captured transport retains the complete receipt and exact selector for change_set",
+          "History captured transport retains the complete receipt and exact selector for history_entry",
+          "History captured transport retains the complete receipt and exact selector for restore",
+          "History captured transport retains the complete receipt and exact selector for row_restore",
+          "History captured transport sends the retained body exactly with current CSRF and preserves the full receipt"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.history_inspector_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/WorkbookInspectorRecordHistory.test.tsx",
+        "titles": [
+          "WorkbookInspectorRecordHistory finishes captured owner effects without committing a stale mutation result",
+          "WorkbookInspectorRecordHistory loads advertised history and rolls back only through its stable selector",
+          "WorkbookInspectorRecordHistory rejects a server acceptance for the wrong record before owner effects",
+          "WorkbookInspectorRecordHistory restores successful rollback focus only when the exact action identity survives",
+          "WorkbookInspectorRecordHistory retains a tombstone version for delete and restores from that exact version",
+          "WorkbookInspectorRecordHistory returns cancel, Escape, and rejected submissions to the same semantic action",
+          "WorkbookInspectorRecordHistory uses History as the success fallback and discards invalidated focus requests"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.history_operation_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/history/WorkbookRecordHistoryOwner.test.ts",
+        "titles": [
+          "Workbook history operation owner acknowledges before failed refresh and refresh recovery never resends",
+          "Workbook history operation owner bounds blocked sequencing before dispatch",
+          "Workbook history operation owner bounds observation retains a late receipt and excludes concurrent transport",
+          "Workbook history operation owner enforces operation-specific roles and incident closure",
+          "Workbook history operation owner fences timed-out reconciliation effects when refresh is retried",
+          "Workbook history operation owner invalidates confirmed versions and selectors instead of rebasing",
+          "Workbook history operation owner invalidates peer changes to advertised eligibility for every rollback selector",
+          "Workbook history operation owner keeps multi-record acknowledgement when a related source projection fails",
+          "Workbook history operation owner keeps uncertainty local to its record and fails locally without secure identity",
+          "Workbook history operation owner reauthorizes after sequencing and never resumes automatically after reopening",
+          "Workbook history operation owner requires explicit conflict review before allocating a replacement ID",
+          "Workbook history operation owner retains acknowledgement after same-actor session replacement without old callbacks",
+          "Workbook history operation owner retains admitted work after presentation closes without detached effects",
+          "Workbook history operation owner retains authorized closed-incident reads and hides history on access loss",
+          "Workbook history operation owner retains exact identity and acknowledgement for change_set",
+          "Workbook history operation owner retains exact identity and acknowledgement for delete",
+          "Workbook history operation owner retains exact identity and acknowledgement for history_entry",
+          "Workbook history operation owner retains exact identity and acknowledgement for restore",
+          "Workbook history operation owner retains exact identity and acknowledgement for row_restore",
+          "Workbook history operation owner retains receipt on refresh failure and does not regress a newer record",
+          "Workbook history operation owner retains same-account uncertainty while hiding it during session loss and retires another actor",
+          "Workbook history operation owner retires actor and incident callbacks while an admitted response is pending"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.history_recovery_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/workbookHistoryRecovery.characterization.test.tsx",
+        "titles": [
+          "acknowledges a history mutation before its projection refresh settles",
+          "fences admitted effects when selection leaves and returns to the same record"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.history_recovery_surfaces",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/history/WorkbookHistoryRecovery.test.tsx",
+        "titles": [
+          "History recovery surfaces hides retained content during session suspension and reauthorizes replay after closure",
+          "History recovery surfaces keeps acknowledgement through refresh failure and retries reads only",
+          "History recovery surfaces retains exact Assessment change_set recovery after inspector closure",
+          "History recovery surfaces retains exact Assessment delete recovery after inspector closure",
+          "History recovery surfaces retains exact Assessment history_entry recovery after inspector closure",
+          "History recovery surfaces retains exact Assessment restore recovery after inspector closure",
+          "History recovery surfaces retains exact Assessment row_restore recovery after inspector closure",
+          "History recovery surfaces retains exact Entity change_set recovery after inspector closure",
+          "History recovery surfaces retains exact Entity delete recovery after inspector closure",
+          "History recovery surfaces retains exact Entity history_entry recovery after inspector closure",
+          "History recovery surfaces retains exact Entity restore recovery after inspector closure",
+          "History recovery surfaces retains exact Entity row_restore recovery after inspector closure",
+          "History recovery surfaces retains exact Generic change_set recovery after inspector closure",
+          "History recovery surfaces retains exact Generic delete recovery after inspector closure",
+          "History recovery surfaces retains exact Generic history_entry recovery after inspector closure",
+          "History recovery surfaces retains exact Generic restore recovery after inspector closure",
+          "History recovery surfaces retains exact Generic row_restore recovery after inspector closure",
+          "History recovery surfaces retains exact Timeline change_set recovery after inspector closure",
+          "History recovery surfaces retains exact Timeline delete recovery after inspector closure",
+          "History recovery surfaces retains exact Timeline history_entry recovery after inspector closure",
+          "History recovery surfaces retains exact Timeline restore recovery after inspector closure",
+          "History recovery surfaces retains exact Timeline row_restore recovery after inspector closure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.history_timeline_coordination",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx",
+        "titles": [
+          "Timeline history rejects queued version changes without replacing the confirmed base",
+          "useTimelineHistoryActions preserves the committed delete ordering trace"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_create_related_workflow_stale_results_31f0cbe2d1",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
