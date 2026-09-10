@@ -37,6 +37,10 @@ import {
   NetworkFlowGraphQueryControls,
   NetworkFlowRejectedQueryControls,
 } from "./NetworkFlowQueryControls";
+import {
+  NetworkFlowQueryPagination,
+  pageFailureFeedback,
+} from "./NetworkFlowQueryPagination";
 import { NetworkFlowSavedGraphPanel } from "./NetworkFlowSavedGraphPanel";
 import {
   NetworkFlowAcceptedGrid,
@@ -83,7 +87,10 @@ import { useNetworkFlowCollaborationController } from "./useNetworkFlowCollabora
 import { useNetworkFlowGraphController } from "./useNetworkFlowGraphController";
 import { useNetworkFlowImportController } from "./useNetworkFlowImportController";
 import { useNetworkFlowIndicatorLinkController } from "./useNetworkFlowIndicatorLinkController";
-import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
+import type {
+  NetworkFlowPageNavigation,
+  NetworkFlowQueryLoadState,
+} from "./useNetworkFlowPagedQuery";
 import { useNetworkFlowQueryAuthoring } from "./useNetworkFlowQueryAuthoring";
 import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
 import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
@@ -179,7 +186,27 @@ function NetworkAnalysisWorkspaceContent({
     mode,
     tables: tableController.tables,
   });
+  const readIdentity = tableOperation.readContextIdentity();
+  const isCurrentRead = useCallback(
+    () =>
+      readIdentity !== null &&
+      tableOperation.readContextIdentity() === readIdentity,
+    [readIdentity, tableOperation],
+  );
+  const onQueryProtectedStateLoss = useCallback(
+    (error: NetworkFlowRequestError) => {
+      handleWorkspaceError(error);
+      tableOperation.onQueryFailure(
+        error,
+        tableOperation.getSnapshot().activeTableId ?? undefined,
+      );
+    },
+    [handleWorkspaceError, tableOperation],
+  );
   const rowsController = useNetworkFlowRowsController({
+    readIdentity,
+    isCurrentRead,
+    onProtectedStateLoss: onQueryProtectedStateLoss,
     query: queryAuthoring.acceptedQuery,
     revision: queryAuthoring.acceptedRevision,
     onQueryResult: queryAuthoring.acceptedResult,
@@ -192,6 +219,9 @@ function NetworkAnalysisWorkspaceContent({
     onIncidentAccessLost,
   });
   const rejectedRowsController = useNetworkFlowRejectedRowsController({
+    readIdentity,
+    isCurrentRead,
+    onProtectedStateLoss: onQueryProtectedStateLoss,
     query: queryAuthoring.rejectedQuery,
     revision: queryAuthoring.rejectedRevision,
     onQueryResult: queryAuthoring.rejectedResult,
@@ -204,6 +234,9 @@ function NetworkAnalysisWorkspaceContent({
     onIncidentAccessLost,
   });
   const graphController = useNetworkFlowGraphController({
+    readIdentity,
+    isCurrentRead,
+    onProtectedStateLoss: onQueryProtectedStateLoss,
     settings: queryAuthoring.graphSettings,
     applicationRevision: queryAuthoring.graphApplicationRevision,
     revision: queryAuthoring.acceptedRevision,
@@ -677,16 +710,13 @@ function NetworkAnalysisWorkspaceContent({
             ) : (
               <GraphPanel
                 canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
-                canNextContributorPage={graphController.canNextContributorPage}
-                canPreviousContributorPage={
-                  graphController.canPreviousContributorPage
-                }
+                contributorPage={graphController.contributorPage}
+                graphStale={graphController.graphStale}
                 contributorLoadState={graphController.contributorLoadState}
                 contributorLoadGenerationKey={
                   graphController.contributorLoadGenerationKey
                 }
                 contributorError={graphController.contributorError}
-                contributorPageNumber={graphController.contributorPageNumber}
                 contributors={graphController.contributors}
                 graph={graphController.graph}
                 graphLoadState={graphController.graphLoadState}
@@ -712,12 +742,7 @@ function NetworkAnalysisWorkspaceContent({
                   if (candidate !== null)
                     indicatorLinkOperation.openDraft(candidate);
                 }}
-                onNextContributorPage={graphController.nextContributorPage}
-                onPreviousContributorPage={
-                  graphController.previousContributorPage
-                }
                 onRefreshGraph={graphController.refreshGraph}
-                onRetryContributors={graphController.retryContributorPage}
                 onSelectEdge={graphController.selectGraphObject}
                 onSelectVertex={graphController.selectGraphObject}
               />
@@ -726,19 +751,19 @@ function NetworkAnalysisWorkspaceContent({
         ) : mode === "rejected" ? (
           <RejectedRowsPanel
             activeTable={tableController.activeTable}
-            canNext={rejectedRowsController.canNext}
-            canPrevious={rejectedRowsController.canPrevious}
             diagnostics={rejectedRowsController.diagnostics}
             error={rejectedRowsController.error}
             loadGenerationKey={rejectedRowsController.loadGenerationKey}
             loadState={rejectedRowsController.loadState}
-            notice={rejectedRowsController.notice}
-            pageNumber={rejectedRowsController.pageNumber}
             query={rejectedRowsController.query}
-            onNext={rejectedRowsController.nextPage}
-            onPrevious={rejectedRowsController.previousPage}
             onResetQuery={queryAuthoring.clearRejected}
-            onRetry={rejectedRowsController.refresh}
+            page={rejectedRowsController}
+            onRefreshResource={() => {
+              void tableController.loadTables().then((refreshed) => {
+                if (refreshed && isCurrentRead())
+                  rejectedRowsController.restartAfterResourceRefresh();
+              });
+            }}
           />
         ) : (
           <RowsPanel
@@ -747,13 +772,9 @@ function NetworkAnalysisWorkspaceContent({
             onRetryLinkLimit={indicatorLinkOperation.loadLimit}
             activeTable={tableController.activeTable}
             canLink={canLink && queryAuthoring.acceptedStatus === "applied"}
-            canNext={rowsController.canNext}
-            canPrevious={rowsController.canPrevious}
             loadGenerationKey={rowsController.loadGenerationKey}
             loadState={rowsController.loadState}
             error={rowsController.error}
-            notice={rowsController.notice}
-            pageNumber={rowsController.pageNumber}
             query={rowsController.query}
             rows={rowsController.rows}
             rowLinkSelection={rowLinkSelection}
@@ -763,10 +784,14 @@ function NetworkAnalysisWorkspaceContent({
                   networkFlowRowLinkCandidate(rowLinkSelection),
                 );
             }}
-            onNext={rowsController.nextPage}
-            onPrevious={rowsController.previousPage}
             onResetQuery={queryAuthoring.clearAccepted}
-            onRetry={rowsController.refresh}
+            page={rowsController}
+            onRefreshResource={() => {
+              void tableController.loadTables().then((refreshed) => {
+                if (refreshed && isCurrentRead())
+                  rowsController.restartAfterResourceRefresh();
+              });
+            }}
             onSortChange={queryAuthoring.sortAccepted}
             onSelectionChange={handleRowGridSelectionChange}
           />
@@ -954,21 +979,16 @@ function RowsPanel({
   linkLimitError,
   onRetryLinkLimit,
   activeTable,
+  page,
+  onRefreshResource,
   canLink,
-  canNext,
-  canPrevious,
   error,
   loadState,
   loadGenerationKey,
-  notice,
   onBeginLink,
-  onNext,
-  onPrevious,
   onResetQuery,
-  onRetry,
   onSortChange,
   onSelectionChange,
-  pageNumber,
   query,
   rows,
   rowLinkSelection,
@@ -976,30 +996,24 @@ function RowsPanel({
   readonly gridRef: RefObject<GridHandle | null>;
   readonly linkLimitError: string | null;
   readonly onRetryLinkLimit: () => void;
+  readonly page: NetworkFlowPageNavigation;
+  readonly onRefreshResource: () => void;
   readonly activeTable: NetworkFlowTable | null;
   readonly canLink: boolean;
-  readonly canNext: boolean;
-  readonly canPrevious: boolean;
   readonly error: NetworkFlowRequestError | null;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly loadGenerationKey: string | number;
-  readonly notice: string | null;
   readonly onBeginLink: () => void;
-  readonly onNext: () => void;
-  readonly onPrevious: () => void;
   readonly onResetQuery: () => void;
-  readonly onRetry: () => void;
   readonly onSortChange: (sort: NetworkFlowAcceptedQuery["sort"]) => void;
   readonly onSelectionChange: (
     activeAnchor: GridCellAnchor | null,
     cellRange: GridCellRange | null,
   ) => void;
-  readonly pageNumber: number;
   readonly query: NetworkFlowAcceptedQuery;
   readonly rows: readonly NetworkFlowRow[];
   readonly rowLinkSelection: NetworkFlowRowLinkSelection | null;
 }) {
-  const loading = loadState === "loading" || loadState === "refreshing";
   return (
     <section
       aria-label="Network Flow table rows"
@@ -1041,18 +1055,15 @@ function RowsPanel({
         rows={rows}
         sort={query.sort}
         onResetQuery={onResetQuery}
-        onRetry={onRetry}
+        onRetry={page.retry}
+        pageFeedback={pageFailureFeedback(page)}
+        semanticPageSelection
         onSelectionChange={onSelectionChange}
         onSortChange={onSortChange}
       />
-      <QueryPagination
-        canNext={canNext}
-        canPrevious={canPrevious}
-        loading={loading}
-        notice={notice}
-        pageNumber={pageNumber}
-        onNext={onNext}
-        onPrevious={onPrevious}
+      <NetworkFlowQueryPagination
+        page={page}
+        onRefreshResource={onRefreshResource}
       />
     </section>
   );
@@ -1060,36 +1071,25 @@ function RowsPanel({
 
 function RejectedRowsPanel({
   activeTable,
-  canNext,
-  canPrevious,
+  page,
+  onRefreshResource,
   diagnostics,
   error,
   loadState,
   loadGenerationKey,
-  notice,
-  onNext,
-  onPrevious,
   onResetQuery,
-  onRetry,
-  pageNumber,
   query,
 }: {
+  readonly page: NetworkFlowPageNavigation;
+  readonly onRefreshResource: () => void;
   readonly activeTable: NetworkFlowTable | null;
-  readonly canNext: boolean;
-  readonly canPrevious: boolean;
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
   readonly error: NetworkFlowRequestError | null;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly loadGenerationKey: string | number;
-  readonly notice: string | null;
-  readonly onNext: () => void;
-  readonly onPrevious: () => void;
   readonly onResetQuery: () => void;
-  readonly onRetry: () => void;
-  readonly pageNumber: number;
   readonly query: NetworkFlowRejectedQuery;
 }) {
-  const loading = loadState === "loading" || loadState === "refreshing";
   return (
     <section
       aria-label="Network Flow rejected rows"
@@ -1109,79 +1109,25 @@ function RejectedRowsPanel({
         loadGenerationKey={loadGenerationKey}
         resetKey={`${activeTable?.network_flow_table_id ?? "none"}:${JSON.stringify(query)}`}
         onResetQuery={onResetQuery}
-        onRetry={onRetry}
+        onRetry={page.retry}
+        pageFeedback={pageFailureFeedback(page)}
+        semanticPageSelection
       />
-      <QueryPagination
-        canNext={canNext}
-        canPrevious={canPrevious}
-        loading={loading}
-        notice={notice}
-        pageNumber={pageNumber}
-        onNext={onNext}
-        onPrevious={onPrevious}
+      <NetworkFlowQueryPagination
+        page={page}
+        onRefreshResource={onRefreshResource}
       />
     </section>
   );
 }
 
-function QueryPagination({
-  canNext,
-  canPrevious,
-  loading,
-  notice,
-  onNext,
-  onPrevious,
-  pageNumber,
-}: {
-  readonly canNext: boolean;
-  readonly canPrevious: boolean;
-  readonly loading: boolean;
-  readonly notice: string | null;
-  readonly onNext: () => void;
-  readonly onPrevious: () => void;
-  readonly pageNumber: number;
-}) {
-  return (
-    <nav
-      aria-label="Network Flow result pages"
-      className="network-flow-pagination"
-      style={paginationStyle}
-    >
-      <NetworkFlowButton
-        data-testid={networkAnalysisTestId("page-previous")}
-        disabled={!canPrevious || loading}
-        variant="secondary"
-        onClick={onPrevious}
-      >
-        Previous
-      </NetworkFlowButton>
-      <span
-        aria-live="polite"
-        data-testid={networkAnalysisTestId("page-status")}
-      >
-        {loading ? "Loading page" : `Page ${pageNumber}`}
-      </span>
-      <NetworkFlowButton
-        data-testid={networkAnalysisTestId("page-next")}
-        disabled={!canNext || loading}
-        variant="secondary"
-        onClick={onNext}
-      >
-        Next
-      </NetworkFlowButton>
-      {notice === null ? null : <span role="status">{notice}</span>}
-    </nav>
-  );
-}
-
 function GraphPanel({
   canLink,
-  canNextContributorPage,
-  canPreviousContributorPage,
+  contributorPage,
+  graphStale,
   contributorLoadState,
   contributorLoadGenerationKey,
   contributorError,
-  contributorPageNumber,
   contributors,
   graph,
   graphLoadState,
@@ -1192,20 +1138,16 @@ function GraphPanel({
   onCloseDrawer,
   onLinkEdge,
   onLinkVertex,
-  onNextContributorPage,
-  onPreviousContributorPage,
   onRefreshGraph,
-  onRetryContributors,
   onSelectEdge,
   onSelectVertex,
 }: {
+  readonly contributorPage: NetworkFlowPageNavigation;
+  readonly graphStale: boolean;
   readonly canLink: boolean;
-  readonly canNextContributorPage: boolean;
-  readonly canPreviousContributorPage: boolean;
   readonly contributorLoadState: NetworkFlowQueryLoadState;
   readonly contributorLoadGenerationKey: string | number;
   readonly contributorError: NetworkFlowRequestError | null;
-  readonly contributorPageNumber: number;
   readonly contributors: readonly NetworkFlowContributor[];
   readonly graph: NetworkFlowGraphResult | null;
   readonly graphLoadState: NetworkFlowQueryLoadState;
@@ -1218,10 +1160,7 @@ function GraphPanel({
     fieldKey: "network_flow.src_ip" | "network_flow.dst_ip",
   ) => void;
   readonly onLinkVertex: () => void;
-  readonly onNextContributorPage: () => void;
-  readonly onPreviousContributorPage: () => void;
   readonly onRefreshGraph: () => void;
-  readonly onRetryContributors: () => void;
   readonly onSelectEdge: (selector: NetworkFlowGraphSelector) => void;
   readonly onSelectVertex: (selector: NetworkFlowGraphSelector) => void;
 }) {
@@ -1375,9 +1314,11 @@ function GraphPanel({
           <span>
             {graphLoadState === "loading"
               ? "Loading graph…"
-              : graph
-                ? "Graph ready"
-                : "No graph"}
+              : graphStale
+                ? "Graph sources changed. Recompute to continue."
+                : graph
+                  ? "Graph ready"
+                  : "No graph"}
           </span>
           <span style={mutedTextStyle}>
             {graph?.source_table_refs.length ?? 0} tables ·{" "}
@@ -1409,9 +1350,10 @@ function GraphPanel({
               onPageChange={setEdgePage}
             />
           ) : null}
-          {graphLoadState === "error" ? (
+          {graphStale || graphLoadState === "error" ? (
             <NetworkFlowButton variant="secondary" onClick={onRefreshGraph}>
-              <RefreshCw aria-hidden="true" size={14} /> Retry
+              <RefreshCw aria-hidden="true" size={14} />{" "}
+              {graphStale ? "Recompute graph" : "Retry graph"}
             </NetworkFlowButton>
           ) : null}
         </div>
@@ -1604,19 +1546,13 @@ function GraphPanel({
             loadGenerationKey={contributorLoadGenerationKey}
             loadState={contributorLoadState}
             tables={tables}
-            onRetry={onRetryContributors}
+            onRetry={contributorPage.retry}
+            pageFeedback={pageFailureFeedback(contributorPage)}
+            semanticPageSelection
           />
-          <QueryPagination
-            canNext={canNextContributorPage}
-            canPrevious={canPreviousContributorPage}
-            loading={
-              contributorLoadState === "loading" ||
-              contributorLoadState === "refreshing"
-            }
-            notice={null}
-            pageNumber={contributorPageNumber}
-            onNext={onNextContributorPage}
-            onPrevious={onPreviousContributorPage}
+          <NetworkFlowQueryPagination
+            page={contributorPage}
+            onRefreshResource={onRefreshGraph}
           />
         </aside>
       ) : null}
@@ -1626,9 +1562,9 @@ function GraphPanel({
         style={visuallyHiddenStyle}
       >
         {selectedVertex
-          ? `Vertex selected. ${contributors.length} contributors on page ${contributorPageNumber}.`
+          ? "Vertex selected."
           : selectedEdge
-            ? `Edge selected. ${contributors.length} contributors on page ${contributorPageNumber}.`
+            ? "Edge selected."
             : graphLoadState === "loading"
               ? "Loading Network Flow graph."
               : graph
@@ -1928,17 +1864,6 @@ const panelGridStyle = {
 const panelGridWithActionsStyle = {
   ...panelGridStyle,
   gridTemplateRows: "auto auto minmax(0, 1fr) auto",
-} satisfies CSSProperties;
-
-const paginationStyle = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "flex-end",
-  gap: "var(--ct-spacing-sm)",
-  padding: "var(--ct-spacing-xs) var(--ct-spacing-md)",
-  borderBlockStart: "var(--ct-border-hairline)",
-  background: "var(--ct-colors-surface-1)",
-  fontSize: "0.8125rem",
 } satisfies CSSProperties;
 
 const panelHeaderStyle = {

@@ -556,7 +556,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-accepted-inspector-linux.png",
-      "sha256": "5bcda75b098bf887d420afd58106fd8d89a846e9f748958593bfb46c98ea5945"
+      "sha256": "88ebe2c04b006ee82fdda2c8f84207d8da4f9ae2fdc8ebb6a24b6f53c89eb802"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-compact-saved-graphs-linux.png",
@@ -572,7 +572,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-graph-contributors-linux.png",
-      "sha256": "7c03161697ce99913796a47b50123e31fc8ac4de82fa90e2fd00783b698f6b24"
+      "sha256": "aa407de134c0a83b1d6c7bd7e8bf47742511e52ab9b6852a37cca28f2e0d2218"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-mapping-dialog-linux.png",
@@ -580,11 +580,11 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-narrow-query-controls-linux.png",
-      "sha256": "1a38d8c474d56d39cce25617ffd509865368c63855b5a6afcafe3047937b5435"
+      "sha256": "c09290bf8140fd8b37faf6ea97af4ba3ae96bd489f249e93093907f1cc8555df"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-rejected-diagnostics-linux.png",
-      "sha256": "6df858e7f003996cef5418dfde1b251dfbc5641d4fef04b7e542518e4611ec4a"
+      "sha256": "f7706c8ee307d47f6738c3a822b2066a0668364a11811a9b526cd1d36fb93f25"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-saved-graph-result-linux.png",

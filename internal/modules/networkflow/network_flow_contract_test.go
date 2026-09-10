@@ -190,10 +190,12 @@ func AssertQueryAndTableScopeBoundary(t *testing.T) {
 	requireAPIError(t, apiErr, "network_flow_invalid_filter", "duplicate_in_value")
 	_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1","sort":[{"field_key":"network_flow.endpoint_ip","direction":"asc"}]}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 	requireAPIError(t, apiErr, "network_flow_invalid_sort", "unknown_field")
-	limits.MaxQueryLimit = 50
-	request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
-	if apiErr != nil || request.Limit != 50 {
-		t.Fatalf("default query limit got request=%#v err=%v", request, apiErr)
+	for _, maximum := range []int64{50, 150, 1000} {
+		limits.MaxQueryLimit = maximum
+		request, apiErr := decodeAcceptedRowQueryRequest(strings.NewReader(`{"schema_id":"cartulary.network_flow.table_query_request.v1"}`), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
+		if apiErr != nil || request.Limit != int(min(200, maximum)) {
+			t.Fatalf("default query limit for maximum %d got request=%#v err=%v", maximum, request, apiErr)
+		}
 	}
 	acceptedEcho := string(canonicalJSON(acceptedRowsQueryEcho(nil, nil, effectiveSort(nil), []string{"nft_a"})))
 	if !strings.Contains(acceptedEcho, `"filters":[]`) || !strings.Contains(acceptedEcho, `"sort":[]`) {

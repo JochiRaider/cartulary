@@ -941,12 +941,12 @@ func decodeIntegerRange(raw json.RawMessage) (*int64, *int64, *httpapi.APIError)
 
 func defaultQueryLimit(limits EffectiveLimits) int {
 	if limits.MaxQueryLimit <= 0 || limits.MaxQueryLimit > DefaultMaxQueryLimit {
-		return 100
+		return 200
 	}
-	if limits.MaxQueryLimit < 100 {
+	if limits.MaxQueryLimit < 200 {
 		return int(limits.MaxQueryLimit)
 	}
-	return 100
+	return 200
 }
 
 func invalidNetworkFlowRequest(field string, reason string) *httpapi.APIError {
@@ -975,7 +975,9 @@ func invalidLimit(field string, reason string) *httpapi.APIError {
 }
 
 func cursorInvalid(reason string) *httpapi.APIError {
-	return networkFlowAPIError(400, "network_flow_cursor_invalid", "", reason)
+	apiErr := networkFlowAPIError(400, "network_flow_cursor_invalid", "", reason)
+	apiErr.Details["retry_action"] = "restart_query"
+	return apiErr
 }
 
 func networkFlowAPIError(status int, code string, field string, reason string) *httpapi.APIError {

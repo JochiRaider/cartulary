@@ -12,7 +12,6 @@ import type {
   NetworkFlowGraphQueryRequest,
   NetworkFlowGraphResult,
   NetworkFlowIndicatorLinkResult,
-  NetworkFlowPaging,
   NetworkFlowRow,
   NetworkFlowSavedGraph,
   NetworkFlowSavedGraphContributorQueryRequest,
@@ -36,6 +35,8 @@ import {
   decodeNetworkFlowTableList,
   decodeNetworkFlowTableMutationResult,
   decodeNetworkFlowTableQueryResult,
+  type NetworkFlowDiagnosticPageMetadata,
+  type NetworkFlowTablePageMetadata,
   validNetworkFlowErrorEnvelope,
 } from "../services/networkFlowContractAdapter";
 import { networkFlowRequestError } from "./networkFlowErrors";
@@ -99,9 +100,23 @@ function networkFlowResponseData(payload: unknown): unknown {
     Array.isArray(payload) ||
     !("data" in payload)
   ) {
-    throw new Error("invalid_network_flow_success_envelope");
+    throw new SyntaxError("invalid_network_flow_success_envelope");
   }
   return payload.data;
+}
+
+function networkFlowReadError(status: number, payload: unknown) {
+  if (validNetworkFlowErrorEnvelope(status, payload))
+    return networkFlowRequestError(status, payload);
+  // Current HTTP authority loss still withdraws exposure when its body is malformed.
+  if (status === 401 || status === 403)
+    return networkFlowRequestError(status, {
+      error: {
+        code: status === 401 ? "session_required" : "authorization_denied",
+        details: { retry_action: "do_not_retry" },
+      },
+    });
+  return new SyntaxError("invalid_network_flow_error_envelope");
 }
 
 export async function listNetworkFlowTables(options: {
@@ -202,9 +217,11 @@ export async function queryNetworkFlowTable(options: {
   readonly tableId: string;
   readonly request: NetworkFlowAcceptedPageRequest;
   readonly signal?: AbortSignal | undefined;
+  readonly authorizeDispatch?: () => void;
 }): Promise<{
   readonly rows: NetworkFlowRow[];
-  readonly paging: NetworkFlowPaging;
+  readonly paging: NetworkFlowTablePageMetadata["paging"];
+  readonly metadata: NetworkFlowTablePageMetadata["query"];
 }> {
   const result = await fetchNetworkFlowJSON<unknown>(
     options.availability,
@@ -219,14 +236,24 @@ export async function queryNetworkFlowTable(options: {
       },
       options.signal,
     ),
+    () => {
+      options.signal?.throwIfAborted();
+      options.authorizeDispatch?.();
+    },
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    throw networkFlowReadError(result.status, result.payload);
   }
   const response = decodeNetworkFlowTableQueryResult(
     networkFlowResponseData(result.payload),
+    options.tableId,
+    options.incidentId,
   );
-  return { rows: response.rows, paging: response.meta.paging };
+  return {
+    rows: response.rows,
+    paging: response.meta.paging,
+    metadata: response.meta.query,
+  };
 }
 
 export async function queryNetworkFlowRejectedRows(options: {
@@ -236,9 +263,11 @@ export async function queryNetworkFlowRejectedRows(options: {
   readonly tableId: string;
   readonly request: NetworkFlowRejectedPageRequest;
   readonly signal?: AbortSignal | undefined;
+  readonly authorizeDispatch?: () => void;
 }): Promise<{
   readonly diagnostics: NetworkFlowDiagnostic[];
-  readonly paging: NetworkFlowPaging;
+  readonly paging: NetworkFlowDiagnosticPageMetadata["paging"];
+  readonly metadata: NetworkFlowDiagnosticPageMetadata["query"];
 }> {
   const result = await fetchNetworkFlowJSON<unknown>(
     options.availability,
@@ -253,16 +282,22 @@ export async function queryNetworkFlowRejectedRows(options: {
       },
       options.signal,
     ),
+    () => {
+      options.signal?.throwIfAborted();
+      options.authorizeDispatch?.();
+    },
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    throw networkFlowReadError(result.status, result.payload);
   }
   const response = decodeNetworkFlowRejectedRowsQueryResult(
     networkFlowResponseData(result.payload),
+    options.tableId,
   );
   return {
     diagnostics: response.diagnostics,
     paging: response.meta.paging,
+    metadata: response.meta.query,
   };
 }
 
@@ -277,6 +312,7 @@ export async function queryNetworkFlowGraph(options: {
     NetworkFlowGraphQueryRequest["time_range"]
   > | null;
   readonly signal?: AbortSignal | undefined;
+  readonly authorizeDispatch?: () => void;
 }): Promise<NetworkFlowGraphResult> {
   const request = graphInitialRequest(options);
   const result = await fetchNetworkFlowJSON<unknown>(
@@ -292,9 +328,13 @@ export async function queryNetworkFlowGraph(options: {
       },
       options.signal,
     ),
+    () => {
+      options.signal?.throwIfAborted();
+      options.authorizeDispatch?.();
+    },
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    throw networkFlowReadError(result.status, result.payload);
   }
   return decodeNetworkFlowGraphResult(networkFlowResponseData(result.payload));
 }
@@ -304,7 +344,12 @@ export async function queryNetworkFlowContributors(options: {
   readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly request: NetworkFlowContributorPageRequest;
+  readonly context?: Extract<
+    NetworkFlowContributorPageRequest,
+    { schema_id: "cartulary.network_flow.graph_contributor_query_request.v2" }
+  >;
   readonly signal?: AbortSignal | undefined;
+  readonly authorizeDispatch?: () => void;
 }): Promise<NetworkFlowContributorResult> {
   const result = await fetchNetworkFlowJSON<unknown>(
     options.availability,
@@ -319,12 +364,18 @@ export async function queryNetworkFlowContributors(options: {
       },
       options.signal,
     ),
+    () => {
+      options.signal?.throwIfAborted();
+      options.authorizeDispatch?.();
+    },
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    throw networkFlowReadError(result.status, result.payload);
   }
   return decodeNetworkFlowContributorResult(
     networkFlowResponseData(result.payload),
+    options.context,
+    options.incidentId,
   );
 }
 

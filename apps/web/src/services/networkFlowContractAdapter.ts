@@ -98,6 +98,8 @@ export type NetworkFlowImportPreviewResult = ImportPreviewResult;
 export type NetworkFlowMappingCandidate = MappingCandidate;
 export type NetworkFlowFilter = Filter;
 export type NetworkFlowPaging = PagingMeta;
+export type NetworkFlowTablePageMetadata = TableQueryResult["meta"];
+export type NetworkFlowDiagnosticPageMetadata = RejectedRowsQueryResult["meta"];
 export type NetworkFlowRejectedRowsQueryContinuation =
   RejectedRowsQueryContinuation;
 export type NetworkFlowRejectedRowsQueryRequest = RejectedRowsQueryRequest;
@@ -189,14 +191,43 @@ export function decodeNetworkFlowTableMutationResult(
 
 export function decodeNetworkFlowTableQueryResult(
   value: unknown,
+  tableId?: string,
+  incidentId?: string,
 ): TableQueryResult {
-  return decodeOrThrow(networkFlowDecoders.tableQueryResult, value);
+  const result = decodeOrThrow(networkFlowDecoders.tableQueryResult, value);
+  validateNetworkFlowPage(result.rows, result.meta.paging);
+  if (
+    (tableId !== undefined && result.network_flow_table_id !== tableId) ||
+    result.meta.query.table_ids.length !== 1 ||
+    result.meta.query.table_ids[0] !== result.network_flow_table_id ||
+    result.rows.some(
+      (row) =>
+        row.network_flow_table_id !== result.network_flow_table_id ||
+        (incidentId !== undefined && row.incident_id !== incidentId),
+    ) ||
+    new Set(result.rows.map((row) => row.network_flow_row_id)).size !==
+      result.rows.length
+  )
+    rejectNetworkFlowPage("/rows");
+  return result;
 }
 
 export function decodeNetworkFlowRejectedRowsQueryResult(
   value: unknown,
+  tableId?: string,
 ): RejectedRowsQueryResult {
-  return decodeOrThrow(networkFlowDecoders.rejectedRowsQueryResult, value);
+  const result = decodeOrThrow(
+    networkFlowDecoders.rejectedRowsQueryResult,
+    value,
+  );
+  validateNetworkFlowPage(result.diagnostics, result.meta.paging);
+  if (
+    (tableId !== undefined && result.network_flow_table_id !== tableId) ||
+    new Set(result.diagnostics.map((row) => row.diagnostic_id)).size !==
+      result.diagnostics.length
+  )
+    rejectNetworkFlowPage("/diagnostics");
+  return result;
 }
 
 export function decodeNetworkFlowGraphResult(
@@ -207,8 +238,105 @@ export function decodeNetworkFlowGraphResult(
 
 export function decodeNetworkFlowContributorResult(
   value: unknown,
+  context?: GraphContributorQueryRequestV2,
+  incidentId?: string,
 ): GraphContributorQueryResultV2 {
-  return decodeOrThrow(networkFlowDecoders.graphContributorQueryResult, value);
+  const result = decodeOrThrow(
+    networkFlowDecoders.graphContributorQueryResult,
+    value,
+  );
+  validateNetworkFlowPage(result.contributors, result.meta.paging);
+  if (
+    context &&
+    (result.meta.paging.limit !== context.limit ||
+      result.graph_query_digest !== context.graph_query_digest ||
+      !networkFlowContractEqual(result.selector, context.selector) ||
+      result.contributors.some(
+        (item) =>
+          !context.graph_query.selected_table_ids.includes(
+            item.row_ref.network_flow_table_id,
+          ),
+      ))
+  )
+    rejectNetworkFlowPage("/selector");
+  if (
+    new Set(result.contributors.map((item) => item.row_ref.network_flow_row_id))
+      .size !== result.contributors.length ||
+    result.contributors.some(
+      (item) =>
+        (incidentId !== undefined && item.row.incident_id !== incidentId) ||
+        item.row_ref.network_flow_row_id !== item.row.network_flow_row_id ||
+        item.row_ref.network_flow_table_id !== item.row.network_flow_table_id ||
+        item.row_ref.source_row_number !== item.row.source_row_number ||
+        item.row_ref.mapping_fingerprint !== item.row.mapping_fingerprint,
+    )
+  )
+    rejectNetworkFlowPage("/contributors");
+  return result;
+}
+
+export function validateNetworkFlowPage(
+  items: readonly unknown[],
+  paging: NetworkFlowPaging,
+): void {
+  if (
+    paging.returned_count !== items.length ||
+    items.length > paging.limit ||
+    paging.limit > 1000 ||
+    (items.length === 0 && paging.next_cursor_token !== null)
+  )
+    rejectNetworkFlowPage("/meta/paging");
+}
+
+export function validateNetworkFlowPageContinuation(
+  incoming: unknown,
+  previous: unknown,
+  limit: number,
+  previousLimit: number,
+): void {
+  if (limit !== previousLimit || !networkFlowContractEqual(incoming, previous))
+    rejectNetworkFlowPage("/meta/query");
+}
+
+/** Object member order is not semantic; array order remains owner-defined. */
+export function networkFlowContractEqual(
+  left: unknown,
+  right: unknown,
+): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right))
+    return (
+      left.length === right.length &&
+      left.every((v, i) => networkFlowContractEqual(v, right[i]))
+    );
+  if (
+    left &&
+    right &&
+    typeof left === "object" &&
+    typeof right === "object" &&
+    !Array.isArray(left) &&
+    !Array.isArray(right)
+  ) {
+    const a = left as Record<string, unknown>,
+      b = right as Record<string, unknown>;
+    return (
+      Object.keys(a).length === Object.keys(b).length &&
+      Object.keys(a).every(
+        (key) =>
+          Object.hasOwn(b, key) && networkFlowContractEqual(a[key], b[key]),
+      )
+    );
+  }
+  return false;
+}
+
+function rejectNetworkFlowPage(instancePath: string): never {
+  throw new NetworkFlowContractDecodeError({
+    boundary: "generated_protocol",
+    schemaId: "cartulary.network_flow.page",
+    instancePath,
+    reasonCategory: "constraint_violation",
+  });
 }
 
 export function decodeNetworkFlowSavedGraphList(

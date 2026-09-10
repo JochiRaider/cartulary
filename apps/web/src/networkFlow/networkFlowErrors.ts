@@ -1,5 +1,8 @@
 import { extractError, publicErrorView } from "../services/browserApi";
-import { networkFlowErrorMetadata } from "../services/networkFlowContractAdapter";
+import {
+  NetworkFlowContractDecodeError,
+  networkFlowErrorMetadata,
+} from "../services/networkFlowContractAdapter";
 
 export type NetworkFlowRetryAction =
   | "correct_request"
@@ -62,8 +65,13 @@ export function networkFlowRequestError(
   const contract = networkFlowErrorMetadata.errors.find(
     (candidate) => candidate.code === code,
   );
+  const suppliedAction = apiError?.details?.retry_action;
   const retryAction =
-    contract?.retry_action ?? defaultRetryAction(status, code);
+    suppliedAction === undefined
+      ? (contract?.retry_action ?? defaultRetryAction(status, code))
+      : isRetryAction(suppliedAction)
+        ? suppliedAction
+        : "do_not_retry";
   return new NetworkFlowRequestError({
     code,
     field:
@@ -94,6 +102,19 @@ export function networkFlowErrorFromUnknown(
   if (caught instanceof NetworkFlowRequestError) {
     return caught;
   }
+  if (
+    caught instanceof NetworkFlowContractDecodeError ||
+    caught instanceof SyntaxError
+  ) {
+    return new NetworkFlowRequestError({
+      code: "network_flow_response_invalid",
+      retryAction: "do_not_retry",
+      retryable: false,
+      safeMessage:
+        "The server returned an invalid Network Flow page. No new results were accepted.",
+      status: 0,
+    });
+  }
   return new NetworkFlowRequestError({
     code: "network_flow_transport_failed",
     retryAction: "retry_with_backoff",
@@ -112,7 +133,22 @@ export function isNetworkFlowAuthorizationLoss(
     error.code === "incident_not_found" ||
     error.code === "authorization_denied" ||
     (error.code === "network_flow_cursor_invalid" &&
-      error.reasonCode === "authorization_lost")
+      (error.reasonCode === "authorization_lost" ||
+        error.reasonCode === "actor_mismatch"))
+  );
+}
+
+function isRetryAction(value: unknown): value is NetworkFlowRetryAction {
+  return (
+    typeof value === "string" &&
+    [
+      "correct_request",
+      "refresh_resource",
+      "restart_query",
+      "reduce_scope_or_limits",
+      "retry_with_backoff",
+      "do_not_retry",
+    ].includes(value)
   );
 }
 

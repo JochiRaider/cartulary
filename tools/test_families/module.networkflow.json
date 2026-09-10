@@ -616,6 +616,41 @@
       ]
     },
     {
+      "row_id": "module.networkflow.browser_stateful.pagination_recovery",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow-pagination.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "network_flow_pagination_recovery"
+        ],
+        "titles": [
+          "Network Analysis preserves committed pages and recovers real expired cursors across all exploration surfaces"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.browser_stateful.saved_graph_deferred_navigation",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser_stateful",
@@ -960,6 +995,36 @@
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.integration.pagination_recovery",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowPaginationRecovery_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
         "postgres"
       ]
     },

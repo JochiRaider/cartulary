@@ -1366,6 +1366,21 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
   await expect(
     page.getByTestId(networkAnalysisTestId("status-strip")),
   ).toContainText("graph stale");
+  await page
+    .getByRole("button", { name: "Recompute graph", exact: true })
+    .click();
+  await expect(page.getByText("Graph ready", { exact: true })).toBeVisible();
+  await page
+    .getByTestId(/^network-flow-vertex-/)
+    .first()
+    .getByRole("button", { name: "Select vertex" })
+    .click();
+  await expect(
+    page.getByTestId(networkAnalysisTestId("contributor-drawer")),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(networkAnalysisTestId("page-status")),
+  ).toHaveText("Page 1");
   await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
   await expect(
     page.getByTestId(networkAnalysisTestId("accepted-grid")),

@@ -2365,6 +2365,9 @@ function installNetworkFlowFetchMock(
             {
               error: {
                 code: options.rowFailureCode ?? "authorization_denied",
+                status: options.rowFailureStatus ?? 403,
+                request_id: "query-failure",
+                retryable: false,
                 message: "Network Flow query access changed.",
                 details: {
                   reason_code: options.rowFailureReason ?? "role_changed",
@@ -2411,6 +2414,9 @@ function installNetworkFlowFetchMock(
             {
               error: {
                 code: options.rowFailureCode ?? "authorization_denied",
+                status: options.rowFailureStatus ?? 403,
+                request_id: "query-failure",
+                retryable: false,
                 message: "Network Flow query access changed.",
                 details: {
                   reason_code: options.rowFailureReason ?? "role_changed",

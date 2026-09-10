@@ -278,7 +278,7 @@ export const networkFlowChromeCssText = `
   cursor: pointer;
 }
 
-.${networkFlowChromeRootClassName} .network-flow-button:hover:not(:disabled) {
+.${networkFlowChromeRootClassName} .network-flow-button:hover:not(:disabled):not([aria-disabled="true"]) {
   border-color: ${cssToken("--ct-colors-hairline-strong")};
   background: ${cssToken("--ct-colors-surface-3")};
 }
@@ -293,6 +293,7 @@ export const networkFlowChromeCssText = `
 }
 
 .${networkFlowChromeRootClassName} .network-flow-button:disabled,
+.${networkFlowChromeRootClassName} .network-flow-pagination .network-flow-button[aria-disabled="true"],
 .${networkFlowChromeRootClassName} .network-flow-input:disabled,
 .${networkFlowChromeRootClassName} .network-flow-select:disabled {
   border-color: ${cssToken("--ct-colors-hairline")};
@@ -309,7 +310,7 @@ export const networkFlowChromeCssText = `
   color: ${cssToken("--ct-component-button-primary-textColor")};
 }
 
-.${networkFlowChromeRootClassName} .network-flow-button--primary:hover:not(:disabled) {
+.${networkFlowChromeRootClassName} .network-flow-button--primary:hover:not(:disabled):not([aria-disabled="true"]) {
   border-color: ${cssToken("--ct-colors-accent-hover")};
   background: ${cssToken("--ct-colors-accent-hover")};
 }
@@ -322,7 +323,7 @@ export const networkFlowChromeCssText = `
   color: ${cssToken("--ct-component-button-danger-textColor")};
 }
 
-.${networkFlowChromeRootClassName} .network-flow-button--danger:hover:not(:disabled) {
+.${networkFlowChromeRootClassName} .network-flow-button--danger:hover:not(:disabled):not([aria-disabled="true"]) {
   background: ${cssToken("--ct-colors-surface-3")};
 }
 

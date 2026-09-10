@@ -19,6 +19,43 @@ import { NetworkFlowRequestError } from "./networkFlowErrors";
 describe("NetworkFlowSemanticGrid accessibility", () => {
   afterEach(cleanup);
 
+  it("clears a vanished page selection without moving focus from pagination", async () => {
+    const onSelectionChange = vi.fn();
+    const view = (rows: readonly NetworkFlowRow[]) => (
+      <div>
+        <button type="button">Next page</button>
+        <NetworkFlowAcceptedGrid
+          error={null}
+          filtered={false}
+          loadState="ready"
+          resetKey="query"
+          semanticPageSelection
+          rows={rows}
+          sort={[]}
+          onResetQuery={vi.fn()}
+          onRetry={vi.fn()}
+          onSortChange={vi.fn()}
+          onSelectionChange={onSelectionChange}
+        />
+      </div>
+    );
+    const row = flowRow("nfr_1", 1);
+    const { rerender } = render(view([row]));
+    fireEvent.click(semanticCell("nfr_1", "network_flow.src_ip"));
+    await screen.findByTestId(networkAnalysisTestId("inspector"));
+    const next = screen.getByRole("button", { name: "Next page" });
+    next.focus();
+    rerender(view([row, flowRow("nfr_2", 2)]));
+    expect(document.activeElement).toBe(next);
+    expect(screen.getByTestId(networkAnalysisTestId("inspector"))).toBeTruthy();
+    rerender(view([flowRow("nfr_3", 3)]));
+    await waitFor(() =>
+      expect(onSelectionChange).toHaveBeenLastCalledWith(null, null),
+    );
+    expect(screen.queryByTestId(networkAnalysisTestId("inspector"))).toBeNull();
+    expect(document.activeElement).toBe(next);
+  });
+
   it("restores semantic focus to the same field in the nearest replacement row and then the grid root", async () => {
     const initialRows = [flowRow("nfr_1", 1), flowRow("nfr_2", 2)];
     const { rerender } = renderGrid(initialRows);

@@ -1,10 +1,11 @@
 import { useCallback, useMemo } from "react";
-import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
-import { queryNetworkFlowRejectedRows } from "./networkFlowClient";
 import {
-  type NetworkFlowRequestError,
-  networkFlowErrorFromUnknown,
-} from "./networkFlowErrors";
+  type ExtensionAvailabilityController,
+  ExtensionAvailabilityUnavailableError,
+} from "../extensions/extensionAvailability";
+import { validateNetworkFlowPageContinuation } from "../services/networkFlowContractAdapter";
+import { queryNetworkFlowRejectedRows } from "./networkFlowClient";
+import type { NetworkFlowRequestError } from "./networkFlowErrors";
 import {
   type NetworkFlowRejectedPageRequest,
   type NetworkFlowRejectedQuery,
@@ -25,6 +26,9 @@ export function useNetworkFlowRejectedRowsController({
   query,
   revision,
   onQueryResult,
+  readIdentity,
+  isCurrentRead,
+  onProtectedStateLoss,
 }: {
   readonly query: NetworkFlowRejectedQuery;
   readonly revision: number;
@@ -39,53 +43,69 @@ export function useNetworkFlowRejectedRowsController({
   readonly incidentId: string;
   readonly onError: (error: NetworkFlowRequestError | null) => void;
   readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly readIdentity: string | null;
+  readonly isCurrentRead: () => boolean;
+  readonly onProtectedStateLoss: (error: NetworkFlowRequestError) => void;
 }) {
   const initialRequest = useMemo(() => rejectedInitialRequest(query), [query]);
   const fetchPage = useCallback(
     async (request: NetworkFlowRejectedPageRequest, signal: AbortSignal) => {
-      if (activeTableId === null) {
+      if (activeTableId === null)
         throw new Error("network_flow_table_not_selected");
-      }
-      try {
-        const result = await queryNetworkFlowRejectedRows({
-          availability,
-          apiBase,
-          incidentId,
-          tableId: activeTableId,
-          request,
-          signal,
-        });
-        if (!signal.aborted && !("cursor_token" in request))
-          onQueryResult(revision, null);
-        return { items: result.diagnostics, paging: result.paging };
-      } catch (error) {
-        if (!signal.aborted && !("cursor_token" in request))
-          onQueryResult(
-            revision,
-            networkFlowErrorFromUnknown(error, "Network Flow query failed."),
-          );
-        throw error;
-      }
+      const result = await queryNetworkFlowRejectedRows({
+        availability,
+        apiBase,
+        incidentId,
+        tableId: activeTableId,
+        request,
+        signal,
+        authorizeDispatch: () => {
+          if (!isCurrentRead())
+            throw new ExtensionAvailabilityUnavailableError();
+        },
+      });
+      return {
+        items: result.diagnostics,
+        paging: result.paging,
+        metadata: result.metadata,
+      };
     },
-    [activeTableId, apiBase, availability, incidentId, onQueryResult, revision],
+    [activeTableId, apiBase, availability, incidentId, isCurrentRead],
   );
   const paged = useNetworkFlowPagedQuery({
-    enabled: enabled && activeTableId !== null,
+    enabled: enabled && activeTableId !== null && readIdentity !== null,
     fetchPage,
     initialRequest,
-    isContinuation: (request) =>
-      request.schema_id ===
-      "cartulary.network_flow.rejected_rows_query_continuation.v1",
+    isContinuation: (request) => "cursor_token" in request,
     makeContinuation: rejectedContinuationRequest,
     onError,
     onIncidentAccessLost,
-    queryKey: `${revision}:${incidentId}:${activeTableId ?? "none"}:${JSON.stringify(initialRequest)}`,
+    onProtectedStateLoss,
+    onQueryResult: (error) => onQueryResult(revision, error),
+    readIdentity,
+    isCurrent: isCurrentRead,
+    queryKey: JSON.stringify([
+      apiBase,
+      revision,
+      incidentId,
+      activeTableId,
+      initialRequest,
+    ]),
+    validatePage: (page, previous, request) => {
+      if ("cursor_token" in request && previous)
+        validateNetworkFlowPageContinuation(
+          page.metadata,
+          previous.metadata,
+          page.paging.limit,
+          previous.paging.limit,
+        );
+    },
     reconcile: reconcileNetworkFlowDiagnostics,
   });
   return {
     ...paged,
     clearDiagnostics: paged.clear,
-    diagnostics: paged.items,
     query,
+    diagnostics: paged.items,
   };
 }

@@ -131,6 +131,46 @@ export class NetworkFlowTableController {
         ])
       : null;
   };
+  /** Read attempts include role and accepted availability, independently of drafts. */
+  readonly readContextIdentity = (): string | null => {
+    const authority = this.authorityReader?.() ?? this.authority;
+    return authority &&
+      canReadTables(authority) &&
+      !this.snapshot.hidden &&
+      this.blockedAuthority !== tableAuthorityKey(authority)
+      ? tableAuthorityKey(authority)
+      : null;
+  };
+  readonly onQueryFailure = (
+    error: NetworkFlowRequestError,
+    tableId?: string,
+  ): void => {
+    if (error.code === "network_flow_cursor_invalid") {
+      if (
+        error.reasonCode === "actor_mismatch" ||
+        error.reasonCode === "authorization_lost"
+      ) {
+        this.handleFailure(
+          new NetworkFlowRequestError({
+            code:
+              error.reasonCode === "actor_mismatch"
+                ? "session_required"
+                : "authorization_denied",
+            retryAction: "do_not_retry",
+            retryable: false,
+            safeMessage: error.message,
+            status: error.reasonCode === "actor_mismatch" ? 401 : 403,
+          }),
+        );
+      } else if (error.reasonCode === "scope_stale") void this.loadTables();
+      return;
+    }
+    // An HTTP authorization failure on a read is not a mutation-only role loss.
+    this.handleFailure(
+      error,
+      error.code === "authorization_denied" ? undefined : tableId,
+    );
+  };
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

@@ -29,6 +29,7 @@ import type {
   NetworkFlowTable,
 } from "../services/networkFlowContractAdapter";
 import { NetworkFlowButton, NetworkFlowChoice } from "./NetworkFlowControls";
+import type { NetworkFlowPageFeedback } from "./NetworkFlowQueryPagination";
 import {
   isNetworkFlowProtectedStateLoss,
   type NetworkFlowRequestError,
@@ -56,8 +57,10 @@ export function NetworkFlowAcceptedGrid({
   loadState,
   onResetQuery,
   onRetry,
+  pageFeedback,
   onSortChange,
   resetKey,
+  semanticPageSelection = false,
   rows,
   sort,
   onSelectionChange,
@@ -69,8 +72,10 @@ export function NetworkFlowAcceptedGrid({
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onResetQuery: () => void;
   readonly onRetry: () => void;
+  readonly pageFeedback?: NetworkFlowPageFeedback | undefined;
   readonly onSortChange: (sort: readonly NetworkFlowSort[]) => void;
   readonly resetKey: string;
+  readonly semanticPageSelection?: boolean;
   readonly rows: readonly NetworkFlowRow[];
   readonly sort: readonly NetworkFlowSort[];
   readonly onSelectionChange: (
@@ -106,6 +111,7 @@ export function NetworkFlowAcceptedGrid({
     loadState,
     onResetQuery,
     onRetry,
+    pageFeedback,
     surfaceLabel: "accepted Network Flow rows",
   });
   return (
@@ -115,6 +121,7 @@ export function NetworkFlowAcceptedGrid({
       gridSchemaId="network_flow.accepted_rows.v1"
       onSelectionChange={onSelectionChange}
       resetKey={resetKey}
+      semanticPageSelection={semanticPageSelection}
       rows={rows}
     >
       {({
@@ -181,7 +188,9 @@ export function NetworkFlowRejectedGrid({
   loadState,
   onResetQuery,
   onRetry,
+  pageFeedback,
   resetKey,
+  semanticPageSelection = false,
 }: {
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
   readonly error: NetworkFlowRequestError | null;
@@ -190,7 +199,9 @@ export function NetworkFlowRejectedGrid({
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onResetQuery: () => void;
   readonly onRetry: () => void;
+  readonly pageFeedback?: NetworkFlowPageFeedback | undefined;
   readonly resetKey: string;
+  readonly semanticPageSelection?: boolean;
 }) {
   const layout = useNetworkFlowGridLayout("network_flow.rejected_rows.v1");
   const columns = useMemo(
@@ -214,6 +225,7 @@ export function NetworkFlowRejectedGrid({
     loadState,
     onResetQuery,
     onRetry,
+    pageFeedback,
     surfaceLabel: "rejected-row diagnostics",
   });
   return (
@@ -221,6 +233,7 @@ export function NetworkFlowRejectedGrid({
       columnsControl={layout}
       gridSchemaId="network_flow.rejected_rows.v1"
       resetKey={resetKey}
+      semanticPageSelection={semanticPageSelection}
       rows={diagnostics}
     >
       {({
@@ -263,6 +276,8 @@ export function NetworkFlowContributorGrid({
   loadGenerationKey = 0,
   loadState,
   onRetry,
+  pageFeedback,
+  semanticPageSelection = false,
   tables,
 }: {
   readonly contributors: readonly NetworkFlowContributor[];
@@ -270,6 +285,8 @@ export function NetworkFlowContributorGrid({
   readonly loadGenerationKey?: string | number | undefined;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onRetry: () => void;
+  readonly pageFeedback?: NetworkFlowPageFeedback | undefined;
+  readonly semanticPageSelection?: boolean;
   readonly tables: readonly NetworkFlowTable[];
 }) {
   const layout = useNetworkFlowGridLayout("network_flow.graph_contributors.v1");
@@ -296,6 +313,45 @@ export function NetworkFlowContributorGrid({
     contributors,
     networkFlowContributorsForGrid,
   );
+  const gridRef = useRef<GridHandle | null>(null);
+  const [anchor, setAnchor] = useState<GridCellAnchor | null>(null);
+  const [range, setRange] = useState<GridCellRange | null>(null);
+  const resourceIds = contributors.map(
+    (item) => item.row_ref.network_flow_row_id,
+  );
+  const resourceKey = JSON.stringify(resourceIds);
+  const priorResources = useRef(resourceIds);
+  const hadGridFocus = useRef(false);
+  hadGridFocus.current =
+    gridRef.current?.getScrollElement()?.contains(document.activeElement) ===
+    true;
+  useEffect(() => {
+    const previous = priorResources.current;
+    const incoming: string[] = JSON.parse(resourceKey);
+    priorResources.current = incoming;
+    if (!semanticPageSelection || anchor === null) return;
+    const visible = (value: GridCellAnchor) =>
+      value.rowIdentity.kind === "extension_resource" &&
+      incoming.includes(value.rowIdentity.resourceId) &&
+      layout.orderedVisibleFieldKeys.includes(value.fieldKey);
+    if (
+      !visible(anchor) ||
+      (range !== null &&
+        (!visible(range.start) ||
+          !visible(range.end) ||
+          !selectedResourcesRemainVisible(range, previous, incoming)))
+    ) {
+      setAnchor(null);
+      setRange(null);
+      if (hadGridFocus.current) focusGridRoot(gridRef);
+    }
+  }, [
+    anchor,
+    range,
+    resourceKey,
+    semanticPageSelection,
+    layout.orderedVisibleFieldKeys,
+  ]);
   const grouping = useMemo(
     () => ({
       fieldKey: "network_flow_table_id",
@@ -316,6 +372,7 @@ export function NetworkFlowContributorGrid({
     loadState,
     onResetQuery: () => undefined,
     onRetry,
+    pageFeedback,
     surfaceLabel: "graph contributors",
   });
   return (
@@ -327,7 +384,11 @@ export function NetworkFlowContributorGrid({
         testId={networkAnalysisTestId("contributor-grid")}
       >
         <SemanticDataGrid
+          ref={gridRef}
           accessibleLabel="Network Flow graph contributors"
+          cellRange={semanticPageSelection ? range : undefined}
+          onActiveCellChange={semanticPageSelection ? setAnchor : undefined}
+          onCellRangeChange={semanticPageSelection ? setRange : undefined}
           columns={columns}
           columnWidths={layout.columnWidths}
           dataRows={dataRows}
@@ -357,6 +418,7 @@ function NetworkFlowGridFrame<Row extends object>({
   gridSchemaId,
   onSelectionChange,
   resetKey,
+  semanticPageSelection = false,
   rows,
 }: {
   readonly externalGridRef?: RefObject<GridHandle | null> | undefined;
@@ -379,6 +441,7 @@ function NetworkFlowGridFrame<Row extends object>({
       ) => void)
     | undefined;
   readonly resetKey: string;
+  readonly semanticPageSelection?: boolean;
   readonly rows: readonly Row[];
 }) {
   const [activeAnchor, setActiveAnchor] = useState<GridCellAnchor | null>(null);
@@ -411,7 +474,15 @@ function NetworkFlowGridFrame<Row extends object>({
     [gridSchemaId, rows],
   );
   const rowResourceKey = rowResourceIds.join("\u0000");
-  const priorGridStateRef = useRef({ resetKey, rowResourceKey });
+  const priorGridStateRef = useRef({
+    resetKey,
+    rowResourceKey,
+    rowResourceIds,
+  });
+  const gridHadFocus = useRef(false);
+  gridHadFocus.current =
+    gridRef.current?.getScrollElement()?.contains(document.activeElement) ===
+    true;
   const handleActiveAnchorChange = useCallback(
     (anchor: GridCellAnchor | null) => {
       setActiveAnchor(anchor);
@@ -432,14 +503,18 @@ function NetworkFlowGridFrame<Row extends object>({
     const previous = priorGridStateRef.current;
     const resetChanged = previous.resetKey !== resetKey;
     const rowsChanged = previous.rowResourceKey !== rowResourceKey;
-    priorGridStateRef.current = { resetKey, rowResourceKey };
+    priorGridStateRef.current = { resetKey, rowResourceKey, rowResourceIds };
     if (resetChanged) {
       const hadSemanticSelection =
         activeAnchor !== null || cellRange !== null || inspectorOpen;
       setActiveAnchor(null);
       setCellRange(null);
       setInspectorOpen(false);
-      if (hadSemanticSelection) focusGridRoot(gridRef);
+      if (
+        hadSemanticSelection &&
+        (!semanticPageSelection || gridHadFocus.current)
+      )
+        focusGridRoot(gridRef);
       return;
     }
     if (!rowsChanged || activeAnchor === null) return;
@@ -449,6 +524,28 @@ function NetworkFlowGridFrame<Row extends object>({
         : null;
     const exactIndex =
       activeResourceId === null ? -1 : rowResourceIds.indexOf(activeResourceId);
+    if (semanticPageSelection) {
+      const anchorVisible = (anchor: GridCellAnchor) =>
+        anchor.rowIdentity.kind === "extension_resource" &&
+        rowResourceIds.includes(anchor.rowIdentity.resourceId) &&
+        columnsControl.orderedVisibleFieldKeys.includes(anchor.fieldKey);
+      const rangeVisible =
+        cellRange === null ||
+        (anchorVisible(cellRange.start) &&
+          anchorVisible(cellRange.end) &&
+          selectedResourcesRemainVisible(
+            cellRange,
+            previous.rowResourceIds,
+            rowResourceIds,
+          ));
+      if (!anchorVisible(activeAnchor) || !rangeVisible) {
+        setActiveAnchor(null);
+        setCellRange(null);
+        setInspectorOpen(false);
+        if (gridHadFocus.current) focusGridRoot(gridRef);
+      } else if (gridHadFocus.current) restoreGridAnchor(activeAnchor);
+      return;
+    }
     if (exactIndex >= 0) {
       lastRowIndexRef.current = exactIndex;
       restoreGridAnchor(activeAnchor);
@@ -484,6 +581,8 @@ function NetworkFlowGridFrame<Row extends object>({
     cellRange,
     inspectorOpen,
     resetKey,
+    semanticPageSelection,
+    columnsControl.orderedVisibleFieldKeys,
     restoreGridAnchor,
     rowResourceIds,
     rowResourceKey,
@@ -501,12 +600,13 @@ function NetworkFlowGridFrame<Row extends object>({
     setActiveAnchor(null);
     setCellRange(null);
     setInspectorOpen(false);
-    focusGridRoot(gridRef);
+    if (!semanticPageSelection || gridHadFocus.current) focusGridRoot(gridRef);
   }, [
     activeAnchor,
     columnsControl.orderedVisibleFieldKeys,
     visibleFieldKey,
     gridRef,
+    semanticPageSelection,
   ]);
   useEffect(() => {
     onSelectionChange?.(activeAnchor, cellRange);
@@ -773,6 +873,7 @@ function networkFlowGridDataState(options: {
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onResetQuery: () => void;
   readonly onRetry: () => void;
+  readonly pageFeedback?: NetworkFlowPageFeedback | undefined;
   readonly surfaceLabel: string;
 }): GridDataState {
   if (options.loadState === "loading") {
@@ -793,19 +894,26 @@ function networkFlowGridDataState(options: {
       return { kind: "permission_denied", message: options.error.message };
     }
     const action =
-      options.error === null || options.error.retryable
-        ? { label: "Retry", onInvoke: options.onRetry }
-        : undefined;
-    return options.itemCount > 0
+      options.pageFeedback !== undefined
+        ? undefined
+        : options.error === null || options.error.retryable
+          ? { label: "Retry", onInvoke: options.onRetry }
+          : undefined;
+    return (options.pageFeedback?.retained ?? options.itemCount > 0)
       ? {
           kind: "stale_error",
-          message: options.error?.message ?? "Refresh failed.",
+          message:
+            options.pageFeedback?.message ??
+            options.error?.message ??
+            "Refresh failed.",
           action,
         }
       : {
           kind: "unavailable",
           message:
-            options.error?.message ?? "Network Flow rows are unavailable.",
+            options.pageFeedback?.message ??
+            options.error?.message ??
+            "Network Flow rows are unavailable.",
           action,
         };
   }
@@ -947,3 +1055,23 @@ const visuallyHiddenStyle = {
   position: "absolute",
   whiteSpace: "nowrap",
 } satisfies CSSProperties;
+
+function selectedResourcesRemainVisible(
+  range: GridCellRange,
+  previous: readonly string[],
+  incoming: readonly string[],
+): boolean {
+  const indexOf = (anchor: GridCellAnchor) =>
+    anchor.rowIdentity.kind === "extension_resource"
+      ? previous.indexOf(anchor.rowIdentity.resourceId)
+      : -1;
+  const start = indexOf(range.start),
+    end = indexOf(range.end);
+  return (
+    start >= 0 &&
+    end >= 0 &&
+    previous
+      .slice(Math.min(start, end), Math.max(start, end) + 1)
+      .every((id) => incoming.includes(id))
+  );
+}

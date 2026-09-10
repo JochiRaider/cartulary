@@ -2166,6 +2166,29 @@
           ]
         },
         {
+          "name": "stateful-network-flow-claimed-network-flow-pagination",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-stateful-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.browser_stateful.pagination_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-pagination.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
           "name": "stateful-network-flow-claimed-network-flow",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
@@ -3054,6 +3077,29 @@
           ],
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts"
+          ],
+          "resource_profile_id": "browser_isolated",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
+        },
+        {
+          "name": "stateful-network-flow-claimed-network-flow-pagination",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-stateful-network-flow-claimed",
+          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.networkflow.browser_stateful.pagination_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/network-flow-pagination.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",

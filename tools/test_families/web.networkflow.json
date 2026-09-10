@@ -889,6 +889,85 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.networkflow.regression.page_recovery_boundaries",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowPageRecovery.test.tsx",
+        "titles": [
+          "Network Flow page recovery boundaries blocks queued page dispatch after current authority changes",
+          "Network Flow page recovery boundaries discards late contributor success and authorization failure after selector replacement",
+          "Network Flow page recovery boundaries fences late rows and diagnostics through incident actor role session and availability authority changes",
+          "Network Flow page recovery boundaries gives accepted rows and diagnostics equivalent recovery without notifying authoring for pagination",
+          "Network Flow page recovery boundaries keeps draft context stable while fencing replaced role session and availability read identities",
+          "Network Flow page recovery boundaries recovers contributor expiry on the same graph and routes stale composition through recomputation",
+          "Network Flow page recovery boundaries rejects malformed counts table identities contributor bindings and row references"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.pagination_feedback",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowQueryPagination.test.tsx",
+        "titles": [
+          "Network Flow page feedback names the committed page separately from pending destinations and successful recovery",
+          "Network Flow page feedback separates failed destination retry from refresh and honors correction and resource recovery"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.pagination_semantic_selection",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
+        "titles": [
+          "NetworkFlowSemanticGrid accessibility clears a vanished page selection without moving focus from pagination"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.networkflow.regression.query_application_ownership",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",
@@ -1540,8 +1619,18 @@
         "file": "apps/web/src/networkFlow/useNetworkFlowPagedQuery.test.tsx",
         "titles": [
           "useNetworkFlowPagedQuery aborts superseded requests and rejects late responses after a query change",
+          "useNetworkFlowPagedQuery admits only the first navigation command in the same turn",
+          "useNetworkFlowPagedQuery bounds a stopped read and distinguishes an accepted empty page from initial loading",
+          "useNetworkFlowPagedQuery cancels pending navigation on explicit restart and coalesces duplicate restarts",
+          "useNetworkFlowPagedQuery captures the initial request and fences success failure recovery and callbacks by current read authority",
           "useNetworkFlowPagedQuery discards an invalid cursor and explains the automatic page-one restart",
-          "useNetworkFlowPagedQuery uses exact next continuations and replays the request that produced the previous page"
+          "useNetworkFlowPagedQuery gives protected-state loss precedence and never automatically restarts other cursor failures",
+          "useNetworkFlowPagedQuery recovers expired backward navigation and stops after one automatic initial request",
+          "useNetworkFlowPagedQuery retains the committed page and history after failed forward and backward navigation",
+          "useNetworkFlowPagedQuery retains the committed snapshot on failed automatic restart and never resubmits invalid cursors",
+          "useNetworkFlowPagedQuery retries the failed destination independently of refreshing the displayed page",
+          "useNetworkFlowPagedQuery uses exact next continuations and replays the request that produced the previous page",
+          "useNetworkFlowPagedQuery uses the captured initial query when expiry races a newer mutable initial request"
         ]
       },
       "evidence_class": "unit",

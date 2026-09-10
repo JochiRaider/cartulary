@@ -38,6 +38,88 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
+func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
+	runtime := appsupport.StartRuntime(t)
+	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-pagination-recovery")
+	login, actorText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	start := harness.Server.Clock.Now().Truncate(time.Second)
+	httptestx.SetClockFixed(t, harness.Server, start)
+	actor := uuid.MustParse(actorText)
+	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{"client_txn_id": "txn-pagination-incident", "incident_key": "IR-NF-PAGES", "title": "Pagination"})
+	incidentID := uuid.MustParse(incident["incident_id"].(string))
+	store := newTestNetworkFlowStore(t, harness.Pool, harness.Revisions.Appender())
+	session, unit := seedImportSessionUnit(t, harness.Pool, incidentID, actor, "pages.csv")
+	rows := []FlowRow{testFlowRow(1, "a"), testFlowRow(2, "b"), testFlowRow(3, "c")}
+	for i := range rows {
+		rows[i].SrcIP = "192.0.2.1"
+		rows[i].DstIP = "192.0.2.2"
+	}
+	diagnostics := []RejectedRowDiagnostic{testDiagnostic(4, "network_flow_invalid_ip"), testDiagnostic(5, "network_flow_invalid_ip"), testDiagnostic(6, "network_flow_invalid_ip")}
+	for i := range diagnostics {
+		diagnostics[i].DiagnosticID = "nfd_" + strings.Repeat(string(rune('a'+i)), 64)
+	}
+	table, err := store.CreateTable(context.Background(), CreateTableParams{IncidentID: incidentID, ActorUserID: actor, ImportSessionID: session, ImportUnitID: unit, SourceContentSHA256: testSHA1, OriginalFilename: "pages.csv", SourceFilenameDigest: testSHA2, SourceFilenameDigestKeyID: "route-test-key", MappingFingerprint: testSHA3, SourceProfileID: SourceProfileCiscoSNANetFlowCSV, ParserProfileID: ParserProfileRFC4180HeaderedCSV, Rows: rows, Diagnostics: diagnostics, Now: start})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow"
+	query := func(path string, body map[string]any) map[string]any {
+		response := httptestx.DoJSON(t, http.MethodPost, root+path, body, httptestx.WithCookies(login.SessionCookie))
+		return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+	}
+	graph := query("/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}})
+	selector := graph["vertex_selectors"].([]any)[0].(map[string]any)["selector"]
+	for _, route := range []struct {
+		name, path, continuation, items string
+		initial                         map[string]any
+	}{
+		{"rows", "/tables/" + table.TableID + "/query", schemaTableQueryContinuationForTest, "rows", map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1}},
+		{"diagnostics", "/tables/" + table.TableID + "/rejected-rows/query", "cartulary.network_flow.rejected_rows_query_continuation.v1", "diagnostics", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v1", "limit": 1}},
+		{"contributors", "/graphs/contributors/query", "cartulary.network_flow.graph_contributor_query_continuation.v1", "contributors", map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_request.v2", "graph_query": graph["semantic_query"], "graph_query_digest": graph["graph_query_digest"], "selector": selector, "limit": 1}},
+	} {
+		t.Run(route.name, func(t *testing.T) {
+			issued := harness.Server.Clock.Now()
+			first := query(route.path, route.initial)
+			firstItems := first[route.items].([]any)
+			token := first["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
+			continuation := map[string]any{"schema_id": route.continuation, "cursor_token": token}
+			rename := httptestx.DoJSON(t, http.MethodPatch, root+"/tables/"+table.TableID, map[string]any{
+				"client_txn_id": "pagination-rename-" + route.name, "base_table_version": table.TableVersion, "display_name": "Pages " + route.name,
+			}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+			httptestx.RequireSuccessEnvelope(t, rename, http.StatusOK)
+			table.TableVersion++
+			second := query(route.path, continuation)
+			if len(firstItems) != 1 || len(second[route.items].([]any)) != 1 || reflect.DeepEqual(firstItems, second[route.items]) {
+				t.Fatalf("incorrect successive pages: %#v %#v", first, second)
+			}
+			// Previous uses the original producing request and returns the same authorized resources.
+			if prior := query(route.path, route.initial); !reflect.DeepEqual(prior[route.items], firstItems) {
+				t.Fatal("initial page replay changed rows")
+			}
+			httptestx.SetClockAfter(t, harness.Server, issued, 899*time.Second)
+			query(route.path, continuation)
+			httptestx.SetClockAfter(t, harness.Server, issued, 900*time.Second)
+			response := httptestx.DoJSON(t, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(login.SessionCookie))
+			body := httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "network_flow_cursor_invalid")
+			details := body["error"].(map[string]any)["details"].(map[string]any)
+			if details["reason_code"] != "expired" || details["retry_action"] != "restart_query" {
+				t.Fatalf("expiry recovery details: %#v", details)
+			}
+			restarted := query(route.path, route.initial)
+			if !reflect.DeepEqual(restarted[route.items], firstItems) {
+				t.Fatal("restart changed first-page resources")
+			}
+			freshToken := restarted["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
+			last := query(route.path, map[string]any{"schema_id": route.continuation, "cursor_token": freshToken})
+			finalToken := last["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
+			last = query(route.path, map[string]any{"schema_id": route.continuation, "cursor_token": finalToken})
+			if last["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"] != nil {
+				t.Fatal("terminal page has a continuation")
+			}
+		})
+	}
+}
+
 func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "network-flow-routes-unclaimed")

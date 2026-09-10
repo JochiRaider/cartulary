@@ -8,6 +8,29 @@ import {
 
 describe("Network Flow structured errors", () => {
   it("preserves status, code, reason, field, retry action, and a safe message", () => {
+    expect(
+      networkFlowRequestError(502, {
+        error: {
+          code: "network_flow_graph_projection_failed",
+          details: {
+            retry_action: "do_not_retry",
+            reason_code: "adapter_contract_rejected",
+          },
+          retryable: true,
+        },
+      }).retryAction,
+    ).toBe("do_not_retry");
+    expect(
+      networkFlowRequestError(400, {
+        error: {
+          code: "network_flow_cursor_invalid",
+          details: {
+            retry_action: "future_unknown_action",
+            reason_code: "expired",
+          },
+        },
+      }).retryAction,
+    ).toBe("do_not_retry");
     const error = networkFlowRequestError(400, {
       error: {
         code: "network_flow_cursor_invalid",
