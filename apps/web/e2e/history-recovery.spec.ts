@@ -29,7 +29,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { fetchRecordHistory } from "./support/workbook/history";
+import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
   clickTimelineRowAction,
@@ -129,7 +129,7 @@ async function recoverDelete(
     | "historical" = "after_commit",
 ) {
   const { row, viewSchemaId } = await prepare(page, surface);
-  const before = await fetchRecordHistory(page, row.record_id);
+  const before = await fetchFullRecordHistory(page, row.record_id);
   const bodies: string[] = [];
   let finishObserved = () => {};
   const observed = new Promise<void>((resolve) => {
@@ -172,7 +172,7 @@ async function recoverDelete(
     workbookInspectorCloseButtonTestId(viewSchemaId),
   );
   if (await close.isVisible()) await close.click();
-  const settledBeforeReplay = await fetchRecordHistory(page, row.record_id);
+  const settledBeforeReplay = await fetchFullRecordHistory(page, row.record_id);
   expect(settledBeforeReplay.row_version).toBe(
     mode === "before_commit" ? before.row_version : before.row_version + 1,
   );
@@ -207,7 +207,7 @@ async function recoverDelete(
       ),
     ).toHaveText("Newer accepted row");
   }
-  const replayBaseline = await fetchRecordHistory(page, row.record_id);
+  const replayBaseline = await fetchFullRecordHistory(page, row.record_id);
   const trigger = page.getByRole("button", { name: "History actions (1)" });
   await trigger.focus();
   await trigger.press("Enter");
@@ -228,7 +228,7 @@ async function recoverDelete(
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   expect(bodies).toHaveLength(2);
   expect(bodies[1]).toBe(bodies[0]);
-  const recovered = await fetchRecordHistory(page, row.record_id);
+  const recovered = await fetchFullRecordHistory(page, row.record_id);
   if (mode === "before_commit") {
     expect(recovered.row_version).toBe(before.row_version + 1);
     expect(
@@ -267,7 +267,7 @@ async function recoverDelete(
   await expect(
     page.getByTestId(gridRowTestId(viewSchemaId, row.record_id)),
   ).toBeVisible();
-  const restored = await fetchRecordHistory(page, row.record_id);
+  const restored = await fetchFullRecordHistory(page, row.record_id);
   expect(restored.deleted).toBe(false);
   expect(restored.row_version).toBe(recovered.row_version + 1);
 }
@@ -338,7 +338,7 @@ test("Timeline acknowledged delete survives a failed history refresh", async ({
     exact: true,
   });
   await expect(recovery).toContainText("Action completed; refresh required.");
-  const committed = await fetchRecordHistory(page, row.record_id);
+  const committed = await fetchFullRecordHistory(page, row.record_id);
   failRefresh = false;
   await recovery
     .getByRole("button", { name: "Refresh completed action" })
@@ -348,5 +348,5 @@ test("Timeline acknowledged delete survives a failed history refresh", async ({
     page.getByTestId(gridRowTestId(viewSchemaId, row.record_id)),
   ).toHaveCount(0);
   expect(mutations).toBe(1);
-  expect(await fetchRecordHistory(page, row.record_id)).toEqual(committed);
+  expect(await fetchFullRecordHistory(page, row.record_id)).toEqual(committed);
 });

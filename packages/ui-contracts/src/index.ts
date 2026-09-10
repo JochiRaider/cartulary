@@ -218,6 +218,7 @@ export {
   rowHistoryOpenInspectorButtonTestId,
   rowHistoryOpenSelectedButtonTestId,
   rowHistoryPanelTestId,
+  rowHistoryReadControlTestId,
   rowHistoryRestoreButtonTestId,
   rowHistoryRollbackCancelButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,

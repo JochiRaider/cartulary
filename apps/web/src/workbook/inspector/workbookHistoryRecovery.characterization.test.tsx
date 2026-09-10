@@ -35,6 +35,7 @@ it("acknowledges a history mutation before its projection refresh settles", asyn
         row_version: committed ? 2 : 1,
         deleted: committed,
         items: [],
+        paging: { limit: 100, has_more: false, next_cursor: null },
       },
     }),
     send: async () => {
@@ -143,6 +144,7 @@ it("fences admitted effects when selection leaves and returns to the same record
         row_version: committed ? 2 : 1,
         deleted: committed,
         items: [],
+        paging: { limit: 100, has_more: false, next_cursor: null },
       },
     }),
     send,

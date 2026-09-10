@@ -333,6 +333,13 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 		t.Fatalf("unexpected first page cursor metadata: %#v", paging)
 	}
 
+	// A live continuation must remain after the retained item, even when a
+	// newer committed item shifts every numeric position in the materialization.
+	seedHistoryChangeSet(t, harness.DB, historySeed{
+		IncidentID: incidentID, ActorID: actorID, RecordID: recordA, ChangeSetID: mustUUID(t, "77777777-0000-4000-8000-000000000305"),
+		CreatedAt: base.Add(4 * time.Minute), Source: "workbook.records.patch", SequenceNo: 1,
+		TargetKind: "host", Operation: "inserted-newest", RowVersion: 5,
+	})
 	secondPage := getHistory(t, harness.Server.HTTP.URL, login, recordA, "?cursor_token="+cursor)
 	secondItems := historyItems(secondPage)
 	if len(secondItems) != 1 || secondItems[0].(map[string]any)["change_set_id"] != secondChangeSet.String() {
@@ -356,6 +363,20 @@ func TestHistoryPaginationRecordBinding_Integration(t *testing.T) {
 			t.Fatalf("unexpected invalid limit reason for %s: %#v", query, body)
 		}
 	}
+	// Every continuation observes current lifecycle and authority, even with a
+	// previously valid cursor. Tombstones and closed incidents retain history.
+	mustExec(t, harness.DB, `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, recordA, actorID)
+	mustExec(t, harness.DB, `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incidentID)
+	closedPage := getHistory(t, harness.Server.HTTP.URL, login, recordA, "?cursor_token="+cursor)
+	if closedPage["data"].(map[string]any)["deleted"] != true || len(historyItems(closedPage)) != 1 {
+		t.Fatalf("authorized closed tombstone continuation lost history: %#v", closedPage)
+	}
+	unauthenticated := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil)
+	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
+	mustExec(t, harness.DB, `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, actorID)
+	concealed := appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordA.String()+"/history?cursor_token="+cursor, nil, appsupport.WithCookies(login.SessionCookie))
+	httptestx.RequireErrorEnvelope(t, concealed, http.StatusNotFound, "incident_not_found")
+
 }
 
 func TestMergeChangeSetRollback_Integration(t *testing.T) {

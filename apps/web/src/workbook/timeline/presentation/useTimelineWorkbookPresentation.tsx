@@ -229,6 +229,7 @@ export function useTimelineWorkbookPresentation({
     openRowHistory,
     previewRowHistoryDeleteRestore,
     previewRowHistoryRollback,
+    historyBrowsingControls,
   } = workflow.commands.history;
   const {
     createEntityFromMention,
@@ -375,6 +376,7 @@ export function useTimelineWorkbookPresentation({
       openRowHistory,
       previewRowHistoryDeleteRestore,
       previewRowHistoryRollback,
+      historyBrowsingControls,
       renderTimelineCollectionInput,
       renderTimelineInspectorEditor,
       rowHistory,

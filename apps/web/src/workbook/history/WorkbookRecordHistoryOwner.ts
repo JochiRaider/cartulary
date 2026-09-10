@@ -8,6 +8,7 @@ import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../mutations/workbookOperationOutcome";
+import { HistoryActionLookup } from "./HistoryActionLookup";
 import {
   type HistoryAttempt,
   type HistoryAuthority,
@@ -19,6 +20,11 @@ import {
   historyTargetEqual,
   type WorkbookRecordHistoryPort,
 } from "./workbookHistoryOperation";
+import type {
+  HistoryPage,
+  HistoryPageRequest,
+  HistoryReadScope,
+} from "./workbookHistoryPage";
 
 const reviewRequired: WorkbookOperationFailure = {
   kind: "stale_target",
@@ -42,6 +48,33 @@ export class WorkbookRecordHistoryOwner {
   private listeners = new Set<() => void>();
   private snapshot: readonly HistoryOperation[] = empty;
   private epoch = 0;
+  private preparations = new Map<string, HistoryActionLookup>();
+  private reviews = new Map<string, HistoryActionLookup>();
+  private reads = new Set<{ cancel: () => void }>();
+  get readScope(): HistoryReadScope | null {
+    return this.authority?.role
+      ? {
+          epoch: this.epoch,
+          incidentId: this.incidentId,
+          actorId: this.authority.actorId,
+          sessionIdentity: this.authority.sessionIdentity,
+        }
+      : null;
+  }
+  private cancelReads() {
+    for (const read of this.reads) read.cancel();
+    this.reads.clear();
+    for (const lookup of this.preparations.values()) lookup.cancel();
+    this.preparations.clear();
+    for (const lookup of this.reviews.values()) lookup.cancel();
+    this.reviews.clear();
+    for (const [recordId, entry] of this.entries)
+      this.entries.set(recordId, {
+        ...entry,
+        currentHistory: null,
+        reviewState: undefined,
+      });
+  }
   private executing = new Set<string>();
   private surfaceRefreshes = new Map<string, () => Promise<void> | void>();
   registerSurface(viewSchemaId: string, refresh: () => Promise<void> | void) {
@@ -71,6 +104,23 @@ export class WorkbookRecordHistoryOwner {
     private readonly observe: typeof observeAsyncOperation = observeAsyncOperation,
   ) {}
 
+  createLookup(intent: HistoryIntent, expectedVersion?: number) {
+    const scope = this.readScope;
+    return scope === null
+      ? null
+      : new HistoryActionLookup({
+          scope,
+          recordId: intent.subject.recordId,
+          viewSchemaId: intent.subject.viewSchemaId,
+          pending: intent.pending,
+          ...(intent.provenance ? { provenance: intent.provenance } : {}),
+          ...(expectedVersion === undefined ? {} : { expectedVersion }),
+          currentScope: () => this.readScope,
+          latestVersion: () => this.latestVersion(intent.subject.recordId) ?? 0,
+          read: (request, signal) =>
+            this.load(intent.subject.recordId, signal, request),
+        });
+  }
   get readable() {
     return this.authority !== null && Boolean(this.authority.role);
   }
@@ -85,6 +135,9 @@ export class WorkbookRecordHistoryOwner {
       entry?.phase === "rejected" &&
       entry.failure?.kind === "client_txn_conflict" &&
       entry.currentHistory !== null &&
+      entry.reviewState?.phase === "matched" &&
+      entry.currentHistory.row_version >=
+        (this.latestVersion(entry.attempt.subject.recordId) ?? 0) &&
       matchesReview(entry.attempt, entry.currentHistory) &&
       this.authorized(entry.attempt)
     );
@@ -111,6 +164,7 @@ export class WorkbookRecordHistoryOwner {
     )
       this.retire();
     this.epoch += 1;
+    this.cancelReads();
     this.detachBindings();
     this.authority =
       authority?.incidentId === this.incidentId ? authority : null;
@@ -127,12 +181,14 @@ export class WorkbookRecordHistoryOwner {
   }
   suspend() {
     this.epoch += 1;
+    this.cancelReads();
     this.detachBindings();
     this.authority = null;
     this.publish();
   }
   closeIncident() {
     this.epoch += 1;
+    this.cancelReads();
     this.detachBindings();
     if (this.authority !== null)
       this.authority = { ...this.authority, closed: true };
@@ -151,11 +207,19 @@ export class WorkbookRecordHistoryOwner {
   }
   retire() {
     this.epoch += 1;
+    this.cancelReads();
     for (const observation of this.observations.values()) observation.cancel();
     this.relatedProjectionRefresh = null;
     this.surfaceRefreshes.clear();
     this.observations.clear();
     this.executing.clear();
+    for (const lookup of [
+      ...this.preparations.values(),
+      ...this.reviews.values(),
+    ])
+      lookup.cancel();
+    this.preparations.clear();
+    this.reviews.clear();
     this.entries.clear();
     this.bindings.clear();
     this.versions.clear();
@@ -229,19 +293,22 @@ export class WorkbookRecordHistoryOwner {
   async load(
     recordId: string,
     signal?: AbortSignal,
-  ): Promise<WorkbookOperationOutcome<RecordHistoryData>> {
+    request: HistoryPageRequest = {},
+  ): Promise<WorkbookOperationOutcome<HistoryPage>> {
     const authority = this.authority;
     const epoch = this.epoch;
     const port = this.port;
     if (authority === null || !authority.role || port === null)
       return { kind: "rejected", failure: accessRequired };
     const observation = this.observe((requestSignal) =>
-      port.load(recordId, requestSignal),
+      port.load(recordId, requestSignal, request),
     );
+    this.reads.add(observation);
     const cancel = () => observation.cancel();
     signal?.addEventListener("abort", cancel, { once: true });
     if (signal?.aborted) cancel();
     const result = await observation.result;
+    this.reads.delete(observation);
     signal?.removeEventListener("abort", cancel);
     if (epoch !== this.epoch || authority !== this.authority || signal?.aborted)
       return { kind: "rejected", failure: accessRequired };
@@ -255,11 +322,7 @@ export class WorkbookRecordHistoryOwner {
       };
     if (result.value.kind === "accepted") {
       const data = result.value.value;
-      if (
-        data.incident_id !== this.incidentId ||
-        data.record_id !== recordId ||
-        data.row_version < (this.latestVersion(recordId) ?? 0)
-      )
+      if (data.incident_id !== this.incidentId || data.record_id !== recordId)
         return { kind: "rejected", failure: reviewRequired };
       this.acceptVersion(recordId, data.row_version);
     }
@@ -343,7 +406,12 @@ export class WorkbookRecordHistoryOwner {
     const entry = this.entry(attempt.id);
     const binding = this.bindings.get(attempt.id);
     const port = this.port;
-    if (!entry || entry.transportPending || this.executing.has(attempt.id))
+    if (
+      !entry ||
+      (!replay && entry.dispatched) ||
+      entry.transportPending ||
+      this.executing.has(attempt.id)
+    )
       return;
     if (!port || !this.authorized(attempt)) {
       this.update(attempt.id, {
@@ -364,14 +432,59 @@ export class WorkbookRecordHistoryOwner {
       if (!replay && (version === null || version > attempt.pending.rowVersion))
         return false;
       if (replay) return true;
-      const history = await this.load(attempt.subject.recordId, signal);
-      return (
-        history.kind === "accepted" && matchesReview(attempt, history.value)
-      );
+      let lookup = this.preparations.get(attempt.id);
+      if (!lookup) {
+        lookup =
+          this.createLookup(attempt, attempt.pending.rowVersion) ?? undefined;
+        if (!lookup) return false;
+        this.preparations.set(attempt.id, lookup);
+      }
+      const checking = lookup.run(signal);
+      this.update(attempt.id, { checking: lookup.snapshot });
+      const result = await checking;
+      this.update(attempt.id, { checking: result });
+      return result.phase === "matched";
     });
     this.observations.set(attempt.id, preparation);
     const prepared = await preparation.result;
     if (!this.owns(attempt)) {
+      this.executing.delete(attempt.id);
+      return;
+    }
+    if (
+      !replay &&
+      prepared.kind === "timeout" &&
+      this.entry(attempt.id)?.phase === "preparing" &&
+      this.authorized(attempt) &&
+      this.epoch === dispatchEpoch
+    ) {
+      const lookup = this.preparations.get(attempt.id);
+      if (lookup) {
+        lookup.interrupted();
+        this.update(attempt.id, { checking: lookup.snapshot });
+        this.observations.delete(attempt.id);
+        this.executing.delete(attempt.id);
+        return;
+      }
+    }
+    const checking = this.preparations.get(attempt.id)?.snapshot;
+    if (
+      !replay &&
+      this.entry(attempt.id)?.phase === "rejected" &&
+      !this.entry(attempt.id)?.dispatched
+    ) {
+      this.executing.delete(attempt.id);
+      return;
+    }
+    if (
+      !replay &&
+      prepared.kind === "completed" &&
+      checking &&
+      ["paused", "failed", "restart_required"].includes(checking.phase) &&
+      this.authorized(attempt) &&
+      this.epoch === dispatchEpoch
+    ) {
+      this.observations.delete(attempt.id);
       this.executing.delete(attempt.id);
       return;
     }
@@ -384,7 +497,9 @@ export class WorkbookRecordHistoryOwner {
     ) {
       this.update(attempt.id, {
         phase: replay ? "uncertain" : "rejected",
-        failure: this.authorized(attempt) ? reviewRequired : accessRequired,
+        failure: this.authorized(attempt)
+          ? (checking?.failure ?? reviewRequired)
+          : accessRequired,
       });
       this.executing.delete(attempt.id);
       return;
@@ -478,14 +593,68 @@ export class WorkbookRecordHistoryOwner {
     this.update(id, { phase: "preparing" });
     await this.execute(entry.attempt, true);
   }
-  async review(id: string) {
+  async continueChecking(id: string, restart = false) {
+    const entry = this.entry(id);
+    if (
+      !entry ||
+      entry.dispatched ||
+      entry.phase !== "preparing" ||
+      this.executing.has(id)
+    )
+      return;
+    if (restart) this.preparations.get(id)?.restart();
+    await this.execute(entry.attempt);
+  }
+  cancelChecking(id: string) {
+    const entry = this.entry(id);
+    if (!entry || entry.dispatched || entry.phase !== "preparing") return;
+    const lookup = this.preparations.get(id);
+    lookup?.cancel();
+    this.observations.get(id)?.cancel();
+    this.update(id, {
+      phase: "rejected",
+      ...(lookup ? { checking: lookup.snapshot } : {}),
+      failure: {
+        kind: "stale_target",
+        message: "Checking cancelled. No action was sent.",
+      },
+    });
+  }
+  async review(id: string, resume = false, restart = false) {
     const entry = this.entry(id);
     if (!entry) return;
-    this.update(id, { currentHistory: null, reviewFailure: false });
-    const history = await this.load(entry.attempt.subject.recordId);
-    if (history.kind === "accepted")
-      this.update(id, { currentHistory: history.value });
-    else this.update(id, { reviewFailure: true });
+    let lookup = resume ? this.reviews.get(id) : undefined;
+    if (this.reviews.get(id)?.snapshot.phase === "checking") return;
+    if (!lookup) {
+      this.reviews.get(id)?.cancel();
+      lookup = this.createLookup(entry.attempt) ?? undefined;
+      if (!lookup) return;
+      this.reviews.set(id, lookup);
+    }
+    if (restart) lookup.restart();
+    const checking = lookup.run();
+    this.update(id, {
+      currentHistory: null,
+      reviewFailure: false,
+      reviewState: lookup.snapshot,
+    });
+    const result = await checking;
+    if (this.reviews.get(id) !== lookup || !this.owns(entry.attempt)) return;
+    this.update(id, {
+      currentHistory: ["matched", "changed", "unavailable"].includes(
+        result.phase,
+      )
+        ? result.page
+        : null,
+      reviewFailure: result.phase === "failed",
+      reviewState: result,
+    });
+  }
+  cancelReview(id: string) {
+    const lookup = this.reviews.get(id);
+    if (!lookup) return;
+    lookup.cancel();
+    this.update(id, { reviewState: lookup.snapshot });
   }
   async retryWithNewId(id: string) {
     const entry = this.entry(id);
@@ -495,8 +664,7 @@ export class WorkbookRecordHistoryOwner {
       entry.phase !== "rejected" ||
       entry.failure?.kind !== "client_txn_conflict" ||
       entry.transportPending ||
-      !entry.currentHistory ||
-      !matchesReview(entry.attempt, entry.currentHistory) ||
+      !this.canReplace(id) ||
       !binding ||
       !this.authorized(entry.attempt)
     )
@@ -588,6 +756,11 @@ export class WorkbookRecordHistoryOwner {
       return;
     this.entries.delete(entry.attempt.subject.recordId);
     this.bindings.delete(id);
+    const lookup = this.preparations.get(id);
+    lookup?.cancel();
+    this.preparations.delete(id);
+    this.reviews.get(id)?.cancel();
+    this.reviews.delete(id);
     this.publish();
   }
 }

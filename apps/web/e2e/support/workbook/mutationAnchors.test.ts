@@ -167,7 +167,7 @@ describe("workbook row mutation support", () => {
     ).resolves.toBe(0);
     expect(fetch).toHaveBeenNthCalledWith(
       2,
-      expect.stringMatching(/\/history\?limit=100$/u),
+      expect.stringMatching(/\/history$/u),
       { method: "GET" },
     );
 

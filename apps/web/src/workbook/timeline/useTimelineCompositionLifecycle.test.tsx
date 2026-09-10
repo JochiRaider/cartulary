@@ -191,7 +191,12 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
       trace.push("route:load");
       return {
         kind: "accepted",
-        value: { ...data, deleted: committed, row_version: committed ? 5 : 4 },
+        value: {
+          paging: { limit: 100, has_more: false, next_cursor: null },
+          ...data,
+          deleted: committed,
+          row_version: committed ? 5 : 4,
+        },
       };
     },
     send: async () => {
@@ -276,6 +281,7 @@ it("useTimelineHistoryActions preserves the committed delete ordering trace", as
     "route:load",
     "history:load_requested",
     "history:load_accepted",
+    "history:browsing_changed",
     "rows:load",
   ]);
 });
@@ -321,7 +327,11 @@ it("Timeline history rejects queued version changes without replacing the confir
   owner.configure({
     load: async () => ({
       kind: "accepted",
-      value: { ...data, row_version: 6 },
+      value: {
+        paging: { limit: 100, has_more: false, next_cursor: null },
+        ...data,
+        row_version: 6,
+      },
     }),
     send,
   });

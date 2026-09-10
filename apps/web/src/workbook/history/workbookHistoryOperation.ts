@@ -9,6 +9,12 @@ import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../mutations/workbookOperationOutcome";
+import type { HistoryLookupState } from "./HistoryActionLookup";
+import type {
+  HistoryPage,
+  HistoryPageProvenance,
+  HistoryPageRequest,
+} from "./workbookHistoryPage";
 
 export type HistoryAuthority = {
   readonly sessionIdentity?: string;
@@ -20,6 +26,7 @@ export type HistoryAuthority = {
 export type HistoryIntent = {
   readonly subject: WorkbookInspectorSubject;
   readonly pending: WorkbookRecordHistoryPendingAction;
+  readonly provenance?: HistoryPageProvenance;
 };
 export type HistoryAttempt = HistoryIntent & {
   readonly id: string;
@@ -55,7 +62,8 @@ export type WorkbookRecordHistoryPort = {
   readonly load: (
     recordId: string,
     signal: AbortSignal,
-  ) => Promise<WorkbookOperationOutcome<RecordHistoryData>>;
+    request?: HistoryPageRequest,
+  ) => Promise<WorkbookOperationOutcome<HistoryPage>>;
   readonly send: (
     attempt: HistoryAttempt,
     signal: AbortSignal,
@@ -89,6 +97,8 @@ export type HistoryOperation = {
   readonly reconciliation: "pending" | "refreshing" | "required" | "complete";
   readonly reviewFailure: boolean;
   readonly currentHistory: RecordHistoryData | null;
+  readonly checking?: HistoryLookupState;
+  readonly reviewState?: HistoryLookupState | undefined;
 };
 export function historyActionPermitted(
   authority: HistoryAuthority | null,
@@ -102,29 +112,7 @@ export function historyActionPermitted(
     (operation === "delete" && authority.role === "editor")
   );
 }
-export function historyTargetEqual(
-  left: RecordHistoryRollbackTarget,
-  right: RecordHistoryRollbackTarget,
-): boolean {
-  if (left.kind !== right.kind) return false;
-  switch (left.kind) {
-    case "history_entry":
-      return (
-        right.kind === "history_entry" &&
-        left.history_entry_ref === right.history_entry_ref
-      );
-    case "change_set":
-      return (
-        right.kind === "change_set" &&
-        left.change_set_id === right.change_set_id
-      );
-    case "row_restore":
-      return (
-        right.kind === "row_restore" &&
-        left.restore_to_revision_no === right.restore_to_revision_no
-      );
-  }
-}
+export { historyTargetEqual } from "./workbookHistoryItem";
 export function historyOperationLabel(
   attempt: Pick<HistoryIntent, "pending">,
 ): string {

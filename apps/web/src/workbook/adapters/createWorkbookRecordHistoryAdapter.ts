@@ -1,5 +1,6 @@
 import {
   type DeleteRecordResponse,
+  type GetRecordHistoryResponse,
   httpOperationBindings,
   type RollbackRecordResponse,
 } from "@cartulary/protocol-ts/http";
@@ -10,10 +11,8 @@ import {
   historyTargetEqual,
   type WorkbookRecordHistoryPort,
 } from "../history/workbookHistoryOperation";
-import {
-  normalizeRecordHistoryData,
-  type RecordHistoryData,
-} from "../inspector/workbookRecordHistoryModel";
+import { validHistoryPaging } from "../history/workbookHistoryPage";
+import { normalizeRecordHistoryData } from "../inspector/workbookRecordHistoryModel";
 import { classifyWorkbookOperationFailure } from "./workbookOperationErrorPolicy";
 
 const invalid = {
@@ -26,11 +25,17 @@ export function createWorkbookRecordHistoryAdapter(options: {
   readonly incidentId: string;
 }): WorkbookRecordHistoryPort {
   return {
-    async load(recordId, signal) {
+    async load(recordId, signal, request = {}) {
       try {
-        const result = await fetchHTTPOperation<{ data: RecordHistoryData }>({
+        const result = await fetchHTTPOperation<GetRecordHistoryResponse>({
           apiBase: options.apiBase,
           operationID: "getRecordHistory",
+          query: {
+            ...(request.limit === undefined ? {} : { limit: request.limit }),
+            ...(request.cursorToken === undefined
+              ? {}
+              : { cursor_token: request.cursorToken }),
+          },
           pathParameters: { record_id: recordId },
           init: { signal },
         });
@@ -48,11 +53,15 @@ export function createWorkbookRecordHistoryAdapter(options: {
         const data = normalizeRecordHistoryData(result.payload.data);
         if (
           data === null ||
+          !validHistoryPaging(result.payload.meta.paging) ||
           data.record_id !== recordId ||
           data.incident_id !== options.incidentId
         )
           return { kind: "rejected", failure: invalid };
-        return { kind: "accepted", value: data };
+        return {
+          kind: "accepted",
+          value: { ...data, paging: result.payload.meta.paging },
+        };
       } catch {
         return {
           kind: "rejected",

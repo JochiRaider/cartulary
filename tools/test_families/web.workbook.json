@@ -681,6 +681,109 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.history_action_lookup",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/history/HistoryActionLookup.test.ts",
+        "titles": [
+          "History action lookup bounds a stalled lookup and resumes its exact unfinished page",
+          "History action lookup fences duplicate activation and cancelled late responses",
+          "History action lookup finds all advertised selectors and rejects changed eligibility or targets",
+          "History action lookup pauses after three pages and resumes without claiming absence",
+          "History action lookup refetches valid provenance and starts a fresh chain only after absence",
+          "History action lookup rejects session replacement and changed current versions",
+          "History action lookup requires explicit restart for non-progressing cursors",
+          "History action lookup retains one exact admission across batches and cancels before dispatch",
+          "History action lookup retries the failed request while retaining successful progress"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.history_browsing_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/history/workbookHistoryBrowsing.characterization.test.tsx",
+        "titles": [
+          "History browsing characterization admits a confirmed retained item beyond the first page",
+          "History browsing characterization cancels hidden presentation reads without dispatching an action",
+          "History browsing characterization clears old record before paint and rejects an obsolete continuation",
+          "History browsing characterization fences duplicate continuation and retains the exact failed-page retry",
+          "History browsing characterization keeps accepted history when a refresh read fails",
+          "History browsing characterization preserves the server continuation contract on a short page",
+          "History browsing characterization previews a selected retained item beyond the first page",
+          "History browsing characterization replaces session scope conceals lost access and preserves closed incident reads",
+          "History browsing characterization reviews a retained later-page target before replacement admission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.history_browsing_state",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/history/workbookHistoryBrowsing.test.ts",
+        "titles": [
+          "History browsing state conceals protected entries on access or session loss",
+          "History browsing state deduplicates overlap in place and accepts refreshed eligibility",
+          "History browsing state distinguishes a genuinely empty terminal first page",
+          "History browsing state fences obsolete refresh and retargeted responses",
+          "History browsing state keeps failed-refresh entries but retires continuation until a replacement chain succeeds",
+          "History browsing state rejects duplicate identities changed content malformed paging and stalled cursors",
+          "History browsing state requires explicit fresh-chain recovery for invalid cursors",
+          "History browsing state retains accepted pages on failure and retries the same page exactly once",
+          "History browsing state retains historical items without regressing current record metadata",
+          "History browsing state uses server continuation for short and empty pages and preserves server order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.history_captured_transport",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

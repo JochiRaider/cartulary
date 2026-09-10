@@ -2,6 +2,7 @@ import { timelineInspectorSectionTestId } from "@cartulary/ui-contracts";
 import { type ReactNode, type RefCallback, useCallback } from "react";
 import { InspectorCreateRelatedWorkflow } from "../../inspector/InspectorCreateRelatedWorkflow";
 import type { InspectorRelatedRecordWorkflowState } from "../../inspector/inspectorRelatedRecordModel";
+import type { HistoryBrowsingControls } from "../../inspector/WorkbookInspectorRecordHistory";
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type {
   RecordHistoryItem,
@@ -39,6 +40,7 @@ export function useTimelineWorkbookInspectorSections({
   openRowHistory,
   previewRowHistoryDeleteRestore,
   previewRowHistoryRollback,
+  historyBrowsingControls,
   renderTimelineCollectionInput,
   renderTimelineInspectorEditor,
   rowHistory,
@@ -69,6 +71,7 @@ export function useTimelineWorkbookInspectorSections({
     row: WorkbookRow,
     binding: TimelineScalarBinding,
   ) => ReactNode;
+  readonly historyBrowsingControls: HistoryBrowsingControls;
   readonly rowHistory: WorkbookRecordHistoryState;
   readonly submitCreateRelatedWorkflow: () => Promise<void>;
   readonly timelineCreateRelatedReferenceOptions: GenericReferenceOptions;
@@ -169,6 +172,7 @@ export function useTimelineWorkbookInspectorSections({
         canMutate={canMutateHistory}
         elementRef={elementRef}
         history={rowHistory}
+        browsingControls={historyBrowsingControls}
         selectedActiveRowRecordId={
           inspectorHistorySubject?.kind === "live"
             ? inspectorHistorySubject.recordId
@@ -189,6 +193,7 @@ export function useTimelineWorkbookInspectorSections({
       openRowHistory,
       previewRowHistoryDeleteRestore,
       previewRowHistoryRollback,
+      historyBrowsingControls,
       rowHistory,
     ],
   );

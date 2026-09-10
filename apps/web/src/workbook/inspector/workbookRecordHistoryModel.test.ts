@@ -185,7 +185,14 @@ describe("workbookRecordHistoryModel", () => {
       preview: { pendingAction, type: "preview" },
       submit: { operationId, type: "submit" },
     } as const satisfies Record<
-      Exclude<WorkbookRecordHistoryEvent["type"], "clear" | "retarget">,
+      Exclude<
+        WorkbookRecordHistoryEvent["type"],
+        | "clear"
+        | "retarget"
+        | "browsing_changed"
+        | "lookup_changed"
+        | "review_accepted"
+      >,
       WorkbookRecordHistoryEvent
     >;
     const allowed: Record<
@@ -301,10 +308,11 @@ describe("workbookRecordHistoryModel", () => {
       result: {
         error: { primaryMessage: "Load failed", technicalFields: [] },
         kind: "load_error",
+        retainedData: data,
       },
       subject: liveSubject,
     });
-    expect(workbookRecordHistoryLoadedData(state)).toBeNull();
+    expect(workbookRecordHistoryLoadedData(state)).toEqual(data);
   });
 
   it("cancels and reopens confirmation without weakening operation identity", () => {

@@ -111,5 +111,6 @@ export function useTimelineHistoryActions({
     },
     previewRowHistoryDeleteRestore: controller.commands.previewDeleteRestore,
     previewRowHistoryRollback: controller.commands.previewRollback,
+    historyBrowsingControls: controller.commands,
   };
 }

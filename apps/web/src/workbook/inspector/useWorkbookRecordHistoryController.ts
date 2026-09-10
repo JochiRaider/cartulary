@@ -7,12 +7,21 @@ import {
   useSyncExternalStore,
 } from "react";
 import { observeAsyncOperation } from "../../services/asyncObservation";
+import type { HistoryActionLookup } from "../history/HistoryActionLookup";
 import { useWorkbookHistoryRuntime } from "../history/WorkbookHistoryContext";
 import type { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import {
-  type HistoryBinding,
-  historyTargetEqual,
-} from "../history/workbookHistoryOperation";
+  acceptHistoryPage,
+  beginHistoryRead,
+  type HistoryReadKind,
+  initialHistoryBrowsing,
+  rejectHistoryRead,
+} from "../history/workbookHistoryBrowsing";
+import type { HistoryBinding } from "../history/workbookHistoryOperation";
+import {
+  type HistoryPage,
+  sameHistoryReadScope,
+} from "../history/workbookHistoryPage";
 import type { RecordRouteCommandPort } from "../mutations/workbookMutationCommandPorts";
 import {
   workbookInspectorErrorPresentation,
@@ -29,7 +38,6 @@ import {
   type WorkbookRecordHistoryEvent,
   type WorkbookRecordHistoryPendingAction,
   type WorkbookRecordHistoryState,
-  workbookRecordHistoryLoadedData,
   workbookRecordHistoryOperationId,
   workbookRecordHistoryPendingAction,
   workbookRecordHistoryReducer,
@@ -109,6 +117,23 @@ export function useWorkbookRecordHistoryController({
   const reloadRetarget = useRef(false);
   const requestSequence = useRef(0);
   const operationSequence = useRef(0);
+  const readAbort = useRef<AbortController | null>(null);
+  const previewAbort = useRef<AbortController | null>(null);
+  const previewReview = useRef<{
+    lookup: HistoryActionLookup;
+    pending: WorkbookRecordHistoryPendingAction;
+    token: number;
+  } | null>(null);
+  const scope = owner?.readScope ?? null;
+  const scopeKey = scope
+    ? `${scope.actorId}:${scope.incidentId}:${scope.sessionIdentity}:${scope.epoch}`
+    : "unavailable";
+  const priorScopeKey = useRef(scopeKey);
+  const priorScope = useRef(scope);
+  const previewPending = useRef<WorkbookRecordHistoryPendingAction | null>(
+    null,
+  );
+
   const dispatchHistory = useCallback((event: WorkbookRecordHistoryEvent) => {
     const next = presentationRef.current
       ? presentationRef.current.dispatch(event)
@@ -128,16 +153,26 @@ export function useWorkbookRecordHistoryController({
     return () => {
       mounted.current = false;
       generation.current += 1;
+      readAbort.current?.abort();
+      previewAbort.current?.abort();
+      previewReview.current?.lookup.cancel();
     };
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     void targetIdentity;
     generation.current += 1;
     reloadRetarget.current =
-      presentationRef.current !== undefined &&
       snapshotRef.current.phase !== "idle" &&
       snapshotRef.current.subject?.recordId !==
         targetSubjectRef.current?.recordId;
+    if (
+      snapshotRef.current.subject?.recordId !==
+      targetSubjectRef.current?.recordId
+    )
+      readAbort.current?.abort();
+    previewAbort.current?.abort();
+    previewReview.current?.lookup.cancel();
+    previewReview.current = null;
     dispatchHistory({ subject: targetSubjectRef.current, type: "retarget" });
   }, [dispatchHistory, targetIdentity]);
   useEffect(() => {
@@ -148,38 +183,92 @@ export function useWorkbookRecordHistoryController({
     async (
       activeSubject: WorkbookInspectorSubject,
       feedback?: ReturnType<typeof workbookInspectorMessageFeedback>,
+      requestedKind?: HistoryReadKind,
+      retry = false,
     ) => {
-      if (!owner || !mounted.current) return null;
-      const requestId = workbookRecordHistoryRequestId(
-        ++requestSequence.current,
+      const scope = owner?.readScope;
+      if (!owner || !scope || !mounted.current) return null;
+      const existing = snapshotRef.current.browsing;
+      const browsing =
+        existing &&
+        existing.recordId === activeSubject.recordId &&
+        sameHistoryReadScope(existing.scope, scope)
+          ? existing
+          : initialHistoryBrowsing(
+              scope,
+              activeSubject.recordId,
+              activeSubject.viewSchemaId,
+            );
+      const kind = requestedKind ?? (browsing.accepted ? "refresh" : "initial");
+      const requested = beginHistoryRead(browsing, kind, retry);
+      if (requested === browsing || !requested.pending) return null;
+      readAbort.current?.abort();
+      const controller = new AbortController();
+      readAbort.current = controller;
+      const request = requested.pending;
+      dispatchHistory({ type: "browsing_changed", browsing: requested });
+      const outcome = await owner.load(
+        activeSubject.recordId,
+        controller.signal,
+        request.request,
       );
-      dispatchHistory({
-        requestId,
-        subject: activeSubject,
-        type: "load_requested",
-      });
-      const outcome = await owner.load(activeSubject.recordId);
-      if (!mounted.current) return null;
-      if (outcome.kind === "rejected") {
-        dispatchHistory({
-          error: workbookInspectorErrorPresentation(outcome.failure),
-          requestId,
-          subject: activeSubject,
-          type: "load_rejected",
-        });
+      if (
+        !mounted.current ||
+        controller.signal.aborted ||
+        !sameHistoryReadScope(scope, owner.readScope)
+      )
         return null;
-      }
-      const next = dispatchHistory({
-        data: outcome.value,
-        feedback,
-        requestId,
-        subject: activeSubject,
-        type: "load_accepted",
-      });
-      return next.phase === "ready" ? next : null;
+      const current = snapshotRef.current.browsing;
+      if (!current || current.pending !== request) return null;
+      const subject = snapshotRef.current.subject;
+      const next =
+        outcome.kind === "accepted"
+          ? acceptHistoryPage(current, request, outcome.value, {
+              rowVersion: Math.max(
+                subject?.rowVersion ?? 0,
+                owner.latestVersion(activeSubject.recordId) ?? 0,
+              ),
+              deleted: subject?.kind === "deleted",
+            })
+          : rejectHistoryRead(current, request, outcome.failure);
+      void feedback;
+      return dispatchHistory({ type: "browsing_changed", browsing: next });
     },
     [owner, dispatchHistory],
   );
+  useLayoutEffect(() => {
+    if (priorScopeKey.current === scopeKey) return;
+    const wasOpen = snapshotRef.current.phase !== "idle";
+    priorScopeKey.current = scopeKey;
+    const nextScope = owner?.readScope ?? null;
+    const previousScope = priorScope.current;
+    priorScope.current = nextScope;
+    const sameSession =
+      nextScope &&
+      previousScope &&
+      nextScope.actorId === previousScope.actorId &&
+      nextScope.incidentId === previousScope.incidentId &&
+      nextScope.sessionIdentity === previousScope.sessionIdentity;
+    generation.current += 1;
+    bindingGeneration.current += 1;
+    readAbort.current?.abort();
+    previewAbort.current?.abort();
+    previewReview.current?.lookup.cancel();
+    previewReview.current = null;
+    const retained = snapshotRef.current.browsing;
+    if (sameSession && retained?.accepted && nextScope) {
+      dispatchHistory({ type: "cancel" });
+      dispatchHistory({
+        type: "browsing_changed",
+        browsing: { ...retained, scope: nextScope, pending: null },
+      });
+      return;
+    }
+    dispatchHistory({ type: "clear" });
+    dispatchHistory({ type: "retarget", subject: targetSubjectRef.current });
+    if (wasOpen && owner?.readable && targetSubjectRef.current)
+      void load(targetSubjectRef.current);
+  }, [scopeKey, dispatchHistory, load, owner]);
   useEffect(() => {
     void targetIdentity;
     if (reloadRetarget.current && snapshotRef.current.subject) {
@@ -187,9 +276,32 @@ export function useWorkbookRecordHistoryController({
       void load(snapshotRef.current.subject);
     }
   }, [load, targetIdentity]);
+  useLayoutEffect(() => {
+    if (presentationActive) return;
+    generation.current += 1;
+    readAbort.current?.abort();
+    previewAbort.current?.abort();
+    previewReview.current?.lookup.cancel();
+    previewReview.current = null;
+    dispatchHistory({ type: "cancel" });
+    const browsing = snapshotRef.current.browsing;
+    if (browsing?.pending)
+      dispatchHistory({
+        type: "browsing_changed",
+        browsing: rejectHistoryRead(browsing, browsing.pending, {
+          kind: "retryable",
+          message: "History reading stopped. Retry to continue.",
+        }),
+      });
+  }, [presentationActive, dispatchHistory]);
   const open = useCallback(() => {
     const active = snapshotRef.current.subject ?? targetSubjectRef.current;
     if (active) {
+      generation.current += 1;
+      previewAbort.current?.abort();
+      previewReview.current?.lookup.cancel();
+      previewReview.current = null;
+      dispatchHistory({ type: "cancel" });
       dispatchHistory({ type: "retarget", subject: active });
       void load(active);
     }
@@ -207,18 +319,88 @@ export function useWorkbookRecordHistoryController({
   );
   const rejectReview = useCallback(
     (active: WorkbookInspectorSubject, message: string) => {
-      const requestId = workbookRecordHistoryRequestId(
-        ++requestSequence.current,
-      );
-      dispatchHistory({ type: "load_requested", subject: active, requestId });
+      if (snapshotRef.current.subject?.recordId !== active.recordId) return;
       dispatchHistory({
-        type: "load_rejected",
-        subject: active,
-        requestId,
-        error: { primaryMessage: message, technicalFields: [] },
+        type: "lookup_changed",
+        lookup: {
+          phase: "failed",
+          pagesChecked: 0,
+          page: null,
+          provenance: undefined,
+          failure: { kind: "stale_target", message },
+        },
       });
     },
     [dispatchHistory],
+  );
+  const runPreview = useCallback(
+    async (restart = false) => {
+      const review = previewReview.current;
+      if (!review || !owner) return;
+      if (restart) review.lookup.restart();
+      const result = review.lookup.run(previewAbort.current?.signal);
+      dispatchHistory({
+        type: "lookup_changed",
+        lookup: review.lookup.snapshot,
+      });
+      const checked = await result;
+      if (
+        !mounted.current ||
+        generation.current !== review.token ||
+        previewReview.current !== review
+      )
+        return;
+      dispatchHistory({ type: "lookup_changed", lookup: checked });
+      const active = snapshotRef.current.subject;
+      if (
+        checked.phase !== "matched" ||
+        !checked.page ||
+        !active ||
+        active.recordId !== review.pending.recordId
+      )
+        return;
+      if (
+        (owner.latestVersion(active.recordId) ?? 0) > checked.page.row_version
+      ) {
+        rejectReview(active, "The record changed. Review this action again.");
+        return;
+      }
+      if (
+        !snapshotRef.current.browsing?.accepted &&
+        !checked.provenance?.request.cursorToken &&
+        owner.readScope
+      ) {
+        const initial = beginHistoryRead(
+          initialHistoryBrowsing(
+            owner.readScope,
+            active.recordId,
+            active.viewSchemaId,
+          ),
+          "initial",
+        );
+        if (!initial.pending) return;
+        dispatchHistory({
+          type: "browsing_changed",
+          browsing: acceptHistoryPage(initial, initial.pending, checked.page, {
+            rowVersion: active.rowVersion,
+            deleted: active.kind === "deleted",
+          }),
+        });
+      }
+      dispatchHistory({ type: "review_accepted", data: checked.page });
+      const pending = {
+        ...review.pending,
+        rowVersion: checked.page.row_version,
+      };
+      if (
+        canMutate &&
+        owner.permitted(
+          pending.kind === "rollback" ? "rollback" : pending.operation,
+        )
+      )
+        dispatchHistory({ type: "preview", pendingAction: pending });
+    },
+    [owner, dispatchHistory, canMutate, rejectReview],
   );
   const preview = useCallback(
     async (
@@ -228,11 +410,38 @@ export function useWorkbookRecordHistoryController({
     ) => {
       const active = snapshotRef.current.subject;
       if (!active || !canMutate || !owner) return;
+      const pending = build(active);
+      if (!pending) return;
+      previewPending.current = pending;
+      previewAbort.current?.abort();
+      previewReview.current?.lookup.cancel();
+      const controller = new AbortController();
+      previewAbort.current = controller;
       const token = ++generation.current;
-      const result = await observeAsyncOperation((signal) =>
+      dispatchHistory({ type: "cancel" });
+      dispatchHistory({
+        type: "lookup_changed",
+        lookup: {
+          phase: "checking",
+          pagesChecked: 0,
+          page: null,
+          provenance: undefined,
+          failure: null,
+        },
+      });
+      const settling = observeAsyncOperation((signal) =>
         settle(active, signal),
-      ).result;
-      if (!mounted.current || generation.current !== token) return;
+      );
+      const cancel = () => settling.cancel();
+      controller.signal.addEventListener("abort", cancel, { once: true });
+      const result = await settling.result;
+      controller.signal.removeEventListener("abort", cancel);
+      if (
+        !mounted.current ||
+        generation.current !== token ||
+        controller.signal.aborted
+      )
+        return;
       if (result.kind !== "completed" || result.value === null) {
         rejectReview(
           active,
@@ -240,34 +449,22 @@ export function useWorkbookRecordHistoryController({
         );
         return;
       }
-      const next = await load(active);
-      if (!mounted.current || generation.current !== token || !next?.subject)
-        return;
-      const pending = build(next.subject);
-      if (pending?.kind === "rollback") {
-        const item = workbookRecordHistoryLoadedData(next)?.items.find(
-          (item) => item.history_item_ref === pending.historyItemRef,
-        );
-        const advertised =
-          item &&
-          buildRecordRollbackTargetFromHistoryAction(item, pending.action);
-        if (!advertised || !historyTargetEqual(advertised, pending.target)) {
-          rejectReview(
-            next.subject,
-            "This action is no longer available. Review current history.",
-          );
-          return;
-        }
-      }
-      if (
-        pending &&
-        owner.permitted(
-          pending.kind === "rollback" ? "rollback" : pending.operation,
-        )
-      )
-        dispatchHistory({ pendingAction: pending, type: "preview" });
+      const provenance =
+        pending.kind === "rollback"
+          ? snapshotRef.current.browsing?.accepted?.provenance.get(
+              pending.historyItemRef,
+            )
+          : undefined;
+      const lookup = owner.createLookup({
+        subject: active,
+        pending,
+        ...(provenance ? { provenance } : {}),
+      });
+      if (!lookup) return;
+      previewReview.current = { lookup, pending, token };
+      await runPreview();
     },
-    [canMutate, owner, settle, load, dispatchHistory, rejectReview],
+    [canMutate, owner, settle, dispatchHistory, rejectReview, runPreview],
   );
   const previewDeleteRestore = useCallback(
     (operation: "delete" | "restore") => {
@@ -300,6 +497,9 @@ export function useWorkbookRecordHistoryController({
   );
   const cancel = useCallback(() => {
     generation.current += 1;
+    previewAbort.current?.abort();
+    previewReview.current?.lookup.cancel();
+    previewReview.current = null;
     dispatchHistory({ type: "cancel" });
   }, [dispatchHistory]);
   const confirm = useCallback(async () => {
@@ -313,7 +513,12 @@ export function useWorkbookRecordHistoryController({
     if (next.phase !== "submitting" || next.operationId !== operationId) return;
     const effects = effectsRef.current;
     const admittedCoordinate = coordinateRef.current;
-    const intent = { subject: active, pending };
+    const provenance = previewReview.current?.lookup.snapshot.provenance;
+    const intent = {
+      subject: active,
+      pending,
+      ...(provenance ? { provenance } : {}),
+    };
     const admittedGeneration = bindingGeneration.current;
     const isCurrent = () =>
       bindingGeneration.current === admittedGeneration &&
@@ -357,6 +562,30 @@ export function useWorkbookRecordHistoryController({
             subject: nextSubject,
             type: "load_accepted",
           });
+          const scope = owner.readScope;
+          if (scope && "paging" in history) {
+            const initial = beginHistoryRead(
+              initialHistoryBrowsing(
+                scope,
+                nextSubject.recordId,
+                nextSubject.viewSchemaId,
+              ),
+              "initial",
+            );
+            if (!initial.pending) return;
+            dispatchHistory({
+              type: "browsing_changed",
+              browsing: acceptHistoryPage(
+                initial,
+                initial.pending,
+                history as HistoryPage,
+                {
+                  rowVersion: nextSubject.rowVersion,
+                  deleted: nextSubject.kind === "deleted",
+                },
+              ),
+            });
+          }
         }
         await effects.refresh();
         if (
@@ -384,7 +613,12 @@ export function useWorkbookRecordHistoryController({
     const entry = owner
       .getSnapshot()
       .find((entry) => entry.attempt.id === attempt.id);
-    if (isCurrent() && entry && entry.phase !== "acknowledged")
+    if (
+      isCurrent() &&
+      entry &&
+      entry.phase !== "acknowledged" &&
+      entry.phase !== "preparing"
+    )
       dispatchHistory({
         operationId,
         type: "operation_rejected",
@@ -399,12 +633,54 @@ export function useWorkbookRecordHistoryController({
               ),
       });
   }, [owner, canMutate, dispatchHistory, runtime]);
+  useEffect(() => {
+    const state = snapshotRef.current;
+    if (state.phase !== "submitting") return;
+    const entry = operations.find(
+      (entry) => entry.attempt.subject.recordId === state.subject.recordId,
+    );
+    if (
+      !entry ||
+      entry.phase === "preparing" ||
+      entry.phase === "submitting" ||
+      entry.phase === "acknowledged"
+    )
+      return;
+    dispatchHistory({
+      type: "operation_rejected",
+      operationId: state.operationId,
+      feedback: entry.failure
+        ? {
+            kind: "error",
+            error: workbookInspectorErrorPresentation(entry.failure),
+          }
+        : workbookInspectorLocalErrorFeedback(
+            "The outcome is unknown. Open History actions to recover this action.",
+          ),
+    });
+  }, [operations, dispatchHistory]);
   return {
     commands: {
       cancel,
       clearFeedback: () => dispatchHistory({ type: "feedback_cleared" }),
       confirm,
       open,
+      loadOlder: () => {
+        const active = snapshotRef.current.subject;
+        if (active) void load(active, undefined, "continuation");
+      },
+      retryRead: () => {
+        const state = snapshotRef.current;
+        const failure = state.browsing?.failure;
+        if (state.subject && failure)
+          void load(state.subject, undefined, failure.request.kind, true);
+      },
+      continuePreview: () => {
+        const pending = previewPending.current;
+        if (previewReview.current) void runPreview();
+        else if (pending) void preview(() => pending);
+      },
+      restartPreview: () => void runPreview(true),
       previewDeleteRestore,
       previewRollback,
       load,

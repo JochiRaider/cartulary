@@ -621,11 +621,20 @@ function HistoryTestSubject(
               kind: "accepted",
               value: {
                 ...outcome.value,
+                paging: { limit: 100, has_more: false, next_cursor: null },
                 row_version: accepted.rowVersion,
                 deleted: accepted.kind === "delete",
               },
             };
-          return outcome;
+          return outcome.kind === "accepted"
+            ? {
+                kind: "accepted",
+                value: {
+                  ...outcome.value,
+                  paging: { limit: 100, has_more: false, next_cursor: null },
+                },
+              }
+            : outcome;
         },
         send: async (attempt) => {
           const request = JSON.parse(attempt.body);

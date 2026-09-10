@@ -223,6 +223,19 @@ export function rowHistoryPanelTestId(): string {
   return "row-history-panel";
 }
 
+export function rowHistoryReadControlTestId(
+  action:
+    | "refresh"
+    | "load-older"
+    | "retry"
+    | "start-fresh"
+    | "continue-checking"
+    | "restart-checking"
+    | "cancel-checking",
+): string {
+  return `row-history-read-${action}`;
+}
+
 export function rowHistoryOpenSelectedButtonTestId(): string {
   return "row-history-open-selected";
 }

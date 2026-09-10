@@ -1,3 +1,23 @@
+import type { WorkbookRecordHistoryPendingAction } from "../history/workbookHistoryItem";
+
+export {
+  buildRecordRollbackTargetFromHistoryAction,
+  normalizeRecordHistoryData,
+  type RecordHistoryRollbackAction,
+  type RecordHistoryRollbackTarget,
+  type WorkbookRecordHistoryPendingAction,
+} from "../history/workbookHistoryItem";
+
+import type { HistoryLookupState } from "../history/HistoryActionLookup";
+import type { HistoryBrowsingState } from "../history/workbookHistoryBrowsing";
+import type { RecordHistoryData } from "../history/workbookHistoryPage";
+import { workbookInspectorErrorPresentation } from "./workbookInspectorErrorModel";
+
+export type {
+  RecordHistoryData,
+  RecordHistoryItem,
+} from "../history/workbookHistoryPage";
+
 import type {
   WorkbookInspectorErrorPresentation,
   WorkbookInspectorFeedback,
@@ -7,56 +27,6 @@ import {
   type WorkbookInspectorSubject,
   workbookInspectorSubjectsEqual,
 } from "./workbookInspectorSubject";
-
-export type RecordHistoryRollbackAction =
-  | "change_set"
-  | "history_entry"
-  | "row_restore";
-
-export type RecordHistoryRollbackTarget =
-  | { readonly kind: "history_entry"; readonly history_entry_ref: string }
-  | { readonly kind: "change_set"; readonly change_set_id: string }
-  | { readonly kind: "row_restore"; readonly restore_to_revision_no: number };
-
-export type RecordHistoryItem = {
-  readonly actor_user_id: string;
-  readonly committed_at: string;
-  readonly history_item_ref: string;
-  readonly operation: string;
-  readonly diff_summary: {
-    readonly summary: string;
-    readonly units: readonly Record<string, unknown>[];
-  };
-  readonly change_set_id: string;
-  readonly reversible: boolean;
-  readonly available_rollback_actions: readonly RecordHistoryRollbackAction[];
-  readonly history_entry_ref?: string;
-  readonly revision_no?: number;
-};
-
-export type RecordHistoryData = {
-  readonly incident_id: string;
-  readonly record_id: string;
-  readonly row_version: number;
-  readonly deleted: boolean;
-  readonly items: readonly RecordHistoryItem[];
-};
-
-export type WorkbookRecordHistoryPendingAction =
-  | {
-      readonly kind: "rollback";
-      readonly action: RecordHistoryRollbackAction;
-      readonly historyItemRef: string;
-      readonly recordId: string;
-      readonly rowVersion: number;
-      readonly target: RecordHistoryRollbackTarget;
-    }
-  | {
-      readonly kind: "destructive";
-      readonly operation: "delete" | "restore";
-      readonly recordId: string;
-      readonly rowVersion: number;
-    };
 
 export type WorkbookRecordHistoryRequestId = {
   readonly kind: "record_history_request";
@@ -73,9 +43,13 @@ type WorkbookRecordHistoryReadyResult =
   | {
       readonly kind: "load_error";
       readonly error: WorkbookInspectorErrorPresentation;
+      readonly retainedData?: RecordHistoryData;
     };
 
-export type WorkbookRecordHistoryState =
+export type WorkbookRecordHistoryState = {
+  readonly browsing?: HistoryBrowsingState;
+  readonly lookup?: HistoryLookupState | undefined;
+} & (
   | {
       readonly phase: "idle";
       readonly subject: WorkbookInspectorSubject | null;
@@ -102,9 +76,19 @@ export type WorkbookRecordHistoryState =
       readonly operation: {
         readonly pendingAction: WorkbookRecordHistoryPendingAction;
       };
-    };
+    }
+);
 
 export type WorkbookRecordHistoryEvent =
+  | {
+      readonly type: "browsing_changed";
+      readonly browsing: HistoryBrowsingState;
+    }
+  | {
+      readonly type: "lookup_changed";
+      readonly lookup: HistoryLookupState | undefined;
+    }
+  | { readonly type: "review_accepted"; readonly data: RecordHistoryData }
   | {
       readonly type: "retarget";
       readonly subject: WorkbookInspectorSubject | null;
@@ -152,12 +136,6 @@ export type WorkbookRecordHistoryEvent =
     }
   | { readonly type: "feedback_cleared" };
 
-const rollbackActionOrder = [
-  "history_entry",
-  "change_set",
-  "row_restore",
-] as const satisfies readonly RecordHistoryRollbackAction[];
-
 export function initialWorkbookRecordHistoryState(
   subject: WorkbookInspectorSubject | null = null,
 ): WorkbookRecordHistoryState {
@@ -179,13 +157,16 @@ export function workbookRecordHistoryOperationId(
 export function workbookRecordHistoryLoadedData(
   state: WorkbookRecordHistoryState,
 ): RecordHistoryData | null {
+  if (state.browsing?.accepted) return state.browsing.accepted.data;
   switch (state.phase) {
     case "idle":
       return null;
     case "loading":
       return state.retainedData ?? null;
     case "ready":
-      return state.result.kind === "loaded" ? state.result.data : null;
+      return state.result.kind === "loaded"
+        ? state.result.data
+        : (state.result.retainedData ?? null);
     case "submitting":
       return state.data;
   }
@@ -210,6 +191,8 @@ export function workbookRecordHistoryFeedback(
 export function workbookRecordHistoryLoadError(
   state: WorkbookRecordHistoryState,
 ): WorkbookInspectorErrorPresentation | null {
+  if (state.browsing?.failure)
+    return workbookInspectorErrorPresentation(state.browsing.failure.error);
   return state.phase === "ready" && state.result.kind === "load_error"
     ? state.result.error
     : null;
@@ -218,6 +201,171 @@ export function workbookRecordHistoryLoadError(
 export function workbookRecordHistoryReducer(
   state: WorkbookRecordHistoryState,
   event: WorkbookRecordHistoryEvent,
+): WorkbookRecordHistoryState {
+  if (event.type === "lookup_changed")
+    return { ...state, lookup: event.lookup };
+  if (event.type === "browsing_changed") {
+    const browsing = event.browsing;
+    if (
+      !state.subject ||
+      state.subject.recordId !== browsing.recordId ||
+      state.subject.viewSchemaId !== browsing.viewSchemaId
+    )
+      return state;
+    const data = browsing.accepted?.data;
+    if (data) {
+      const subject =
+        updateWorkbookInspectorSubject(state.subject, {
+          recordId: data.record_id,
+          rowVersion: Math.max(state.subject.rowVersion, data.row_version),
+          kind:
+            data.row_version >= state.subject.rowVersion
+              ? data.deleted
+                ? "deleted"
+                : "live"
+              : state.subject.kind,
+        }) ?? state.subject;
+      const sameVersion =
+        subject.rowVersion === state.subject.rowVersion &&
+        subject.kind === state.subject.kind;
+      return {
+        ...state,
+        phase: "ready",
+        subject,
+        browsing,
+        result: { kind: "loaded", data },
+        ...(state.phase === "ready" &&
+        sameVersion &&
+        browsing.pending?.kind !== "refresh" &&
+        browsing.pending?.kind !== "initial"
+          ? { pendingAction: state.pendingAction }
+          : { pendingAction: undefined }),
+      };
+    }
+    if (browsing.pending)
+      return {
+        phase: "loading",
+        subject: state.subject,
+        requestId: workbookRecordHistoryRequestId(browsing.pending.generation),
+        browsing,
+      };
+    if (browsing.failure)
+      return {
+        phase: "ready",
+        subject: state.subject,
+        browsing,
+        result: {
+          kind: "load_error",
+          error: workbookInspectorErrorPresentation(browsing.failure.error),
+        },
+      };
+    return { phase: "idle", subject: state.subject, browsing };
+  }
+  if (event.type === "review_accepted") {
+    if (
+      !state.subject ||
+      state.subject.recordId !== event.data.record_id ||
+      event.data.row_version < state.subject.rowVersion
+    )
+      return state;
+    const subject = updateWorkbookInspectorSubject(state.subject, {
+      recordId: event.data.record_id,
+      rowVersion: event.data.row_version,
+      kind: event.data.deleted ? "deleted" : "live",
+    });
+    if (!subject) return state;
+    const data = state.browsing?.accepted
+      ? {
+          ...state.browsing.accepted.data,
+          row_version: event.data.row_version,
+          deleted: event.data.deleted,
+        }
+      : event.data;
+    const browsing = state.browsing?.accepted
+      ? {
+          ...state.browsing,
+          accepted: {
+            ...state.browsing.accepted,
+            data: {
+              ...state.browsing.accepted.data,
+              row_version: event.data.row_version,
+              deleted: event.data.deleted,
+            },
+          },
+        }
+      : state.browsing;
+    return {
+      ...state,
+      phase: "ready",
+      subject,
+      result: { kind: "loaded", data },
+      ...(browsing ? { browsing } : {}),
+      pendingAction: undefined,
+    };
+  }
+  if (
+    event.type === "retarget" &&
+    state.browsing &&
+    state.subject &&
+    event.subject &&
+    state.subject.recordId === event.subject.recordId &&
+    state.subject.viewSchemaId === event.subject.viewSchemaId
+  ) {
+    if (event.subject.rowVersion <= state.subject.rowVersion) return state;
+    return workbookRecordHistoryReducer(
+      { ...state, subject: event.subject },
+      {
+        type: "review_accepted",
+        data: {
+          ...(workbookRecordHistoryLoadedData(state) ?? {
+            incident_id: state.browsing.scope.incidentId,
+            items: [],
+          }),
+          record_id: event.subject.recordId,
+          row_version: event.subject.rowVersion,
+          deleted: event.subject.kind === "deleted",
+        },
+      },
+    );
+  }
+  const next = legacyHistoryReducer(state, event);
+  if (next === state || event.type === "clear" || event.type === "retarget")
+    return next;
+  const browsing = state.browsing;
+  const acknowledged =
+    event.type === "operation_accepted" &&
+    next.subject &&
+    browsing?.accepted &&
+    next.subject.rowVersion >= browsing.accepted.data.row_version
+      ? {
+          ...browsing,
+          accepted: {
+            ...browsing.accepted,
+            data: {
+              ...browsing.accepted.data,
+              row_version: next.subject.rowVersion,
+              deleted: next.subject.kind === "deleted",
+            },
+          },
+        }
+      : browsing;
+  return {
+    ...next,
+    ...(acknowledged ? { browsing: acknowledged } : {}),
+    ...(event.type === "cancel"
+      ? { lookup: undefined }
+      : state.lookup
+        ? { lookup: state.lookup }
+        : {}),
+  };
+}
+
+function legacyHistoryReducer(
+  state: WorkbookRecordHistoryState,
+  event: Exclude<
+    WorkbookRecordHistoryEvent,
+    { readonly type: "browsing_changed" | "lookup_changed" | "review_accepted" }
+  >,
 ): WorkbookRecordHistoryState {
   switch (event.type) {
     case "retarget":
@@ -241,7 +389,14 @@ export function workbookRecordHistoryReducer(
 
 type WorkbookRecordHistoryPhaseEvent = Exclude<
   WorkbookRecordHistoryEvent,
-  { readonly type: "clear" | "retarget" }
+  {
+    readonly type:
+      | "clear"
+      | "retarget"
+      | "browsing_changed"
+      | "lookup_changed"
+      | "review_accepted";
+  }
 >;
 
 function reduceHistoryPhase(
@@ -429,7 +584,11 @@ function reduceHistoryLoadRejected(
   }
   const ready = {
     phase: "ready" as const,
-    result: { error: event.error, kind: "load_error" as const },
+    result: {
+      error: event.error,
+      kind: "load_error" as const,
+      ...(state.retainedData ? { retainedData: state.retainedData } : {}),
+    },
     subject: state.subject,
   };
   return event.feedback === undefined
@@ -505,54 +664,6 @@ function reduceHistoryOperationAccepted(
     : { feedback: event.feedback, phase: "idle", subject };
 }
 
-export function normalizeRecordHistoryData(
-  data: RecordHistoryData,
-): RecordHistoryData | null {
-  if (data.record_id.trim() === "" || !isPositiveInteger(data.row_version)) {
-    return null;
-  }
-  const seen = new Set<string>();
-  for (const item of data.items) {
-    if (
-      item.history_item_ref.trim() === "" ||
-      item.change_set_id.trim() === "" ||
-      seen.has(item.history_item_ref)
-    ) {
-      return null;
-    }
-    seen.add(item.history_item_ref);
-    let previous = -1;
-    for (const action of item.available_rollback_actions) {
-      const index = rollbackActionOrder.indexOf(action);
-      if (index <= previous || !validItemSelector(item, action)) return null;
-      previous = index;
-    }
-  }
-  return data;
-}
-
-export function buildRecordRollbackTargetFromHistoryAction(
-  item: RecordHistoryItem,
-  action: RecordHistoryRollbackAction,
-): RecordHistoryRollbackTarget | null {
-  if (!item.available_rollback_actions.includes(action)) return null;
-  switch (action) {
-    case "history_entry":
-      return typeof item.history_entry_ref === "string" &&
-        item.history_entry_ref.trim() !== ""
-        ? { history_entry_ref: item.history_entry_ref, kind: "history_entry" }
-        : null;
-    case "change_set":
-      return item.change_set_id.trim() === ""
-        ? null
-        : { change_set_id: item.change_set_id, kind: "change_set" };
-    case "row_restore":
-      return isPositiveInteger(item.revision_no)
-        ? { kind: "row_restore", restore_to_revision_no: item.revision_no }
-        : null;
-  }
-}
-
 function pendingActionMatchesSubject(
   pending: WorkbookRecordHistoryPendingAction,
   subject: WorkbookInspectorSubject,
@@ -561,23 +672,6 @@ function pendingActionMatchesSubject(
     ? pending.target.kind === pending.action
     : (pending.operation === "delete" && subject.kind === "live") ||
         (pending.operation === "restore" && subject.kind === "deleted");
-}
-
-function validItemSelector(
-  item: RecordHistoryItem,
-  action: RecordHistoryRollbackAction,
-): boolean {
-  switch (action) {
-    case "history_entry":
-      return (
-        typeof item.history_entry_ref === "string" &&
-        item.history_entry_ref.trim() !== ""
-      );
-    case "change_set":
-      return item.change_set_id.trim() !== "";
-    case "row_restore":
-      return isPositiveInteger(item.revision_no);
-  }
 }
 
 function isPositiveInteger(value: unknown): value is number {

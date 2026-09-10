@@ -95,7 +95,10 @@ function setup(
   });
   const load = vi.fn(async () => ({
     kind: "accepted" as const,
-    value: history,
+    value: {
+      ...history,
+      paging: { limit: 100, has_more: false as const, next_cursor: null },
+    },
   }));
   owner.configure({ send, load });
   const binding: HistoryBinding = {
@@ -346,6 +349,24 @@ describe("Workbook history operation owner", () => {
     await t.owner.retryWithNewId(attempt.id);
     expect(t.ids.create).toHaveBeenCalledTimes(2);
     expect(t.send).toHaveBeenCalledTimes(2);
+    const stale = setup();
+    stale.send.mockResolvedValueOnce({
+      kind: "rejected",
+      failure: { kind: "client_txn_conflict", message: "Conflict" },
+    });
+    const reserved = stale.owner.admit(stale.intent, stale.binding);
+    if (!reserved) throw new Error("admission");
+    await stale.owner.execute(reserved);
+    await waitFor(() =>
+      expect(stale.owner.getSnapshot()[0]?.transportPending).toBe(false),
+    );
+    stale.owner.acceptVersion("record", reserved.pending.rowVersion + 1);
+    await stale.owner.review(reserved.id);
+    expect(stale.owner.getSnapshot()[0]?.reviewState?.phase).toBe("changed");
+    expect(stale.owner.canReplace(reserved.id)).toBe(false);
+    await stale.owner.retryWithNewId(reserved.id);
+    expect(stale.ids.create).toHaveBeenCalledOnce();
+    expect(stale.send).toHaveBeenCalledOnce();
   });
   it("bounds observation retains a late receipt and excludes concurrent transport", async () => {
     vi.useFakeTimers();

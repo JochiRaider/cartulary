@@ -138,7 +138,13 @@ function setup(
   });
   const port: WorkbookRecordHistoryPort = {
     send,
-    load: vi.fn(async () => ({ kind: "accepted" as const, value: history })),
+    load: vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: {
+        ...history,
+        paging: { limit: 100, has_more: false as const, next_cursor: null },
+      },
+    })),
   };
   owner.configure(port);
   const refresh = vi.fn(async () => {});
@@ -257,6 +263,38 @@ describe("History recovery surfaces", () => {
     expect(document.activeElement?.textContent).toContain(
       "Recover retained actions",
     );
+    if (surface === "Timeline" && operation === "history_entry") {
+      const read = vi.spyOn(t.port, "load");
+      for (let page = 1; page <= 3; page++)
+        read.mockImplementationOnce(async () => ({
+          kind: "accepted",
+          value: {
+            record_id: "record",
+            incident_id: "incident",
+            row_version: 5,
+            deleted: false,
+            items: [],
+            paging: {
+              limit: 100,
+              has_more: true,
+              next_cursor: `review-${page}`,
+            },
+          },
+        }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Review current history" }),
+      );
+      await screen.findByRole("button", { name: "Continue checking" });
+      expect(
+        screen.getByRole("region", { name: "History action recovery" })
+          .textContent,
+      ).toContain("Outcome unknown");
+      expect(screen.queryByText(/has not been sent/)).toBeNull();
+      expect(t.owner.getSnapshot()[0]?.phase).toBe("uncertain");
+      expect(t.send).toHaveBeenCalledOnce();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel checking" }));
+      read.mockRestore();
+    }
     fireEvent.click(
       screen.getByRole("button", { name: "Replay exact action" }),
     );

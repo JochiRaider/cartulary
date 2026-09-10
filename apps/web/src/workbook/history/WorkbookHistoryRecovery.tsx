@@ -1,10 +1,17 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { InspectorRecordHistoryAction } from "../inspector/inspectorCapabilityResolver";
 import { WorkbookInspectorActionButton } from "../inspector/presentation/WorkbookInspectorActions";
 import { WorkbookInspectorConfirmation } from "../inspector/presentation/WorkbookInspectorFeedback";
 import { useWorkbookRecordHistoryController } from "../inspector/useWorkbookRecordHistoryController";
 import { WorkbookRecordHistoryPanel } from "../inspector/WorkbookInspectorRecordHistory";
 import { updateWorkbookInspectorSubject } from "../inspector/workbookInspectorSubject";
+import { HistoryLookupFeedback } from "./HistoryLookupFeedback";
 import { historyOperationStatus } from "./historyOperationPresentation";
 import { useWorkbookHistoryRuntime } from "./WorkbookHistoryContext";
 import type { WorkbookRecordHistoryOwner } from "./WorkbookRecordHistoryOwner";
@@ -134,8 +141,9 @@ function HistoryRecoveryEntry({
     mounted.current = true;
     return () => {
       mounted.current = false;
+      owner.cancelReview(entry.attempt.id);
     };
-  }, []);
+  }, [owner, entry.attempt.id]);
   const label = historyOperationLabel(entry.attempt);
   const bind = () =>
     owner.bindRecovery(entry.attempt.id, {
@@ -164,6 +172,22 @@ function HistoryRecoveryEntry({
         {entry.attempt.subject.surfaceLabel} · {entry.attempt.subject.label}
       </span>
       <p role="status">{historyOperationStatus(entry)}</p>
+      {entry.phase === "preparing" ? (
+        <HistoryLookupFeedback
+          state={entry.checking}
+          onContinue={() => void owner.continueChecking(entry.attempt.id)}
+          onRestart={() => void owner.continueChecking(entry.attempt.id, true)}
+          onCancel={() => owner.cancelChecking(entry.attempt.id)}
+        />
+      ) : null}
+      {review ? (
+        <HistoryLookupFeedback
+          state={entry.reviewState}
+          onContinue={() => void owner.review(entry.attempt.id, true)}
+          onRestart={() => void owner.review(entry.attempt.id, true, true)}
+          onCancel={() => owner.cancelReview(entry.attempt.id)}
+        />
+      ) : null}
       {entry.receipt?.kind === "rollback" ? (
         <p>
           This action affected {entry.receipt.affectedRecordIds.length} records.
@@ -226,7 +250,7 @@ function HistoryRecoveryEntry({
           }}
         />
       ) : null}
-      {review && !entry.currentHistory ? (
+      {review && !entry.currentHistory && !entry.reviewState ? (
         <p role="status">
           {entry.reviewFailure
             ? "Current history could not be read. Try reviewing again."
@@ -269,7 +293,7 @@ function HistoryCurrentReview({
   const controller = useWorkbookRecordHistoryController({
     owner,
     subject,
-    ...(history ? { initialHistory: history } : {}),
+
     canMutate: entry.phase === "acknowledged" || entry.phase === "rejected",
     ownerEffects: {
       deleteAccepted: () => {},
@@ -278,8 +302,13 @@ function HistoryCurrentReview({
       refresh: () => owner.refreshSurface(entry.attempt.subject.viewSchemaId),
     },
   });
+  const openHistory = controller.commands.open;
+  useEffect(() => {
+    openHistory();
+  }, [openHistory]);
   return (
     <WorkbookRecordHistoryPanel
+      browsingControls={controller.commands}
       actions={actions}
       canMutate={entry.phase === "acknowledged" || entry.phase === "rejected"}
       idleRecordId={subject?.recordId}

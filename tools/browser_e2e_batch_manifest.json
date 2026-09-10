@@ -222,6 +222,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-history-browsing",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.revisions.browser.history_browsing_3bb5a426ad51",
+            "module.revisions.browser.history_browsing_4173a20e4a50",
+            "module.revisions.browser.history_browsing_6bf6f16ba2f4",
+            "module.revisions.browser.history_browsing_d48d33829537"
+          ],
+          "specs": [
+            "apps/web/e2e/history-browsing.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-history-recovery",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1098,6 +1123,31 @@
           ],
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-history-browsing",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.revisions.browser.history_browsing_3bb5a426ad51",
+            "module.revisions.browser.history_browsing_4173a20e4a50",
+            "module.revisions.browser.history_browsing_6bf6f16ba2f4",
+            "module.revisions.browser.history_browsing_d48d33829537"
+          ],
+          "specs": [
+            "apps/web/e2e/history-browsing.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

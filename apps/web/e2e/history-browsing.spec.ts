@@ -1,0 +1,378 @@
+import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
+import {
+  entityInspectButtonTestId,
+  gridShellTestId,
+  rowCellTestId,
+  rowHistoryActionTestId,
+  rowHistoryDeleteButtonTestId,
+  rowHistoryItemTestId,
+  rowHistoryOpenButtonTestId,
+  rowHistoryPanelTestId,
+  rowHistoryReadControlTestId,
+  rowHistoryRollbackConfirmButtonTestId,
+  workbookInspectorToggleTestId,
+} from "@cartulary/ui-contracts";
+import {
+  assessmentsViewSchemaId,
+  evidenceViewSchemaId,
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
+import { createIncident } from "./support/incidents/fixtures";
+import { apiBase } from "./support/runtime/configuration";
+import {
+  uniqueIncidentKey,
+  uniqueTxn,
+} from "./support/runtime/fixtureIdentity";
+import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
+import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  fetchFullRecordHistory,
+  fetchRecordHistoryPage,
+} from "./support/workbook/history";
+import { createViewRow, patchRecord } from "./support/workbook/query";
+import {
+  clickTimelineRowAction,
+  openGenericInspectorForRecord,
+} from "./support/workbook/rowMutations";
+
+type Surface = "Timeline" | "Generic" | "Entity" | "Assessment";
+async function prepare(page: Page, surface: Surface) {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("HISTORY-RECOVERY"),
+    `History recovery ${surface}`,
+  );
+  const host =
+    surface === "Assessment" || surface === "Entity"
+      ? await createViewRow(page, incidentId, hostsViewSchemaId, {
+          client_txn_id: uniqueTxn("history-host"),
+          "host.display_name": "History recovery host",
+          "host.hostname": "history-recovery.example.test",
+        })
+      : null;
+  const viewSchemaId =
+    surface === "Timeline"
+      ? timelineViewSchemaId
+      : surface === "Generic"
+        ? evidenceViewSchemaId
+        : surface === "Entity"
+          ? hostsViewSchemaId
+          : assessmentsViewSchemaId;
+  const row =
+    surface === "Entity" && host
+      ? host
+      : await createViewRow(page, incidentId, viewSchemaId, {
+          client_txn_id: uniqueTxn("history-row"),
+          ...(surface === "Timeline"
+            ? { "timeline.activity_synopsis_text": "History recovery row" }
+            : surface === "Generic"
+              ? {
+                  "evidence.collector_party_text": "History recovery collector",
+                  "evidence.title": "History recovery row",
+                }
+              : {
+                  "assessment.subject_ref": host?.record_id,
+                  "assessment.subject_type": "host",
+                  "assessment.assessment_state": "confirmed",
+                  "assessment.confidence_score": 85,
+                  "assessment.rationale": "History recovery rationale",
+                  "assessment.assessed_at": "2026-09-10T00:00:00Z",
+                }),
+        });
+  const field =
+    surface === "Timeline"
+      ? "timeline.activity_synopsis_text"
+      : surface === "Generic"
+        ? "evidence.title"
+        : surface === "Entity"
+          ? "host.display_name"
+          : "assessment.rationale";
+  let version = row.row_version;
+  const production = await fetchRecordHistoryPage(page, row.record_id);
+  expect(production.meta.paging.limit).toBe(100);
+  for (let index = 0; index < production.meta.paging.limit + 2; index++) {
+    if (surface === "Assessment") {
+      const response = await publicHttpOperation({
+        operationID: index % 2 === 0 ? "deleteRecord" : "restoreRecord",
+        pathParameters: { record_id: row.record_id },
+        body: {
+          base_row_version: version,
+          client_txn_id: uniqueTxn("assessment-history-lifecycle"),
+          reason: "Retained lifecycle browsing fixture",
+        },
+        headers: await csrfHeaders(page),
+        request: atJsonOrigin(page.request, apiBase),
+      });
+      expect(response.ok).toBe(true);
+      if (!response.ok) throw new Error("Assessment lifecycle fixture failed");
+      version = response.payload.data.row_version;
+      continue;
+    }
+    const updated = await patchRecord(page, row.record_id, {
+      view_schema_id: viewSchemaId,
+      base_row_version: version,
+      client_txn_id: uniqueTxn("overflow-edit"),
+      changes: [{ field_key: field, value: `Retained entry ${index}` }],
+    });
+    version = updated.row_version;
+  }
+  const first = await fetchRecordHistoryPage(page, row.record_id);
+  expect(first.meta.paging.has_more).toBe(true);
+  expect(first.data.items).toHaveLength(production.meta.paging.limit);
+  const complete = await fetchFullRecordHistory(page, row.record_id);
+  expect(complete.items.length).toBeGreaterThan(production.meta.paging.limit);
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(viewSchemaId)}`,
+  );
+  await expect(page.getByTestId(gridShellTestId(viewSchemaId))).toBeVisible();
+  if (surface === "Timeline")
+    await clickTimelineRowAction(
+      page,
+      row.record_id,
+      rowHistoryOpenButtonTestId(row.record_id),
+    );
+  else {
+    if (surface === "Generic")
+      await openGenericInspectorForRecord(page, viewSchemaId, row.record_id);
+    else if (surface === "Entity") {
+      const targetTestId = entityInspectButtonTestId("host", row.record_id);
+      await scrollGridTargetIntoView({
+        page,
+        surface: viewSchemaId,
+        targetTestId,
+      });
+      await page.getByTestId(targetTestId).click();
+    } else {
+      await page
+        .getByTestId(
+          rowCellTestId(row.record_id, "assessment.assessment_state"),
+        )
+        .click();
+      await page
+        .getByTestId(workbookInspectorToggleTestId(viewSchemaId))
+        .click();
+    }
+    await page
+      .getByRole("button", { name: "Open history", exact: true })
+      .click();
+  }
+  await expect(page.getByTestId(rowHistoryDeleteButtonTestId())).toBeVisible();
+  return { incidentId, row, viewSchemaId, first, complete };
+}
+
+async function browse(page: Page, surface: Surface) {
+  test.setTimeout(180_000);
+  const { row, first, complete } = await prepare(page, surface);
+  const panel = page.getByTestId(rowHistoryPanelTestId());
+  const firstItem = panel.getByTestId(
+    rowHistoryItemTestId({
+      historyItemRef: required(first.data.items[0]).history_item_ref,
+    }),
+  );
+  const older = panel.getByTestId(rowHistoryReadControlTestId("load-older"));
+  await expect(firstItem).toBeVisible();
+  const observed: string[] = [];
+  let fail = true;
+  let invalid = false;
+  await page.route(
+    `**/api/v1/records/${row.record_id}/history?*`,
+    async (route) => {
+      observed.push(
+        new URL(route.request().url()).searchParams.get("cursor_token") ?? "",
+      );
+      if (invalid) {
+        invalid = false;
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: {
+              code: "invalid_pagination_request",
+              status: 400,
+              request_id: "cursor-recovery",
+              retryable: false,
+              message: "Invalid cursor",
+              details: { reason_code: "invalid_cursor_token" },
+            },
+          }),
+        });
+      } else if (fail) {
+        fail = false;
+        await route.abort("failed");
+      } else await route.continue();
+    },
+  );
+  await older.focus();
+  const anchor = await older.boundingBox();
+  await older.press("Enter");
+  await expect(panel.getByRole("alert")).toBeVisible();
+  await expect(firstItem).toBeVisible();
+  await expect(older).toBeFocused();
+  const retry = panel.getByTestId(rowHistoryReadControlTestId("retry"));
+  await retry.focus();
+  await retry.press("Enter");
+  await expect(panel).toContainText("No older entries.");
+  expect(observed).toHaveLength(2);
+  expect(observed[0]).not.toBe("");
+  expect(observed[1]).toBe(observed[0]);
+  await expect(older).toBeFocused();
+  expect(
+    Math.abs(required(await older.boundingBox()).y - required(anchor).y),
+  ).toBeLessThan(2);
+  for (const item of complete.items)
+    await expect(
+      panel.getByTestId(
+        rowHistoryItemTestId({ historyItemRef: item.history_item_ref }),
+      ),
+    ).toBeAttached();
+  const expectedOrder = complete.items.map((item) =>
+    rowHistoryItemTestId({ historyItemRef: item.history_item_ref }),
+  );
+  const order = await panel
+    .locator("[data-testid]")
+    .evaluateAll(
+      (nodes, expected) =>
+        nodes
+          .map((node) => node.getAttribute("data-testid"))
+          .filter((id) => id !== null && expected.includes(id)),
+      expectedOrder,
+    );
+  expect(order).toEqual(expectedOrder);
+  await test.info().attach(`overflow-${surface}`, {
+    body: JSON.stringify({
+      first: first.meta.paging,
+      retainedCount: complete.items.length,
+      identities: complete.items.map((item) => item.history_item_ref),
+      observed,
+    }),
+    contentType: "application/json",
+  });
+
+  let failRefresh = true;
+  await page.route(
+    `**/api/v1/records/${row.record_id}/history`,
+    async (route) => {
+      if (failRefresh) {
+        failRefresh = false;
+        await route.abort("failed");
+      } else await route.continue();
+    },
+  );
+  await panel
+    .getByRole("button", { name: "Refresh history", exact: true })
+    .click();
+  await expect(panel.getByRole("alert")).toBeVisible();
+  const last = required(complete.items.at(-1));
+  await expect(
+    panel.getByTestId(
+      rowHistoryItemTestId({ historyItemRef: last.history_item_ref }),
+    ),
+  ).toBeAttached();
+  await panel.getByTestId(rowHistoryReadControlTestId("retry")).click();
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await expect(
+    panel.getByTestId(
+      rowHistoryItemTestId({ historyItemRef: last.history_item_ref }),
+    ),
+  ).toHaveCount(0);
+  invalid = true;
+  await older.click();
+  await expect(
+    panel.getByRole("button", { name: "Start fresh history", exact: true }),
+  ).toBeVisible();
+  await expect(firstItem).toBeAttached();
+  await panel
+    .getByRole("button", { name: "Start fresh history", exact: true })
+    .click();
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await older.click();
+  await expect(panel).toContainText("No older entries.");
+  const target = required(
+    complete.items.find(
+      (item) =>
+        !first.data.items.some(
+          (head) => head.history_item_ref === item.history_item_ref,
+        ) && item.available_rollback_actions.includes("row_restore"),
+    ),
+  );
+  expect(target).toBeDefined();
+  await panel
+    .getByTestId(
+      rowHistoryActionTestId({
+        action: "row_restore",
+        historyItemRef: target.history_item_ref,
+      }),
+    )
+    .click();
+
+  const bodies: string[] = [];
+  let observeCommit = () => {};
+  const firstCommit = new Promise<void>((resolve) => {
+    observeCommit = resolve;
+  });
+  await page.route(
+    `**/api/v1/records/${row.record_id}/rollback`,
+    async (route) => {
+      bodies.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      if (surface === "Timeline" && bodies.length === 1)
+        await route.abort("failed");
+      else await route.fulfill({ response });
+      observeCommit();
+    },
+  );
+  await panel
+    .getByTestId(
+      rowHistoryRollbackConfirmButtonTestId({
+        action: "row_restore",
+        historyItemRef: target.history_item_ref,
+      }),
+    )
+    .click();
+  await firstCommit;
+  expect(JSON.parse(required(bodies[0]))).toMatchObject({
+    base_row_version: complete.row_version,
+    target: { kind: "row_restore", restore_to_revision_no: target.revision_no },
+  });
+  if (surface === "Timeline") {
+    const committed = await fetchFullRecordHistory(page, row.record_id);
+    expect(committed.items.length).toBeGreaterThan(100);
+    await page.getByRole("button", { name: "History actions (1)" }).click();
+    const recovery = page.getByRole("region", {
+      name: "History action recovery",
+      exact: true,
+    });
+    await expect(recovery).toContainText("Outcome unknown");
+    await recovery.getByRole("button", { name: "Replay exact action" }).click();
+    await expect(recovery).toContainText("Action completed.");
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toBe(bodies[0]);
+    expect(await fetchFullRecordHistory(page, row.record_id)).toEqual(
+      committed,
+    );
+  }
+}
+
+test("Timeline browses production history overflow with keyboard recovery and later rollback", async ({
+  page,
+}) => browse(page, "Timeline"));
+test("Generic browses production history overflow with keyboard recovery and later rollback", async ({
+  page,
+}) => browse(page, "Generic"));
+test("Entity browses production history overflow with keyboard recovery and later rollback", async ({
+  page,
+}) => browse(page, "Entity"));
+test("Assessment browses production history overflow with keyboard recovery and later rollback", async ({
+  page,
+}) => browse(page, "Assessment"));
+
+function required<T>(value: T | undefined | null): T {
+  if (value === undefined || value === null)
+    throw new Error("Missing history fixture value");
+  return value;
+}

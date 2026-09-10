@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { HistoryLookupFeedback } from "./HistoryLookupFeedback";
 import { historyOperationStatus } from "./historyOperationPresentation";
 import { useWorkbookHistoryRuntime } from "./WorkbookHistoryContext";
 
@@ -22,8 +23,18 @@ export function WorkbookHistoryLocalStatus({ recordId }: { recordId: string }) {
   )
     return null;
   return (
-    <p role="status">
-      {historyOperationStatus(entry)} Open History actions for recovery.
-    </p>
+    <div>
+      <p role="status">
+        {historyOperationStatus(entry)} Open History actions for recovery.
+      </p>
+      {entry.phase === "preparing" && owner ? (
+        <HistoryLookupFeedback
+          state={entry.checking}
+          onContinue={() => void owner.continueChecking(entry.attempt.id)}
+          onRestart={() => void owner.continueChecking(entry.attempt.id, true)}
+          onCancel={() => owner.cancelChecking(entry.attempt.id)}
+        />
+      ) : null}
+    </div>
   );
 }

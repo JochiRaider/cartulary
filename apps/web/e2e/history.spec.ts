@@ -12,6 +12,7 @@ import {
   rowHistoryDestructiveConfirmButtonTestId,
   rowHistoryOpenButtonTestId,
   rowHistoryPanelTestId,
+  rowHistoryReadControlTestId,
   rowHistoryRestoreButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -38,7 +39,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
-import { fetchRecordHistory } from "./support/workbook/history";
+import { fetchFullRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -90,7 +91,7 @@ test("opens row history from the workbook surface with legal rollback actions", 
       },
     ],
   });
-  const history = await fetchRecordHistory(page, row.record_id);
+  const history = await fetchFullRecordHistory(page, row.record_id);
   const visibleItemIndex = history.items.findIndex(
     (item) => item.available_rollback_actions.length > 0,
   );
@@ -246,7 +247,12 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
     ],
   });
 
-  const history = await fetchRecordHistory(page, row.record_id);
+  await overflowHistory(
+    page,
+    row.record_id,
+    "revision-history unrelated later edit",
+  );
+  const history = await fetchFullRecordHistory(page, row.record_id);
   const rollbackIndex = history.items.findIndex(
     (item) =>
       item.available_rollback_actions.includes("history_entry") &&
@@ -254,7 +260,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
         (unit) => unit.target_kind === "record_link",
       ),
   );
-  expect(rollbackIndex).toBeGreaterThanOrEqual(0);
+  expect(rollbackIndex).toBeGreaterThanOrEqual(100);
   const rollbackItem = historyItemAt(history, rollbackIndex);
 
   const listener = await page.context().newPage();
@@ -268,6 +274,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
       row.record_id,
       rowHistoryOpenButtonTestId(row.record_id),
     );
+    await page.getByTestId(rowHistoryReadControlTestId("load-older")).click();
     await expect(
       page.getByTestId(historyActionTestId(rollbackItem, "history_entry")),
     ).toBeVisible();
@@ -452,7 +459,7 @@ test("whole-row restore appends a new attributed revision", async ({
       },
     ],
   });
-  const historyBefore = await fetchRecordHistory(page, row.record_id);
+  const historyBefore = await fetchFullRecordHistory(page, row.record_id);
   const restoreIndex = historyBefore.items.findIndex(
     (item) =>
       item.available_rollback_actions.includes("row_restore") &&
@@ -506,7 +513,7 @@ test("whole-row restore appends a new attributed revision", async ({
       rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
     ),
   ).toHaveText("revision-history historical snapshot");
-  const historyAfter = await fetchRecordHistory(page, row.record_id);
+  const historyAfter = await fetchFullRecordHistory(page, row.record_id);
   expect(historyAfter.items.length).toBeGreaterThan(historyBefore.items.length);
   expect(
     historyAfter.items.some(
@@ -604,13 +611,18 @@ test("rolls back a merge change set from row history", async ({ page }) => {
     data: { change_set_id: string; survivor_row_version: number };
   };
 
-  const history = await fetchRecordHistory(page, timeline.record_id);
+  await overflowHistory(
+    page,
+    timeline.record_id,
+    "revision-history dependent timeline row",
+  );
+  const history = await fetchFullRecordHistory(page, timeline.record_id);
   const mergeIndex = history.items.findIndex(
     (item) =>
       item.change_set_id === mergeData.data.change_set_id &&
       item.available_rollback_actions.includes("change_set"),
   );
-  expect(mergeIndex).toBeGreaterThanOrEqual(0);
+  expect(mergeIndex).toBeGreaterThanOrEqual(100);
   const mergeItem = historyItemAt(history, mergeIndex);
 
   await openTimelineSurface(page, incidentId);
@@ -619,6 +631,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
     timeline.record_id,
     rowHistoryOpenButtonTestId(timeline.record_id),
   );
+  await page.getByTestId(rowHistoryReadControlTestId("load-older")).click();
   await expect(
     page.getByTestId(historyActionTestId(mergeItem, "change_set")),
   ).toBeVisible();
@@ -680,4 +693,28 @@ async function openHostSurface(page: Page, incidentId: string) {
   await expect(
     page.getByTestId(gridShellTestId(hostsViewSchemaId)),
   ).toBeVisible();
+}
+
+async function overflowHistory(
+  page: Page,
+  recordId: string,
+  finalValue: string,
+) {
+  test.setTimeout(180_000);
+  let version = (await fetchFullRecordHistory(page, recordId)).row_version;
+  for (let index = 0; index <= 100; index++) {
+    const row = await patchRecord(page, recordId, {
+      view_schema_id: timelineViewSchemaId,
+      base_row_version: version,
+      client_txn_id: uniqueTxn("independent-history-overflow"),
+      changes: [
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value:
+            index === 100 ? finalValue : `Independent retained edit ${index}`,
+        },
+      ],
+    });
+    version = row.row_version;
+  }
 }

@@ -126,7 +126,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, nextCursor, err := pagination.PageResources(binding, cursor, history.Resources)
+	rows, nextCursor, err := pageRecordHistory(binding, cursor, history.Resources)
 	switch {
 	case errors.Is(err, pagination.ErrInvalidCursorToken):
 		writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))

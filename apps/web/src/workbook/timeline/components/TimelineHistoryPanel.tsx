@@ -6,7 +6,10 @@ import {
 import { requireViewContract } from "@cartulary/view-contracts";
 import type { RefCallback } from "react";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
-import { WorkbookRecordHistoryPanel } from "../../inspector/WorkbookInspectorRecordHistory";
+import {
+  type HistoryBrowsingControls,
+  WorkbookRecordHistoryPanel,
+} from "../../inspector/WorkbookInspectorRecordHistory";
 import type {
   RecordHistoryItem,
   RecordHistoryRollbackAction,
@@ -23,6 +26,7 @@ export function TimelineHistoryPanel({
   canMutate,
   elementRef,
   history,
+  browsingControls,
   selectedActiveRowRecordId,
   onCancelPendingAction,
   onConfirmPendingAction,
@@ -33,6 +37,7 @@ export function TimelineHistoryPanel({
   readonly canMutate: boolean;
   readonly elementRef?: RefCallback<HTMLElement> | undefined;
   readonly history: WorkbookRecordHistoryState;
+  readonly browsingControls: HistoryBrowsingControls;
   readonly selectedActiveRowRecordId: string | null;
   readonly onCancelPendingAction: () => void;
   readonly onConfirmPendingAction: () => void;
@@ -68,6 +73,7 @@ export function TimelineHistoryPanel({
               }
         }
         state={history}
+        browsingControls={browsingControls}
         onCancelPendingAction={onCancelPendingAction}
         onConfirmPendingAction={onConfirmPendingAction}
         onOpenHistory={() => {
