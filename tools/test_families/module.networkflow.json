@@ -505,6 +505,44 @@
       ]
     },
     {
+      "row_id": "module.networkflow.browser.table_lifecycle_continuity",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.imports",
+        "web.application",
+        "web.networkflow",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "network_flow_table_lifecycle_continuity"
+        ],
+        "titles": [
+          "Network Analysis table dialogs review peer changes preserve graph context and replay exact lost receipts"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.browser.verify_claimed_network_analysis_discovery_import_f977242343",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser",
@@ -996,6 +1034,36 @@
         "tests": [
           "TestNetworkFlowSavedGraphLifecycleRoutes_Integration",
           "TestSavedGraphMaterializationRevalidatesSubmitterRole_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.networkflow.integration.table_lifecycle_admission_replay",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [
+        "app.server",
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestTableLifecycleAdmissionAndReplay_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -2302,6 +2370,31 @@
         "tests": [
           "TestGraphViewNameByteContract_Unit",
           "TestGraphViewReceiptIntegrityAndComparison_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.table_lifecycle_contract",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestTableLifecycleMutationDigest_Unit",
+          "TestTableLifecycleNameControlPrecedence_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -32,6 +32,54 @@ function table(id: string): NetworkFlowTable {
 }
 
 describe("networkFlowControllerReducer", () => {
+  it("rejects catalog regression and resurrection after terminal removal", () => {
+    let state = networkFlowControllerReducer(
+      initialNetworkFlowControllerState,
+      {
+        type: "replace_tables",
+        tables: [table("nft_a"), table("nft_b")],
+      },
+    );
+    state = networkFlowControllerReducer(state, {
+      type: "replace_table",
+      table: { ...table("nft_a"), display_name: "Current", table_version: 3 },
+    });
+    state = networkFlowControllerReducer(state, {
+      type: "remove_table",
+      tableId: "nft_b",
+    });
+    state = networkFlowControllerReducer(state, {
+      type: "replace_tables",
+      tables: [table("nft_a"), table("nft_b")],
+    });
+    expect(
+      state.tables.map((value) => [
+        value.network_flow_table_id,
+        value.table_version,
+      ]),
+    ).toEqual([["nft_a", 3]]);
+    expect(state.tables[0]?.display_name).toBe("Current");
+  });
+
+  it("uses prior next then previous order when a complete list loses the active table", () => {
+    let state = networkFlowControllerReducer(
+      initialNetworkFlowControllerState,
+      {
+        type: "replace_tables",
+        tables: [table("nft_a"), table("nft_b"), table("nft_c")],
+      },
+    );
+    state = networkFlowControllerReducer(state, {
+      type: "select_table",
+      tableId: "nft_b",
+    });
+    state = networkFlowControllerReducer(state, {
+      type: "replace_tables",
+      tables: [table("nft_a"), table("nft_c")],
+    });
+    expect(state.activeTableId).toBe("nft_c");
+  });
+
   it("preserves selection on refresh and advances it on deletion", () => {
     const loaded = networkFlowControllerReducer(
       initialNetworkFlowControllerState,

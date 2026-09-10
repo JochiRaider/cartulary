@@ -9,16 +9,7 @@ import {
   networkAnalysisTestId,
   networkAnalysisVertexTestId,
 } from "@cartulary/ui-contracts";
-import {
-  Link2,
-  Network,
-  Pencil,
-  RefreshCw,
-  Table2,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { Link2, Network, RefreshCw, Table2, Upload, X } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   type CSSProperties,
@@ -34,14 +25,12 @@ import { IncidentCollaborationBoundary } from "../collaboration/IncidentCollabor
 import { useExtensionAvailabilityController } from "../extensions/ExtensionAvailabilityContext";
 import type { WorkbookIncidentRole } from "../shared/workbookShellContracts";
 import {
-  NetworkFlowActionGroup,
   NetworkFlowButton,
   NetworkFlowChoice,
   NetworkFlowChromeStyles,
   NetworkFlowField,
   NetworkFlowIconButton,
   NetworkFlowSelect,
-  NetworkFlowTextInput,
   networkFlowChromeRootClassName,
 } from "./NetworkFlowControls";
 import type { NetworkFlowImportController } from "./NetworkFlowImportController";
@@ -56,6 +45,8 @@ import {
   NetworkFlowContributorGrid,
   NetworkFlowRejectedGrid,
 } from "./NetworkFlowSemanticGrid";
+import type { NetworkFlowTableController } from "./NetworkFlowTableController";
+import { TableLifecycleControls } from "./NetworkFlowTableLifecycle";
 import type {
   NetworkFlowContributor,
   NetworkFlowDiagnostic,
@@ -99,20 +90,17 @@ import {
 } from "./useNetworkFlowGraphController";
 import { useNetworkFlowImportController } from "./useNetworkFlowImportController";
 import { useNetworkFlowIndicatorLinkController } from "./useNetworkFlowIndicatorLinkController";
-import { useNetworkFlowModalFocus } from "./useNetworkFlowModalFocus";
 import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 import { useNetworkFlowRejectedRowsController } from "./useNetworkFlowRejectedRowsController";
 import { useNetworkFlowRowsController } from "./useNetworkFlowRowsController";
 import { useNetworkFlowSavedGraphController } from "./useNetworkFlowSavedGraphController";
-import {
-  type NetworkFlowTableMutationState,
-  useNetworkFlowTableController,
-} from "./useNetworkFlowTableController";
+import { useNetworkFlowTableController } from "./useNetworkFlowTableController";
 
 type NetworkAnalysisMode = "rows" | "rejected" | "graph";
 type NetworkFlowGraphSurface = "explore" | "saved";
 
 export type NetworkAnalysisWorkspaceProps = {
+  readonly tableController: NetworkFlowTableController;
   readonly indicatorLinkController: NetworkFlowIndicatorLinkController;
   readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;
@@ -129,6 +117,7 @@ const graphVertexRenderLimit = 500;
 const graphEdgeRenderLimit = 1_000;
 
 function NetworkAnalysisWorkspaceContent({
+  tableController: tableOperation,
   indicatorLinkController: indicatorLinkOperation,
   importController: importOperation,
   savedGraphController: savedGraphOperation,
@@ -152,6 +141,7 @@ function NetworkAnalysisWorkspaceContent({
     readonly activeAnchor: GridCellAnchor | null;
     readonly cellRange: GridCellRange | null;
   }>({ activeAnchor: null, cellRange: null });
+  const failedObservation = useRef(-1);
   const handleWorkspaceError = useCallback(
     (error: NetworkFlowWorkspaceError | null) => {
       setErrorMessage(error);
@@ -159,10 +149,12 @@ function NetworkAnalysisWorkspaceContent({
         error instanceof NetworkFlowRequestError &&
         isNetworkFlowProtectedStateLoss(error)
       ) {
+        failedObservation.current =
+          tableOperation.getSnapshot().observationRevision;
         setProtectedStateError(error);
       }
     },
-    [],
+    [tableOperation],
   );
   const canRead =
     currentIncidentRole === "viewer" ||
@@ -173,7 +165,6 @@ function NetworkAnalysisWorkspaceContent({
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
     currentIncidentRole === "admin";
-  const canRename = canImport;
   const canLink =
     currentIncidentRole === "editor" || currentIncidentRole === "admin";
   const canDelete =
@@ -181,11 +172,8 @@ function NetworkAnalysisWorkspaceContent({
   const canManageSavedGraphs =
     currentIncidentRole === "editor" || currentIncidentRole === "admin";
   const tableController = useNetworkFlowTableController({
-    availability: extensionAvailability,
-    apiBase,
+    controller: tableOperation,
     enabled: canRead,
-    incidentId,
-    onIncidentAccessLost,
   });
   const rowsController = useNetworkFlowRowsController({
     activeTableId: tableController.activeTableId,
@@ -206,6 +194,7 @@ function NetworkAnalysisWorkspaceContent({
     onIncidentAccessLost,
   });
   const graphController = useNetworkFlowGraphController({
+    tableLifecycle: tableOperation,
     activeTableId: tableController.activeTableId,
     availability: extensionAvailability,
     apiBase,
@@ -235,15 +224,18 @@ function NetworkAnalysisWorkspaceContent({
     setMode("rows");
     setGraphSurface("explore");
   }, [clearDiagnostics, clearGraph, clearRows]);
+  const clearActiveTable = useCallback(() => {
+    clearRows();
+    clearDiagnostics();
+    setRowGridSelection({ activeAnchor: null, cellRange: null });
+  }, [clearRows, clearDiagnostics]);
   useNetworkFlowCollaborationController({
-    apiBase,
+    controller: tableOperation,
+    activeTableId: tableController.activeTableId,
     clearResources,
-    dispatchTableAction: tableController.dispatch,
-    incidentId,
-    loadTables: tableController.loadTables,
+    clearActiveTable,
     onMessage: setMessage,
     onProtectedStateLoss: handleWorkspaceError,
-    tables: tableController.tables,
   });
   const acceptedGridRef = useRef<GridHandle | null>(null);
   useLayoutEffect(
@@ -280,12 +272,15 @@ function NetworkAnalysisWorkspaceContent({
       graphController.scopeMode,
       graphController.selectedTableIds,
       tableController.activeTable?.mapping_fingerprint,
-      tableController.mutationState,
       importController.state.write?.request,
       importController.state.draft,
     ]),
   });
   const effectiveStatus = networkFlowWorkspaceStatus({
+    graphStale:
+      mode === "graph" &&
+      graphSurface === "explore" &&
+      graphController.graphStale,
     importStatus: networkFlowImportStatus(importController.state),
     linkStatus: indicatorLinkController.status,
     graphState:
@@ -333,21 +328,33 @@ function NetworkAnalysisWorkspaceContent({
     if (error === null || !isNetworkFlowProtectedStateLoss(error)) {
       return;
     }
-    clearResources();
     if (
       isNetworkFlowAuthorizationLoss(error) ||
       error.code === "incident_closed"
     ) {
-      tableController.clearAuthorization();
+      clearResources();
+      if (
+        error.code === "incident_closed" ||
+        error.status === 401 ||
+        error.code === "session_required"
+      )
+        tableOperation.onProtectedFailure(error);
+      else tableController.clearAuthorization();
       return;
     }
     if (isNetworkFlowLifecycleLoss(error)) {
+      if (mode === "graph") graphController.markGraphStale();
+      else clearActiveTable();
       void tableController.loadTables();
     }
   }, [
     clearResources,
+    clearActiveTable,
+    mode,
+    graphController.markGraphStale,
     errorMessage,
     protectedStateError,
+    tableOperation,
     tableController.clearAuthorization,
     tableController.error,
     tableController.loadTables,
@@ -356,9 +363,12 @@ function NetworkAnalysisWorkspaceContent({
     if (
       protectedStateError !== null &&
       protectedStateError.code !== "incident_closed" &&
-      isNetworkFlowLifecycleLoss(protectedStateError) &&
+      (isNetworkFlowLifecycleLoss(protectedStateError) ||
+        protectedStateError.status === 401) &&
       tableController.loadState === "ready" &&
-      tableController.activeTableId !== null
+      tableController.observationRevision > failedObservation.current &&
+      (tableController.activeTableId !== null ||
+        protectedStateError.status === 401)
     ) {
       setErrorMessage(null);
       setProtectedStateError(null);
@@ -366,6 +376,7 @@ function NetworkAnalysisWorkspaceContent({
   }, [
     protectedStateError,
     tableController.activeTableId,
+    tableController.observationRevision,
     tableController.loadState,
   ]);
   const empty =
@@ -406,38 +417,7 @@ function NetworkAnalysisWorkspaceContent({
           </span>
         </div>
         <div style={viewActionsStyle}>
-          <TableLifecycleControls
-            canDelete={canDelete}
-            canRename={canRename}
-            mutationState={tableController.mutationState}
-            table={tableController.activeTable}
-            onDelete={async (table) => {
-              const deleted = await tableController.softDeleteTable({
-                baseTableVersion: table.table_version,
-                tableId: table.network_flow_table_id,
-              });
-              if (deleted) {
-                clearResources();
-                setMessage(`${table.display_name} was deleted.`);
-              }
-              return deleted;
-            }}
-            onRename={async (table, displayName) => {
-              const renamed = await tableController.renameTable({
-                baseTableVersion: table.table_version,
-                displayName,
-                tableId: table.network_flow_table_id,
-              });
-              if (renamed) {
-                setMessage(
-                  displayName.trim() === table.display_name
-                    ? "The table name is unchanged."
-                    : "The table was renamed.",
-                );
-              }
-              return renamed;
-            }}
-          />
+          <TableLifecycleControls controller={tableOperation} />
           <NetworkFlowIconButton
             aria-label="Refresh tables"
             data-testid={networkAnalysisTestId("refresh")}
@@ -486,6 +466,7 @@ function NetworkAnalysisWorkspaceContent({
               <NetworkFlowButton
                 key={table.network_flow_table_id}
                 aria-controls="network-flow-work-area"
+                data-network-flow-table-id={table.network_flow_table_id}
                 aria-selected={selected}
                 data-testid={networkAnalysisTableTabTestId(
                   table.network_flow_table_id,
@@ -515,20 +496,16 @@ function NetworkAnalysisWorkspaceContent({
                           tableController.tables.length;
                   const targetTable = tableController.tables[targetIndex];
                   if (targetTable === undefined) return;
-                  tableController.dispatch({
-                    type: "select_table",
-                    tableId: targetTable.network_flow_table_id,
-                  });
+                  tableController.selectTable(
+                    targetTable.network_flow_table_id,
+                  );
                   setMode("rows");
                   event.currentTarget.parentElement
                     ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
                     [targetIndex]?.focus();
                 }}
                 onClick={() => {
-                  tableController.dispatch({
-                    type: "select_table",
-                    tableId: table.network_flow_table_id,
-                  });
+                  tableController.selectTable(table.network_flow_table_id);
                   setMode("rows");
                 }}
               >
@@ -791,9 +768,13 @@ function NetworkAnalysisWorkspaceContent({
                     tableController.tables.length === 1 ? "" : "s"
                   }`}
           </span>
-          {message ? (
+          {tableController.notice || message ? (
             <span data-testid={networkAnalysisTestId("stale-state")}>
-              {message}
+              {tableController.notice ?? message}
+              {tableController.operation?.status === "acknowledged" &&
+              tableController.loadState === "error"
+                ? " Completed; current table metadata could not be refreshed."
+                : null}
             </span>
           ) : null}
           {effectiveStatus !== null ? (
@@ -829,269 +810,6 @@ export function NetworkAnalysisWorkspace(props: NetworkAnalysisWorkspaceProps) {
     >
       <NetworkAnalysisWorkspaceContent {...props} />
     </IncidentCollaborationBoundary>
-  );
-}
-
-function TableLifecycleControls({
-  canDelete,
-  canRename,
-  mutationState,
-  onDelete,
-  onRename,
-  table,
-}: {
-  readonly canDelete: boolean;
-  readonly canRename: boolean;
-  readonly mutationState: NetworkFlowTableMutationState;
-  readonly onDelete: (table: NetworkFlowTable) => Promise<boolean>;
-  readonly onRename: (
-    table: NetworkFlowTable,
-    displayName: string,
-  ) => Promise<boolean>;
-  readonly table: NetworkFlowTable | null;
-}) {
-  const tableId = table?.network_flow_table_id ?? null;
-  const [dialog, setDialog] = useState<"delete" | "rename" | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
-  useEffect(() => {
-    void tableId;
-    setDialog(null);
-    setRenameValue("");
-    setDeleteConfirmation("");
-  }, [tableId]);
-  useEffect(() => {
-    if (
-      (dialog === "rename" && !canRename) ||
-      (dialog === "delete" && !canDelete)
-    ) {
-      setDialog(null);
-      setRenameValue("");
-      setDeleteConfirmation("");
-    }
-  }, [canDelete, canRename, dialog]);
-  if (table === null) {
-    return null;
-  }
-  const busy = mutationState.kind !== "idle";
-  return (
-    <>
-      {canRename ? (
-        <NetworkFlowButton
-          data-testid={networkAnalysisTestId("rename-trigger")}
-          disabled={busy}
-          title="Rename active table"
-          variant="secondary"
-          onClick={() => {
-            setRenameValue(table.display_name);
-            setDialog("rename");
-          }}
-        >
-          <Pencil aria-hidden="true" size={16} />
-          Rename
-        </NetworkFlowButton>
-      ) : null}
-      {canDelete ? (
-        <NetworkFlowButton
-          data-testid={networkAnalysisTestId("delete-trigger")}
-          disabled={busy}
-          variant="danger"
-          onClick={() => {
-            setDeleteConfirmation("");
-            setDialog("delete");
-          }}
-        >
-          <Trash2 aria-hidden="true" size={16} />
-          Delete
-        </NetworkFlowButton>
-      ) : null}
-      {dialog === "rename" && canRename ? (
-        <RenameTableDialog
-          busy={busy}
-          renameValue={renameValue}
-          renaming={mutationState.kind === "renaming"}
-          onCancel={() => setDialog(null)}
-          onRenameValueChange={setRenameValue}
-          onSubmit={() => {
-            void onRename(table, renameValue).then((renamed) => {
-              if (renamed) setDialog(null);
-            });
-          }}
-        />
-      ) : null}
-      {dialog === "delete" && canDelete ? (
-        <DeleteTableDialog
-          busy={busy}
-          confirmation={deleteConfirmation}
-          deleting={mutationState.kind === "deleting"}
-          table={table}
-          onCancel={() => setDialog(null)}
-          onConfirmationChange={setDeleteConfirmation}
-          onSubmit={() => {
-            void onDelete(table).then((deleted) => {
-              if (deleted) setDialog(null);
-            });
-          }}
-        />
-      ) : null}
-    </>
-  );
-}
-
-function RenameTableDialog({
-  busy,
-  onCancel,
-  onRenameValueChange,
-  onSubmit,
-  renameValue,
-  renaming,
-}: {
-  readonly busy: boolean;
-  readonly onCancel: () => void;
-  readonly onRenameValueChange: (value: string) => void;
-  readonly onSubmit: () => void;
-  readonly renameValue: string;
-  readonly renaming: boolean;
-}) {
-  const modalFocus = useNetworkFlowModalFocus<HTMLFormElement>({
-    dismissDisabled: busy,
-    initialFocusTestId: networkAnalysisTestId("rename-input"),
-    onDismiss: onCancel,
-  });
-  return (
-    <div className="network-flow-dialog-backdrop">
-      <form
-        ref={modalFocus.dialogRef}
-        aria-labelledby="network-flow-rename-title"
-        aria-modal="true"
-        data-testid={networkAnalysisTestId("rename-dialog")}
-        role="dialog"
-        className="network-flow-dialog"
-        onKeyDown={modalFocus.onKeyDown}
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit();
-        }}
-      >
-        <h3 id="network-flow-rename-title">Rename Network Flow table</h3>
-        <NetworkFlowField
-          htmlFor="network-flow-rename-input"
-          label="Display name"
-        >
-          <NetworkFlowTextInput
-            data-testid={networkAnalysisTestId("rename-input")}
-            id="network-flow-rename-input"
-            maxLength={64}
-            required
-            value={renameValue}
-            onChange={(event) => onRenameValueChange(event.currentTarget.value)}
-          />
-        </NetworkFlowField>
-        <NetworkFlowActionGroup>
-          <NetworkFlowButton
-            data-testid={networkAnalysisTestId("rename-cancel")}
-            disabled={busy}
-            variant="secondary"
-            onClick={onCancel}
-          >
-            Cancel
-          </NetworkFlowButton>
-          <NetworkFlowButton
-            data-testid={networkAnalysisTestId("rename-submit")}
-            disabled={busy || renameValue.trim() === ""}
-            pending={renaming}
-            type="submit"
-            variant="secondary"
-          >
-            {renaming ? "Renaming…" : "Rename"}
-          </NetworkFlowButton>
-        </NetworkFlowActionGroup>
-      </form>
-    </div>
-  );
-}
-
-function DeleteTableDialog({
-  busy,
-  confirmation,
-  deleting,
-  onCancel,
-  onConfirmationChange,
-  onSubmit,
-  table,
-}: {
-  readonly busy: boolean;
-  readonly confirmation: string;
-  readonly deleting: boolean;
-  readonly onCancel: () => void;
-  readonly onConfirmationChange: (value: string) => void;
-  readonly onSubmit: () => void;
-  readonly table: NetworkFlowTable;
-}) {
-  const modalFocus = useNetworkFlowModalFocus<HTMLFormElement>({
-    dismissDisabled: busy,
-    initialFocusTestId: networkAnalysisTestId("delete-confirmation"),
-    onDismiss: onCancel,
-  });
-  return (
-    <div className="network-flow-dialog-backdrop">
-      <form
-        ref={modalFocus.dialogRef}
-        aria-describedby="network-flow-delete-description"
-        aria-labelledby="network-flow-delete-title"
-        aria-modal="true"
-        data-testid={networkAnalysisTestId("delete-dialog")}
-        role="alertdialog"
-        className="network-flow-dialog"
-        onKeyDown={modalFocus.onKeyDown}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (confirmation === table.display_name) onSubmit();
-        }}
-      >
-        <h3 id="network-flow-delete-title">Delete Network Flow table</h3>
-        <p id="network-flow-delete-description">
-          This soft-deletes <strong>{table.display_name}</strong> and makes its
-          rows, diagnostics, graph results, and cursors unavailable. Type the
-          exact table name to confirm.
-        </p>
-        <NetworkFlowField
-          help={`Type ${table.display_name} exactly.`}
-          helpId="network-flow-delete-confirmation-help"
-          htmlFor="network-flow-delete-confirmation"
-          label="Confirm table name"
-        >
-          <NetworkFlowTextInput
-            aria-describedby="network-flow-delete-confirmation-help"
-            data-testid={networkAnalysisTestId("delete-confirmation")}
-            id="network-flow-delete-confirmation"
-            value={confirmation}
-            onChange={(event) =>
-              onConfirmationChange(event.currentTarget.value)
-            }
-          />
-        </NetworkFlowField>
-        <NetworkFlowActionGroup>
-          <NetworkFlowButton
-            data-testid={networkAnalysisTestId("delete-cancel")}
-            disabled={busy}
-            variant="secondary"
-            onClick={onCancel}
-          >
-            Cancel
-          </NetworkFlowButton>
-          <NetworkFlowButton
-            data-testid={networkAnalysisTestId("delete-confirm")}
-            disabled={busy || confirmation !== table.display_name}
-            pending={deleting}
-            type="submit"
-            variant="danger"
-          >
-            {deleting ? "Deleting…" : "Delete table"}
-          </NetworkFlowButton>
-        </NetworkFlowActionGroup>
-      </form>
-    </div>
   );
 }
 

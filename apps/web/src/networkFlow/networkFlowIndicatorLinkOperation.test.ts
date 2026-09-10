@@ -472,6 +472,27 @@ describe("Indicator link captured operation", () => {
     );
     abandoned.controller.dispose();
   });
+  it("preserves indicator intent across table metadata and unrelated deletion", async () => {
+    const { controller } = await setup();
+    const draft = controller.getSnapshot().draft;
+    controller.onResourceChange({
+      resourceKind: "network_flow_table",
+      resourceId: source.network_flow_table_id,
+      changeKind: "invalidate",
+      reasonCode: "renamed",
+    });
+    expect(controller.getSnapshot().draft).toBe(draft);
+    controller.onResourceChange({
+      resourceKind: "network_flow_table",
+      resourceId: `nft_${"f".repeat(32)}`,
+      changeKind: "remove",
+      reasonCode: "soft_deleted",
+    });
+    expect(controller.getSnapshot().draft).toBe(draft);
+    controller.onMutationAdmitted();
+    expect(controller.getSnapshot().draft).toBe(draft);
+    controller.dispose();
+  });
   it("pauses session recovery and purges different actors incidents claims and removed sources", async () => {
     const { controller, pending, change } = await setup();
     controller.submit();

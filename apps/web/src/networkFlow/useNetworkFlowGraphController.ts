@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
+import type { NetworkFlowTableController } from "./NetworkFlowTableController";
 import type {
   NetworkFlowContributor,
   NetworkFlowContributorPageRequest,
@@ -43,6 +51,7 @@ export type NetworkFlowGraphBucketWidth = Extract<
 
 export function useNetworkFlowGraphController({
   availability,
+  tableLifecycle,
   activeTableId,
   apiBase,
   enabled,
@@ -52,6 +61,7 @@ export function useNetworkFlowGraphController({
   query,
   tables,
 }: {
+  readonly tableLifecycle: NetworkFlowTableController;
   readonly availability: ExtensionAvailabilityController;
   readonly activeTableId: string | null;
   readonly apiBase: string | undefined;
@@ -62,9 +72,12 @@ export function useNetworkFlowGraphController({
   readonly query: NetworkFlowAcceptedQuery;
   readonly tables: readonly NetworkFlowTable[];
 }) {
-  const tableIds = useMemo(
-    () => tables.map((table) => table.network_flow_table_id),
-    [tables],
+  const tableIdsKey = JSON.stringify(
+    tables.map((table) => table.network_flow_table_id),
+  );
+  const tableIds = useMemo<readonly string[]>(
+    () => JSON.parse(tableIdsKey),
+    [tableIdsKey],
   );
   const [scopeMode, setScopeModeState] =
     useState<NetworkFlowGraphScopeMode>("active_table");
@@ -75,6 +88,8 @@ export function useNetworkFlowGraphController({
   const [selectedTableIds, setSelectedTableIds] = useState<readonly string[]>(
     () => (activeTableId === null ? [] : [activeTableId]),
   );
+  const staleRef = useRef(false);
+  const [graphStale, setGraphStale] = useState(false);
   const [graph, setGraph] = useState<NetworkFlowGraphResult | null>(null);
   const [graphLoadState, setGraphLoadState] =
     useState<NetworkFlowQueryLoadState>("idle");
@@ -114,7 +129,7 @@ export function useNetworkFlowGraphController({
     });
   }, [activeTableId, tableIds]);
 
-  const tableScope = useMemo<NetworkFlowTableScope | null>(() => {
+  const derivedTableScope = useMemo<NetworkFlowTableScope | null>(() => {
     if (tableIds.length === 0) {
       return null;
     }
@@ -137,7 +152,20 @@ export function useNetworkFlowGraphController({
       ? null
       : { mode: "active_table", active_table_id: activeTableId };
   }, [activeTableId, scopeMode, selectedTableIds, tableIds]);
-  const tableScopeKey = JSON.stringify(tableScope);
+  const tableScopeKey = JSON.stringify(derivedTableScope);
+  const tableScope = useMemo<NetworkFlowTableScope | null>(
+    () => JSON.parse(tableScopeKey),
+    [tableScopeKey],
+  );
+  const resolvedSourceIds =
+    scopeMode === "all_active_tables"
+      ? tableIds
+      : scopeMode === "selected_tables"
+        ? tableIds.filter((id) => selectedTableIds.includes(id))
+        : activeTableId
+          ? [activeTableId]
+          : [];
+  const resolvedSourceKey = JSON.stringify(resolvedSourceIds);
   const completeTemporalRange =
     query.timeWindow?.startUTC != null && query.timeWindow.endUTC != null;
   const validationMessage =
@@ -148,6 +176,7 @@ export function useNetworkFlowGraphController({
   useEffect(() => {
     void graphGeneration;
     void tableScopeKey;
+    void resolvedSourceKey;
     graphControllerRef.current?.abort();
     contributorControllerRef.current?.abort();
     contributorGenerationRef.current += 1;
@@ -159,9 +188,19 @@ export function useNetworkFlowGraphController({
       setPaging: setContributorPaging,
     });
     setContributorError(null);
-    if (!enabled || tableScope === null || validationMessage !== null) {
+    if (!enabled) {
+      staleRef.current = false;
+      setGraphStale(false);
+    }
+    if (
+      !enabled ||
+      graphStale ||
+      staleRef.current ||
+      tableScope === null ||
+      validationMessage !== null
+    ) {
       setGraph(null);
-      setGraphLoadState("idle");
+      setGraphLoadState(graphStale && enabled ? "error" : "idle");
       return;
     }
     const controller = new AbortController();
@@ -225,6 +264,8 @@ export function useNetworkFlowGraphController({
     apiBase,
     enabled,
     graphGeneration,
+    graphStale,
+    resolvedSourceKey,
     incidentId,
     onError,
     onIncidentAccessLost,
@@ -450,6 +491,8 @@ export function useNetworkFlowGraphController({
   }, [executeContributorRequest, selectionKey]);
 
   const clearGraph = useCallback(() => {
+    staleRef.current = false;
+    setGraphStale(false);
     graphControllerRef.current?.abort();
     contributorControllerRef.current?.abort();
     contributorGenerationRef.current += 1;
@@ -465,6 +508,11 @@ export function useNetworkFlowGraphController({
     setContributorError(null);
   }, []);
   const markGraphStale = useCallback(() => {
+    graphControllerRef.current?.abort();
+    contributorControllerRef.current?.abort();
+    contributorGenerationRef.current++;
+    staleRef.current = true;
+    setGraphStale(true);
     setGraph(null);
     setGraphLoadState("error");
     setSelectionState(null);
@@ -477,7 +525,40 @@ export function useNetworkFlowGraphController({
     setContributorError(null);
   }, []);
 
+  const sourceState = useRef({
+    ids: resolvedSourceIds,
+    displayed: graph !== null || graphLoadState === "loading",
+  });
+  sourceState.current = {
+    ids: resolvedSourceIds,
+    displayed: graph !== null || graphLoadState === "loading",
+  };
+  useLayoutEffect(
+    () =>
+      tableLifecycle.subscribeChanges((change) => {
+        if (
+          change.changeKind === "remove" &&
+          change.resourceKind === "network_flow_table" &&
+          sourceState.current.displayed &&
+          sourceState.current.ids.includes(change.resourceId)
+        )
+          markGraphStale();
+      }),
+    [tableLifecycle, markGraphStale],
+  );
+  const previousMembership = useRef(tableIdsKey);
+  useLayoutEffect(() => {
+    if (
+      previousMembership.current !== tableIdsKey &&
+      scopeMode === "all_active_tables" &&
+      sourceState.current.displayed
+    )
+      markGraphStale();
+    previousMembership.current = tableIdsKey;
+  }, [tableIdsKey, scopeMode, markGraphStale]);
+
   return {
+    graphStale,
     aggregationMode,
     bucketWidthSeconds,
     canNextContributorPage:
@@ -496,7 +577,11 @@ export function useNetworkFlowGraphController({
     markGraphStale,
     nextContributorPage,
     previousContributorPage,
-    refreshGraph: () => setGraphGeneration((current) => current + 1),
+    refreshGraph: () => {
+      staleRef.current = false;
+      setGraphStale(false);
+      setGraphGeneration((current) => current + 1);
+    },
     retryContributorPage,
     scopeMode,
     selectGraphObject,

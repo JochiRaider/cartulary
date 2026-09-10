@@ -354,7 +354,7 @@ func (s *Store) renameTableTx(ctx context.Context, tx pgx.Tx, params RenameTable
 		return TableRecord{}, err
 	}
 	if _, exists := existingNames[displayName]; exists {
-		return TableRecord{}, &InvalidDisplayNameError{ReasonCode: "duplicate_display_name"}
+		return TableRecord{}, &InvalidDisplayNameError{ReasonCode: "duplicate_display_name", NormalizedLength: len([]rune(displayName))}
 	}
 	updated, err := s.updateTableNameTx(ctx, tx, params.IncidentID, params.TableID, displayName, now)
 	if err != nil {
@@ -856,7 +856,7 @@ func finalDisplayName(params CreateTableParams, existingNames map[string]struct{
 		return "", err
 	}
 	if _, exists := existingNames[displayName]; exists {
-		return "", &InvalidDisplayNameError{ReasonCode: "duplicate_display_name"}
+		return "", &InvalidDisplayNameError{ReasonCode: "duplicate_display_name", NormalizedLength: len([]rune(displayName))}
 	}
 	return displayName, nil
 }

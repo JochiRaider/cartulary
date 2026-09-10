@@ -213,6 +213,9 @@
         "apps/web/src/networkFlow/NetworkFlowSavedGraphPanel.tsx",
         "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
         "apps/web/src/networkFlow/NetworkFlowSemanticGrid.tsx",
+        "apps/web/src/networkFlow/NetworkFlowTableController.test.ts",
+        "apps/web/src/networkFlow/NetworkFlowTableController.ts",
+        "apps/web/src/networkFlow/NetworkFlowTableLifecycle.tsx",
         "apps/web/src/networkFlow/networkFlowBoundaryPolicy.test.ts",
         "apps/web/src/networkFlow/networkFlowClient.test.ts",
         "apps/web/src/networkFlow/networkFlowClient.ts",
@@ -232,6 +235,9 @@
         "apps/web/src/networkFlow/networkFlowPresentation.tsx",
         "apps/web/src/networkFlow/networkFlowQueryModel.test.ts",
         "apps/web/src/networkFlow/networkFlowQueryModel.ts",
+        "apps/web/src/networkFlow/networkFlowTableOperation.ts",
+        "apps/web/src/networkFlow/tableConsumerContinuity.test.tsx",
+        "apps/web/src/networkFlow/tableLifecycleTestFixtures.ts",
         "apps/web/src/networkFlow/useNetworkFlowCollaborationController.ts",
         "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.test.tsx",
         "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.ts",
@@ -246,7 +252,8 @@
         "apps/web/src/networkFlow/useNetworkFlowRejectedRowsController.ts",
         "apps/web/src/networkFlow/useNetworkFlowRowsController.ts",
         "apps/web/src/networkFlow/useNetworkFlowSavedGraphController.ts",
-        "apps/web/src/networkFlow/useNetworkFlowTableController.ts"
+        "apps/web/src/networkFlow/useNetworkFlowTableController.ts",
+        "apps/web/src/networkFlow/useNetworkFlowTableOwner.ts"
       ]
     },
     {

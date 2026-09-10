@@ -564,7 +564,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-delete-dialog-linux.png",
-      "sha256": "0091c434e38bcc870e923a29c1712ddf4d04eda81534cec19ad63ecb47fa3684"
+      "sha256": "08dfcfe780da432c9f82138e1378157bb7a219d0d1d5859e6b527061e4ce7365"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/network-flow-analysis-filtered-empty-grid-linux.png",

@@ -711,6 +711,9 @@ export class NetworkFlowIndicatorLinkController {
         },
       });
   }
+  readonly onMutationAdmitted = (): void => {
+    if (this.state.status === "link_committed") this.clearStatus();
+  };
   private clearStatus(): void {
     this.cancelStatus();
     this.cancelStatus = () => {};
@@ -777,7 +780,12 @@ export class NetworkFlowIndicatorLinkController {
       this.update({ writable: false });
       return;
     }
-    if (change.resourceKind === "network_flow_graph_view") return;
+    if (
+      change.resourceKind === "network_flow_graph_view" ||
+      (change.resourceKind === "network_flow_table" &&
+        change.reasonCode === "renamed")
+    )
+      return;
     if (
       change.changeKind === "remove" &&
       change.resourceKind === "network_flow_table"
@@ -785,6 +793,11 @@ export class NetworkFlowIndicatorLinkController {
       this.removedSources.add(change.resourceId);
       const attempt = this.state.attempt;
       const draft = this.state.draft;
+      if (
+        (attempt === null || !this.sourcesRemoved(attempt.candidate)) &&
+        (draft === null || !this.sourcesRemoved(draft.candidate))
+      )
+        return;
       if (attempt !== null && this.sourcesRemoved(attempt.candidate)) {
         this.stopDispatch();
         this.update({

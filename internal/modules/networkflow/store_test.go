@@ -326,7 +326,8 @@ func TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
 		value      string
 		reasonCode string
 	}{
-		{name: "empty", value: " \t ", reasonCode: "empty_display_name"},
+		{name: "whitespace-control", value: " \t ", reasonCode: "forbidden_control"},
+		{name: "empty", value: " \u3000 ", reasonCode: "empty_display_name"},
 		{name: "too-long", value: strings.Repeat("a", 65), reasonCode: "display_name_too_long"},
 		{name: "control", value: "bad\u007fvalue", reasonCode: "forbidden_control"},
 	} {

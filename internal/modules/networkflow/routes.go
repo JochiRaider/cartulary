@@ -1,7 +1,6 @@
 package networkflow
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -108,20 +107,20 @@ func (s *Service) handleSourceProfiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleTablesCollection(w http.ResponseWriter, r *http.Request) {
-	incidentID, ok := parseIncidentPathValue(w, r)
-	if !ok {
-		return
-	}
 	principal, apiErr := s.authenticate(r, false)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	incidentID, ok := parseIncidentPathValue(w, r)
+	if !ok {
 		return
 	}
 	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -139,30 +138,30 @@ func (s *Service) handleTablesCollection(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-		"schema_id": "cartulary.network_flow.table_list.v1",
+		"schema_id": "cartulary.network_flow_table_list.v1",
 		"tables":    resources,
 		"meta":      map[string]any{"count": len(resources)},
 	})
 }
 
 func (s *Service) handleTableResource(w http.ResponseWriter, r *http.Request) {
-	incidentID, tableID, ok := parseIncidentTablePathValues(w, r)
-	if !ok {
-		return
-	}
 	stateChanging := r.Method == http.MethodPatch || r.Method == http.MethodDelete
 	principal, apiErr := s.authenticate(r, stateChanging)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	incidentID, tableID, ok := parseIncidentTablePathValues(w, r)
+	if !ok {
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -176,15 +175,15 @@ func (s *Service) handleTableResource(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
-			"schema_id": "cartulary.network_flow.table_get.v1",
+			"schema_id": "cartulary.network_flow_table_get.v1",
 			"table":     tableResource(table),
 		})
 	case http.MethodPatch:
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesEditorAdmin, "editor|admin"); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -204,11 +203,11 @@ func (s *Service) handleTableResource(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = httpapi.WriteSuccess(w, r, status, payload)
 	case http.MethodDelete:
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, admission.RolesReviewerAdmin, "reviewer|admin"); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -691,7 +690,11 @@ func decodeRenameRequest(r *http.Request) (tableRenameRequest, *httpapi.APIError
 	if apiErr != nil {
 		return tableRenameRequest{}, apiErr
 	}
-	return tableRenameRequest{ClientTxnID: clientTxnID, BaseTableVersion: int64(version), DisplayName: displayName}, nil
+	normalized, err := normalizeExplicitDisplayName(displayName)
+	if err != nil {
+		return tableRenameRequest{}, tableMutationError(err)
+	}
+	return tableRenameRequest{ClientTxnID: clientTxnID, BaseTableVersion: int64(version), DisplayName: normalized}, nil
 }
 
 func decodeSoftDeleteRequest(r *http.Request) (tableSoftDeleteRequest, *httpapi.APIError) {
@@ -713,27 +716,9 @@ func decodeSoftDeleteRequest(r *http.Request) (tableSoftDeleteRequest, *httpapi.
 	return tableSoftDeleteRequest{ClientTxnID: clientTxnID, BaseTableVersion: int64(version)}, nil
 }
 
-func (s *Service) replayTableMutationIfPresent(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte) (map[string]any, int, bool, *httpapi.APIError) {
-	existing, err := s.authStore.GetRouteIdempotency(ctx, key)
-	if err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return nil, 0, true, httpapi.ClientTxnConflictError(key.ClientTxnID)
-		}
-		payload, err := decodeStoredNetworkFlowResponse(existing.ResponseJSON)
-		if err != nil {
-			return nil, 0, true, httpapi.InternalAPIError(err)
-		}
-		return payload, existing.StatusCode, true, nil
-	}
-	if !errors.Is(err, authn.ErrNotFound) {
-		return nil, 0, false, httpapi.InternalAPIError(err)
-	}
-	return nil, 0, false, nil
-}
-
 func tableMutationPayload(table TableRecord) map[string]any {
 	return map[string]any{
-		"schema_id": "cartulary.network_flow.table_mutation_result.v1",
+		"schema_id": "cartulary.network_flow_table_mutation_result.v1",
 		"table":     tableResource(table),
 	}
 }
@@ -748,22 +733,19 @@ func tableMutationIdempotencyKey(routeKey string, actorUserID uuid.UUID, inciden
 }
 
 func tableRenameRequestHash(tableID string, request tableRenameRequest) []byte {
-	return networkFlowRequestHash(map[string]any{
-		"route_key":          routeKeyTablesPatch,
-		"network_flow_table": tableID,
-		"client_txn_id":      request.ClientTxnID,
-		"base_table_version": request.BaseTableVersion,
-		"display_name":       request.DisplayName,
-	})
+	name, err := NormalizeTableDisplayNameInput(request.DisplayName)
+	if err != nil {
+		return nil
+	}
+	return sha256Bytes(graphViewMutationBytes(routeKeyTablesPatch, "network_flow_table_id:"+tableID, map[string]any{
+		"base_table_version": request.BaseTableVersion, "display_name": name,
+	}))
 }
 
 func tableSoftDeleteRequestHash(tableID string, request tableSoftDeleteRequest) []byte {
-	return networkFlowRequestHash(map[string]any{
-		"route_key":          routeKeyTablesDelete,
-		"network_flow_table": tableID,
-		"client_txn_id":      request.ClientTxnID,
+	return sha256Bytes(graphViewMutationBytes(routeKeyTablesDelete, "network_flow_table_id:"+tableID, map[string]any{
 		"base_table_version": request.BaseTableVersion,
-	})
+	}))
 }
 
 func networkFlowRequestHash(value any) []byte {
@@ -793,10 +775,12 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 }
 
 func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles admission.RoleSet, requiredRole string) (admission.Grant, *httpapi.APIError) {
-	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleAny})
+	grant, err := s.incidentAccess.Check(ctx, incidentID, userID, admission.Requirement{AllowedRoles: roles, Lifecycle: admission.LifecycleOpen})
 	switch {
 	case admission.IsDenied(err, admission.DenialNotVisible):
 		return admission.Grant{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+	case admission.IsDenied(err, admission.DenialIncidentClosed):
+		return admission.Grant{}, &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 	case admission.IsDenied(err, admission.DenialInsufficientRole):
 		return admission.Grant{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: map[string]any{"required_role": requiredRole}}
 	case err != nil:
@@ -846,10 +830,19 @@ func tableMutationError(err error) *httpapi.APIError {
 	var versionConflict *TableVersionConflictError
 	var displayName *InvalidDisplayNameError
 	if errors.As(err, &versionConflict) {
-		return networkFlowAPIError(http.StatusConflict, "network_flow_table_version_conflict", "base_table_version", "stale_version")
+		apiErr := networkFlowAPIError(http.StatusConflict, "network_flow_table_version_conflict", "base_table_version", "stale_version")
+		apiErr.Details["network_flow_table_id"] = versionConflict.TableID
+		apiErr.Details["base_table_version"] = versionConflict.BaseTableVersion
+		apiErr.Details["current_table_version"] = versionConflict.CurrentTableVersion
+		apiErr.Details["retry_action"] = "refresh_resource"
+		return apiErr
 	}
 	if errors.As(err, &displayName) {
-		return networkFlowAPIError(http.StatusBadRequest, "network_flow_invalid_display_name", "display_name", displayName.ReasonCode)
+		apiErr := networkFlowAPIError(http.StatusBadRequest, "network_flow_invalid_display_name", "display_name", displayName.ReasonCode)
+		apiErr.Details["max_length"] = 64
+		apiErr.Details["normalized_length"] = displayName.NormalizedLength
+		apiErr.Details["retry_action"] = "correct_request"
+		return apiErr
 	}
 	if errors.Is(err, ErrTableNameExhausted) {
 		return networkFlowAPIError(http.StatusConflict, "network_flow_table_name_exhausted", "display_name", "suffix_space_exhausted")

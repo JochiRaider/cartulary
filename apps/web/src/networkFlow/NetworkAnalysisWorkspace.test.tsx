@@ -26,15 +26,23 @@ import {
 import { NetworkAnalysisWorkspace as ProductionNetworkAnalysisWorkspace } from "./NetworkAnalysisWorkspace";
 import { NetworkFlowImportController } from "./NetworkFlowImportController";
 import { NetworkFlowImportSurface } from "./NetworkFlowImportSurface";
+import {
+  NetworkFlowTableRecovery,
+  NetworkFlowTableSurface,
+} from "./NetworkFlowTableLifecycle";
 import { networkAnalysisSheetRef } from "./networkFlowClient";
 import { savedGraphJobFixture } from "./savedGraphTestFixtures";
 import { useNetworkFlowIndicatorLinkOwner } from "./useNetworkFlowIndicatorLinkOwner";
 import { useNetworkFlowSavedGraphOwner } from "./useNetworkFlowSavedGraphOwner";
+import { useNetworkFlowTableOwner } from "./useNetworkFlowTableOwner";
 
 function NetworkAnalysisWorkspace(
   props: Omit<
     ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
-    "importController" | "savedGraphController" | "indicatorLinkController"
+    | "importController"
+    | "savedGraphController"
+    | "indicatorLinkController"
+    | "tableController"
   >,
 ) {
   return (
@@ -54,7 +62,10 @@ function NetworkAnalysisWorkspace(
 function NetworkAnalysisWorkspaceOwner(
   props: Omit<
     ComponentProps<typeof ProductionNetworkAnalysisWorkspace>,
-    "importController" | "savedGraphController" | "indicatorLinkController"
+    | "importController"
+    | "savedGraphController"
+    | "indicatorLinkController"
+    | "tableController"
   >,
 ) {
   const [controller] = useState(() => new NetworkFlowImportController());
@@ -79,6 +90,25 @@ function NetworkAnalysisWorkspaceOwner(
     sessionIdentity: "workspace-test",
     role: props.currentIncidentRole,
     open: true,
+  });
+  const tableController = useNetworkFlowTableOwner({
+    availability,
+    apiBase: props.apiBase,
+    incidentId: props.incidentId,
+    actorId: props.currentUserId ?? importActorId,
+    sessionIdentity: "workspace-test",
+    role: props.currentIncidentRole,
+    open: true,
+    onMutationAdmitted: indicatorLinkController.onMutationAdmitted,
+    onLocalChange: (change) => {
+      if (
+        change.resourceKind === "*" &&
+        change.reasonCode === "authorization_lost"
+      )
+        props.onIncidentAccessLost?.();
+      void savedGraphController.onResourceChange(change);
+      indicatorLinkController.onResourceChange(change);
+    },
   });
   const client = useMemo(
     () =>
@@ -115,12 +145,15 @@ function NetworkAnalysisWorkspaceOwner(
     <ExtensionAvailabilityProvider controller={availability}>
       <ProductionNetworkAnalysisWorkspace
         importController={controller}
+        tableController={tableController}
         savedGraphController={savedGraphController}
         indicatorLinkController={indicatorLinkController}
         currentUserId={importActorId}
         {...props}
       />
       <NetworkFlowImportSurface controller={controller} />
+      <NetworkFlowTableSurface controller={tableController} />
+      <NetworkFlowTableRecovery controller={tableController} />
       <NetworkFlowIndicatorLinkSurface controller={indicatorLinkController} />
       <NetworkFlowIndicatorLinkRecovery controller={indicatorLinkController} />
     </ExtensionAvailabilityProvider>
@@ -562,7 +595,7 @@ describe("NetworkAnalysisWorkspace", () => {
         role: "reviewer" as const,
         canLink: false,
         canImport: true,
-        canRename: true,
+        canRename: false,
         canDelete: true,
       },
       {
@@ -611,7 +644,7 @@ describe("NetworkAnalysisWorkspace", () => {
     }
   });
 
-  it("removes mutation surfaces immediately when the role is downgraded", async () => {
+  it("withdraws mutation dispatch and retains a copyable draft when the role is downgraded", async () => {
     installNetworkFlowFetchMock();
     const rendered = render(
       <NetworkAnalysisWorkspace
@@ -636,8 +669,11 @@ describe("NetworkAnalysisWorkspace", () => {
 
     await waitFor(() => {
       expect(
-        screen.queryByTestId(networkAnalysisTestId("rename-dialog")),
-      ).toBeNull();
+        screen.getByTestId(networkAnalysisTestId("rename-submit")),
+      ).toHaveProperty("disabled", true);
+      expect(
+        screen.getByTestId(networkAnalysisTestId("rename-input")),
+      ).toHaveProperty("readOnly", true);
     });
     expect(
       screen.queryByTestId(networkAnalysisTestId("rename-trigger")),
@@ -654,7 +690,7 @@ describe("NetworkAnalysisWorkspace", () => {
     const fetchSpy = installNetworkFlowFetchMock();
     render(
       <NetworkAnalysisWorkspace
-        currentIncidentRole="reviewer"
+        currentIncidentRole="admin"
         incidentId="11111111-1111-4111-8111-111111111111"
       />,
     );
@@ -735,6 +771,12 @@ describe("NetworkAnalysisWorkspace", () => {
     fireEvent.click(screen.getByTestId(networkAnalysisTestId("rename-submit")));
 
     await screen.findAllByText("server-flows.csv");
+    expect(
+      screen.getByTestId(networkAnalysisTestId("rename-submit")),
+    ).toHaveProperty("disabled", true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review current table" }),
+    );
     fireEvent.click(screen.getByTestId(networkAnalysisTestId("rename-submit")));
     await screen.findAllByText("Analyst flows");
 
@@ -1601,7 +1643,7 @@ function installImportFlowFetchMock(returnedTableId: string) {
                 },
               ];
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_list.v1",
+          schema_id: "cartulary.network_flow_table_list.v1",
           tables,
           meta: { count: tables.length },
         });
@@ -1983,7 +2025,7 @@ function installNetworkFlowFetchMock(
         )
       ) {
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_list.v1",
+          schema_id: "cartulary.network_flow_table_list.v1",
           tables,
           meta: { count: tables.length },
         });
@@ -2232,6 +2274,9 @@ function installNetworkFlowFetchMock(
             {
               error: {
                 code: "network_flow_table_version_conflict",
+                status: 409,
+                request_id: "req-table-conflict",
+                retryable: false,
                 message: "The table changed.",
                 details: {
                   field: "base_table_version",
@@ -2265,7 +2310,7 @@ function installNetworkFlowFetchMock(
           table.network_flow_table_id === tableId ? renamed : table,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_mutation_result.v1",
+          schema_id: "cartulary.network_flow_table_mutation_result.v1",
           table: renamed,
         });
       }
@@ -2292,7 +2337,7 @@ function installNetworkFlowFetchMock(
           (table) => table.network_flow_table_id !== tableId,
         );
         return jsonResponse({
-          schema_id: "cartulary.network_flow.table_mutation_result.v1",
+          schema_id: "cartulary.network_flow_table_mutation_result.v1",
           table: deleted,
         });
       }
@@ -3122,7 +3167,7 @@ function jsonResponse(body: unknown, status = 200): Response {
     "schema_id" in body &&
     typeof body.schema_id === "string" &&
     (body.schema_id.startsWith("cartulary.network_flow.") ||
-      body.schema_id === "cartulary.network_flow_indicator_link_result.v1")
+      body.schema_id.startsWith("cartulary.network_flow_"))
       ? { data: body, meta: { request_id: "req-network-flow-unit" } }
       : body;
   return new Response(JSON.stringify(envelope), {

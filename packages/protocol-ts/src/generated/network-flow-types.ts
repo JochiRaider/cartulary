@@ -1214,7 +1214,7 @@ export interface CountMeta {
  * via the `definition` "TableList".
  */
 export interface TableList {
-  schema_id: "cartulary.network_flow.table_list.v1";
+  schema_id: "cartulary.network_flow_table_list.v1";
   tables: NetworkFlowTable[];
   meta: CountMeta;
 }
@@ -1223,7 +1223,7 @@ export interface TableList {
  * via the `definition` "TableGet".
  */
 export interface TableGet {
-  schema_id: "cartulary.network_flow.table_get.v1";
+  schema_id: "cartulary.network_flow_table_get.v1";
   table: NetworkFlowTable;
 }
 /**
@@ -1231,7 +1231,7 @@ export interface TableGet {
  * via the `definition` "TableMutationResult".
  */
 export interface TableMutationResult {
-  schema_id: "cartulary.network_flow.table_mutation_result.v1";
+  schema_id: "cartulary.network_flow_table_mutation_result.v1";
   table: NetworkFlowTable;
 }
 /**
@@ -1241,6 +1241,9 @@ export interface TableMutationResult {
 export interface TableRenameRequest {
   client_txn_id: OpaqueID;
   base_table_version: PositiveInt;
+  /**
+   * NFC, reject C0/C1 controls, trim exact owner whitespace, then require 1..64 Unicode scalars and active-name uniqueness.
+   */
   display_name: string;
 }
 /**

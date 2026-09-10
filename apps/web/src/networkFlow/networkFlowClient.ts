@@ -3,12 +3,7 @@ import {
   networkFlowActivityProfileId,
   networkFlowRouteFamily,
 } from "../extensions/extensionWorkspaceIdentities";
-import {
-  apiPath,
-  clientTxnID,
-  extractError,
-  fetchJSON,
-} from "../services/browserApi";
+import { apiPath, extractError, fetchJSON } from "../services/browserApi";
 import type {
   NetworkFlowContributorPageRequest,
   NetworkFlowContributorResult,
@@ -24,9 +19,7 @@ import type {
   NetworkFlowSavedGraphContributorResult,
   NetworkFlowSavedGraphResult,
   NetworkFlowTable,
-  NetworkFlowTableRenameRequest,
   NetworkFlowTableScope,
-  NetworkFlowTableSoftDeleteRequest,
 } from "../services/networkFlowContractAdapter";
 import {
   decodeNetworkFlowContributorResult,
@@ -56,6 +49,11 @@ import type {
   NetworkFlowAcceptedPageRequest,
   NetworkFlowRejectedPageRequest,
 } from "./networkFlowQueryModel";
+import {
+  type TableAttempt,
+  TableWriteError,
+  validateTableReceipt,
+} from "./networkFlowTableOperation";
 import {
   type SavedGraphAttempt,
   type SavedGraphReceipt,
@@ -122,58 +120,78 @@ export async function listNetworkFlowTables(options: {
   if (!result.ok) {
     throw networkFlowRequestError(result.status, result.payload);
   }
-  return decodeNetworkFlowTableList(networkFlowResponseData(result.payload))
-    .tables;
+  const tables = decodeNetworkFlowTableList(
+    networkFlowResponseData(result.payload),
+  ).tables;
+  if (
+    result.status !== 200 ||
+    tables.some(
+      (table) =>
+        table.incident_id !== options.incidentId ||
+        table.table_status !== "active" ||
+        table.deleted_at !== null,
+    ) ||
+    new Set(tables.map((table) => table.network_flow_table_id)).size !==
+      tables.length
+  )
+    throw new SyntaxError("invalid_network_flow_table_catalog");
+  return tables;
 }
 
-export async function renameNetworkFlowTable(options: {
+/** Mutation identity and payload belong to the table lifecycle owner. */
+export async function submitNetworkFlowTableMutation(options: {
   readonly availability: ExtensionAvailabilityController;
   readonly apiBase?: string | undefined;
-  readonly baseTableVersion: number;
-  readonly displayName: string;
-  readonly incidentId: string;
-  readonly tableId: string;
+  readonly attempt: TableAttempt;
+  readonly signal: AbortSignal;
+  readonly authorizeDispatch: () => void;
 }): Promise<NetworkFlowTable> {
-  const request: NetworkFlowTableRenameRequest = {
-    client_txn_id: clientTxnID("nf-table-rename"),
-    base_table_version: options.baseTableVersion,
-    display_name: options.displayName,
-  };
+  const { attempt } = options;
   const result = await fetchNetworkFlowJSON<unknown>(
     options.availability,
-    tableURL(options),
-    requestInit({ method: "PATCH", body: JSON.stringify(request) }, undefined),
+    tableURL({
+      apiBase: options.apiBase,
+      incidentId: attempt.authority.incidentId,
+      tableId: attempt.target.network_flow_table_id,
+    }),
+    {
+      method: attempt.action === "rename" ? "PATCH" : "DELETE",
+      body: attempt.body,
+      signal: options.signal,
+    },
+    () => {
+      options.signal.throwIfAborted();
+      options.authorizeDispatch();
+    },
   );
   if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+    if (!validNetworkFlowErrorEnvelope(result.status, result.payload))
+      throw new TableWriteError(
+        "uncertain",
+        "The server response did not establish whether the request committed. Replay the exact request.",
+      );
+    const error = networkFlowRequestError(result.status, result.payload);
+    throw new TableWriteError(
+      result.status >= 400 && result.status < 500 ? "rejected" : "uncertain",
+      error.message,
+      error,
+    );
   }
-  return decodeNetworkFlowTableMutationResult(
-    networkFlowResponseData(result.payload),
-  ).table;
-}
-
-export async function softDeleteNetworkFlowTable(options: {
-  readonly availability: ExtensionAvailabilityController;
-  readonly apiBase?: string | undefined;
-  readonly baseTableVersion: number;
-  readonly incidentId: string;
-  readonly tableId: string;
-}): Promise<NetworkFlowTable> {
-  const request: NetworkFlowTableSoftDeleteRequest = {
-    client_txn_id: clientTxnID("nf-table-delete"),
-    base_table_version: options.baseTableVersion,
-  };
-  const result = await fetchNetworkFlowJSON<unknown>(
-    options.availability,
-    tableURL(options),
-    requestInit({ method: "DELETE", body: JSON.stringify(request) }, undefined),
-  );
-  if (!result.ok) {
-    throw networkFlowRequestError(result.status, result.payload);
+  try {
+    return validateTableReceipt(
+      decodeNetworkFlowTableMutationResult(
+        networkFlowResponseData(result.payload),
+      ).table,
+      result.status,
+      attempt,
+    );
+  } catch (error) {
+    if (error instanceof TableWriteError) throw error;
+    throw new TableWriteError(
+      "uncertain",
+      "The acknowledgement could not be verified. Replay the exact request to recover.",
+    );
   }
-  return decodeNetworkFlowTableMutationResult(
-    networkFlowResponseData(result.payload),
-  ).table;
 }
 
 export async function queryNetworkFlowTable(options: {

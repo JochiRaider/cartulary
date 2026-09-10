@@ -122,7 +122,7 @@ describe("Protocol-TS authored family entrypoints", () => {
     expect(networkFlowPresentationRegistry).toBeDefined();
 
     const invalid = networkFlowDecoders.tableList.decode({
-      schema_id: "cartulary.network_flow.table_list.v1",
+      schema_id: "cartulary.network_flow_table_list.v1",
       tables: [],
       meta: { count: 0 },
       raw_source_value: "must-not-leak",

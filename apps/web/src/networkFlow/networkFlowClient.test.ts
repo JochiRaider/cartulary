@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExtensionAvailabilityUnavailableError } from "../extensions/extensionAvailability";
 import { csrfHeaderName } from "../services/browserApi";
+import type { NetworkFlowTable } from "../services/networkFlowContractAdapter";
 import { NetworkFlowContractDecodeError } from "../services/networkFlowContractAdapter";
 import { readyExtensionAvailability } from "../testing/extensionAvailabilityTestSupport";
 import {
   listNetworkFlowTables,
-  renameNetworkFlowTable,
+  submitNetworkFlowTableMutation,
 } from "./networkFlowClient";
+import { captureTableAttempt } from "./networkFlowTableOperation";
+import { tableAuthority } from "./tableLifecycleTestFixtures";
 
-const incidentId = "incident-1";
+const incidentId = "11111111-1111-4111-8111-111111111111";
 const tableId = "nft_11111111111111111111111111111111";
 
 describe("Network Flow client transport boundary", () => {
@@ -31,15 +34,19 @@ describe("Network Flow client transport boundary", () => {
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse({
-          schema_id: "cartulary.network_flow.table_list.v1",
+          schema_id: "cartulary.network_flow_table_list.v1",
           tables: [tableResource()],
           meta: { count: 1 },
         }),
       )
       .mockResolvedValueOnce(
         jsonResponse({
-          schema_id: "cartulary.network_flow.table_mutation_result.v1",
-          table: { ...tableResource(), display_name: "renamed.csv" },
+          schema_id: "cartulary.network_flow_table_mutation_result.v1",
+          table: {
+            ...tableResource(),
+            display_name: "renamed.csv",
+            table_version: 2,
+          },
         }),
       );
     const availability = readyExtensionAvailability(incidentId);
@@ -50,12 +57,16 @@ describe("Network Flow client transport boundary", () => {
       incidentId,
       signal: abortController.signal,
     });
-    const renamed = await renameNetworkFlowTable({
+    const renamed = await submitNetworkFlowTableMutation({
       availability,
-      baseTableVersion: 1,
-      displayName: "renamed.csv",
-      incidentId,
-      tableId,
+      attempt: captureTableAttempt(
+        "rename",
+        { ...tableAuthority(), incidentId },
+        tableResource(),
+        "renamed.csv",
+      ),
+      signal: abortController.signal,
+      authorizeDispatch: () => {},
     });
 
     expect(tables[0]?.network_flow_table_id).toBe(tableId);
@@ -113,7 +124,7 @@ describe("Network Flow client transport boundary", () => {
   it("keeps malformed success responses behind the generated decoder", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
-        schema_id: "cartulary.network_flow.table_list.v1",
+        schema_id: "cartulary.network_flow_table_list.v1",
         tables: [{ network_flow_table_id: tableId }],
         meta: { count: 1 },
       }),
@@ -128,7 +139,7 @@ describe("Network Flow client transport boundary", () => {
   });
 });
 
-function tableResource() {
+function tableResource(): NetworkFlowTable {
   const digest = "a".repeat(64);
   return {
     network_flow_table_id: tableId,

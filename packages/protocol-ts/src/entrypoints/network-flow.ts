@@ -56,11 +56,11 @@ export {
 
 export const networkFlowDecoders = Object.freeze({
   tableList: createDecoder<TableList>(
-    "cartulary.network_flow.table_list.v1",
+    "cartulary.network_flow_table_list.v1",
     validateCartularyNetworkFlowTableListV1,
   ),
   tableMutationResult: createDecoder<TableMutationResult>(
-    "cartulary.network_flow.table_mutation_result.v1",
+    "cartulary.network_flow_table_mutation_result.v1",
     validateCartularyNetworkFlowTableMutationResultV1,
   ),
   tableQueryResult: createDecoder<TableQueryResult>(

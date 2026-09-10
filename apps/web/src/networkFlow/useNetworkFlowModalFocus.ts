@@ -62,7 +62,9 @@ export function useNetworkFlowModalFocus<Element extends HTMLElement>(options: {
       mounted = false;
       queueMicrotask(() => {
         if (
-          document.querySelector('[role="dialog"][aria-modal="true"]') !== null
+          document.querySelector(
+            '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',
+          ) !== null
         )
           return;
         if (

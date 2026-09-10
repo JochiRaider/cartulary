@@ -483,33 +483,33 @@
       }
     },
     "TableList": {
-      "x_schema_id": "cartulary.network_flow.table_list.v1",
+      "x_schema_id": "cartulary.network_flow_table_list.v1",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "tables", "meta"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.table_list.v1" },
+        "schema_id": { "const": "cartulary.network_flow_table_list.v1" },
         "tables": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowTable" } },
         "meta": { "$ref": "#/$defs/CountMeta" }
       }
     },
     "TableGet": {
-      "x_schema_id": "cartulary.network_flow.table_get.v1",
+      "x_schema_id": "cartulary.network_flow_table_get.v1",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "table"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.table_get.v1" },
+        "schema_id": { "const": "cartulary.network_flow_table_get.v1" },
         "table": { "$ref": "#/$defs/NetworkFlowTable" }
       }
     },
     "TableMutationResult": {
-      "x_schema_id": "cartulary.network_flow.table_mutation_result.v1",
+      "x_schema_id": "cartulary.network_flow_table_mutation_result.v1",
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_id", "table"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow.table_mutation_result.v1" },
+        "schema_id": { "const": "cartulary.network_flow_table_mutation_result.v1" },
         "table": { "$ref": "#/$defs/NetworkFlowTable" }
       }
     },
@@ -521,7 +521,7 @@
       "properties": {
         "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
         "base_table_version": { "$ref": "#/$defs/PositiveInt" },
-        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 }
+        "display_name": { "type": "string", "description": "NFC, reject C0/C1 controls, trim exact owner whitespace, then require 1..64 Unicode scalars and active-name uniqueness." }
       }
     },
     "TableSoftDeleteRequest": {

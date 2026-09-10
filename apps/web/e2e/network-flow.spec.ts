@@ -7,6 +7,7 @@ import {
 import type { Request } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   expectNetworkFlowRuntimeProfile,
   importNetworkFlowCSV,
@@ -1091,6 +1092,13 @@ test("Verify Network Analysis clears protected grid, inspector, graph, contribut
 
   await importNetworkFlowCSV(page, { displayName: "recovery-source" });
   await expect(
+    page.getByTestId(networkAnalysisTestId("mode-graph")),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByTestId(networkAnalysisTestId("status-strip")),
+  ).toContainText("graph stale");
+  await page.getByTestId(networkAnalysisTestId("mode-rows")).click();
+  await expect(
     page.getByTestId(networkAnalysisTestId("accepted-grid")),
   ).toBeVisible();
   await expect(page.getByRole("tab", { name: /lifecycle-source/ })).toHaveCount(
@@ -1159,3 +1167,114 @@ function aliasCollisionCSV(): string {
     "2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,192.0.2.10,192.0.2.10,192.0.2.20,443,51515,6,1200,12",
   ].join("\n");
 }
+
+test("Network Analysis table dialogs review peer changes preserve graph context and replay exact lost receipts", async ({
+  page,
+}) => {
+  const incidentId = await openClaimedNetworkAnalysis(
+    page,
+    "NFTABLECONTINUITY",
+  );
+  await importNetworkFlowCSV(page, { displayName: "table-source" });
+  const collection = `${apiBase}/api/v1/incidents/${incidentId}/network-flow/tables`;
+  const catalog = await (await page.request.get(collection)).json();
+  const tableId = catalog.data.tables[0].network_flow_table_id as string;
+  const resource = `${collection}/${tableId}`;
+  const graphRequests: Request[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/network-flow/graphs/query"))
+      graphRequests.push(request);
+  });
+  await page.getByTestId(networkAnalysisTestId("mode-graph")).click();
+  const edge = page
+    .getByTestId(/^network-flow-edge-/u)
+    .first()
+    .getByRole("button", { name: "Select edge" });
+  await edge.click();
+  const contributors = page.getByRole("complementary", {
+    name: /contributors/iu,
+  });
+  await expect(contributors).toBeVisible();
+  const count = graphRequests.length;
+  const trigger = page.getByTestId(networkAnalysisTestId("rename-trigger"));
+  await trigger.focus();
+  await trigger.press("Enter");
+  const dialog = page.getByTestId(networkAnalysisTestId("rename-dialog"));
+  const input = page.getByTestId(networkAnalysisTestId("rename-input"));
+  await expect(input).toBeFocused();
+  await input.fill("😀".repeat(65));
+  await input.press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("64 Unicode");
+  await input.fill(" Cafe\u0301 ");
+  const peer = await page.request.patch(resource, {
+    headers: await csrfHeaders(page),
+    data: {
+      client_txn_id: uniqueTxn("table-peer"),
+      base_table_version: 1,
+      display_name: "Peer table",
+    },
+  });
+  expect(peer.status()).toBe(200);
+  await expect(
+    dialog.getByRole("button", { name: "Review current table" }),
+  ).toBeEnabled();
+  await expect(input).toHaveValue(" Cafe\u0301 ");
+  await expect(
+    dialog.getByTestId(networkAnalysisTestId("rename-submit")),
+  ).toBeDisabled();
+  await dialog
+    .getByRole("button", { name: "Review current table" })
+    .press("Enter");
+  await page.getByTestId(networkAnalysisTestId("rename-input")).press("Enter");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page.getByRole("tab", { name: /Café/u })).toBeVisible();
+  await expect(contributors).toBeVisible();
+  expect(graphRequests).toHaveLength(count);
+
+  const requests: string[] = [];
+  let lose = true;
+  await page.route(`**/network-flow/tables/${tableId}`, async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.continue();
+      return;
+    }
+    requests.push(route.request().postData() ?? "");
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    if (lose) {
+      lose = false;
+      await route.abort("failed");
+    } else await route.fulfill({ response });
+  });
+  await trigger.click();
+  await input.fill("Recovered table");
+  await input.press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("may have committed");
+  await page.keyboard.press("Escape");
+  await page
+    .getByTestId(surfaceTabTestId("cartulary.view.timeline.v2"))
+    .click();
+  // A later authorized mutation changes current metadata before historical replay.
+  const latest = await page.request.patch(resource, {
+    headers: await csrfHeaders(page),
+    data: {
+      client_txn_id: uniqueTxn("table-later"),
+      base_table_version: 4,
+      display_name: "Latest table",
+    },
+  });
+  expect(latest.status()).toBe(200);
+  await page
+    .getByRole("button", { name: "Review retained table change" })
+    .click();
+  await dialog.getByRole("button", { name: "Replay exact request" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(requests).toHaveLength(2);
+  expect(requests[1]).toBe(requests[0]);
+  await page.getByTestId(networkAnalysisTestId("tab")).click();
+  await expect(page.getByRole("tab", { name: /Latest table/u })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Recovered table/u })).toHaveCount(
+    0,
+  );
+});

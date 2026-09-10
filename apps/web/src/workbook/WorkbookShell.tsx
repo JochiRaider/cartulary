@@ -44,8 +44,11 @@ import {
   NetworkFlowImportSurface,
   NetworkFlowIndicatorLinkRecovery,
   NetworkFlowIndicatorLinkSurface,
+  NetworkFlowTableRecovery,
+  NetworkFlowTableSurface,
   useNetworkFlowIndicatorLinkOwner,
   useNetworkFlowSavedGraphOwner,
+  useNetworkFlowTableOwner,
 } from "./features/NetworkFlowOperations";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
 import { useNetworkFlowImportBinding } from "./hooks/useNetworkFlowImportBinding";
@@ -223,6 +226,25 @@ function WorkbookShellContent({
     sessionIdentity,
     role: authorization.currentIncidentRole,
     open: incidentIdentity?.status === "active",
+  });
+  const networkFlowTableController = useNetworkFlowTableOwner({
+    availability: extensionLifecycle.controller,
+    apiBase,
+    incidentId,
+    actorId: authorization.currentUserId,
+    sessionIdentity,
+    role: authorization.currentIncidentRole,
+    open: incidentIdentity?.status === "active",
+    onMutationAdmitted: networkFlowIndicatorLinkController.onMutationAdmitted,
+    onLocalChange: (change) => {
+      if (
+        change.resourceKind === "*" &&
+        change.reasonCode === "authorization_lost"
+      )
+        onIncidentAccessLost?.();
+      void networkFlowSavedGraphController.onResourceChange(change);
+      networkFlowIndicatorLinkController.onResourceChange(change);
+    },
   });
   const incidentRead = useRef<AbortController | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: An incident replacement must abort the previous incident's resource read.
@@ -505,6 +527,7 @@ function WorkbookShellContent({
         revision: extensionLifecycle.revision,
       }}
       extensionRenderer={{
+        tableController: networkFlowTableController,
         savedGraphController: networkFlowSavedGraphController,
         indicatorLinkController: networkFlowIndicatorLinkController,
         importController: networkFlowImportController,
@@ -539,6 +562,7 @@ function WorkbookShellContent({
     >
       <WorkbookSaveAnnouncements runtime={infrastructure.mutationRuntime} />
       <NetworkFlowImportSurface controller={networkFlowImportController} />
+      <NetworkFlowTableSurface controller={networkFlowTableController} />
       <NetworkFlowIndicatorLinkSurface
         controller={networkFlowIndicatorLinkController}
       />
@@ -550,6 +574,7 @@ function WorkbookShellContent({
                 controller={networkFlowImportController}
               />
             ) : null}
+            <NetworkFlowTableRecovery controller={networkFlowTableController} />
             <NetworkFlowIndicatorLinkRecovery
               controller={networkFlowIndicatorLinkController}
             />

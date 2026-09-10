@@ -10,6 +10,7 @@ import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type {
   NetworkFlowImportController,
   NetworkFlowIndicatorLinkController,
+  NetworkFlowTableController,
   SavedGraphController,
 } from "../features/NetworkFlowOperations";
 import { shellContentNoticeStyle } from "../layout/workbookShellStyles";
@@ -19,6 +20,7 @@ import {
 } from "../surfaces/WorkbookSurfacesFacade";
 
 type ExtensionWorkspaceRendererProps = {
+  readonly tableController: NetworkFlowTableController;
   readonly indicatorLinkController: NetworkFlowIndicatorLinkController;
   readonly savedGraphController: SavedGraphController;
   readonly importController: NetworkFlowImportController;

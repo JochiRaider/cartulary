@@ -377,7 +377,7 @@
       "selector": {
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
-          "NetworkAnalysisWorkspace removes mutation surfaces immediately when the role is downgraded"
+          "NetworkAnalysisWorkspace withdraws mutation dispatch and retains a copyable draft when the role is downgraded"
         ]
       },
       "evidence_class": "unit",
@@ -1200,6 +1200,141 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace completes the saved graph lifecycle with exact results, last-safe refresh, contributors, bounded rendering, and role-aware controls"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.table_captured_operations",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowTableController.test.ts",
+        "titles": [
+          "Table lifecycle operations admits exact operation roles and synchronously prevents duplicate submission",
+          "Table lifecycle operations bounds uncertainty and replays the identical attempt while preserving later metadata",
+          "Table lifecycle operations captures immutable bytes and fences queued dispatch after role loss",
+          "Table lifecycle operations fences late completions across navigation session and incident changes",
+          "Table lifecycle operations keeps acknowledgement independent of refresh failure and newer dialogs",
+          "Table lifecycle operations keeps uncertain outcomes after rejected replay and rejects duplicate active names locally",
+          "Table lifecycle operations normalizes names with exact scalar whitespace and control rules",
+          "Table lifecycle operations pauses session state preserves closed drafts and cancels removed-resource work",
+          "Table lifecycle operations refreshes current reads after write rejection while blocking further cached-role dispatch",
+          "Table lifecycle operations requires explicit review on peer changes and never reselects a conflict target",
+          "Table lifecycle operations retains a meaningful delete receipt while removing its active resource",
+          "Table lifecycle operations validates receipt identity lifecycle immutable fields and normalized no-op"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.table_catalog_continuity",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "titles": [
+          "networkFlowControllerReducer rejects catalog regression and resurrection after terminal removal",
+          "networkFlowControllerReducer uses prior next then previous order when a complete list loses the active table"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.table_consumer_continuity",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/tableConsumerContinuity.test.tsx",
+        "titles": [
+          "Table consumer continuity preserves graph identity through rename and unrelated removal then requires affected recomputation",
+          "Table consumer continuity tracks all-active membership independently of names and resolves fresh sources on recompute"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.table_indicator_continuity",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkOperation.test.ts",
+        "titles": [
+          "Indicator link captured operation preserves indicator intent across table metadata and unrelated deletion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.networkflow.regression.table_observation_continuity",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/NetworkFlowTableController.test.ts",
+        "titles": [
+          "Table catalog continuity fences pending lists crossing rename delete and collaboration",
+          "Table catalog continuity preserves navigation across a delayed validated import handoff",
+          "Table catalog continuity purges resource drafts and context knowledge only at the authorized lifetime boundary"
         ]
       },
       "evidence_class": "unit",

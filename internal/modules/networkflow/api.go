@@ -95,7 +95,8 @@ func (e *MappingValidationError) Unwrap() error {
 }
 
 type InvalidDisplayNameError struct {
-	ReasonCode string
+	NormalizedLength int
+	ReasonCode       string
 }
 
 func (e *InvalidDisplayNameError) Error() string {

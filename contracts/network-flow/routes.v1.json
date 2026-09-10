@@ -46,7 +46,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.table_list.v1",
+      "success_schema_id": "cartulary.network_flow_table_list.v1",
       "success_http_statuses": [200],
       "idempotency": "read_route",
       "primary_errors": ["network_flow_invalid_request"],
@@ -59,7 +59,7 @@
       "auth_context": "viewer",
       "request_schema_id": null,
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.table_get.v1",
+      "success_schema_id": "cartulary.network_flow_table_get.v1",
       "success_http_statuses": [200],
       "idempotency": "read_route",
       "primary_errors": [
@@ -75,7 +75,7 @@
       "auth_context": "editor",
       "request_schema_id": "cartulary.network_flow.table_rename_request.v1",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.table_mutation_result.v1",
+      "success_schema_id": "cartulary.network_flow_table_mutation_result.v1",
       "success_http_statuses": [200],
       "idempotency": "client_txn_id_required",
       "primary_errors": [
@@ -91,7 +91,7 @@
       "auth_context": "reviewer",
       "request_schema_id": "cartulary.network_flow.table_soft_delete_request.v1",
       "continuation_schema_id": null,
-      "success_schema_id": "cartulary.network_flow.table_mutation_result.v1",
+      "success_schema_id": "cartulary.network_flow_table_mutation_result.v1",
       "success_http_statuses": [200],
       "idempotency": "client_txn_id_required",
       "primary_errors": [

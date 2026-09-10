@@ -9,6 +9,7 @@ export function networkFlowWorkspaceStatus(input: {
     | null;
   readonly linkStatus: "link_pending" | "link_committed" | null;
   readonly graphState: NetworkFlowQueryLoadState;
+  readonly graphStale?: boolean;
   readonly hasGraph: boolean;
   readonly rejectedRows: number | null;
 }) {
@@ -16,7 +17,8 @@ export function networkFlowWorkspaceStatus(input: {
   if (input.linkStatus === "link_pending") return "link_pending";
   if (input.graphState === "loading" || input.graphState === "refreshing")
     return "graph_pending";
-  if (input.hasGraph && input.graphState !== "ready") return "graph_stale";
+  if (input.graphStale || (input.hasGraph && input.graphState !== "ready"))
+    return "graph_stale";
   if (input.linkStatus === "link_committed") return "link_committed";
   if (input.hasGraph) return "graph_available";
   if (input.rejectedRows === null) return null;
