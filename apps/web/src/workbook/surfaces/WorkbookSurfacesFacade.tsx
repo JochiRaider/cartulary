@@ -180,7 +180,6 @@ export function WorkbookSurfacesFacade({
           mutationRuntime,
           clipboardPaste: mutations.clipboardPaste,
           mutationCommands: mutationCommands.timeline,
-          indicatorWorkflow: mutationCommands.indicators,
           incident: {
             id: incidentId,
             apiBase,

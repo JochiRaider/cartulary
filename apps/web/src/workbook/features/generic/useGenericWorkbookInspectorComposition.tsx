@@ -575,7 +575,6 @@ export function useGenericWorkbookInspectorComposition({
             : {
                 handler: indicatorInspectorHandler,
                 onMutationCommitted: onRefresh,
-                port: mutationCommands.indicators,
                 recordId: selectedEdit.row.record_id,
                 rowVersion: selectedEdit.row.row_version,
                 select: setIndicatorInspectorHandler,

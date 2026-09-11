@@ -504,6 +504,29 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-indicator-observations",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.indicator_observations_exact_recovery",
+            "module.workbook.browser.indicator_observations_paging_source_edits"
+          ],
+          "specs": [
+            "apps/web/e2e/indicator-observations.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-inspector-actions",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1454,6 +1477,29 @@
           ],
           "specs": [
             "apps/web/e2e/indicator-lifecycle.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-indicator-observations",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.indicator_observations_exact_recovery",
+            "module.workbook.browser.indicator_observations_paging_source_edits"
+          ],
+          "specs": [
+            "apps/web/e2e/indicator-observations.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
@@ -2665,6 +2711,7 @@
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
+            "module.workbook.accessibility.indicator_observations_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
@@ -2786,6 +2833,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
+            "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
@@ -3061,6 +3109,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
+            "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
@@ -3663,6 +3712,7 @@
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
+            "module.workbook.accessibility.indicator_observations_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
@@ -3772,6 +3822,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
+            "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",

@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/db/migrations"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -24,7 +26,15 @@ func TestIndicatorLifecycleIntegrityMigration_Integration(t *testing.T) {
 	t.Run("clean install enforces unique lifecycle support references", func(t *testing.T) {
 		harness := pgtest.Start(t)
 		migrationDB := harness.MigrationDatabaseT(t)
-		requireIndicatorMigrationHead(t, migrationDB.SQL(), 40)
+		source, err := migrations.Source()
+		if err != nil {
+			t.Fatal(err)
+		}
+		catalog, err := database_migrations.InspectSource(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requireIndicatorMigrationHead(t, migrationDB.SQL(), catalog.MaxVersion)
 		requireIndicatorSupportRefsValidity(t, migrationDB.SQL(), duplicateLifecycleSupportRefs(), false)
 	})
 

@@ -1,6 +1,7 @@
 import { sheetRefKey } from "../../../shared/sheetRef";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
+import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import { useTimelineGridEnvironment } from "./useTimelineGridEnvironment";
 import { useTimelineInspectorStateComposition } from "./useTimelineInspectorStateComposition";
@@ -294,7 +295,22 @@ export function useTimelineWorkbookComposition({
       );
     },
   });
+  const observationSource = useTimelineObservationSource({
+    runtime: runtime.mutationRuntime,
+    selectedRow: inspector.snapshot.selection.selectedRow,
+    available:
+      workbookInspectorStateIsOpen(inspector.snapshot.lifecycle) &&
+      workflow.snapshot.indicatorHandler?.action ===
+        "indicator.observations.manage" &&
+      inspector.snapshot.selection.selectedRowWorkflowSubject?.kind ===
+        "live" &&
+      !foundation.snapshot.lifecycle.loadAccessLost,
+    rowsRef: foundation.refs.rows,
+    drafts: foundation.refs.editorDraftRegistry,
+    waitForIdle: mutation.ports.waitForCommittedRecordIdle,
+  });
   const presentation = {
+    observationSource,
     captureActions,
     foundation: {
       commands: {

@@ -245,6 +245,11 @@ import {
   openLifecycleEditor,
 } from "./support/workbook/indicatorLifecycle";
 import {
+  createObservationFixture,
+  openObservationEditor,
+  selectRepeatedObservation,
+} from "./support/workbook/indicatorObservations";
+import {
   createViewRow,
   patchRecord,
   queryViewRows,
@@ -327,6 +332,7 @@ const expectedFrontendVisualFixtureIds = [
   "visual.fixture.task_requests_or_decisions",
   "visual.fixture.tree_group_row",
   "visual.fixture.indicator_lifecycle_authoring",
+  "visual.fixture.indicator_observations_authoring",
 ] as const;
 
 const expectedDesignContractIds = Array.from(
@@ -8672,4 +8678,41 @@ test("Capture Indicator lifecycle UTC authoring at desktop and narrow widths", a
     "indicator-lifecycle-authoring-narrow",
     { anchor },
   );
+});
+
+test("Capture Indicator observation source selection at desktop and narrow widths", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const { incidentId, source } = await createObservationFixture(page);
+  await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
+  const editor = await openObservationEditor(page, source.record_id);
+  await selectRepeatedObservation(page);
+  await expect(
+    editor.getByRole("button", { name: "Create observation", exact: true }),
+  ).toBeEnabled();
+  const anchor: VisualAnchor = {
+    locator: editor,
+    align: "start",
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+  };
+  await assertViewportVisualRegression(
+    page,
+    "indicator-observation-authoring",
+    { anchor },
+  );
+  await testInfo.attach("indicator-observation-authoring-review", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await assertViewportVisualRegression(
+    page,
+    "indicator-observation-authoring-narrow",
+    { anchor },
+  );
+  await testInfo.attach("indicator-observation-authoring-narrow-review", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
+  });
 });

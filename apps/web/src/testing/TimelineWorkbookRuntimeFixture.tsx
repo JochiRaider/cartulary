@@ -331,7 +331,6 @@ export function TimelineWorkbookRuntimeFixture({
             collaborationProjection,
             mutationRuntime,
             mutationCommands: mutationCommands.timeline,
-            indicatorWorkflow: mutationCommands.indicators,
             gridEntryFocus: idleGridEntryFocus,
             incident: {
               id: incidentId,

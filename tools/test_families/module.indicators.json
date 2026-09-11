@@ -70,7 +70,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/mutations/createIndicatorWorkflowPort.test.ts",
+        "file": "apps/web/src/workbook/adapters/observationContracts.test.ts",
         "titles": [
           "binds observation transitions to typed child operations",
           "omits mismatched and generic-patch Indicator tuples",

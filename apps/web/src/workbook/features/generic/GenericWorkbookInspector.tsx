@@ -23,10 +23,7 @@ import type {
 import type { WorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import type { WorkbookRecordHistoryOwnerEffects } from "../../inspector/workbookRecordHistoryOwnerEffects";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
-import type {
-  IndicatorWorkflowPort,
-  RecordRouteCommandPort,
-} from "../../mutations/workbookMutationCommandPorts";
+import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import { IndicatorInspectorWorkflow } from "../indicators/IndicatorInspectorWorkflow";
 import { IndicatorLifecycleWorkflow } from "../indicators/IndicatorLifecycleWorkflow";
 import {
@@ -69,7 +66,6 @@ export function GenericWorkbookInspector({
   readonly indicator: {
     readonly handler: IndicatorInspectorHandler | null;
     readonly onMutationCommitted: () => Promise<void> | void;
-    readonly port: IndicatorWorkflowPort;
     readonly recordId: string;
     readonly rowVersion: number;
     readonly select: (handler: IndicatorInspectorHandler | null) => void;
@@ -148,11 +144,8 @@ export function GenericWorkbookInspector({
           />
         ) : (
           <IndicatorInspectorWorkflow
-            beginMutation={history.beginMutation}
             action={indicator.handler.action}
             indicatorRecordId={indicator.recordId}
-            port={indicator.port}
-            rowVersion={indicator.rowVersion}
             onMutationCommitted={indicator.onMutationCommitted}
           />
         )

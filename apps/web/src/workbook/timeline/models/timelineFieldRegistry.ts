@@ -208,14 +208,6 @@ export const timelineInspectorBindings: readonly TimelineScalarBinding[] = [
   requireScalarBinding("timeline.activity_synopsis_text"),
 ];
 
-export const timelineObservationSourceFields = timelineScalarBindings.map(
-  (binding) => ({
-    fieldKey: binding.fieldKey,
-    label:
-      timelineContract.fieldMap[binding.fieldKey]?.label ?? binding.fieldKey,
-  }),
-);
-
 export function inputFocusKey(
   rowKey: string,
   field: FocusFieldKey,

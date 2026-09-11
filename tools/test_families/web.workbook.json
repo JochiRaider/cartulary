@@ -1647,6 +1647,309 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.indicator_observations_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/observationAuthoring.test.tsx",
+        "titles": [
+          "Observation authoring previews the exact selection and omits unchosen type and target",
+          "Observation targets page independently and retain the selected identity across filters",
+          "Observation transition editors isolate targets and ordinary restore has no prior target"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorObservations.characterization.test.tsx",
+        "titles": [
+          "Observation capture exposes committed source text for accessible selection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_controller_continuity",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineInspectorFeatureController.test.tsx",
+        "titles": [
+          "useTimelineInspectorFeatureController retains observation management across a same-source committed version while close and deletion retire it"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_model",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/observationModel.test.ts",
+        "titles": [
+          "Observation actions enforce resolve reassignment dismiss and unresolved restore",
+          "Observation drafts isolate source fields and observation targets without content dedupe",
+          "Observation field discovery follows source text capability rather than editability",
+          "Observation spans preserve ASCII Unicode repeated occurrences whitespace and line endings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/WorkbookObservationOwner.test.ts",
+        "titles": [
+          "Observation accepts before refresh and retries only reads while retaining all affected versions",
+          "Observation admission synchronously reserves one operation and rechecks preparation races",
+          "Observation authority loss hides retained uncertainty and account retirement removes protected data",
+          "Observation exact replay preserves immutable route body identity through closure and source changes",
+          "Observation fresh target discovery is independent paged and stale child or target dispatches nothing",
+          "Observation late settlement survives Inspector disposal but cannot complete a retired account",
+          "Observation runtime retains uncertainty across shell recovery with save status and retires account state"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_paging",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/ObservationCollection.test.ts",
+        "titles": [
+          "Observation pages reject nonprogress and fence obsolete reads",
+          "Observation pages retain data retry the failed cursor and deduplicate identity not text"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_presentation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/observationPresentation.test.tsx",
+        "titles": [
+          "Observation presentation fences late source reads and hides protected state on access loss",
+          "Observation transition focus stays with its subject and provenance remains opaque text",
+          "Observation uncertainty survives close and reopen without completing detached drafts or moving focus"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_reconciliation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/observationReconciliation.test.tsx",
+        "titles": [
+          "Observation query materialization fences older HTTP projections against accepted socket evidence",
+          "Observation reconciliation reads source previous and new Indicator identities beyond visible pages"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_socket_order",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
+        "titles": [
+          "WorkbookCollaborationCoordinator accounts for observation affected record versions before transaction suppression in either HTTP order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_source_boundary",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineObservationSource.test.tsx",
+        "titles": [
+          "Observation source preparation preserves raw committed strings and rejects saved or local source changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_observations_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createObservationTransport.test.ts",
+        "titles": [
+          "Observation receipt validation rejects incomplete inconsistent and malformed success as uncertainty",
+          "Observation transition receipts preserve historical provenance and require source old and new targets",
+          "Observation transport admits only child request members preserves omissions and exact replay bytes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_create_related_workflow_stale_results_31f0cbe2d1",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2201,7 +2504,7 @@
         "file": "apps/web/src/workbook/timeline/useTimelineInspectorFeatureController.test.tsx",
         "titles": [
           "useTimelineInspectorFeatureController fails closed while owning cancellation, unavailable messages, and mutually exclusive selection",
-          "useTimelineInspectorFeatureController resets Indicator and generic workflows on subject, version, surface, lifecycle, and authorization changes",
+          "useTimelineInspectorFeatureController resets Indicator and generic workflows on subject, surface, lifecycle, and authorization changes",
           "useTimelineInspectorFeatureController routes canonical features with Indicator precedence and no generic fallback"
         ]
       },

@@ -13,11 +13,14 @@ import {
   type WorkbookInspectorSubject,
   workbookInspectorSubjectsEqual,
 } from "../../inspector/workbookInspectorSubject";
+import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 
 export type TimelineInspectorFeatureLifecycle = {
   readonly authorizationKey: string;
   readonly invalidationGeneration: number;
+  readonly invalidationCause: WorkbookInspectorState["invalidationCause"];
+  readonly isOpen: boolean;
   readonly lifecycleKey: string;
   readonly subject: WorkbookInspectorSubject | null;
   readonly surfaceKey: string;
@@ -56,7 +59,33 @@ export function useTimelineInspectorFeatureController({
       return;
     }
     previousLifecycleRef.current = lifecycle;
-    setIndicatorHandler(null);
+    // Observation drafts validate committed versions themselves. A new version
+    // of the same live source must not dismiss the Relationships workflow.
+    const sameObservationSource =
+      previousLifecycle.isOpen &&
+      lifecycle.isOpen &&
+      previousLifecycle.subject?.kind === "live" &&
+      lifecycle.subject?.kind === "live" &&
+      previousLifecycle.subject.recordId === lifecycle.subject.recordId &&
+      previousLifecycle.subject.viewSchemaId ===
+        lifecycle.subject.viewSchemaId &&
+      sameTimelineInspectorFeatureLifecycle(
+        {
+          ...previousLifecycle,
+          subject: lifecycle.subject,
+          invalidationGeneration:
+            lifecycle.invalidationCause === "retarget"
+              ? lifecycle.invalidationGeneration
+              : previousLifecycle.invalidationGeneration,
+        },
+        lifecycle,
+      );
+    setIndicatorHandler((handler) =>
+      handler?.action === "indicator.observations.manage" &&
+      sameObservationSource
+        ? handler
+        : null,
+    );
     cancelCreateRelatedWorkflow("lifecycle");
     setInspectorMessage(null);
   }, [cancelCreateRelatedWorkflow, lifecycle, setInspectorMessage]);
@@ -113,6 +142,7 @@ function sameTimelineInspectorFeatureLifecycle(
     left.authorizationKey === right.authorizationKey &&
     left.invalidationGeneration === right.invalidationGeneration &&
     left.lifecycleKey === right.lifecycleKey &&
+    left.isOpen === right.isOpen &&
     workbookInspectorSubjectsEqual(left.subject, right.subject) &&
     left.surfaceKey === right.surfaceKey
   );

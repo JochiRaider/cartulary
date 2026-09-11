@@ -10,10 +10,7 @@ import type {
   FilterDraft,
   WorkbookQueryState,
 } from "../../models/workbookQuery";
-import type {
-  IndicatorWorkflowPort,
-  TimelineMutationCommandPorts,
-} from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../../ports/WorkbookIncidentPort";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
@@ -49,7 +46,6 @@ export type TimelineWorkbookSurfaceRuntime = {
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly clipboardPaste: WorkbookClipboardPastePort;
   readonly mutationCommands: TimelineMutationCommandPorts;
-  readonly indicatorWorkflow: IndicatorWorkflowPort;
   readonly gridEntryFocus: WorkbookGridEntryFocusOwner;
   readonly incident: {
     readonly id: string;

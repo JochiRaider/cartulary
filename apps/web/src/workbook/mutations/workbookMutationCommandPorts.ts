@@ -184,66 +184,8 @@ export interface EvidenceCapabilityPort {
 
 type IndicatorObservationListResponse =
   WorkbookOperationResponse<"listIndicatorObservations">;
-type IndicatorLifecycleListResponse =
-  WorkbookOperationResponse<"listIndicatorStateIntervals">;
-
 export type IndicatorObservation =
   IndicatorObservationListResponse["data"]["observations"][number];
-export type IndicatorStateInterval =
-  IndicatorLifecycleListResponse["data"]["intervals"][number];
-export type IndicatorLifecycleState = IndicatorStateInterval["lifecycle_state"];
-export type IndicatorAffectedRecord =
-  WorkbookOperationResponse<"createManualIndicatorObservation">["data"]["affected_records"][number];
-export type IndicatorPaging = NonNullable<
-  IndicatorObservationListResponse["meta"]["paging"]
->;
-
-export type IndicatorPage<Resource> = {
-  readonly items: readonly Resource[];
-  readonly paging: IndicatorPaging | null;
-};
-
-export type IndicatorMutationAccepted<Resource> = {
-  readonly affectedRecords: readonly IndicatorAffectedRecord[];
-  readonly changeSetId: string;
-  readonly replayed: boolean;
-  readonly resource: Resource;
-};
-
-export interface IndicatorWorkflowPort {
-  listSourceObservations(input: {
-    readonly cursorToken?: string | undefined;
-    readonly limit?: number | undefined;
-    readonly sourceRecordId: string;
-  }): Promise<WorkbookOperationOutcome<IndicatorPage<IndicatorObservation>>>;
-  listObservations(input: {
-    readonly cursorToken?: string | undefined;
-    readonly indicatorRecordId: string;
-    readonly limit?: number | undefined;
-  }): Promise<WorkbookOperationOutcome<IndicatorPage<IndicatorObservation>>>;
-  createManualObservation(input: {
-    readonly baseRowVersion: number;
-    readonly parsedIndicatorType?:
-      | Exclude<IndicatorObservation["parsed_indicator_type"], null>
-      | undefined;
-    readonly resolvedIndicatorRecordId?: string | undefined;
-    readonly sourceFieldKey: string;
-    readonly sourceRecordId: string;
-    readonly spanEndByte: number;
-    readonly spanStartByte: number;
-  }): Promise<
-    WorkbookOperationOutcome<IndicatorMutationAccepted<IndicatorObservation>>
-  >;
-  transitionObservation(input: {
-    readonly action: "dismiss" | "resolve" | "restore";
-    readonly baseRowVersion: number;
-    readonly observationId: string;
-    readonly resolvedIndicatorRecordId?: string | undefined;
-  }): Promise<
-    WorkbookOperationOutcome<IndicatorMutationAccepted<IndicatorObservation>>
-  >;
-}
-
 export type WorkbookMutationCommandPorts = {
   readonly records: RecordRouteCommandPort;
   readonly timeline: TimelineMutationCommandPorts;
@@ -251,5 +193,4 @@ export type WorkbookMutationCommandPorts = {
   readonly entity: EntityMutationCommandPort;
   readonly assessment: AssessmentMutationCommandPort;
   readonly evidence: EvidenceCapabilityPort;
-  readonly indicators: IndicatorWorkflowPort;
 };

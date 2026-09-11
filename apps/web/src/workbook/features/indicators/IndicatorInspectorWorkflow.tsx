@@ -1,490 +1,289 @@
-import type { CSSProperties, FormEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { indicatorObservationTestId } from "@cartulary/ui-contracts";
 import {
-  WorkbookInspectorFeedbackView,
-  WorkbookInspectorPublicError,
-} from "../../inspector/presentation/WorkbookInspectorFeedback";
-import {
-  type WorkbookInspectorErrorPresentation,
-  type WorkbookInspectorFeedback,
-  workbookInspectorErrorPresentation,
-  workbookInspectorMessageFeedback,
-  workbookInspectorOperationFailureFeedback,
-} from "../../inspector/workbookInspectorErrorModel";
-import type {
-  IndicatorMutationAccepted,
-  IndicatorObservation,
-  IndicatorPage,
-  IndicatorPaging,
-  IndicatorWorkflowPort,
-} from "../../mutations/workbookMutationCommandPorts";
-import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
 import type { IndicatorInspectorAction } from "./indicatorInspectorHandlers";
+import { ObservationCaptureEditor } from "./ObservationCaptureEditor";
+import { ObservationCollection } from "./ObservationCollection";
+import { ObservationContext } from "./ObservationContext";
+import { ObservationDetails } from "./ObservationDetails";
+import { ObservationOperationStatus } from "./ObservationOperationStatus";
+import { ObservationPagingFeedback } from "./ObservationPagingFeedback";
+import {
+  type ObservationDraft,
+  observationOrder,
+  sameObservationSource,
+} from "./observationModel";
+import {
+  type ObservationIntent,
+  type ObservationOwnerPort,
+  type ObservationSourcePort,
+  type ObservationSubject,
+  observationIntentSource,
+} from "./observationOperation";
+import {
+  observationField,
+  observationInput,
+  observationStack,
+} from "./observationStyles";
+import { useObservationTargetNames } from "./useObservationTargetNames";
 
-const indicatorTypes = [
-  "ipv4_addr",
-  "ipv6_addr",
-  "domain_name",
-  "url",
-  "sha256",
-  "email_addr",
-  "registry_key",
-  "process_name",
-  "text",
-] as const;
-
-type IndicatorParsedType = Exclude<
-  IndicatorObservation["parsed_indicator_type"],
-  null
->;
-
-function parseIndicatorType(value: string): "" | IndicatorParsedType | null {
-  switch (value) {
-    case "":
-    case "domain_name":
-    case "email_addr":
-    case "ipv4_addr":
-    case "ipv6_addr":
-    case "process_name":
-    case "registry_key":
-    case "sha256":
-    case "text":
-    case "url":
-      return value;
-  }
-  return null;
+type Props = {
+  action: IndicatorInspectorAction | null;
+  indicatorRecordId?: string | undefined;
+  sourceRecordId?: string | undefined;
+  source?: ObservationSourcePort | undefined;
+  onMutationCommitted?: (() => Promise<void> | void) | undefined;
+};
+export function IndicatorInspectorWorkflow(props: Props) {
+  const owner = useContext(ObservationContext);
+  if (!owner) return null;
+  return <ObservationWorkflowOwner {...props} owner={owner} />;
 }
-
-type IndicatorCommittedMutation =
-  IndicatorMutationAccepted<IndicatorObservation>;
-
-export function IndicatorInspectorWorkflow({
-  beginMutation,
-  action,
-  indicatorRecordId,
-  onMutationCommitted,
-  port,
-  rowVersion,
-  sourceFields = [],
-  sourceRecordId,
-}: {
-  readonly action: IndicatorInspectorAction | null;
-  readonly indicatorRecordId?: string | undefined;
-  readonly beginMutation: () => () => void;
-  readonly onMutationCommitted?:
-    | ((mutation: IndicatorCommittedMutation) => Promise<void> | void)
-    | undefined;
-  readonly port: IndicatorWorkflowPort;
-  readonly rowVersion: number;
-  readonly sourceFields?:
-    | readonly {
-        readonly fieldKey: string;
-        readonly label: string;
-        readonly value?: string | undefined;
-      }[]
-    | undefined;
-  readonly sourceRecordId?: string | undefined;
+function ObservationWorkflowOwner(
+  props: Props & { owner: ObservationOwnerPort },
+) {
+  const snapshot = useSyncExternalStore(
+    props.owner.subscribe,
+    props.owner.getSnapshot,
+  );
+  const subject: ObservationSubject | null =
+    props.action === "indicator.observations.manage" && props.sourceRecordId
+      ? { kind: "source", recordId: props.sourceRecordId }
+      : props.action === "indicator.observations.pivot" &&
+          props.indicatorRecordId
+        ? { kind: "indicator", recordId: props.indicatorRecordId }
+        : null;
+  if (!snapshot.authority || !subject) return null;
+  return (
+    <ObservationWorkflow
+      key={`${snapshot.generation}:${subject.kind}:${subject.recordId}`}
+      {...props}
+      subject={subject}
+      generation={snapshot.generation}
+    />
+  );
+}
+function ObservationWorkflow({
+  owner,
+  subject,
+  generation,
+  ...props
+}: Props & {
+  owner: ObservationOwnerPort;
+  subject: ObservationSubject;
+  generation: number;
 }) {
-  const [observations, setObservations] = useState<
-    readonly IndicatorObservation[]
-  >([]);
-  const [message, setMessage] = useState<WorkbookInspectorFeedback | null>(
-    null,
+  const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const { kind, recordId } = subject;
+  const sourceFieldId = useId();
+  const collection = useMemo(
+    () =>
+      new ObservationCollection<IndicatorObservation>(
+        (cursor, signal) =>
+          owner.observations({ kind, recordId }, cursor, signal),
+        (item) => item.observation_id,
+        (item) => item.row_version,
+        observationOrder,
+      ),
+    [owner, kind, recordId],
   );
-  const [loadError, setLoadError] =
-    useState<WorkbookInspectorErrorPresentation | null>(null);
-  const [paging, setPaging] = useState<IndicatorPaging | null>(null);
-  const [busy, setBusy] = useState(false);
-  const loadRequestId = useRef(0);
-  const [sourceFieldKey, setSourceFieldKey] = useState(
-    sourceFields[0]?.fieldKey ?? "",
+  const state = useSyncExternalStore(
+    collection.subscribe,
+    collection.getSnapshot,
   );
-  const [spanStart, setSpanStart] = useState("0");
-  const [spanEnd, setSpanEnd] = useState("1");
-  const [parsedType, setParsedType] = useState<"" | IndicatorParsedType>("");
-  const [resolvedIndicatorID, setResolvedIndicatorID] = useState("");
-
+  const targets = useObservationTargetNames(
+    owner,
+    generation,
+    state.items.flatMap((item) =>
+      item.resolved_indicator_record_id
+        ? [item.resolved_indicator_record_id]
+        : [],
+    ),
+  );
+  const current = useRef(props);
+  current.current = props;
+  const alive = useRef(true);
+  const [field, setField] = useState(props.source?.fields[0]?.fieldKey ?? "");
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    setSourceFieldKey((current) => current || sourceFields[0]?.fieldKey || "");
-  }, [sourceFields]);
-
-  const loadResources = useCallback(
-    async (cursorToken?: string) => {
-      const requestId = ++loadRequestId.current;
-      setBusy(true);
-      setLoadError(null);
-      let outcome: WorkbookOperationOutcome<
-        IndicatorPage<IndicatorObservation>
-      >;
-      if (action === "indicator.observations.pivot" && indicatorRecordId) {
-        outcome = await port.listObservations({
-          cursorToken,
-          indicatorRecordId,
-        });
-      } else if (action === "indicator.observations.manage" && sourceRecordId) {
-        outcome = await port.listSourceObservations({
-          cursorToken,
-          sourceRecordId,
-        });
-      } else {
-        setBusy(false);
-        return;
-      }
-      if (requestId !== loadRequestId.current) return;
-      setBusy(false);
-      if (outcome.kind === "rejected") {
-        setLoadError(workbookInspectorErrorPresentation(outcome.failure));
-        return;
-      }
-      setObservations((current) =>
-        cursorToken === undefined
-          ? outcome.value.items
-          : [...current, ...outcome.value.items],
-      );
-      setPaging(outcome.value.paging);
-    },
-    [action, indicatorRecordId, port, sourceRecordId],
-  );
-
-  useEffect(() => {
-    setMessage(null);
-    setLoadError(null);
-    setPaging(null);
-    setObservations([]);
-    if (action === "indicator.observations.pivot" && !indicatorRecordId) {
-      setMessage(
-        workbookInspectorMessageFeedback(
-          "The selected row is not an Indicator record.",
-          "polite",
-        ),
-      );
-      return () => {
-        loadRequestId.current += 1;
-      };
-    }
-    void loadResources();
+    alive.current = true;
+    void collection.load();
     return () => {
-      loadRequestId.current += 1;
+      alive.current = false;
+      collection.dispose();
     };
-  }, [action, indicatorRecordId, loadResources]);
-
-  if (action === null) return null;
-
-  const submitObservation = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!sourceRecordId || sourceFieldKey === "") {
-      setMessage(
-        workbookInspectorMessageFeedback("Select a source field.", "polite"),
-      );
-      return;
-    }
-    const start = Number(spanStart);
-    const end = Number(spanEnd);
-    if (
-      !Number.isInteger(start) ||
-      !Number.isInteger(end) ||
-      start < 0 ||
-      end <= start
-    ) {
-      setMessage(
-        workbookInspectorMessageFeedback(
-          "Enter a valid UTF-8 byte span.",
-          "polite",
+  }, [collection]);
+  const entries = snapshot.entries.filter((entry) =>
+    subject.kind === "source"
+      ? observationIntentSource(entry.attempt.intent) === subject.recordId
+      : entry.receipt?.affected_records.some(
+          (record) => record.record_id === subject.recordId,
         ),
-      );
-      return;
-    }
-    setBusy(true);
-    setMessage(null);
-    const finish = beginMutation();
-    try {
-      const outcome = await port.createManualObservation({
-        baseRowVersion: rowVersion,
-        sourceFieldKey,
-        sourceRecordId,
-        spanStartByte: start,
-        spanEndByte: end,
-        ...(parsedType ? { parsedIndicatorType: parsedType } : {}),
-        ...(resolvedIndicatorID
-          ? { resolvedIndicatorRecordId: resolvedIndicatorID.trim() }
-          : {}),
-      });
-      setBusy(false);
-      if (outcome.kind === "rejected") {
-        setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
-        return;
-      }
-      const observation = outcome.value.resource;
-      setMessage(
-        workbookInspectorMessageFeedback(
-          `Observation ${observation.observation_id} created.`,
-          "polite",
-        ),
-      );
-      setObservations((current) => [observation, ...current]);
-      await onMutationCommitted?.(outcome.value);
-    } finally {
-      finish();
-    }
-  };
-
-  const transitionObservation = async (
-    observation: IndicatorObservation,
-    transition: "dismiss" | "resolve" | "restore",
-  ) => {
-    const target = resolvedIndicatorID.trim();
-    if (transition === "resolve" && target === "") {
-      setMessage(
-        workbookInspectorMessageFeedback(
-          "Enter the Indicator ID to resolve this observation.",
-          "polite",
-        ),
-      );
-      return;
-    }
-    setBusy(true);
-    setMessage(null);
-    const finish = beginMutation();
-    try {
-      const outcome = await port.transitionObservation({
-        action: transition,
-        baseRowVersion: observation.row_version,
-        observationId: observation.observation_id,
-        ...(transition === "resolve"
-          ? { resolvedIndicatorRecordId: target }
-          : {}),
-      });
-      setBusy(false);
-      if (outcome.kind === "rejected") {
-        setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
-        return;
-      }
-      setObservations((current) =>
-        current.map((candidate) =>
-          candidate.observation_id === outcome.value.resource.observation_id
-            ? outcome.value.resource
-            : candidate,
-        ),
-      );
-      setMessage(
-        workbookInspectorMessageFeedback(
-          `Observation ${outcome.value.resource.observation_id} updated.`,
-          "polite",
-        ),
-      );
-      await onMutationCommitted?.(outcome.value);
-    } finally {
-      finish();
-    }
-  };
-
-  return (
-    <div style={shellStyle}>
-      {action === "indicator.observations.manage" ? (
-        <form
-          style={formStyle}
-          onSubmit={(event) => void submitObservation(event)}
-        >
-          <label style={labelStyle}>
-            Source field
-            <select
-              disabled={busy}
-              value={sourceFieldKey}
-              onChange={(event) => setSourceFieldKey(event.target.value)}
-            >
-              {sourceFields.map((field) => (
-                <option key={field.fieldKey} value={field.fieldKey}>
-                  {field.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={labelStyle}>
-            Span start byte
-            <input
-              min={0}
-              step={1}
-              type="number"
-              value={spanStart}
-              onChange={(event) => setSpanStart(event.target.value)}
-            />
-          </label>
-          <label style={labelStyle}>
-            Span end byte
-            <input
-              min={1}
-              step={1}
-              type="number"
-              value={spanEnd}
-              onChange={(event) => setSpanEnd(event.target.value)}
-            />
-          </label>
-          <label style={labelStyle}>
-            Parsed type (optional)
-            <select
-              value={parsedType}
-              onChange={(event) => {
-                const value = parseIndicatorType(event.target.value);
-                if (value !== null) setParsedType(value);
-              }}
-            >
-              <option value="">Infer from selected text</option>
-              {indicatorTypes.map((indicatorType) => (
-                <option key={indicatorType} value={indicatorType}>
-                  {indicatorType}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={labelStyle}>
-            Resolve to Indicator ID (optional)
-            <input
-              value={resolvedIndicatorID}
-              onChange={(event) => setResolvedIndicatorID(event.target.value)}
-            />
-          </label>
-          <button disabled={busy} type="submit">
-            Create observation
-          </button>
-        </form>
-      ) : null}
-
-      {action === "indicator.observations.manage" ? (
-        <ObservationActions
-          busy={busy}
-          observations={observations}
-          onTransition={transitionObservation}
-        />
-      ) : null}
-
-      {action === "indicator.observations.pivot" ? (
-        <ResourceList
-          empty="No active observations resolve to this Indicator."
-          items={observations.map((observation) => ({
-            id: observation.observation_id,
-            primary: observation.observed_text,
-            secondary: `${observation.resolution_status} · ${observation.source_field_key}`,
-          }))}
-        />
-      ) : null}
-      {paging?.has_more && paging.next_cursor !== null ? (
-        <button
-          disabled={busy}
-          type="button"
-          onClick={() => void loadResources(paging.next_cursor ?? undefined)}
-        >
-          Load more
-        </button>
-      ) : null}
-      {busy ? (
-        <p aria-live="polite" role="status" style={messageStyle}>
-          Loading…
-        </p>
-      ) : null}
-      {loadError ? (
-        <div style={shellStyle}>
-          <WorkbookInspectorPublicError error={loadError} />
-          <button
-            disabled={busy}
-            type="button"
-            onClick={() => void loadResources()}
-          >
-            Retry
-          </button>
-        </div>
-      ) : null}
-      <WorkbookInspectorFeedbackView
-        feedback={message}
-        neutralStyle={messageStyle}
-      />
-    </div>
   );
-}
-
-function ResourceList({
-  empty,
-  items,
-}: {
-  readonly empty: string;
-  readonly items: readonly {
-    readonly id: string;
-    readonly primary: string;
-    readonly secondary: string;
-  }[];
-}) {
-  if (items.length === 0) return <p style={messageStyle}>{empty}</p>;
-  return (
-    <ul style={listStyle}>
-      {items.map((item) => (
-        <li key={item.id}>
-          <strong>{item.primary}</strong>
-          <br />
-          <span>{item.secondary}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function ObservationActions({
-  busy,
-  observations,
-  onTransition,
-}: {
-  readonly busy: boolean;
-  readonly observations: readonly IndicatorObservation[];
-  readonly onTransition: (
-    observation: IndicatorObservation,
-    action: "dismiss" | "resolve" | "restore",
-  ) => Promise<void>;
-}) {
-  if (observations.length === 0) {
-    return <p style={messageStyle}>No active observations for this source.</p>;
+  const stamp = entries
+    .filter((entry) => entry.receipt)
+    .map((entry) => entry.attempt.id)
+    .join(":");
+  const priorStamp = useRef(stamp);
+  useEffect(() => {
+    if (stamp !== priorStamp.current) {
+      priorStamp.current = stamp;
+      void collection.refresh();
+    }
+  }, [stamp, collection]);
+  const isCurrent = () =>
+    alive.current && owner.getSnapshot().generation === generation;
+  function submit(intent: ObservationIntent, draft: ObservationDraft) {
+    const matches = () =>
+      owner.drafts.get(draft.key) === draft &&
+      (intent.action === "create"
+        ? current.current.source?.ready() === true &&
+          sameObservationSource(
+            current.current.source.source(intent.source.fieldKey),
+            intent.source,
+          )
+        : collection
+            .getSnapshot()
+            .items.some(
+              (item) =>
+                item.observation_id === intent.observation.observation_id &&
+                item.row_version === intent.observation.row_version,
+            ));
+    const attempt = owner.admit(intent, {
+      isCurrent,
+      matchesDraft: matches,
+      prepare: async (signal) =>
+        intent.action !== "create" ||
+        (await current.current.source?.prepare(intent.source, signal)) === true,
+      reconcile: async () => {
+        if (!isCurrent()) return;
+        if (!(await collection.refresh()))
+          throw new Error("Observation collection needs refresh");
+        if (!isCurrent()) return;
+        await current.current.onMutationCommitted?.();
+        if (isCurrent() && owner.drafts.get(draft.key) === draft)
+          owner.drafts.update(draft.key, { source: null, selection: null });
+      },
+    });
+    setError(
+      attempt
+        ? null
+        : "The operation is unavailable or changed. Review the current source, observation and target.",
+    );
+    if (attempt) void owner.execute(attempt);
   }
+  const manage =
+    subject.kind === "source" &&
+    props.action === "indicator.observations.manage";
+  const source = props.source?.source(field),
+    ready = props.source?.ready() === true;
+  const createBusy = entries.some(
+    (entry) =>
+      entry.attempt.intent.action === "create" &&
+      (entry.transportPending ||
+        ["preparing", "submitting", "uncertain"].includes(entry.phase)),
+  );
   return (
-    <ul style={listStyle}>
-      {observations.map((observation) => (
-        <li key={observation.observation_id}>
-          <strong>{observation.observed_text}</strong>
-          <br />
-          <span>{observation.resolution_status}</span>{" "}
-          {observation.resolution_status !== "dismissed" ? (
-            <>
-              <button
-                disabled={busy}
-                type="button"
-                onClick={() => void onTransition(observation, "resolve")}
-              >
-                Resolve
-              </button>{" "}
-              <button
-                disabled={busy}
-                type="button"
-                onClick={() => void onTransition(observation, "dismiss")}
-              >
-                Dismiss
-              </button>
-            </>
-          ) : (
-            <button
-              disabled={busy}
-              type="button"
-              onClick={() => void onTransition(observation, "restore")}
+    <section
+      data-testid={indicatorObservationTestId("editor")}
+      aria-label="Indicator observations"
+      style={observationStack}
+    >
+      <h3 tabIndex={-1}>Indicator observations</h3>
+      {manage ? (
+        <>
+          <div style={observationField}>
+            <label htmlFor={sourceFieldId}>Source field</label>
+            <select
+              id={sourceFieldId}
+              style={observationInput}
+              value={field}
+              disabled={createBusy}
+              onChange={(event) => setField(event.target.value)}
             >
-              Restore
-            </button>
+              {props.source?.fields.map((item) => (
+                <option key={item.fieldKey} value={item.fieldKey}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {source ? (
+            <ObservationCaptureEditor
+              key={field}
+              source={source}
+              ready={ready}
+              draft={owner.drafts.ensure(
+                `capture:${subject.recordId}:${field}`,
+              )}
+              drafts={owner.drafts}
+              reader={owner}
+              generation={generation}
+              disabled={!owner.canSubmit() || createBusy}
+              onSubmit={submit}
+            />
+          ) : (
+            <p>No saved source text is available for capture.</p>
           )}
-        </li>
+        </>
+      ) : (
+        <p>
+          Observations currently resolved to this Indicator. Manage an
+          observation from its source record’s Relationships panel.
+        </p>
+      )}
+      {error ? <p role="alert">{error}</p> : null}
+      {entries.map((entry) => (
+        <ObservationOperationStatus
+          key={entry.attempt.id}
+          owner={owner}
+          entry={entry}
+        />
       ))}
-    </ul>
+      {state.phase === "ready" && state.items.length === 0 ? (
+        <p>No observations.</p>
+      ) : null}
+      {state.items.map((item) => (
+        <ObservationDetails
+          key={item.observation_id}
+          item={item}
+          targetLabel={
+            item.resolved_indicator_record_id
+              ? targets.labels.get(item.resolved_indicator_record_id)
+              : undefined
+          }
+          reader={owner}
+          generation={generation}
+          draft={owner.drafts.ensure(`resolve:${item.observation_id}`)}
+          drafts={owner.drafts}
+          manage={manage}
+          disabled={
+            !owner.canSubmit() ||
+            owner.busy({ action: "dismiss", observation: item })
+          }
+          onSubmit={submit}
+        />
+      ))}
+      {targets.state.failure ? (
+        <ObservationPagingFeedback
+          pages={targets.pages}
+          state={targets.state}
+          label="resolution details"
+        />
+      ) : null}
+      <ObservationPagingFeedback
+        pages={collection}
+        state={state}
+        label="observations"
+      />
+    </section>
   );
 }
-
-const shellStyle = { display: "grid", gap: "0.75rem" } satisfies CSSProperties;
-const formStyle = { display: "grid", gap: "0.6rem" } satisfies CSSProperties;
-const labelStyle = { display: "grid", gap: "0.25rem" } satisfies CSSProperties;
-const listStyle = {
-  margin: 0,
-  paddingInlineStart: "1.25rem",
-} satisfies CSSProperties;
-const messageStyle = { margin: 0 } satisfies CSSProperties;

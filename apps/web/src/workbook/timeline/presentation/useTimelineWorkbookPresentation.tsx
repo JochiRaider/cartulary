@@ -30,10 +30,7 @@ import {
   timelineRowGutterWidth,
 } from "../components/TimelineWorkbookStyles";
 import type { TimelineWorkbookCompositionResult } from "../composition/useTimelineWorkbookComposition";
-import {
-  timelineObservationSourceFields,
-  timelineRelationshipLabel,
-} from "../models/timelineFieldRegistry";
+import { timelineRelationshipLabel } from "../models/timelineFieldRegistry";
 import { timelineGroupLabel } from "../models/timelineLayoutPolicy";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import { buildTimelineGridRows } from "../models/timelineRowsModel";
@@ -45,7 +42,6 @@ const timelineInspectorConfig = timelineContract.inspectorConfig;
 
 export type TimelineWorkbookPresentationRuntime = {
   readonly currentIncidentRole: TimelineWorkbookSurfaceRuntime["incident"]["currentRole"];
-  readonly indicatorWorkflow: TimelineWorkbookSurfaceRuntime["indicatorWorkflow"];
   readonly gridEntryFocus: TimelineWorkbookSurfaceRuntime["gridEntryFocus"];
   readonly entities: Pick<
     TimelineWorkbookSurfaceRuntime["entities"],
@@ -70,7 +66,6 @@ export function useTimelineWorkbookPresentation({
     composition;
   const {
     currentIncidentRole,
-    indicatorWorkflow,
     gridEntryFocus,
     entities,
     layout,
@@ -343,7 +338,6 @@ export function useTimelineWorkbookPresentation({
       hostEntities,
       identityEntities,
       indicatorInspectorHandler,
-      indicatorWorkflow,
       beginMutation: composition.mutation.commands.beginMutation,
       inspectorConfig: timelineInspectorConfig,
       inspectorMentions,
@@ -372,7 +366,7 @@ export function useTimelineWorkbookPresentation({
       selectedMention,
       selectedResolveTargetId,
       selectedRow,
-      sourceFields: timelineObservationSourceFields,
+      observationSource: composition.observationSource,
     },
     sections: {
       cancelCreateRelatedWorkflow: cancelInspectorFeatureAction,

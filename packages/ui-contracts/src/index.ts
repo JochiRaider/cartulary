@@ -311,3 +311,9 @@ export function indicatorLifecycleTestId(
 ) {
   return `indicator-lifecycle-${part}`;
 }
+
+export function indicatorObservationTestId(
+  part: "editor" | "source" | "preview" | "recovery" | "recovery-trigger",
+) {
+  return `indicator-observation-${part}`;
+}

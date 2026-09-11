@@ -784,6 +784,10 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private handleRecordChanged(payload: RecordChangedPayload): void {
+    this.options.mutationRuntime.indicatorObservations.acceptVersion(
+      payload.record_id,
+      payload.row_version,
+    );
     if (
       payload.affected_views.some(
         (view) => view.view_schema_id === "cartulary.view.indicators.v1",

@@ -50,6 +50,7 @@ import {
   incidentImportTestId,
   incidentLandingTestId,
   indicatorLifecycleTestId,
+  indicatorObservationTestId,
   landingAdminShellTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
@@ -260,6 +261,10 @@ import {
   createLifecycleFixture,
   openLifecycleEditor,
 } from "./support/workbook/indicatorLifecycle";
+import {
+  createObservationFixture,
+  openObservationEditor,
+} from "./support/workbook/indicatorObservations";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
   clickTimelineRowAction,
@@ -7483,6 +7488,97 @@ test("a11y.indicator-lifecycle UTC errors and retained recovery remain keyboard 
     }),
   ).toBeVisible();
   await testInfo.attach("indicator-lifecycle-accessibility-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+});
+
+test("a11y.indicator-observations exact source selection and retained recovery remain keyboard reachable", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { incidentId, source } = await createObservationFixture(page);
+  await page.goto(`/?incident_id=${incidentId}`);
+  const editor = await openObservationEditor(page, source.record_id);
+  const text = editor.getByRole("textbox", {
+    name: "Saved source text",
+    exact: true,
+  });
+  await text.scrollIntoViewIfNeeded();
+  await text.focus();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Shift+End");
+  expect(
+    await text.evaluate((node) => {
+      const input = node as HTMLTextAreaElement;
+      return [input.selectionStart, input.selectionEnd];
+    }),
+  ).toEqual([0, 13]);
+  await expect(text).toHaveAttribute("aria-readonly", "true");
+  // Typing, deletion and line insertion cannot alter the saved source preview.
+  const sourceText = await text.inputValue();
+  for (const key of ["x", "Backspace", "Delete", "Enter"]) {
+    await page.keyboard.press(key);
+    await expect(text).toHaveValue(sourceText);
+  }
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Shift+End");
+  const useSelection = editor.getByRole("button", {
+    name: "Use selected text",
+    exact: true,
+  });
+  await useSelection.focus();
+  await useSelection.press("Enter");
+  await expect(
+    page.getByTestId(indicatorObservationTestId("preview")),
+  ).toContainText("alpha.example");
+  const submit = editor.getByRole("button", {
+    name: "Create observation",
+    exact: true,
+  });
+  await expect(submit).toBeEnabled();
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [text, useSelection, submit]) {
+      await expectDecisionControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectDecisionControlReachable(page, submit);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await expectAllInteractiveControlsNamed(page);
+  await submit.focus();
+  await submit.press("Enter");
+  const trigger = page.getByTestId(
+    indicatorObservationTestId("recovery-trigger"),
+  );
+  await trigger.focus();
+  await trigger.press("Enter");
+  const recovery = page.getByTestId(indicatorObservationTestId("recovery"));
+  const recoveryHeading = recovery.getByRole("heading");
+  await expect(recoveryHeading).toHaveAccessibleName(
+    "Indicator observation recovery",
+  );
+  await expect(recoveryHeading).toBeFocused();
+  await expect(
+    recovery.getByText(
+      "Observation change saved. Records and history refreshed.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await testInfo.attach("indicator-observation-accessibility-tree", {
     body: await recovery.ariaSnapshot(),
     contentType: "text/plain",
   });

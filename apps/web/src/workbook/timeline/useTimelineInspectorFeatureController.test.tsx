@@ -29,6 +29,8 @@ const createRelatedCapability = requireTimelineCapability(
 const initialLifecycle: TimelineInspectorFeatureLifecycle = {
   authorizationKey: "editor:authorized",
   invalidationGeneration: 0,
+  invalidationCause: null,
+  isOpen: true,
   lifecycleKey: "inspector-1:continuity-1",
   subject: timelineSubject("row-a", 1),
   surfaceKey: "view_schema:cartulary.view.timeline.v2",
@@ -113,11 +115,11 @@ describe("useTimelineInspectorFeatureController", () => {
     expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith(null);
   });
 
-  it("resets Indicator and generic workflows on subject, version, surface, lifecycle, and authorization changes", () => {
+  it("resets Indicator and generic workflows on subject, surface, lifecycle, and authorization changes", () => {
     const { mocks, rerender, result } = controller();
     const lifecycleChanges: readonly TimelineInspectorFeatureLifecycle[] = [
       { ...initialLifecycle, subject: timelineSubject("row-b", 1) },
-      { ...initialLifecycle, subject: timelineSubject("row-b", 2) },
+      { ...initialLifecycle, subject: timelineSubject("row-c", 2) },
       { ...initialLifecycle, surfaceKey: "saved_view:saved-view-2" },
       {
         ...initialLifecycle,
@@ -139,6 +141,42 @@ describe("useTimelineInspectorFeatureController", () => {
       lifecycleChanges.length * 2,
     );
     expect(mocks.setInspectorMessage).toHaveBeenLastCalledWith(null);
+  });
+  it("retains observation management across a same-source committed version while close and deletion retire it", () => {
+    const { rerender, result, mocks } = controller();
+    act(() => result.current.commands.handleFeatureAction(indicatorCapability));
+    const updated = {
+      ...initialLifecycle,
+      subject: timelineSubject("row-a", 2),
+      invalidationGeneration: 1,
+      invalidationCause: "retarget" as const,
+    };
+    rerender({ activeLifecycle: updated });
+    expect(result.current.snapshot.indicatorHandler?.action).toBe(
+      "indicator.observations.manage",
+    );
+    expect(mocks.cancelCreateRelatedWorkflow).toHaveBeenLastCalledWith(
+      "lifecycle",
+    );
+    rerender({
+      activeLifecycle: {
+        ...updated,
+        isOpen: false,
+        invalidationGeneration: 2,
+        invalidationCause: "close",
+      },
+    });
+    expect(result.current.snapshot.indicatorHandler).toBeNull();
+    rerender({ activeLifecycle: updated });
+    act(() => result.current.commands.handleFeatureAction(indicatorCapability));
+    rerender({
+      activeLifecycle: {
+        ...updated,
+        subject: { ...updated.subject, kind: "deleted", stateLabel: "Deleted" },
+        invalidationGeneration: 3,
+      },
+    });
+    expect(result.current.snapshot.indicatorHandler).toBeNull();
   });
 });
 

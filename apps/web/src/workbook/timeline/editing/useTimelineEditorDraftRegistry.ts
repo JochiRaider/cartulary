@@ -48,6 +48,10 @@ export function createTimelineEditorDraftRegistry() {
   const draftValues = new Map<string, string>();
   const inputElements = new Map<string, TimelineEditorElement>();
   const focusKeysByRow = new Map<string, Set<string>>();
+  const rowListeners = new Map<string, Set<() => void>>();
+  const publishRow = (rowKey: string) => {
+    for (const listener of rowListeners.get(rowKey) ?? []) listener();
+  };
 
   const rememberFocusKey = (rowKey: string, focusKey: string) => {
     const rowFocusKeys = focusKeysByRow.get(rowKey) ?? new Set<string>();
@@ -70,15 +74,34 @@ export function createTimelineEditorDraftRegistry() {
       inputElements.delete(focusKey);
     }
     focusKeysByRow.delete(rowKey);
+    publishRow(rowKey);
   };
 
   const draftValueForFocusKey = (focusKey: string) => draftValues.get(focusKey);
 
   return {
+    subscribeRow(rowKey: string, listener: () => void) {
+      const listeners = rowListeners.get(rowKey) ?? new Set<() => void>();
+      listeners.add(listener);
+      rowListeners.set(rowKey, listeners);
+      return () => {
+        listeners.delete(listener);
+        if (!listeners.size) rowListeners.delete(rowKey);
+      };
+    },
+    rowDraftSnapshot(rowKey: string) {
+      return JSON.stringify(
+        [...(focusKeysByRow.get(rowKey) ?? [])]
+          .filter((key) => draftValues.has(key))
+          .sort()
+          .map((key) => [key, draftValues.get(key)]),
+      );
+    },
     clearAll() {
       draftValues.clear();
       inputElements.clear();
       focusKeysByRow.clear();
+      for (const rowKey of rowListeners.keys()) publishRow(rowKey);
     },
     clearRow,
     clearScalarDraftsForRow(
@@ -94,6 +117,7 @@ export function createTimelineEditorDraftRegistry() {
           }
         }
       }
+      publishRow(rowKey);
     },
     clearScalarDraftsForField(rowKey: string, field: keyof RowValues) {
       for (const surface of timelineScalarEditorSurfaces) {
@@ -101,6 +125,7 @@ export function createTimelineEditorDraftRegistry() {
         draftValues.delete(focusKey);
         forgetFocusKeyIfUnused(rowKey, focusKey);
       }
+      publishRow(rowKey);
     },
     clearSubmittedRow(
       rowKey: string,
@@ -124,6 +149,7 @@ export function createTimelineEditorDraftRegistry() {
           }
         }
       }
+      publishRow(rowKey);
     },
     deleteDraft(identity: TimelineScalarEditorIdentity) {
       const focusKey = inputFocusKey(
@@ -133,12 +159,14 @@ export function createTimelineEditorDraftRegistry() {
       );
       draftValues.delete(focusKey);
       forgetFocusKeyIfUnused(identity.rowKey, focusKey);
+      publishRow(identity.rowKey);
     },
     deleteDraftForFocusKey(focusKey: string) {
       draftValues.delete(focusKey);
       for (const [rowKey, focusKeys] of focusKeysByRow) {
         if (focusKeys.has(focusKey)) {
           forgetFocusKeyIfUnused(rowKey, focusKey);
+          publishRow(rowKey);
           break;
         }
       }
@@ -229,6 +257,7 @@ export function createTimelineEditorDraftRegistry() {
       );
       rememberFocusKey(identity.rowKey, focusKey);
       draftValues.set(focusKey, value);
+      publishRow(identity.rowKey);
     },
   };
 }

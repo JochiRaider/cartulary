@@ -8,7 +8,6 @@ import {
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurfacePort";
 import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
-import type { IndicatorLifecycleOwnerPort } from "../features/indicators/indicatorLifecycleOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import {
@@ -20,6 +19,7 @@ import {
 import { useAssessmentSurfaceQuery } from "../query/useAssessmentSurfaceQuery";
 import { useEntitySurfaceQuery } from "../query/useEntitySurfaceQuery";
 import { useGenericSurfaceQuery } from "../query/useGenericSurfaceQuery";
+import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
@@ -33,7 +33,7 @@ type QueryStateOwner = {
 type WorkbookSurfaceQueriesOptions = {
   readonly taskOwner?: WorkbookExplicitPatchOwner;
   readonly decisionOwner?: DecisionSupersessionOwnerPort;
-  readonly indicatorOwner?: IndicatorLifecycleOwnerPort;
+  readonly indicatorOwner?: WorkbookCommittedRecordPort;
   readonly activeContract: ViewContract;
   readonly assessment: QueryStateOwner;
   readonly generic: QueryStateOwner;

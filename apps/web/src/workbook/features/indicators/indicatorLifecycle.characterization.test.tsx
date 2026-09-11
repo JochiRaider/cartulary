@@ -2,10 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
-import type {
-  IndicatorWorkflowPort,
-  RecordRouteCommandPort,
-} from "../../mutations/workbookMutationCommandPorts";
+import type { RecordRouteCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import { GenericWorkbookInspector } from "../generic/GenericWorkbookInspector";
 
 vi.mock("../../inspector/WorkbookInspectorRecordHistory", () => ({
@@ -65,7 +62,6 @@ function fixture(
       indicator={{
         handler: { action, panelId: "history" },
         onMutationCommitted: vi.fn(),
-        port: {} as IndicatorWorkflowPort,
         recordId: "00000000-0000-4000-8000-000000000001",
         rowVersion: 1,
         select: vi.fn(),

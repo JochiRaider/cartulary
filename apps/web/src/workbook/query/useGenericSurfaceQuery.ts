@@ -1,4 +1,5 @@
 import {
+  indicatorsViewSchemaId,
   normalizeViewRowPatchV1,
   type ViewContract,
 } from "@cartulary/view-contracts";
@@ -11,8 +12,6 @@ import {
 import { decisionViewId } from "../features/coordination/decisionSupersessionModel";
 import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
 import { taskViewId } from "../features/coordination/taskLifecycleModel";
-import { indicatorLifecycleViewId } from "../features/indicators/indicatorLifecycleModel";
-import type { IndicatorLifecycleOwnerPort } from "../features/indicators/indicatorLifecycleOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -20,6 +19,7 @@ import {
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
@@ -31,7 +31,7 @@ import {
 import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 export type GenericSurfaceQueryInput = {
-  readonly indicatorOwner?: IndicatorLifecycleOwnerPort | undefined;
+  readonly indicatorOwner?: WorkbookCommittedRecordPort | undefined;
   readonly taskOwner?: WorkbookExplicitPatchOwner | undefined;
   readonly decisionOwner?: DecisionSupersessionOwnerPort | undefined;
   readonly active: boolean;
@@ -124,7 +124,7 @@ export function useGenericSurfaceQuery({
           ? taskOwner
           : viewSchemaId === decisionViewId
             ? decisionOwner
-            : viewSchemaId === indicatorLifecycleViewId
+            : viewSchemaId === indicatorsViewSchemaId
               ? indicatorOwner
               : undefined;
       if (
@@ -201,7 +201,7 @@ export function useGenericSurfaceQuery({
           ? taskOwner
           : viewSchemaId === decisionViewId
             ? decisionOwner
-            : viewSchemaId === indicatorLifecycleViewId
+            : viewSchemaId === indicatorsViewSchemaId
               ? indicatorOwner
               : undefined;
       if (patch.rowVersion < (decision?.latestVersion(patch.recordId) ?? 0))
@@ -248,7 +248,7 @@ export function useGenericSurfaceQuery({
   }, [active, clearRows, taskOwner, viewSchemaId]);
 
   useEffect(() => {
-    if (!indicatorOwner || !active || viewSchemaId !== indicatorLifecycleViewId)
+    if (!indicatorOwner || !active || viewSchemaId !== indicatorsViewSchemaId)
       return;
     return indicatorOwner.subscribe(() => {
       if (!indicatorOwner.getSnapshot().authority) {

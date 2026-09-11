@@ -147,6 +147,8 @@ export function useTimelineInspectorWorkflowComposition({
     lifecycle: {
       authorizationKey: `${incident.currentRole ?? "none"}:${foundation.loadAccessLost}`,
       invalidationGeneration: inspector.lifecycle.invalidationGeneration,
+      invalidationCause: inspector.lifecycle.invalidationCause,
+      isOpen: inspector.lifecycle.phase !== "closed",
       lifecycleKey: `${incident.inspectorResetKey}:${incident.continuityResetKey}`,
       subject: inspector.selection.selectedRowWorkflowSubject,
       surfaceKey: sheetRefKey(activeSheetRef),

@@ -14,6 +14,7 @@ import {
   type LifecycleDraft,
 } from "../features/indicators/indicatorLifecycleModel";
 import { WorkbookIndicatorLifecycleOwner } from "../features/indicators/WorkbookIndicatorLifecycleOwner";
+import { WorkbookObservationOwner } from "../features/indicators/WorkbookObservationOwner";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
@@ -26,6 +27,7 @@ import { executeWorkbookConflictResolution } from "../mutations/workbookConflict
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type { WorkbookTimelineActionRuntimePort } from "../ports/WorkbookTimelineActionRuntimePort";
+import type { WorkbookCommittedRecordPort } from "../query/WorkbookCommittedRecordPort";
 import type {
   PendingReplayRecoveryRefusal,
   PendingReplayScope,
@@ -126,6 +128,63 @@ export class WorkbookMutationRuntime {
   readonly entityMerge: WorkbookEntityMergeOwner;
   readonly decisionSupersession: WorkbookDecisionSupersessionOwner;
   readonly indicatorLifecycle: WorkbookIndicatorLifecycleOwner;
+  readonly indicatorObservations: WorkbookObservationOwner;
+  readonly indicatorRecords: WorkbookCommittedRecordPort = {
+    subscribe: (listener) => {
+      let authorized = !!this.indicatorRecords.getSnapshot().authority;
+      const changed = () => {
+        const next = !!this.indicatorRecords.getSnapshot().authority;
+        // The two owners initialize sequentially. A partial initialization is
+        // not revocation of an already authorized service query. Once active,
+        // either owner's authority loss must immediately hide protected rows.
+        if (next || authorized) {
+          authorized = next;
+          listener();
+        }
+      };
+      const a = this.indicatorLifecycle.subscribe(changed),
+        b = this.indicatorObservations.subscribe(changed);
+      return () => {
+        a();
+        b();
+      };
+    },
+    getSnapshot: () =>
+      this.indicatorObservations.getSnapshot().authority
+        ? this.indicatorLifecycle.getSnapshot()
+        : this.indicatorObservations.getSnapshot(),
+    latestVersion: (id) =>
+      Math.max(
+        this.indicatorLifecycle.latestVersion(id) ?? 0,
+        this.indicatorObservations.latestVersion(id) ?? 0,
+        this.history.latestVersion(id) ?? 0,
+      ) || null,
+    latestRow: (id) => {
+      const rows = [
+        this.indicatorLifecycle.latestRow(id),
+        this.indicatorObservations.latestRow(id),
+      ].filter(
+        (row) =>
+          row !== null &&
+          row.row_version >= (this.indicatorRecords.latestVersion(id) ?? 0),
+      );
+      return (
+        rows.sort((a, b) => (b?.row_version ?? 0) - (a?.row_version ?? 0))[0] ??
+        null
+      );
+    },
+    acceptRow: (row) => {
+      if (
+        !this.indicatorRecords.getSnapshot().authority ||
+        row.row_version <
+          (this.indicatorRecords.latestVersion(row.record_id) ?? 0)
+      )
+        return this.indicatorRecords.latestRow(row.record_id);
+      this.indicatorLifecycle.acceptRow(row);
+      this.indicatorObservations.acceptRow(row);
+      return this.indicatorRecords.latestRow(row.record_id);
+    },
+  };
   private readonly decisionWrites = new Map<symbol, readonly string[]>();
   private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime;
@@ -192,6 +251,15 @@ export class WorkbookMutationRuntime {
           ),
         coordinate: (review, signal) =>
           this.coordinateDecisionSupersession(review, signal),
+      },
+    );
+    this.indicatorObservations = new WorkbookObservationOwner(
+      scope.incidentId,
+      transactionIds,
+      (receipt, id) => {
+        this.rememberClientTransaction(id);
+        for (const record of receipt.affected_records)
+          this.history.acceptVersion(record.record_id, record.row_version);
       },
     );
     this.indicatorLifecycle = new WorkbookIndicatorLifecycleOwner(
@@ -292,6 +360,7 @@ export class WorkbookMutationRuntime {
       this.emit();
     });
     this.indicatorLifecycle.subscribe(() => this.emit());
+    this.indicatorObservations.subscribe(() => this.emit());
     this.entityMerge.subscribe(() => this.emit());
     this.decisionSupersession.subscribe(() => {
       for (const entry of this.decisionSupersession.getSnapshot().entries)
@@ -581,6 +650,7 @@ export class WorkbookMutationRuntime {
         this.entityMerge.pendingCount +
         this.decisionSupersession.pendingCount +
         this.indicatorLifecycle.pendingCount +
+        this.indicatorObservations.pendingCount +
         this.explicitPatches.pendingCount +
         (this.timelineActions?.pendingCount ?? 0),
       explicitRecoveryBlocked:
@@ -588,6 +658,7 @@ export class WorkbookMutationRuntime {
         this.entityMerge.blockedCount > 0 ||
         this.decisionSupersession.blockedCount > 0 ||
         this.indicatorLifecycle.blockedCount > 0 ||
+        this.indicatorObservations.blockedCount > 0 ||
         this.explicitPatches.blockedCount > 0 ||
         (this.timelineActions?.blockedCount ?? 0) > 0,
       queue: this.pendingRuntime.model.snapshot(),
@@ -988,6 +1059,7 @@ export class WorkbookMutationRuntime {
       this.entityMerge.suspend();
       this.decisionSupersession.suspend();
       this.indicatorLifecycle.suspend();
+      this.indicatorObservations.suspend();
       this.timelineActions?.suspend();
       this.explicitPatches.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
@@ -1020,6 +1092,7 @@ export class WorkbookMutationRuntime {
       this.entityMerge.retire();
       this.decisionSupersession.retire();
       this.indicatorLifecycle.retire();
+      this.indicatorObservations.retire();
       this.timelineActions?.retire();
       this.decisionWrites.clear();
       this.retryScheduler.cancel();
@@ -1040,6 +1113,7 @@ export class WorkbookMutationRuntime {
       this.entityMerge.closeIncident();
       this.decisionSupersession.closeIncident();
       this.indicatorLifecycle.closeIncident();
+      this.indicatorObservations.closeIncident();
       this.timelineActions?.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
       this.emit();
@@ -1053,6 +1127,7 @@ export class WorkbookMutationRuntime {
       this.entityMerge.retire();
       this.decisionSupersession.retire();
       this.indicatorLifecycle.retire();
+      this.indicatorObservations.retire();
       this.timelineActions?.retire();
       this.decisionWrites.clear();
       this.pauseForTerminalLifecycle();
@@ -1062,6 +1137,7 @@ export class WorkbookMutationRuntime {
     this.entityMerge.suspend();
     this.decisionSupersession.suspend();
     this.indicatorLifecycle.suspend();
+    this.indicatorObservations.suspend();
     this.timelineActions?.suspend();
     this.explicitPatches.suspend();
     this.applyAuthorizationRecoveryState("paused");

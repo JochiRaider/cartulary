@@ -22,7 +22,6 @@ import {
 } from "../models/workbookSurfaceRegistry";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
 import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
-import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
 import type {
   EntityRecordWriteBoundary,
   EntityRecordWriteTarget,
@@ -274,10 +273,6 @@ export function createWorkbookMutationCommandPorts(
   });
   return {
     records: createWorkbookRecordHistoryAdapter(context),
-    indicators: createIndicatorWorkflowPort({
-      createMutationID: (prefix) => createId(context.transactionIds, prefix),
-      operations,
-    }),
     timeline: {
       identity: {
         createLogicalActionId() {
