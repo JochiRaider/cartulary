@@ -153,6 +153,7 @@
       },
       "allowed_importers": [
         "packages/protocol-ts/src/entrypoints/collaboration.ts",
+        "packages/protocol-ts/src/entrypoints/entities.ts",
         "packages/protocol-ts/src/entrypoints/errors.ts",
         "packages/protocol-ts/src/entrypoints/extensions.ts",
         "packages/protocol-ts/src/entrypoints/http.ts",

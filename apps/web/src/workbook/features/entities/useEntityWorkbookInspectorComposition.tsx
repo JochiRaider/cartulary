@@ -26,7 +26,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { SheetRef } from "../../../shared/sheetRef";
+import { type SheetRef, sheetRefKey } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import {
@@ -36,7 +36,10 @@ import {
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import { useEntityTimelinePreview } from "../../hooks/useEntityTimelinePreview";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
-import { WorkbookInspectorPublicError } from "../../inspector/presentation/WorkbookInspectorFeedback";
+import {
+  WorkbookInspectorConfirmation,
+  WorkbookInspectorPublicError,
+} from "../../inspector/presentation/WorkbookInspectorFeedback";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import type {
@@ -51,6 +54,7 @@ import {
   buildWorkbookInspectorSubject,
   type WorkbookInspectorSubject,
 } from "../../inspector/workbookInspectorSubject";
+import { mergeIdentifierOutcomeText } from "../../models/entityMergePlan";
 import type { EntityRow } from "../../models/entityWorkbookModel";
 import {
   buildGenericPatchChange,
@@ -87,6 +91,7 @@ export function useEntityWorkbookInspectorComposition({
   mutationRuntime,
   mutationPending,
   onClearSurfaceSelection,
+  onIncidentAccessLost,
   onRefreshEntities,
   onResetOwnerState,
   onRestoreFocus,
@@ -116,6 +121,7 @@ export function useEntityWorkbookInspectorComposition({
   readonly sheetRef: SheetRef;
   readonly mutationPending: boolean;
   readonly onClearSurfaceSelection: () => void;
+  readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly onRefreshEntities: (options?: {
     readonly requireAcceptance?: boolean;
   }) => Promise<void>;
@@ -159,25 +165,51 @@ export function useEntityWorkbookInspectorComposition({
           surfaceLabel: contract.title,
         });
   const { clearTimelinePreview, loadTimelinePreview, timelinePreviewRows } =
-    useEntityTimelinePreview({ entityType, viewQuery });
+    useEntityTimelinePreview({ entityType, viewQuery, onIncidentAccessLost });
   const beginMutation = useCallback(
     () => mutationRuntime.beginExplicitMutation(),
     [mutationRuntime],
   );
   const merge = useEntityMergeController({
-    beginMutation,
-    canMerge,
-    clearDrafts: () => {
-      setEditRecordId("");
-      setEditFieldKey("");
-      setEditValue("");
-      setAliasDraft("");
+    canMerge:
+      canMerge && !incidentClosed && interactionMode.kind === "editable",
+    owner: mutationRuntime.entityMerge,
+    originSurface: sheetRefKey(sheetRef),
+    hasAffectedDraft: (ids) => {
+      if (
+        selectedEntity !== null &&
+        ids.includes(selectedEntity.recordId) &&
+        aliasDraft !== ""
+      )
+        return true;
+      const edited = rows.find((row) => row.recordId === editRecordId);
+      const field =
+        contract.fields.find((field) => field.fieldKey === editFieldKey) ??
+        contract.fields.find((field) => field.writeKind === "direct_value");
+      return (
+        edited !== undefined &&
+        field !== undefined &&
+        ids.includes(edited.recordId) &&
+        editValue !== String(edited.rawRow.cells[field.fieldKey]?.value ?? "")
+      );
+    },
+    discardAffectedDrafts: (ids) => {
+      if (selectedEntity !== null && ids.includes(selectedEntity.recordId))
+        setAliasDraft("");
+      const edited = rows.find((row) => row.recordId === editRecordId);
+      const field =
+        contract.fields.find((field) => field.fieldKey === editFieldKey) ??
+        contract.fields.find((field) => field.writeKind === "direct_value");
+      if (
+        edited !== undefined &&
+        field !== undefined &&
+        ids.includes(edited.recordId)
+      )
+        setEditValue(String(edited.rawRow.cells[field.fieldKey]?.value ?? ""));
     },
     lifecycleResetKey: inspectorResetKey,
-    loadSurvivorPreview: loadTimelinePreview,
-    mutationCommands,
-    onRefreshEntities,
-    retargetSurvivor: setSelectedRecordId,
+    loadSurvivorPreview: (recordId) =>
+      loadTimelinePreview(recordId, { requireAcceptance: true }),
     rows,
     selectedEntity,
   });
@@ -395,10 +427,26 @@ export function useEntityWorkbookInspectorComposition({
         rows,
         selectedEdit,
         selectedEntity,
-        setAliasDraft,
-        setEditFieldKey,
-        setEditRecordId,
-        setEditValue,
+        setAliasDraft: (value) => {
+          merge.commands.invalidateReview();
+          setAliasDraft(value);
+        },
+        setEditFieldKey: (value) => {
+          merge.commands.invalidateReview();
+          setEditFieldKey(value);
+        },
+        setEditRecordId: (value) => {
+          merge.commands.invalidateReview();
+          setEditRecordId(value);
+        },
+        setEditValue: (value) => {
+          if (
+            editRecordId === selectedEntity?.recordId ||
+            editRecordId === merge.snapshot.loser?.recordId
+          )
+            merge.commands.invalidateReview();
+          setEditValue(value);
+        },
         submitAliasActions,
         submitEdit,
       }}
@@ -474,7 +522,7 @@ export function useEntityWorkbookInspectorComposition({
       }}
       isOpen={isOpen}
       relationships={{
-        canMerge,
+        canMerge: canMerge && mutationRuntime.entityMerge.canSubmit(),
         entityIndex,
         entityType,
         merge,
@@ -832,17 +880,32 @@ function EntityMergePresentation({
     SetStateAction<WorkbookInspectorFeedback | null>
   >;
 }) {
+  const regionRef = useRef<HTMLElement | null>(null);
   if (!canMerge) {
     return (
-      <section style={inspectorSectionStyle}>
+      <section
+        ref={regionRef}
+        tabIndex={-1}
+        aria-label="Entity merge review"
+        style={inspectorSectionStyle}
+      >
         <h3 style={sectionTitleStyle}>Merge</h3>
-        <p style={bodyStyle}>Merge is available to reviewer or admin roles.</p>
+        <p style={bodyStyle}>
+          Merging is unavailable with the current incident access.
+        </p>
       </section>
     );
   }
-  const { candidateId, loser, plan, reason } = merge.snapshot;
+  const { candidateId, loser, reason, reviewed, hasAffectedDraft } =
+    merge.snapshot;
+  const plan = reviewed?.plan ?? merge.snapshot.plan;
   return (
-    <section style={inspectorSectionStyle}>
+    <section
+      ref={regionRef}
+      tabIndex={-1}
+      aria-label="Entity merge review"
+      style={inspectorSectionStyle}
+    >
       <h3 style={sectionTitleStyle}>Merge</h3>
       <label style={labelStyle}>
         Merge loser
@@ -857,10 +920,15 @@ function EntityMergePresentation({
         >
           <option value="">Select duplicate</option>
           {rows
-            .filter((row) => row.recordId !== selectedEntity.recordId)
+            .filter(
+              (row) =>
+                row.recordId !== selectedEntity.recordId &&
+                row.entityType === selectedEntity.entityType &&
+                ["stub", "canonical"].includes(row.state),
+            )
             .map((row) => (
               <option key={row.recordId} value={row.recordId}>
-                {row.label}
+                {row.label} ({row.recordId})
               </option>
             ))}
         </select>
@@ -889,9 +957,9 @@ function EntityMergePresentation({
             Loser record {loser.recordId}
           </p>
           <ul style={flatListStyle}>
-            {plan.identifierLines.map((line) => (
-              <li key={`${line.label}:${line.outcome}`}>
-                {line.label}: {line.outcome}
+            {plan.identifierOutcomes.map((line) => (
+              <li key={`${line.identifierClass}:${line.normalizedValue}`}>
+                {line.label}: {mergeIdentifierOutcomeText(line)}
               </li>
             ))}
             <li>
@@ -909,17 +977,59 @@ function EntityMergePresentation({
             <li>Provenance-only values: {plan.provenanceOnlySummary}</li>
             <li>{plan.dependencySummary}</li>
           </ul>
-          <button
-            data-testid={entityMergeControlTestId("confirm")}
-            style={secondaryActionButtonStyle}
-            type="button"
-            onClick={() => {
-              setEntityActionFeedback(null);
-              void merge.commands.confirm();
-            }}
-          >
-            Confirm merge
-          </button>
+          {plan.issues.length > 0 ? (
+            <ul>
+              {plan.issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          ) : null}
+          {hasAffectedDraft ? (
+            <div>
+              <p style={bodyStyle}>
+                Finish or explicitly discard changes to both merge participants
+                before reviewing.
+              </p>
+              <button
+                style={secondaryActionButtonStyle}
+                type="button"
+                onClick={merge.commands.discardDrafts}
+              >
+                Discard participant drafts
+              </button>
+            </div>
+          ) : null}
+          {reviewed === null ? (
+            <button
+              data-testid={entityMergeControlTestId("review")}
+              disabled={!plan.valid || hasAffectedDraft}
+              style={secondaryActionButtonStyle}
+              type="button"
+              onClick={merge.commands.review}
+            >
+              Review merge
+            </button>
+          ) : (
+            <>
+              <p style={bodyStyle}>Reviewed reason: {reviewed.reason}</p>
+              <WorkbookInspectorConfirmation
+                operation="Merge"
+                subject={`${reviewed.loser.label} (${reviewed.loser.recordId}, version ${reviewed.loser.baseRowVersion}) into ${reviewed.survivor.label} (${reviewed.survivor.recordId}, version ${reviewed.survivor.baseRowVersion})`}
+                destructive
+                confirmLabel="Confirm merge"
+                confirmTestId={entityMergeControlTestId("confirm")}
+                cancelTestId={entityMergeControlTestId("cancel")}
+                onCancel={() => {
+                  regionRef.current?.focus({ preventScroll: true });
+                  merge.commands.invalidateReview();
+                }}
+                onConfirm={() => {
+                  regionRef.current?.focus({ preventScroll: true });
+                  void merge.commands.confirm();
+                }}
+              />
+            </>
+          )}
         </div>
       ) : (
         <button

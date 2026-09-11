@@ -39,18 +39,6 @@ export type EntityCreateOutcome =
   WorkbookOperationOutcome<EntityCreateAccepted>;
 export type EntityPatchOutcome = WorkbookOperationOutcome<EntityPatchAccepted>;
 
-export type EntityMergeAccepted = {
-  readonly changeSetId: string;
-  readonly loserRecordId: string;
-  readonly loserRowVersion: number;
-  readonly mergedIntoRecordId: string;
-  readonly recordType: "host" | "identity";
-  readonly survivorRecordId: string;
-  readonly survivorRowVersion: number;
-};
-
-export type EntityMergeOutcome = WorkbookOperationOutcome<EntityMergeAccepted>;
-
 export type AssessmentCreateAccepted = {
   readonly changeSetId: string;
   readonly row: WorkbookQueryRow;
@@ -202,13 +190,6 @@ export interface EntityMutationCommandPort {
     readonly recordId: string;
     readonly viewSchemaId: string;
   }): Promise<EntityPatchOutcome>;
-  merge(input: {
-    readonly loserBaseRowVersion: number;
-    readonly loserRecordId: string;
-    readonly reason: string;
-    readonly survivorBaseRowVersion: number;
-    readonly survivorRecordId: string;
-  }): Promise<EntityMergeOutcome>;
 }
 
 export interface AssessmentMutationCommandPort {

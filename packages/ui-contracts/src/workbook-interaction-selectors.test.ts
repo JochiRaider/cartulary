@@ -458,20 +458,24 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     expect(
       (
         [
+          "cancel",
           "confirm",
           "loser-record",
           "message",
           "plan",
           "reason",
+          "review",
           "start",
         ] as const
       ).map((control) => entityMergeControlTestId(control)),
     ).toEqual([
+      "merge-cancel",
       "merge-confirm",
       "merge-loser-record",
       "merge-message",
       "merge-plan",
       "merge-reason",
+      "merge-review",
       "merge-start",
     ]);
     expect(() => entityMergeControlTestId("undo" as never)).toThrow(

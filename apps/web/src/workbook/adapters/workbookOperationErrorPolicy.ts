@@ -121,7 +121,12 @@ function mergePreconditionFailure(
   message: string,
 ): WorkbookOperationFailure {
   const fields = mergePreconditionDetailKeys.flatMap((field) => {
-    const value = safeDetail(details[field]);
+    // The closed merge error contract permits complete normalized collision
+    // values. Preserve long values for review; React renders these as text.
+    const value =
+      field === "normalized_value" && typeof details[field] === "string"
+        ? details[field]
+        : safeDetail(details[field]);
     return value === null ? [] : [{ field, message: value }];
   });
   const reason = safeDetail(details.reason_code);

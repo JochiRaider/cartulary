@@ -1,0 +1,440 @@
+{
+  "schema_id": "cartulary.entities_merge_planning_corpus.v1",
+  "normalizer_id": "entities.identifier_normalization.v1",
+  "ordering_id": "entities.merge.canonical_then_normalized.v1",
+  "cases": [
+    {
+      "case_id": "host_canonical_first_then_sorted_secondary",
+      "entity_type": "host",
+      "survivor": {
+        "canonical": {},
+        "reusable": [],
+        "aliases": []
+      },
+      "loser": {
+        "canonical": {
+          "aad_device_id": "Z-primary"
+        },
+        "reusable": [
+          {
+            "identifier_class": "aad_device_id",
+            "raw_value": "B-secondary",
+            "normalized_value": "b-secondary"
+          },
+          {
+            "identifier_class": "aad_device_id",
+            "raw_value": "A-secondary",
+            "normalized_value": "a-secondary"
+          }
+        ],
+        "aliases": []
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "aad_device_id",
+            "normalized_value": "z-primary",
+            "action": "promotion",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "aad_device_id",
+            "normalized_value": "a-secondary",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          },
+          {
+            "identifier_class": "aad_device_id",
+            "normalized_value": "b-secondary",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          }
+        ],
+        "aliases_to_copy": [],
+        "duplicate_aliases": []
+      }
+    },
+    {
+      "case_id": "host_duplicate_before_empty_canonical_promotion",
+      "entity_type": "host",
+      "survivor": {
+        "canonical": {},
+        "reusable": [
+          {
+            "identifier_class": "fqdn",
+            "raw_value": "Shared.Example",
+            "normalized_value": "shared.example"
+          }
+        ],
+        "aliases": []
+      },
+      "loser": {
+        "canonical": {
+          "fqdn": "SHARED.EXAMPLE"
+        },
+        "reusable": [
+          {
+            "identifier_class": "fqdn",
+            "raw_value": "z.example",
+            "normalized_value": "z.example"
+          },
+          {
+            "identifier_class": "fqdn",
+            "raw_value": "a.example",
+            "normalized_value": "a.example"
+          }
+        ],
+        "aliases": []
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "fqdn",
+            "normalized_value": "shared.example",
+            "action": "duplicate_noop",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "fqdn",
+            "normalized_value": "a.example",
+            "action": "promotion",
+            "source": "reusable_identifier"
+          },
+          {
+            "identifier_class": "fqdn",
+            "normalized_value": "z.example",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          }
+        ],
+        "aliases_to_copy": [],
+        "duplicate_aliases": []
+      }
+    },
+    {
+      "case_id": "host_populated_canonical_and_deduplicated_candidates",
+      "entity_type": "host",
+      "survivor": {
+        "canonical": {
+          "hostname": "CURRENT"
+        },
+        "reusable": [],
+        "aliases": []
+      },
+      "loser": {
+        "canonical": {
+          "hostname": "OTHER"
+        },
+        "reusable": [
+          {
+            "identifier_class": "hostname",
+            "raw_value": "other",
+            "normalized_value": "other"
+          },
+          {
+            "identifier_class": "hostname",
+            "raw_value": "Older",
+            "normalized_value": "older"
+          }
+        ],
+        "aliases": []
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "hostname",
+            "normalized_value": "other",
+            "action": "carry_forward",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "hostname",
+            "normalized_value": "older",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          }
+        ],
+        "aliases_to_copy": [],
+        "duplicate_aliases": []
+      }
+    },
+    {
+      "case_id": "host_normalized_equivalents_and_alias_case",
+      "entity_type": "host",
+      "survivor": {
+        "canonical": {
+          "hostname": "İ"
+        },
+        "reusable": [],
+        "aliases": [
+          "Café",
+          "Shared"
+        ]
+      },
+      "loser": {
+        "canonical": {
+          "hostname": "i"
+        },
+        "reusable": [],
+        "aliases": [
+          "Café",
+          "shared",
+          "Other",
+          "source​alias"
+        ]
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "hostname",
+            "normalized_value": "i",
+            "action": "duplicate_noop",
+            "source": "canonical"
+          }
+        ],
+        "aliases_to_copy": [
+          "Other",
+          "shared",
+          "source​alias"
+        ],
+        "duplicate_aliases": [
+          "Café"
+        ]
+      }
+    },
+    {
+      "case_id": "identity_class_order_and_sharp_s",
+      "entity_type": "identity",
+      "survivor": {
+        "canonical": {
+          "sid": "ẞ"
+        },
+        "reusable": [],
+        "aliases": []
+      },
+      "loser": {
+        "canonical": {
+          "email": "Person@Example.Test",
+          "sid": "ß",
+          "aad_object_id": "OBJECT",
+          "upn": "PERSON@EXAMPLE.TEST",
+          "sam_account_name": "DOMAIN\\Person"
+        },
+        "reusable": [],
+        "aliases": []
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "aad_object_id",
+            "normalized_value": "object",
+            "action": "promotion",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "sid",
+            "normalized_value": "ẞ",
+            "action": "duplicate_noop",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "upn",
+            "normalized_value": "person@example.test",
+            "action": "promotion",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "email",
+            "normalized_value": "person@example.test",
+            "action": "promotion",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "sam_account_name",
+            "normalized_value": "domain\\person",
+            "action": "promotion",
+            "source": "canonical"
+          }
+        ],
+        "aliases_to_copy": [],
+        "duplicate_aliases": []
+      }
+    },
+    {
+      "case_id": "identity_secondary_promotion_and_deduplication",
+      "entity_type": "identity",
+      "survivor": {
+        "canonical": {},
+        "reusable": [
+          {
+            "identifier_class": "sid",
+            "raw_value": "S-DUP",
+            "normalized_value": "S-DUP"
+          }
+        ],
+        "aliases": []
+      },
+      "loser": {
+        "canonical": {
+          "sid": "s-dup"
+        },
+        "reusable": [
+          {
+            "identifier_class": "sid",
+            "raw_value": "s-z",
+            "normalized_value": "S-Z"
+          },
+          {
+            "identifier_class": "sid",
+            "raw_value": "s-a",
+            "normalized_value": "S-A"
+          },
+          {
+            "identifier_class": "sid",
+            "raw_value": "S-DUP",
+            "normalized_value": "S-DUP"
+          }
+        ],
+        "aliases": []
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "sid",
+            "normalized_value": "S-DUP",
+            "action": "duplicate_noop",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "sid",
+            "normalized_value": "S-A",
+            "action": "promotion",
+            "source": "reusable_identifier"
+          },
+          {
+            "identifier_class": "sid",
+            "normalized_value": "S-Z",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          }
+        ],
+        "aliases_to_copy": [],
+        "duplicate_aliases": []
+      }
+    },
+    {
+      "case_id": "identity_canonical_precedence_and_nfc",
+      "entity_type": "identity",
+      "survivor": {
+        "canonical": {
+          "email": "café@example.test"
+        },
+        "reusable": [],
+        "aliases": []
+      },
+      "loser": {
+        "canonical": {
+          "email": "café@example.test",
+          "upn": "z@example.test"
+        },
+        "reusable": [
+          {
+            "identifier_class": "upn",
+            "raw_value": "a@example.test",
+            "normalized_value": "a@example.test"
+          }
+        ],
+        "aliases": []
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "upn",
+            "normalized_value": "z@example.test",
+            "action": "promotion",
+            "source": "canonical"
+          },
+          {
+            "identifier_class": "upn",
+            "normalized_value": "a@example.test",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          },
+          {
+            "identifier_class": "email",
+            "normalized_value": "café@example.test",
+            "action": "duplicate_noop",
+            "source": "canonical"
+          }
+        ],
+        "aliases_to_copy": [],
+        "duplicate_aliases": []
+      }
+    },
+    {
+      "case_id": "host_scalar_order_not_utf16_or_locale",
+      "entity_type": "host",
+      "survivor": {
+        "canonical": {},
+        "reusable": [],
+        "aliases": []
+      },
+      "loser": {
+        "canonical": {},
+        "reusable": [
+          {
+            "identifier_class": "hostname",
+            "raw_value": "𐀀",
+            "normalized_value": "𐀀"
+          },
+          {
+            "identifier_class": "hostname",
+            "raw_value": "",
+            "normalized_value": ""
+          },
+          {
+            "identifier_class": "hostname",
+            "raw_value": "é",
+            "normalized_value": "é"
+          },
+          {
+            "identifier_class": "hostname",
+            "raw_value": "z",
+            "normalized_value": "z"
+          }
+        ],
+        "aliases": []
+      },
+      "expected": {
+        "identifiers": [
+          {
+            "identifier_class": "hostname",
+            "normalized_value": "z",
+            "action": "promotion",
+            "source": "reusable_identifier"
+          },
+          {
+            "identifier_class": "hostname",
+            "normalized_value": "é",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          },
+          {
+            "identifier_class": "hostname",
+            "normalized_value": "",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          },
+          {
+            "identifier_class": "hostname",
+            "normalized_value": "𐀀",
+            "action": "carry_forward",
+            "source": "reusable_identifier"
+          }
+        ],
+        "aliases_to_copy": [],
+        "duplicate_aliases": []
+      }
+    }
+  ]
+}

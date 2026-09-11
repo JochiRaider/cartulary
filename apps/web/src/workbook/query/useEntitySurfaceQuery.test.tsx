@@ -342,4 +342,42 @@ describe("useEntitySurfaceQuery", () => {
     rendered.unmount();
     expect(teardownSignals.every((signal) => signal.aborted)).toBe(true);
   });
+  it("conceals protected rows before rejecting an acceptance-required merge refresh", async () => {
+    const onIncidentAccessLost = vi.fn();
+    const fetch = vi.fn((input: RequestInfo | URL) =>
+      Promise.resolve(
+        String(input).includes(`/views/${hostsViewSchemaId}/query`)
+          ? queryResponse(hostsViewSchemaId, [
+              hostRow(hostCurrentId, 1, "Current host"),
+            ])
+          : queryResponse(identitiesViewSchemaId, [
+              identityRow(identityCurrentId, 1, "Current identity"),
+            ]),
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const query = renderHook(() =>
+      useEntitySurfaceQuery({
+        hostQueryState: emptyWorkbookQueryState(),
+        identityQueryState: emptyWorkbookQueryState(),
+        onIncidentAccessLost,
+        viewQuery,
+      }),
+    );
+    await act(() => query.result.current.refresh({ requireAcceptance: true }));
+    expect(query.result.current.hostRows).toHaveLength(1);
+    expect(query.result.current.identityRows).toHaveLength(1);
+    fetch.mockImplementation(() =>
+      Promise.resolve(errorResponse("authorization_denied", 403)),
+    );
+    await act(async () => {
+      await expect(
+        query.result.current.refresh({ requireAcceptance: true }),
+      ).rejects.toThrow();
+    });
+    expect(query.result.current.hostRows).toEqual([]);
+    expect(query.result.current.identityRows).toEqual([]);
+    expect(query.result.current.loadState.kind).toBe("permission_denied");
+    expect(onIncidentAccessLost).toHaveBeenCalledOnce();
+  });
 });

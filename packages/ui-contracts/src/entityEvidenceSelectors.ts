@@ -13,6 +13,8 @@ import { viewScopedTestId } from "./viewSchemaSelectors";
 export type EntityType = "host" | "identity";
 
 export type EntityMergeControl =
+  | "cancel"
+  | "review"
   | "confirm"
   | "loser-record"
   | "message"
@@ -61,6 +63,8 @@ export const entityTypes = [
 ] as const satisfies readonly EntityType[];
 
 const entityMergeControlTestIds = Object.freeze({
+  cancel: "merge-cancel",
+  review: "merge-review",
   confirm: "merge-confirm",
   "loser-record": "merge-loser-record",
   message: "merge-message",

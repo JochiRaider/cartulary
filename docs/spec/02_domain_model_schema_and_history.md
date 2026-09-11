@@ -647,6 +647,19 @@ the eight classes named by REQ-02-060. It applies Unicode NFC, removes leading
 and trailing Unicode White_Space scalars, rejects empty output and any Unicode
 `Cc` or `Cf` scalar, lowercases `aad_device_id`, `fqdn`, `hostname`,
 `aad_object_id`, `upn`, `email`, and `sam_account_name`, and uppercases `sid`.
+Casing and NFC use Unicode 16.0, independently of runtime locale or later
+Unicode assignments. Casing is context-independent and scalar-to-scalar,
+without full-string expansions. NFC MUST NOT insert stream-safe separator
+scalars. SID uppercase maps U+00DF (`ß`) to U+1E9E (`ẞ`), preserving the
+existing database-enforced identifier and active-claim identity; it does not
+expand that scalar to `SS`.
+The machine projection records the assigned repertoire, canonical combining
+classes and casing maps. Normalization reconciliation MUST reject an upgrade
+that would alter an existing canonical claim key or invalidate a preserved
+identifier, including historical sources needed for rollback. It MUST NOT
+rewrite sources, active claims, revisions or idempotency receipts. Existing
+create/patch request normalization and retained request hashes are separate
+from identifier comparison and MUST remain compatible.
 An unknown class is invalid; it MUST NOT fall through to generic line
 normalization. Go and PostgreSQL projections MUST be proven equal against one
 versioned owner corpus before either projection changes.
@@ -729,6 +742,19 @@ When two entities are merged:
 - for loser-side `suggestion_only` alias values, every normalized-distinct value MUST be copied to the survivor and duplicates already present on the survivor are no-op,
 - for loser-side `provenance_only` values, the historical loser row MUST preserve them; an optional copy to survivor provenance MAY occur only when it cannot affect matching, reuse, suggestions, or merge preconditions,
 - no value capable of affecting future exact-match reuse may be silently dropped; each `exact_match_reuse` value MUST be promoted, carried as an active secondary reusable value, treated as a duplicate no-op, or rejected through fail-closed merge-precondition failure.
+
+Within each exact-match class, merge candidates MUST be evaluated with the
+loser's populated canonical value first, followed by its active secondary
+`exact_match_reuse` values in ascending normalized-value order. Comparison for
+this order is lexical Unicode scalar order (equivalently UTF-8 byte order), not
+locale collation or collection array position. Candidates with the same
+normalized value MUST be coalesced before evaluation, retaining the first
+candidate's source value. Each survivor-duplicate candidate is a no-op before
+promotion is considered; the first remaining distinct candidate fills an empty
+canonical field and subsequent distinct candidates are carried as secondary
+reusable values. This order does not make the public reusable-identifier
+collection ordered and does not admit suggestion-only or provenance-only values
+to exact-match evaluation.
 
 Merge planning MUST be read-only. After acquiring the complete protected
 record set and the complete normalized claim tuple set, the transaction MUST

@@ -7,6 +7,7 @@ import {
   workbookPasteTargets,
   workbookPasteViewSchemaId,
 } from "../models/workbookClipboardPaste";
+import type { EntityRecordWriteBoundary } from "../mutations/entityRecordWriteBoundary";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type {
@@ -84,6 +85,7 @@ export function createWorkbookClipboardPasteAdapter(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
   readonly transactionIds: SecureTransactionIdPort;
+  readonly entityWrites?: EntityRecordWriteBoundary;
 }): WorkbookClipboardPastePort {
   const operations = createWorkbookOperationExecutor({
     apiBase: options.apiBase,
@@ -93,38 +95,77 @@ export function createWorkbookClipboardPasteAdapter(options: {
       if (!validPasteInput(input)) {
         return { clientTxnId: null, outcome: invalidPasteOutcome() };
       }
-      let clientTxnId: string;
-      try {
-        clientTxnId = options.transactionIds.create(
-          `${input.view_schema_id}-clipboard-paste`,
-        );
-      } catch {
-        return secureIdFailure();
-      }
-      input.onClientTxnId?.(clientTxnId);
-      const { onClientTxnId: _onClientTxnId, ...requestInput } = input;
-      const request: PasteWorkbookClipboardRequest = {
-        ...requestInput,
-        client_txn_id: clientTxnId,
-      };
-      try {
-        const result = await operations.execute({
-          operationID: "pasteWorkbookClipboard",
-          pathParameters: {
-            incident_id: options.incidentId,
-            view_schema_id: request.view_schema_id,
-          },
-          request,
-        });
+      const entityType =
+        input.view_schema_id === "cartulary.view.hosts.v1"
+          ? "host"
+          : input.view_schema_id === "cartulary.view.identities.v1"
+            ? "identity"
+            : null;
+      const release =
+        entityType && options.entityWrites
+          ? options.entityWrites.begin({
+              recordIds: input.targets.flatMap((target) =>
+                target.kind === "record" ? [target.record_id] : [],
+              ),
+              ...(input.targets.some((target) => target.kind === "create")
+                ? { unknownEntityType: entityType }
+                : {}),
+            })
+          : () => {};
+      if (release === null)
         return {
-          clientTxnId,
-          outcome:
-            result.kind === "rejected"
-              ? result
-              : acceptedPaste(request, result.value.data),
+          clientTxnId: null,
+          outcome: {
+            kind: "rejected",
+            failure: {
+              kind: "stale_target",
+              message:
+                "Recover the pending merge in Merge actions before pasting into these records.",
+            },
+          },
         };
-      } catch {
-        return { clientTxnId, outcome: retryablePasteOutcome() };
+      try {
+        let clientTxnId: string;
+        try {
+          clientTxnId = options.transactionIds.create(
+            `${input.view_schema_id}-clipboard-paste`,
+          );
+        } catch {
+          return secureIdFailure();
+        }
+        input.onClientTxnId?.(clientTxnId);
+        const { onClientTxnId: _onClientTxnId, ...requestInput } = input;
+        const request: PasteWorkbookClipboardRequest = {
+          ...requestInput,
+          client_txn_id: clientTxnId,
+        };
+        try {
+          const result = await operations.execute({
+            operationID: "pasteWorkbookClipboard",
+            pathParameters: {
+              incident_id: options.incidentId,
+              view_schema_id: request.view_schema_id,
+            },
+            request,
+          });
+          if (result.kind === "accepted" && entityType)
+            for (const row of result.value.data.rows)
+              options.entityWrites?.acceptVersion(
+                row.record_id,
+                row.row_version,
+              );
+          return {
+            clientTxnId,
+            outcome:
+              result.kind === "rejected"
+                ? result
+                : acceptedPaste(request, result.value.data),
+          };
+        } catch {
+          return { clientTxnId, outcome: retryablePasteOutcome() };
+        }
+      } finally {
+        release();
       }
     },
   };

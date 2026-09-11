@@ -102,6 +102,7 @@ export class WorkbookRecordHistoryOwner {
     readonly incidentId: string,
     private readonly ids: SecureTransactionIdPort,
     private readonly observe: typeof observeAsyncOperation = observeAsyncOperation,
+    private readonly canAdmitRecord: (recordId: string) => boolean = () => true,
   ) {}
 
   createLookup(intent: HistoryIntent, expectedVersion?: number) {
@@ -347,6 +348,7 @@ export class WorkbookRecordHistoryOwner {
     if (
       !authority ||
       !this.permitted(operation) ||
+      !this.canAdmitRecord(intent.subject.recordId) ||
       !binding.isCurrent() ||
       (previous &&
         (previous.transportPending ||
@@ -409,6 +411,7 @@ export class WorkbookRecordHistoryOwner {
     if (
       !entry ||
       (!replay && entry.dispatched) ||
+      (replay && !this.canAdmitRecord(attempt.subject.recordId)) ||
       entry.transportPending ||
       this.executing.has(attempt.id)
     )
@@ -585,6 +588,7 @@ export class WorkbookRecordHistoryOwner {
     if (
       !entry ||
       entry.phase !== "uncertain" ||
+      !this.canAdmitRecord(entry.attempt.subject.recordId) ||
       entry.transportPending ||
       !this.authorized(entry.attempt)
     )

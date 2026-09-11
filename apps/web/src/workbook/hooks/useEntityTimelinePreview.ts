@@ -1,7 +1,9 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { requireWorkbookSurfaceAcceptance } from "../collaboration/workbookSurfacePort";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import {
   abortLatestQuery,
@@ -19,8 +21,10 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 export function useEntityTimelinePreview({
   entityType,
   viewQuery,
+  onIncidentAccessLost,
 }: {
   readonly entityType: "host" | "identity";
+  readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly viewQuery: WorkbookViewQueryPort;
 }) {
   const [timelinePreviewRows, setTimelinePreviewRows] = useState<WorkbookRow[]>(
@@ -37,7 +41,10 @@ export function useEntityTimelinePreview({
   }, []);
 
   const loadTimelinePreview = useCallback(
-    async (recordId: string) => {
+    async (
+      recordId: string,
+      options?: { readonly requireAcceptance?: boolean },
+    ) => {
       const request = beginLatestQuery(queryRuntimeRef);
       setTimelinePreviewRows([]);
       const result = await viewQuery.query({
@@ -46,10 +53,16 @@ export function useEntityTimelinePreview({
         signal: request.signal,
       });
       if (!request.isCurrent() || result.kind === "aborted") {
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         return;
       }
       if (result.kind === "rejected") {
         setTimelinePreviewRows([]);
+        if (workbookOperationFailureIsAccessLoss(result.failure))
+          onIncidentAccessLost?.();
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance(result);
         return;
       }
       const draftKey = entityType === "host" ? "hostRefs" : "identityRefs";
@@ -71,13 +84,15 @@ export function useEntityTimelinePreview({
           );
       } catch {
         setTimelinePreviewRows([]);
+        if (options?.requireAcceptance)
+          throw new Error("Timeline preview could not be verified");
         return;
       }
       if (request.isCurrent()) {
         setTimelinePreviewRows(previewRows);
       }
     },
-    [entityType, viewQuery],
+    [entityType, viewQuery, onIncidentAccessLost],
   );
 
   useEffect(

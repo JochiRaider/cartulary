@@ -59,11 +59,15 @@ export function useWorkbookSurfaceQueries({
   readonly facadeQueries: WorkbookSurfacesFacadeProps["queries"];
   readonly invalidateAll: (reason: WorkbookQueryInvalidationReason) => void;
   readonly refreshProjection: {
-    readonly assessment: () => Promise<void>;
+    readonly assessment: (options?: {
+      readonly requireAcceptance?: boolean;
+    }) => Promise<void>;
     readonly entities: (options?: {
       readonly requireAcceptance?: boolean;
     }) => Promise<void>;
-    readonly generic: () => Promise<void>;
+    readonly generic: (options?: {
+      readonly requireAcceptance?: boolean;
+    }) => Promise<void>;
   };
 } {
   const genericSurfaceActive =

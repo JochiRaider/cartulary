@@ -15,7 +15,7 @@ import (
 func syncEntityAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, actions []CollectionAction, actorUserID uuid.UUID, now time.Time) (AliasSyncResult, error) {
 	result := AliasSyncResult{}
 	for _, action := range actions {
-		normalized, ok := fieldnorm.NormalizeAliasText(action.NormalizedText)
+		normalized, ok := fieldnorm.NormalizeEntityAliasText(action.NormalizedText)
 		if !ok {
 			return AliasSyncResult{}, fmt.Errorf("invalid entity alias")
 		}

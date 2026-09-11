@@ -38,6 +38,7 @@ import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
+import { WorkbookEntityMergeRecovery } from "./features/entities/WorkbookEntityMergeRecovery";
 import {
   type NetworkFlowImportController,
   NetworkFlowImportRecovery,
@@ -83,6 +84,7 @@ import {
   workbookActiveSystemSurfaceTitle,
 } from "./models/workbookShellPresentation";
 import {
+  assessmentsViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
   timelineViewSchemaId,
@@ -216,10 +218,10 @@ function WorkbookShellContent({
       onIncidentAccessLost,
     });
   useLayoutEffect(() => {
-    infrastructure.mutationRuntime.history.setAuthority(
+    const mergeAuthority =
       authorization.currentUserId &&
-        authorization.currentIncidentRole !== null &&
-        sessionIdentity !== null
+      authorization.currentIncidentRole !== null &&
+      sessionIdentity !== null
         ? {
             actorId: authorization.currentUserId,
             sessionIdentity,
@@ -227,8 +229,9 @@ function WorkbookShellContent({
             role: authorization.currentIncidentRole,
             closed: incidentIdentity?.status !== "active",
           }
-        : null,
-    );
+        : null;
+    infrastructure.mutationRuntime.history.setAuthority(mergeAuthority);
+    infrastructure.mutationRuntime.entityMerge.setAuthority(mergeAuthority);
   }, [
     infrastructure.mutationRuntime,
     authorization.currentUserId,
@@ -238,7 +241,10 @@ function WorkbookShellContent({
     sessionIdentity,
   ]);
   useLayoutEffect(
-    () => () => infrastructure.mutationRuntime.history.suspend(),
+    () => () => {
+      infrastructure.mutationRuntime.history.suspend();
+      infrastructure.mutationRuntime.entityMerge.suspend();
+    },
     [infrastructure.mutationRuntime],
   );
   const networkFlowSavedGraphController = useNetworkFlowSavedGraphOwner({
@@ -335,7 +341,10 @@ function WorkbookShellContent({
       ...surfaces.entities.hosts.rows,
       ...surfaces.entities.identities.rows,
     ])
-      history.acceptVersion(row.recordId, row.rowVersion);
+      infrastructure.mutationRuntime.acceptEntityVersion(
+        row.recordId,
+        row.rowVersion,
+      );
   }, [infrastructure.mutationRuntime, queries.facadeQueries]);
   useLayoutEffect(
     () =>
@@ -353,6 +362,39 @@ function WorkbookShellContent({
       ),
     [infrastructure.mutationRuntime, queries.refreshProjection.entities],
   );
+  useLayoutEffect(() => {
+    const owner = infrastructure.mutationRuntime.entityMerge;
+    return owner.registerProjectionRefresh(async () => {
+      const scope = owner.getSnapshot();
+      if (
+        scope.authority?.actorId !== authorization.currentUserId ||
+        scope.authority?.sessionIdentity !== sessionIdentity
+      )
+        throw new Error("Merge projection authority changed");
+      await queries.refreshProjection.entities({ requireAcceptance: true });
+      if (owner.getSnapshot().generation !== scope.generation)
+        throw new Error("Merge projection scope changed");
+      if (snapshot.surface === timelineViewSchemaId)
+        await owner.refreshTimeline();
+      else if (snapshot.surface === assessmentsViewSchemaId)
+        await queries.refreshProjection.assessment({ requireAcceptance: true });
+      else if (
+        snapshot.startupSheetRef.kind !== "extension_workspace" &&
+        snapshot.surface !== hostsViewSchemaId &&
+        snapshot.surface !== identitiesViewSchemaId
+      )
+        await queries.refreshProjection.generic({ requireAcceptance: true });
+    });
+  }, [
+    infrastructure.mutationRuntime,
+    queries.refreshProjection.entities,
+    queries.refreshProjection.assessment,
+    queries.refreshProjection.generic,
+    snapshot.surface,
+    snapshot.startupSheetRef.kind,
+    authorization.currentUserId,
+    sessionIdentity,
+  ]);
   const collaboration = useWorkbookCollaborationLifecycle({
     onSessionLost,
     activeSurfacePort: queries.activeSurfacePort,
@@ -630,6 +672,9 @@ function WorkbookShellContent({
           importRecovery={
             <>
               <WorkbookHistoryRecovery />
+              <WorkbookEntityMergeRecovery
+                runtime={infrastructure.mutationRuntime}
+              />
               {!networkAnalysisActive || !networkAnalysisAvailable ? (
                 <NetworkFlowImportRecovery
                   controller={networkFlowImportController}

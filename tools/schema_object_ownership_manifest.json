@@ -3369,8 +3369,8 @@
       "qualified_name": "public.entity_active_identifier_claims.entity_active_identifier_claims_value_ck",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 37,
-      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "migration_version": 41,
+      "migration_file": "00041_entities_identifier_unicode_v1.sql",
       "dependency_object_ids": [
         "table.public.entity-active-identifier-claims"
       ],
@@ -26576,8 +26576,8 @@
       "qualified_name": "public.entities_assert_entity_child_v1",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 36,
-      "migration_file": "00036_entities_source_integrity.sql",
+      "migration_version": 41,
+      "migration_file": "00041_entities_identifier_unicode_v1.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -26644,8 +26644,8 @@
       "qualified_name": "public.entities_normalize_identifier_v1",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 37,
-      "migration_file": "00037_entities_active_identifier_claims.sql",
+      "migration_version": 41,
+      "migration_file": "00041_entities_identifier_unicode_v1.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -29130,8 +29130,8 @@
       "qualified_name": "public.entity_aliases.entities_assert_entity_alias",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 36,
-      "migration_file": "00036_entities_source_integrity.sql",
+      "migration_version": 41,
+      "migration_file": "00041_entities_identifier_unicode_v1.sql",
       "dependency_object_ids": [
         "table.public.entity-aliases"
       ],
@@ -29149,8 +29149,8 @@
       "qualified_name": "public.entity_mentions.entities_assert_entity_mention",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 36,
-      "migration_file": "00036_entities_source_integrity.sql",
+      "migration_version": 41,
+      "migration_file": "00041_entities_identifier_unicode_v1.sql",
       "dependency_object_ids": [
         "table.public.entity-mentions"
       ],
@@ -29168,8 +29168,8 @@
       "qualified_name": "public.entity_preserved_identifiers.entities_assert_entity_preserved_identifier",
       "management_class": "cartulary_authored",
       "source_owner": "entities",
-      "migration_version": 36,
-      "migration_file": "00036_entities_source_integrity.sql",
+      "migration_version": 41,
+      "migration_file": "00041_entities_identifier_unicode_v1.sql",
       "dependency_object_ids": [
         "table.public.entity-preserved-identifiers"
       ],

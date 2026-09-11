@@ -6,6 +6,7 @@ import {
   entityInspectorTestId,
   entityMergeControlTestId,
   gridRowTestId,
+  gridScrollportSelector,
   timelinePreviewRowTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
@@ -89,10 +90,19 @@ export async function exerciseEntityMerge(
   await expect(
     page.getByTestId(entityMergeControlTestId("plan")),
   ).toContainText(options.loser.record_id);
+  await page.getByTestId(entityMergeControlTestId("review")).click();
+  await expect(
+    page.getByTestId(entityMergeControlTestId("cancel")),
+  ).toBeFocused();
   const mergeResponsePromise = waitForMergeResponse(
     page,
     options.survivor.record_id,
   );
+  const scrollport = page.locator(gridScrollportSelector());
+  const scrollBefore = await scrollport.evaluate((node) => ({
+    left: node.scrollLeft,
+    top: node.scrollTop,
+  }));
   await page.getByTestId(entityMergeControlTestId("confirm")).click();
   const mergeEnvelope = await readMergeEnvelope(await mergeResponsePromise);
   await expect(
@@ -105,15 +115,29 @@ export async function exerciseEntityMerge(
   );
   await expect(
     page.getByTestId(entityMergeControlTestId("message")),
-  ).toContainText(`Merged ${options.loserLabel} into ${options.survivorLabel}`);
+  ).toContainText(
+    `Merged ${options.loserLabel} (${options.loser.record_id}) into ${options.survivorLabel} (${options.survivor.record_id})`,
+  );
   await expect(
     page.getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id)),
   ).toBeVisible();
   await expect(
     page
       .getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id))
-      .getByLabel(`Resolved ${options.resolvedLabel}`),
+      .getByRole("note", {
+        name: `Resolved ${options.entityType}: ${options.resolvedLabel}`,
+        exact: true,
+      }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Entity merge review", exact: true }),
+  ).toBeFocused();
+  expect(
+    await scrollport.evaluate((node) => ({
+      left: node.scrollLeft,
+      top: node.scrollTop,
+    })),
+  ).toEqual(scrollBefore);
   const entityRowsAfter = await queryViewRows(
     page,
     options.incidentId,

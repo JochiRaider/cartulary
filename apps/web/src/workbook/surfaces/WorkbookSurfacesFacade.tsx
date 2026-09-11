@@ -76,7 +76,9 @@ export type WorkbookSurfacesFacadeProps = {
       };
       readonly index: Record<string, EntityRow>;
       readonly loadState: WorkbookQueryLoadState;
-      readonly refresh: () => Promise<void>;
+      readonly refresh: (options?: {
+        readonly requireAcceptance?: boolean;
+      }) => Promise<void>;
     };
     readonly generic: {
       readonly loadState: WorkbookQueryLoadState;
@@ -240,6 +242,7 @@ export function WorkbookSurfacesFacade({
         collaborationProjection={collaborationProjection}
         loadState={entityLoadState}
         onRefreshEntities={loadEntities}
+        onIncidentAccessLost={onIncidentAccessLost}
         onClearFilters={() => {
           if (isHosts) setHostQueryState(emptyWorkbookQueryState());
           else setIdentityQueryState(emptyWorkbookQueryState());

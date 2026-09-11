@@ -209,6 +209,173 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.entity_merge_admission",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookEntityMergeAdmission.test.ts",
+        "titles": [
+          "Entity merge record admission coordinates direct writes and synchronously rejects overlapping commands while unrelated records remain usable",
+          "Entity merge record admission coordinates queued edits to either participant and refuses changed versions without replacing the review"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.entity_merge_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/entities/WorkbookEntityMergeOwner.test.ts",
+        "titles": [
+          "Workbook entity merge ownership conceals suspended content, fences session callbacks and clears retired account attempts",
+          "Workbook entity merge ownership preserves uncertainty across transaction conflict, stale version and lock rejection",
+          "Workbook entity merge ownership records the complete receipt before refresh and retries only reconciliation without regressing newer versions",
+          "Workbook entity merge ownership reserves both records synchronously and requires the reviewed versions after coordination",
+          "Workbook entity merge ownership retains exact replay after uncertainty without requiring the loser or a current presentation",
+          "Workbook entity merge ownership separates timeout from transport settlement and retains late acknowledgement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.entity_merge_planning_contract",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityMergePlan.test.ts",
+        "titles": [
+          "entityMergePlan explains owner promotion ordering, duplicates and aliases independently of collection positions",
+          "entityMergePlan matches the owner identifier normalization corpus and separate alias policy",
+          "entityMergePlan refuses missing, malformed, ineligible or inconsistent loaded inputs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.entity_merge_query_concealment",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/useEntitySurfaceQuery.test.tsx",
+        "titles": [
+          "useEntitySurfaceQuery conceals protected rows before rejecting an acceptance-required merge refresh"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.entity_merge_recovery_presentation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/entities/WorkbookEntityMergeRecovery.test.tsx",
+        "titles": [
+          "Entity merge recovery presentation conceals all protected recovery content during access loss and restores only the permitted memory lifetime",
+          "Entity merge recovery presentation offers keyboard recovery, receipt completion and refresh-only retry for both entity types"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.entity_merge_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createWorkbookEntityMergeAdapter.test.ts",
+        "titles": [
+          "Entity merge captured transport preserves permitted long collision details and classifies definitive stale, transaction and lock rejection",
+          "Entity merge captured transport replays identical path and bytes with current CSRF and retains every receipt field for both types",
+          "Entity merge captured transport treats thrown transport, malformed success and inconsistent identities, versions or summary as uncertain"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.entityworkbookmodel_builds_merge_plans_without_c_6b84a1bd7f",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -220,7 +387,7 @@
       "selector": {
         "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
         "titles": [
-          "entityWorkbookModel builds merge plans without changing case-insensitive duplicate semantics"
+          "entityWorkbookModel checks reusable duplicates before promotion and preserves alias case"
         ]
       },
       "evidence_class": "unit",
@@ -4429,8 +4596,10 @@
       "selector": {
         "file": "apps/web/src/workbook/features/entities/useEntityMergeController.test.tsx",
         "titles": [
-          "useEntityMergeController owns accepted merge cleanup, refresh, preview, and survivor continuity",
-          "useEntityMergeController rejects a late merge completion after lifecycle authorization changes"
+          "useEntityMergeController captures the reviewed pair and synchronously admits only one confirmation",
+          "useEntityMergeController fences presentation callbacks after closure or authorization loss",
+          "useEntityMergeController invalidates confirmation synchronously for either participant, reason, eligibility, view or authority",
+          "useEntityMergeController requires explicit completion or scoped discard of participant drafts before review"
         ]
       },
       "evidence_class": "unit",

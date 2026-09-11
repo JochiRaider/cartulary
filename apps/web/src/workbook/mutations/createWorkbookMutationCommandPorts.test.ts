@@ -1,5 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mergeReview } from "../../testing/entityMergeTestSupport";
+import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
 import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "./createWorkbookMutationCommandPorts";
@@ -205,13 +207,22 @@ describe("semantic mutation command ports", () => {
       recordId: "task-1",
       viewSchemaId: "cartulary.view.tasks.v1",
     });
-    await commands.entity.merge({
-      loserBaseRowVersion: 6,
-      loserRecordId: "host-2",
-      reason: "Duplicate",
-      survivorBaseRowVersion: 5,
-      survivorRecordId: "host-1",
+    const merge = createWorkbookEntityMergeAdapter({
+      apiBase: undefined,
+      incidentId: "incident-1",
     });
+    const review = mergeReview();
+    const attempt = merge.capture(
+      {
+        ...review,
+        reason: "Duplicate",
+        authority: { ...review.authority, incidentId: "incident-1" },
+        survivor: { ...review.survivor, recordId: "host-1", baseRowVersion: 5 },
+        loser: { ...review.loser, recordId: "host-2", baseRowVersion: 6 },
+      },
+      "merge-id",
+    );
+    await merge.send(attempt, new AbortController().signal);
     await commands.assessment.create({
       draft: {
         assessedAt: "2026-07-31T05:00:00Z",

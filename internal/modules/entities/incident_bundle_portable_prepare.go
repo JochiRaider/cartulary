@@ -434,7 +434,7 @@ func preparePortableAlias(raw map[string]any, importContext sourceport.ImportCon
 		!entityTypeAllowed(row.EntityType) || row.Classification != "suggestion_only" {
 		return fail(entityClassified)
 	}
-	want, normalized := fieldnorm.NormalizeAliasText(row.RawText)
+	want, normalized := fieldnorm.NormalizeEntityAliasText(row.RawText)
 	if !normalized || want != row.RawText || want != row.NormalizedText {
 		return fail(entityNormalized)
 	}

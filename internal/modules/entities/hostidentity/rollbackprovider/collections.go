@@ -161,7 +161,7 @@ func parseCollectionTarget(target rollbackcontract.NonRowTarget) (collectionIden
 		identity.rawValue = rawCollectionText(value, "raw_text")
 		identity.normalizedValue = requiredCollectionText(value, "normalized_text")
 		identity.classification = requiredCollectionText(value, "classification")
-		normalized, valid := fieldnorm.NormalizeAliasText(identity.rawValue)
+		normalized, valid := fieldnorm.NormalizeEntityAliasText(identity.rawValue)
 		if !valid || normalized != identity.normalizedValue || identity.classification != "suggestion_only" {
 			return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}

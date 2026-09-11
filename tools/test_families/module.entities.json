@@ -39,6 +39,48 @@
       ]
     },
     {
+      "row_id": "module.entities.browser.entity_merge_exact_recovery",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.revisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/merge-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_0d9f6a273c8e",
+          "scenario_4e7df4498b7f",
+          "scenario_76b8aef3ef49",
+          "scenario_cca172f34e0a"
+        ],
+        "titles": [
+          "recovers host merge loss after commit with exact replay and existing history rollback",
+          "recovers host merge loss before dispatch with exact replay and existing history rollback",
+          "recovers identity merge loss after commit with exact replay and existing history rollback",
+          "recovers identity merge loss before dispatch with exact replay and existing history rollback"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.entities.browser.the_browser_inspector_dismisses_a_mention_and_re_6150fd43cd",
       "owner_id": "module.entities",
       "family_id": "module.entities.browser",

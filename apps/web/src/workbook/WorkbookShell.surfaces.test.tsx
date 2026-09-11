@@ -1035,12 +1035,14 @@ describe("WorkbookShell surface selection", () => {
               : row,
           );
         return successEnvelope({
-          incident_id: "00000000-0000-4000-8000-000000000001",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           record_type: viewSchemaId === hostsViewSchemaId ? "host" : "identity",
           survivor_record_id: survivorRecordId,
           loser_record_id: loserRecordId,
           survivor_row_version: (survivor?.row_version ?? 1) + 1,
-          loser_row_version: 2,
+          loser_row_version:
+            (rows.find((row) => row.record_id === loserRecordId)?.row_version ??
+              1) + 1,
           change_set_id: "30000000-0000-4000-8000-000000000001",
           merged_into_record_id: survivorRecordId,
           merge_summary: {
@@ -1052,7 +1054,18 @@ describe("WorkbookShell surface selection", () => {
             repointed_tag_count: 0,
             deduped_tag_count: 0,
             repointed_assessment_count: 0,
-            exact_match_classes: [],
+            exact_match_classes: (viewSchemaId === hostsViewSchemaId
+              ? ["aad_device_id", "fqdn", "hostname"]
+              : ["aad_object_id", "sid", "upn", "email", "sam_account_name"]
+            ).map((identifier_class) => ({
+              identifier_class,
+              promoted_count: 0,
+              carried_count: 0,
+              duplicate_noop_count: 0,
+              blocked_conflict_count: 0,
+              provenance_only_count: 0,
+              suggestion_only_count: 0,
+            })),
             suggestion_aliases_copied_count: 0,
             suggestion_alias_duplicate_noop_count: 0,
             provenance_only_retained_count: 0,
@@ -2636,17 +2649,18 @@ describe("WorkbookShell surface selection", () => {
     expect(mergePlan.textContent).toContain(
       "Hostname: Carry as reusable old-loser-host",
     );
-    expect(mergePlan.textContent).toContain("Aliases to copy: loser-alias");
     expect(mergePlan.textContent).toContain(
-      "Alias duplicate no-op: Shared-Alias",
+      "Aliases to copy: Shared-Alias, loser-alias",
+    );
+    expect(mergePlan.textContent).toContain("Alias duplicate no-op: none");
+    expect(mergePlan.textContent).toContain(
+      "The historical loser, merge lineage and source provenance are retained. Ordinary aliases remain suggestion-only; reusable identifiers remain exact-match values.",
     );
     expect(mergePlan.textContent).toContain(
-      "Provenance-only values: Merge lineage and source provenance are retained server-side; no editable cell value is copied for them.",
-    );
-    expect(mergePlan.textContent).toContain(
-      "Linked events visible on surface: survivor=2, loser=1.",
+      "This review explains loaded identifiers and aliases. The server checks collisions, current versions, dependencies and authorization when the merge is submitted.",
     );
 
+    fireEvent.click(screen.getByTestId(entityMergeControlTestId("review")));
     fireEvent.click(screen.getByTestId(entityMergeControlTestId("confirm")));
 
     await waitFor(() => {
@@ -2669,7 +2683,9 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(entityMergeControlTestId("message")).textContent,
-      ).toContain("Merged Loser host into Survivor host (host).");
+      ).toContain(
+        `Merged Loser host (${loserId}) into Survivor host (${survivorId})`,
+      );
     });
     await expectRecordIds(hostsViewSchemaId, [survivorId, unrelatedId]);
     expect(
@@ -2959,6 +2975,7 @@ describe("WorkbookShell surface selection", () => {
         target: { value: "00000000-0000-4000-8000-000000000802" },
       },
     );
+    fireEvent.click(screen.getByTestId(entityMergeControlTestId("review")));
     fireEvent.click(
       await screen.findByTestId(entityMergeControlTestId("confirm")),
     );
@@ -4126,8 +4143,8 @@ function hostRow({
     cells: {
       "host.display_name": { value: displayName },
       "host.hostname": { value: hostname },
-      "host.aad_device_id": { value: "" },
-      "host.fqdn": { value: fqdn ?? "" },
+      "host.aad_device_id": { value: null },
+      "host.fqdn": { value: fqdn },
       "host.reusable_identifiers": {
         value: collectionValue(
           reusableIdentifiers.map((identifier) => ({
@@ -4197,11 +4214,11 @@ function identityRow({
     row_version: rowVersion,
     cells: {
       "identity.display_name": { value: displayName },
-      "identity.aad_object_id": { value: "" },
-      "identity.sid": { value: "" },
+      "identity.aad_object_id": { value: null },
+      "identity.sid": { value: null },
       "identity.upn": { value: upn },
-      "identity.email": { value: email },
-      "identity.sam_account_name": { value: "" },
+      "identity.email": { value: email || null },
+      "identity.sam_account_name": { value: null },
       "identity.reusable_identifiers": {
         value: collectionValue(
           reusableIdentifiers.map((identifier) => ({

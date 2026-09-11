@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
+import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookStartupAdapter } from "../adapters/createWorkbookStartupAdapter";
@@ -62,15 +63,6 @@ export function useWorkbookShellInfrastructure({
       }),
     [apiBase, incidentId],
   );
-  const clipboardPastePort = useMemo(
-    () =>
-      createWorkbookClipboardPasteAdapter({
-        apiBase,
-        incidentId,
-        transactionIds,
-      }),
-    [apiBase, incidentId, transactionIds],
-  );
   const mutationRuntime = useMemo(
     () =>
       mutationRuntimeRegistry.acquire(
@@ -90,18 +82,43 @@ export function useWorkbookShellInfrastructure({
       transactionIds,
     ],
   );
+  const entityWrites = useMemo(
+    () => ({
+      begin: mutationRuntime.beginEntityWrite.bind(mutationRuntime),
+      acceptVersion: mutationRuntime.acceptEntityVersion.bind(mutationRuntime),
+    }),
+    [mutationRuntime],
+  );
+  const clipboardPastePort = useMemo(
+    () =>
+      createWorkbookClipboardPasteAdapter({
+        apiBase,
+        incidentId,
+        transactionIds,
+        entityWrites,
+      }),
+    [apiBase, incidentId, transactionIds, entityWrites],
+  );
   const mutationCommands = useMemo(
     () =>
       createWorkbookMutationCommandPorts({
         apiBase,
         incidentId,
         transactionIds,
+        entityWrites,
       }),
-    [apiBase, incidentId, transactionIds],
+    [apiBase, incidentId, transactionIds, entityWrites],
   );
   useMemo(
     () => mutationRuntime.history.configure(mutationCommands.records),
     [mutationRuntime, mutationCommands],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.entityMerge.configure(
+        createWorkbookEntityMergeAdapter({ apiBase, incidentId }),
+      ),
+    [apiBase, incidentId, mutationRuntime],
   );
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const surfaceSelectionVersionRef = useRef(0);

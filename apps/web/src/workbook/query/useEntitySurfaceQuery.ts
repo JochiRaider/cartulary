@@ -95,10 +95,6 @@ export function useEntitySurfaceQuery({
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         return;
       }
-      if (options?.requireAcceptance) {
-        requireWorkbookSurfaceAcceptance(hostsResult);
-        requireWorkbookSurfaceAcceptance(identitiesResult);
-      }
       const rejected = [hostsResult, identitiesResult].find(
         (result) => result.kind === "rejected",
       );
@@ -117,6 +113,8 @@ export function useEntitySurfaceQuery({
         } else {
           setLoadState({ kind: "unavailable", message });
         }
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance(rejected);
         return;
       }
       if (

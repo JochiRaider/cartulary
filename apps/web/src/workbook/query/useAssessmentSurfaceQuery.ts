@@ -76,7 +76,6 @@ export function useAssessmentSurfaceQuery({
           requireWorkbookSurfaceAcceptance({ kind: "aborted" });
         return;
       }
-      if (options?.requireAcceptance) requireWorkbookSurfaceAcceptance(result);
       if (result.kind === "rejected") {
         const message = result.failure.message;
         if (workbookOperationFailureIsAccessLoss(result.failure)) {
@@ -90,6 +89,8 @@ export function useAssessmentSurfaceQuery({
         } else {
           setLoadState({ kind: "unavailable", message });
         }
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance(result);
         return;
       }
       const nextRows = [...result.value.rows];

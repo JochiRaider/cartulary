@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.entities_merge_planning_corpus.v1.schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "normalizer_id",
+    "ordering_id",
+    "cases"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.entities_merge_planning_corpus.v1"
+    },
+    "normalizer_id": {
+      "const": "entities.identifier_normalization.v1"
+    },
+    "ordering_id": {
+      "const": "entities.merge.canonical_then_normalized.v1"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "entity_type",
+          "survivor",
+          "loser",
+          "expected"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "entity_type": {
+            "enum": [
+              "host",
+              "identity"
+            ]
+          },
+          "survivor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "canonical",
+              "reusable",
+              "aliases"
+            ],
+            "properties": {
+              "canonical": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "aad_device_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fqdn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "hostname": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "aad_object_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sid": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "upn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sam_account_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "reusable": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "identifier_class",
+                    "raw_value",
+                    "normalized_value"
+                  ],
+                  "properties": {
+                    "identifier_class": {
+                      "enum": [
+                        "aad_device_id",
+                        "fqdn",
+                        "hostname",
+                        "aad_object_id",
+                        "sid",
+                        "upn",
+                        "email",
+                        "sam_account_name"
+                      ]
+                    },
+                    "raw_value": {
+                      "type": "string"
+                    },
+                    "normalized_value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "loser": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "canonical",
+              "reusable",
+              "aliases"
+            ],
+            "properties": {
+              "canonical": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "aad_device_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fqdn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "hostname": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "aad_object_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sid": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "upn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sam_account_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "reusable": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "identifier_class",
+                    "raw_value",
+                    "normalized_value"
+                  ],
+                  "properties": {
+                    "identifier_class": {
+                      "enum": [
+                        "aad_device_id",
+                        "fqdn",
+                        "hostname",
+                        "aad_object_id",
+                        "sid",
+                        "upn",
+                        "email",
+                        "sam_account_name"
+                      ]
+                    },
+                    "raw_value": {
+                      "type": "string"
+                    },
+                    "normalized_value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "identifiers",
+              "aliases_to_copy",
+              "duplicate_aliases"
+            ],
+            "properties": {
+              "identifiers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "identifier_class",
+                    "normalized_value",
+                    "action",
+                    "source"
+                  ],
+                  "properties": {
+                    "identifier_class": {
+                      "enum": [
+                        "aad_device_id",
+                        "fqdn",
+                        "hostname",
+                        "aad_object_id",
+                        "sid",
+                        "upn",
+                        "email",
+                        "sam_account_name"
+                      ]
+                    },
+                    "normalized_value": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "enum": [
+                        "promotion",
+                        "carry_forward",
+                        "duplicate_noop"
+                      ]
+                    },
+                    "source": {
+                      "enum": [
+                        "canonical",
+                        "reusable_identifier"
+                      ]
+                    }
+                  }
+                }
+              },
+              "aliases_to_copy": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "duplicate_aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -132,7 +132,10 @@ export type EntityWorkbookSurfaceProps = {
   currentIncidentRole: WorkbookIncidentRole | null;
   currentUserId: string | null;
   entityIndex: Record<string, EntityRow>;
-  onRefreshEntities: () => Promise<void>;
+  onRefreshEntities: (options?: {
+    readonly requireAcceptance?: boolean;
+  }) => Promise<void>;
+  onIncidentAccessLost?: (() => void) | undefined;
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
   mutationCommands: EntityMutationCommandPort;
@@ -200,6 +203,7 @@ export function EntityWorkbookSurface({
   currentUserId,
   entityIndex,
   onRefreshEntities,
+  onIncidentAccessLost,
   loadState,
   mutationRuntime,
   mutationCommands,
@@ -366,6 +370,7 @@ export function EntityWorkbookSurface({
       setCreateDraft(initialGenericCreateDraft(contract, null));
     },
     onRefreshEntities,
+    onIncidentAccessLost,
     onResetOwnerState: () => {
       setCreateDraft(initialGenericCreateDraft(contract, null));
     },

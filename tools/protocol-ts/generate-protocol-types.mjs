@@ -142,6 +142,7 @@ function validateFrontendEntrypointsOwner(value) {
   }
   const expectedSpecifiers = [
     "@cartulary/protocol-ts/collaboration",
+    "@cartulary/protocol-ts/entities",
     "@cartulary/protocol-ts/errors",
     "@cartulary/protocol-ts/extensions",
     "@cartulary/protocol-ts/http",
@@ -150,7 +151,7 @@ function validateFrontendEntrypointsOwner(value) {
     "@cartulary/protocol-ts/view-schemas",
   ];
   if (!Array.isArray(owner.entrypoints) || owner.entrypoints.length !== expectedSpecifiers.length) {
-    throw new Error("protocol TypeScript frontend entrypoints must contain exactly seven rows");
+    throw new Error("protocol TypeScript frontend entrypoints must contain exactly eight rows");
   }
   for (const [index, rawEntrypoint] of owner.entrypoints.entries()) {
     const entrypoint = requireObject(rawEntrypoint, `protocol TypeScript entrypoints[${index}]`);

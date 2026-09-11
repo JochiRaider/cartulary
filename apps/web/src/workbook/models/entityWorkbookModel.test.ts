@@ -1,8 +1,8 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import { buildMergePlan, mergeIdentifierOutcomeText } from "./entityMergePlan";
 import {
-  buildMergePlan,
   entityContractColumnWidth,
   entityGroupLabel,
   entityRowFromApi,
@@ -19,7 +19,32 @@ function entityRow(
   return {
     record_id: recordId,
     row_version: 7,
-    cells,
+    cells: {
+      ...Object.fromEntries(
+        (Object.keys(cells).some((key) => key.startsWith("identity."))
+          ? [
+              "identity.aad_object_id",
+              "identity.sid",
+              "identity.upn",
+              "identity.email",
+              "identity.sam_account_name",
+            ]
+          : ["host.aad_device_id", "host.fqdn", "host.hostname"]
+        ).map((key) => [key, { value: null }]),
+      ),
+      ...(Object.keys(cells).some((key) => key.startsWith("identity."))
+        ? {
+            "identity.identity_state": { value: "canonical" },
+            "identity.aliases": { value: { items: [] } },
+            "identity.reusable_identifiers": { value: { items: [] } },
+          }
+        : {
+            "host.host_state": { value: "canonical" },
+            "host.aliases": { value: { items: [] } },
+            "host.reusable_identifiers": { value: { items: [] } },
+          }),
+      ...cells,
+    },
   };
 }
 
@@ -180,7 +205,7 @@ describe("entityWorkbookModel", () => {
     ]);
   });
 
-  it("builds merge plans without changing case-insensitive duplicate semantics", () => {
+  it("checks reusable duplicates before promotion and preserves alias case", () => {
     const survivor = entityRowFromApi(
       entityRow("host-survivor", {
         "host.display_name": { value: "Endpoint survivor" },
@@ -246,26 +271,28 @@ describe("entityWorkbookModel", () => {
     );
 
     const plan = buildMergePlan(survivor, loser);
-    expect(plan.identifierLines).toEqual([
-      { label: "AAD Device ID", outcome: "Promote device-existing" },
+    expect(
+      plan.identifierOutcomes.map((outcome) => ({
+        label: outcome.label,
+        outcome: mergeIdentifierOutcomeText(outcome),
+      })),
+    ).toEqual([
+      { label: "AAD Device ID", outcome: "Duplicate no-op device-existing" },
       {
         label: "FQDN",
         outcome: "Carry as reusable endpoint-01.example.test",
       },
-      { label: "Hostname", outcome: "Duplicate no-op endpoint-01" },
       {
         label: "FQDN",
         outcome: "Carry as reusable old-endpoint.example.test",
       },
+      { label: "Hostname", outcome: "Duplicate no-op endpoint-01" },
     ]);
-    expect(plan.aliasesToCopy).toEqual(["secondary"]);
-    expect(plan.duplicateAliases).toEqual(["Shared"]);
-    expect(plan.provenanceOnlySummary).toBe(
-      "Merge lineage and source provenance are retained server-side; no editable cell value is copied for them.",
-    );
-    expect(plan.dependencySummary).toBe(
-      "Linked events visible on surface: survivor=2, loser=1.",
-    );
+    expect(plan.aliasesToCopy).toEqual(["Shared", "secondary"]);
+    expect(plan.duplicateAliases).toEqual([]);
+    expect(plan.provenanceOnlySummary).toContain("historical loser");
+    expect(plan.dependencySummary).toContain("server checks collisions");
+    expect(plan.valid).toBe(true);
   });
 
   it("promotes loser identifiers only when the survivor canonical field is empty", () => {
@@ -285,7 +312,12 @@ describe("entityWorkbookModel", () => {
       "identity",
     );
 
-    expect(buildMergePlan(survivor, loser).identifierLines).toEqual([
+    expect(
+      buildMergePlan(survivor, loser).identifierOutcomes.map((outcome) => ({
+        label: outcome.label,
+        outcome: mergeIdentifierOutcomeText(outcome),
+      })),
+    ).toEqual([
       { label: "UPN", outcome: "Carry as reusable loser@example.test" },
       { label: "Email", outcome: "Promote loser@example.test" },
     ]);

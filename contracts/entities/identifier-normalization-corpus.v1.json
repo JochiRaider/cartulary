@@ -3,6 +3,48 @@
   "normalizer_id": "entities.identifier_normalization.v1",
   "cases": [
     {
+      "case_id": "hostname_context_independent_sigma",
+      "identifier_type": "hostname",
+      "raw_value": "ΟΣ",
+      "admitted": true,
+      "normalized_value": "οσ"
+    },
+    {
+      "case_id": "hostname_simple_dotted_i",
+      "identifier_type": "hostname",
+      "raw_value": "İ",
+      "admitted": true,
+      "normalized_value": "i"
+    },
+    {
+      "case_id": "sid_simple_sharp_s",
+      "identifier_type": "sid",
+      "raw_value": "ß",
+      "admitted": true,
+      "normalized_value": "ẞ"
+    },
+    {
+      "case_id": "sid_simple_greek_uppercase",
+      "identifier_type": "sid",
+      "raw_value": "ᾀ",
+      "admitted": true,
+      "normalized_value": "ᾈ"
+    },
+    {
+      "case_id": "hostname_next_line_edge_whitespace",
+      "identifier_type": "hostname",
+      "raw_value": "HOST",
+      "admitted": true,
+      "normalized_value": "host"
+    },
+    {
+      "case_id": "hostname_bom_is_not_whitespace",
+      "identifier_type": "hostname",
+      "raw_value": "﻿HOST",
+      "admitted": false,
+      "normalized_value": null
+    },
+    {
       "case_id": "aad_device_id_ascii_case",
       "identifier_type": "aad_device_id",
       "raw_value": " AAD-ABC-123 ",
@@ -12,14 +54,14 @@
     {
       "case_id": "fqdn_unicode_whitespace",
       "identifier_type": "fqdn",
-      "raw_value": "\u2003Gateway.Example.TEST\u2003",
+      "raw_value": " Gateway.Example.TEST ",
       "admitted": true,
       "normalized_value": "gateway.example.test"
     },
     {
       "case_id": "hostname_nfc",
       "identifier_type": "hostname",
-      "raw_value": "CAFE\u0301-HOST",
+      "raw_value": "CAFÉ-HOST",
       "admitted": true,
       "normalized_value": "café-host"
     },
@@ -61,7 +103,7 @@
     {
       "case_id": "empty_after_unicode_trim",
       "identifier_type": "hostname",
-      "raw_value": "\u2003\u00a0",
+      "raw_value": "  ",
       "admitted": false,
       "normalized_value": null
     },
@@ -75,14 +117,14 @@
     {
       "case_id": "c1_control_rejected",
       "identifier_type": "hostname",
-      "raw_value": "host\u0085name",
+      "raw_value": "hostname",
       "admitted": false,
       "normalized_value": null
     },
     {
       "case_id": "format_character_rejected",
       "identifier_type": "hostname",
-      "raw_value": "host\u200bname",
+      "raw_value": "host​name",
       "admitted": false,
       "normalized_value": null
     },
@@ -92,6 +134,41 @@
       "raw_value": "value",
       "admitted": false,
       "normalized_value": null
+    },
+    {
+      "case_id": "hostname_circled_lowercase",
+      "identifier_type": "hostname",
+      "raw_value": "Ⓐ",
+      "admitted": true,
+      "normalized_value": "ⓐ"
+    },
+    {
+      "case_id": "sid_circled_uppercase",
+      "identifier_type": "sid",
+      "raw_value": "ⓐ",
+      "admitted": true,
+      "normalized_value": "Ⓐ"
+    },
+    {
+      "case_id": "hostname_long_combining_sequence",
+      "identifier_type": "hostname",
+      "raw_value": "Á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+      "admitted": true,
+      "normalized_value": "á́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́"
+    },
+    {
+      "case_id": "hostname_unicode_17_mark_is_inert",
+      "identifier_type": "hostname",
+      "raw_value": "A̕᫏",
+      "admitted": true,
+      "normalized_value": "a̕᫏"
+    },
+    {
+      "case_id": "sid_unicode_17_assignment_is_inert",
+      "identifier_type": "sid",
+      "raw_value": "ꟓ",
+      "admitted": true,
+      "normalized_value": "ꟓ"
     }
   ]
 }

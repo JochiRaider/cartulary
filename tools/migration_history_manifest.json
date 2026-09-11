@@ -242,6 +242,12 @@
       "filename": "00040_parties_mutation_request_hash_v1.sql",
       "sha256": "7609c33e820cb85080a4c48279043bc020b7b15a888325ff6ca437431e365f94",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 41,
+      "filename": "00041_entities_identifier_unicode_v1.sql",
+      "sha256": "ce5928b19aba9167420017a10e24c557c5a6eb3bce7c9b3e6894e7f14f6a6453",
+      "historical_phase_shaped": false
     }
   ]
 }

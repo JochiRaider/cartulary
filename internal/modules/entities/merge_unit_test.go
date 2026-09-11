@@ -3,9 +3,11 @@ package entities_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
+	contractentities "github.com/JochiRaider/cartulary/internal/gen/contractentities"
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
@@ -22,6 +24,7 @@ import (
 )
 
 func TestExplicitEntityMerge_Unit(t *testing.T) {
+	t.Run("secondary promotion follows owner normalized scalar order", assertEntityMergeScalarOrdering)
 	t.Run("host merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-host")
 		store := newEntityTestStore(t, harness.DB)
@@ -300,4 +303,80 @@ SELECT identity_state, merged_into_record_id::text, row_version
 		reuseRow := reuse.Payload["row"].(map[string]any)
 		requireReusableIdentifierItem(t, reuseRow, "identity.reusable_identifiers", "email", "alex.legacy@example.test")
 	})
+}
+
+func assertEntityMergeScalarOrdering(t *testing.T) {
+	var corpus struct {
+		Cases []struct {
+			CaseID string `json:"case_id"`
+			Loser  struct {
+				Reusable []struct {
+					Raw        string `json:"raw_value"`
+					Normalized string `json:"normalized_value"`
+				} `json:"reusable"`
+			} `json:"loser"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal([]byte(contractentities.Index["contracts/entities/merge-planning-corpus.v1.json"].JSON), &corpus); err != nil {
+		t.Fatal(err)
+	}
+	for _, entityType := range []string{"host", "identity"} {
+		t.Run(entityType, func(t *testing.T) {
+			harness := appsupport.StartStore(t, "entity-merge-unicode-order-"+entityType)
+			actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "merge-order@example.test", "Merge Order", "MergeOrderFixture1!", false, false, true)
+			incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-order-incident", "IR-ORDER", "Merge ordering")
+			survivorID, loserID := uuid.New(), uuid.New()
+			identifierClass := "hostname"
+			for _, id := range []uuid.UUID{survivorID, loserID} {
+				if entityType == "host" {
+					entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, id, "Merge participant", "", "", "")
+					if _, err := harness.DB.Exec(context.Background(), `UPDATE hosts SET hostname = NULL, fqdn = NULL, aad_device_id = NULL WHERE record_id = $1`, id); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					identifierClass = "sam_account_name"
+					entitytest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, id, "Merge participant", "", "", "")
+					if _, err := harness.DB.Exec(context.Background(), `UPDATE identities SET upn = NULL, email = NULL, sam_account_name = NULL WHERE record_id = $1`, id); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			seeded := 0
+			for _, test := range corpus.Cases {
+				if test.CaseID != "host_scalar_order_not_utf16_or_locale" {
+					continue
+				}
+				for _, value := range test.Loser.Reusable {
+					if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO entity_preserved_identifiers (
+    incident_id, record_id, entity_type, identifier_type, raw_value,
+    normalized_value, classification, created_by_user_id
+) VALUES ($1, $2, $3, $4, $5, $6, 'exact_match_reuse', $7)
+`, incident.ID, loserID, entityType, identifierClass, value.Raw, value.Normalized, actor.ID); err != nil {
+						t.Fatal(err)
+					}
+					seeded++
+				}
+			}
+			if seeded != 4 {
+				t.Fatalf("ordering fixture has %d values, want 4", seeded)
+			}
+			if _, err := newEntityTestTimelineBundle(t, harness.DB).EntityMergeStore.MergeEntity(context.Background(), actor, survivorID, merge.MergeRequest{
+				LoserRecordID: loserID, SurvivorBaseRowVersion: 1, LoserBaseRowVersion: 1, ClientTxnID: "txn-unicode-order",
+			}, []byte("txn-unicode-order"), "req-unicode-order", entitytest.BaseTime); err != nil {
+				t.Fatal(err)
+			}
+			var promoted string
+			query := `SELECT hostname FROM hosts WHERE record_id = $1`
+			if entityType == "identity" {
+				query = `SELECT sam_account_name FROM identities WHERE record_id = $1`
+			}
+			if err := harness.DB.QueryRow(context.Background(), query, survivorID).Scan(&promoted); err != nil {
+				t.Fatal(err)
+			}
+			if promoted != "z" {
+				t.Fatalf("promoted %q, want z before accented, private-use and supplementary scalars", promoted)
+			}
+		})
+	}
 }

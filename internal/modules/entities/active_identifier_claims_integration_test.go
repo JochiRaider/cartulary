@@ -9,9 +9,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"golang.org/x/text/unicode/norm"
 
 	contractentities "github.com/JochiRaider/cartulary/internal/gen/contractentities"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
@@ -51,7 +54,6 @@ func TestEntityIdentifierNormalizationAndClaimsMigration_Integration(t *testing.
 		}
 		assertEntityActiveIdentifierClaimObjects(t, migrationDB.SQL(), true)
 		assertLegacyEntityExactMatchIndexes(t, migrationDB.SQL(), false)
-		assertEntityIdentifierNormalizationParity(t, migrationDB.SQL())
 
 		var claimCount int
 		if err := migrationDB.SQL().QueryRowContext(ctx, `
@@ -123,6 +125,109 @@ SELECT max(version_id)
 			t.Fatalf("migration head after rejected claims preflight = %d, want 36", appliedHead)
 		}
 	})
+
+	t.Run("Unicode reconciliation preserves compatible claims and disposable rollback", func(t *testing.T) {
+		harness := pgtest.Start(t)
+		migrationDB := harness.MigrationDatabaseThroughT(t, 40)
+		fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
+		ctx := context.Background()
+		if _, err := migrationDB.SQL().ExecContext(ctx, `UPDATE identities SET sid = 'ß' WHERE record_id = $1`, fixture.identityID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := migrationDB.SQL().ExecContext(ctx, `
+INSERT INTO entity_preserved_identifiers (
+    incident_id, record_id, entity_type, identifier_type, raw_value,
+    normalized_value, classification, created_by_user_id
+) VALUES ($1, $2, 'identity', 'sid', 'ß', 'ẞ', 'exact_match_reuse', $3)
+`, fixture.incidentID, fixture.identityID, fixture.actorID); err != nil {
+			t.Fatal(err)
+		}
+		before := entityUnicodeCompatibilityState(t, migrationDB.SQL())
+		assertEntityActiveIdentifierClaimPrivileges(t, migrationDB.SQL())
+		if err := migrationDB.ApplyThrough(ctx, 41); err != nil {
+			t.Fatalf("apply Unicode reconciliation: %v", err)
+		}
+		assertEntityIdentifierNormalizationParity(t, migrationDB.SQL())
+		assertEntityIdentifierScalarCasingParity(t, migrationDB.SQL())
+		requireEntityIdentifierClaim(t, migrationDB.SQL(), fixture.incidentID, "identity", "sid", "ẞ", fixture.identityID)
+		if after := entityUnicodeCompatibilityState(t, migrationDB.SQL()); before != after {
+			t.Fatal("Unicode reconciliation changed source, claims, history or receipts")
+		}
+		assertEntityActiveIdentifierClaimPrivileges(t, migrationDB.SQL())
+		if err := migrationDB.RollbackThrough(ctx, 40); err != nil {
+			t.Fatalf("disposable Unicode rollback: %v", err)
+		}
+		if after := entityUnicodeCompatibilityState(t, migrationDB.SQL()); before != after {
+			t.Fatal("disposable Unicode rollback changed retained state")
+		}
+		assertEntityActiveIdentifierClaimPrivileges(t, migrationDB.SQL())
+		if err := migrationDB.ApplyThrough(ctx, 41); err != nil {
+			t.Fatalf("reapply Unicode reconciliation: %v", err)
+		}
+	})
+
+	for _, scenario := range []struct {
+		name string
+		seed func(*testing.T, *sql.DB, sourceIntegrityFixture)
+	}{
+		{"canonical host key", func(t *testing.T, db *sql.DB, fixture sourceIntegrityFixture) {
+			if _, err := db.ExecContext(context.Background(), `UPDATE hosts SET hostname = 'Ⓐ' WHERE record_id = $1`, fixture.hostID); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"canonical identity key", func(t *testing.T, db *sql.DB, fixture sourceIntegrityFixture) {
+			if _, err := db.ExecContext(context.Background(), `UPDATE identities SET sid = 'ⓐ' WHERE record_id = $1`, fixture.identityID); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"historical preserved key", func(t *testing.T, db *sql.DB, fixture sourceIntegrityFixture) {
+			insertSourceIntegrityPreservedIdentifier(t, db, fixture, "hostname", "Ⓐ", "Ⓐ")
+			if _, err := db.ExecContext(context.Background(), `UPDATE entity_preserved_identifiers SET deleted_at = now() WHERE raw_value = 'Ⓐ'`); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run("Unicode preflight rejects "+scenario.name+" without changes", func(t *testing.T) {
+			harness := pgtest.Start(t)
+			migrationDB := harness.MigrationDatabaseThroughT(t, 40)
+			fixture := seedSourceIntegrityFixture(t, migrationDB.SQL())
+			scenario.seed(t, migrationDB.SQL(), fixture)
+			before := entityUnicodeCompatibilityState(t, migrationDB.SQL())
+			err := migrationDB.ApplyThrough(context.Background(), 41)
+			if err == nil || !strings.Contains(err.Error(), "entities_identifier_unicode_preflight_failed") {
+				t.Fatalf("Unicode preflight = %v, want incompatible identity rejection", err)
+			}
+			if after := entityUnicodeCompatibilityState(t, migrationDB.SQL()); before != after {
+				t.Fatal("rejected preflight changed retained state")
+			}
+			var head int
+			if err := migrationDB.SQL().QueryRowContext(context.Background(), `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != 40 {
+				t.Fatalf("failed migration head=%d error=%v", head, err)
+			}
+			if !entityIdentifierClaimsValid(t, migrationDB.SQL()) {
+				t.Fatal("rejected preflight did not restore the previous normalizer")
+			}
+		})
+	}
+}
+
+func entityUnicodeCompatibilityState(t testing.TB, db *sql.DB) string {
+	t.Helper()
+	var state string
+	if err := db.QueryRowContext(context.Background(), `
+SELECT jsonb_build_object(
+    'records', (SELECT jsonb_agg(to_jsonb(r) ORDER BY record_id) FROM records r),
+    'hosts', (SELECT jsonb_agg(to_jsonb(h) ORDER BY record_id) FROM hosts h),
+    'identities', (SELECT jsonb_agg(to_jsonb(i) ORDER BY record_id) FROM identities i),
+    'preserved', (SELECT jsonb_agg(to_jsonb(p) ORDER BY entity_preserved_identifier_id) FROM entity_preserved_identifiers p),
+    'claims', (SELECT jsonb_agg(to_jsonb(c) ORDER BY incident_id, entity_type, identifier_type, normalized_value) FROM entity_active_identifier_claims c),
+    'revisions', (SELECT jsonb_agg(to_jsonb(r) ORDER BY revision_id) FROM record_revisions r),
+    'mutations', (SELECT jsonb_agg(to_jsonb(m) ORDER BY change_set_id, sequence_no) FROM change_set_mutations m),
+    'receipts', (SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text) FROM route_idempotency r)
+)::text`).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	return state
 }
 
 func TestEntityActiveIdentifierClaimsAndConcurrentMatching_Integration(t *testing.T) {
@@ -290,6 +395,51 @@ SELECT count(*) FROM hosts WHERE incident_id = $1 AND lower(hostname) = 'concurr
 	requireEntityIdentifierClaim(t, harness.DB, incidentID, "identity", "email", "identity-a@example.test", identityAID)
 	requireEntityIdentifierClaim(t, harness.DB, incidentID, "identity", "sam_account_name", "corp\\identity-b", identityBID)
 
+	for _, test := range []struct{ entityType, identifierType, raw, equivalent string }{
+		{"host", "hostname", "Ⓐ", "ⓐ"},
+		{"host", "hostname", "ΟΣ", "οσ"},
+		{"identity", "sid", "ß", "ẞ"},
+		{"identity", "sid", "ᾀ", "ᾈ"},
+	} {
+		url := hostURL
+		if test.entityType == "identity" {
+			url = identityURL
+		}
+		first := createEntityClaimTestRow(t, url, adminLogin, map[string]any{
+			"client_txn_id":                             "txn-unicode-first-" + test.raw,
+			test.entityType + ".display_name":           "Unicode claim owner",
+			test.entityType + "." + test.identifierType: test.raw,
+		}, http.StatusCreated)
+		firstRow := first["row"].(map[string]any)
+		id := appsupport.MustUUID(t, firstRow["record_id"].(string))
+		revisionCount := appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, id)
+		reused := createEntityClaimTestRow(t, url, adminLogin, map[string]any{
+			"client_txn_id":                             "txn-unicode-reuse-" + test.raw,
+			test.entityType + ".display_name":           "Unicode claim owner",
+			test.entityType + "." + test.identifierType: test.equivalent,
+		}, http.StatusOK)
+		// The create response carries the input clock's nanoseconds; a subsequent
+		// database read has PostgreSQL microsecond precision. Compare that one
+		// timestamp at storage precision and retain all other row/history checks.
+		cells := firstRow["cells"].(map[string]any)
+		editedAt := cells[test.entityType+".edited_at"].(map[string]any)
+		createdAt, err := time.Parse(time.RFC3339Nano, editedAt["value"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		editedAt["value"] = createdAt.Truncate(time.Microsecond).Format(time.RFC3339Nano)
+		beforeJSON, _ := json.Marshal(firstRow)
+		afterJSON, _ := json.Marshal(reused["row"])
+		if string(beforeJSON) != string(afterJSON) || appsupport.QueryCount(t, harness.DB, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, id) != revisionCount {
+			t.Fatalf("Unicode %s %q reuse changed the existing record or history", test.identifierType, test.raw)
+		}
+		normalized, ok := fieldnorm.NormalizeIdentifier(test.identifierType, test.raw)
+		if !ok {
+			t.Fatal("owner Unicode fixture was rejected")
+		}
+		requireEntityIdentifierClaim(t, harness.DB, incidentID, test.entityType, test.identifierType, normalized, id)
+	}
+
 	migrationDB, err := pgtest.OpenPurposeDatabase(database.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatalf("open migration-purpose claim probe: %v", err)
@@ -386,6 +536,83 @@ SELECT entities_normalize_identifier_v1($1, $2)
 	}
 }
 
+// Enumerate simple case-bearing scalars, including uncased expansion inputs.
+// SQL is the existing stored-state boundary; parity must not depend on a small
+// happy-path corpus masking another runtime Unicode difference.
+func assertEntityIdentifierScalarCasingParity(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var databaseUnicode string
+	if err := db.QueryRowContext(context.Background(), `SELECT unicode_version()`).Scan(&databaseUnicode); err != nil {
+		t.Fatalf("read database Unicode version: %v", err)
+	}
+	t.Logf("normalization Unicode versions: Go=%s NFC=%s PostgreSQL=%s", unicode.Version, norm.Version, databaseUnicode)
+	decompositions := make([]string, 0, 14000)
+	decompositions = append(decompositions, "A"+strings.Repeat("\u0301", 31))
+	values := make([]string, 0, 4000)
+	for value := rune(1); value <= unicode.MaxRune; value++ {
+		if value >= 0xD800 && value <= 0xDFFF {
+			continue
+		}
+		if decomposed := norm.NFD.String(string(value)); decomposed != string(value) {
+			decompositions = append(decompositions, decomposed)
+		}
+		if unicode.IsMark(value) {
+			decompositions = append(decompositions, "A\u0315"+string(value))
+		}
+		if unicode.IsUpper(value) || unicode.IsLower(value) || unicode.IsTitle(value) ||
+			unicode.ToUpper(value) != value || unicode.ToLower(value) != value {
+			values = append(values, string(value))
+		}
+	}
+	for _, class := range []string{"hostname", "sid"} {
+		rows, err := db.QueryContext(context.Background(), `
+SELECT candidate, entities_normalize_identifier_v1($1, candidate)
+  FROM unnest($2::text[]) AS candidate`, class, values)
+		if err != nil {
+			t.Fatalf("query scalar casing parity: %v", err)
+		}
+		mismatches := 0
+		for rows.Next() {
+			var raw, sqlValue string
+			if err := rows.Scan(&raw, &sqlValue); err != nil {
+				t.Fatalf("scan scalar casing: %v", err)
+			}
+			goValue, ok := fieldnorm.NormalizeIdentifier(class, raw)
+			if !ok || sqlValue != goValue {
+				mismatches++
+				if mismatches <= 30 {
+					t.Errorf("scalar casing %s raw=%U Go=%q SQL=%q", class, []rune(raw), goValue, sqlValue)
+				}
+			}
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatalf("read scalar casing: %v", err)
+		}
+		_ = rows.Close()
+		if mismatches > 0 {
+			t.Errorf("scalar casing %s: %d mismatches", class, mismatches)
+		}
+	}
+	nfcRows, err := db.QueryContext(context.Background(), `SELECT candidate, entities_normalize_identifier_v1('hostname', candidate) FROM unnest($1::text[]) AS candidate`, decompositions)
+	if err != nil {
+		t.Fatalf("query canonical decomposition parity: %v", err)
+	}
+	for nfcRows.Next() {
+		var raw string
+		var sqlValue sql.NullString
+		if err := nfcRows.Scan(&raw, &sqlValue); err != nil {
+			t.Fatal(err)
+		}
+		if goValue, ok := fieldnorm.NormalizeIdentifier("hostname", raw); ok != sqlValue.Valid || goValue != sqlValue.String {
+			t.Errorf("NFC parity raw=%U Go=%U SQL=%U admitted=%t/%t", []rune(raw), []rune(goValue), []rune(sqlValue.String), ok, sqlValue.Valid)
+		}
+	}
+	if err := nfcRows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	_ = nfcRows.Close()
+}
+
 func assertEntityActiveIdentifierClaimObjects(t testing.TB, db *sql.DB, present bool) {
 	t.Helper()
 	ctx := context.Background()
@@ -468,6 +695,15 @@ func assertLegacyEntityExactMatchIndexes(t testing.TB, db *sql.DB, present bool)
 func assertEntityActiveIdentifierClaimPrivileges(t testing.TB, db *sql.DB) {
 	t.Helper()
 	ctx := context.Background()
+	for _, role := range []string{"public", "cartulary_runtime", "cartulary_recovery"} {
+		var canExecute bool
+		if err := db.QueryRowContext(ctx, `SELECT has_function_privilege($1, 'public.entities_normalize_identifier_v1(text,text)', 'EXECUTE')`, role).Scan(&canExecute); err != nil {
+			t.Fatalf("inspect %s private normalizer privilege: %v", role, err)
+		}
+		if canExecute {
+			t.Fatalf("%s has direct EXECUTE on the private entity normalizer", role)
+		}
+	}
 	var publicCanUseClaimType bool
 	if err := db.QueryRowContext(ctx, `
 SELECT has_type_privilege(

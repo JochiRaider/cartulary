@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
@@ -43,9 +43,17 @@ export function useTimelineMutationRuntimeBindings({
   readonly editorPort: TimelineRowMutationEditorPort;
   readonly loadRows: (options: {
     readonly showLoading: boolean;
+    readonly requireAcceptance?: boolean;
   }) => Promise<void>;
   readonly mutationRuntime: WorkbookMutationRuntime;
 }) {
+  useLayoutEffect(
+    () =>
+      mutationRuntime.entityMerge.registerTimelineRefresh(() =>
+        loadRows({ showLoading: false, requireAcceptance: true }),
+      ),
+    [mutationRuntime, loadRows],
+  );
   useEffect(
     () =>
       mutationRuntime.registerSurface(

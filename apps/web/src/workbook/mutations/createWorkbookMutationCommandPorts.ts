@@ -2,7 +2,6 @@ import type {
   ApplyWorkbookBulkMutationRequest,
   IssueEvidenceDownloadHandleRequest,
   IssueEvidencePreviewHandleRequest,
-  MergeEntityRecordRequest,
   PatchRecordRequest,
   SupersedeRecordRequest,
   SupersedeRecordResponse,
@@ -27,12 +26,15 @@ import {
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
 import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
+import type {
+  EntityRecordWriteBoundary,
+  EntityRecordWriteTarget,
+} from "./entityRecordWriteBoundary";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
   AssessmentCreateOutcome,
   DecisionSupersedeOutcome,
   EntityCreateOutcome,
-  EntityMergeOutcome,
   EntityPatchOutcome,
   GenericViewMutationAccepted,
   TaskLifecycleOutcome,
@@ -45,7 +47,38 @@ type CommandContext = {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
   readonly transactionIds: SecureTransactionIdPort;
+  readonly entityWrites?: EntityRecordWriteBoundary;
 };
+
+async function executeEntityWrite(
+  context: CommandContext,
+  target: EntityRecordWriteTarget,
+  run: () => Promise<EntityPatchOutcome>,
+): Promise<EntityPatchOutcome> {
+  const release = context.entityWrites
+    ? context.entityWrites.begin(target)
+    : () => {};
+  if (release === null)
+    return {
+      kind: "rejected",
+      failure: {
+        kind: "stale_target",
+        message:
+          "Recover the pending merge in Merge actions before changing these records.",
+      },
+    };
+  try {
+    const outcome = await run();
+    if (outcome.kind === "accepted")
+      context.entityWrites?.acceptVersion(
+        outcome.value.row.record_id,
+        outcome.value.row.row_version,
+      );
+    return outcome;
+  } finally {
+    release();
+  }
+}
 
 function operationIdentityFailure<T>(): WorkbookOperationOutcome<T> {
   return {
@@ -179,44 +212,6 @@ function normalizeEntityPatchOutcome(
       changeSetId: outcome.value.data.change_set_id,
       row: outcome.value.data.row,
       viewSchemaId: outcome.value.data.view_schema_id,
-    },
-  };
-}
-
-function normalizeEntityMergeOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly loser_record_id: string;
-      readonly loser_row_version: number;
-      readonly merged_into_record_id: string;
-      readonly record_type: "host" | "identity";
-      readonly survivor_record_id: string;
-      readonly survivor_row_version: number;
-    };
-  }>,
-  expectedLoserRecordId: string,
-  expectedSurvivorRecordId: string,
-): EntityMergeOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  const data = outcome.value.data;
-  if (
-    data.loser_record_id !== expectedLoserRecordId ||
-    data.survivor_record_id !== expectedSurvivorRecordId ||
-    data.merged_into_record_id !== expectedSurvivorRecordId
-  ) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: data.change_set_id,
-      loserRecordId: data.loser_record_id,
-      loserRowVersion: data.loser_row_version,
-      mergedIntoRecordId: data.merged_into_record_id,
-      recordType: data.record_type,
-      survivorRecordId: data.survivor_record_id,
-      survivorRowVersion: data.survivor_row_version,
     },
   };
 }
@@ -429,85 +424,82 @@ export function createWorkbookMutationCommandPorts(
         );
       },
       createRecord(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          `entity-create-${input.contract.viewSchemaId}`,
+        return executeEntityWrite(
+          context,
+          {
+            recordIds: [],
+            unknownEntityType:
+              input.contract.viewSchemaId === "cartulary.view.hosts.v1"
+                ? "host"
+                : "identity",
+          },
+          () => {
+            const clientTxnId = createId(
+              context.transactionIds,
+              `entity-create-${input.contract.viewSchemaId}`,
+            );
+            if (clientTxnId === null)
+              return Promise.resolve(operationIdentityFailure());
+            const payload = buildGenericCreateRequest(
+              input.contract,
+              { ...input.draft },
+              clientTxnId,
+            );
+            const request = decodeCreateViewRowRequest(input.contract, payload);
+            if (request === null)
+              return Promise.resolve(invalidOperationPayload());
+            return operations
+              .execute({
+                operationID: "createViewRow",
+                pathParameters: {
+                  incident_id: context.incidentId,
+                  view_schema_id: input.contract.viewSchemaId,
+                },
+                request,
+              })
+              .then((outcome) =>
+                normalizeEntityCreateOutcome(
+                  outcome,
+                  input.contract.viewSchemaId,
+                ),
+              );
+          },
         );
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        const payload = buildGenericCreateRequest(
-          input.contract,
-          { ...input.draft },
-          clientTxnId,
-        );
-        const request = decodeCreateViewRowRequest(input.contract, payload);
-        if (request === null) return Promise.resolve(invalidOperationPayload());
-        return operations
-          .execute({
-            operationID: "createViewRow",
-            pathParameters: {
-              incident_id: context.incidentId,
-              view_schema_id: input.contract.viewSchemaId,
-            },
-            request,
-          })
-          .then((outcome) =>
-            normalizeEntityCreateOutcome(outcome, input.contract.viewSchemaId),
-          );
       },
       patchRecord(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          `${input.purpose}-${input.viewSchemaId}`,
+        return executeEntityWrite(
+          context,
+          { recordIds: [input.recordId] },
+          () => {
+            const clientTxnId = createId(
+              context.transactionIds,
+              `${input.purpose}-${input.viewSchemaId}`,
+            );
+            if (clientTxnId === null)
+              return Promise.resolve(operationIdentityFailure());
+            const request = buildPatchRecordRequest({
+              baseRowVersion: input.baseRowVersion,
+              changes: input.changes,
+              clientTxnId,
+              viewSchemaId: input.viewSchemaId,
+            });
+            if (request === null)
+              return Promise.resolve(invalidOperationPayload());
+            return operations
+              .execute({
+                operationID: "patchRecord",
+                pathParameters: { record_id: input.recordId },
+                request,
+              })
+              .then((outcome) =>
+                normalizeEntityPatchOutcome(
+                  outcome,
+                  input.recordId,
+                  input.viewSchemaId,
+                ),
+              );
+          },
         );
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        const request = buildPatchRecordRequest({
-          baseRowVersion: input.baseRowVersion,
-          changes: input.changes,
-          clientTxnId,
-          viewSchemaId: input.viewSchemaId,
-        });
-        if (request === null) return Promise.resolve(invalidOperationPayload());
-        return operations
-          .execute({
-            operationID: "patchRecord",
-            pathParameters: { record_id: input.recordId },
-            request,
-          })
-          .then((outcome) =>
-            normalizeEntityPatchOutcome(
-              outcome,
-              input.recordId,
-              input.viewSchemaId,
-            ),
-          );
-      },
-      merge(input) {
-        const clientTxnId = createId(context.transactionIds, "merge");
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        return operations
-          .execute({
-            operationID: "mergeEntityRecord",
-            pathParameters: {
-              survivor_record_id: input.survivorRecordId,
-            },
-            request: {
-              loser_record_id: input.loserRecordId,
-              survivor_base_row_version: input.survivorBaseRowVersion,
-              loser_base_row_version: input.loserBaseRowVersion,
-              client_txn_id: clientTxnId,
-              reason: input.reason,
-            } satisfies MergeEntityRecordRequest,
-          })
-          .then((outcome) =>
-            normalizeEntityMergeOutcome(
-              outcome,
-              input.loserRecordId,
-              input.survivorRecordId,
-            ),
-          );
       },
     },
     assessment: {

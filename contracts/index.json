@@ -289,11 +289,19 @@
       "go_name": "EntitiesArtifacts",
       "output_order": 17,
       "generated_outputs": [
-        "internal/gen/contractentities/artifacts_gen.go"
+        "internal/gen/contractentities/artifacts_gen.go",
+        "packages/protocol-ts/src/generated/entity-identifier-unicode.ts"
       ],
-      "typescript_projections": [],
+      "typescript_projections": [
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/entity-identifier-unicode.ts",
+          "identifier": "entityIdentifierUnicode",
+          "artifact_path": "contracts/entities/identifier-unicode.v1.json"
+        }
+      ],
       "activation_dependency_ids": [],
-      "description": "Backend-only Entities identifier-normalization corpus projected from adopted Core owners."
+      "description": "Entities identifier comparison and merge-planning machine projections from adopted Core owners."
     },
     {
       "family_id": "parties",

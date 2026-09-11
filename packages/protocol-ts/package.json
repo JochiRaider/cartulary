@@ -16,6 +16,7 @@
     "./http": "./src/entrypoints/http.ts",
     "./import-targets": "./src/entrypoints/import-targets.ts",
     "./network-flow": "./src/entrypoints/network-flow.ts",
-    "./view-schemas": "./src/entrypoints/view-schemas.ts"
+    "./view-schemas": "./src/entrypoints/view-schemas.ts",
+    "./entities": "./src/entrypoints/entities.ts"
   }
 }

@@ -232,7 +232,7 @@ never mixes source, catalog, verification, or profile digests.
   semantic DOM contracts, stable shared accessibility names, and the authored
   facade for generated design tokens and token-derived presentation values. It
   does not own workbook identity or application controller-state vocabularies.
-- `packages/protocol-ts` exposes only its seven owner-declared family subpaths;
+- `packages/protocol-ts` exposes only its eight owner-declared family subpaths;
   its aggregate root, `./core-http`, generated, internal, and filesystem paths
   are unsupported. The `packages/protocol-ts` and `packages/ui-contracts`
   generated roots are downstream artifacts and are never hand-edited.

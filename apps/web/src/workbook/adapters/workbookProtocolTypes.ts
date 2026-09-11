@@ -4,6 +4,8 @@ import type {
   CreateObjectBlobSlotRequest,
   CreateRecordLinkedNoteRequest,
   CreateViewRowRequest,
+  MergeEntityRecordRequest,
+  MergeEntityRecordResponse,
   PatchRecordRequest,
   QueryWorkbookViewRequest,
   ResolveRecordSameFieldConflictRequest,
@@ -26,3 +28,6 @@ export type WorkbookProtocolPatchRecordRequest = PatchRecordRequest;
 export type WorkbookProtocolQueryViewRequest = QueryWorkbookViewRequest;
 export type WorkbookProtocolResolveConflictRequest =
   ResolveRecordSameFieldConflictRequest;
+
+export type WorkbookProtocolMergeRequest = MergeEntityRecordRequest;
+export type WorkbookProtocolMergeReceipt = MergeEntityRecordResponse["data"];
