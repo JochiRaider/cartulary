@@ -9,6 +9,7 @@ export type VisualAnchor = {
   align: "start" | "center";
   focus?: boolean;
   outerScroll?: "drawer_end";
+  scrollportSelector?: string;
 };
 
 export async function settleVisualGeometry(page: Page, anchor?: VisualAnchor) {
@@ -20,13 +21,15 @@ export async function settleVisualGeometry(page: Page, anchor?: VisualAnchor) {
       (element as HTMLElement).focus({ preventScroll: true }),
     );
   }
-  const selector = dataTestIdSelector(incidentControlsScrollportTestId());
+  const selector =
+    anchor?.scrollportSelector ??
+    dataTestIdSelector(incidentControlsScrollportTestId());
   if (anchor) {
     await target.evaluate(
       (element, { selector, align, outerScroll }) => {
         const container = element.closest<HTMLElement>(selector);
         if (!container)
-          throw new Error("visual anchor requires its drawer scrollport");
+          throw new Error("visual anchor requires its declared scrollport");
         window.scrollTo({ left: 0, top: 0, behavior: "instant" });
         for (
           let outer = container.parentElement;
@@ -88,7 +91,9 @@ export async function settleVisualGeometry(page: Page, anchor?: VisualAnchor) {
 // Observation only: a stable frame at the wrong anchor remains a failure.
 export async function verifyVisualGeometry(page: Page, anchor?: VisualAnchor) {
   const target = anchor?.locator ?? page.locator("body");
-  const selector = dataTestIdSelector(incidentControlsScrollportTestId());
+  const selector =
+    anchor?.scrollportSelector ??
+    dataTestIdSelector(incidentControlsScrollportTestId());
   let observation: unknown;
   try {
     await expect

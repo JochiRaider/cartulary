@@ -2,12 +2,14 @@ package tasksdecisions
 
 import (
 	"encoding/json"
+	"golang.org/x/text/unicode/norm"
 	"io"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/strictjson"
 )
 
@@ -42,7 +44,7 @@ func AdmitSupersedeJSON(reader io.Reader) (SupersedeRequest, *AdmissionFailure) 
 		if json.Unmarshal(value, &rawReason) != nil {
 			return SupersedeRequest{}, invalidAdmission("reason", "invalid_value")
 		}
-		reason, ok := fieldnorm.NormalizeNote(rawReason)
+		reason, ok := normalizeSupersessionReason(rawReason)
 		if !ok {
 			return SupersedeRequest{}, invalidAdmission("reason", "invalid_value")
 		}
@@ -63,4 +65,21 @@ func AdmitSupersedeJSON(reader io.Reader) (SupersedeRequest, *AdmissionFailure) 
 		request.ReplacementRecordID = &parsed
 	}
 	return request, nil
+}
+
+// normalizeSupersessionReason implements reason_note_v1 for this Decision route.
+func normalizeSupersessionReason(raw string) (string, bool) {
+	if !utf8.ValidString(raw) {
+		return "", false
+	}
+	value := strings.TrimSpace(norm.NFC.String(strings.ReplaceAll(strings.ReplaceAll(raw, "\r\n", "\n"), "\r", "\n")))
+	if value == "" || utf8.RuneCountInString(value) > 4096 {
+		return "", false
+	}
+	for _, r := range value {
+		if r != '\n' && r != '\t' && unicode.IsControl(r) {
+			return "", false
+		}
+	}
+	return value, true
 }

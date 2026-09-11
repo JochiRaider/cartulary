@@ -1,5 +1,10 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
+import {
+  type DecisionSupersessionReview,
+  decisionViewId,
+} from "../features/coordination/decisionSupersessionModel";
+import { WorkbookDecisionSupersessionOwner } from "../features/coordination/WorkbookDecisionSupersessionOwner";
 import type { EntityMergeReview } from "../features/entities/entityMergeReview";
 import { WorkbookEntityMergeOwner } from "../features/entities/WorkbookEntityMergeOwner";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
@@ -105,6 +110,8 @@ export class WorkbookMutationRuntime {
   readonly scope: PendingReplayScope;
   readonly history: WorkbookRecordHistoryOwner;
   readonly entityMerge: WorkbookEntityMergeOwner;
+  readonly decisionSupersession: WorkbookDecisionSupersessionOwner;
+  private readonly decisionWrites = new Map<symbol, readonly string[]>();
   private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime;
   private readonly pendingMutationPort: WorkbookPendingMutationPort;
@@ -144,11 +151,28 @@ export class WorkbookMutationRuntime {
           this.coordinateEntityMerge(review, signal),
       },
     );
+    this.decisionSupersession = new WorkbookDecisionSupersessionOwner(
+      scope.incidentId,
+      transactionIds,
+      {
+        canReserve: (review) =>
+          !this.lifecycle.disposed &&
+          [review.target, review.replacement].every(
+            (record) =>
+              (this.history.latestVersion(record.recordId) ?? 0) <=
+              record.baseRowVersion,
+          ),
+        coordinate: (review, signal) =>
+          this.coordinateDecisionSupersession(review, signal),
+      },
+    );
     this.history = new WorkbookRecordHistoryOwner(
       scope.incidentId,
       transactionIds,
       undefined,
-      (recordId) => !this.entityMerge.blocksRecord(recordId),
+      (recordId) =>
+        !this.entityMerge.blocksRecord(recordId) &&
+        !this.decisionSupersession.blocksRecord(recordId),
     );
     this.transactionIds = transactionIds;
     this.pendingMutationPort = pendingMutationPort;
@@ -190,10 +214,88 @@ export class WorkbookMutationRuntime {
           entityViewSchemas.has(entry.attempt.subject.viewSchemaId)
         )
           this.entityMerge.acceptVersion(receipt.recordId, receipt.rowVersion);
+        if (receipt && entry.attempt.subject.viewSchemaId === decisionViewId)
+          this.decisionSupersession.acceptVersion(
+            receipt.recordId,
+            receipt.rowVersion,
+          );
       }
       this.emit();
     });
     this.entityMerge.subscribe(() => this.emit());
+    this.decisionSupersession.subscribe(() => {
+      for (const entry of this.decisionSupersession.getSnapshot().entries)
+        if (entry.receipt) {
+          this.history.acceptVersion(
+            entry.receipt.target_record_id,
+            entry.receipt.target_row_version,
+          );
+          this.history.acceptVersion(
+            entry.receipt.superseding_record_id,
+            entry.receipt.superseding_row_version,
+          );
+        }
+      this.emit();
+    });
+  }
+
+  beginDecisionWrite(recordIds: readonly string[]): (() => void) | null {
+    if (
+      this.entityLifetimeRetired ||
+      this.lifecycle.disposed ||
+      recordIds.some((id) => this.decisionSupersession.blocksRecord(id))
+    )
+      return null;
+    const token = Symbol("Decision write");
+    this.decisionWrites.set(token, [...recordIds]);
+    return () => {
+      this.decisionWrites.delete(token);
+    };
+  }
+
+  private async coordinateDecisionSupersession(
+    review: DecisionSupersessionReview,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const ids = [review.target.recordId, review.replacement.recordId];
+    while (!signal.aborted && !this.lifecycle.disposed) {
+      const queue = this.pendingRuntime.model.snapshot();
+      const queued = queue.units.some((unit) =>
+        ids.includes(unit.recordId ?? ""),
+      );
+      if (
+        queued &&
+        (queue.authPaused ||
+          queue.halted ||
+          queue.overflow ||
+          queue.sameFieldConflicts.length ||
+          this.conflicts.entries().length)
+      )
+        return false;
+      const history = this.history
+        .getSnapshot()
+        .filter((entry) => ids.includes(entry.attempt.subject.recordId));
+      if (history.some((entry) => entry.phase === "uncertain")) return false;
+      const earlier = history.some(
+        (entry) =>
+          entry.transportPending ||
+          entry.phase === "preparing" ||
+          entry.phase === "submitting",
+      );
+      const direct = [...this.decisionWrites.values()].some((records) =>
+        records.some((id) => ids.includes(id)),
+      );
+      if (!queued && !earlier && !direct) {
+        for (const id of ids)
+          this.decisionSupersession.acceptVersion(
+            id,
+            this.history.latestVersion(id) ?? 0,
+          );
+        return true;
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 16));
+    }
+    return false;
   }
 
   async coordinateHistory(
@@ -300,9 +402,12 @@ export class WorkbookMutationRuntime {
       explicitInFlightCount:
         this.explicitInFlightCount +
         this.history.pendingCount +
-        this.entityMerge.pendingCount,
+        this.entityMerge.pendingCount +
+        this.decisionSupersession.pendingCount,
       explicitRecoveryBlocked:
-        this.history.blockedCount > 0 || this.entityMerge.blockedCount > 0,
+        this.history.blockedCount > 0 ||
+        this.entityMerge.blockedCount > 0 ||
+        this.decisionSupersession.blockedCount > 0,
       queue: this.pendingRuntime.model.snapshot(),
       refreshes: Array.from(this.refreshStatusBySheet.values()),
     });
@@ -345,6 +450,11 @@ export class WorkbookMutationRuntime {
           outcome.value.row.record_id,
           outcome.value.row.row_version,
         );
+      if (
+        outcome.kind === "accepted" &&
+        outcome.value.viewSchemaId === decisionViewId
+      )
+        this.decisionSupersession.acceptRow(outcome.value.row);
       return outcome;
     });
   }
@@ -412,6 +522,15 @@ export class WorkbookMutationRuntime {
         kind: "rejected_mutation",
         message:
           "This record has a pending merge. Recover it in Merge actions before editing.",
+      };
+    if (
+      request.viewSchemaId === decisionViewId &&
+      this.decisionSupersession.blocksRecord(request.recordId)
+    )
+      return {
+        kind: "rejected_mutation",
+        message:
+          "This Decision has a pending supersession. Recover it in Decision actions before editing.",
       };
     return this.managedPatches.enqueue(request);
   }
@@ -529,9 +648,10 @@ export class WorkbookMutationRuntime {
   }): Promise<string | null> {
     const entry = this.conflicts.get(key);
     if (entry === undefined) return "The conflict is no longer available.";
-    const releaseRecord = this.beginEntityWrite({
-      recordIds: [entry.conflict.record_id],
-    });
+    const releaseRecord =
+      entry.origin.viewSchemaId === decisionViewId
+        ? this.beginDecisionWrite([entry.conflict.record_id])
+        : this.beginEntityWrite({ recordIds: [entry.conflict.record_id] });
     if (releaseRecord === null)
       return "Recover this record's pending merge before resolving its edit.";
     let transactionId: string;
@@ -599,6 +719,17 @@ export class WorkbookMutationRuntime {
           entry.conflict.record_id,
           resolvedRow.row_version,
         );
+      if (
+        entry.origin.viewSchemaId === decisionViewId &&
+        resolvedRow &&
+        typeof resolvedRow === "object" &&
+        "row_version" in resolvedRow &&
+        typeof resolvedRow.row_version === "number"
+      )
+        this.decisionSupersession.acceptVersion(
+          entry.conflict.record_id,
+          resolvedRow.row_version,
+        );
       this.clearConflict(key);
       const applyResolvedMutation = this.surfaces.applyResolvedMutation(
         entry.origin.viewSchemaId,
@@ -627,6 +758,7 @@ export class WorkbookMutationRuntime {
     if (state === "paused") {
       this.history.suspend();
       this.entityMerge.suspend();
+      this.decisionSupersession.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
       this.emit();
       return;
@@ -654,6 +786,8 @@ export class WorkbookMutationRuntime {
       this.entityWrites.clear();
       this.history.retire();
       this.entityMerge.retire();
+      this.decisionSupersession.retire();
+      this.decisionWrites.clear();
       this.retryScheduler.cancel();
       this.managedPatches.dispose();
       for (const unit of this.pendingRuntime.model.snapshot().units)
@@ -670,6 +804,7 @@ export class WorkbookMutationRuntime {
     if (reason.kind === "incident_closed") {
       this.history.closeIncident();
       this.entityMerge.closeIncident();
+      this.decisionSupersession.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
       this.emit();
       return;
@@ -679,11 +814,14 @@ export class WorkbookMutationRuntime {
       this.entityWrites.clear();
       this.history.retire();
       this.entityMerge.retire();
+      this.decisionSupersession.retire();
+      this.decisionWrites.clear();
       this.pauseForTerminalLifecycle();
       return;
     }
     this.history.suspend();
     this.entityMerge.suspend();
+    this.decisionSupersession.suspend();
     this.applyAuthorizationRecoveryState("paused");
   }
 

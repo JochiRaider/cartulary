@@ -13,6 +13,8 @@ import type {
   GenericMutationOutcome,
 } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
+import { decisionViewId } from "../coordination/decisionSupersessionModel";
+import type { DecisionRecordWriteBoundary } from "../coordination/decisionSupersessionOperation";
 import { buildGenericCreateRequest } from "./genericCreateRequestBuilder";
 
 function operationIdentityFailure<T>(): WorkbookOperationOutcome<T> {
@@ -68,6 +70,7 @@ function normalizeGenericMutationOutcome(
 }
 
 export function createGenericMutationCommandPort(options: {
+  readonly decisionWrites?: DecisionRecordWriteBoundary | undefined;
   readonly incidentId: string;
   readonly operations: WorkbookOperationExecutor;
   readonly transactionIds: SecureTransactionIdPort;
@@ -120,29 +123,48 @@ export function createGenericMutationCommandPort(options: {
             })
             .then(normalizeGenericMutationOutcome);
     },
-    patchRecord(input) {
-      const clientTxnId = createId(
-        options.transactionIds,
-        `${input.purpose}-${input.viewSchemaId}`,
-      );
-      if (clientTxnId === null) {
-        return Promise.resolve(operationIdentityFailure());
+    async patchRecord(input) {
+      const boundary =
+        input.viewSchemaId === decisionViewId
+          ? options.decisionWrites
+          : undefined;
+      const release = boundary ? boundary.begin([input.recordId]) : () => {};
+      if (!release)
+        return {
+          kind: "rejected",
+          failure: {
+            kind: "stale_target",
+            message:
+              "Recover this Decision in Decision actions before editing.",
+          },
+        };
+      try {
+        const clientTxnId = createId(
+          options.transactionIds,
+          `${input.purpose}-${input.viewSchemaId}`,
+        );
+        if (clientTxnId === null) {
+          return Promise.resolve(operationIdentityFailure());
+        }
+        const request = buildPatchRecordRequest({
+          baseRowVersion: input.baseRowVersion,
+          changes: input.changes,
+          clientTxnId,
+          viewSchemaId: input.viewSchemaId,
+        });
+        if (request === null) return invalidOperationPayload();
+        const result = normalizeGenericMutationOutcome(
+          await options.operations.execute({
+            operationID: "patchRecord",
+            pathParameters: { record_id: input.recordId },
+            request,
+          }),
+        );
+        if (result.kind === "accepted") boundary?.acceptRow(result.value.row);
+        return result;
+      } finally {
+        release();
       }
-      const request = buildPatchRecordRequest({
-        baseRowVersion: input.baseRowVersion,
-        changes: input.changes,
-        clientTxnId,
-        viewSchemaId: input.viewSchemaId,
-      });
-      return request === null
-        ? Promise.resolve(invalidOperationPayload())
-        : options.operations
-            .execute({
-              operationID: "patchRecord",
-              pathParameters: { record_id: input.recordId },
-              request,
-            })
-            .then(normalizeGenericMutationOutcome);
     },
     createPartyFromText(input) {
       const clientTxnId = createId(

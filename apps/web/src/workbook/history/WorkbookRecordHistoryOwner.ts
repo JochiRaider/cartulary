@@ -84,6 +84,26 @@ export class WorkbookRecordHistoryOwner {
         this.surfaceRefreshes.delete(viewSchemaId);
     };
   }
+  private readonly recordPresentationRefreshes = new Map<
+    string,
+    Set<() => Promise<void>>
+  >();
+  registerRecordPresentation(recordId: string, refresh: () => Promise<void>) {
+    const callbacks =
+      this.recordPresentationRefreshes.get(recordId) ??
+      new Set<() => Promise<void>>();
+    callbacks.add(refresh);
+    this.recordPresentationRefreshes.set(recordId, callbacks);
+    return () => {
+      callbacks.delete(refresh);
+      if (!callbacks.size) this.recordPresentationRefreshes.delete(recordId);
+    };
+  }
+  async refreshRecordPresentation(recordId: string) {
+    if (!this.readable) throw new Error("History access unavailable");
+    for (const refresh of this.recordPresentationRefreshes.get(recordId) ?? [])
+      await refresh();
+  }
   private relatedProjectionRefresh:
     | ((receipt: HistoryReceipt) => Promise<void>)
     | null = null;
@@ -212,6 +232,7 @@ export class WorkbookRecordHistoryOwner {
     for (const observation of this.observations.values()) observation.cancel();
     this.relatedProjectionRefresh = null;
     this.surfaceRefreshes.clear();
+    this.recordPresentationRefreshes.clear();
     this.observations.clear();
     this.executing.clear();
     for (const lookup of [

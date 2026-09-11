@@ -1,6 +1,8 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { decisionReview } from "../../testing/decisionSupersessionTestSupport";
 import { mergeReview } from "../../testing/entityMergeTestSupport";
+import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
 import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
@@ -363,36 +365,32 @@ describe("semantic mutation command ports", () => {
         viewSchemaId: "cartulary.view.task_requests.v1",
       },
     });
+    const decisionPort = createWorkbookDecisionSupersessionAdapter({
+      apiBase: undefined,
+      incidentId: "00000000-0000-4000-8000-000000000001",
+    });
+    const attempt = decisionPort.capture(
+      { ...decisionReview(), reason: "Replaced after review" },
+      "captured-decision",
+    );
     await expect(
-      commands.coordination.supersedeDecision({
-        baseRowVersion: 4,
+      decisionPort.send(attempt, new AbortController().signal),
+    ).resolves.toMatchObject({
+      kind: "acknowledged",
+      receipt: {
+        change_set_id: "00000000-0000-4000-8000-000000000511",
+        target_record_id: decisionTargetId,
+        superseding_record_id: decisionReplacementId,
+        target_row_version: 5,
+        superseding_row_version: 7,
+        target_status: "superseded",
         reason: "Replaced after review",
-        replacementRecordId: decisionReplacementId,
-        targetRecordId: decisionTargetId,
-      }),
-    ).resolves.toEqual({
-      kind: "accepted",
-      value: {
-        changeSetId: "00000000-0000-4000-8000-000000000511",
-        replacementRecordId: decisionReplacementId,
-        replacementRowVersion: 7,
-        targetRecordId: decisionTargetId,
-        targetRowVersion: 5,
-        targetStatus: "superseded",
-        viewSchemaId: "cartulary.view.decisions.v1",
+        view_schema_id: "cartulary.view.decisions.v1",
       },
     });
     await expect(
-      commands.coordination.supersedeDecision({
-        baseRowVersion: 5,
-        reason: "Reject wrong response branch",
-        replacementRecordId: decisionReplacementId,
-        targetRecordId: decisionTargetId,
-      }),
-    ).resolves.toMatchObject({
-      kind: "rejected",
-      failure: { kind: "invalid_contract" },
-    });
+      decisionPort.send(attempt, new AbortController().signal),
+    ).resolves.toEqual({ kind: "uncertain" });
   });
 
   it("keeps secure transaction identity failure local without transport", async () => {

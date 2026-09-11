@@ -785,6 +785,15 @@ class WorkbookCollaborationCoordinatorRuntime {
 
   private handleRecordChanged(payload: RecordChangedPayload): void {
     if (
+      payload.affected_views.some(
+        (view) => view.view_schema_id === "cartulary.view.decisions.v1",
+      )
+    )
+      this.options.mutationRuntime.decisionSupersession.acceptVersion(
+        payload.record_id,
+        payload.row_version,
+      );
+    if (
       this.options.mutationRuntime.resolveSocketClientTxn(
         payload.client_txn_id,
       ) ||

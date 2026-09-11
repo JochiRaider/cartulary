@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurfacePort";
+import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import {
@@ -28,6 +29,7 @@ type QueryStateOwner = {
 };
 
 type WorkbookSurfaceQueriesOptions = {
+  readonly decisionOwner?: DecisionSupersessionOwnerPort;
   readonly activeContract: ViewContract;
   readonly assessment: QueryStateOwner;
   readonly generic: QueryStateOwner;
@@ -43,6 +45,7 @@ type WorkbookSurfaceQueriesOptions = {
 
 /** Owns loading, invalidation, and collaboration projection for query surfaces. */
 export function useWorkbookSurfaceQueries({
+  decisionOwner,
   activeContract,
   assessment,
   generic,
@@ -76,6 +79,7 @@ export function useWorkbookSurfaceQueries({
     surface !== identitiesViewSchemaId &&
     surface !== assessmentsViewSchemaId;
   const genericQuery = useGenericSurfaceQuery({
+    decisionOwner,
     active: genericSurfaceActive,
     contract: activeContract,
     onIncidentAccessLost,

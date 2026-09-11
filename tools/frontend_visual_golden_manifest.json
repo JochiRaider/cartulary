@@ -215,6 +215,18 @@
       "sha256": "67ae7b0ebd00352756b6c7fcd32679fc11c86a65e3bf6b38e35a01713490d026"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-accepted-linux.png",
+      "sha256": "b37d1c7c893007ba74d89e19524e41c450e569eaad8c85623b7caaf31bf41734"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-linux.png",
+      "sha256": "384d2e0f5754b718a04e0d517914efcfd12498c22826130fc2c14b616ad11612"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-review-narrow-linux.png",
+      "sha256": "848edcb13207c1e38922f93f84fd8acabb79eb4d89a2b2128205bbb2ad3de124"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
       "sha256": "bf28c73df7857ac4c3edfb84468418951aa9072f59d7bbc63dc2d796fa35b452"
     },

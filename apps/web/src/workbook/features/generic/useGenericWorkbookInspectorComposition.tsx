@@ -8,10 +8,13 @@ import type {
 import {
   type Dispatch,
   type SetStateAction,
+  useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import type { WorkbookProtocolPatchRecordRequest } from "../../adapters/workbookProtocolTypes";
@@ -43,10 +46,20 @@ import type { GenericReferenceOptions } from "../../models/workbookReferenceOpti
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import { DecisionSupersessionContext } from "../coordination/DecisionSupersessionContext";
+import { DecisionSupersessionEditor } from "../coordination/DecisionSupersessionEditor";
+import {
+  decisionIneligibility,
+  decisionViewId,
+  reviewedDecision,
+} from "../coordination/decisionSupersessionModel";
 import { useEvidenceWorkbookBindings } from "../evidence/useEvidenceWorkbookBindings";
 import type { IndicatorInspectorHandler } from "../indicators/indicatorInspectorHandlers";
 import { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
 import { GenericWorkbookInspectorPresentation } from "./GenericWorkbookInspectorPresentation";
+
+const noDecisionSnapshot = () => null;
+const noDecisionSubscription = () => () => {};
 
 type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
 
@@ -104,6 +117,21 @@ export function useGenericWorkbookInspectorComposition({
   readonly setCreateDraft: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
   const inspectorConfig = contract.inspectorConfig;
+  const decisionOwner = useContext(DecisionSupersessionContext);
+  const decisionSnapshot = useSyncExternalStore(
+    decisionOwner?.subscribe ?? noDecisionSubscription,
+    decisionOwner?.getSnapshot ?? noDecisionSnapshot,
+  );
+  const [decisionOpenKey, setDecisionOpenKey] = useState<string | null>(null);
+  const decisionTrigger = useRef<HTMLElement | null>(null);
+  const restoreDecisionTrigger = useRef(false);
+  useLayoutEffect(() => {
+    if (decisionOpenKey === null && restoreDecisionTrigger.current) {
+      restoreDecisionTrigger.current = false;
+      if (decisionTrigger.current?.isConnected)
+        decisionTrigger.current.focus({ preventScroll: true });
+    }
+  }, [decisionOpenKey]);
   useWorkbookHistorySurfaceRefresh(inspectorConfig.viewSchemaId, () =>
     onRefresh({ requireAcceptance: true }),
   );
@@ -365,6 +393,52 @@ export function useGenericWorkbookInspectorComposition({
         config: inspectorConfig,
         currentIncidentRole,
         disabledTokens,
+        decisionSupersession:
+          contract.viewSchemaId === decisionViewId
+            ? {
+                start: () => {
+                  decisionTrigger.current =
+                    document.activeElement instanceof HTMLElement
+                      ? document.activeElement
+                      : null;
+                  setDecisionOpenKey(invalidationKey);
+                },
+                disabledReason:
+                  subject?.kind !== "live" || subjectRow === null
+                    ? "Select a saved Decision."
+                    : decisionOwner === null
+                      ? "Decision supersession is unavailable."
+                      : (decisionIneligibility(
+                          reviewedDecision(
+                            decisionOwner.latestRow(subjectRow.record_id) ??
+                              subjectRow,
+                            decisionSnapshot?.authority?.incidentId ?? "",
+                          ),
+                          "target",
+                        ) ??
+                        (decisionOwner.blocksRecord(subjectRow.record_id)
+                          ? "This Decision has a pending supersession. Use Decision actions to recover it."
+                          : null)),
+                content:
+                  decisionOpenKey === invalidationKey &&
+                  decisionOwner &&
+                  subjectRow &&
+                  subject?.kind === "live" ? (
+                    <DecisionSupersessionEditor
+                      key={invalidationKey}
+                      owner={decisionOwner}
+                      row={subjectRow}
+                      lifecycleKey={invalidationKey}
+                      originSurface={inspectorResetKey}
+                      onCancel={() => {
+                        restoreDecisionTrigger.current = true;
+                        setDecisionOpenKey(null);
+                      }}
+                      reconcile={async () => {}}
+                    />
+                  ) : null,
+              }
+            : undefined,
         evidenceContent:
           subjectRow === null
             ? null

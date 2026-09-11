@@ -237,6 +237,38 @@ export function useWorkbookRecordHistoryController({
     [owner, dispatchHistory],
   );
   useLayoutEffect(() => {
+    if (!owner || !subject) return;
+    return owner.registerRecordPresentation(subject.recordId, async () => {
+      const current = targetSubjectRef.current;
+      if (
+        !mounted.current ||
+        !activeRef.current ||
+        !current ||
+        current.recordId !== subject.recordId ||
+        snapshotRef.current.phase === "idle"
+      )
+        return;
+      previewAbort.current?.abort();
+      previewReview.current?.lookup.cancel();
+      previewReview.current = null;
+      dispatchHistory({ type: "cancel" });
+      const refreshed = await load(current);
+      if (
+        !mounted.current ||
+        !activeRef.current ||
+        targetSubjectRef.current?.recordId !== current.recordId
+      )
+        return;
+      if (
+        !refreshed?.browsing?.accepted ||
+        refreshed.browsing.failure ||
+        refreshed.browsing.accepted.data.row_version <
+          (owner.latestVersion(current.recordId) ?? 0)
+      )
+        throw new Error("Decision history refresh remains incomplete");
+    });
+  }, [owner, subject, load, dispatchHistory]);
+  useLayoutEffect(() => {
     if (priorScopeKey.current === scopeKey) return;
     const wasOpen = snapshotRef.current.phase !== "idle";
     priorScopeKey.current = scopeKey;

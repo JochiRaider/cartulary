@@ -12,6 +12,11 @@ export type InspectorRecordHistoryAction = "delete" | "restore" | "rollback";
 
 export type InspectorContextualCapability =
   | {
+      readonly kind: "decision_supersede";
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly semanticKey: string;
+    }
+  | {
       readonly kind: "create_related";
       readonly featureGroup: InspectorFeatureGroup;
       readonly semanticKey: string;
@@ -35,8 +40,13 @@ export function inspectorContextualCapabilities({
       config,
       candidate.featureGroupKey,
     );
-    if (canonical === null || canonical.requiresConfirmation) return [];
+    if (canonical === null) return [];
     const capability = contextualCapability(config.viewSchemaId, canonical);
+    if (
+      canonical.requiresConfirmation &&
+      capability?.kind !== "decision_supersede"
+    )
+      return [];
     return capability === null ? [] : [capability];
   });
 }
@@ -62,6 +72,15 @@ function contextualCapability(
   featureGroup: InspectorFeatureGroup,
 ): InspectorContextualCapability | null {
   const semanticKey = inspectorFeatureIdentity(viewSchemaId, featureGroup);
+  if (
+    viewSchemaId === "cartulary.view.decisions.v1" &&
+    featureGroup.featureGroupKey === "decision.supersede" &&
+    featureGroup.routeBinding.kind === "record_action" &&
+    featureGroup.routeBinding.owner === "record_supersede_route" &&
+    featureGroup.routeBinding.actionKey === "decision.supersede"
+  ) {
+    return { kind: "decision_supersede", featureGroup, semanticKey };
+  }
   if (
     featureGroup.routeBinding.kind === "indicator_observations" ||
     featureGroup.routeBinding.kind === "indicator_lifecycle"

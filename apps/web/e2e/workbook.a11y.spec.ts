@@ -25,6 +25,7 @@ import {
   cellPresenceMarkerTestId,
   currentIncidentRoleTestId,
   dataTestIdSelector,
+  decisionSupersessionTestId,
   deploymentAdminTestId,
   evidenceAccessMessageTestId,
   evidenceAccessStateTestId,
@@ -248,6 +249,10 @@ import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
 } from "./support/workbook/collections";
+import {
+  expectDecisionControlReachable,
+  openDecisionReviewFixture,
+} from "./support/workbook/decisionSupersession";
 import { fetchRecordHistory } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
@@ -7230,3 +7235,73 @@ if (
     await expect(trigger).toBeFocused();
   });
 }
+
+test("a11y.decision-supersession review cancellation and shell recovery preserve keyboard access", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openDecisionReviewFixture(page);
+  const editor = page.getByTestId(decisionSupersessionTestId("editor"));
+  const confirm = page.getByTestId(decisionSupersessionTestId("confirm"));
+  await expect(confirm).toBeFocused();
+  const cancel = editor.getByRole("button", {
+    name: "Cancel review",
+    exact: true,
+  });
+  await cancel.focus();
+  await cancel.press("Enter");
+  const review = page.getByTestId(decisionSupersessionTestId("review-action"));
+  await expectVisibleFocus(review);
+  await review.press("Enter");
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [
+      confirm,
+      cancel,
+      page.getByTestId(decisionSupersessionTestId("reason")),
+    ]) {
+      await expectDecisionControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectDecisionControlReachable(page, confirm);
+  await expectVisibleFocus(confirm);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await expectDecisionControlReachable(page, cancel);
+  await spacing.evaluate((e) => e.parentNode?.removeChild(e));
+  await expectAllInteractiveControlsNamed(page);
+  await confirm.focus();
+  await confirm.press("Enter");
+  const trigger = page.getByRole("button", {
+    name: "Decision actions (1)",
+    exact: true,
+  });
+  await trigger.focus();
+  await trigger.press("Enter");
+  const recovery = page.getByTestId(decisionSupersessionTestId("recovery"));
+  await expect(
+    recovery.getByRole("region", { name: "Decision action recovery summary" }),
+  ).toBeFocused();
+  await expect(
+    recovery.getByText(
+      "Supersession accepted. Both Decisions and related projections refreshed.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+});

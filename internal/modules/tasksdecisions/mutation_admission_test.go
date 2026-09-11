@@ -3,6 +3,7 @@ package tasksdecisions
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -113,6 +114,32 @@ func TestTaskDecisionMutationAdmissionAndReplayHashing(t *testing.T) {
 			t.Fatal("supersede hash is not SHA-256")
 		}
 		requireHashGolden(t, SupersedeRequestHash(request), "6f287bdccd47088f99cda59cc956ce80890b34694f81d213e915b6442c89877d")
+	})
+
+	t.Run("Decision supersession reason follows reason_note_v1", func(t *testing.T) {
+		for _, test := range []struct {
+			reason     string
+			accepted   bool
+			normalized string
+		}{
+			{strings.Repeat("界", 4096), true, strings.Repeat("界", 4096)},
+			{strings.Repeat("界", 4097), false, ""},
+			{" \u2003Cafe\u0301\r\nnext\tline\u200d ", true, "Café\nnext\tline\u200d"},
+			{"hidden\u0081control", false, ""},
+			{" \n ", false, ""},
+		} {
+			reason, err := json.Marshal(test.reason)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request, failure := AdmitSupersedeJSON(strings.NewReader(`{"base_row_version":4,"client_txn_id":"reason-check","reason":` + string(reason) + `}`))
+			if (failure == nil) != test.accepted {
+				t.Fatalf("reason admission: expected accepted=%v, failure=%v, scalar count=%d", test.accepted, failure, len([]rune(test.reason)))
+			}
+			if failure == nil && request.Reason != test.normalized {
+				t.Fatalf("reason normalization mismatch: %q", request.Reason)
+			}
+		}
 	})
 
 	t.Run("admission failures expose closed semantic detail variants", func(t *testing.T) {

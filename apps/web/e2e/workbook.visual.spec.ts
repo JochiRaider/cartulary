@@ -25,6 +25,7 @@ import {
   cellPresenceMarkerTestId,
   dataTestIdPrefixSelector,
   dataTestIdSelector,
+  decisionSupersessionTestId,
   deploymentAdminTestId,
   evidenceAccessMessageTestId,
   evidenceAccessStateTestId,
@@ -235,6 +236,7 @@ import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
 } from "./support/workbook/collections";
+import { openDecisionReviewFixture } from "./support/workbook/decisionSupersession";
 import { fetchRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
@@ -8524,4 +8526,42 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
     ).toHaveText("");
     await capture(`workbook-preferences-${density}`);
   }
+});
+
+test("Capture Decision supersession review and accepted recovery at desktop and narrow widths", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openDecisionReviewFixture(page, (url) =>
+    navigateVisualApplication(page, url),
+  );
+  const review = page.getByTestId(decisionSupersessionTestId("review"));
+  const reviewAnchor: VisualAnchor = {
+    locator: review,
+    align: "start",
+    scrollportSelector: `aside[data-view-schema-id="${decisionsViewSchemaId}"]`,
+  };
+  await assertViewportVisualRegression(page, "decision-supersession-review", {
+    anchor: reviewAnchor,
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await assertViewportVisualRegression(
+    page,
+    "decision-supersession-review-narrow",
+    { anchor: reviewAnchor },
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(review).toBeVisible();
+  await page.getByTestId(decisionSupersessionTestId("confirm")).click();
+  await page
+    .getByRole("button", { name: "Decision actions (1)", exact: true })
+    .click();
+  const recovery = page.getByTestId(decisionSupersessionTestId("recovery"));
+  await expect(
+    recovery.getByText(
+      "Supersession accepted. Both Decisions and related projections refreshed.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await assertViewportVisualRegression(page, "decision-supersession-accepted");
 });

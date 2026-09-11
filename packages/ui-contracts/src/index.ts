@@ -292,3 +292,15 @@ export {
   workbookSurfacesMenuTriggerTestId,
   workbookViewBarQueryControlsTestId,
 } from "./workbookShellSelectors";
+export function decisionSupersessionTestId(
+  part:
+    | "editor"
+    | "replacement"
+    | "reason"
+    | "review"
+    | "review-action"
+    | "confirm"
+    | "recovery",
+) {
+  return `decision-supersession-${part}`;
+}

@@ -8,6 +8,8 @@ import {
   requireWorkbookSurfaceAcceptance,
   type WorkbookSurfaceRecordChangeResult,
 } from "../collaboration/workbookSurfacePort";
+import { decisionViewId } from "../features/coordination/decisionSupersessionModel";
+import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -25,6 +27,7 @@ import {
 import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 export type GenericSurfaceQueryInput = {
+  readonly decisionOwner?: DecisionSupersessionOwnerPort | undefined;
   readonly active: boolean;
   readonly contract: ViewContract;
   readonly onIncidentAccessLost: (() => void) | undefined;
@@ -34,6 +37,7 @@ export type GenericSurfaceQueryInput = {
 };
 
 export function useGenericSurfaceQuery({
+  decisionOwner,
   active,
   contract,
   onIncidentAccessLost,
@@ -107,7 +111,31 @@ export function useGenericSurfaceQuery({
           requireWorkbookSurfaceAcceptance(result);
         return;
       }
-      const nextRows = [...result.value.rows];
+      const decision =
+        viewSchemaId === decisionViewId ? decisionOwner : undefined;
+      if (
+        decision &&
+        result.value.rows.some(
+          (row) =>
+            row.row_version < (decision.latestVersion(row.record_id) ?? 0),
+        )
+      ) {
+        const failure = {
+          kind: "rejected" as const,
+          failure: {
+            kind: "stale_target" as const,
+            message:
+              "The Decision query is older than an accepted change. Refresh current Decisions.",
+          },
+        };
+        setLoadState({ kind: "stale_error", message: failure.failure.message });
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance(failure);
+        return;
+      }
+      const nextRows = [...result.value.rows].map(
+        (row) => decision?.acceptRow(row) ?? row,
+      );
       rowsRef.current = nextRows;
       setRows(nextRows);
       acceptedRowCountRef.current = nextRows.length;
@@ -121,6 +149,7 @@ export function useGenericSurfaceQuery({
       queryState,
       viewQuery,
       viewSchemaId,
+      decisionOwner,
     ],
   );
 
@@ -149,20 +178,25 @@ export function useGenericSurfaceQuery({
         return { kind: "refresh_required" };
       }
 
+      const decision =
+        viewSchemaId === decisionViewId ? decisionOwner : undefined;
+      if (patch.rowVersion < (decision?.latestVersion(patch.recordId) ?? 0))
+        return { kind: "stale" };
       const current = rowsRef.current;
       const existing = current.find((row) => row.record_id === patch.recordId);
       if (existing === undefined) return { kind: "refresh_required" };
       if (existing.row_version >= patch.rowVersion) return { kind: "stale" };
       const next = current.map((row) =>
         row.record_id === patch.recordId
-          ? applyWorkbookQueryRowPatch(row, patch)
+          ? (decision?.acceptRow(applyWorkbookQueryRowPatch(row, patch)) ??
+            applyWorkbookQueryRowPatch(row, patch))
           : row,
       );
       rowsRef.current = next;
       setRows(next);
       return { kind: "applied" };
     },
-    [contract, viewSchemaId],
+    [contract, viewSchemaId, decisionOwner],
   );
 
   const invalidate = useCallback(

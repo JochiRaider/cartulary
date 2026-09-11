@@ -126,7 +126,6 @@ function GenericWorkflow(props: GenericWorkflowProps) {
           mutation={props.mutation}
           mutationCommands={props.mutationCommands.coordination}
           ownerBindings={props.ownerBindings}
-          referenceOptions={props.referenceOptions}
           resetKey={props.invalidationKey}
           rows={props.rows}
         />

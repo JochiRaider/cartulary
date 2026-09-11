@@ -15,12 +15,14 @@ export function WorkbookInspectorContextualActions({
   config,
   currentIncidentRole,
   disabledTokens,
+  additionalDisabledReasons,
   capabilities,
   onAction,
 }: {
   readonly config: InspectorConfig;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
+  readonly additionalDisabledReasons?: ReadonlyMap<string, string> | undefined;
   readonly capabilities: readonly InspectorContextualCapability[];
   readonly onAction: (capability: InspectorContextualCapability) => void;
 }) {
@@ -39,6 +41,9 @@ export function WorkbookInspectorContextualActions({
           binding={binding}
           currentIncidentRole={currentIncidentRole}
           disabledTokens={disabledTokens}
+          additionalDisabledReason={additionalDisabledReasons?.get(
+            binding.featureGroup.featureGroupKey,
+          )}
           key={binding.semanticKey}
           onInvoke={() => onAction(binding.capability)}
         />

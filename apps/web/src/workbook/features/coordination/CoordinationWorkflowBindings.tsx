@@ -1,7 +1,6 @@
 import { coordinationWorkflowTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { genericRowLabel } from "../../models/genericWorkbookModel";
-import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type {
   CoordinationMutationCommandPort,
   TaskLifecycleStatus,
@@ -31,7 +30,6 @@ export function CoordinationWorkflowBindings({
   mutation,
   mutationCommands,
   ownerBindings,
-  referenceOptions,
   resetKey,
   rows,
 }: {
@@ -40,7 +38,6 @@ export function CoordinationWorkflowBindings({
   readonly mutation: CoordinationWorkflowMutationPorts;
   readonly mutationCommands: CoordinationMutationCommandPort;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
-  readonly referenceOptions: GenericReferenceOptions;
   readonly resetKey: string;
   readonly rows: readonly WorkbookQueryRow[];
 }) {
@@ -105,62 +102,6 @@ export function CoordinationWorkflowBindings({
           onClick={() => void workflow.lifecycle.submit()}
         >
           Apply task status
-        </button>
-      </div>
-    );
-  }
-
-  if (ownerBindings.includes("decision_supersede") && rows.length > 1) {
-    return (
-      <div style={workflowRowStyle}>
-        <select
-          aria-label="Superseded decision"
-          data-testid={coordinationWorkflowTestId("decision-target")}
-          style={selectStyle}
-          value={workflow.supersede.targetId}
-          onChange={(event) =>
-            workflow.supersede.setTargetId(event.target.value)
-          }
-        >
-          <option value="">Target</option>
-          {rows.map((row) => (
-            <option key={row.record_id} value={row.record_id}>
-              {genericRowLabel(contract, row)}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Superseding decision"
-          data-testid={coordinationWorkflowTestId("decision-replacement")}
-          style={selectStyle}
-          value={workflow.supersede.replacementId}
-          onChange={(event) =>
-            workflow.supersede.setReplacementId(event.target.value)
-          }
-        >
-          <option value="">Superseding</option>
-          {referenceOptions.decisions.map((option) => (
-            <option key={option.recordId} value={option.recordId}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <input
-          aria-label="Decision supersession reason"
-          data-testid={coordinationWorkflowTestId("decision-reason")}
-          style={inputStyle}
-          type="text"
-          value={workflow.supersede.reason}
-          onChange={(event) => workflow.supersede.setReason(event.target.value)}
-        />
-        <button
-          data-testid={coordinationWorkflowTestId("decision-submit")}
-          disabled={disabled}
-          style={actionButtonStyle}
-          type="button"
-          onClick={() => void workflow.supersede.submit()}
-        >
-          Supersede decision
         </button>
       </div>
     );

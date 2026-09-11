@@ -30,9 +30,6 @@ export function useCoordinationWorkflowController({
   const [lifecycleStatus, setLifecycleStatus] =
     useState<TaskLifecycleStatus>("blocked");
   const [lifecycleBlockedReason, setLifecycleBlockedReason] = useState("");
-  const [supersedeTargetId, setSupersedeTargetId] = useState("");
-  const [supersedeReplacementId, setSupersedeReplacementId] = useState("");
-  const [supersedeReason, setSupersedeReason] = useState("");
   const generationRef = useRef(0);
 
   useEffect(() => {
@@ -41,9 +38,6 @@ export function useCoordinationWorkflowController({
     setLifecycleRecordId("");
     setLifecycleStatus("blocked");
     setLifecycleBlockedReason("");
-    setSupersedeTargetId("");
-    setSupersedeReplacementId("");
-    setSupersedeReason("");
   }, [resetKey]);
 
   useEffect(
@@ -98,49 +92,6 @@ export function useCoordinationWorkflowController({
     rows,
   ]);
 
-  const submitSupersede = useCallback(async () => {
-    const target = rows.find((row) => row.record_id === supersedeTargetId);
-    if (!target || supersedeReplacementId === "") {
-      mutation.setValidationError("Select target and superseding decisions.");
-      return;
-    }
-    if (target.record_id === supersedeReplacementId) {
-      mutation.setValidationError("Select a different superseding decision.");
-      return;
-    }
-    const reason = normalizeGenericTextValue(supersedeReason);
-    if (reason === "") {
-      mutation.setValidationError("Reason is required.");
-      return;
-    }
-    const generation = generationRef.current;
-    const finish = mutation.beginMutation();
-    try {
-      const result = await mutationCommands.supersedeDecision({
-        baseRowVersion: target.row_version,
-        reason,
-        replacementRecordId: supersedeReplacementId,
-        targetRecordId: target.record_id,
-      });
-      if (generationRef.current !== generation) return;
-      if (result.kind === "rejected") {
-        mutation.rejectMutationFailure(result.failure);
-        return;
-      }
-      setSupersedeReason("");
-      await mutation.completeGenericMutation();
-    } finally {
-      finish();
-    }
-  }, [
-    mutation,
-    mutationCommands,
-    rows,
-    supersedeReason,
-    supersedeReplacementId,
-    supersedeTargetId,
-  ]);
-
   return {
     lifecycle: {
       blockedReason: lifecycleBlockedReason,
@@ -150,15 +101,6 @@ export function useCoordinationWorkflowController({
       setStatus: setLifecycleStatus,
       status: lifecycleStatus,
       submit: submitLifecyclePatch,
-    },
-    supersede: {
-      reason: supersedeReason,
-      replacementId: supersedeReplacementId,
-      setReason: setSupersedeReason,
-      setReplacementId: setSupersedeReplacementId,
-      setTargetId: setSupersedeTargetId,
-      submit: submitSupersede,
-      targetId: supersedeTargetId,
     },
   };
 }

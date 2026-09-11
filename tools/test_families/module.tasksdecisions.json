@@ -29,6 +29,44 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.tasksdecisions.browser.decision_supersession_exact_recovery",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.revisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_2313e4f6afa9",
+          "scenario_f4728266de50"
+        ],
+        "titles": [
+          "Decision supersession recovers a lost executed receipt without advancing versions or change sets",
+          "Decision supersession recovers a precommit failure with exact identity in a filtered view"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.browser",
@@ -164,7 +202,7 @@
         "file": "apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.test.tsx",
         "titles": [
           "makes late coordination outcomes inert after lifecycle invalidation",
-          "owns task lifecycle and decision supersede coordination with distinct semantic outcomes"
+          "preserves Task lifecycle coordination independently of Decision supersession"
         ]
       },
       "evidence_class": "unit",

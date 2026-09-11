@@ -3,13 +3,12 @@ import type {
   IssueEvidenceDownloadHandleRequest,
   IssueEvidencePreviewHandleRequest,
   PatchRecordRequest,
-  SupersedeRecordRequest,
-  SupersedeRecordResponse,
 } from "@cartulary/protocol-ts/http";
 import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence";
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
 import type { WorkbookOperationExecutor } from "../adapters/workbookOperationContract";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import type { DecisionRecordWriteBoundary } from "../features/coordination/decisionSupersessionOperation";
 import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
 import { createGenericMutationCommandPort } from "../features/generic/createGenericMutationCommandPort";
 import { buildGenericCreateRequest } from "../features/generic/genericCreateRequestBuilder";
@@ -33,7 +32,6 @@ import type {
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
   AssessmentCreateOutcome,
-  DecisionSupersedeOutcome,
   EntityCreateOutcome,
   EntityPatchOutcome,
   GenericViewMutationAccepted,
@@ -48,6 +46,7 @@ type CommandContext = {
   readonly incidentId: string;
   readonly transactionIds: SecureTransactionIdPort;
   readonly entityWrites?: EntityRecordWriteBoundary;
+  readonly decisionWrites?: DecisionRecordWriteBoundary;
 };
 
 async function executeEntityWrite(
@@ -271,35 +270,6 @@ function normalizeTaskLifecycleOutcome(
   };
 }
 
-function normalizeDecisionSupersedeOutcome(
-  outcome: WorkbookOperationOutcome<SupersedeRecordResponse>,
-  expectedTargetRecordId: string,
-  expectedReplacementRecordId: string,
-): DecisionSupersedeOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  const data = outcome.value.data;
-  if (
-    !("target_record_id" in data) ||
-    data.view_schema_id !== "cartulary.view.decisions.v1" ||
-    data.target_record_id !== expectedTargetRecordId ||
-    data.superseding_record_id !== expectedReplacementRecordId
-  ) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: data.change_set_id,
-      replacementRecordId: data.superseding_record_id,
-      replacementRowVersion: data.superseding_row_version,
-      targetRecordId: data.target_record_id,
-      targetRowVersion: data.target_row_version,
-      targetStatus: data.target_status,
-      viewSchemaId: data.view_schema_id,
-    },
-  };
-}
-
 function createId(
   transactionIds: SecureTransactionIdPort,
   prefix: string,
@@ -409,6 +379,7 @@ export function createWorkbookMutationCommandPorts(
       }),
     },
     generic: createGenericMutationCommandPort({
+      decisionWrites: context.decisionWrites,
       incidentId: context.incidentId,
       operations,
       transactionIds: context.transactionIds,
@@ -596,27 +567,6 @@ export function createWorkbookMutationCommandPorts(
           }),
           input.recordId,
           input.status,
-        );
-      },
-      async supersedeDecision(input) {
-        const clientTxnId = createId(
-          context.transactionIds,
-          "decision-supersede",
-        );
-        if (clientTxnId === null) return operationIdentityFailure();
-        return normalizeDecisionSupersedeOutcome(
-          await operations.execute({
-            operationID: "supersedeRecord",
-            pathParameters: { record_id: input.targetRecordId },
-            request: {
-              base_row_version: input.baseRowVersion,
-              client_txn_id: clientTxnId,
-              replacement_record_id: input.replacementRecordId,
-              reason: input.reason,
-            } satisfies SupersedeRecordRequest,
-          }),
-          input.targetRecordId,
-          input.replacementRecordId,
         );
       },
     },

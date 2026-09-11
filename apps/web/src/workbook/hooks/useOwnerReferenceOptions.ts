@@ -1,5 +1,14 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { DecisionSupersessionContext } from "../features/coordination/DecisionSupersessionContext";
 import { genericReferenceOptionsFromRows } from "../models/genericWorkbookModel";
 import {
   emptyGenericReferenceOptions,
@@ -25,6 +34,8 @@ import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { isAbortError } from "../query/workbookLatestRequest";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 
+const noDecisionSubscription = () => () => {};
+const noDecisionSnapshot = () => null;
 const allRecordViewSchemaIds = [
   timelineViewSchemaId,
   hostsViewSchemaId,
@@ -205,13 +216,48 @@ export function useOwnerReferenceOptions({
     return () => controller.abort();
   }, [referenceQueryBroker, refreshVersion, requirements]);
 
-  const resolvedReferenceOptions = useMemo(
-    () => ({
-      ...referenceOptions,
-      incidentMembers: incidentMemberOptions,
-    }),
-    [incidentMemberOptions, referenceOptions],
+  const decisionOwner = useContext(DecisionSupersessionContext);
+  const decisionSnapshot = useSyncExternalStore(
+    decisionOwner?.subscribe ?? noDecisionSubscription,
+    decisionOwner?.getSnapshot ?? noDecisionSnapshot,
   );
+  const resolvedReferenceOptions = useMemo(() => {
+    const rows =
+      decisionSnapshot?.entries.flatMap((entry) =>
+        entry.receipt
+          ? [
+              entry.receipt.target_record_id,
+              entry.receipt.superseding_record_id,
+            ].flatMap((id) => {
+              const row = decisionOwner?.latestRow(id);
+              return row &&
+                row.row_version >= (decisionOwner?.latestVersion(id) ?? 0)
+                ? [row]
+                : [];
+            })
+          : [],
+      ) ?? [];
+    const changed = genericReferenceOptionsFromRows(
+      decisionsViewSchemaId,
+      rows,
+    );
+    const merge = (options: GenericReferenceOptions["decisions"]) => [
+      ...new Map(
+        [...options, ...changed].map((option) => [option.recordId, option]),
+      ).values(),
+    ];
+    return {
+      ...referenceOptions,
+      decisions: merge(referenceOptions.decisions),
+      allRecords: merge(referenceOptions.allRecords),
+      incidentMembers: incidentMemberOptions,
+    };
+  }, [
+    incidentMemberOptions,
+    referenceOptions,
+    decisionSnapshot,
+    decisionOwner,
+  ]);
 
   return {
     referenceLoadError: referenceLoadError ?? incidentMemberLoadError,

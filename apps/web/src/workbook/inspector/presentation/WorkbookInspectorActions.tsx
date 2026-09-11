@@ -27,19 +27,24 @@ export function WorkbookInspectorContextualAction({
   binding,
   currentIncidentRole,
   disabledTokens,
+  additionalDisabledReason,
   onInvoke,
 }: {
   readonly binding: WorkbookInspectorActionBinding;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
+  readonly additionalDisabledReason?: string | undefined;
   readonly onInvoke: () => void;
 }) {
   const reasonId = useId();
-  const reason = workbookInspectorDisabledReason({
-    currentIncidentRole,
-    featureGroup: binding.featureGroup,
-    stateTokens: disabledTokens,
-  });
+  const reason =
+    workbookInspectorDisabledReason({
+      currentIncidentRole,
+      featureGroup: binding.featureGroup,
+      stateTokens: disabledTokens,
+    }) ??
+    additionalDisabledReason ??
+    null;
   return (
     <div style={contextualActionStyle}>
       <WorkbookInspectorActionButton

@@ -77,21 +77,8 @@ export type TaskLifecycleAccepted = {
   readonly viewSchemaId: string;
 };
 
-export type DecisionSupersedeAccepted = {
-  readonly changeSetId: string;
-  readonly replacementRecordId: string;
-  readonly replacementRowVersion: number;
-  readonly targetRecordId: string;
-  readonly targetRowVersion: number;
-  readonly targetStatus: string;
-  readonly viewSchemaId: string;
-};
-
 export type TaskLifecycleOutcome =
   WorkbookOperationOutcome<TaskLifecycleAccepted>;
-export type DecisionSupersedeOutcome =
-  WorkbookOperationOutcome<DecisionSupersedeAccepted>;
-
 export interface TimelineMutationIdentityPort {
   createLogicalActionId(): string;
   createConflictRecoveryId(): string;
@@ -218,12 +205,6 @@ export interface CoordinationMutationCommandPort {
     readonly recordId: string;
     readonly status: TaskLifecycleStatus;
   }): Promise<TaskLifecycleOutcome>;
-  supersedeDecision(input: {
-    readonly baseRowVersion: number;
-    readonly reason: string;
-    readonly replacementRecordId: string;
-    readonly targetRecordId: string;
-  }): Promise<DecisionSupersedeOutcome>;
 }
 
 type IndicatorObservationListResponse =

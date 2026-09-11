@@ -51,6 +51,7 @@ export function GenericWorkbookInspector({
   subject,
   surfaceTitle,
   workflowContent,
+  decisionSupersession,
 }: {
   readonly config: ViewContract["inspectorConfig"];
   readonly currentIncidentRole: WorkbookIncidentRole | null;
@@ -89,11 +90,21 @@ export function GenericWorkbookInspector({
   readonly subject: WorkbookInspectorSubject | null;
   readonly surfaceTitle: string;
   readonly workflowContent: ReactNode;
+  readonly decisionSupersession?:
+    | {
+        readonly start: () => void;
+        readonly content: ReactNode;
+        readonly disabledReason: string | null;
+      }
+    | undefined;
 }) {
   function dispatchContextualAction(
     capability: InspectorContextualCapability,
   ): void {
     switch (capability.kind) {
+      case "decision_supersede":
+        decisionSupersession?.start();
+        return;
       case "indicator":
         indicator?.select(
           resolveIndicatorInspectorHandler(
@@ -146,6 +157,13 @@ export function GenericWorkbookInspector({
         config={config}
         currentIncidentRole={currentIncidentRole}
         disabledTokens={disabledTokens}
+        additionalDisabledReasons={
+          decisionSupersession?.disabledReason
+            ? new Map([
+                ["decision.supersede", decisionSupersession.disabledReason],
+              ])
+            : undefined
+        }
         subject={subject}
         contentByPanel={{
           details:
@@ -158,14 +176,17 @@ export function GenericWorkbookInspector({
               : panelContent("evidence", evidenceContent),
           history:
             subject === null ? undefined : (
-              <WorkbookInspectorRecordHistory
-                beginMutation={history.beginMutation}
-                actions={history.actions}
-                canMutate={history.canMutate}
-                commands={history.commands}
-                ownerEffects={history.effects}
-                subject={subject}
-              />
+              <>
+                {decisionSupersession?.content}
+                <WorkbookInspectorRecordHistory
+                  beginMutation={history.beginMutation}
+                  actions={history.actions}
+                  canMutate={history.canMutate}
+                  commands={history.commands}
+                  ownerEffects={history.effects}
+                  subject={subject}
+                />
+              </>
             ),
           relationships:
             subject === null

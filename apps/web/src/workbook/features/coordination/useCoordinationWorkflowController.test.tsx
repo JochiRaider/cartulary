@@ -9,11 +9,6 @@ const taskRow: WorkbookQueryRow = {
   record_id: "task-1",
   row_version: 7,
 };
-const decisionRows: readonly WorkbookQueryRow[] = [
-  { cells: {}, record_id: "decision-1", row_version: 4 },
-  { cells: {}, record_id: "decision-2", row_version: 6 },
-];
-
 function mutationPorts() {
   return {
     beginMutation: vi.fn(() => vi.fn()),
@@ -23,7 +18,7 @@ function mutationPorts() {
   };
 }
 
-it("owns task lifecycle and decision supersede coordination with distinct semantic outcomes", async () => {
+it("preserves Task lifecycle coordination independently of Decision supersession", async () => {
   const updateTaskLifecycle = vi.fn(async () => ({
     kind: "accepted" as const,
     value: {
@@ -33,24 +28,11 @@ it("owns task lifecycle and decision supersede coordination with distinct semant
       viewSchemaId: "cartulary.view.task_requests.v1",
     },
   }));
-  const supersedeDecision = vi.fn(async () => ({
-    kind: "accepted" as const,
-    value: {
-      changeSetId: "change-decision",
-      replacementRecordId: "decision-2",
-      replacementRowVersion: 7,
-      targetRecordId: "decision-1",
-      targetRowVersion: 5,
-      targetStatus: "superseded",
-      viewSchemaId: "cartulary.view.decisions.v1",
-    },
-  }));
   const commands: CoordinationMutationCommandPort = {
     updateTaskLifecycle,
-    supersedeDecision,
   };
   const mutation = mutationPorts();
-  const { result, rerender } = renderHook(
+  const { result } = renderHook(
     ({ resetKey, rows }) =>
       useCoordinationWorkflowController({
         mutation,
@@ -81,22 +63,7 @@ it("owns task lifecycle and decision supersede coordination with distinct semant
   });
   expect(result.current.lifecycle.blockedReason).toBe("");
 
-  rerender({ resetKey: "decisions", rows: decisionRows });
-  act(() => {
-    result.current.supersede.setTargetId("decision-1");
-    result.current.supersede.setReplacementId("decision-2");
-    result.current.supersede.setReason("  replaced by later review  ");
-  });
-  await act(async () => result.current.supersede.submit());
-
-  expect(supersedeDecision).toHaveBeenCalledWith({
-    baseRowVersion: 4,
-    reason: "replaced by later review",
-    replacementRecordId: "decision-2",
-    targetRecordId: "decision-1",
-  });
-  expect(result.current.supersede.reason).toBe("");
-  expect(mutation.completeGenericMutation).toHaveBeenCalledTimes(2);
+  expect(mutation.completeGenericMutation).toHaveBeenCalledTimes(1);
   expect(mutation.rejectMutationFailure).not.toHaveBeenCalled();
 });
 
@@ -115,7 +82,6 @@ it("makes late coordination outcomes inert after lifecycle invalidation", async 
   });
   const commands: CoordinationMutationCommandPort = {
     updateTaskLifecycle: vi.fn(() => pendingTask),
-    supersedeDecision: vi.fn(),
   };
   const mutation = mutationPorts();
   const { result, rerender } = renderHook(

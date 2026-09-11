@@ -209,6 +209,234 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.decision_supersession_canonical_composition",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/inspectorCapabilityResolver.test.ts",
+        "titles": [
+          "inspector capability resolver admits all 17 schemas and 247 exact tuples as canonical objects",
+          "inspector capability resolver admits label-only variants but returns the canonical projected feature",
+          "inspector capability resolver classifies exactly 41 create, 4 Indicator, 51 history, 1 Decision action, and 150 non-contextual features",
+          "inspector capability resolver isolates additive, altered, and duplicate addressed tuples without losing siblings",
+          "inspector capability resolver omits a canonically declared future confirmed capability"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.decision_supersession_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/decisionSupersession.characterization.test.tsx",
+        "titles": [
+          "Decision supersession resolves exactly once in its declared History panel",
+          "Decision supersession uses declared role and disabled-condition admission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.decision_supersession_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/WorkbookDecisionSupersessionOwner.test.ts",
+        "titles": [
+          "Decision acknowledgement precedes refresh debt and refresh-only recovery sends no mutation",
+          "Decision admission reserves both participants synchronously and rechecks earlier writes",
+          "Decision exact replay survives superseded state and never replaces an uncertain transaction",
+          "Decision replay rejection preserves uncertainty and current authorization controls dispatch",
+          "Decision review cancellation closure and session changes fence preparation",
+          "Decision timeout retains late acknowledgement while access loss conceals and retirement forgets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.decision_supersession_receipt_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/decisionSupersession.characterization.test.tsx",
+        "titles": [
+          "Decision supersession retains the normalized reason in its complete acknowledgement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.decision_supersession_reconciliation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/decisionSupersessionReconciliation.test.tsx",
+        "titles": [
+          "Decision query and live patches cannot regress accepted high-water versions",
+          "Decision reconciliation reads both pages and histories while missing or stale rows retain debt"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.decision_supersession_review",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/DecisionSupersessionEditor.test.tsx",
+        "titles": [
+          "Decision candidates distinguish partial failure retry exhaustion and disabled duplicate-label records",
+          "Decision eligibility and reason normalization preserve the executed distinction and fail closed",
+          "Decision review cancellation retains draft and detached candidate callbacks cannot publish",
+          "Decision review uses an outside-grid replacement and invalidates changed inputs and record versions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.decision_supersession_runtime",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.revisions",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/decisionSupersessionRuntime.test.ts",
+        "titles": [
+          "Decision admission includes versions already accepted by History",
+          "Decision runtime coordinates queued and direct writes without clearing unrelated drafts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.decision_supersession_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions",
+        "platform.httpruntime"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createWorkbookDecisionSupersessionAdapter.test.ts",
+        "titles": [
+          "Decision candidates preserve opaque paging and reject missing metadata cross-context and access failures",
+          "Decision transport replays captured bytes with current credentials and no replacement precondition",
+          "Decision transport validates complete receipts and distinguishes malformed success from rejection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.entity_merge_admission",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
+import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
@@ -89,6 +90,23 @@ export function useWorkbookShellInfrastructure({
     }),
     [mutationRuntime],
   );
+  const decisionWrites = useMemo(
+    () => ({
+      begin: mutationRuntime.beginDecisionWrite.bind(mutationRuntime),
+      acceptRow: mutationRuntime.decisionSupersession.acceptRow.bind(
+        mutationRuntime.decisionSupersession,
+      ),
+    }),
+    [mutationRuntime],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.decisionSupersession.configure(
+        createWorkbookDecisionSupersessionAdapter({ apiBase, incidentId }),
+        onIncidentAccessLost,
+      ),
+    [apiBase, incidentId, mutationRuntime, onIncidentAccessLost],
+  );
   const clipboardPastePort = useMemo(
     () =>
       createWorkbookClipboardPasteAdapter({
@@ -106,8 +124,9 @@ export function useWorkbookShellInfrastructure({
         incidentId,
         transactionIds,
         entityWrites,
+        decisionWrites,
       }),
-    [apiBase, incidentId, transactionIds, entityWrites],
+    [apiBase, incidentId, transactionIds, entityWrites, decisionWrites],
   );
   useMemo(
     () => mutationRuntime.history.configure(mutationCommands.records),
