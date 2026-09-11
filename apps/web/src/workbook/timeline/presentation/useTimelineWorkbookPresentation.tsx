@@ -222,8 +222,7 @@ export function useTimelineWorkbookPresentation({
     handleTimelineGridContextMenu,
     openInspectorForRow,
   } = workflow.commands.rowInteractions;
-  const { replacementDrafts } = mutation.snapshot.mutation;
-  const { changeReplacementDraft, queueAction } = mutation.commands.mutation;
+  const captureActions = composition.captureActions;
   const {
     confirmRowHistoryPendingAction,
     openRowHistory,
@@ -352,7 +351,20 @@ export function useTimelineWorkbookPresentation({
       loadRows,
       onClose: closeInspector,
       onCreateEntityFromMention: createEntityFromMention,
-      onFeatureAction: handleInspectorFeatureAction,
+      captureEditor: captureActions.editor,
+      captureResult: captureActions.result,
+      additionalDisabledReasons: captureActions.additionalDisabledReasons,
+      onFeatureAction: (
+        capability: Parameters<typeof handleInspectorFeatureAction>[0],
+      ) => {
+        if (capability.kind === "timeline_capture")
+          captureActions.activate(
+            capability.featureGroup.featureGroupKey === "timeline.mark_reviewed"
+              ? "mark-reviewed"
+              : "supersede",
+          );
+        else handleInspectorFeatureAction(capability);
+      },
       onResolveTargetChange: handleResolveTargetChange,
       onSelectMention: handleSelectMention,
       onSetInspectorMessage: setInspectorMessage,
@@ -515,21 +527,24 @@ export function useTimelineWorkbookPresentation({
           : {
               position: rowContextMenu.position,
               fallbackFocusTargetRef: rowContextMenuFallbackFocusRef,
-              replacementDraft:
-                activeRowContextMenuRow === null
-                  ? ""
-                  : (replacementDrafts[activeRowContextMenuRow.key] ?? ""),
+              reviewDisabledReason: captureActions.reason(
+                activeRowContextMenuRow,
+                "mark-reviewed",
+              ),
+              supersedeDisabledReason: captureActions.reason(
+                activeRowContextMenuRow,
+                "supersede",
+              ),
               row: activeRowContextMenuRow,
               returnFocusTargetRef: rowContextMenuReturnFocusRef,
               onClose: closeRowContextMenu,
               onInspectRow: openInspectorForRow,
               onMarkReviewed: (rowKey: string) => {
-                queueAction(rowKey, "mark-reviewed");
+                captureActions.start(rowKey, "mark-reviewed");
               },
               onOpenHistory: openRowHistory,
-              onReplacementDraftChange: changeReplacementDraft,
               onSupersede: (rowKey: string) => {
-                queueAction(rowKey, "supersede");
+                captureActions.start(rowKey, "supersede");
               },
             },
       notices: {

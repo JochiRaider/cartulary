@@ -1,81 +1,138 @@
-import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
-import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
+import {
+  buildHTTPOperationPath,
+  httpOperationBindings,
+  type MarkTimelineRecordReviewedRequest,
+  type MarkTimelineRecordReviewedResponse,
+  type SupersedeRecordRequest,
+  type SupersedeRecordResponse,
+} from "@cartulary/protocol-ts/http";
+import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
+import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { timelineCaptureReviewValid } from "../actions/timelineCaptureActionModel";
 import type {
-  TimelineRecordActionAccepted,
+  TimelineCaptureAttempt,
   TimelineRecordActionPort,
 } from "../ports/TimelineRecordActionPort";
-
-function invalidContract(): WorkbookOperationOutcome<TimelineRecordActionAccepted> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "invalid_contract",
-      message: "The Timeline action response was invalid.",
-    },
-  };
-}
+import type { TimelineCaptureReceipt } from "./timelineCaptureProtocol";
 
 export function createTimelineRecordActionAdapter(options: {
   readonly apiBase: string | undefined;
 }): TimelineRecordActionPort {
-  const operations = createWorkbookOperationExecutor({
-    apiBase: options.apiBase,
-  });
   return {
-    async execute(input) {
+    capture(review, id) {
+      if (!timelineCaptureReviewValid(review) || !id)
+        throw new Error("Timeline review unavailable");
+      const operationID =
+        review.action === "mark-reviewed"
+          ? "markTimelineRecordReviewed"
+          : "supersedeRecord";
+      const request =
+        review.action === "mark-reviewed"
+          ? ({
+              base_row_version: review.target.rowVersion,
+              client_txn_id: id,
+            } satisfies MarkTimelineRecordReviewedRequest)
+          : ({
+              base_row_version: review.target.rowVersion,
+              client_txn_id: id,
+              reason: review.reason ?? "",
+              ...(review.replacement === null
+                ? {}
+                : { replacement_record_id: review.replacement.recordId }),
+            } satisfies SupersedeRecordRequest);
+      return {
+        id,
+        review: structuredClone(review),
+        operationID,
+        method: "POST",
+        apiBase: options.apiBase,
+        path: apiPath(
+          options.apiBase,
+          buildHTTPOperationPath(operationID, {
+            record_id: review.target.recordId,
+          }),
+        ),
+        body: JSON.stringify(request),
+      };
+    },
+    async send(attempt, signal) {
+      const operationID =
+        attempt.review.action === "mark-reviewed"
+          ? "markTimelineRecordReviewed"
+          : "supersedeRecord";
+      if (
+        attempt.operationID !== operationID ||
+        attempt.method !== httpOperationBindings[operationID].method ||
+        attempt.path !==
+          apiPath(
+            attempt.apiBase,
+            buildHTTPOperationPath(operationID, {
+              record_id: attempt.review.target.recordId,
+            }),
+          )
+      )
+        return { kind: "uncertain" };
+      let status: number | null = null;
       try {
-        const outcome =
-          input.action === "mark-reviewed"
-            ? await operations.execute({
-                operationID: "markTimelineRecordReviewed",
-                pathParameters: { record_id: input.recordId },
-                request: {
-                  base_row_version: input.baseRowVersion,
-                  client_txn_id: input.clientTxnId,
-                  reason: "Reviewed from workbook",
-                },
-              })
-            : await operations.execute({
-                operationID: "supersedeRecord",
-                pathParameters: { record_id: input.recordId },
-                request: {
-                  base_row_version: input.baseRowVersion,
-                  client_txn_id: input.clientTxnId,
-                  reason: "Superseded from workbook",
-                  replacement_record_id: input.replacementRecordId ?? "",
-                },
-              });
-        if (outcome.kind === "rejected") return outcome;
-        const data = outcome.value.data;
-        if (
-          !("capture_state" in data) ||
-          data.record_id !== input.recordId ||
-          (input.action === "supersede" &&
-            data.replacement_record_id !== input.replacementRecordId)
-        ) {
-          return invalidContract();
+        const result = await fetchHTTPOperation<
+          MarkTimelineRecordReviewedResponse | SupersedeRecordResponse
+        >({
+          apiBase: attempt.apiBase,
+          operationID,
+          pathParameters: { record_id: attempt.review.target.recordId },
+          init: { method: attempt.method, body: attempt.body, signal },
+          onResponse: (response) => {
+            status = response.status;
+          },
+        });
+        if (!result.ok) {
+          if (
+            status === null ||
+            status < 400 ||
+            status >= 500 ||
+            !result.payload.error?.code
+          )
+            return { kind: "uncertain" };
+          const failure = classifyWorkbookOperationFailure(
+            result.status,
+            result.payload,
+            operationID,
+          );
+          return failure.kind === "invalid_contract"
+            ? { kind: "uncertain" }
+            : { kind: "rejected", failure };
         }
-        return {
-          kind: "accepted",
-          value: {
-            captureState: data.capture_state,
-            changeSetId: data.change_set_id,
-            incidentId: data.incident_id,
-            reason: data.reason,
-            recordId: data.record_id,
-            replacementRecordId: data.replacement_record_id,
-            rowVersion: data.row_version,
-          },
-        };
+        const receipt = validateTimelineCaptureReceipt(
+          attempt,
+          result.payload.data,
+        );
+        return receipt
+          ? { kind: "acknowledged", receipt }
+          : { kind: "uncertain" };
       } catch {
-        return {
-          kind: "rejected",
-          failure: {
-            kind: "retryable",
-            message: "The Timeline action could not be sent.",
-          },
-        };
+        return { kind: "uncertain" };
       }
     },
   };
+}
+
+function validateTimelineCaptureReceipt(
+  attempt: TimelineCaptureAttempt,
+  data: (MarkTimelineRecordReviewedResponse | SupersedeRecordResponse)["data"],
+): TimelineCaptureReceipt | null {
+  const { review } = attempt;
+  if (
+    !("record_id" in data) ||
+    data.record_id !== review.target.recordId ||
+    data.incident_id !== review.authority.incidentId ||
+    !Number.isSafeInteger(data.row_version) ||
+    data.row_version <= review.target.rowVersion ||
+    !data.change_set_id ||
+    data.capture_state !==
+      (review.action === "mark-reviewed" ? "reviewed" : "superseded") ||
+    data.reason !== review.reason ||
+    data.replacement_record_id !== (review.replacement?.recordId ?? null)
+  )
+    return null;
+  return { operation: review.action, data: { ...data } };
 }

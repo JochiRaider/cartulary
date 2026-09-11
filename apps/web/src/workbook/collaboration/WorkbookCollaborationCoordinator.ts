@@ -786,6 +786,15 @@ class WorkbookCollaborationCoordinatorRuntime {
   private handleRecordChanged(payload: RecordChangedPayload): void {
     if (
       payload.affected_views.some(
+        (view) => view.view_schema_id === "cartulary.view.timeline.v2",
+      )
+    )
+      this.options.mutationRuntime.observeTimelineVersion(
+        payload.record_id,
+        payload.row_version,
+      );
+    if (
+      payload.affected_views.some(
         (view) => view.view_schema_id === "cartulary.view.decisions.v1",
       )
     )

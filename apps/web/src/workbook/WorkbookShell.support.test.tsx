@@ -21,7 +21,7 @@ import {
   timelineCollectionInputTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
-  timelineRowReplacementInputTestId,
+  timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
   workbookInlineDraftRowTestId,
   workbookRowContextMenuTestId,
@@ -433,10 +433,10 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
         rowHistoryOpenButtonTestId("20000000-0000-4000-8000-000000000601"),
       ),
     );
-    const replacementInput = screen.getByTestId(
-      timelineRowReplacementInputTestId("20000000-0000-4000-8000-000000000601"),
+    const supersedeShortcut = screen.getByTestId(
+      timelineRowSupersedeButtonTestId("20000000-0000-4000-8000-000000000601"),
     );
-    replacementInput.focus();
+    supersedeShortcut.focus();
     fireEvent.scroll(window);
     expect(
       screen.getByTestId(
@@ -447,7 +447,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       ),
     ).toBeTruthy();
 
-    replacementInput.blur();
+    supersedeShortcut.blur();
     fireEvent.scroll(window);
     await waitFor(() => {
       expect(

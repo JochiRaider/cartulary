@@ -823,6 +823,10 @@ describe("WorkbookCollaborationCoordinator", () => {
 
   it("rejects duplicate transactions and reconciles an inactive surface on registration", async () => {
     const fixture = projectionFixture();
+    const observed = vi.spyOn(
+      fixture.mutationRuntime,
+      "observeTimelineVersion",
+    );
     const resolved = vi.fn(
       (clientTxnId: string | null | undefined) =>
         clientTxnId === "resolved-txn",
@@ -852,6 +856,11 @@ describe("WorkbookCollaborationCoordinator", () => {
     };
     fixture.emit(event);
     expect(resolved).toHaveBeenCalledWith("resolved-txn");
+    expect(observed).toHaveBeenCalledWith("record-1", 2);
+    expect(observed.mock.invocationCallOrder[0]).toBeLessThan(
+      resolved.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(fixture.mutationRuntime.history.latestVersion("record-1")).toBe(2);
 
     fixture.projection.registerClientTxnResolver(() => false);
     if (event.kind !== "message" || event.message.type !== "record_changed") {

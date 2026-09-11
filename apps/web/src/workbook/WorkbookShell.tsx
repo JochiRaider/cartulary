@@ -101,6 +101,8 @@ import { projectWorkbookStatusForSurface } from "./runtime/workbookMutationStatu
 import type { SavedViewBinding } from "./savedviews/savedViewOperationModel";
 import type { WorkbookSavedViewController } from "./savedviews/WorkbookSavedViewController";
 import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
+import { reconcileTimelineCaptureReceipt } from "./timeline/actions/reconcileTimelineCaptureReceipt";
+import { TimelineCaptureRecovery } from "./timeline/actions/TimelineCaptureRecovery";
 
 export type {
   WorkbookAccountApplicationMenuProps,
@@ -234,6 +236,7 @@ function WorkbookShellContent({
             closed: incidentIdentity?.status !== "active",
           }
         : null;
+    infrastructure.timelineCapture.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.history.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.entityMerge.setAuthority(mergeAuthority);
@@ -242,6 +245,7 @@ function WorkbookShellContent({
     );
   }, [
     infrastructure.mutationRuntime,
+    infrastructure.timelineCapture,
     authorization.currentUserId,
     authorization.currentIncidentRole,
     incidentId,
@@ -250,12 +254,13 @@ function WorkbookShellContent({
   ]);
   useLayoutEffect(
     () => () => {
+      infrastructure.timelineCapture.suspend();
       infrastructure.mutationRuntime.explicitPatches.suspend();
       infrastructure.mutationRuntime.history.suspend();
       infrastructure.mutationRuntime.entityMerge.suspend();
       infrastructure.mutationRuntime.decisionSupersession.suspend();
     },
-    [infrastructure.mutationRuntime],
+    [infrastructure.mutationRuntime, infrastructure.timelineCapture],
   );
   const networkFlowSavedGraphController = useNetworkFlowSavedGraphOwner({
     availability: extensionLifecycle.controller,
@@ -424,6 +429,30 @@ function WorkbookShellContent({
       },
     );
   }, [infrastructure.mutationRuntime, snapshot.surface]);
+  useLayoutEffect(
+    () =>
+      infrastructure.timelineCapture.registerReconciliation(
+        async (receipt, scope) => {
+          await reconcileTimelineCaptureReceipt(
+            infrastructure.timelineCapture,
+            infrastructure.mutationRuntime.history,
+            receipt,
+            scope,
+          );
+          if (!scope.isCurrent())
+            throw new Error("Timeline reconciliation detached");
+          if (snapshot.surface === timelineViewSchemaId)
+            await infrastructure.mutationRuntime.history.refreshSurface(
+              timelineViewSchemaId,
+            );
+        },
+      ),
+    [
+      infrastructure.timelineCapture,
+      infrastructure.mutationRuntime,
+      snapshot.surface,
+    ],
+  );
   const collaboration = useWorkbookCollaborationLifecycle({
     onSessionLost,
     activeSurfacePort: queries.activeSurfacePort,
@@ -704,6 +733,9 @@ function WorkbookShellContent({
             importRecovery={
               <>
                 <WorkbookHistoryRecovery />
+                <TimelineCaptureRecovery
+                  owner={infrastructure.timelineCapture}
+                />
                 <WorkbookDecisionSupersessionRecovery
                   runtime={infrastructure.mutationRuntime}
                 />

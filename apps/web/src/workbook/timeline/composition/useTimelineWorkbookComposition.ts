@@ -1,4 +1,6 @@
 import { sheetRefKey } from "../../../shared/sheetRef";
+import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
+import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import { useTimelineGridEnvironment } from "./useTimelineGridEnvironment";
 import { useTimelineInspectorStateComposition } from "./useTimelineInspectorStateComposition";
@@ -44,7 +46,6 @@ export function useTimelineWorkbookComposition({
       nextDraftIndex: foundation.commands.rows.allocateDraftIndex,
       pendingQueueSnapshot: foundation.snapshot.pendingQueue,
       pendingSavesRefs: foundation.refs.pendingSaves,
-      recordActionPort: foundation.ports.recordActions,
       recordWorkbookTiming: foundation.commands.recordTiming,
       rowStoreCommands: foundation.commands.rows,
       rowsRef: foundation.refs.rows,
@@ -241,7 +242,60 @@ export function useTimelineWorkbookComposition({
     },
   });
 
+  const captureActions = useTimelineCaptureActions({
+    runtime: runtime.mutationRuntime,
+    selectedRow: inspector.snapshot.selection.selectedRow,
+    selectedId: inspector.snapshot.selection.selectedRowId,
+    isOpen: workbookInspectorStateIsOpen(inspector.snapshot.lifecycle),
+    deleted:
+      inspector.snapshot.selection.selectedRowWorkflowSubject?.kind !== "live",
+    concealed: foundation.snapshot.lifecycle.loadAccessLost,
+    originKey: runtime.incident.inspectorResetKey,
+    rowsRef: foundation.refs.rows,
+    drafts: foundation.refs.editorDraftRegistry,
+    pending: foundation.refs.pendingSaves,
+    openHistory: workflow.commands.history.openRowHistory,
+    waitForIdle: mutation.ports.waitForCommittedRecordIdle,
+    loadRows: mutation.commands.query.loadRows,
+    acceptReceipt: (receipt, baseVersion) => {
+      const data = receipt.data;
+      mutation.commands.save.acceptTimelineActionResult({
+        captureState: data.capture_state,
+        changeSetId: data.change_set_id,
+        incidentId: data.incident_id,
+        reason: data.reason,
+        recordId: data.record_id,
+        replacementRecordId: data.replacement_record_id,
+        rowVersion: data.row_version,
+      });
+      foundation.commands.rows.updateRows((rows) =>
+        rows.map((row) =>
+          row.recordId === data.record_id &&
+          row.rawRow &&
+          row.rowVersion === baseVersion
+            ? {
+                ...row,
+                captureState: data.capture_state,
+                rowVersion: data.row_version,
+                rawRow: {
+                  ...row.rawRow,
+                  row_version: data.row_version,
+                  cells: {
+                    ...row.rawRow.cells,
+                    "timeline.capture_state": { value: data.capture_state },
+                    "timeline.replacement_record_id": {
+                      value: data.replacement_record_id,
+                    },
+                  },
+                },
+              }
+            : row,
+        ),
+      );
+    },
+  });
   const presentation = {
+    captureActions,
     foundation: {
       commands: {
         query: foundation.commands.query,
@@ -296,11 +350,6 @@ export function useTimelineWorkbookComposition({
     mutation: {
       commands: {
         beginMutation: mutation.commands.save.beginSave,
-        mutation: {
-          changeReplacementDraft:
-            mutation.commands.mutation.changeReplacementDraft,
-          queueAction: mutation.commands.mutation.queueAction,
-        },
         presence: {
           publishEditModePresence:
             mutation.commands.presence.publishEditModePresence,
@@ -318,9 +367,6 @@ export function useTimelineWorkbookComposition({
             mutation.snapshot.conflict.commonMutationSnapshot,
           conflictQueue: mutation.snapshot.conflict.conflictQueue,
           getCellState: mutation.snapshot.conflict.getCellState,
-        },
-        mutation: {
-          replacementDrafts: mutation.snapshot.mutation.replacementDrafts,
         },
         presence: mutation.snapshot.presence,
       },

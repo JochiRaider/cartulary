@@ -76,6 +76,43 @@
       ]
     },
     {
+      "row_id": "module.workbook.accessibility.timeline_capture_actions",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_07ea0dd8c220"
+        ],
+        "titles": [
+          "a11y.timeline-capture review and recovery retain keyboard focus across responsive layouts"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -2055,7 +2092,9 @@
       "selector": {
         "file": "apps/web/src/workbook/WorkbookShell.actionSequencing.test.tsx",
         "titles": [
+          "fences a changed inspector selection while Timeline action preparation waits",
           "keeps action result row versions ahead of stale projection reloads",
+          "requires a second Mark reviewed click after a queued material edit commits",
           "sends Timeline actions with the current row version after earlier workbook mutations",
           "waits for a pending material autosave before supersede dispatch"
         ]
@@ -3260,6 +3299,44 @@
         ],
         "titles": [
           "Capture workbook preferences inspection uncertainty confirmation responsive and density."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.visual.timeline_capture_actions",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "module.timeline",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_a2fe4114db52"
+        ],
+        "titles": [
+          "Capture Timeline supersession authoring review and accepted replacement"
         ]
       },
       "evidence_class": "visual",

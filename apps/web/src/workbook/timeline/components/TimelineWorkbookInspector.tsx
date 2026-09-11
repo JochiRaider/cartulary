@@ -26,6 +26,7 @@ import {
 import { bodyStyle } from "./TimelineWorkbookStyles";
 
 export function TimelineWorkbookInspector({
+  additionalDisabledReasons,
   canManageMentions,
   currentHistoryDeleted,
   currentIncidentRole,
@@ -57,6 +58,7 @@ export function TimelineWorkbookInspector({
   selectedResolveTargetId,
   selectedRow,
 }: {
+  readonly additionalDisabledReasons?: ReadonlyMap<string, string> | undefined;
   readonly canManageMentions: boolean;
   readonly currentHistoryDeleted: boolean;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
@@ -178,6 +180,7 @@ export function TimelineWorkbookInspector({
         config={inspectorConfig}
         currentIncidentRole={currentIncidentRole}
         disabledTokens={disabledTokens}
+        additionalDisabledReasons={additionalDisabledReasons}
         panelRef={(panelId, element) => {
           if (panelId !== "evidence" && panelId !== "history") {
             elementRegistry.registerPanel(panelId, element);

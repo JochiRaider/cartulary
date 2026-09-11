@@ -81,6 +81,7 @@ import {
   saveStateTestId,
   surfaceTabTestId,
   systemViewSwitcherTriggerTestId,
+  timelineCaptureActionTestId,
   timelineEvidenceFileInputTestId,
   timelineInspectorMessageTestId,
   timelineInspectorSectionTestId,
@@ -252,6 +253,7 @@ import {
   setCurrentSavedViewAsHome,
   setSavedViewDraftName,
 } from "./support/workbook/savedViews";
+import { openTimelineSupersessionFixture } from "./support/workbook/timelineCaptureActions";
 
 type FrontendVisualFixture = {
   capture_profiles: Record<
@@ -1485,6 +1487,11 @@ test.describe("workbook visual evidence", () => {
       ),
     ).toHaveText("reviewed");
 
+    // The shortcut opens canonical History; retain this fixture's grid framing.
+    await page
+      .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+      .click();
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
     await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
     await expect(
       page.getByTestId(
@@ -8564,4 +8571,57 @@ test("Capture Decision supersession review and accepted recovery at desktop and 
     ),
   ).toBeVisible();
   await assertViewportVisualRegression(page, "decision-supersession-accepted");
+});
+
+test("Capture Timeline supersession authoring review and accepted replacement", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const { target, replacement } = await openTimelineSupersessionFixture(
+    page,
+    (url) => navigateVisualApplication(page, url),
+  );
+  const editor = page.getByTestId(
+    timelineCaptureActionTestId("editor", target.record_id),
+  );
+  const anchor: VisualAnchor = {
+    locator: editor,
+    align: "start",
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+  };
+  await assertViewportVisualRegression(page, "timeline-supersession-review", {
+    anchor,
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await assertViewportVisualRegression(
+    page,
+    "timeline-supersession-review-narrow",
+    { anchor },
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await editor.getByRole("button", { name: "Back", exact: true }).click();
+  await page
+    .getByTestId(timelineCaptureActionTestId("replacement", target.record_id))
+    .selectOption("");
+  await assertViewportVisualRegression(
+    page,
+    "timeline-supersession-authoring",
+    { anchor },
+  );
+  await page
+    .getByTestId(timelineCaptureActionTestId("replacement", target.record_id))
+    .selectOption(replacement.record_id);
+  await page
+    .getByTestId(timelineCaptureActionTestId("review", target.record_id))
+    .click();
+  await page
+    .getByTestId(timelineCaptureActionTestId("confirm", target.record_id))
+    .click();
+  await page
+    .getByRole("button", { name: "Timeline actions (1)", exact: true })
+    .click();
+  await expect(
+    page.getByTestId(timelineCaptureActionTestId("result", target.record_id)),
+  ).toHaveText("Timeline supersession completed.");
+  await assertViewportVisualRegression(page, "timeline-supersession-accepted");
 });

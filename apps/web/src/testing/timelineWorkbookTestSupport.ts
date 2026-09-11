@@ -314,7 +314,12 @@ export function successEnvelope(data: unknown, status = 200) {
       data,
       meta: {
         request_id: `req-${status}`,
-        ...(isWorkbookQuery ? { query: { filters: [], sort: [] } } : {}),
+        ...(isWorkbookQuery
+          ? {
+              query: { filters: [], sort: [] },
+              paging: { has_more: false, limit: 100, next_cursor: null },
+            }
+          : {}),
         ...(isSavedViewList
           ? {
               paging: { has_more: false, limit: 100, next_cursor: null },

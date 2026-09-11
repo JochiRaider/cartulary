@@ -93,6 +93,7 @@ import {
   systemViewSwitcherMenuTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineCaptureActionTestId,
   timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
@@ -260,6 +261,7 @@ import {
   openTimelineInspector,
 } from "./support/workbook/rowMutations";
 import { observeSaveEvents, saveEvents } from "./support/workbook/saveStatus";
+import { openTimelineSupersessionFixture } from "./support/workbook/timelineCaptureActions";
 
 type IncidentMembershipRecord = {
   membership_version: number;
@@ -7304,4 +7306,111 @@ test("a11y.decision-supersession review cancellation and shell recovery preserve
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
+});
+
+test("a11y.timeline-capture review and recovery retain keyboard focus across responsive layouts", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { target } = await openTimelineSupersessionFixture(page);
+  const editor = page.getByTestId(
+    timelineCaptureActionTestId("editor", target.record_id),
+  );
+  const confirm = page.getByTestId(
+    timelineCaptureActionTestId("confirm", target.record_id),
+  );
+  const back = editor.getByRole("button", { name: "Back", exact: true });
+  await expectVisibleFocus(confirm);
+  await back.focus();
+  await back.press("Enter");
+  await expectVisibleFocus(
+    page.getByTestId(timelineCaptureActionTestId("reason", target.record_id)),
+  );
+  await page
+    .getByTestId(timelineCaptureActionTestId("review", target.record_id))
+    .focus();
+  await page.keyboard.press("Enter");
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [confirm, back]) {
+      await control.scrollIntoViewIfNeeded();
+      await control.focus();
+      await expectVisibleFocus(control);
+      const box = await control.boundingBox();
+      if (!box) throw new Error("Timeline control bounds unavailable");
+      expect(box.x).toBeGreaterThanOrEqual(-1);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+      expect(box.y).toBeGreaterThanOrEqual(-1);
+      expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+    }
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth + 1,
+      ),
+    ).toBe(true);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await confirm.scrollIntoViewIfNeeded();
+  await confirm.focus();
+  await expectVisibleFocus(confirm);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await back.scrollIntoViewIfNeeded();
+  await back.focus();
+  await expectVisibleFocus(back);
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  await expectAllInteractiveControlsNamed(page);
+  await confirm.focus();
+  await confirm.press("Enter");
+  const trigger = page.getByRole("button", {
+    name: "Timeline actions (1)",
+    exact: true,
+  });
+  await trigger.focus();
+  await trigger.press("Enter");
+  const recovery = page.getByRole("region", {
+    name: "Timeline action recovery",
+    exact: true,
+  });
+  await expectVisibleFocus(recovery);
+  await expect(
+    page.getByTestId(timelineCaptureActionTestId("result", target.record_id)),
+  ).toHaveText("Timeline supersession completed.");
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const close = recovery.getByRole("button", {
+      name: "Close Timeline actions",
+      exact: true,
+    });
+    await close.scrollIntoViewIfNeeded();
+    await close.focus();
+    await expectVisibleFocus(close);
+    const box = await close.boundingBox();
+    if (!box) throw new Error("Timeline recovery bounds unavailable");
+    expect(box.x).toBeGreaterThanOrEqual(-1);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(box.y).toBeGreaterThanOrEqual(-1);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.keyboard.press("Escape");
+  await expectVisibleFocus(trigger);
 });

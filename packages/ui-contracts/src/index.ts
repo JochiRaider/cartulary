@@ -228,6 +228,7 @@ export {
   rowPresenceMarkerTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
+  timelineCaptureActionTestId,
   timelineCollectionInputTestId,
   timelineDraftEvidenceAttachSectionTestId,
   timelineDraftEvidenceFileInputTestId,

@@ -1,5 +1,5 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { PendingReplayUnitInput } from "../../utils/workbookPendingQueue";
 import { createTimelineScalarGridCommitAdapter } from "../adapters/createTimelineScalarGridCommitAdapter";
@@ -31,25 +31,11 @@ import {
   createDraftRowForKey,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import type {
-  TimelineRecordActionAccepted,
-  TimelineRecordActionPort,
-} from "../ports/TimelineRecordActionPort";
 
 type ViewportContinuityRequest =
   | { readonly kind: "input"; readonly focusKey: string }
   | { readonly kind: "row-inspect"; readonly recordId: string }
   | { readonly kind: "scroll-only" };
-
-type LoadRowsForMutation = (options: {
-  readonly showLoading: boolean;
-  readonly viewportContinuityToken?: number;
-}) => Promise<void>;
-
-type CommittedRecordIdle = {
-  readonly row: WorkbookRow | null;
-  readonly rowVersion: number;
-};
 
 function isCollectionDraftKey(
   field: FocusFieldKey,
@@ -110,30 +96,21 @@ function settleUnadmittedScalarMutation({
 }
 
 export function useTimelineMutationCommands({
-  acceptTimelineActionResult,
+  captureActionBlocksRecord,
   beginViewportContinuity,
   clearViewportContinuity,
   clientInstanceId,
   conflictQueueRef,
   editorDraftRegistry,
-  enqueueSaveWork,
   enqueuePendingReplayUnit,
   incidentId,
   latestCommittedTimelineRow,
-  loadRows,
   nextClientTxnId,
   pendingSavesRefs,
-  recordActionPort,
-  resolvePendingSocketTxn,
   rowsRef,
   rowStoreCommands,
-  trackPendingSocketTxn,
-  waitForCommittedRecordIdle,
 }: {
-  readonly acceptTimelineActionResult: (
-    data: TimelineRecordActionAccepted,
-  ) => void;
-
+  readonly captureActionBlocksRecord: (recordId: string) => boolean;
   readonly beginViewportContinuity: (
     request: ViewportContinuityRequest,
   ) => number;
@@ -143,7 +120,6 @@ export function useTimelineMutationCommands({
     Record<string, LocalConflictState>
   >;
   readonly editorDraftRegistry: TimelineEditorDraftRegistry;
-  readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly enqueuePendingReplayUnit: (
     unit: TimelinePendingReplayAdmission,
     onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
@@ -151,29 +127,12 @@ export function useTimelineMutationCommands({
 
   readonly incidentId: string;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
-  readonly loadRows: LoadRowsForMutation;
   readonly nextClientTxnId: () => string;
   readonly pendingSavesRefs: TimelinePendingSavesRefs;
-  readonly recordActionPort: TimelineRecordActionPort;
-  readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
   readonly rowStoreCommands: TimelineRowStoreCommands;
-  readonly trackPendingSocketTxn: (clientTxnId: string) => void;
-  readonly waitForCommittedRecordIdle: (
-    recordId: string,
-  ) => Promise<CommittedRecordIdle | null>;
 }) {
   const { replaceRows } = rowStoreCommands;
-  const [replacementDrafts, setReplacementDrafts] = useState<
-    Record<string, string>
-  >({});
-  const changeReplacementDraft = useCallback(
-    (rowKey: string, value: string) => {
-      setReplacementDrafts((current) => ({ ...current, [rowKey]: value }));
-    },
-    [],
-  );
-
   const enqueueAutosaveReplayForPendingMutation = useCallback(
     ({
       clientTxnId,
@@ -208,6 +167,18 @@ export function useTimelineMutationCommands({
         | ((outcome: GridEditCommitOutcome) => void)
         | undefined;
     }) => {
+      if (
+        rowSnapshot.recordId &&
+        captureActionBlocksRecord(rowSnapshot.recordId)
+      ) {
+        clearViewportContinuity(viewportContinuityToken);
+        onSettled?.({
+          kind: "conflict",
+          message:
+            "An earlier Timeline action needs to finish or be recovered. Your draft is retained.",
+        });
+        return;
+      }
       pendingSavesRefs.pendingSignaturesRef.current.set(
         rowKey,
         mutationSignature,
@@ -277,6 +248,8 @@ export function useTimelineMutationCommands({
       pendingSavesRefs.pendingReplayOrderRef.current += 1;
     },
     [
+      captureActionBlocksRecord,
+      clearViewportContinuity,
       clientInstanceId,
       enqueuePendingReplayUnit,
       incidentId,
@@ -483,81 +456,11 @@ export function useTimelineMutationCommands({
     ],
   );
 
-  const queueAction = useCallback(
-    (rowKey: string, action: "mark-reviewed" | "supersede") => {
-      const snapshot = rowsRef.current.find(
-        (candidate) => candidate.key === rowKey,
-      );
-      const replacementRecordId =
-        action === "supersede"
-          ? (replacementDrafts[rowKey] ?? "").trim()
-          : null;
-      if (
-        !snapshot ||
-        snapshot.recordId === null ||
-        snapshot.rowVersion === null ||
-        (action === "supersede" && replacementRecordId === "")
-      ) {
-        return;
-      }
-
-      const recordId = snapshot.recordId;
-      const clientTxnId = nextClientTxnId();
-      const viewportContinuityToken = beginViewportContinuity({
-        kind: "row-inspect",
-        recordId,
-      });
-      enqueueSaveWork(async () => {
-        const idleRecord = await waitForCommittedRecordIdle(recordId);
-        if (idleRecord === null) {
-          clearViewportContinuity(viewportContinuityToken);
-          return;
-        }
-        trackPendingSocketTxn(clientTxnId);
-        const result = await recordActionPort.execute({
-          action,
-          baseRowVersion: idleRecord.rowVersion,
-          clientTxnId,
-          recordId,
-          replacementRecordId,
-        });
-        if (result.kind === "rejected") {
-          resolvePendingSocketTxn(clientTxnId);
-          clearViewportContinuity(viewportContinuityToken);
-          return;
-        }
-
-        acceptTimelineActionResult(result.value);
-        await loadRows({
-          showLoading: false,
-          viewportContinuityToken,
-        });
-      });
-    },
-    [
-      acceptTimelineActionResult,
-      beginViewportContinuity,
-      clearViewportContinuity,
-      enqueueSaveWork,
-      loadRows,
-      nextClientTxnId,
-      recordActionPort,
-      replacementDrafts,
-      resolvePendingSocketTxn,
-      rowsRef,
-      trackPendingSocketTxn,
-      waitForCommittedRecordIdle,
-    ],
-  );
-
   return {
     commands: {
-      changeReplacementDraft,
       commitScalarGridEdit,
-      queueAction,
       queueCollectionSave,
       queueScalarSave,
     },
-    snapshot: { replacementDrafts },
   };
 }

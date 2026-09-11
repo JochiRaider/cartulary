@@ -20,6 +20,9 @@ import {
   createReferenceQueryBroker,
   type ReferenceQueryBrokerPort,
 } from "../services/referenceQueryBroker";
+import { timelineCaptureOwnerFor } from "../timeline/actions/timelineCaptureOwnerFor";
+import { createTimelineCandidateReader } from "../timeline/adapters/createTimelineCandidateReader";
+import { createTimelineRecordActionAdapter } from "../timeline/adapters/createTimelineRecordActionAdapter";
 import { useWorkbookShellRuntime } from "./useWorkbookShellRuntime";
 
 function recordPendingMutationTiming(
@@ -84,6 +87,19 @@ export function useWorkbookShellInfrastructure({
       pendingMutationPort,
       transactionIds,
     ],
+  );
+  const timelineCapture = useMemo(
+    () => timelineCaptureOwnerFor(mutationRuntime),
+    [mutationRuntime],
+  );
+  useMemo(
+    () =>
+      timelineCapture.configure(
+        createTimelineRecordActionAdapter({ apiBase }),
+        createTimelineCandidateReader({ apiBase, incidentId }),
+        onIncidentAccessLost,
+      ),
+    [timelineCapture, apiBase, incidentId, onIncidentAccessLost],
   );
   const entityWrites = useMemo(
     () => ({
@@ -183,6 +199,7 @@ export function useWorkbookShellInfrastructure({
     incidentPort,
     mutationCommands,
     mutationRuntime,
+    timelineCapture,
     mutationSnapshot,
     viewQuery,
     workbookRuntime,

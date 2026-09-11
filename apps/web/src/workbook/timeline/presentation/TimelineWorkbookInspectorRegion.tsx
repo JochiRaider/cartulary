@@ -1,4 +1,5 @@
 import { IndicatorInspectorWorkflow } from "../../features/indicators/IndicatorInspectorWorkflow";
+import { TimelineSupersessionEditor } from "../actions/TimelineSupersessionEditor";
 import { TimelineWorkbookInspector } from "../components/TimelineWorkbookInspector";
 import type { TimelineWorkbookPresentationModel } from "./useTimelineWorkbookPresentation";
 
@@ -13,6 +14,7 @@ export function TimelineWorkbookInspectorRegion({
 }) {
   return (
     <TimelineWorkbookInspector
+      additionalDisabledReasons={model.additionalDisabledReasons}
       canManageMentions={model.canManageMentions}
       currentHistoryDeleted={model.currentHistoryDeleted}
       currentIncidentRole={model.currentIncidentRole}
@@ -35,9 +37,42 @@ export function TimelineWorkbookInspectorRegion({
       renderEvidenceAttachSection={model.renderEvidenceAttachSection}
       renderInspectorFieldEditors={model.renderInspectorFieldEditors}
       renderPanelSupplement={(panelId) =>
-        model.indicatorInspectorHandler?.panelId === panelId &&
-        model.selectedRow?.recordId &&
-        model.selectedRow.rowVersion !== null ? (
+        panelId === "history" ? (
+          <>
+            {model.captureResult?.receipt ? (
+              <section aria-label="Timeline action result">
+                <p>
+                  {model.captureResult.receipt.operation === "mark-reviewed"
+                    ? "Marked reviewed."
+                    : "Superseded."}{" "}
+                  Saved version {model.captureResult.receipt.data.row_version}.
+                </p>
+                {model.captureResult.review.action === "supersede" ? (
+                  <p>
+                    Replacement:{" "}
+                    {model.captureResult.review.replacement
+                      ? `${model.captureResult.review.replacement.label} · ${model.captureResult.review.replacement.context} · ${model.captureResult.review.replacement.recordId}`
+                      : "No replacement"}
+                  </p>
+                ) : null}
+                {model.captureResult.reconciliation !== "complete" ? (
+                  <p>
+                    Refresh is still required. Use Timeline actions to refresh
+                    this result.
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
+            {model.captureEditor ? (
+              <TimelineSupersessionEditor
+                key={model.captureEditor.originKey}
+                {...model.captureEditor}
+              />
+            ) : null}
+          </>
+        ) : model.indicatorInspectorHandler?.panelId === panelId &&
+          model.selectedRow?.recordId &&
+          model.selectedRow.rowVersion !== null ? (
           <IndicatorInspectorWorkflow
             beginMutation={model.beginMutation}
             action={model.indicatorInspectorHandler.action}

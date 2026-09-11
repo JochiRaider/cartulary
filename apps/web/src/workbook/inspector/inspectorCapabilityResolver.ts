@@ -12,6 +12,11 @@ export type InspectorRecordHistoryAction = "delete" | "restore" | "rollback";
 
 export type InspectorContextualCapability =
   | {
+      readonly kind: "timeline_capture";
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly semanticKey: string;
+    }
+  | {
       readonly kind: "decision_supersede";
       readonly featureGroup: InspectorFeatureGroup;
       readonly semanticKey: string;
@@ -44,7 +49,8 @@ export function inspectorContextualCapabilities({
     const capability = contextualCapability(config.viewSchemaId, canonical);
     if (
       canonical.requiresConfirmation &&
-      capability?.kind !== "decision_supersede"
+      capability?.kind !== "decision_supersede" &&
+      capability?.kind !== "timeline_capture"
     )
       return [];
     return capability === null ? [] : [capability];
@@ -72,6 +78,16 @@ function contextualCapability(
   featureGroup: InspectorFeatureGroup,
 ): InspectorContextualCapability | null {
   const semanticKey = inspectorFeatureIdentity(viewSchemaId, featureGroup);
+  if (
+    viewSchemaId === "cartulary.view.timeline.v2" &&
+    featureGroup.routeBinding.kind === "record_action" &&
+    featureGroup.routeBinding.actionKey === featureGroup.featureGroupKey &&
+    ((featureGroup.featureGroupKey === "timeline.mark_reviewed" &&
+      featureGroup.routeBinding.owner === "record_mark_reviewed_route") ||
+      (featureGroup.featureGroupKey === "timeline.supersede" &&
+        featureGroup.routeBinding.owner === "record_supersede_route"))
+  )
+    return { kind: "timeline_capture", featureGroup, semanticKey };
   if (
     viewSchemaId === "cartulary.view.decisions.v1" &&
     featureGroup.featureGroupKey === "decision.supersede" &&

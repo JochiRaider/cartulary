@@ -2,7 +2,6 @@ import {
   rowHistoryOpenButtonTestId,
   rowInspectButtonTestId,
   timelineRowMarkReviewedButtonTestId,
-  timelineRowReplacementInputTestId,
   timelineRowSupersedeButtonTestId,
   workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
@@ -19,11 +18,12 @@ import { workbookViewportOverlayScrollableStyle } from "../../layout/workbookShe
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/timelineRowModel";
-import { actionButtonStyle, inputStyle } from "./TimelineWorkbookStyles";
+import { actionButtonStyle } from "./TimelineWorkbookStyles";
 
 type TimelineRowContextMenuProps = {
   readonly position: TimelineRowContextMenuPosition;
-  readonly replacementDraft: string;
+  readonly reviewDisabledReason: string | null;
+  readonly supersedeDisabledReason: string | null;
   readonly fallbackFocusTargetRef: RefObject<HTMLElement | null>;
   readonly returnFocusTargetRef: RefObject<HTMLElement | null>;
   readonly row: WorkbookRow | null;
@@ -31,13 +31,13 @@ type TimelineRowContextMenuProps = {
   readonly onInspectRow: (recordId: string) => void;
   readonly onMarkReviewed: (rowKey: string) => void;
   readonly onOpenHistory: (recordId: string) => void;
-  readonly onReplacementDraftChange: (rowKey: string, value: string) => void;
   readonly onSupersede: (rowKey: string) => void;
 };
 
 export function TimelineRowContextMenu({
   position,
-  replacementDraft,
+  reviewDisabledReason,
+  supersedeDisabledReason,
   fallbackFocusTargetRef,
   returnFocusTargetRef,
   row,
@@ -45,7 +45,6 @@ export function TimelineRowContextMenu({
   onInspectRow,
   onMarkReviewed,
   onOpenHistory,
-  onReplacementDraftChange,
   onSupersede,
 }: TimelineRowContextMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -173,9 +172,8 @@ export function TimelineRowContextMenu({
       <button
         ref={navigation.registerItem("mark-reviewed")}
         data-testid={timelineRowMarkReviewedButtonTestId(availableRecordId)}
-        disabled={
-          row.captureState === "reviewed" || row.captureState === "superseded"
-        }
+        disabled={reviewDisabledReason !== null}
+        title={reviewDisabledReason ?? undefined}
         style={timelineActionButtonStyle}
         tabIndex={navigation.tabIndexFor("mark-reviewed")}
         type="button"
@@ -188,23 +186,11 @@ export function TimelineRowContextMenu({
       >
         Mark reviewed
       </button>
-      <input
-        aria-label="Replacement record id"
-        data-testid={timelineRowReplacementInputTestId(availableRecordId)}
-        placeholder="Replacement record id"
-        style={timelineReplacementInputStyle}
-        type="text"
-        value={replacementDraft}
-        onChange={(event) => {
-          onReplacementDraftChange(row.key, event.target.value);
-        }}
-      />
       <button
         ref={navigation.registerItem("supersede")}
         data-testid={timelineRowSupersedeButtonTestId(availableRecordId)}
-        disabled={
-          row.captureState === "superseded" || replacementDraft.trim() === ""
-        }
+        disabled={supersedeDisabledReason !== null}
+        title={supersedeDisabledReason ?? undefined}
         style={timelineActionButtonStyle}
         tabIndex={navigation.tabIndexFor("supersede")}
         type="button"
@@ -252,13 +238,6 @@ function clampedContextMenuPosition(
 const contextMenuWidthPx = 240;
 const contextMenuHeightPx = 248;
 const contextMenuMarginPx = 8;
-
-const timelineReplacementInputStyle = {
-  ...inputStyle,
-  boxSizing: "border-box" as const,
-  fontSize: "0.82rem",
-  width: "100%",
-};
 
 const actionPopoverStyle = {
   ...workbookViewportOverlayScrollableStyle,

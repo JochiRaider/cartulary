@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { timelineCaptureReview } from "../../../testing/timelineCaptureActionTestSupport";
 import {
   successEnvelope,
   timelineRow,
@@ -129,7 +130,7 @@ it("normalizes Timeline review outcomes and fails closed on supersede replacemen
         capture_state: "reviewed",
         change_set_id: changeSetId,
         incident_id: incidentId,
-        reason: "Reviewed from workbook",
+        reason: null,
         record_id: recordId,
         replacement_record_id: null,
         row_version: 5,
@@ -140,7 +141,7 @@ it("normalizes Timeline review outcomes and fails closed on supersede replacemen
         capture_state: "superseded",
         change_set_id: changeSetId,
         incident_id: incidentId,
-        reason: "Superseded from workbook",
+        reason: "Correct duplicate observation",
         record_id: recordId,
         replacement_record_id: evidenceRecordId,
         row_version: 6,
@@ -148,43 +149,49 @@ it("normalizes Timeline review outcomes and fails closed on supersede replacemen
     );
   vi.stubGlobal("fetch", fetchMock);
   const actions = createTimelineRecordActionAdapter({ apiBase: undefined });
-
+  const review = timelineCaptureReview();
   await expect(
-    actions.execute({
-      action: "mark-reviewed",
-      baseRowVersion: 4,
-      clientTxnId: "txn-review",
-      recordId,
-      replacementRecordId: null,
-    }),
-  ).resolves.toEqual({
-    kind: "accepted",
-    value: {
-      captureState: "reviewed",
-      changeSetId,
-      incidentId,
-      reason: "Reviewed from workbook",
-      recordId,
-      replacementRecordId: null,
-      rowVersion: 5,
+    actions.send(
+      actions.capture(review, "txn-review"),
+      new AbortController().signal,
+    ),
+  ).resolves.toMatchObject({
+    kind: "acknowledged",
+    receipt: {
+      operation: "mark-reviewed",
+      data: {
+        capture_state: "reviewed",
+        change_set_id: changeSetId,
+        incident_id: incidentId,
+        reason: null,
+        record_id: recordId,
+        replacement_record_id: null,
+        row_version: 5,
+      },
     },
   });
   await expect(
-    actions.execute({
-      action: "supersede",
-      baseRowVersion: 5,
-      clientTxnId: "txn-supersede",
-      recordId,
-      replacementRecordId,
-    }),
-  ).resolves.toMatchObject({
-    kind: "rejected",
-    failure: { kind: "invalid_contract" },
+    actions.send(
+      actions.capture(
+        timelineCaptureReview({
+          action: "supersede",
+          target: { ...review.target, rowVersion: 5, captureState: "reviewed" },
+          replacement: { ...review.target, recordId: replacementRecordId },
+          reason: "Correct duplicate observation",
+        }),
+        "txn-supersede",
+      ),
+      new AbortController().signal,
+    ),
+  ).resolves.toEqual({ kind: "uncertain" });
+  expect(requestBody(fetchMock, 0)).toEqual({
+    base_row_version: 4,
+    client_txn_id: "txn-review",
   });
   expect(requestBody(fetchMock, 1)).toEqual({
     base_row_version: 5,
     client_txn_id: "txn-supersede",
-    reason: "Superseded from workbook",
+    reason: "Correct duplicate observation",
     replacement_record_id: replacementRecordId,
   });
 });

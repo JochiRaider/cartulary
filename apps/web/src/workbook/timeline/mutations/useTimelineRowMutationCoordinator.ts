@@ -178,6 +178,8 @@ export function useTimelineRowMutationCoordinator({
   readonly setSelectedRowId: (recordId: string | null) => void;
 }) {
   const { replaceRows, updateRows } = rowStoreCommands;
+  const selectedRowIdRef = useRef(selectedRowId);
+  selectedRowIdRef.current = selectedRowId;
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const createdRowPresentationRef = useRef<{
     recordId: string | null;
@@ -240,7 +242,7 @@ export function useTimelineRowMutationCoordinator({
     publishPendingQueueState();
   }, [publishPendingQueueState]);
 
-  const committedRows = useTimelineCommittedRows({ rowsRef });
+  const committedRows = useTimelineCommittedRows({ rowsRef, mutationRuntime });
   const {
     acceptCommittedTimelineRow,
     acceptCommittedTimelineRows,
@@ -317,7 +319,7 @@ export function useTimelineRowMutationCoordinator({
         projection,
         promoteToCommittedRowInspect:
           options.promoteToCommittedRowInspect === true,
-        selectedRowId,
+        selectedRowId: selectedRowIdRef.current,
       });
       if (effects.reconcileDismissedMentions) {
         setDismissedMentionsByRow((current) =>
@@ -357,7 +359,6 @@ export function useTimelineRowMutationCoordinator({
       nextDraftIndex,
       pruneAutoResolutionNoticesForRows,
       rowsRef,
-      selectedRowId,
       clearActiveCollectionInputKey,
       setAutoResolutionNotices,
       setDismissedMentionsByRow,

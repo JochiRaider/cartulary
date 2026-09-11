@@ -750,6 +750,7 @@
           "selected_row_ids": [
             "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
             "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
+            "module.timeline.browser.capture_action_exact_recovery",
             "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38"
           ],
           "specs": [
@@ -1685,6 +1686,7 @@
           "selected_row_ids": [
             "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
             "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
+            "module.timeline.browser.capture_action_exact_recovery",
             "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38"
           ],
           "specs": [
@@ -2615,6 +2617,7 @@
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.preferences",
+            "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
             "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
             "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
@@ -2734,6 +2737,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.preferences",
+            "module.workbook.visual.timeline_capture_actions",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
@@ -3007,6 +3011,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.preferences",
+            "module.workbook.visual.timeline_capture_actions",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
@@ -3607,6 +3612,7 @@
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.preferences",
+            "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
             "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
             "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
@@ -3714,6 +3720,7 @@
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.preferences",
+            "module.workbook.visual.timeline_capture_actions",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",

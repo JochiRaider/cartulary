@@ -476,6 +476,16 @@ export function useTimelineInspectorLifecycle({
         return;
       }
       window.setTimeout(() => {
+        // Projection exit must not take focus from a recovery control or a
+        // newer inspector interaction that still exists after the refresh.
+        const activeElement = document.activeElement;
+        if (
+          activeElement !== null &&
+          activeElement !== document.body &&
+          activeElement.isConnected &&
+          !gridShellRef.current?.contains(activeElement)
+        )
+          return;
         const fallbackFieldKey =
           previousAnchor?.viewSchemaId === timelineViewSchemaId
             ? previousAnchor.fieldKey

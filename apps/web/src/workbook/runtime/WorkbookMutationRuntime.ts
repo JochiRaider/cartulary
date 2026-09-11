@@ -20,6 +20,7 @@ import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import { executeWorkbookConflictResolution } from "../mutations/workbookConflictResolutionAdapter";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import type { WorkbookTimelineActionRuntimePort } from "../ports/WorkbookTimelineActionRuntimePort";
 import type {
   PendingReplayRecoveryRefusal,
   PendingReplayScope,
@@ -110,6 +111,7 @@ export type WorkbookEditRecoveryActionResult =
  * scheduling, transaction ledger, and save-state projection.
  */
 export class WorkbookMutationRuntime {
+  private timelineActions: WorkbookTimelineActionRuntimePort | null = null;
   readonly explicitPatches: WorkbookExplicitPatchOwner;
   get taskDrafts() {
     return this.explicitPatches.drafts;
@@ -193,7 +195,8 @@ export class WorkbookMutationRuntime {
       (recordId) =>
         !this.entityMerge.blocksRecord(recordId) &&
         !this.decisionSupersession.blocksRecord(recordId) &&
-        !this.explicitPatches.blocksRecord(recordId),
+        !this.explicitPatches.blocksRecord(recordId) &&
+        !this.timelineActions?.blocksRecord(recordId),
     );
     this.transactionIds = transactionIds;
     this.pendingMutationPort = pendingMutationPort;
@@ -264,6 +267,25 @@ export class WorkbookMutationRuntime {
         }
       this.emit();
     });
+  }
+
+  retainTimelineActions<T extends WorkbookTimelineActionRuntimePort>(
+    create: (ids: SecureTransactionIdPort) => T,
+  ): T {
+    if (!this.timelineActions) {
+      this.timelineActions = create(this.transactionIds);
+      this.timelineActions.subscribe(() => this.emit());
+    }
+    return this.timelineActions as T;
+  }
+
+  observeTimelineVersion(recordId: string, rowVersion: number): void {
+    this.history.acceptVersion(recordId, rowVersion);
+    this.timelineActions?.acceptVersion(recordId, rowVersion);
+  }
+
+  timelineActionBlocksRecord(recordId: string): boolean {
+    return this.timelineActions?.blocksRecord(recordId) ?? false;
   }
 
   beginDecisionWrite(recordIds: readonly string[]): (() => void) | null {
@@ -485,12 +507,14 @@ export class WorkbookMutationRuntime {
         this.history.pendingCount +
         this.entityMerge.pendingCount +
         this.decisionSupersession.pendingCount +
-        this.explicitPatches.pendingCount,
+        this.explicitPatches.pendingCount +
+        (this.timelineActions?.pendingCount ?? 0),
       explicitRecoveryBlocked:
         this.history.blockedCount > 0 ||
         this.entityMerge.blockedCount > 0 ||
         this.decisionSupersession.blockedCount > 0 ||
-        this.explicitPatches.blockedCount > 0,
+        this.explicitPatches.blockedCount > 0 ||
+        (this.timelineActions?.blockedCount ?? 0) > 0,
       queue: this.pendingRuntime.model.snapshot(),
       refreshes: Array.from(this.refreshStatusBySheet.values()),
     });
@@ -877,6 +901,7 @@ export class WorkbookMutationRuntime {
       this.history.suspend();
       this.entityMerge.suspend();
       this.decisionSupersession.suspend();
+      this.timelineActions?.suspend();
       this.explicitPatches.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
       this.emit();
@@ -907,6 +932,7 @@ export class WorkbookMutationRuntime {
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
+      this.timelineActions?.retire();
       this.decisionWrites.clear();
       this.retryScheduler.cancel();
       this.managedPatches.dispose();
@@ -925,6 +951,7 @@ export class WorkbookMutationRuntime {
       this.history.closeIncident();
       this.entityMerge.closeIncident();
       this.decisionSupersession.closeIncident();
+      this.timelineActions?.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
       this.emit();
       return;
@@ -936,6 +963,7 @@ export class WorkbookMutationRuntime {
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
+      this.timelineActions?.retire();
       this.decisionWrites.clear();
       this.pauseForTerminalLifecycle();
       return;
@@ -943,6 +971,7 @@ export class WorkbookMutationRuntime {
     this.history.suspend();
     this.entityMerge.suspend();
     this.decisionSupersession.suspend();
+    this.timelineActions?.suspend();
     this.explicitPatches.suspend();
     this.applyAuthorizationRecoveryState("paused");
   }

@@ -483,3 +483,19 @@ function rowHistoryActionIdentity(anchor: RowHistoryActionAnchor): string {
     "history_item_ref",
   );
 }
+
+export function timelineCaptureActionTestId(
+  control:
+    | "editor"
+    | "reason"
+    | "replacement"
+    | "review"
+    | "confirm"
+    | "recovery"
+    | "retry"
+    | "refresh"
+    | "result",
+  recordId = "workbook",
+): string {
+  return `timeline-capture-${control}:${recordId}`;
+}

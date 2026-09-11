@@ -224,7 +224,7 @@
         "titles": [
           "inspector capability resolver admits all 17 schemas and 247 exact tuples as canonical objects",
           "inspector capability resolver admits label-only variants but returns the canonical projected feature",
-          "inspector capability resolver classifies exactly 41 create, 4 Indicator, 51 history, 1 Decision action, and 150 non-contextual features",
+          "inspector capability resolver classifies exactly 41 create, 4 Indicator, 51 history, 1 Decision action, 2 Timeline actions, and 148 non-contextual features",
           "inspector capability resolver isolates additive, altered, and duplicate addressed tuples without losing siblings",
           "inspector capability resolver omits a canonically declared future confirmed capability"
         ]
@@ -1705,6 +1705,128 @@
           "Saved-view operation owner retains submitted conflict changes and requires current explicit review",
           "Saved-view operation owner treats saved-view denial as a resource problem and revalidates incident access",
           "Saved-view operation owner uses authoritative access loss and never publishes a stale access recovery"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_capture_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/actions/TimelineSupersessionEditor.test.tsx",
+        "titles": [
+          "Timeline candidate responses from retired authority cannot repaint the replacement selector",
+          "Timeline capture policy preserves distinct review and supersession eligibility and reason semantics",
+          "Timeline replacement pagination finds duplicate labels beyond the current page and fences stale reads",
+          "Timeline replacement read failure still permits explicitly superseding without replacement",
+          "Timeline supersession fences changed inputs and closure during preparation",
+          "Timeline supersession invalidates confirmation on version authority replacement or reason changes",
+          "Timeline supersession requires authored reason and frozen confirmation with optional replacement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_capture_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/timelineCaptureActions.characterization.test.ts",
+        "titles": [
+          "Timeline declares both capture actions in History with distinct confirmation policies",
+          "Timeline supersession preserves authored reason and omits an absent replacement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_capture_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/actions/WorkbookTimelineCaptureActionOwner.test.ts",
+        "titles": [
+          "Timeline authoring preparation has no transaction and a newer committed version requires another click",
+          "Timeline conceals retained attempts during access loss and fences account retirement",
+          "Timeline exact recovery rejection leaves the original outcome uncertain",
+          "Timeline invalidates admission for authority closure state and stale reviewed inputs",
+          "Timeline permits explicit replay while a timed out transport has not settled",
+          "Timeline preserves preparation drafts and cancels changed selection before dispatch",
+          "Timeline records acknowledgement before refresh and refresh recovery sends no mutation",
+          "Timeline replays exactly after lost transport without fresh state or version eligibility",
+          "Timeline reserves before React updates and captures identity only after preparation",
+          "Timeline retains timeout attempts and late receipts independently of presentation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_capture_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/adapters/timelineCaptureTransport.test.ts",
+        "titles": [
+          "Timeline candidates use independent bounded query pages and reject inconsistent identity cursors and malformed rows",
+          "Timeline transport distinguishes definitive rejection from exceptions ambiguous status and malformed success",
+          "Timeline transport validates operation specific receipt identity version reason and replacement"
         ]
       },
       "evidence_class": "unit",

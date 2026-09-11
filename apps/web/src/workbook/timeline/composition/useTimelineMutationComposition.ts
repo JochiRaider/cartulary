@@ -43,7 +43,6 @@ import type {
 } from "../models/workbookMentionChips";
 import { reconcileDismissedMentionsForRow } from "../models/workbookMentionChips";
 import { useTimelineRowMutationCoordinator } from "../mutations/useTimelineRowMutationCoordinator";
-import type { TimelineRecordActionPort } from "../ports/TimelineRecordActionPort";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 
@@ -56,7 +55,6 @@ type TimelineMutationCompositionInput = {
     readonly loadAccessLost: boolean;
     readonly pendingQueueSnapshot: WorkbookPendingQueueSnapshot;
     readonly pendingSavesRefs: TimelinePendingSavesRefs;
-    readonly recordActionPort: TimelineRecordActionPort;
     readonly recordWorkbookTiming: (
       name: string,
       details?: Record<string, unknown>,
@@ -339,27 +337,21 @@ export function useTimelineMutationComposition({
     [mutationCommands.identity],
   );
   const mutations = useTimelineMutationCommands({
-    acceptTimelineActionResult:
-      rowMutations.commands.acceptTimelineActionResult,
+    captureActionBlocksRecord: (recordId) =>
+      mutationRuntime.timelineActionBlocksRecord(recordId),
     beginViewportContinuity: grid.beginViewportContinuity,
     clearViewportContinuity: grid.clearViewportContinuity,
     clientInstanceId: mutationRuntime.scope.clientInstanceId,
     conflictQueueRef: rowMutations.refs.conflictQueueRef,
     editorDraftRegistry: foundation.editorDraftRegistry,
-    enqueueSaveWork: rowMutations.commands.enqueueSaveWork,
     enqueuePendingReplayUnit: replay.enqueuePendingReplayUnit,
     incidentId: incident.id,
     latestCommittedTimelineRow:
       rowMutations.commands.latestCommittedTimelineRow,
-    loadRows,
     nextClientTxnId,
     pendingSavesRefs: foundation.pendingSavesRefs,
-    recordActionPort: foundation.recordActionPort,
-    resolvePendingSocketTxn: rowMutations.commands.resolvePendingSocketTxn,
     rowsRef: foundation.rowsRef,
     rowStoreCommands: foundation.rowStoreCommands,
-    trackPendingSocketTxn: rowMutations.commands.trackPendingSocketTxn,
-    waitForCommittedRecordIdle,
   });
 
   return {
@@ -386,7 +378,6 @@ export function useTimelineMutationComposition({
         conflictQueue,
         getCellState,
       },
-      mutation: mutations.snapshot,
       presence: presence.snapshot,
     },
   };
