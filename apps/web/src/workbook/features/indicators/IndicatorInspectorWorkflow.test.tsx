@@ -29,13 +29,11 @@ const observation = {
 
 function workflowPort() {
   return {
-    appendStateInterval: vi.fn<IndicatorWorkflowPort["appendStateInterval"]>(),
     createManualObservation:
       vi.fn<IndicatorWorkflowPort["createManualObservation"]>(),
     listObservations: vi.fn<IndicatorWorkflowPort["listObservations"]>(),
     listSourceObservations:
       vi.fn<IndicatorWorkflowPort["listSourceObservations"]>(),
-    listStateIntervals: vi.fn<IndicatorWorkflowPort["listStateIntervals"]>(),
     transitionObservation:
       vi.fn<IndicatorWorkflowPort["transitionObservation"]>(),
   } satisfies IndicatorWorkflowPort;

@@ -122,6 +122,7 @@ import {
   evidenceViewSchemaId,
   handoffViewSchemaId,
   hostsViewSchemaId,
+  indicatorsViewSchemaId,
   lessonViewSchemaId,
   partiesViewSchemaId,
   statusReviewViewSchemaId,
@@ -240,6 +241,10 @@ import {
 import { openDecisionReviewFixture } from "./support/workbook/decisionSupersession";
 import { fetchRecordHistory } from "./support/workbook/history";
 import {
+  createLifecycleFixture,
+  openLifecycleEditor,
+} from "./support/workbook/indicatorLifecycle";
+import {
   createViewRow,
   patchRecord,
   queryViewRows,
@@ -321,6 +326,7 @@ const expectedFrontendVisualFixtureIds = [
   "visual.fixture.saved_view_query_controls_and_grouped_result",
   "visual.fixture.task_requests_or_decisions",
   "visual.fixture.tree_group_row",
+  "visual.fixture.indicator_lifecycle_authoring",
 ] as const;
 
 const expectedDesignContractIds = Array.from(
@@ -8624,4 +8630,46 @@ test("Capture Timeline supersession authoring review and accepted replacement", 
     page.getByTestId(timelineCaptureActionTestId("result", target.record_id)),
   ).toHaveText("Timeline supersession completed.");
   await assertViewportVisualRegression(page, "timeline-supersession-accepted");
+});
+
+test("Capture Indicator lifecycle UTC authoring at desktop and narrow widths", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const { incidentId, indicator } = await createLifecycleFixture(page);
+  const editor = await openLifecycleEditor(
+    page,
+    incidentId,
+    indicator.record_id,
+    (url) => navigateVisualApplication(page, url),
+  );
+  await editor
+    .getByLabel("Effective from (UTC)", { exact: true })
+    .fill("2026-09-11T12:00");
+  await editor.getByLabel("Confidence (optional)", { exact: true }).fill("0");
+  await editor
+    .getByLabel("Rationale (optional)", { exact: true })
+    .fill(
+      "Reviewed evidence supports this interval. Earlier assessments remain in History.",
+    );
+  await editor
+    .getByLabel("Assessor text (optional, analyst entered)", { exact: true })
+    .fill("Incident analyst");
+  await expect(
+    editor.getByText("No matching supporting records.", { exact: true }),
+  ).toBeVisible();
+  const anchor: VisualAnchor = {
+    locator: editor,
+    align: "start",
+    scrollportSelector: `aside[data-view-schema-id="${indicatorsViewSchemaId}"]`,
+  };
+  await assertViewportVisualRegression(page, "indicator-lifecycle-authoring", {
+    anchor,
+  });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await assertViewportVisualRegression(
+    page,
+    "indicator-lifecycle-authoring-narrow",
+    { anchor },
+  );
 });

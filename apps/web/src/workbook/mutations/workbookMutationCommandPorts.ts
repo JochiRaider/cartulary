@@ -221,11 +221,6 @@ export interface IndicatorWorkflowPort {
     readonly indicatorRecordId: string;
     readonly limit?: number | undefined;
   }): Promise<WorkbookOperationOutcome<IndicatorPage<IndicatorObservation>>>;
-  listStateIntervals(input: {
-    readonly cursorToken?: string | undefined;
-    readonly indicatorRecordId: string;
-    readonly limit?: number | undefined;
-  }): Promise<WorkbookOperationOutcome<IndicatorPage<IndicatorStateInterval>>>;
   createManualObservation(input: {
     readonly baseRowVersion: number;
     readonly parsedIndicatorType?:
@@ -246,19 +241,6 @@ export interface IndicatorWorkflowPort {
     readonly resolvedIndicatorRecordId?: string | undefined;
   }): Promise<
     WorkbookOperationOutcome<IndicatorMutationAccepted<IndicatorObservation>>
-  >;
-  appendStateInterval(input: {
-    readonly assessor: string | null;
-    readonly baseRowVersion: number;
-    readonly confidence: number | null;
-    readonly indicatorRecordId: string;
-    readonly lifecycleState: IndicatorLifecycleState;
-    readonly rationale: string | null;
-    readonly supportRefs: readonly string[];
-    readonly validFrom: string;
-    readonly validTo: string | null;
-  }): Promise<
-    WorkbookOperationOutcome<IndicatorMutationAccepted<IndicatorStateInterval>>
   >;
 }
 

@@ -6,16 +6,12 @@ import type {
   IndicatorMutationAccepted,
   IndicatorObservation,
   IndicatorPage,
-  IndicatorStateInterval,
   IndicatorWorkflowPort,
 } from "./workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 type ObservationMutationResponse =
   WorkbookOperationResponse<"createManualIndicatorObservation">;
-type LifecycleMutationResponse =
-  WorkbookOperationResponse<"appendIndicatorStateInterval">;
-
 function invalidIdentity<T>(): WorkbookOperationOutcome<T> {
   return {
     kind: "rejected",
@@ -53,21 +49,6 @@ function observationPage(
   };
 }
 
-function lifecyclePage(
-  outcome: WorkbookOperationOutcome<
-    WorkbookOperationResponse<"listIndicatorStateIntervals">
-  >,
-): WorkbookOperationOutcome<IndicatorPage<IndicatorStateInterval>> {
-  if (outcome.kind === "rejected") return outcome;
-  return {
-    kind: "accepted",
-    value: {
-      items: outcome.value.data.intervals,
-      paging: outcome.value.meta.paging ?? null,
-    },
-  };
-}
-
 function observationMutation(
   outcome: WorkbookOperationOutcome<ObservationMutationResponse>,
 ): WorkbookOperationOutcome<IndicatorMutationAccepted<IndicatorObservation>> {
@@ -79,21 +60,6 @@ function observationMutation(
       changeSetId: outcome.value.data.change_set_id,
       replayed: outcome.value.data.replayed,
       resource: outcome.value.data.observation,
-    },
-  };
-}
-
-function lifecycleMutation(
-  outcome: WorkbookOperationOutcome<LifecycleMutationResponse>,
-): WorkbookOperationOutcome<IndicatorMutationAccepted<IndicatorStateInterval>> {
-  if (outcome.kind === "rejected") return outcome;
-  return {
-    kind: "accepted",
-    value: {
-      affectedRecords: outcome.value.data.affected_records,
-      changeSetId: outcome.value.data.change_set_id,
-      replayed: outcome.value.data.replayed,
-      resource: outcome.value.data.interval,
     },
   };
 }
@@ -118,14 +84,6 @@ export function createIndicatorWorkflowPort(options: {
         query: listQuery(input),
       });
       return observationPage(outcome);
-    },
-    async listStateIntervals(input) {
-      const outcome = await options.operations.execute({
-        operationID: "listIndicatorStateIntervals",
-        pathParameters: { indicator_id: input.indicatorRecordId },
-        query: listQuery(input),
-      });
-      return lifecyclePage(outcome);
     },
     async createManualObservation(input) {
       const clientTxnId = options.createMutationID("indicator-observation");
@@ -188,27 +146,6 @@ export function createIndicatorWorkflowPort(options: {
           request: {
             client_txn_id: clientTxnId,
             base_row_version: input.baseRowVersion,
-          },
-        }),
-      );
-    },
-    async appendStateInterval(input) {
-      const clientTxnId = options.createMutationID("indicator-lifecycle");
-      if (clientTxnId === null) return invalidIdentity();
-      return lifecycleMutation(
-        await options.operations.execute({
-          operationID: "appendIndicatorStateInterval",
-          pathParameters: { indicator_id: input.indicatorRecordId },
-          request: {
-            client_txn_id: clientTxnId,
-            base_row_version: input.baseRowVersion,
-            lifecycle_state: input.lifecycleState,
-            valid_from: input.validFrom,
-            valid_to: input.validTo,
-            confidence: input.confidence,
-            rationale: input.rationale,
-            support_refs: [...input.supportRefs],
-            assessor: input.assessor,
           },
         }),
       );

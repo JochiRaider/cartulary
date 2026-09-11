@@ -8,6 +8,7 @@ import {
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurfacePort";
 import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
+import type { IndicatorLifecycleOwnerPort } from "../features/indicators/indicatorLifecycleOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import {
@@ -32,6 +33,7 @@ type QueryStateOwner = {
 type WorkbookSurfaceQueriesOptions = {
   readonly taskOwner?: WorkbookExplicitPatchOwner;
   readonly decisionOwner?: DecisionSupersessionOwnerPort;
+  readonly indicatorOwner?: IndicatorLifecycleOwnerPort;
   readonly activeContract: ViewContract;
   readonly assessment: QueryStateOwner;
   readonly generic: QueryStateOwner;
@@ -49,6 +51,7 @@ type WorkbookSurfaceQueriesOptions = {
 export function useWorkbookSurfaceQueries({
   taskOwner,
   decisionOwner,
+  indicatorOwner,
   activeContract,
   assessment,
   generic,
@@ -84,6 +87,7 @@ export function useWorkbookSurfaceQueries({
   const genericQuery = useGenericSurfaceQuery({
     taskOwner,
     decisionOwner,
+    indicatorOwner,
     active: genericSurfaceActive,
     contract: activeContract,
     onIncidentAccessLost,

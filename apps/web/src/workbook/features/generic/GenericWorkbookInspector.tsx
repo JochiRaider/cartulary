@@ -28,6 +28,7 @@ import type {
   RecordRouteCommandPort,
 } from "../../mutations/workbookMutationCommandPorts";
 import { IndicatorInspectorWorkflow } from "../indicators/IndicatorInspectorWorkflow";
+import { IndicatorLifecycleWorkflow } from "../indicators/IndicatorLifecycleWorkflow";
 import {
   type IndicatorInspectorHandler,
   resolveIndicatorInspectorHandler,
@@ -119,18 +120,42 @@ export function GenericWorkbookInspector({
     }
   }
 
+  const indicatorHandlerAdmitted =
+    indicator?.handler !== null &&
+    subject?.viewSchemaId === config.viewSchemaId &&
+    config.featureGroups.some((feature) => {
+      const canonical = resolveIndicatorInspectorHandler(
+        config.viewSchemaId,
+        feature,
+      );
+      return (
+        canonical !== null &&
+        canonical.action === indicator?.handler?.action &&
+        canonical.panelId === indicator?.handler?.panelId
+      );
+    });
   const panelContent = (panelId: InspectorPanelId, content?: ReactNode) => (
     <>
       {content}
-      {subject?.kind === "live" && indicator?.handler?.panelId === panelId ? (
-        <IndicatorInspectorWorkflow
-          beginMutation={history.beginMutation}
-          action={indicator.handler.action}
-          indicatorRecordId={indicator.recordId}
-          port={indicator.port}
-          rowVersion={indicator.rowVersion}
-          onMutationCommitted={indicator.onMutationCommitted}
-        />
+      {indicatorHandlerAdmitted &&
+      subject?.kind === "live" &&
+      indicator?.handler?.panelId === panelId ? (
+        indicator.handler.action === "indicator.lifecycle.read" ||
+        indicator.handler.action === "indicator.lifecycle.manage" ? (
+          <IndicatorLifecycleWorkflow
+            action={indicator.handler.action}
+            subject={subject}
+          />
+        ) : (
+          <IndicatorInspectorWorkflow
+            beginMutation={history.beginMutation}
+            action={indicator.handler.action}
+            indicatorRecordId={indicator.recordId}
+            port={indicator.port}
+            rowVersion={indicator.rowVersion}
+            onMutationCommitted={indicator.onMutationCommitted}
+          />
+        )
       ) : null}
       {subject?.kind === "live" &&
       related.state?.featureGroup.panelId === panelId ? (
@@ -175,19 +200,22 @@ export function GenericWorkbookInspector({
               ? undefined
               : panelContent("evidence", evidenceContent),
           history:
-            subject === null ? undefined : (
-              <>
-                {decisionSupersession?.content}
-                <WorkbookInspectorRecordHistory
-                  beginMutation={history.beginMutation}
-                  actions={history.actions}
-                  canMutate={history.canMutate}
-                  commands={history.commands}
-                  ownerEffects={history.effects}
-                  subject={subject}
-                />
-              </>
-            ),
+            subject === null
+              ? undefined
+              : panelContent(
+                  "history",
+                  <>
+                    {decisionSupersession?.content}
+                    <WorkbookInspectorRecordHistory
+                      beginMutation={history.beginMutation}
+                      actions={history.actions}
+                      canMutate={history.canMutate}
+                      commands={history.commands}
+                      ownerEffects={history.effects}
+                      subject={subject}
+                    />
+                  </>,
+                ),
           relationships:
             subject === null
               ? undefined

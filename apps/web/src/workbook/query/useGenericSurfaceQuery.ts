@@ -11,6 +11,8 @@ import {
 import { decisionViewId } from "../features/coordination/decisionSupersessionModel";
 import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
 import { taskViewId } from "../features/coordination/taskLifecycleModel";
+import { indicatorLifecycleViewId } from "../features/indicators/indicatorLifecycleModel";
+import type { IndicatorLifecycleOwnerPort } from "../features/indicators/indicatorLifecycleOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -29,6 +31,7 @@ import {
 import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 export type GenericSurfaceQueryInput = {
+  readonly indicatorOwner?: IndicatorLifecycleOwnerPort | undefined;
   readonly taskOwner?: WorkbookExplicitPatchOwner | undefined;
   readonly decisionOwner?: DecisionSupersessionOwnerPort | undefined;
   readonly active: boolean;
@@ -41,6 +44,7 @@ export type GenericSurfaceQueryInput = {
 
 export function useGenericSurfaceQuery({
   decisionOwner,
+  indicatorOwner,
   taskOwner,
   active,
   contract,
@@ -120,7 +124,9 @@ export function useGenericSurfaceQuery({
           ? taskOwner
           : viewSchemaId === decisionViewId
             ? decisionOwner
-            : undefined;
+            : viewSchemaId === indicatorLifecycleViewId
+              ? indicatorOwner
+              : undefined;
       if (
         decision &&
         result.value.rows.some(
@@ -160,6 +166,7 @@ export function useGenericSurfaceQuery({
       viewQuery,
       viewSchemaId,
       decisionOwner,
+      indicatorOwner,
       taskOwner,
     ],
   );
@@ -194,7 +201,9 @@ export function useGenericSurfaceQuery({
           ? taskOwner
           : viewSchemaId === decisionViewId
             ? decisionOwner
-            : undefined;
+            : viewSchemaId === indicatorLifecycleViewId
+              ? indicatorOwner
+              : undefined;
       if (patch.rowVersion < (decision?.latestVersion(patch.recordId) ?? 0))
         return { kind: "stale" };
       const current = rowsRef.current;
@@ -211,7 +220,7 @@ export function useGenericSurfaceQuery({
       setRows(next);
       return { kind: "applied" };
     },
-    [contract, viewSchemaId, decisionOwner, taskOwner],
+    [contract, viewSchemaId, decisionOwner, taskOwner, indicatorOwner],
   );
 
   useEffect(() => {
@@ -237,6 +246,30 @@ export function useGenericSurfaceQuery({
       }
     });
   }, [active, clearRows, taskOwner, viewSchemaId]);
+
+  useEffect(() => {
+    if (!indicatorOwner || !active || viewSchemaId !== indicatorLifecycleViewId)
+      return;
+    return indicatorOwner.subscribe(() => {
+      if (!indicatorOwner.getSnapshot().authority) {
+        clearRows();
+        return;
+      }
+      let changed = false;
+      const next = rowsRef.current.map((row) => {
+        const accepted = indicatorOwner.latestRow(row.record_id);
+        if (accepted && accepted.row_version > row.row_version) {
+          changed = true;
+          return accepted;
+        }
+        return row;
+      });
+      if (changed) {
+        rowsRef.current = next;
+        setRows(next);
+      }
+    });
+  }, [indicatorOwner, active, viewSchemaId, clearRows]);
 
   const invalidate = useCallback(
     (reason: WorkbookQueryInvalidationReason) => {

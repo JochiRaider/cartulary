@@ -12,23 +12,15 @@ import {
   workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import type {
-  IndicatorLifecycleState,
   IndicatorMutationAccepted,
   IndicatorObservation,
   IndicatorPage,
   IndicatorPaging,
-  IndicatorStateInterval,
   IndicatorWorkflowPort,
 } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type { IndicatorInspectorAction } from "./indicatorInspectorHandlers";
 
-const lifecycleStates = [
-  "active",
-  "benign",
-  "false_positive",
-  "retired",
-] as const satisfies readonly IndicatorLifecycleState[];
 const indicatorTypes = [
   "ipv4_addr",
   "ipv6_addr",
@@ -63,21 +55,8 @@ function parseIndicatorType(value: string): "" | IndicatorParsedType | null {
   return null;
 }
 
-function parseIndicatorLifecycleState(
-  value: string,
-): IndicatorLifecycleState | null {
-  switch (value) {
-    case "active":
-    case "benign":
-    case "false_positive":
-    case "retired":
-      return value;
-  }
-  return null;
-}
 type IndicatorCommittedMutation =
-  | IndicatorMutationAccepted<IndicatorObservation>
-  | IndicatorMutationAccepted<IndicatorStateInterval>;
+  IndicatorMutationAccepted<IndicatorObservation>;
 
 export function IndicatorInspectorWorkflow({
   beginMutation,
@@ -109,9 +88,6 @@ export function IndicatorInspectorWorkflow({
   const [observations, setObservations] = useState<
     readonly IndicatorObservation[]
   >([]);
-  const [intervals, setIntervals] = useState<readonly IndicatorStateInterval[]>(
-    [],
-  );
   const [message, setMessage] = useState<WorkbookInspectorFeedback | null>(
     null,
   );
@@ -127,13 +103,6 @@ export function IndicatorInspectorWorkflow({
   const [spanEnd, setSpanEnd] = useState("1");
   const [parsedType, setParsedType] = useState<"" | IndicatorParsedType>("");
   const [resolvedIndicatorID, setResolvedIndicatorID] = useState("");
-  const [lifecycleState, setLifecycleState] =
-    useState<IndicatorLifecycleState>("active");
-  const [validFrom, setValidFrom] = useState("");
-  const [validTo, setValidTo] = useState("");
-  const [confidence, setConfidence] = useState("");
-  const [rationale, setRationale] = useState("");
-  const [assessor, setAssessor] = useState("");
 
   useEffect(() => {
     setSourceFieldKey((current) => current || sourceFields[0]?.fieldKey || "");
@@ -157,30 +126,6 @@ export function IndicatorInspectorWorkflow({
           cursorToken,
           sourceRecordId,
         });
-      } else if (
-        (action === "indicator.lifecycle.read" ||
-          action === "indicator.lifecycle.manage") &&
-        indicatorRecordId
-      ) {
-        const lifecycleOutcome = await port.listStateIntervals({
-          cursorToken,
-          indicatorRecordId,
-        });
-        if (requestId !== loadRequestId.current) return;
-        setBusy(false);
-        if (lifecycleOutcome.kind === "rejected") {
-          setLoadError(
-            workbookInspectorErrorPresentation(lifecycleOutcome.failure),
-          );
-          return;
-        }
-        setIntervals((current) =>
-          cursorToken === undefined
-            ? lifecycleOutcome.value.items
-            : [...current, ...lifecycleOutcome.value.items],
-        );
-        setPaging(lifecycleOutcome.value.paging);
-        return;
       } else {
         setBusy(false);
         return;
@@ -206,13 +151,7 @@ export function IndicatorInspectorWorkflow({
     setLoadError(null);
     setPaging(null);
     setObservations([]);
-    setIntervals([]);
-    if (
-      (action === "indicator.observations.pivot" ||
-        action === "indicator.lifecycle.read" ||
-        action === "indicator.lifecycle.manage") &&
-      !indicatorRecordId
-    ) {
+    if (action === "indicator.observations.pivot" && !indicatorRecordId) {
       setMessage(
         workbookInspectorMessageFeedback(
           "The selected row is not an Indicator record.",
@@ -339,66 +278,6 @@ export function IndicatorInspectorWorkflow({
     }
   };
 
-  const submitLifecycle = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!indicatorRecordId || validFrom.trim() === "") {
-      setMessage(
-        workbookInspectorMessageFeedback(
-          "Enter a valid-from timestamp.",
-          "polite",
-        ),
-      );
-      return;
-    }
-    const parsedConfidence =
-      confidence.trim() === "" ? null : Number(confidence);
-    if (
-      parsedConfidence !== null &&
-      (!Number.isInteger(parsedConfidence) ||
-        parsedConfidence < 0 ||
-        parsedConfidence > 100)
-    ) {
-      setMessage(
-        workbookInspectorMessageFeedback(
-          "Confidence must be an integer from 0 through 100.",
-          "polite",
-        ),
-      );
-      return;
-    }
-    setBusy(true);
-    setMessage(null);
-    const finish = beginMutation();
-    try {
-      const outcome = await port.appendStateInterval({
-        assessor: assessor.trim() || null,
-        baseRowVersion: rowVersion,
-        confidence: parsedConfidence,
-        indicatorRecordId,
-        lifecycleState,
-        rationale: rationale.trim() || null,
-        supportRefs: [],
-        validFrom: new Date(validFrom).toISOString(),
-        validTo: validTo.trim() ? new Date(validTo).toISOString() : null,
-      });
-      setBusy(false);
-      if (outcome.kind === "rejected") {
-        setMessage(workbookInspectorOperationFailureFeedback(outcome.failure));
-        return;
-      }
-      setIntervals((current) => [outcome.value.resource, ...current]);
-      setMessage(
-        workbookInspectorMessageFeedback(
-          `Lifecycle interval ${outcome.value.resource.interval_id} created.`,
-          "polite",
-        ),
-      );
-      await onMutationCommitted?.(outcome.value);
-    } finally {
-      finish();
-    }
-  };
-
   return (
     <div style={shellStyle}>
       {action === "indicator.observations.manage" ? (
@@ -478,75 +357,6 @@ export function IndicatorInspectorWorkflow({
         />
       ) : null}
 
-      {action === "indicator.lifecycle.manage" ? (
-        <form
-          style={formStyle}
-          onSubmit={(event) => void submitLifecycle(event)}
-        >
-          <label style={labelStyle}>
-            State
-            <select
-              value={lifecycleState}
-              onChange={(event) => {
-                const value = parseIndicatorLifecycleState(event.target.value);
-                if (value !== null) setLifecycleState(value);
-              }}
-            >
-              {lifecycleStates.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={labelStyle}>
-            Valid from
-            <input
-              required
-              type="datetime-local"
-              value={validFrom}
-              onChange={(event) => setValidFrom(event.target.value)}
-            />
-          </label>
-          <label style={labelStyle}>
-            Valid to (optional)
-            <input
-              type="datetime-local"
-              value={validTo}
-              onChange={(event) => setValidTo(event.target.value)}
-            />
-          </label>
-          <label style={labelStyle}>
-            Confidence
-            <input
-              max={100}
-              min={0}
-              step={1}
-              type="number"
-              value={confidence}
-              onChange={(event) => setConfidence(event.target.value)}
-            />
-          </label>
-          <label style={labelStyle}>
-            Rationale
-            <textarea
-              value={rationale}
-              onChange={(event) => setRationale(event.target.value)}
-            />
-          </label>
-          <label style={labelStyle}>
-            Assessor
-            <input
-              value={assessor}
-              onChange={(event) => setAssessor(event.target.value)}
-            />
-          </label>
-          <button disabled={busy} type="submit">
-            Append lifecycle interval
-          </button>
-        </form>
-      ) : null}
-
       {action === "indicator.observations.pivot" ? (
         <ResourceList
           empty="No active observations resolve to this Indicator."
@@ -554,19 +364,6 @@ export function IndicatorInspectorWorkflow({
             id: observation.observation_id,
             primary: observation.observed_text,
             secondary: `${observation.resolution_status} · ${observation.source_field_key}`,
-          }))}
-        />
-      ) : null}
-      {action === "indicator.lifecycle.read" ||
-      action === "indicator.lifecycle.manage" ? (
-        <ResourceList
-          empty="No active lifecycle intervals."
-          items={intervals.map((interval) => ({
-            id: interval.interval_id,
-            primary: interval.lifecycle_state,
-            secondary: interval.valid_to
-              ? `${interval.valid_from} – ${interval.valid_to}`
-              : `from ${interval.valid_from}`,
           }))}
         />
       ) : null}

@@ -1547,6 +1547,66 @@
           "surface_kind": "workbook_shell"
         }
       }
+    },
+    {
+      "fixture_id": "visual.fixture.indicator_lifecycle_authoring",
+      "fixture_title": "Indicator lifecycle authoring",
+      "status": "current",
+      "playwright_scenario_title": "Capture Indicator lifecycle UTC authoring at desktop and narrow widths",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-narrow-linux.png"
+      ],
+      "seed_id": "visual.seed.indicator_lifecycle_authoring",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "indicator-lifecycle-editor"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.indicator_lifecycle_authoring"
+      ],
+      "capture_profiles": {
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "default",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-narrow-linux.png": {
+          "viewport_css_px": "768x640",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "default",
+          "surface_kind": "workbook_shell"
+        }
+      }
     }
   ]
 }

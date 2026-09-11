@@ -492,6 +492,7 @@ function genericPreferredRowLabel(
     "host.hostname",
     "identity.display_name",
     "identity.upn",
+    "indicator.display_value",
     "party.display_name",
     "task.title",
     "decision.summary",

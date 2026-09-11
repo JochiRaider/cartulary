@@ -395,6 +395,14 @@
       "sha256": "f501b17664396c888cd59f57fd0ed0f883a32fd2ab3f11f48566f9244d533f51"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-linux.png",
+      "sha256": "596d56270bd58491ec6d838151c23bfc51dfd1942ff49431f352878a98e9b1de"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/indicator-lifecycle-authoring-narrow-linux.png",
+      "sha256": "4a46bccd621d104cf72ebfa85e12ecb599e90c0c086d2c0587c2b9f5f10257cf"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-closed-linux.png",
       "sha256": "4644eb6e9b5d3e80489de8245f57b40cd950a6d6e7ca21444dce69be200424db"
     },

@@ -9,6 +9,11 @@ import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import { WorkbookDecisionSupersessionOwner } from "../features/coordination/WorkbookDecisionSupersessionOwner";
 import type { EntityMergeReview } from "../features/entities/entityMergeReview";
 import { WorkbookEntityMergeOwner } from "../features/entities/WorkbookEntityMergeOwner";
+import {
+  indicatorLifecycleViewId,
+  type LifecycleDraft,
+} from "../features/indicators/indicatorLifecycleModel";
+import { WorkbookIndicatorLifecycleOwner } from "../features/indicators/WorkbookIndicatorLifecycleOwner";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
@@ -120,6 +125,7 @@ export class WorkbookMutationRuntime {
   readonly history: WorkbookRecordHistoryOwner;
   readonly entityMerge: WorkbookEntityMergeOwner;
   readonly decisionSupersession: WorkbookDecisionSupersessionOwner;
+  readonly indicatorLifecycle: WorkbookIndicatorLifecycleOwner;
   private readonly decisionWrites = new Map<symbol, readonly string[]>();
   private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime;
@@ -188,6 +194,30 @@ export class WorkbookMutationRuntime {
           this.coordinateDecisionSupersession(review, signal),
       },
     );
+    this.indicatorLifecycle = new WorkbookIndicatorLifecycleOwner(
+      scope.incidentId,
+      transactionIds,
+      {
+        canReserve: (draft) =>
+          !this.lifecycle.disposed &&
+          (this.history.latestVersion(draft.recordId) ?? 0) <=
+            draft.baseRowVersion &&
+          !this.history
+            .getSnapshot()
+            .some(
+              (entry) =>
+                entry.attempt.subject.recordId === draft.recordId &&
+                entry.phase === "uncertain",
+            ),
+        coordinate: (draft, signal) =>
+          this.coordinateIndicatorLifecycle(draft, signal),
+        accepted: (receipt, clientTxnId) => {
+          this.rememberClientTransaction(clientTxnId);
+          for (const record of receipt.affected_records)
+            this.history.acceptVersion(record.record_id, record.row_version);
+        },
+      },
+    );
     this.history = new WorkbookRecordHistoryOwner(
       scope.incidentId,
       transactionIds,
@@ -195,6 +225,7 @@ export class WorkbookMutationRuntime {
       (recordId) =>
         !this.entityMerge.blocksRecord(recordId) &&
         !this.decisionSupersession.blocksRecord(recordId) &&
+        !this.indicatorLifecycle.blocksRecord(recordId) &&
         !this.explicitPatches.blocksRecord(recordId) &&
         !this.timelineActions?.blocksRecord(recordId),
     );
@@ -244,6 +275,14 @@ export class WorkbookMutationRuntime {
             receipt.recordId,
             receipt.rowVersion,
           );
+        if (
+          receipt &&
+          entry.attempt.subject.viewSchemaId === indicatorLifecycleViewId
+        )
+          this.indicatorLifecycle.acceptVersion(
+            receipt.recordId,
+            receipt.rowVersion,
+          );
         if (receipt && entry.attempt.subject.viewSchemaId === decisionViewId)
           this.decisionSupersession.acceptVersion(
             receipt.recordId,
@@ -252,6 +291,7 @@ export class WorkbookMutationRuntime {
       }
       this.emit();
     });
+    this.indicatorLifecycle.subscribe(() => this.emit());
     this.entityMerge.subscribe(() => this.emit());
     this.decisionSupersession.subscribe(() => {
       for (const entry of this.decisionSupersession.getSnapshot().entries)
@@ -286,6 +326,39 @@ export class WorkbookMutationRuntime {
 
   timelineActionBlocksRecord(recordId: string): boolean {
     return this.timelineActions?.blocksRecord(recordId) ?? false;
+  }
+
+  private async coordinateIndicatorLifecycle(
+    draft: LifecycleDraft,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    while (!signal.aborted && !this.lifecycle.disposed) {
+      const pending = this.pendingRuntime.model.snapshot();
+      if (pending.authPaused || pending.halted || pending.overflow)
+        return false;
+      const related = this.history
+        .getSnapshot()
+        .filter((entry) => entry.attempt.subject.recordId === draft.recordId);
+      if (related.some((entry) => entry.phase === "uncertain")) return false;
+      if (
+        !pending.units.some((unit) => unit.recordId === draft.recordId) &&
+        !related.some(
+          (entry) =>
+            entry.transportPending ||
+            entry.phase === "preparing" ||
+            entry.phase === "submitting" ||
+            (entry.receipt && entry.reconciliation !== "complete"),
+        )
+      ) {
+        this.indicatorLifecycle.acceptVersion(
+          draft.recordId,
+          this.history.latestVersion(draft.recordId) ?? draft.baseRowVersion,
+        );
+        return true;
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 16));
+    }
+    return false;
   }
 
   beginDecisionWrite(recordIds: readonly string[]): (() => void) | null {
@@ -507,12 +580,14 @@ export class WorkbookMutationRuntime {
         this.history.pendingCount +
         this.entityMerge.pendingCount +
         this.decisionSupersession.pendingCount +
+        this.indicatorLifecycle.pendingCount +
         this.explicitPatches.pendingCount +
         (this.timelineActions?.pendingCount ?? 0),
       explicitRecoveryBlocked:
         this.history.blockedCount > 0 ||
         this.entityMerge.blockedCount > 0 ||
         this.decisionSupersession.blockedCount > 0 ||
+        this.indicatorLifecycle.blockedCount > 0 ||
         this.explicitPatches.blockedCount > 0 ||
         (this.timelineActions?.blockedCount ?? 0) > 0,
       queue: this.pendingRuntime.model.snapshot(),
@@ -567,6 +642,11 @@ export class WorkbookMutationRuntime {
         outcome.value.viewSchemaId === decisionViewId
       )
         this.decisionSupersession.acceptRow(outcome.value.row);
+      if (
+        outcome.kind === "accepted" &&
+        outcome.value.viewSchemaId === indicatorLifecycleViewId
+      )
+        this.indicatorLifecycle.acceptRow(outcome.value.row);
       return outcome;
     });
   }
@@ -629,6 +709,12 @@ export class WorkbookMutationRuntime {
   }
 
   enqueuePatch(request: WorkbookQueuedPatchRequest): GridEditCommitOutcome {
+    if (this.indicatorLifecycle.blocksRecord(request.recordId))
+      return {
+        kind: "rejected_mutation",
+        message:
+          "This Indicator has a pending interval. Recover it in Indicator intervals before editing.",
+      };
     if (
       request.viewSchemaId === taskViewId &&
       this.explicitPatches.blocksRecord(request.recordId)
@@ -901,6 +987,7 @@ export class WorkbookMutationRuntime {
       this.history.suspend();
       this.entityMerge.suspend();
       this.decisionSupersession.suspend();
+      this.indicatorLifecycle.suspend();
       this.timelineActions?.suspend();
       this.explicitPatches.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
@@ -932,6 +1019,7 @@ export class WorkbookMutationRuntime {
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
+      this.indicatorLifecycle.retire();
       this.timelineActions?.retire();
       this.decisionWrites.clear();
       this.retryScheduler.cancel();
@@ -951,6 +1039,7 @@ export class WorkbookMutationRuntime {
       this.history.closeIncident();
       this.entityMerge.closeIncident();
       this.decisionSupersession.closeIncident();
+      this.indicatorLifecycle.closeIncident();
       this.timelineActions?.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
       this.emit();
@@ -963,6 +1052,7 @@ export class WorkbookMutationRuntime {
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
+      this.indicatorLifecycle.retire();
       this.timelineActions?.retire();
       this.decisionWrites.clear();
       this.pauseForTerminalLifecycle();
@@ -971,6 +1061,7 @@ export class WorkbookMutationRuntime {
     this.history.suspend();
     this.entityMerge.suspend();
     this.decisionSupersession.suspend();
+    this.indicatorLifecycle.suspend();
     this.timelineActions?.suspend();
     this.explicitPatches.suspend();
     this.applyAuthorizationRecoveryState("paused");

@@ -305,3 +305,9 @@ export function decisionSupersessionTestId(
 ) {
   return `decision-supersession-${part}`;
 }
+
+export function indicatorLifecycleTestId(
+  part: "editor" | "intervals" | "support" | "recovery" | "recovery-trigger",
+) {
+  return `indicator-lifecycle-${part}`;
+}

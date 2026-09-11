@@ -37,6 +37,7 @@ const sharedBuilderOwnedSelectorPatterns = [
   /^deployment-user-row-/u,
   /^generic-/u,
   /^(?:host|identity)-inspector$/u,
+  /^indicator-lifecycle-/u,
   /^incident-(?:admin|summary|pref|patch|lifecycle|close|reopen)-/u,
   /^incident-landing$/u,
   /^landing-admin-/u,

@@ -60,7 +60,9 @@ import {
   taskViewId,
 } from "../coordination/taskLifecycleModel";
 import { useEvidenceWorkbookBindings } from "../evidence/useEvidenceWorkbookBindings";
+import { IndicatorLifecycleContext } from "../indicators/IndicatorLifecycleContext";
 import type { IndicatorInspectorHandler } from "../indicators/indicatorInspectorHandlers";
+import { indicatorLifecycleViewId } from "../indicators/indicatorLifecycleModel";
 import { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
 import { GenericWorkbookInspectorPresentation } from "./GenericWorkbookInspectorPresentation";
 
@@ -124,6 +126,11 @@ export function useGenericWorkbookInspectorComposition({
 }) {
   const inspectorConfig = contract.inspectorConfig;
   const decisionOwner = useContext(DecisionSupersessionContext);
+  const lifecycleOwner = useContext(IndicatorLifecycleContext);
+  const lifecycleSnapshot = useSyncExternalStore(
+    lifecycleOwner?.subscribe ?? noDecisionSubscription,
+    lifecycleOwner?.getSnapshot ?? noDecisionSnapshot,
+  );
   const decisionSnapshot = useSyncExternalStore(
     decisionOwner?.subscribe ?? noDecisionSubscription,
     decisionOwner?.getSnapshot ?? noDecisionSnapshot,
@@ -165,6 +172,24 @@ export function useGenericWorkbookInspectorComposition({
   );
   const subjectRow =
     rows.find((row) => row.record_id === selectedRecordId) ?? null;
+  useLayoutEffect(() => {
+    // Query rows can arrive before the shell's authority effect. Admit their
+    // Records version only once this same-account presentation is authorized.
+    if (
+      contract.viewSchemaId === indicatorLifecycleViewId &&
+      subjectRow &&
+      lifecycleSnapshot?.authority?.actorId === currentUserId &&
+      lifecycleSnapshot.authority.role === currentIncidentRole
+    )
+      lifecycleOwner?.acceptRow(subjectRow);
+  }, [
+    contract.viewSchemaId,
+    subjectRow,
+    lifecycleOwner,
+    lifecycleSnapshot?.authority,
+    currentUserId,
+    currentIncidentRole,
+  ]);
   const subject: WorkbookInspectorSubject | null =
     subjectRow === null
       ? deletedHistorySubject

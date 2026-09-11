@@ -1426,6 +1426,227 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.indicator_lifecycle_authoring_paging",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorLifecycleModel.test.ts",
+        "titles": [
+          "Indicator lifecycle drafts retain raw values independently for each subject",
+          "Indicator lifecycle pages retain results, retry the failed cursor and rebuild loaded pages",
+          "Indicator lifecycle rejects invalid continuation and ignores late pages after restart",
+          "Indicator lifecycle rejects malformed and duplicate support without reordering authored references",
+          "Indicator lifecycle validates UTC dates, equal bounds, nullable fields and exact constraints"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_lifecycle_characterization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorLifecycle.characterization.test.tsx",
+        "titles": [
+          "Indicator lifecycle content is reachable in the canonical History panel"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_lifecycle_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/WorkbookIndicatorLifecycleOwner.test.ts",
+        "titles": [
+          "Lifecycle admission reserves synchronously and rejects changed versions before dispatch",
+          "Lifecycle exact replay retains bytes identity and ordered support through closure and newer versions",
+          "Lifecycle fresh dispatch rechecks role closure subject and secure identity without discarding drafts",
+          "Lifecycle late settlement survives detachment while retired accounts cannot materialize receipts",
+          "Lifecycle receipt precedes projection failure and refresh recovery never sends a mutation",
+          "Lifecycle replay uses current authority and access rejection cannot erase uncertainty"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_lifecycle_presentation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/IndicatorLifecycleWorkflow.test.tsx",
+        "titles": [
+          "Indicator lifecycle shows complete interval details and field-local UTC authoring errors",
+          "Indicator lifecycle support selection reaches a second query page and retains subject drafts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_lifecycle_reconciliation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorLifecycleReconciliation.test.tsx",
+        "titles": [
+          "Lifecycle query materialization never regresses HTTP or socket version evidence",
+          "Lifecycle reconciliation refreshes every affected identity beyond the first query page and fences stale history"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_lifecycle_runtime",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorLifecycleRuntime.test.ts",
+        "titles": [
+          "Lifecycle runtime retains recovery across shell detachment and retires account data",
+          "Lifecycle runtime waits for same-record edits and requires review of their accepted version"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_lifecycle_socket_order",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
+        "titles": [
+          "WorkbookCollaborationCoordinator accounts for Indicator socket versions before transaction suppression in either HTTP order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_lifecycle_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createIndicatorLifecycleAdapter.test.ts",
+        "titles": [
+          "Lifecycle transport preserves original route bytes and support ordering on explicit replay",
+          "Lifecycle transport validates complete operation receipts and treats malformed success as uncertain"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_create_related_workflow_stale_results_31f0cbe2d1",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

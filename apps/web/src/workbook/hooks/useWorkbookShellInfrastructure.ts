@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
+import { createIndicatorLifecycleAdapter } from "../adapters/createIndicatorLifecycleAdapter";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
@@ -87,6 +88,14 @@ export function useWorkbookShellInfrastructure({
       pendingMutationPort,
       transactionIds,
     ],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.indicatorLifecycle.configure(
+        createIndicatorLifecycleAdapter({ apiBase, incidentId }),
+        onIncidentAccessLost,
+      ),
+    [mutationRuntime, apiBase, incidentId, onIncidentAccessLost],
   );
   const timelineCapture = useMemo(
     () => timelineCaptureOwnerFor(mutationRuntime),

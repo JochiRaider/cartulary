@@ -14,7 +14,10 @@ import type {
 import { validateCartularyCoreHttpErrorEnvelopeV1 } from "../generated/core-http-validators.js";
 import { createDecoder } from "../internal/decoder.js";
 
-export { coreIndicatorTypes } from "../generated/core-indicator-registry.js";
+export {
+  coreIndicatorLifecycleConstraints,
+  coreIndicatorTypes,
+} from "../generated/core-indicator-registry.js";
 export * from "../generated/http-operation-bindings.js";
 export type { Decoder } from "../internal/decoder.js";
 export type {

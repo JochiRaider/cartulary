@@ -49,6 +49,7 @@ import {
   incidentControlsTriggerTestId,
   incidentImportTestId,
   incidentLandingTestId,
+  indicatorLifecycleTestId,
   landingAdminShellTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
@@ -255,6 +256,10 @@ import {
   openDecisionReviewFixture,
 } from "./support/workbook/decisionSupersession";
 import { fetchRecordHistory } from "./support/workbook/history";
+import {
+  createLifecycleFixture,
+  openLifecycleEditor,
+} from "./support/workbook/indicatorLifecycle";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
   clickTimelineRowAction,
@@ -7413,4 +7418,74 @@ test("a11y.timeline-capture review and recovery retain keyboard focus across res
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.keyboard.press("Escape");
   await expectVisibleFocus(trigger);
+});
+
+test("a11y.indicator-lifecycle UTC errors and retained recovery remain keyboard reachable", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { incidentId, indicator } = await createLifecycleFixture(page);
+  const editor = await openLifecycleEditor(
+    page,
+    incidentId,
+    indicator.record_id,
+  );
+  const submit = editor.getByRole("button", {
+    name: "Append lifecycle interval",
+    exact: true,
+  });
+  await submit.focus();
+  await submit.press("Enter");
+  const from = editor.getByLabel("Effective from (UTC)", { exact: true });
+  await expect(from).toHaveAttribute("aria-invalid", "true");
+  await expect(from).toHaveAccessibleDescription(/UTC/);
+  await from.fill("2026-09-11T12:00");
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [
+      from,
+      editor.getByLabel("Confidence (optional)", { exact: true }),
+      submit,
+    ]) {
+      await expectDecisionControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectDecisionControlReachable(page, submit);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await expectAllInteractiveControlsNamed(page);
+  await submit.focus();
+  await submit.press("Enter");
+  const trigger = page.getByTestId(
+    indicatorLifecycleTestId("recovery-trigger"),
+  );
+  await trigger.focus();
+  await trigger.press("Enter");
+  const recovery = page.getByTestId(indicatorLifecycleTestId("recovery"));
+  const recoveryHeading = recovery.getByRole("heading");
+  await expect(recoveryHeading).toHaveAccessibleName(
+    "Indicator interval recovery",
+  );
+  await expect(recoveryHeading).toBeFocused();
+  await expect(
+    recovery.getByText("Interval saved. Indicator and history refreshed.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await testInfo.attach("indicator-lifecycle-accessibility-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
 });

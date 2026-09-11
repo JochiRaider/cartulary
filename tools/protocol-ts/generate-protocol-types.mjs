@@ -1234,6 +1234,20 @@ writeFilesAtomically([
         openAPI.components.schemas.IndicatorObservationCreateRequest.properties.parsed_indicator_type.enum,
         "Core Indicator type registry",
       ),
+    ) + generatedConstSource(
+      "coreIndicatorLifecycleConstraints",
+      {
+        states: openAPI.components.schemas.IndicatorLifecycleAppendRequest.properties.lifecycle_state.enum,
+        confidence: {
+          minimum: openAPI.components.schemas.IndicatorLifecycleAppendRequest.properties.confidence.minimum,
+          maximum: openAPI.components.schemas.IndicatorLifecycleAppendRequest.properties.confidence.maximum,
+        },
+        supportMaximum: openAPI.components.schemas.IndicatorLifecycleAppendRequest.properties.support_refs.maxItems,
+        page: {
+          default: openAPI.components.parameters.IndicatorListLimit.schema.default,
+          maximum: openAPI.components.parameters.IndicatorListLimit.schema.maximum,
+        },
+      },
     ),
   },
   {
