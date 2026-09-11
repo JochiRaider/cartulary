@@ -340,7 +340,7 @@ export class WorkGraphCompiler {
     return this._rowTargets;
   }
 
-  compileRows(rowIDs) {
+  compileRows(rowIDs, stack = []) {
     const sortedRowIDs = assertSortedUniqueInput(rowIDs, "row selection");
     const rows = sortedRowIDs.map((rowID) => {
       const row = this.catalog.rowByID.get(rowID);
@@ -382,6 +382,11 @@ export class WorkGraphCompiler {
       .sort(compareASCII)
       .map((target) => [target, this.compilePolicyTarget(target)]));
     const prerequisiteUnits = [...prerequisiteGraphs.values()].flatMap((graph) => graph.units);
+    const declaredGraphs = new Map(rows.map((row) => {
+      const target = this.rowTargets.get(row.row_id);
+      return [row.row_id, this.compileDependencies(target, stack)];
+    }));
+    for (const graph of declaredGraphs.values()) prerequisiteUnits.push(...graph.units);
     const terminalIDs = (graph) => {
       const dependencies = new Set(graph.units.flatMap((unit) => unit.needs));
       return graph.units
@@ -389,8 +394,10 @@ export class WorkGraphCompiler {
         .map((unit) => unit.unit_id)
         .sort(compareASCII);
     };
-    const needsForRow = (row) => prerequisiteTargetsForRow(row)
-      .flatMap((target) => terminalIDs(prerequisiteGraphs.get(target)))
+    const needsForRow = (row) => [
+      ...prerequisiteTargetsForRow(row).flatMap((target) => terminalIDs(prerequisiteGraphs.get(target))),
+      ...terminalIDs(declaredGraphs.get(row.row_id)),
+    ]
       .filter((unitID, index, values) => values.indexOf(unitID) === index)
       .sort(compareASCII);
     const runtimeEnvironmentForRow = (row) => Object.fromEntries(
@@ -502,6 +509,10 @@ export class WorkGraphCompiler {
   }
 
   compileTarget(target) {
+    const recipe = this.taskSurface.make_recipes[target];
+    if (recipe?.type === "work_graph" && recipe.selection === "rows") {
+      return this.compileRows(recipe.row_ids);
+    }
     if (this.owner.target_members[target]) {
       return buildWorkGraph(
         this.owner.target_members[target]
@@ -619,13 +630,12 @@ export class WorkGraphCompiler {
     ]);
   }
 
-  compilePolicyTarget(target, stack = []) {
+  compileDependencies(target, stack = []) {
     if (stack.includes(target)) {
       throw new Error(`policy dependency cycle ${[...stack, target].join(" -> ")}`);
     }
     const definition = this.owner.policy_units[target];
-    if (!definition) return this.compileBaseTarget(target);
-    const base = this.compileBaseTarget(target, { policyOnly: true });
+    if (!definition) return buildWorkGraph([]);
     const dependencyGraphs = [
       ...definition.needs.map((dependency) =>
         this.owner.target_members[dependency]
@@ -634,7 +644,14 @@ export class WorkGraphCompiler {
       ),
       ...(definition.owner_slices ?? []).map((ownerID) => this.compileOwner(ownerID)),
     ];
-    const dependencyUnits = dependencyGraphs.flatMap((graph) => graph.units);
+    return buildWorkGraph(dependencyGraphs.flatMap((graph) => graph.units));
+  }
+
+  compilePolicyTarget(target, stack = []) {
+    const rowIDs = this.targetRows.get(target) ?? [];
+    if (rowIDs.length > 0) return this.compileRows(rowIDs, stack);
+    const base = this.compileBaseTarget(target, { policyOnly: true });
+    const dependencyUnits = this.compileDependencies(target, stack).units;
     const neededByAnother = new Set(
       dependencyUnits.flatMap((unit) => unit.needs),
     );
@@ -787,42 +804,17 @@ export class WorkGraphCompiler {
     for (const browserTarget of [...browserTargets].sort(compareASCII)) {
       units.push(...this.compileTarget(browserTarget).units);
     }
-    const policyGraphs = new Map();
+    // Each semantic consumer is constructed with its dependencies by the same
+    // path used for direct and owner selection. Never reattach dependencies to
+    // roots of an expanded graph (those roots can be the producers themselves).
     for (const policyTarget of [...policyTargets].sort(compareASCII)) {
       const selectedRows = policyRows.get(policyTarget);
       const graph = selectedRows
         ? this.compileRows(selectedRows)
         : this.owner.target_members[policyTarget]
           ? this.compileTarget(policyTarget)
-          : this.compileBaseTarget(policyTarget);
-      policyGraphs.set(policyTarget, graph);
-    }
-    const terminalIDs = (graph) => {
-      const dependencies = new Set(graph.units.flatMap((unit) => unit.needs));
-      return graph.units
-        .filter((unit) => !dependencies.has(unit.unit_id))
-        .map((unit) => unit.unit_id)
-        .sort(compareASCII);
-    };
-    for (const [policyTarget, graph] of policyGraphs) {
-      const definition = this.owner.policy_units[policyTarget];
-      const dependencyIDs = [
-        ...(definition?.needs ?? [])
-          .flatMap((dependency) => terminalIDs(policyGraphs.get(dependency))),
-        ...(definition?.owner_slices ?? [])
-          .flatMap((ownerID) => terminalIDs(forcedOwnerGraphs.get(ownerID))),
-      ].filter((unitID, index, values) => values.indexOf(unitID) === index)
-        .sort(compareASCII);
-      const roots = new Set(
-        graph.units.filter((unit) => unit.needs.length === 0).map((unit) => unit.unit_id),
-      );
-      units.push(
-        ...graph.units.map((unit) =>
-          roots.has(unit.unit_id) && dependencyIDs.length > 0
-            ? { ...unit, needs: dependencyIDs }
-            : unit,
-        ),
-      );
+          : this.compilePolicyTarget(policyTarget);
+      units.push(...graph.units);
     }
     return buildWorkGraph(units);
   }

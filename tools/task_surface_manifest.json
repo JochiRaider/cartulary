@@ -2216,7 +2216,9 @@
         "--dist",
         "$(CURDIR)/apps/web/dist"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "graph_entry": true,
+      "graph_child_skips_prerequisites": true
     },
     "protocol-ts-dead-code-check": {
       "type": "step_command",
@@ -2889,14 +2891,16 @@
         "$(SERVER_BIN)"
       ],
       "type": "artifact_binding",
-      "test_target": "self"
+      "test_target": "self",
+      "graph_entry": true
     },
     "build-server-harness": {
       "prerequisites": [
         "$(SERVER_HARNESS_BIN)"
       ],
       "type": "artifact_binding",
-      "test_target": "self"
+      "test_target": "self",
+      "graph_entry": true
     },
     "embedded-web-assets": {
       "prerequisites": [
@@ -2907,7 +2911,8 @@
         "$(EMBEDDED_WEB_ASSET_READY_STAMP)"
       ],
       "type": "artifact_binding",
-      "test_target": "self"
+      "test_target": "self",
+      "graph_entry": true
     },
     "build-migrate": {
       "prerequisites": [
@@ -2921,14 +2926,16 @@
         "$(OPERATOR_BIN)"
       ],
       "type": "artifact_binding",
-      "test_target": "self"
+      "test_target": "self",
+      "graph_entry": true
     },
     "build-web": {
       "prerequisites": [
         "$(CURDIR)/apps/web/dist/index.html"
       ],
       "type": "artifact_binding",
-      "test_target": "self"
+      "test_target": "self",
+      "graph_entry": true
     },
     "clean": {
       "prerequisites": [],
@@ -2983,6 +2990,19 @@
         "$(CURDIR)/apps/web/dist-measurement/index.html"
       ],
       "type": "artifact_binding",
+      "test_target": "self",
+      "graph_entry": true
+    },
+    "frontend-artifact-consumer-check": {
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "type": "work_graph",
+      "selection": "rows",
+      "row_ids": [
+        "harness.browser.boundary_support.frontend_artifact_lifetime",
+        "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b"
+      ],
       "test_target": "self"
     }
   },
@@ -9567,7 +9587,8 @@
         "tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs",
         "tools/frontend_import_boundaries.json",
         "tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs",
-        "tools/harness/readiness/frontend-artifact.mjs"
+        "tools/harness/readiness/frontend-artifact.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "command_id": "cartulary.harness.command.protocol_ts_browser_artifact_reachability.v1",
       "target_class": "check_internal",
@@ -10073,7 +10094,12 @@
         "tools/harness/tests/contract-initialization-cases.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/contract-test-context.mjs",
-        "tools/harness/tests/test-harness-command-surface-contracts.mjs"
+        "tools/harness/tests/test-harness-command-surface-contracts.mjs",
+        "tools/harness/tests/test-frontend-producer-graph.mjs",
+        "tools/harness/tests/test-frontend-producer-lifecycle.mjs",
+        "tools/harness/tests/test-command-failure.mjs",
+        "tools/harness/tests/frontend-producer-fixture.mjs",
+        "tools/harness/runtime/command-failure.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_command_surface_contract.v2",
       "target_class": "check_internal",
@@ -13112,7 +13138,8 @@
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/backend/build-go-artifact.sh",
         "tools/harness/readiness/embed-web-assets.sh",
-        "tools/embedwebassets/main.go"
+        "tools/embedwebassets/main.go",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13177,7 +13204,8 @@
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/backend/build-go-artifact.sh",
         "tools/harness/readiness/embed-web-assets.sh",
-        "tools/embedwebassets/main.go"
+        "tools/embedwebassets/main.go",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13259,7 +13287,8 @@
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/readiness/embed-web-assets.sh",
-        "tools/embedwebassets/main.go"
+        "tools/embedwebassets/main.go",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [
@@ -13334,7 +13363,8 @@
       "name": "build-operator",
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/backend/build-go-artifact.sh"
+        "tools/harness/backend/build-go-artifact.sh",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13415,7 +13445,8 @@
       "name": "build-web",
       "backing_scripts": [
         "tools/harness/readiness/build-web-artifact.sh",
-        "tools/harness/readiness/frontend-artifact.mjs"
+        "tools/harness/readiness/frontend-artifact.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13478,7 +13509,8 @@
       "name": "build-web-measurement",
       "backing_scripts": [
         "tools/harness/readiness/build-web-artifact.sh",
-        "tools/harness/readiness/frontend-artifact.mjs"
+        "tools/harness/readiness/frontend-artifact.mjs",
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13776,6 +13808,16 @@
           }
         ]
       }
+    },
+    {
+      "name": "frontend-artifact-consumer-check",
+      "backing_scripts": [
+        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+      ],
+      "command_id": "cartulary.harness.command.frontend_artifact_consumer_check.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
     }
   ],
   "harness_tiers": {

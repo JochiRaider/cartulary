@@ -257,7 +257,7 @@ function renderMakeRecipe(recipe, manifest) {
     const selectionArgs =
       recipe.selection === "owner"
         ? `--selection owner --target ${recipe.target} --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",)${recipe.service_backed_only === true ? " --service-backed-only" : ""}`
-        : `--selection ${recipe.selection} --target ${recipe.target}`;
+        : `--selection ${recipe.selection} --target ${recipe.target}${recipe.selection === "rows" ? ` --rows ${recipe.row_ids.join(",")}` : ""}`;
     return [
       ...prefix,
       ...header,

@@ -2,7 +2,17 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../../contract/index.mjs";
+import { publicExitCodeForFailure, validateSchemaSync } from "../../contract/index.mjs";
+import { createCommandFailureContext } from "../../runtime/command-failure.mjs";
+
+const commandMaps = new Map();
+function commandID(root, target) {
+  if (!commandMaps.has(root)) {
+    const surface = JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
+    commandMaps.set(root, new Map(surface.targets.map((entry) => [entry.name, entry.command_id])));
+  }
+  return commandMaps.get(root).get(target);
+}
 
 const failureClasses = new Set([
   "artifact",
@@ -113,6 +123,16 @@ export function executeUnitProcess(
       ...(fixtureLease?.resource?.environment ?? {}),
       ...unit.command.environment,
     };
+    // Fresh identity belongs to this process invocation, never to the semantic
+    // graph or a previous child. Unit results remain scheduler-owned.
+    delete childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+    const diagnosticTarget = unit.command.environment.CARTULARY_TEST_TARGET;
+    const diagnosticCommand = diagnosticTarget && childEnvironment.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT
+      ? commandID(cwd, diagnosticTarget) : null;
+    const diagnostic = diagnosticCommand ? createCommandFailureContext({
+      repoRoot: cwd, environment: childEnvironment, unitID: unit.unit_id, commandID: diagnosticCommand,
+    }) : null;
+    Object.assign(childEnvironment, diagnostic?.environment);
     const child = spawn(unit.command.executable, unit.command.args, {
       cwd,
       env: childEnvironment,
@@ -123,6 +143,7 @@ export function executeUnitProcess(
     let stderr = "";
     let cancelled = false;
     let timedOut = false;
+    let killDeadline;
     const append = (current, chunk) =>
       `${current}${chunk}`.slice(-outputLimitBytes);
     child.stdout.on("data", (chunk) => {
@@ -135,6 +156,8 @@ export function executeUnitProcess(
       if (reason === "cancelled") cancelled = true;
       if (reason === "timeout") timedOut = true;
       terminateOwnedProcess(child, "SIGTERM");
+      killDeadline ??= setTimeout(() => terminateOwnedProcess(child, "SIGKILL"), 2000);
+      killDeadline.unref?.();
     };
     const onAbort = () => terminate("cancelled");
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -143,6 +166,8 @@ export function executeUnitProcess(
     timeout.unref?.();
     child.on("error", (error) => {
       clearTimeout(timeout);
+      clearTimeout(killDeadline);
+      diagnostic?.close();
       signal?.removeEventListener("abort", onAbort);
       resolve({
         status: "failed",
@@ -155,17 +180,25 @@ export function executeUnitProcess(
     });
     child.on("close", (code, closeSignal) => {
       clearTimeout(timeout);
+      clearTimeout(killDeadline);
       signal?.removeEventListener("abort", onAbort);
-      let failure = code === 0 && !cancelled
+      let failure = code === 0 && !cancelled && !timedOut
         ? {}
         : classifyFailure(unit, code, stdout, stderr, { timedOut, cancelled });
       if (code !== 0 && !timedOut && !cancelled && unit.kind === "lifecycle") {
         failure = retainedLifecycleFailure(unit, cwd, childEnvironment);
       }
+      const diagnosed = diagnostic?.read();
+      diagnostic?.close();
+      if (diagnosed && !timedOut && !cancelled) {
+        failure = code === 0
+          ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" }
+          : diagnosed;
+      }
       resolve({
-        status: cancelled ? "cancelled" : code === 0 ? "passed" : "failed",
+        status: cancelled ? "cancelled" : code === 0 && !diagnosed && !timedOut ? "passed" : "failed",
         ...failure,
-        exit_code: code,
+        exit_code: diagnosed || timedOut || cancelled ? publicExitCodeForFailure(failure, { signal: closeSignal }) : code,
         signal: closeSignal,
         stdout,
         stderr,

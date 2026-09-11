@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_command_failure.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "unit_id",
+    "command_id",
+    "invocation_id",
+    "failure_class",
+    "failure_reason"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_command_failure.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "maxLength": 128
+    },
+    "unit_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "command_id": {
+      "type": "string",
+      "pattern": "^cartulary\\.harness\\.command\\.[a-z0-9_]+\\.v[1-9][0-9]*$",
+      "maxLength": 256
+    },
+    "invocation_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+    },
+    "failure_class": {
+      "enum": [
+        "product",
+        "security",
+        "config",
+        "infra",
+        "harness",
+        "artifact",
+        "timing",
+        "interrupted",
+        "unknown"
+      ]
+    },
+    "failure_reason": {
+      "enum": [
+        "usage_error",
+        "configuration_error",
+        "preflight_error",
+        "service_start_error",
+        "service_readiness_timeout",
+        "fixture_error",
+        "resource_conflict",
+        "test_assertion_failure",
+        "security_finding",
+        "child_target_failure",
+        "tool_diagnostic_failure",
+        "scheduler_accounting_error",
+        "test_accounting_unmapped",
+        "artifact_error",
+        "cleanup_error",
+        "duration_baseline_drift",
+        "timeout_failure",
+        "cancelled_or_interrupted",
+        "unknown_failure"
+      ]
+    }
+  }
+}

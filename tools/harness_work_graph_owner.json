@@ -593,6 +593,15 @@
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
+    },
+    "protocol-ts-browser-artifact-reachability": {
+      "needs": [
+        "build-web"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "io_heavy",
+      "service_dependencies": []
     }
   },
   "evidence_estimates_ms": {

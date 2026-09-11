@@ -6,7 +6,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateSchemaSync } from "../contract/index.mjs";
+import { parseStrictJSON, publicExitCodeForFailure, validateSchemaSync } from "../contract/index.mjs";
+import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
 import { borrowSuiteRuntime, createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
@@ -67,17 +68,24 @@ function provenance(repoRoot, runRoot) {
 }
 
 export function resolveFrontendArtifact(repoRoot, target, environment = process.env) {
+  try { return resolveArtifact(repoRoot, target, environment); }
+  catch (error) {
+    throw new CommandFailure(error.message, { failure_class: "artifact", failure_reason: "artifact_error" }, { cause: error });
+  }
+}
+
+function resolveArtifact(repoRoot, target, environment) {
   const runRoot = frontendRunRoot(repoRoot, environment);
   const runtime = borrowSuiteRuntime({ repoRoot, runRoot, environment });
   const profile = artifactProfile(repoRoot, target);
   const receiptRef = `${target}/frontend-artifact.json`;
   const receiptPath = path.join(runRoot, receiptRef);
   const receiptParent = lstatSync(path.dirname(receiptPath));
-  if (!receiptParent.isDirectory() || receiptParent.isSymbolicLink()) throw new Error("frontend receipt directory must not be a symlink");
+  if (!receiptParent.isDirectory() || receiptParent.isSymbolicLink() || receiptParent.uid !== process.getuid() || (receiptParent.mode & 0o777) !== 0o700) throw new Error("frontend receipt directory must be owner-only and not a symlink");
   const info = lstatSync(receiptPath);
-  if (!info.isFile() || info.isSymbolicLink()) throw new Error("frontend artifact receipt must be regular");
+  if (!info.isFile() || info.isSymbolicLink() || info.uid !== process.getuid() || info.nlink !== 1 || (info.mode & 0o777) !== 0o600 || info.size > 4096) throw new Error("frontend artifact receipt must be regular and owner-only");
   const receiptBytes = readFileSync(receiptPath);
-  const receipt = JSON.parse(receiptBytes);
+  const receipt = parseStrictJSON(receiptBytes.toString("utf8"));
   validateSchemaSync(receipt.schema_id, receipt);
   const expected = {
     schema_id: "cartulary.frontend_build_artifact.v1",
@@ -120,7 +128,20 @@ export function publishFrontendOutput(directory, destination) {
   }
 }
 
-export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, staging }) {
+const claims = new WeakMap();
+
+export function claimFrontendProducer(runtime, profile) {
+  try { mkdirSync(runtime.privatePath(`frontend-producer-${profile.id}`), { mode: 0o700 }); }
+  catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    throw new CommandFailure("frontend producer already admitted for this run/profile", { failure_class: "harness", failure_reason: "scheduler_accounting_error" });
+  }
+  const claim = Object.freeze({});
+  claims.set(claim, { root: runtime.root, profile: profile.id, sealed: false });
+  return claim;
+}
+
+export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, staging, claim }) {
   if (path.dirname(path.resolve(staging)) !== runtime.root) throw new Error("frontend staging must belong to its private suite root");
   for (const entry of profile.entries) {
     const info = lstatSync(path.join(staging, entry));
@@ -135,10 +156,21 @@ export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, stag
     content_digest: frontendContentDigest(staging, { seal: true }),
   };
   validateSchemaSync(receipt.schema_id, receipt);
+  // Direct sealing is used by fixture builders; the compiler path supplies its
+  // claim acquired before any build work. Both paths share exclusive admission.
+  const admitted = claim ?? claimFrontendProducer(runtime, profile);
+  const state = claims.get(admitted);
+  if (!state || state.root !== runtime.root || state.profile !== profile.id || state.sealed) {
+    throw new CommandFailure("invalid or consumed frontend producer claim", { failure_class: "harness", failure_reason: "scheduler_accounting_error" });
+  }
+  state.sealed = true;
   const directory = runtime.privatePath(`frontend-${profile.id}`);
-  renameSync(staging, directory);
   const receiptDir = path.join(runRoot, profile.producer_target);
   mkdirSync(receiptDir, { recursive: true, mode: 0o700 });
+  const parent = lstatSync(receiptDir);
+  if (!parent.isDirectory() || parent.isSymbolicLink() || parent.uid !== process.getuid() || (parent.mode & 0o777) !== 0o700) throw new Error("unsafe frontend receipt directory");
+  if (lstatSync(directory, { throwIfNoEntry: false }) || lstatSync(path.join(receiptDir, "frontend-artifact.json"), { throwIfNoEntry: false })) throw new Error("frontend publication destination already exists");
+  renameSync(staging, directory);
   const temporary = path.join(receiptDir, `.frontend-artifact-${randomUUID()}.json`);
   try {
     writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`, { flag: "wx", mode: 0o600 });
@@ -148,27 +180,24 @@ export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, stag
 }
 
 async function build(target, command, args) {
+  const profile = artifactProfile(root, target);
   const runRoot = frontendRunRoot();
   mkdirSync(runRoot, { recursive: true, mode: 0o700 });
   const owned = !process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT;
   const runtime = owned
     ? createSuiteRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID })
     : borrowSuiteRuntime({ repoRoot: root, runRoot });
-  const profile = artifactProfile(root, target);
-  const completed = runtime.privatePath(`frontend-${profile.id}`);
-  if (!owned && existsSync(completed)) {
-    resolveFrontendArtifact(root, target);
-    return;
-  }
-  const expectedProvenance = provenance(root, runRoot);
-  const validateBuildInputs = () => {
-    if (buildSourceSnapshot(root).digest !== expectedProvenance.source_digest ||
-      digest(readFileSync(path.join(root, "tools/toolchain_pins.json"))) !== expectedProvenance.toolchain_digest) {
-      throw new Error("frontend build inputs changed after the run source snapshot");
-    }
-  };
-  const staging = mkdtempSync(runtime.privatePath(`frontend-staging-${profile.id}-`));
+  let staging;
   try {
+    const claim = claimFrontendProducer(runtime, profile);
+    const expectedProvenance = provenance(root, runRoot);
+    const validateBuildInputs = () => {
+      if (buildSourceSnapshot(root).digest !== expectedProvenance.source_digest ||
+        digest(readFileSync(path.join(root, "tools/toolchain_pins.json"))) !== expectedProvenance.toolchain_digest) {
+        throw new Error("frontend build inputs changed after the run source snapshot");
+      }
+    };
+    staging = mkdtempSync(runtime.privatePath(`frontend-staging-${profile.id}-`));
     validateBuildInputs();
     const status = await new Promise((resolve, reject) => {
       const child = spawn(command, [...args, "--outDir", staging, "--emptyOutDir"], { cwd: root, stdio: "inherit" });
@@ -182,11 +211,15 @@ async function build(target, command, args) {
         process.off("SIGTERM", cancel);
       };
       child.once("error", (error) => { removeHandlers(); reject(error); });
-      child.once("close", (code, signal) => { removeHandlers(); resolve(signal ? 1 : code); });
+      child.once("close", (code, signal) => {
+        removeHandlers();
+        if (signal) reject(new CommandFailure("frontend compiler interrupted", { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" }));
+        else resolve(code);
+      });
     });
-    if (status !== 0) throw new Error(`frontend build failed with status ${status}`);
+    if (status !== 0) throw new CommandFailure(`frontend build failed with status ${status}`, { failure_class: "harness", failure_reason: "tool_diagnostic_failure" });
     validateBuildInputs();
-    const directory = sealFrontendArtifact({ repoRoot: root, runRoot, runtime, profile, staging });
+    const directory = sealFrontendArtifact({ repoRoot: root, runRoot, runtime, profile, staging, claim });
     const lockRoot = path.join(root, ".cache/cartulary");
     mkdirSync(lockRoot, { recursive: true, mode: 0o700 });
     // Only the brief conventional-output publication is serialized. Builds and
@@ -194,7 +227,7 @@ async function build(target, command, args) {
     execFileSync("flock", ["-x", path.join(lockRoot, "frontend-publication.lock"),
       process.execPath, fileURLToPath(import.meta.url), "publish", target, directory], { stdio: "inherit" });
   } finally {
-    rmSync(staging, { recursive: true, force: true });
+    if (staging) rmSync(staging, { recursive: true, force: true });
     if (owned) runtime.close();
   }
 }
@@ -207,7 +240,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     else if (operation === "resolve") process.stdout.write(`${resolveFrontendArtifact(root, target).directory}\n`);
     else throw new Error("usage: frontend-artifact.mjs build <target> <command> [args...] | resolve <target>");
   } catch (error) {
+    const failure = reportCommandFailure(root, error, { failure_class: "artifact", failure_reason: "artifact_error" });
     process.stderr.write(`frontend artifact: ${error.message}\n`);
-    process.exitCode = 11;
+    process.exitCode = publicExitCodeForFailure(failure);
   }
 }

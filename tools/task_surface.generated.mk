@@ -151,7 +151,8 @@
   distclean \
   canonical-evidence-drift-suite \
   goose-toolchain \
-  release-inventory-artifacts
+  release-inventory-artifacts \
+  frontend-artifact-consumer-check
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -1048,10 +1049,21 @@ frontend-import-boundary-check:
 	  --selection target --target frontend-import-boundary-check
 endif
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 protocol-ts-browser-artifact-reachability: export CARTULARY_TEST_TARGET ?= protocol-ts-browser-artifact-reachability
 protocol-ts-browser-artifact-reachability: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+protocol-ts-browser-artifact-reachability:
+else
 protocol-ts-browser-artifact-reachability: $(NODE_BIN) $(WEB_DIST_INDEX)
+endif
 	$(Q)$(RUN_STEP_SCRIPT) "protocol-ts-browser-artifact-reachability" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs --dist $(CURDIR)/apps/web/dist
+else
+protocol-ts-browser-artifact-reachability: export CARTULARY_TEST_TARGET ?= protocol-ts-browser-artifact-reachability
+protocol-ts-browser-artifact-reachability: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+protocol-ts-browser-artifact-reachability: $(NODE_BIN)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target protocol-ts-browser-artifact-reachability
+endif
 
 protocol-ts-dead-code-check: export CARTULARY_TEST_TARGET ?= protocol-ts-dead-code-check
 protocol-ts-dead-code-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
@@ -1539,6 +1551,7 @@ build:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs \
 	  --selection target --target build
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 build-server: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-server: export CARTULARY_TEST_TARGET ?= build-server
 build-server:
@@ -1546,7 +1559,16 @@ build-server:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server)
 	$(Q)if [ "$${CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0}" = "1" ] || [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(SERVER_BIN); fi
 	$(call RUN_TARGET_SUMMARY,build-server,pass)
+else
+build-server: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+build-server: export CARTULARY_TEST_TARGET ?= build-server
+build-server:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target build-server
+endif
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 build-server-harness: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-server-harness: export CARTULARY_TEST_TARGET ?= build-server-harness
 build-server-harness:
@@ -1554,10 +1576,25 @@ build-server-harness:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server-harness)
 	$(Q)if [ "$${CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0}" = "1" ] || [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(SERVER_HARNESS_BIN); fi
 	$(call RUN_TARGET_SUMMARY,build-server-harness,pass)
+else
+build-server-harness: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+build-server-harness: export CARTULARY_TEST_TARGET ?= build-server-harness
+build-server-harness:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server-harness)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target build-server-harness
+endif
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 embedded-web-assets: export CARTULARY_TEST_TARGET ?= embedded-web-assets
 embedded-web-assets: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 embedded-web-assets: $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_CLIENT_ASSET_MANIFEST) $(EMBEDDED_CLIENT_SUPPORT_REGISTRY) $(EMBEDDED_WEB_ASSET_READY_STAMP)
+else
+embedded-web-assets: export CARTULARY_TEST_TARGET ?= embedded-web-assets
+embedded-web-assets: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+embedded-web-assets: $(NODE_BIN)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target embedded-web-assets
+endif
 
 build-migrate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-migrate: export CARTULARY_TEST_TARGET ?= build-migrate
@@ -1567,6 +1604,7 @@ build-migrate:
 	$(Q)if [ "$${CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0}" = "1" ] || [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(MIGRATE_BIN); fi
 	$(call RUN_TARGET_SUMMARY,build-migrate,pass)
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 build-operator: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-operator: export CARTULARY_TEST_TARGET ?= build-operator
 build-operator:
@@ -1574,7 +1612,16 @@ build-operator:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-operator)
 	$(Q)if [ "$${CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0}" = "1" ] || [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(OPERATOR_BIN); fi
 	$(call RUN_TARGET_SUMMARY,build-operator,pass)
+else
+build-operator: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+build-operator: export CARTULARY_TEST_TARGET ?= build-operator
+build-operator:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-operator)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target build-operator
+endif
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 build-web: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-web: export CARTULARY_TEST_TARGET ?= build-web
 build-web:
@@ -1582,6 +1629,14 @@ build-web:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web)
 	$(Q)if [ "$${CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0}" = "1" ] || [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(CURDIR)/apps/web/dist/index.html; fi
 	$(call RUN_TARGET_SUMMARY,build-web,pass)
+else
+build-web: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+build-web: export CARTULARY_TEST_TARGET ?= build-web
+build-web:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target build-web
+endif
 
 clean:
 	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
@@ -1619,6 +1674,7 @@ release-inventory-artifacts: $(NODE_BIN)
 	  --selection target --target release-inventory-artifacts
 endif
 
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 build-web-measurement: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build-web-measurement: export CARTULARY_TEST_TARGET ?= build-web-measurement
 build-web-measurement:
@@ -1626,4 +1682,17 @@ build-web-measurement:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web-measurement)
 	$(Q)if [ "$${CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0}" = "1" ] || [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(CURDIR)/apps/web/dist-measurement/index.html; fi
 	$(call RUN_TARGET_SUMMARY,build-web-measurement,pass)
+else
+build-web-measurement: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+build-web-measurement: export CARTULARY_TEST_TARGET ?= build-web-measurement
+build-web-measurement:
+	$(Q)if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web-measurement)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target build-web-measurement
+endif
+
+frontend-artifact-consumer-check: export CARTULARY_TEST_TARGET ?= frontend-artifact-consumer-check
+frontend-artifact-consumer-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+frontend-artifact-consumer-check: $(NODE_BIN)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection rows --target frontend-artifact-consumer-check --rows harness.browser.boundary_support.frontend_artifact_lifetime,package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b
 

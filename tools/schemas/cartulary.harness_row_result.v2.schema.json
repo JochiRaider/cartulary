@@ -10,7 +10,7 @@
     "terminal_state": { "enum": ["passed", "failed", "infrastructure_failed", "skipped_dependency", "cancelled", "skipped_authorized"] },
     "duration_ms": { "type": "integer", "minimum": 0 },
     "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
-    "failure_class": { "oneOf": [{ "type": "null" }, { "enum": ["harness", "infra", "interrupted", "product"] }] },
+    "failure_class": { "oneOf": [{ "type": "null" }, { "enum": ["product", "security", "config", "infra", "harness", "artifact", "timing", "interrupted", "unknown"] }] },
     "failure_reason": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }] },
     "failure_diagnostic": { "oneOf": [{ "type": "null" }, { "$ref": "cartulary.harness_test_failure.v1" }] },
     "runner": { "enum": ["go", "vitest", "playwright", "shell"] },

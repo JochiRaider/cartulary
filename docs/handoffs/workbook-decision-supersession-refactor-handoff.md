@@ -1,8 +1,9 @@
 # Workbook Decision supersession refactor
 
-Delivery status: DS-01–04 complete. DS-05 is blocked by a reproducible shared
-harness frontend-artifact publication race. The final full check passed 833/834
-units; no failing gate is waived and no complete full-check claim is made.
+Delivery status: DS-01–DS-05 complete. The separately authorized frontend-artifact
+repair resolved the shared harness blocker. Two consecutive ordinary full checks
+passed 834/834 units and all 1222 selected rows on the final coordinated source.
+Original blocked-run evidence is retained below; no failing gate is waived.
 
 ## Authorization and baseline
 
@@ -75,7 +76,7 @@ only through Make. Existing digest and completed handoffs remain untouched.
 | DS-02 | DONE | Declared action, candidate states and immutable review tests pass |
 | DS-03 | DONE | Admission, retained transport and lifecycle recovery tests pass |
 | DS-04 | DONE | Receipt, deterministic/service/browser and affected visual evidence pass |
-| DS-05 | BLOCKED | Shared frontend artifact publication prevents a passing full check; separate harness scope required |
+| DS-05 | DONE | Separately authorized harness repair and two consecutive coordinated full checks pass |
 
 ## DS-01 log
 
@@ -484,6 +485,59 @@ pre-completion audits already passed as recorded above. The final response
 reports their post-edit outcomes. No commit, reset, push or deployment occurred.
 Next dependent action: obtain the separately requested harness-repair scope;
 then resume DS-05 and require a passing full check before marking it DONE.
+
+## DS-05 completion after the authorized harness repair
+
+The preceding DS-05 entries preserve the original blocked delivery. The user
+subsequently authorized a bounded frontend-artifact ownership/publication repair,
+documented in
+[the frontend artifact remediation handoff](frontend-artifact-publication-remediation-handoff.md).
+Its actual implementation baseline was clean `main` at
+`c36eef239a7e93e490dda5cea670eb3a5f6035fc`, after the user committed the Decision
+implementation. That commit, the empty index, and all application code, data,
+Decision/Task/Timeline semantics, and reviewed visuals remain unchanged by the
+harness repair. This section updates completion evidence only.
+
+The repair gives the bundle-security and embedded-asset consumers one declared
+frontend producer, rejects duplicate producer admission, publishes sealed
+artifacts through receipt-last readiness, and preserves normalized preparation
+failures. Focused graph/lifecycle/diagnostic and service/browser evidence passes;
+exact commands, owner decisions, changed harness paths, compatibility, and
+rollback are recorded in the linked handoff. No public application interface,
+storage, dependency, migration, or additional workbook seam was changed.
+
+Final coordinated verification:
+
+- `make frontend-artifact-consumer-check`: PASS 12/12 at
+  `.cartulary/test-results/20260911T130744Z-p14626`.
+- `make agent-finalize`: PASS 1/1 at
+  `.cartulary/test-results/20260911T130839Z-p46844`, before broader gates;
+  zero generated changes. `RESULTS_DIR` was unset, so retained-run maintenance
+  was skipped because earlier full evidence preceded the final test inputs.
+- All required type, import-boundary, lint, schema, generated-policy/drift, and
+  harness gates passed; their exact roots are in the linked FP-05 log.
+- First ordinary `make check`: PASS 834/834 units, 1222/1222 selected rows at
+  `.cartulary/test-results/20260911T131633Z-p12992`.
+- Second consecutive ordinary `make check`: PASS 834/834 units, 1222/1222
+  selected rows at `.cartulary/test-results/20260911T132122Z-p3018`.
+
+Both full manifests identify the same final executable source
+`sha256:ecffc356e71a3c08c4848b14233307338d6dd2a4efb9e8cbc7cf4ff32053b121`,
+normal cache mode, and no declared caller overrides. Each executed one production
+frontend producer, with both consumers admitted after completion. No executable
+source changed between these runs. A preceding unchanged Network Analysis focus
+test exceeded approximately its existing time limit; its owner slice and both
+final full checks passed without application, assertion, timeout, or capacity
+changes. That observation and the separate historical object-store timeout are
+retained, not claimed repaired by this seam.
+
+DS-05's binary exit is met. Final documentation, whitespace, branch/HEAD, index,
+and path-scope audits are repeated after this tracker edit using
+`make lint-markdown`, `git diff --check`, `git diff --cached --check`,
+`git diff --cached --quiet`, `git branch --show-current`, `git rev-parse HEAD`,
+and `git status --short`. The pre-completion audits passed. No commit, index
+rewrite, reset, push, deployment, analyst-data cleanup, or further refactor was
+performed or authorized by this completion.
 
 ## Compatibility and rollback
 

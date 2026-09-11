@@ -1143,13 +1143,28 @@ v3 inputs, and current commands MUST NOT read or translate them.
 
 Embedded web asset preparation is a build-artifact producer in the current profile. When the embedded output is consumed by Go `//go:embed`, the publisher MUST update the embedded source-tree artifact atomically from Go embed's point of view. It MUST NOT delete or rewrite a directory of hashed frontend assets in place while concurrently scheduled Go compilation can traverse that directory. Harness-only readiness stamps, cache records, and other operational metadata MUST remain outside the embedded content root unless the owning product spec explicitly makes that file served application content.
 
-Frontend builds MUST render each selected production or measurement profile in
-a unique current-run private staging directory. The producer MUST validate and
-seal the complete directory before browser admission. Compatible sessions in a
-run share that completed artifact; another build MUST NOT replace its bytes.
-Browser consumers MUST NOT copy or serve an actively mutable conventional build
-output. Conventional packaging outputs MAY be published from completed builds.
-An owned artifact remains available until all its browser consumers terminate;
+Frontend builds are shared build products for browser sessions, bundle-security
+checks, and embedded-asset preparation. Every selected consumer MUST depend on
+the exact profile's canonical producer, including shell rows, direct targets,
+owner slices, and aggregates. Command dependencies declared by the work-graph
+owner apply before graph union and deduplication. Graph-child consumers MUST
+resolve the completed artifact without executing target-local production
+prerequisites. Standalone frontend build and bundle-security commands MUST enter
+the same canonical graph. A skipped Make prerequisite MUST have its equivalent
+producer dependency represented in that graph.
+
+Each run/profile admits exactly one producer through an exclusive private-runtime
+claim acquired before compiler work. A second claim is
+`harness/scheduler_accounting_error` (exit 11), even after the first producer
+completed. It MUST NOT wait, rebuild, replace, or silently reuse a producer result.
+Consumers use artifact resolution instead. Frontend builds MUST render each
+selected production or measurement profile in a unique current-run private
+staging directory. The producer MUST validate and seal the complete directory
+before consumer admission. Compatible consumers in a run share that completed
+artifact; another build MUST NOT replace its bytes. Scheduled consumers MUST NOT
+copy, scan, or serve an actively mutable conventional build output. Conventional
+packaging outputs MAY be published from completed builds.
+An owned artifact remains available until all its consumers terminate;
 suite cleanup removes it on success, failure, or cancellation after consumer
 cleanup. Existing private-runtime containment, ownership, permission, and
 symlink-rejection rules apply. Production and measurement artifacts are distinct.
@@ -1164,6 +1179,31 @@ run-relative receipt and its digest plus the frontend content digest. Attachment
 MUST reject profile, producer, source, toolchain, receipt, or content mismatch
 before product work. Stack v6 is historical only; aliases and fallback readers
 are forbidden. A missing or invalid artifact is `artifact_error` (exit 11).
+
+The receipt MUST be atomically published last, after payload validation and
+sealing, and MUST NOT replace an existing receipt. Directory existence alone is
+not readiness. A crash before receipt publication leaves an unavailable artifact;
+same-run takeover, automatic retry, and partial-publication repair are forbidden.
+Producer success additionally requires completion of its conventional-output
+publication. Consumer admission requires a successful graph predecessor and a
+validated matching receipt and payload. Producer claims and incomplete private
+payloads remain owned by suite cleanup; cleanup MUST NOT affect another run.
+Production and measurement claims are independent. Compiler diagnostics map to
+`harness/tool_diagnostic_failure`; cancellation and timeout keep Section 9's
+normal classifications.
+
+The internal Make command `frontend-artifact-consumer-check`
+(`cartulary.harness.command.frontend_artifact_consumer_check.v1`) selects exactly
+the protocol browser-bundle boundary row and the browser frontend-artifact
+lifetime row in one canonical graph. It is implementation-support verification,
+not another product row or aggregate policy. Its authored work-graph recipe uses
+`selection=rows` and a nonempty sorted unique `row_ids` list; every ID MUST be an
+active catalog row before child work. Such a fixed-row recipe takes no caller
+selection override, and its direct graph equals compilation of its exact rows.
+Its run/unit/row/target artifacts, failure behavior, service ownership, and cleanup
+use the existing graph contract. It adds no public user inputs and is not
+implicitly included in aggregate policy; aggregates retain their existing
+tier-based selection of the constituent rows.
 
 Every cached Go binary whose transitive package closure consumes the embedded web asset root MUST depend on the complete embedded asset producer tuple before compilation starts and MUST include that root in its build-artifact cache key. The authored execution topology MUST represent the same dependency whenever the producer and consumer are scheduled together. A source-file-only key, ambient Make ordering, or concurrent publisher/consumer execution is not valid evidence for such a binary.
 
@@ -2612,7 +2652,8 @@ parity-checked with every harness-public row in this table.
 | `cartulary.test_services.journal_event.v1`      | `tools/schemas/cartulary.test_services.journal_event.v1.schema.json`      | present           | Service suite            | Before a completed producer journal record is collated. |
 | `cartulary.test_services.resource_ledger.v1`    | `tools/schemas/cartulary.test_services.resource_ledger.v1.schema.json`    | private           | Service suite            | Before exact owned-resource cleanup or stale recovery. |
 | `cartulary.test_services.browser_admission.v1`  | `tools/schemas/cartulary.test_services.browser_admission.v1.schema.json`  | present           | Browser session lifecycle | Before browser service admission is accepted. |
-| `cartulary.frontend_build_artifact.v1` | `tools/schemas/cartulary.frontend_build_artifact.v1.schema.json` | present | Frontend build producer | Before admitting a browser consumer. |
+| `cartulary.frontend_build_artifact.v1` | `tools/schemas/cartulary.frontend_build_artifact.v1.schema.json` | present | Frontend build producer | Before admitting any frontend artifact consumer. |
+| `cartulary.harness_command_failure.v1` | `tools/schemas/cartulary.harness_command_failure.v1.schema.json` | present | Private command failure channel | Before accepting invocation-scoped failure attribution; not a retained result. |
 | `cartulary.frontend_visual_capture_intent.v2` | `tools/schemas/cartulary.frontend_visual_capture_intent.v2.schema.json` | present | Visual capture helper | Before reconciliation accepts a capture. |
 | `cartulary.web_e2e_stack.v7`                    | `tools/schemas/cartulary.web_e2e_stack.v7.schema.json`                    | present           | Browser session lifecycle | Before browser target starts Playwright. |
 | `cartulary.web_e2e_backend_generation.v1`       | `tools/schemas/cartulary.web_e2e_backend_generation.v1.schema.json`       | present           | Browser reset lifecycle  | Before a replacement backend is attached. |
@@ -3251,6 +3292,29 @@ Scheduler summaries MUST propagate normalized failures from every completed fail
 Every failed retained summary that carries the standard failure fields MUST expose both a non-null `failure_class` and a non-null `failure_reason`. Passing summaries MUST expose no primary failure. A generic shell-wrapper exit such as `command exited with status 1` is diagnostic wrapper evidence when a tool runner has already emitted a classified failure for the same target; it MUST NOT become the primary failure or an independent primary harness failure.
 
 Post-summary scheduler validation failures, including scheduler event, timing, critical-path, summary, or accounting drift detected after child work has completed, MUST be normalized as `failure_class=harness`, `failure_reason=scheduler_accounting_error`, and public exit code `11`. They MUST NOT fall through as caller `configuration_error` merely because they are detected by the scheduler runner.
+
+Frontend producers and their artifact consumers MUST preserve normalized command
+failures across Make through `cartulary.harness_command_failure.v1`. This private
+diagnostic envelope contains exactly `schema_id`, `run_id`, `unit_id`,
+`command_id`, `invocation_id`, `failure_class`, and `failure_reason`. Class and
+reason use the existing Section 9 taxonomy. The parent allocates a unique private
+invocation identity and location inside the current suite runtime and validates
+the complete identity before accepting an envelope. It MUST reject malformed,
+conflicting, unsafe, or differently scoped envelopes as
+`harness/scheduler_accounting_error`. A success accompanied by a failure envelope
+is inconsistent and MUST fail. Timeout and cancellation remain parent-owned.
+This channel is diagnostic input only; the parent remains the sole canonical
+row/unit result writer. Shell adapters and executors MUST preserve a valid
+envelope ahead of their legacy fallback, without inferring its classification
+from arbitrary logs or Make's outer exit code. An absent envelope leaves other
+commands' existing fallback unchanged. No credentials, private locations,
+transport text, or payload data may appear in this envelope, which is removed
+with the private invocation/runtime rather than retained as another summary.
+The row-result v2 `failure_class` projection MUST admit the complete existing
+Section 9 class set, including artifact, config, security, timing, and unknown;
+it MUST NOT restrict shell attribution to the Go setup subset. Its identity and
+fields are unchanged. Envelope validation is not permission to bypass row or
+unit result validation.
 
 Failure classification uses two layers:
 

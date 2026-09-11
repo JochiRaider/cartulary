@@ -2,6 +2,8 @@
 
 import { spawnSync } from "node:child_process";
 import { resolveFrontendArtifact } from "../readiness/frontend-artifact.mjs";
+import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
+import { publicExitCodeForFailure } from "../contract/index.mjs";
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -331,4 +333,10 @@ async function main() {
   );
 }
 
-await main();
+try { await main(); }
+catch (error) {
+  if (!(error instanceof CommandFailure)) throw error;
+  const failure = reportCommandFailure(repositoryRoot, error, error);
+  process.stderr.write(`frontend artifact admission: ${error.message}\n`);
+  process.exitCode = publicExitCodeForFailure(failure);
+}

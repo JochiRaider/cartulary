@@ -5,7 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadTestCatalog, targetForCatalogRow } from "../../test-catalog/index.mjs";
-import { redactString, validateSchemaSync } from "../../contract/index.mjs";
+import { publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
+import { readCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
@@ -112,15 +113,7 @@ function canonicalFailure(result) {
     return {
       failure_class: result.failure_class,
       failure_reason: result.failure_reason,
-      exit_code: result.failure_class === "product"
-        ? 10
-        : result.failure_class === "infra"
-          ? 3
-          : result.failure_class === "interrupted"
-            ? 130
-            : result.failure_reason === "fixture_error"
-              ? 3
-              : 11,
+      exit_code: publicExitCodeForFailure(result),
     };
   }
   switch (result.terminal_state) {
@@ -169,6 +162,7 @@ async function main() {
   for (const [index, invocation] of invocations.entries()) {
     const execution = await execute(invocation, index);
     try {
+      if (rows[0].runner === "shell") execution.commandFailure = readCommandFailure(root);
       results.push(...await adapt(invocation, execution));
       if (execution.status !== 0) {
         if (execution.stdout) process.stderr.write(redactString(execution.stdout));
@@ -198,11 +192,7 @@ async function main() {
   const failures = results
     .filter((result) => result.terminal_state !== "passed")
     .map(canonicalFailure);
-  if (failures.some((failure) => failure.failure_class === "product")) return 10;
-  if (failures.some((failure) => failure.failure_class === "infra")) return 3;
-  if (failures.some((failure) => failure.failure_class === "interrupted")) return 130;
-  if (failures.some((failure) => failure.failure_reason === "fixture_error")) return 3;
-  return 11;
+  return publicExitCodeForFailures(failures);
 }
 
 try {

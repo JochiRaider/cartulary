@@ -268,6 +268,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_command_failure.v1",
+      "path": "tools/schemas/cartulary.harness_command_failure.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "private command failure channel",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_evidence_root_manifest.v1",
       "path": "tools/schemas/cartulary.harness_evidence_root_manifest.v1.schema.json",
       "classification": "public_contract",

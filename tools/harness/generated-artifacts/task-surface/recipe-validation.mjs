@@ -283,9 +283,16 @@ function recipeRequiresNodeRuntime(recipe) {
 }
 
 function validateWorkGraphRecipe({ errors, target, recipe, label }) {
-  if (!new Set(["target", "aggregate", "owner"]).has(recipe.selection)) {
-    errors.push(`${label}.selection must be target, aggregate, or owner`);
+  if (!new Set(["target", "aggregate", "owner", "rows"]).has(recipe.selection)) {
+    errors.push(`${label}.selection must be target, aggregate, owner, or rows`);
   }
+  if (recipe.selection === "rows") {
+    if (!Array.isArray(recipe.row_ids) || recipe.row_ids.length === 0 ||
+      recipe.row_ids.some((id) => typeof id !== "string" || !/^[a-z][a-z0-9_.]*$/u.test(id)) ||
+      JSON.stringify([...new Set(recipe.row_ids)].sort()) !== JSON.stringify(recipe.row_ids)) {
+      errors.push(`${label}.row_ids must be nonempty, sorted, unique semantic row IDs`);
+    }
+  } else if (recipe.row_ids !== undefined) errors.push(`${label}.row_ids requires selection=rows`);
   if (recipe.selection === "aggregate" && !new Set(["test-fast", "check", "test", "ci", "release-check"]).has(target)) {
     errors.push(`${label}.selection=aggregate is limited to aggregate roots`);
   }
