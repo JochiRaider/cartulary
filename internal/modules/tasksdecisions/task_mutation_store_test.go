@@ -320,3 +320,75 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 		}
 	}
 }
+
+func TestTaskLifecycleStatusMatrixAndExactReplay_Unit(t *testing.T) {
+	harness := appsupport.StartStore(t, "task-lifecycle-matrix")
+	owner := appsupport.NewTaskDecisionOwner(harness.DB, conflicttest.NewCodec("workbook"))
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-matrix@example.test", "Task Matrix", "TaskMatrix1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "task-matrix-incident", "IR-TASK-MATRIX", "Task lifecycle matrix")
+	statuses := []string{"open", "in_progress", "blocked", "done", "canceled"}
+	for _, from := range statuses {
+		for _, to := range statuses {
+			t.Run(from+"_to_"+to, func(t *testing.T) {
+				key := from + "-" + to
+				values := map[string]tasksdecisions.FieldValue{
+					"task.title": {Text: stringPtr(key)}, "task.task_kind": {Text: stringPtr("request")},
+					"task.status": {Text: stringPtr(from)},
+				}
+				if from == "blocked" {
+					values["task.blocked_reason"] = tasksdecisions.FieldValue{Text: stringPtr("Waiting")}
+				}
+				task := mustCreateTask(t, owner, actor, incident.ID, "create-"+key, values, nil)
+				if from == "done" || from == "canceled" {
+					// Represent a valid imported ownerless terminal Task. Creation
+					// defaults the owner and is outside this lifecycle seam.
+					if _, err := harness.DB.Exec(context.Background(), "UPDATE task_requests SET owner_user_id = NULL WHERE record_id = $1", task.RecordID); err != nil {
+						t.Fatal(err)
+					}
+				}
+				before := taskSnapshot(t, harness.DB, task.RecordID)
+				if (from == "done" || from == "canceled") && before.OwnerUserID.Valid {
+					t.Fatal("terminal fixture must be ownerless")
+				}
+				changes := []tasksdecisions.PatchChange{valueChange("task.status", tasksdecisions.FieldValue{Text: stringPtr(to)})}
+				if to == "blocked" {
+					changes = append(changes, valueChange("task.blocked_reason", tasksdecisions.FieldValue{Text: stringPtr("Waiting")}))
+				}
+				if (from == "done" || from == "canceled") && to != "done" && to != "canceled" {
+					changes = append(changes, valueChange("task.owner_user_id", tasksdecisions.FieldValue{UUID: &actor.ID}))
+				}
+				result, err := patchRecord(owner, actor, task.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "patch-"+key, changes...)
+				if (from == "done" && to == "canceled") || (from == "canceled" && to == "done") {
+					requireLifecycle(t, err)
+					requireTaskSnapshot(t, taskSnapshot(t, harness.DB, task.RecordID), before, key)
+					return
+				}
+				if err != nil {
+					t.Fatalf("legal Task transition rejected: %v", err)
+				}
+				after := taskSnapshot(t, harness.DB, task.RecordID)
+				if after.RowVersion != 2 || after.Status != to || result.ChangeSetID == uuid.Nil {
+					t.Fatalf("invalid receipt/state: %#v %#v", result, after)
+				}
+				if to != "blocked" && after.BlockedReason.Valid {
+					t.Fatal("reason was not cleared")
+				}
+				if (to == "done") != after.CompletedAt.Valid {
+					t.Fatal("completion was not normalized")
+				}
+				if to != "done" && to != "canceled" && !after.OwnerUserID.Valid {
+					t.Fatal("atomic reopening lost owner")
+				}
+				replay := mustPatch(t, owner, actor, task.RecordID, tasksdecisions.TaskRequestsViewSchemaID, 1, "patch-"+key, changes...)
+				if !replay.Replayed || replay.ChangeSetID != result.ChangeSetID {
+					t.Fatal("replay changed receipt")
+				}
+				requireTaskSnapshot(t, taskSnapshot(t, harness.DB, task.RecordID), after, "exact replay")
+				var count int
+				if err := harness.DB.QueryRow(context.Background(), `SELECT count(*) FROM change_sets WHERE incident_id = $1 AND client_txn_id = $2`, incident.ID, "patch-"+key).Scan(&count); err != nil || count != 1 {
+					t.Fatalf("duplicate change sets: %d %v", count, err)
+				}
+			})
+		}
+	}
+}

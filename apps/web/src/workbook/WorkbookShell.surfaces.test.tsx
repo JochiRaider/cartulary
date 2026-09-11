@@ -3106,7 +3106,7 @@ describe("WorkbookShell surface selection", () => {
         change_set_id: "30000000-0000-4000-8000-000000000001",
         row: {
           ...clearedTask,
-          record_id: "00000000-0000-4000-8000-000000004101",
+          record_id: "00000000-0000-4000-8000-000000000901",
         },
       }),
     );

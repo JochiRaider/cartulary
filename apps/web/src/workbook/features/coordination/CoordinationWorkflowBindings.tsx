@@ -1,143 +1,270 @@
-import { coordinationWorkflowTestId } from "@cartulary/ui-contracts";
-import type { ViewContract } from "@cartulary/view-contracts";
-import { genericRowLabel } from "../../models/genericWorkbookModel";
+import {
+  coordinationWorkflowTestId,
+  workbookInspectorFeatureActionTestId,
+} from "@cartulary/ui-contracts";
 import type {
-  CoordinationMutationCommandPort,
-  TaskLifecycleStatus,
-} from "../../mutations/workbookMutationCommandPorts";
-import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
+  InspectorDisabledCondition,
+  ViewContract,
+} from "@cartulary/view-contracts";
+import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
+import { admitCanonicalInspectorFeature } from "../../inspector/canonicalInspectorAdmission";
+import { workbookInspectorDisabledReason } from "../../inspector/presentation/workbookInspectorPresentationModel";
+import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import {
+  type TaskLifecycleDraftStore,
+  taskStatuses,
+  taskTransitionAllowed,
+  taskValue,
+} from "./taskLifecycleModel";
 import {
   type CoordinationWorkflowMutationPorts,
   useCoordinationWorkflowController,
 } from "./useCoordinationWorkflowController";
 
-function parseTaskLifecycleStatus(value: string): TaskLifecycleStatus | null {
-  switch (value) {
-    case "blocked":
-    case "canceled":
-    case "done":
-    case "in_progress":
-    case "open":
-      return value;
-  }
-  return null;
-}
-
-export function CoordinationWorkflowBindings({
-  contract,
-  disabled,
-  mutation,
-  mutationCommands,
-  ownerBindings,
-  resetKey,
-  rows,
-}: {
+export function CoordinationWorkflowBindings(props: {
   readonly contract: ViewContract;
   readonly disabled: boolean;
+  readonly currentIncidentRole: WorkbookIncidentRole | null;
+  readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
   readonly mutation: CoordinationWorkflowMutationPorts;
-  readonly mutationCommands: CoordinationMutationCommandPort;
-  readonly ownerBindings: readonly WorkbookOwnerBinding[];
-  readonly resetKey: string;
-  readonly rows: readonly WorkbookQueryRow[];
+  readonly drafts: TaskLifecycleDraftStore;
+  readonly row: WorkbookQueryRow;
+  readonly referenceOptions: GenericReferenceOptions;
 }) {
-  const workflow = useCoordinationWorkflowController({
-    mutation,
-    mutationCommands,
-    resetKey,
-    rows,
-  });
+  const feature = admitCanonicalInspectorFeature(
+    props.contract.inspectorConfig,
+    "task.status.transition",
+  );
+  if (
+    !feature ||
+    feature.panelId !== "workflow" ||
+    feature.routeBinding.kind !== "record_patch" ||
+    feature.routeBinding.owner !== "record_patch_route" ||
+    feature.requiresConfirmation
+  )
+    return null;
+  const disabledReason =
+    workbookInspectorDisabledReason({
+      currentIncidentRole: props.currentIncidentRole,
+      featureGroup: feature,
+      stateTokens: props.disabledTokens,
+    }) ??
+    (props.disabled
+      ? "Wait for the current workbook operation to finish."
+      : null);
+  return (
+    <TaskLifecycleEditor
+      {...props}
+      disabled={disabledReason !== null}
+      disabledReason={disabledReason}
+    />
+  );
+}
 
-  if (ownerBindings.includes("task_lifecycle") && rows.length > 0) {
-    return (
-      <div style={workflowRowStyle}>
+function TaskLifecycleEditor(
+  props: Parameters<typeof CoordinationWorkflowBindings>[0] & {
+    readonly disabledReason: string | null;
+  },
+) {
+  const editor = useCoordinationWorkflowController(props);
+  const status = editor.value("task.status");
+  const from = taskValue(props.row, "task.status");
+  const previous = props.mutation.explicitPatches
+    ?.getSnapshot()
+    .entries.filter(
+      (entry) => entry.intent.baseline.record_id === props.row.record_id,
+    )
+    .at(-1);
+  const errors = [
+    ...editor.errors,
+    ...(previous?.failure?.kind === "validation" &&
+    JSON.stringify(previous.intent.changes) === JSON.stringify(editor.changes)
+      ? (previous.failure.fields ?? [])
+      : []),
+  ];
+  const fieldError = (field: string) => (
+    <span id={`task-error-${field}`}>
+      {errors
+        .filter((error) => error.field === field)
+        .map((error) => error.message)
+        .join(" ")}
+    </span>
+  );
+  return (
+    <fieldset
+      disabled={props.disabled}
+      style={groupStyle}
+      aria-label="Task status transition"
+    >
+      <legend>Task status</legend>
+      <p style={textStyle}>Saved status: {from}</p>
+      {props.disabledReason ? (
+        <p style={textStyle}>{props.disabledReason}</p>
+      ) : null}
+      <label style={labelStyle}>
+        Status
         <select
-          aria-label="Task lifecycle row"
-          data-testid={coordinationWorkflowTestId("task-target")}
-          style={selectStyle}
-          value={workflow.lifecycle.recordId}
-          onChange={(event) =>
-            workflow.lifecycle.setRecordId(event.target.value)
-          }
+          id={`task-lifecycle-${props.row.record_id}-task.status`}
+          aria-label="Task lifecycle status"
+          aria-describedby="task-transition-guidance task-error-task.status"
+          data-testid={coordinationWorkflowTestId("task-status")}
+          style={inputStyle}
+          value={status}
+          onChange={(event) => editor.update("task.status", event.target.value)}
         >
-          <option value="">Task</option>
-          {rows.map((row) => (
-            <option key={row.record_id} value={row.record_id}>
-              {genericRowLabel(contract, row)}
+          {taskStatuses.map((next) => (
+            <option
+              key={next}
+              value={next}
+              disabled={!taskTransitionAllowed(from, next)}
+            >
+              {next}
             </option>
           ))}
         </select>
+        {fieldError("task.status")}
+      </label>
+      <p id="task-transition-guidance" style={textStyle}>
+        {from === "done" || from === "canceled"
+          ? `Reopen to open, in_progress, or blocked. ${from === "done" ? "Canceled" : "Done"} is unavailable until reopened.`
+          : "Active Tasks can move between open, in_progress, and blocked, or finish as done or canceled."}
+      </p>
+      <label style={labelStyle}>
+        Owner
         <select
-          aria-label="Task lifecycle status"
-          data-testid={coordinationWorkflowTestId("task-status")}
-          style={selectStyle}
-          value={workflow.lifecycle.status}
-          onChange={(event) => {
-            const status = parseTaskLifecycleStatus(event.target.value);
-            if (status !== null) workflow.lifecycle.setStatus(status);
-          }}
-        >
-          <option value="open">open</option>
-          <option value="in_progress">in_progress</option>
-          <option value="blocked">blocked</option>
-          <option value="done">done</option>
-          <option value="canceled">canceled</option>
-        </select>
-        <input
-          aria-label="Blocked reason"
-          data-testid={coordinationWorkflowTestId("task-blocked-reason")}
-          disabled={workflow.lifecycle.status !== "blocked"}
+          id={`task-lifecycle-${props.row.record_id}-task.owner_user_id`}
+          aria-label="Task lifecycle owner"
+          aria-describedby="task-error-task.owner_user_id"
+          value={editor.value("task.owner_user_id")}
           style={inputStyle}
-          type="text"
-          value={workflow.lifecycle.blockedReason}
           onChange={(event) =>
-            workflow.lifecycle.setBlockedReason(event.target.value)
+            editor.update("task.owner_user_id", event.target.value)
           }
-        />
-        <button
-          data-testid={coordinationWorkflowTestId("task-submit")}
-          disabled={disabled}
-          style={actionButtonStyle}
-          type="button"
-          onClick={() => void workflow.lifecycle.submit()}
         >
-          Apply task status
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+          <option value="">Select an incident member</option>
+          {editor.value("task.owner_user_id") &&
+          !props.referenceOptions.incidentMembers.some(
+            (member) => member.recordId === editor.value("task.owner_user_id"),
+          ) ? (
+            <option value={editor.value("task.owner_user_id")}>
+              {editor.value("task.owner_user_id")}
+            </option>
+          ) : null}
+          {props.referenceOptions.incidentMembers.map((member) => (
+            <option key={member.recordId} value={member.recordId}>
+              {member.label}
+              {props.referenceOptions.incidentMembers.filter(
+                (other) => other.label === member.label,
+              ).length > 1
+                ? ` (${member.recordId})`
+                : ""}
+            </option>
+          ))}
+        </select>
+        {fieldError("task.owner_user_id")}
+      </label>
+      {status === "blocked" ? (
+        <label style={labelStyle}>
+          Blocked reason
+          <input
+            id={`task-lifecycle-${props.row.record_id}-task.blocked_reason`}
+            aria-label="Blocked reason"
+            aria-describedby="task-error-task.blocked_reason"
+            data-testid={coordinationWorkflowTestId("task-blocked-reason")}
+            style={inputStyle}
+            value={editor.value("task.blocked_reason")}
+            onChange={(event) =>
+              editor.update("task.blocked_reason", event.target.value)
+            }
+          />
+          {fieldError("task.blocked_reason")}
+        </label>
+      ) : null}
+      {status === "done" ? (
+        <label style={labelStyle}>
+          Completion time (optional when entering done)
+          <input
+            id={`task-lifecycle-${props.row.record_id}-task.completed_at`}
+            aria-label="Task completion time"
+            aria-describedby="task-completion-guidance task-error-task.completed_at"
+            style={inputStyle}
+            value={editor.value("task.completed_at")}
+            placeholder="2026-09-11T12:00:00Z"
+            onChange={(event) =>
+              editor.update("task.completed_at", event.target.value)
+            }
+          />
+          <span id="task-completion-guidance">
+            Leave empty when entering done to use the server commit time. An
+            explicit time must include a timezone and cannot precede creation.
+          </span>
+          {fieldError("task.completed_at")}
+        </label>
+      ) : null}
+      {from === "blocked" && status !== "blocked" ? (
+        <p style={textStyle}>The saved blocked reason will be cleared.</p>
+      ) : null}
+      {from === "done" && status !== "done" ? (
+        <p style={textStyle}>The saved completion time will be cleared.</p>
+      ) : null}
+      {editor.staleFields.map((field) => (
+        <div key={field} role="status">
+          Saved {props.contract.fieldMap[field]?.label ?? field} changed to{" "}
+          {taskValue(props.row, field) || "empty"}. Your draft is retained.
+          <button type="button" onClick={() => editor.review(field, false)}>
+            Use saved {props.contract.fieldMap[field]?.label}
+          </button>
+          <button type="button" onClick={() => editor.review(field, true)}>
+            Keep draft {props.contract.fieldMap[field]?.label}
+          </button>
+        </div>
+      ))}
+      <button
+        data-testid={workbookInspectorFeatureActionTestId(
+          props.contract.viewSchemaId,
+          "task.status.transition",
+        )}
+        disabled={
+          props.disabled ||
+          editor.errors.length > 0 ||
+          editor.staleFields.length > 0
+        }
+        style={buttonStyle}
+        type="button"
+        onClick={() => void editor.submit()}
+      >
+        Apply task status
+      </button>
+    </fieldset>
+  );
 }
-
-const workflowRowStyle = {
+const groupStyle = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gap: "0.6rem",
-  alignItems: "stretch",
+  gap: "var(--ct-spacing-sm)",
+  minWidth: 0,
+  margin: 0,
+  padding: 0,
+  border: 0,
 };
-
+const labelStyle = { display: "grid", gap: "var(--ct-spacing-xs)" };
+const textStyle = { margin: 0, color: "var(--ct-colors-ink-muted)" };
 const inputStyle = {
   boxSizing: "border-box" as const,
-  display: "block",
   minWidth: 0,
   width: "100%",
+  padding: "var(--ct-spacing-xs)",
   borderRadius: "var(--ct-component-text-input-rounded)",
   border: "var(--ct-component-text-input-border)",
   background: "var(--ct-component-text-input-backgroundColor)",
-  padding: "0.65rem 0.75rem",
-  font: "inherit",
   color: "var(--ct-component-text-input-textColor)",
+  font: "inherit",
 };
-
-const selectStyle = { ...inputStyle, appearance: "auto" as const };
-
-const actionButtonStyle = {
+const buttonStyle = {
+  padding: "var(--ct-spacing-xs)",
   borderRadius: "var(--ct-component-button-secondary-rounded)",
   border: "var(--ct-component-button-secondary-border)",
   background: "var(--ct-colors-surface-3)",
   color: "var(--ct-component-button-secondary-textColor)",
-  padding: "0.55rem 0.9rem",
   font: "inherit",
-  cursor: "pointer",
 };

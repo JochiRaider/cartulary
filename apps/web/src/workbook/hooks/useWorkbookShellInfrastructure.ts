@@ -7,6 +7,8 @@ import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookInciden
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookStartupAdapter } from "../adapters/createWorkbookStartupAdapter";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
+import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import { createRecordPatchTransport } from "../adapters/workbookRecordPatchTransport";
 import { createWorkbookMutationCommandPorts } from "../mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../mutations/secureTransactionId";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
@@ -106,6 +108,16 @@ export function useWorkbookShellInfrastructure({
         onIncidentAccessLost,
       ),
     [apiBase, incidentId, mutationRuntime, onIncidentAccessLost],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.explicitPatches.configure(
+        createRecordPatchTransport(
+          createWorkbookOperationExecutor({ apiBase }),
+        ),
+        onIncidentAccessLost,
+      ),
+    [apiBase, mutationRuntime, onIncidentAccessLost],
   );
   const clipboardPastePort = useMemo(
     () =>

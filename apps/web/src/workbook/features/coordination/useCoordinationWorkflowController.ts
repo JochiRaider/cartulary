@@ -1,106 +1,74 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
-import { normalizeGenericTextValue } from "../../models/genericWorkbookModel";
-import type {
-  CoordinationMutationCommandPort,
-  TaskLifecycleStatus,
-} from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import {
+  type TaskLifecycleDraftStore,
+  taskDraftStaleFields,
+  taskLifecycleChanges,
+  taskPatchErrors,
+  taskValue,
+  taskViewId,
+} from "./taskLifecycleModel";
 
-export type CoordinationWorkflowMutationPorts = Pick<
-  GenericSurfaceMutationController,
-  | "beginMutation"
-  | "completeGenericMutation"
-  | "rejectMutationFailure"
-  | "setValidationError"
->;
+export type CoordinationWorkflowMutationPorts = Partial<
+  Pick<GenericSurfaceMutationController, "explicitPatches">
+> &
+  Pick<
+    GenericSurfaceMutationController,
+    "beginMutation" | "completeGenericMutation" | "submitPatchMutation"
+  >;
 
 export function useCoordinationWorkflowController({
   mutation,
-  mutationCommands,
-  resetKey,
-  rows,
+  drafts,
+  row,
+  disabled,
 }: {
   readonly mutation: CoordinationWorkflowMutationPorts;
-  readonly mutationCommands: CoordinationMutationCommandPort;
-  readonly resetKey: string;
-  readonly rows: readonly WorkbookQueryRow[];
+  readonly drafts: TaskLifecycleDraftStore;
+  readonly row: WorkbookQueryRow;
+  readonly disabled: boolean;
 }) {
-  const [lifecycleRecordId, setLifecycleRecordId] = useState("");
-  const [lifecycleStatus, setLifecycleStatus] =
-    useState<TaskLifecycleStatus>("blocked");
-  const [lifecycleBlockedReason, setLifecycleBlockedReason] = useState("");
-  const generationRef = useRef(0);
-
-  useEffect(() => {
-    void resetKey;
-    generationRef.current += 1;
-    setLifecycleRecordId("");
-    setLifecycleStatus("blocked");
-    setLifecycleBlockedReason("");
-  }, [resetKey]);
-
-  useEffect(
-    () => () => {
-      generationRef.current += 1;
-    },
-    [],
-  );
-
-  const submitLifecyclePatch = useCallback(async () => {
-    const target = rows.find((row) => row.record_id === lifecycleRecordId);
-    if (!target) {
-      mutation.setValidationError("Select a task row.");
+  useSyncExternalStore(drafts.subscribe, drafts.getSnapshot);
+  const submitting = useRef(false);
+  const draft = drafts.read(row);
+  const changes = taskLifecycleChanges(draft, row);
+  const errors = taskPatchErrors(row, changes);
+  const staleFields = taskDraftStaleFields(draft, row);
+  const value = (field: string) => draft.values[field] ?? taskValue(row, field);
+  const submit = async () => {
+    if (
+      disabled ||
+      submitting.current ||
+      errors.length > 0 ||
+      staleFields.length > 0
+    )
       return;
-    }
-    let blockedReason: string | undefined;
-    if (lifecycleStatus === "blocked") {
-      const reason = normalizeGenericTextValue(lifecycleBlockedReason);
-      if (reason === "") {
-        mutation.setValidationError("Blocked tasks need a reason.");
-        return;
-      }
-      blockedReason = reason;
-    }
-    const generation = generationRef.current;
+    submitting.current = true;
     const finish = mutation.beginMutation();
     try {
-      const result = await mutationCommands.updateTaskLifecycle({
-        baseRowVersion: target.row_version,
-        blockedReason,
-        recordId: target.record_id,
-        status: lifecycleStatus,
+      const accepted = await mutation.submitPatchMutation({
+        baseRowVersion: row.row_version,
+        changes,
+        purpose: "task-lifecycle",
+        recordId: row.record_id,
+        viewSchemaId: taskViewId,
+        baseline: row,
       });
-      if (generationRef.current !== generation) return;
-      if (result.kind === "rejected") {
-        mutation.rejectMutationFailure(result.failure);
-        return;
-      }
-      if (lifecycleStatus !== "blocked") {
-        setLifecycleBlockedReason("");
-      }
-      await mutation.completeGenericMutation();
+      if (accepted) drafts.clear(row.record_id);
     } finally {
+      submitting.current = false;
       finish();
     }
-  }, [
-    lifecycleBlockedReason,
-    lifecycleRecordId,
-    lifecycleStatus,
-    mutation,
-    mutationCommands,
-    rows,
-  ]);
-
+  };
   return {
-    lifecycle: {
-      blockedReason: lifecycleBlockedReason,
-      recordId: lifecycleRecordId,
-      setBlockedReason: setLifecycleBlockedReason,
-      setRecordId: setLifecycleRecordId,
-      setStatus: setLifecycleStatus,
-      status: lifecycleStatus,
-      submit: submitLifecyclePatch,
-    },
+    value,
+    changes,
+    errors,
+    staleFields,
+    submit,
+    update: (field: string, next: string) => drafts.update(row, field, next),
+    review: (field: string, keepDraft: boolean) =>
+      drafts.review(row, field, keepDraft),
   };
 }

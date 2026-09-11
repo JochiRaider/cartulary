@@ -2,6 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decisionReview } from "../../testing/decisionSupersessionTestSupport";
 import { mergeReview } from "../../testing/entityMergeTestSupport";
+import { taskRow } from "../../testing/taskWorkbookTestSupport";
 import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
@@ -236,11 +237,15 @@ describe("semantic mutation command ports", () => {
         supportRecordIds: ["evidence-1"],
       },
     });
-    await commands.coordination.updateTaskLifecycle({
+    await commands.generic.patchRecord({
       baseRowVersion: 7,
-      blockedReason: "Waiting for owner",
+      purpose: "task-lifecycle",
+      viewSchemaId: "cartulary.view.task_requests.v1",
+      changes: [
+        { field_key: "task.status", value: "blocked" },
+        { field_key: "task.blocked_reason", value: "Waiting for owner" },
+      ],
       recordId: "task-2",
-      status: "blocked",
     });
 
     expect(requestBodies(fetchMock)).toEqual([
@@ -273,7 +278,7 @@ describe("semantic mutation command ports", () => {
       {
         view_schema_id: "cartulary.view.task_requests.v1",
         base_row_version: 7,
-        client_txn_id: "task-lifecycle-id",
+        client_txn_id: "task-lifecycle-cartulary.view.task_requests.v1-id",
         changes: [
           { field_key: "task.status", value: "blocked" },
           {
@@ -296,11 +301,7 @@ describe("semantic mutation command ports", () => {
           JSON.stringify({
             data: {
               change_set_id: "00000000-0000-4000-8000-000000000510",
-              row: {
-                cells: {},
-                record_id: taskRecordId,
-                row_version: 8,
-              },
+              row: taskRow(8, "done"),
               view_schema_id: "cartulary.view.task_requests.v1",
             },
             meta: { request_id: "request-task" },
@@ -351,17 +352,18 @@ describe("semantic mutation command ports", () => {
     });
 
     await expect(
-      commands.coordination.updateTaskLifecycle({
+      commands.generic.patchRecord({
         baseRowVersion: 7,
         recordId: taskRecordId,
-        status: "done",
+        purpose: "task-lifecycle",
+        viewSchemaId: "cartulary.view.task_requests.v1",
+        changes: [{ field_key: "task.status", value: "done" }],
       }),
     ).resolves.toEqual({
       kind: "accepted",
       value: {
         changeSetId: "00000000-0000-4000-8000-000000000510",
-        row: { cells: {}, record_id: taskRecordId, row_version: 8 },
-        status: "done",
+        row: taskRow(8, "done"),
         viewSchemaId: "cartulary.view.task_requests.v1",
       },
     });

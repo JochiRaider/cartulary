@@ -63,22 +63,6 @@ export type EvidenceAttachOutcome =
 export type EvidenceHandleOutcome =
   WorkbookOperationOutcome<EvidenceHandleAccepted>;
 
-export type TaskLifecycleStatus =
-  | "open"
-  | "in_progress"
-  | "blocked"
-  | "done"
-  | "canceled";
-
-export type TaskLifecycleAccepted = {
-  readonly changeSetId: string;
-  readonly row: WorkbookQueryRow;
-  readonly status: TaskLifecycleStatus;
-  readonly viewSchemaId: string;
-};
-
-export type TaskLifecycleOutcome =
-  WorkbookOperationOutcome<TaskLifecycleAccepted>;
 export interface TimelineMutationIdentityPort {
   createLogicalActionId(): string;
   createConflictRecoveryId(): string;
@@ -198,15 +182,6 @@ export interface EvidenceCapabilityPort {
   }): Promise<EvidenceHandleOutcome>;
 }
 
-export interface CoordinationMutationCommandPort {
-  updateTaskLifecycle(input: {
-    readonly baseRowVersion: number;
-    readonly blockedReason?: string | undefined;
-    readonly recordId: string;
-    readonly status: TaskLifecycleStatus;
-  }): Promise<TaskLifecycleOutcome>;
-}
-
 type IndicatorObservationListResponse =
   WorkbookOperationResponse<"listIndicatorObservations">;
 type IndicatorLifecycleListResponse =
@@ -294,6 +269,5 @@ export type WorkbookMutationCommandPorts = {
   readonly entity: EntityMutationCommandPort;
   readonly assessment: AssessmentMutationCommandPort;
   readonly evidence: EvidenceCapabilityPort;
-  readonly coordination: CoordinationMutationCommandPort;
   readonly indicators: IndicatorWorkflowPort;
 };

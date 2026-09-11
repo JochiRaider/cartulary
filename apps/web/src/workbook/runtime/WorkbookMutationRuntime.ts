@@ -1,9 +1,11 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { type SheetRef, sheetRefKey } from "../../shared/sheetRef";
+import { normalizeRecordMutationRow } from "../adapters/workbookRecordPatchTransport";
 import {
   type DecisionSupersessionReview,
   decisionViewId,
 } from "../features/coordination/decisionSupersessionModel";
+import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import { WorkbookDecisionSupersessionOwner } from "../features/coordination/WorkbookDecisionSupersessionOwner";
 import type { EntityMergeReview } from "../features/entities/entityMergeReview";
 import { WorkbookEntityMergeOwner } from "../features/entities/WorkbookEntityMergeOwner";
@@ -28,6 +30,7 @@ import {
   type WorkbookConflictRegistration,
   type WorkbookConflictStore,
 } from "./WorkbookConflictStore";
+import { WorkbookExplicitPatchOwner } from "./WorkbookExplicitPatchOwner";
 import {
   createWorkbookManagedPatchDriver,
   type WorkbookManagedPatchDriver,
@@ -107,6 +110,10 @@ export type WorkbookEditRecoveryActionResult =
  * scheduling, transaction ledger, and save-state projection.
  */
 export class WorkbookMutationRuntime {
+  readonly explicitPatches: WorkbookExplicitPatchOwner;
+  get taskDrafts() {
+    return this.explicitPatches.drafts;
+  }
   readonly scope: PendingReplayScope;
   readonly history: WorkbookRecordHistoryOwner;
   readonly entityMerge: WorkbookEntityMergeOwner;
@@ -142,6 +149,19 @@ export class WorkbookMutationRuntime {
     dependencies: WorkbookRuntimeDependencies = browserWorkbookRuntimeDependencies,
   ) {
     this.scope = { ...scope };
+    this.explicitPatches = new WorkbookExplicitPatchOwner(
+      scope.incidentId,
+      transactionIds,
+      {
+        coordinate: (recordId, signal) =>
+          this.coordinateTaskPatch(recordId, signal),
+        registerConflict: (input) => {
+          this.registerConflict(input);
+        },
+        accepted: (row) =>
+          this.history.acceptVersion(row.record_id, row.row_version),
+      },
+    );
     this.entityMerge = new WorkbookEntityMergeOwner(
       scope.incidentId,
       transactionIds,
@@ -172,7 +192,8 @@ export class WorkbookMutationRuntime {
       undefined,
       (recordId) =>
         !this.entityMerge.blocksRecord(recordId) &&
-        !this.decisionSupersession.blocksRecord(recordId),
+        !this.decisionSupersession.blocksRecord(recordId) &&
+        !this.explicitPatches.blocksRecord(recordId),
     );
     this.transactionIds = transactionIds;
     this.pendingMutationPort = pendingMutationPort;
@@ -206,6 +227,7 @@ export class WorkbookMutationRuntime {
       throw new Error("managed-patch mutation driver registration failed");
     }
     this.snapshot = this.calculateSnapshot();
+    this.explicitPatches.subscribe(() => this.emit());
     this.history.subscribe(() => {
       for (const entry of this.history.getSnapshot()) {
         const receipt = entry.receipt;
@@ -214,6 +236,11 @@ export class WorkbookMutationRuntime {
           entityViewSchemas.has(entry.attempt.subject.viewSchemaId)
         )
           this.entityMerge.acceptVersion(receipt.recordId, receipt.rowVersion);
+        if (receipt && entry.attempt.subject.viewSchemaId === taskViewId)
+          this.explicitPatches.acceptVersion(
+            receipt.recordId,
+            receipt.rowVersion,
+          );
         if (receipt && entry.attempt.subject.viewSchemaId === decisionViewId)
           this.decisionSupersession.acceptVersion(
             receipt.recordId,
@@ -294,6 +321,60 @@ export class WorkbookMutationRuntime {
         return true;
       }
       await new Promise<void>((resolve) => window.setTimeout(resolve, 16));
+    }
+    return false;
+  }
+
+  private async coordinateTaskPatch(
+    recordId: string,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    let waited = false;
+    while (!signal.aborted && !this.lifecycle.disposed) {
+      const queue = this.pendingRuntime.model.snapshot();
+      if (
+        queue.authPaused ||
+        queue.halted ||
+        queue.overflow ||
+        queue.sameFieldConflicts.length ||
+        this.conflicts
+          .entries()
+          .some((entry) => entry.conflict.record_id === recordId)
+      )
+        return false;
+      const history = this.history
+        .getSnapshot()
+        .filter((entry) => entry.attempt.subject.recordId === recordId);
+      if (
+        history.some(
+          (entry) =>
+            entry.phase === "uncertain" ||
+            (entry.phase === "acknowledged" &&
+              entry.reconciliation === "required"),
+        )
+      )
+        return false;
+      const direct = [...this.entityWrites.values()].some((target) =>
+        target.recordIds.includes(recordId),
+      );
+      const pending =
+        queue.units.some((unit) => unit.recordId === recordId) ||
+        direct ||
+        history.some(
+          (entry) =>
+            entry.transportPending ||
+            entry.phase === "preparing" ||
+            entry.phase === "submitting" ||
+            (entry.phase === "acknowledged" &&
+              entry.reconciliation !== "complete"),
+        );
+      if (!pending) {
+        if (waited || this.surfaces.requiresRefresh(taskViewId))
+          await this.surfaces.refreshRequired(taskViewId);
+        return !signal.aborted;
+      }
+      waited = true;
+      await new Promise<void>((resolve) => setTimeout(resolve, 16));
     }
     return false;
   }
@@ -403,11 +484,13 @@ export class WorkbookMutationRuntime {
         this.explicitInFlightCount +
         this.history.pendingCount +
         this.entityMerge.pendingCount +
-        this.decisionSupersession.pendingCount,
+        this.decisionSupersession.pendingCount +
+        this.explicitPatches.pendingCount,
       explicitRecoveryBlocked:
         this.history.blockedCount > 0 ||
         this.entityMerge.blockedCount > 0 ||
-        this.decisionSupersession.blockedCount > 0,
+        this.decisionSupersession.blockedCount > 0 ||
+        this.explicitPatches.blockedCount > 0,
       queue: this.pendingRuntime.model.snapshot(),
       refreshes: Array.from(this.refreshStatusBySheet.values()),
     });
@@ -442,6 +525,11 @@ export class WorkbookMutationRuntime {
   ): ReturnType<WorkbookPendingMutationPort["execute"]> {
     this.ledger.remember(input.unit.clientTxnId);
     return this.pendingMutationPort.execute(input).then((outcome) => {
+      if (
+        outcome.kind === "accepted" &&
+        outcome.value.viewSchemaId === taskViewId
+      )
+        this.explicitPatches.acceptRow(outcome.value.row);
       if (
         outcome.kind === "accepted" &&
         entityViewSchemas.has(outcome.value.viewSchemaId)
@@ -517,6 +605,15 @@ export class WorkbookMutationRuntime {
   }
 
   enqueuePatch(request: WorkbookQueuedPatchRequest): GridEditCommitOutcome {
+    if (
+      request.viewSchemaId === taskViewId &&
+      this.explicitPatches.blocksRecord(request.recordId)
+    )
+      return {
+        kind: "rejected_mutation",
+        message:
+          "This Task has a pending explicit patch. Recover it in Task changes before editing.",
+      };
     if (this.entityMerge.blocksRecord(request.recordId))
       return {
         kind: "rejected_mutation",
@@ -542,6 +639,8 @@ export class WorkbookMutationRuntime {
   registerConflict({
     sheetRef,
     conflict,
+    compoundOperationId,
+    focusOrigin,
     focusKey = null,
     refresh,
     rowLabel,
@@ -551,6 +650,8 @@ export class WorkbookMutationRuntime {
     const entry = this.conflicts.register({
       sheetRef,
       conflict,
+      compoundOperationId,
+      focusOrigin,
       focusKey,
       refresh,
       rowLabel,
@@ -648,6 +749,8 @@ export class WorkbookMutationRuntime {
   }): Promise<string | null> {
     const entry = this.conflicts.get(key);
     if (entry === undefined) return "The conflict is no longer available.";
+    if (entry.compoundOperationId && resolutionKind !== "keep_saved")
+      return "Keep saved, then submit the complete retained Task draft. Partial lifecycle conflict application is unavailable.";
     const releaseRecord =
       entry.origin.viewSchemaId === decisionViewId
         ? this.beginDecisionWrite([entry.conflict.record_id])
@@ -692,6 +795,8 @@ export class WorkbookMutationRuntime {
           });
           this.conflicts.replace({
             ...refreshedEntry,
+            compoundOperationId: entry.compoundOperationId,
+            focusOrigin: entry.focusOrigin,
             mergedDraft: entry.mergedDraft,
           });
           this.emit();
@@ -730,6 +835,19 @@ export class WorkbookMutationRuntime {
           entry.conflict.record_id,
           resolvedRow.row_version,
         );
+      if (entry.origin.viewSchemaId === taskViewId) {
+        const accepted = normalizeRecordMutationRow(
+          resolvedRow,
+          taskViewId,
+          entry.conflict.record_id,
+        );
+        if (accepted) this.explicitPatches.acceptRow(accepted);
+        this.explicitPatches.conflictResolved(
+          entry.conflict.record_id,
+          resolutionKind,
+          accepted ?? undefined,
+        );
+      }
       this.clearConflict(key);
       const applyResolvedMutation = this.surfaces.applyResolvedMutation(
         entry.origin.viewSchemaId,
@@ -759,6 +877,7 @@ export class WorkbookMutationRuntime {
       this.history.suspend();
       this.entityMerge.suspend();
       this.decisionSupersession.suspend();
+      this.explicitPatches.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
       this.emit();
       return;
@@ -784,6 +903,7 @@ export class WorkbookMutationRuntime {
       if (this.lifecycle.disposed) return;
       this.entityLifetimeRetired = true;
       this.entityWrites.clear();
+      this.explicitPatches.retire();
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
@@ -812,6 +932,7 @@ export class WorkbookMutationRuntime {
     if (reason.kind === "incident_changed") {
       this.entityLifetimeRetired = true;
       this.entityWrites.clear();
+      this.explicitPatches.retire();
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
@@ -822,6 +943,7 @@ export class WorkbookMutationRuntime {
     this.history.suspend();
     this.entityMerge.suspend();
     this.decisionSupersession.suspend();
+    this.explicitPatches.suspend();
     this.applyAuthorizationRecoveryState("paused");
   }
 
@@ -863,6 +985,16 @@ export class WorkbookMutationRuntime {
     key: string,
     entry: WorkbookConflictEntry,
   ): Promise<string | null> {
+    if (entry.compoundOperationId) {
+      try {
+        await this.surfaces.refreshRequired(entry.origin.viewSchemaId);
+      } catch {
+        return "The expired conflict needs a current query. Your complete Task draft is retained.";
+      }
+      this.clearConflict(key);
+      this.explicitPatches.conflictResolved(entry.conflict.record_id);
+      return null;
+    }
     const refresh = this.conflicts.refresh(key);
     if (refresh === undefined) return "invalid_mutation_payload";
     let outcome: WorkbookOperationOutcome<unknown>;
@@ -889,6 +1021,8 @@ export class WorkbookMutationRuntime {
     });
     this.conflicts.replace({
       ...refreshedEntry,
+      compoundOperationId: entry.compoundOperationId,
+      focusOrigin: entry.focusOrigin,
       mergedDraft: entry.mergedDraft,
     });
     this.emit();

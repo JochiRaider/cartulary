@@ -36,6 +36,8 @@ type WorkbookCollectionAction =
   WorkbookProtocolCollectionActions["actions"][number];
 
 export type WorkbookConflictEntry = {
+  readonly compoundOperationId?: string | undefined;
+  readonly focusOrigin?: "grid" | "inspector" | undefined;
   readonly key: string;
   readonly conflict: WorkbookSameFieldConflictPayload;
   readonly resolutionClass: WorkbookConflictResolutionClass;
@@ -74,6 +76,8 @@ export function workbookConflictQueueKey(
 }
 
 export function workbookConflictEntry({
+  compoundOperationId,
+  focusOrigin,
   conflict,
   focusKey = null,
   rowLabel,
@@ -81,6 +85,8 @@ export function workbookConflictEntry({
   viewSchemaId,
   sheetRef,
 }: {
+  readonly compoundOperationId?: string | undefined;
+  readonly focusOrigin?: "grid" | "inspector" | undefined;
   readonly conflict: WorkbookSameFieldConflictPayload;
   readonly focusKey?: string | null | undefined;
   readonly rowLabel: string;
@@ -89,6 +95,8 @@ export function workbookConflictEntry({
   readonly sheetRef?: SheetRef | undefined;
 }): WorkbookConflictEntry {
   return {
+    compoundOperationId,
+    focusOrigin,
     key: workbookConflictQueueKey(conflict),
     conflict,
     resolutionClass: conflict.conflict_resolution_class,

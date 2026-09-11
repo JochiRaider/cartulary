@@ -10,6 +10,7 @@ import {
 } from "../collaboration/workbookSurfacePort";
 import { decisionViewId } from "../features/coordination/decisionSupersessionModel";
 import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
+import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -17,6 +18,7 @@ import {
 } from "../models/workbookGridState";
 import type { WorkbookQueryState } from "../models/workbookQuery";
 import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 import type { WorkbookViewQueryPort } from "./WorkbookViewQueryPort";
 import {
@@ -27,6 +29,7 @@ import {
 import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 export type GenericSurfaceQueryInput = {
+  readonly taskOwner?: WorkbookExplicitPatchOwner | undefined;
   readonly decisionOwner?: DecisionSupersessionOwnerPort | undefined;
   readonly active: boolean;
   readonly contract: ViewContract;
@@ -38,6 +41,7 @@ export type GenericSurfaceQueryInput = {
 
 export function useGenericSurfaceQuery({
   decisionOwner,
+  taskOwner,
   active,
   contract,
   onIncidentAccessLost,
@@ -112,7 +116,11 @@ export function useGenericSurfaceQuery({
         return;
       }
       const decision =
-        viewSchemaId === decisionViewId ? decisionOwner : undefined;
+        viewSchemaId === taskViewId
+          ? taskOwner
+          : viewSchemaId === decisionViewId
+            ? decisionOwner
+            : undefined;
       if (
         decision &&
         result.value.rows.some(
@@ -125,7 +133,7 @@ export function useGenericSurfaceQuery({
           failure: {
             kind: "stale_target" as const,
             message:
-              "The Decision query is older than an accepted change. Refresh current Decisions.",
+              "The query is older than an accepted change. Refresh current rows.",
           },
         };
         setLoadState({ kind: "stale_error", message: failure.failure.message });
@@ -133,8 +141,10 @@ export function useGenericSurfaceQuery({
           requireWorkbookSurfaceAcceptance(failure);
         return;
       }
-      const nextRows = [...result.value.rows].map(
-        (row) => decision?.acceptRow(row) ?? row,
+      const nextRows = [...result.value.rows].map((row) =>
+        viewSchemaId === taskViewId
+          ? (taskOwner?.observeQuery(row) ?? row)
+          : (decision?.acceptRow(row) ?? row),
       );
       rowsRef.current = nextRows;
       setRows(nextRows);
@@ -150,6 +160,7 @@ export function useGenericSurfaceQuery({
       viewQuery,
       viewSchemaId,
       decisionOwner,
+      taskOwner,
     ],
   );
 
@@ -179,7 +190,11 @@ export function useGenericSurfaceQuery({
       }
 
       const decision =
-        viewSchemaId === decisionViewId ? decisionOwner : undefined;
+        viewSchemaId === taskViewId
+          ? taskOwner
+          : viewSchemaId === decisionViewId
+            ? decisionOwner
+            : undefined;
       if (patch.rowVersion < (decision?.latestVersion(patch.recordId) ?? 0))
         return { kind: "stale" };
       const current = rowsRef.current;
@@ -196,8 +211,32 @@ export function useGenericSurfaceQuery({
       setRows(next);
       return { kind: "applied" };
     },
-    [contract, viewSchemaId, decisionOwner],
+    [contract, viewSchemaId, decisionOwner, taskOwner],
   );
+
+  useEffect(() => {
+    if (!taskOwner || !active || viewSchemaId !== taskViewId) return;
+    return taskOwner.subscribe(() => {
+      if (!taskOwner.getSnapshot().authority) {
+        clearRows();
+        return;
+      }
+      const current = rowsRef.current;
+      let changed = false;
+      const next = current.map((row) => {
+        const accepted = taskOwner.latestRow(row.record_id);
+        if (accepted && accepted.row_version > row.row_version) {
+          changed = true;
+          return accepted;
+        }
+        return row;
+      });
+      if (changed) {
+        rowsRef.current = next;
+        setRows(next);
+      }
+    });
+  }, [active, clearRows, taskOwner, viewSchemaId]);
 
   const invalidate = useCallback(
     (reason: WorkbookQueryInvalidationReason) => {

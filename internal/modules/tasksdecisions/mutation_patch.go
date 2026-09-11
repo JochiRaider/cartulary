@@ -121,7 +121,11 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if !changed {
+	// A guard-valid Task lifecycle in-state write is an admitted mutation.
+	// Keep ordinary revision/idempotency/publication handling below; this does
+	// not change Decision or unrelated no-effective-change admission.
+	lifecycleWrite := request.ViewSchemaID == TaskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.owner_user_id", "task.blocked_reason", "task.completed_at")
+	if !changed && !lifecycleWrite {
 		return MutationResult{}, &ValidationError{Field: "changes", ReasonCode: "no_effective_change"}
 	}
 	rowVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, command.RecordID, command.ActorUserID, command.Now.UTC())

@@ -24,6 +24,7 @@ type WorkbookSurfaceRegistration = {
 export class WorkbookSurfaceRegistry {
   readonly #registrations = new Map<string, WorkbookSurfaceRegistration>();
   readonly #dirtySurfaces = new Set<string>();
+  readonly #refreshing = new Map<string, Promise<void>>();
   readonly #onDebtChanged: () => void;
 
   constructor(onDebtChanged: () => void) {
@@ -43,9 +44,8 @@ export class WorkbookSurfaceRegistry {
       refresh,
       restoreConflictFocus: restoreConflictFocus ?? null,
     });
-    if (this.#dirtySurfaces.delete(viewSchemaId)) {
-      void Promise.resolve(refresh()).catch(() => {
-        this.#dirtySurfaces.add(viewSchemaId);
+    if (this.#dirtySurfaces.has(viewSchemaId)) {
+      void this.refreshRequired(viewSchemaId).catch(() => {
         this.#onDebtChanged();
       });
     }
@@ -68,17 +68,41 @@ export class WorkbookSurfaceRegistry {
     return this.#registrations.get(viewSchemaId)?.restoreConflictFocus ?? null;
   }
 
-  async refresh(viewSchemaId: string): Promise<void> {
+  requiresRefresh(viewSchemaId: string): boolean {
+    return (
+      this.#refreshing.has(viewSchemaId) ||
+      this.#dirtySurfaces.has(viewSchemaId)
+    );
+  }
+  async refreshRequired(viewSchemaId: string): Promise<void> {
+    const pending = this.#refreshing.get(viewSchemaId);
+    if (pending) return pending;
     const refresh = this.#registrations.get(viewSchemaId)?.refresh;
-    if (refresh === undefined) {
+    if (!refresh) {
       this.#dirtySurfaces.add(viewSchemaId);
-      return;
+      throw new Error("The originating surface needs a refresh.");
     }
+    const running = Promise.resolve()
+      .then(refresh)
+      .then(() => {
+        this.#dirtySurfaces.delete(viewSchemaId);
+      })
+      .catch((error: unknown) => {
+        this.#dirtySurfaces.add(viewSchemaId);
+        throw error;
+      })
+      .finally(() => {
+        if (this.#refreshing.get(viewSchemaId) === running)
+          this.#refreshing.delete(viewSchemaId);
+      });
+    this.#refreshing.set(viewSchemaId, running);
+    return running;
+  }
+  async refresh(viewSchemaId: string): Promise<void> {
     try {
-      await refresh();
-      this.#dirtySurfaces.delete(viewSchemaId);
+      await this.refreshRequired(viewSchemaId);
     } catch {
-      this.#dirtySurfaces.add(viewSchemaId);
+      /* Refresh debt is retained for ordinary autosave recovery. */
     }
   }
 }

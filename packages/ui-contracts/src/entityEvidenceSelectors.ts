@@ -53,9 +53,7 @@ export type CoordinationWorkflowSelector =
   | "party-partial-completion"
   | "party-retry-created-link"
   | "task-blocked-reason"
-  | "task-status"
-  | "task-submit"
-  | "task-target";
+  | "task-status";
 
 export const entityTypes = [
   "host",
@@ -107,8 +105,6 @@ const coordinationWorkflowTestIds = Object.freeze({
   "party-retry-created-link": "party-link-retry-created",
   "task-blocked-reason": "task-lifecycle-blocked-reason",
   "task-status": "task-lifecycle-status",
-  "task-submit": "task-lifecycle-submit",
-  "task-target": "task-lifecycle-target",
 } satisfies Record<CoordinationWorkflowSelector, string>);
 
 export function entityMergeControlTestId(

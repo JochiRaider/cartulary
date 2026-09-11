@@ -2,7 +2,6 @@ import type {
   ApplyWorkbookBulkMutationRequest,
   IssueEvidenceDownloadHandleRequest,
   IssueEvidencePreviewHandleRequest,
-  PatchRecordRequest,
 } from "@cartulary/protocol-ts/http";
 import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence";
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
@@ -19,7 +18,6 @@ import {
 } from "../models/workbookRequestDecoders";
 import {
   assessmentsViewSchemaId,
-  taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
@@ -35,7 +33,6 @@ import type {
   EntityCreateOutcome,
   EntityPatchOutcome,
   GenericViewMutationAccepted,
-  TaskLifecycleOutcome,
   TimelineFillOutcome,
   WorkbookMutationCommandPorts,
 } from "./workbookMutationCommandPorts";
@@ -234,38 +231,6 @@ function normalizeAssessmentCreateOutcome(
       changeSetId: outcome.value.data.change_set_id,
       row: outcome.value.data.row,
       viewSchemaId: outcome.value.data.view_schema_id,
-    },
-  };
-}
-
-function normalizeTaskLifecycleOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: GenericViewMutationAccepted["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-  expectedRecordId: string,
-  status: Parameters<
-    WorkbookMutationCommandPorts["coordination"]["updateTaskLifecycle"]
-  >[0]["status"],
-): TaskLifecycleOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  const data = outcome.value.data;
-  if (
-    data.view_schema_id !== taskRequestsViewSchemaId ||
-    data.row.record_id !== expectedRecordId
-  ) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: data.change_set_id,
-      row: data.row,
-      status,
-      viewSchemaId: data.view_schema_id,
     },
   };
 }
@@ -539,35 +504,6 @@ export function createWorkbookMutationCommandPorts(
             previewKind: outcome.value.data.preview_kind ?? null,
           },
         };
-      },
-    },
-    coordination: {
-      async updateTaskLifecycle(input) {
-        const clientTxnId = createId(context.transactionIds, "task-lifecycle");
-        if (clientTxnId === null) return operationIdentityFailure();
-        const changes: PatchRecordRequest["changes"] = [
-          { field_key: "task.status", value: input.status },
-        ];
-        if (input.status === "blocked") {
-          changes.push({
-            field_key: "task.blocked_reason",
-            value: input.blockedReason,
-          });
-        }
-        return normalizeTaskLifecycleOutcome(
-          await operations.execute({
-            operationID: "patchRecord",
-            pathParameters: { record_id: input.recordId },
-            request: {
-              view_schema_id: taskRequestsViewSchemaId,
-              base_row_version: input.baseRowVersion,
-              client_txn_id: clientTxnId,
-              changes,
-            } satisfies PatchRecordRequest,
-          }),
-          input.recordId,
-          input.status,
-        );
       },
     },
   };

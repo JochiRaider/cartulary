@@ -308,7 +308,7 @@ export function WorkbookSameFieldConflictResolver({
               data-testid={workbookConflictControlTestId(
                 "use-server-suggestion",
               )}
-              disabled={submitting}
+              disabled={submitting || !!conflict.compoundOperationId}
               onClick={() =>
                 mutationRuntime.updateConflictDraft(
                   conflict.key,
@@ -351,6 +351,14 @@ export function WorkbookSameFieldConflictResolver({
           {message}
         </p>
       ) : null}
+      {conflict.compoundOperationId ? (
+        <p role="status">
+          This field belongs to a complete Task lifecycle draft. Keep saved to
+          clear the conflict without a revision, then review and submit the
+          retained draft together. Applying one field could omit a required
+          owner or reason.
+        </p>
+      ) : null}
       <div style={buttonRowStyle}>
         <button
           data-testid={workbookConflictControlTestId("keep-saved")}
@@ -359,12 +367,12 @@ export function WorkbookSameFieldConflictResolver({
           style={destructiveButtonStyle}
           type="button"
         >
-          Discard local draft
+          {conflict.compoundOperationId ? "Keep saved" : "Discard local draft"}
         </button>
         {isCollection ? (
           <button
             data-testid={workbookConflictControlTestId("apply-collection")}
-            disabled={submitting}
+            disabled={submitting || !!conflict.compoundOperationId}
             onClick={() => void submit("merged_value")}
             style={secondaryButtonStyle}
             type="button"
@@ -375,7 +383,7 @@ export function WorkbookSameFieldConflictResolver({
           <>
             <button
               data-testid={workbookConflictControlTestId("use-unsaved")}
-              disabled={submitting}
+              disabled={submitting || !!conflict.compoundOperationId}
               onClick={() => void submit("use_unsaved")}
               style={secondaryButtonStyle}
               type="button"
@@ -384,7 +392,7 @@ export function WorkbookSameFieldConflictResolver({
             </button>
             <button
               data-testid={workbookConflictControlTestId("use-merged")}
-              disabled={submitting}
+              disabled={submitting || !!conflict.compoundOperationId}
               onClick={() => void submit("merged_value")}
               style={secondaryButtonStyle}
               type="button"
@@ -395,7 +403,7 @@ export function WorkbookSameFieldConflictResolver({
         ) : (
           <button
             data-testid={workbookConflictControlTestId("use-unsaved")}
-            disabled={submitting}
+            disabled={submitting || !!conflict.compoundOperationId}
             onClick={() => void submit("use_unsaved")}
             style={secondaryButtonStyle}
             type="button"

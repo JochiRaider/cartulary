@@ -67,6 +67,50 @@
       ]
     },
     {
+      "row_id": "module.tasksdecisions.browser.task_lifecycle_patch_recovery",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.revisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_0f8c4922bdb6",
+          "scenario_151ce99e162a",
+          "scenario_4ab4b6db0d1a",
+          "scenario_588bb54ce1d0",
+          "scenario_7e871a2717f4"
+        ],
+        "titles": [
+          "Task lifecycle binds selected rows and atomically blocks completes and reopens",
+          "Task lifecycle compound conflicts keep saved without losing the atomic draft",
+          "Task lifecycle recovers a malformed success and retries failed refresh without patching",
+          "Task lifecycle replays a lost committed receipt without another version or change set",
+          "Task lifecycle replays a precommit loss with its exact request"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.browser",
@@ -201,8 +245,12 @@
       "selector": {
         "file": "apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.test.tsx",
         "titles": [
+          "admits one selected Task editor with role gates and no confirmation",
+          "initializes Task lifecycle from its saved state",
           "makes late coordination outcomes inert after lifecycle invalidation",
-          "preserves Task lifecycle coordination independently of Decision supersession"
+          "preserves Task lifecycle coordination independently of Decision supersession",
+          "preserves drafts until changed guard siblings are explicitly reviewed",
+          "validates all Task status pairs and resulting lifecycle guards"
         ]
       },
       "evidence_class": "unit",
@@ -400,6 +448,7 @@
           "TestStoredMutationOperationMismatchRejectedBeforeSourceMutation_Unit",
           "TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit",
           "TestTaskLifecycleGuardFailures_Unit",
+          "TestTaskLifecycleStatusMatrixAndExactReplay_Unit",
           "TestTaskRequestLifecycleDecisionLinksAndProjection_Unit"
         ]
       },

@@ -14,14 +14,17 @@ import {
   errorResponse,
   jsonResponse,
 } from "../../testing/fetchMockTestSupport";
+import { taskAuthority, taskRow } from "../../testing/taskWorkbookTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
+import { taskViewId } from "../features/coordination/taskLifecycleModel";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
   evidenceViewSchemaId,
   findingsViewSchemaId,
   notesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import { useGenericSurfaceQuery } from "./useGenericSurfaceQuery";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 
@@ -374,4 +377,64 @@ describe("useGenericSurfaceQuery", () => {
     rendered.unmount();
     expect(pendingSignal?.aborted).toBe(true);
   });
+});
+
+it("fences Task committed rows across receipts queries and filtered departures", async () => {
+  const owner = new WorkbookExplicitPatchOwner(
+    taskAuthority.incidentId,
+    { create: () => "query-test-id" },
+    {
+      coordinate: async () => true,
+      registerConflict: () => {},
+      accepted: () => {},
+    },
+  );
+  owner.setAuthority(taskAuthority);
+  const initial = taskRow();
+  const sibling = {
+    ...taskRow(),
+    record_id: "00000000-0000-4000-8000-000000000411",
+  };
+  let responseRows: readonly WorkbookQueryRow[] = [initial, sibling];
+  const query = vi.fn(async () => ({
+    kind: "accepted" as const,
+    value: { rows: responseRows, incidentId, viewSchemaId: taskViewId },
+  }));
+  const { result } = renderHook(() =>
+    useGenericSurfaceQuery({
+      taskOwner: owner,
+      active: true,
+      contract: requireViewContract(taskViewId),
+      onIncidentAccessLost: undefined,
+      queryState: emptyWorkbookQueryState(),
+      viewQuery: { query },
+      viewSchemaId: taskViewId,
+    }),
+  );
+  await act(async () => result.current.refresh());
+  const untouched = result.current.rows[1];
+  act(() => {
+    owner.acceptRow(taskRow(9, "done"));
+  });
+  expect(result.current.rows[0]?.row_version).toBe(9);
+  expect(result.current.rows[1]).toBe(untouched);
+  await act(async () => {
+    await expect(
+      result.current.refresh({ requireAcceptance: true }),
+    ).rejects.toThrow();
+  });
+  expect(result.current.rows[0]?.row_version).toBe(9);
+  responseRows = [sibling];
+  await act(async () => result.current.refresh({ requireAcceptance: true }));
+  expect(result.current.rows).toEqual([sibling]);
+  expect(owner.latestRow(initial.record_id)?.cells["task.status"]?.value).toBe(
+    "done",
+  );
+  act(() => {
+    owner.acceptRow(taskRow(8, "blocked"));
+  });
+  expect(result.current.rows).toEqual([sibling]);
+  expect(owner.latestVersion(initial.record_id)).toBe(9);
+  act(() => owner.suspend());
+  expect(result.current.rows).toEqual([]);
 });

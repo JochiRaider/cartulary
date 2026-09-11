@@ -119,6 +119,7 @@ import {
   workbookEditRecoveryRetryButtonTestId,
   workbookEditRecoveryTestId,
   workbookFocusAnchorTestId,
+  workbookInspectorFeatureActionTestId,
   workbookPresenceSummaryTestId,
 } from "./index";
 
@@ -593,8 +594,6 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
           "party-retry-created-link",
           "task-blocked-reason",
           "task-status",
-          "task-submit",
-          "task-target",
         ] as const
       ).map((selector) => coordinationWorkflowTestId(selector)),
     ).toEqual([
@@ -613,9 +612,20 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
       "party-link-retry-created",
       "task-lifecycle-blocked-reason",
       "task-lifecycle-status",
-      "task-lifecycle-submit",
-      "task-lifecycle-target",
     ]);
+    expect(
+      workbookInspectorFeatureActionTestId(
+        "cartulary.view.task_requests.v1",
+        "task.status.transition",
+      ),
+    ).toBe(
+      "cartulary.view.task_requests.v1-inspector-feature-action-task.status.transition",
+    );
+    for (const retired of ["task-submit", "task-target"]) {
+      expect(() => coordinationWorkflowTestId(retired as never)).toThrow(
+        `Invalid coordination workflow selector token: ${retired}`,
+      );
+    }
     expect(() => coordinationWorkflowTestId("party-delete" as never)).toThrow(
       "Invalid coordination workflow selector token: party-delete",
     );

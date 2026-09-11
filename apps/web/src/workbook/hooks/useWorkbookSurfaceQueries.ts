@@ -20,6 +20,7 @@ import { useAssessmentSurfaceQuery } from "../query/useAssessmentSurfaceQuery";
 import { useEntitySurfaceQuery } from "../query/useEntitySurfaceQuery";
 import { useGenericSurfaceQuery } from "../query/useGenericSurfaceQuery";
 import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
+import type { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import type { WorkbookSurfacesFacadeProps } from "../surfaces/WorkbookSurfacesFacade";
 
@@ -29,6 +30,7 @@ type QueryStateOwner = {
 };
 
 type WorkbookSurfaceQueriesOptions = {
+  readonly taskOwner?: WorkbookExplicitPatchOwner;
   readonly decisionOwner?: DecisionSupersessionOwnerPort;
   readonly activeContract: ViewContract;
   readonly assessment: QueryStateOwner;
@@ -45,6 +47,7 @@ type WorkbookSurfaceQueriesOptions = {
 
 /** Owns loading, invalidation, and collaboration projection for query surfaces. */
 export function useWorkbookSurfaceQueries({
+  taskOwner,
   decisionOwner,
   activeContract,
   assessment,
@@ -79,6 +82,7 @@ export function useWorkbookSurfaceQueries({
     surface !== identitiesViewSchemaId &&
     surface !== assessmentsViewSchemaId;
   const genericQuery = useGenericSurfaceQuery({
+    taskOwner,
     decisionOwner,
     active: genericSurfaceActive,
     contract: activeContract,

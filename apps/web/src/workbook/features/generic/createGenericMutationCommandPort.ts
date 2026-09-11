@@ -1,8 +1,11 @@
 import type { WorkbookOperationExecutor } from "../../adapters/workbookOperationContract";
 import type { WorkbookProtocolCreateViewRowRequest } from "../../adapters/workbookProtocolTypes";
+import {
+  captureRecordPatch,
+  createRecordPatchTransport,
+} from "../../adapters/workbookRecordPatchTransport";
 import { extractEmailFromPartyText } from "../../models/genericWorkbookModel";
 import {
-  buildPatchRecordRequest,
   decodeCreateRecordLinkedNoteRequest,
   decodeCreateViewRowRequest,
 } from "../../models/workbookRequestDecoders";
@@ -146,20 +149,29 @@ export function createGenericMutationCommandPort(options: {
         if (clientTxnId === null) {
           return Promise.resolve(operationIdentityFailure());
         }
-        const request = buildPatchRecordRequest({
+        const request = captureRecordPatch({
+          recordId: input.recordId,
           baseRowVersion: input.baseRowVersion,
           changes: input.changes,
           clientTxnId,
           viewSchemaId: input.viewSchemaId,
         });
         if (request === null) return invalidOperationPayload();
-        const result = normalizeGenericMutationOutcome(
-          await options.operations.execute({
-            operationID: "patchRecord",
-            pathParameters: { record_id: input.recordId },
-            request,
-          }),
-        );
+        const outcome = await createRecordPatchTransport(
+          options.operations,
+        ).send(request, new AbortController().signal);
+        const result: GenericMutationOutcome =
+          outcome.kind === "acknowledged"
+            ? { kind: "accepted", value: outcome.receipt }
+            : outcome.kind === "rejected"
+              ? outcome
+              : {
+                  kind: "rejected",
+                  failure: {
+                    kind: "retryable",
+                    message: "The patch outcome could not be confirmed.",
+                  },
+                };
         if (result.kind === "accepted") boundary?.acceptRow(result.value.row);
         return result;
       } finally {

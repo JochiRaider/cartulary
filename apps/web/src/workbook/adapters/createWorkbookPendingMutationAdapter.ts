@@ -1,10 +1,7 @@
 import type { CreateViewRowResponse } from "@cartulary/protocol-ts/http";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
-import {
-  buildPatchRecordRequest,
-  decodeCreateViewRowRequest,
-} from "../models/workbookRequestDecoders";
+import { decodeCreateViewRowRequest } from "../models/workbookRequestDecoders";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type {
@@ -14,6 +11,10 @@ import type {
 import type { PendingReplayUnitState } from "../utils/workbookPendingQueue";
 import { invalidWorkbookAdapterResult } from "./workbookAdapterResult";
 import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
+import {
+  acceptedRecordMutation,
+  captureRecordPatch,
+} from "./workbookRecordPatchTransport";
 
 const invalidMessage = "The Workbook mutation response was invalid.";
 
@@ -115,15 +116,17 @@ function executePatch(
   ) {
     return Promise.resolve(staleTargetResult());
   }
-  const request = buildPatchRecordRequest({
+  const captured = captureRecordPatch({
+    recordId: unit.recordId,
     baseRowVersion: committedRowVersion,
     changes: unit.identity.changes,
     clientTxnId: unit.clientTxnId,
     viewSchemaId: unit.viewSchemaId,
   });
-  if (request === null) {
+  if (captured === null) {
     return Promise.resolve(invalidMutationResult<CreateViewRowResponse>());
   }
+  const request = JSON.parse(captured.body);
   return operations.execute({
     observeTransport: observedTransport(unit, options.recordTiming),
     operationID: "patchRecord",
@@ -198,14 +201,14 @@ function normalizedAcceptedMutation(
   if (row === null || !rowCorrelatesToUnit(committedRowVersion, row, unit)) {
     return invalidMutationResult();
   }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: response.change_set_id,
-      row: { ...row, view_schema_id: unit.viewSchemaId },
-      viewSchemaId: response.view_schema_id,
-    },
-  };
+  const accepted = acceptedRecordMutation(
+    response,
+    unit.viewSchemaId,
+    unit.recordId ?? undefined,
+  );
+  return accepted
+    ? { kind: "accepted", value: accepted }
+    : invalidMutationResult();
 }
 
 export function createWorkbookPendingMutationAdapter(

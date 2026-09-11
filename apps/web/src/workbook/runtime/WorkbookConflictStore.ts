@@ -10,6 +10,8 @@ export type WorkbookConflictRefresh = () => Promise<
 >;
 
 export type WorkbookConflictRegistration = {
+  readonly compoundOperationId?: string | undefined;
+  readonly focusOrigin?: "grid" | "inspector" | undefined;
   readonly sheetRef?: SheetRef | undefined;
   readonly conflict: Parameters<typeof workbookConflictEntry>[0]["conflict"];
   readonly focusKey?: string | null | undefined;

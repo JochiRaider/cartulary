@@ -10,10 +10,12 @@ import {
   genericWorkbookTestId,
 } from "@cartulary/ui-contracts";
 import type {
+  InspectorDisabledCondition,
   ViewContract,
   ViewFieldContract,
 } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
+import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
 import { GenericMutationControl } from "../../components/GenericMutationControl";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import type { GenericCollectionMode } from "../../models/genericWorkbookModel";
@@ -63,6 +65,10 @@ export function GenericWorkbookInspectorPresentation({
 }
 
 type GenericWorkflowProps = {
+  readonly subjectRow: WorkbookQueryRow | null;
+  readonly currentIncidentRole: WorkbookIncidentRole | null;
+  readonly disabledTokens: ReadonlySet<InspectorDisabledCondition>;
+  readonly lifecycleDisabled: boolean;
   readonly canCreateRows: boolean;
   readonly contract: ViewContract;
   readonly createDraft: Record<string, string>;
@@ -119,15 +125,16 @@ function GenericWorkflow(props: GenericWorkflowProps) {
           Commit draft row
         </button>
       ) : null}
-      {props.subjectPresent ? (
+      {props.subjectRow ? (
         <CoordinationWorkflowBindings
           contract={props.contract}
-          disabled={props.mutation.mutationPending}
+          disabled={props.mutation.mutationPending || props.lifecycleDisabled}
           mutation={props.mutation}
-          mutationCommands={props.mutationCommands.coordination}
-          ownerBindings={props.ownerBindings}
-          resetKey={props.invalidationKey}
-          rows={props.rows}
+          drafts={props.mutation.taskDrafts}
+          row={props.subjectRow}
+          currentIncidentRole={props.currentIncidentRole}
+          disabledTokens={props.disabledTokens}
+          referenceOptions={props.referenceOptions}
         />
       ) : null}
     </>
@@ -166,6 +173,12 @@ function GenericDraftFields(props: GenericWorkflowProps) {
 }
 
 type GenericDetailsProps = {
+  readonly staleEditFields: readonly {
+    field: string;
+    label: string;
+    saved: string;
+  }[];
+  readonly reviewEditField: (field: string, keepDraft: boolean) => void;
   readonly collectionItems: readonly {
     readonly displayText: string;
     readonly itemRef: string;
@@ -191,7 +204,10 @@ function GenericDetails(props: GenericDetailsProps) {
   if (props.rows.length === 0 || props.selectedEdit.field === null) return null;
   const field = props.selectedEdit.field;
   return (
-    <div style={editRowStyle}>
+    <fieldset
+      disabled={props.mutationPending}
+      style={{ ...editRowStyle, border: 0, padding: 0, minWidth: 0 }}
+    >
       <select
         data-testid={genericEditRecordSelectTestId(props.contract.viewSchemaId)}
         style={selectStyle}
@@ -239,6 +255,7 @@ function GenericDetails(props: GenericDetailsProps) {
         </select>
       ) : null}
       <GenericMutationControl
+        id={`generic-edit-${props.selectedRecordId}-${field.fieldKey}`}
         collectionItems={props.collectionItems}
         collectionMode={props.collectionMode}
         field={field}
@@ -247,6 +264,24 @@ function GenericDetails(props: GenericDetailsProps) {
         value={props.editValue}
         onChange={props.setEditValue}
       />
+      {props.staleEditFields.map((field) => (
+        <div key={field.field} role="status">
+          Saved {field.label} changed to {field.saved || "empty"}. Your draft is
+          retained.
+          <button
+            type="button"
+            onClick={() => props.reviewEditField(field.field, false)}
+          >
+            Use saved {field.label}
+          </button>
+          <button
+            type="button"
+            onClick={() => props.reviewEditField(field.field, true)}
+          >
+            Keep draft {field.label}
+          </button>
+        </div>
+      ))}
       <button
         data-testid={genericEditSubmitTestId(props.contract.viewSchemaId)}
         disabled={props.mutationPending}
@@ -256,7 +291,7 @@ function GenericDetails(props: GenericDetailsProps) {
       >
         Update
       </button>
-    </div>
+    </fieldset>
   );
 }
 

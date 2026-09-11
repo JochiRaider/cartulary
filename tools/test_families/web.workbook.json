@@ -785,6 +785,41 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.explicit_task_patch_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookExplicitPatchOwner.test.ts",
+        "titles": [
+          "blocks replay on failed current requery and session replacement",
+          "classifies timeout and transport exceptions as uncertain without losing identity",
+          "coordinates disjoint writes but preserves drafts when guard siblings moved",
+          "keeps admitted Task work while detached and conceals it during session loss",
+          "registers the actual compound conflict field and retains full intent after Keep saved",
+          "reserves explicit Task patches synchronously outside the autosave queue",
+          "retains exact identity for precommit loss and committed lost responses",
+          "retains receipt before refresh and retries refresh without a mutation",
+          "validates complete ordinary patch receipts and treats malformed success as uncertain",
+          "waits for Task autosave receipt and refresh before explicit dispatch"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.extension_availability_lifecycle_792bc604af",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2376,6 +2411,7 @@
       "selector": {
         "file": "apps/web/src/workbook/query/useGenericSurfaceQuery.test.tsx",
         "titles": [
+          "fences Task committed rows across receipts queries and filtered departures",
           "useGenericSurfaceQuery allows a current Evidence read to finish when incident closure arrives during startup",
           "useGenericSurfaceQuery clears access-protected rows, stays idle while inactive, and aborts on teardown",
           "useGenericSurfaceQuery normalizes Notes rows and applies a newer sparse live patch",

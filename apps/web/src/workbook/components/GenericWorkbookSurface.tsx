@@ -14,7 +14,9 @@ import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   gridActionsHeaderTestId,
+  gridDataCellsSelector,
   gridGroupRowTestId,
+  gridSavedRowsSelector,
   gridShellTestId,
   workbookInlineDraftRowTestId,
 } from "@cartulary/ui-contracts";
@@ -40,6 +42,11 @@ import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
+import { TaskPatchRecovery } from "../features/coordination/TaskPatchRecovery";
+import {
+  taskPatchErrors,
+  taskViewId,
+} from "../features/coordination/taskLifecycleModel";
 import { useGenericWorkbookInspectorComposition } from "../features/generic/useGenericWorkbookInspectorComposition";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
@@ -47,6 +54,7 @@ import { useWorkbookSemanticGridFocus } from "../hooks/useWorkbookSemanticGridFo
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import {
   WorkbookSurfaceLayout,
+  workbookGridWithNoticeStyle,
   workbookSurfaceGridShellStyle,
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
@@ -112,7 +120,9 @@ export type ContractWorkbookSurfaceProps = {
   readonly sheetRef: SheetRef;
   readonly onClearFilters: () => void;
   readonly onIncidentAccessLost?: (() => void) | undefined;
-  readonly onRefresh: () => Promise<void> | void;
+  readonly onRefresh: (options?: {
+    readonly requireAcceptance?: boolean;
+  }) => Promise<void> | void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
   readonly rows: WorkbookQueryRow[];
@@ -183,11 +193,24 @@ export function ContractWorkbookSurface({
   const mutationController = useGenericSurfaceMutationController({
     mutationCommands: mutationCommands.generic,
     mutationRuntime,
-    onRefresh,
+    selectedRecordId: contract.viewSchemaId === taskViewId ? editRecordId : "",
+    onRefresh: () => onRefresh({ requireAcceptance: true }),
     refreshReferenceOptions,
     surfaceLabel: contract.title,
     sheetRef,
   });
+  useEffect(() => {
+    if (contract.viewSchemaId !== taskViewId) return;
+    return mutationRuntime.explicitPatches.registerRefresh(async () => {
+      await onRefresh({ requireAcceptance: true });
+      await refreshReferenceOptions();
+    });
+  }, [
+    contract.viewSchemaId,
+    mutationRuntime,
+    onRefresh,
+    refreshReferenceOptions,
+  ]);
   const { mutationPending, setValidationError } = mutationController;
   const sharedMutation = useWorkbookMutationRuntime(mutationRuntime, sheetRef);
   const collaboration = useWorkbookCollaborationCoordinator(
@@ -248,6 +271,10 @@ export function ContractWorkbookSurface({
           message:
             "Enter a valid value, or clear only a field that permits null.",
         };
+      }
+      if (contract.viewSchemaId === taskViewId) {
+        const error = taskPatchErrors(current, [change])[0];
+        if (error) return { kind: "validation_error", message: error.message };
       }
       return mutationRuntime.enqueuePatch({
         sheetRef,
@@ -431,13 +458,21 @@ export function ContractWorkbookSurface({
     viewSchemaId: surface,
   });
   continuityPortRef.current = genericFocus.port;
+  const inspectorConflictFocusRef = useRef(
+    genericInspector.restoreConflictFocus,
+  );
+  inspectorConflictFocusRef.current = genericInspector.restoreConflictFocus;
   useEffect(
     () =>
       mutationRuntime.registerSurface(
         contract.viewSchemaId,
-        onRefresh,
+        () => onRefresh({ requireAcceptance: true }),
         async (_payload, conflict) => {
-          await onRefresh();
+          await onRefresh({ requireAcceptance: true });
+          if (conflict.focusOrigin === "inspector") {
+            inspectorConflictFocusRef.current(conflict);
+            return;
+          }
           window.setTimeout(() => {
             genericFocus.port.focus({
               fieldKey: conflict.conflict.field_key,
@@ -447,6 +482,10 @@ export function ContractWorkbookSurface({
           }, 0);
         },
         (conflict) => {
+          if (conflict.focusOrigin === "inspector") {
+            inspectorConflictFocusRef.current(conflict);
+            return;
+          }
           window.setTimeout(() => {
             const anchor = {
               fieldKey: conflict.conflict.field_key,
@@ -659,6 +698,33 @@ export function ContractWorkbookSurface({
     visibleColumns: columns,
     viewSchemaId: surface,
   });
+  useEffect(() => {
+    void sharedMutation;
+    if (
+      contract.viewSchemaId !== taskViewId ||
+      !editRecordId ||
+      rows.some((row) => row.record_id === editRecordId)
+    )
+      return;
+    const completed = mutationRuntime.explicitPatches
+      .getSnapshot()
+      .entries.some(
+        (entry) =>
+          entry.receipt?.row.record_id === editRecordId &&
+          entry.reconciliation === "complete",
+      );
+    if (!completed) return;
+    setEditRecordId("");
+    genericFocus.port.clear();
+    gridHandleRef.current?.focusRoot();
+  }, [
+    contract.viewSchemaId,
+    editRecordId,
+    genericFocus.port,
+    mutationRuntime,
+    rows,
+    sharedMutation,
+  ]);
   return (
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
@@ -668,56 +734,100 @@ export function ContractWorkbookSurface({
         genericInspector.close();
       }}
       primaryGrid={
-        <GridViewport
-          blockSizing="fill"
-          style={gridShellStyle}
-          testId={gridShellTestId(surface)}
+        <div
+          onFocusCapture={(event) => {
+            // A retained grid caret can revisit the same Task after filter
+            // departure. Observe real focus through adapter-owned semantic
+            // identity even when its active-cell notification deduplicates.
+            if (
+              contract.viewSchemaId !== taskViewId ||
+              !(event.target instanceof HTMLElement)
+            )
+              return;
+            const cell = event.target.closest<HTMLElement>(
+              gridDataCellsSelector(),
+            );
+            const recordId = cell?.closest<HTMLElement>(gridSavedRowsSelector())
+              ?.dataset.gridRecordId;
+            const fieldKey = cell?.querySelector<HTMLElement>(
+              "[data-grid-field-key]",
+            )?.dataset.gridFieldKey;
+            if (
+              !cell ||
+              !event.currentTarget.contains(cell) ||
+              !recordId ||
+              !fieldKey ||
+              !rows.some((row) => row.record_id === recordId)
+            )
+              return;
+            setEditRecordId(recordId);
+            genericFocus.port.select({
+              recordId,
+              fieldKey,
+              viewSchemaId: contract.viewSchemaId,
+            });
+          }}
+          style={workbookGridWithNoticeStyle}
         >
-          <SemanticDataGrid
-            rowGutter={workbookPresenceRowGutter}
-            ref={registerGridHandle}
-            actionsColumn={rowActionsColumn}
-            columns={columns}
-            columnWidths={layoutState.columnWidths}
-            dataState={dataState}
-            density={density}
-            fillViewportInline={
-              genericInspector.ownerRecordActions.hasRecordActions
-            }
-            draftRow={gridDraftRow}
-            grouping={grouping}
-            interactionMode={interactionMode}
-            onActiveCellChange={(anchor) => {
-              const recordId =
-                anchor?.rowIdentity.kind === "core_record"
-                  ? anchor.rowIdentity.recordId
-                  : null;
-              if (recordId !== null) {
-                setEditRecordId(recordId);
+          <div>
+            {contract.viewSchemaId === taskViewId ? (
+              <TaskPatchRecovery
+                owner={mutationRuntime.explicitPatches}
+                rows={rows}
+              />
+            ) : null}
+          </div>
+          <GridViewport
+            blockSizing="fill"
+            style={gridShellStyle}
+            testId={gridShellTestId(surface)}
+          >
+            <SemanticDataGrid
+              rowGutter={workbookPresenceRowGutter}
+              ref={registerGridHandle}
+              actionsColumn={rowActionsColumn}
+              columns={columns}
+              columnWidths={layoutState.columnWidths}
+              dataState={dataState}
+              density={density}
+              fillViewportInline={
+                genericInspector.ownerRecordActions.hasRecordActions
               }
-              if (recordId === null || anchor === null) {
-                genericFocus.port.clear();
-              } else {
-                genericFocus.port.select({
-                  fieldKey: anchor.fieldKey,
+              draftRow={gridDraftRow}
+              grouping={grouping}
+              interactionMode={interactionMode}
+              onActiveCellChange={(anchor) => {
+                const recordId =
+                  anchor?.rowIdentity.kind === "core_record"
+                    ? anchor.rowIdentity.recordId
+                    : null;
+                if (recordId !== null) {
+                  setEditRecordId(recordId);
+                }
+                if (recordId === null || anchor === null) {
+                  genericFocus.port.clear();
+                } else {
+                  genericFocus.port.select({
+                    fieldKey: anchor.fieldKey,
+                    recordId,
+                    viewSchemaId: contract.viewSchemaId,
+                  });
+                }
+                collaborationProjection.publishFocusedCell(
                   recordId,
-                  viewSchemaId: contract.viewSchemaId,
-                });
-              }
-              collaborationProjection.publishFocusedCell(
-                recordId,
-                anchor?.fieldKey ?? null,
-              );
-            }}
-            onColumnReorder={onColumnReorder}
-            onColumnWidthChange={onColumnWidthChange}
-            clipboardPaste={clipboardPaste}
-            onSortChange={onSortChange}
-            dataRows={gridRecordRows}
-            sort={queryState.sort}
-            surface={{ kind: "view_schema", viewSchemaId: surface }}
-          />
-        </GridViewport>
+                  anchor?.fieldKey ?? null,
+                );
+              }}
+              onColumnReorder={onColumnReorder}
+              onColumnWidthChange={onColumnWidthChange}
+              clipboardPaste={clipboardPaste}
+              onSortChange={onSortChange}
+              dataRows={gridRecordRows}
+              sort={queryState.sort}
+              surface={{ kind: "view_schema", viewSchemaId: surface }}
+            />
+          </GridViewport>
+        </div>
       }
       statusStrip={
         <WorkbookStatusStrip

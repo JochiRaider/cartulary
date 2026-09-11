@@ -234,6 +234,7 @@ function WorkbookShellContent({
             closed: incidentIdentity?.status !== "active",
           }
         : null;
+    infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.history.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.entityMerge.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.decisionSupersession.setAuthority(
@@ -249,6 +250,7 @@ function WorkbookShellContent({
   ]);
   useLayoutEffect(
     () => () => {
+      infrastructure.mutationRuntime.explicitPatches.suspend();
       infrastructure.mutationRuntime.history.suspend();
       infrastructure.mutationRuntime.entityMerge.suspend();
       infrastructure.mutationRuntime.decisionSupersession.suspend();
@@ -313,6 +315,7 @@ function WorkbookShellContent({
     onIncidentResourceObserved,
   ]);
   const queries = useWorkbookSurfaceQueries({
+    taskOwner: infrastructure.mutationRuntime.explicitPatches,
     decisionOwner: infrastructure.mutationRuntime.decisionSupersession,
     activeContract: snapshot.activeContract,
     assessment: {

@@ -418,3 +418,11 @@ const workbookSurfaceStatusStripStyle = {
   gridRow: 3,
   minBlockSize: "var(--ct-layout-statusStripHeight)",
 } satisfies CSSProperties;
+
+/** Retains a notice slot above the grid without taking over its scrollport. */
+export const workbookGridWithNoticeStyle = {
+  display: "grid",
+  gridTemplateRows: "auto minmax(0, 1fr)",
+  minHeight: 0,
+  height: "100%",
+} satisfies CSSProperties;

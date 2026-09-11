@@ -25,7 +25,6 @@ import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorC
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import type { WorkbookInspectorFeedback } from "../../inspector/workbookInspectorErrorModel";
 import { workbookInspectorLocalErrorPresentation } from "../../inspector/workbookInspectorErrorModel";
-
 import {
   buildWorkbookInspectorSubject,
   type WorkbookInspectorSubject,
@@ -46,6 +45,7 @@ import type { GenericReferenceOptions } from "../../models/workbookReferenceOpti
 import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import type { WorkbookConflictEntry } from "../../runtime/workbookConflictModel";
 import { DecisionSupersessionContext } from "../coordination/DecisionSupersessionContext";
 import { DecisionSupersessionEditor } from "../coordination/DecisionSupersessionEditor";
 import {
@@ -53,6 +53,12 @@ import {
   decisionViewId,
   reviewedDecision,
 } from "../coordination/decisionSupersessionModel";
+import {
+  taskFieldEqual,
+  taskGuardFields,
+  taskValue,
+  taskViewId,
+} from "../coordination/taskLifecycleModel";
 import { useEvidenceWorkbookBindings } from "../evidence/useEvidenceWorkbookBindings";
 import type { IndicatorInspectorHandler } from "../indicators/indicatorInspectorHandlers";
 import { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
@@ -143,8 +149,12 @@ export function useGenericWorkbookInspectorComposition({
     useState<WorkbookInspectorSubject | null>(null);
   const [relatedFeedback, setRelatedFeedback] =
     useState<WorkbookInspectorFeedback | null>(null);
+  const [conflictFocus, setConflictFocus] =
+    useState<WorkbookConflictEntry | null>(null);
   const [editFieldKey, setEditFieldKey] = useState("");
-  const [editValue, setEditValue] = useState("");
+  const [otherEditValue, setOtherEditValue] = useState("");
+  const inspectorDrafts = mutation.explicitPatches.inspectorDrafts;
+  useSyncExternalStore(inspectorDrafts.subscribe, inspectorDrafts.getSnapshot);
   const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
   const [indicatorInspectorHandler, setIndicatorInspectorHandler] =
     useState<IndicatorInspectorHandler | null>(null);
@@ -171,7 +181,7 @@ export function useGenericWorkbookInspectorComposition({
     actionPorts: {
       resetOwnerState: ({ cause, scope }) => {
         if (cause !== "retarget") resetEvidence.current();
-        setEditValue("");
+        setOtherEditValue("");
         setLinkedNoteSourceRecordId("");
         setEditCollectionMode("add");
         partyLinkExistingPartyIdForReset.current("");
@@ -190,6 +200,20 @@ export function useGenericWorkbookInspectorComposition({
   });
   const isOpen = workbookInspectorStateIsOpen(inspector.snapshot);
   const invalidationKey = `${contract.viewSchemaId}:${inspector.snapshot.invalidationGeneration}`;
+  useLayoutEffect(() => {
+    if (
+      !isOpen ||
+      !conflictFocus ||
+      subjectRow?.record_id !== conflictFocus.conflict.record_id
+    )
+      return;
+    const id = `${conflictFocus.compoundOperationId ? "task-lifecycle" : "generic-edit"}-${subjectRow.record_id}-${conflictFocus.conflict.field_key}`;
+    const control = document.getElementById(id);
+    if (control) {
+      control.focus({ preventScroll: true });
+      setConflictFocus(null);
+    }
+  }, [conflictFocus, isOpen, subjectRow]);
   const recordHistoryActions = useMemo(
     () => inspectorRecordHistoryActions(inspectorConfig),
     [inspectorConfig],
@@ -227,6 +251,36 @@ export function useGenericWorkbookInspectorComposition({
     recordId: selectedRecordId,
     rows,
   });
+  const taskEditRow =
+    contract.viewSchemaId === taskViewId ? selectedEdit.row : null;
+  const taskEditDraft = taskEditRow ? inspectorDrafts.read(taskEditRow) : null;
+  const selectedField = selectedEdit.field?.fieldKey ?? "";
+  const editValue = taskEditRow
+    ? (taskEditDraft?.values[selectedField] ??
+      (selectedEdit.field?.writeKind === "action_payload"
+        ? ""
+        : taskValue(taskEditRow, selectedField)))
+    : otherEditValue;
+  const setEditValue = (value: string) => {
+    if (taskEditRow) inspectorDrafts.update(taskEditRow, selectedField, value);
+    else setOtherEditValue(value);
+  };
+  const staleEditFields =
+    taskEditRow &&
+    taskEditDraft &&
+    Object.hasOwn(taskEditDraft.values, selectedField)
+      ? [
+          ...new Set([
+            selectedField,
+            ...(taskGuardFields.some((field) => field === selectedField)
+              ? taskGuardFields
+              : []),
+          ]),
+        ].filter(
+          (field) =>
+            !taskFieldEqual(taskEditDraft.baseline, taskEditRow, field),
+        )
+      : [];
   const selectedEditCollectionItems =
     selectedEdit.row !== null && selectedEdit.field !== null
       ? genericCollectionItems(selectedEdit.row, selectedEdit.field.fieldKey)
@@ -268,15 +322,17 @@ export function useGenericWorkbookInspectorComposition({
   }, [editCollectionMode, selectedEdit.field]);
   useEffect(() => {
     if (selectedEdit.row === null || selectedEdit.field === null) {
-      setEditValue("");
+      setOtherEditValue("");
       return;
     }
     if (selectedEdit.field.writeKind === "action_payload") {
-      setEditValue("");
+      setOtherEditValue("");
       return;
     }
     const value = selectedEdit.row.cells[selectedEdit.field.fieldKey]?.value;
-    setEditValue(value === null || value === undefined ? "" : String(value));
+    setOtherEditValue(
+      value === null || value === undefined ? "" : String(value),
+    );
   }, [selectedEdit.field, selectedEdit.row]);
 
   const submitCreate = async () => {
@@ -317,6 +373,12 @@ export function useGenericWorkbookInspectorComposition({
       mutation.setValidationError("invalid_mutation_payload");
       return;
     }
+    if (staleEditFields.length) {
+      mutation.setValidationError(
+        "Review changed saved fields before submitting this retained draft.",
+      );
+      return;
+    }
     const change = buildGenericPatchChange(
       selectedEdit.field,
       editValue,
@@ -332,6 +394,7 @@ export function useGenericWorkbookInspectorComposition({
     const finish = mutation.beginMutation();
     try {
       const payload = await mutation.submitPatchMutation({
+        baseline: taskEditDraft?.baseline ?? selectedEdit.row,
         baseRowVersion: selectedEdit.row.row_version,
         changes: [change],
         purpose: "generic-patch",
@@ -339,8 +402,11 @@ export function useGenericWorkbookInspectorComposition({
         viewSchemaId: contract.viewSchemaId,
       });
       if (payload === null) return;
-      setEditValue("");
-      await mutation.completeGenericMutation();
+      if (taskEditRow)
+        inspectorDrafts.review(payload.row, selectedField, false);
+      else setOtherEditValue("");
+      if (contract.viewSchemaId !== taskViewId)
+        await mutation.completeGenericMutation();
     } finally {
       finish();
     }
@@ -356,6 +422,7 @@ export function useGenericWorkbookInspectorComposition({
     const finish = mutation.beginMutation();
     try {
       const payload = await mutation.submitPatchMutation({
+        baseline: selectedEdit.row,
         baseRowVersion: selectedEdit.row.row_version,
         changes,
         purpose,
@@ -363,7 +430,8 @@ export function useGenericWorkbookInspectorComposition({
         viewSchemaId: contract.viewSchemaId,
       });
       if (payload === null) return false;
-      await mutation.completeGenericMutation();
+      if (contract.viewSchemaId !== taskViewId)
+        await mutation.completeGenericMutation();
       return true;
     } finally {
       finish();
@@ -507,6 +575,13 @@ export function useGenericWorkbookInspectorComposition({
         surfaceTitle: contract.title,
       }}
       workflow={{
+        subjectRow,
+        currentIncidentRole,
+        disabledTokens,
+        lifecycleDisabled:
+          interactionMode.kind !== "editable" ||
+          (!!subjectRow &&
+            mutation.explicitPatches.blocksRecord(subjectRow.record_id)),
         canCreateRows,
         contract,
         createDraft,
@@ -524,13 +599,25 @@ export function useGenericWorkbookInspectorComposition({
         subjectPresent: subject !== null,
       }}
       details={{
+        staleEditFields: staleEditFields.map((field) => ({
+          field,
+          label: contract.fieldMap[field]?.label ?? field,
+          saved: taskEditRow ? taskValue(taskEditRow, field) : "",
+        })),
+        reviewEditField: (field, keepDraft) => {
+          if (taskEditRow)
+            inspectorDrafts.review(taskEditRow, field, keepDraft);
+        },
         collectionItems: selectedEditCollectionItems,
         collectionMode: editCollectionMode,
         contract,
         editableFields,
         editFieldKey,
         editValue,
-        mutationPending: mutation.mutationPending,
+        mutationPending:
+          mutation.mutationPending ||
+          (!!taskEditRow &&
+            mutation.explicitPatches.blocksRecord(taskEditRow.record_id)),
         onSelectRecord,
         referenceOptions,
         rows,
@@ -551,6 +638,13 @@ export function useGenericWorkbookInspectorComposition({
     />
   ) : undefined;
   return {
+    restoreConflictFocus: (conflict: WorkbookConflictEntry) => {
+      onSelectRecord(conflict.conflict.record_id);
+      if (!conflict.compoundOperationId)
+        setEditFieldKey(conflict.conflict.field_key);
+      setConflictFocus(conflict);
+      inspector.commands.open();
+    },
     close,
     invalidationKey,
     isOpen,
