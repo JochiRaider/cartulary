@@ -9,6 +9,7 @@ import type {
   WorkbookProtocolCollectionActions,
   WorkbookProtocolPatchRecordRequest,
 } from "../adapters/workbookProtocolTypes";
+import { supportedPartyPairs } from "../features/parties/partyLinkModel";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 import {
@@ -23,13 +24,6 @@ const invalidGenericPayloadValue = Symbol("invalid generic payload value");
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
-
-export type PartyLinkPair = {
-  key: string;
-  label: string;
-  textFieldKey: string;
-  refFieldKey: string;
-};
 
 export function selectWorkbookEditTarget<
   Row,
@@ -417,46 +411,7 @@ export function genericReferenceOptionsFromRows(
   }));
 }
 
-export function partyLinkPairsForContract(
-  contract: ViewContract,
-): PartyLinkPair[] {
-  const hasField = (fieldKey: string) => Boolean(contract.fieldMap[fieldKey]);
-  const pairs: PartyLinkPair[] = [];
-  if (
-    hasField("evidence.collector_party_text") &&
-    hasField("evidence.collector_party_id")
-  ) {
-    pairs.push({
-      key: "evidence.collector_party_text:evidence.collector_party_id",
-      label: "Collector",
-      textFieldKey: "evidence.collector_party_text",
-      refFieldKey: "evidence.collector_party_id",
-    });
-  }
-  if (
-    hasField("evidence.source_party_text") &&
-    hasField("evidence.source_party_id")
-  ) {
-    pairs.push({
-      key: "evidence.source_party_text:evidence.source_party_id",
-      label: "Source",
-      textFieldKey: "evidence.source_party_text",
-      refFieldKey: "evidence.source_party_id",
-    });
-  }
-  if (
-    hasField("task.requester_party_text") &&
-    hasField("task.requester_party_id")
-  ) {
-    pairs.push({
-      key: "task.requester_party_text:task.requester_party_id",
-      label: "Requester",
-      textFieldKey: "task.requester_party_text",
-      refFieldKey: "task.requester_party_id",
-    });
-  }
-  return pairs;
-}
+export const partyLinkPairsForContract = supportedPartyPairs;
 
 export function extractEmailFromPartyText(value: string): string | null {
   const match = value.match(/[^\s<>@]+@[^\s<>@]+/u);

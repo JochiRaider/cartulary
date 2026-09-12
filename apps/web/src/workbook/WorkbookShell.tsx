@@ -65,6 +65,7 @@ import {
   useNetworkFlowSavedGraphOwner,
   useNetworkFlowTableOwner,
 } from "./features/NetworkFlowOperations";
+import { PartyLinkRecovery } from "./features/parties/PartyLinkRecovery";
 import { WorkbookHistoryContext } from "./history/WorkbookHistoryContext";
 import { WorkbookHistoryRecovery } from "./history/WorkbookHistoryRecovery";
 import { useIncidentControlsDrawer } from "./hooks/useIncidentControlsDrawer";
@@ -213,6 +214,7 @@ function WorkbookShellContent({
   });
   const infrastructure = useWorkbookShellInfrastructure({
     recheckMentionAuthority: authorization.loadSessionRole,
+    partyAuthorization: authorizationRecovery,
     savedViewOwner: savedViewController,
     bindWorkbookSavedViews,
     authorizationRecovered: authorization.acceptRecoveredAuthorization,
@@ -260,6 +262,7 @@ function WorkbookShellContent({
       mergeAuthority,
     );
     infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
+    infrastructure.mutationRuntime.partyLinks.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.indicatorLifecycle.setAuthority(
       mergeAuthority,
     );
@@ -285,6 +288,7 @@ function WorkbookShellContent({
       infrastructure.mutationRuntime.indicatorObservations.suspend();
       infrastructure.mutationRuntime.indicatorCreate.suspend();
       infrastructure.mutationRuntime.explicitPatches.suspend();
+      infrastructure.mutationRuntime.partyLinks.suspend();
       infrastructure.mutationRuntime.indicatorLifecycle.suspend();
       infrastructure.mutationRuntime.history.suspend();
       infrastructure.mutationRuntime.entityMerge.suspend();
@@ -354,7 +358,7 @@ function WorkbookShellContent({
     onIncidentResourceObserved,
   ]);
   const queries = useWorkbookSurfaceQueries({
-    taskOwner: infrastructure.mutationRuntime.explicitPatches,
+    explicitPatchOwner: infrastructure.mutationRuntime.explicitPatches,
     decisionOwner: infrastructure.mutationRuntime.decisionSupersession,
     indicatorOwner: infrastructure.mutationRuntime.indicatorRecords,
     activeContract: snapshot.activeContract,
@@ -868,6 +872,9 @@ function WorkbookShellContent({
                   importRecovery={
                     <>
                       <WorkbookHistoryRecovery />
+                      <PartyLinkRecovery
+                        owner={infrastructure.mutationRuntime.partyLinks}
+                      />
                       <WorkbookIndicatorCreateRecovery
                         owner={infrastructure.mutationRuntime.indicatorCreate}
                       />

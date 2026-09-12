@@ -66,12 +66,10 @@ import {
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
 import {
-  act,
   cleanup,
   createEvent,
   fireEvent,
   render,
-  renderHook,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -91,7 +89,6 @@ import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSup
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { buildGenericCreateRequest } from "./features/generic/genericCreateRequestBuilder";
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
-import { useGenericPartyLinkWorkflow } from "./features/parties/useGenericPartyLinkWorkflow";
 import { buildGenericPatchChange } from "./models/genericWorkbookModel";
 import {
   savedViewJSONEqual,
@@ -111,7 +108,6 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
-import type { GenericMutationCommandPort } from "./mutations/workbookMutationCommandPorts";
 import {
   type WorkbookAccountApplicationMenuProps,
   type WorkbookIncidentControlsRendererProps,
@@ -3127,7 +3123,20 @@ describe("WorkbookShell surface selection", () => {
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
-    expect((clearButton as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (
+        screen.getByTestId(
+          coordinationWorkflowTestId("party-clear-link"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByTestId(
+          coordinationWorkflowTestId("party-clear-text"),
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
     expect(currentRecordIds(taskRequestsViewSchemaId)).toEqual([
       "00000000-0000-4000-8000-000000000901",
     ]);
@@ -3199,96 +3208,6 @@ describe("WorkbookShell surface selection", () => {
     ).toHaveLength(1);
     expect(screen.getByText("Public error code")).not.toBeNull();
     expect(screen.getAllByText("row_version_conflict")).toHaveLength(2);
-  });
-
-  it("retains a created party for explicit link retry after partial completion", async () => {
-    const createdPartyId = "00000000-0000-4000-8000-000000004201";
-    const createPartyFromText = vi.fn(async () => ({
-      kind: "accepted" as const,
-      value: {
-        changeSetId: "00000000-0000-4000-8000-000000005201",
-        row: partyRow(createdPartyId, "Created Party"),
-        viewSchemaId: partiesViewSchemaId,
-      },
-    }));
-    const mutationCommands: GenericMutationCommandPort = {
-      canCreateRecord: () => true,
-      createRecord: async () => ({
-        kind: "rejected",
-        failure: { kind: "terminal", message: "not used" },
-      }),
-      createPartyFromText,
-      patchRecord: async () => ({
-        kind: "rejected",
-        failure: { kind: "terminal", message: "not used" },
-      }),
-    };
-    const submitLinkPatch = vi
-      .fn<() => Promise<boolean>>()
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
-    const rejectMutationFailure = vi.fn();
-    const setValidationError = vi.fn();
-    const selectedRow = taskRequestRow(
-      "00000000-0000-4000-8000-000000000901",
-      4,
-      "Task requester link",
-      "Created Party",
-      null,
-    );
-    const { result } = renderHook(() =>
-      useGenericPartyLinkWorkflow({
-        mutation: {
-          beginMutation: vi.fn(() => vi.fn()),
-          rejectMutationFailure,
-          setValidationError,
-        },
-        mutationCommands,
-        originViewSchemaId: taskRequestsViewSchemaId,
-        partyLinkPairs: [
-          {
-            key: "requester",
-            label: "Requester",
-            refFieldKey: "task.requester_party_id",
-            textFieldKey: "task.requester_party_text",
-          },
-        ],
-        resetKey: "reset-1",
-        selectedRow,
-        selectedSubject: {
-          kind: "live",
-          label: "Task requester link",
-          recordId: selectedRow.record_id,
-          rowVersion: selectedRow.row_version,
-          surfaceLabel: "Task Requests",
-          viewSchemaId: taskRequestsViewSchemaId,
-        },
-        submitLinkPatch,
-      }),
-    );
-
-    await act(async () => result.current.createPartyFromText());
-    expect(createPartyFromText).toHaveBeenCalledTimes(1);
-    expect(submitLinkPatch).toHaveBeenNthCalledWith(
-      1,
-      [
-        {
-          field_key: "task.requester_party_id",
-          value: createdPartyId,
-        },
-      ],
-      "party-link-created",
-    );
-    expect(result.current.partialCompletionMessage).toContain(
-      "party was created",
-    );
-
-    await act(async () => result.current.retryCreatedPartyLink());
-    expect(createPartyFromText).toHaveBeenCalledTimes(1);
-    expect(submitLinkPatch).toHaveBeenCalledTimes(2);
-    expect(result.current.partialCompletionMessage).toBeNull();
-    expect(rejectMutationFailure).not.toHaveBeenCalled();
-    expect(setValidationError).not.toHaveBeenCalled();
   });
 
   it("issues opaque evidence preview and download handles from the evidence surface", async () => {

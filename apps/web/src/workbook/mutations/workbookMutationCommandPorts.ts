@@ -139,10 +139,6 @@ export interface GenericMutationCommandPort {
     readonly recordId: string;
     readonly viewSchemaId: string;
   }): Promise<GenericMutationOutcome>;
-  createPartyFromText(input: {
-    readonly originViewSchemaId: string;
-    readonly rawText: string;
-  }): Promise<GenericMutationOutcome>;
 }
 
 export interface EntityMutationCommandPort {

@@ -1,15 +1,12 @@
 import type { WorkbookOperationExecutor } from "../../adapters/workbookOperationContract";
-import type { WorkbookProtocolCreateViewRowRequest } from "../../adapters/workbookProtocolTypes";
 import {
   captureRecordPatch,
   createRecordPatchTransport,
 } from "../../adapters/workbookRecordPatchTransport";
-import { extractEmailFromPartyText } from "../../models/genericWorkbookModel";
 import {
   decodeCreateRecordLinkedNoteRequest,
   decodeCreateViewRowRequest,
 } from "../../models/workbookRequestDecoders";
-import { partiesViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type {
   GenericMutationCommandPort,
@@ -177,32 +174,6 @@ export function createGenericMutationCommandPort(options: {
       } finally {
         release();
       }
-    },
-    createPartyFromText(input) {
-      const clientTxnId = createId(
-        options.transactionIds,
-        `party-from-text-${input.originViewSchemaId}`,
-      );
-      if (clientTxnId === null) {
-        return Promise.resolve(operationIdentityFailure());
-      }
-      const email = extractEmailFromPartyText(input.rawText);
-      const request = {
-        client_txn_id: clientTxnId,
-        "party.display_name": input.rawText,
-        "party.party_kind": "person",
-        ...(email === null ? {} : { "party.primary_email": email }),
-      } satisfies WorkbookProtocolCreateViewRowRequest;
-      return options.operations
-        .execute({
-          operationID: "createViewRow",
-          pathParameters: {
-            incident_id: options.incidentId,
-            view_schema_id: partiesViewSchemaId,
-          },
-          request,
-        })
-        .then(normalizeGenericMutationOutcome);
     },
   };
 }

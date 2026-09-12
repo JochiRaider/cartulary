@@ -402,7 +402,7 @@ it("fences Task committed rows across receipts queries and filtered departures",
   }));
   const { result } = renderHook(() =>
     useGenericSurfaceQuery({
-      taskOwner: owner,
+      explicitPatchOwner: owner,
       active: true,
       contract: requireViewContract(taskViewId),
       onIncidentAccessLost: undefined,

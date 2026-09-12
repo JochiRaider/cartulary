@@ -98,6 +98,12 @@ export class WorkbookSurfaceRegistry {
     this.#refreshing.set(viewSchemaId, running);
     return running;
   }
+  async refreshIfMounted(viewSchemaId: string): Promise<void> {
+    if (this.#registrations.has(viewSchemaId))
+      return this.refreshRequired(viewSchemaId);
+    this.#dirtySurfaces.add(viewSchemaId);
+    this.#onDebtChanged();
+  }
   async refresh(viewSchemaId: string): Promise<void> {
     try {
       await this.refreshRequired(viewSchemaId);

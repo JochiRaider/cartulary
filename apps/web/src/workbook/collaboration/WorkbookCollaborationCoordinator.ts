@@ -784,6 +784,32 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private handleRecordChanged(payload: RecordChangedPayload): void {
+    if (
+      payload.affected_views.some(
+        (view) => view.view_schema_id === "cartulary.view.parties.v1",
+      )
+    )
+      this.options.mutationRuntime.partyLinks.observePartyVersion(
+        payload.record_id,
+        payload.row_version,
+      );
+    if (
+      payload.affected_views.some((view) =>
+        [
+          "cartulary.view.evidence.v1",
+          "cartulary.view.task_requests.v1",
+        ].includes(view.view_schema_id),
+      )
+    ) {
+      this.options.mutationRuntime.explicitPatches.acceptVersion(
+        payload.record_id,
+        payload.row_version,
+      );
+      this.options.mutationRuntime.history.acceptVersion(
+        payload.record_id,
+        payload.row_version,
+      );
+    }
     this.options.mutationRuntime.indicatorObservations.acceptVersion(
       payload.record_id,
       payload.row_version,

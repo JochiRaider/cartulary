@@ -16,6 +16,7 @@ import {
 import { WorkbookIndicatorCreateOwner } from "../features/indicators/WorkbookIndicatorCreateOwner";
 import { WorkbookIndicatorLifecycleOwner } from "../features/indicators/WorkbookIndicatorLifecycleOwner";
 import { WorkbookObservationOwner } from "../features/indicators/WorkbookObservationOwner";
+import { WorkbookPartyLinkOperationOwner } from "../features/parties/WorkbookPartyLinkOperationOwner";
 import { WorkbookRecordHistoryOwner } from "../history/WorkbookRecordHistoryOwner";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
@@ -122,6 +123,7 @@ export class WorkbookMutationRuntime {
   private timelineActions: WorkbookTimelineActionRuntimePort | null = null;
   private timelineMentionOperations: WorkbookTimelineActionRuntimePort | null =
     null;
+  readonly partyLinks: WorkbookPartyLinkOperationOwner;
   readonly explicitPatches: WorkbookExplicitPatchOwner;
   get taskDrafts() {
     return this.explicitPatches.drafts;
@@ -231,13 +233,35 @@ export class WorkbookMutationRuntime {
       scope.incidentId,
       transactionIds,
       {
-        coordinate: (recordId, signal) =>
-          this.coordinateTaskPatch(recordId, signal),
+        coordinate: (recordId, signal, viewSchemaId) =>
+          this.coordinateExplicitPatch(recordId, signal, viewSchemaId),
+        remember: (id) => this.rememberClientTransaction(id),
+        settle: (id) => {
+          this.resolveSocketClientTxn(id);
+        },
         registerConflict: (input) => {
           this.registerConflict(input);
         },
         accepted: (row) =>
           this.history.acceptVersion(row.record_id, row.row_version),
+      },
+    );
+    this.partyLinks = new WorkbookPartyLinkOperationOwner(
+      scope.incidentId,
+      transactionIds,
+      this.explicitPatches,
+      {
+        coordinate: (review, signal) =>
+          this.coordinateExplicitPatch(
+            review.source.record_id,
+            signal,
+            review.pair.viewSchemaId,
+          ),
+        remember: (id) => this.rememberClientTransaction(id),
+        settle: (id) => {
+          this.resolveSocketClientTxn(id);
+        },
+        refresh: (view) => this.surfaces.refreshIfMounted(view),
       },
     );
     this.entityMerge = new WorkbookEntityMergeOwner(
@@ -317,6 +341,7 @@ export class WorkbookMutationRuntime {
         !this.decisionSupersession.blocksRecord(recordId) &&
         !this.indicatorLifecycle.blocksRecord(recordId) &&
         !this.explicitPatches.blocksRecord(recordId) &&
+        !this.partyLinks.blocksRecord(recordId) &&
         !this.timelineActions?.blocksRecord(recordId) &&
         !this.timelineMentionOperations?.blocksRecord(recordId),
     );
@@ -353,6 +378,7 @@ export class WorkbookMutationRuntime {
     }
     this.snapshot = this.calculateSnapshot();
     this.explicitPatches.subscribe(() => this.emit());
+    this.partyLinks.subscribe(() => this.emit());
     this.history.subscribe(() => {
       for (const entry of this.history.getSnapshot()) {
         const receipt = entry.receipt;
@@ -361,7 +387,12 @@ export class WorkbookMutationRuntime {
           entityViewSchemas.has(entry.attempt.subject.viewSchemaId)
         )
           this.entityMerge.acceptVersion(receipt.recordId, receipt.rowVersion);
-        if (receipt && entry.attempt.subject.viewSchemaId === taskViewId)
+        if (
+          receipt &&
+          [taskViewId, "cartulary.view.evidence.v1"].includes(
+            entry.attempt.subject.viewSchemaId,
+          )
+        )
           this.explicitPatches.acceptVersion(
             receipt.recordId,
             receipt.rowVersion,
@@ -527,9 +558,10 @@ export class WorkbookMutationRuntime {
     return false;
   }
 
-  private async coordinateTaskPatch(
+  private async coordinateExplicitPatch(
     recordId: string,
     signal: AbortSignal,
+    viewSchemaId = taskViewId,
   ): Promise<boolean> {
     let waited = false;
     while (!signal.aborted && !this.lifecycle.disposed) {
@@ -571,8 +603,8 @@ export class WorkbookMutationRuntime {
               entry.reconciliation !== "complete"),
         );
       if (!pending) {
-        if (waited || this.surfaces.requiresRefresh(taskViewId))
-          await this.surfaces.refreshRequired(taskViewId);
+        if (waited || this.surfaces.requiresRefresh(viewSchemaId))
+          await this.surfaces.refreshIfMounted(viewSchemaId);
         return !signal.aborted;
       }
       waited = true;
@@ -691,6 +723,7 @@ export class WorkbookMutationRuntime {
         this.indicatorObservations.pendingCount +
         this.indicatorCreate.pendingCount +
         this.explicitPatches.pendingCount +
+        this.partyLinks.pendingCount +
         (this.timelineActions?.pendingCount ?? 0) +
         (this.timelineMentionOperations?.pendingCount ?? 0),
       explicitRecoveryBlocked:
@@ -701,6 +734,7 @@ export class WorkbookMutationRuntime {
         this.indicatorObservations.blockedCount > 0 ||
         this.indicatorCreate.blockedCount > 0 ||
         this.explicitPatches.blockedCount > 0 ||
+        this.partyLinks.blockedCount > 0 ||
         (this.timelineActions?.blockedCount ?? 0) > 0 ||
         (this.timelineMentionOperations?.blockedCount ?? 0) > 0,
       queue: this.pendingRuntime.model.snapshot(),
@@ -739,7 +773,8 @@ export class WorkbookMutationRuntime {
     return this.pendingMutationPort.execute(input).then((outcome) => {
       if (
         outcome.kind === "accepted" &&
-        outcome.value.viewSchemaId === taskViewId
+        (outcome.value.viewSchemaId === taskViewId ||
+          outcome.value.viewSchemaId === "cartulary.view.evidence.v1")
       )
         this.explicitPatches.acceptRow(outcome.value.row);
       if (
@@ -829,13 +864,13 @@ export class WorkbookMutationRuntime {
           "This Indicator has a pending interval. Recover it in Indicator intervals before editing.",
       };
     if (
-      request.viewSchemaId === taskViewId &&
-      this.explicitPatches.blocksRecord(request.recordId)
+      this.explicitPatches.blocksRecord(request.recordId) ||
+      this.partyLinks.blocksRecord(request.recordId)
     )
       return {
         kind: "rejected_mutation",
         message:
-          "This Task has a pending explicit patch. Recover it in Task changes before editing.",
+          "This record has a pending operation. Recover the original change before editing.",
       };
     if (this.entityMerge.blocksRecord(request.recordId))
       return {
@@ -973,7 +1008,7 @@ export class WorkbookMutationRuntime {
     const entry = this.conflicts.get(key);
     if (entry === undefined) return "The conflict is no longer available.";
     if (entry.compoundOperationId && resolutionKind !== "keep_saved")
-      return "Keep saved, then submit the complete retained Task draft. Partial lifecycle conflict application is unavailable.";
+      return "Keep saved, then review and submit the complete retained action. Partial conflict application is unavailable.";
     const releaseRecord =
       entry.origin.viewSchemaId === decisionViewId
         ? this.beginDecisionWrite([entry.conflict.record_id])
@@ -1058,10 +1093,13 @@ export class WorkbookMutationRuntime {
           entry.conflict.record_id,
           resolvedRow.row_version,
         );
-      if (entry.origin.viewSchemaId === taskViewId) {
+      if (
+        entry.origin.viewSchemaId === taskViewId ||
+        entry.origin.viewSchemaId === "cartulary.view.evidence.v1"
+      ) {
         const accepted = normalizeRecordMutationRow(
           resolvedRow,
-          taskViewId,
+          entry.origin.viewSchemaId,
           entry.conflict.record_id,
         );
         if (accepted) this.explicitPatches.acceptRow(accepted);
@@ -1106,6 +1144,7 @@ export class WorkbookMutationRuntime {
       this.timelineActions?.suspend();
       this.timelineMentionOperations?.suspend();
       this.explicitPatches.suspend();
+      this.partyLinks.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
       this.emit();
       return;
@@ -1132,6 +1171,7 @@ export class WorkbookMutationRuntime {
       this.entityLifetimeRetired = true;
       this.entityWrites.clear();
       this.explicitPatches.retire();
+      this.partyLinks.retire();
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
@@ -1156,6 +1196,7 @@ export class WorkbookMutationRuntime {
     }
     if (reason.kind === "incident_closed") {
       this.history.closeIncident();
+      this.partyLinks.closeIncident();
       this.entityMerge.closeIncident();
       this.decisionSupersession.closeIncident();
       this.indicatorLifecycle.closeIncident();
@@ -1171,6 +1212,7 @@ export class WorkbookMutationRuntime {
       this.entityLifetimeRetired = true;
       this.entityWrites.clear();
       this.explicitPatches.retire();
+      this.partyLinks.retire();
       this.history.retire();
       this.entityMerge.retire();
       this.decisionSupersession.retire();
@@ -1192,6 +1234,7 @@ export class WorkbookMutationRuntime {
     this.timelineActions?.suspend();
     this.timelineMentionOperations?.suspend();
     this.explicitPatches.suspend();
+    this.partyLinks.suspend();
     this.applyAuthorizationRecoveryState("paused");
   }
 

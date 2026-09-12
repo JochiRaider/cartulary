@@ -1,242 +1,87 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { WorkbookProtocolPatchRecordRequest } from "../../adapters/workbookProtocolTypes";
-import {
-  type WorkbookInspectorLiveSubject,
-  workbookInspectorSubjectsEqual,
-} from "../../inspector/workbookInspectorSubject";
-import {
-  normalizeGenericTextValue,
-  type PartyLinkPair,
-} from "../../models/genericWorkbookModel";
-import type { GenericMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
-import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
+import type { ViewContract } from "@cartulary/view-contracts";
+import { useLayoutEffect, useState, useSyncExternalStore } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import { type PartyReview, supportedPartyPairs } from "./partyLinkModel";
+import type { WorkbookPartyLinkOperationOwner } from "./WorkbookPartyLinkOperationOwner";
 
-type PartyLinkMutationOwner = {
-  readonly beginMutation: () => () => void;
-  readonly rejectMutationFailure: (failure: WorkbookOperationFailure) => void;
-  readonly setValidationError: (message: string) => void;
-};
-
-type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
-
-export type GenericPartyLinkWorkflow = {
-  readonly clearPartyBoth: () => Promise<void>;
-  readonly clearPartyLink: () => Promise<void>;
-  readonly clearPartyText: () => Promise<void>;
-  readonly createPartyFromText: () => Promise<void>;
-  readonly linkExistingParty: () => Promise<void>;
-  readonly partialCompletionMessage: string | null;
-  readonly partyLinkExistingPartyId: string;
-  readonly retryCreatedPartyLink: () => Promise<void>;
-  readonly selectedPartyLinkPair: PartyLinkPair | null;
-  readonly setPartyLinkExistingPartyId: (value: string) => void;
-  readonly setPartyLinkPairKey: (value: string) => void;
-};
-
+/** Presentation binding only. Mutations and accepted results outlive this hook. */
 export function useGenericPartyLinkWorkflow({
-  mutation,
-  mutationCommands,
-  originViewSchemaId,
-  partyLinkPairs,
+  owner,
+  contract,
+  row,
+  sourceLabel,
+  sheetRef,
   resetKey,
-  selectedRow,
-  selectedSubject,
-  submitLinkPatch,
+  fieldKey,
+  visible,
 }: {
-  readonly mutation: PartyLinkMutationOwner;
-  readonly mutationCommands: GenericMutationCommandPort;
-  readonly originViewSchemaId: string;
-  readonly partyLinkPairs: readonly PartyLinkPair[];
-  readonly resetKey: string;
-  readonly selectedRow: WorkbookQueryRow | null;
-  readonly selectedSubject: WorkbookInspectorLiveSubject | null;
-  readonly submitLinkPatch: (
-    changes: RecordPatchChange[],
-    txnPrefix: string,
-  ) => Promise<boolean>;
-}): GenericPartyLinkWorkflow {
-  const [partyLinkPairKey, setPartyLinkPairKey] = useState("");
-  const [partyLinkExistingPartyId, setPartyLinkExistingPartyId] = useState("");
-  const [createdPartyId, setCreatedPartyId] = useState<string | null>(null);
-  const [partialCompletionMessage, setPartialCompletionMessage] = useState<
-    string | null
-  >(null);
-  const selectedPartyLinkPair = useMemo(
-    () =>
-      partyLinkPairs.find((pair) => pair.key === partyLinkPairKey) ??
-      partyLinkPairs[0] ??
-      null,
-    [partyLinkPairKey, partyLinkPairs],
-  );
-
-  useEffect(() => {
-    setPartyLinkPairKey((current) =>
-      partyLinkPairs.some((pair) => pair.key === current)
-        ? current
-        : (partyLinkPairs[0]?.key ?? ""),
-    );
-  }, [partyLinkPairs]);
-
-  const previousLifecycleRef = useRef({
-    pairKey: selectedPartyLinkPair?.key ?? null,
+  owner: WorkbookPartyLinkOperationOwner;
+  contract: ViewContract;
+  row: WorkbookQueryRow | null;
+  sourceLabel: string;
+  sheetRef: SheetRef;
+  resetKey: string;
+  fieldKey: string;
+  visible: boolean;
+}) {
+  const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const pairs = supportedPartyPairs(contract);
+  const [selection, setSelection] = useState({ fieldKey, key: "" });
+  const pair =
+    pairs.find(
+      (pair) =>
+        pair.key === (selection.fieldKey === fieldKey ? selection.key : ""),
+    ) ??
+    pairs.find(
+      (pair) => pair.textFieldKey === fieldKey || pair.refFieldKey === fieldKey,
+    ) ??
+    pairs[0] ??
+    null;
+  const scopeKey = JSON.stringify([
     resetKey,
-    subject: selectedSubject,
-  });
-  useEffect(() => {
-    const previous = previousLifecycleRef.current;
-    const pairKey = selectedPartyLinkPair?.key ?? null;
-    if (
-      previous.resetKey === resetKey &&
-      previous.pairKey === pairKey &&
-      workbookInspectorSubjectsEqual(previous.subject, selectedSubject)
-    ) {
-      return;
-    }
-    previousLifecycleRef.current = {
-      pairKey,
-      resetKey,
-      subject: selectedSubject,
-    };
-    setPartyLinkExistingPartyId("");
-    setCreatedPartyId(null);
-    setPartialCompletionMessage(null);
-  }, [resetKey, selectedPartyLinkPair?.key, selectedSubject]);
-
-  const submitCreatedPartyLink = useCallback(
-    async (partyId: string) => {
-      if (selectedPartyLinkPair === null) {
-        mutation.setValidationError("Select a party field first.");
-        return false;
-      }
-      const linked = await submitLinkPatch(
-        [{ field_key: selectedPartyLinkPair.refFieldKey, value: partyId }],
-        "party-link-created",
-      );
-      if (linked) {
-        setCreatedPartyId(null);
-        setPartialCompletionMessage(null);
-        return true;
-      }
-      setCreatedPartyId(partyId);
-      setPartialCompletionMessage(
-        "The party was created, but the selected row was not linked. Retry the link after resolving the row conflict.",
-      );
-      return false;
-    },
-    [mutation, selectedPartyLinkPair, submitLinkPatch],
-  );
-
-  const createPartyFromText = useCallback(async () => {
-    if (selectedRow === null || selectedPartyLinkPair === null) {
-      mutation.setValidationError("Select a row and party field first.");
-      return;
-    }
-    const rawText = normalizeGenericTextValue(
-      String(
-        selectedRow.cells[selectedPartyLinkPair.textFieldKey]?.value ?? "",
-      ),
-    );
-    if (rawText === "") {
-      mutation.setValidationError("Party text is empty.");
-      return;
-    }
-    const finish = mutation.beginMutation();
-    try {
-      const created = await mutationCommands.createPartyFromText({
-        originViewSchemaId,
-        rawText,
-      });
-      if (created.kind === "rejected") {
-        mutation.rejectMutationFailure(created.failure);
-        return;
-      }
-      await submitCreatedPartyLink(created.value.row.record_id);
-    } finally {
-      finish();
-    }
-  }, [
-    mutation,
-    mutationCommands,
-    originViewSchemaId,
-    selectedPartyLinkPair,
-    selectedRow,
-    submitCreatedPartyLink,
+    visible,
+    snapshot.generation,
+    sheetRef,
+    row?.record_id,
+    row?.row_version,
+    pair?.key,
+    fieldKey,
   ]);
-
-  const retryCreatedPartyLink = useCallback(async () => {
-    if (createdPartyId === null) return;
-    await submitCreatedPartyLink(createdPartyId);
-  }, [createdPartyId, submitCreatedPartyLink]);
-
-  const linkExistingParty = useCallback(async () => {
-    if (selectedPartyLinkPair === null || partyLinkExistingPartyId === "") {
-      mutation.setValidationError("Select an existing party.");
-      return;
-    }
-    await submitLinkPatch(
-      [
-        {
-          field_key: selectedPartyLinkPair.refFieldKey,
-          value: partyLinkExistingPartyId,
-        },
-      ],
-      "party-link-existing",
-    );
-  }, [
-    mutation,
-    partyLinkExistingPartyId,
-    selectedPartyLinkPair,
-    submitLinkPatch,
+  useLayoutEffect(() => {
+    owner.setPresentation(visible && pair && row ? scopeKey : null);
+    return () => owner.setPresentation(null);
+  }, [owner, scopeKey, visible, pair, row]);
+  const review: PartyReview | null =
+    row && pair && snapshot.authority && visible
+      ? {
+          authority: snapshot.authority,
+          pair,
+          source: row,
+          sheetRef,
+          sourceLabel,
+          presentation: scopeKey,
+        }
+      : null;
+  const focusContext = JSON.stringify([
+    visible,
+    sheetRef,
+    row?.record_id,
+    pair?.key,
+    fieldKey,
+    snapshot.authority,
   ]);
-
-  const clearPartyLink = useCallback(async () => {
-    if (selectedPartyLinkPair === null) {
-      mutation.setValidationError("Select a party field first.");
-      return;
-    }
-    await submitLinkPatch(
-      [{ field_key: selectedPartyLinkPair.refFieldKey, value: null }],
-      "party-clear-link",
-    );
-  }, [mutation, selectedPartyLinkPair, submitLinkPatch]);
-
-  const clearPartyText = useCallback(async () => {
-    if (selectedPartyLinkPair === null) {
-      mutation.setValidationError("Select a party field first.");
-      return;
-    }
-    await submitLinkPatch(
-      [{ field_key: selectedPartyLinkPair.textFieldKey, value: null }],
-      "party-clear-text",
-    );
-  }, [mutation, selectedPartyLinkPair, submitLinkPatch]);
-
-  const clearPartyBoth = useCallback(async () => {
-    if (selectedPartyLinkPair === null) {
-      mutation.setValidationError("Select a party field first.");
-      return;
-    }
-    await submitLinkPatch(
-      [
-        { field_key: selectedPartyLinkPair.textFieldKey, value: null },
-        { field_key: selectedPartyLinkPair.refFieldKey, value: null },
-      ],
-      "party-clear-both",
-    );
-  }, [mutation, selectedPartyLinkPair, submitLinkPatch]);
-
   return {
-    clearPartyBoth,
-    clearPartyLink,
-    clearPartyText,
-    createPartyFromText,
-    linkExistingParty,
-    partialCompletionMessage,
-    partyLinkExistingPartyId,
-    retryCreatedPartyLink,
-    selectedPartyLinkPair,
-    setPartyLinkExistingPartyId,
-    setPartyLinkPairKey,
+    owner,
+    snapshot,
+    pair,
+    pairs,
+    review,
+    scopeKey,
+    focusContext,
+    selectPair: (key: string) => {
+      if (key !== pair?.key) owner.setPresentation(null);
+      setSelection({ fieldKey, key });
+    },
   };
 }

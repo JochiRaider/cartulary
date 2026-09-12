@@ -3,6 +3,56 @@
   "owner_id": "module.parties",
   "rows": [
     {
+      "row_id": "module.parties.browser.source_link_recovery",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.evidence",
+        "module.tasksdecisions",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.parties.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/parties.recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_party_candidate_paging",
+          "scenario_party_contextual_exact_match_review",
+          "scenario_party_create_response_lost",
+          "scenario_party_link_response_lost",
+          "scenario_party_navigation_during_create",
+          "scenario_party_refresh_recovery",
+          "scenario_party_source_conflict_recovery"
+        ],
+        "titles": [
+          "Accepted Task requester linking recovers refresh failure through reads only",
+          "Lost Evidence source link response replays the exact patch after sheet navigation",
+          "Lost Party creation response replays the original result after sheet navigation",
+          "Party creation remains saved after a real source conflict and renewed link review",
+          "Party creation returned after row pair and sheet changes requires original source review",
+          "Party picker reaches the next authorized page and retains loaded candidates after read failure",
+          "Reviewed contextual Party creation reuses unchanged exact matches and reports safe cross-key conflicts"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e",
       "owner_id": "module.parties",
       "family_id": "module.parties.browser",
@@ -256,7 +306,7 @@
       ],
       "runner": "go",
       "selector": {
-		"package": "./internal/modules/parties/internal/providers/rollback",
+        "package": "./internal/modules/parties/internal/providers/rollback",
         "tests": [
           "TestPartyProviderRejectsInvalidRequiredValues",
           "TestPartySourceForRollbackValuePreservesPresence"

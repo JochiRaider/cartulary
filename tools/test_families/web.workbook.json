@@ -2200,6 +2200,104 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.party_link_controls",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.parties",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/parties/partyLinkControls.test.tsx",
+        "titles": [
+          "Party candidate paging retains earlier rows after failure and retries the same missing page",
+          "Party controls preserve all pair states and submit only the selected independent clear",
+          "Party creation requires deliberate kind and opt-in editable email with optional details",
+          "Party review Escape restores its trigger and cyclic paging remains stale until reload",
+          "Party socket invalidation retains loaded candidates as stale until an authorized reload"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.party_link_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.parties",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/parties/WorkbookPartyLinkOperationOwner.test.ts",
+        "titles": [
+          "keeps a selected pair review actionable and detaches callbacks when another pair is selected",
+          "rechecks Party authority without reporting target rejection as incident access loss",
+          "recovers accepted refresh failures through reads and preserves newer remote source versions",
+          "rejects current viewer and closed incident authority before fresh Party dispatch or replay",
+          "replays uncertain creation and linking with their captured identities after selection changes",
+          "reserves Party creation and source patch before coordination and fences stale reviews",
+          "retains accepted Party creation after navigation and rejected linking without repeating creation",
+          "retains both Party receipts and exact independent source changes for all three pairs",
+          "retains late accepted creation while authority changes and never links under obsolete review",
+          "retains late accepted source receipts while hiding suspended and retired Party recovery",
+          "unavailable Party targets fail preparation without source writes or incident access loss"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.party_link_socket_order",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.parties",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
+        "titles": [
+          "WorkbookCollaborationCoordinator accounts for detached Evidence and Task Party versions before transaction suppression in either HTTP order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.preference_characterization",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -5426,7 +5524,6 @@
           "WorkbookShell surface selection passes invalid explicit base surfaces to backend startup fallback",
           "WorkbookShell surface selection rejects generic query envelopes from a different view_schema_id",
           "WorkbookShell surface selection renders saved views only in the active surface selector and preserves selected saved-view identity",
-          "WorkbookShell surface selection retains a created party for explicit link retry after partial completion",
           "WorkbookShell surface selection retains accepted generic rows and marks them stale when refresh fails",
           "WorkbookShell surface selection selects required built-in and system view surfaces by view_schema_id",
           "WorkbookShell surface selection submits physical alias add/remove actions and restores inspector focus after authoritative refresh",

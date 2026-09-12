@@ -15,6 +15,7 @@ export function TaskPatchRecovery({
   return (
     <section aria-label="Task changes" style={sectionStyle}>
       {snapshot.entries
+        .filter((entry) => !entry.intent.partyReview)
         .filter(
           (entry, index, entries) =>
             entry.phase !== "acknowledged" ||

@@ -1,5 +1,4 @@
 import {
-  coordinationWorkflowTestId,
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
   genericEditActionSelectTestId,
@@ -28,6 +27,7 @@ import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutat
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { CoordinationWorkflowBindings } from "../coordination/CoordinationWorkflowBindings";
+import { PartyLinkPanel } from "../parties/PartyLinkPanel";
 import type { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
 import { GenericWorkbookInspector } from "./GenericWorkbookInspector";
 
@@ -296,109 +296,11 @@ function GenericDetails(props: GenericDetailsProps) {
 }
 
 type GenericRelationshipsProps = {
-  readonly disabled: boolean;
   readonly party: ReturnType<typeof useGenericPartyLinkWorkflow>;
-  readonly partyLinkPairs: readonly {
-    readonly key: string;
-    readonly label: string;
-  }[];
-  readonly referenceOptions: GenericReferenceOptions;
-  readonly rowSelected: boolean;
 };
 
 function GenericRelationships(props: GenericRelationshipsProps) {
-  if (props.partyLinkPairs.length === 0 || !props.rowSelected) return null;
-  return (
-    <div style={editRowStyle}>
-      <select
-        aria-label="Party link field"
-        data-testid={coordinationWorkflowTestId("party-pair")}
-        style={selectStyle}
-        value={props.party.selectedPartyLinkPair?.key ?? ""}
-        onChange={(event) =>
-          props.party.setPartyLinkPairKey(event.target.value)
-        }
-      >
-        {props.partyLinkPairs.map((pair) => (
-          <option key={pair.key} value={pair.key}>
-            {pair.label}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Existing party"
-        data-testid={coordinationWorkflowTestId("party-existing")}
-        style={selectStyle}
-        value={props.party.partyLinkExistingPartyId}
-        onChange={(event) =>
-          props.party.setPartyLinkExistingPartyId(event.target.value)
-        }
-      >
-        <option value="">Party</option>
-        {props.referenceOptions.parties.map((option) => (
-          <option key={option.recordId} value={option.recordId}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <PartyButtons party={props.party} disabled={props.disabled} />
-    </div>
-  );
-}
-
-function PartyButtons({
-  disabled,
-  party,
-}: {
-  readonly disabled: boolean;
-  readonly party: ReturnType<typeof useGenericPartyLinkWorkflow>;
-}) {
-  const buttons = [
-    [
-      "party-create-from-text",
-      "Create party from text",
-      party.createPartyFromText,
-    ],
-    ["party-link-existing", "Link existing party", party.linkExistingParty],
-    ["party-clear-link", "Clear party link", party.clearPartyLink],
-    ["party-clear-text", "Clear party text", party.clearPartyText],
-    ["party-clear-both", "Clear both", party.clearPartyBoth],
-  ] as const;
-  return (
-    <>
-      {buttons.map(([id, label, action]) => (
-        <button
-          data-testid={coordinationWorkflowTestId(id)}
-          disabled={disabled}
-          key={id}
-          style={secondaryActionButtonStyle}
-          type="button"
-          onClick={() => void action()}
-        >
-          {label}
-        </button>
-      ))}
-      {party.partialCompletionMessage === null ? null : (
-        <div>
-          <p
-            data-testid={coordinationWorkflowTestId("party-partial-completion")}
-            role="status"
-          >
-            {party.partialCompletionMessage}
-          </p>
-          <button
-            data-testid={coordinationWorkflowTestId("party-retry-created-link")}
-            disabled={disabled}
-            style={secondaryActionButtonStyle}
-            type="button"
-            onClick={() => void party.retryCreatedPartyLink()}
-          >
-            Retry link to created party
-          </button>
-        </div>
-      )}
-    </>
-  );
+  return <PartyLinkPanel workflow={props.party} />;
 }
 
 const editRowStyle = {

@@ -195,6 +195,59 @@ function presence(
 afterEach(() => vi.restoreAllMocks());
 
 describe("WorkbookCollaborationCoordinator", () => {
+  it("accounts for detached Evidence and Task Party versions before transaction suppression in either HTTP order", () => {
+    for (const view of [
+      "cartulary.view.evidence.v1",
+      "cartulary.view.task_requests.v1",
+    ])
+      for (const order of ["http_first", "socket_first"]) {
+        const fixture = projectionFixture();
+        const owner = fixture.mutationRuntime.explicitPatches;
+        owner.setAuthority({
+          actorId: "actor",
+          incidentId: fixture.mutationRuntime.scope.incidentId,
+          sessionIdentity: "session",
+          role: "editor",
+          closed: false,
+        });
+        const observed = vi.spyOn(owner, "acceptVersion");
+        const resolved = vi.fn(() => true);
+        fixture.projection.registerClientTxnResolver(resolved);
+        if (order === "http_first") owner.acceptVersion("indicator", 5);
+        fixture.emit({
+          kind: "message",
+          message: {
+            ...serverEnvelope,
+            type: "record_changed",
+            stream_seq: 1,
+            payload: {
+              actor_user_id: "user-other",
+              record_id: "indicator",
+              row_version: 4,
+              client_txn_id: "original",
+              change_set_id: "accepted",
+              changed_field_keys: [],
+              affected_views: [
+                {
+                  view_schema_id: view,
+                  change_kind: "invalidate",
+                },
+              ],
+            },
+          },
+        });
+        expect(owner.latestVersion("indicator")).toBe(
+          order === "http_first" ? 5 : 4,
+        );
+        expect(observed.mock.invocationCallOrder.at(-1)).toBeLessThan(
+          resolved.mock.invocationCallOrder[0] ?? 0,
+        );
+        if (order === "socket_first") owner.acceptVersion("indicator", 5);
+        expect(owner.latestVersion("indicator")).toBe(5);
+        expect(owner.getSnapshot().entries).toEqual([]);
+        fixture.projection.dispose();
+      }
+  });
   it("accounts for Indicator socket versions before transaction suppression in either HTTP order", () => {
     for (const order of ["http_first", "socket_first"]) {
       const fixture = projectionFixture();

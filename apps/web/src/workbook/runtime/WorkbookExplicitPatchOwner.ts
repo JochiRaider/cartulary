@@ -1,5 +1,5 @@
+import { boundedRead } from "../../services/asyncObservation";
 import type { SheetRef } from "../../shared/sheetRef";
-import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import {
   type CapturedRecordPatch,
   captureRecordPatch,
@@ -14,22 +14,19 @@ import {
   taskPatchErrors,
   taskViewId,
 } from "../features/coordination/taskLifecycleModel";
+import type { PartyReview } from "../features/parties/partyLinkModel";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
+import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationAccepted } from "../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookConflictRegistration } from "./WorkbookConflictStore";
 import type { WorkbookConflictResolutionKind } from "./workbookConflictModel";
 
-export type ExplicitPatchAuthority = Readonly<{
-  actorId: string;
-  sessionIdentity: string;
-  incidentId: string;
-  role: WorkbookIncidentRole;
-  closed: boolean;
-}>;
+export type ExplicitPatchAuthority = WorkbookMutationAuthority;
 export type ExplicitPatchIntent = Readonly<{
   baseline: WorkbookQueryRow;
+  partyReview?: PartyReview;
   changes: readonly RecordPatchChange[];
   purpose: string;
   sheetRef: SheetRef;
@@ -40,6 +37,7 @@ export type ExplicitPatchOperation = Readonly<{
   intent: ExplicitPatchIntent;
   request: CapturedRecordPatch | null;
   phase:
+    | "preparation_failed"
     | "coordinating"
     | "submitting"
     | "uncertain"
@@ -66,6 +64,18 @@ export class WorkbookExplicitPatchOwner {
   private generation = 0;
   private transport: RecordPatchTransport | null = null;
   private accessLost: (() => void) | undefined;
+  private partyRecovery: {
+    prepare(
+      review: PartyReview,
+      signal: AbortSignal,
+      target?: string,
+    ): Promise<boolean>;
+    refresh(entry: ExplicitPatchOperation): Promise<void>;
+    recheck(review: PartyReview): Promise<void>;
+  } | null = null;
+  configurePartyRecovery(recovery: NonNullable<typeof this.partyRecovery>) {
+    this.partyRecovery = recovery;
+  }
   private refreshSurface: (() => Promise<void>) | null = null;
   private readonly entries = new Map<string, ExplicitPatchOperation>();
   private readonly attempts = new Map<string, RecordPatchTransport>();
@@ -78,7 +88,13 @@ export class WorkbookExplicitPatchOwner {
     private readonly incidentId: string,
     private readonly transactionIds: SecureTransactionIdPort,
     private readonly boundaries: {
-      coordinate(recordId: string, signal: AbortSignal): Promise<boolean>;
+      coordinate(
+        recordId: string,
+        signal: AbortSignal,
+        viewSchemaId?: string,
+      ): Promise<boolean>;
+      remember?(id: string): void;
+      settle?(id: string): void;
       registerConflict(input: WorkbookConflictRegistration): void;
       accepted(row: WorkbookQueryRow): void;
     },
@@ -214,7 +230,9 @@ export class WorkbookExplicitPatchOwner {
   }
   private reject(id: string, message: string) {
     this.update(id, {
-      phase: "rejected",
+      phase: this.entries.get(id)?.intent.partyReview
+        ? "preparation_failed"
+        : "rejected",
       failure: { kind: "stale_target", message },
     });
   }
@@ -237,7 +255,15 @@ export class WorkbookExplicitPatchOwner {
     this.entries.set(id, {
       id,
       intent: structuredClone(intent),
-      request: null,
+      request: intent.partyReview
+        ? captureRecordPatch({
+            recordId,
+            viewSchemaId: intent.partyReview.pair.viewSchemaId,
+            baseRowVersion: intent.baseline.row_version,
+            changes: intent.changes,
+            clientTxnId: id,
+          })
+        : null,
       phase: "coordinating",
       receipt: null,
       failure: null,
@@ -249,7 +275,11 @@ export class WorkbookExplicitPatchOwner {
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const coordinated = await Promise.race([
-        this.boundaries.coordinate(recordId, controller.signal),
+        this.boundaries.coordinate(
+          recordId,
+          controller.signal,
+          intent.partyReview?.pair.viewSchemaId ?? taskViewId,
+        ),
         new Promise<false>((resolve) =>
           controller.signal.addEventListener("abort", () => resolve(false), {
             once: true,
@@ -270,59 +300,88 @@ export class WorkbookExplicitPatchOwner {
         );
         return this.entries.get(id) ?? null;
       }
-      const current = this.latestRow(recordId) ?? intent.baseline;
-      const dependencies = new Set(
-        intent.changes.map((change) => change.field_key),
-      );
-      if (
-        intent.changes.some((change) =>
-          taskGuardFields.some((field) => field === change.field_key),
+      if (intent.partyReview) {
+        const review = intent.partyReview,
+          recovery = this.partyRecovery;
+        const targetValue = intent.changes.find(
+          (change) => change.field_key === review.pair.refFieldKey,
+        )?.value;
+        const target =
+          typeof targetValue === "string" ? targetValue : undefined;
+        if (
+          !this.entries.get(id)?.request ||
+          !recovery ||
+          !(await boundedRead(
+            (signal) => recovery.prepare(review, signal, target),
+            controller.signal,
+            this.timeoutMs,
+          )) ||
+          generation !== this.generation ||
+          !this.canSubmit()
+        ) {
+          this.reject(
+            id,
+            "The source or access changed. Review this Party action again.",
+          );
+          return this.entries.get(id) ?? null;
+        }
+      } else {
+        const current = this.latestRow(recordId) ?? intent.baseline;
+        const dependencies = new Set(
+          intent.changes.map((change) => change.field_key),
+        );
+        if (
+          intent.changes.some((change) =>
+            taskGuardFields.some((field) => field === change.field_key),
+          )
         )
-      )
-        for (const field of taskGuardFields) dependencies.add(field);
-      if (
-        [...dependencies].some(
-          (field) => !taskFieldEqual(current, intent.baseline, field),
-        ) ||
-        current.row_version < (this.latestVersion(recordId) ?? 0)
-      ) {
-        this.reject(
-          id,
-          "Saved fields changed while earlier writes finished. Review current values; your complete draft is retained.",
-        );
-        return this.entries.get(id) ?? null;
-      }
-      const errors = taskPatchErrors(current, intent.changes);
-      if (errors.length) {
-        this.update(id, {
-          phase: "rejected",
-          failure: {
-            kind: "validation",
-            message: errors[0]?.message ?? "Invalid Task state",
-            fields: errors,
-          },
+          for (const field of taskGuardFields) dependencies.add(field);
+        if (
+          [...dependencies].some(
+            (field) => !taskFieldEqual(current, intent.baseline, field),
+          ) ||
+          current.row_version < (this.latestVersion(recordId) ?? 0)
+        ) {
+          this.reject(
+            id,
+            "Saved fields changed while earlier writes finished. Review current values; your complete draft is retained.",
+          );
+          return this.entries.get(id) ?? null;
+        }
+        const errors = taskPatchErrors(current, intent.changes);
+        if (errors.length) {
+          this.update(id, {
+            phase: "rejected",
+            failure: {
+              kind: "validation",
+              message: errors[0]?.message ?? "Invalid Task state",
+              fields: errors,
+            },
+          });
+          return this.entries.get(id) ?? null;
+        }
+        const request = captureRecordPatch({
+          recordId,
+          viewSchemaId: taskViewId,
+          baseRowVersion: current.row_version,
+          changes: intent.changes,
+          clientTxnId: id,
         });
-        return this.entries.get(id) ?? null;
+        if (!request) {
+          this.reject(
+            id,
+            "The patch does not match the writable field contract.",
+          );
+          return this.entries.get(id) ?? null;
+        }
+        this.update(id, { request });
       }
-      const request = captureRecordPatch({
-        recordId,
-        viewSchemaId: taskViewId,
-        baseRowVersion: current.row_version,
-        changes: intent.changes,
-        clientTxnId: id,
-      });
-      if (!request) {
-        this.reject(
-          id,
-          "The patch does not match the writable field contract.",
-        );
-        return this.entries.get(id) ?? null;
-      }
-      this.update(id, { request });
     } catch {
       this.reject(
         id,
-        "Earlier writes could not be coordinated. Your draft is retained.",
+        intent.partyReview
+          ? "The source or Party could not be refreshed. Review current records before trying again."
+          : "Earlier writes could not be coordinated. Your draft is retained.",
       );
       return this.entries.get(id) ?? null;
     } finally {
@@ -342,13 +401,19 @@ export class WorkbookExplicitPatchOwner {
     )
       return;
     this.running.add(id);
+    this.boundaries.remember?.(id);
     this.update(id, { phase: "submitting", failure: null });
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let outcome: RecordPatchOutcome;
+    let observationEnded = false;
     try {
       outcome = await Promise.race([
-        transport.send(entry.request, controller.signal),
+        transport.send(entry.request, controller.signal).then(async (value) => {
+          if (observationEnded && value.kind === "acknowledged")
+            await this.acceptReceipt(id, value.receipt);
+          return value;
+        }),
         new Promise<RecordPatchOutcome>((resolve) => {
           timer = setTimeout(() => {
             controller.abort();
@@ -359,10 +424,12 @@ export class WorkbookExplicitPatchOwner {
     } catch {
       outcome = { kind: "uncertain" };
     } finally {
+      observationEnded = true;
       clearTimeout(timer);
       this.running.delete(id);
     }
-    if (this.retired || !this.entries.has(id)) return;
+    if (this.retired || !this.entries.has(id) || this.entries.get(id)?.receipt)
+      return;
     if (outcome.kind === "uncertain") {
       this.update(id, { phase: "uncertain" });
       return;
@@ -378,18 +445,32 @@ export class WorkbookExplicitPatchOwner {
           failure,
         });
         this.suspend();
-        this.accessLost?.();
+        if (entry.intent.partyReview)
+          void this.partyRecovery
+            ?.recheck(entry.intent.partyReview)
+            .catch(() => {});
+        else this.accessLost?.();
         return;
       }
+      if (
+        entry.phase === "uncertain" ||
+        failure.kind === "client_txn_conflict"
+      ) {
+        this.update(id, { phase: "uncertain", failure });
+        return;
+      }
+      this.boundaries.settle?.(id);
       if (failure.kind === "same_field_conflict") {
         this.boundaries.registerConflict({
           conflict: failure.conflict,
-          viewSchemaId: taskViewId,
+          viewSchemaId:
+            entry.intent.partyReview?.pair.viewSchemaId ?? taskViewId,
           sheetRef: entry.intent.sheetRef,
           surfaceLabel: entry.intent.surfaceLabel,
           rowLabel: entry.intent.baseline.record_id,
           focusKey: `${entry.intent.baseline.record_id}:${failure.conflict.field_key}`,
           compoundOperationId:
+            entry.intent.partyReview !== undefined ||
             entry.intent.purpose === "task-lifecycle" ||
             entry.intent.changes.length > 1
               ? id
@@ -399,17 +480,26 @@ export class WorkbookExplicitPatchOwner {
         this.update(id, { phase: "conflict", failure });
       } else
         this.update(id, {
-          phase:
-            failure.kind === "client_txn_conflict" ? "uncertain" : "rejected",
+          phase: "rejected",
           failure,
         });
       return;
     }
-    this.acceptRow(outcome.receipt.row);
+    await this.acceptReceipt(id, outcome.receipt);
+  }
+  private async acceptReceipt(
+    id: string,
+    receipt: WorkbookPendingMutationAccepted,
+  ) {
+    const entry = this.entries.get(id);
+    if (!entry || this.retired || entry.receipt) return;
+    this.boundaries.settle?.(id);
+    this.acceptRow(receipt.row);
     this.update(id, {
       phase: "acknowledged",
-      receipt: outcome.receipt,
+      receipt: structuredClone(receipt),
       failure: null,
+      reconciliation: "required",
     });
     if (entry.intent.purpose === "task-lifecycle")
       this.drafts.clear(entry.intent.baseline.record_id);
@@ -427,8 +517,13 @@ export class WorkbookExplicitPatchOwner {
     this.running.add(id);
     try {
       const generation = this.generation;
-      if (!this.refreshSurface) throw new Error("Task view is unavailable");
-      await this.refreshSurface();
+      if (entry.intent.partyReview) {
+        if (!this.partyRecovery) throw new Error("Party recovery unavailable");
+        await this.partyRecovery.recheck(entry.intent.partyReview);
+      } else {
+        if (!this.refreshSurface) throw new Error("Task view is unavailable");
+        await this.refreshSurface();
+      }
       if (generation !== this.generation || !this.canSubmit()) return;
     } catch {
       this.update(id, {
@@ -455,8 +550,13 @@ export class WorkbookExplicitPatchOwner {
     const generation = this.generation;
     this.update(id, { reconciliation: "refreshing" });
     try {
-      if (!this.refreshSurface) throw new Error("Task view is unavailable");
-      await this.refreshSurface();
+      if (entry.intent.partyReview) {
+        if (!this.partyRecovery) throw new Error("Party recovery unavailable");
+        await this.partyRecovery.refresh(entry);
+      } else {
+        if (!this.refreshSurface) throw new Error("Task view is unavailable");
+        await this.refreshSurface();
+      }
       if (generation !== this.generation)
         throw new Error("Task access changed");
       this.update(id, { reconciliation: "complete" });
@@ -476,6 +576,7 @@ export class WorkbookExplicitPatchOwner {
       )
         continue;
       if (
+        !entry.intent.partyReview &&
         entry.intent.purpose !== "task-lifecycle" &&
         entry.intent.changes.length === 1 &&
         row

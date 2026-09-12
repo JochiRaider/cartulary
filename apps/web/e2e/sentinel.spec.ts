@@ -697,6 +697,12 @@ test("Party create and link preserve raw text on the workbook surface", async ({
   await page
     .getByTestId(coordinationWorkflowTestId("party-create-from-text"))
     .click();
+  await page
+    .getByRole("combobox", { name: "Kind value", exact: true })
+    .selectOption("team");
+  await page
+    .getByRole("button", { name: "Save Party and link", exact: true })
+    .click();
   const createdParty = await waitForViewRowByCell(
     page,
     incidentId,
@@ -892,6 +898,12 @@ test("Party create and link preserve raw text on the workbook surface", async ({
     .selectOption("task.requester_party_text:task.requester_party_id");
   await page
     .getByTestId(coordinationWorkflowTestId("party-create-from-text"))
+    .click();
+  await page
+    .getByRole("combobox", { name: "Kind value", exact: true })
+    .selectOption("team");
+  await page
+    .getByRole("button", { name: "Save Party and link", exact: true })
     .click();
   const createdRequester = await waitForViewRowByCell(
     page,

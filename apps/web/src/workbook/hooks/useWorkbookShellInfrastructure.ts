@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
+import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
 import { createIndicatorCreateTransport } from "../adapters/createIndicatorCreateTransport";
 import { createIndicatorLifecycleAdapter } from "../adapters/createIndicatorLifecycleAdapter";
 import { createObservationReader } from "../adapters/createObservationReader";
 import { createObservationTransport } from "../adapters/createObservationTransport";
+import { createPartyCreationTransport } from "../adapters/createPartyCreationTransport";
+import { createPartyLinkReader } from "../adapters/createPartyLinkReader";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
@@ -51,6 +54,7 @@ type WorkbookShellInfrastructureOptions = {
   readonly mutationRuntimeRegistry: WorkbookMutationRuntimeRegistry;
   readonly onExtensionAvailabilityChange: () => void;
   readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly partyAuthorization: AuthorizationRecoveryPort;
   readonly recheckMentionAuthority: () => Promise<void>;
 };
 
@@ -67,6 +71,7 @@ export function useWorkbookShellInfrastructure({
   onExtensionAvailabilityChange,
   onIncidentAccessLost,
   recheckMentionAuthority,
+  partyAuthorization,
 }: WorkbookShellInfrastructureOptions) {
   const transactionIds = useMemo(createBrowserSecureTransactionIdPort, []);
   const pendingMutationPort = useMemo(
@@ -222,6 +227,58 @@ export function useWorkbookShellInfrastructure({
   const incidentPort = useMemo(
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.partyLinks.configure(
+        createPartyCreationTransport(apiBase),
+        createPartyLinkReader({
+          apiBase,
+          incidentId,
+          recheckAuthority: () => {
+            void mutationRuntime.partyLinks.recheckAuthority();
+          },
+        }),
+        async (baseline, signal) => {
+          const result = await partyAuthorization.recover({
+            incidentId,
+            signal,
+          });
+          if (signal.aborted) throw new Error("Authority read interrupted.");
+          if (result.kind !== "authorized") {
+            if (
+              result.kind === "access_lost" ||
+              result.kind === "session_lost"
+            ) {
+              mutationRuntime.partyLinks.suspend();
+              mutationRuntime.explicitPatches.suspend();
+              void recheckMentionAuthority();
+            }
+            throw new Error(
+              "Current authority is unavailable. Retry the read.",
+            );
+          }
+          const incident = await incidentPort.getIdentity({ signal });
+          if (incident.kind !== "accepted")
+            throw new Error("Current incident state is unavailable.");
+          authorizationRecovered(result);
+          return {
+            ...baseline,
+            actorId: result.userId,
+            role: result.role,
+            closed: incident.value.status !== "active",
+          };
+        },
+      ),
+    [
+      apiBase,
+      incidentId,
+      mutationRuntime,
+      partyAuthorization,
+      recheckMentionAuthority,
+      incidentPort,
+      authorizationRecovered,
+    ],
   );
   const startupPort = useMemo(
     () => createWorkbookStartupAdapter({ apiBase, incidentId }),

@@ -353,10 +353,9 @@ export function WorkbookSameFieldConflictResolver({
       ) : null}
       {conflict.compoundOperationId ? (
         <p role="status">
-          This field belongs to a complete Task lifecycle draft. Keep saved to
-          clear the conflict without a revision, then review and submit the
-          retained draft together. Applying one field could omit a required
-          owner or reason.
+          This field belongs to a complete action. Keep saved to clear the
+          conflict without a revision, then review and submit the retained
+          action together.
         </p>
       ) : null}
       <div style={buttonRowStyle}>

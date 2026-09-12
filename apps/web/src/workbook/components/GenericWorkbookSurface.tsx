@@ -341,6 +341,7 @@ export function ContractWorkbookSurface({
     return createFields.filter((field) => !gridFieldKeys.has(field.fieldKey));
   }, [createFields, visibleAnchorColumns]);
   const genericInspector = useGenericWorkbookInspectorComposition({
+    sheetRef,
     canCreateRows,
     contract,
     createDraft,

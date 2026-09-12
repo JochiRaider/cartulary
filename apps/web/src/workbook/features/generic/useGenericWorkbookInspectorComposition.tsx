@@ -16,8 +16,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../../shared/workbookShellContracts";
-import type { WorkbookProtocolPatchRecordRequest } from "../../adapters/workbookProtocolTypes";
 import { useWorkbookHistorySurfaceRefresh } from "../../history/WorkbookHistoryContext";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { inspectorRecordHistoryActions } from "../../inspector/inspectorCapabilityResolver";
@@ -37,7 +37,6 @@ import {
   genericCreateMinimumMessage,
   genericInspectorRowLabel,
   initialGenericCreateDraft,
-  partyLinkPairsForContract,
   selectWorkbookEditTarget,
 } from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
@@ -69,10 +68,9 @@ import { GenericWorkbookInspectorPresentation } from "./GenericWorkbookInspector
 const noDecisionSnapshot = () => null;
 const noDecisionSubscription = () => () => {};
 
-type RecordPatchChange = WorkbookProtocolPatchRecordRequest["changes"][number];
-
 export function useGenericWorkbookInspectorComposition({
   canCreateRows,
+  sheetRef,
   contract,
   createDraft,
   currentIncidentRole,
@@ -97,6 +95,7 @@ export function useGenericWorkbookInspectorComposition({
   selectedRecordId,
   setCreateDraft,
 }: {
+  readonly sheetRef: SheetRef;
   readonly canCreateRows: boolean;
   readonly contract: ViewContract;
   readonly createDraft: Record<string, string>;
@@ -167,9 +166,6 @@ export function useGenericWorkbookInspectorComposition({
     useState<IndicatorInspectorHandler | null>(null);
   const [editCollectionMode, setEditCollectionMode] =
     useState<GenericCollectionMode>("add");
-  const partyLinkExistingPartyIdForReset = useRef<(value: string) => void>(
-    () => undefined,
-  );
   const subjectRow =
     rows.find((row) => row.record_id === selectedRecordId) ?? null;
   useLayoutEffect(() => {
@@ -209,7 +205,6 @@ export function useGenericWorkbookInspectorComposition({
         setOtherEditValue("");
         setLinkedNoteSourceRecordId("");
         setEditCollectionMode("add");
-        partyLinkExistingPartyIdForReset.current("");
         mutation.clearMutationError();
         setRelatedFeedback(null);
         if (cause === "close" || scope === "surface") {
@@ -330,10 +325,6 @@ export function useGenericWorkbookInspectorComposition({
     if (incidentClosed) tokens.add("incident_closed");
     return tokens;
   }, [incidentClosed, selectedEdit.row]);
-  const partyLinkPairs = useMemo(
-    () => partyLinkPairsForContract(contract),
-    [contract],
-  );
 
   useEffect(() => {
     if (selectedEdit.field?.writeKind !== "action_payload") {
@@ -436,47 +427,16 @@ export function useGenericWorkbookInspectorComposition({
       finish();
     }
   };
-  const submitPartyLinkPatch = async (
-    changes: RecordPatchChange[],
-    purpose: string,
-  ) => {
-    if (selectedEdit.row === null) {
-      mutation.setValidationError("Select a row before changing a party link.");
-      return false;
-    }
-    const finish = mutation.beginMutation();
-    try {
-      const payload = await mutation.submitPatchMutation({
-        baseline: selectedEdit.row,
-        baseRowVersion: selectedEdit.row.row_version,
-        changes,
-        purpose,
-        recordId: selectedEdit.row.record_id,
-        viewSchemaId: contract.viewSchemaId,
-      });
-      if (payload === null) return false;
-      if (contract.viewSchemaId !== taskViewId)
-        await mutation.completeGenericMutation();
-      return true;
-    } finally {
-      finish();
-    }
-  };
   const party = useGenericPartyLinkWorkflow({
-    mutation: {
-      beginMutation: mutation.beginMutationReport,
-      rejectMutationFailure: mutation.rejectMutationFailure,
-      setValidationError: mutation.setValidationError,
-    },
-    mutationCommands: mutationCommands.generic,
-    originViewSchemaId: contract.viewSchemaId,
-    partyLinkPairs,
+    owner: mutation.partyLinks,
+    contract,
+    sheetRef,
+    row: selectedEdit.row,
+    sourceLabel: subject?.label ?? contract.title,
     resetKey: invalidationKey,
-    selectedRow: selectedEdit.row,
-    selectedSubject: subject?.kind === "live" ? subject : null,
-    submitLinkPatch: submitPartyLinkPatch,
+    fieldKey: selectedEdit.field?.fieldKey ?? "",
+    visible: isOpen,
   });
-  partyLinkExistingPartyIdForReset.current = party.setPartyLinkExistingPartyId;
 
   const close = () => inspector.commands.close({ restoreFocus: true });
   const node = isOpen ? (
@@ -652,13 +612,7 @@ export function useGenericWorkbookInspectorComposition({
         setEditValue,
         submitEdit,
       }}
-      relationships={{
-        disabled: mutation.mutationPending,
-        party,
-        partyLinkPairs,
-        referenceOptions,
-        rowSelected: selectedEdit.row !== null,
-      }}
+      relationships={{ party }}
     />
   ) : undefined;
   return {

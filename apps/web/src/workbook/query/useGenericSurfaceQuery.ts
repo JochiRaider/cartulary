@@ -32,7 +32,7 @@ import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 export type GenericSurfaceQueryInput = {
   readonly indicatorOwner?: WorkbookCommittedRecordPort | undefined;
-  readonly taskOwner?: WorkbookExplicitPatchOwner | undefined;
+  readonly explicitPatchOwner?: WorkbookExplicitPatchOwner | undefined;
   readonly decisionOwner?: DecisionSupersessionOwnerPort | undefined;
   readonly active: boolean;
   readonly contract: ViewContract;
@@ -45,7 +45,7 @@ export type GenericSurfaceQueryInput = {
 export function useGenericSurfaceQuery({
   decisionOwner,
   indicatorOwner,
-  taskOwner,
+  explicitPatchOwner,
   active,
   contract,
   onIncidentAccessLost,
@@ -120,8 +120,9 @@ export function useGenericSurfaceQuery({
         return;
       }
       const decision =
-        viewSchemaId === taskViewId
-          ? taskOwner
+        viewSchemaId === taskViewId ||
+        viewSchemaId === "cartulary.view.evidence.v1"
+          ? explicitPatchOwner
           : viewSchemaId === decisionViewId
             ? decisionOwner
             : viewSchemaId === indicatorsViewSchemaId
@@ -148,8 +149,9 @@ export function useGenericSurfaceQuery({
         return;
       }
       const nextRows = [...result.value.rows].map((row) =>
-        viewSchemaId === taskViewId
-          ? (taskOwner?.observeQuery(row) ?? row)
+        viewSchemaId === taskViewId ||
+        viewSchemaId === "cartulary.view.evidence.v1"
+          ? (explicitPatchOwner?.observeQuery(row) ?? row)
           : (decision?.acceptRow(row) ?? row),
       );
       rowsRef.current = nextRows;
@@ -167,7 +169,7 @@ export function useGenericSurfaceQuery({
       viewSchemaId,
       decisionOwner,
       indicatorOwner,
-      taskOwner,
+      explicitPatchOwner,
     ],
   );
 
@@ -197,8 +199,9 @@ export function useGenericSurfaceQuery({
       }
 
       const decision =
-        viewSchemaId === taskViewId
-          ? taskOwner
+        viewSchemaId === taskViewId ||
+        viewSchemaId === "cartulary.view.evidence.v1"
+          ? explicitPatchOwner
           : viewSchemaId === decisionViewId
             ? decisionOwner
             : viewSchemaId === indicatorsViewSchemaId
@@ -220,20 +223,26 @@ export function useGenericSurfaceQuery({
       setRows(next);
       return { kind: "applied" };
     },
-    [contract, viewSchemaId, decisionOwner, taskOwner, indicatorOwner],
+    [contract, viewSchemaId, decisionOwner, explicitPatchOwner, indicatorOwner],
   );
 
   useEffect(() => {
-    if (!taskOwner || !active || viewSchemaId !== taskViewId) return;
-    return taskOwner.subscribe(() => {
-      if (!taskOwner.getSnapshot().authority) {
+    if (
+      !explicitPatchOwner ||
+      !active ||
+      (viewSchemaId !== taskViewId &&
+        viewSchemaId !== "cartulary.view.evidence.v1")
+    )
+      return;
+    return explicitPatchOwner.subscribe(() => {
+      if (!explicitPatchOwner.getSnapshot().authority) {
         clearRows();
         return;
       }
       const current = rowsRef.current;
       let changed = false;
       const next = current.map((row) => {
-        const accepted = taskOwner.latestRow(row.record_id);
+        const accepted = explicitPatchOwner.latestRow(row.record_id);
         if (accepted && accepted.row_version > row.row_version) {
           changed = true;
           return accepted;
@@ -245,7 +254,7 @@ export function useGenericSurfaceQuery({
         setRows(next);
       }
     });
-  }, [active, clearRows, taskOwner, viewSchemaId]);
+  }, [active, clearRows, explicitPatchOwner, viewSchemaId]);
 
   useEffect(() => {
     if (!indicatorOwner || !active || viewSchemaId !== indicatorsViewSchemaId)

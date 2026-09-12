@@ -31,7 +31,7 @@ type QueryStateOwner = {
 };
 
 type WorkbookSurfaceQueriesOptions = {
-  readonly taskOwner?: WorkbookExplicitPatchOwner;
+  readonly explicitPatchOwner?: WorkbookExplicitPatchOwner;
   readonly decisionOwner?: DecisionSupersessionOwnerPort;
   readonly indicatorOwner?: WorkbookCommittedRecordPort;
   readonly activeContract: ViewContract;
@@ -49,7 +49,7 @@ type WorkbookSurfaceQueriesOptions = {
 
 /** Owns loading, invalidation, and collaboration projection for query surfaces. */
 export function useWorkbookSurfaceQueries({
-  taskOwner,
+  explicitPatchOwner,
   decisionOwner,
   indicatorOwner,
   activeContract,
@@ -85,7 +85,7 @@ export function useWorkbookSurfaceQueries({
     surface !== identitiesViewSchemaId &&
     surface !== assessmentsViewSchemaId;
   const genericQuery = useGenericSurfaceQuery({
-    taskOwner,
+    explicitPatchOwner,
     decisionOwner,
     indicatorOwner,
     active: genericSurfaceActive,
