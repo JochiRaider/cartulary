@@ -151,6 +151,30 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-contextual-create",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.assessments.browser.contextual_decision_refresh",
+            "module.entities.browser.contextual_task_replay",
+            "module.evidence.browser.contextual_creation_discard"
+          ],
+          "specs": [
+            "apps/web/e2e/contextual-create.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-enterprise-auth",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1215,6 +1239,30 @@
           ],
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-contextual-create",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.assessments.browser.contextual_decision_refresh",
+            "module.entities.browser.contextual_task_replay",
+            "module.evidence.browser.contextual_creation_discard"
+          ],
+          "specs": [
+            "apps/web/e2e/contextual-create.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
@@ -2892,6 +2940,7 @@
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.canonical_indicator_authoring_recovery",
+            "module.workbook.accessibility.contextual_task_decision_creation",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
@@ -3015,6 +3064,7 @@
             "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+            "module.workbook.visual.contextual_task_decision_creation",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
@@ -3291,6 +3341,7 @@
             "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+            "module.workbook.visual.contextual_task_decision_creation",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
@@ -3895,6 +3946,7 @@
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.canonical_indicator_authoring_recovery",
+            "module.workbook.accessibility.contextual_task_decision_creation",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
@@ -4006,6 +4058,7 @@
             "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
             "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
             "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
+            "module.workbook.visual.contextual_task_decision_creation",
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",

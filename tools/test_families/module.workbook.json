@@ -39,6 +39,43 @@
       ]
     },
     {
+      "row_id": "module.workbook.accessibility.contextual_task_decision_creation",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.tasksdecisions",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_42e67826d241"
+        ],
+        "titles": [
+          "a11y.contextual-create target fields reference cancellation and retained recovery remain keyboard accessible"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.accessibility.decision_supersession_review_recovery",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -3665,6 +3702,44 @@
         ],
         "titles": [
           "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, and keyboard focus fixtures."
+        ]
+      },
+      "evidence_class": "visual",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.visual.contextual_task_decision_creation",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.visual",
+      "collaborator_ids": [
+        "harness.browser",
+        "harness.visual",
+        "module.tasksdecisions",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.visual.spec.ts",
+        "project_id": "chromium",
+        "stage": "visual",
+        "scenario_ids": [
+          "scenario_4a08391df78c"
+        ],
+        "titles": [
+          "Capture contextual Task and Decision authoring references and retained recovery"
         ]
       },
       "evidence_class": "visual",

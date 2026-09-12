@@ -34,6 +34,7 @@ import {
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
+  genericCreateSubmitTestId,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
@@ -238,6 +239,7 @@ import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
 } from "./support/workbook/collections";
+import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
 import { openDecisionReviewFixture } from "./support/workbook/decisionSupersession";
 import { fetchRecordHistory } from "./support/workbook/history";
 import {
@@ -8715,4 +8717,99 @@ test("Capture Indicator observation source selection at desktop and narrow width
     body: await page.screenshot({ animations: "disabled", caret: "hide" }),
     contentType: "image/png",
   });
+});
+
+test("Capture contextual Task and Decision authoring references and retained recovery", async ({
+  page,
+}) => {
+  const capture = async (
+    page: Page,
+    name: string,
+    options: { anchor?: VisualAnchor } = {},
+  ) => {
+    await assertViewportVisualRegression(page, name, options);
+    await test.info().attach(`${name}-review`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  };
+  for (const target of ["task_request", "decision"] as const) {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const { view } = await openContextualCreationFixture(page, target, (url) =>
+      navigateVisualApplication(page, url),
+    );
+    const form = page.getByRole("region", {
+      name:
+        target === "decision"
+          ? "Create Related Decision"
+          : "Create Related Task Request",
+      exact: true,
+    });
+    const anchor: VisualAnchor = {
+      locator: form,
+      align: "start",
+      scrollportSelector: `aside[data-view-schema-id="${evidenceViewSchemaId}"]`,
+    };
+    await capture(page, `contextual-${target}-authoring`, { anchor });
+    await page.setViewportSize({ width: 768, height: 640 });
+    await capture(page, `contextual-${target}-authoring-narrow`, { anchor });
+    const choose = form.getByRole("button", {
+      name:
+        target === "decision" ? "Choose Support Refs" : "Choose Linked Records",
+      exact: true,
+    });
+    await choose.click();
+    const picker = form.getByRole("region", {
+      name:
+        target === "decision" ? "Choose Support Refs" : "Choose Linked Records",
+      exact: true,
+    });
+    await expect(
+      picker.getByRole("button", { name: "Apply references", exact: true }),
+    ).toBeEnabled();
+    await capture(page, `contextual-${target}-references-narrow`, {
+      anchor: { ...anchor, locator: picker },
+    });
+    await picker
+      .getByRole("button", { name: "Cancel references", exact: true })
+      .click();
+    if (target === "decision") {
+      let accepted = false;
+      await page.route(`**/views/${view}/rows`, async (route) => {
+        const response = await route.fetch();
+        expect(response.ok()).toBeTruthy();
+        accepted = true;
+        await route.fulfill({ response });
+      });
+      await page.route(`**/views/${view}/query`, async (route) => {
+        if (accepted) await route.abort("failed");
+        else await route.continue();
+      });
+      await page.getByTestId(genericCreateSubmitTestId(view)).click();
+      await expect(form).toHaveCount(0);
+    } else
+      await form
+        .getByRole("button", { name: "Keep draft and close", exact: true })
+        .click();
+    const summary = page
+      .locator("summary")
+      .filter({ hasText: /^Task \/ Decision creation/ });
+    await summary.click();
+    const recovery = page.getByRole("region", {
+      name: "Retained contextual creation",
+      exact: true,
+    });
+    await expect(
+      recovery.getByRole("button", {
+        name:
+          target === "decision"
+            ? "Retry creation refresh"
+            : "Resume contextual draft",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await capture(page, `contextual-${target}-recovery-narrow`);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await capture(page, `contextual-${target}-recovery`);
+  }
 });

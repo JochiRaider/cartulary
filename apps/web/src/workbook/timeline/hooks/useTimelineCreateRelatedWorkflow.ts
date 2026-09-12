@@ -3,6 +3,7 @@ import type {
   ViewContract,
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useContextualCreateAttachment } from "../../features/coordination/useContextualCreateAttachment";
 import {
   buildInspectorRelatedRecordDraft,
   type InspectorRelatedRecordWorkflowAction,
@@ -72,6 +73,19 @@ type TimelineRelatedWorkflowRuntime = {
 export function useTimelineCreateRelatedWorkflow(
   input: TimelineCreateRelatedWorkflowInput,
 ) {
+  const {
+    workflow: contextualWorkflow,
+    begin: contextualBegin,
+    detach: contextualDetach,
+    update: contextualUpdate,
+  } = useContextualCreateAttachment(
+    input.selectedSubject && input.selectedRow
+      ? {
+          subject: input.selectedSubject,
+          cells: input.selectedRow.rawRow?.cells ?? {},
+        }
+      : null,
+  );
   const [workflow, reactDispatch] = useReducer(
     inspectorRelatedRecordWorkflowReducer,
     null,
@@ -129,6 +143,7 @@ export function useTimelineCreateRelatedWorkflow(
 
   const cancelWorkflow = useCallback(
     (reason: "owner_action" | "lifecycle" = "owner_action") => {
+      contextualDetach();
       if (reason === "lifecycle" && capturedOwnerSequenceRef.current) return;
       capturedOwnerSequenceRef.current = false;
       currentWorkflowIdentityRef.current = null;
@@ -137,16 +152,22 @@ export function useTimelineCreateRelatedWorkflow(
         dispatchWorkflow({ type: "cancel", workflowId: active.workflowId });
       }
     },
-    [dispatchWorkflow],
+    [contextualDetach, dispatchWorkflow],
   );
 
   const beginWorkflow = useCallback(
-    (featureGroup: InspectorFeatureGroup) =>
-      beginTimelineRelatedWorkflow(runtime, featureGroup),
-    [runtime],
+    (featureGroup: InspectorFeatureGroup) => {
+      if (!contextualBegin(featureGroup))
+        beginTimelineRelatedWorkflow(runtime, featureGroup);
+    },
+    [contextualBegin, runtime],
   );
   const updateWorkflowDraft = useCallback(
     (featureGroupKey: string, fieldKey: string, value: string) => {
+      if (contextualWorkflow) {
+        contextualUpdate(fieldKey, value);
+        return;
+      }
       const active = workflowRef.current;
       if (
         active !== null &&
@@ -160,7 +181,7 @@ export function useTimelineCreateRelatedWorkflow(
         });
       }
     },
-    [dispatchWorkflow],
+    [contextualWorkflow, contextualUpdate, dispatchWorkflow],
   );
   const submitWorkflow = useCallback(async () => {
     const identity = currentWorkflowIdentityRef.current;
@@ -192,7 +213,7 @@ export function useTimelineCreateRelatedWorkflow(
     cancelWorkflow,
     submitWorkflow,
     updateWorkflowDraft,
-    workflow,
+    workflow: contextualWorkflow ?? workflow,
   };
 }
 

@@ -269,6 +269,14 @@ class WorkbookCollaborationCoordinatorRuntime {
           this.presenceProjection,
         );
       }
+      if (
+        event.kind === "message" &&
+        event.message.type === "record_changed" &&
+        this.authorizationRecoveryMachine.authorizationConfirmed
+      )
+        this.options.mutationRuntime.contextualCreate.observeSocket(
+          event.message,
+        );
       this.handleEventPlan(planWorkbookCollaborationEvent(event));
     });
     this.emit();
@@ -784,6 +792,10 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private handleRecordChanged(payload: RecordChangedPayload): void {
+    this.options.mutationRuntime.contextualCreate.observe(
+      payload.record_id,
+      payload.row_version,
+    );
     const assessment = payload.affected_views.find(
       (view) => view.view_schema_id === "cartulary.view.assessments.v1",
     );

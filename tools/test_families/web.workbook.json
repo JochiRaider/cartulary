@@ -357,6 +357,102 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.contextual_task_decision_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/contextualCreateAuthoring.test.tsx",
+        "titles": [
+          "contextual Task and Decision authoring hides protected state on suspension and retires it on account replacement",
+          "contextual Task and Decision authoring maps all 23 declared entry points across 15 public surfaces and excludes absent features",
+          "contextual Task and Decision authoring requires target minima, omits unset optional fields, and guards initial lifecycle and exact references",
+          "contextual Task and Decision authoring retains both targets through stale failed reference pages and role changes without exposing old labels",
+          "contextual Task and Decision authoring retains identity and edits across detachment, source versions and explicit replacement",
+          "contextual Task and Decision authoring stages reference changes, preserves off-page selections, pages and cancels without editing the draft"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.contextual_task_decision_discovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/contextualCreateDiscovery.test.ts",
+        "titles": [
+          "contextual target reference discovery paginates membership inventory and rejects mismatched incident and cursor responses",
+          "contextual target reference discovery reads pages of 100 for every implemented record surface, including Parties, Decisions and optional collections",
+          "contextual target reference discovery verifies every declared route and seed structurally against public discovery and rejects changed capabilities"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.contextual_task_decision_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/contextualCreateRecovery.test.tsx",
+        "titles": [
+          "contextual create recovery accepts receipts outside query pages and never regresses newer HTTP or socket observations",
+          "contextual create recovery attaches shared inspector forms without using the legacy Timeline create port",
+          "contextual create recovery checks current authority on recovery and never treats a replay rejection as proof of no commit",
+          "contextual create recovery classifies lost and malformed responses as uncertain and validates complete receipt correlation",
+          "contextual create recovery correlates full socket envelopes in either order and preserves removal observations without inferring deletion from pages",
+          "contextual create recovery invalidates reviewed readiness when source changes while earlier saves are pending",
+          "contextual create recovery preserves field rejection and requires deliberate correction and a new attempt",
+          "contextual create recovery recovers a timed-out observation with the same attempt and accepts a late original receipt monotonically",
+          "contextual create recovery replays the original body and key after loss without accepting edited inputs or regenerating defaults",
+          "contextual create recovery reserves activation synchronously, waits for prior saves, and captures immutable reviewed requests for both targets",
+          "contextual create recovery retains acceptance through detachment and failed refresh, then recovers with reads only",
+          "contextual create recovery retains late receipt during suspension and ignores completion after incident retirement"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.decision_supersession_canonical_composition",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2838,7 +2934,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts",
         "titles": [
-          "timelineWorkbookFeaturePolicy owns the exact contracts needed by every Timeline create-related target"
+          "timelineWorkbookFeaturePolicy owns the contracts for Timeline create-related targets outside retained Task and Decision authoring"
         ]
       },
       "evidence_class": "unit",

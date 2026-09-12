@@ -44,6 +44,42 @@
       ]
     },
     {
+      "row_id": "module.assessments.browser.contextual_decision_refresh",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.tasksdecisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/contextual-create.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_26762582a8be"
+        ],
+        "titles": [
+          "Assessment contextual Decision draft survives inspector closure and accepted refresh failure recovers with reads only"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.browser",

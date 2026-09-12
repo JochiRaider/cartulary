@@ -14,6 +14,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAssessmentCandidateReader } from "../../adapters/createAssessmentCandidateReader";
+import { useWorkbookCandidates } from "../../hooks/useWorkbookCandidates";
 import {
   type AssessmentCreateDraft,
   initialAssessmentDraft,
@@ -24,7 +25,6 @@ import {
   AssessmentSupportPicker,
 } from "./AssessmentDiscovery";
 import type { AssessmentCandidateReadPort } from "./assessmentCandidatePort";
-import { useAssessmentCandidates } from "./useAssessmentCandidates";
 
 afterEach(() => {
   cleanup();
@@ -120,9 +120,7 @@ describe("Assessment discovery", () => {
         failure: { kind: "retryable", message: "Read failed" },
       })
       .mockResolvedValueOnce(page(["b"]));
-    const { result } = renderHook(() =>
-      useAssessmentCandidates(read, query, 0),
-    );
+    const { result } = renderHook(() => useWorkbookCandidates(read, query, 0));
     await waitFor(() => expect(result.current.phase).toBe("ready"));
     await act(() => result.current.loadMore());
     expect(result.current.phase).toBe("failed");
@@ -147,7 +145,7 @@ describe("Assessment discovery", () => {
       .mockResolvedValueOnce(page(["new"], "cycle"))
       .mockResolvedValueOnce(page(["ignored"], "cycle"));
     const { result, rerender } = renderHook(
-      ({ revision }) => useAssessmentCandidates(read, query, revision),
+      ({ revision }) => useWorkbookCandidates(read, query, revision),
       { initialProps: { revision: 0 } },
     );
     rerender({ revision: 1 });

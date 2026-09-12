@@ -39,6 +39,42 @@
       ]
     },
     {
+      "row_id": "module.entities.browser.contextual_task_replay",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.tasksdecisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/contextual-create.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_216b1f2612d2"
+        ],
+        "titles": [
+          "Entity contextual Task creation retains editable references and replays a lost response exactly after navigation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.entities.browser.entity_merge_exact_recovery",
       "owner_id": "module.entities",
       "family_id": "module.entities.browser",

@@ -27,6 +27,7 @@ import {
   workbookLayoutMetrics,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
+import { requireViewContract } from "@cartulary/view-contracts";
 import {
   cleanup,
   fireEvent,
@@ -42,6 +43,7 @@ import {
   errorEnvelope,
   extractTimelineJSONBody,
   findWorkbookCell,
+  fullWorkbookViewRow,
   installTimelineWorkbookTestGlobals,
   successEnvelope,
   type TimelineWorkbookFetchMock,
@@ -51,8 +53,13 @@ import {
   timelineRowsEnvelope,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { createContextualCreateTransport } from "./adapters/createContextualCreateTransport";
+import { ContextualCreateContext } from "./features/coordination/ContextualCreateContext";
+import { WorkbookContextualTaskDecisionCreateOwner } from "./features/coordination/WorkbookContextualTaskDecisionCreateOwner";
 import type { RecordHistoryItem } from "./inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
+import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
+import type { WorkbookMutationAuthority } from "./mutations/workbookMutationAuthority";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -707,6 +714,36 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
   it("creates a related Task Request from the Timeline inspector using emitted seed bindings", async () => {
     const taskRequestsViewSchemaId = "cartulary.view.task_requests.v1";
+    const authority: WorkbookMutationAuthority = {
+      actorId: "40000000-0000-4000-8000-000000000401",
+      incidentId: "10000000-0000-4000-8000-000000000001",
+      sessionIdentity: "fixture-session",
+      role: "editor",
+      closed: false,
+    };
+    const contextualCreate = new WorkbookContextualTaskDecisionCreateOwner(
+      authority.incidentId,
+      createBrowserSecureTransactionIdPort(),
+      {
+        coordinate: async () => true,
+        accepted: () => {},
+        observed: () => {},
+        refresh: async () => {},
+      },
+    );
+    contextualCreate.setAuthority(authority);
+    contextualCreate.configure(
+      {
+        availableViews: async () => [timelineViewSchemaId],
+        verify: async () => {},
+        page: async () => ({
+          kind: "accepted",
+          value: { candidates: [], hasMore: false, nextCursor: null },
+        }),
+      },
+      async () => authority,
+      createContextualCreateTransport(undefined),
+    );
     fetchMock
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
@@ -726,7 +763,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
               incident_id: "10000000-0000-4000-8000-000000000001",
               membership_version: 1,
               role: "admin",
-              user_id: "user-1",
+              user_id: authority.actorId,
             },
           ],
         }),
@@ -735,19 +772,31 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         successEnvelope({
           view_schema_id: taskRequestsViewSchemaId,
           change_set_id: "30000000-0000-4000-8000-000000000001",
-          row: {
-            record_id: "20000000-0000-4000-8000-000000000401",
-            row_version: 1,
-            cells: {},
-          },
+          row: fullWorkbookViewRow(
+            requireViewContract(taskRequestsViewSchemaId),
+            "20000000-0000-4000-8000-000000000401",
+            1,
+            {
+              "task.title": "Follow up on source row",
+              "task.task_kind": "follow_up",
+            },
+          ),
         }),
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture
-        currentIncidentRole="editor"
-        incidentId="10000000-0000-4000-8000-000000000001"
-      />,
+      <ContextualCreateContext.Provider
+        value={{
+          owner: contextualCreate,
+          sheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+        }}
+      >
+        <TimelineWorkbookRuntimeFixture
+          currentIncidentRole="editor"
+          currentUserId={authority.actorId}
+          incidentId={authority.incidentId}
+        />
+      </ContextualCreateContext.Provider>,
     );
     await waitForVisibleGridRowRecordIds(container, [
       "20000000-0000-4000-8000-000000000001",
@@ -818,9 +867,18 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         ],
       },
     });
-    expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
-      "Created related cartulary.view.task_requests.v1 row 20000000-0000-4000-8000-000000000401.",
+    await waitFor(() =>
+      expect(
+        contextualCreate.getSnapshot().entries[0]?.receipt?.data,
+      ).toMatchObject({
+        view_schema_id: taskRequestsViewSchemaId,
+        row: {
+          record_id: "20000000-0000-4000-8000-000000000401",
+          row_version: 1,
+        },
+      }),
     );
+    expect(screen.getByTestId(timelineInspectorTestId())).toBeTruthy();
   });
 
   it("creates related Evidence from the Timeline inspector and links it back through the Timeline patch route", async () => {

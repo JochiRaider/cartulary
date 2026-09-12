@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
+import { createContextualCreateReader } from "../adapters/createContextualCreateReader";
+import { createContextualCreateTransport } from "../adapters/createContextualCreateTransport";
 import { createIndicatorCreateTransport } from "../adapters/createIndicatorCreateTransport";
 import { createIndicatorLifecycleAdapter } from "../adapters/createIndicatorLifecycleAdapter";
 import { createObservationReader } from "../adapters/createObservationReader";
@@ -239,6 +241,7 @@ export function useWorkbookShellInfrastructure({
       if (result.kind !== "authorized") {
         if (result.kind === "access_lost" || result.kind === "session_lost") {
           mutationRuntime.assessmentAuthoring.suspend();
+          mutationRuntime.contextualCreate.suspend();
           mutationRuntime.partyLinks.suspend();
           mutationRuntime.explicitPatches.suspend();
           void recheckMentionAuthority();
@@ -264,6 +267,21 @@ export function useWorkbookShellInfrastructure({
       recheckMentionAuthority,
       authorizationRecovered,
     ],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.contextualCreate.configure(
+        createContextualCreateReader({
+          apiBase,
+          incidentId,
+          recheckAuthority: () => {
+            void mutationRuntime.contextualCreate.recheckAuthority();
+          },
+        }),
+        currentAuthorityReader,
+        createContextualCreateTransport(apiBase),
+      ),
+    [apiBase, incidentId, mutationRuntime, currentAuthorityReader],
   );
   useMemo(
     () =>

@@ -36,6 +36,8 @@ import {
   evidencePreviewButtonTestId,
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
+  genericCreateFieldTestId,
+  genericCreateSubmitTestId,
   gridFilterApplyTestId,
   gridFilterFieldTestId,
   gridFilterValueTestId,
@@ -257,6 +259,7 @@ import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
 } from "./support/workbook/collections";
+import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
 import {
   expectDecisionControlReachable,
   openDecisionReviewFixture,
@@ -7844,4 +7847,128 @@ test("a11y.assessment deliberate subjects staged support and retained drafts rem
     body: await page.getByTestId(assessmentCreatePanelTestId()).ariaSnapshot(),
     contentType: "text/plain",
   });
+});
+
+test("a11y.contextual-create target fields reference cancellation and retained recovery remain keyboard accessible", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const target of ["task_request", "decision"] as const) {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const { view } = await openContextualCreationFixture(page, target);
+    const field = page.getByTestId(
+      genericCreateFieldTestId(
+        target === "decision" ? "decision.rationale" : "task.title",
+      ),
+    );
+    const original = await field.inputValue();
+    const submit = page.getByTestId(genericCreateSubmitTestId(view));
+    await field.fill("");
+    await submit.focus();
+    await submit.press("Enter");
+    await expect(field).toHaveAttribute("aria-invalid", "true");
+    await expect(field).toHaveAccessibleDescription(/is required/);
+    await field.fill(original);
+    const timestamp = page.getByTestId(
+      genericCreateFieldTestId(
+        target === "decision" ? "decision.decided_at" : "task.due_at",
+      ),
+    );
+    await timestamp.fill("unfinished");
+    await submit.focus();
+    await submit.press("Enter");
+    await expect(timestamp).toHaveAttribute("aria-invalid", "true");
+    await timestamp.fill("");
+    const choose = page.getByRole("button", {
+      name:
+        target === "decision" ? "Choose Support Refs" : "Choose Linked Records",
+      exact: true,
+    });
+    await choose.focus();
+    await choose.press("Enter");
+    const picker = page.getByRole("region", {
+      name:
+        target === "decision" ? "Choose Support Refs" : "Choose Linked Records",
+      exact: true,
+    });
+    await expect(
+      picker.getByRole("button", { name: "Apply references", exact: true }),
+    ).toBeEnabled();
+    const candidates = picker.getByRole("listbox", {
+      name: target === "decision" ? "Support Refs" : "Linked Records",
+      exact: true,
+    });
+    const originalIds = await candidates.evaluate((element) =>
+      Array.from((element as HTMLSelectElement).selectedOptions).map(
+        (option) => option.value,
+      ),
+    );
+    await candidates.selectOption([]);
+    await candidates.press("Escape");
+    await expect(choose).toBeFocused();
+    await choose.press("Enter");
+    await expect(candidates).toHaveValues(originalIds);
+    await candidates.press("Escape");
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 768, height: 640 },
+      { width: 390, height: 480 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const control of [field, timestamp, choose, submit]) {
+        await expectDecisionControlReachable(page, control);
+        await expectVisibleFocus(control);
+      }
+      await testInfo.attach(`contextual-${target}-${viewport.width}`, {
+        body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+        contentType: "image/png",
+      });
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "200%";
+    });
+    await expectDecisionControlReachable(page, submit);
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "";
+    });
+    const spacing = await page.addStyleTag({
+      content:
+        "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+    });
+    await expectDecisionControlReachable(page, choose);
+    await spacing.evaluate((element) =>
+      element.parentNode?.removeChild(element),
+    );
+    await page
+      .getByRole("button", { name: "Keep draft and close", exact: true })
+      .click();
+    const summary = page
+      .locator("summary")
+      .filter({ hasText: /^Task \/ Decision creation/ });
+    await summary.focus();
+    await summary.press("Enter");
+    const recovery = page.getByRole("region", {
+      name: "Retained contextual creation",
+      exact: true,
+    });
+    const resume = recovery.getByRole("button", {
+      name: "Resume contextual draft",
+      exact: true,
+    });
+    await resume.focus();
+    await resume.press("Enter");
+    await expect(field).toHaveValue(original);
+    await page.setViewportSize({ width: 390, height: 480 });
+    await expectDecisionControlReachable(page, field);
+    await expectDecisionControlReachable(page, submit);
+    await expectAllInteractiveControlsNamed(page);
+    await testInfo.attach(`contextual-${target}-recovery-tree`, {
+      body: await recovery.ariaSnapshot(),
+      contentType: "text/plain",
+    });
+    await recovery.press("Escape");
+    await expect(summary).toBeFocused();
+    await expect(recovery).not.toBeVisible();
+  }
 });

@@ -5,7 +5,7 @@ import type {
   WorkbookPresenceMode,
 } from "../utils/workbookPresence";
 
-type RecordChangedMessage = Extract<
+export type RecordChangedMessage = Extract<
   IncidentCollaborationMessage,
   { type: "record_changed" }
 >;

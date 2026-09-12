@@ -12,6 +12,7 @@ import {
   secondaryButtonStyle,
   stackedLabelStyle,
 } from "../../components/workbookGridControlStyles";
+import { useWorkbookCandidates } from "../../hooks/useWorkbookCandidates";
 import type {
   AssessmentCreateDraft,
   AssessmentSupportCandidate,
@@ -24,7 +25,6 @@ import type {
   AssessmentCandidateQuery,
   AssessmentCandidateReadPort,
 } from "./assessmentCandidatePort";
-import { useAssessmentCandidates } from "./useAssessmentCandidates";
 
 type Props = {
   readonly reader: AssessmentCandidateReadPort;
@@ -209,7 +209,7 @@ function CandidateList({
   const [query, setQuery] = useState<WorkbookQueryState>(
     emptyWorkbookQueryState,
   );
-  const page = useAssessmentCandidates(read, query, revision);
+  const page = useWorkbookCandidates(read, query, revision);
   const candidates = useMemo(() => {
     const rows = new Map<string, AssessmentSupportCandidate>();
     for (const id of selected)

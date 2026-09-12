@@ -7,9 +7,9 @@ import type { WorkbookOperationFailure } from "../mutations/workbookOperationOut
 import { useInspectorCreateRelatedWorkflow } from "./useInspectorCreateRelatedWorkflow";
 
 const timeline = requireViewContract("cartulary.view.timeline.v2");
-const taskRequests = requireViewContract("cartulary.view.task_requests.v1");
-const createTaskRequest = timeline.inspectorConfig.featureGroups.find(
-  (feature) => feature.featureGroupKey === "create_related.task_request",
+const commLog = requireViewContract("cartulary.view.comm_log.v1");
+const createCommLog = timeline.inspectorConfig.featureGroups.find(
+  (feature) => feature.featureGroupKey === "create_related.comm_log",
 );
 const initialSubject = {
   cells: { "timeline.activity_synopsis_text": { value: "Investigate" } },
@@ -25,8 +25,8 @@ const initialSubject = {
 
 describe("useInspectorCreateRelatedWorkflow", () => {
   it("publishes related success as neutral non-announced feedback", async () => {
-    expect(createTaskRequest).toBeDefined();
-    if (createTaskRequest === undefined) return;
+    expect(createCommLog).toBeDefined();
+    if (createCommLog === undefined) return;
     const onFeedback = vi.fn();
     const finishReport = vi.fn();
     const beginMutation = vi.fn(() => finishReport);
@@ -39,7 +39,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
           value: {
             changeSetId: "20000000-0000-4000-8000-000000000001",
             recordId: "20000000-0000-4000-8000-000000000002",
-            viewSchemaId: taskRequests.viewSchemaId,
+            viewSchemaId: commLog.viewSchemaId,
           },
         })),
         onCreated: vi.fn(),
@@ -48,7 +48,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
       }),
     );
 
-    act(() => result.current.commands.begin(createTaskRequest));
+    act(() => result.current.commands.begin(createCommLog));
     await act(async () => result.current.commands.submit());
     expect(beginMutation).toHaveBeenCalledOnce();
     expect(finishReport).toHaveBeenCalledOnce();
@@ -56,13 +56,13 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     expect(onFeedback).toHaveBeenLastCalledWith({
       announcement: "none",
       kind: "message",
-      message: `Created ${taskRequests.title} record 20000000-0000-4000-8000-000000000002.`,
+      message: `Created ${commLog.title} record 20000000-0000-4000-8000-000000000002.`,
     });
   });
 
   it("ignores a late accepted result after cancel and reopen while retaining the owner effect", async () => {
-    expect(createTaskRequest).toBeDefined();
-    if (createTaskRequest === undefined) return;
+    expect(createCommLog).toBeDefined();
+    if (createCommLog === undefined) return;
     const pending =
       deferred<
         Awaited<ReturnType<TimelineRelatedRecordPort["createRelatedRecord"]>>
@@ -81,7 +81,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
       }),
     );
 
-    act(() => result.current.commands.begin(createTaskRequest));
+    act(() => result.current.commands.begin(createCommLog));
     let completion: Promise<void> | undefined;
     await act(async () => {
       completion = result.current.commands.submit();
@@ -89,7 +89,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
     });
     act(() => {
       result.current.commands.cancel();
-      result.current.commands.begin(createTaskRequest);
+      result.current.commands.begin(createCommLog);
     });
     const reopenedWorkflowId = result.current.snapshot.workflow?.workflowId;
     const feedbackCallCount = onFeedback.mock.calls.length;
@@ -100,7 +100,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
         value: {
           changeSetId: "20000000-0000-4000-8000-000000000001",
           recordId: "20000000-0000-4000-8000-000000000002",
-          viewSchemaId: taskRequests.viewSchemaId,
+          viewSchemaId: commLog.viewSchemaId,
         },
       });
       await completion;
@@ -119,8 +119,8 @@ describe("useInspectorCreateRelatedWorkflow", () => {
   });
 
   it("ignores a late rejection after a row-version retarget", async () => {
-    expect(createTaskRequest).toBeDefined();
-    if (createTaskRequest === undefined) return;
+    expect(createCommLog).toBeDefined();
+    if (createCommLog === undefined) return;
     const pending =
       deferred<
         Awaited<ReturnType<TimelineRelatedRecordPort["createRelatedRecord"]>>
@@ -138,7 +138,7 @@ describe("useInspectorCreateRelatedWorkflow", () => {
       { initialProps: { subject: initialSubject } },
     );
 
-    act(() => result.current.commands.begin(createTaskRequest));
+    act(() => result.current.commands.begin(createCommLog));
     let completion: Promise<void> | undefined;
     await act(async () => {
       completion = result.current.commands.submit();

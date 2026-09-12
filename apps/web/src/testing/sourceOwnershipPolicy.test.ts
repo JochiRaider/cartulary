@@ -191,6 +191,10 @@ describe("frontend source ownership policy", () => {
         return source.includes("client_txn_id");
       });
     expect(ownerLocalWireIntents).toEqual([
+      "apps/web/src/workbook/features/coordination/WorkbookContextualTaskDecisionCreateOwner.ts",
+      "apps/web/src/workbook/features/coordination/contextualCreateAuthoring.test.tsx",
+      "apps/web/src/workbook/features/coordination/contextualCreateModel.ts",
+      "apps/web/src/workbook/features/coordination/contextualCreateRecovery.test.tsx",
       "apps/web/src/workbook/features/evidence/createEvidenceAttachmentPort.ts",
       "apps/web/src/workbook/features/evidence/createUploadedEvidenceBlob.ts",
       "apps/web/src/workbook/features/generic/genericCreateRequestBuilder.ts",

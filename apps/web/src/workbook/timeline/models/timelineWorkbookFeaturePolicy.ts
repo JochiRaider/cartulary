@@ -3,6 +3,7 @@ import {
   requireViewContract,
   type ViewContract,
 } from "@cartulary/view-contracts";
+import { isContextualCreateFeature } from "../../features/coordination/contextualCreateModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -10,6 +11,7 @@ const timelineContract = requireViewContract(timelineViewSchemaId);
 const createRelatedTargetContracts = new Map<string, ViewContract>();
 for (const featureGroup of timelineContract.inspectorConfig.featureGroups) {
   if (
+    isContextualCreateFeature(featureGroup.featureGroupKey) ||
     featureGroup.routeBinding.kind !== "view_row_create" ||
     featureGroup.routeBinding.owner !== "view_row_create_route" ||
     featureGroup.routeBinding.targetViewSchemaId === undefined

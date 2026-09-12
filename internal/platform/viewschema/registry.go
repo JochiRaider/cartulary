@@ -316,7 +316,7 @@ func cloneResource(resource ViewSchemaResource) ViewSchemaResource {
 }
 
 func cloneCreateInputs(inputs []CreateInputDescriptor) []CreateInputDescriptor {
-	return append([]CreateInputDescriptor(nil), inputs...)
+	return append([]CreateInputDescriptor{}, inputs...)
 }
 
 func cloneInspectorConfig(config InspectorConfig) InspectorConfig {

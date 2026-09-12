@@ -215,6 +215,46 @@
       "sha256": "67ae7b0ebd00352756b6c7fcd32679fc11c86a65e3bf6b38e35a01713490d026"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-linux.png",
+      "sha256": "e3057f2668ee7d84b8ee673740b0eca2a6e7f4cadae386152a5e3d299be26ae3"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-authoring-narrow-linux.png",
+      "sha256": "f3f08bd9d34a8785148bcfc80ead8f782673d5f0d749e7156e6c2723c06886a0"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-linux.png",
+      "sha256": "4e76e7ccf1653f403d8dc2446ffa5b7816ffb90c32c638119826808febda50aa"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-recovery-narrow-linux.png",
+      "sha256": "21507fe35fc12dadb3c586ed635af510106dd364f5501d8fbc768891731bf73f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-decision-references-narrow-linux.png",
+      "sha256": "660bdffccaba22a9f51aac4c1f055fa410542d08a14065af8eed45b53e9d8733"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-linux.png",
+      "sha256": "69d398535c41031121f5139e64064660b5e23465235d34ad5e895fb595e8a17d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-authoring-narrow-linux.png",
+      "sha256": "27cc652e7af79a7212f323eeefdf8e3177035def5637e96be9afb401bcef6d34"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-linux.png",
+      "sha256": "4d9376a8bc682ac21524c2e3f380f646040d81066b2518661a1e997607ac3000"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-recovery-narrow-linux.png",
+      "sha256": "7a8e35163912bd90f5801e9482e8110f42d3959e5457bbe2ce600116ff1f6577"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/contextual-task-request-references-narrow-linux.png",
+      "sha256": "e015b181f65b8c99777aa585871cd7fd9913463b367f2e8cc93f7a446d615678"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-accepted-linux.png",
       "sha256": "b37d1c7c893007ba74d89e19524e41c450e569eaad8c85623b7caaf31bf41734"
     },

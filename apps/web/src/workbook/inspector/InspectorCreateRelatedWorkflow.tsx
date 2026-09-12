@@ -2,8 +2,11 @@ import {
   genericCreateFieldTestId,
   genericCreateSubmitTestId,
 } from "@cartulary/ui-contracts";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useContext, useSyncExternalStore } from "react";
 import { GenericMutationControl } from "../components/GenericMutationControl";
+import { ContextualCreateContext } from "../features/coordination/ContextualCreateContext";
+import { ContextualCreateForm } from "../features/coordination/ContextualCreateForm";
+import { isContextualCreateFeature } from "../features/coordination/contextualCreateModel";
 import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
 import type { InspectorRelatedRecordWorkflowState } from "./inspectorRelatedRecordModel";
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
@@ -22,6 +25,14 @@ export function InspectorCreateRelatedWorkflow({
   readonly onSubmit: () => void;
   readonly onUpdateDraft: (fieldKey: string, value: string) => void;
 }) {
+  const context = useContext(ContextualCreateContext);
+  if (isContextualCreateFeature(state.featureGroup.featureGroupKey))
+    return context ? (
+      <RetainedContextualForm
+        owner={context.owner}
+        attachment={state.workflowId}
+      />
+    ) : null;
   const createFields = state.targetContract.fields.filter(
     (field) => field.createWritable,
   );
@@ -68,6 +79,26 @@ export function InspectorCreateRelatedWorkflow({
         </WorkbookInspectorActionButton>
       </div>
     </section>
+  );
+}
+
+function RetainedContextualForm({
+  owner,
+  attachment,
+}: {
+  readonly owner: NonNullable<
+    React.ContextType<typeof ContextualCreateContext>
+  >["owner"];
+  readonly attachment: symbol;
+}) {
+  useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  return (
+    <ContextualCreateForm
+      owner={owner}
+      attachment={attachment}
+      disabled={owner.busy}
+      onSubmit={() => void owner.submit(attachment)}
+    />
   );
 }
 

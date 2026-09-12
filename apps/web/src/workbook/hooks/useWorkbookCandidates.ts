@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { boundedRead } from "../../../services/asyncObservation";
-import type { WorkbookQueryState } from "../../models/workbookQuery";
-import type { WorkbookPortResult } from "../../ports/WorkbookPortResult";
-import type {
-  AssessmentCandidatePage,
-  AssessmentCandidateQuery,
-} from "./assessmentCandidatePort";
+import { boundedRead } from "../../services/asyncObservation";
+import type { WorkbookQueryState } from "../models/workbookQuery";
+import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
+export type WorkbookCandidateQuery = Readonly<{
+  queryState: WorkbookQueryState;
+  cursor: string | null;
+  signal: AbortSignal;
+}>;
+type Candidate = Readonly<{ recordId: string; displayText: string }>;
+export type WorkbookCandidatePage<T extends Candidate> = Readonly<{
+  candidates: readonly T[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}>;
 
-type State = AssessmentCandidatePage & {
+type State<T extends Candidate> = WorkbookCandidatePage<T> & {
   readonly key: string;
   readonly phase: "loading" | "ready" | "failed";
   readonly error: string | null;
@@ -19,10 +26,10 @@ const empty = {
   nextCursor: null,
   loaded: false,
 } as const;
-export function useAssessmentCandidates(
+export function useWorkbookCandidates<T extends Candidate>(
   read: (
-    input: AssessmentCandidateQuery,
-  ) => Promise<WorkbookPortResult<AssessmentCandidatePage>>,
+    input: WorkbookCandidateQuery,
+  ) => Promise<WorkbookPortResult<WorkbookCandidatePage<T>>>,
   queryState: WorkbookQueryState,
   revision: string | number,
   enabled = true,
@@ -30,7 +37,7 @@ export function useAssessmentCandidates(
   const key = JSON.stringify([queryState, revision]);
   const current = useRef(key);
   current.current = key;
-  const [state, setState] = useState<State>({
+  const [state, setState] = useState<State<T>>({
     ...empty,
     key,
     phase: "loading",

@@ -179,6 +179,42 @@
       ]
     },
     {
+      "row_id": "module.evidence.browser.contextual_creation_discard",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.tasksdecisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/contextual-create.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_b6aec19324d5"
+        ],
+        "titles": [
+          "Evidence contextual authoring requires explicit discard before replacing a retained draft"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser",

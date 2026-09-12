@@ -155,6 +155,13 @@ func TestOpenAPIViewSchemaPublicProjectionContract_Unit(t *testing.T) {
 	if !slices.Contains(requireArray(t, viewSchemaResource["required"], "ViewSchemaResource.required"), "create_capable") {
 		t.Fatal("ViewSchemaResource.required omits create_capable")
 	}
+	createInputs := requireObject(t, resourceProperties["create_inputs"], "ViewSchemaResource.properties.create_inputs")
+	if createInputs["type"] != "array" || createInputs["nullable"] == true {
+		t.Fatalf("create_inputs must be a non-null array, got %#v", createInputs)
+	}
+	if !slices.Contains(requireArray(t, viewSchemaResource["required"], "ViewSchemaResource.required"), "create_inputs") {
+		t.Fatal("ViewSchemaResource.required omits create_inputs")
+	}
 
 	for _, resource := range ListPublicResources() {
 		content, err := json.Marshal(resource)
@@ -164,6 +171,27 @@ func TestOpenAPIViewSchemaPublicProjectionContract_Unit(t *testing.T) {
 		var public map[string]any
 		if err := json.Unmarshal(content, &public); err != nil {
 			t.Fatalf("decode %s: %v", resource.ViewSchemaID, err)
+		}
+		if _, ok := public["create_inputs"].([]any); !ok {
+			t.Fatalf("list %s create_inputs must serialize as an array, got %#v", resource.ViewSchemaID, public["create_inputs"])
+		}
+		lookup, ok := LookupPublicResource(resource.ViewSchemaID)
+		if !ok {
+			t.Fatalf("lookup %s missing", resource.ViewSchemaID)
+		}
+		lookupContent, err := json.Marshal(lookup)
+		if err != nil {
+			t.Fatalf("marshal lookup %s: %v", resource.ViewSchemaID, err)
+		}
+		var lookupPublic map[string]any
+		if err := json.Unmarshal(lookupContent, &lookupPublic); err != nil {
+			t.Fatalf("decode lookup %s: %v", resource.ViewSchemaID, err)
+		}
+		if _, ok := lookupPublic["create_inputs"].([]any); !ok {
+			t.Fatalf("lookup %s create_inputs must serialize as an array, got %#v", resource.ViewSchemaID, lookupPublic["create_inputs"])
+		}
+		if !reflect.DeepEqual(lookupPublic["create_inputs"], public["create_inputs"]) {
+			t.Fatalf("%s list/lookup create_inputs contents or order differ", resource.ViewSchemaID)
 		}
 		if _, ok := public["create_capable"].(bool); !ok {
 			t.Fatalf("%s create_capable must be present and boolean, got %#v", resource.ViewSchemaID, public["create_capable"])
