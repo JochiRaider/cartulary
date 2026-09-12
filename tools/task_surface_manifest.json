@@ -2323,7 +2323,8 @@
         "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "./tools/harness/tests/test-harness-evidence-contracts.mjs",
         "./tools/harness/tests/test-harness-graph-contracts.mjs",
-        "./tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        "./tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs"
       ],
       "test_target": "self"
     },
@@ -2338,7 +2339,8 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
-        "./tools/harness/tests/test-harness-command-surface-contracts.mjs"
+        "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
+        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs"
       ],
       "test_target": "self"
     },
@@ -2375,7 +2377,8 @@
         "./tools/harness/tests/test-harness-graph-contracts.mjs",
         "./tools/harness/tests/test-harness-scheduler-contracts.mjs",
         "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
-        "./tools/harness/observability/tests/test-observability.mjs"
+        "./tools/harness/observability/tests/test-observability.mjs",
+        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs"
       ],
       "test_target": "self",
       "success_summary": true,
@@ -10068,6 +10071,12 @@
       "name": "harness-contract-tests",
       "backing_scripts": [
         "tools/harness/browser/tests/test-playwright-row-runner.mjs",
+        "tools/harness/diagnostics/vitest-collector.mjs",
+        "tools/harness/diagnostics/vitest-observations.mjs",
+        "tools/harness/execution/tests/test-run-vitest-step.sh",
+        "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
+        "tools/harness/execution/tests/vitest-diagnostic-fixture.mjs",
+        "tools/harness/execution/vitest-invocation-cli.mjs",
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/services/tests/test-local-session.mjs",
@@ -10090,16 +10099,22 @@
     {
       "name": "harness-command-surface-contract",
       "backing_scripts": [
+        "tools/harness/diagnostics/vitest-collector.mjs",
+        "tools/harness/diagnostics/vitest-observations.mjs",
+        "tools/harness/execution/tests/test-run-vitest-step.sh",
+        "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
+        "tools/harness/execution/tests/vitest-diagnostic-fixture.mjs",
+        "tools/harness/execution/vitest-invocation-cli.mjs",
+        "tools/harness/runtime/command-failure.mjs",
         "tools/harness/tests/contract-catalog-cases.mjs",
         "tools/harness/tests/contract-initialization-cases.mjs",
         "tools/harness/tests/contract-suite-support.mjs",
         "tools/harness/tests/contract-test-context.mjs",
-        "tools/harness/tests/test-harness-command-surface-contracts.mjs",
+        "tools/harness/tests/frontend-producer-fixture.mjs",
+        "tools/harness/tests/test-command-failure.mjs",
         "tools/harness/tests/test-frontend-producer-graph.mjs",
         "tools/harness/tests/test-frontend-producer-lifecycle.mjs",
-        "tools/harness/tests/test-command-failure.mjs",
-        "tools/harness/tests/frontend-producer-fixture.mjs",
-        "tools/harness/runtime/command-failure.mjs"
+        "tools/harness/tests/test-harness-command-surface-contracts.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_command_surface_contract.v2",
       "target_class": "check_internal",
@@ -10123,6 +10138,12 @@
     {
       "name": "harness-contract",
       "backing_scripts": [
+        "tools/harness/diagnostics/vitest-collector.mjs",
+        "tools/harness/diagnostics/vitest-observations.mjs",
+        "tools/harness/execution/tests/test-run-vitest-step.sh",
+        "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
+        "tools/harness/execution/tests/vitest-diagnostic-fixture.mjs",
+        "tools/harness/execution/vitest-invocation-cli.mjs",
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/scheduler/work-graph/runner-cli.mjs",

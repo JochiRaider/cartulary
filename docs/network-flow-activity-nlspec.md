@@ -3385,7 +3385,7 @@ require one row, selector, or fixture annotation per criterion.
 | `NF-AC-117` | Failed refresh preserves the prior selected result, while initial failure produces `network_flow_graph_view_not_materialized`. |
 | `NF-AC-118` | Table rename preserves saved results; table soft delete clears affected ordinary exposure without deleting a leased result. |
 | `NF-AC-119` | Graph v2 retry and Recovery reproduce exact result, vertex, edge, and digest identities. |
-| `NF-AC-120` | The saved graph workspace is accessible, role-aware, stale-response safe, and mounts no more than 500 vertices and 1,000 edges at once. |
+| `NF-AC-120` | The graph workspace is accessible, role-aware, stale-response safe, and mounts no more than 500 vertices and 1,000 edges at once. Exploration preserves semantic selection across pages, Reveal avoids contributor refetch, Close/Escape restore semantic focus, and Saved/Explore and metadata refresh preserve valid context under NF-REQ-199. |
 | `NF-AC-121` | Every retained Network Flow family mutation and Incident Bundle publication serialize on the same incident boundary; active, soft-deleted, or concurrently committed retained state blocks publication without disclosing a physical identity or leaving a descriptor or object. |
 
 ## 24. Core amendments and adoption blocker checklist
@@ -3837,6 +3837,18 @@ It mounts at most 500 vertices and 1,000 edges and shows a selected bucket or
 bounded summary when the exact result is larger. Keyboard, focus, accessible
 names, status announcements, stale-response rejection, and role-aware controls
 remain mandatory.
+
+Within the same accepted exploration result and current protected scope,
+selection MUST use semantic object identity and survive paging. Reveal moves
+to and focuses the selected object without re-reading contributors. Close and
+Escape return focus to the selected control when mounted, otherwise its page
+navigation fallback, otherwise the graph region. Switching Saved/Explore
+preserves accepted exploration, page, selection, and committed contributor
+context; returning to Explore retains focus on the initiating Explore control.
+A source display-name refresh does not change graph identity or recompute the
+graph. Result replacement, source invalidation, and authorization loss invalidate
+old context; saved-result binding and exposure follow NF-REQ-208. These rules
+extend NF-REQ-170e's keyboard and focus-return requirements.
 
 Rollout is forward-only: stop the prior binary, install the major-5 binary and
 browser assets, validate configuration and contracts, and run state admission.

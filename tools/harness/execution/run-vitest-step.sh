@@ -36,10 +36,10 @@ if [[ "$output_mode" != "quiet" && "${RUN_STEP_SHOW_BANNER:-1}" == "1" ]]; then
   echo "== ${step_label} =="
 fi
 
-if [[ "$output_mode" == "quiet" ]]; then
-  run_command=("${command[@]}" --reporter=json --outputFile="$run_report")
-else
-  run_command=("${command[@]}" --reporter=dot --reporter=json --outputFile.json="$run_report")
+failure_details="${step_dir}/vitest-failure-details.json"
+run_command=("${NODE_BIN:-node}" "${RUN_STEP_REPO_ROOT}/tools/harness/execution/vitest-invocation-cli.mjs" "$run_report" "$failure_details" -- "${command[@]}")
+if [[ "$output_mode" != "quiet" ]]; then
+  run_command+=(--reporter=dot)
 fi
 
 command_text="$(render_command "${run_command[@]}")"
@@ -66,6 +66,7 @@ CARTULARY_STEP_EXECUTED_DURATION_MS="$duration_ms" \
 CARTULARY_STEP_WALL_DURATION_MS="${STEP_WALL_DURATION_MS}" \
 CARTULARY_STEP_EXIT_STATUS="$run_status" \
 CARTULARY_STEP_RUNNER_LOG="$run_report" \
+CARTULARY_STEP_VITEST_FAILURE_DETAILS="$failure_details" \
 CARTULARY_STEP_STDOUT_LOG="$stdout_log" \
 CARTULARY_STEP_STDERR_LOG="$stderr_log" \
 CARTULARY_STEP_WATCHDOG_LOG="${CARTULARY_VITEST_WATCHDOG_LOG:-}" \

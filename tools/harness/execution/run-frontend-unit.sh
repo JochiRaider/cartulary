@@ -36,37 +36,9 @@ command=("${PNPM_BIN}" --dir apps/web exec vitest run)
 command+=(--project=browser-unit --project=harness-node)
 command+=(--maxWorkers="${VITEST_MAX_WORKERS}")
 
-vitest_report_succeeded() {
-  local report_file="$1"
-  "${NODE_HELPER}" - "$report_file" <<'NODE'
-const fs = require("node:fs");
-
-const [reportFile] = process.argv.slice(2);
-let report;
-try {
-  report = JSON.parse(fs.readFileSync(reportFile, "utf8"));
-} catch {
-  process.exit(1);
-}
-
-const numeric = (value) =>
-  typeof value === "number" && Number.isFinite(value) ? value : 0;
-
-if (
-  report?.success === true &&
-  numeric(report.numFailedTests) === 0 &&
-  numeric(report.numFailedTestSuites) === 0
-) {
-  process.exit(0);
-}
-process.exit(1);
-NODE
-}
-
-if [[ "${output_mode}" == "quiet" ]]; then
-  run_command=("${command[@]}" --reporter=json --outputFile="${run_report}")
-else
-  run_command=("${command[@]}" --reporter=dot --reporter=json --outputFile.json="${run_report}")
+run_command=("${NODE_HELPER}" "${ROOT_DIR}/tools/harness/execution/vitest-invocation-cli.mjs" "$run_report" "$failure_details" -- "${command[@]}")
+if [[ "${output_mode}" != "quiet" ]]; then
+  run_command+=(--reporter=dot)
 fi
 
 command_text="$(render_command env PATH="${path_prefix}" COREPACK_HOME="${corepack_home}" "${run_command[@]}")"
@@ -82,13 +54,6 @@ start_time="${STEP_START_TIME}"
 end_time="${STEP_END_TIME}"
 duration_ms="${STEP_DURATION_MS}"
 
-if [[ -f "${run_report}" ]]; then
-  "${NODE_HELPER}" "${ROOT_DIR}/tools/harness/diagnostics/vitest-failure-details.mjs" \
-    "${run_report}" "${failure_details}" "${stdout_log}" "${stderr_log}"
-  if [[ "${run_status}" -ne 0 && ! -f "${CARTULARY_VITEST_WATCHDOG_LOG:-}" ]] && vitest_report_succeeded "${run_report}"; then
-    run_status=0
-  fi
-fi
 
 status=0
 export CARTULARY_REPORT_SLICE=1

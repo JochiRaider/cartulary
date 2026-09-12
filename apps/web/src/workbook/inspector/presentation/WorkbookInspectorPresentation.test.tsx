@@ -5,6 +5,7 @@ import {
   requireViewContract,
 } from "@cartulary/view-contracts";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { inspectorContextualCapabilities } from "../inspectorCapabilityResolver";
 import { WorkbookInspectorDeclaredPanelList } from "../WorkbookInspectorDeclaredPanelList";
@@ -233,6 +234,60 @@ describe("Workbook Inspector presentation", () => {
     expect(screen.getByText("Relationship content")).not.toBeNull();
     expect(screen.queryByText("Relationships Read")).toBeNull();
     expect(screen.queryByText("Entity Aliases Read")).toBeNull();
+  });
+
+  it("keeps Timeline review discoverable without permitting unauthorized pointer or keyboard activation", async () => {
+    const user = userEvent.setup();
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
+    const capability = inspectorContextualCapabilities({
+      config: timeline.inspectorConfig,
+      panelId: "history",
+    }).find(
+      (entry) =>
+        entry.featureGroup.featureGroupKey === "timeline.mark_reviewed",
+    );
+    if (!capability) throw new Error("Missing declared Timeline review action");
+    const binding = bindWorkbookInspectorAction(
+      timeline.inspectorConfig,
+      capability,
+    );
+    const onInvoke = vi.fn();
+    const action = (role: "editor" | "reviewer" | "admin") => (
+      <>
+        <button type="button">Before review</button>
+        <WorkbookInspectorContextualAction
+          binding={binding}
+          currentIncidentRole={role}
+          disabledTokens={new Set()}
+          onInvoke={onInvoke}
+        />
+        <button type="button">After review</button>
+      </>
+    );
+    const { rerender } = render(action("editor"));
+    const review = screen.getByRole("button", {
+      name: binding.featureGroup.label,
+    }) as HTMLButtonElement;
+    expect(review.disabled).toBe(true);
+    expect(
+      document.getElementById(review.getAttribute("aria-describedby") ?? "")
+        ?.textContent,
+    ).toBe("Requires the reviewer incident role.");
+    await user.click(review);
+    screen.getByRole("button", { name: "Before review" }).focus();
+    await user.tab();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "After review" }),
+    );
+    await user.keyboard("{Enter} ");
+    expect(onInvoke).not.toHaveBeenCalled();
+    for (const role of ["reviewer", "admin"] as const) {
+      rerender(action(role));
+      expect(review.disabled).toBe(false);
+      expect(review.hasAttribute("aria-describedby")).toBe(false);
+      await user.click(review);
+    }
+    expect(onInvoke).toHaveBeenCalledTimes(2);
   });
 
   it("derives closed owner-backed disabled reasons in contract order", () => {

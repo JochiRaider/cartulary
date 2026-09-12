@@ -34,6 +34,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
@@ -45,6 +46,7 @@ import {
   successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineMutationEnvelope,
+  timelineRecordActionCalls,
   timelineRow,
   timelineRowsEnvelope,
   waitForVisibleGridRowRecordIds,
@@ -597,14 +599,22 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         ),
       ),
     ).toBeTruthy();
-    expect(
-      screen.queryByTestId(
-        workbookInspectorFeatureActionTestId(
-          timelineViewSchemaId,
-          "timeline.mark_reviewed",
-        ),
+    const markReviewed = screen.getByTestId(
+      workbookInspectorFeatureActionTestId(
+        timelineViewSchemaId,
+        "timeline.mark_reviewed",
       ),
-    ).toBeNull();
+    ) as HTMLButtonElement;
+    expect(markReviewed.disabled).toBe(true);
+    const permissionDescription = markReviewed.getAttribute("aria-describedby");
+    expect(permissionDescription).toBeTruthy();
+    expect(
+      document.getElementById(permissionDescription ?? "")?.textContent,
+    ).toBe("Requires the reviewer incident role.");
+    await userEvent.setup().click(markReviewed);
+    expect(timelineRecordActionCalls(fetchMock, "mark-reviewed")).toHaveLength(
+      0,
+    );
     expect(
       screen
         .getByTestId(

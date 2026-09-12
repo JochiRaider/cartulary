@@ -2294,6 +2294,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_review_authorization",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
+        "titles": [
+          "Workbook Inspector presentation keeps Timeline review discoverable without permitting unauthorized pointer or keyboard activation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.membership_management_lifetime",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",

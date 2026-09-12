@@ -1598,7 +1598,7 @@ describe("NetworkAnalysisWorkspace", () => {
   it("bounds saved graph rendering to 500 vertices and 1000 edges with paged navigation", async () => {
     const user = userEvent.setup();
     installNetworkFlowFetchMock({
-      savedGraphProjectionResult: largeSavedGraphProjectionResult(),
+      savedGraphProjectionResult: sizedGraphProjectionResult(501, 1_001),
       savedGraphs: [savedGraphResource()],
     });
     render(
@@ -1641,12 +1641,10 @@ describe("NetworkAnalysisWorkspace", () => {
     ).toHaveLength(1);
   });
 
-  it("preserves off-page exploration selection and restores semantic focus through reveal close Escape and Saved", async () => {
+  it("preserves off-page exploration selection and restores focus through Reveal and Close", async () => {
     const user = userEvent.setup();
-    const tables = [tableResource()];
     const requests = installNetworkFlowFetchMock({
-      explorationProjection: largeSavedGraphProjectionResult(),
-      tables,
+      explorationProjection: sizedGraphProjectionResult(501, 1),
     });
     render(
       <NetworkAnalysisWorkspace
@@ -1656,9 +1654,12 @@ describe("NetworkAnalysisWorkspace", () => {
     );
     await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
     await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
-    const vertices = await screen.findAllByTestId(/^network-flow-vertex-/u);
+    const graph = within(
+      await screen.findByRole("region", { name: "Network Flow graph" }),
+    );
+    const vertices = await graph.findAllByTestId(/^network-flow-vertex-/u);
     expect(vertices).toHaveLength(500);
-    expect(screen.getAllByTestId(/^network-flow-edge-/u)).toHaveLength(1000);
+    expect(graph.getAllByTestId(/^network-flow-edge-/u)).toHaveLength(1);
     const first = within(vertices[0] as HTMLElement).getByRole("button", {
       name: /^Select vertex/u,
     });
@@ -1668,9 +1669,9 @@ describe("NetworkAnalysisWorkspace", () => {
     const drawer = () =>
       within(screen.getByTestId(networkAnalysisTestId("contributor-drawer")));
     const vertexNav = () =>
-      screen.getByRole("navigation", { name: "vertices navigation" });
+      graph.getByRole("navigation", { name: "vertices navigation" });
     await user.click(within(vertexNav()).getByRole("button", { name: "Next" }));
-    expect(screen.getAllByTestId(/^network-flow-vertex-/u)).toHaveLength(1);
+    expect(graph.getAllByTestId(/^network-flow-vertex-/u)).toHaveLength(1);
     expect(
       within(
         screen.getByTestId(networkAnalysisTestId("contributor-drawer")),
@@ -1692,6 +1693,34 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(
       screen.queryByTestId(networkAnalysisTestId("contributor-drawer")),
     ).toBeNull();
+  });
+
+  it("preserves a noninitial exploration page through Saved and metadata refresh and restores focus with Escape", async () => {
+    const user = userEvent.setup();
+    const tables = [tableResource()];
+    const requests = installNetworkFlowFetchMock({
+      explorationProjection: sizedGraphProjectionResult(501, 1),
+      tables,
+    });
+    render(
+      <NetworkAnalysisWorkspace
+        currentIncidentRole="editor"
+        incidentId={incidentResourceId}
+      />,
+    );
+    await screen.findByTestId(networkAnalysisTableTabTestId(tableId));
+    await user.click(screen.getByTestId(networkAnalysisTestId("mode-graph")));
+    const graph = within(
+      await screen.findByRole("region", { name: "Network Flow graph" }),
+    );
+    await user.click(
+      within(
+        graph.getByRole("navigation", { name: "vertices navigation" }),
+      ).getByRole("button", { name: "Next" }),
+    );
+    const drawer = () =>
+      within(screen.getByTestId(networkAnalysisTestId("contributor-drawer")));
+    const reads = contributorRequestBodies(requests).length;
     const selectedControl = () =>
       within(screen.getByTestId(/^network-flow-vertex-/u)).getByRole("button", {
         name: /^Select vertex/u,
@@ -1702,6 +1731,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await waitFor(() =>
       expect(contributorRequestBodies(requests).length).toBeGreaterThan(reads),
     );
+    const contributorReads = contributorRequestBodies(requests).length;
     const graphReads = graphRequestBodies(requests).length;
     await user.click(
       screen.getByTestId(networkAnalysisTestId("graph-surface-saved")),
@@ -1712,6 +1742,7 @@ describe("NetworkAnalysisWorkspace", () => {
     expect(screen.getAllByTestId(/^network-flow-vertex-/u)).toHaveLength(1);
     expect(selectedControl().getAttribute("aria-pressed")).toBe("true");
     expect(graphRequestBodies(requests)).toHaveLength(graphReads);
+    expect(contributorRequestBodies(requests)).toHaveLength(contributorReads);
     expect(document.activeElement).toBe(
       screen.getByTestId(networkAnalysisTestId("graph-surface-explore")),
     );
@@ -1724,6 +1755,7 @@ describe("NetworkAnalysisWorkspace", () => {
     await screen.findByRole("tab", { name: /Renamed source/u });
     expect(selectedControl().getAttribute("aria-label")).toBe(selectedName);
     expect(graphRequestBodies(requests)).toHaveLength(graphReads);
+    expect(contributorRequestBodies(requests)).toHaveLength(contributorReads);
     drawer().getByRole("button", { name: "Close graph contributors" }).focus();
     await user.keyboard("{Escape}");
     expect(document.activeElement?.getAttribute("aria-label")).toBe(
@@ -3130,13 +3162,13 @@ function graphResultForProjection(
   };
 }
 
-function largeSavedGraphProjectionResult() {
+function sizedGraphProjectionResult(vertexCount: number, edgeCount: number) {
   const base = graphResource().graph_projection_result;
   const baseEdge = base.edges[0];
   if (baseEdge === undefined) {
     throw new Error("saved graph fixture requires one base edge");
   }
-  const vertices = Array.from({ length: 501 }, (_, index) => {
+  const vertices = Array.from({ length: vertexCount }, (_, index) => {
     const identity = index.toString(16).padStart(64, "0");
     return graphVertexResource({
       candidateValue: `192.0.${Math.floor(index / 256)}.${index % 256}`,
@@ -3144,7 +3176,7 @@ function largeSavedGraphProjectionResult() {
       projectedVertexId: `vx_${identity}`,
     });
   });
-  const edges = Array.from({ length: 1_001 }, (_, index) => {
+  const edges = Array.from({ length: edgeCount }, (_, index) => {
     const identity = index.toString(16).padStart(64, "0");
     const sourceIdentity = (index % vertices.length)
       .toString(16)

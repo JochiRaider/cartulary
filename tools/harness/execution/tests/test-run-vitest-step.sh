@@ -158,7 +158,8 @@ esac
 
 sed -i "s#/home/askahn/code/cartulary#${repo_root}#g" "$output_file"
 
-echo "JSON report written to $output_file"
+"${NODE_BIN:-node}" "$repo_root/tools/harness/execution/tests/vitest-diagnostic-fixture.mjs" "$output_file"
+echo "JSON report written"
 exit "$exit_status"
 EOF
 chmod +x "$fake_vitest"

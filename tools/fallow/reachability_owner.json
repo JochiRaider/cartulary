@@ -38,6 +38,8 @@
       "tools/harness/browser/browser-target-finalizer-cli.mjs",
       "tools/harness/contract/harness-contract-cli.mjs",
       "tools/harness/diagnostics/vitest-failure-details.mjs",
+      "tools/harness/diagnostics/vitest-collector.mjs",
+      "tools/harness/execution/vitest-invocation-cli.mjs",
       "tools/harness/observability/canonical-evidence.mjs",
       "tools/harness/observability/canonical-performance-cli.mjs",
       "tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs",

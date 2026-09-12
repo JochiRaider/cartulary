@@ -10,7 +10,7 @@ export const targetSummarySchemaID = "cartulary.test_target_summary.v4";
 export const runSummarySchemaID = "cartulary.test_run_summary.v6";
 export const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
 export const vitestFailureDetailsSchemaID =
-  "cartulary.vitest_failure_details.v1";
+  "cartulary.vitest_failure_details.v2";
 
 export const testCoverageBuckets = [
   "authoritative",

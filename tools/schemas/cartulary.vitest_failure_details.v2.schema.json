@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.vitest_failure_details.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "invocation_id",
+    "run_id",
+    "run_status",
+    "generated_at",
+    "runner_json",
+    "stdout_log",
+    "stderr_log",
+    "observations",
+    "failures"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.vitest_failure_details.v2"
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_status": {
+      "enum": [
+        "passed",
+        "failed",
+        "interrupted"
+      ]
+    },
+    "generated_at": {
+      "$ref": "cartulary.harness.defs.v1#/$defs/timestamp"
+    },
+    "runner_json": {
+      "type": "string"
+    },
+    "stdout_log": {
+      "type": "string"
+    },
+    "stderr_log": {
+      "type": "string"
+    },
+    "observations": {
+      "type": "array",
+      "maxItems": 50000,
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "failures": {
+      "type": "array",
+      "maxItems": 50000,
+      "items": {
+        "$ref": "#/$defs/failure"
+      }
+    }
+  },
+  "$defs": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "message",
+        "stack"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "stack": {
+          "type": "string",
+          "maxLength": 262144
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "owner_path",
+        "title",
+        "scope",
+        "status",
+        "duration_ms",
+        "timeout_ms",
+        "errors",
+        "test_name"
+      ],
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "owner_path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]*$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "test",
+            "suite",
+            "run"
+          ]
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "skipped",
+            "pending"
+          ]
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "timeout_ms": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            }
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/error"
+          }
+        },
+        "test_name": {
+          "type": "string"
+        }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "owner_path",
+        "title",
+        "kind",
+        "failure_class",
+        "failure_reason",
+        "duration_ms",
+        "timeout_ms",
+        "message",
+        "original_error",
+        "diagnostic_tags"
+      ],
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "owner_path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]*$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "assertion",
+            "test_timeout",
+            "hook_timeout",
+            "suite_setup",
+            "unknown"
+          ]
+        },
+        "failure_class": {
+          "enum": [
+            "product",
+            "timing",
+            "infra",
+            "unknown"
+          ]
+        },
+        "failure_reason": {
+          "enum": [
+            "test_assertion_failure",
+            "timeout_failure",
+            "preflight_error",
+            "unknown_failure"
+          ]
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "timeout_ms": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 262144
+        },
+        "original_error": {
+          "$ref": "#/$defs/error"
+        },
+        "diagnostic_tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "test_timeout",
+                  "hook_timeout"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "failure_class": {
+                "const": "timing"
+              },
+              "failure_reason": {
+                "const": "timeout_failure"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "assertion"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "failure_class": {
+                "const": "product"
+              },
+              "failure_reason": {
+                "const": "test_assertion_failure"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "suite_setup"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "failure_class": {
+                "const": "infra"
+              },
+              "failure_reason": {
+                "const": "preflight_error"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "unknown"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "failure_class": {
+                "const": "unknown"
+              },
+              "failure_reason": {
+                "const": "unknown_failure"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

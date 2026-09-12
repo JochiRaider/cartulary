@@ -1004,8 +1004,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.vitest_failure_details.v1",
-      "path": "tools/schemas/cartulary.vitest_failure_details.v1.schema.json",
+      "schema_id": "cartulary.vitest_failure_details.v2",
+      "path": "tools/schemas/cartulary.vitest_failure_details.v2.schema.json",
       "classification": "public_contract",
       "producer": "Vitest wrapper",
       "validation": "json-shape-check"

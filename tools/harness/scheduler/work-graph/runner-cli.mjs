@@ -515,6 +515,16 @@ function serviceScopeArtifactRefs(result) {
   );
 }
 
+function vitestDiagnosticArtifactRefs(runRoot, unit) {
+  if (!unit.unit_id.startsWith("row:")) return [];
+  const directory = `unit-logs/${unit.unit_id.replaceAll(":", "-")}`;
+  const files = ["runner.json", "vitest-failure-details.json"];
+  return files.map((name) => `${directory}/${name}`).filter((relative) => {
+    const info = lstatSync(containedRunFile(runRoot, relative), { throwIfNoEntry: false });
+    return info?.isFile() && !info.isSymbolicLink();
+  });
+}
+
 function writeUnitResult(runRoot, unit, result, missingOutputs) {
   const relative = unit.current_run_evidence_outputs.find((output) =>
     output.startsWith("unit-results/"),
@@ -523,6 +533,7 @@ function writeUnitResult(runRoot, unit, result, missingOutputs) {
   const evidenceOutputs = [
     ...unit.current_run_evidence_outputs,
     ...serviceScopeArtifactRefs(result),
+    ...vitestDiagnosticArtifactRefs(runRoot, unit),
   ].filter((value, index, values) => values.indexOf(value) === index).sort();
   const payload = {
     schema_id: "cartulary.harness_unit_result.v1",

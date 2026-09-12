@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-import { repoRoot } from "../../../contract/index.mjs";
+import { publicExitCodeForFailure, publicExitCodeForFailures, repoRoot } from "../../../contract/index.mjs";
+import { diagnosticFailure, readVitestJSON, reconcileVitestReport } from "../../../diagnostics/vitest-failure-details.mjs";
+import { readCommandFailure } from "../../../runtime/command-failure.mjs";
 
 import {
   existsSync,
@@ -189,11 +191,11 @@ function createInventoryItem({ coverage, step, id, owner, name }) {
   };
 }
 
-function classifyVitestCase(ownerPath, title) {
+function classifyVitestCase(ownerPath, title, leafTitle = title) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
   const authoritative = loadManifestIndex().authoritativeVitest.get(
     `${manifestFile}::${title}`,
-  );
+  ) ?? loadManifestIndex().authoritativeVitest.get(`${manifestFile}::${leafTitle}`);
   if (authoritative) {
     return {
       coverage: "authoritative",
@@ -446,7 +448,7 @@ function finalizeManifestAwareRunnerStep(
       printBlock(`failure: ${context.label}`, failureDetailFields(dossier));
     }
   }
-  return 1;
+  return publicExitCodeForFailures(stepDossiers, { exit_status: context.exitStatus }) || 1;
 }
 
 function createVitestSelection({ catalogAware }) {
@@ -551,50 +553,6 @@ function createVitestSelection({ catalogAware }) {
   };
 }
 
-function isVitestFileResult(value) {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      typeof value.name === "string" &&
-      Array.isArray(value.assertionResults),
-  );
-}
-
-function collectVitestFileResults(report) {
-  const fileResults = [];
-  const visited = new Set();
-  appendVitestFileResults(report, fileResults, visited);
-  return fileResults;
-}
-
-function appendVitestFileResults(value, fileResults, visited) {
-  if (!value || typeof value !== "object") {
-    return;
-  }
-  if (isVitestFileResult(value)) {
-    fileResults.push(value);
-    return;
-  }
-  if (visited.has(value)) {
-    return;
-  }
-  visited.add(value);
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      appendVitestFileResults(entry, fileResults, visited);
-    }
-    return;
-  }
-  for (const key of ["testResults", "projectResults", "projects", "results"]) {
-    if (!Array.isArray(value[key])) {
-      continue;
-    }
-    for (const entry of value[key]) {
-      appendVitestFileResults(entry, fileResults, visited);
-    }
-  }
-}
-
 function findVitestAuthoritativeFileEntry(ownerPath) {
   const manifestFile = vitestOwnerToSelectionFile(ownerPath);
   const entries = [...loadManifestIndex().authoritativeVitest.values()].filter(
@@ -628,157 +586,6 @@ function classifyVitestFileFailure(ownerPath, _stepLabel, selection = null) {
   };
 }
 
-function firstVitestAppFrame(message) {
-  const frame = String(message)
-    .split("\n")
-    .map((line) => line.trim())
-    .find((line) =>
-      /(?:^at\s+|^\()\/?home\/.*\/cartulary\/apps\/web\/src\//.test(line),
-    );
-  if (!frame) {
-    return "";
-  }
-  const match = frame.match(/(apps\/web\/src\/[^:)]+):([0-9]+)(?::[0-9]+)?/);
-  if (!match) {
-    return "";
-  }
-  return `${match[1]}:${match[2]}`;
-}
-
-function normalizeFailureMessages(failureMessage, failureMessages = []) {
-  const messages = Array.isArray(failureMessages)
-    ? failureMessages.filter((entry) => typeof entry === "string")
-    : [];
-  if (messages.length > 0) {
-    return messages;
-  }
-  return typeof failureMessage === "string" && failureMessage !== ""
-    ? [failureMessage]
-    : [];
-}
-
-function vitestDiagnosticTags(messageOrMessages) {
-  const message = Array.isArray(messageOrMessages)
-    ? messageOrMessages.join("\n")
-    : String(messageOrMessages ?? "");
-  const tags = [];
-  if (message.includes("STACK_TRACE_ERROR")) {
-    tags.push("vitest_stack_trace_error");
-  }
-  if (
-    message.includes('Unable to find an element by: [data-testid="row-') ||
-    message.includes("Expected workbook rows for surface")
-  ) {
-    tags.push("workbook_row_hydration_wait");
-  }
-  if (
-    message.includes("controlled_input_replacement_mismatch") ||
-    message.includes("Expected input value")
-  ) {
-    tags.push("controlled_input_replacement");
-  }
-  return tags;
-}
-
-function mergeVitestDiagnosticTags(...tagGroups) {
-  const tags = new Set();
-  for (const group of tagGroups) {
-    const entries = Array.isArray(group) ? group : [group];
-    for (const entry of entries) {
-      if (typeof entry === "string" && entry !== "") {
-        tags.add(entry);
-      }
-    }
-  }
-  return Array.from(tags).sort();
-}
-
-function loadVitestFailureDetails(file) {
-  if (!file || !existsSync(file)) {
-    return null;
-  }
-  const details = JSON.parse(readFileSync(file, "utf8"));
-  validateSchemaSync(vitestFailureDetailsSchemaID, details);
-  return details;
-}
-
-function vitestFailureDetailsKey(ownerPath, title) {
-  return `${normalizePath(ownerPath)}::${String(title ?? "")}`;
-}
-
-function indexVitestFailureDetails(details) {
-  const index = new Map();
-  for (const failure of details?.failures ?? []) {
-    const ownerPath = normalizePath(failure.owner_path ?? "");
-    const title = String(failure.title ?? "");
-    for (const candidate of [
-      ownerPath,
-      vitestOwnerToSelectionFile(ownerPath),
-      ownerPath.startsWith("apps/web/")
-        ? ownerPath.slice("apps/web/".length)
-        : "",
-    ]) {
-      if (candidate) {
-        index.set(vitestFailureDetailsKey(candidate, title), failure);
-      }
-    }
-  }
-  return index;
-}
-
-function vitestFailureDetailsEntry(detailsIndex, ownerPath, title) {
-  if (!detailsIndex) {
-    return null;
-  }
-  return (
-    detailsIndex.get(vitestFailureDetailsKey(ownerPath, title)) ??
-    detailsIndex.get(
-      vitestFailureDetailsKey(vitestOwnerToSelectionFile(ownerPath), title),
-    ) ??
-    null
-  );
-}
-
-function summarizeVitestFailureMessage({
-  fallback,
-  failureMessage = "",
-  failureMessages = [],
-  ownerPath,
-  sidecarMessage = "",
-  title,
-}) {
-  const sidecar = String(sidecarMessage ?? "").trim();
-  if (sidecar !== "") {
-    return sidecar;
-  }
-  const messages = normalizeFailureMessages(failureMessage, failureMessages);
-  for (const message of messages) {
-    for (const line of message.split("\n")) {
-      const trimmed = line.trim();
-      if (
-        trimmed &&
-        trimmed !== "Error: STACK_TRACE_ERROR" &&
-        !trimmed.startsWith("at ")
-      ) {
-        return trimmed;
-      }
-    }
-  }
-  const combinedMessage = messages.join("\n");
-  if (combinedMessage.includes("STACK_TRACE_ERROR")) {
-    const appFrame = firstVitestAppFrame(combinedMessage);
-    return [
-      "Vitest reporter emitted STACK_TRACE_ERROR before preserving the assertion message",
-      `file=${ownerPath || "(unknown)"}`,
-      `title=${title || "(unknown)"}`,
-      appFrame ? `first_app_frame=${appFrame}` : "",
-    ]
-      .filter(Boolean)
-      .join("; ");
-  }
-  return fallback;
-}
-
 function summarizeVitestRun(
   reportFile,
   stepLabel,
@@ -786,130 +593,49 @@ function summarizeVitestRun(
   rawFiles = [reportFile],
   failureDetailsFile = "",
 ) {
-  const report = JSON.parse(readFileSync(reportFile, "utf8"));
-  const failureDetails = loadVitestFailureDetails(failureDetailsFile);
-  const failureDetailsIndex = indexVitestFailureDetails(failureDetails);
+  const report = readVitestJSON(reportFile);
+  const failureDetails = readVitestJSON(failureDetailsFile);
+  validateSchemaSync(vitestFailureDetailsSchemaID, failureDetails);
+  reconcileVitestReport(failureDetails, report, repoRoot);
   const owners = new Set();
   const inventory = [];
   const dossiers = [];
   const counts = createCounts();
   const rawArtifacts = renderRawList(rawFiles) || relToRepo(reportFile);
 
-  for (const fileResult of collectVitestFileResults(report)) {
-    const ownerPath = normalizeVitestOwnerPath(fileResult.name ?? "");
-    const assertions = fileResult.assertionResults ?? [];
-    const executedAssertions = assertions.filter(
-      (assertion) => assertion.status !== "skipped",
-    );
-    if (executedAssertions.length === 0 && fileResult.status === "failed") {
-      if (selection && !selection.matchesFile(ownerPath)) {
-        continue;
-      }
-      const classification = classifyVitestFileFailure(
-        ownerPath,
-        stepLabel,
-        selection,
-      );
-      owners.add(classification.owner);
-      counts.failed += 1;
-      addCoverageFailureCount(counts, classification.coverage);
-      const failureMessage = fileResult.message ?? "";
-      const sidecarFailure = vitestFailureDetailsEntry(
-        failureDetailsIndex,
-        classification.owner,
-        "(suite load)",
-      );
-      const sidecarMessage = sidecarFailure?.message ?? "";
-      dossiers.push({
-        coverage: classification.coverage,
-        step: classification.step,
-        id: classification.id,
-        runner: "vitest",
-        package_or_file: classification.owner,
-        symbol_or_title: "(suite load)",
-        message: summarizeVitestFailureMessage({
-          fallback: `test file ${classification.owner} failed before a top-level test was attributed`,
-          failureMessage,
-          ownerPath: classification.owner,
-          sidecarMessage,
-          title: "(suite load)",
-        }),
-        diagnostic_tags: mergeVitestDiagnosticTags(
-          vitestDiagnosticTags([failureMessage, sidecarMessage]),
-          sidecarFailure?.diagnostic_tags ?? [],
-          sidecarFailure ? ["vitest_failure_sidecar"] : [],
-        ),
-        reproduce: renderVitestReproduceCommand(classification.owner),
-        raw: rawArtifacts,
-      });
-      continue;
-    }
-    for (const assertion of assertions) {
-      if (assertion.status === "skipped") {
-        continue;
-      }
-      if (selection && !selection.matches(ownerPath, assertion.title ?? "")) {
-        continue;
-      }
-      const classification = classifyVitestCase(
-        ownerPath,
-        assertion.title ?? "",
-        stepLabel,
-      );
-      owners.add(classification.owner);
+  for (const observation of failureDetails.observations) {
+    const ownerPath = normalizeVitestOwnerPath(observation.owner_path);
+    if (selection && !(observation.scope === "test"
+      ? (selection.matches(ownerPath, observation.title) || selection.matches(ownerPath, observation.test_name))
+      : selection.matchesFile(ownerPath))) continue;
+    if (observation.status === "skipped") continue;
+    const classification = observation.scope === "test"
+      ? classifyVitestCase(ownerPath, observation.title, observation.test_name)
+      : classifyVitestFileFailure(ownerPath, stepLabel, selection);
+    owners.add(classification.owner);
+    if (observation.scope === "test") {
       counts.tests += 1;
       addCoverageCount(counts, classification.coverage);
-      if (assertion.status === "passed") {
-        inventory.push(
-          createInventoryItem({
-            coverage: classification.coverage,
-            step: classification.step,
-            id: classification.id,
-            owner: classification.owner,
-            name: assertion.title ?? "(missing title)",
-          }),
-        );
-        continue;
-      }
-      counts.failed += 1;
-      addCoverageFailureCount(counts, classification.coverage);
-      const failureMessages = Array.isArray(assertion.failureMessages)
-        ? assertion.failureMessages
-        : [];
-      const failureMessage = failureMessages[0] ?? "";
-      const sidecarFailure = vitestFailureDetailsEntry(
-        failureDetailsIndex,
-        classification.owner,
-        assertion.title ?? "(missing title)",
-      );
-      const sidecarMessage = sidecarFailure?.message ?? "";
-      dossiers.push({
-        coverage: classification.coverage,
-        step: classification.step,
-        id: classification.id,
-        runner: "vitest",
-        package_or_file: classification.owner,
-        symbol_or_title: assertion.title ?? "(missing title)",
-        message: summarizeVitestFailureMessage({
-          fallback: `${assertion.title ?? "vitest assertion"} failed`,
-          failureMessage,
-          failureMessages,
-          ownerPath: classification.owner,
-          sidecarMessage,
-          title: assertion.title ?? "(missing title)",
-        }),
-        diagnostic_tags: mergeVitestDiagnosticTags(
-          vitestDiagnosticTags([...failureMessages, sidecarMessage]),
-          sidecarFailure?.diagnostic_tags ?? [],
-          sidecarFailure ? ["vitest_failure_sidecar"] : [],
-        ),
-        reproduce: renderVitestReproduceCommand(
-          classification.owner,
-          (assertion.title ?? "").trim(),
-        ),
-        raw: rawArtifacts,
-      });
     }
+    if (observation.status === "passed") {
+      inventory.push(createInventoryItem({ coverage: classification.coverage, step: classification.step,
+        id: classification.id, owner: classification.owner, name: observation.title }));
+      continue;
+    }
+    counts.failed += 1;
+    addCoverageFailureCount(counts, classification.coverage);
+    const failures = failureDetails.failures.filter((failure) =>
+      failure.project === observation.project && failure.owner_path === observation.owner_path && failure.title === observation.title);
+    if (!failures.length) throw diagnosticFailure("Failed Vitest observation has no cause", "scheduler_accounting_error");
+    for (const failure of failures) dossiers.push({
+      coverage: classification.coverage, step: classification.step, id: classification.id,
+      runner: "vitest", package_or_file: classification.owner, symbol_or_title: observation.title,
+      failure_class: failure.failure_class, failure_reason: failure.failure_reason,
+      message: `${failure.original_error.name}: ${failure.message}`,
+      diagnostic_tags: [...failure.diagnostic_tags, "vitest_failure_sidecar"],
+      reproduce: renderVitestReproduceCommand(classification.owner, observation.scope === "test" ? observation.title : ""),
+      raw: rawArtifacts,
+    });
   }
 
   if (
@@ -918,6 +644,8 @@ function summarizeVitestRun(
     optionalEnv("CARTULARY_VITEST_ALLOW_EMPTY_SELECTION") !== "1"
   ) {
     dossiers.push({
+      failure_class: "harness",
+      failure_reason: "scheduler_accounting_error",
       coverage: "unmapped",
       step: catalogOwnerFromEnvironment(),
       id: "",
@@ -971,7 +699,8 @@ export function handleVitestStep({ catalogAware }) {
   removeEmptyArtifact(stderrLog);
   removeEmptyArtifact(stdoutLog);
 
-  if (!existsSync(reportFile)) {
+  if (!existsSync(reportFile) || !existsSync(failureDetailsLog) || interruptSignal !== "" || [130, 143].includes(context.exitStatus)) {
+    const commandFailure = readCommandFailure(repoRoot);
     const interrupted =
       interruptSignal !== "" ||
       context.exitStatus === 130 ||
@@ -988,13 +717,15 @@ export function handleVitestStep({ catalogAware }) {
     counts.non_test += 1;
     counts.non_test_failed += 1;
     const message = interrupted
-      ? `vitest interrupted${normalizedInterruptSignal ? ` by ${normalizedInterruptSignal}` : ""} before runner.json was written`
+      ? `vitest interrupted${normalizedInterruptSignal ? ` by ${normalizedInterruptSignal}` : ""}${existsSync(reportFile) ? " after diagnostic publication" : " before runner.json was written"}`
       : existsSync(watchdogLog)
         ? "vitest watchdog timed out before runner.json was written"
-        : "vitest runner.json was not written";
+        : commandFailure?.failure_reason === "scheduler_accounting_error"
+          ? "Vitest invocation rejected contradictory diagnostic observations"
+          : "required Vitest runner JSON or diagnostic sidecar was not written";
     const dossier = {
-      failure_class: interrupted ? "interrupted" : "artifact",
-      failure_reason: interrupted ? "cancelled_or_interrupted" : undefined,
+      failure_class: interrupted ? "interrupted" : existsSync(watchdogLog) ? "timing" : commandFailure?.failure_class ?? "artifact",
+      failure_reason: interrupted ? "cancelled_or_interrupted" : existsSync(watchdogLog) ? "timeout_failure" : commandFailure?.failure_reason ?? "artifact_error",
       coverage: "non_test",
       step: catalogOwnerFromEnvironment(),
       id: "",
@@ -1025,16 +756,30 @@ export function handleVitestStep({ catalogAware }) {
     if (showStepDetailOutput(context)) {
       printBlock(`failure: ${context.label}`, dossier);
     }
-    return 1;
+    return publicExitCodeForFailure(dossier, { exit_status: context.exitStatus });
   }
 
-  const summary = summarizeVitestRun(
-    reportFile,
-    context.label,
-    createVitestSelection({ catalogAware }),
-    [reportFile, failureDetailsLog, stdoutLog, stderrLog],
-    failureDetailsLog,
-  );
+  let summary;
+  try {
+    summary = summarizeVitestRun(reportFile, context.label,
+      createVitestSelection({ catalogAware }),
+      [reportFile, failureDetailsLog, stdoutLog, stderrLog], failureDetailsLog);
+  } catch (error) {
+    const failure = error.failure_reason ? error : diagnosticFailure("Invalid required Vitest diagnostic evidence");
+    const counts = createCounts();
+    counts.failed = 1;
+    counts.non_test = 1;
+    counts.non_test_failed = 1;
+    const dossier = { failure_class: failure.failure_class, failure_reason: failure.failure_reason,
+      coverage: "non_test", step: catalogOwnerFromEnvironment(), id: "", runner: "vitest",
+      package_or_file: "(vitest diagnostics)", symbol_or_title: "(vitest diagnostics)",
+      message: failure.message, reproduce: context.command,
+      raw: renderRawList([reportFile, failureDetailsLog, stdoutLog, stderrLog]) };
+    writeStepArtifacts(context, { status: "fail", step: catalogOwnerFromEnvironment(), counts, owners: [], inventory: [], dossiers: [dossier],
+      artifacts: { runner_json: reportFile, vitest_failure_details_json: failureDetailsLog } });
+    if (showStepDetailOutput(context)) printBlock(`failure: ${context.label}`, dossier);
+    return publicExitCodeForFailure(failure);
+  }
   const projectedSummary =
     context.countingMode === "none"
       ? {

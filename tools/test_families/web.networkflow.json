@@ -204,7 +204,8 @@
       "selector": {
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
-          "NetworkAnalysisWorkspace preserves off-page exploration selection and restores semantic focus through reveal close Escape and Saved"
+          "NetworkAnalysisWorkspace preserves a noninitial exploration page through Saved and metadata refresh and restores focus with Escape",
+          "NetworkAnalysisWorkspace preserves off-page exploration selection and restores focus through Reveal and Close"
         ]
       },
       "evidence_class": "unit",

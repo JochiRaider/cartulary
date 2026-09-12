@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadTestCatalog, targetForCatalogRow } from "../../test-catalog/index.mjs";
 import { publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
-import { readCommandFailure } from "../../runtime/command-failure.mjs";
+import { createCommandFailureContext, readCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
@@ -58,14 +58,22 @@ function writeResult(result) {
 }
 
 async function execute(invocation, index) {
-  return runPrivateCapturedProcess(invocation.command, invocation.args, {
-    captureID: `row-runner-${process.pid}-${index}`,
-    cwd: root,
-    env: process.env,
-    repoRoot: root,
-    runRoot: runRoot(),
-    tailBytes: 1024 * 1024,
-  });
+  const commandID = [...readTaskCommandTargets()].find(([, target]) => target === process.env.CARTULARY_TEST_TARGET)?.[0];
+  const context = invocation.detailsFile && commandID ? createCommandFailureContext({
+    repoRoot: root, environment: process.env, unitID: process.env.CARTULARY_WORK_UNIT_ID || `row:${invocation.rows[0].row_id}`, commandID,
+  }) : null;
+  let result;
+  try {
+    result = await runPrivateCapturedProcess(invocation.command, invocation.args, {
+      captureID: `row-runner-${process.pid}-${index}`,
+      cwd: root,
+      env: { ...process.env, ...context?.environment },
+      repoRoot: root,
+      runRoot: runRoot(),
+      tailBytes: 1024 * 1024,
+    });
+  } catch (error) { context?.close(); throw error; }
+  return { ...result, commandFailure: context?.read() ?? null, cleanup() { result.cleanup(); context?.close(); } };
 }
 
 function invocationsForRows(rows) {
@@ -90,7 +98,7 @@ function invocationsForRows(rows) {
   if (runner === "vitest") {
     const command = process.env.PNPM || path.join(root, "tmp/node-runtime/bin/pnpm");
     return {
-      invocations: buildVitestInvocations(root, rows, workers, command),
+      invocations: buildVitestInvocations(root, rows, workers, command, runRoot()),
       adapt: adaptVitestInvocationFile,
     };
   }

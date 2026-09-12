@@ -198,7 +198,9 @@
       "key": "vitest_execution_diagnostics",
       "boundary_group": "test_output",
       "paths": [
-        "tools/harness/diagnostics/vitest-failure-details.mjs"
+        "tools/harness/diagnostics/vitest-collector.mjs",
+        "tools/harness/diagnostics/vitest-failure-details.mjs",
+        "tools/harness/execution/vitest-invocation-cli.mjs"
       ],
       "allowed_consumers": []
     },
