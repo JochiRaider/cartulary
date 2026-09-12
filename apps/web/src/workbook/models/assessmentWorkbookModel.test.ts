@@ -2,6 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import {
   assessmentColumnWidth,
+  assessmentCreateErrors,
   assessmentSupportCandidate,
   buildAssessmentCreatePayload,
   confidenceScoreFromBand,
@@ -56,7 +57,7 @@ describe("assessmentWorkbookModel", () => {
           rationale: " Confirmed by support. ",
           subjectRecordId: " host-1 ",
           subjectType: "host",
-          supportRecordIds: [" support-1 ", "support-1", ""],
+          supportRecordIds: [" support-1 ", "support-1"],
         },
         "txn-assessment-create",
       ),
@@ -78,6 +79,41 @@ describe("assessmentWorkbookModel", () => {
         ],
       },
     });
+  });
+
+  it("requires deliberate subjects and validates timestamp and support boundaries without editing input", () => {
+    const contract = requireViewContract(assessmentsViewSchemaId);
+    const draft = {
+      ...initialAssessmentDraft(contract),
+      rationale: "A judgment",
+    };
+    expect(assessmentCreateErrors(draft).subject).toBe("Select a subject.");
+    draft.subjectRecordId = "host-1";
+    draft.assessedAt = "2026-04-24 12:00:00";
+    expect(buildAssessmentCreatePayload(draft, "txn")).toBeNull();
+    expect(draft.assessedAt).toBe("2026-04-24 12:00:00");
+    draft.assessedAt = "";
+    draft.supportRecordIds = Array.from(
+      { length: 65 },
+      (_, index) => `support-${index}`,
+    );
+    expect(buildAssessmentCreatePayload(draft, "txn")).toBeNull();
+    draft.supportRecordIds.pop();
+    expect(
+      buildAssessmentCreatePayload(draft, "txn")?.["assessment.support_refs"]
+        ?.actions,
+    ).toHaveLength(64);
+    draft.supportRecordIds = [];
+    const payload = buildAssessmentCreatePayload(draft, "txn");
+    expect(payload).not.toHaveProperty("assessment.assessed_at");
+    expect(payload).not.toHaveProperty("assessment.assessor");
+    expect(payload).not.toHaveProperty("assessment.support_refs");
+    expect(
+      buildAssessmentCreatePayload(draft, "txn", {
+        ...contract,
+        createCapable: false,
+      }),
+    ).toBeNull();
   });
 
   it("seeds follow-on drafts from subject identity only", () => {

@@ -1,8 +1,8 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { WorkbookOperationResponse } from "../adapters/workbookOperationContract";
 import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookProtocolTypes";
+import type { AssessmentAppendTransport } from "../features/assessments/assessmentOperation";
 import type { WorkbookRecordHistoryPort } from "../history/workbookHistoryOperation";
-import type { AssessmentCreateDraft } from "../models/assessmentWorkbookModel";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type {
   TimelineApiRow,
@@ -38,15 +38,6 @@ export type EntityPatchAccepted = {
 export type EntityCreateOutcome =
   WorkbookOperationOutcome<EntityCreateAccepted>;
 export type EntityPatchOutcome = WorkbookOperationOutcome<EntityPatchAccepted>;
-
-export type AssessmentCreateAccepted = {
-  readonly changeSetId: string;
-  readonly row: WorkbookQueryRow;
-  readonly viewSchemaId: string;
-};
-
-export type AssessmentCreateOutcome =
-  WorkbookOperationOutcome<AssessmentCreateAccepted>;
 
 export type EvidenceAttachAccepted = {
   readonly evidenceRecordId: string;
@@ -159,12 +150,7 @@ export interface EntityMutationCommandPort {
   }): Promise<EntityPatchOutcome>;
 }
 
-export interface AssessmentMutationCommandPort {
-  canCreate(input: { readonly draft: AssessmentCreateDraft }): boolean;
-  create(input: {
-    readonly draft: AssessmentCreateDraft;
-  }): Promise<AssessmentCreateOutcome>;
-}
+export type AssessmentMutationCommandPort = AssessmentAppendTransport;
 
 export interface EvidenceCapabilityPort {
   attach(input: {

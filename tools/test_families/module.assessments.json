@@ -3,6 +3,47 @@
   "owner_id": "module.assessments",
   "rows": [
     {
+      "row_id": "module.assessments.browser.append_recovery",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/assessments.recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_assessment_append_lost",
+          "scenario_assessment_append_rejected",
+          "scenario_assessment_late_acceptance",
+          "scenario_assessment_refresh_recovery"
+        ],
+        "titles": [
+          "Accepted Assessment refresh recovery sends reads only",
+          "Assessment support rejection preserves the editable draft with no partial append",
+          "Late Assessment acceptance preserves navigation focus and retained receipt",
+          "Lost Assessment response replays exactly one append and support set after navigation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
       "owner_id": "module.assessments",
       "family_id": "module.assessments.browser",

@@ -11,6 +11,7 @@ import { readWorkbookMutation } from "../workbook/query";
 export async function createAssessmentViaUI(
   page: Page,
   options: {
+    subjectRecordId: string;
     assessedAt: string;
     confidenceBand: string;
     rationale: string;
@@ -18,6 +19,17 @@ export async function createAssessmentViaUI(
     supportRecordIds: string[];
   },
 ) {
+  if (
+    await page
+      .getByRole("button", { name: "Start another assessment", exact: true })
+      .isVisible()
+  )
+    await page
+      .getByRole("button", { name: "Start another assessment", exact: true })
+      .click();
+  await page
+    .getByTestId(assessmentCreateControlTestId("subject"))
+    .selectOption(options.subjectRecordId);
   await page
     .getByTestId(assessmentCreateControlTestId("state"))
     .selectOption(options.state);
@@ -31,6 +43,9 @@ export async function createAssessmentViaUI(
     .getByTestId(assessmentCreateControlTestId("assessed-at"))
     .fill(options.assessedAt);
   if (options.supportRecordIds.length > 0) {
+    await page
+      .getByRole("button", { name: "Choose support", exact: true })
+      .click();
     await expect(
       page
         .getByTestId(assessmentCreateControlTestId("support-refs"))
@@ -39,6 +54,9 @@ export async function createAssessmentViaUI(
     await page
       .getByTestId(assessmentCreateControlTestId("support-refs"))
       .selectOption(options.supportRecordIds);
+    await page
+      .getByRole("button", { name: "Apply support selection", exact: true })
+      .click();
   }
   const responsePromise = waitForAssessmentCreate(page);
   await page.getByTestId(assessmentCreateControlTestId("submit")).click();

@@ -4,6 +4,7 @@ import type {
   IssueEvidencePreviewHandleRequest,
 } from "@cartulary/protocol-ts/http";
 import { resolvePublicEvidenceHandleHref } from "../../services/workbookEvidence";
+import { createAssessmentAppendTransport } from "../adapters/createAssessmentAppendTransport";
 import { createWorkbookRecordHistoryAdapter } from "../adapters/createWorkbookRecordHistoryAdapter";
 import type { WorkbookOperationExecutor } from "../adapters/workbookOperationContract";
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
@@ -11,15 +12,11 @@ import type { DecisionRecordWriteBoundary } from "../features/coordination/decis
 import { createEvidenceAttachmentPort } from "../features/evidence/createEvidenceAttachmentPort";
 import { createGenericMutationCommandPort } from "../features/generic/createGenericMutationCommandPort";
 import { buildGenericCreateRequest } from "../features/generic/genericCreateRequestBuilder";
-import { buildAssessmentCreatePayload } from "../models/assessmentWorkbookModel";
 import {
   buildPatchRecordRequest,
   decodeCreateViewRowRequest,
 } from "../models/workbookRequestDecoders";
-import {
-  assessmentsViewSchemaId,
-  timelineViewSchemaId,
-} from "../models/workbookSurfaceRegistry";
+import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createTimelineRelatedRecordCommandAdapter } from "../timeline/adapters/createTimelineRelatedRecordCommandAdapter";
 import { normalizeTimelineFullRow } from "../timeline/models/timelineRowModel";
 import type {
@@ -28,7 +25,6 @@ import type {
 } from "./entityRecordWriteBoundary";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
-  AssessmentCreateOutcome,
   EntityCreateOutcome,
   EntityPatchOutcome,
   GenericViewMutationAccepted,
@@ -199,29 +195,6 @@ function normalizeEntityPatchOutcome(
     outcome.value.data.row.record_id !== expectedRecordId ||
     outcome.value.data.view_schema_id !== expectedViewSchemaId
   ) {
-    return invalidOperationContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      changeSetId: outcome.value.data.change_set_id,
-      row: outcome.value.data.row,
-      viewSchemaId: outcome.value.data.view_schema_id,
-    },
-  };
-}
-
-function normalizeAssessmentCreateOutcome(
-  outcome: WorkbookOperationOutcome<{
-    readonly data: {
-      readonly change_set_id: string;
-      readonly row: GenericViewMutationAccepted["row"];
-      readonly view_schema_id: string;
-    };
-  }>,
-): AssessmentCreateOutcome {
-  if (outcome.kind === "rejected") return outcome;
-  if (outcome.value.data.view_schema_id !== assessmentsViewSchemaId) {
     return invalidOperationContract();
   }
   return {
@@ -433,32 +406,7 @@ export function createWorkbookMutationCommandPorts(
         );
       },
     },
-    assessment: {
-      canCreate(input) {
-        return (
-          buildAssessmentCreatePayload(input.draft, "validation-only") !== null
-        );
-      },
-      create(input) {
-        const clientTxnId = createId(context.transactionIds, "assessment");
-        if (clientTxnId === null)
-          return Promise.resolve(operationIdentityFailure());
-        const payload = buildAssessmentCreatePayload(input.draft, clientTxnId);
-        if (payload === null) {
-          return Promise.resolve(invalidOperationPayload());
-        }
-        return operations
-          .execute({
-            operationID: "createViewRow",
-            pathParameters: {
-              incident_id: context.incidentId,
-              view_schema_id: assessmentsViewSchemaId,
-            },
-            request: payload,
-          })
-          .then(normalizeAssessmentCreateOutcome);
-      },
-    },
+    assessment: createAssessmentAppendTransport(context.apiBase),
     evidence: {
       ...createEvidenceAttachmentPort({
         apiBase: context.apiBase,

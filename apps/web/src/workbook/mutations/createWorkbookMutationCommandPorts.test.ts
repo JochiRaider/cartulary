@@ -226,17 +226,37 @@ describe("semantic mutation command ports", () => {
       "merge-id",
     );
     await merge.send(attempt, new AbortController().signal);
-    await commands.assessment.create({
-      draft: {
-        assessedAt: "2026-07-31T05:00:00Z",
-        assessmentState: "confirmed",
-        confidenceBand: "high",
-        rationale: "Correlated evidence",
-        subjectRecordId: "host-1",
-        subjectType: "host",
-        supportRecordIds: ["evidence-1"],
+    const assessmentAttempt = commands.assessment.capture(
+      {
+        authority: {
+          actorId: "actor",
+          sessionIdentity: "session",
+          incidentId: "incident-1",
+          role: "editor",
+          closed: false,
+        },
+        sheetRef: { kind: "view_schema", id: "cartulary.view.assessments.v1" },
+        draft: {
+          mode: "standalone",
+          origin: null,
+          revision: 0,
+          values: {
+            assessedAt: "2026-07-31T05:00:00Z",
+            assessmentState: "confirmed",
+            confidenceBand: "high",
+            rationale: "Correlated evidence",
+            subjectRecordId: "host-1",
+            subjectType: "host",
+            supportRecordIds: ["evidence-1"],
+          },
+        },
       },
-    });
+      "assessment-id",
+    );
+    await commands.assessment.send(
+      assessmentAttempt,
+      new AbortController().signal,
+    );
     await commands.generic.patchRecord({
       baseRowVersion: 7,
       purpose: "task-lifecycle",

@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookActiveSurfacePort } from "../collaboration/workbookSurfacePort";
+import type { AssessmentCommittedRecordPort } from "../features/assessments/assessmentOperation";
 import type { DecisionSupersessionOwnerPort } from "../features/coordination/decisionSupersessionOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { WorkbookQueryState } from "../models/workbookQuery";
@@ -34,6 +35,7 @@ type WorkbookSurfaceQueriesOptions = {
   readonly explicitPatchOwner?: WorkbookExplicitPatchOwner;
   readonly decisionOwner?: DecisionSupersessionOwnerPort;
   readonly indicatorOwner?: WorkbookCommittedRecordPort;
+  readonly assessmentOwner?: AssessmentCommittedRecordPort;
   readonly activeContract: ViewContract;
   readonly assessment: QueryStateOwner;
   readonly generic: QueryStateOwner;
@@ -52,6 +54,7 @@ export function useWorkbookSurfaceQueries({
   explicitPatchOwner,
   decisionOwner,
   indicatorOwner,
+  assessmentOwner,
   activeContract,
   assessment,
   generic,
@@ -96,6 +99,7 @@ export function useWorkbookSurfaceQueries({
     viewSchemaId: surface,
   });
   const assessmentQuery = useAssessmentSurfaceQuery({
+    committedRecords: assessmentOwner,
     active: surface === assessmentsViewSchemaId,
     onIncidentAccessLost,
     queryState: assessment.state,

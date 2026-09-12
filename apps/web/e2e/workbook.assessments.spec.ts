@@ -30,6 +30,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow } from "./support/workbook/query";
 
 test("creates append-only assessment history through the workbook UI", async ({
@@ -62,7 +63,7 @@ test("creates append-only assessment history through the workbook UI", async ({
   await expect(page.getByTestId(assessmentCreatePanelTestId())).toBeVisible();
   await expect(
     page.getByTestId(assessmentCreateControlTestId("subject")),
-  ).toHaveValue(subject.record_id);
+  ).toHaveValue("");
 
   type AssessmentState =
     | "cleared"
@@ -110,6 +111,7 @@ test("creates append-only assessment history through the workbook UI", async ({
   const created = {} as Record<AssessmentState, ViewRow>;
   for (const entry of assessmentEntries) {
     created[entry.state] = await createAssessmentViaUI(page, {
+      subjectRecordId: subject.record_id,
       assessedAt: entry.assessedAt,
       confidenceBand: entry.band,
       rationale: `Assessment ${entry.state} rationale.`,
@@ -246,6 +248,16 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
   );
   await expect(originalRow).toHaveAttribute("data-inspector-active", "true");
 
+  const originalHistory = await fetchFullRecordHistory(
+    page,
+    original.record_id,
+  );
+  await applyFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+    "confirmed",
+  );
   const inspectorToggle = page.getByTestId(
     workbookInspectorToggleTestId(assessmentsViewSchemaId),
   );
@@ -276,8 +288,8 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
     page.getByTestId(assessmentCreateControlTestId("assessed-at")),
   ).toHaveValue("");
   await expect(
-    page.getByTestId(assessmentCreateControlTestId("support-refs")),
-  ).toHaveValues([]);
+    page.getByRole("region", { name: "Assessment supporting records" }),
+  ).toContainText("No supporting records selected.");
 
   await page
     .getByTestId(assessmentCreateControlTestId("rationale"))
@@ -288,6 +300,15 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
   await expect(originalRow).toHaveAttribute("data-inspector-active", "true");
 
   await inspectorToggle.click();
+  await page
+    .getByRole("button", { name: "Resume assessment draft", exact: true })
+    .click();
+  await expect(
+    page.getByTestId(assessmentCreateControlTestId("rationale")),
+  ).toHaveValue("Cancelled draft.");
+  await page
+    .getByRole("button", { name: "Discard assessment draft", exact: true })
+    .click();
   await followOnAction.click();
   await page
     .getByTestId(assessmentCreateControlTestId("state"))
@@ -318,6 +339,15 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
     data: { row: ViewRow };
   };
   expect(createEnvelope.data.row.record_id).not.toBe(original.record_id);
+  await expectAssessmentGridOrder(page, [original.record_id]);
+  expect(await fetchFullRecordHistory(page, original.record_id)).toEqual(
+    originalHistory,
+  );
+  await removeFilterChip(
+    page,
+    assessmentsViewSchemaId,
+    "assessment.assessment_state",
+  );
   await expect(
     page.getByTestId(
       gridRowTestId(assessmentsViewSchemaId, createEnvelope.data.row.record_id),

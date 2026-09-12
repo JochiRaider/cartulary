@@ -1,11 +1,21 @@
-import type { ViewContract } from "@cartulary/view-contracts";
+import {
+  assessmentsViewSchemaId,
+  requireViewContract,
+  type ViewContract,
+} from "@cartulary/view-contracts";
 import type { WorkbookProtocolCreateViewRowRequest } from "../adapters/workbookProtocolTypes";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
-import { enumValuesFor } from "./genericWorkbookModel";
+import {
+  buildGenericPatchChange,
+  enumValuesFor,
+  workbookCreateMinimumSatisfied,
+  workbookCreationAvailable,
+} from "./genericWorkbookModel";
+import { decodeCreateViewRowRequest } from "./workbookRequestDecoders";
 
 export type AssessmentSubjectType = "host" | "identity";
 export type AssessmentConfidenceBand = "unset" | "low" | "medium" | "high";
-type AssessmentCreateRequest = Extract<
+export type AssessmentCreateRequest = Extract<
   WorkbookProtocolCreateViewRowRequest,
   { readonly "assessment.subject_ref": string }
 >;
@@ -19,6 +29,8 @@ export type AssessmentCreateDraft = {
   subjectRecordId: string;
   subjectType: AssessmentSubjectType;
   supportRecordIds: string[];
+  subjectDisplayText?: string;
+  supportDisplayText?: Readonly<Record<string, string>>;
 };
 
 export type AssessmentSupportCandidate = {
@@ -146,7 +158,10 @@ export function confidenceScoreFromBand(
 export function buildAssessmentCreatePayload(
   draft: AssessmentCreateDraft,
   clientTxnId: string,
+  contract: ViewContract = requireViewContract(assessmentsViewSchemaId),
 ): AssessmentCreateRequest | null {
+  if (Object.keys(assessmentCreateErrors(draft, contract)).length > 0)
+    return null;
   const subjectRecordId = normalizedAssessmentValue(draft.subjectRecordId);
   const assessmentState = normalizedAssessmentValue(draft.assessmentState);
   const rationale = normalizedAssessmentValue(draft.rationale);
@@ -167,7 +182,7 @@ export function buildAssessmentCreatePayload(
     ),
   );
   const [firstSupportRecordId, ...remainingSupportRecordIds] = supportRecordIds;
-  return {
+  const request: AssessmentCreateRequest = {
     ...(assessedAt === "" ? {} : { "assessment.assessed_at": assessedAt }),
     "assessment.assessment_state": assessmentState,
     "assessment.confidence_score": confidenceScoreFromBand(
@@ -192,6 +207,63 @@ export function buildAssessmentCreatePayload(
         }),
     client_txn_id: clientTxnId,
   };
+  // Confidence null is an Assessment create value, independent of existing-row clearability.
+  const { "assessment.confidence_score": score, ...withoutScore } = request;
+  return decodeCreateViewRowRequest(
+    contract,
+    score === null ? withoutScore : request,
+  ) === null
+    ? null
+    : request;
+}
+
+export function assessmentCreateErrors(
+  draft: AssessmentCreateDraft,
+  contract: ViewContract = requireViewContract(assessmentsViewSchemaId),
+): Readonly<Record<string, string>> {
+  const errors: Record<string, string> = {};
+  if (!workbookCreationAvailable(contract))
+    errors.form = "Assessment creation is unavailable.";
+  if (!draft.subjectRecordId.trim()) errors.subject = "Select a subject.";
+  if (!isAssessmentSubjectType(draft.subjectType))
+    errors.subjectType = "Select a Host or Identity.";
+  if (!isAssessmentState(draft.assessmentState.trim()))
+    errors.assessmentState = "Select an assessment state.";
+  if (!draft.rationale.trim()) errors.rationale = "Enter a rationale.";
+  if (!isAssessmentConfidenceBand(draft.confidenceBand))
+    errors.confidenceBand = "Select a confidence band.";
+  const field = contract.fieldMap["assessment.assessed_at"];
+  if (
+    draft.assessedAt.trim() &&
+    (!field || !buildGenericPatchChange(field, draft.assessedAt))
+  )
+    errors.assessedAt =
+      "Enter an RFC3339 timestamp with a time zone, or leave it blank for the commit time.";
+  if (new Set(draft.supportRecordIds).size > 64)
+    errors.supportRecordIds = "Choose at most 64 supporting records.";
+  if (draft.supportRecordIds.some((id) => !id.trim()))
+    errors.supportRecordIds = "Remove the invalid support selection.";
+  const values = {
+    "assessment.subject_ref": draft.subjectRecordId,
+    "assessment.subject_type": draft.subjectType,
+    "assessment.assessment_state": draft.assessmentState,
+    "assessment.rationale": draft.rationale,
+  };
+  if (
+    !workbookCreateMinimumSatisfied(contract, values) &&
+    !Object.keys(errors).length
+  )
+    errors.form = "Complete the required assessment fields.";
+  for (const key of [
+    ...Object.keys(values),
+    "assessment.confidence_score",
+    ...(draft.assessedAt.trim() ? ["assessment.assessed_at"] : []),
+    ...(draft.supportRecordIds.length ? ["assessment.support_refs"] : []),
+  ]) {
+    if (!contract.fieldMap[key]?.createWritable)
+      errors.form = "The current Assessment create contract is unavailable.";
+  }
+  return errors;
 }
 
 function normalizedAssessmentValue(value: unknown): string {

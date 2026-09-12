@@ -8,6 +8,7 @@ import {
   requireWorkbookSurfaceAcceptance,
   type WorkbookSurfaceRecordChangeResult,
 } from "../collaboration/workbookSurfacePort";
+import type { AssessmentCommittedRecordPort } from "../features/assessments/assessmentOperation";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   initialWorkbookQueryLoadState,
@@ -28,6 +29,7 @@ import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 
 export type AssessmentSurfaceQueryInput = {
+  readonly committedRecords?: AssessmentCommittedRecordPort | undefined;
   readonly active: boolean;
   readonly onIncidentAccessLost: (() => void) | undefined;
   readonly queryState: WorkbookQueryState;
@@ -35,6 +37,7 @@ export type AssessmentSurfaceQueryInput = {
 };
 
 export function useAssessmentSurfaceQuery({
+  committedRecords,
   active,
   onIncidentAccessLost,
   queryState,
@@ -93,13 +96,38 @@ export function useAssessmentSurfaceQuery({
           requireWorkbookSurfaceAcceptance(result);
         return;
       }
-      const nextRows = [...result.value.rows];
+      if (
+        committedRecords &&
+        result.value.rows.some(
+          (row) =>
+            row.row_version <
+              (committedRecords.latestVersion(row.record_id) ?? 0) ||
+            committedRecords.wasRemoved(row.record_id, row.row_version),
+        )
+      ) {
+        const failure = {
+          kind: "rejected" as const,
+          failure: {
+            kind: "stale_target" as const,
+            message:
+              "The query is older than an accepted change. Refresh current assessments.",
+          },
+        };
+        setLoadState({ kind: "stale_error", message: failure.failure.message });
+        if (options?.requireAcceptance)
+          requireWorkbookSurfaceAcceptance(failure);
+        return;
+      }
+      // Only the current query establishes membership. Receipts never insert filtered-out rows.
+      const nextRows = result.value.rows.map(
+        (row) => committedRecords?.acceptRow(row) ?? row,
+      );
       rowsRef.current = nextRows;
       setRows(nextRows);
       acceptedRowCountRef.current = nextRows.length;
       setLoadState({ kind: "ready" });
     },
-    [active, onIncidentAccessLost, queryState, viewQuery],
+    [active, committedRecords, onIncidentAccessLost, queryState, viewQuery],
   );
 
   const applyRecordChanged = useCallback(
@@ -126,20 +154,28 @@ export function useAssessmentSurfaceQuery({
       if (patch.recordId !== payload.record_id) {
         return { kind: "refresh_required" };
       }
+      if (
+        patch.rowVersion <
+          (committedRecords?.latestVersion(patch.recordId) ?? 0) ||
+        committedRecords?.wasRemoved(patch.recordId, patch.rowVersion)
+      )
+        return { kind: "stale" };
       const current = rowsRef.current;
       const existing = current.find((row) => row.record_id === patch.recordId);
       if (existing === undefined) return { kind: "refresh_required" };
       if (existing.row_version >= patch.rowVersion) return { kind: "stale" };
       const next = current.map((row) =>
         row.record_id === patch.recordId
-          ? applyWorkbookQueryRowPatch(row, patch)
+          ? (committedRecords?.acceptRow(
+              applyWorkbookQueryRowPatch(row, patch),
+            ) ?? applyWorkbookQueryRowPatch(row, patch))
           : row,
       );
       rowsRef.current = next;
       setRows(next);
       return { kind: "applied" };
     },
-    [],
+    [committedRecords],
   );
 
   const invalidate = useCallback((reason: WorkbookQueryInvalidationReason) => {
@@ -154,6 +190,33 @@ export function useAssessmentSurfaceQuery({
     acceptedRowCountRef.current = 0;
     setRows([]);
   }, []);
+
+  useEffect(() => {
+    if (!committedRecords) return;
+    return committedRecords.subscribe(() => {
+      if (!committedRecords.getSnapshot().authority) {
+        abortLatestQuery(queryRuntimeRef);
+        rowsRef.current = [];
+        acceptedRowCountRef.current = 0;
+        setRows([]);
+        return;
+      }
+      const current = rowsRef.current;
+      const next = current
+        .filter(
+          (row) => !committedRecords.wasRemoved(row.record_id, row.row_version),
+        )
+        .map((row) => committedRecords.latestRow(row.record_id) ?? row);
+      if (
+        next.length !== current.length ||
+        next.some((row, index) => row !== current[index])
+      ) {
+        rowsRef.current = next;
+        acceptedRowCountRef.current = next.length;
+        setRows(next);
+      }
+    });
+  }, [committedRecords]);
 
   useEffect(
     () => () => {

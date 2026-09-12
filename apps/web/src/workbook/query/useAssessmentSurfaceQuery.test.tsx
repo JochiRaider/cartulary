@@ -16,6 +16,7 @@ import {
 } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
+import { WorkbookAssessmentAuthoringOwner } from "../features/assessments/WorkbookAssessmentAuthoringOwner";
 import {
   emptyWorkbookQueryState,
   type WorkbookQueryState,
@@ -298,5 +299,139 @@ describe("useAssessmentSurfaceQuery", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     rendered.unmount();
     expect(signal?.aborted).toBe(true);
+  });
+});
+
+describe("Assessment committed query reconciliation", () => {
+  it("rejects older full rows after socket or HTTP observations without manufacturing filtered membership", async () => {
+    const owner = new WorkbookAssessmentAuthoringOwner(
+      incidentId,
+      { create: () => "unused" },
+      { accepted: () => {}, refresh: async () => {} },
+    );
+    owner.setAuthority({
+      actorId: "actor",
+      sessionIdentity: "session",
+      incidentId,
+      role: "editor",
+      closed: false,
+    });
+    const old = assessmentRow(assessmentCurrentId, 1, "Original");
+    const latest = assessmentRow(assessmentCurrentId, 3, "Latest");
+    const query = vi
+      .fn()
+      .mockResolvedValue({ kind: "accepted", value: { rows: [old] } });
+    const hook = renderHook(() =>
+      useAssessmentSurfaceQuery({
+        active: true,
+        onIncidentAccessLost: undefined,
+        queryState: emptyWorkbookQueryState(),
+        viewQuery: { query },
+        committedRecords: owner,
+      }),
+    );
+    await act(async () => hook.result.current.refresh());
+    act(() => owner.acceptVersion(assessmentCurrentId, 3));
+    await act(async () => {
+      await expect(
+        hook.result.current.refresh({ requireAcceptance: true }),
+      ).rejects.toBeTruthy();
+    });
+    expect(hook.result.current.loadState.kind).toBe("stale_error");
+    act(() => owner.acceptRow(latest));
+    expect(hook.result.current.rows[0]?.row_version).toBe(3);
+    await act(async () => hook.result.current.refresh());
+    expect(hook.result.current.rows[0]?.row_version).toBe(3);
+    query.mockResolvedValue({ kind: "accepted", value: { rows: [] } });
+    await act(async () =>
+      hook.result.current.refresh({ requireAcceptance: true }),
+    );
+    expect(hook.result.current.rows).toEqual([]);
+    expect(owner.latestRow(assessmentCurrentId)).toEqual(latest);
+    hook.unmount();
+  });
+  it("accepts an authorized startup query independently of mutation authority initialization", async () => {
+    const owner = new WorkbookAssessmentAuthoringOwner(
+      incidentId,
+      { create: () => "unused" },
+      { accepted: () => {}, refresh: async () => {} },
+    );
+    const row = assessmentRow(assessmentCurrentId, 1, "Readable startup row");
+    const query = vi
+      .fn()
+      .mockResolvedValue({ kind: "accepted", value: { rows: [row] } });
+    const hook = renderHook(() =>
+      useAssessmentSurfaceQuery({
+        active: true,
+        onIncidentAccessLost: undefined,
+        queryState: emptyWorkbookQueryState(),
+        viewQuery: { query },
+        committedRecords: owner,
+      }),
+    );
+    await act(async () => hook.result.current.refresh());
+    expect(hook.result.current.rows).toEqual([row]);
+    expect(owner.canSubmit()).toBe(false);
+    hook.unmount();
+  });
+  it("removes deleted rows monotonically and ignores an in-flight query after authority suspension", async () => {
+    const owner = new WorkbookAssessmentAuthoringOwner(
+      incidentId,
+      { create: () => "unused" },
+      { accepted: () => {}, refresh: async () => {} },
+    );
+    const authority = {
+      actorId: "actor",
+      sessionIdentity: "session",
+      incidentId,
+      role: "editor",
+      closed: false,
+    } as const;
+    owner.setAuthority(authority);
+    const row = assessmentRow(assessmentCurrentId, 1, "Protected");
+    const query = vi
+      .fn()
+      .mockResolvedValue({ kind: "accepted", value: { rows: [row] } });
+    const hook = renderHook(() =>
+      useAssessmentSurfaceQuery({
+        active: true,
+        onIncidentAccessLost: undefined,
+        queryState: emptyWorkbookQueryState(),
+        viewQuery: { query },
+        committedRecords: owner,
+      }),
+    );
+    await act(async () => hook.result.current.refresh());
+    act(() => owner.acceptVersion(assessmentCurrentId, 2, true));
+    expect(hook.result.current.rows).toEqual([]);
+    await act(async () => {
+      await expect(
+        hook.result.current.refresh({ requireAcceptance: true }),
+      ).rejects.toBeTruthy();
+    });
+    let resolve!: (value: unknown) => void;
+    query.mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    let pending!: Promise<void>;
+    act(() => {
+      pending = hook.result.current.refresh();
+    });
+    act(() => owner.suspend());
+    await act(async () => {
+      resolve({
+        kind: "accepted",
+        value: { rows: [assessmentRow(assessmentCurrentId, 3, "Late")] },
+      });
+      await pending;
+    });
+    expect(hook.result.current.rows).toEqual([]);
+    expect(owner.latestRow(assessmentCurrentId)).toBeNull();
+    act(() => owner.setAuthority(authority));
+    expect(hook.result.current.rows).toEqual([]);
+    hook.unmount();
   });
 });

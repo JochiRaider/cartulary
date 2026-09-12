@@ -273,13 +273,12 @@ export function WorkbookSurfacesFacade({
         currentIncidentRole={currentIncidentRole}
         currentUserId={currentUserId}
         continuityResetKey={continuityResetKey}
-        hostRows={hostRows}
-        identityRows={identityRows}
+        apiBase={apiBase}
+        incidentId={incidentId}
         inspectorResetKey={inspectorResetKey}
         gridEntryFocus={gridEntryFocus}
         layout={layout}
         mutationRuntime={mutationRuntime}
-        mutationCommands={mutationCommands.assessment}
         onActivateConflict={onActivateConflict}
         recordMutationCommands={mutationCommands.records}
         relatedMutationCommands={mutationCommands.timeline.related}
@@ -296,7 +295,6 @@ export function WorkbookSurfacesFacade({
         }}
         queryState={assessmentQueryState}
         viewBarWorkingSet={viewBarWorkingSet}
-        viewQuery={viewQuery}
       />
     );
   }

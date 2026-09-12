@@ -18,6 +18,7 @@ import { createWorkbookOperationExecutor } from "../adapters/workbookOperationEx
 import { createRecordPatchTransport } from "../adapters/workbookRecordPatchTransport";
 import { createWorkbookMutationCommandPorts } from "../mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../mutations/secureTransactionId";
+import type { WorkbookMutationAuthority } from "../mutations/workbookMutationAuthority";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { WorkbookMutationRuntimeRegistry } from "../runtime/WorkbookMutationRuntimeRegistry";
@@ -228,6 +229,50 @@ export function useWorkbookShellInfrastructure({
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
+  const currentAuthorityReader = useMemo(
+    () => async (baseline: WorkbookMutationAuthority, signal: AbortSignal) => {
+      const result = await partyAuthorization.recover({
+        incidentId,
+        signal,
+      });
+      if (signal.aborted) throw new Error("Authority read interrupted.");
+      if (result.kind !== "authorized") {
+        if (result.kind === "access_lost" || result.kind === "session_lost") {
+          mutationRuntime.assessmentAuthoring.suspend();
+          mutationRuntime.partyLinks.suspend();
+          mutationRuntime.explicitPatches.suspend();
+          void recheckMentionAuthority();
+        }
+        throw new Error("Current authority is unavailable. Retry the read.");
+      }
+      const incident = await incidentPort.getIdentity({ signal });
+      if (incident.kind !== "accepted")
+        throw new Error("Current incident state is unavailable.");
+      authorizationRecovered(result);
+      return {
+        ...baseline,
+        actorId: result.userId,
+        role: result.role,
+        closed: incident.value.status !== "active",
+      };
+    },
+    [
+      partyAuthorization,
+      incidentId,
+      mutationRuntime,
+      incidentPort,
+      recheckMentionAuthority,
+      authorizationRecovered,
+    ],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.assessmentAuthoring.configure(
+        mutationCommands.assessment,
+        currentAuthorityReader,
+      ),
+    [mutationRuntime, mutationCommands, currentAuthorityReader],
+  );
   useMemo(
     () =>
       mutationRuntime.partyLinks.configure(
@@ -239,46 +284,9 @@ export function useWorkbookShellInfrastructure({
             void mutationRuntime.partyLinks.recheckAuthority();
           },
         }),
-        async (baseline, signal) => {
-          const result = await partyAuthorization.recover({
-            incidentId,
-            signal,
-          });
-          if (signal.aborted) throw new Error("Authority read interrupted.");
-          if (result.kind !== "authorized") {
-            if (
-              result.kind === "access_lost" ||
-              result.kind === "session_lost"
-            ) {
-              mutationRuntime.partyLinks.suspend();
-              mutationRuntime.explicitPatches.suspend();
-              void recheckMentionAuthority();
-            }
-            throw new Error(
-              "Current authority is unavailable. Retry the read.",
-            );
-          }
-          const incident = await incidentPort.getIdentity({ signal });
-          if (incident.kind !== "accepted")
-            throw new Error("Current incident state is unavailable.");
-          authorizationRecovered(result);
-          return {
-            ...baseline,
-            actorId: result.userId,
-            role: result.role,
-            closed: incident.value.status !== "active",
-          };
-        },
+        currentAuthorityReader,
       ),
-    [
-      apiBase,
-      incidentId,
-      mutationRuntime,
-      partyAuthorization,
-      recheckMentionAuthority,
-      incidentPort,
-      authorizationRecovered,
-    ],
+    [apiBase, incidentId, mutationRuntime, currentAuthorityReader],
   );
   const startupPort = useMemo(
     () => createWorkbookStartupAdapter({ apiBase, incidentId }),

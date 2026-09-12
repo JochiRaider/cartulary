@@ -24,7 +24,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkbookImportController } from "../imports/WorkbookImportController";
-import { sessionResource } from "../testing/appShellTestSupport";
+import {
+  incidentResource,
+  sessionResource,
+} from "../testing/appShellTestSupport";
 import { deferred, requireJSONBodyAt } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
@@ -195,17 +198,13 @@ describe("Assessment workbook surface", () => {
       if (
         url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
       ) {
-        return successEnvelope({
-          incident_id: "00000000-0000-4000-8000-000000000001",
-          incident_key: "IR-1",
-          title: "Incident 1",
-          description: null,
-          severity: null,
-          tlp: null,
-          current_phase: null,
-          primary_external_case_ref: null,
-          incident_version: 1,
-        });
+        return successEnvelope(
+          incidentResource(
+            "00000000-0000-4000-8000-000000000001",
+            "IR-1",
+            "Incident 1",
+          ),
+        );
       }
       if (
         url.endsWith(
@@ -306,15 +305,16 @@ describe("Assessment workbook surface", () => {
       ),
     );
     await screen.findByTestId(assessmentCreatePanelTestId());
-    await waitFor(() => {
+    expect(assessmentControlValue("subject")).toBe("");
+    await waitFor(() =>
       expect(
-        (
-          screen.getByTestId(
-            assessmentCreateControlTestId("subject"),
-          ) as HTMLSelectElement
-        ).value,
-      ).toBe("00000000-0000-4000-8000-000000000101");
-    });
+        screen.getByRole("option", { name: "Assessment Host" }),
+      ).toBeTruthy(),
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("subject")),
+      { target: { value: "00000000-0000-4000-8000-000000000101" } },
+    );
 
     fireEvent.change(
       screen.getByTestId(assessmentCreateControlTestId("state")),
@@ -340,6 +340,7 @@ describe("Assessment workbook surface", () => {
         target: { value: "2026-04-24T12:00:00Z" },
       },
     );
+    await openSupportPicker();
     const supportSelect = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
     ) as HTMLSelectElement;
@@ -347,6 +348,38 @@ describe("Assessment workbook surface", () => {
     expect(supportOption).not.toBeNull();
     (supportOption as HTMLOptionElement).selected = true;
     fireEvent.change(supportSelect);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply support selection" }),
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("subject-type")),
+      { target: { value: "identity" } },
+    );
+    expect(assessmentControlValue("subject")).toBe("");
+    expect(assessmentControlValue("rationale")).toBe("Confirmed from support.");
+    expect(assessmentControlValue("confidence-band")).toBe("high");
+    expect(selectedAssessmentSupportRecordIds()).toEqual([
+      "00000000-0000-4000-8000-000000000102",
+    ]);
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("subject-type")),
+      { target: { value: "host" } },
+    );
+    expect(assessmentControlValue("subject")).toBe("");
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByTestId(
+            assessmentCreateControlTestId("subject"),
+          ) as HTMLSelectElement
+        ).disabled,
+      ).toBe(false),
+    );
+    fireEvent.change(
+      screen.getByTestId(assessmentCreateControlTestId("subject")),
+      { target: { value: "00000000-0000-4000-8000-000000000101" } },
+    );
+
     fireEvent.click(
       screen.getByTestId(assessmentCreateControlTestId("submit")),
     );
@@ -427,17 +460,13 @@ describe("Assessment workbook surface", () => {
       if (
         url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
       ) {
-        return successEnvelope({
-          incident_id: "00000000-0000-4000-8000-000000000001",
-          incident_key: "IR-1",
-          title: "Incident 1",
-          description: null,
-          severity: null,
-          tlp: null,
-          current_phase: null,
-          primary_external_case_ref: null,
-          incident_version: 1,
-        });
+        return successEnvelope(
+          incidentResource(
+            "00000000-0000-4000-8000-000000000001",
+            "IR-1",
+            "Incident 1",
+          ),
+        );
       }
       if (
         url.endsWith(
@@ -583,6 +612,7 @@ describe("Assessment workbook surface", () => {
     expect(assessmentControlValue("confidence-band")).toBe("unset");
     expect(assessmentControlValue("rationale")).toBe("");
     expect(assessmentControlValue("assessed-at")).toBe("");
+    await openSupportPicker();
     const initialSupportPicker = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
     ) as HTMLSelectElement;
@@ -599,6 +629,9 @@ describe("Assessment workbook surface", () => {
       },
     ]);
 
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cancel support selection" }),
+    );
     fireEvent.change(
       screen.getByTestId(assessmentCreateControlTestId("rationale")),
       { target: { value: "Cancelled rationale" } },
@@ -635,6 +668,13 @@ describe("Assessment workbook surface", () => {
       ),
     );
     fireEvent.click(
+      screen.getByRole("button", { name: "Resume assessment draft" }),
+    );
+    expect(assessmentControlValue("rationale")).toBe("Cancelled rationale");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Discard assessment draft" }),
+    );
+    fireEvent.click(
       screen.getByTestId(
         workbookInspectorFeatureActionTestId(
           assessmentsViewSchemaId,
@@ -650,6 +690,7 @@ describe("Assessment workbook surface", () => {
       screen.getByTestId(assessmentCreateControlTestId("rationale")),
       { target: { value: "Fresh follow-on rationale" } },
     );
+    await openSupportPicker();
     const followOnSupportPicker = screen.getByTestId(
       assessmentCreateControlTestId("support-refs"),
     ) as HTMLSelectElement;
@@ -657,6 +698,9 @@ describe("Assessment workbook surface", () => {
     expect(supportOption).not.toBeNull();
     (supportOption as HTMLOptionElement).selected = true;
     fireEvent.change(followOnSupportPicker);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Apply support selection" }),
+    );
 
     fireEvent.click(
       screen.getByTestId(assessmentCreateControlTestId("submit")),
@@ -704,8 +748,12 @@ describe("Assessment workbook surface", () => {
     expect(
       restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
     ).toBe("true");
-    expect(assessmentControlValue("rationale")).toBe("");
-    expect(selectedAssessmentSupportRecordIds()).toEqual([]);
+    expect(
+      screen.queryByTestId(assessmentCreateControlTestId("rationale")),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Start another assessment" }),
+    ).toBeTruthy();
 
     expect(createBodies[0]).toMatchObject({
       "assessment.subject_ref": "00000000-0000-4000-8000-000000000101",
@@ -781,17 +829,13 @@ describe("Assessment workbook surface", () => {
       if (
         url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
       ) {
-        return successEnvelope({
-          incident_id: "00000000-0000-4000-8000-000000000001",
-          incident_key: "IR-1",
-          title: "Incident 1",
-          description: null,
-          severity: null,
-          tlp: null,
-          current_phase: null,
-          primary_external_case_ref: null,
-          incident_version: 1,
-        });
+        return successEnvelope(
+          incidentResource(
+            "00000000-0000-4000-8000-000000000001",
+            "IR-1",
+            "Incident 1",
+          ),
+        );
       }
       if (
         url.endsWith(
@@ -937,17 +981,13 @@ describe("Assessment workbook surface", () => {
       if (
         url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
       ) {
-        return successEnvelope({
-          incident_id: "00000000-0000-4000-8000-000000000001",
-          incident_key: "IR-1",
-          title: "Incident 1",
-          description: null,
-          severity: null,
-          tlp: null,
-          current_phase: null,
-          primary_external_case_ref: null,
-          incident_version: 1,
-        });
+        return successEnvelope(
+          incidentResource(
+            "00000000-0000-4000-8000-000000000001",
+            "IR-1",
+            "Incident 1",
+          ),
+        );
       }
       if (
         url.endsWith(
@@ -1256,10 +1296,12 @@ function assessmentControlValue(
 }
 
 function selectedAssessmentSupportRecordIds(): string[] {
-  const picker = screen.getByTestId(
-    assessmentCreateControlTestId("support-refs"),
-  ) as HTMLSelectElement;
-  return Array.from(picker.selectedOptions).map((option) => option.value);
+  const summary = screen.getByRole("region", {
+    name: "Assessment supporting records",
+  });
+  return summary.textContent?.includes("Supporting timeline row")
+    ? ["00000000-0000-4000-8000-000000000102"]
+    : [];
 }
 
 function assessmentPayloadWithoutClientTxn(
@@ -1275,4 +1317,17 @@ function assessmentPayloadWithoutClientTxn(
 async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
+}
+
+async function openSupportPicker() {
+  fireEvent.click(screen.getByRole("button", { name: "Choose support" }));
+  await waitFor(() =>
+    expect(
+      (
+        screen.getByTestId(
+          assessmentCreateControlTestId("support-refs"),
+        ) as HTMLSelectElement
+      ).disabled,
+    ).toBe(false),
+  );
 }

@@ -38,6 +38,7 @@ import { workbookShellId } from "./components/WorkbookShellSlots";
 import { WorkbookShellTopBar } from "./components/WorkbookShellTopBar";
 import { workbookShellViewBarWorkingSet } from "./components/WorkbookShellViewBarControls";
 import { WorkbookStatusStrip } from "./components/WorkbookStatusStrip";
+import { AssessmentAppendRecovery } from "./features/assessments/AssessmentAppendRecovery";
 import { DecisionSupersessionContext } from "./features/coordination/DecisionSupersessionContext";
 import { decisionViewId } from "./features/coordination/decisionSupersessionModel";
 import { reconcileDecisionReceipt } from "./features/coordination/reconcileDecisionReceipt";
@@ -258,6 +259,9 @@ function WorkbookShellContent({
       timelineMentionAuthority(mergeAuthority),
     );
     infrastructure.mutationRuntime.indicatorCreate.setAuthority(mergeAuthority);
+    infrastructure.mutationRuntime.assessmentAuthoring.setAuthority(
+      mergeAuthority,
+    );
     infrastructure.mutationRuntime.indicatorObservations.setAuthority(
       mergeAuthority,
     );
@@ -287,6 +291,7 @@ function WorkbookShellContent({
       infrastructure.timelineMentions.suspend();
       infrastructure.mutationRuntime.indicatorObservations.suspend();
       infrastructure.mutationRuntime.indicatorCreate.suspend();
+      infrastructure.mutationRuntime.assessmentAuthoring.suspend();
       infrastructure.mutationRuntime.explicitPatches.suspend();
       infrastructure.mutationRuntime.partyLinks.suspend();
       infrastructure.mutationRuntime.indicatorLifecycle.suspend();
@@ -361,6 +366,7 @@ function WorkbookShellContent({
     explicitPatchOwner: infrastructure.mutationRuntime.explicitPatches,
     decisionOwner: infrastructure.mutationRuntime.decisionSupersession,
     indicatorOwner: infrastructure.mutationRuntime.indicatorRecords,
+    assessmentOwner: infrastructure.mutationRuntime.assessmentAuthoring,
     activeContract: snapshot.activeContract,
     assessment: {
       setState: commands.setAssessmentQueryState,
@@ -872,6 +878,11 @@ function WorkbookShellContent({
                   importRecovery={
                     <>
                       <WorkbookHistoryRecovery />
+                      <AssessmentAppendRecovery
+                        owner={
+                          infrastructure.mutationRuntime.assessmentAuthoring
+                        }
+                      />
                       <PartyLinkRecovery
                         owner={infrastructure.mutationRuntime.partyLinks}
                       />

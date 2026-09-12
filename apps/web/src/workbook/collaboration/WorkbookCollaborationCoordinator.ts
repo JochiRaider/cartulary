@@ -784,6 +784,32 @@ class WorkbookCollaborationCoordinatorRuntime {
   }
 
   private handleRecordChanged(payload: RecordChangedPayload): void {
+    const assessment = payload.affected_views.find(
+      (view) => view.view_schema_id === "cartulary.view.assessments.v1",
+    );
+    if (assessment) {
+      this.options.mutationRuntime.assessmentAuthoring.acceptVersion(
+        payload.record_id,
+        payload.row_version,
+        assessment.change_kind === "remove",
+      );
+      this.options.mutationRuntime.history.acceptVersion(
+        payload.record_id,
+        payload.row_version,
+      );
+    }
+    if (
+      payload.affected_views.some((view) =>
+        [
+          "cartulary.view.timeline.v2",
+          "cartulary.view.hosts.v1",
+          "cartulary.view.identities.v1",
+        ].includes(view.view_schema_id),
+      )
+    )
+      this.options.mutationRuntime.assessmentAuthoring.observeCandidates(
+        payload.record_id,
+      );
     if (
       payload.affected_views.some(
         (view) => view.view_schema_id === "cartulary.view.parties.v1",

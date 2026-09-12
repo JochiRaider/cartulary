@@ -137,6 +137,154 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.assessment_admission",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+        "titles": [
+          "assessmentWorkbookModel requires deliberate subjects and validates timestamp and support boundaries without editing input"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.assessment_append_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/assessments/useAssessmentCreationController.test.tsx",
+        "titles": [
+          "Assessment retained append owner cancels preparation before dispatch without losing intent",
+          "Assessment retained append owner distinguishes a local forbidden support from confirmed incident access loss",
+          "Assessment retained append owner does not resurrect retired attempts when an old transport completes",
+          "Assessment retained append owner invalidates review only for selected subjects supports or origin and never retargets intent",
+          "Assessment retained append owner keeps immutable receipts separate from newer rows in both HTTP and socket orders",
+          "Assessment retained append owner keeps invalid input and secure identity failure editable without dispatch",
+          "Assessment retained append owner observes a deadline without losing a late authoritative receipt",
+          "Assessment retained append owner preserves an uncertain result after replay rejection and prevents fresh writes after role or closure changes",
+          "Assessment retained append owner replays uncertainty with the exact immutable body route and key then permits a deliberate identical append",
+          "Assessment retained append owner reserves same-frame activation before authority reads and sends once",
+          "Assessment retained append owner retains acceptance before failed refresh and recovers with reads only",
+          "Assessment retained append owner retains late detached acceptance while hiding suspended protected state and retires on account change"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.assessment_discovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/assessments/assessmentDiscovery.test.tsx",
+        "titles": [
+          "Assessment discovery keeps failed pages distinct from empty results and retries the same cursor without losing prior candidates",
+          "Assessment discovery keeps subject intent across ordering filters paging and empty refreshes",
+          "Assessment discovery preserves an explicitly selected subject absent from refreshed candidate pages",
+          "Assessment discovery reads only the authorized selected view and reduces minimal Timeline rows with opaque paging",
+          "Assessment discovery rejects cyclic paging and ignores an obsolete filter response",
+          "Assessment discovery stages support selection and cancels with Escape without changing the draft"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.assessment_reconciliation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/useAssessmentSurfaceQuery.test.tsx",
+        "titles": [
+          "Assessment committed query reconciliation accepts an authorized startup query independently of mutation authority initialization",
+          "Assessment committed query reconciliation rejects older full rows after socket or HTTP observations without manufacturing filtered membership",
+          "Assessment committed query reconciliation removes deleted rows monotonically and ignores an in-flight query after authority suspension"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.assessment_socket_order",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
+        "titles": [
+          "WorkbookCollaborationCoordinator accounts for Assessment versions before echo suppression in either HTTP order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.assessmentworkbookmodel_keeps_assessment_column_e8493a2ec0",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -5773,7 +5921,9 @@
       "selector": {
         "file": "apps/web/src/workbook/features/assessments/useAssessmentCreationController.test.tsx",
         "titles": [
-          "useAssessmentCreationController rejects invalid drafts locally and ignores late accepted lifecycle completions",
+          "useAssessmentCreationController detaches inline feedback while retaining a late committed result",
+          "useAssessmentCreationController publishes accepted standalone creation as polite neutral feedback",
+          "useAssessmentCreationController retains drafts across selection and close and requires explicit resume or discard",
           "useAssessmentCreationController retains the append-only draft and support selection after rejection"
         ]
       },

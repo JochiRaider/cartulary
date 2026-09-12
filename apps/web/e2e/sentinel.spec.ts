@@ -1154,7 +1154,10 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   await expect(page.getByTestId(assessmentCreatePanelTestId())).toBeVisible();
   await expect(
     page.getByTestId(assessmentCreateControlTestId("subject")),
-  ).toHaveValue(subjectA.record_id as string);
+  ).toHaveValue("");
+  await page
+    .getByTestId(assessmentCreateControlTestId("subject"))
+    .selectOption(subjectA.record_id);
 
   const invalidTimestamp = "2026-04-24 12:00:00";
   await page
@@ -1169,16 +1172,19 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   await page
     .getByTestId(assessmentCreateControlTestId("assessed-at"))
     .fill(invalidTimestamp);
-  const failedCreate = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response.url().endsWith(`/views/${assessmentsViewSchemaId}/rows`),
-  );
+  const assessmentWrites: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      request.url().endsWith(`/views/${assessmentsViewSchemaId}/rows`)
+    )
+      assessmentWrites.push(request.postData() ?? "");
+  });
   await page.getByTestId(assessmentCreateControlTestId("submit")).click();
-  expect((await failedCreate).status()).toBe(400);
   await expect(
     page.getByTestId(assessmentCreateControlTestId("message")),
-  ).toContainText("invalid_mutation_payload");
+  ).toContainText("Enter an RFC3339 timestamp");
+  expect(assessmentWrites).toEqual([]);
   await expect(
     page.getByTestId(assessmentCreateControlTestId("assessed-at")),
   ).toHaveValue(invalidTimestamp);
@@ -1187,6 +1193,7 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
   ).toHaveLength(0);
 
   const createdUnknown = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectA.record_id,
     assessedAt: "2026-04-24T10:00:00Z",
     confidenceBand: "unset",
     rationale: "Workbook inspector unknown rationale.",
@@ -1194,6 +1201,7 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
     supportRecordIds: [],
   });
   const createdSuspected = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectA.record_id,
     assessedAt: "2026-04-24T11:00:00Z",
     confidenceBand: "low",
     rationale: "Workbook inspector suspected rationale.",
@@ -1201,6 +1209,7 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
     supportRecordIds: [],
   });
   const createdConfirmed = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectA.record_id,
     assessedAt: "2026-04-24T12:00:00Z",
     confidenceBand: "medium",
     rationale: "Workbook inspector confirmed rationale.",
@@ -1208,10 +1217,8 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
     supportRecordIds: [support.record_id as string],
   });
 
-  await page
-    .getByTestId(assessmentCreateControlTestId("subject"))
-    .selectOption(subjectB.record_id as string);
   const createdDisproven = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectB.record_id,
     assessedAt: "2026-04-24T13:00:00Z",
     confidenceBand: "medium",
     rationale: "Workbook inspector disproven rationale.",
@@ -1219,6 +1226,7 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
     supportRecordIds: [],
   });
   const createdCleared = await createAssessmentViaUI(page, {
+    subjectRecordId: subjectB.record_id,
     assessedAt: "2026-04-24T14:00:00Z",
     confidenceBand: "high",
     rationale: "Workbook inspector cleared rationale.",

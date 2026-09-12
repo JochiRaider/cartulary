@@ -46,6 +46,28 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-assessments-recovery",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.assessments.browser.append_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/assessments.recovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-auth-and-incident-directory",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1088,6 +1110,28 @@
           ],
           "specs": [
             "apps/web/e2e/administrative-audit.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-assessments-recovery",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.assessments.browser.append_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/assessments.recovery.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
@@ -2862,6 +2906,7 @@
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
             "web.design.accessibility.administrative_audit_browsing",
+            "web.design.accessibility.assessment_authoring",
             "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.incident_import_workflow",
@@ -3864,6 +3909,7 @@
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
             "web.design.accessibility.administrative_audit_browsing",
+            "web.design.accessibility.assessment_authoring",
             "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
             "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
             "web.design.accessibility.incident_import_workflow",
