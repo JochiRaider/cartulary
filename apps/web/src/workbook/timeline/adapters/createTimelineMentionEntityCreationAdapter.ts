@@ -1,109 +1,104 @@
-import type { CreateViewRowRequest } from "@cartulary/protocol-ts/http";
-import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import {
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-} from "../../models/workbookSurfaceRegistry";
-import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-import type {
-  TimelineMentionEntityCreated,
-  TimelineMentionEntityCreationPort,
-} from "../ports/TimelineMentionPort";
+  buildHTTPOperationPath,
+  type CreateViewRowResponse,
+} from "@cartulary/protocol-ts/http";
+import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
+import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { normalizeWorkbookViewRows } from "../../models/workbookContractRows";
+import {
+  mentionCreateRequest,
+  mentionEntityContract,
+} from "../actions/timelineMentionCreationModel";
+import type { TimelineMentionEntityCreationPort } from "../ports/TimelineMentionPort";
 
-type EntityCreateCommand = {
-  readonly request: CreateViewRowRequest;
-  readonly viewSchemaId: string;
-};
-
+/** Ordinary Host/Identity create/upsert, with author-reviewed fields and its own retained receipt. */
 export function createTimelineMentionEntityCreationAdapter(options: {
   readonly apiBase: string | undefined;
-  readonly incidentId: string;
 }): TimelineMentionEntityCreationPort {
-  const operations = createWorkbookOperationExecutor({
-    apiBase: options.apiBase,
-  });
   return {
-    async createEntity(input) {
-      const command = entityCreateCommand(input);
-      if (command === null) return invalidEntityCreate();
+    capture(review, id) {
+      const request = mentionCreateRequest(review, id);
+      if (!request)
+        throw new Error("Review the entity fields before creating.");
+      const viewSchemaId = mentionEntityContract(
+        review.subject.entityType,
+      ).viewSchemaId;
+      return {
+        id,
+        review: structuredClone(review),
+        operationID: "createViewRow",
+        method: "POST",
+        apiBase: options.apiBase,
+        viewSchemaId,
+        path: apiPath(
+          options.apiBase,
+          buildHTTPOperationPath("createViewRow", {
+            incident_id: review.subject.incidentId,
+            view_schema_id: viewSchemaId,
+          }),
+        ),
+        body: JSON.stringify(request),
+      };
+    },
+    async send(attempt, signal) {
+      if (
+        attempt.path !==
+          apiPath(
+            attempt.apiBase,
+            buildHTTPOperationPath("createViewRow", {
+              incident_id: attempt.review.subject.incidentId,
+              view_schema_id: attempt.viewSchemaId,
+            }),
+          ) ||
+        attempt.method !== "POST"
+      )
+        return { kind: "uncertain" };
+      let status: number | null = null;
       try {
-        const outcome = await operations.execute({
+        const result = await fetchHTTPOperation<CreateViewRowResponse>({
+          apiBase: attempt.apiBase,
           operationID: "createViewRow",
           pathParameters: {
-            incident_id: options.incidentId,
-            view_schema_id: command.viewSchemaId,
+            incident_id: attempt.review.subject.incidentId,
+            view_schema_id: attempt.viewSchemaId,
           },
-          request: command.request,
+          init: { method: "POST", body: attempt.body, signal },
+          onResponse: (response) => {
+            status = response.status;
+          },
         });
-        if (outcome.kind === "rejected") return outcome;
-        return outcome.value.data.view_schema_id === command.viewSchemaId
-          ? {
-              kind: "accepted",
-              value: { recordId: outcome.value.data.row.record_id },
-            }
-          : invalidContract();
+        if (!result.ok) {
+          if (
+            status === null ||
+            status < 400 ||
+            status >= 500 ||
+            !result.payload.error?.code
+          )
+            return { kind: "uncertain" };
+          const failure = classifyWorkbookOperationFailure(
+            result.status,
+            result.payload,
+            "createViewRow",
+          );
+          return failure.kind === "invalid_contract"
+            ? { kind: "uncertain" }
+            : { kind: "rejected", failure };
+        }
+        const { data } = result.payload;
+        if (data.view_schema_id !== attempt.viewSchemaId || !data.change_set_id)
+          return { kind: "uncertain" };
+        const contract = mentionEntityContract(
+          attempt.review.subject.entityType,
+        );
+        normalizeWorkbookViewRows(
+          contract,
+          [data.row],
+          "Created mention entity",
+        );
+        return { kind: "accepted", receipt: result.payload };
       } catch {
-        return retryable();
+        return { kind: "uncertain" };
       }
-    },
-  };
-}
-
-function entityCreateCommand(
-  input: Parameters<TimelineMentionEntityCreationPort["createEntity"]>[0],
-): EntityCreateCommand | null {
-  const rawText = input.rawText.trim();
-  if (rawText === "") return null;
-  if (input.entityType === "host") {
-    return {
-      request: {
-        client_txn_id: input.clientTxnId,
-        "host.display_name": rawText,
-        ...(rawText.includes(".")
-          ? { "host.fqdn": rawText }
-          : { "host.hostname": rawText }),
-      },
-      viewSchemaId: hostsViewSchemaId,
-    };
-  }
-  return {
-    request: {
-      client_txn_id: input.clientTxnId,
-      "identity.display_name": rawText,
-      ...(rawText.includes("@")
-        ? { "identity.email": rawText, "identity.upn": rawText }
-        : { "identity.sam_account_name": rawText }),
-    },
-    viewSchemaId: identitiesViewSchemaId,
-  };
-}
-
-function invalidEntityCreate(): WorkbookOperationOutcome<TimelineMentionEntityCreated> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "validation",
-      message: "Cannot create an entity from this mention.",
-    },
-  };
-}
-
-function invalidContract(): WorkbookOperationOutcome<TimelineMentionEntityCreated> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "invalid_contract",
-      message: "Mention action source record was invalid.",
-    },
-  };
-}
-
-function retryable(): WorkbookOperationOutcome<TimelineMentionEntityCreated> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "retryable",
-      message: "The mention operation could not be sent.",
     },
   };
 }

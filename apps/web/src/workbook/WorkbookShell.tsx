@@ -112,7 +112,11 @@ import type { SavedViewBinding } from "./savedviews/savedViewOperationModel";
 import type { WorkbookSavedViewController } from "./savedviews/WorkbookSavedViewController";
 import type { WorkbookSurfacesFacadeProps } from "./surfaces/WorkbookSurfacesFacade";
 import { reconcileTimelineCaptureReceipt } from "./timeline/actions/reconcileTimelineCaptureReceipt";
+import { reconcileTimelineMentionReceipt } from "./timeline/actions/reconcileTimelineMentionReceipt";
 import { TimelineCaptureRecovery } from "./timeline/actions/TimelineCaptureRecovery";
+import { TimelineMentionRecovery } from "./timeline/actions/TimelineMentionRecovery";
+import { timelineMentionAuthority } from "./timeline/actions/timelineMentionAuthority";
+import { createTimelineMentionSourceReader } from "./timeline/adapters/createTimelineMentionSourceReader";
 
 export type {
   WorkbookAccountApplicationMenuProps,
@@ -208,6 +212,7 @@ function WorkbookShellContent({
     onIncidentAccessLost,
   });
   const infrastructure = useWorkbookShellInfrastructure({
+    recheckMentionAuthority: authorization.loadSessionRole,
     savedViewOwner: savedViewController,
     bindWorkbookSavedViews,
     authorizationRecovered: authorization.acceptRecoveredAuthorization,
@@ -247,6 +252,9 @@ function WorkbookShellContent({
           }
         : null;
     infrastructure.timelineCapture.setAuthority(mergeAuthority);
+    infrastructure.timelineMentions.setAuthority(
+      timelineMentionAuthority(mergeAuthority),
+    );
     infrastructure.mutationRuntime.indicatorCreate.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.indicatorObservations.setAuthority(
       mergeAuthority,
@@ -263,6 +271,7 @@ function WorkbookShellContent({
   }, [
     infrastructure.mutationRuntime,
     infrastructure.timelineCapture,
+    infrastructure.timelineMentions,
     authorization.currentUserId,
     authorization.currentIncidentRole,
     incidentId,
@@ -272,6 +281,7 @@ function WorkbookShellContent({
   useLayoutEffect(
     () => () => {
       infrastructure.timelineCapture.suspend();
+      infrastructure.timelineMentions.suspend();
       infrastructure.mutationRuntime.indicatorObservations.suspend();
       infrastructure.mutationRuntime.indicatorCreate.suspend();
       infrastructure.mutationRuntime.explicitPatches.suspend();
@@ -280,7 +290,11 @@ function WorkbookShellContent({
       infrastructure.mutationRuntime.entityMerge.suspend();
       infrastructure.mutationRuntime.decisionSupersession.suspend();
     },
-    [infrastructure.mutationRuntime, infrastructure.timelineCapture],
+    [
+      infrastructure.mutationRuntime,
+      infrastructure.timelineCapture,
+      infrastructure.timelineMentions,
+    ],
   );
   const networkFlowSavedGraphController = useNetworkFlowSavedGraphOwner({
     availability: extensionLifecycle.controller,
@@ -531,6 +545,33 @@ function WorkbookShellContent({
       infrastructure.mutationRuntime,
       snapshot.surface,
     ],
+  );
+  useLayoutEffect(
+    () =>
+      infrastructure.timelineMentions.registerReconciliation(
+        async (receipt, scope) => {
+          await reconcileTimelineMentionReceipt(
+            infrastructure.timelineMentions,
+            createTimelineMentionSourceReader({ apiBase, incidentId }),
+            receipt,
+            scope,
+          );
+          if (!scope.isCurrent())
+            throw new Error("Mention reconciliation detached");
+        },
+      ),
+    [infrastructure.timelineMentions, apiBase, incidentId],
+  );
+  useLayoutEffect(
+    () =>
+      infrastructure.timelineMentions.registerCreationReconciliation(
+        async (scope) => {
+          if (!scope.isCurrent()) throw new Error("Entity refresh detached");
+          await queries.refreshProjection.entities({ requireAcceptance: true });
+          if (!scope.isCurrent()) throw new Error("Entity refresh detached");
+        },
+      ),
+    [infrastructure.timelineMentions, queries.refreshProjection.entities],
   );
   const collaboration = useWorkbookCollaborationLifecycle({
     onSessionLost,
@@ -839,6 +880,9 @@ function WorkbookShellContent({
                         owner={
                           infrastructure.mutationRuntime.indicatorLifecycle
                         }
+                      />
+                      <TimelineMentionRecovery
+                        owner={infrastructure.timelineMentions}
                       />
                       <TimelineCaptureRecovery
                         owner={infrastructure.timelineCapture}

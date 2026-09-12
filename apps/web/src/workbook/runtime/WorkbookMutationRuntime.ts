@@ -120,6 +120,8 @@ export type WorkbookEditRecoveryActionResult =
  */
 export class WorkbookMutationRuntime {
   private timelineActions: WorkbookTimelineActionRuntimePort | null = null;
+  private timelineMentionOperations: WorkbookTimelineActionRuntimePort | null =
+    null;
   readonly explicitPatches: WorkbookExplicitPatchOwner;
   get taskDrafts() {
     return this.explicitPatches.drafts;
@@ -315,7 +317,8 @@ export class WorkbookMutationRuntime {
         !this.decisionSupersession.blocksRecord(recordId) &&
         !this.indicatorLifecycle.blocksRecord(recordId) &&
         !this.explicitPatches.blocksRecord(recordId) &&
-        !this.timelineActions?.blocksRecord(recordId),
+        !this.timelineActions?.blocksRecord(recordId) &&
+        !this.timelineMentionOperations?.blocksRecord(recordId),
     );
     this.transactionIds = transactionIds;
     this.pendingMutationPort = pendingMutationPort;
@@ -409,13 +412,27 @@ export class WorkbookMutationRuntime {
     return this.timelineActions as T;
   }
 
+  retainTimelineMentionOperations<T extends WorkbookTimelineActionRuntimePort>(
+    create: (ids: SecureTransactionIdPort) => T,
+  ): T {
+    if (!this.timelineMentionOperations) {
+      this.timelineMentionOperations = create(this.transactionIds);
+      this.timelineMentionOperations.subscribe(() => this.emit());
+    }
+    return this.timelineMentionOperations as T;
+  }
+
   observeTimelineVersion(recordId: string, rowVersion: number): void {
     this.history.acceptVersion(recordId, rowVersion);
     this.timelineActions?.acceptVersion(recordId, rowVersion);
+    this.timelineMentionOperations?.acceptVersion(recordId, rowVersion);
   }
 
   timelineActionBlocksRecord(recordId: string): boolean {
-    return this.timelineActions?.blocksRecord(recordId) ?? false;
+    return (
+      (this.timelineActions?.blocksRecord(recordId) ?? false) ||
+      (this.timelineMentionOperations?.blocksRecord(recordId) ?? false)
+    );
   }
 
   private async coordinateIndicatorLifecycle(
@@ -674,7 +691,8 @@ export class WorkbookMutationRuntime {
         this.indicatorObservations.pendingCount +
         this.indicatorCreate.pendingCount +
         this.explicitPatches.pendingCount +
-        (this.timelineActions?.pendingCount ?? 0),
+        (this.timelineActions?.pendingCount ?? 0) +
+        (this.timelineMentionOperations?.pendingCount ?? 0),
       explicitRecoveryBlocked:
         this.history.blockedCount > 0 ||
         this.entityMerge.blockedCount > 0 ||
@@ -683,7 +701,8 @@ export class WorkbookMutationRuntime {
         this.indicatorObservations.blockedCount > 0 ||
         this.indicatorCreate.blockedCount > 0 ||
         this.explicitPatches.blockedCount > 0 ||
-        (this.timelineActions?.blockedCount ?? 0) > 0,
+        (this.timelineActions?.blockedCount ?? 0) > 0 ||
+        (this.timelineMentionOperations?.blockedCount ?? 0) > 0,
       queue: this.pendingRuntime.model.snapshot(),
       refreshes: Array.from(this.refreshStatusBySheet.values()),
     });
@@ -1085,6 +1104,7 @@ export class WorkbookMutationRuntime {
       this.indicatorObservations.suspend();
       this.indicatorCreate.suspend();
       this.timelineActions?.suspend();
+      this.timelineMentionOperations?.suspend();
       this.explicitPatches.suspend();
       this.pendingRuntime.model.pauseForAuthRecovery();
       this.emit();
@@ -1119,6 +1139,7 @@ export class WorkbookMutationRuntime {
       this.indicatorObservations.retire();
       this.indicatorCreate.retire();
       this.timelineActions?.retire();
+      this.timelineMentionOperations?.retire();
       this.decisionWrites.clear();
       this.retryScheduler.cancel();
       this.managedPatches.dispose();
@@ -1141,6 +1162,7 @@ export class WorkbookMutationRuntime {
       this.indicatorObservations.closeIncident();
       this.indicatorCreate.closeIncident();
       this.timelineActions?.closeIncident();
+      this.timelineMentionOperations?.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
       this.emit();
       return;
@@ -1156,6 +1178,7 @@ export class WorkbookMutationRuntime {
       this.indicatorObservations.retire();
       this.indicatorCreate.retire();
       this.timelineActions?.retire();
+      this.timelineMentionOperations?.retire();
       this.decisionWrites.clear();
       this.pauseForTerminalLifecycle();
       return;
@@ -1167,6 +1190,7 @@ export class WorkbookMutationRuntime {
     this.indicatorObservations.suspend();
     this.indicatorCreate.suspend();
     this.timelineActions?.suspend();
+    this.timelineMentionOperations?.suspend();
     this.explicitPatches.suspend();
     this.applyAuthorizationRecoveryState("paused");
   }

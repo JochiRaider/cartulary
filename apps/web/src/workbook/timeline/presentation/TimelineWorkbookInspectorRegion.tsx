@@ -15,25 +15,19 @@ export function TimelineWorkbookInspectorRegion({
   return (
     <TimelineWorkbookInspector
       additionalDisabledReasons={model.additionalDisabledReasons}
-      canManageMentions={model.canManageMentions}
       currentHistoryDeleted={model.currentHistoryDeleted}
       currentIncidentRole={model.currentIncidentRole}
       incidentClosed={model.incidentClosed}
       entityIndex={model.entityIndex}
+      mentionActions={model.mentionActions}
       elementRegistry={model.elementRegistry}
       getRelationshipLabel={model.getRelationshipLabel}
-      hostEntities={model.hostEntities}
-      identityEntities={model.identityEntities}
       inspectorConfig={model.inspectorConfig}
       inspectorMessage={model.inspectorMessage}
       inspectorMentions={model.inspectorMentions}
       onClose={model.onClose}
-      onCreateEntityFromMention={model.onCreateEntityFromMention}
       onFeatureAction={model.onFeatureAction}
-      onResolveTargetChange={model.onResolveTargetChange}
       onSelectMention={model.onSelectMention}
-      onSetInspectorMessage={model.onSetInspectorMessage}
-      onSubmitMentionAction={model.onSubmitMentionAction}
       renderEvidenceAttachSection={model.renderEvidenceAttachSection}
       renderInspectorFieldEditors={model.renderInspectorFieldEditors}
       renderPanelSupplement={(panelId) =>
@@ -87,7 +81,6 @@ export function TimelineWorkbookInspectorRegion({
       rowHistoryRecordId={model.rowHistoryRecordId}
       rowHistoryRowVersion={model.rowHistoryRowVersion}
       selectedMention={model.selectedMention}
-      selectedResolveTargetId={model.selectedResolveTargetId}
       selectedRow={model.selectedRow}
     />
   );

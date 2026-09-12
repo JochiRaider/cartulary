@@ -159,16 +159,14 @@ export function resolvedRefPayload(
   };
 }
 
-export function entityMentionIdFromItemRef(itemRef: unknown) {
-  const value = String(itemRef);
-  expect(value.startsWith("entity_mention:")).toBe(true);
-  const mentionId = value.slice("entity_mention:".length);
-  expect(mentionId).not.toBe("");
-  return mentionId;
+export function publicEntityMentionId(item: CollectionItem) {
+  expect(typeof item.entity_mention_id).toBe("string");
+  expect(item.entity_mention_id).not.toBe("");
+  return String(item.entity_mention_id);
 }
 
-export function waitForMentionAction(page: Page, itemRef: unknown) {
-  const mentionId = entityMentionIdFromItemRef(itemRef);
+export function waitForMentionAction(page: Page, item: CollectionItem) {
+  const mentionId = publicEntityMentionId(item);
   return page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&

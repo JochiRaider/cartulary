@@ -1,5 +1,4 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef } from "react";
 import {
   requireWorkbookSurfaceAcceptance,
@@ -42,7 +41,6 @@ import type {
   TimelineSourceRecordRequirement,
 } from "../models/timelineViewportContinuityModel";
 import { timelineSourceRecordRequirementSatisfied } from "../models/timelineViewportContinuityModel";
-import type { DismissedMention } from "../models/workbookMentionChips";
 import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness";
 
 type LoadRowsOptions = {
@@ -86,17 +84,10 @@ type TimelineRowsLoaderInput = {
   readonly pruneAutoResolutionNoticesForRows: (
     rows: readonly WorkbookRow[],
   ) => void;
-  readonly pruneDismissedMentionsForRow: (
-    dismissedMentionsByRow: Record<string, DismissedMention[]>,
-    row: WorkbookRow,
-  ) => Record<string, DismissedMention[]>;
   readonly publishSaveStatePresentation: () => void;
   readonly queryState: WorkbookQueryState;
   readonly rowStoreCommands: TimelineRowStoreCommands;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-  readonly setDismissedMentionsByRow: Dispatch<
-    SetStateAction<Record<string, DismissedMention[]>>
-  >;
   readonly setInitialLoadGenerationKey: (generationKey: number) => void;
   readonly setIsInitialLoading: (loading: boolean) => void;
   readonly setIsRefreshing: (refreshing: boolean) => void;
@@ -195,12 +186,10 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
     nextDraftIndex,
     onIncidentAccessLost,
     pruneAutoResolutionNoticesForRows,
-    pruneDismissedMentionsForRow,
     publishSaveStatePresentation,
     queryState,
     rowStoreCommands: { replaceRows },
     rowsRef,
-    setDismissedMentionsByRow,
     setInitialLoadGenerationKey,
     setIsInitialLoading,
     setIsRefreshing,
@@ -412,15 +401,6 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       commitTimelineProjection(() => {
         replaceRows(hydratedRows);
         options.afterProjectionCommit?.();
-        setDismissedMentionsByRow((current) => {
-          let next = current;
-          for (const row of committedRows) {
-            if (row.recordId !== null) {
-              next = pruneDismissedMentionsForRow(next, row);
-            }
-          }
-          return next;
-        });
         pruneAutoResolutionNoticesForRows(committedRows);
         publishSaveStatePresentation();
         markRowsLoaded();
@@ -443,11 +423,9 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
       markRowsLoaded,
       nextDraftIndex,
       pruneAutoResolutionNoticesForRows,
-      pruneDismissedMentionsForRow,
       publishSaveStatePresentation,
       replaceRows,
       rowsRef,
-      setDismissedMentionsByRow,
     ],
   );
 

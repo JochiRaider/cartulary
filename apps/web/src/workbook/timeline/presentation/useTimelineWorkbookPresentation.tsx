@@ -74,11 +74,7 @@ export function useTimelineWorkbookPresentation({
   } = runtime;
   const { renderInlineControls: renderInlineQueryControls, viewBarWorkingSet } =
     queryControls;
-  const {
-    hosts: hostEntities,
-    identities: identityEntities,
-    index: entityIndex,
-  } = entities;
+  const { index: entityIndex } = entities;
   const {
     commands: {
       onColumnHiddenChange: handleColumnHiddenChange,
@@ -121,8 +117,7 @@ export function useTimelineWorkbookPresentation({
     }),
     [],
   );
-  const { autoResolutionNotices, selectedResolveTargetId } =
-    foundation.snapshot.mentions;
+  const { autoResolutionNotices } = foundation.snapshot.mentions;
   const pendingQueueSnapshot = foundation.snapshot.pendingQueue;
   const editorDraftRegistry = foundation.refs.editorDraftRegistry;
   const gridShellRef = grid.refs.gridShell;
@@ -181,7 +176,6 @@ export function useTimelineWorkbookPresentation({
     rowHistory,
   } = inspector.snapshot.history;
   const { cancelRowHistoryPendingAction } = inspector.commands.history;
-  const handleResolveTargetChange = workflow.commands.resolveTargetChange;
   const createRelatedWorkflow = workflow.snapshot.createRelatedWorkflow;
   const timelineCreateRelatedReferenceOptions =
     workflow.snapshot.createRelatedReferenceOptions;
@@ -225,11 +219,7 @@ export function useTimelineWorkbookPresentation({
     previewRowHistoryRollback,
     historyBrowsingControls,
   } = workflow.commands.history;
-  const {
-    createEntityFromMention,
-    handleUndoAutoResolutionNotice,
-    submitMentionAction,
-  } = workflow.commands.mentions;
+  const { handleUndoAutoResolutionNotice } = workflow.commands.mentions;
   const handleTimelineEvidenceFiles = workflow.commands.evidence;
 
   const {
@@ -335,8 +325,6 @@ export function useTimelineWorkbookPresentation({
       currentHistoryRecordId,
       entityIndex,
       getRelationshipLabel: timelineRelationshipLabel,
-      hostEntities,
-      identityEntities,
       indicatorInspectorHandler,
       beginMutation: composition.mutation.commands.beginMutation,
       inspectorConfig: timelineInspectorConfig,
@@ -344,7 +332,7 @@ export function useTimelineWorkbookPresentation({
       inspectorMessage,
       loadRows,
       onClose: closeInspector,
-      onCreateEntityFromMention: createEntityFromMention,
+      mentionActions: workflow.commands.mentions,
       captureEditor: captureActions.editor,
       captureResult: captureActions.result,
       additionalDisabledReasons: captureActions.additionalDisabledReasons,
@@ -359,12 +347,9 @@ export function useTimelineWorkbookPresentation({
           );
         else handleInspectorFeatureAction(capability);
       },
-      onResolveTargetChange: handleResolveTargetChange,
       onSelectMention: handleSelectMention,
       onSetInspectorMessage: setInspectorMessage,
-      onSubmitMentionAction: submitMentionAction,
       selectedMention,
-      selectedResolveTargetId,
       selectedRow,
       observationSource: composition.observationSource,
     },

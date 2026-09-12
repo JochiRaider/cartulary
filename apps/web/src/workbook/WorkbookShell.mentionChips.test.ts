@@ -4,7 +4,6 @@ import {
   type CollectionItem,
   type DismissedMention,
   readCollectionItems,
-  reconcileDismissedMentionsForRow,
 } from "./timeline/models/workbookMentionChips";
 
 describe("browser.entity-linking mention chip state model", () => {
@@ -14,6 +13,7 @@ describe("browser.entity-linking mention chip state model", () => {
       collectionValues: {
         hostRefs: [
           {
+            entityMentionId: "11111111-1111-4111-8111-111111111111",
             itemRef: "entity_mention:11111111-1111-4111-8111-111111111111",
             entityType: "host" as const,
             itemKind: "unresolved_mention" as const,
@@ -28,6 +28,7 @@ describe("browser.entity-linking mention chip state model", () => {
             matchedAliasText: null,
           },
           {
+            entityMentionId: "22222222-2222-4222-8222-222222222222",
             itemRef: "entity_mention:22222222-2222-4222-8222-222222222222",
             entityType: "host" as const,
             itemKind: "resolved_ref" as const,
@@ -42,6 +43,7 @@ describe("browser.entity-linking mention chip state model", () => {
             matchedAliasText: null,
           },
           {
+            entityMentionId: "33333333-3333-4333-8333-333333333333",
             itemRef: "entity_mention:33333333-3333-4333-8333-333333333333",
             entityType: "host" as const,
             itemKind: "resolved_ref" as const,
@@ -58,6 +60,7 @@ describe("browser.entity-linking mention chip state model", () => {
         ],
         identityRefs: [
           {
+            entityMentionId: "44444444-4444-4444-8444-444444444444",
             itemRef: "entity_mention:44444444-4444-4444-8444-444444444444",
             entityType: "identity" as const,
             itemKind: "resolved_ref" as const,
@@ -80,6 +83,7 @@ describe("browser.entity-linking mention chip state model", () => {
         rowRecordId: "record-1",
         fieldKey: "timeline.host_refs",
         entityType: "host",
+        entityMentionId: "55555555-5555-4555-8555-555555555555",
         itemRef: "entity_mention:55555555-5555-4555-8555-555555555555",
         rawText: "old-host",
         resolvedRecordId: "host-5",
@@ -177,7 +181,7 @@ describe("browser.entity-linking mention chip state model", () => {
         },
         "entity_mention",
         false,
-        "host-5",
+        null,
       ],
     ]);
 
@@ -206,10 +210,10 @@ describe("browser.entity-linking mention chip state model", () => {
     );
     expect(mentions[4]).toEqual(
       expect.objectContaining({
-        displayText: "Old Host",
-        provenance: "manual",
-        confidence: 42,
-        matchedAliasText: "Old Host Alias",
+        displayText: "old-host",
+        provenance: null,
+        confidence: null,
+        matchedAliasText: null,
         resolvedRecordId: null,
       }),
     );
@@ -222,6 +226,7 @@ describe("browser.entity-linking mention chip state model", () => {
       fieldKey: "timeline.host_refs",
       entityType: "host",
       itemRef,
+      entityMentionId: "55555555-5555-4555-8555-555555555555",
       rawText: "WS-023?",
       resolvedRecordId: null,
       mentionRowVersion: 5,
@@ -230,6 +235,7 @@ describe("browser.entity-linking mention chip state model", () => {
     } satisfies DismissedMention;
     const activeAtVersion = (mentionRowVersion: number): CollectionItem => ({
       itemRef,
+      entityMentionId: "55555555-5555-4555-8555-555555555555",
       entityType: "host",
       itemKind: "unresolved_mention" as const,
       displayText: "WS-023?",
@@ -242,26 +248,22 @@ describe("browser.entity-linking mention chip state model", () => {
       confidence: null,
       matchedAliasText: null,
     });
-    const dismissedByRow = { "record-1": [dismissed] };
-
-    expect(
-      reconcileDismissedMentionsForRow(dismissedByRow, {
-        recordId: "record-1",
-        collectionValues: {
-          hostRefs: [activeAtVersion(5)],
-          identityRefs: [],
+    for (const version of [5, 6]) {
+      const mentions = buildInspectorMentions(
+        {
+          recordId: "record-1",
+          collectionValues: {
+            hostRefs: [activeAtVersion(version)],
+            identityRefs: [],
+          },
         },
-      }),
-    ).toBe(dismissedByRow);
-    expect(
-      reconcileDismissedMentionsForRow(dismissedByRow, {
-        recordId: "record-1",
-        collectionValues: {
-          hostRefs: [activeAtVersion(6)],
-          identityRefs: [],
-        },
-      }),
-    ).toEqual({});
+        [dismissed],
+      );
+      expect(mentions).toHaveLength(1);
+      expect(mentions[0]?.status).toBe(
+        version === 5 ? "dismissed" : "unresolved",
+      );
+    }
   });
 
   it("rejects malformed and unknown relationship collection members", () => {

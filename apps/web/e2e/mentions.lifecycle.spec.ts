@@ -153,10 +153,7 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
     .click();
 
   const dismissScroll = await scrollGridToBottom(page, timelineViewSchemaId);
-  const dismissResponsePromise = waitForMentionAction(
-    page,
-    seededMention.item_ref,
-  );
+  const dismissResponsePromise = waitForMentionAction(page, seededMention);
   await page.getByTestId(mentionDismissButtonTestId()).click();
   const dismissResponse = await dismissResponsePromise;
   const dismissEnvelope = await readMentionAction(
@@ -198,10 +195,7 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   ).toHaveLength(0);
 
   const restoreScroll = await scrollGridToBottom(page, timelineViewSchemaId);
-  const restoreResponsePromise = waitForMentionAction(
-    page,
-    seededMention.item_ref,
-  );
+  const restoreResponsePromise = waitForMentionAction(page, seededMention);
   await page.getByTestId(mentionRestoreUnresolvedButtonTestId()).click();
   const restoreResponse = await restoreResponsePromise;
   const restoreEnvelope = await readMentionAction(

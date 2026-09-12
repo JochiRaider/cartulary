@@ -46,6 +46,7 @@ type CollectionFacts struct {
 }
 
 type MentionRef struct {
+	EntityMentionID   uuid.UUID  `json:"entity_mention_id"`
 	ItemRef           string     `json:"item_ref"`
 	ItemKind          string     `json:"item_kind"`
 	EntityType        string     `json:"entity_type"`
@@ -91,6 +92,7 @@ func ApplyCollectionFacts(record *DerivedRecord, facts CollectionFacts) {
 
 	for _, mention := range facts.Mentions {
 		item := MentionRef{
+			EntityMentionID:   mention.MentionID,
 			ItemRef:           "entity_mention:" + mention.MentionID.String(),
 			EntityType:        mention.EntityType,
 			DisplayText:       mention.RawText,
@@ -173,6 +175,7 @@ func mentionRefsToMaps(items []MentionRef) []map[string]any {
 
 func mentionRefToMap(item MentionRef) map[string]any {
 	value := map[string]any{
+		"entity_mention_id":   item.EntityMentionID.String(),
 		"item_ref":            item.ItemRef,
 		"item_kind":           item.ItemKind,
 		"entity_type":         item.EntityType,

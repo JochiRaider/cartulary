@@ -5,12 +5,7 @@ import {
   gridActionsHeaderTestId,
   gridScrollportSelector,
   gridShellTestId,
-  mentionCreateEntityButtonTestId,
-  mentionDismissButtonTestId,
   mentionItemTestId,
-  mentionResolveExistingButtonTestId,
-  mentionResolveTargetSelectTestId,
-  mentionRestoreUnresolvedButtonTestId,
   relationshipChipTestId,
   relationshipItemsTestId,
   relationshipOverflowButtonTestId,
@@ -26,6 +21,7 @@ import {
   workbookInlineDraftRowTestId,
   workbookRowContextMenuTestId,
 } from "@cartulary/ui-contracts";
+import { hostsViewSchemaId } from "@cartulary/view-contracts";
 import {
   cleanup,
   fireEvent,
@@ -34,7 +30,6 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
@@ -61,14 +56,8 @@ vi.mock(
 
 // Support-only mocked component coverage for Record relationships workbook helpers.
 // This file is not authoritative Record relationships evidence.
-type TimelineWorkbookRuntimeFixtureProps = ComponentProps<
-  typeof TimelineWorkbookRuntimeFixture
->;
-type EntityIndex = NonNullable<
-  TimelineWorkbookRuntimeFixtureProps["entityIndex"]
->;
-type EntityRowFixture = EntityIndex[string];
-
+// Mention mutation/creation continuity is routed through the retained-owner and
+// hook tests plus the real-service mentions.resolve/lifecycle/recovery scenarios.
 describe("support workbook helpers", () => {
   it("reads manual and auto-resolved collection items without dropping confidence nulls", () => {
     const items = readCollectionItems(
@@ -197,6 +186,7 @@ describe("support workbook helpers", () => {
         identityRefs: [
           {
             itemRef: "mention-identity-manual",
+            entityMentionId: "identity-mention-public",
             entityType: "identity" as const,
             itemKind: "resolved_ref" as const,
             displayText: "Alex Analyst",
@@ -218,6 +208,7 @@ describe("support workbook helpers", () => {
         hostRefs: [
           {
             itemRef: "mention-host-auto",
+            entityMentionId: "host-mention-public",
             entityType: "host" as const,
             itemKind: "resolved_ref" as const,
             displayText: "VPN Gateway",
@@ -254,6 +245,7 @@ describe("support workbook helpers", () => {
           fieldKey: "timeline.host_refs",
           entityType: "host",
           itemRef: "mention-host-dismissed",
+          entityMentionId: "dismissed-host-public",
           rawText: "WS-023",
           resolvedRecordId: "20000000-0000-4000-8000-000000000603",
           mentionRowVersion: 23,
@@ -554,6 +546,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
             hostRefs: [
               resolvedItem({
                 itemRef: "mention-host-auto",
+                entityMentionId: "host-mention-public",
                 entityType: "host",
                 rawText: " vpn   gateway ",
                 displayText: "VPN Gateway",
@@ -568,6 +561,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
             identityRefs: [
               resolvedItem({
                 itemRef: "mention-identity-manual",
+                entityMentionId: "identity-mention-public",
                 entityType: "identity",
                 rawText: "alex.analyst@example.test",
                 displayText: "Alex Analyst",
@@ -612,341 +606,6 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     expect(screen.getByText("Manual")).toBeTruthy();
   });
 
-  it("preserves continuity when resolving a mention to an existing entity", async () => {
-    const existingHost = buildEntityRow({
-      entityType: "host",
-      recordId: "20000000-0000-4000-8000-000000000602",
-      rowVersion: 1,
-      label: "WS-023",
-      secondaryText: "ws-023.corp.example.test",
-      state: "stub",
-      identifiers: [
-        {
-          key: "host.hostname",
-          label: "Hostname",
-          value: "ws-023.corp.example.test",
-        },
-      ],
-    });
-
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "20000000-0000-4000-8000-000000000601",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              unresolvedItem({
-                itemRef: "entity_mention:11111111-1111-4111-8111-000000000401",
-                entityType: "host",
-                rawText: "WS-023?",
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        entity_mention: {
-          entity_mention_id: "11111111-1111-4111-8111-000000000401",
-          source_record_id: "20000000-0000-4000-8000-000000000601",
-          source_field_key: "timeline.host_refs",
-          entity_type: "host",
-          raw_text: "WS-023?",
-          resolution_status: "resolved",
-          resolved_record_id: "20000000-0000-4000-8000-000000000602",
-          row_version: 2,
-          resolution_method: "explicit_resolve_route",
-        },
-        source_record: {
-          record_id: "20000000-0000-4000-8000-000000000601",
-          row_version: 2,
-        },
-        change_set_id: "30000000-0000-4000-8000-000000000601",
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "20000000-0000-4000-8000-000000000601",
-            rowVersion: 2,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              resolvedItem({
-                itemRef: "entity_mention:11111111-1111-4111-8111-000000000401",
-                entityType: "host",
-                rawText: "WS-023?",
-                displayText: "WS-023",
-                resolvedRecordId: "20000000-0000-4000-8000-000000000602",
-                resolutionMethod: "explicit_resolve_route",
-                autoResolved: false,
-                provenance: "manual",
-                confidence: null,
-                mentionRowVersion: 2,
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-
-    render(
-      <TimelineWorkbookRuntimeFixture
-        incidentId="10000000-0000-4000-8000-000000000001"
-        currentIncidentRole="admin"
-        hostEntities={[existingHost]}
-        entityIndex={buildEntityIndex(existingHost)}
-      />,
-    );
-
-    await openTimelineInspectorFromContext(
-      "20000000-0000-4000-8000-000000000601",
-    );
-    fireEvent.click(
-      screen.getByTestId(
-        mentionItemTestId(
-          "entity_mention:11111111-1111-4111-8111-000000000401",
-        ),
-      ),
-    );
-    const preservedScroll = setTimelineGridScroll(240, 140);
-    fireEvent.change(screen.getByTestId(mentionResolveTargetSelectTestId()), {
-      target: { value: "20000000-0000-4000-8000-000000000602" },
-    });
-    fireEvent.click(screen.getByTestId(mentionResolveExistingButtonTestId()));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      preservedScroll,
-    );
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/api/v1/entity-mentions/11111111-1111-4111-8111-000000000401/resolve",
-    );
-    expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
-      base_mention_row_version: 1,
-      action: "resolve_item",
-      resolved_record_id: "20000000-0000-4000-8000-000000000602",
-    });
-    await waitFor(() => {
-      expect(
-        screen
-          .getByTestId(
-            relationshipItemsTestId(
-              "20000000-0000-4000-8000-000000000601",
-              "timeline.host_refs",
-            ),
-          )
-          .querySelector('[aria-label^="Resolved host: WS-023"]'),
-      ).toBeTruthy();
-    });
-  });
-
-  it("preserves continuity through create-from-mention entity refresh rerenders", async () => {
-    let inspectContentTop = 560;
-    let maxScrollTop = 400;
-    const createdIdentity = buildEntityRow({
-      entityType: "identity",
-      recordId: "20000000-0000-4000-8000-000000000604",
-      rowVersion: 1,
-      label: "VPN User",
-      secondaryText: "vpn.user@example.test",
-      state: "stub",
-      identifiers: [
-        {
-          key: "identity.upn",
-          label: "UPN",
-          value: "vpn.user@example.test",
-        },
-      ],
-    });
-
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "20000000-0000-4000-8000-000000000601",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "reviewed",
-            identityRefs: [
-              unresolvedItem({
-                itemRef: "entity_mention:11111111-1111-4111-8111-000000000405",
-                entityType: "identity",
-                rawText: "vpn.user@example.test",
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: "cartulary.view.identities.v1",
-        change_set_id: "30000000-0000-4000-8000-000000000602",
-        row: {
-          record_id: "20000000-0000-4000-8000-000000000604",
-          row_version: 1,
-          cells: {},
-        },
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      mentionActionEnvelope({
-        actionStatus: "resolved",
-        entityType: "identity",
-        mentionId: "11111111-1111-4111-8111-000000000405",
-        rawText: "vpn.user@example.test",
-        resolvedRecordId: "20000000-0000-4000-8000-000000000604",
-        sourceFieldKey: "timeline.identity_refs",
-        sourceRowVersion: 2,
-        mentionRowVersion: 2,
-        resolutionMethod: "explicit_resolve_route",
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      timelineRowsEnvelope([
-        timelineRow({
-          recordId: "20000000-0000-4000-8000-000000000601",
-          rowVersion: 2,
-          summary: "Alpha",
-          captureState: "reviewed",
-          identityRefs: [
-            resolvedItem({
-              itemRef: "entity_mention:11111111-1111-4111-8111-000000000405",
-              entityType: "identity",
-              rawText: "vpn.user@example.test",
-              displayText: "vpn.user@example.test",
-              resolvedRecordId: "20000000-0000-4000-8000-000000000604",
-              resolutionMethod: "explicit_resolve_route",
-              autoResolved: false,
-              provenance: "manual",
-              confidence: null,
-            }),
-          ],
-        }),
-      ]),
-    );
-
-    let rerenderTimelineWorkbookRuntimeFixture:
-      | ReturnType<typeof render>["rerender"]
-      | undefined;
-    const refreshGate = deferred<void>();
-    const onRefreshEntities = vi.fn(async () => {
-      const renderRefreshedWorkbook = (identity: EntityRowFixture) => {
-        rerenderTimelineWorkbookRuntimeFixture?.(
-          <TimelineWorkbookRuntimeFixture
-            incidentId="10000000-0000-4000-8000-000000000001"
-            currentIncidentRole="admin"
-            identityEntities={[identity]}
-            entityIndex={buildEntityIndex(identity)}
-            onRefreshEntities={onRefreshEntities}
-          />,
-        );
-      };
-      await refreshGate.promise;
-      inspectContentTop = 80;
-      maxScrollTop = 120;
-      renderRefreshedWorkbook(createdIdentity);
-      await waitForPostRenderFrame();
-      renderRefreshedWorkbook({
-        ...createdIdentity,
-        aliasTexts: [...createdIdentity.aliasTexts],
-        identifiers: [...createdIdentity.identifiers],
-      });
-    });
-
-    const renderResult = render(
-      <TimelineWorkbookRuntimeFixture
-        incidentId="10000000-0000-4000-8000-000000000001"
-        currentIncidentRole="admin"
-        onRefreshEntities={onRefreshEntities}
-      />,
-    );
-    rerenderTimelineWorkbookRuntimeFixture = renderResult.rerender;
-
-    await screen.findByTestId(
-      rowCellTestId(
-        "20000000-0000-4000-8000-000000000601",
-        "timeline.activity_synopsis_text",
-      ),
-    );
-    installTimelineGridScrollClamp(() => maxScrollTop);
-    installTimelineInspectGeometry("20000000-0000-4000-8000-000000000601", {
-      containerHeight: 300,
-      containerLeft: 40,
-      containerTop: 100,
-      containerWidth: 400,
-      contentLeft: 220,
-      contentTop: () => inspectContentTop,
-      targetHeight: 40,
-      targetWidth: 80,
-    });
-
-    await openTimelineInspectorFromContext(
-      "20000000-0000-4000-8000-000000000601",
-    );
-    fireEvent.click(
-      screen.getByTestId(
-        mentionItemTestId(
-          "entity_mention:11111111-1111-4111-8111-000000000405",
-        ),
-      ),
-    );
-    const preservedScroll = setTimelineGridScroll(400, 175);
-    expect(
-      isTimelineFocusTargetFullyVisibleWithinGrid(
-        "20000000-0000-4000-8000-000000000601",
-      ),
-    ).toBe(true);
-    fireEvent.click(
-      screen.getByTestId(mentionCreateEntityButtonTestId("identity")),
-    );
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
-    });
-    await waitFor(() => {
-      expect(onRefreshEntities).toHaveBeenCalledTimes(1);
-    });
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      preservedScroll,
-      {
-        requireVisibleWithinGrid: true,
-      },
-    );
-    refreshGate.resolve();
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(timelineInspectorTestId()).textContent,
-      ).toContain("VPN User");
-    });
-    await waitForPostRenderFrame();
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      preservedScroll,
-      {
-        expectedTop: null,
-        requireVisibleWithinGrid: true,
-      },
-    );
-  });
-
   it("reveals a clipped inspect action after an auto-resolution collection patch", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -974,6 +633,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
           hostRefs: [
             resolvedItem({
               itemRef: "mention-host-auto",
+              entityMentionId: "host-mention-public",
               entityType: "host",
               rawText: " vpn   gateway ",
               displayText: "Gateway node",
@@ -1050,115 +710,78 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("sends auto-resolution Undo with the current post-resolution row version", async () => {
     const mentionItemRef =
       "entity_mention:11111111-1111-4111-8111-000000000404";
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "20000000-0000-4000-8000-000000000601",
-            rowVersion: 1,
-            summary: "Alpha",
-            captureState: "reviewed",
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "30000000-0000-4000-8000-000000000603",
-        row: timelineRow({
-          recordId: "20000000-0000-4000-8000-000000000601",
-          rowVersion: 2,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [
-            resolvedItem({
-              itemRef: mentionItemRef,
-              entityType: "host",
-              rawText: " vpn   gateway ",
-              displayText: "Gateway node",
-              resolvedRecordId: "20000000-0000-4000-8000-000000000602",
-              resolutionMethod: "auto_match",
-              autoResolved: true,
-              provenance: "auto_match",
-              confidence: 100,
-            }),
-          ],
+    let committed = false;
+    const autoRow = timelineRow({
+      recordId: "20000000-0000-4000-8000-000000000601",
+      rowVersion: 2,
+      summary: "Alpha",
+      captureState: "reviewed",
+      hostRefs: [
+        resolvedItem({
+          itemRef: mentionItemRef,
+          entityMentionId: "11111111-1111-4111-8111-000000000404",
+          entityType: "host",
+          rawText: " vpn   gateway ",
+          displayText: "Gateway node",
+          resolvedRecordId: "20000000-0000-4000-8000-000000000602",
+          resolutionMethod: "auto_match",
+          autoResolved: true,
+          provenance: "auto_match",
+          confidence: 100,
         }),
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        entity_mention: {
-          entity_mention_id: "11111111-1111-4111-8111-000000000404",
-          source_record_id: "20000000-0000-4000-8000-000000000601",
-          source_field_key: "timeline.host_refs",
-          entity_type: "host",
-          raw_text: " vpn   gateway ",
-          resolution_status: "unresolved",
-          resolved_record_id: null,
-          row_version: 2,
-          resolution_method: null,
-        },
-        source_record: {
-          record_id: "20000000-0000-4000-8000-000000000601",
-          row_version: 3,
-        },
-        change_set_id: "30000000-0000-4000-8000-000000000604",
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "20000000-0000-4000-8000-000000000601",
-            rowVersion: 2,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              resolvedItem({
-                itemRef: mentionItemRef,
-                entityType: "host",
-                rawText: " vpn   gateway ",
-                displayText: "Gateway node",
-                resolvedRecordId: "20000000-0000-4000-8000-000000000602",
-                resolutionMethod: "auto_match",
-                autoResolved: true,
-                provenance: "auto_match",
-                confidence: 100,
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      successEnvelope({
-        incident_id: "10000000-0000-4000-8000-000000000001",
-        view_schema_id: timelineViewSchemaId,
-        rows: [
-          timelineRow({
-            recordId: "20000000-0000-4000-8000-000000000601",
-            rowVersion: 3,
-            summary: "Alpha",
-            captureState: "reviewed",
-            hostRefs: [
-              unresolvedItem({
-                itemRef: mentionItemRef,
-                entityType: "host",
-                rawText: " vpn   gateway ",
-                mentionRowVersion: 2,
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
+      ],
+    });
+    const restored = timelineRow({
+      recordId: autoRow.record_id,
+      rowVersion: 3,
+      summary: "Alpha",
+      captureState: "reviewed",
+      hostRefs: [
+        unresolvedItem({
+          itemRef: mentionItemRef,
+          entityMentionId: "11111111-1111-4111-8111-000000000404",
+          entityType: "host",
+          rawText: " vpn   gateway ",
+          mentionRowVersion: 2,
+        }),
+      ],
+    });
+    fetchMock.mockImplementation(async (url, init) => {
+      if (String(url).includes("/entity-mentions/")) {
+        committed = true;
+        return mentionActionEnvelope({
+          actionStatus: "unresolved",
+          mentionId: "11111111-1111-4111-8111-000000000404",
+          rawText: " vpn   gateway ",
+          resolvedRecordId: null,
+          sourceRowVersion: 3,
+          mentionRowVersion: 2,
+          resolutionMethod: null,
+        });
+      }
+      if (init?.method === "PATCH")
+        return successEnvelope({
+          view_schema_id: timelineViewSchemaId,
+          change_set_id: "30000000-0000-4000-8000-000000000603",
+          row: autoRow,
+        });
+      if (String(url).includes(hostsViewSchemaId))
+        return successEnvelope({
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          view_schema_id: hostsViewSchemaId,
+          rows: [],
+        });
+      return timelineRowsEnvelope([
+        committed
+          ? restored
+          : timelineRow({
+              recordId: autoRow.record_id,
+              rowVersion: 1,
+              summary: "Alpha",
+              captureState: "reviewed",
+            }),
+      ]);
+    });
 
     render(
       <TimelineWorkbookRuntimeFixture
@@ -1193,7 +816,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fireEvent.click(undoButton);
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(5);
+      expect(
+        screen.getByLabelText("Retained mention operations").textContent,
+      ).toContain("Mention action completed.");
     });
     await expectTimelineFocusAndScroll(
       "20000000-0000-4000-8000-000000000601",
@@ -1202,10 +827,13 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     expect(
       screen.queryByTestId(autoResolutionNoticeTestId(mentionItemRef)),
     ).toBeNull();
-    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
+    const request = fetchMock.mock.calls.find((call) =>
+      String(call[0]).includes("/entity-mentions/"),
+    );
+    expect(String(request?.[0])).toContain(
       "/api/v1/entity-mentions/11111111-1111-4111-8111-000000000404/resolve",
     );
-    expect(extractTimelineJSONBody(fetchMock, 2)).toMatchObject({
+    expect(JSON.parse(request?.[1].body)).toMatchObject({
       base_mention_row_version: 1,
       action: "revert_to_unresolved",
     });
@@ -1681,241 +1309,6 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => expect(document.activeElement).toBe(overflowButton));
   });
 
-  it("renders a dismissed mention restore action after the dismiss flow completes", async () => {
-    const mentionId = "11111111-1111-4111-8111-000000000402";
-    const mentionItemRef = `entity_mention:${mentionId}`;
-    mockDismissRestoreMentionResponses(fetchMock, {
-      mentionId,
-      mentionItemRef,
-    });
-
-    render(
-      <TimelineWorkbookRuntimeFixture
-        incidentId="10000000-0000-4000-8000-000000000001"
-        currentIncidentRole="admin"
-      />,
-    );
-
-    await openTimelineInspectorFromContext(
-      "20000000-0000-4000-8000-000000000601",
-    );
-    await screen.findByTestId(mentionDismissButtonTestId());
-    const dismissScroll = setTimelineGridScroll(320, 180);
-    fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      dismissScroll,
-    );
-    expect(
-      screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
-    ).toBeTruthy();
-    expect(screen.getAllByText(/dismissed/i).length).toBeGreaterThanOrEqual(2);
-
-    const restoreScroll = setTimelineGridScroll(360, 90);
-    fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(5);
-    });
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      restoreScroll,
-    );
-    await waitFor(() => {
-      expect(
-        screen
-          .getByTestId(
-            relationshipItemsTestId(
-              "20000000-0000-4000-8000-000000000601",
-              "timeline.host_refs",
-            ),
-          )
-          .querySelector('[aria-label="Unresolved host mention: WS-023"]'),
-      ).toBeTruthy();
-    });
-  });
-
-  it("retains a dismissed mention when a parallel collaboration query supersedes its mutation query", async () => {
-    const mentionId = "11111111-1111-4111-8111-000000000404";
-    const mentionItemRef = `entity_mention:${mentionId}`;
-    const mutationQuery = deferred<Response>();
-    const dismissedRow = timelineRow({
-      recordId: "20000000-0000-4000-8000-000000000601",
-      rowVersion: 2,
-      summary: "Alpha",
-      captureState: "reviewed",
-      hostRefs: [],
-    });
-    fetchMock.mockResolvedValueOnce(
-      timelineRowsEnvelope([
-        timelineRow({
-          recordId: "20000000-0000-4000-8000-000000000601",
-          rowVersion: 1,
-          summary: "Alpha",
-          captureState: "reviewed",
-          hostRefs: [
-            resolvedItem({
-              itemRef: mentionItemRef,
-              entityType: "host",
-              rawText: "WS-023",
-              displayText: "WS-023",
-              resolvedRecordId: "20000000-0000-4000-8000-000000000602",
-              resolutionMethod: "explicit_resolve_route",
-              autoResolved: false,
-              provenance: "manual",
-              confidence: null,
-            }),
-          ],
-        }),
-      ]),
-    );
-    fetchMock.mockResolvedValueOnce(
-      mentionActionEnvelope({
-        actionStatus: "dismissed",
-        mentionId,
-        rawText: "WS-023",
-        resolvedRecordId: null,
-        sourceRowVersion: 2,
-        mentionRowVersion: 2,
-        resolutionMethod: "explicit_resolve_route",
-      }),
-    );
-    fetchMock.mockImplementationOnce(() => mutationQuery.promise);
-    fetchMock.mockResolvedValueOnce(timelineRowsEnvelope([dismissedRow]));
-
-    render(
-      <TimelineWorkbookRuntimeFixture
-        incidentId="10000000-0000-4000-8000-000000000001"
-        currentIncidentRole="admin"
-      />,
-    );
-
-    await openTimelineInspectorFromContext(
-      "20000000-0000-4000-8000-000000000601",
-    );
-    fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-
-    emitRecordChanged(
-      webSocketInstance,
-      buildRecordChangedPayload({
-        recordId: "20000000-0000-4000-8000-000000000601",
-        rowVersion: 2,
-        clientTxnId: "parallel-collaborator",
-      }),
-    );
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(4);
-    });
-    mutationQuery.resolve(timelineRowsEnvelope([dismissedRow]));
-
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
-      ).toBeTruthy();
-    });
-    expect(screen.getAllByText(/dismissed/i).length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("reveals a vertically clipped inspect action through dismiss and restore continuity", async () => {
-    const mentionId = "11111111-1111-4111-8111-000000000403";
-    const mentionItemRef = `entity_mention:${mentionId}`;
-    mockDismissRestoreMentionResponses(fetchMock, {
-      mentionId,
-      mentionItemRef,
-    });
-
-    render(
-      <TimelineWorkbookRuntimeFixture
-        incidentId="10000000-0000-4000-8000-000000000001"
-        currentIncidentRole="admin"
-      />,
-    );
-
-    await screen.findByTestId(
-      rowCellTestId(
-        "20000000-0000-4000-8000-000000000601",
-        "timeline.activity_synopsis_text",
-      ),
-    );
-    installTimelineInspectGeometry("20000000-0000-4000-8000-000000000601", {
-      containerHeight: 300,
-      containerLeft: 40,
-      containerTop: 100,
-      containerWidth: 400,
-      contentLeft: 85,
-      contentTop: 610,
-      targetHeight: 40,
-      targetWidth: 80,
-    });
-
-    await openTimelineInspectorFromContext(
-      "20000000-0000-4000-8000-000000000601",
-    );
-    await screen.findByTestId(mentionDismissButtonTestId());
-
-    const dismissScroll = setTimelineGridScroll(320, 18);
-    expect(
-      isTimelineFocusTargetFullyVisibleWithinGrid(
-        "20000000-0000-4000-8000-000000000601",
-      ),
-    ).toBe(false);
-    fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-    });
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      dismissScroll,
-      {
-        expectedTop: 350,
-        requireVisibleWithinGrid: true,
-      },
-    );
-    expect(
-      screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
-    ).toBeTruthy();
-
-    const restoreScroll = setTimelineGridScroll(340, 18);
-    expect(
-      isTimelineFocusTargetFullyVisibleWithinGrid(
-        "20000000-0000-4000-8000-000000000601",
-      ),
-    ).toBe(false);
-    fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(5);
-    });
-    await expectTimelineFocusAndScroll(
-      "20000000-0000-4000-8000-000000000601",
-      restoreScroll,
-      {
-        expectedTop: 350,
-        requireVisibleWithinGrid: true,
-      },
-    );
-    await waitFor(() => {
-      expect(
-        screen
-          .getByTestId(
-            relationshipItemsTestId(
-              "20000000-0000-4000-8000-000000000601",
-              "timeline.host_refs",
-            ),
-          )
-          .querySelector('[aria-label="Unresolved host mention: WS-023"]'),
-      ).toBeTruthy();
-    });
-  });
-
   it("suppresses self-originated websocket invalidations and reloads for external ones", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
@@ -2030,6 +1423,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 });
 
 function resolvedItem({
+  entityMentionId = null,
   itemRef,
   entityType,
   rawText,
@@ -2043,6 +1437,7 @@ function resolvedItem({
   matchedAliasText,
 }: {
   itemRef: string;
+  entityMentionId?: string | null;
   entityType: "host" | "identity";
   rawText: string;
   displayText: string;
@@ -2056,6 +1451,7 @@ function resolvedItem({
 }) {
   return {
     item_ref: itemRef,
+    entity_mention_id: entityMentionId,
     entity_type: entityType,
     item_kind: "resolved_ref",
     display_text: displayText,
@@ -2102,7 +1498,10 @@ function mentionActionEnvelope({
       resolution_status: actionStatus,
       resolved_record_id: resolvedRecordId,
       row_version: mentionRowVersion,
-      resolution_method: resolutionMethod,
+      resolution_method: actionStatus === "resolved" ? resolutionMethod : null,
+      normalized_text: rawText.trim(),
+      resolved_at: actionStatus === "resolved" ? "2026-09-12T04:00:00Z" : null,
+      resolved_by_user_id: null,
     },
     source_record: {
       record_id: "20000000-0000-4000-8000-000000000601",
@@ -2117,102 +1516,22 @@ function mentionActionEnvelope({
   });
 }
 
-function mockDismissRestoreMentionResponses(
-  fetchMock: ReturnType<typeof vi.fn>,
-  options: {
-    mentionId: string;
-    mentionItemRef: string;
-  },
-) {
-  fetchMock.mockResolvedValueOnce(
-    timelineRowsEnvelope([
-      timelineRow({
-        recordId: "20000000-0000-4000-8000-000000000601",
-        rowVersion: 1,
-        summary: "Alpha",
-        captureState: "reviewed",
-        hostRefs: [
-          resolvedItem({
-            itemRef: options.mentionItemRef,
-            entityType: "host",
-            rawText: "WS-023",
-            displayText: "WS-023",
-            resolvedRecordId: "20000000-0000-4000-8000-000000000602",
-            resolutionMethod: "explicit_resolve_route",
-            autoResolved: false,
-            provenance: "manual",
-            confidence: null,
-          }),
-        ],
-      }),
-    ]),
-  );
-  fetchMock.mockResolvedValueOnce(
-    mentionActionEnvelope({
-      actionStatus: "dismissed",
-      mentionId: options.mentionId,
-      rawText: "WS-023",
-      resolvedRecordId: null,
-      sourceRowVersion: 2,
-      mentionRowVersion: 2,
-      resolutionMethod: "explicit_resolve_route",
-    }),
-  );
-  fetchMock.mockResolvedValueOnce(
-    timelineRowsEnvelope([
-      timelineRow({
-        recordId: "20000000-0000-4000-8000-000000000601",
-        rowVersion: 2,
-        summary: "Alpha",
-        captureState: "reviewed",
-        hostRefs: [],
-      }),
-    ]),
-  );
-  fetchMock.mockResolvedValueOnce(
-    mentionActionEnvelope({
-      actionStatus: "unresolved",
-      mentionId: options.mentionId,
-      rawText: "WS-023",
-      resolvedRecordId: null,
-      sourceRowVersion: 3,
-      mentionRowVersion: 3,
-      resolutionMethod: null,
-    }),
-  );
-  fetchMock.mockResolvedValueOnce(
-    timelineRowsEnvelope([
-      timelineRow({
-        recordId: "20000000-0000-4000-8000-000000000601",
-        rowVersion: 3,
-        summary: "Alpha",
-        captureState: "reviewed",
-        hostRefs: [
-          unresolvedItem({
-            itemRef: options.mentionItemRef,
-            entityType: "host",
-            rawText: "WS-023",
-            mentionRowVersion: 3,
-          }),
-        ],
-      }),
-    ]),
-  );
-}
-
 function unresolvedItem({
   itemRef,
+  entityMentionId = null,
   entityType,
   rawText,
   mentionRowVersion = 1,
 }: {
   itemRef: string;
+  entityMentionId?: string | null;
   entityType: "host" | "identity";
   rawText: string;
   mentionRowVersion?: number;
 }) {
   return {
     item_ref: itemRef,
+    entity_mention_id: entityMentionId,
     entity_type: entityType,
     item_kind: "unresolved_mention",
     display_text: rawText,
@@ -2290,15 +1609,6 @@ async function expectTimelineFocusAndScroll(
   });
 }
 
-async function waitForPostRenderFrame() {
-  await new Promise<void>((resolve) => {
-    window.requestAnimationFrame(() => resolve());
-  });
-  await new Promise<void>((resolve) => {
-    window.requestAnimationFrame(() => resolve());
-  });
-}
-
 function installTimelineInspectGeometry(
   recordId: string,
   options: {
@@ -2353,20 +1663,6 @@ function installTimelineInspectGeometry(
   );
 }
 
-function installTimelineGridScrollClamp(maxTop: () => number) {
-  const grid = timelineGridScrollport();
-  let scrollTop = grid.scrollTop;
-  Object.defineProperty(grid, "scrollTop", {
-    configurable: true,
-    get: () => scrollTop,
-    set: (value: number) => {
-      const numericValue =
-        typeof value === "number" && Number.isFinite(value) ? value : 0;
-      scrollTop = Math.max(0, Math.min(numericValue, maxTop()));
-    },
-  });
-}
-
 function isTimelineFocusTargetFullyVisibleWithinGrid(recordId: string) {
   const tolerancePx = 1;
   const grid = timelineGridScrollport();
@@ -2411,52 +1707,4 @@ function rectFromBox(options: {
     y: options.top,
     toJSON: () => ({}),
   } as DOMRect;
-}
-
-function buildEntityIndex(...rows: EntityRowFixture[]): EntityIndex {
-  const index: EntityIndex = {};
-  for (const row of rows) {
-    index[row.recordId] = row;
-  }
-  return index;
-}
-
-function buildEntityRow({
-  entityType,
-  recordId,
-  rowVersion,
-  label,
-  secondaryText,
-  state,
-  identifiers,
-}: {
-  entityType: "host" | "identity";
-  recordId: string;
-  rowVersion: number;
-  label: string;
-  secondaryText: string;
-  state: string;
-  identifiers: Array<{
-    key: string;
-    label: string;
-    value: string;
-  }>;
-}): EntityRowFixture {
-  return {
-    entityType,
-    recordId,
-    rowVersion,
-    label,
-    secondaryText,
-    state,
-    aliasTexts: [],
-    linkedEventCount: 0,
-    rawRow: timelineRow({
-      recordId,
-      rowVersion,
-      summary: label,
-      captureState: state,
-    }),
-    identifiers,
-  };
 }

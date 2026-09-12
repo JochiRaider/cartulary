@@ -21,7 +21,7 @@ export type TimelineAcceptedMutationEffects = {
   readonly autoResolutionNotices: readonly AutoResolutionNotice[];
   readonly continuity: TimelineAcceptedContinuity;
   readonly createdRecordId: string | null;
-  readonly reconcileDismissedMentions: boolean;
+  readonly pruneAutoResolutionNotices: boolean;
   readonly selectionUpdate: { readonly recordId: string | null } | null;
 };
 
@@ -70,7 +70,7 @@ export function planTimelineAcceptedMutationEffects({
       : [],
     continuity,
     createdRecordId: projection.createdFromDraft ? recordId : null,
-    reconcileDismissedMentions: recordId !== null,
+    pruneAutoResolutionNotices: recordId !== null,
     selectionUpdate,
   };
 }

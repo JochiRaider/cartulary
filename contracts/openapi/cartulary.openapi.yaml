@@ -11258,8 +11258,46 @@
             "format": "uuid",
             "type": "string"
           },
-          "resolution_status": {
+          "entity_type": {
+            "enum": [
+              "host",
+              "identity"
+            ],
             "type": "string"
+          },
+          "normalized_text": {
+            "type": "string"
+          },
+          "raw_text": {
+            "type": "string"
+          },
+          "resolution_method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resolution_status": {
+            "enum": [
+              "unresolved",
+              "resolved",
+              "dismissed"
+            ],
+            "type": "string"
+          },
+          "resolved_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resolved_by_user_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "resolved_record_id": {
             "format": "uuid",
@@ -11269,14 +11307,30 @@
             ]
           },
           "row_version": {
+            "minimum": 1,
             "type": "integer"
+          },
+          "source_field_key": {
+            "type": "string"
+          },
+          "source_record_id": {
+            "format": "uuid",
+            "type": "string"
           }
         },
         "required": [
           "entity_mention_id",
-          "row_version",
+          "source_record_id",
+          "source_field_key",
+          "entity_type",
+          "raw_text",
+          "normalized_text",
           "resolution_status",
-          "resolved_record_id"
+          "resolved_record_id",
+          "row_version",
+          "resolved_at",
+          "resolved_by_user_id",
+          "resolution_method"
         ],
         "type": "object"
       },
@@ -14669,10 +14723,33 @@
         "additionalProperties": false,
         "properties": {
           "active_link": {
-            "type": [
-              "object",
-              "null"
-            ]
+            "additionalProperties": true,
+            "properties": {
+              "dst_record_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "link_type": {
+                "enum": [
+                  "observed_on_host",
+                  "observed_as_identity"
+                ],
+                "type": "string"
+              },
+              "record_link_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "src_record_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "link_type",
+              "dst_record_id"
+            ],
+            "type": "object"
           },
           "change_set_id": {
             "format": "uuid",
@@ -14756,6 +14833,7 @@
             "type": "string"
           },
           "row_version": {
+            "minimum": 1,
             "type": "integer"
           }
         },
@@ -18363,6 +18441,56 @@
         },
         "required": [
           "client_txn_id"
+        ],
+        "type": "object"
+      },
+      "TimelineEntityMentionCollectionItem": {
+        "additionalProperties": true,
+        "properties": {
+          "display_text": {
+            "type": "string"
+          },
+          "entity_mention_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "entity_type": {
+            "enum": [
+              "host",
+              "identity"
+            ],
+            "type": "string"
+          },
+          "item_kind": {
+            "enum": [
+              "unresolved_mention",
+              "resolved_ref"
+            ],
+            "type": "string"
+          },
+          "item_ref": {
+            "type": "string"
+          },
+          "mention_row_version": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "raw_text": {
+            "type": "string"
+          },
+          "resolved_record_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_mention_id",
+          "mention_row_version",
+          "item_ref",
+          "item_kind",
+          "entity_type",
+          "display_text",
+          "raw_text"
         ],
         "type": "object"
       },

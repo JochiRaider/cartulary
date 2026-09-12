@@ -1,321 +1,209 @@
-import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
-import type { Dispatch, SetStateAction } from "react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
-  fullWorkbookViewRow,
-  workbookCollectionValue,
-} from "../../testing/timelineWorkbookTestSupport";
-import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
-import {
-  timelineMentionForAutoResolutionNotice,
-  useTimelineMentionActions,
-} from "./hooks/useTimelineMentionActions";
-import {
-  normalizeTimelineFullRow,
-  rowFromApi,
-} from "./models/timelineRowModel";
-import type { DismissedMention } from "./models/workbookMentionChips";
-import type {
-  TimelineMentionEntityCreationPort,
-  TimelineMentionResolutionPort,
-} from "./ports/TimelineMentionPort";
+  mentionCreationReceipt,
+  mentionInspector,
+  mentionReceipt,
+  mentionReview,
+  mentionWorkbookRow,
+} from "../../testing/timelineMentionTestSupport";
+import type { MentionReview } from "./actions/timelineMentionOperationModel";
+import { WorkbookTimelineMentionOperationOwner } from "./actions/WorkbookTimelineMentionOperationOwner";
+import { createTimelineMentionEntityCreationAdapter } from "./adapters/createTimelineMentionEntityCreationAdapter";
+import { createTimelineMentionResolutionAdapter } from "./adapters/createTimelineMentionResolutionAdapter";
+import { useTimelineMentionActions } from "./hooks/useTimelineMentionActions";
+import type { TimelineMentionResolutionPort } from "./ports/TimelineMentionPort";
 
-const timelineContract = requireViewContract(timelineViewSchemaId);
-const recordId = "11111111-1111-4111-8111-111111111111";
-const resolvedRecordId = "22222222-2222-4222-8222-222222222222";
-const mentionId = "33333333-3333-4333-8333-333333333333";
-const itemRef = `entity_mention:${mentionId}`;
-const notice = {
-  entityType: "host" as const,
-  fieldKey: "timeline.host_refs" as const,
-  itemRef,
-  matchedAliasText: "notice alias",
-  rawText: " notice raw text ",
-  resolvedRecordId,
-  rowRecordId: recordId,
-};
-
-function mentionRow({
-  itemKind = "resolved_ref",
-  mentionRowVersion = 7,
-  rawText = " current raw text ",
-  rowVersion = 4,
-}: {
-  readonly itemKind?: string;
-  readonly mentionRowVersion?: number;
-  readonly rawText?: string;
-  readonly rowVersion?: number;
-} = {}) {
-  return rowFromApi(
-    normalizeTimelineFullRow(
-      fullWorkbookViewRow(timelineContract, recordId, rowVersion, {
-        "timeline.activity_synopsis_text": "Mention row",
-        "timeline.host_refs": workbookCollectionValue(false, [
-          {
-            auto_resolved: true,
-            confidence: 97,
-            display_text: "Current display",
-            entity_type: "host",
-            item_kind: itemKind,
-            item_ref: itemRef,
-            matched_alias_text: "current alias",
-            mention_row_version: mentionRowVersion,
-            provenance: "auto_match",
-            raw_text: rawText,
-            resolution_method: "auto_match",
-            resolved_record_id: resolvedRecordId,
-          },
-        ]),
-      }),
-      "mention action controller fixture",
-    ),
+function setup(review: MentionReview = mentionReview()) {
+  let sequence = 0;
+  const owner = new WorkbookTimelineMentionOperationOwner(
+    review.subject.incidentId,
+    { create: () => (++sequence === 1 ? "hook-key" : `hook-key-${sequence}`) },
+    { remember: vi.fn(), settle: vi.fn(), accepted: vi.fn() },
   );
-}
-
-function controller({
-  portResult,
-  rowsRef = { current: [mentionRow()] },
-  waitRow = mentionRow({ mentionRowVersion: 9, rowVersion: 5 }),
-}: {
-  readonly portResult: Awaited<
-    ReturnType<TimelineMentionResolutionPort["resolve"]>
-  >;
-  readonly rowsRef?: { current: ReturnType<typeof mentionRow>[] };
-  readonly waitRow?: ReturnType<typeof mentionRow>;
-}) {
-  let queuedWork: (() => Promise<void>) | null = null;
-  const resolve = vi
-    .fn<TimelineMentionResolutionPort["resolve"]>()
-    .mockResolvedValue(portResult);
-  const loadRows = vi.fn(
-    async (options: { afterProjectionCommit?: () => void }) => {
-      options.afterProjectionCommit?.();
+  const send = vi
+    .fn<TimelineMentionResolutionPort["send"]>()
+    .mockResolvedValue({ kind: "accepted", receipt: mentionReceipt(review) });
+  owner.configure({
+    ...createTimelineMentionResolutionAdapter({ apiBase: undefined }),
+    send,
+  });
+  owner.setAuthority(review.authority);
+  owner.registerReconciliation(async () => {});
+  const rowsRef = { current: [mentionWorkbookRow(review)] };
+  const input = {
+    owner,
+    rowsRef,
+    earlierSaves: { current: Promise.resolve() },
+    selectedMention: mentionInspector(review),
+    presentationKey: "timeline:source",
+    presentationActive: true,
+    candidatePort: {
+      page: vi.fn(async () => ({
+        kind: "accepted" as const,
+        value: { candidates: [], nextCursor: null, hasMore: false },
+      })),
     },
-  );
-  const setDismissedMentions = vi.fn();
-  const mocks = {
-    actionContext: {
-      authorized: true,
-      capabilityAvailable: true,
-      surfaceKey: "view_schema:cartulary.view.timeline.v2",
-    },
-    beginViewportContinuity: vi.fn(() => 41),
-    clearViewportContinuity: vi.fn(),
-    enqueueSaveWork: vi.fn((work: () => Promise<void>) => {
-      queuedWork = work;
-    }),
-    loadRows,
-    knownEntityTypes: new Map([[resolvedRecordId, "host" as const]]),
-    mentionPorts: {
-      entityCreation: {
-        createEntity:
-          vi.fn<TimelineMentionEntityCreationPort["createEntity"]>(),
-      },
-      resolution: { resolve },
-    },
-    nextClientTxnId: vi.fn(() => "txn-undo"),
-    requireViewportContinuitySourceRecord: vi.fn(),
-    resolvePendingSocketTxn: vi.fn(),
-    setDismissedMentionsByRow: setDismissedMentions as Dispatch<
-      SetStateAction<Record<string, DismissedMention[]>>
-    >,
-    setInspectorMessage: vi.fn(),
-    settleViewportContinuityFollowUp: vi.fn(),
-    trackPendingSocketTxn: vi.fn(),
     waitForCommittedRecordIdle: vi.fn(async () => ({
-      row: waitRow,
-      rowVersion: waitRow.rowVersion ?? 0,
+      row: rowsRef.current[0] ?? null,
+      rowVersion: rowsRef.current[0]?.rowVersion ?? 0,
     })),
+    setInspectorMessage: vi.fn(),
+    restoreActionFocus: vi.fn(),
   };
-  const rendered = renderHook(() =>
-    useTimelineMentionActions({
-      ...mocks,
-      rowsRef,
-    }),
+  const hook = renderHook(
+    (props: typeof input) => {
+      const [selectedTargetId, setSelectedTargetId] = useState("");
+      return useTimelineMentionActions({
+        ...props,
+        selectedTargetId,
+        setSelectedTargetId,
+      });
+    },
+    { initialProps: input },
   );
-  return {
-    ...rendered,
-    getQueuedWork: () => queuedWork,
-    mocks,
-    resolve,
-    setDismissedMentions,
-  };
+  return { ...hook, owner, send, input, rowsRef, review };
 }
-
-describe("useTimelineMentionActions auto-resolution undo", () => {
-  it("converts the current resolved item without conflating notice, mention, and entity identity", () => {
-    expect(
-      timelineMentionForAutoResolutionNotice([mentionRow()], notice),
-    ).toEqual({
-      anchor: {
-        entityMentionId: mentionId,
-        fieldKey: "timeline.host_refs",
-        itemRef,
-        recordId,
-        targetEntityRecordId: resolvedRecordId,
-      },
-      autoResolved: true,
-      chipState: "auto_resolved",
-      confidence: 97,
-      displayText: "Current display",
-      entityType: "host",
-      fieldKey: "timeline.host_refs",
-      isActiveRelationshipValue: true,
-      itemRef,
-      matchedAliasText: "current alias",
-      mentionRowVersion: 7,
-      priorTargetEntityRecordId: null,
-      provenance: "auto_match",
-      rawText: " current raw text ",
-      resolutionMethod: "auto_match",
-      resolvedRecordId,
-      rowRecordId: recordId,
-      sourceKind: "entity_mention",
-      status: "resolved",
-    });
-    expect(timelineMentionForAutoResolutionNotice([], notice)).toBeNull();
-    expect(
-      timelineMentionForAutoResolutionNotice(
-        [mentionRow({ itemKind: "unresolved_mention" })],
-        notice,
-      ),
-    ).toBeNull();
-    expect(
-      timelineMentionForAutoResolutionNotice([mentionRow()], {
-        ...notice,
-        fieldKey: "timeline.identity_refs",
-      }),
-    ).toBeNull();
+async function flush() {
+  await act(async () => {
+    for (let index = 0; index < 20; index++) await Promise.resolve();
   });
-
-  it("re-reads the committed mention version and preserves accepted refresh and continuity sequencing", async () => {
-    const accepted = {
-      kind: "accepted" as const,
-      value: {
-        entityMention: {
-          entityType: "host" as const,
-          rawText: " latest raw text ",
-          resolutionMethod: null,
-          rowVersion: 10,
-          sourceFieldKey: "timeline.host_refs",
-        },
-        sourceRecord: { recordId, rowVersion: 6 },
+}
+describe("Timeline mention actions", () => {
+  it("binds auto-resolution undo to the same current mention version and target", async () => {
+    const base = mentionReview();
+    const review = mentionReview({
+      subject: {
+        ...base.subject,
+        state: "resolved",
+        resolvedRecordId: "70000000-0000-4000-8000-000000000001",
+        resolutionMethod: "auto_match",
       },
+      intent: { action: "revert_to_unresolved" },
+    });
+    const f = setup(review);
+    const notice = {
+      entityMentionId: review.subject.mentionId,
+      mentionRowVersion: review.subject.mentionRowVersion,
+      itemRef: review.subject.itemRef,
+      rowRecordId: review.subject.sourceRecordId,
+      fieldKey: review.subject.sourceFieldKey,
+      entityType: review.subject.entityType,
+      rawText: review.subject.rawText,
+      resolvedRecordId: review.subject.resolvedRecordId ?? "",
+      matchedAliasText: "alias",
     };
-    const { getQueuedWork, mocks, resolve, result, setDismissedMentions } =
-      controller({ portResult: accepted });
-    act(() => result.current.handleUndoAutoResolutionNotice(notice));
-    expect(mocks.beginViewportContinuity).toHaveBeenCalledWith({
-      kind: "row-inspect",
-      recordId,
-    });
-    expect(mocks.enqueueSaveWork).toHaveBeenCalledOnce();
-
-    await act(async () => getQueuedWork()?.());
-    expect(resolve).toHaveBeenCalledWith({
-      action: "revert_to_unresolved",
-      baseMentionRowVersion: 9,
-      clientTxnId: "txn-undo",
-      expectedSourceRecordId: recordId,
-      mentionId,
-    });
-    expect(mocks.trackPendingSocketTxn).toHaveBeenCalledWith("txn-undo");
-    expect(mocks.requireViewportContinuitySourceRecord).toHaveBeenCalledWith(
-      41,
-      { recordId, minimumRowVersion: 6 },
-    );
-    expect(mocks.loadRows).toHaveBeenCalledWith({
-      afterProjectionCommit: expect.any(Function),
-      showLoading: false,
-      sourceRecordRequirement: { recordId, minimumRowVersion: 6 },
-      viewportContinuityToken: 41,
-    });
-    expect(mocks.clearViewportContinuity).not.toHaveBeenCalled();
-
-    const updateDismissed = setDismissedMentions.mock.calls[0]?.[0];
-    if (typeof updateDismissed !== "function") {
-      throw new Error("Expected the mention follow-up state updater");
-    }
-    expect(
-      updateDismissed({
-        [recordId]: [
-          {
-            autoResolved: true,
-            entityType: "host",
-            fieldKey: "timeline.host_refs",
-            itemRef,
-            mentionRowVersion: 7,
-            rawText: " current raw text ",
-            resolvedRecordId,
-            resolutionMethod: "auto_match",
-            rowRecordId: recordId,
-          },
-        ],
-      }),
-    ).toEqual({});
-
-    const rowsRef = { current: [mentionRow()] };
-    const dismissed = controller({ portResult: accepted, rowsRef });
-    dismissed.resolve.mockImplementation(async () => {
-      const committed = mentionRow({ rowVersion: 6 });
-      rowsRef.current = [
-        {
-          ...committed,
-          collectionValues: {
-            ...committed.collectionValues,
-            hostRefs: [],
-          },
-        },
-      ];
-      return accepted;
-    });
-    const mention = timelineMentionForAutoResolutionNotice(
-      rowsRef.current,
-      notice,
-    );
-    if (mention === null) throw new Error("Expected current mention");
     act(() =>
-      dismissed.result.current.submitMentionAction(mention, "dismiss_item"),
-    );
-    await act(async () => dismissed.getQueuedWork()?.());
-    const appendDismissed = dismissed.setDismissedMentions.mock.calls[0]?.[0];
-    expect(typeof appendDismissed).toBe("function");
-    expect(appendDismissed({})[recordId]).toEqual([
-      expect.objectContaining({
-        itemRef,
-        mentionRowVersion: 10,
-        rawText: " latest raw text ",
+      f.result.current.handleUndoAutoResolutionNotice({
+        ...notice,
+        mentionRowVersion: 1,
       }),
-    ]);
-  });
-
-  it("no-ops missing items and retains the existing rejection conflict path", async () => {
-    const rejected = {
-      kind: "rejected" as const,
-      failure: { kind: "terminal" as const, message: "Stale mention version" },
-    };
-    const missing = controller({
-      portResult: rejected,
-      rowsRef: { current: [] },
-    });
-    act(() => missing.result.current.handleUndoAutoResolutionNotice(notice));
-    expect(missing.resolve).not.toHaveBeenCalled();
-
-    const active = controller({ portResult: rejected });
-    act(() => active.result.current.handleUndoAutoResolutionNotice(notice));
-    await act(async () => active.getQueuedWork()?.());
-    expect(active.mocks.resolvePendingSocketTxn).toHaveBeenCalledWith(
-      "txn-undo",
     );
-    expect(active.mocks.clearViewportContinuity).toHaveBeenCalledWith(41);
-    expect(active.mocks.setInspectorMessage).toHaveBeenCalledWith({
-      error: {
-        primaryMessage: "Stale mention version",
-        technicalFields: [],
-      },
-      kind: "error",
+    await flush();
+    expect(f.send).not.toHaveBeenCalled();
+    act(() =>
+      f.result.current.handleUndoAutoResolutionNotice({
+        ...notice,
+        resolvedRecordId: "another-target",
+      }),
+    );
+    await flush();
+    expect(f.send).not.toHaveBeenCalled();
+    act(() => f.result.current.handleUndoAutoResolutionNotice(notice));
+    await flush();
+    expect(JSON.parse(f.send.mock.calls[0]?.[0].body ?? "{}")).toEqual({
+      action: "revert_to_unresolved",
+      base_mention_row_version: 2,
+      client_txn_id: "hook-key",
     });
-    expect(active.mocks.loadRows).not.toHaveBeenCalled();
+    expect(f.input.restoreActionFocus).toHaveBeenCalledWith(
+      review.subject.sourceRecordId,
+    );
+    f.unmount();
+  });
+  it("waits for creation and mention projections before restoring focus", async () => {
+    const f = setup();
+    let release!: () => void;
+    f.owner.registerCreationReconciliation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    act(() => f.result.current.startCreate());
+    const review = f.result.current.createReview;
+    if (!review) throw new Error("Create review missing");
+    const receipt = mentionCreationReceipt(review);
+    f.owner.configureCreation({
+      ...createTimelineMentionEntityCreationAdapter({ apiBase: undefined }),
+      send: async () => ({ kind: "accepted", receipt }),
+    });
+    f.send.mockImplementation(async (attempt) => ({
+      kind: "accepted",
+      receipt: mentionReceipt(attempt.review),
+    }));
+    act(() => f.result.current.submitCreate());
+    await flush();
+    expect(f.owner.getSnapshot().entries[0]?.refresh).toBe("complete");
+    expect(f.owner.getSnapshot().creations[0]?.refresh).toBe("refreshing");
+    expect(f.input.restoreActionFocus).not.toHaveBeenCalled();
+    release();
+    await flush();
+    expect(f.input.restoreActionFocus).toHaveBeenCalledExactlyOnceWith(
+      f.review.subject.sourceRecordId,
+    );
+    f.unmount();
+  });
+  it("waits for preceding saves and refuses changed mentions instead of rebasing", async () => {
+    const f = setup(mentionReview({ intent: { action: "dismiss_item" } }));
+    let release!: () => void;
+    f.input.earlierSaves.current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    act(() => f.result.current.act({ action: "dismiss_item" }));
+    expect(f.send).not.toHaveBeenCalled();
+    f.rowsRef.current = [
+      mentionWorkbookRow({
+        ...f.review,
+        subject: { ...f.review.subject, mentionRowVersion: 3 },
+      }),
+    ];
+    release();
+    await flush();
+    expect(f.send).not.toHaveBeenCalled();
+    expect(f.owner.getSnapshot().entries[0]?.phase).toBe("preparation_failed");
+    expect(f.owner.getSnapshot().entries[0]?.attempt.body).toContain(
+      '"base_mention_row_version":2',
+    );
+    f.unmount();
+  });
+  it("retains accepted outcomes on unmount and invalidates a detached create review", async () => {
+    const f = setup(mentionReview({ intent: { action: "dismiss_item" } }));
+    let accept!: (
+      value: Awaited<ReturnType<TimelineMentionResolutionPort["send"]>>,
+    ) => void;
+    f.send.mockReturnValueOnce(
+      new Promise((resolve) => {
+        accept = resolve;
+      }),
+    );
+    act(() => f.result.current.startCreate());
+    expect(f.result.current.createReview?.draft["host.display_name"]).toBe(
+      f.review.subject.rawText,
+    );
+    expect(f.result.current.createReview?.draft["host.fqdn"]).toBe("");
+    f.rerender({ ...f.input, presentationKey: "another-sheet" });
+    expect(f.result.current.createReview).toBeNull();
+    f.rerender(f.input);
+    act(() => f.result.current.act({ action: "dismiss_item" }));
+    await flush();
+    f.unmount();
+    accept({ kind: "accepted", receipt: mentionReceipt(f.review) });
+    await flush();
+    expect(f.owner.getSnapshot().entries[0]?.receipt).toEqual(
+      mentionReceipt(f.review),
+    );
+    expect(f.input.restoreActionFocus).not.toHaveBeenCalled();
   });
 });

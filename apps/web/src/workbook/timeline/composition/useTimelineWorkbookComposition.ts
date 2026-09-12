@@ -32,6 +32,7 @@ export function useTimelineWorkbookComposition({
     continuity: grid.ports.continuity,
     currentIncidentRole: runtime.incident.currentRole,
     dismissedMentionsByRow: foundation.snapshot.mentions.dismissedMentionsByRow,
+    observedMentions: foundation.snapshot.mentions.observedMentions,
     inspectorResetKey: runtime.incident.inspectorResetKey,
     rows: foundation.snapshot.rows,
     selectedMentionRef: foundation.snapshot.mentions.selectedMentionRef,
@@ -52,8 +53,6 @@ export function useTimelineWorkbookComposition({
       rowsRef: foundation.refs.rows,
       setAutoResolutionNotices:
         foundation.commands.mentions.setAutoResolutionNotices,
-      setDismissedMentionsByRow:
-        foundation.commands.mentions.setDismissedMentionsByRow,
       setInitialLoadGenerationKey:
         foundation.commands.lifecycle.setInitialLoadGenerationKey,
       setIsInitialLoading: foundation.commands.lifecycle.setIsInitialLoading,
@@ -95,22 +94,17 @@ export function useTimelineWorkbookComposition({
     },
   });
   const workflow = useTimelineInspectorWorkflowComposition({
+    mentionOwner: foundation.ports.mentionOwner,
+    mentionCandidates: foundation.ports.mentionCandidates,
+    earlierSaves: foundation.refs.pendingSaves.saveQueueRef,
     activeSheetRef: mutation.ports.activeSheetRef,
-    knownEntityTypes: new Map(
-      Object.values(runtime.entities.index).map((entity) => [
-        entity.recordId,
-        entity.entityType,
-      ]),
-    ),
     foundation: {
       evidenceAttachmentPort: foundation.ports.evidenceAttachment,
       loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
-      mentionPorts: foundation.ports.mentions,
+      selectedTargetId: foundation.snapshot.mentions.selectedResolveTargetId,
       rows: foundation.snapshot.rows,
       rowsRef: foundation.refs.rows,
       selectedMentionRef: foundation.snapshot.mentions.selectedMentionRef,
-      setDismissedMentionsByRow:
-        foundation.commands.mentions.setDismissedMentionsByRow,
       setSelectedMentionRef: foundation.commands.mentions.setSelectedMentionRef,
       setSelectedResolveTargetId:
         foundation.commands.mentions.setSelectedResolveTargetId,
@@ -121,12 +115,10 @@ export function useTimelineWorkbookComposition({
       clearViewportContinuity:
         grid.commands.viewportContinuity.clearViewportContinuity,
       gridShellRef: grid.refs.gridShell,
-      requireViewportContinuitySourceRecord:
-        grid.commands.viewportContinuity.requireViewportContinuitySourceRecord,
+
       restoreTimelineFocusAnchor:
         grid.commands.anchors.restoreTimelineFocusAnchor,
-      settleViewportContinuityFollowUp:
-        grid.commands.viewportContinuity.settleViewportContinuityFollowUp,
+
       workbookFocusAnchorRef: grid.refs.workbookFocusAnchor,
     },
     incident: {
@@ -155,7 +147,7 @@ export function useTimelineWorkbookComposition({
         acceptTimelineRecordVersion:
           mutation.commands.save.acceptTimelineRecordVersion,
         enqueueSaveWork: mutation.commands.save.enqueueSaveWork,
-        nextClientTxnId: mutation.commands.identity.nextClientTxnId,
+
         resolvePendingSocketTxn: mutation.commands.save.resolvePendingSocketTxn,
         trackPendingSocketTxn: mutation.commands.save.trackPendingSocketTxn,
       },
@@ -165,7 +157,6 @@ export function useTimelineWorkbookComposition({
     },
     mutationCommands: runtime.mutationCommands,
     onIncidentAccessLost: runtime.onIncidentAccessLost,
-    onRefreshEntities: runtime.entities.refresh,
   });
   const interaction = useTimelineInteractionComposition({
     foundation: {

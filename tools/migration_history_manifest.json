@@ -248,6 +248,12 @@
       "filename": "00041_entities_identifier_unicode_v1.sql",
       "sha256": "ce5928b19aba9167420017a10e24c557c5a6eb3bce7c9b3e6894e7f14f6a6453",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 42,
+      "filename": "00042_timeline_mention_public_identity.sql",
+      "sha256": "7926cda9ffeb373df9af5952d002d1a9ac3ac41f10b871e9a39b36c8ea248a7b",
+      "historical_phase_shaped": false
     }
   ]
 }

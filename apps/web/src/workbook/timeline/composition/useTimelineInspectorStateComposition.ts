@@ -8,6 +8,7 @@ import type {
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import { useTimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import { useTimelineHistoryState } from "../hooks/useTimelineHistoryState";
 import { useTimelineInspectorSelection } from "../hooks/useTimelineInspectorSelection";
@@ -22,6 +23,7 @@ export function useTimelineInspectorStateComposition({
   continuity,
   currentIncidentRole,
   dismissedMentionsByRow,
+  observedMentions,
   inspectorResetKey,
   rows,
   selectedMentionRef,
@@ -30,6 +32,7 @@ export function useTimelineInspectorStateComposition({
   readonly continuity: WorkbookContinuityPort;
   readonly currentIncidentRole: string | null | undefined;
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
+  readonly observedMentions: readonly MentionSubject[];
   readonly inspectorResetKey: string;
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
@@ -43,6 +46,7 @@ export function useTimelineInspectorStateComposition({
   const selection = useTimelineInspectorSelection({
     currentIncidentRole,
     dismissedMentionsByRow,
+    observedMentions,
     rows,
     selectedMentionRef,
   });

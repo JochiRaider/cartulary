@@ -1508,6 +1508,108 @@
       "classification": "additive",
       "owner_id": "module.jobapi",
       "rationale": "Publish the Core-owned narrow Common Job reference for adopted initiating resource receipts; existing Core initiating job responses remain unchanged. Network Flow coordinates its resource cutover under public major 6."
+    },
+    {
+      "fingerprint": "c7399c46b23fc11684869482bc828ed8c313b44124b162581813e6bf5c590c53",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "d3a16b6ba65f2ca5174d45acbdf62c6fa7bdea290b29502cf11493f9c499f71f",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "6a56a06657be26541625d2b7d6a210b0ab17d9e113b38301d5823979b7c5d207",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "3bf7bcad4b0270f4667adaebfb257cfe6cde4af7b9f0129e0cfd37d211876790",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "8aacef4a3d35738d8139326b83d2a8ffa9ab467ef79f77bcac0a964902bb12ef",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "07daade85db10ed8e0b024ca35f0ba28d352d2f12a10d422c363a185ebe34009",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "ab0eea21fb6b6d43245a9bcee718632ed6a1e3b8518e841644eb81dead20b0ba",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "e66e2e53f29025ff680ded4a90b4626a269a95e00c75e75891644f17b63d512d",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "d6ac699d026c3c61ed9bfd0b4ed9545c2e2c3bade875cbc8f15c1d2d12d1aebb",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "06c2516b649244b651a2c03744a7cdc11c154e115f91903721a30b953bd38f17",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "a58ce19b03db3678cef77962d1b830c97256ccfb82c99d3182d43b9e05f83d8e",
+      "classification": "breaking",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "3756834df6d299c106c7670e07912a16c925bb137158bfec9395701fc2ef0825",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "00d457730ab9b3d4c5581a56d9fc9b2b901248dbfc3c75a3df261a6ec83f52dd",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "7728e219b0f0be20ec610285fb59430cff72552a5ccec1abea10d9a62a7fa680",
+      "classification": "breaking",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "6c65ed2b2dc3bb117f91d13c9855c00b0f44220ce8507d60b48b7c6154442a3e",
+      "classification": "breaking",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "b7a20e128f4d5fdfa55f151cb98d66c887d8133e70ed2067a0b8b96fc3f2c675",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Project the complete existing mention-action receipt, including required nullable resolution provenance, positive versions and an optional non-null active-link object. Tightening the schema requires coordinated generated clients; committed receipts remain unchanged."
+    },
+    {
+      "fingerprint": "eefba017eadea2462c628cc6b4948dc2e547431d132551467950ca696b5c6771",
+      "classification": "additive",
+      "owner_id": "module.timeline",
+      "rationale": "Publish source-bound mention identity and concurrency version separately from the opaque Timeline collection selector."
     }
   ]
 }

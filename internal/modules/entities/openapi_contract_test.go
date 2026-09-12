@@ -56,6 +56,21 @@ func assertMentionResolveContract(t *testing.T, document map[string]any, schemas
 			t.Fatalf("MentionActionData missing required field %q; got %v", field, dataRequired)
 		}
 	}
+	mention := schema(t, schemas, "EntityMentionResource")
+	for _, field := range []string{"entity_mention_id", "source_record_id", "source_field_key", "entity_type", "raw_text", "normalized_text", "resolution_status", "resolved_record_id", "row_version", "resolved_at", "resolved_by_user_id", "resolution_method"} {
+		if !slices.Contains(requiredFields(t, mention), field) {
+			t.Fatalf("mention receipt missing required field %q", field)
+		}
+	}
+	link := objectAt(t, data, "properties", "active_link")
+	if stringAt(t, link, "type") != "object" || slices.Contains(dataRequired, "active_link") {
+		t.Fatal("active_link must be an optional non-null object")
+	}
+	for _, field := range []string{"link_type", "dst_record_id"} {
+		if !slices.Contains(requiredFields(t, link), field) {
+			t.Fatalf("active link missing required field %q", field)
+		}
+	}
 }
 
 func assertMergeContract(t *testing.T, document map[string]any, schemas map[string]any) {

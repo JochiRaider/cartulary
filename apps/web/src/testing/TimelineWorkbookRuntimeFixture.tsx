@@ -45,9 +45,16 @@ import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secu
 import { useWorkbookMutationRuntime } from "../workbook/runtime/useWorkbookMutationRuntime";
 import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
 import { reconcileTimelineCaptureReceipt } from "../workbook/timeline/actions/reconcileTimelineCaptureReceipt";
+import { reconcileTimelineMentionReceipt } from "../workbook/timeline/actions/reconcileTimelineMentionReceipt";
 import { TimelineCaptureRecovery } from "../workbook/timeline/actions/TimelineCaptureRecovery";
+import { TimelineMentionRecovery } from "../workbook/timeline/actions/TimelineMentionRecovery";
 import { timelineCaptureOwnerFor } from "../workbook/timeline/actions/timelineCaptureOwnerFor";
+import { timelineMentionAuthority } from "../workbook/timeline/actions/timelineMentionAuthority";
+import { timelineMentionOwnerFor } from "../workbook/timeline/actions/timelineMentionOwnerFor";
 import { createTimelineCandidateReader } from "../workbook/timeline/adapters/createTimelineCandidateReader";
+import { createTimelineMentionEntityCreationAdapter } from "../workbook/timeline/adapters/createTimelineMentionEntityCreationAdapter";
+import { createTimelineMentionResolutionAdapter } from "../workbook/timeline/adapters/createTimelineMentionResolutionAdapter";
+import { createTimelineMentionSourceReader } from "../workbook/timeline/adapters/createTimelineMentionSourceReader";
 import { createTimelineRecordActionAdapter } from "../workbook/timeline/adapters/createTimelineRecordActionAdapter";
 import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 import type {
@@ -212,6 +219,50 @@ export function TimelineWorkbookRuntimeFixture({
     };
   });
   const { clipboardPaste, mutationCommands, mutationRuntime } = runtimeAssembly;
+  const timelineMentions = useMemo(
+    () => timelineMentionOwnerFor(mutationRuntime),
+    [mutationRuntime],
+  );
+  useLayoutEffect(() => {
+    timelineMentions.configure(
+      createTimelineMentionResolutionAdapter({ apiBase }),
+    );
+    timelineMentions.configureCreation(
+      createTimelineMentionEntityCreationAdapter({ apiBase }),
+    );
+    timelineMentions.setAuthority(
+      timelineMentionAuthority({
+        actorId: currentUserId ?? "fixture-actor",
+        sessionIdentity: "fixture-session",
+        incidentId,
+        role: currentIncidentRole ?? "",
+        closed: incidentClosed,
+      }),
+    );
+    return timelineMentions.registerReconciliation(async (receipt, scope) => {
+      await reconcileTimelineMentionReceipt(
+        timelineMentions,
+        createTimelineMentionSourceReader({ apiBase, incidentId }),
+        receipt,
+        scope,
+      );
+    });
+  }, [
+    timelineMentions,
+    apiBase,
+    incidentId,
+    currentUserId,
+    currentIncidentRole,
+    incidentClosed,
+  ]);
+  useLayoutEffect(() => {
+    if (!onRefreshEntities) return;
+    return timelineMentions.registerCreationReconciliation(async (scope) => {
+      if (!scope.isCurrent()) throw new Error("Entity refresh detached");
+      await onRefreshEntities();
+    });
+  }, [timelineMentions, onRefreshEntities]);
+  useLayoutEffect(() => () => timelineMentions.retire(), [timelineMentions]);
   const timelineCapture = useMemo(
     () => timelineCaptureOwnerFor(mutationRuntime),
     [mutationRuntime],
@@ -323,6 +374,7 @@ export function TimelineWorkbookRuntimeFixture({
   return (
     <WorkbookHistoryContext.Provider value={mutationRuntime}>
       <TimelineCaptureRecovery owner={timelineCapture} />
+      <TimelineMentionRecovery owner={timelineMentions} />
       <div style={{ position: "relative", blockSize: "100%" }}>
         <TimelineWorkbook
           runtime={{

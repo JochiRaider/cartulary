@@ -96,6 +96,19 @@ func TestCanonicalRowDerivesCompleteTypedCollections_Unit(t *testing.T) {
 		t.Fatalf("canonical group values lost collection state: %#v", groupValues)
 	}
 	input := canonicalPath.ProjectionInput()
+	for _, collection := range []struct {
+		field   string
+		id      uuid.UUID
+		version int64
+	}{
+		{"timeline.host_refs", hostMentionID, 2},
+		{"timeline.identity_refs", identityMentionID, 1},
+	} {
+		items := cells[collection.field].(map[string]any)["value"].(map[string]any)["items"].([]map[string]any)
+		if len(items) != 1 || items[0]["entity_mention_id"] != collection.id.String() || items[0]["mention_row_version"] != collection.version {
+			t.Fatalf("%s lost public mention identity/version: %#v", collection.field, items)
+		}
+	}
 	if len(input.HostRefs) != 1 || input.HostRefs[0].MatchedAliasText == nil || *input.HostRefs[0].MatchedAliasText != alias {
 		t.Fatalf("typed host references lost owner facts: %#v", input.HostRefs)
 	}

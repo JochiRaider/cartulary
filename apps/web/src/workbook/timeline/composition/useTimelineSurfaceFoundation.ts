@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineBulkTagCommandAdapter } from "../adapters/createTimelineBulkTagCommandAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "../adapters/createTimelineEvidenceAttachmentAdapter";
-import { createTimelineMentionEntityCreationAdapter } from "../adapters/createTimelineMentionEntityCreationAdapter";
-import { createTimelineMentionResolutionAdapter } from "../adapters/createTimelineMentionResolutionAdapter";
+import { createTimelineMentionCandidateReader } from "../adapters/createTimelineMentionCandidateReader";
+
 import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRecordActionAdapter";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import { useTimelineMentions } from "../hooks/useTimelineMentions";
@@ -36,14 +37,12 @@ export function useTimelineSurfaceFoundation({
     () => createTimelineRecordActionAdapter({ apiBase }),
     [apiBase],
   );
-  const mentionPorts = useMemo(
-    () => ({
-      entityCreation: createTimelineMentionEntityCreationAdapter({
-        apiBase,
-        incidentId,
-      }),
-      resolution: createTimelineMentionResolutionAdapter({ apiBase }),
-    }),
+  const mentionOwner = useMemo(
+    () => timelineMentionOwnerFor(mutationRuntime),
+    [mutationRuntime],
+  );
+  const mentionCandidates = useMemo(
+    () => createTimelineMentionCandidateReader({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
   const evidenceAttachmentPort = useMemo(
@@ -76,7 +75,7 @@ export function useTimelineSurfaceFoundation({
     string | null
   >(null);
   const rows = useTimelineRows();
-  const mentions = useTimelineMentions();
+  const mentions = useTimelineMentions(mentionOwner);
   const pendingSaves = useTimelinePendingSaves({
     mutationRuntime,
   });
@@ -127,7 +126,8 @@ export function useTimelineSurfaceFoundation({
       bulkTag: bulkTagPort,
       clipboardPaste,
       evidenceAttachment: evidenceAttachmentPort,
-      mentions: mentionPorts,
+      mentionOwner,
+      mentionCandidates,
       recordActions: recordActionPort,
     },
     refs: {

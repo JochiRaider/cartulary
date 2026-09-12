@@ -17,10 +17,7 @@ import {
   rowFromApi,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import type {
-  AutoResolutionNotice,
-  DismissedMention,
-} from "../models/workbookMentionChips";
+import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 import { useTimelineRowMutationCoordinator } from "./useTimelineRowMutationCoordinator";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -98,9 +95,6 @@ function renderCoordinator(
         recordId,
       );
       const [, setAutoResolutionNotices] = useState<AutoResolutionNotice[]>([]);
-      const [, setDismissedMentionsByRow] = useState<
-        Record<string, DismissedMention[]>
-      >({});
       const pending = useTimelinePendingSaves({
         mutationRuntime: runtime,
       });
@@ -127,7 +121,6 @@ function renderCoordinator(
         selectedRowId,
         clearActiveCollectionInputKey: () => undefined,
         setAutoResolutionNotices,
-        setDismissedMentionsByRow,
         setPendingQueueSnapshot: pending.commands.setPendingQueueSnapshot,
         rowStoreCommands: { replaceRows, updateRows },
         setSelectedRowId,

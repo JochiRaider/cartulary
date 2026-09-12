@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { useWorkbookHistoryRuntime } from "../../history/WorkbookHistoryContext";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { timelineCaptureOwnerFor } from "../actions/timelineCaptureOwnerFor";
+import { timelineMentionOwnerFor } from "../actions/timelineMentionOwnerFor";
 import { createTimelineCommittedVersionLedger } from "../models/timelineCommittedVersionLedger";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineRecordActionAccepted } from "../ports/TimelineRecordActionPort";
@@ -17,6 +18,9 @@ export function useTimelineCommittedRows({
   const capture = mutationRuntime
     ? timelineCaptureOwnerFor(mutationRuntime)
     : null;
+  const mentions = mutationRuntime
+    ? timelineMentionOwnerFor(mutationRuntime)
+    : null;
   const ledgerRef = useRef(createTimelineCommittedVersionLedger());
   const hasLoadedRowsRef = useRef(false);
   const loadSequenceRef = useRef(0);
@@ -26,8 +30,9 @@ export function useTimelineCommittedRows({
       Math.max(
         ledgerRef.current.knownVersion(recordId) ?? 0,
         capture?.latestVersion(recordId) ?? 0,
+        mentions?.latestVersion(recordId) ?? 0,
       ) || undefined,
-    [capture],
+    [capture, mentions],
   );
 
   const currentCommittedTimelineRow = useCallback(
@@ -47,10 +52,34 @@ export function useTimelineCommittedRows({
           };
         history?.acceptVersion(row.recordId, row.rowVersion);
         capture?.acceptVersion(row.recordId, row.rowVersion);
+        mentions?.acceptVersion(row.recordId, row.rowVersion);
+        for (const item of [
+          ...row.collectionValues.hostRefs,
+          ...row.collectionValues.identityRefs,
+        ]) {
+          if (!item.entityMentionId || !item.mentionRowVersion) continue;
+          mentions?.observeMention({
+            incidentId: mentions.incidentId,
+            sourceRecordId: row.recordId,
+            sourceRowVersion: row.rowVersion,
+            mentionId: item.entityMentionId,
+            itemRef: item.itemRef,
+            sourceFieldKey:
+              item.entityType === "host"
+                ? "timeline.host_refs"
+                : "timeline.identity_refs",
+            entityType: item.entityType,
+            rawText: item.rawText,
+            mentionRowVersion: item.mentionRowVersion,
+            state: item.itemKind === "resolved_ref" ? "resolved" : "unresolved",
+            resolvedRecordId: item.resolvedRecordId,
+            resolutionMethod: item.resolutionMethod,
+          });
+        }
       }
       return ledgerRef.current.accept(row, rowsRef.current);
     },
-    [rowsRef, history, capture, knownTimelineRowVersion],
+    [rowsRef, history, capture, mentions, knownTimelineRowVersion],
   );
 
   const acceptCommittedTimelineRows = useCallback(
@@ -70,13 +99,14 @@ export function useTimelineCommittedRows({
     (recordId: string, rowVersion: number) => {
       history?.acceptVersion(recordId, rowVersion);
       capture?.acceptVersion(recordId, rowVersion);
+      mentions?.acceptVersion(recordId, rowVersion);
       return ledgerRef.current.acceptVersion(
         recordId,
         rowVersion,
         rowsRef.current,
       );
     },
-    [rowsRef, history, capture],
+    [rowsRef, history, capture, mentions],
   );
 
   const acceptTimelineActionResult = useCallback(

@@ -226,6 +226,7 @@ describe("Timeline mutation models", () => {
         hostRefs: [
           {
             itemRef: "mention-1",
+            entityMentionId: "public-mention-1",
             entityType: "host",
             itemKind: "unresolved_mention",
             displayText: "host-a",

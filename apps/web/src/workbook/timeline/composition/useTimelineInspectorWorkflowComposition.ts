@@ -38,25 +38,26 @@ type InspectorRowInteractionsInput = Parameters<
 type MentionInput = Parameters<typeof useTimelineMentionActions>[0];
 
 type TimelineInspectorWorkflowCompositionInput = {
-  readonly knownEntityTypes: ReadonlyMap<string, "host" | "identity">;
+  readonly mentionOwner: MentionInput["owner"];
+  readonly mentionCandidates: MentionInput["candidatePort"];
+  readonly earlierSaves: MentionInput["earlierSaves"];
   readonly foundation: {
     readonly evidenceAttachmentPort: EvidenceInput["evidenceAttachmentPort"];
     readonly loadAccessLost: boolean;
-    readonly mentionPorts: MentionInput["mentionPorts"];
+
     readonly rows: InspectorLifecycleInput["rows"];
     readonly rowsRef: MentionInput["rowsRef"];
+    readonly selectedTargetId: string;
     readonly selectedMentionRef: InspectorLifecycleInput["selectedMentionRef"];
-    readonly setDismissedMentionsByRow: MentionInput["setDismissedMentionsByRow"];
+
     readonly setSelectedMentionRef: InspectorLifecycleInput["setSelectedMentionRef"];
     readonly setSelectedResolveTargetId: InspectorLifecycleInput["setSelectedResolveTargetId"];
   };
   readonly grid: {
-    readonly beginViewportContinuity: MentionInput["beginViewportContinuity"];
-    readonly clearViewportContinuity: MentionInput["clearViewportContinuity"];
+    readonly beginViewportContinuity: EvidenceInput["beginViewportContinuity"];
+    readonly clearViewportContinuity: EvidenceInput["clearViewportContinuity"];
     readonly gridShellRef: InspectorLifecycleInput["gridShellRef"];
-    readonly requireViewportContinuitySourceRecord: MentionInput["requireViewportContinuitySourceRecord"];
     readonly restoreTimelineFocusAnchor: InspectorLifecycleInput["restoreTimelineFocusAnchor"];
-    readonly settleViewportContinuityFollowUp: MentionInput["settleViewportContinuityFollowUp"];
     readonly workbookFocusAnchorRef: InspectorLifecycleInput["workbookFocusAnchorRef"];
   };
   readonly incident: Pick<
@@ -73,6 +74,7 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly lifecycle: WorkbookInspectorState;
     readonly selection: {
       readonly inspectorMentions: InspectorLifecycleInput["inspectorMentions"];
+      readonly selectedMention: MentionInput["selectedMention"];
       readonly selectedRow: CreateRelatedInput["selectedRow"];
       readonly selectedRowId: InspectorLifecycleInput["selectedRowId"];
       readonly selectedRowWorkflowSubject: CreateRelatedInput["selectedSubject"];
@@ -87,11 +89,8 @@ type TimelineInspectorWorkflowCompositionInput = {
     >[0]["activeConflict"];
     readonly applyAcceptedRowMutation: EvidenceInput["applyAcceptedRowMutation"];
     readonly commands: Pick<
-      MentionInput,
-      | "enqueueSaveWork"
-      | "nextClientTxnId"
-      | "resolvePendingSocketTxn"
-      | "trackPendingSocketTxn"
+      EvidenceInput,
+      "enqueueSaveWork" | "resolvePendingSocketTxn" | "trackPendingSocketTxn"
     > &
       Pick<HistoryInput, "acceptTimelineRecordVersion">;
     readonly waitForCommittedRecordIdle: EvidenceInput["waitForCommittedRecordIdle"];
@@ -100,13 +99,14 @@ type TimelineInspectorWorkflowCompositionInput = {
   };
   readonly mutationCommands: TimelineWorkbookSurfaceRuntime["mutationCommands"];
   readonly onIncidentAccessLost: TimelineWorkbookSurfaceRuntime["onIncidentAccessLost"];
-  readonly onRefreshEntities: TimelineWorkbookSurfaceRuntime["entities"]["refresh"];
   readonly activeSheetRef: TimelineWorkbookSurfaceRuntime["incident"]["sheetRef"];
 };
 
 export function useTimelineInspectorWorkflowComposition({
   activeSheetRef,
-  knownEntityTypes,
+  mentionOwner,
+  mentionCandidates,
+  earlierSaves,
   foundation,
   grid,
   incident,
@@ -114,7 +114,6 @@ export function useTimelineInspectorWorkflowComposition({
   mutation,
   mutationCommands,
   onIncidentAccessLost,
-  onRefreshEntities,
 }: TimelineInspectorWorkflowCompositionInput) {
   const actionContext = {
     authorized:
@@ -215,26 +214,27 @@ export function useTimelineInspectorWorkflowComposition({
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   });
   const mentions = useTimelineMentionActions({
-    actionContext: {
-      ...actionContext,
-      capabilityAvailable: timelineMentionCapabilityAvailable,
+    owner: mentionOwner,
+    candidatePort: mentionCandidates,
+    earlierSaves,
+    selectedMention: inspector.selection.selectedMention,
+    selectedTargetId: foundation.selectedTargetId,
+    setSelectedTargetId: foundation.setSelectedResolveTargetId,
+    presentationKey: `${actionContext.surfaceKey}:${incident.inspectorResetKey}:${inspector.selection.selectedRowId}`,
+    presentationActive:
+      workbookInspectorStateIsOpen(inspector.lifecycle) &&
+      !foundation.loadAccessLost,
+    restoreActionFocus: (recordId) => {
+      grid.restoreTimelineFocusAnchor({
+        recordId,
+        fieldKey: "timeline.activity_synopsis_text",
+        viewSchemaId: timelineViewSchemaId,
+      });
     },
-    beginViewportContinuity: grid.beginViewportContinuity,
-    clearViewportContinuity: grid.clearViewportContinuity,
-    enqueueSaveWork: mutation.commands.enqueueSaveWork,
-    loadRows: mutation.loadRows,
-    knownEntityTypes,
-    mentionPorts: foundation.mentionPorts,
-    nextClientTxnId: mutation.commands.nextClientTxnId,
-    onRefreshEntities,
-    requireViewportContinuitySourceRecord:
-      grid.requireViewportContinuitySourceRecord,
-    resolvePendingSocketTxn: mutation.commands.resolvePendingSocketTxn,
+    refreshProjection: () =>
+      mutation.loadRows({ showLoading: false, requireAcceptance: true }),
     rowsRef: foundation.rowsRef,
-    setDismissedMentionsByRow: foundation.setDismissedMentionsByRow,
     setInspectorMessage: inspector.publishFeedback,
-    settleViewportContinuityFollowUp: grid.settleViewportContinuityFollowUp,
-    trackPendingSocketTxn: mutation.commands.trackPendingSocketTxn,
     waitForCommittedRecordIdle: mutation.waitForCommittedRecordIdle,
   });
   const evidence = useTimelineEvidenceAttach({
@@ -303,10 +303,6 @@ export function useTimelineInspectorWorkflowComposition({
 }
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
-const timelineMentionCapabilityAvailable =
-  timelineContract.inspectorConfig.featureGroups.some(
-    (group) => group.featureGroupKey === "entity_mentions.resolve",
-  );
 const timelineEvidenceCapabilityAvailable =
   timelineContract.inspectorConfig.featureGroups.some(
     (group) => group.featureGroupKey === "evidence.attach_blob",

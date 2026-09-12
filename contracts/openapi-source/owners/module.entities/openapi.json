@@ -452,9 +452,32 @@
             "format": "uuid"
           },
           "active_link": {
-            "type": [
-              "object",
-              "null"
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "link_type": {
+                "type": "string",
+                "enum": [
+                  "observed_on_host",
+                  "observed_as_identity"
+                ]
+              },
+              "dst_record_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "record_link_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "src_record_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "link_type",
+              "dst_record_id"
             ]
           }
         },
@@ -473,11 +496,33 @@
             "type": "string",
             "format": "uuid"
           },
-          "row_version": {
-            "type": "integer"
+          "source_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_field_key": {
+            "type": "string"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "identity"
+            ]
+          },
+          "raw_text": {
+            "type": "string"
+          },
+          "normalized_text": {
+            "type": "string"
           },
           "resolution_status": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "unresolved",
+              "resolved",
+              "dismissed"
+            ]
           },
           "resolved_record_id": {
             "type": [
@@ -485,13 +530,45 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "resolved_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "resolved_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "resolution_method": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "entity_mention_id",
-          "row_version",
+          "source_record_id",
+          "source_field_key",
+          "entity_type",
+          "raw_text",
+          "normalized_text",
           "resolution_status",
-          "resolved_record_id"
+          "resolved_record_id",
+          "row_version",
+          "resolved_at",
+          "resolved_by_user_id",
+          "resolution_method"
         ]
       },
       "MentionSourceRecordResource": {
@@ -503,7 +580,8 @@
             "format": "uuid"
           },
           "row_version": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [

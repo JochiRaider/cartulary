@@ -38,11 +38,7 @@ import {
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import type { DismissedMention } from "../models/workbookMentionChips";
-import {
-  type AutoResolutionNotice,
-  reconcileDismissedMentionsForRow,
-} from "../models/workbookMentionChips";
+import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 
 type TimelineMutationApplyOptions = {
   readonly clearActiveCollectionFocusKey?: string | undefined;
@@ -72,7 +68,9 @@ function rowStillHasAutoResolvedNotice(
   return (
     item?.itemKind === "resolved_ref" &&
     item.autoResolved &&
-    item.resolvedRecordId !== null
+    item.entityMentionId === notice.entityMentionId &&
+    item.mentionRowVersion === notice.mentionRowVersion &&
+    item.resolvedRecordId === notice.resolvedRecordId
   );
 }
 
@@ -144,7 +142,6 @@ export function useTimelineRowMutationCoordinator({
   rowsRef,
   selectedRowId,
   setAutoResolutionNotices,
-  setDismissedMentionsByRow,
   setPendingQueueSnapshot,
   rowStoreCommands,
   setSelectedRowId,
@@ -167,9 +164,6 @@ export function useTimelineRowMutationCoordinator({
   readonly selectedRowId: string | null;
   readonly setAutoResolutionNotices: Dispatch<
     SetStateAction<AutoResolutionNotice[]>
-  >;
-  readonly setDismissedMentionsByRow: Dispatch<
-    SetStateAction<Record<string, DismissedMention[]>>
   >;
   readonly setPendingQueueSnapshot: (
     snapshot: WorkbookPendingQueueSnapshot,
@@ -321,10 +315,7 @@ export function useTimelineRowMutationCoordinator({
           options.promoteToCommittedRowInspect === true,
         selectedRowId: selectedRowIdRef.current,
       });
-      if (effects.reconcileDismissedMentions) {
-        setDismissedMentionsByRow((current) =>
-          reconcileDismissedMentionsForRow(current, committed),
-        );
+      if (effects.pruneAutoResolutionNotices) {
         pruneAutoResolutionNoticesForRows([committed]);
       }
       appendAutoResolutionNotices(
@@ -361,7 +352,6 @@ export function useTimelineRowMutationCoordinator({
       rowsRef,
       clearActiveCollectionInputKey,
       setAutoResolutionNotices,
-      setDismissedMentionsByRow,
       updateRows,
       setSelectedRowId,
     ],

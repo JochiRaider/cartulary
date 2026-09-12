@@ -1089,9 +1089,8 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineMentionActionPlan.test.ts",
         "titles": [
-          "Timeline Mention action plan admits entity creation only for a current non-empty mention",
-          "Timeline Mention action plan re-reads the exact mention version and validates an existing target",
-          "Timeline Mention action plan rejects invalid targets, access loss, surface changes, and removed mentions"
+          "Timeline Mention action plan binds explicit mention identity separately from opaque selector source and target",
+          "Timeline Mention action plan refuses missing public identity and source versions without parsing selectors"
         ]
       },
       "evidence_class": "unit",

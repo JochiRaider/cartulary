@@ -109,6 +109,7 @@ it("useTimelineInspectorStateComposition preserves continuity and resets selecti
         continuity,
         currentIncidentRole: "editor",
         dismissedMentionsByRow: {},
+        observedMentions: [],
         inspectorResetKey,
         rows: [committedRow],
         selectedMentionRef: null,

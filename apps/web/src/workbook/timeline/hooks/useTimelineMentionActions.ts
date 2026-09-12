@@ -1,562 +1,391 @@
-import { type Dispatch, type SetStateAction, useCallback, useRef } from "react";
-import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { WorkbookSurfaceRefreshError } from "../../collaboration/workbookSurfacePort";
 import {
   type WorkbookInspectorFeedback,
   workbookInspectorMessageFeedback,
-  workbookInspectorOperationFailureFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
+import type { TimelineMentionCandidatePort } from "../actions/TimelineMentionCandidatePort";
 import {
-  planTimelineMentionEntityCreation,
-  planTimelineMentionResolution,
-  type TimelineMentionActionContext,
-  type TimelineMentionResolutionPlan,
-  type TimelineMentionSubject,
-  timelineMentionSubject,
-} from "../models/timelineMentionActionPlan";
+  initialMentionCreateDraft,
+  type MentionCreateReview,
+} from "../actions/timelineMentionCreationModel";
+import {
+  type MentionAction,
+  type MentionBinding,
+  type MentionSubject,
+  sameMentionIntent,
+} from "../actions/timelineMentionOperationModel";
+import { useTimelineMentionCandidates } from "../actions/useTimelineMentionCandidates";
+import type { WorkbookTimelineMentionOperationOwner } from "../actions/WorkbookTimelineMentionOperationOwner";
+import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
+import { timelineMentionSubject } from "../models/timelineMentionActionPlan";
 import type { WorkbookRow } from "../models/timelineRowModel";
-import type {
-  TimelineContinuityRequirementName,
-  TimelineSourceRecordRequirement,
-} from "../models/timelineViewportContinuityModel";
-import type {
-  AutoResolutionNotice,
-  DismissedMention,
-  InspectorMention,
+import {
+  type AutoResolutionNotice,
+  buildInspectorMentions,
+  type DismissedMention,
+  type InspectorMention,
 } from "../models/workbookMentionChips";
-import type { TimelineMentionPorts } from "../ports/TimelineMentionPort";
 
-type TimelineMentionViewportContinuityTarget =
-  | { kind: "row-inspect"; recordId: string }
-  | { kind: "input"; focusKey: string }
-  | { kind: "scroll-only" };
-
-type TimelineMentionLoadRowsOptions = {
-  afterProjectionCommit?: () => void;
-  showLoading: boolean;
-  freshnessRetryDepth?: number;
-  sourceRecordRequirement?: TimelineSourceRecordRequirement;
-  viewportContinuityToken?: number;
-};
-
-type TimelineMentionActionsInput = {
-  readonly actionContext: TimelineMentionActionContext;
-
-  readonly beginViewportContinuity: (
-    target: TimelineMentionViewportContinuityTarget,
-    options?: {
-      requirements?: readonly TimelineContinuityRequirementName[];
-    },
-  ) => number;
-  readonly clearViewportContinuity: (token: number) => void;
-  readonly enqueueSaveWork: (work: () => Promise<void>) => void;
-  readonly knownEntityTypes: ReadonlyMap<string, "host" | "identity">;
-  readonly loadRows: (options: TimelineMentionLoadRowsOptions) => Promise<void>;
-  readonly mentionPorts: TimelineMentionPorts;
-  readonly nextClientTxnId: () => string;
-  readonly onRefreshEntities?: (() => Promise<void> | void) | undefined;
-  readonly requireViewportContinuitySourceRecord: (
-    token: number,
-    requirement: TimelineSourceRecordRequirement,
-  ) => void;
-  readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
+type Input = {
+  readonly owner: WorkbookTimelineMentionOperationOwner;
+  readonly candidatePort: TimelineMentionCandidatePort;
   readonly rowsRef: { readonly current: readonly WorkbookRow[] };
-  readonly setDismissedMentionsByRow: Dispatch<
-    SetStateAction<Record<string, DismissedMention[]>>
-  >;
-  readonly setInspectorMessage: (
-    message: WorkbookInspectorFeedback | null,
-  ) => void;
-  readonly settleViewportContinuityFollowUp: (
-    token: number,
-    requirement: TimelineContinuityRequirementName,
-    state: "settled" | "terminal",
-  ) => void;
-  readonly trackPendingSocketTxn: (clientTxnId: string) => void;
+  readonly earlierSaves: { readonly current: Promise<void> };
+  readonly selectedMention: InspectorMention | null;
+  readonly selectedTargetId: string;
+  readonly setSelectedTargetId: (id: string) => void;
+  readonly presentationKey: string;
+  readonly presentationActive: boolean;
+  readonly restoreActionFocus?: (sourceRecordId: string) => void;
+  readonly refreshProjection?: () => Promise<void>;
   readonly waitForCommittedRecordIdle: (
-    recordId: string,
-  ) => Promise<{ row: WorkbookRow | null; rowVersion: number } | null>;
+    id: string,
+    options: { signal: AbortSignal; refreshIfMissing: boolean },
+  ) => Promise<TimelineCommittedRecordIdleResult | null>;
+  readonly setInspectorMessage: (
+    feedback: WorkbookInspectorFeedback | null,
+  ) => void;
 };
-
-type TimelineMentionAccepted = Extract<
-  Awaited<ReturnType<TimelineMentionPorts["resolution"]["resolve"]>>,
-  { readonly kind: "accepted" }
->["value"];
-
-export function useTimelineMentionActions(input: TimelineMentionActionsInput) {
-  const inputRef = useRef(input);
-  inputRef.current = input;
-
-  const createEntityFromMention = useCallback((mention: InspectorMention) => {
-    const current = inputRef.current;
-    const subject = timelineMentionSubject(
-      mention,
-      current.actionContext.surfaceKey,
-    );
-    const plan = planTimelineMentionEntityCreation({
-      context: current.actionContext,
-      mention,
-      rows: current.rowsRef.current,
-      subject,
-    });
-    if (plan.kind === "reject") {
-      publishMentionPlanRejection(current, plan.reason);
+export function useTimelineMentionActions(input: Input) {
+  const { owner } = input;
+  const snapshot = useSyncExternalStore(owner.subscribe, owner.getSnapshot);
+  const current = useRef(input);
+  current.current = input;
+  useLayoutEffect(
+    () =>
+      owner.registerPresentationRefresh(async (recordId, version) => {
+        try {
+          await current.current.refreshProjection?.();
+        } catch (error) {
+          // A socket-triggered query can supersede this read. A committed visible
+          // source at the required version already satisfies the projection obligation.
+          if (
+            !(error instanceof WorkbookSurfaceRefreshError) ||
+            error.recovery.kind !== "cancelled" ||
+            (current.current.rowsRef.current.find(
+              (row) => row.recordId === recordId,
+            )?.rowVersion ?? 0) < version
+          )
+            throw error;
+        }
+      }),
+    [owner],
+  );
+  const alive = useRef(true);
+  const completionFocus = useRef<{
+    key: number;
+    creation: boolean;
+    presentationKey: string;
+    presentationActive: boolean;
+    selectedMentionId: string | null;
+    authorityGeneration: number;
+    invoker: Element | null;
+    sourceRecordId: string;
+  } | null>(null);
+  const rememberCompletionFocus = useCallback(
+    (creation = false) => {
+      const retained = owner.getSnapshot();
+      const entry = creation
+        ? retained.creations.at(-1)
+        : retained.entries.at(-1);
+      if (!entry) return;
+      completionFocus.current = {
+        key: entry.key,
+        creation,
+        presentationKey: current.current.presentationKey,
+        presentationActive: current.current.presentationActive,
+        selectedMentionId:
+          current.current.selectedMention?.entityMentionId ?? null,
+        authorityGeneration: retained.generation,
+        invoker: document.activeElement,
+        sourceRecordId: entry.attempt.review.subject.sourceRecordId,
+      };
+    },
+    [owner],
+  );
+  useLayoutEffect(() => {
+    const focus = completionFocus.current;
+    if (!focus) return;
+    if (
+      focus.presentationKey !== input.presentationKey ||
+      focus.presentationActive !== input.presentationActive ||
+      focus.selectedMentionId !==
+        (input.selectedMention?.entityMentionId ?? null) ||
+      focus.authorityGeneration !== snapshot.generation
+    ) {
+      completionFocus.current = null;
       return;
     }
-    const token = current.beginViewportContinuity(
-      { kind: "row-inspect", recordId: subject.rowRecordId },
-      { requirements: ["entity-refresh"] },
-    );
-    current.setInspectorMessage(null);
-    current.enqueueSaveWork(() =>
-      executeMentionEntityCreation({ inputRef, mention, subject, token }),
-    );
-  }, []);
-
-  const submitMentionAction = useCallback(
-    (
-      mention: InspectorMention,
-      action: MentionResolutionAction,
-      resolvedRecordId?: string,
-    ) => {
-      const current = inputRef.current;
-      const subject = timelineMentionSubject(
-        mention,
-        current.actionContext.surfaceKey,
-      );
-      const plan = planTimelineMentionResolution({
-        action,
-        context: current.actionContext,
-        knownEntityTypes: current.knownEntityTypes,
-        mention,
-        resolvedRecordId,
-        rows: current.rowsRef.current,
-        subject,
-      });
-      if (plan.kind === "reject") {
-        publishMentionPlanRejection(current, plan.reason);
-        return;
-      }
-      const token = current.beginViewportContinuity({
-        kind: "row-inspect",
-        recordId: subject.rowRecordId,
-      });
-      current.setInspectorMessage(null);
-      current.enqueueSaveWork(() =>
-        executeMentionResolution({
-          action,
-          inputRef,
-          mention,
-          resolvedRecordId,
-          subject,
-          token,
-        }),
-      );
-    },
-    [],
-  );
-
-  const handleUndoAutoResolutionNotice = useCallback(
-    (notice: AutoResolutionNotice) => {
-      const mention = timelineMentionForAutoResolutionNotice(
-        inputRef.current.rowsRef.current,
-        notice,
-      );
-      if (mention !== null) {
-        submitMentionAction(mention, "revert_to_unresolved");
-      }
-    },
-    [submitMentionAction],
-  );
-
-  return {
-    createEntityFromMention,
-    handleUndoAutoResolutionNotice,
-    submitMentionAction,
-  };
-}
-
-async function executeMentionEntityCreation(options: {
-  readonly inputRef: { readonly current: TimelineMentionActionsInput };
-  readonly mention: InspectorMention;
-  readonly subject: TimelineMentionSubject;
-  readonly token: number;
-}): Promise<void> {
-  const currentPlan = await currentMentionPlan({
-    action: "resolve_item",
-    forEntityCreation: true,
-    inputRef: options.inputRef,
-    mention: options.mention,
-    subject: options.subject,
-  });
-  if (currentPlan.kind === "reject") {
-    failMentionPlan(
-      options.inputRef.current,
-      options.token,
-      currentPlan.reason,
-    );
-    return;
-  }
-  const current = options.inputRef.current;
-  const createResult = await current.mentionPorts.entityCreation.createEntity({
-    clientTxnId: current.nextClientTxnId(),
-    entityType: currentPlan.mention.entityType,
-    rawText: currentPlan.mention.rawText,
-  });
-  if (createResult.kind === "rejected") {
-    failMentionOperation(current, options.token, createResult.failure);
-    return;
-  }
-  const resolutionPlan = await currentMentionPlan({
-    action: "resolve_item",
-    allowUnknownResolvedTarget: true,
-    inputRef: options.inputRef,
-    mention: options.mention,
-    resolvedRecordId: createResult.value.recordId,
-    subject: options.subject,
-  });
-  if (resolutionPlan.kind === "reject") {
-    failMentionPlan(
-      options.inputRef.current,
-      options.token,
-      resolutionPlan.reason,
-    );
-    return;
-  }
-  const accepted = await dispatchMentionResolution(
-    options.inputRef,
-    resolutionPlan,
-    options.subject,
-  );
-  if (accepted === null) {
-    options.inputRef.current.clearViewportContinuity(options.token);
-    return;
-  }
-  await settleMentionProjection(
-    options.inputRef.current,
-    accepted,
-    options.token,
-  );
-  await settleEntityRefresh(options.inputRef.current, options.token);
-}
-
-async function executeMentionResolution(options: {
-  readonly action: MentionResolutionAction;
-  readonly inputRef: { readonly current: TimelineMentionActionsInput };
-  readonly mention: InspectorMention;
-  readonly resolvedRecordId?: string | undefined;
-  readonly subject: TimelineMentionSubject;
-  readonly token: number;
-}): Promise<void> {
-  const plan = await currentMentionPlan({
-    action: options.action,
-    inputRef: options.inputRef,
-    mention: options.mention,
-    resolvedRecordId: options.resolvedRecordId,
-    subject: options.subject,
-  });
-  if (plan.kind === "reject") {
-    failMentionPlan(options.inputRef.current, options.token, plan.reason);
-    return;
-  }
-  const accepted = await dispatchMentionResolution(
-    options.inputRef,
-    plan,
-    options.subject,
-  );
-  if (accepted === null) {
-    options.inputRef.current.clearViewportContinuity(options.token);
-    return;
-  }
-  await settleMentionProjection(
-    options.inputRef.current,
-    accepted,
-    options.token,
-    mentionFollowUp(
-      options.inputRef.current,
-      options.action,
-      plan.mention,
-      accepted,
-    ),
-  );
-}
-
-async function currentMentionPlan(options: {
-  readonly action: MentionResolutionAction;
-  readonly allowUnknownResolvedTarget?: boolean;
-  readonly forEntityCreation?: boolean;
-  readonly inputRef: { readonly current: TimelineMentionActionsInput };
-  readonly mention: InspectorMention;
-  readonly resolvedRecordId?: string | undefined;
-  readonly subject: TimelineMentionSubject;
-}): Promise<TimelineMentionResolutionPlan> {
-  const idle = await options.inputRef.current.waitForCommittedRecordIdle(
-    options.subject.rowRecordId,
-  );
-  const current = options.inputRef.current;
-  const rows = idle?.row === null || idle === null ? [] : [idle.row];
-  return options.forEntityCreation
-    ? planTimelineMentionEntityCreation({
-        context: current.actionContext,
-        mention: options.mention,
-        rows,
-        subject: options.subject,
-      })
-    : planTimelineMentionResolution({
-        action: options.action,
-        ...(options.allowUnknownResolvedTarget === undefined
-          ? {}
-          : {
-              allowUnknownResolvedTarget: options.allowUnknownResolvedTarget,
-            }),
-        context: current.actionContext,
-        knownEntityTypes: current.knownEntityTypes,
-        mention: options.mention,
-        resolvedRecordId: options.resolvedRecordId,
-        rows,
-        subject: options.subject,
-      });
-}
-
-async function dispatchMentionResolution(
-  inputRef: { readonly current: TimelineMentionActionsInput },
-  plan: Extract<TimelineMentionResolutionPlan, { kind: "dispatch" }>,
-  subject: TimelineMentionSubject,
-) {
-  const current = inputRef.current;
-  const clientTxnId = current.nextClientTxnId();
-  current.trackPendingSocketTxn(clientTxnId);
-  const result = await current.mentionPorts.resolution.resolve({
-    ...plan.request,
-    clientTxnId,
-  });
-  if (result.kind === "accepted") {
-    const latest = inputRef.current;
-    const settlementPlan = planTimelineMentionResolution({
-      action: plan.request.action,
-      allowUnknownResolvedTarget: true,
-      context: latest.actionContext,
-      knownEntityTypes: latest.knownEntityTypes,
-      mention: plan.mention,
-      resolvedRecordId: plan.request.resolvedRecordId,
-      rows: latest.rowsRef.current,
-      subject,
-    });
-    if (settlementPlan.kind === "dispatch") return result.value;
-    // A refresh can project the accepted dismissal before its response settles.
-    // The action's permission, surface and live source checks still apply;
-    // absence from that source's active collection is the expected result.
+    const creation = focus.creation
+      ? snapshot.creations.find((entry) => entry.key === focus.key)
+      : null;
+    if (creation && ["pending", "refreshing"].includes(creation.refresh))
+      return;
+    const key = creation ? creation.linkKey : focus.key;
+    const entry = snapshot.entries.find((entry) => entry.key === key);
+    if (entry?.refresh !== "complete") return;
+    completionFocus.current = null;
     if (
-      plan.request.action === "dismiss_item" &&
-      settlementPlan.reason === "mention_missing" &&
-      latest.rowsRef.current.some(
-        (row) =>
-          row.recordId === result.value.sourceRecord.recordId &&
-          row.rowVersion !== null &&
-          row.rowVersion >= result.value.sourceRecord.rowVersion,
+      document.activeElement === focus.invoker ||
+      document.activeElement === document.body
+    )
+      input.restoreActionFocus?.(focus.sourceRecordId);
+  }, [
+    input.presentationKey,
+    input.presentationActive,
+    input.selectedMention?.entityMentionId,
+    input.restoreActionFocus,
+    snapshot,
+  ]);
+  const subject = input.selectedMention
+    ? timelineMentionSubject(
+        input.selectedMention,
+        input.rowsRef.current.find(
+          (row) => row.recordId === input.selectedMention?.rowRecordId,
+        ) ?? null,
+        owner.incidentId,
+      )
+    : null;
+  const presentationKey = `${input.presentationKey}:${input.presentationActive}:${subject?.mentionId ?? ""}:${subject?.mentionRowVersion ?? ""}`;
+  const presentation = useRef({ key: presentationKey, generation: 0 });
+  if (presentation.current.key !== presentationKey)
+    presentation.current = {
+      key: presentationKey,
+      generation: presentation.current.generation + 1,
+    };
+  const [createReview, setCreateReview] = useState<MentionCreateReview | null>(
+    null,
+  );
+  const draftRef = useRef(createReview);
+  draftRef.current = createReview;
+  const candidates = useTimelineMentionCandidates(
+    input.candidatePort,
+    subject?.entityType ?? "host",
+    `${presentationKey}:${snapshot.generation}`,
+    input.presentationActive &&
+      !!snapshot.authority &&
+      subject !== null &&
+      subject.state !== "dismissed",
+  );
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      presentation.current.key !== presentationKey ||
+      owner.getSnapshot().generation !== snapshot.generation
+    )
+      return;
+    setCreateReview(null);
+    current.current.setSelectedTargetId("");
+  }, [owner, presentationKey, snapshot.generation]);
+  const binding = useCallback(
+    (
+      expected: MentionSubject,
+      reviewedIntent: () => boolean,
+      notice = false,
+    ): MentionBinding => {
+      const generation = presentation.current.generation;
+      const origin = current.current.presentationKey;
+      const earlier = current.current.earlierSaves.current;
+      const isCurrent = () =>
+        alive.current &&
+        (notice || current.current.presentationActive) &&
+        current.current.presentationKey === origin &&
+        (notice || presentation.current.generation === generation) &&
+        reviewedIntent();
+      return {
+        isCurrent,
+        prepare: async (signal) => {
+          await earlier;
+          if (signal.aborted || !isCurrent()) return null;
+          const idle = await current.current.waitForCommittedRecordIdle(
+            expected.sourceRecordId,
+            { signal, refreshIfMissing: false },
+          );
+          if (!idle?.row || signal.aborted || !isCurrent()) return null;
+          return currentSubject(idle.row, expected.mentionId, owner);
+        },
+      };
+    },
+    [owner],
+  );
+  const feedback = (message: string) =>
+    input.setInspectorMessage(
+      workbookInspectorMessageFeedback(message, "none"),
+    );
+  function act(intent: MentionAction) {
+    if (!subject || !snapshot.authority) {
+      feedback("Mention identity is unavailable. Refresh before acting.");
+      return;
+    }
+    const target =
+      intent.action === "resolve_item"
+        ? candidates.candidates.find(
+            (candidate) => candidate.recordId === intent.resolvedRecordId,
+          )
+        : null;
+    if (
+      intent.action === "resolve_item" &&
+      (!target || target.entityType !== subject.entityType)
+    ) {
+      feedback("Choose a loaded eligible target.");
+      return;
+    }
+    const reviewedIntent = () =>
+      intent.action !== "resolve_item" ||
+      current.current.selectedTargetId === intent.resolvedRecordId;
+    if (
+      !owner.submit(
+        { subject, intent, authority: snapshot.authority },
+        binding(subject, reviewedIntent),
       )
     )
-      return result.value;
-    latest.resolvePendingSocketTxn(clientTxnId);
-    return null;
+      feedback(
+        "Review the current mention and recover any earlier operation before acting.",
+      );
+    else {
+      rememberCompletionFocus();
+      input.setInspectorMessage(null);
+    }
   }
-  inputRef.current.resolvePendingSocketTxn(clientTxnId);
-  inputRef.current.setInspectorMessage(
-    workbookInspectorOperationFailureFeedback(result.failure),
-  );
-  return null;
-}
-
-async function settleMentionProjection(
-  input: TimelineMentionActionsInput,
-  accepted: TimelineMentionAccepted,
-  token: number,
-  followUp?: (() => void) | undefined,
-): Promise<void> {
-  const requirement: TimelineSourceRecordRequirement = {
-    recordId: accepted.sourceRecord.recordId,
-    minimumRowVersion: accepted.sourceRecord.rowVersion,
-  };
-  input.requireViewportContinuitySourceRecord(token, requirement);
-  await input.loadRows({
-    afterProjectionCommit: () => {
-      followUp?.();
-    },
-    showLoading: false,
-    sourceRecordRequirement: requirement,
-    viewportContinuityToken: token,
-  });
-}
-
-async function settleEntityRefresh(
-  input: TimelineMentionActionsInput,
-  token: number,
-): Promise<void> {
-  let state: "settled" | "terminal" = "settled";
-  try {
-    if (input.onRefreshEntities === undefined) state = "terminal";
-    else await input.onRefreshEntities();
-  } catch (error) {
-    state = "terminal";
-    throw error;
-  } finally {
-    input.settleViewportContinuityFollowUp(token, "entity-refresh", state);
+  function startCreate() {
+    if (
+      subject?.state !== "unresolved" ||
+      !snapshot.authority ||
+      !owner.canCreate(subject.entityType) ||
+      owner.creationForMention(subject.mentionId)?.receipt
+    )
+      return;
+    setCreateReview({
+      subject,
+      authority: snapshot.authority,
+      draft: initialMentionCreateDraft(subject),
+    });
   }
-}
-
-function mentionFollowUp(
-  input: TimelineMentionActionsInput,
-  action: MentionResolutionAction,
-  mention: InspectorMention,
-  accepted: TimelineMentionAccepted,
-): (() => void) | undefined {
-  if (action === "dismiss_item") {
-    return () => {
-      input.setDismissedMentionsByRow((current) => ({
-        ...current,
-        [mention.rowRecordId]: [
-          ...(current[mention.rowRecordId] ?? []).filter(
-            (item) => item.itemRef !== mention.itemRef,
-          ),
-          dismissedMention(mention, accepted),
-        ],
-      }));
-    };
-  }
-  if (action !== "revert_to_unresolved") return undefined;
-  return () => {
-    input.setDismissedMentionsByRow((current) =>
-      withoutDismissedMention(current, mention),
+  function submitCreate() {
+    const review = createReview;
+    if (!review || !subject || !sameMentionIntent(review.subject, subject)) {
+      feedback("Review the current mention before creating.");
+      return;
+    }
+    const accepted = owner.createAndResolve(
+      review,
+      binding(review.subject, () => draftRef.current === review),
     );
-  };
-}
-
-function dismissedMention(
-  mention: InspectorMention,
-  accepted: TimelineMentionAccepted,
-): DismissedMention {
-  const entityMention = accepted.entityMention;
-  return {
-    autoResolved: mention.autoResolved,
-    confidence: mention.confidence,
-    displayText: mention.displayText,
-    entityType:
-      entityMention.entityType === "identity" ? "identity" : mention.entityType,
-    fieldKey:
-      entityMention.sourceFieldKey === "timeline.identity_refs"
-        ? "timeline.identity_refs"
-        : mention.fieldKey,
-    itemRef: mention.itemRef,
-    matchedAliasText: mention.matchedAliasText,
-    mentionRowVersion: entityMention.rowVersion,
-    priorTargetEntityRecordId:
-      mention.anchor.targetEntityRecordId ??
-      mention.priorTargetEntityRecordId ??
-      mention.resolvedRecordId,
-    provenance: mention.provenance,
-    rawText: entityMention.rawText ?? mention.rawText,
-    resolutionMethod:
-      entityMention.resolutionMethod ?? mention.resolutionMethod,
-    resolvedRecordId: mention.resolvedRecordId,
-    rowRecordId: mention.rowRecordId,
-  };
-}
-
-function withoutDismissedMention(
-  current: Record<string, DismissedMention[]>,
-  mention: InspectorMention,
-): Record<string, DismissedMention[]> {
-  const retained = (current[mention.rowRecordId] ?? []).filter(
-    (item) => item.itemRef !== mention.itemRef,
-  );
-  if (retained.length > 0) {
-    return { ...current, [mention.rowRecordId]: retained };
+    if (!accepted)
+      feedback(
+        "Review the entity fields and recover any earlier creation before submitting.",
+      );
+    else {
+      rememberCompletionFocus(true);
+      input.setInspectorMessage(null);
+    }
   }
-  const next = { ...current };
-  delete next[mention.rowRecordId];
-  return next;
-}
-
-function failMentionPlan(
-  input: TimelineMentionActionsInput,
-  token: number,
-  reason: Extract<TimelineMentionResolutionPlan, { kind: "reject" }>["reason"],
-): void {
-  input.clearViewportContinuity(token);
-  publishMentionPlanRejection(input, reason);
-}
-
-function publishMentionPlanRejection(
-  input: TimelineMentionActionsInput,
-  reason: Extract<TimelineMentionResolutionPlan, { kind: "reject" }>["reason"],
-): void {
-  const message =
-    reason === "target_missing"
-      ? "Select a target first."
-      : reason === "mention_version_missing"
-        ? "Missing mention row version."
-        : reason === "mention_missing"
-          ? "Missing entity mention identifier."
-          : "The selected Timeline mention is no longer available.";
-  input.setInspectorMessage(workbookInspectorMessageFeedback(message, "none"));
-}
-
-function failMentionOperation(
-  input: TimelineMentionActionsInput,
-  token: number,
-  failure: Parameters<typeof workbookInspectorOperationFailureFeedback>[0],
-): void {
-  input.clearViewportContinuity(token);
-  input.setInspectorMessage(workbookInspectorOperationFailureFeedback(failure));
-}
-
-export function timelineMentionForAutoResolutionNotice(
-  rows: readonly WorkbookRow[],
-  notice: AutoResolutionNotice,
-): InspectorMention | null {
-  const row = rows.find(
-    (candidate) => candidate.recordId === notice.rowRecordId,
-  );
-  if (row?.recordId === null || row === undefined) return null;
-  const activeItems =
-    notice.fieldKey === "timeline.identity_refs"
-      ? row.collectionValues.identityRefs
-      : row.collectionValues.hostRefs;
-  const activeItem = activeItems.find(
-    (item) =>
-      item.itemRef === notice.itemRef && item.itemKind === "resolved_ref",
-  );
-  if (activeItem === undefined) return null;
-  return {
-    anchor: {
-      entityMentionId: entityMentionIdFromItemRef(activeItem.itemRef),
-      fieldKey: notice.fieldKey,
-      itemRef: activeItem.itemRef,
-      recordId: row.recordId,
-      targetEntityRecordId: activeItem.resolvedRecordId,
+  const handleUndoAutoResolutionNotice = useCallback(
+    (notice: AutoResolutionNotice) => {
+      const row = current.current.rowsRef.current.find(
+        (row) => row.recordId === notice.rowRecordId,
+      );
+      const subject = row
+        ? currentSubject(row, notice.entityMentionId, owner)
+        : null;
+      const authority = owner.getSnapshot().authority;
+      const matches = () => {
+        const row = current.current.rowsRef.current.find(
+          (row) => row.recordId === notice.rowRecordId,
+        );
+        const latest = row
+          ? currentSubject(row, notice.entityMentionId, owner)
+          : null;
+        return (
+          latest?.state === "resolved" &&
+          latest.resolutionMethod === "auto_match" &&
+          latest.mentionRowVersion === notice.mentionRowVersion &&
+          latest.resolvedRecordId === notice.resolvedRecordId &&
+          latest.itemRef === notice.itemRef
+        );
+      };
+      if (!subject || !authority || !matches()) return;
+      if (
+        owner.submit(
+          { subject, authority, intent: { action: "revert_to_unresolved" } },
+          binding(subject, matches, true),
+        )
+      )
+        rememberCompletionFocus();
     },
-    autoResolved: activeItem.autoResolved,
-    chipState: activeItem.autoResolved ? "auto_resolved" : "resolved",
-    confidence: activeItem.confidence,
-    displayText: activeItem.displayText,
-    entityType: activeItem.entityType,
-    fieldKey: notice.fieldKey,
-    isActiveRelationshipValue: true,
-    itemRef: activeItem.itemRef,
-    matchedAliasText: activeItem.matchedAliasText,
-    mentionRowVersion: activeItem.mentionRowVersion,
-    priorTargetEntityRecordId: null,
-    provenance: activeItem.provenance,
-    rawText: activeItem.rawText,
-    resolutionMethod: activeItem.resolutionMethod,
-    resolvedRecordId: activeItem.resolvedRecordId,
-    rowRecordId: row.recordId,
-    sourceKind: "entity_mention",
-    status: "resolved",
+    [owner, binding, rememberCompletionFocus],
+  );
+  return {
+    owner,
+    snapshot,
+    subject,
+    candidates,
+    createReview,
+    selectedTargetId: input.selectedTargetId,
+    changeTarget: input.setSelectedTargetId,
+    act,
+    startCreate,
+    submitCreate,
+    cancelCreate: () => setCreateReview(null),
+    updateCreateDraft: (key: string, value: string) =>
+      setCreateReview((review) =>
+        review ? { ...review, draft: { ...review.draft, [key]: value } } : null,
+      ),
+    linkCreated: (key: number) => {
+      if (
+        subject &&
+        owner.linkCreated(
+          key,
+          subject,
+          binding(subject, () => true),
+        )
+      )
+        rememberCompletionFocus();
+    },
+    handleUndoAutoResolutionNotice,
   };
 }
-
-function entityMentionIdFromItemRef(itemRef: string): string | null {
-  return itemRef.startsWith("entity_mention:")
-    ? itemRef.slice("entity_mention:".length) || null
+export function currentSubject(
+  row: WorkbookRow,
+  id: string | null,
+  owner: WorkbookTimelineMentionOperationOwner,
+): MentionSubject | null {
+  const observed = owner.getSnapshot().mentions;
+  const dismissed: DismissedMention[] = observed
+    .filter(
+      (subject) =>
+        subject.sourceRecordId === row.recordId &&
+        subject.state === "dismissed",
+    )
+    .map((subject) => ({
+      entityMentionId: subject.mentionId,
+      rowRecordId: subject.sourceRecordId,
+      fieldKey: subject.sourceFieldKey,
+      entityType: subject.entityType,
+      itemRef: subject.itemRef,
+      rawText: subject.rawText,
+      resolvedRecordId: null,
+      mentionRowVersion: subject.mentionRowVersion,
+      resolutionMethod: null,
+      autoResolved: false,
+    }));
+  const mention = buildInspectorMentions(row, dismissed, observed).find(
+    (mention) => mention.entityMentionId === id,
+  );
+  return mention
+    ? timelineMentionSubject(mention, row, owner.incidentId)
     : null;
 }

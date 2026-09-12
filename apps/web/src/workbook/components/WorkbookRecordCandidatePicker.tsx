@@ -9,6 +9,7 @@ export function WorkbookRecordCandidatePicker({
   candidates,
   disabled = false,
   label,
+  selection = "multiple",
   onSelectedRecordIdsChange,
   selectedRecordIds,
   testId,
@@ -16,6 +17,7 @@ export function WorkbookRecordCandidatePicker({
   readonly candidates: readonly WorkbookRecordCandidate[];
   readonly disabled?: boolean | undefined;
   readonly label: string;
+  readonly selection?: "single" | "multiple";
   readonly onSelectedRecordIdsChange: (recordIds: string[]) => void;
   readonly selectedRecordIds: readonly string[];
   readonly testId: string;
@@ -26,18 +28,29 @@ export function WorkbookRecordCandidatePicker({
       <select
         data-testid={testId}
         disabled={disabled}
-        multiple
-        size={Math.min(Math.max(candidates.length, 2), 5)}
+        multiple={selection === "multiple"}
+        size={
+          selection === "multiple"
+            ? Math.min(Math.max(candidates.length, 2), 5)
+            : undefined
+        }
         style={selectStyle}
-        value={selectedRecordIds}
+        value={
+          selection === "multiple"
+            ? selectedRecordIds
+            : (selectedRecordIds[0] ?? "")
+        }
         onChange={(event) => {
           onSelectedRecordIdsChange(
-            Array.from(event.currentTarget.selectedOptions).map(
-              (option) => option.value,
-            ),
+            Array.from(event.currentTarget.selectedOptions)
+              .map((option) => option.value)
+              .filter(Boolean),
           );
         }}
       >
+        {selection === "single" ? (
+          <option value="">Choose a target</option>
+        ) : null}
         {candidates.map((candidate) => (
           <option key={candidate.recordId} value={candidate.recordId}>
             {candidate.displayText}

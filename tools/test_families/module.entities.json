@@ -221,6 +221,45 @@
       ]
     },
     {
+      "row_id": "module.entities.browser.timeline_mention_creation_recovery",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.application",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/mentions.recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_timeline_mention_rejected_link_recovery",
+          "scenario_timeline_mention_uncertain_link_recovery"
+        ],
+        "titles": [
+          "Mention creation survives rejected resolution and sheet navigation without another creation",
+          "Mention creation survives uncertain resolution and sheet navigation without another creation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.entities.browser.verify_hosts_identities_and_notes_grids_render_c_7531b57a50",
       "owner_id": "module.entities",
       "family_id": "module.entities.browser",
@@ -846,6 +885,37 @@
       "minimum_tier": "full",
       "service_dependencies": [
         "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.entities.support_integration.timeline_mention_projection_upgrade_preserves_so_dabe8cb065",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [
+        "module.database_migrations",
+        "module.projections",
+        "module.timeline",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestTimelineMentionProjectionIdentityMigration_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
         "postgres"
       ]
     },

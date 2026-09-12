@@ -1,6 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { timelineCaptureReview } from "../../../testing/timelineCaptureActionTestSupport";
 import {
+  mentionCreationReceipt,
+  mentionReceipt,
+  mentionReview,
+} from "../../../testing/timelineMentionTestSupport";
+import {
   successEnvelope,
   timelineRow,
 } from "../../../testing/timelineWorkbookTestSupport";
@@ -8,9 +13,9 @@ import { createWorkbookRecordHistoryAdapter } from "../../adapters/createWorkboo
 import type { HistoryAttempt } from "../../history/workbookHistoryOperation";
 import {
   evidenceViewSchemaId,
-  hostsViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
+import { initialMentionCreateDraft } from "../actions/timelineMentionCreationModel";
 import { createDraftRowForKey, rowFromApi } from "../models/timelineRowModel";
 import { createTimelineBulkTagCommandAdapter } from "./createTimelineBulkTagCommandAdapter";
 import { createTimelineEvidenceAttachmentAdapter } from "./createTimelineEvidenceAttachmentAdapter";
@@ -24,7 +29,6 @@ const replacementRecordId = "20000000-0000-4000-8000-000000000002";
 const evidenceRecordId = "20000000-0000-4000-8000-000000000003";
 const changeSetId = "30000000-0000-4000-8000-000000000001";
 const objectBlobId = "40000000-0000-4000-8000-000000000001";
-const mentionId = "60000000-0000-4000-8000-000000000001";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -197,109 +201,51 @@ it("normalizes Timeline review outcomes and fails closed on supersede replacemen
 });
 
 it("owns entity mention creation and resolution transport behind semantic outcomes", async () => {
+  const review = mentionReview();
+  const createReview = {
+    subject: review.subject,
+    authority: review.authority,
+    draft: initialMentionCreateDraft(review.subject),
+  };
+  const created = mentionCreationReceipt(createReview);
   const fetchMock = vi
     .fn()
-    .mockResolvedValueOnce(
-      successEnvelope({
-        change_set_id: changeSetId,
-        row: { cells: {}, record_id: replacementRecordId, row_version: 1 },
-        view_schema_id: hostsViewSchemaId,
-      }),
-    )
-    .mockResolvedValueOnce(
-      successEnvelope({
-        active_link: null,
-        change_set_id: changeSetId,
-        entity_mention: {
-          entity_mention_id: mentionId,
-          entity_type: "host",
-          raw_text: "server.example",
-          resolution_method: "manual",
-          resolution_status: "resolved",
-          resolved_record_id: replacementRecordId,
-          row_version: 3,
-          source_field_key: "timeline.activity_synopsis_text",
-        },
-        incident_id: incidentId,
-        source_record: { record_id: recordId, row_version: 7 },
-      }),
-    )
-    .mockResolvedValueOnce(
-      successEnvelope({
-        active_link: null,
-        change_set_id: changeSetId,
-        entity_mention: {
-          entity_mention_id: mentionId,
-          entity_type: { malformed: true },
-          raw_text: "server.example",
-          resolution_method: "manual",
-          resolution_status: "resolved",
-          resolved_record_id: replacementRecordId,
-          row_version: 4,
-          source_field_key: "timeline.activity_synopsis_text",
-        },
-        incident_id: incidentId,
-        source_record: { record_id: recordId, row_version: 8 },
-      }),
-    );
+    .mockResolvedValueOnce(successEnvelope(created.data))
+    .mockResolvedValueOnce(successEnvelope(mentionReceipt(review)));
   vi.stubGlobal("fetch", fetchMock);
-  const mentionEntityCreation = createTimelineMentionEntityCreationAdapter({
-    apiBase: "/base",
-    incidentId,
-  });
-  const mentionResolution = createTimelineMentionResolutionAdapter({
+  const creation = createTimelineMentionEntityCreationAdapter({
     apiBase: "/base",
   });
-
-  await expect(
-    mentionEntityCreation.createEntity({
-      clientTxnId: "txn-create-host",
-      entityType: "host",
-      rawText: "server.example",
-    }),
-  ).resolves.toEqual({
-    kind: "accepted",
-    value: { recordId: replacementRecordId },
+  const resolution = createTimelineMentionResolutionAdapter({
+    apiBase: "/base",
   });
   await expect(
-    mentionResolution.resolve({
-      action: "resolve_item",
-      baseMentionRowVersion: 2,
-      clientTxnId: "txn-resolve",
-      expectedSourceRecordId: recordId,
-      mentionId,
-      resolvedRecordId: replacementRecordId,
-    }),
+    creation.send(
+      creation.capture(createReview, "create-key"),
+      new AbortController().signal,
+    ),
   ).resolves.toMatchObject({
     kind: "accepted",
-    value: {
-      entityMention: { entityType: "host", rowVersion: 3 },
-      sourceRecord: { recordId, rowVersion: 7 },
-    },
+    receipt: { data: created.data },
   });
   await expect(
-    mentionResolution.resolve({
-      action: "resolve_item",
-      baseMentionRowVersion: 3,
-      clientTxnId: "txn-resolve-malformed",
-      expectedSourceRecordId: recordId,
-      mentionId,
-      resolvedRecordId: replacementRecordId,
-    }),
-  ).resolves.toMatchObject({
-    kind: "rejected",
-    failure: { kind: "invalid_contract" },
-  });
-  expect(requestBody(fetchMock, 0)).toEqual({
-    client_txn_id: "txn-create-host",
-    "host.display_name": "server.example",
-    "host.fqdn": "server.example",
+    resolution.send(
+      resolution.capture(review, "resolve-key"),
+      new AbortController().signal,
+    ),
+  ).resolves.toEqual({ kind: "accepted", receipt: mentionReceipt(review) });
+  expect(requestBody(fetchMock, 0)).toMatchObject({
+    client_txn_id: "create-key",
+    "host.display_name": "Raw.Host",
   });
   expect(requestBody(fetchMock, 1)).toEqual({
     action: "resolve_item",
     base_mention_row_version: 2,
-    client_txn_id: "txn-resolve",
-    resolved_record_id: replacementRecordId,
+    client_txn_id: "resolve-key",
+    resolved_record_id:
+      review.intent.action === "resolve_item"
+        ? review.intent.resolvedRecordId
+        : "",
   });
 });
 

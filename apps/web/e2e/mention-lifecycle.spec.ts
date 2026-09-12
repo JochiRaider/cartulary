@@ -23,9 +23,9 @@ import {
   aliasCollectionActionsPayload,
   collectionActionsPayload,
   collectionItems,
-  entityMentionIdFromItemRef,
   findRow,
   hostRefsFieldKey,
+  publicEntityMentionId,
   readMentionAction,
   readMentionActionRequest,
   requireItemByRawText,
@@ -125,7 +125,7 @@ test(exactScenarioTitle, async ({ page }) => {
 
   const manualResolveResponsePromise = waitForMentionAction(
     page,
-    manualMention.item_ref,
+    manualMention,
   );
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
@@ -173,10 +173,7 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   expect(manualResolvedItem.auto_resolved).not.toBe(true);
 
-  const dismissResponsePromise = waitForMentionAction(
-    page,
-    manualMention.item_ref,
-  );
+  const dismissResponsePromise = waitForMentionAction(page, manualMention);
   await page.getByTestId(mentionDismissButtonTestId()).click();
   const dismissResponse = await dismissResponsePromise;
   const dismissEnvelope = await readMentionAction(
@@ -207,10 +204,7 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   expect(collectionItems(manualDismissedRow, hostRefsFieldKey)).toHaveLength(0);
 
-  const restoreResponsePromise = waitForMentionAction(
-    page,
-    manualMention.item_ref,
-  );
+  const restoreResponsePromise = waitForMentionAction(page, manualMention);
   await page.getByTestId(mentionRestoreUnresolvedButtonTestId()).click();
   const restoreResponse = await restoreResponsePromise;
   const restoreEnvelope = await readMentionAction(
@@ -281,12 +275,12 @@ test(exactScenarioTitle, async ({ page }) => {
 
   const removeFailedCorrectionRoute = await routeFailedMentionActionOnce(
     page,
-    autoCorrectionItem.item_ref,
+    autoCorrectionItem,
     "entity-mention-auto-correction-conflict",
   );
   const failedCorrectionResponsePromise = waitForMentionAction(
     page,
-    autoCorrectionItem.item_ref,
+    autoCorrectionItem,
   );
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
@@ -299,7 +293,7 @@ test(exactScenarioTitle, async ({ page }) => {
 
   const correctionResponsePromise = waitForMentionAction(
     page,
-    autoCorrectionItem.item_ref,
+    autoCorrectionItem,
   );
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
@@ -359,13 +353,10 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   const removeFailedUndoRoute = await routeFailedMentionActionOnce(
     page,
-    autoUndoItem.item_ref,
+    autoUndoItem,
     "entity-mention-auto-undo-conflict",
   );
-  const failedUndoResponsePromise = waitForMentionAction(
-    page,
-    autoUndoItem.item_ref,
-  );
+  const failedUndoResponsePromise = waitForMentionAction(page, autoUndoItem);
   await autoUndoNotice
     .getByTestId(autoResolutionUndoButtonTestId(String(autoUndoItem.item_ref)))
     .click();
@@ -374,7 +365,7 @@ test(exactScenarioTitle, async ({ page }) => {
   await expect(autoUndoNotice).toBeVisible();
   await removeFailedUndoRoute();
 
-  const undoResponsePromise = waitForMentionAction(page, autoUndoItem.item_ref);
+  const undoResponsePromise = waitForMentionAction(page, autoUndoItem);
   await autoUndoNotice
     .getByTestId(autoResolutionUndoButtonTestId(String(autoUndoItem.item_ref)))
     .click();
@@ -413,10 +404,10 @@ test(exactScenarioTitle, async ({ page }) => {
 
 async function routeFailedMentionActionOnce(
   page: Page,
-  itemRef: unknown,
+  item: Record<string, unknown>,
   requestId: string,
 ) {
-  const mentionId = entityMentionIdFromItemRef(itemRef);
+  const mentionId = publicEntityMentionId(item);
   const routePattern = `**/api/v1/entity-mentions/${mentionId}/resolve`;
   let handled = false;
   const routeHandler = async (route: Route) => {

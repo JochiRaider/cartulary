@@ -11,6 +11,7 @@ it("WorkbookRelationshipChip preserves state details selectors and optional sele
   const inspect = vi.fn();
   const parentKeyDown = vi.fn();
   const item: CollectionItem = {
+    entityMentionId: "source-mention",
     itemRef: "entity_mention:source-mention",
     entityType: "host",
     itemKind: "resolved_ref",

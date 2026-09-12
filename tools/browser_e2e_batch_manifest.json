@@ -622,6 +622,28 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-mentions-recovery",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.entities.browser.timeline_mention_creation_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/mentions.recovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-mentions-resolve",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1620,6 +1642,28 @@
           ],
           "specs": [
             "apps/web/e2e/mentions.lifecycle.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-mentions-recovery",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.entities.browser.timeline_mention_creation_recovery"
+          ],
+          "specs": [
+            "apps/web/e2e/mentions.recovery.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

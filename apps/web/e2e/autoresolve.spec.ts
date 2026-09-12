@@ -131,7 +131,7 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
   );
 
   await expect(eligibleRowItems.getByTestId(eligibleChipId)).toContainText(
-    "Auto",
+    "auto",
   );
   await expect(autoNotice).toContainText("vpn gateway");
   await expect(autoNotice).toContainText("Gateway node");
@@ -154,7 +154,7 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
   );
 
   const undoScroll = await scrollGridToBottom(page, timelineViewSchemaId);
-  const undoResponsePromise = waitForMentionAction(page, eligibleItem.item_ref);
+  const undoResponsePromise = waitForMentionAction(page, eligibleItem);
   await autoNotice
     .getByTestId(autoResolutionUndoButtonTestId(String(eligibleItem.item_ref)))
     .click();
@@ -167,7 +167,7 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
 
   await expect(autoNotice).toHaveCount(0);
   await expect(eligibleRowItems.getByTestId(eligibleChipId)).not.toContainText(
-    "Auto",
+    "auto",
   );
   await expectTimelineMutationContinuity(
     page,

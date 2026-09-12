@@ -5,9 +5,16 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { type ComponentProps, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  mentionReview,
+  mentionWorkbookRow,
+} from "../../../testing/timelineMentionTestSupport";
+import { WorkbookTimelineMentionOperationOwner } from "../actions/WorkbookTimelineMentionOperationOwner";
+import { createTimelineMentionResolutionAdapter } from "../adapters/createTimelineMentionResolutionAdapter";
 import { createTimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
+import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
 import { timelineCollectionBindings } from "../models/timelineFieldRegistry";
 import { createDraftRow } from "../models/timelineRowModel";
 import {
@@ -209,6 +216,7 @@ describe("Timeline collection inspection", () => {
   });
   it("keeps complete mention details readable when management capability is lost", () => {
     const item: CollectionItem = {
+      entityMentionId: "host-1",
       itemRef: "entity_mention:host-1",
       entityType: "host",
       itemKind: "resolved_ref",
@@ -229,25 +237,66 @@ describe("Timeline collection inspection", () => {
       },
       [],
     );
-    const props: ComponentProps<typeof TimelineMentionsPanel> = {
+    const props: Omit<
+      ComponentProps<typeof TimelineMentionsPanel>,
+      "actions"
+    > = {
       sourceRecordId: "record-1",
-      canManageMentions: true,
       registerCollectionItem: vi.fn(),
       entityIndex: {},
       getRelationshipLabel: () => "Hosts",
-      hostEntities: [],
-      identityEntities: [],
       inspectorMentions: mentions,
       registerMention: vi.fn(),
-      onResolveTargetChange: vi.fn(),
       onSelectMention: vi.fn(),
-      onSetInspectorMessage: vi.fn(),
-      onCreateEntityFromMention: vi.fn(),
-      onSubmitMentionAction: vi.fn(),
       selectedMention: mentions[0] ?? null,
-      selectedResolveTargetId: "",
     };
-    const { rerender } = render(<TimelineMentionsPanel {...props} />);
+    const review = mentionReview();
+    const owner = new WorkbookTimelineMentionOperationOwner(
+      review.subject.incidentId,
+      { create: () => "test-key" },
+      { remember: vi.fn(), settle: vi.fn(), accepted: vi.fn() },
+    );
+    const send = vi.fn();
+    owner.configure({
+      ...createTimelineMentionResolutionAdapter({ apiBase: undefined }),
+      send,
+    });
+    const row = {
+      ...mentionWorkbookRow(review),
+      recordId: "record-1",
+      collectionValues: {
+        ...mentionWorkbookRow(review).collectionValues,
+        hostRefs: [item],
+      },
+    };
+    const candidatePort = {
+      page: vi.fn(async () => ({
+        kind: "accepted" as const,
+        value: { candidates: [], hasMore: false, nextCursor: null },
+      })),
+    };
+    function Panel({ viewer = false }: { viewer?: boolean }) {
+      owner.setAuthority({
+        ...review.authority,
+        role: viewer ? "viewer" : "editor",
+      });
+      const [selectedTargetId, setSelectedTargetId] = useState("");
+      const actions = useTimelineMentionActions({
+        owner,
+        candidatePort,
+        rowsRef: { current: [row] },
+        earlierSaves: { current: Promise.resolve() },
+        selectedMention: props.selectedMention,
+        selectedTargetId,
+        setSelectedTargetId,
+        presentationKey: "cell-test",
+        presentationActive: true,
+        waitForCommittedRecordIdle: async () => ({ row, rowVersion: 4 }),
+        setInspectorMessage: vi.fn(),
+      });
+      return <TimelineMentionsPanel {...props} actions={actions} />;
+    }
+    const { rerender } = render(<Panel />);
     expect(
       screen.getByRole("button", {
         name: "Auto-resolved host: Canonical host; matched alias Ω 東京",
@@ -262,14 +311,26 @@ describe("Timeline collection inspection", () => {
     expect(screen.getByText("Provenance").nextElementSibling?.textContent).toBe(
       "auto_match",
     );
-    rerender(<TimelineMentionsPanel {...props} canManageMentions={false} />);
-    expect(screen.getAllByRole("button")).toHaveLength(1);
-    expect(screen.queryByRole("combobox")).toBeNull();
-    fireEvent.click(screen.getByRole("button"));
+    rerender(<Panel viewer />);
+    expect((screen.getByRole("combobox") as HTMLSelectElement).disabled).toBe(
+      true,
+    );
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Dismiss",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Auto-resolved host: Canonical host; matched alias Ω 東京",
+      }),
+    );
     expect(props.onSelectMention).toHaveBeenCalledWith(
       "record-1",
       item.itemRef,
     );
-    expect(props.onSubmitMentionAction).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 });

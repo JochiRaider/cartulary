@@ -485,6 +485,56 @@
           "data",
           "meta"
         ]
+      },
+      "TimelineEntityMentionCollectionItem": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "entity_mention_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mention_row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "item_ref": {
+            "type": "string"
+          },
+          "item_kind": {
+            "type": "string",
+            "enum": [
+              "unresolved_mention",
+              "resolved_ref"
+            ]
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "identity"
+            ]
+          },
+          "display_text": {
+            "type": "string"
+          },
+          "raw_text": {
+            "type": "string"
+          },
+          "resolved_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "entity_mention_id",
+          "mention_row_version",
+          "item_ref",
+          "item_kind",
+          "entity_type",
+          "display_text",
+          "raw_text"
+        ]
       }
     }
   }

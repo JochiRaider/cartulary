@@ -161,10 +161,7 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
 
   const resolveScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   await expectNoPendingQueueAuthPause(page, "before resolving host mention");
-  const resolveResponsePromise = waitForMentionAction(
-    page,
-    hostMention.item_ref,
-  );
+  const resolveResponsePromise = waitForMentionAction(page, hostMention);
   await page
     .getByTestId(mentionResolveTargetSelectTestId())
     .selectOption(existingHost.record_id);
@@ -197,11 +194,11 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
 
   const createScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   await expectNoPendingQueueAuthPause(page, "before creating identity mention");
-  const createResponsePromise = waitForMentionAction(
-    page,
-    identityMention.item_ref,
-  );
+  const createResponsePromise = waitForMentionAction(page, identityMention);
   await page.getByTestId(mentionCreateEntityButtonTestId("identity")).click();
+  await page
+    .getByRole("button", { name: "Create identity and resolve", exact: true })
+    .click();
   const createResponse = await createResponsePromise;
   const createEnvelope = await readMentionAction(
     createResponse,
@@ -548,10 +545,10 @@ test("collection chips disclose exact members without edits across keyboard and 
       ).toBeFocused();
       await expect(
         viewerPage.getByTestId(mentionResolveExistingButtonTestId()),
-      ).toHaveCount(0);
+      ).toBeDisabled();
       await expect(
         viewerPage.getByTestId(mentionCreateEntityButtonTestId("host")),
-      ).toHaveCount(0);
+      ).toBeDisabled();
     } finally {
       await viewerSession.page.context().close();
     }
@@ -586,10 +583,10 @@ test("collection chips disclose exact members without edits across keyboard and 
     await expect(hiddenHost).toBeFocused();
     await expect(
       page.getByTestId(mentionResolveExistingButtonTestId()),
-    ).toHaveCount(0);
+    ).toBeDisabled();
     await expect(
       page.getByTestId(mentionCreateEntityButtonTestId("host")),
-    ).toHaveCount(0);
+    ).toBeDisabled();
     expect(mutations).toEqual([]);
   } finally {
     await page.evaluate(() => {

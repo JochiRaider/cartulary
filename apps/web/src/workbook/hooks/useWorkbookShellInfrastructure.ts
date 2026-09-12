@@ -25,7 +25,10 @@ import {
   type ReferenceQueryBrokerPort,
 } from "../services/referenceQueryBroker";
 import { timelineCaptureOwnerFor } from "../timeline/actions/timelineCaptureOwnerFor";
+import { timelineMentionOwnerFor } from "../timeline/actions/timelineMentionOwnerFor";
 import { createTimelineCandidateReader } from "../timeline/adapters/createTimelineCandidateReader";
+import { createTimelineMentionEntityCreationAdapter } from "../timeline/adapters/createTimelineMentionEntityCreationAdapter";
+import { createTimelineMentionResolutionAdapter } from "../timeline/adapters/createTimelineMentionResolutionAdapter";
 import { createTimelineRecordActionAdapter } from "../timeline/adapters/createTimelineRecordActionAdapter";
 import { useWorkbookShellRuntime } from "./useWorkbookShellRuntime";
 
@@ -48,6 +51,7 @@ type WorkbookShellInfrastructureOptions = {
   readonly mutationRuntimeRegistry: WorkbookMutationRuntimeRegistry;
   readonly onExtensionAvailabilityChange: () => void;
   readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly recheckMentionAuthority: () => Promise<void>;
 };
 
 /** Constructs incident-scoped adapters and exactly one registry-owned runtime. */
@@ -62,6 +66,7 @@ export function useWorkbookShellInfrastructure({
   mutationRuntimeRegistry,
   onExtensionAvailabilityChange,
   onIncidentAccessLost,
+  recheckMentionAuthority,
 }: WorkbookShellInfrastructureOptions) {
   const transactionIds = useMemo(createBrowserSecureTransactionIdPort, []);
   const pendingMutationPort = useMemo(
@@ -118,6 +123,21 @@ export function useWorkbookShellInfrastructure({
       ),
     [mutationRuntime, apiBase, incidentId, onIncidentAccessLost],
   );
+  const timelineMentions = useMemo(
+    () => timelineMentionOwnerFor(mutationRuntime),
+    [mutationRuntime],
+  );
+  useMemo(() => {
+    timelineMentions.configure(
+      createTimelineMentionResolutionAdapter({ apiBase }),
+      () => {
+        void recheckMentionAuthority();
+      },
+    );
+    timelineMentions.configureCreation(
+      createTimelineMentionEntityCreationAdapter({ apiBase }),
+    );
+  }, [timelineMentions, apiBase, recheckMentionAuthority]);
   const timelineCapture = useMemo(
     () => timelineCaptureOwnerFor(mutationRuntime),
     [mutationRuntime],
@@ -230,6 +250,7 @@ export function useWorkbookShellInfrastructure({
     mutationCommands,
     mutationRuntime,
     timelineCapture,
+    timelineMentions,
     mutationSnapshot,
     viewQuery,
     workbookRuntime,

@@ -4,10 +4,12 @@ import type {
   CreateObjectBlobSlotRequest,
   CreateRecordLinkedNoteRequest,
   CreateViewRowRequest,
+  CreateViewRowResponse,
   MergeEntityRecordRequest,
   MergeEntityRecordResponse,
   PatchRecordRequest,
   QueryWorkbookViewRequest,
+  ResolveEntityMentionResponse,
   ResolveRecordSameFieldConflictRequest,
 } from "@cartulary/protocol-ts/http";
 
@@ -31,3 +33,7 @@ export type WorkbookProtocolResolveConflictRequest =
 
 export type WorkbookProtocolMergeRequest = MergeEntityRecordRequest;
 export type WorkbookProtocolMergeReceipt = MergeEntityRecordResponse["data"];
+
+export type WorkbookProtocolMentionReceipt =
+  ResolveEntityMentionResponse["data"];
+export type WorkbookProtocolCreateViewRowReceipt = CreateViewRowResponse;

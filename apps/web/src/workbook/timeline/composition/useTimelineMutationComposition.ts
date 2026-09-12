@@ -37,11 +37,7 @@ import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordEvidence,
 } from "../models/timelineViewportContinuityModel";
-import type {
-  AutoResolutionNotice,
-  DismissedMention,
-} from "../models/workbookMentionChips";
-import { reconcileDismissedMentionsForRow } from "../models/workbookMentionChips";
+import type { AutoResolutionNotice } from "../models/workbookMentionChips";
 import { useTimelineRowMutationCoordinator } from "../mutations/useTimelineRowMutationCoordinator";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -63,9 +59,6 @@ type TimelineMutationCompositionInput = {
     readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
     readonly setAutoResolutionNotices: Dispatch<
       SetStateAction<AutoResolutionNotice[]>
-    >;
-    readonly setDismissedMentionsByRow: Dispatch<
-      SetStateAction<Record<string, DismissedMention[]>>
     >;
     readonly setInitialLoadGenerationKey: (generationKey: number) => void;
     readonly setIsInitialLoading: (loading: boolean) => void;
@@ -158,7 +151,6 @@ export function useTimelineMutationComposition({
     rowsRef: foundation.rowsRef,
     selectedRowId: inspector.selectedRowId,
     setAutoResolutionNotices: foundation.setAutoResolutionNotices,
-    setDismissedMentionsByRow: foundation.setDismissedMentionsByRow,
     setPendingQueueSnapshot: foundation.setPendingQueueSnapshot,
     rowStoreCommands: foundation.rowStoreCommands,
     setSelectedRowId: inspector.selectRow,
@@ -223,13 +215,11 @@ export function useTimelineMutationComposition({
     onIncidentAccessLost,
     pruneAutoResolutionNoticesForRows:
       rowMutations.commands.pruneAutoResolutionNoticesForRows,
-    pruneDismissedMentionsForRow: reconcileDismissedMentionsForRow,
     publishSaveStatePresentation:
       rowMutations.commands.publishSaveStatePresentation,
     queryState: query.queryState,
     rowsRef: foundation.rowsRef,
     editorDraftRegistry: foundation.editorDraftRegistry,
-    setDismissedMentionsByRow: foundation.setDismissedMentionsByRow,
     setIsInitialLoading: foundation.setIsInitialLoading,
     setInitialLoadGenerationKey: foundation.setInitialLoadGenerationKey,
     setIsRefreshing: foundation.setIsRefreshing,

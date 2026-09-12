@@ -23,6 +23,7 @@ import {
 } from "../../inspector/workbookRecordHistoryModel";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
 import type { LocalConflictState } from "../models/timelineConflictState";
 import type { TimelineRowContextMenuPosition } from "../models/timelineControllerPorts";
@@ -45,11 +46,13 @@ type TimelineRowContextMenuState = {
 export function useTimelineInspectorSelection({
   currentIncidentRole,
   dismissedMentionsByRow,
+  observedMentions,
   rows,
   selectedMentionRef,
 }: {
   readonly currentIncidentRole: string | null | undefined;
   readonly dismissedMentionsByRow: Record<string, DismissedMention[]>;
+  readonly observedMentions: readonly MentionSubject[];
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
 }) {
@@ -72,8 +75,12 @@ export function useTimelineInspectorSelection({
     : [];
   const inspectorMentions = useMemo(
     () =>
-      buildInspectorMentions(selectedRow ?? undefined, dismissedForSelectedRow),
-    [dismissedForSelectedRow, selectedRow],
+      buildInspectorMentions(
+        selectedRow ?? undefined,
+        dismissedForSelectedRow,
+        observedMentions,
+      ),
+    [dismissedForSelectedRow, selectedRow, observedMentions],
   );
   const selectedMention =
     inspectorMentions.find((item) => item.itemRef === selectedMentionRef) ??
@@ -552,19 +559,28 @@ export function useTimelineInspectorLifecycle({
     setSelectedResolveTargetId,
   ]);
 
-  const previousInvalidationGenerationRef = useRef(
-    inspectorInvalidationGeneration,
-  );
+  const previousInvalidationGenerationRef = useRef({
+    generation: inspectorInvalidationGeneration,
+    recordId: selectedRowId,
+  });
   useLayoutEffect(() => {
     if (
-      previousInvalidationGenerationRef.current ===
+      previousInvalidationGenerationRef.current.generation ===
       inspectorInvalidationGeneration
     ) {
       return;
     }
-    previousInvalidationGenerationRef.current = inspectorInvalidationGeneration;
-    setSelectedMentionRef(null);
-    setSelectedResolveTargetId("");
+    const sameSourceRetarget =
+      inspectorInvalidationCause === "retarget" &&
+      previousInvalidationGenerationRef.current.recordId === selectedRowId;
+    previousInvalidationGenerationRef.current = {
+      generation: inspectorInvalidationGeneration,
+      recordId: selectedRowId,
+    };
+    if (!sameSourceRetarget) {
+      setSelectedMentionRef(null);
+      setSelectedResolveTargetId("");
+    }
     dispatchRowHistory({ type: "cancel" });
     if (inspectorInvalidationCause !== "retarget") {
       clearRowHistory();
@@ -574,6 +590,7 @@ export function useTimelineInspectorLifecycle({
     dispatchRowHistory,
     inspectorInvalidationCause,
     inspectorInvalidationGeneration,
+    selectedRowId,
     setSelectedMentionRef,
     setSelectedResolveTargetId,
   ]);

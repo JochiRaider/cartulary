@@ -3026,6 +3026,37 @@ test.describe("browser.entity-linking accessibility readiness", () => {
     );
     await expectVisibleFocus(unresolvedChip);
 
+    await unresolvedChip.click();
+    const unresolvedDismiss = page.getByTestId(mentionDismissButtonTestId());
+    await expect(unresolvedDismiss).toBeEnabled();
+    await expectVisibleFocus(unresolvedDismiss);
+    const createHost = page.getByRole("button", {
+      name: "Create host",
+      exact: true,
+    });
+    await expectVisibleFocus(createHost);
+    await createHost.press("Enter");
+    const createForm = page.getByRole("form", {
+      name: "Create host from mention",
+    });
+    await expect(
+      createForm.getByRole("textbox", { name: "Hostname value", exact: true }),
+    ).toHaveValue("");
+    await expectVisibleFocus(
+      createForm.getByRole("textbox", {
+        name: "Display Name value",
+        exact: true,
+      }),
+    );
+    await expectVisibleFocus(
+      createForm.getByRole("button", {
+        name: "Create host and resolve",
+        exact: true,
+      }),
+    );
+    await expectAllInteractiveControlsNamed(page);
+    await createForm.getByRole("button", { name: "Cancel creation" }).click();
+
     await openTimelineInspector(page, resolvedRow.record_id);
     const resolvedChip = page.getByTestId(
       mentionItemTestId(String(resolvedMention.item_ref)),

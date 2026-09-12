@@ -1156,6 +1156,9 @@ SELECT row_version
 		rowAfter := findRow(t, rows, recordID)
 		requireViewRowFieldSurface(t, "timeline-resolution", rowAfter, timeline.TimelineViewSchemaID)
 		itemAfter := requireSingleCollectionItem(t, rowAfter, timelinetest.FieldHostRefs)
+		if itemBefore["entity_mention_id"] == nil || itemBefore["entity_mention_id"] != itemAfter["entity_mention_id"] || itemBefore["mention_row_version"] != itemAfter["mention_row_version"] {
+			t.Fatalf("projection rebuild lost explicit mention identity/version: before=%#v after=%#v", itemBefore, itemAfter)
+		}
 		if itemAfter["item_kind"] != "unresolved_mention" {
 			t.Fatalf("projection rebuild must not late-auto-resolve unresolved tokens, got %#v", itemAfter)
 		}

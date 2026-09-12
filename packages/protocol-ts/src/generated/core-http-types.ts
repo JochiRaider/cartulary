@@ -1888,8 +1888,12 @@ export interface MentionActionEnvelope {
  */
 export interface MentionActionData {
   active_link?: {
+    dst_record_id: string;
+    link_type: "observed_on_host" | "observed_as_identity";
+    record_link_id?: string;
+    src_record_id?: string;
     [k: string]: unknown;
-  } | null;
+  };
   change_set_id: string;
   entity_mention: EntityMentionResource;
   incident_id: string;
@@ -1901,9 +1905,17 @@ export interface MentionActionData {
  */
 export interface EntityMentionResource {
   entity_mention_id: string;
-  resolution_status: string;
+  entity_type: "host" | "identity";
+  normalized_text: string;
+  raw_text: string;
+  resolution_method: string | null;
+  resolution_status: "unresolved" | "resolved" | "dismissed";
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
   resolved_record_id: string | null;
   row_version: number;
+  source_field_key: string;
+  source_record_id: string;
   [k: string]: unknown;
 }
 /**

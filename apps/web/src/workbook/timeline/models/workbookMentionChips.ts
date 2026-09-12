@@ -2,6 +2,7 @@ import type {
   WorkbookRelationshipChipPresentation,
   WorkbookRelationshipChipState,
 } from "../../models/workbookRelationshipChip";
+import type { MentionSubject } from "../actions/timelineMentionOperationModel";
 
 export type RelationshipFieldKey =
   | "timeline.host_refs"
@@ -16,6 +17,7 @@ type MentionChipAnchor = {
 };
 
 export type CollectionItem = {
+  entityMentionId: string | null;
   itemRef: string;
   entityType: "host" | "identity";
   itemKind: "resolved_ref" | "unresolved_mention";
@@ -31,6 +33,7 @@ export type CollectionItem = {
 };
 
 export type DismissedMention = {
+  entityMentionId: string | null;
   rowRecordId: string;
   fieldKey: RelationshipFieldKey;
   entityType: "host" | "identity";
@@ -61,6 +64,8 @@ export type InspectorMention = DismissedMention & {
 };
 
 export type AutoResolutionNotice = {
+  entityMentionId: string | null;
+  mentionRowVersion: number | null;
   itemRef: string;
   rowRecordId: string;
   fieldKey: RelationshipFieldKey;
@@ -165,52 +170,12 @@ type TimelineApiRowLike = {
 
 type MentionCollectionRowLike = {
   recordId: string | null;
+  rowVersion?: number | null;
   collectionValues: {
     hostRefs: CollectionItem[];
     identityRefs: CollectionItem[];
   };
 };
-
-export function reconcileDismissedMentionsForRow(
-  dismissedMentionsByRow: Record<string, DismissedMention[]>,
-  row: MentionCollectionRowLike,
-) {
-  if (row.recordId === null) {
-    return dismissedMentionsByRow;
-  }
-
-  const activeItems = new Map(
-    [
-      ...row.collectionValues.hostRefs,
-      ...row.collectionValues.identityRefs,
-    ].map((item) => [item.itemRef, item]),
-  );
-  const current = dismissedMentionsByRow[row.recordId] ?? [];
-  const remaining = current.filter((dismissed) => {
-    const active = activeItems.get(dismissed.itemRef);
-    if (active === undefined) {
-      return true;
-    }
-    if (dismissed.mentionRowVersion === null) {
-      return false;
-    }
-    return (
-      active.mentionRowVersion === null ||
-      active.mentionRowVersion <= dismissed.mentionRowVersion
-    );
-  });
-  if (remaining.length === current.length) {
-    return dismissedMentionsByRow;
-  }
-
-  const next = { ...dismissedMentionsByRow };
-  if (remaining.length < 1) {
-    delete next[row.recordId];
-  } else {
-    next[row.recordId] = remaining;
-  }
-  return next;
-}
 
 function parseEntityType(value: unknown): "host" | "identity" | null {
   return value === "host" || value === "identity" ? value : null;
@@ -222,7 +187,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 type CollectionItemIdentity = Pick<
   CollectionItem,
-  "entityType" | "itemKind" | "itemRef"
+  "entityMentionId" | "entityType" | "itemKind" | "itemRef"
 >;
 
 function decodeCollectionItemIdentity(
@@ -239,7 +204,16 @@ function decodeCollectionItemIdentity(
   ) {
     return null;
   }
-  return { entityType, itemKind, itemRef };
+  return {
+    entityMentionId:
+      typeof value.entity_mention_id === "string" &&
+      value.entity_mention_id !== ""
+        ? value.entity_mention_id
+        : null,
+    entityType,
+    itemKind,
+    itemRef,
+  };
 }
 
 function collectionItemText(value: Readonly<Record<string, unknown>>): {
@@ -330,16 +304,8 @@ function decodeCollectionItem(value: unknown): CollectionItem | null {
   };
 }
 
-function entityMentionIdFromItemRef(itemRef: string): string | null {
-  const prefix = "entity_mention:";
-  if (!itemRef.startsWith(prefix)) {
-    return null;
-  }
-  const mentionId = itemRef.slice(prefix.length);
-  return mentionId === "" ? null : mentionId;
-}
-
 function mentionChipAnchor({
+  entityMentionId,
   fieldKey,
   itemRef,
   recordId,
@@ -349,12 +315,13 @@ function mentionChipAnchor({
   itemRef: string;
   recordId: string;
   targetEntityRecordId: string | null;
+  entityMentionId: string | null;
 }): MentionChipAnchor {
   return {
     recordId,
     fieldKey,
     itemRef,
-    entityMentionId: entityMentionIdFromItemRef(itemRef),
+    entityMentionId,
     targetEntityRecordId,
   };
 }
@@ -370,6 +337,7 @@ function activeInspectorMention(
   return {
     rowRecordId,
     fieldKey,
+    entityMentionId: item.entityMentionId,
     entityType: item.entityType,
     itemRef: item.itemRef,
     rawText: item.rawText,
@@ -380,6 +348,7 @@ function activeInspectorMention(
     status,
     chipState: mentionChipStateForItem(item),
     anchor: mentionChipAnchor({
+      entityMentionId: item.entityMentionId,
       recordId: rowRecordId,
       fieldKey,
       itemRef: item.itemRef,
@@ -416,6 +385,7 @@ export function readCollectionItems(
 export function buildInspectorMentions(
   row: MentionCollectionRowLike | undefined,
   dismissedMentions: DismissedMention[],
+  observedMentions: readonly MentionSubject[] = [],
 ): InspectorMention[] {
   if (!row || row.recordId === null) {
     return [];
@@ -433,29 +403,113 @@ export function buildInspectorMentions(
       ),
     ),
   ];
-  const dismissed: InspectorMention[] = dismissedMentions.map((item) => ({
-    ...item,
-    status: "dismissed",
-    chipState: "dismissed",
-    anchor: mentionChipAnchor({
-      recordId: item.rowRecordId,
-      fieldKey: item.fieldKey,
-      itemRef: item.itemRef,
-      targetEntityRecordId: null,
-    }),
-    sourceKind: "entity_mention",
-    isActiveRelationshipValue: false,
-    priorTargetEntityRecordId:
-      item.priorTargetEntityRecordId ?? item.resolvedRecordId,
-    resolvedRecordId: null,
-    mentionRowVersion: item.mentionRowVersion,
-    displayText: item.displayText ?? item.rawText,
-    provenance: item.provenance ?? null,
-    confidence: item.confidence ?? null,
-    matchedAliasText: item.matchedAliasText ?? null,
-  }));
+  for (const observed of observedMentions) {
+    if (observed.sourceRecordId !== row.recordId) continue;
+    const index = activeMentions.findIndex(
+      (item) => item.entityMentionId === observed.mentionId,
+    );
+    if (index < 0) {
+      // A restore receipt can precede the projection that puts the active item back.
+      // A newer source projection is decisive about removal from its active collection.
+      if (
+        observed.state !== "dismissed" &&
+        row.rowVersion !== undefined &&
+        row.rowVersion !== null &&
+        row.rowVersion < observed.sourceRowVersion
+      )
+        activeMentions.push(
+          activeInspectorMention(row.recordId, observed.sourceFieldKey, {
+            entityMentionId: observed.mentionId,
+            itemRef: observed.itemRef,
+            entityType: observed.entityType,
+            itemKind:
+              observed.state === "resolved"
+                ? "resolved_ref"
+                : "unresolved_mention",
+            rawText: observed.rawText,
+            displayText: observed.rawText,
+            resolvedRecordId: observed.resolvedRecordId,
+            resolutionMethod: observed.resolutionMethod,
+            mentionRowVersion: observed.mentionRowVersion,
+            autoResolved: observed.resolutionMethod === "auto_match",
+            provenance: null,
+            confidence: null,
+            matchedAliasText: null,
+          }),
+        );
+      continue;
+    }
+    const current = activeMentions[index];
+    if (
+      !current ||
+      (current.mentionRowVersion ?? 0) >= observed.mentionRowVersion
+    )
+      continue;
+    if (observed.state === "dismissed") {
+      activeMentions.splice(index, 1);
+      continue;
+    }
+    activeMentions[index] = {
+      ...current,
+      rawText: observed.rawText,
+      displayText: observed.rawText,
+      status: observed.state,
+      resolvedRecordId: observed.resolvedRecordId,
+      resolutionMethod: observed.resolutionMethod,
+      mentionRowVersion: observed.mentionRowVersion,
+      autoResolved: observed.resolutionMethod === "auto_match",
+      provenance: null,
+      confidence: null,
+      matchedAliasText: null,
+      anchor: {
+        ...current.anchor,
+        targetEntityRecordId: observed.resolvedRecordId,
+      },
+      chipState: observed.state === "unresolved" ? "unresolved" : "resolved",
+    };
+  }
+  const dismissed: InspectorMention[] = dismissedMentions
+    .filter(
+      (item) =>
+        !activeMentions.some(
+          (active) =>
+            active.entityMentionId === item.entityMentionId &&
+            (active.mentionRowVersion ?? 0) > (item.mentionRowVersion ?? 0),
+        ),
+    )
+    .map((item) => ({
+      ...item,
+      status: "dismissed",
+      chipState: "dismissed",
+      anchor: mentionChipAnchor({
+        entityMentionId: item.entityMentionId,
+        recordId: item.rowRecordId,
+        fieldKey: item.fieldKey,
+        itemRef: item.itemRef,
+        targetEntityRecordId: null,
+      }),
+      sourceKind: "entity_mention",
+      isActiveRelationshipValue: false,
+      priorTargetEntityRecordId: null,
+      resolutionMethod: null,
+      autoResolved: false,
+      resolvedRecordId: null,
+      mentionRowVersion: item.mentionRowVersion,
+      displayText: item.rawText,
+      provenance: null,
+      confidence: null,
+      matchedAliasText: null,
+    }));
 
-  return [...activeMentions, ...dismissed];
+  return [
+    ...activeMentions.filter(
+      (active) =>
+        !dismissed.some(
+          (item) => item.entityMentionId === active.entityMentionId,
+        ),
+    ),
+    ...dismissed,
+  ];
 }
 
 export function buildAutoResolutionNotices(
@@ -489,6 +543,8 @@ export function buildAutoResolutionNotices(
         item.resolvedRecordId !== null,
     )
     .map(({ fieldKey, item }) => ({
+      entityMentionId: item.entityMentionId,
+      mentionRowVersion: item.mentionRowVersion,
       itemRef: item.itemRef,
       rowRecordId: afterRow.recordId ?? "",
       fieldKey,

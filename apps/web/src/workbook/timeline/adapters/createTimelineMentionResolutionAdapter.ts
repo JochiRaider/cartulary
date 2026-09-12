@@ -1,164 +1,92 @@
-import type { ResolveEntityMentionRequest } from "@cartulary/protocol-ts/http";
-import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
-import { buildMentionActionPayload } from "../../collaboration/workbookCollaborationMessages";
-import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
+import {
+  buildHTTPOperationPath,
+  type ResolveEntityMentionRequest,
+  type ResolveEntityMentionResponse,
+} from "@cartulary/protocol-ts/http";
+import { apiPath, fetchHTTPOperation } from "../../../services/browserApi";
+import { classifyWorkbookOperationFailure } from "../../adapters/workbookOperationErrorPolicy";
+import { mentionReviewValid } from "../actions/timelineMentionOperationModel";
 import type { TimelineMentionResolutionPort } from "../ports/TimelineMentionPort";
-
-type TimelineMentionResolutionAccepted = Extract<
-  Awaited<ReturnType<TimelineMentionResolutionPort["resolve"]>>,
-  { readonly kind: "accepted" }
->["value"];
-
-type OptionalString =
-  | { readonly valid: true; readonly value: string | null }
-  | { readonly valid: false };
+import { validateMentionReceipt } from "./timelineMentionProtocol";
 
 export function createTimelineMentionResolutionAdapter(options: {
   readonly apiBase: string | undefined;
 }): TimelineMentionResolutionPort {
-  const operations = createWorkbookOperationExecutor({
-    apiBase: options.apiBase,
-  });
   return {
-    async resolve(input) {
-      const request = mentionResolutionRequest(input);
-      if (request === null) return missingMentionVersion();
+    capture(review, id) {
+      if (!mentionReviewValid(review) || !id)
+        throw new Error("Mention review unavailable");
+      const request = {
+        action: review.intent.action,
+        base_mention_row_version: review.subject.mentionRowVersion,
+        client_txn_id: id,
+        ...(review.intent.action === "resolve_item"
+          ? { resolved_record_id: review.intent.resolvedRecordId }
+          : {}),
+      } satisfies ResolveEntityMentionRequest;
+      return {
+        id,
+        review: structuredClone(review),
+        operationID: "resolveEntityMention",
+        method: "POST",
+        apiBase: options.apiBase,
+        path: apiPath(
+          options.apiBase,
+          buildHTTPOperationPath("resolveEntityMention", {
+            entity_mention_id: review.subject.mentionId,
+          }),
+        ),
+        body: JSON.stringify(request),
+      };
+    },
+    async send(attempt, signal) {
+      if (
+        attempt.operationID !== "resolveEntityMention" ||
+        attempt.method !== "POST" ||
+        attempt.path !==
+          apiPath(
+            attempt.apiBase,
+            buildHTTPOperationPath("resolveEntityMention", {
+              entity_mention_id: attempt.review.subject.mentionId,
+            }),
+          )
+      )
+        return { kind: "uncertain" };
+      let status: number | null = null;
       try {
-        const outcome = await operations.execute({
-          operationID: "resolveEntityMention",
-          pathParameters: { entity_mention_id: input.mentionId },
-          request,
+        const result = await fetchHTTPOperation<ResolveEntityMentionResponse>({
+          apiBase: attempt.apiBase,
+          operationID: attempt.operationID,
+          pathParameters: {
+            entity_mention_id: attempt.review.subject.mentionId,
+          },
+          init: { method: attempt.method, body: attempt.body, signal },
+          onResponse: (response) => {
+            status = response.status;
+          },
         });
-        if (outcome.kind === "rejected") return outcome;
-        return decodeMentionResolution(
-          outcome.value.data,
-          input.expectedSourceRecordId,
-          input.mentionId,
-        );
+        if (!result.ok) {
+          if (
+            status === null ||
+            status < 400 ||
+            status >= 500 ||
+            !result.payload.error?.code
+          )
+            return { kind: "uncertain" };
+          const failure = classifyWorkbookOperationFailure(
+            result.status,
+            result.payload,
+            attempt.operationID,
+          );
+          return failure.kind === "invalid_contract"
+            ? { kind: "uncertain" }
+            : { kind: "rejected", failure };
+        }
+        const receipt = validateMentionReceipt(attempt, result.payload.data);
+        return receipt ? { kind: "accepted", receipt } : { kind: "uncertain" };
       } catch {
-        return retryable();
+        return { kind: "uncertain" };
       }
-    },
-  };
-}
-
-function mentionResolutionRequest(
-  input: Parameters<TimelineMentionResolutionPort["resolve"]>[0],
-): ResolveEntityMentionRequest | null {
-  return buildMentionActionPayload(
-    { mentionRowVersion: input.baseMentionRowVersion },
-    input.action,
-    input.clientTxnId,
-    input.resolvedRecordId,
-  );
-}
-
-function decodeMentionResolution(
-  data: {
-    readonly entity_mention: {
-      readonly entity_mention_id: string;
-      readonly entity_type?: unknown;
-      readonly raw_text?: unknown;
-      readonly resolution_method?: unknown;
-      readonly row_version: number;
-      readonly source_field_key?: unknown;
-    };
-    readonly source_record: {
-      readonly record_id: string;
-      readonly row_version: number;
-    };
-  },
-  expectedSourceRecordId: string,
-  expectedMentionId: string,
-): WorkbookOperationOutcome<TimelineMentionResolutionAccepted> {
-  if (
-    data.source_record.record_id !== expectedSourceRecordId ||
-    data.entity_mention.entity_mention_id !== expectedMentionId ||
-    !validVersion(data.source_record.row_version) ||
-    !validVersion(data.entity_mention.row_version)
-  ) {
-    return invalidContract();
-  }
-  const entityType = optionalEntityType(data.entity_mention.entity_type);
-  const rawText = optionalString(data.entity_mention.raw_text);
-  const resolutionMethod = optionalString(
-    data.entity_mention.resolution_method,
-  );
-  const sourceFieldKey = optionalString(data.entity_mention.source_field_key);
-  if (
-    !entityType.valid ||
-    !rawText.valid ||
-    !resolutionMethod.valid ||
-    !sourceFieldKey.valid
-  ) {
-    return invalidContract();
-  }
-  return {
-    kind: "accepted",
-    value: {
-      entityMention: {
-        entityType: entityType.value,
-        rawText: rawText.value,
-        resolutionMethod: resolutionMethod.value,
-        rowVersion: data.entity_mention.row_version,
-        sourceFieldKey: sourceFieldKey.value,
-      },
-      sourceRecord: {
-        recordId: data.source_record.record_id,
-        rowVersion: data.source_record.row_version,
-      },
-    },
-  };
-}
-
-function validVersion(value: number): boolean {
-  return Number.isSafeInteger(value) && value > 0;
-}
-
-function optionalEntityType(
-  value: unknown,
-):
-  | { readonly valid: true; readonly value: "host" | "identity" | null }
-  | { readonly valid: false } {
-  if (value === undefined || value === null) {
-    return { valid: true, value: null };
-  }
-  return value === "host" || value === "identity"
-    ? { valid: true, value }
-    : { valid: false };
-}
-
-function optionalString(value: unknown): OptionalString {
-  if (value === undefined || value === null) {
-    return { valid: true, value: null };
-  }
-  if (typeof value !== "string") return { valid: false };
-  return { valid: true, value: value.trim() === "" ? null : value };
-}
-
-function missingMentionVersion(): WorkbookOperationOutcome<TimelineMentionResolutionAccepted> {
-  return {
-    kind: "rejected",
-    failure: { kind: "validation", message: "Missing mention row version." },
-  };
-}
-
-function invalidContract(): WorkbookOperationOutcome<TimelineMentionResolutionAccepted> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "invalid_contract",
-      message: "Mention action source record was invalid.",
-    },
-  };
-}
-
-function retryable(): WorkbookOperationOutcome<TimelineMentionResolutionAccepted> {
-  return {
-    kind: "rejected",
-    failure: {
-      kind: "retryable",
-      message: "The mention operation could not be sent.",
     },
   };
 }

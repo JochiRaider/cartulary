@@ -5398,6 +5398,7 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 Collection-review wire contract for `timeline.host_refs` and `timeline.identity_refs`:
 
 - `timeline.host_refs` and `timeline.identity_refs` MUST use `collection_value_v1` with `ordered=true`.
+- Every item MUST include `entity_mention_id`, the backing source-bound mention's stable identifier, and `mention_row_version`, its positive current row version. The client MUST use these separate members for the mention-scoped action route and concurrency token. `item_ref` remains opaque collection-item identity and MUST NOT be parsed to recover a mention identifier. These members describe the same mention and source field as the containing collection; they MUST survive projection refresh and rebuild without changing identity.
 - The server MUST serialize `timeline.host_refs.items[]` and `timeline.identity_refs.items[]` in ascending `entity_mentions.ordinal` order and then ascending `item_ref`.
 - The active `collection_value_v1.items[]` for these fields MUST include only non-deleted mentions whose `resolution_status` is `unresolved` or `resolved`; mentions with `resolution_status='dismissed'` MUST be omitted from `items[]` while remaining available through history and inspector affordances.
 - Each `items[]` entry MUST use one of the following shapes:
@@ -5408,6 +5409,8 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 {
   "item_ref": "entity_mention:<entity_mention_id>",
   "item_kind": "unresolved_mention",
+  "entity_mention_id": "<entity_mention_id>",
+  "mention_row_version": 1,
   "entity_type": "host",
   "display_text": "WS-023?",
   "raw_text": "WS-023?"
@@ -5418,6 +5421,8 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 {
   "item_ref": "entity_mention:<entity_mention_id>",
   "item_kind": "resolved_ref",
+  "entity_mention_id": "<entity_mention_id>",
+  "mention_row_version": 2,
   "entity_type": "host",
   "display_text": "WS-023.corp.example",
   "raw_text": "WS-023",

@@ -1,44 +1,22 @@
-import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
-import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
-
-export type TimelineMentionEntityCreated = {
-  readonly recordId: string;
-};
-
-type TimelineMentionActionAccepted = {
-  readonly entityMention: {
-    readonly entityType: "host" | "identity" | null;
-    readonly rawText: string | null;
-    readonly resolutionMethod: string | null;
-    readonly rowVersion: number;
-    readonly sourceFieldKey: string | null;
-  };
-  readonly sourceRecord: {
-    readonly recordId: string;
-    readonly rowVersion: number;
-  };
-};
-
-export interface TimelineMentionEntityCreationPort {
-  createEntity(input: {
-    readonly clientTxnId: string;
-    readonly entityType: "host" | "identity";
-    readonly rawText: string;
-  }): Promise<WorkbookOperationOutcome<TimelineMentionEntityCreated>>;
-}
+import type {
+  MentionCreateReview,
+  MentionCreationAttempt,
+  MentionCreationOutcome,
+} from "../actions/timelineMentionCreationModel";
+import type {
+  MentionAttempt,
+  MentionOutcome,
+  MentionReview,
+} from "../actions/timelineMentionOperationModel";
 
 export interface TimelineMentionResolutionPort {
-  resolve(input: {
-    readonly action: MentionResolutionAction;
-    readonly baseMentionRowVersion: number;
-    readonly clientTxnId: string;
-    readonly expectedSourceRecordId: string;
-    readonly mentionId: string;
-    readonly resolvedRecordId?: string | undefined;
-  }): Promise<WorkbookOperationOutcome<TimelineMentionActionAccepted>>;
+  capture(review: MentionReview, id: string): MentionAttempt;
+  send(attempt: MentionAttempt, signal: AbortSignal): Promise<MentionOutcome>;
 }
-
-export type TimelineMentionPorts = {
-  readonly entityCreation: TimelineMentionEntityCreationPort;
-  readonly resolution: TimelineMentionResolutionPort;
-};
+export interface TimelineMentionEntityCreationPort {
+  capture(review: MentionCreateReview, id: string): MentionCreationAttempt;
+  send(
+    attempt: MentionCreationAttempt,
+    signal: AbortSignal,
+  ): Promise<MentionCreationOutcome>;
+}

@@ -2746,9 +2746,137 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineMentionActions.test.tsx",
         "titles": [
-          "useTimelineMentionActions auto-resolution undo converts the current resolved item without conflating notice, mention, and entity identity",
-          "useTimelineMentionActions auto-resolution undo no-ops missing items and retains the existing rejection conflict path",
-          "useTimelineMentionActions auto-resolution undo re-reads the committed mention version and preserves accepted refresh and continuity sequencing"
+          "Timeline mention actions binds auto-resolution undo to the same current mention version and target",
+          "Timeline mention actions retains accepted outcomes on unmount and invalidates a detached create review",
+          "Timeline mention actions waits for creation and mention projections before restoring focus",
+          "Timeline mention actions waits for preceding saves and refuses changed mentions instead of rebasing"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_mention_candidate_creation_review",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/actions/timelineMentionCandidates.test.tsx",
+        "titles": [
+          "Mention candidate paging retains loaded targets through read failure and retries the missing page",
+          "Mention candidates query eligible targets independently with contract sorting and explicit cursor pages",
+          "Mention contextual authoring seeds only display name and requires reviewed identity fields",
+          "Mention loaded-target filtering preserves selected identity and exposes keyboard reachable unresolved dismissal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_mention_complete_receipts",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/adapters/timelineMentionProtocol.test.ts",
+        "titles": [
+          "Mention transport preserves complete receipts raw text and opaque selector separation",
+          "Mention transport separates confirmed rejection from lost responses and server ambiguity",
+          "Mention transport treats missing required nulls inconsistent metadata and malformed success as uncertain"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_mention_operation_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/actions/WorkbookTimelineMentionOperationOwner.test.ts",
+        "titles": [
+          "Mention accepted receipts survive detached presentation and refresh recovery never repeats mutations",
+          "Mention creation accepted after navigation retains the entity until renewed link review",
+          "Mention creation followed by uncertain linking recovers only the original resolution request",
+          "Mention creation retains its receipt before rejected linking and renewed resolution never creates twice",
+          "Mention exact replay keeps original body version route and key despite newer observations",
+          "Mention operations enforce the complete legal transition and current authorization matrix",
+          "Mention operations require renewed review after changed intent selection role or mention version",
+          "Mention operations reserve immutable intent and identity before preceding saves without duplicate activation",
+          "Mention replay rejection preserves original uncertainty and local target errors preserve recovery",
+          "Mention runtime retention accounts explicit work without consuming autosave capacity",
+          "Mention source and mention versions remain monotonic in both HTTP socket orderings",
+          "Mention suspension conceals protected recovery while account retirement fences late acceptance",
+          "Mention timeout permits exact replay and retains a late accepted receipt",
+          "Mention uncertain creation replays its exact attempt and requires renewed review before linking"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_mention_reconciliation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/actions/reconcileTimelineMentionReceipt.test.ts",
+        "titles": [
+          "Mention reconciliation accepts cleared dismissal and keeps newer remote correction over an older receipt",
+          "Mention reconciliation rejects stale sources malformed same-version projections and detached reads"
         ]
       },
       "evidence_class": "unit",

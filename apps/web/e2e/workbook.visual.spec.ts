@@ -1946,7 +1946,7 @@ test.describe("browser.entity-linking workbook visual readiness", () => {
       page
         .getByTestId(timelineInspectorTestId())
         .getByText("Manual", { exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await blurActiveElement(page);
     const chipFixture = page.locator("main.cartulary-shell").first();
     await chipFixture.evaluate((element) => {
