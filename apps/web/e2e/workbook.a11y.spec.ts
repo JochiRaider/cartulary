@@ -49,6 +49,7 @@ import {
   incidentControlsTriggerTestId,
   incidentImportTestId,
   incidentLandingTestId,
+  indicatorCreateTestId,
   indicatorLifecycleTestId,
   indicatorObservationTestId,
   landingAdminShellTestId,
@@ -257,6 +258,10 @@ import {
   openDecisionReviewFixture,
 } from "./support/workbook/decisionSupersession";
 import { fetchRecordHistory } from "./support/workbook/history";
+import {
+  createCanonicalObservationFixture,
+  openCanonicalProposal,
+} from "./support/workbook/indicatorCanonicalCreate";
 import {
   createLifecycleFixture,
   openLifecycleEditor,
@@ -7581,6 +7586,110 @@ test("a11y.indicator-observations exact source selection and retained recovery r
   await testInfo.attach("indicator-observation-accessibility-tree", {
     body: await recovery.ariaSnapshot(),
     contentType: "text/plain",
+  });
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+});
+
+test("a11y.canonical-indicator proposal validation and separate resolution remain keyboard reachable", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const fixture = await createCanonicalObservationFixture(page);
+  await page.goto(`/?incident_id=${fixture.incidentId}`);
+  const { form, editor } = await openCanonicalProposal(
+    page,
+    fixture.source.record_id,
+  );
+  const value = form.getByRole("textbox", {
+    name: "Canonical value",
+    exact: true,
+  });
+  const submit = form.getByRole("button", {
+    name: "Create canonical Indicator",
+    exact: true,
+  });
+  await value.fill("");
+  await submit.focus();
+  await submit.press("Enter");
+  await expect(value).toBeFocused();
+  await expect(value).toHaveAttribute("aria-invalid", "true");
+  await expect(value).toHaveAccessibleDescription("Required.");
+  await value.fill("NEW[.]EXAMPLE");
+  await form.getByText("Additional canonical details", { exact: true }).click();
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [
+      form.getByLabel("Indicator type", { exact: true }),
+      form.getByLabel("Value kind", { exact: true }),
+      value,
+      submit,
+    ]) {
+      await expectDecisionControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+    await testInfo.attach(`canonical-proposal-${viewport.width}-review`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectDecisionControlReachable(page, submit);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  await expectAllInteractiveControlsNamed(page);
+  await submit.focus();
+  await submit.press("Enter");
+  await expect(
+    editor.getByText("Indicator and history refreshed.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    editor.getByText("Not linked to this Indicator.", { exact: true }),
+  ).toBeVisible();
+  const resolve = editor.getByRole("button", {
+    name: "Resolve observation to this Indicator",
+    exact: true,
+  });
+  await page.setViewportSize({ width: 390, height: 480 });
+  await expectDecisionControlReachable(page, resolve);
+  await expectVisibleFocus(resolve);
+  await testInfo.attach("canonical-available-narrow-review", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
+  });
+  await testInfo.attach("canonical-create-accessibility-tree", {
+    body: await editor.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  const trigger = page.getByTestId(indicatorCreateTestId("recovery-trigger"));
+  await expectDecisionControlReachable(page, trigger);
+  expect((await trigger.boundingBox())?.width).toBeGreaterThanOrEqual(32);
+  await trigger.focus();
+  await trigger.press("Enter");
+  const recovery = page.getByTestId(indicatorCreateTestId("recovery"));
+  const canonicalRecoveryHeading = recovery.getByRole("heading");
+  await expect(canonicalRecoveryHeading).toHaveAccessibleName(
+    "Canonical Indicator recovery",
+  );
+  await expect(canonicalRecoveryHeading).toBeFocused();
+  await expectDecisionControlReachable(
+    page,
+    recovery.getByRole("button", {
+      name: "Close canonical recovery",
+      exact: true,
+    }),
+  );
+  await testInfo.attach("canonical-recovery-narrow-review", {
+    body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+    contentType: "image/png",
   });
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();

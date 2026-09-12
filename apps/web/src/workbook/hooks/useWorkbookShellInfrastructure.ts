@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
+import { createIndicatorCreateTransport } from "../adapters/createIndicatorCreateTransport";
 import { createIndicatorLifecycleAdapter } from "../adapters/createIndicatorLifecycleAdapter";
 import { createObservationReader } from "../adapters/createObservationReader";
 import { createObservationTransport } from "../adapters/createObservationTransport";
@@ -104,6 +105,15 @@ export function useWorkbookShellInfrastructure({
       mutationRuntime.indicatorObservations.configure(
         createObservationReader({ apiBase, incidentId }),
         createObservationTransport({ apiBase, incidentId }),
+        onIncidentAccessLost,
+      ),
+    [mutationRuntime, apiBase, incidentId, onIncidentAccessLost],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.indicatorCreate.configure(
+        createObservationReader({ apiBase, incidentId }),
+        createIndicatorCreateTransport({ apiBase, incidentId }),
         onIncidentAccessLost,
       ),
     [mutationRuntime, apiBase, incidentId, onIncidentAccessLost],

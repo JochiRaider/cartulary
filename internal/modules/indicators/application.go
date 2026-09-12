@@ -29,6 +29,7 @@ type Application struct {
 }
 
 type IdempotencyPort interface {
+	GetRouteIdempotencyTx(context.Context, pgx.Tx, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	GetRouteIdempotency(context.Context, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error)
 	InsertRouteIdempotencyPayload(context.Context, pgx.Tx, authn.RouteIdempotencyKey, []byte, int, any) error
 }

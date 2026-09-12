@@ -1225,6 +1225,18 @@ const descriptor = {
   profile_id: requireString(networkFlowIndex.profile_id, "network-flow profile_id"),
   contract_major: networkFlowIndex.contract_major,
 };
+const indicatorCreateConstraints = readJSON("contracts/indicators/create-constraints.v1.json");
+if (indicatorCreateConstraints.schema_id !== "cartulary.indicators.create_constraints.v1" ||
+    indicatorCreateConstraints.owner_id !== "module.indicators") {
+  throw new Error("Indicator create constraints have an invalid owner or schema");
+}
+for (const field of ["requiredFields", "valueKinds", "atomicTypes", "hashFields", "hashForbiddenTypes", "presentationFields"]) {
+  requireStringArray(indicatorCreateConstraints[field], `Indicator create ${field}`);
+}
+const indicatorStoredSchema = readJSON("contracts/incident-bundles/indicators.row.v1.schema.json");
+if (JSON.stringify(indicatorCreateConstraints.valueKinds) !== JSON.stringify(indicatorStoredSchema.properties.value_kind.enum)) {
+  throw new Error("Indicator create and stored value-kind vocabularies differ");
+}
 writeFilesAtomically([
   {
     path: path.join(generatedRoot, "core-indicator-registry.ts"),
@@ -1234,7 +1246,7 @@ writeFilesAtomically([
         openAPI.components.schemas.IndicatorObservationCreateRequest.properties.parsed_indicator_type.enum,
         "Core Indicator type registry",
       ),
-    ) + generatedConstSource(
+    ) + generatedConstSource("coreIndicatorCreateConstraints", indicatorCreateConstraints) + generatedConstSource(
       "coreIndicatorLifecycleConstraints",
       {
         states: openAPI.components.schemas.IndicatorLifecycleAppendRequest.properties.lifecycle_state.enum,

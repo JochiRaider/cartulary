@@ -1,12 +1,12 @@
 import { listWorkbookSurfaceContracts } from "@cartulary/view-contracts";
 import type { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
-import { workbookOperationFailureIsAccessLoss } from "../../ports/WorkbookPortResult";
 import { observationIndicatorView } from "./observationModel";
 import {
   type ObservationAttempt,
   type ObservationReceipt,
   type ObservationScope,
+  observationFailureIsAccessLoss,
   observationIntentSource,
 } from "./observationOperation";
 import type { WorkbookObservationOwner } from "./WorkbookObservationOwner";
@@ -47,7 +47,7 @@ export async function reconcileObservationReceipt(
     if (
       scope.isCurrent() &&
       result.kind === "rejected" &&
-      workbookOperationFailureIsAccessLoss(result.failure)
+      observationFailureIsAccessLoss(result.failure)
     )
       owner.loseAccess();
     if (

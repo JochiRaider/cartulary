@@ -2,6 +2,7 @@ package indicators_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create canonical indicator: %v", err)
 	}
-	updated, err := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
+	reused, err := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-dedupe",
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
@@ -44,9 +45,14 @@ func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dedupe canonical indicator: %v", err)
 	}
-	if updated.RecordID != created.RecordID || updated.Created || updated.Replayed {
-		t.Fatalf("expected same canonical indicator identity on representation update, got first=%#v update=%#v", created, updated)
+	if reused.RecordID != created.RecordID || reused.Created || reused.Replayed {
+		t.Fatalf("expected same canonical identity, got first=%#v reuse=%#v", created, reused)
 	}
+	if reused.RowVersion != created.RowVersion || !reflect.DeepEqual(reused.CanonicalRow, created.CanonicalRow) || reused.ChangeSetID == created.ChangeSetID {
+		t.Fatalf("reuse must preserve canonical state with its own receipt: first=%#v reuse=%#v", created, reused)
+	}
+	requireEntityCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND before_value = after_value AND before_version_id = after_version_id`, reused.ChangeSetID, 1)
+	requireEntityCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1`, created.RecordID, 1)
 	wantStoreTime := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	var createdAt, updatedAt time.Time
 	if err := harness.DB.QueryRow(context.Background(), `SELECT created_at, updated_at FROM records WHERE record_id = $1`, created.RecordID).Scan(&createdAt, &updatedAt); err != nil {
@@ -91,7 +97,7 @@ SELECT count(*)
 	}
 	lifecycleTime := time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC)
 	intervalResult, err := application.AppendIndicatorLifecycleInterval(context.Background(), actor.ID, lifecycleAppendParams(
-		incident.ID, created.RecordID, 4, lifecycleTime, "txn-indicator-lifecycle",
+		incident.ID, created.RecordID, 3, lifecycleTime, "txn-indicator-lifecycle",
 	))
 	if err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)

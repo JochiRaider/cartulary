@@ -15,7 +15,13 @@ type GenericMutationControlRef = RefCallback<
   HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
 >;
 
-type GenericMutationControlElementProps = {
+type GenericMutationControlFeedback = {
+  readonly ariaLabel?: string | undefined;
+  readonly describedBy?: string | undefined;
+  readonly invalid?: boolean | undefined;
+};
+
+type GenericMutationControlElementProps = GenericMutationControlFeedback & {
   readonly descriptor: GenericMutationControlDescriptor;
   readonly focusTargetRef?: GenericMutationControlRef | undefined;
   readonly id?: string | undefined;
@@ -25,6 +31,9 @@ type GenericMutationControlElementProps = {
 };
 
 export function GenericMutationControl({
+  ariaLabel,
+  describedBy,
+  invalid,
   collectionItems = [],
   collectionMode,
   field,
@@ -35,7 +44,7 @@ export function GenericMutationControl({
   testId,
   value,
   onChange,
-}: {
+}: GenericMutationControlFeedback & {
   collectionItems?: readonly { itemRef: string; displayText: string }[];
   collectionMode: GenericCollectionMode;
   field: ViewFieldContract;
@@ -55,6 +64,9 @@ export function GenericMutationControl({
     surface,
   });
   const props = {
+    ariaLabel,
+    describedBy,
+    invalid,
     descriptor,
     focusTargetRef,
     id,
@@ -80,6 +92,9 @@ export function GenericMutationControl({
 }
 
 function GenericMultiSelectControl({
+  ariaLabel,
+  describedBy,
+  invalid,
   descriptor,
   focusTargetRef,
   id,
@@ -94,7 +109,9 @@ function GenericMultiSelectControl({
 }) {
   return (
     <select
-      aria-label={descriptor.ariaLabel}
+      aria-label={ariaLabel ?? descriptor.ariaLabel}
+      aria-describedby={describedBy}
+      aria-invalid={invalid}
       data-testid={testId}
       id={id}
       multiple
@@ -120,6 +137,9 @@ function GenericMultiSelectControl({
 }
 
 function GenericSingleSelectControl({
+  ariaLabel,
+  describedBy,
+  invalid,
   descriptor,
   focusTargetRef,
   id,
@@ -138,7 +158,9 @@ function GenericSingleSelectControl({
       : descriptor.options.map((option) => ({ label: option, value: option }));
   return (
     <select
-      aria-label={descriptor.ariaLabel}
+      aria-label={ariaLabel ?? descriptor.ariaLabel}
+      aria-describedby={describedBy}
+      aria-invalid={invalid}
       data-testid={testId}
       id={id}
       ref={focusTargetRef}
@@ -161,6 +183,9 @@ function GenericSingleSelectControl({
 }
 
 function GenericBooleanControl({
+  ariaLabel,
+  describedBy,
+  invalid,
   descriptor,
   focusTargetRef,
   id,
@@ -175,7 +200,9 @@ function GenericBooleanControl({
 }) {
   return (
     <input
-      aria-label={descriptor.ariaLabel}
+      aria-label={ariaLabel ?? descriptor.ariaLabel}
+      aria-describedby={describedBy}
+      aria-invalid={invalid}
       checked={value === "true"}
       data-testid={testId}
       id={id}
@@ -188,6 +215,9 @@ function GenericBooleanControl({
 }
 
 function GenericTextInputControl({
+  ariaLabel,
+  describedBy,
+  invalid,
   descriptor,
   focusTargetRef,
   id,
@@ -202,7 +232,9 @@ function GenericTextInputControl({
 }) {
   return (
     <input
-      aria-label={descriptor.ariaLabel}
+      aria-label={ariaLabel ?? descriptor.ariaLabel}
+      aria-describedby={describedBy}
+      aria-invalid={invalid}
       data-testid={testId}
       id={id}
       inputMode={descriptor.kind === "number" ? "numeric" : undefined}
@@ -219,6 +251,9 @@ function GenericTextInputControl({
 }
 
 function GenericTextareaControl({
+  ariaLabel,
+  describedBy,
+  invalid,
   descriptor,
   focusTargetRef,
   id,
@@ -233,7 +268,9 @@ function GenericTextareaControl({
 }) {
   return (
     <textarea
-      aria-label={descriptor.ariaLabel}
+      aria-label={ariaLabel ?? descriptor.ariaLabel}
+      aria-describedby={describedBy}
+      aria-invalid={invalid}
       data-testid={testId}
       id={id}
       ref={focusTargetRef}

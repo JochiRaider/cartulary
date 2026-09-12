@@ -144,6 +144,36 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.indicators.identity.direct_create_serializes_transaction_identity_an_8f843da442",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.identity",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.identity_parity_and_concurrency"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestConcurrentIndicatorCreateReceipts_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.indicators.identity.indicator_identity_normalization_and_dedupe_are_50da60e4b0",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.identity",
@@ -202,7 +232,11 @@
       "row_id": "module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.integration",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.records",
+        "module.revisions"
+      ],
       "verification_ids": [
         "module.indicators.verification.behavior_contract",
         "module.indicators.verification.route_integration"

@@ -1733,6 +1733,16 @@ Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-01-061**
+Indicator row-create receipts written with the legacy raw admitted-request
+digest MUST retain their original exact admitted-request comparison, including
+the transaction key and submitted identity representation. New receipts MUST
+compare normalized admitted create fields, excluding `client_txn_id` and route
+scope members. Implementations MUST retain legacy comparison alongside the new
+comparison without rewriting receipts. They MUST NOT infer an original request
+from its returned Indicator or current canonical state. A historical request
+variant that fails the legacy comparison MUST fail with `client_txn_conflict`.
+This exception does not relax current request admission or security checks.
+
 When `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` supplies initial writable values keyed directly by `field_key`, a direct-write field MUST use its direct field value as the JSON value and a write-action field MUST use the same object that a patch `changes[]` entry would carry in `action_payload`. A declared create input MUST use the value shape named by its `value_contract_id` and MUST be normalized independently of field values. For row-create idempotency comparison, the normalized request MUST include only recognized create members after active-view validation and create-time normalization: normalized create-writable fields plus normalized declared create inputs. `client_txn_id` is the idempotency key and MUST NOT be part of that normalized request comparison. For direct-write fields, comparison MUST use the create-time normalized value that would be persisted. For write-action fields, comparison MUST use the semantically validated action payload after any field-specific normalization. For create inputs, comparison MUST use the value-contract-normalized input; `evidence.initial_object_blob_id` compares as one exact opaque identifier. Unknown or forbidden top-level members are never part of normalized comparison because the route rejects them. When a field contract makes omission and explicit JSON `null` equivalent for create-time authoritative state, they MUST compare equal. When a field contract declares a create-time default, omission and explicit transmission of that same default MUST compare equal.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
@@ -5821,6 +5831,20 @@ Verified by: AC-068, AC-069, AC-070, AC-112, AC-118, AC-124, AC-125, AC-185, AC-
 #### 7.4.6 `cartulary.view.indicators.v1`
 
 **REQ-01-331**
+A fresh direct create matching an active same-incident canonical identity MUST
+return that Indicator unchanged, including optional metadata, attribution and
+Records version. Supplied metadata MUST NOT enrich a matched record. This is a
+distinct successful operation, not a read-only lookup: it MUST return `201` and
+commit its own change set, idempotency receipt and Indicator target-history entry
+with equal before/after snapshots and version identifiers. It MUST append no
+live record revision and publish no `record_changed` intent for that unchanged
+reuse. Exact replay MUST return `200` and the original committed result without
+additional effects. Concurrent matching transaction keys MUST commit once and
+replay that result; divergent reuse of a transaction key MUST commit no effects.
+Canonical identity ownership MUST precede before-snapshot capture. Distinct
+requests for the same canonical identity MUST converge on one Indicator while
+retaining independent operation receipts and consistent history.
+
 - surface: contract-backed `Indicators` system view
 - source record types: `indicator`
 - base projection: `indicator_grid_projection`

@@ -88,9 +88,9 @@ func indicatorMutationResult(
 	incidentID uuid.UUID,
 	clientTxnID string,
 ) workbook.MutationResult {
-	statusCode := http.StatusOK
-	if result.Created {
-		statusCode = http.StatusCreated
+	statusCode := http.StatusCreated
+	if result.Replayed {
+		statusCode = http.StatusOK
 	}
 	return workbook.MutationResult{
 		Payload: workbook.BuildMutationPayload(

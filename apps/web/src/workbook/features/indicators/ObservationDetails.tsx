@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { WorkbookInspectorActionButton } from "../../inspector/presentation/WorkbookInspectorActions";
 import type { IndicatorObservation } from "../../mutations/workbookMutationCommandPorts";
+import { IndicatorCreateFromObservation } from "./IndicatorCreateFromObservation";
 import type { ObservationDraftStore } from "./ObservationDraftStore";
 import { ObservationTargetPicker } from "./ObservationTargetPicker";
 import {
@@ -8,6 +9,7 @@ import {
   observationCanTransition,
 } from "./observationModel";
 import type {
+  ObservationAttempt,
   ObservationIntent,
   ObservationReadPort,
 } from "./observationOperation";
@@ -31,7 +33,10 @@ export function ObservationDetails({
   drafts: ObservationDraftStore;
   manage: boolean;
   disabled: boolean;
-  onSubmit: (intent: ObservationIntent, draft: ObservationDraft) => void;
+  onSubmit: (
+    intent: ObservationIntent,
+    draft: ObservationDraft,
+  ) => ObservationAttempt | null | undefined;
   targetLabel?: string | undefined;
 }) {
   const [resolving, setResolving] = useState(false);
@@ -171,6 +176,13 @@ export function ObservationDetails({
             ) : null}
           </>
         )
+      ) : null}
+      {manage ? (
+        <IndicatorCreateFromObservation
+          observation={item}
+          disabled={disabled}
+          onResolve={onSubmit}
+        />
       ) : null}
     </article>
   );

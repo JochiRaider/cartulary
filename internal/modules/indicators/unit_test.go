@@ -3,6 +3,7 @@ package indicators_test
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -44,6 +46,12 @@ INSERT INTO route_idempotency (
 	}
 	if !legacyReplay.Replayed || legacyReplay.RecordID != legacyRecordID || legacyReplay.ChangeSetID != legacyChangeSetID || legacyReplay.RowVersion != 17 {
 		t.Fatalf("deployed Indicator replay = %#v", legacyReplay)
+	}
+	_, legacyVariantErr := application.CreateIndicatorRow(context.Background(), actor.ID, incident.ID, indicators.CreateCommand{
+		ClientTxnID: "txn-indicator", IndicatorType: "ipv4_addr", ValueKind: "atomic", DisplayValue: "203.0.113.7",
+	}, "req-legacy-variant")
+	if !errors.Is(legacyVariantErr, authn.ErrClientTxnConflict) {
+		t.Fatalf("legacy normalized variant: %v", legacyVariantErr)
 	}
 	var legacyDurableRows int
 	if err := harness.DB.QueryRow(context.Background(), `SELECT COUNT(*) FROM records WHERE record_id = $1`, legacyRecordID).Scan(&legacyDurableRows); err != nil || legacyDurableRows != 0 {

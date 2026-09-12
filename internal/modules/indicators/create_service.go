@@ -20,7 +20,11 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 	if actorUserID == uuid.Nil {
 		return CreateResult{}, &IndicatorCreateValidationError{Field: "actor_user_id", ReasonCode: "missing_required_field"}
 	}
-	requestHash := createIndicatorRequestHash(command)
+	input, err := indicatorInputFromCreateCommand(command)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	requestHash := normalizedIndicatorCreateHash(input)
 	scopeKey := incidentID.String() + ":" + ViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    indicatorCreateRouteKey,
@@ -28,8 +32,18 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 		ScopeKey:    scopeKey,
 		ClientTxnID: command.ClientTxnID,
 	}
-	if existing, err := s.idempotency.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return CreateResult{}, fmt.Errorf("begin indicator create transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// Serialize the scoped attempt before reading its receipt on this transaction.
+	requestLock := indicatorCreateRouteKey + ":" + actorUserID.String() + ":" + scopeKey + ":" + command.ClientTxnID
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, requestLock); err != nil {
+		return CreateResult{}, fmt.Errorf("lock indicator create request: %w", err)
+	}
+	if existing, err := s.idempotency.GetRouteIdempotencyTx(ctx, tx, idempotencyKey); err == nil {
+		if !bytes.Equal(existing.RequestHash, requestHash) && !bytes.Equal(existing.RequestHash, createIndicatorRequestHash(command)) {
 			return CreateResult{}, authn.ErrClientTxnConflict
 		}
 		payload, err := decodeStoredResponse(existing.ResponseJSON)
@@ -61,15 +75,10 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 	}
 	now := s.now().UTC()
 
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return CreateResult{}, fmt.Errorf("begin indicator create transaction: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
 	if err := s.incidentState.RequireOpenTx(ctx, tx, incidentID); err != nil {
+		return CreateResult{}, err
+	}
+	if err := lockIndicatorDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey); err != nil {
 		return CreateResult{}, err
 	}
 	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, incidentID, command)
@@ -142,12 +151,8 @@ func (s *Application) CreateIndicatorRow(ctx context.Context, actorUserID uuid.U
 	}
 
 	created := beforeRow == nil
-	statusCode := httpStatusOK
-	if created {
-		statusCode = httpStatusCreated
-	}
 	payload := buildStoredCreateResponse(changeSetID, afterRow)
-	if err := s.idempotency.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, requestHash, statusCode, payload); err != nil {
+	if err := s.idempotency.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, requestHash, httpStatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return CreateResult{}, authn.ErrClientTxnConflict
 		}
@@ -276,34 +281,5 @@ func (s *Application) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actorUse
 		return indicatorRecord{}, nil, "", 0, err
 	}
 
-	next := current
-	fieldChanged := false
-	if next.DefangedValue == nil && input.DefangedValue != nil {
-		next.DefangedValue = cloneStringPointer(input.DefangedValue)
-		fieldChanged = true
-	}
-	if next.HashAlgorithm == nil && input.HashAlgorithm != nil {
-		next.HashAlgorithm = cloneStringPointer(input.HashAlgorithm)
-		fieldChanged = true
-	}
-	if next.HashValue == nil && input.HashValue != nil {
-		next.HashValue = cloneStringPointer(input.HashValue)
-		fieldChanged = true
-	}
-	if next.STIXPattern == nil && input.STIXPattern != nil {
-		next.STIXPattern = cloneStringPointer(input.STIXPattern)
-		fieldChanged = true
-	}
-	if fieldChanged {
-		next.RowVersion, err = s.recordEnvelopes.AdvanceVersionTx(ctx, tx, current.RecordID, actorUserID, now.UTC())
-		if err != nil {
-			return indicatorRecord{}, nil, "", 0, err
-		}
-		next.UpdatedAt = now.UTC()
-		next.UpdatedByUser = actorUserID
-		if err := updateIndicatorTx(ctx, tx, next); err != nil {
-			return indicatorRecord{}, nil, "", 0, err
-		}
-	}
-	return next, beforeRow, "patch", httpStatusOK, nil
+	return current, beforeRow, "patch", httpStatusOK, nil
 }

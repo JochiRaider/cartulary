@@ -24,6 +24,7 @@ import (
 func TestIndicatorApplicationCompositionAndRepositoryBoundaries(t *testing.T) {
 	t.Parallel()
 	t.Run("deployed replay preimages and digests", testIndicatorReplayHashCompatibility)
+	t.Run("normalized create comparison", testNormalizedIndicatorCreateHash)
 
 	fixedTime := time.Date(2026, 8, 23, 12, 34, 56, 789, time.UTC)
 	complete := ApplicationDependencies{
@@ -237,4 +238,8 @@ func (inertIndicatorDB) QueryRow(context.Context, string, ...any) pgx.Row {
 
 func (inertIndicatorDB) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
 	panic("unexpected BeginTx")
+}
+
+func (*inertIndicatorIdempotencyPort) GetRouteIdempotencyTx(context.Context, pgx.Tx, authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	panic("unexpected GetRouteIdempotencyTx")
 }

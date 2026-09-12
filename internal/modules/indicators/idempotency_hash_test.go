@@ -172,3 +172,38 @@ func testIndicatorReplayHashCompatibility(t *testing.T) {
 		t.Fatalf("Indicator replay scopes were not isolated: first=%#v second=%#v", dismissKey, otherScope)
 	}
 }
+
+func testNormalizedIndicatorCreateHash(t *testing.T) {
+	base := CreateCommand{ClientTxnID: "one", IndicatorType: "ipv6_addr", ValueKind: "atomic", DisplayValue: "2001:db8::9"}
+	hash := func(command CreateCommand) []byte {
+		t.Helper()
+		input, err := indicatorInputFromCreateCommand(command)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return normalizedIndicatorCreateHash(input)
+	}
+	variant := base
+	variant.ClientTxnID = "two"
+	variant.IndicatorType = " IPv6_ADDR "
+	variant.ValueKind = "ATOMIC"
+	variant.DisplayValue = "2001:0db8:0:0:0:0:0:9"
+	normalized := "2001:db8::9"
+	variant.NormalizedValue = &normalized
+	if !bytes.Equal(hash(base), hash(variant)) {
+		t.Fatal("normalized identity/default/transaction exclusion comparison differs")
+	}
+	if bytes.Equal(createIndicatorRequestHash(base), createIndicatorRequestHash(variant)) {
+		t.Fatal("legacy comparison unexpectedly canonicalized")
+	}
+	metadata := "original presentation"
+	variant.DefangedValue = &metadata
+	if bytes.Equal(hash(base), hash(variant)) {
+		t.Fatal("supplied metadata disappeared from admitted request comparison")
+	}
+	variant = base
+	variant.DisplayValue = "2001:db8::10"
+	if bytes.Equal(hash(base), hash(variant)) {
+		t.Fatal("different canonical requests compare equal")
+	}
+}

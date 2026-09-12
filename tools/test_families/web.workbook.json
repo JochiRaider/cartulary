@@ -1426,6 +1426,146 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.indicator_canonical_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorCreateAuthoring.test.tsx",
+        "titles": [
+          "Indicator canonical authoring preserves observed text and requires an explicit value kind",
+          "Indicator canonical type changes invalidate derived details without rewriting a retained draft"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_canonical_owner",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/WorkbookIndicatorCreateOwner.test.ts",
+        "titles": [
+          "Canonical acceptance precedes refresh and read retry preserves newer materialization without another create",
+          "Canonical authority gates replay and runtime lifetime retains uncertainty without browser persistence",
+          "Canonical create reserves admission synchronously and rejects invalid or changed observations before dispatch",
+          "Canonical late acceptance survives panel disposal but cannot attach to a retired account",
+          "Canonical results associate explicit observation attempts and retain independent resolution recovery",
+          "Canonical uncertainty replays original bytes independently of drafts panel closure and incident closure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_canonical_reconciliation",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorCreateReconciliation.test.ts",
+        "titles": [
+          "Canonical refresh reads unfiltered pages and fences historical receipts against newer history",
+          "Canonical refresh retains receipt on unavailable target access loss and detached history"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_canonical_transport",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createIndicatorCreateTransport.test.ts",
+        "titles": [
+          "Canonical transport rejects invalid receipt bindings and classifies malformed or lost responses as uncertainty",
+          "Canonical transport retains closed request bytes and complete accepted results with neutral status semantics",
+          "Indicator canonical request constraints preserve exact vocabularies identity and omission semantics"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.indicator_canonical_workflow",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/IndicatorCreateFromObservation.test.tsx",
+        "titles": [
+          "Canonical workflow requires validated acceptance and explicit resolution with independent replay",
+          "Canonical workflow retains a late result across closure without resolution and keeps the pivot read only"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.indicator_lifecycle_authoring_paging",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -1775,7 +1915,8 @@
           "Observation exact replay preserves immutable route body identity through closure and source changes",
           "Observation fresh target discovery is independent paged and stale child or target dispatches nothing",
           "Observation late settlement survives Inspector disposal but cannot complete a retired account",
-          "Observation runtime retains uncertainty across shell recovery with save status and retires account state"
+          "Observation runtime retains uncertainty across shell recovery with save status and retires account state",
+          "Observation stale child and unavailable targets stay local while incident access loss suspends recovery"
         ]
       },
       "evidence_class": "unit",

@@ -27,3 +27,7 @@ func (port idempotencyPort) GetRouteIdempotency(ctx context.Context, key authn.R
 func (port idempotencyPort) InsertRouteIdempotencyPayload(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, requestHash []byte, statusCode int, payload any) error {
 	return authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, statusCode, payload)
 }
+
+func (idempotencyPort) GetRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	return authn.GetRouteIdempotencyTx(ctx, tx, key)
+}

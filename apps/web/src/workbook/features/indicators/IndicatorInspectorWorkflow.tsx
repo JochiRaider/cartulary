@@ -179,6 +179,7 @@ function ObservationWorkflow({
         : "The operation is unavailable or changed. Review the current source, observation and target.",
     );
     if (attempt) void owner.execute(attempt);
+    return attempt;
   }
   const manage =
     subject.kind === "source" &&

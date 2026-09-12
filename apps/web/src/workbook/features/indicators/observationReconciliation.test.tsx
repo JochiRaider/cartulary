@@ -190,9 +190,12 @@ it("Observation query materialization fences older HTTP projections against acce
   expect(initial.result.current.rows).toHaveLength(1);
   act(() => runtime.indicatorLifecycle.setAuthority(observationAuthority));
   expect(initial.result.current.rows).toHaveLength(1);
+  act(() => runtime.indicatorCreate.setAuthority(observationAuthority));
+  expect(initial.result.current.rows).toHaveLength(1);
   act(() => runtime.indicatorObservations.suspend());
   expect(initial.result.current.rows).toHaveLength(0);
   initial.unmount();
   runtime.indicatorObservations.retire();
   runtime.indicatorLifecycle.retire();
+  runtime.indicatorCreate.retire();
 });

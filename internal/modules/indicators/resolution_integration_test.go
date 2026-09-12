@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
@@ -58,6 +59,43 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	replayData := appsupport.RequireSuccessData(t, replayResponse, http.StatusOK)
 	if !reflect.DeepEqual(replayData, data) {
 		t.Fatalf("exact Indicator replay changed its committed result: first=%#v replay=%#v", data, replayData)
+	}
+	createURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + viewtest.IndicatorsViewSchemaID + "/rows"
+	post := func(body map[string]any, status int) map[string]any {
+		t.Helper()
+		return appsupport.RequireSuccessData(t, appsupport.DoJSON(t, http.MethodPost, createURL, body,
+			appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), status)
+	}
+	normalizedPayload := map[string]any{}
+	for key, value := range payload {
+		normalizedPayload[key] = value
+	}
+	normalizedPayload["indicator.display_value"] = "203[.]0[.]113[.]24"
+	delete(normalizedPayload, "indicator.normalized_value")
+	if got := post(normalizedPayload, http.StatusOK); !reflect.DeepEqual(got, data) {
+		t.Fatalf("normalized replay differs: %#v", got)
+	}
+	normalizedPayload["client_txn_id"] = "txn-fresh-canonical-match"
+	normalizedPayload["indicator.stix_pattern"] = "[ipv4-addr:value = '203.0.113.24']"
+	normalizedPayload["indicator.defanged_value"] = "203[.]0[.]113[.]24"
+	reuseData := post(normalizedPayload, http.StatusCreated)
+	if !reflect.DeepEqual(reuseData["row"], row) || reuseData["change_set_id"] == data["change_set_id"] {
+		t.Fatalf("reuse changed metadata/version or lost receipt: %#v", reuseData)
+	}
+	if got := post(normalizedPayload, http.StatusOK); !reflect.DeepEqual(got, reuseData) {
+		t.Fatalf("reuse replay differs: %#v", got)
+	}
+	var unchangedHistory, liveRevisions int
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND before_value = after_value AND before_version_id = after_version_id`, reuseData["change_set_id"]).Scan(&unchangedHistory); err != nil {
+		t.Fatal(err)
+	}
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM record_revisions WHERE record_id = $1`, row["record_id"]).Scan(&liveRevisions); err != nil {
+		t.Fatal(err)
+	}
+	publications := collaborationsupport.CountIntents(t, harness.DB, collaborationsupport.IntentSelector{SourceRecordID: row["record_id"].(string)})
+	if unchangedHistory != 1 || liveRevisions != 1 || publications != 1 {
+		t.Fatalf("reuse history/revision/publication counts: %d/%d/%d", unchangedHistory, liveRevisions, publications)
 	}
 	divergentPayload := map[string]any{}
 	for key, value := range payload {
@@ -124,4 +162,25 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	if !reflect.DeepEqual(rowBeforeRebuild["cells"], rowAfterRebuild["cells"]) {
 		t.Fatalf("indicator projection rebuild drifted: before=%#v after=%#v", rowBeforeRebuild, rowAfterRebuild)
 	}
+	// Current transport authorization precedes replay, including after closure.
+	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload), http.StatusUnauthorized, "session_required")
+	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incidentID); err != nil {
+		t.Fatal(err)
+	}
+	if got := post(payload, http.StatusOK); !reflect.DeepEqual(got, data) {
+		t.Fatalf("closed-incident replay replaced the historical row: %#v", got)
+	}
+	normalizedPayload["client_txn_id"] = "txn-closed-fresh-create"
+	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, normalizedPayload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusConflict, "incident_closed")
+
+	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'viewer', membership_version = membership_version + 1, updated_at = now(), updated_by_user_id = $2 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID); err != nil {
+		t.Fatal(err)
+	}
+	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
+	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID); err != nil {
+		t.Fatal(err)
+	}
+	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, createURL, payload, appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+
 }

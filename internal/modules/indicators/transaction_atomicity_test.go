@@ -273,3 +273,7 @@ func countIndicatorRows(t testing.TB, db postgres.DB, query string, args ...any)
 	}
 	return got
 }
+
+func (transactionTestIdempotencyPort) GetRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	return authn.GetRouteIdempotencyTx(ctx, tx, key)
+}

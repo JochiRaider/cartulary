@@ -3,6 +3,42 @@
   "owner_id": "module.workbook",
   "rows": [
     {
+      "row_id": "module.workbook.accessibility.canonical_indicator_authoring_recovery",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.indicators",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_01040258c0d5"
+        ],
+        "titles": [
+          "a11y.canonical-indicator proposal validation and separate resolution remain keyboard reachable"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.workbook.accessibility.decision_supersession_review_recovery",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.accessibility",
@@ -385,6 +421,154 @@
         ],
         "titles": [
           "workbook startup falls back to Timeline for an unsupported explicit sheet"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.canonical_create_independent_recovery",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.indicators",
+        "module.revisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/indicator-canonical-create.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_9213a8ea350c"
+        ],
+        "titles": [
+          "Canonical Indicator creation and resolution replay independently after response loss with two committed operations"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.canonical_create_late_closed_replay",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.indicators",
+        "module.revisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/indicator-canonical-create.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_16151e2e2ebf"
+        ],
+        "titles": [
+          "Canonical late response preserves retargeted drafts and exact recovery after incident closure"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.canonical_create_reuse_stale_resolution",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.indicators",
+        "module.revisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/indicator-canonical-create.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_14cb45d5f561"
+        ],
+        "titles": [
+          "Canonical reuse leaves metadata unchanged and retains its result after rejected resolution"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.canonical_create_target_authority",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.indicators",
+        "module.revisions",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/indicator-canonical-create.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_82b3e5e16175"
+        ],
+        "titles": [
+          "Canonical results survive unavailable targets and current editor authority is checked before resolution"
         ]
       },
       "evidence_class": "browser",

@@ -1363,6 +1363,13 @@ Profiles: base
 Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-231
 
 **REQ-03-137**
+Direct-create canonical reuse follows Core 01 REQ-01-331. The client MUST display
+the returned canonical value and MUST NOT infer record insertion from `201` or
+observation resolution from a canonical-create receipt. Creating from a
+persisted observation and subsequently resolving it use independent operations
+and receipts. Resolution requires explicit analyst activation after validated
+create acceptance.
+
 Direct row creation on the Indicators system view MUST create canonical indicator records. Grid edits to an existing indicator row MUST be limited to the fields that the active `view_schema` declares writable for existing indicator rows. In the base profile, `cartulary.view.indicators.v1` declares no writable fields for existing indicator rows. The exact identity-defining immutable field set for an existing indicator row is `indicator.indicator_type`, `indicator.value_kind`, `indicator.display_value`, `indicator.normalized_value`, and, when populated and used by the canonical dedupe key, `indicator.hash_algorithm` plus `indicator.hash_value`. `indicator.stix_pattern` and `indicator.defanged_value` remain create-only in this view but MUST NOT be treated as identity-defining. Observation creation from a source field MUST remain distinct from canonical indicator creation even when both happen in one analyst action.
 Profiles: base
 Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-231

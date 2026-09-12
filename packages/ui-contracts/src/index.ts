@@ -317,3 +317,10 @@ export function indicatorObservationTestId(
 ) {
   return `indicator-observation-${part}`;
 }
+
+export function indicatorCreateTestId(
+  part: "editor" | "result" | "recovery" | "recovery-trigger" | "field",
+  key = "",
+) {
+  return `indicator-create-${part}${key ? `-${key}` : ""}`;
+}

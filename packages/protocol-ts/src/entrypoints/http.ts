@@ -15,6 +15,7 @@ import { validateCartularyCoreHttpErrorEnvelopeV1 } from "../generated/core-http
 import { createDecoder } from "../internal/decoder.js";
 
 export {
+  coreIndicatorCreateConstraints,
   coreIndicatorLifecycleConstraints,
   coreIndicatorTypes,
 } from "../generated/core-indicator-registry.js";

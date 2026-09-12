@@ -480,6 +480,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-indicator-canonical-create",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.canonical_create_independent_recovery",
+            "module.workbook.browser.canonical_create_late_closed_replay",
+            "module.workbook.browser.canonical_create_reuse_stale_resolution",
+            "module.workbook.browser.canonical_create_target_authority"
+          ],
+          "specs": [
+            "apps/web/e2e/indicator-canonical-create.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-indicator-lifecycle",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1453,6 +1478,31 @@
           ],
           "specs": [
             "apps/web/e2e/incident-metadata-editing.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-indicator-canonical-create",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.canonical_create_independent_recovery",
+            "module.workbook.browser.canonical_create_late_closed_replay",
+            "module.workbook.browser.canonical_create_reuse_stale_resolution",
+            "module.workbook.browser.canonical_create_target_authority"
+          ],
+          "specs": [
+            "apps/web/e2e/indicator-canonical-create.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
@@ -2709,6 +2759,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+            "module.workbook.accessibility.canonical_indicator_authoring_recovery",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
@@ -3710,6 +3761,7 @@
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
+            "module.workbook.accessibility.canonical_indicator_authoring_recovery",
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",

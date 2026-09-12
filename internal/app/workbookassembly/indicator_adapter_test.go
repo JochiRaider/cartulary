@@ -63,8 +63,8 @@ func TestIndicatorMutationResultUsesOnlyConsumerRequiredSignals(t *testing.T) {
 	}
 
 	existingResult := indicatorMutationResult(base, incidentID, "txn-existing")
-	if existingResult.StatusCode != http.StatusOK || existingResult.Replayed {
-		t.Fatalf("existing result = %#v, want 200 and not replayed", existingResult)
+	if existingResult.StatusCode != http.StatusCreated || existingResult.Replayed {
+		t.Fatalf("existing result = %#v, want 201 and not replayed", existingResult)
 	}
 
 	replayed := base

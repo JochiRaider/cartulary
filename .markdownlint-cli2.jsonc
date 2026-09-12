@@ -7,6 +7,7 @@
     "docs/*.md",
     "docs/spec/**/*.md",
     "docs/guides/**/*.md",
+    "docs/handoffs/workbook-indicator-create-from-observation-refactor-handoff.md",
     "docs/research/**/*.md",
     "docs/user_guides/**/*.md",
     "apps/web/public/assets/fonts/*.md"

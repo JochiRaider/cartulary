@@ -222,3 +222,36 @@ it("Observation late settlement survives Inspector disposal but cannot complete 
   expect(u.accepted).not.toHaveBeenCalled();
   expect(u.owner.getSnapshot().entries).toEqual([]);
 });
+
+it("Observation stale child and unavailable targets stay local while incident access loss suspends recovery", async () => {
+  for (const code of [
+    "row_version_conflict",
+    "resolved_indicator_not_found",
+    "indicator_observation_not_found",
+    "incident_not_found",
+  ]) {
+    const t = observationOwnerFixture(),
+      lost = vi.fn();
+    t.owner.configure(t.reader, t.transport, lost);
+    t.transport.send.mockResolvedValueOnce({
+      kind: "rejected",
+      failure: {
+        kind: "stale_target",
+        publicCode: code,
+        message: "Review current state",
+      },
+    });
+    const attempt = t.admit({
+      action: "resolve",
+      observation: testObservation,
+      targetId: observationTargetId,
+    });
+    await t.owner.execute(attempt);
+    expect(lost).toHaveBeenCalledTimes(code === "incident_not_found" ? 1 : 0);
+    expect(t.owner.getSnapshot().authority !== null).toBe(
+      code !== "incident_not_found",
+    );
+    if (code !== "incident_not_found")
+      expect(t.entry()?.phase).toBe("rejected");
+  }
+});
