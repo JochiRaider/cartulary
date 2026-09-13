@@ -1,8 +1,8 @@
 concept	actual_path	artifact_type	authority_or_role	status	evidence
 repository root	.	repository root	Cartulary repository root	VERIFIED	git rev-parse --show-toplevel
 digest root	docs/cartulary-ui-ux-refactor-digest	vendored advisory package	localized UI/UX refactor preparation package	VERIFIED	tracked directory containing README.md, cartulary/, meta/, and upstream/
-root agent instructions	AGENTS.md	agent instruction	only applicable repository instruction file	VERIFIED	find . -name AGENTS.md -print
-nested agent instructions	NOT PRESENT	agent instruction	no nested AGENTS.md applies	NOT PRESENT	find . -name AGENTS.md -print returns only AGENTS.md
+root agent instructions	AGENTS.md	agent instruction	only applicable repository instruction file	VERIFIED	rg --files --hidden -g AGENTS.md -g !node_modules -g !.git . returns only ./AGENTS.md
+nested agent instructions	NOT PRESENT	agent instruction	no nested AGENTS.md applies	NOT PRESENT	repository-wide rg file discovery returns only the root AGENTS.md
 Core 00	docs/spec/00_document_set_status_and_precedence.md	normative Core owner	document-set status and precedence	VERIFIED	file exists and is named by AGENTS.md authority rules
 Core 01	docs/spec/01_architecture_storage_and_view_contracts.md	normative Core owner	architecture, storage, and view contracts	VERIFIED	file exists and is indexed by docs/spec
 Core 02	docs/spec/02_domain_model_schema_and_history.md	normative Core owner	domain model, schema, and history	VERIFIED	file exists and is indexed by docs/spec
@@ -20,11 +20,11 @@ Reference Pack subsystem NLSpec	docs/reference-pack-subsystem-nlspec.md	draft su
 design contract	docs/design.md	design owner	design direction within its stated boundary	VERIFIED	AGENTS.md declares this design direction
 domain contract	docs/domain.md	domain owner	vocabulary and owner navigation within its stated boundary	VERIFIED	AGENTS.md declares this ownership
 modular-refactor planning framework	docs/handoffs/cartulary_modular_refactor_planning_framework.md	planning framework	later modular-refactor planning procedure	VERIFIED	file exists under docs/handoffs
-workspace definition	pnpm-workspace.yaml	workspace manifest	pnpm workspace layout	VERIFIED	packages include apps/* and packages/*
+workspace definition	pnpm-workspace.yaml	workspace manifest	pnpm workspace layout	VERIFIED	pnpm-workspace.yaml declares apps/web and packages/*
 frontend application root	apps/web	application package	top-level web application	VERIFIED	AGENTS.md repository boundary and apps/web/package.json
-frontend application shell	apps/web/src/app	authored implementation	web.application shell and application state	VERIFIED	tools/test_catalog_owner.json maps web.application to an active family and source imports originate here
+frontend application shell	apps/web/src/app	authored implementation	source owner web.app; application shell and application state	VERIFIED	tools/frontend_source_ownership.json assigns source paths to web.app; verification owner web.application is independently routed by the test catalog
 web.application verification owner	contracts/verification/owners/web.application.json	authored verification contract	web.application verification routing	VERIFIED	contracts/verification/registry.json maps owner_id web.application to this contract
-workbook shell and work area	apps/web/src/workbook	authored implementation	web.workbook shell, runtime state, and work area	VERIFIED	tools/test_catalog_owner.json maps web.workbook to an active family and WorkbookShell.tsx is here
+workbook shell and work area	apps/web/src/workbook	authored implementation	source owner web.workbook; workbook composition and feature/runtime owners	VERIFIED	tools/frontend_source_ownership.json assigns workbook source; apps/web/src/workbook/README.md navigates local owners; verification web.workbook is independently routed
 web.workbook verification owner	contracts/verification/owners/web.workbook.json	authored verification contract	web.workbook verification routing	VERIFIED	contracts/verification/registry.json maps owner_id web.workbook to this contract
 grid adapter	packages/grid-adapter	authored package	sole react-data-grid integration boundary	VERIFIED	package manifest depends on react-data-grid and repository source search finds vendor imports only in this package
 view schema projections	contracts/view-schemas	authored machine projections	versioned view-schema contract inputs downstream of adopted owners	VERIFIED	contracts/index.json and JSON artifacts under this directory
@@ -34,7 +34,7 @@ view-contract adapter	packages/view-contracts	authored package	authored adapter 
 UI contract package	packages/ui-contracts	authored package	stable UI contracts and generated design-token consumer	VERIFIED	package manifest and authored src/index.ts
 stable selector and test-ID owner	packages/ui-contracts/src/index.ts	authored source	stable semantic selector and test-ID builders	VERIFIED	exports selector and test-ID helper functions
 reusable semantic test helpers	packages/test-utils	authored package	reusable semantic unit and browser helper contracts	VERIFIED	package manifest and src exports
-application browser choreography	apps/web/e2e	authored tests	application-specific Playwright flows and fixtures	VERIFIED	apps/web/playwright.config.ts testDir points here
+application browser choreography	apps/web/e2e	authored tests	application-specific Playwright flows and fixtures	VERIFIED	apps/web/playwright.config.ts delegates to webE2EBaseConfig in apps/web/playwright.shared.config.ts, which owns testDir ./e2e
 application browser support	apps/web/e2e/support	authored test support	application-specific browser choreography helpers	VERIFIED	imports from workbook browser and visual tests
 token registry	contracts/design/tokens.v1.json	authored machine projection	package.ui token registry downstream of design owners	VERIFIED	tools/test_families/package.ui.json exercises this input through generated token output
 theme registry	contracts/design/tokens.v1.json	authored machine projection	theme values in the shared design-token registry	VERIFIED	JSON registry defines theme tokens
@@ -46,11 +46,11 @@ functional UI package	NOT PRESENT	implementation package	owner ID package.ui rou
 visual fixture registry	tools/frontend_visual_fixture_registry.json	authored harness contract	harness.visual fixture definitions	VERIFIED	contracts/verification/owners/harness.visual.json names browser-e2e-visual as its public target
 harness.visual verification owner	contracts/verification/owners/harness.visual.json	authored verification contract	fixture contract owner; not an active task-guide owner	VERIFIED	owner exists in contracts/verification/registry.json but is absent from tools/test_catalog_owner.json
 visual fixture support	apps/web/e2e/support/visual	authored test support	Playwright visual fixture implementation	VERIFIED	directory is imported by workbook.visual.spec.ts
-unit tests	apps/web/src	authored tests	application unit tests colocated as *.test.ts and *.test.tsx	VERIFIED	apps/web/vite.config.ts includes src/**/*.test.ts and src/**/*.test.tsx
+unit tests	apps/web/src	authored tests	application browser-unit tests colocated as *.test.ts(x) and *.spec.ts(x)	VERIFIED	apps/web/vite.config.ts browserUnitIncludes covers src/**/*.test.ts, *.test.tsx, *.spec.ts, and *.spec.tsx
 shared-package unit tests	packages	authored tests	workspace package unit tests colocated under package src roots	VERIFIED	apps/web/vite.config.ts includes ../../packages/*/src/**/*.test.ts and *.test.tsx
 component tests	apps/web/src	authored tests	React component tests with Vitest, Testing Library, and jsdom	VERIFIED	apps/web/vite.config.ts uses jsdom and React tests are colocated under src
 accessibility browser tests	apps/web/e2e/workbook.a11y.spec.ts	authored tests	Playwright accessibility coverage	VERIFIED	public Make target browser-e2e-a11y routes to this suite
-browser tests	apps/web/e2e	authored tests	Playwright browser test root	VERIFIED	apps/web/playwright.config.ts testDir resolves to this directory
+browser tests	apps/web/e2e	authored tests	Playwright browser test root	VERIFIED	apps/web/playwright.config.ts delegates to webE2EBaseConfig in apps/web/playwright.shared.config.ts, which owns testDir ./e2e
 visual browser tests	apps/web/e2e/workbook.visual.spec.ts	authored tests	Playwright visual coverage	VERIFIED	public Make target browser-e2e-visual routes to this suite
 visual golden snapshots	apps/web/e2e/workbook.visual.spec.ts-snapshots	authored test artifacts	reviewed Playwright visual goldens	VERIFIED	directory contains workbook.visual.spec.ts snapshot PNG files
 root task entry point	Makefile	authored task entry point	run public repository commands from repository root	VERIFIED	AGENTS.md commands rule and Makefile includes generated task surfaces
@@ -63,7 +63,7 @@ generated-artifact policy	tools/generated_artifact_policy.json	authored policy	d
 generated backend root	internal/gen	generated root	generated Go outputs with heterogeneous authored inputs	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/index.json lists contract-generated outputs
 generated protocol TypeScript root	packages/protocol-ts/src/generated	generated root	generated TypeScript protocol outputs	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/index.json lists generated outputs
 generated view-contract root	packages/view-contracts/src/generated	generated root	generated TypeScript view-schema projection	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/index.json lists view-contract-projection.ts
-generated UI-contract root	packages/ui-contracts/src/generated	generated root	generated TypeScript design-token output	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/design/tokens.v1.json is the authored token input
+generated UI-contract root	packages/ui-contracts/src/generated	generated root	generated TypeScript design-token, design-presentation, and performance-contract outputs	GENERATED	tools/generated_artifact_policy.json declares this root; contracts/design/tokens.v1.json is the authored token input
 generated OpenAPI document	contracts/openapi/cartulary.openapi.yaml	generated file	assembled OpenAPI output	GENERATED	tools/generated_artifact_policy.json declares this file; contracts/openapi-source/manifest.json declares it as target
 generated task surface	tools/task_surface.generated.mk	generated file	generated public Make task definitions	GENERATED	tools/generated_artifact_policy.json and tools/execution_topology_manifest.json declare this output
 generated runtime task surface	tools/task_surface.runtime.generated.mk	generated file	generated runtime Make task definitions	GENERATED	tools/generated_artifact_policy.json and tools/execution_topology_manifest.json declare this output
@@ -75,3 +75,17 @@ generation implementation	tools/harness/generated-artifacts/generate-artifacts.s
 generation command	Makefile	authored task entry point	make generate from repository root	VERIFIED	generated task surface defines generate and Makefile includes it
 generation drift command	Makefile	authored task entry point	make generate-drift from repository root	VERIFIED	make help-all lists generate-drift
 generated policy command	Makefile	authored task entry point	make generated-artifact-policy-check from repository root	VERIFIED	make help-all lists generated-artifact-policy-check
+original remediation record	docs/archive/cartulary-ui-ux-remediation-handoff.md	historical implementation evidence	completed original remediation; not current product-test evidence	VERIFIED	archived terminal record; behavioral authority remains with adopted owners
+digest refresh tracker	docs/handoffs/ui-ux/ui-ux-refactor-digest-update-handoff.md	execution handoff	sole LR-01 through LR-04 tracker and localization completion record	VERIFIED	current approved handoff; update after each workstream before starting its dependent
+frontend source navigation	apps/web/src/README.md	implementation guide	source overview and navigation to child guides; no executable documentation dependency	VERIFIED	guide links app, collaboration, networkFlow, services, workbook, and other source owners
+frontend source ownership	tools/frontend_source_ownership.json	authored machine projection	exact source-path ownership; distinct from verification routing and behavior authority	VERIFIED	entries assign .ts/.tsx paths to web.app, web.network_flow, web.collaboration, and other source owners
+frontend import boundaries	tools/frontend_import_boundaries.json	authored architecture policy	import direction, public facades, vendor boundary, and runtime/test separation	VERIFIED	machine input consumed by web.architecture policy checks
+verification registry	contracts/verification/registry.json	authored verification routing	verification owner contract discovery; not behavioral authority	VERIFIED	owner_id and contract_path entries
+active verification catalog	tools/test_catalog_owner.json	authored verification routing	active task-guide owners and test-family navigation	VERIFIED	owner_id and manifest_path entries; fixture owner harness.visual is absent
+web.architecture verification owner	contracts/verification/owners/web.architecture.json	authored verification contract	source/import architecture verification; does not imply a source owner of the same name	VERIFIED	active catalog entry and make task-guide ROLE=module-author OWNER=web.architecture
+collaboration transport source	apps/web/src/collaboration	authored implementation	source owner web.collaboration; incident WebSocket lifetime and typed event publication	VERIFIED	source manifest; apps/web/src/collaboration/README.md separates transport lifetime from feature effects
+web.collaboration verification owner	contracts/verification/owners/web.collaboration.json	authored verification contract	web.collaboration verification routing	VERIFIED	active catalog entry and make task-guide ROLE=module-author OWNER=web.collaboration
+Network Analysis source	apps/web/src/networkFlow	authored implementation	source owner web.network_flow; extension presentation and retained operation owners	VERIFIED	source manifest; apps/web/src/networkFlow/README.md; verification owner is web.networkflow
+web.networkflow verification owner	contracts/verification/owners/web.networkflow.json	authored verification contract	web.networkflow verification routing; distinct from source ID web.network_flow	VERIFIED	active catalog entry and make task-guide ROLE=module-author OWNER=web.networkflow
+design presentation projection	contracts/design/presentation.v1.json	authored machine projection	observable feedback and grid operational-state composition downstream of design owner	VERIFIED	docs/design.md §3.1.1; generated facade consumes this input without reading Markdown
+generated design presentation	packages/ui-contracts/src/generated/design-presentation.ts	generated source	generated presentation projection consumed through the UI-contract facade	GENERATED	parent generated root declared by tools/generated_artifact_policy.json

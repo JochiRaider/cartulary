@@ -38,15 +38,25 @@ commands. Use the repository-root commands in
 | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max/references/pro-rules.md` | Native/mobile polish checklist. | Touch, safe-area, and mobile viewport assumptions do not apply directly. |
 | Other bundled data | Source completeness and optional comparison. | Product, style, color, and landing recommendations remain advisory. |
 
-## Validation topology
+## Validation topology and historical provenance
 
-The bundled `validate_data.py` and search entry point operate offline from the
-Cartulary repository root. Refresh-time validation runs the complete 153-test
-suite from a temporary full checkout of the exact release because
-`test_catalog_refresh.py` and `test_relevance_evaluator.py` depend on upstream
-repository-root maintenance scripts outside the copied skill subtree. Those
-scripts are not copied into Cartulary. Use `PYTHONDONTWRITEBYTECODE=1` together
-with `python3 -B` so spawned Python processes cannot add caches to the snapshot.
+The bundled data validator and search entry point operate offline from the
+Cartulary repository root. [QUERY_RECIPES.md](QUERY_RECIPES.md) owns query syntax,
+smoke-result expectations, and the current material-result dispositions. Apply
+its cache-suppression settings; keep the copied tree free of Python caches.
+
+The 153-test complete release suite is historical August source-replacement
+evidence. It required a temporary full checkout because `test_catalog_refresh.py`
+and `test_relevance_evaluator.py` depend on repository-root maintenance scripts
+outside the copied subtree. Those scripts remain excluded. This unchanged-source
+localization does not rerun or newly claim that suite or bundled data validation;
+its gates are defined in the [controlling handoff](../../handoffs/ui-ux/ui-ux-refactor-digest-update-handoff.md).
+
+`meta/source.json` preserves the historical source-refresh consultation paths,
+including their former locations. Those entries are provenance, not current
+repository navigation. Current consultation paths, owner qualifications, stack,
+and scope belong in `meta/localization.json`. A later upstream release does not
+move this iteration's fixed pin.
 
 ## Known contradictory defaults
 
@@ -66,4 +76,6 @@ alert animation and remain classified `REJECT`.
 `docs/cartulary-ui-ux-refactor-digest/upstream/LICENSE.ui-ux-pro-max.txt`, and
 `docs/cartulary-ui-ux-refactor-digest/meta/source.json` must remain
 byte-for-byte unchanged. Localization belongs only in the Cartulary overlay,
-`meta/localization.json`, the package manifest, and repository guidance.
+`meta/localization.json`, the package manifest, and the controlling handoff's
+explicit allowlist. Preserve the package path set and introduce no metadata schema version;
+introduce no new package files or executable documentation dependency.

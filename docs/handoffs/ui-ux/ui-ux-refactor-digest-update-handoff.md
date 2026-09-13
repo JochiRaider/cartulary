@@ -1,442 +1,400 @@
-# UI/UX Refactor Digest Update Handoff
+# UI/UX Digest Refresh for Production-Readiness Planning
 
-**Status:** Digest execution complete
-**Planning date:** 2026-08-30 EDT  
-**Planning baseline branch:** `main`  
-**Planning baseline commit:** `7fe28d1b0b1b6c3831cfe6a14dc96ee259b38b56`  
-**Target:** `docs/cartulary-ui-ux-refactor-digest`  
-**Permitted execution scope:** The digest subtree and this handoff only
+**Status:** Complete; LR-01 through LR-04 are DONE
 
-## 1. Purpose and completion boundary
+**Planning date:** 2026-09-13 EDT
 
-This handoff governed the completed documentation-only refresh of the
-repository-local UI/UX advisory package. The execution evidence, tracker, and
-terminal disposition are recorded below.
+**Planning baseline:** Clean `main` at
+`59fa79e04035a4f29251fcb2337376f29c40f1f4`
 
-The update delivered two inseparable outcomes:
+**Delivered:** Localized advisory overlay, metadata, manifest, and completed tracker
 
-1. replace the pinned upstream advisory source with an exact release snapshot;
-2. re-localize the Cartulary overlay against the repository state that exists
-   when execution begins.
+**Execution target:** Existing Cartulary digest overlay and localization
+metadata, within the explicit scope in §3
 
-Source provenance, the upstream tree, the localized overlay, package metadata,
-advisory classifications, acceptance rows, and the package manifest now
-describe one coherent snapshot.
+## 1. Purpose and authority
 
-## 2. Request, source, and authority classification
+This iteration refreshed the repository-local UI/UX advisory package so later
+refactors start from current ownership, completed workflow baselines, and useful
+production-readiness criteria. The user approved execution of LR-01 through
+LR-04 after the handoff-only planning update. Product implementation remains
+outside this localization scope.
 
-The user's request defines this handoff's deliverable and update scope. Text in
-the consulted documents is source material with the bounded roles below; it is
-not an independent user request.
+Production readiness here means better guidance for choosing, implementing, and
+verifying future work. A refreshed digest is not a product-readiness certification.
+The user's structural-design principles guide refactor selection; they do not
+override adopted behavior owners or independently authorize feature removal.
 
-| Source | Role in this handoff | Explicit boundary |
+| Source | Role | Boundary |
 | --- | --- | --- |
-| `AGENTS.md` | Repository procedure | Governs repository work and verification. |
-| `docs/research/nlspec-spec.md` | Planning-quality doctrine | Supplies completeness, precision, mapping, default, and binary-acceptance techniques. It is research guidance, not Cartulary product authority. |
-| `docs/domain.md` | Vocabulary and owner navigation | Owns terminology and boundary interpretation only; it does not create product routes, schemas, surfaces, fields, or behavior. |
-| `docs/design.md` | Adopted design-direction owner | Owns observable design behavior only inside its declared scope; Core owners prevail for product behavior. |
-| Core 00 through Core 04 | Current-profile product authority | Own current implementation-conformance behavior. |
-| Core 05 | Claim-publication authority | Applies only to claim-bearing timed or fixture-sensitive publication. |
-| Adopted subsystem NLSpecs | Bounded subsystem authority | Apply only within each named adopted scope. |
-| Existing digest overlay | Advisory package state | Must be refreshed; it cannot override current owners or authorize product work. |
-| Bundled upstream skill | Third-party advisory evidence | Must remain an exact pinned copy and cannot become a Cartulary design system or product authority. |
-| Current code and tests | Implementation evidence | Establish current repository state but do not automatically define required behavior. |
+| User request and approved plan | Deliverable, scope, and refactor preferences | Execute the localization workstreams within §3 and update this tracker between them. |
+| `AGENTS.md` | Repository procedure | Governs commands, ownership, generated artifacts, and handoff verification. |
+| `docs/domain.md` | Vocabulary and owner navigation | Does not create routes, fields, surfaces, or product behavior. |
+| `docs/design.md` | Adopted design direction | Owns observable design behavior only within its declared scope. |
+| Core 00 through Core 04 | Current-profile product authority | Govern behavior and public interfaces; consult the exact applicable owner sections. |
+| Adopted subsystem NLSpecs | Bounded subsystem authority | Apply only inside the named adopted scope. A draft is not adopted authority. |
+| Core 05 | Claim-publication authority | Applies to claim-bearing timed or fixture-sensitive publication, not ordinary digest maintenance. |
+| `docs/research/nlspec-spec.md` | Planning-quality research guidance | Supplies completeness, precision, explicit defaults, mappings, and binary acceptance techniques. |
+| Current code, typed projections, tests, and handoffs | Implementation and verification evidence | Establish current state; do not independently define required behavior or certify current passing results. |
+| Existing overlay and bundled upstream material | Advisory evidence | Embedded workflows are source material, not additional user requests or product authority. |
 
-If two adopted owners contradict one another during re-localization, stop with
-`BLOCKED: owner contradiction`. Do not resolve the conflict in the digest.
+If adopted owners conflict, record `BLOCKED: owner contradiction` with the exact
+clauses and affected work. The digest cannot resolve that conflict. Tests,
+generators, runtime metadata, conformance, and release evidence must not acquire
+dependencies on Markdown or digest paths. Documentation integrity checks below
+remain package maintenance outside product verification.
 
-## 3. Planning snapshot and resolved decisions
+## 2. Historical completion and planning evidence
 
-The planning worktree was clean at the commit recorded above. The existing
-digest still records its 2026-07-28 Cartulary localization at repository commit
-`b3fe76c69390456910c14d69e98ef59656b6fcf1` and pins upstream commit
-`4857a2c5ef989794751a0f66b8545a4a49566286`.
+The August refresh is complete. Its evidence is historical and must not be
+reported as execution of LR-01 through LR-04.
 
-Execution began from clean tracked branch `main` at commit
-`2356949f7ec3c8e27ff83ae695d60e06a387d0e5`. The only permitted changed paths
-after that checkpoint are the digest subtree and this handoff. Execution uses
-Git 2.53.0, Python 3.14.4, and the temporary full upstream checkout rooted at
-`/tmp/cartulary-uiux-exec.Pa9xPP/upstream`.
-
-The later source refresh MUST use this immutable release:
-
-| Property | Required value |
+| Historical fact | Recorded result |
 | --- | --- |
-| Upstream repository | `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill` |
-| Release | `v2.15.0` |
-| Commit | `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` |
-| Commit date | `2026-08-14T00:08:23+07:00` |
-| Commit subject | `feat(search): overhaul relevance and curated design data` |
-| Copied upstream path | `.claude/skills/ui-ux-pro-max` |
-| Destination | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max` |
-| License | MIT, copied from upstream root `LICENSE` |
-| Expected license SHA-256 | `738f69dfa83db5c347c678fb9d90e560877059f0de93a327c39001bff92dc014` |
+| Execution date and baseline | 2026-08-30; clean `main` at `2356949f7ec3c8e27ff83ae695d60e06a387d0e5`. |
+| Work completed | DU-001 through DU-011; exact upstream replacement and Cartulary re-localization. |
+| Source integrity | Exact 70-file `v2.15.0` subtree; no symlinks or caches; verified MIT license; 82 manifest entries. |
+| Advisory disposition | R001-R034 retained; R002/R006/R023 amended; R035 added as `ADAPT`; R026-R028 remained `REJECT`; A001-A027 refreshed. |
+| Validation | Exact-tree, license, data, 153 upstream tests, sample queries, JSON/TSV, IDs, manifest/path-set, Markdown, whitespace, and scope checks passed. |
+| Terminal evidence | Finalization run `20260830T222748Z-p3671118`; final recorded Markdown run `20260830T222955Z-p3675647`, under `.cartulary/test-results/`. Historical artifact availability is not assumed. |
+| Limitations | No product tests or runtime/data migration; retained-run maintenance skipped because `RESULTS_DIR` was unset. |
 
-At planning time, upstream default-branch HEAD was
-`8bd29e775453ebcae52b6e6514fbf134df0c5770`; its
-`.claude/skills/ui-ux-pro-max` tree was byte-identical to release `v2.15.0`.
-The release commit remains the required pin. A later default-branch movement
-does not change it.
+Retrieve the complete prior handoff, including its execution log, from the
+planning commit without restoring obsolete instructions into the current plan:
 
-The current bundle contains 43 files. The `v2.15.0` Git source subtree contains
-70 tracked regular files and no symlinks. Relative to the current pin, every
-source file changes: all 43 existing files differ and 27 files are added.
-Source replacement MUST therefore replace the complete directory rather than
-copying a selected subset or manually merging changed CSV and Python files.
+```bash
+git show 59fa79e04035a4f29251fcb2337376f29c40f1f4:docs/handoffs/ui-ux/ui-ux-refactor-digest-update-handoff.md
+```
 
-Earlier planning counts of 73 source files and 85 manifest entries included
-three generated Python bytecode files from a validation checkout. Bytecode and
-Python caches are not source and are excluded from the bundle and manifest.
+September planning inspected the supplied domain, design, and research documents;
+the digest and prior handoffs; current frontend sources and their local guides;
+workspace manifests; and machine ownership, import, generation, and test-routing
+inputs. Package checksums, the license hash, `git diff --check`, `make help`, and
+`make task-guide ROLE=module-author OWNER=web.architecture` passed. Planning
+`make lint-markdown` passed at
+`.cartulary/test-results/20260913T155604Z-p30873`, with summary
+`adhoc/lint-markdown/tool-run-summary.json`. These checks preceded this document
+update; no product behavior was tested. Finalization was not run in Plan mode
+because it can mutate tracked artifacts.
 
-The upstream license bytes are unchanged from the existing pin. They MUST still
-be verified and accounted for as part of the refreshed provenance boundary.
+## 3. Fixed source and change boundaries
 
-## 4. Desired final state and non-goals
+The user chose to retain the existing immutable source. At planning time,
+[v2.15.0 was the latest published release](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/releases/tag/v2.15.0),
+and its tag matched the bundled commit. A later release or movement of upstream
+`main` does not change this iteration's pin.
 
-After execution:
+| Property | Fixed value |
+| --- | --- |
+| Repository | `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill` |
+| Release and commit | `v2.15.0`; `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` |
+| Copied source path | `.claude/skills/ui-ux-pro-max` |
+| Bundle | `docs/cartulary-ui-ux-refactor-digest/upstream/ui-ux-pro-max`; 70 tracked regular files |
+| License | MIT; SHA-256 `738f69dfa83db5c347c678fb9d90e560877059f0de93a327c39001bff92dc014` |
 
-- the upstream directory exactly matches the declared path at release
-  `v2.15.0`;
-- `meta/source.json` identifies that release and its exact provenance;
-- the Cartulary overlay describes the repository commit captured at execution
-  start, not this planning commit by assumption;
-- completed UI/UX remediation is represented as a current regression baseline,
-  not as an unresolved defect hypothesis;
-- `MANIFEST.sha256` accounts for every package file except itself and ignored
-  Python caches;
-- every material refreshed upstream recommendation is classified `ADOPT`,
-  `ADAPT`, or `REJECT`; and
-- the digest remains offline advisory material with no executable consumer of
-  Markdown or documentation paths.
+The preceding planning update changed only this handoff. Execution preserves
+that pre-existing edit; its captured baseline and rollback checkpoint are in §8.
 
-This update MUST NOT:
-
-- modify product code, owner specifications, authored product contracts,
-  generated product artifacts, dependencies, or lockfiles;
-- create or change a route, schema, field, authorization rule, lifecycle,
-  storage behavior, compatibility policy, or product feature;
-- run or persist an upstream-generated design system;
-- invoke upstream `--design-system`, `--persist`, or `--force` against
-  Cartulary;
-- copy the upstream repository outside the declared skill subtree and root
-  license;
-- treat test results, the remediation handoff, this handoff, or upstream advice
-  as product authority; or
-- silently retain a stale localization fact because it was previously
-  documented.
-
-## 5. Known localization drift to resolve
-
-The full map must be revalidated at execution time. The following known drift is
-already decision-complete and must not be rediscovered as an open design choice:
-
-| Area | Existing localized state | Required refreshed treatment |
-| --- | --- | --- |
-| `packages/ui` | Described as a `.gitkeep` placeholder | Record the directory as absent. Continue mapping verification owner `package.ui` to `packages/ui-contracts`; do not invent a functional UI package. |
-| View-contract generation | Generated protocol and UI-contract roots are listed | Add `packages/view-contracts/src/generated` as a managed generated root downstream of authored view-schema owners. |
-| Report Composition | Records duplicate versions 1.1.0 and 1.1.1 | Record adopted/current version 1.2.0 and remove the resolved duplicate-version qualification. |
-| Create discovery | Creation appears mainly as a Hosts/Identities hypothesis | Record additive `create_capable`, `inline_create`, and total `fields[].create_writable` discovery as the current Core 01/view-schema baseline. |
-| Create readiness | Client-policy inference is treated as a review concern | Record contract capability, interaction authority, declared create inputs, and projected ordinary minimum field sets as the regression baseline; retain Evidence and Indicator owner-specific validation boundaries. |
-| Inspector features | Local omission is treated as an open hypothesis | Record current-contract semantic dispatch completeness, stable route semantics, role/state-disabled rendering, confirmation invalidation, and unknown-additive omission behavior as the baseline. |
-| Density | Complete density propagation is an open hypothesis | Record shared row/header height, padding, typography, gutter, saved/draft/read-only content, and editor geometry as the baseline. |
-| Responsive layout | Token duplication and viewport fallback are not described | Record validated token-backed thresholds/clamps and `innerWidth`/`innerHeight` fallback when `visualViewport` is absent. |
-| Visual support | Earlier localization predates the latest reviewed refresh | Record active visual reconciliation and maintenance support without promoting visual evidence to Core authority. |
-| Remediation evidence | Not available to the original localization | Reference `docs/handoffs/cartulary-ui-ux-remediation-handoff.md` as implementation evidence only. |
-
-Transaction recovery, editing, paste, draft retention, conflict resolution,
-virtualization, continuity, and evidence-state behavior remain regression
-questions rather than redesign candidates.
-
-## 6. Planned file and metadata changes
-
-### 6.1 Upstream provenance checkpoint
-
-Replace these as one checkpoint:
-
-- `upstream/ui-ux-pro-max/**` with the exact release subtree;
-- `upstream/LICENSE.ui-ux-pro-max.txt` with the exact upstream root license;
-- `meta/source.json` with the refreshed release provenance; and
-- the related upstream descriptions in `README.md` and `cartulary/UPSTREAM_MAP.md`.
-
-`meta/source.json` MUST retain its existing role and record at least the package
-name, snapshot date, upstream repository, release tag, exact commit, commit date,
-commit subject, license, copied path, current Cartulary sources consulted, the
-advisory authority boundary, and known Cartulary conflicts. Git history is the
-history of the prior pin; do not duplicate a mutable pin history in the current
-source record.
-
-The refreshed upstream map must describe the new provenance/catalog inputs and
-expanded validation suite, including `catalog-summary.json`,
-`data-provenance.json`, font/icon provenance inputs,
-`reasoning_contract.py`, test fixtures, and the new data-quality, relevance,
-taxonomy, freshness, and text-layout tests. These files remain preserved source
-material, not Cartulary contracts.
-
-### 6.2 Cartulary overlay checkpoint
-
-Revalidate and update these localized artifacts together:
+For execution of LR-01 through LR-04, permit only this handoff and these
+existing paths relative to `docs/cartulary-ui-ux-refactor-digest`:
 
 - `README.md`;
-- `cartulary/START_HERE.md`;
-- `cartulary/LOCAL_AGENT_PROMPT.md`;
-- `cartulary/REPO_MAP.tsv`;
-- `cartulary/OWNER_MAP.tsv`;
-- `cartulary/QUERY_RECIPES.md`;
-- `cartulary/UPSTREAM_MAP.md`;
-- `cartulary/rules.tsv`;
-- `cartulary/acceptance.tsv`; and
-- `meta/localization.json`.
+- `cartulary/START_HERE.md`, `cartulary/LOCAL_AGENT_PROMPT.md`;
+- `cartulary/REPO_MAP.tsv`, `cartulary/OWNER_MAP.tsv`;
+- `cartulary/QUERY_RECIPES.md`, `cartulary/UPSTREAM_MAP.md`;
+- `cartulary/rules.tsv`, `cartulary/acceptance.tsv`;
+- `meta/localization.json`, `MANIFEST.sha256`.
 
-`REPO_MAP.tsv` must revalidate every existing row rather than applying only the
-known corrections in §5. It must use current paths, active verification owners,
-generated-artifact policy, public Make targets, direct vendor imports, and
-actual package presence. Removed concepts remain explicit `NOT PRESENT` rows
-only when their absence prevents a likely future misinterpretation.
+Keep the entire `upstream/` tree, its license, and `meta/source.json`
+byte-identical. The source metadata's Cartulary consultation paths describe the
+historical source refresh; they are not current navigation. Record current
+consultation facts in localization metadata. Do not repair historical provenance
+by rewriting it.
 
-`OWNER_MAP.tsv` must retain behavior-level owner navigation and add explicit
-navigation for public view-schema create discovery and the generated
-view-contract projection. It must not copy typed field registries or runtime
-interfaces into documentation.
+Introduce no package files or metadata schema version. Product code, adopted
+owner documents, contracts, dependencies, lockfiles, generated artifacts, browser
+goldens, and harness policies are outside the localization scope. Do not invoke
+upstream `--design-system`, `--persist`, or `--force` against Cartulary.
 
-`START_HERE.md` and `LOCAL_AGENT_PROMPT.md` must replace resolved defect
-hypotheses with regression-review questions. They must continue requiring a
-fresh repository scan and separate authorization for future product slices.
+## 4. Current findings and required localization
 
-`QUERY_RECIPES.md` must use the refreshed script surface, preserve repository-
-root and offline operation, and keep the explicit prohibition on the three
-generation/persistence options. Query outputs are review questions only.
+These are confirmed documentation findings at the planning baseline. They do not
+establish new product defects.
 
-### 6.3 Rule and acceptance stability
-
-Preserve rule IDs `R001` through `R034`. Re-run narrow relevant queries against
-the refreshed bundle and review changed material. Keep an existing row when its
-meaning and classification remain valid; amend its upstream basis or evidence
-when the source changed; append a new ID only for materially new advice that is
-not already covered. Do not renumber rows.
-
-The refreshed upstream still contains the `Cybersecurity Platform` Cyberpunk,
-Matrix-green/deep-black, threat-display, heat-map, and alert-animation defaults.
-They remain `REJECT` because they conflict with Cartulary design authority.
-
-Preserve acceptance IDs `A001` through `A027`. In particular:
-
-- broaden A007 from Hosts/Identities-only affordance discovery to all current
-  contract-driven create entry points, payload filtering, ordinary minima, and
-  explicit owner-specific exceptions;
-- strengthen A006 to retain the complete density box;
-- strengthen A008 to include token-backed boundary selection, real viewport
-  fallback, and inspector clamp/ARIA agreement;
-- strengthen A010 to require every current declared inspector group to resolve
-  exactly once and remain rendered-but-disabled for role/state restrictions;
-- keep A024's prohibition on executable documentation dependency; and
-- update A025's generated-root inventory to include generated view contracts.
-
-The acceptance table remains a future refactor review contract. It must not
-claim that the digest update itself executed product tests or established new
-product requirements.
-
-### 6.4 Localization metadata
-
-`meta/localization.json` must record the actual execution date, clean baseline
-commit and branch, pre/post dirty-state summaries, current frontend stack,
-package manager/workspace facts, refresh scope, unresolved mappings, current
-qualifications, and the new upstream pin. Preserve the meaning that bundled
-upstream and source provenance exactly match their declared source; an
-intentional pin refresh is not source tampering.
-
-Use the actual execution baseline. If the repository has moved since this
-planning snapshot, rerun the complete localization scan and record that commit.
-Do not put the eventual digest-update commit into a pre-update snapshot field or
-invent a self-referential commit value.
-
-## 7. Execution sequence, validation, and rollback
-
-### Phase 0: Bootstrap and freeze scope
-
-1. Start from the repository root and read `AGENTS.md`, then the digest read
-   order.
-2. Require a clean tracked worktree. If this handoff is not yet committed, stop
-   and establish whether it is the sole authorized pre-existing change before
-   continuing.
-3. Record the actual branch, commit, dirty state, allowed paths, and tool
-   versions.
-4. Revalidate every `REPO_MAP.tsv` row and all affected owner/acceptance rows.
-
-**Exit:** One current repository snapshot is selected; product files are out of
-scope; contradictions are either absent or explicitly blocking.
-
-### Phase 1: Refresh the pinned source
-
-1. Fetch the exact release commit into a temporary directory outside the
-   repository.
-2. Verify tag `v2.15.0` resolves to the required SHA and the copied path contains
-   70 tracked regular files and no symlinks.
-3. Replace the destination subtree as one source snapshot; do not overlay files
-   onto the old 43-file tree.
-4. Copy and hash the root license.
-5. Update source provenance and upstream-facing overlay text.
-6. Compare the destination tree recursively with the exact release tree before
-   continuing.
-
-**Exit:** Exact tree comparison passes, provenance identifies one release, and
-no Cartulary localization is mixed into `upstream/`.
-
-**Rollback:** Restore the previous upstream directory, license, source metadata,
-and upstream descriptions together. Never retain a mixed source tree.
-
-### Phase 2: Re-localize the overlay
-
-1. Apply the known drift corrections in §5.
-2. Re-audit all remaining stack, owner, package, generated-root, testing,
-   browser, visual, and public-command facts.
-3. Rewrite resolved hypotheses as regression questions without copying
-   implementation detail into authority.
-4. Re-run targeted upstream queries and update the rules classification.
-5. Update A001-A027 without renumbering.
-6. Update localization metadata from the actual execution snapshot.
-
-**Exit:** Two competent later implementers would follow the same owner paths,
-source boundary, query rules, and acceptance gates without guessing.
-
-**Rollback:** Revert the complete localized overlay checkpoint. Do not preserve
-metadata or acceptance rows that describe a source/repository state no longer
-present.
-
-### Phase 3: Rebuild integrity and validate
-
-After every other package file is stable, regenerate `MANIFEST.sha256` from the
-lexically sorted repository-relative path set of regular files below the digest,
-excluding `MANIFEST.sha256` itself and ignored Python caches. Use the standard
-two-space `sha256sum` record format. If no new localized file is introduced
-inside the digest, the expected manifest contains 82 entries.
-
-Run this validation matrix:
-
-| Validation | Expected result | Failure handling |
-| --- | --- | --- |
-| Exact upstream tree comparison | No difference from `.claude/skills/ui-ux-pro-max` at `a38d04c3…` | Restore and repeat the complete source replacement; do not patch the difference locally. |
-| License hash | Exact expected SHA-256 from §3 | Stop as a provenance mismatch. |
-| `python3 -B .../scripts/validate_data.py` | `OK`, 12 domain files, 22 stack files, and `ui-reasoning.csv` | Treat as an invalid source snapshot or copy defect. |
-| Full release checkout: `PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s .claude/skills/ui-ux-pro-max/scripts/tests -p "test_*.py"` | 153 tests pass for the pinned release | Investigate source/copy/runtime mismatch; do not weaken or skip the suite. |
-| UX sample query | Three JSON results for `keyboard focus color only error feedback` | Check exact pin, domain argument, and source integrity. |
-| React sample query | Eight JSON results for `virtualized grid rerender focus async state` | Check exact pin, `--stack react`, and source integrity. |
-| JSON and TSV shape checks | All metadata parses; every TSV row has its header's column count | Correct the localized artifact before manifest generation. |
-| `sha256sum --check docs/cartulary-ui-ux-refactor-digest/MANIFEST.sha256` | Every entry passes and the manifest path set equals the package path set | Regenerate only after locating the extra, missing, or changed file. |
-| `make lint-markdown` | Pass | Repair Markdown only; do not broaden into product formatting. |
-| `git diff --check` | Pass | Repair whitespace defects. |
-| Final scope audit | Only the digest subtree and this handoff changed | Revert or separately authorize unrelated changes. |
-
-The complete upstream suite must run from the full release checkout because
-`test_catalog_refresh.py` and `test_relevance_evaluator.py` depend on maintenance
-scripts at the upstream repository root that are intentionally outside the
-copied subtree. The bundled subtree remains independently usable for data
-validation and offline search. `PYTHONDONTWRITEBYTECODE=1` is required in
-addition to `python3 -B` because the suite spawns Python subprocesses.
-
-The upstream validation suite may exercise its own persistence behavior inside
-temporary test directories. The implementation session itself must never invoke
-`--design-system`, `--persist`, or `--force` against Cartulary.
-
-This is documentation and vendored-advisory maintenance. Do not run product
-generation or product tests unless an unexpected non-document change appears.
-If that occurs, stop the docs-only slice and obtain separate authorization
-rather than normalizing the expanded scope through additional tests.
-
-## 8. Work tracker
-
-Status values are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, and
-`DROPPED`.
-
-| ID | Work item | Status | Depends on | Evidence required | Exit condition |
-| --- | --- | --- | --- | --- | --- |
-| DU-001 | Capture clean execution baseline and allowed paths | DONE | none | Branch, commit, status, scope record | One non-self-referential localization snapshot is frozen. |
-| DU-002 | Revalidate full repository and owner map | DONE | DU-001 | Reviewed `REPO_MAP.tsv`, owner/status checks | Every row is current or explicitly corrected. |
-| DU-003 | Export and replace exact `v2.15.0` source tree | DONE | DU-001 | Tag/SHA proof, file count, recursive comparison | Bundle is an exact 70-file source snapshot. |
-| DU-004 | Refresh license and source provenance | DONE | DU-003 | License hash and `meta/source.json` review | License, source metadata, and bundle agree. |
-| DU-005 | Re-localize README, prompts, and maps | DONE | DU-002, DU-004 | Overlay diff and source/authority review | All current paths, owners, and boundaries are accurate. |
-| DU-006 | Reclassify material upstream advice | DONE | DU-003, DU-005 | Query outputs and R001+ ledger review | Every material result is ADOPT, ADAPT, or REJECT. |
-| DU-007 | Refresh A001-A027 regression criteria | DONE | DU-002, DU-005 | Acceptance diff and owner map | Criteria reflect current baselines without new authority. |
-| DU-008 | Refresh localization metadata | DONE | DU-002, DU-005, DU-006, DU-007 | Parsed metadata and snapshot review | Metadata describes the actual execution state. |
-| DU-009 | Regenerate and reconcile package manifest | DONE | DU-003, DU-004, DU-005, DU-006, DU-007, DU-008 | Exact path-set and checksum comparison | Expected package files are accounted for exactly once. |
-| DU-010 | Run final validation and scope audit | DONE | DU-009 | Complete validation matrix with outputs | Every required check passes and no product path changed. |
-| DU-011 | Complete execution handoff | DONE | DU-010 | Filled log in §10 | Compatibility, rollback, results, and next step are recorded. |
-
-At most one work item is `IN_PROGRESS`. A blocked prerequisite blocks its
-dependents; it is not permission to skip validation or weaken source integrity.
-
-## 9. Risks and failure policy
-
-| Risk | Required control |
+| Finding | Required treatment |
 | --- | --- |
-| Large upstream delta obscures local edits | Replace and compare the entire source tree; prohibit local changes below `upstream/`. |
-| Default branch advances after planning | Pin the release SHA, not moving HEAD. |
-| New upstream design-generation guidance is followed accidentally | Keep Cartulary query recipes first in the read order and retain explicit option prohibitions. |
-| Generic advice becomes product authority | Require owner mapping and ADOPT/ADAPT/REJECT classification for every material result. |
-| Localization records implementation details as domain terms | Apply `domain.md` vocabulary boundaries and point to owner projections instead of copying them. |
-| Design guidance creates Core behavior | Apply `design.md` only within its observable design scope. |
-| Remediation handoff is mistaken for authority | Cite it only as current-state and verification evidence. |
-| Manifest conceals stale or extra files | Compare both checksums and the exact manifest/package path sets. |
-| Python caches contaminate the package | Use `PYTHONDONTWRITEBYTECODE=1` with `python3 -B` and reject unexpected cache paths before manifest generation. |
-| Repository moves before execution | Re-run the full localization scan and record the actual baseline. |
-| Docs-only scope expands into product changes | Stop and request a separately authorized product slice. |
+| Localization still describes the August repository and original six remediation concerns. | Revalidate all map rows and refresh the complete current baseline, not only the known corrections below. |
+| Overlay links use the former remediation and digest-handoff locations. | Use `docs/archive/cartulary-ui-ux-remediation-handoff.md` for the original remediation record and this handoff's current `docs/handoffs/ui-ux/` location. Preserve historical paths only inside explicitly historical records. |
+| `REPO_MAP.tsv` says workspace patterns include `apps/*`. | Record the authored `pnpm-workspace.yaml` patterns: `apps/web` and `packages/*`; recheck stack and package versions from manifests. |
+| The map omits current frontend architecture and source-ownership navigation. | Add `tools/frontend_source_ownership.json`, `tools/frontend_import_boundaries.json`, and active verification owners `web.architecture`, `web.collaboration`, and `web.networkflow`. |
+| Source placement and verification IDs can be conflated. | Distinguish source ownership from routing; for example, source owner `web.app` is not verification owner `web.application`. Use each manifest for its own purpose. |
+| Current source guides distribute responsibilities across local READMEs. | Navigate from `apps/web/src/README.md` and relevant child guides; do not reproduce their file inventories in the digest or make them executable inputs. |
+| Prompt completion wording permits an explicitly `BLOCKED` acceptance row. | Require `PASS` for applicable rows; permit `N/A` only with a scope/owner rationale. An applicable `BLOCKED` row prevents completion. |
+| Repeated command lists and baseline prose can drift independently. | Give each concern one primary location and link to it. Use `make help`, `make help-all`, and owner-specific task guides for current command selection. |
 
-No compatibility migration is required. The package is documentation and
-vendored advisory material. Its compatibility boundary is provenance and read
-order: all overlay references, source metadata, and checksums must move together.
+Recheck existing qualifications rather than treating them as defects to remove:
+`package.ui` routes `packages/ui-contracts`; a functional `packages/ui` and a
+standalone semantic-icon implementation registry are absent; `harness.visual`
+is a fixture owner rather than an active task-guide owner; Report Composition is
+adopted/current at 1.2.0; the Reference Pack subsystem NLSpec remains draft.
 
-## 10. Execution handoff log
+Extend the regression map using these owner and evidence entry points. Handoff
+filenames below are relative to `docs/handoffs/ui-ux/`. Reconcile their terminal
+records with current code and owner clauses; do not treat historical intermediate
+failures as current defects or historical passes as new test results.
 
-Append one row per execution checkpoint. Do not rewrite planning evidence as if
-it were execution evidence.
+| Regression family | Behavioral/design owners to navigate | Implementation evidence to consult |
+| --- | --- | --- |
+| Contextual creation and retained authoring | Core 01 create discovery and inspector contracts; Core 02 §10; Core 03 §§2.3A,16.4; design §§7.3,12 | `workbook-contextual-coordination-create-refactor-handoff.md`, `workbook-contextual-task-decision-create-refactor-handoff.md`, `workbook-linked-note-create-refactor-handoff.md`; current workbook feature owners. |
+| Exact uncertain replay, acknowledgement, and refresh recovery | Core 01 mutation/idempotency owners; Core 03 §§3-4; design §10 | Current workbook runtime and feature owners; `workbook-timeline-related-evidence-refactor-handoff.md`, `workbook-assessment-authoring-refactor-handoff.md`, and contextual-creation records. |
+| History browsing and corrective actions | Core 02 history substrate; Core 03 §10; Core 04 authorization; design §§7.3,10 | `workbook-record-history-browsing-refactor-handoff.md`, `workbook-record-history-recovery-refactor-handoff.md`; workbook History owner. |
+| Incident versus session authorization loss | Core 01 §3.3.6.2; Core 03 REQ-03-299/100; Core 04 §§1-2; design §12.8 | `incident-session-revocation-remediation-handoff.md`; application, collaboration, and workbook lifecycle owners. |
+| Query-data and interaction states, continuity, and local feedback | Core 03 REQ-03-286/299; design §§7-8,10.6,10.8,12.8 | `workbook-grid-operational-state-plane-refactor-handoff.md`; Grid Adapter and Workbook/Network Analysis producers. |
+| Network Analysis imports, tables, pagination, and graph lifetimes | Adopted Network Flow NLSpec §§7-8,10,13-14,18-19,28; applicable Graph Projection and extension owners; design §13.1 | Network Analysis import-recovery, table-lifecycle, pagination-recovery, and saved-graph-lifecycle handoffs; current `apps/web/src/networkFlow` owners. |
 
-| Date/time | Actor | Work items | Baseline/source snapshot | Paths changed | Commands and results | Advisory disposition | Blockers/deferrals | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-30 18:13 EDT | Codex | DU-001 | `main` at `2356949f7ec3c8e27ff83ae695d60e06a387d0e5`; source `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | This handoff | Clean tracked baseline; Git 2.53.0; Python 3.14.4; immutable tag and source delta verified in `/tmp/cartulary-uiux-exec.Pa9xPP` | Corrected source, cache, manifest, and full-checkout test facts; no advice classified | None | DU-002 |
-| 2026-08-30 18:16 EDT | Codex | DU-002 | Execution baseline above | This handoff only; overlay correction ledger recorded | Revalidated all 74 repository-map data rows, owner status, generated roots, public targets, package presence, and direct vendor boundary | No advice classified; found no owner contradiction | Corrections required: absent `packages/ui`, generated view-contract root, Report Composition 1.2.0, and current remediation baselines | DU-003 |
-| 2026-08-30 18:16 EDT | Codex | DU-003 | `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | Complete `upstream/ui-ux-pro-max` subtree | Clean archive replacement; 70 files; zero symlinks/caches; no-index path, byte, and mode comparison passed | Source only; no Cartulary advice classified | None | DU-004 |
-| 2026-08-30 18:18 EDT | Codex | DU-004 | Release and execution baseline above | License verified; `meta/source.json`, README upstream section, and `UPSTREAM_MAP.md` | Source JSON assertion passed; license SHA-256 `738f69dfa83db5c347c678fb9d90e560877059f0de93a327c39001bff92dc014`; upstream tree remained exact | Expanded provenance/test-topology descriptions remain advisory | None | DU-005 |
-| 2026-08-30 18:20 EDT | Codex | DU-005 | Execution baseline plus current owners and implementation evidence | README, `START_HERE.md`, `LOCAL_AGENT_PROMPT.md`, `REPO_MAP.tsv`, `OWNER_MAP.tsv`, `QUERY_RECIPES.md`, `UPSTREAM_MAP.md` | Both TSV shapes passed; all 76 repository-map rows resolve or are explicit `NOT PRESENT`; stale assertion scan passed | Completed create, inspector, density, responsive, and visual work is now a regression baseline | None | DU-006 |
-| 2026-08-30 18:21 EDT | Codex | DU-006 | Refreshed `v2.15.0` search/data | `rules.tsv` | Eight narrow UX/icon/React queries reviewed; 35 rule rows have valid shape and unique IDs; R001-R034 retained | Amended R002/R006/R023; added R035 `ADAPT` for text-layout resilience; all other results mapped to existing rows; cybersecurity defaults remain R026-R028 `REJECT` | None | DU-007 |
-| 2026-08-30 18:22 EDT | Codex | DU-007 | Current adopted owners and completed remediation evidence | `acceptance.tsv` | 27 rows have valid shape and unique stable A001-A027 IDs | Strengthened A006/A007/A008/A010/A024/A025 without creating product authority; retained remaining regression gates | None | DU-008 |
-| 2026-08-30 18:24 EDT | Codex | DU-008 | `main` at `2356949f7ec3c8e27ff83ae695d60e06a387d0e5`; `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | `meta/localization.json` | JSON parse and cross-metadata snapshot assertions passed; current stack/workspace facts revalidated | Added refresh scope, four current qualifications, resolved mappings, and exact upstream pin; records no product changes/tests | None | DU-009 |
-| 2026-08-30 18:26 EDT | Codex | DU-009 | Stable localized package above | `MANIFEST.sha256` | 82/82 checksums passed; manifest and package path sets match with zero differences; caches/bytecode excluded | No advisory change | None | DU-010 |
-| 2026-08-30 18:28 EDT | Codex | DU-010 | Final package candidate on execution baseline | Digest subtree and this handoff only | Exact tree/license passed; data validation passed; upstream 153/153; queries 3/3 and 8/8; JSON/TSV/IDs/manifest/path set passed; `agent-finalize` 1/1 at `20260830T222748Z-p3671118`; Markdown lint passed at `20260830T222802Z-p3674035`; whitespace and scope passed | All classifications retained; no product tests or generation run | `RESULTS_DIR` unset because no full warm `make check` run applies to this docs-only slice | DU-011 |
-| 2026-08-30 18:29 EDT | Codex | DU-011 | `main` at clean baseline `2356949f7ec3c8e27ff83ae695d60e06a387d0e5`; final dirty scope is the digest subtree and this handoff; source `v2.15.0` at `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5` | `MANIFEST.sha256`; `README.md`; `cartulary/{LOCAL_AGENT_PROMPT.md,OWNER_MAP.tsv,QUERY_RECIPES.md,REPO_MAP.tsv,START_HERE.md,UPSTREAM_MAP.md,acceptance.tsv,rules.tsv}`; `meta/{localization.json,source.json}`; `upstream/ui-ux-pro-max/**`; this handoff | Exact 70-file source tree and license `738f69dfa83db5c347c678fb9d90e560877059f0de93a327c39001bff92dc014`; all DU-010 checks passed; post-handoff Markdown lint passed at `20260830T222955Z-p3675647`; final whitespace, integrity, tracker, acceptance, and scope checks passed | R001-R034 retained; R002/R006/R023 amended; R035 added as `ADAPT`; R026-R028 remain `REJECT`; A001-A027 refreshed as a future regression contract, not a new product claim | No runtime/data migration; rollback source/provenance and the complete overlay as coherent checkpoints; product tests/generation skipped by docs-only scope; retained-run maintenance skipped because `RESULTS_DIR` was unset | none |
+Keep existing density, keyboard, focus, editing, conflict, Evidence, virtualization,
+and responsive baselines. Readiness questions must cover navigation/detachment,
+raw draft retention, source identity, duplicate activation, late responses,
+acknowledged writes with failed refresh, read-only state, permission loss,
+long content, and accessible recovery where the applicable owner requires them.
+Do not infer new persistence, retry rules, workflow engines, or feature scope.
 
-The terminal log row must include:
+## 5. Refactor selection and acceptance guidance
 
-- actual branch, baseline commit, and final dirty-state scope;
-- upstream tag/SHA, exact-tree result, file count, and license hash;
-- every changed localized path;
-- validation commands and retained outputs;
-- material ADOPT/ADAPT/REJECT changes;
-- A001-A027 disposition;
-- compatibility and rollback statement;
-- skipped checks with reasons; and
-- the next separately authorized slice, or `none`.
+Place the canonical selection rubric in `cartulary/START_HERE.md`; the local
+prompt and package README should refer to it. Each proposed future product
+slice must explain:
 
-## 11. Binary acceptance criteria
+| Decision | Required review evidence |
+| --- | --- |
+| Concrete weakness | Current observation and affected user action; classify confirmed defect, structural weakness, or hypothesis. |
+| Responsible owner and boundary | Exact governing clauses and the design decision hidden behind a small interface. |
+| Future extension path | How a plausible next surface or workflow uses that boundary without duplicating state or spreading feature-specific conditionals. Do not implement speculative extensions. |
+| Capability value | Why a carried-forward feature materially improves future use, testability, or maintenance. |
+| Retirement | Name redundant paths, adapters, duplicate state, or parallel implementations to remove with their migrated callers; avoid indefinite dual implementations. |
+| Compatibility | Identify an adopted obligation or actual supported consumer. Existing implementation behavior alone is not a compatibility requirement; required behavior remains protected. |
+| Acceptance | State observable outcomes, appropriate owner verification, limitations, and rollback. Separate authorized behavior corrections from structural movement. |
 
-- [x] The actual execution baseline is clean, current, and recorded.
-- [x] Release `v2.15.0` resolves to the required immutable commit.
-- [x] The 70-file upstream destination tree exactly matches the release source.
-- [x] The MIT license hash matches the expected value.
-- [x] Source and localization metadata describe the same upstream and Cartulary
-      snapshots as the package contents.
-- [x] Every `REPO_MAP.tsv` row is revalidated against the current repository.
-- [x] The known drift in §5 is resolved without inventing a package, owner, or
-      product behavior.
-- [x] Resolved remediation gaps are represented as regression baselines.
-- [x] R001-R034 retain stable IDs and every materially new recommendation has a
-      classified appended row or an explicit existing-row mapping.
-- [x] A001-A027 retain stable IDs and reflect current create, inspector,
-      density, responsive, generated-root, and test-authority behavior.
-- [x] No upstream generation/persistence option was invoked against Cartulary.
-- [x] Upstream validation, 153 tests, and both sample queries pass.
-- [x] JSON, TSV, Markdown, whitespace, manifest, and path-set checks pass.
-- [x] No product, owner-specification, generated-product, dependency, or
-      lockfile path changed.
-- [x] The execution log contains results, compatibility, rollback, deferrals,
-      and the next action.
+Shared machinery must hide a real common decision and preserve source-owner
+semantics. Similar-looking forms or large files alone do not justify a generic
+workflow framework or helper scattering. A compatibility adapter, duplicate
+state owner, or parallel implementation needs a concrete reason and an explicit
+retirement or retention decision.
 
-Every applicable criterion is checked and DU-001 through DU-011 are `DONE`.
+Retain R001-R035 and their existing TSV interface. Review narrow UX and verified
+React queries; classify material upstream advice `ADOPT`, `ADAPT`, or `REJECT`
+through those rows. Amend applicable instructions/evidence without renumbering
+or adding IDs in this iteration. Keep the user's structural principles in the
+rubric and label their source accurately, rather than claiming upstream supplied
+them. Retain the cybersecurity, generated-design-system, and incidental-selector
+rejections.
+
+Retain A001-A027 and their existing TSV interface. Apply these grouped updates
+without turning the advisory review table into product authority:
+
+| Rows | Required refinement |
+| --- | --- |
+| A001-A003 | Current owner traceability, one coherent structural boundary, future extension/retirement rationale, and distinct source/verification ownership. |
+| A007, A010-A014 | Owner-declared create capabilities and source context; retained authoring and semantic continuity; captured uncertain replay; acknowledgement independent of presentation and refresh recovery. Do not impose inline creation on owner-defined alternatives. |
+| A016-A017 | Separate query data from interaction permission; preserve authorized stale content where required and clear protected content on access loss. |
+| A019-A022 | Current keyboard, focus, live-region, density, text/overflow, virtualization, and production-renderer fixture evidence relevant to the selected seam. |
+| A024-A027 | No executable documentation dependency; generated-owner boundaries; justified compatibility; complete handoff and blocking semantics. |
+
+Revalidate remaining rows and retain valid meanings. Product-slice assessments
+use `PASS`, `N/A` with rationale, or `BLOCKED`; only the first two can appear in a
+completed slice. Updating these criteria does not mean executing product tests
+or marking product acceptance rows as passed during the digest refresh.
+
+## 6. Execution sequence and tracker
+
+Use `TODO`, `IN_PROGRESS`, `BLOCKED`, and `DONE`; at most one item is
+`IN_PROGRESS`. A blocked prerequisite blocks its dependents. Before starting a
+workstream, mark it `IN_PROGRESS`. After its exit passes, append actual evidence
+to §8 and save its `DONE` status before beginning the next workstream.
+
+| ID | Work item | Status | Depends on | Binary exit |
+| --- | --- | --- | --- | --- |
+| LR-01 | Establish current localization | DONE | none | Actual baseline and permitted paths are recorded; every map/owner/stack/verification fact is reviewed; protected-source integrity passes; unresolved owner contradictions are absent. |
+| LR-02 | Refresh navigation and baselines | DONE | LR-01 | All current links, ownership distinctions, regression families, and localization facts agree with the execution snapshot. |
+| LR-03 | Strengthen refactor guidance | DONE | LR-02 | The rubric, stable rule/acceptance IDs, source attribution, command navigation, and completion semantics agree across the overlay. |
+| LR-04 | Validate and hand off | DONE | LR-03 | Every applicable package/document gate passes; permitted scope and immutable source are verified; the terminal log records results, limitations, rollback, and next action. |
+
+LR-01 captures the actual execution date, branch, commit, and dirty-state scope.
+If the repository has advanced, repeat the complete localization scan. Preserve
+pre-existing user work; do not reset the repository to the planning commit. This
+approved handoff may be the sole pre-existing document edit. Record it explicitly
+rather than treating it as a clean baseline or demanding authorization again.
+Resolve any overlapping/unisolatable work before dependent edits.
+
+LR-02 updates the package README, navigation maps, baseline guidance, and
+`meta/localization.json` together. Record actual pre/post scope, stack, workspace,
+current consultation paths, unresolved mappings, qualifications, fixed pin, and
+the localization-only refresh scope. Keep product-change/test flags false and
+source-modification flags false. Keep source-provenance history separate from
+current localization facts; never record the eventual update commit as its own
+pre-update baseline.
+
+LR-03 updates the rubric, prompt, existing rules/acceptance rows, and query/source
+guidance. Consolidate repeated baseline and authority prose through references.
+Revise `QUERY_RECIPES.md` and `UPSTREAM_MAP.md` to distinguish source-replacement
+validation from this unchanged-source refresh: the 153-test full-checkout suite
+is historical provenance evidence, not a required rerun for this iteration.
+
+LR-04 validates the stable overlay, records the results in §8, and regenerates
+the manifest only after all other package bytes are final. Changes to the handoff
+itself do not change the digest manifest.
+
+## 7. Verification, failure handling, and rollback
+
+Finalizer-generated tracked drift is not an authorized document change:
+report it separately and do not incorporate unrelated generated repairs. Preserve
+pre-existing work when isolating any tool-produced changes.
+
+For LR execution, apply this documentation-maintenance matrix:
+
+| Gate | Required result |
+| --- | --- |
+| Protected-source comparison | No byte/path/mode differences from the captured baseline in `upstream/` or `meta/source.json`; 70 upstream source files, no symlinks or introduced caches; exact license hash from §3. A mismatch blocks the refresh, not a local source patch. |
+| Metadata and TSV review | Both metadata files parse; current localization facts and historical provenance are clearly separated; TSV headers unchanged, rows match header column counts, and IDs are unique and exactly R001-R035/A001-A027. |
+| Navigation and authority review | Every current map/reference resolves or carries a justified `NOT PRESENT`; historical provenance paths are explicitly historical; every baseline family points to adopted owners and current implementation evidence. |
+| Offline query smoke checks | Existing UX sample `keyboard focus color only error feedback` with `--domain ux --json` returns three JSON results; React sample `virtualized grid rerender focus async state` with `--stack react -n 8 --json` returns eight. Review material advice through the existing rules. |
+| Manifest reconciliation | Regenerate lexical repository-relative regular-file entries in standard two-space `sha256sum` format, excluding the manifest itself and ignored Python caches. There are exactly 82 entries, with no missing/extra/duplicate paths; checksum verification passes. |
+| Finalization and Markdown | `make agent-finalize`, then `make lint-markdown`, pass; report run roots and relevant summaries. Retained-run maintenance is skipped when `RESULTS_DIR` is unset. |
+| Whitespace and changed paths | `git diff --check` passes; all changes are within §3's execution allowlist; protected files remain unchanged. |
+
+Run repository commands from its root using public Make targets. Offline search
+and checksum commands are manual advisory-package maintenance, not new product
+harness checks. Use the existing query recipes with
+`PYTHONDONTWRITEBYTECODE=1` and `python3 -B`; never persist a design system.
+Do not add automation that makes product checks depend on the digest.
+
+Skip product suites, browser/visual regeneration, product generation, and the
+historical full upstream suite: no product or upstream source change is in
+scope. This does not exempt required repository finalization. Do not supply an
+old full-check run as current evidence merely to populate `RESULTS_DIR`.
+
+Report a failing target, summary/run root when available, relation to this change,
+and affected dependency. Documentation defects are repaired within scope;
+source-integrity failures, owner contradictions, or unrelated product/harness
+failures remain explicit blockers or separately scoped findings. Do not weaken
+acceptance, silently expand scope, or mark an applicable blocked item complete.
+
+No runtime, data, API, or public type migration is planned. Preserve stable
+advisory IDs and TSV interfaces for existing human references; avoid aliases or
+a second compatibility layer. Rollback restores the edited overlay, localization
+metadata, and manifest as one coherent pre-execution checkpoint, plus this
+handoff's captured pre-existing revision, preserving unrelated work.
+The immutable source and historical provenance never participate in that edit.
+
+## 8. Execution log and acceptance
+
+Append rows only when LR work executes. Record
+actual baseline and scope, changed paths, commands/results and artifact locations,
+rule/acceptance dispositions, blockers, skipped checks with reasons, rollback,
+and next action. Document-update checks are not LR execution evidence.
+
+| Date/time | Actor | Work item | Baseline and changed paths | Commands, results, and artifacts | Disposition, blockers, and skipped checks | Rollback and next action |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-09-13T12:16:26-04:00 | Codex | LR-01 start | `main` at `59fa79e04035a4f29251fcb2337376f29c40f1f4`; the sole pre-existing modification is this approved handoff. §3's twelve-file allowlist is active. | Git baseline and protected path/mode/hash inventory captured; package and pre-existing handoff bytes copied to `/tmp/cartulary-uiux-lr-20260913T161626Z-kjw3dwg6/before`; snapshot is `baseline.json` in that temporary directory. | No product work or product tests; no overlapping unrelated edits. LR-01 is the only active workstream. | Preserve this temporary checkpoint for rollback; revalidate all localization facts before LR-02. |
+
+| 2026-09-13T12:19:22-04:00 | Codex | LR-01 completion | Baseline unchanged; only this handoff edited. Reviewed all 76 repository-map rows, 16 owner-map rows, package manifests/configuration, generated boundaries, source/import and verification inputs, applicable owner clauses, source guides, representative operation owners, and terminal records for all six regression families. | Protected path/mode/hash comparison, 70-file inventory, license hash, 82-entry checksums, JSON/TSV shape/IDs, `make help-all`, and task guides for `web.architecture`, `web.collaboration`, and `web.networkflow` passed. Temporary review summary: `/tmp/cartulary-uiux-lr-20260913T161626Z-kjw3dwg6/lr01-review.json`. | No owner contradiction. Preserve absent UI/icon registry and fixture-only `harness.visual` qualifications, Report Composition 1.2.0, and draft Reference Pack status. Historical History-recovery baseline failures remain limitations of that record, not new defect claims. Product tests skipped: localization only. | LR-01 is DONE before LR-02 starts. Rollback uses the captured pre-execution handoff; next update maps, navigation, baselines, and localization metadata. |
+
+| 2026-09-13T12:19:33-04:00 | Codex | LR-02 start | LR-01 exit and saved completion record verified; §3 allowlist unchanged. | Begin coordinated navigation, baseline, and metadata edits. | Only LR-02 is IN_PROGRESS; product and upstream source remain outside scope. | Next: review current links, ownership distinctions, regression families, and metadata together. |
+
+| 2026-09-13T12:24:32-04:00 | Codex | LR-02 completion | Updated package README, START_HERE, REPO_MAP, OWNER_MAP, localization metadata, and this handoff. Repository map now has 90 rows; owner map has 23. Current metadata records the original execution snapshot and six actual changed paths at this checkpoint. | Manual JSON/TSV, current-link and owner-path checks, consultation-path existence, metadata/allowlist review, and `git diff --check` passed. Reviewed all six regression families against owner navigation, current guides/representative operation sources, and historical terminal dispositions. | Source and verification IDs remain distinct; original qualifications preserved. No product tests; manifest refresh intentionally waits for final package bytes in LR-04. Rubric, prompt, rules/acceptance, and source-validation wording remain LR-03 work. | LR-02 is DONE before LR-03 starts. Restore the coordinated localization files from the pre-execution checkpoint for rollback; next strengthen and consolidate guidance. |
+
+| 2026-09-13T12:24:45-04:00 | Codex | LR-03 start | Saved LR-02 completion verified; allowed files and fixed source unchanged. | Begin canonical rubric, local prompt, stable rules/acceptance, and query/source guidance edits. | Only LR-03 is IN_PROGRESS. | Next: verify advisory attribution, preserved interfaces, and blocking completion semantics. |
+
+| 2026-09-13T12:32:05-04:00 | Codex | LR-03 completion | Canonical rubric/workflow and baseline live in START_HERE; the local prompt links to them. Refined 11 rule rows and 18 acceptance rows; reviewed all remaining rows. Query/source guidance distinguishes historical replacement checks. Metadata now records eleven changed paths; manifest is pending LR-04. | Manual review passed for protected bytes/modes/paths, unchanged package path set, all four TSV headers/shapes, exact 35/27 IDs, current references, metadata/stack/owner mapping, and whitespace. UX/React queries returned 3/8 JSON results with no fallback; temporary artifacts are `lr03-review.json`, `lr03-ux-query.json`, and `lr03-react-query.json` under the captured checkpoint. | R012 changes ADOPT to ADAPT for context-dependent React state/concurrency advice; all existing REJECT rows are byte-identical. Other rule classes remain unchanged. Product acceptance was not executed. The temporary link checker initially flagged the explicitly absent packages/ui; its documented-absence handling was corrected and the review passed. No applicable blocker remains. | LR-03 is DONE before LR-04 starts. Rollback restores overlay/metadata and handoff coherently from the pre-execution checkpoint. Next finalize package bytes and manifest, run repository finalization/document gates, and complete the handoff. |
+
+| 2026-09-13T12:32:20-04:00 | Codex | LR-04 start | Saved LR-03 completion verified. Only the approved overlay, metadata, and handoff are changed. | Begin final editorial/interface checks, repeat prescribed query smoke checks, reconcile the manifest, then run finalization and Markdown checks. | Only LR-04 is IN_PROGRESS. RESULTS_DIR will remain unset; no current successful full warm check is claimed. | Next: terminal integrity/scope audit, artifact-backed handoff, and completion checklist. |
+
+| 2026-09-13T12:36:32-04:00 | Codex | LR-04 completion | Exactly the twelve paths allowed by §3 changed. Package path set unchanged; upstream source/license and source metadata remain byte/path/mode-identical to the captured baseline. Final localization metadata lists the actual twelve files. | Final editorial/JSON/TSV/owner/navigation review and UX/React 3/8-result smoke checks passed. Regenerated 82-entry lexical manifest; checksum and exact path-set checks passed. `make agent-finalize` passed at `.cartulary/test-results/20260913T163310Z-p49985`; `make lint-markdown` passed at `.cartulary/test-results/20260913T163336Z-p53606`. Working/index whitespace and protected-source Git comparison passed. Summaries and limitations follow below. | LR-01 through LR-04 are DONE; no blocker remains. No generated drift or unrelated tracked repair. Product acceptance/tests, browser/golden work, standalone generation, historical upstream suite/data validation, and retained-run maintenance are not claimed; reasons below. | Restore overlay, metadata, manifest, and the captured pre-existing handoff coherently for rollback. No runtime/data migration, commit, push, or deployment. Next action: use this digest when planning a separately authorized owner-grounded product slice. |
+
+Localization completion requires all of the following:
+
+- [x] LR-01 through LR-04 are `DONE`, with actual execution evidence.
+- [x] All current maps, consultation paths, stack facts, and qualifications are
+      revalidated; historical provenance remains explicitly historical.
+- [x] Regression guidance covers §4 without inventing defects, product behavior,
+      or fresh product-test results.
+- [x] The structural rubric implements the user's principles, names future
+      extension and retirement decisions, and remains subordinate to owners.
+- [x] R001-R035 and A001-A027 retain unique stable IDs and valid table shapes;
+      no applicable `BLOCKED` row can satisfy product-slice completion.
+- [x] Upstream source, license, and source metadata remain byte-identical; no
+      package file or metadata schema version is added.
+- [x] Offline query, manifest/path-set, finalization, Markdown, whitespace, and
+      scope checks pass.
+- [x] The terminal log distinguishes historical/planning/product evidence from
+      this refresh and records limitations, skipped checks, rollback, and the
+      next action without authorizing product work.
+
+All four workstreams are complete. Planning and the historical August refresh
+remain separate from the execution evidence above.
+
+### Terminal validation and limitations
+
+| Gate | Actual result and evidence |
+| --- | --- |
+| Protected source | PASS: all captured path, mode, and SHA-256 values agree; 70 regular source files; zero symlinks or caches; license hash matches §3; `git diff --exit-code` reports no upstream/source-metadata change. |
+| Metadata and interfaces | PASS: both JSON files parse; current baseline/scope/consultation facts match inspected inputs; all four TSV headers and column counts are intact; R001-R035 and A001-A027 remain unique and exact. `current_consultation_paths` is an additive localization field, not a metadata schema-version change. |
+| Navigation and owner review | PASS: 90 repository-map rows and 23 owner-map rows; current links resolve; documented absences remain qualified; source IDs and active verification IDs agree with their respective inputs. All six workflow families retain owner and historical-evidence navigation. |
+| Advisory classification | PASS: 11 rules and 18 acceptance rows refined; remaining meanings reviewed and retained. R012 alone changes class, from ADOPT to ADAPT for React state/concurrency advice; every existing REJECT row is unchanged. Query guidance accounts for all three UX and eight React results. Product acceptance rows were not assessed as product passes. |
+| Offline query smoke | PASS: prescribed UX query returns 3 JSON results; React stack query returns 8; no fallback. `PYTHONDONTWRITEBYTECODE=1` and `python3 -B` suppressed caches. |
+| Manifest | PASS: 82 unique, lexically sorted repository-relative entries in standard two-space checksum format; exact regular-file coverage excluding the manifest; all checksums pass after package bytes are final. |
+| Repository finalization | PASS: `.cartulary/test-results/20260913T163310Z-p49985/unit-artifacts/finalize-summary.json`; target summary `target-summaries/agent-finalize.json`. Finalizer reports generated status `unchanged`, zero updated files, no failures, and no rollback needed. |
+| Markdown | PASS: `.cartulary/test-results/20260913T163336Z-p53606/adhoc/lint-markdown/tool-run-summary.json`. The post-completion handoff check is reported with final delivery; handoff-only log changes do not alter the package manifest. |
+| Whitespace and scope | PASS: `git diff --check`, `git diff --cached --check`, exact allowed changed-path set, unchanged package path set, and unchanged protected source. The index remains unstaged. |
+
+Manual advisory-maintenance results and rollback copies are temporary local
+artifacts under `/tmp/cartulary-uiux-lr-20260913T161626Z-kjw3dwg6`, not product
+harness or conformance evidence. That directory contains the baseline inventory,
+pre-execution bytes, saved workstream-completion handoffs, query JSON results,
+and `lr04-final-package-review.json`. Its future availability is not assumed;
+the recorded results above are the durable handoff summary.
+
+`RESULTS_DIR` was unset. Finalizer retained-run selection, canonical retained-run
+evidence, scheduler retained-run checks, and performance-evidence maintenance
+were skipped for that reason. No current full warm check or release claim was
+invented. Product suites, browser/visual regeneration, standalone product
+generation, and the historical full upstream suite/data validation were skipped
+because neither product nor upstream source changed. Required finalizer schema,
+catalog, and generated-structure checks did execute successfully.
+
+A temporary navigation checker initially treated
+the explicitly absent `packages/ui` as a broken reference. Its documented-absence
+handling was corrected; no product rule or package gate was weakened. A
+post-completion `git diff --check` found an extra blank line at this handoff's EOF;
+it was removed before the terminal rerun. No public Make target failed during
+this execution.
+
+### Delivered remediation and handoff
+
+| Identified gap | Delivered result |
+| --- | --- |
+| Stale localization/provenance | Actual execution snapshot and current consultation paths in localization metadata; immutable historical source provenance retained. |
+| Obsolete navigation/inventories | Current archive and handoff links; frontend overview/child-guide navigation without duplicating local file inventories. |
+| Inconsistent workspace/stack | Correct `apps/web` and `packages/*` patterns; declared versions and configuration facts rechecked, including shared Playwright configuration and browser-unit spec patterns. |
+| Missing architecture and owner distinctions | Source/import manifests, independent routing inputs, and the three active verification owners mapped; both source/verification ID differences are explicit. |
+| Incomplete regression guidance | Six current workflow families added alongside established workbook, Evidence, accessibility, density, responsive, and virtualization baselines. |
+| Overbroad creation/recovery criteria | Owner-specific creation paths, captured replay, acknowledgement/refresh separation, scoped authorization loss, and re-key retry limited to `client_txn_conflict`. |
+| Weak structural/retirement guidance | Canonical rubric requires each gap's fix, areas, rationale, future benefit, extension path, capability value, retirement, compatibility/migration, unresolved risk, and binary validation. |
+| Blocked completion loophole | Applicable rows require PASS; N/A requires a scope/owner rationale; an applicable BLOCKED row prevents completion. |
+| Duplicated command and baseline prose | Short entry prompt and README point to canonical guidance; public Make/task-guide discovery selects current verification. |
+| Source-replacement validation confusion | Historical 153-test suite distinguished from current unchanged-source integrity and query checks. |
+
+The changed-file inventory is `files_changed_during_localization` in
+`docs/cartulary-ui-ux-refactor-digest/meta/localization.json`; it matches the
+allowlist in §3 exactly. No route, schema, public type, stored data, dependency,
+or adopted specification changed. Stable advisory IDs and TSV interfaces remain
+usable, with no alias files or parallel compatibility layer.
+
+Rollback restores all edited digest files together from the captured checkpoint,
+plus the handoff's pre-existing approved revision. Do not reset the repository
+or overwrite unrelated user work. If temporary rollback copies are unavailable,
+recover digest bytes from the captured Git commit and preserve/reconstruct the
+pre-existing handoff planning revision through review before applying rollback.
+The next action is a separately authorized product slice selected through the
+refreshed rubric; this completed localization grants no product implementation
+or readiness certification.
