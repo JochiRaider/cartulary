@@ -5,7 +5,7 @@ import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 
 /** Resolve original identity through the public view, independently of active filters. */
 export function readWorkbookAuthoringRecord(
-  reader: WorkbookAuthoringReadPort,
+  reader: Pick<WorkbookAuthoringReadPort, "page">,
   viewSchemaId: string,
   recordId: string,
   signal: AbortSignal,

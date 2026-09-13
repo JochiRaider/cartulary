@@ -3,10 +3,7 @@ import {
   captureRecordPatch,
   createRecordPatchTransport,
 } from "../../adapters/workbookRecordPatchTransport";
-import {
-  decodeCreateRecordLinkedNoteRequest,
-  decodeCreateViewRowRequest,
-} from "../../models/workbookRequestDecoders";
+import { decodeCreateViewRowRequest } from "../../models/workbookRequestDecoders";
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type {
   GenericMutationCommandPort,
@@ -100,28 +97,16 @@ export function createGenericMutationCommandPort(options: {
       );
       const request = decodeCreateViewRowRequest(input.contract, payload);
       if (request === null) return Promise.resolve(invalidOperationPayload());
-      if (input.linkedNoteSourceRecordId === "") {
-        return options.operations
-          .execute({
-            operationID: "createViewRow",
-            pathParameters: {
-              incident_id: options.incidentId,
-              view_schema_id: input.contract.viewSchemaId,
-            },
-            request,
-          })
-          .then(normalizeGenericMutationOutcome);
-      }
-      const linkedNoteRequest = decodeCreateRecordLinkedNoteRequest(request);
-      return linkedNoteRequest === null
-        ? Promise.resolve(invalidOperationPayload())
-        : options.operations
-            .execute({
-              operationID: "createRecordLinkedNote",
-              pathParameters: { record_id: input.linkedNoteSourceRecordId },
-              request: linkedNoteRequest,
-            })
-            .then(normalizeGenericMutationOutcome);
+      return options.operations
+        .execute({
+          operationID: "createViewRow",
+          pathParameters: {
+            incident_id: options.incidentId,
+            view_schema_id: input.contract.viewSchemaId,
+          },
+          request,
+        })
+        .then(normalizeGenericMutationOutcome);
     },
     async patchRecord(input) {
       const boundary =

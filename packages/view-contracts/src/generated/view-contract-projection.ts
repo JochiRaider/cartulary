@@ -1008,7 +1008,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.note",
@@ -1019,9 +1021,8 @@ const value = [
           "requiresConfirmation": false,
           "routeBinding": {
             "actionKey": "create_related.note",
-            "kind": "view_row_create",
-            "owner": "view_row_create_route",
-            "targetViewSchemaId": "cartulary.view.notes.v1"
+            "kind": "record_action",
+            "owner": "record_linked_note_create_route"
           },
           "seedBindings": [],
           "successResultBehavior": "preserve_selected_row"
@@ -1939,7 +1940,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.note",
@@ -1950,9 +1953,8 @@ const value = [
           "requiresConfirmation": false,
           "routeBinding": {
             "actionKey": "create_related.note",
-            "kind": "view_row_create",
-            "owner": "view_row_create_route",
-            "targetViewSchemaId": "cartulary.view.notes.v1"
+            "kind": "record_action",
+            "owner": "record_linked_note_create_route"
           },
           "seedBindings": [],
           "successResultBehavior": "preserve_selected_row"
@@ -2764,7 +2766,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.note",
@@ -2775,9 +2779,8 @@ const value = [
           "requiresConfirmation": false,
           "routeBinding": {
             "actionKey": "create_related.note",
-            "kind": "view_row_create",
-            "owner": "view_row_create_route",
-            "targetViewSchemaId": "cartulary.view.notes.v1"
+            "kind": "record_action",
+            "owner": "record_linked_note_create_route"
           },
           "seedBindings": [],
           "successResultBehavior": "preserve_selected_row"
@@ -3642,7 +3645,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.note",
@@ -3653,9 +3658,8 @@ const value = [
           "requiresConfirmation": false,
           "routeBinding": {
             "actionKey": "create_related.note",
-            "kind": "view_row_create",
-            "owner": "view_row_create_route",
-            "targetViewSchemaId": "cartulary.view.notes.v1"
+            "kind": "record_action",
+            "owner": "record_linked_note_create_route"
           },
           "seedBindings": [],
           "successResultBehavior": "preserve_selected_row"

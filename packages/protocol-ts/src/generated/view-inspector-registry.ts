@@ -20,7 +20,8 @@ const value = {
       "indicator.observations.manage",
       "indicator.observations.pivot",
       "indicator.lifecycle.read",
-      "indicator.lifecycle.manage"
+      "indicator.lifecycle.manage",
+      "create_related.note"
     ]
   },
   "schema_id": "cartulary.view_inspector_registry.v1",
@@ -104,6 +105,90 @@ const value = {
       "seed_bindings": [],
       "success_result_behavior": "preserve_selected_row",
       "view_schema_id": "cartulary.view.indicators.v1"
+    },
+    {
+      "action_key": "create_related.note",
+      "disabled_when": [
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed",
+        "record_deleted"
+      ],
+      "failure_result_behavior": "show_same_shell_error_invalidate_pending_action",
+      "feature_group_key": "create_related.note",
+      "minimum_incident_role": "editor",
+      "mutates": true,
+      "panel_id": "workflow",
+      "requires_confirmation": false,
+      "route_binding_kind": "record_action",
+      "route_binding_owner": "record_linked_note_create_route",
+      "seed_bindings": [],
+      "success_result_behavior": "preserve_selected_row",
+      "view_schema_id": "cartulary.view.timeline.v2"
+    },
+    {
+      "action_key": "create_related.note",
+      "disabled_when": [
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed",
+        "record_deleted"
+      ],
+      "failure_result_behavior": "show_same_shell_error_invalidate_pending_action",
+      "feature_group_key": "create_related.note",
+      "minimum_incident_role": "editor",
+      "mutates": true,
+      "panel_id": "workflow",
+      "requires_confirmation": false,
+      "route_binding_kind": "record_action",
+      "route_binding_owner": "record_linked_note_create_route",
+      "seed_bindings": [],
+      "success_result_behavior": "preserve_selected_row",
+      "view_schema_id": "cartulary.view.hosts.v1"
+    },
+    {
+      "action_key": "create_related.note",
+      "disabled_when": [
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed",
+        "record_deleted"
+      ],
+      "failure_result_behavior": "show_same_shell_error_invalidate_pending_action",
+      "feature_group_key": "create_related.note",
+      "minimum_incident_role": "editor",
+      "mutates": true,
+      "panel_id": "workflow",
+      "requires_confirmation": false,
+      "route_binding_kind": "record_action",
+      "route_binding_owner": "record_linked_note_create_route",
+      "seed_bindings": [],
+      "success_result_behavior": "preserve_selected_row",
+      "view_schema_id": "cartulary.view.identities.v1"
+    },
+    {
+      "action_key": "create_related.note",
+      "disabled_when": [
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed",
+        "record_deleted"
+      ],
+      "failure_result_behavior": "show_same_shell_error_invalidate_pending_action",
+      "feature_group_key": "create_related.note",
+      "minimum_incident_role": "editor",
+      "mutates": true,
+      "panel_id": "workflow",
+      "requires_confirmation": false,
+      "route_binding_kind": "record_action",
+      "route_binding_owner": "record_linked_note_create_route",
+      "seed_bindings": [],
+      "success_result_behavior": "preserve_selected_row",
+      "view_schema_id": "cartulary.view.evidence.v1"
     }
   ],
   "view_feature_keys": {
@@ -437,6 +522,7 @@ const value = {
       "current_row_projection",
       "view_query_route",
       "view_row_create_route",
+      "record_linked_note_create_route",
       "record_patch_route",
       "record_mark_reviewed_route",
       "record_supersede_route",

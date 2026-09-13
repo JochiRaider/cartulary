@@ -110,6 +110,7 @@ export function useTimelineInspectorFeatureController({
           );
           return;
         }
+        case "note_create":
         case "create_related":
           setIndicatorHandler(null);
           beginCreateRelatedWorkflow(capability.featureGroup);

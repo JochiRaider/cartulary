@@ -6,7 +6,6 @@ import {
   genericEditRecordSelectTestId,
   genericEditSubmitTestId,
   genericEditValueTestId,
-  genericWorkbookTestId,
 } from "@cartulary/ui-contracts";
 import type {
   InspectorDisabledCondition,
@@ -27,6 +26,7 @@ import type { WorkbookMutationCommandPorts } from "../../mutations/workbookMutat
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { CoordinationWorkflowBindings } from "../coordination/CoordinationWorkflowBindings";
+import { NoteSheetAuthoring } from "../notes/NoteSheetAuthoring";
 import { PartyLinkPanel } from "../parties/PartyLinkPanel";
 import type { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
 import { GenericWorkbookInspector } from "./GenericWorkbookInspector";
@@ -72,16 +72,15 @@ type GenericWorkflowProps = {
   readonly canCreateRows: boolean;
   readonly contract: ViewContract;
   readonly createDraft: Record<string, string>;
+  readonly draftDisabled: boolean;
   readonly draftInspectorFields: readonly ViewFieldContract[];
   readonly invalidationKey: string;
-  readonly linkedNoteSourceRecordId: string;
   readonly mutation: GenericSurfaceMutationController;
   readonly mutationCommands: WorkbookMutationCommandPorts;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
   readonly referenceOptions: GenericReferenceOptions;
   readonly rows: readonly WorkbookQueryRow[];
   readonly setCreateDraft: Dispatch<SetStateAction<Record<string, string>>>;
-  readonly setLinkedNoteSourceRecordId: (value: string) => void;
   readonly submitCreate: () => Promise<void>;
   readonly subjectPresent: boolean;
 };
@@ -90,34 +89,13 @@ function GenericWorkflow(props: GenericWorkflowProps) {
   return (
     <>
       {props.ownerBindings.includes("linked_note_create") ? (
-        <label
-          htmlFor={genericWorkbookTestId("note-source-record")}
-          style={labelStyle}
-        >
-          Linked source for draft row
-          <select
-            data-testid={genericWorkbookTestId("note-source-record")}
-            id={genericWorkbookTestId("note-source-record")}
-            style={selectStyle}
-            value={props.linkedNoteSourceRecordId}
-            onChange={(event) =>
-              props.setLinkedNoteSourceRecordId(event.target.value)
-            }
-          >
-            <option value="">None</option>
-            {props.referenceOptions.noteSourceRecords.map((option) => (
-              <option key={option.recordId} value={option.recordId}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <NoteSheetAuthoring />
       ) : null}
       <GenericDraftFields {...props} />
       {props.canCreateRows ? (
         <button
           data-testid={genericCreateSubmitTestId(props.contract.viewSchemaId)}
-          disabled={props.mutation.mutationPending}
+          disabled={props.mutation.mutationPending || props.draftDisabled}
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() => void props.submitCreate()}
@@ -152,6 +130,7 @@ function GenericDraftFields(props: GenericWorkflowProps) {
           <label htmlFor={controlId} key={field.fieldKey} style={labelStyle}>
             {field.label}
             <GenericMutationControl
+              disabled={props.draftDisabled}
               collectionMode="add"
               field={field}
               id={controlId}

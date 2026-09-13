@@ -67,7 +67,7 @@ func AdmitConflictResolution(
 		}
 		change := patchChange{FieldKey: context.FieldKey}
 		if field.ConflictResolutionClass == "collection_review" {
-			payload, admissionErr := decodeArtifactCollectionActionPayload(context.FieldKey, resolvedValue)
+			payload, admissionErr := decodeArtifactCollectionActionPayload(context.FieldKey, resolvedValue, false)
 			if admissionErr != nil {
 				return ConflictResolveAdmission{}, admissionErr
 			}

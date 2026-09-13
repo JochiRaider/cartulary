@@ -110,7 +110,7 @@ func decodeArtifactPatchChange(viewSchemaID string, raw json.RawMessage) (patchC
 		if !hasActionPayload {
 			return patchChange{}, newAdmissionError("action_payload", admissionMissingRequiredField)
 		}
-		payload, admissionErr := decodeArtifactCollectionActionPayload(fieldKey, actionPayload)
+		payload, admissionErr := decodeArtifactCollectionActionPayload(fieldKey, actionPayload, false)
 		if admissionErr != nil {
 			return patchChange{}, admissionErr
 		}

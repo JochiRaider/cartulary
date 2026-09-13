@@ -12,6 +12,24 @@ import (
 )
 
 func TestArtifactMutationAdmissionAndReplayHashing(t *testing.T) {
+	t.Run("Note create optional clearing and Unicode stay within declared contracts", func(t *testing.T) {
+		for _, title := range []string{``, `,"note.title":""`, `,"note.title":null`} {
+			admitted, err := AdmitContextualNote(strings.NewReader(`{"client_txn_id":"note-clear","note.body":"Body"` + title + `}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, present := admitted.requestValue().Values["note.title"]; present {
+				t.Fatal("empty create title was retained as a stored scalar")
+			}
+		}
+		admitted, err := AdmitContextualNote(strings.NewReader(`{"client_txn_id":"note-unicode","note.title":"Format\u200dtext","note.body":"Body\u200dtext","note.tags":{"kind":"collection_actions_v1","actions":[{"op":"add_tag","tag_name":"Tag\u200dtext"}]}}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := *admitted.requestValue().Values["note.title"].Text; got != "Format\u200dtext" {
+			t.Fatalf("format character changed: %q", got)
+		}
+	})
 	t.Run("create admission is fixed to Artifact views and normalizes owner fields", func(t *testing.T) {
 		admission, admissionErr := AdmitCreate(NotesViewSchemaID, strings.NewReader(`{
 			"client_txn_id":"txn-artifact-admission-create",

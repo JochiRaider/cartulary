@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { DecisionSupersessionContext } from "../features/coordination/DecisionSupersessionContext";
+import { NoteCreateContext } from "../features/notes/NoteCreateContext";
 import { genericReferenceOptionsFromRows } from "../models/genericWorkbookModel";
 import {
   emptyGenericReferenceOptions,
@@ -142,6 +143,19 @@ export function useOwnerReferenceOptions({
     null,
   );
 
+  const note = useContext(NoteCreateContext);
+  const noteSnapshot = useSyncExternalStore(
+    note?.owner.subscribe ?? noDecisionSubscription,
+    note?.owner.getSnapshot ?? noDecisionSnapshot,
+  );
+  const acceptedNotes =
+    noteSnapshot?.entries
+      .filter((entry) => entry.receipt)
+      .map((entry) => entry.attempt.clientTxnId)
+      .join(",") ?? "";
+  useEffect(() => {
+    if (acceptedNotes) setRefreshVersion((current) => current + 1);
+  }, [acceptedNotes]);
   const refreshReferenceOptions = useCallback(() => {
     setRefreshVersion((current) => current + 1);
   }, []);

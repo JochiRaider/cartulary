@@ -5,6 +5,7 @@ import type {
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { useContextualCreateAttachment } from "../../features/coordination/useContextualCreateAttachment";
 import { useTimelineRelatedEvidenceAttachment } from "../../features/evidence/useTimelineRelatedEvidenceAttachment";
+import { useNoteCreateAttachment } from "../../features/notes/useNoteCreateAttachment";
 import {
   buildInspectorRelatedRecordDraft,
   type InspectorRelatedRecordWorkflowAction,
@@ -63,6 +64,15 @@ type TimelineRelatedWorkflowRuntime = {
 export function useTimelineCreateRelatedWorkflow(
   input: TimelineCreateRelatedWorkflowInput,
 ) {
+  const note = useNoteCreateAttachment(
+    input.selectedSubject && input.selectedRow
+      ? {
+          subject: input.selectedSubject,
+          cells: input.selectedRow.rawRow?.cells ?? {},
+        }
+      : null,
+    input.isInspectorOpen ?? true,
+  );
   const evidence = useTimelineRelatedEvidenceAttachment(
     input.selectedSubject && input.selectedRow
       ? {
@@ -142,6 +152,7 @@ export function useTimelineCreateRelatedWorkflow(
 
   const cancelWorkflow = useCallback(
     (reason: "owner_action" | "lifecycle" = "owner_action") => {
+      note.detach();
       contextualDetach();
       if (reason === "owner_action") evidence.detach();
       if (reason === "lifecycle" && capturedOwnerSequenceRef.current) return;
@@ -152,17 +163,19 @@ export function useTimelineCreateRelatedWorkflow(
         dispatchWorkflow({ type: "cancel", workflowId: active.workflowId });
       }
     },
-    [contextualDetach, evidence.detach, dispatchWorkflow],
+    [note.detach, contextualDetach, evidence.detach, dispatchWorkflow],
   );
 
   const beginWorkflow = useCallback(
     (featureGroup: InspectorFeatureGroup) => {
       const activeFeature =
+        note.workflow?.featureGroup.featureGroupKey ??
         evidence.workflow?.featureGroup.featureGroupKey ??
         contextualWorkflow?.featureGroup.featureGroupKey ??
         workflowRef.current?.featureGroup.featureGroupKey;
       if (activeFeature && activeFeature !== featureGroup.featureGroupKey)
         cancelWorkflow();
+      if (note.begin(featureGroup)) return;
       if (contextualBegin(featureGroup)) return;
       if (evidence.begin(featureGroup)) {
         const message = evidence.notice();
@@ -175,6 +188,8 @@ export function useTimelineCreateRelatedWorkflow(
       beginTimelineRelatedWorkflow(runtime, featureGroup);
     },
     [
+      note.begin,
+      note.workflow?.featureGroup.featureGroupKey,
       contextualBegin,
       contextualWorkflow?.featureGroup.featureGroupKey,
       evidence.begin,
@@ -186,6 +201,10 @@ export function useTimelineCreateRelatedWorkflow(
   );
   const updateWorkflowDraft = useCallback(
     (featureGroupKey: string, fieldKey: string, value: string) => {
+      if (note.workflow) {
+        note.update(fieldKey, value);
+        return;
+      }
       if (contextualWorkflow) {
         contextualUpdate(fieldKey, value);
         return;
@@ -203,7 +222,13 @@ export function useTimelineCreateRelatedWorkflow(
         });
       }
     },
-    [contextualWorkflow, contextualUpdate, dispatchWorkflow],
+    [
+      note.workflow,
+      note.update,
+      contextualWorkflow,
+      contextualUpdate,
+      dispatchWorkflow,
+    ],
   );
   const submitWorkflow = useCallback(async () => {
     const identity = currentWorkflowIdentityRef.current;
@@ -234,7 +259,8 @@ export function useTimelineCreateRelatedWorkflow(
     cancelWorkflow,
     submitWorkflow,
     updateWorkflowDraft,
-    workflow: evidence.workflow ?? contextualWorkflow ?? workflow,
+    workflow:
+      note.workflow ?? evidence.workflow ?? contextualWorkflow ?? workflow,
   };
 }
 

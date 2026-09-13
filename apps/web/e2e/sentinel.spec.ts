@@ -514,9 +514,12 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
   await page
     .getByTestId(workbookInspectorToggleTestId(notesViewSchemaId))
     .click();
+  await page
+    .getByRole("button", { name: "Choose source", exact: true })
+    .click();
   await expect(
     page
-      .getByTestId(genericWorkbookTestId("note-source-record"))
+      .getByTestId("note-source-record")
       .locator(`option[value="${source.record_id}"]`),
   ).toHaveCount(1, { timeout: 15_000 });
   await page
@@ -526,8 +529,9 @@ test("Notes tab creates artifact-backed linked notes", async ({ page }) => {
     .getByTestId(genericCreateFieldTestId("note.body"))
     .fill("Created from the Notes tab with a source record link.");
   await page
-    .getByTestId(genericWorkbookTestId("note-source-record"))
+    .getByTestId("note-source-record")
     .selectOption(source.record_id as string);
+  await page.getByRole("button", { name: "Apply source", exact: true }).click();
 
   const responsePromise = page.waitForResponse(
     (response) =>

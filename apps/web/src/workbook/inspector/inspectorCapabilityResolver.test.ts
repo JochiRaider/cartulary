@@ -44,10 +44,11 @@ describe("inspector capability resolver", () => {
     expect(identities.size).toBe(247);
   });
 
-  it("classifies exactly 41 create, 4 Indicator, 51 history, 1 Decision action, 2 Timeline actions, and 148 non-contextual features", () => {
+  it("classifies exactly 37 create, 4 Note, 4 Indicator, 51 history, 1 Decision action, 2 Timeline actions, and 148 non-contextual features", () => {
     const counts = {
       timeline_capture: 0,
       create_related: 0,
+      note_create: 0,
       decision_supersede: 0,
       indicator: 0,
       non_contextual: 0,
@@ -79,7 +80,8 @@ describe("inspector capability resolver", () => {
     }
 
     expect(counts).toEqual({
-      create_related: 41,
+      create_related: 37,
+      note_create: 4,
       indicator: 4,
       non_contextual: 148,
       timeline_capture: 2,

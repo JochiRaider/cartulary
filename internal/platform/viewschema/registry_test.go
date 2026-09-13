@@ -498,23 +498,24 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 		"surface_pivot":          {},
 	}
 	allowedOwners := map[string]struct{}{
-		"current_row_projection":         {},
-		"view_query_route":               {},
-		"view_row_create_route":          {},
-		"record_patch_route":             {},
-		"record_mark_reviewed_route":     {},
-		"record_supersede_route":         {},
-		"record_delete_route":            {},
-		"record_restore_route":           {},
-		"record_history_route":           {},
-		"record_rollback_route":          {},
-		"record_merge_route":             {},
-		"entity_mention_resolve_route":   {},
-		"indicator_observations_route":   {},
-		"indicator_lifecycle_route":      {},
-		"evidence_attach_blob_route":     {},
-		"evidence_preview_handle_route":  {},
-		"evidence_download_handle_route": {},
+		"current_row_projection":          {},
+		"view_query_route":                {},
+		"view_row_create_route":           {},
+		"record_linked_note_create_route": {},
+		"record_patch_route":              {},
+		"record_mark_reviewed_route":      {},
+		"record_supersede_route":          {},
+		"record_delete_route":             {},
+		"record_restore_route":            {},
+		"record_history_route":            {},
+		"record_rollback_route":           {},
+		"record_merge_route":              {},
+		"entity_mention_resolve_route":    {},
+		"indicator_observations_route":    {},
+		"indicator_lifecycle_route":       {},
+		"evidence_attach_blob_route":      {},
+		"evidence_preview_handle_route":   {},
+		"evidence_download_handle_route":  {},
 	}
 	allowedConditions := map[string]struct{}{
 		"no_row_selected":              {},
@@ -545,6 +546,16 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 	featureKeys := map[string]struct{}{}
 	gotFeatureKeys := make([]string, 0, len(config.FeatureGroups))
 	for _, group := range config.FeatureGroups {
+		if group.FeatureGroupKey == "create_related.note" {
+			if group.RouteBinding.Kind != "record_action" || group.RouteBinding.Owner != "record_linked_note_create_route" ||
+				group.RouteBinding.ActionKey != "create_related.note" || len(group.SeedBindings) != 0 ||
+				group.RouteBinding.TargetViewSchemaID != "" {
+				t.Fatalf("%s Note action must bind atomic source-context creation: %#v", resource.ViewSchemaID, group)
+			}
+			if !reflect.DeepEqual(group.DisabledWhen, []string{"no_row_selected", "incident_closed", "authorization_lost", "row_version_changed", "record_deleted"}) {
+				t.Fatalf("%s Note action disabled conditions: %#v", resource.ViewSchemaID, group.DisabledWhen)
+			}
+		}
 		if group.FeatureGroupKey == "" || group.PanelID == "" || group.Label == "" {
 			t.Fatalf("%s inspector feature group incomplete: %#v", resource.ViewSchemaID, group)
 		}

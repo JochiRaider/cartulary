@@ -2,7 +2,7 @@ import { sheetRefKey } from "../../../shared/sheetRef";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
 import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
-import { useTimelineRelatedEvidenceSource } from "../hooks/useTimelineRelatedEvidenceSource";
+import { useTimelineSourceWriteCoordination } from "../hooks/useTimelineSourceWriteCoordination";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 import { useTimelineGridEnvironment } from "./useTimelineGridEnvironment";
 import { useTimelineInspectorStateComposition } from "./useTimelineInspectorStateComposition";
@@ -235,8 +235,15 @@ export function useTimelineWorkbookComposition({
     },
   });
 
-  useTimelineRelatedEvidenceSource({
+  useTimelineSourceWriteCoordination({
     owner: runtime.mutationRuntime.timelineRelatedEvidence,
+    rows: foundation.refs.rows,
+    drafts: foundation.refs.editorDraftRegistry,
+    available: !foundation.snapshot.lifecycle.loadAccessLost,
+    waitForIdle: mutation.ports.waitForCommittedRecordIdle,
+  });
+  useTimelineSourceWriteCoordination({
+    owner: runtime.mutationRuntime.noteCreate,
     rows: foundation.refs.rows,
     drafts: foundation.refs.editorDraftRegistry,
     available: !foundation.snapshot.lifecycle.loadAccessLost,

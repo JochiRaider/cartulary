@@ -3,6 +3,7 @@ import type {
   CollectionActionsV1,
   CreateObjectBlobSlotRequest,
   CreateRecordLinkedNoteRequest,
+  CreateRecordLinkedNoteResponse,
   CreateViewRowRequest,
   CreateViewRowResponse,
   MergeEntityRecordRequest,
@@ -26,6 +27,8 @@ export type WorkbookProtocolCreateObjectBlobSlotRequest =
   CreateObjectBlobSlotRequest;
 export type WorkbookProtocolCreateLinkedNoteRequest =
   CreateRecordLinkedNoteRequest;
+export type WorkbookProtocolCreateLinkedNoteReceipt =
+  CreateRecordLinkedNoteResponse;
 export type WorkbookProtocolCreateViewRowRequest = CreateViewRowRequest;
 export type WorkbookProtocolPatchRecordRequest = PatchRecordRequest;
 export type WorkbookProtocolQueryViewRequest = QueryWorkbookViewRequest;

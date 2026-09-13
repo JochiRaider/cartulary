@@ -495,6 +495,26 @@
       "sha256": "60af15a892cbe345a5bb637582c02bb363da4cbecb5d68a5bc6316d8c02b9b79"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-linux.png",
+      "sha256": "48f82316218962405790df0806540715cf2a9f23d206f130b1f8b06bf6e8d499"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-authoring-narrow-linux.png",
+      "sha256": "23189fd0fb9f46fc2464587ed4d5547117cd52396fa6efd7581d39501c0a6144"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-linux.png",
+      "sha256": "1011bf802eac863b0163d88351c8fbec436a9a856421908da9fb5d72d1f2a9fc"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-recovery-narrow-linux.png",
+      "sha256": "0f313feb0dacba884f818acda930978718cfcc67ff1774b18a7fb53ee831ae8f"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/linked-note-source-narrow-linux.png",
+      "sha256": "472cb458b4a40445d5a9cf0541c8e4050862f8bb74315a80263093f9268a0218"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-comfortable-linux.png",
       "sha256": "9cb282bb6e31b3bd5e9d009f3ab363cd6dcecf5a8d64f760ff4607b87094a7a6"
     },

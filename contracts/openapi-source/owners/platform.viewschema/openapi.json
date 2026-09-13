@@ -270,6 +270,7 @@
               "current_row_projection",
               "view_query_route",
               "view_row_create_route",
+              "record_linked_note_create_route",
               "record_patch_route",
               "record_mark_reviewed_route",
               "record_supersede_route",

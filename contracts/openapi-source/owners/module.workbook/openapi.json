@@ -751,7 +751,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/LinkedNoteMutationEnvelope"
                 }
               }
             }
@@ -761,7 +761,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/LinkedNoteMutationEnvelope"
                 }
               }
             }
@@ -2881,6 +2881,49 @@
           }
         ],
         "unevaluatedProperties": false
+      },
+      "LinkedNoteMutationData": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ViewMutationDataFields"
+          }
+        ],
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "const": "cartulary.view.notes.v1"
+          },
+          "source_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link_type": {
+            "type": "string",
+            "const": "references_artifact"
+          }
+        },
+        "required": [
+          "source_record_id",
+          "link_type"
+        ],
+        "unevaluatedProperties": false
+      },
+      "LinkedNoteMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/LinkedNoteMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
       }
     }
   }

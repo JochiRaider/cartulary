@@ -282,6 +282,7 @@ class WorkbookCollaborationCoordinatorRuntime {
         event.message.type === "record_changed" &&
         this.authorizationRecoveryMachine.authorizationConfirmed
       ) {
+        this.options.mutationRuntime.noteCreate.observeSocket(event.message);
         this.options.mutationRuntime.contextualCreate.observeSocket(
           event.message,
         );

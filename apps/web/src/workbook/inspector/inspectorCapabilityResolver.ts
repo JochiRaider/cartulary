@@ -22,6 +22,11 @@ export type InspectorContextualCapability =
       readonly semanticKey: string;
     }
   | {
+      readonly kind: "note_create";
+      readonly featureGroup: InspectorFeatureGroup;
+      readonly semanticKey: string;
+    }
+  | {
       readonly kind: "create_related";
       readonly featureGroup: InspectorFeatureGroup;
       readonly semanticKey: string;
@@ -104,6 +109,13 @@ function contextualCapability(
     return { featureGroup, kind: "indicator", semanticKey };
   }
   if (
+    featureGroup.featureGroupKey === "create_related.note" &&
+    featureGroup.routeBinding.kind === "record_action" &&
+    featureGroup.routeBinding.owner === "record_linked_note_create_route" &&
+    featureGroup.routeBinding.actionKey === "create_related.note"
+  )
+    return { featureGroup, kind: "note_create", semanticKey };
+  if (
     featureGroup.routeBinding.kind === "view_row_create" &&
     featureGroup.routeBinding.owner === "view_row_create_route"
   ) {
@@ -122,6 +134,7 @@ const recordHistoryActionsByOwner = {
   indicator_observations_route: null,
   record_delete_route: "delete",
   record_history_route: null,
+  record_linked_note_create_route: null,
   record_mark_reviewed_route: null,
   record_merge_route: null,
   record_patch_route: null,

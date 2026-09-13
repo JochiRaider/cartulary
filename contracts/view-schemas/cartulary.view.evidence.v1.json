@@ -474,16 +474,17 @@
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "view_row_create",
-          "owner": "view_row_create_route",
-          "target_view_schema_id": "cartulary.view.notes.v1",
+          "kind": "record_action",
+          "owner": "record_linked_note_create_route",
           "action_key": "create_related.note"
         },
         "seed_bindings": [],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
-          "authorization_lost"
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"

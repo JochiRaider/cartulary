@@ -68,7 +68,10 @@ export function EntityWorkbookInspector({
   const dispatchContextualAction = (
     capability: InspectorContextualCapability,
   ) => {
-    if (capability.kind === "create_related") {
+    if (
+      capability.kind === "create_related" ||
+      capability.kind === "note_create"
+    ) {
       related.begin(capability.featureGroup);
     }
   };

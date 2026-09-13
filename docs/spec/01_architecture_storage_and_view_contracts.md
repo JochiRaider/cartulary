@@ -4926,6 +4926,7 @@ The closed `route_binding.owner` vocabulary is:
 | `current_row_projection` | Selected row data already present in the active `view_row_v1` or its authorized same-row derived summaries. |
 | `view_query_route` | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query`. |
 | `view_row_create_route` | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. |
+| `record_linked_note_create_route` | `POST /api/v1/records/{record_id}/linked-notes`; atomically create one Notes artifact and its source association. |
 | `record_patch_route` | `PATCH /api/v1/records/{record_id}`. |
 | `record_mark_reviewed_route` | `POST /api/v1/records/{record_id}/mark-reviewed`. |
 | `record_supersede_route` | `POST /api/v1/records/{record_id}/supersede`. |
@@ -5063,7 +5064,7 @@ Profiles: base
 Verified by: AC-068, AC-069, AC-070, AC-112, AC-185, AC-231
 
 **REQ-01-305**
-The base profile MUST also expose contextual `add linked note` actions from Timeline, Hosts, Identities, and Evidence. All Notes entry paths MUST create the same underlying artifact record shape.
+The base profile MUST also expose contextual `add linked note` actions from Timeline, Hosts, Identities, and Evidence. All Notes entry paths MUST create the same underlying artifact record shape. Contextual Note authoring MUST initially copy the selected record identity into editable source context. An explicit source replacement MUST preserve authored Note fields and associate the newly chosen source. Explicitly clearing the source MUST preserve those fields and use ordinary unlinked Notes creation on fresh submission. Selection, source-version, inspector, or sheet changes MUST NOT implicitly replace or clear the authored source context.
 Profiles: base
 Verified by: AC-068, AC-069, AC-070, AC-112, AC-185, AC-231
 
@@ -5215,6 +5216,36 @@ surface. If another per-surface row needs a different panel, role,
 confirmation, disabled-state, seed, success, or failure behavior, the
 per-surface row must override it explicitly.
 
+The following Notes-specific specialization overrides `create_related.*` on
+`cartulary.view.timeline.v2`, `cartulary.view.hosts.v1`,
+`cartulary.view.identities.v1`, and `cartulary.view.evidence.v1`:
+`create_related.note` MUST use `panel_id='workflow'`,
+`route_binding.kind='record_action'`,
+`route_binding.owner='record_linked_note_create_route'`,
+`route_binding.action_key='create_related.note'`,
+`minimum_incident_role='editor'`, `mutates=true`, and
+`requires_confirmation=false`. `disabled_when[]` MUST be
+`[no_row_selected, incident_closed, authorization_lost, row_version_changed,
+record_deleted]`, success MUST be `preserve_selected_row`, and failure MUST be
+`show_same_shell_error_invalidate_pending_action`. The route binding MUST omit
+`target_view_schema_id` and `seed_bindings[]` MUST be `[]`: this action creates
+`cartulary.view.notes.v1` artifacts and copies the selected subject into editable
+route source context, not a writable Note field or create input. A client MUST
+NOT route this feature through the wildcard ordinary-create binding or a record
+patch. With a source retained or explicitly replaced, submission MUST use the
+existing atomic linked-note route and MUST NOT issue a second link mutation.
+A successful linked-note response MUST retain the standard mutation receipt
+(`view_schema_id`, `change_set_id`, full `row`, and request metadata) and its
+existing association evidence: `source_record_id` equal to the chosen route
+source and server-derived `link_type='references_artifact'`. Clients MUST
+validate and retain that complete receipt, including source association.
+Ordinary unlinked creation retains its ordinary mutation response contract.
+With source explicitly cleared, fresh submission MUST use ordinary Notes row
+creation. Source selection admits only authorized same-incident Timeline, Host,
+Identity, or Evidence records. Changing presentation selection MUST NOT retarget
+that source; explicit source editing preserves authored title, body and tags.
+
+
 | `view_schema_id` | Required `feature_group_key` values |
 | --- | --- |
 | `cartulary.view.timeline.v2` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `entity_mentions.resolve`, `entity_mentions.create_host`, `entity_mentions.create_identity`, `entity_mentions.dismiss`, `entity_mentions.restore`, `indicator.observations.manage`, `relationships.manage`, `evidence.attach_blob`, `evidence.preview_handle`, `evidence.download_handle`, `timeline.mark_reviewed`, `timeline.supersede`, `create_related.note`, `create_related.task_request`, `create_related.decision`, `create_related.evidence`, `create_related.comm_log`, `create_related.handoff`, `create_related.status_review`, `create_related.lesson` |
@@ -5241,7 +5272,7 @@ A standardized optional surface that is not implemented must be omitted from `GE
 | --- | --- |
 | `create_related.task_request` | Seed selected `record_id` into the target surface's linked-record field when declared by that target view. Seeded links do not satisfy target create minima. |
 | `create_related.decision` | Seed selected `record_id` into the target surface's support or affected-record context when declared. Seeded links do not satisfy target create minima. |
-| `create_related.note` | Seed selected `record_id` as source context when the Notes surface declares a source-link action field. |
+| `create_related.note` | Copy selected `record_id` into editable source context for the specialized linked-note record action below; it is not a Note field seed and does not satisfy create minima. |
 | `create_related.evidence` | Seed selected `record_id` as evidence-related context; evidence title or other minimum create signal remains required unless the Evidence surface owner explicitly permits otherwise. |
 | `create_related.comm_log` | Seed selected `record_id` as related context; communication summary remains required. |
 | `create_related.handoff` | Seed selected `record_id` as related context; handoff minimum create signal remains required. |
@@ -5337,7 +5368,7 @@ Base-profile relationship mutations surfaced by these view contracts or their ad
   - `timeline.identity_refs` -> `observed_as_identity`, with the Timeline record as `src_record_id` and the resolved identity record as `dst_record_id`,
   - supported same-surface canonical-indicator linking actions on Timeline, Notes, other artifacts, or Evidence -> `references_indicator`, with the invoking source record as `src_record_id` and the canonical indicator record as `dst_record_id`; source-bound occurrences still use `indicator_observations`,
   - contextual evidence-association actions from a non-evidence record -> `attached_evidence`, with the invoking non-evidence record as `src_record_id` and the evidence record as `dst_record_id`,
-  - contextual `add linked note` or equivalent artifact-association actions -> `references_artifact`, with the invoking record as `src_record_id` and the created or selected artifact record as `dst_record_id`,
+  - contextual `add linked note` or equivalent artifact-association actions -> `references_artifact`, with the invoking record as `src_record_id` and the created or selected artifact record as `dst_record_id`; for Note creation the invoking record is the explicitly retained or replaced authoring source at dispatch, and explicitly cleared source context creates no relationship,
   - `assessment.support_refs` -> `supported_by`, with the assessment record as `src_record_id` and the supporting record as `dst_record_id`,
   - `task.linked_record_ids` and the authoritative association represented by `task.decision_record_id` -> `references_record`, with the task-request record as `src_record_id` and the referenced record as `dst_record_id`,
   - `comm_log.decision_ids`, `comm_log.action_task_ids`, `handoff.open_task_ids`, `handoff.open_decision_ids`, `status_review.blocked_task_ids`, `status_review.pending_evidence_ids`, `status_review.open_decision_ids`, `lesson.follow_up_task_ids`, and `lesson.evidence_refs` -> `references_record`, with the owning coordination artifact as `src_record_id` and the referenced record as `dst_record_id`,
@@ -5818,7 +5849,7 @@ Verified by: AC-100, AC-118, AC-124, AC-125, AC-128, AC-231, AC-278, AC-279, AC-
 - inline create: zero-field create is forbidden
 - minimum create signal: inline create from the sheet itself MUST commit only when at least one of `note.title` or `note.body` is non-empty after create-time normalization; whitespace-only text MUST be treated as absent
 - the server MUST fill `artifact_type='note'`, timestamps, and attribution on first commit
-- context-preseeded links from `add linked note` MUST remain editable context and MUST NOT by themselves satisfy the minimum create signal
+- context-preseeded links from `add linked note` MUST remain editable context and MUST NOT by themselves satisfy the minimum create signal; explicit source replacement or clearing preserves authored fields and follows REQ-01-305 and the Notes-specific inspector binding in §7.4.1A
 - `note.tags` is optional follow-on structure and MUST NOT satisfy the minimum create signal
 - writable fields:
   - `note.title`: read the note title field; write target the note artifact title field; `string_contract_id=single_line_title_v1`; `conflict_resolution_class=text_compare_merge`

@@ -47,6 +47,7 @@ import {
   taskPatchErrors,
   taskViewId,
 } from "../features/coordination/taskLifecycleModel";
+import { useGenericCreateDraft } from "../features/generic/useGenericCreateDraft";
 import { useGenericWorkbookInspectorComposition } from "../features/generic/useGenericWorkbookInspectorComposition";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
@@ -63,7 +64,6 @@ import {
   genericCellLabelForField,
   genericContractColumnWidth,
   genericRowLabel,
-  initialGenericCreateDraft,
   workbookCreationAvailable,
 } from "../models/genericWorkbookModel";
 import {
@@ -179,8 +179,9 @@ export function ContractWorkbookSurface({
   );
   const canCreateRows =
     interactionMode.kind === "editable" && workbookCreationAvailable(contract);
-  const [createDraft, setCreateDraft] = useState<Record<string, string>>(() =>
-    initialGenericCreateDraft(contract, currentUserId),
+  const [createDraft, setCreateDraft, draftDisabled] = useGenericCreateDraft(
+    contract,
+    currentUserId,
   );
   const [editRecordId, setEditRecordId] = useState("");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
@@ -216,13 +217,6 @@ export function ContractWorkbookSurface({
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
-
-  useEffect(() => {
-    setCreateDraft((current) => {
-      const defaults = initialGenericCreateDraft(contract, currentUserId);
-      return { ...defaults, ...current };
-    });
-  }, [contract, currentUserId]);
 
   const anchorColumns = useMemo<readonly GridColumn<WorkbookQueryRow>[]>(
     () =>
@@ -345,6 +339,7 @@ export function ContractWorkbookSurface({
     canCreateRows,
     contract,
     createDraft,
+    draftDisabled,
     currentIncidentRole,
     currentUserId,
     draftInspectorFields,
@@ -564,6 +559,7 @@ export function ContractWorkbookSurface({
           }
           return (
             <GenericMutationControl
+              disabled={draftDisabled}
               collectionMode="add"
               field={writableField}
               focusTargetRef={focusTargetRef}
@@ -636,7 +632,7 @@ export function ContractWorkbookSurface({
               ? undefined
               : genericCreateSubmitTestId(contract.viewSchemaId)
           }
-          disabled={mutationPending}
+          disabled={mutationPending || draftDisabled}
           style={secondaryActionButtonStyle}
           type="button"
           onClick={() => {
@@ -654,6 +650,7 @@ export function ContractWorkbookSurface({
     contract.viewSchemaId,
     genericInspector,
     mutationPending,
+    draftDisabled,
     surface,
     canCreateRows,
   ]);

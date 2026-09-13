@@ -1,12 +1,15 @@
 import { useLayoutEffect, useRef } from "react";
-import type { WorkbookTimelineRelatedEvidenceOwner } from "../../features/evidence/WorkbookTimelineRelatedEvidenceOwner";
 import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineCommittedRecordIdleResult } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
 /** Earlier local edits participate in coordination; explicit writes never enter autosave capacity. */
-export function useTimelineRelatedEvidenceSource(options: {
-  readonly owner: WorkbookTimelineRelatedEvidenceOwner;
+export function useTimelineSourceWriteCoordination(options: {
+  readonly owner: {
+    registerSourceCoordinator(
+      coordinate: (recordId: string, signal: AbortSignal) => Promise<boolean>,
+    ): () => void;
+  };
   readonly rows: { readonly current: WorkbookRow[] };
   readonly drafts: TimelineEditorDraftRegistry;
   readonly available: boolean;

@@ -5821,7 +5821,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/LinkedNoteMutationEnvelope"
                 }
               }
             },
@@ -5831,7 +5831,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/LinkedNoteMutationEnvelope"
                 }
               }
             },
@@ -14192,6 +14192,7 @@
               "current_row_projection",
               "view_query_route",
               "view_row_create_route",
+              "record_linked_note_create_route",
               "record_patch_route",
               "record_mark_reviewed_route",
               "record_supersede_route",
@@ -14610,6 +14611,49 @@
         },
         "required": [
           "client_txn_id"
+        ],
+        "type": "object"
+      },
+      "LinkedNoteMutationData": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ViewMutationDataFields"
+          }
+        ],
+        "properties": {
+          "link_type": {
+            "const": "references_artifact",
+            "type": "string"
+          },
+          "source_record_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "view_schema_id": {
+            "const": "cartulary.view.notes.v1",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_record_id",
+          "link_type"
+        ],
+        "type": "object",
+        "unevaluatedProperties": false
+      },
+      "LinkedNoteMutationEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/LinkedNoteMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ],
         "type": "object"
       },

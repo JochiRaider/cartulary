@@ -70,6 +70,8 @@ import {
   useNetworkFlowSavedGraphOwner,
   useNetworkFlowTableOwner,
 } from "./features/NetworkFlowOperations";
+import { NoteCreateContext } from "./features/notes/NoteCreateContext";
+import { NoteCreateRecovery } from "./features/notes/NoteCreateRecovery";
 import { PartyLinkRecovery } from "./features/parties/PartyLinkRecovery";
 import { WorkbookHistoryContext } from "./history/WorkbookHistoryContext";
 import { WorkbookHistoryRecovery } from "./history/WorkbookHistoryRecovery";
@@ -270,6 +272,7 @@ function WorkbookShellContent({
       mergeAuthority,
     );
     infrastructure.mutationRuntime.explicitPatches.setAuthority(mergeAuthority);
+    infrastructure.mutationRuntime.noteCreate.setAuthority(mergeAuthority);
     infrastructure.mutationRuntime.contextualCreate.setAuthority(
       mergeAuthority,
     );
@@ -302,6 +305,7 @@ function WorkbookShellContent({
       infrastructure.mutationRuntime.indicatorObservations.suspend();
       infrastructure.mutationRuntime.indicatorCreate.suspend();
       infrastructure.mutationRuntime.assessmentAuthoring.suspend();
+      infrastructure.mutationRuntime.noteCreate.suspend();
       infrastructure.mutationRuntime.contextualCreate.suspend();
       infrastructure.mutationRuntime.timelineRelatedEvidence.suspend();
       infrastructure.mutationRuntime.explicitPatches.suspend();
@@ -872,163 +876,182 @@ function WorkbookShellContent({
                   sheetRef: snapshot.startupSheetRef,
                 }}
               >
-                <ContextualCreateContext.Provider
+                <NoteCreateContext.Provider
                   value={{
-                    owner: infrastructure.mutationRuntime.contextualCreate,
+                    owner: infrastructure.mutationRuntime.noteCreate,
                     sheetRef: snapshot.startupSheetRef,
                   }}
                 >
-                  <section
-                    aria-label="Workbook shell"
-                    data-active-view-schema-id={snapshot.surface}
-                    data-testid={workbookShellReadyTestId()}
-                    data-workbook-shell-id={workbookShellId}
-                    data-cartulary-density={workbookLayout.shell.density}
-                    style={panelStyle}
+                  <ContextualCreateContext.Provider
+                    value={{
+                      owner: infrastructure.mutationRuntime.contextualCreate,
+                      sheetRef: snapshot.startupSheetRef,
+                    }}
                   >
-                    <WorkbookSaveAnnouncements
-                      runtime={infrastructure.mutationRuntime}
-                    />
-                    <NetworkFlowImportSurface
-                      controller={networkFlowImportController}
-                    />
-                    <NetworkFlowTableSurface
-                      controller={networkFlowTableController}
-                    />
-                    <NetworkFlowIndicatorLinkSurface
-                      controller={networkFlowIndicatorLinkController}
-                    />
-                    <WorkbookShellTopBar
-                      importRecovery={
-                        <>
-                          <WorkbookHistoryRecovery />
-                          <TimelineRelatedEvidenceRecovery
-                            owner={
-                              infrastructure.mutationRuntime
-                                .timelineRelatedEvidence
-                            }
-                          />
-                          <ContextualCreateRecovery
-                            owner={
-                              infrastructure.mutationRuntime.contextualCreate
-                            }
-                          />
-                          <AssessmentAppendRecovery
-                            owner={
-                              infrastructure.mutationRuntime.assessmentAuthoring
-                            }
-                          />
-                          <PartyLinkRecovery
-                            owner={infrastructure.mutationRuntime.partyLinks}
-                          />
-                          <WorkbookIndicatorCreateRecovery
-                            owner={
-                              infrastructure.mutationRuntime.indicatorCreate
-                            }
-                          />
-                          <WorkbookObservationRecovery
-                            owner={
-                              infrastructure.mutationRuntime
-                                .indicatorObservations
-                            }
-                          />
-                          <WorkbookIndicatorLifecycleRecovery
-                            owner={
-                              infrastructure.mutationRuntime.indicatorLifecycle
-                            }
-                          />
-                          <TimelineMentionRecovery
-                            owner={infrastructure.timelineMentions}
-                          />
-                          <TimelineCaptureRecovery
-                            owner={infrastructure.timelineCapture}
-                          />
-                          <WorkbookDecisionSupersessionRecovery
-                            runtime={infrastructure.mutationRuntime}
-                          />
-                          <WorkbookEntityMergeRecovery
-                            runtime={infrastructure.mutationRuntime}
-                          />
-                          {!networkAnalysisActive ||
-                          !networkAnalysisAvailable ? (
-                            <NetworkFlowImportRecovery
-                              controller={networkFlowImportController}
+                    <section
+                      aria-label="Workbook shell"
+                      data-active-view-schema-id={snapshot.surface}
+                      data-testid={workbookShellReadyTestId()}
+                      data-workbook-shell-id={workbookShellId}
+                      data-cartulary-density={workbookLayout.shell.density}
+                      style={panelStyle}
+                    >
+                      <WorkbookSaveAnnouncements
+                        runtime={infrastructure.mutationRuntime}
+                      />
+                      <NetworkFlowImportSurface
+                        controller={networkFlowImportController}
+                      />
+                      <NetworkFlowTableSurface
+                        controller={networkFlowTableController}
+                      />
+                      <NetworkFlowIndicatorLinkSurface
+                        controller={networkFlowIndicatorLinkController}
+                      />
+                      <WorkbookShellTopBar
+                        importRecovery={
+                          <>
+                            <WorkbookHistoryRecovery />
+                            <TimelineRelatedEvidenceRecovery
+                              owner={
+                                infrastructure.mutationRuntime
+                                  .timelineRelatedEvidence
+                              }
                             />
-                          ) : null}
-                          <NetworkFlowTableRecovery
-                            controller={networkFlowTableController}
-                          />
-                          <NetworkFlowIndicatorLinkRecovery
-                            controller={networkFlowIndicatorLinkController}
-                          />
-                        </>
-                      }
-                      account={{
-                        applicationMenu: accountApplication,
-                        displayName: accountPresentation.displayName,
-                        title: accountPresentation.title,
-                      }}
-                      activeSurfaceFocusRef={activeSurfaceFocusRef}
-                      activeSystemSurfaceTitle={activeSystemSurfaceTitle}
-                      collaboration={collaboration.snapshot}
-                      incidentIdentity={incidentIdentity}
-                      incidentIdentityError={incidentIdentityError}
-                      layout={workbookLayout.shell}
-                      networkAnalysisActive={networkAnalysisActive}
-                      networkAnalysisAvailable={networkAnalysisAvailable}
-                      onSelectNetworkAnalysis={() => {
-                        if (networkAnalysisRef.kind === "extension_workspace") {
-                          commands.selectExtensionWorkspace(networkAnalysisRef);
+                            <NoteCreateRecovery
+                              owner={infrastructure.mutationRuntime.noteCreate}
+                              fallbackFocusRef={activeSurfaceFocusRef}
+                            />
+                            <ContextualCreateRecovery
+                              owner={
+                                infrastructure.mutationRuntime.contextualCreate
+                              }
+                            />
+                            <AssessmentAppendRecovery
+                              owner={
+                                infrastructure.mutationRuntime
+                                  .assessmentAuthoring
+                              }
+                            />
+                            <PartyLinkRecovery
+                              owner={infrastructure.mutationRuntime.partyLinks}
+                            />
+                            <WorkbookIndicatorCreateRecovery
+                              owner={
+                                infrastructure.mutationRuntime.indicatorCreate
+                              }
+                            />
+                            <WorkbookObservationRecovery
+                              owner={
+                                infrastructure.mutationRuntime
+                                  .indicatorObservations
+                              }
+                            />
+                            <WorkbookIndicatorLifecycleRecovery
+                              owner={
+                                infrastructure.mutationRuntime
+                                  .indicatorLifecycle
+                              }
+                            />
+                            <TimelineMentionRecovery
+                              owner={infrastructure.timelineMentions}
+                            />
+                            <TimelineCaptureRecovery
+                              owner={infrastructure.timelineCapture}
+                            />
+                            <WorkbookDecisionSupersessionRecovery
+                              runtime={infrastructure.mutationRuntime}
+                            />
+                            <WorkbookEntityMergeRecovery
+                              runtime={infrastructure.mutationRuntime}
+                            />
+                            {!networkAnalysisActive ||
+                            !networkAnalysisAvailable ? (
+                              <NetworkFlowImportRecovery
+                                controller={networkFlowImportController}
+                              />
+                            ) : null}
+                            <NetworkFlowTableRecovery
+                              controller={networkFlowTableController}
+                            />
+                            <NetworkFlowIndicatorLinkRecovery
+                              controller={networkFlowIndicatorLinkController}
+                            />
+                          </>
                         }
-                      }}
-                      onSelectSurface={selectBaseWorkbookSurface}
-                      surface={snapshot.surface}
-                    />
-                    <div style={shellContentRegionStyle}>
-                      <WorkbookActiveSurfaceFrame
-                        activeContent={activeContent}
-                        activeSurfaceRef={activeSurfaceFocusRef}
-                        apiBase={apiBase}
-                        focus={recoveryFocus}
-                        mutationRuntime={infrastructure.mutationRuntime}
-                        mutationSnapshot={activeStatus}
-                        onActivateOrigin={selectBaseWorkbookSurface}
-                      />
-                      {preferenceController ? (
-                        <WorkbookPreferenceAnnouncements
-                          controller={preferenceController}
-                        />
-                      ) : null}
-                      <WorkbookIncidentControlsPresentation
-                        onIncidentResourceAccepted={acceptIncidentResource}
-                        density={workbookLayout.shell.density}
-                        onAuthorizationRecovered={
-                          authorization.acceptRecoveredAuthorization
-                        }
-                        activeMenuItem={incidentControls.activeMenuItem}
-                        apiBase={apiBase}
-                        importController={importController}
-                        closeButtonRef={incidentControls.closeButtonRef}
-                        currentIncidentRole={authorization.currentIncidentRole}
-                        importAssistantAvailable={importAssistantAvailable}
-                        incidentId={incidentId}
-                        onClose={incidentControls.closeDrawer}
-                        onIncidentAccessLost={onIncidentAccessLost}
-                        onNavigateToView={(viewSchemaId) => {
-                          commands.selectWorkbookSurface(viewSchemaId, {
-                            focusFirstGridTarget: true,
-                          });
-                          incidentControls.closeDrawer({
-                            restoreTriggerFocus: false,
-                          });
+                        account={{
+                          applicationMenu: accountApplication,
+                          displayName: accountPresentation.displayName,
+                          title: accountPresentation.title,
                         }}
-                        onSessionRoleChange={authorization.loadSessionRole}
-                        renderIncidentControls={renderIncidentControls}
-                        section={incidentControls.drawerSection}
+                        activeSurfaceFocusRef={activeSurfaceFocusRef}
+                        activeSystemSurfaceTitle={activeSystemSurfaceTitle}
+                        collaboration={collaboration.snapshot}
+                        incidentIdentity={incidentIdentity}
+                        incidentIdentityError={incidentIdentityError}
+                        layout={workbookLayout.shell}
+                        networkAnalysisActive={networkAnalysisActive}
+                        networkAnalysisAvailable={networkAnalysisAvailable}
+                        onSelectNetworkAnalysis={() => {
+                          if (
+                            networkAnalysisRef.kind === "extension_workspace"
+                          ) {
+                            commands.selectExtensionWorkspace(
+                              networkAnalysisRef,
+                            );
+                          }
+                        }}
+                        onSelectSurface={selectBaseWorkbookSurface}
+                        surface={snapshot.surface}
                       />
-                    </div>
-                  </section>
-                </ContextualCreateContext.Provider>
+                      <div style={shellContentRegionStyle}>
+                        <WorkbookActiveSurfaceFrame
+                          activeContent={activeContent}
+                          activeSurfaceRef={activeSurfaceFocusRef}
+                          apiBase={apiBase}
+                          focus={recoveryFocus}
+                          mutationRuntime={infrastructure.mutationRuntime}
+                          mutationSnapshot={activeStatus}
+                          onActivateOrigin={selectBaseWorkbookSurface}
+                        />
+                        {preferenceController ? (
+                          <WorkbookPreferenceAnnouncements
+                            controller={preferenceController}
+                          />
+                        ) : null}
+                        <WorkbookIncidentControlsPresentation
+                          onIncidentResourceAccepted={acceptIncidentResource}
+                          density={workbookLayout.shell.density}
+                          onAuthorizationRecovered={
+                            authorization.acceptRecoveredAuthorization
+                          }
+                          activeMenuItem={incidentControls.activeMenuItem}
+                          apiBase={apiBase}
+                          importController={importController}
+                          closeButtonRef={incidentControls.closeButtonRef}
+                          currentIncidentRole={
+                            authorization.currentIncidentRole
+                          }
+                          importAssistantAvailable={importAssistantAvailable}
+                          incidentId={incidentId}
+                          onClose={incidentControls.closeDrawer}
+                          onIncidentAccessLost={onIncidentAccessLost}
+                          onNavigateToView={(viewSchemaId) => {
+                            commands.selectWorkbookSurface(viewSchemaId, {
+                              focusFirstGridTarget: true,
+                            });
+                            incidentControls.closeDrawer({
+                              restoreTriggerFocus: false,
+                            });
+                          }}
+                          onSessionRoleChange={authorization.loadSessionRole}
+                          renderIncidentControls={renderIncidentControls}
+                          section={incidentControls.drawerSection}
+                        />
+                      </div>
+                    </section>
+                  </ContextualCreateContext.Provider>
+                </NoteCreateContext.Provider>
               </TimelineRelatedEvidenceContext.Provider>
             </DecisionSupersessionContext.Provider>
           </IndicatorLifecycleContext.Provider>

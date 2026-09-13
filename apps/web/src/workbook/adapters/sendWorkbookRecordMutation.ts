@@ -16,7 +16,10 @@ type Outcome =
 /** A complete correlated envelope is the write checkpoint, independent of any query. */
 export async function sendWorkbookRecordMutation(
   input: {
-    readonly operationID: "createViewRow" | "patchRecord";
+    readonly operationID:
+      | "createViewRow"
+      | "createRecordLinkedNote"
+      | "patchRecord";
     readonly apiBase: string | undefined;
     readonly path: string;
     readonly pathParameters: Readonly<Record<string, string>>;
@@ -42,7 +45,7 @@ export async function sendWorkbookRecordMutation(
       operationID: input.operationID,
       pathParameters: input.pathParameters,
       init: {
-        method: input.operationID === "createViewRow" ? "POST" : "PATCH",
+        method: input.operationID === "patchRecord" ? "PATCH" : "POST",
         body: input.body,
         signal,
       },

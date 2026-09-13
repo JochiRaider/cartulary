@@ -2,6 +2,7 @@ package artifacts_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -121,8 +122,69 @@ SELECT count(*)
 			if _, err := facade.CreateContextualNote(ctx, conflicting); !errors.Is(err, artifacts.ErrClientTxnConflict) {
 				t.Fatalf("changed linked-note replay error = %v, want client transaction conflict", err)
 			}
+
+			// A deleted source must not hide an already committed atomic receipt.
+			if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at=$2, deleted_by_user_id=$3 WHERE record_id=$1`, sourceRecordID, now, actor.ID); err != nil {
+				t.Fatal(err)
+			}
+			afterDelete, err := facade.CreateContextualNote(ctx, command)
+			if err != nil || afterDelete.Outcome != artifacts.MutationOutcomeReplayed || afterDelete.RecordID != result.RecordID {
+				t.Fatalf("replay after source deletion: %#v, %v", afterDelete, err)
+			}
+			fresh := command
+			fresh.Admission = mustArtifactContextualNoteAdmission(t, clientTxnID+"-fresh", map[string]any{"note.title": "Fresh action after deletion"}, nil)
+			if _, err := facade.CreateContextualNote(ctx, fresh); err == nil {
+				t.Fatal("fresh linked create admitted a deleted source")
+			}
+			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM route_idempotency WHERE client_txn_id=$1`, clientTxnID+"-fresh", 0)
 		})
 	}
+
+	t.Run("authoring_minima_and_normalization", func(t *testing.T) {
+		source := seedLinkedNoteSource(t, harness, incident.ID, actor.ID, "timeline_event", now)
+		for index, candidate := range []struct {
+			fields      map[string]any
+			title, body string
+		}{
+			{fields: map[string]any{"note.title": "  Cafe\u0301\u2003"}, title: "Café"},
+			{fields: map[string]any{"note.body": "  First\r\nSecond\rThird\tline  "}, body: "First\nSecond\nThird\tline"},
+			{fields: map[string]any{"note.title": "", "note.body": "Body after explicit title clearing"}, body: "Body after explicit title clearing"},
+			{fields: map[string]any{"note.title": strings.Repeat("😀", 512)}, title: strings.Repeat("😀", 512)},
+		} {
+			id := fmt.Sprintf("txn-note-minimum-%d", index)
+			result, err := facade.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{ActorUserID: actor.ID, SourceRecordID: source, Admission: mustArtifactContextualNoteAdmission(t, id, candidate.fields, nil), RequestID: "req-" + id, Now: now})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var title, body *string
+			if err := harness.DB.QueryRow(ctx, `SELECT title,body FROM artifacts WHERE record_id=$1`, result.RecordID).Scan(&title, &body); err != nil {
+				t.Fatal(err)
+			}
+			if (candidate.title == "" && title != nil) || (candidate.title != "" && (title == nil || *title != candidate.title)) {
+				t.Fatalf("normalized title = %v", title)
+			}
+			if (candidate.body == "" && body != nil) || (candidate.body != "" && (body == nil || *body != candidate.body)) {
+				t.Fatalf("normalized body = %v", body)
+			}
+			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM record_links WHERE src_record_id=$1 AND dst_record_id=$2 AND deleted_at IS NULL`, source, result.RecordID, 1)
+		}
+		before := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id=$1`, incident.ID)
+		for index, fields := range []map[string]any{
+			{}, {"note.title": "\u2003 ", "note.body": " \n "}, {"note.tags": artifactCollectionPayload(map[string]any{"op": "add_tag", "tag_name": "tag"})},
+			{"note.title": "bad\u0001"}, {"note.body": "bad\u0085"}, {"note.title": strings.Repeat("😀", 513)}, {"note.body": strings.Repeat("x", 16385)},
+			{"note.title": "Valid", "note.tags": artifactCollectionPayload(map[string]any{"op": "add_tag", "tag_name": strings.Repeat("x", 65)})},
+		} {
+			fields["client_txn_id"] = fmt.Sprintf("txn-note-invalid-%d", index)
+			encoded, err := json.Marshal(fields)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := artifacts.AdmitContextualNote(strings.NewReader(string(encoded))); err == nil {
+				t.Fatalf("invalid Note case %d was admitted", index)
+			}
+		}
+		requireLinkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id=$1`, incident.ID, before)
+	})
 
 	before := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID)
 	_, admissionErr := artifacts.AdmitContextualNote(strings.NewReader(`{"client_txn_id":"txn-artifacts-linked-note-no-signal"}`))

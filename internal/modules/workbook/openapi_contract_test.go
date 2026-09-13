@@ -63,8 +63,8 @@ func TestWorkbookOpenAPIRecordMutationContracts(t *testing.T) {
 	}
 	for _, status := range []string{"200", "201"} {
 		responseSchema := workbookObjectAt(t, linkedNote, "responses", status, "content", "application/json", "schema")
-		if got := workbookStringAt(t, responseSchema, "$ref"); got != "#/components/schemas/ViewMutationEnvelope" {
-			t.Fatalf("linked-note response %s schema = %q, want ViewMutationEnvelope", status, got)
+		if got := workbookStringAt(t, responseSchema, "$ref"); got != "#/components/schemas/LinkedNoteMutationEnvelope" {
+			t.Fatalf("linked-note response %s schema = %q, want LinkedNoteMutationEnvelope", status, got)
 		}
 	}
 

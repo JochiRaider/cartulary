@@ -62,6 +62,10 @@ import { useEvidenceWorkbookBindings } from "../evidence/useEvidenceWorkbookBind
 import { IndicatorLifecycleContext } from "../indicators/IndicatorLifecycleContext";
 import type { IndicatorInspectorHandler } from "../indicators/indicatorInspectorHandlers";
 import { indicatorLifecycleViewId } from "../indicators/indicatorLifecycleModel";
+import {
+  NoteCreateContext,
+  noteSheetAttachment,
+} from "../notes/NoteCreateContext";
 import { useGenericPartyLinkWorkflow } from "../parties/useGenericPartyLinkWorkflow";
 import { GenericWorkbookInspectorPresentation } from "./GenericWorkbookInspectorPresentation";
 
@@ -73,6 +77,7 @@ export function useGenericWorkbookInspectorComposition({
   sheetRef,
   contract,
   createDraft,
+  draftDisabled,
   currentIncidentRole,
   currentUserId,
   draftInspectorFields,
@@ -99,6 +104,7 @@ export function useGenericWorkbookInspectorComposition({
   readonly canCreateRows: boolean;
   readonly contract: ViewContract;
   readonly createDraft: Record<string, string>;
+  readonly draftDisabled: boolean;
   readonly currentIncidentRole: WorkbookIncidentRole | null;
   readonly currentUserId: string | null;
   readonly density: GridDensity;
@@ -161,7 +167,7 @@ export function useGenericWorkbookInspectorComposition({
   const [otherEditValue, setOtherEditValue] = useState("");
   const inspectorDrafts = mutation.explicitPatches.inspectorDrafts;
   useSyncExternalStore(inspectorDrafts.subscribe, inspectorDrafts.getSnapshot);
-  const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
+  const note = useContext(NoteCreateContext);
   const [indicatorInspectorHandler, setIndicatorInspectorHandler] =
     useState<IndicatorInspectorHandler | null>(null);
   const [editCollectionMode, setEditCollectionMode] =
@@ -203,7 +209,6 @@ export function useGenericWorkbookInspectorComposition({
       resetOwnerState: ({ cause, scope }) => {
         if (cause !== "retarget") resetEvidence.current();
         setOtherEditValue("");
-        setLinkedNoteSourceRecordId("");
         setEditCollectionMode("add");
         mutation.clearMutationError();
         setRelatedFeedback(null);
@@ -353,6 +358,14 @@ export function useGenericWorkbookInspectorComposition({
 
   const submitCreate = async () => {
     if (!canCreateRows) return;
+    if (ownerBindings.includes("linked_note_create")) {
+      if (!note) return;
+      if (!note.owner.getSnapshot().draft)
+        note.owner.beginSheet(note.sheetRef, noteSheetAttachment);
+      note.owner.resume(noteSheetAttachment);
+      await note.owner.submit(noteSheetAttachment);
+      return;
+    }
     if (
       !mutationCommands.generic.canCreateRecord({
         contract,
@@ -367,18 +380,12 @@ export function useGenericWorkbookInspectorComposition({
       const result = await mutationCommands.generic.createRecord({
         contract,
         draft: createDraft,
-        linkedNoteSourceRecordId:
-          ownerBindings.includes("linked_note_create") &&
-          linkedNoteSourceRecordId !== ""
-            ? linkedNoteSourceRecordId
-            : "",
       });
       if (result.kind === "rejected") {
         mutation.rejectMutationFailure(result.failure);
         return;
       }
       setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
-      setLinkedNoteSourceRecordId("");
       await mutation.completeGenericMutation();
     } finally {
       finish();
@@ -569,16 +576,15 @@ export function useGenericWorkbookInspectorComposition({
         canCreateRows,
         contract,
         createDraft,
+        draftDisabled,
         draftInspectorFields,
         invalidationKey,
-        linkedNoteSourceRecordId,
         mutation,
         mutationCommands,
         ownerBindings,
         referenceOptions,
         rows,
         setCreateDraft,
-        setLinkedNoteSourceRecordId,
         submitCreate,
         subjectPresent: subject !== null,
       }}

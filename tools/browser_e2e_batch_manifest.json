@@ -646,6 +646,31 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-linked-note-create",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.note_create_recovery",
+            "module.workbook.browser.note_create_revocation",
+            "module.workbook.browser.note_create_source_edit",
+            "module.workbook.browser.note_create_sources"
+          ],
+          "specs": [
+            "apps/web/e2e/linked-note-create.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-mentions-lifecycle",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1762,6 +1787,31 @@
           ],
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-linked-note-create",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.workbook.browser.note_create_recovery",
+            "module.workbook.browser.note_create_revocation",
+            "module.workbook.browser.note_create_source_edit",
+            "module.workbook.browser.note_create_sources"
+          ],
+          "specs": [
+            "apps/web/e2e/linked-note-create.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",
@@ -3001,6 +3051,7 @@
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
+            "module.workbook.accessibility.note_create_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.timeline_related_evidence",
@@ -3126,6 +3177,7 @@
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
+            "module.workbook.visual.note_create_authoring_recovery",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",
@@ -3404,6 +3456,7 @@
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
+            "module.workbook.visual.note_create_authoring_recovery",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",
@@ -4011,6 +4064,7 @@
             "module.workbook.accessibility.decision_supersession_review_recovery",
             "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
+            "module.workbook.accessibility.note_create_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
             "module.workbook.accessibility.timeline_related_evidence",
@@ -4124,6 +4178,7 @@
             "module.workbook.visual.decision_supersession_review_recovery",
             "module.workbook.visual.indicator_lifecycle_authoring",
             "module.workbook.visual.indicator_observations_authoring",
+            "module.workbook.visual.note_create_authoring_recovery",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",

@@ -252,6 +252,10 @@ import {
   selectRepeatedObservation,
 } from "./support/workbook/indicatorObservations";
 import {
+  openNoteFixture,
+  retainNoteUncertainResult,
+} from "./support/workbook/noteCreate";
+import {
   createViewRow,
   patchRecord,
   queryViewRows,
@@ -3580,7 +3584,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       workbookInspectorPanelTestId(timelineViewSchemaId, "workflow"),
     );
     const workflowActions = workflowPanel.locator(
-      'button[data-route-kind="view_row_create"]',
+      'button[data-route-kind="view_row_create"], button[data-feature-group-key="create_related.note"]',
     );
     await expect(workflowActions).toHaveCount(8);
     for (const action of await workflowActions.all()) {
@@ -8865,6 +8869,67 @@ test("Capture Timeline Evidence metadata Party selection and retained partial su
   await page.setViewportSize({ width: 1280, height: 720 });
   await capture(page, "timeline-related-evidence-partial");
   await test.info().attach("timeline-related-evidence-recovery-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+});
+
+test("Capture linked Note authoring source selection and retained atomic recovery", async ({
+  page,
+}) => {
+  const capture = async (
+    name: string,
+    options: { anchor?: VisualAnchor } = {},
+  ) => {
+    await assertViewportVisualRegression(page, name, options);
+    await test.info().attach(`${name}-review`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  };
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const f = await openNoteFixture(page, timelineViewSchemaId, (url) =>
+    navigateVisualApplication(page, url),
+  );
+  await f.form
+    .getByRole("textbox", { name: "Title", exact: true })
+    .fill("Retained investigation Note");
+  await f.form
+    .getByRole("textbox", { name: "Body", exact: true })
+    .fill("Unfinished analysis remains attached to its chosen source.");
+  const anchor: VisualAnchor = {
+    locator: f.form,
+    align: "start",
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+  };
+  await capture("linked-note-authoring", { anchor });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await capture("linked-note-authoring-narrow", { anchor });
+  await f.form
+    .getByRole("button", { name: "Choose source", exact: true })
+    .click();
+  const picker = f.form.getByRole("region", {
+    name: "Choose Note source",
+    exact: true,
+  });
+  await expect(
+    picker.getByRole("button", { name: "Apply source", exact: true }),
+  ).toBeEnabled();
+  await capture("linked-note-source-narrow", {
+    anchor: { ...anchor, locator: picker },
+  });
+  await picker
+    .getByRole("button", { name: "Cancel source", exact: true })
+    .click();
+  const { recovery } = await retainNoteUncertainResult(
+    page,
+    f.source.record_id,
+    f.view,
+  );
+  await capture("linked-note-recovery-narrow");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await capture("linked-note-recovery");
+  await test.info().attach("linked-note-recovery-tree", {
     body: await recovery.ariaSnapshot(),
     contentType: "text/plain",
   });

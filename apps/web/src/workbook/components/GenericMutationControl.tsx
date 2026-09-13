@@ -16,6 +16,7 @@ type GenericMutationControlRef = RefCallback<
 >;
 
 type GenericMutationControlFeedback = {
+  readonly disabled?: boolean | undefined;
   readonly ariaLabel?: string | undefined;
   readonly describedBy?: string | undefined;
   readonly invalid?: boolean | undefined;
@@ -31,6 +32,7 @@ type GenericMutationControlElementProps = GenericMutationControlFeedback & {
 };
 
 export function GenericMutationControl({
+  disabled,
   ariaLabel,
   describedBy,
   invalid,
@@ -64,6 +66,7 @@ export function GenericMutationControl({
     surface,
   });
   const props = {
+    disabled,
     ariaLabel,
     describedBy,
     invalid,
@@ -92,6 +95,7 @@ export function GenericMutationControl({
 }
 
 function GenericMultiSelectControl({
+  disabled,
   ariaLabel,
   describedBy,
   invalid,
@@ -109,6 +113,7 @@ function GenericMultiSelectControl({
 }) {
   return (
     <select
+      disabled={disabled}
       aria-label={ariaLabel ?? descriptor.ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid}
@@ -137,6 +142,7 @@ function GenericMultiSelectControl({
 }
 
 function GenericSingleSelectControl({
+  disabled,
   ariaLabel,
   describedBy,
   invalid,
@@ -158,6 +164,7 @@ function GenericSingleSelectControl({
       : descriptor.options.map((option) => ({ label: option, value: option }));
   return (
     <select
+      disabled={disabled}
       aria-label={ariaLabel ?? descriptor.ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid}
@@ -183,6 +190,7 @@ function GenericSingleSelectControl({
 }
 
 function GenericBooleanControl({
+  disabled,
   ariaLabel,
   describedBy,
   invalid,
@@ -200,6 +208,7 @@ function GenericBooleanControl({
 }) {
   return (
     <input
+      disabled={disabled}
       aria-label={ariaLabel ?? descriptor.ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid}
@@ -215,6 +224,7 @@ function GenericBooleanControl({
 }
 
 function GenericTextInputControl({
+  disabled,
   ariaLabel,
   describedBy,
   invalid,
@@ -232,6 +242,7 @@ function GenericTextInputControl({
 }) {
   return (
     <input
+      disabled={disabled}
       aria-label={ariaLabel ?? descriptor.ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid}
@@ -251,6 +262,7 @@ function GenericTextInputControl({
 }
 
 function GenericTextareaControl({
+  disabled,
   ariaLabel,
   describedBy,
   invalid,
@@ -268,6 +280,7 @@ function GenericTextareaControl({
 }) {
   return (
     <textarea
+      disabled={disabled}
       aria-label={ariaLabel ?? descriptor.ariaLabel}
       aria-describedby={describedBy}
       aria-invalid={invalid}

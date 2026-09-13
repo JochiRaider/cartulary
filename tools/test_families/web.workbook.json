@@ -468,7 +468,7 @@
         "titles": [
           "inspector capability resolver admits all 17 schemas and 247 exact tuples as canonical objects",
           "inspector capability resolver admits label-only variants but returns the canonical projected feature",
-          "inspector capability resolver classifies exactly 41 create, 4 Indicator, 51 history, 1 Decision action, 2 Timeline actions, and 148 non-contextual features",
+          "inspector capability resolver classifies exactly 37 create, 4 Note, 4 Indicator, 51 history, 1 Decision action, 2 Timeline actions, and 148 non-contextual features",
           "inspector capability resolver isolates additive, altered, and duplicate addressed tuples without losing siblings",
           "inspector capability resolver omits a canonically declared future confirmed capability"
         ]
@@ -2459,6 +2459,79 @@
         "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
         "titles": [
           "support TimelineWorkbookRuntimeFixture sends auto-resolution Undo with the current post-resolution row version"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.note_create_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/notes/noteCreateAuthoring.test.tsx",
+        "titles": [
+          "Note authoring captures all four contextual sources and preserves the ordinary sheet draft boundary",
+          "Note authoring conceals retained work on suspension and retires it on account replacement",
+          "Note authoring detaches inspector presentations without retargeting and shares retained fields with the Notes grid",
+          "Note authoring distinguishes discovery failures from successful empty pages and supports retry",
+          "Note authoring exposes invalid input accessibly in the shared Note form",
+          "Note authoring normalizes title body and tags while preserving omission and explicit clearing",
+          "Note authoring rejects source-only tags-only whitespace controls and scalar overflow without destroying raw input",
+          "Note authoring retains raw fields and source across versions, detach, source replacement, and explicit clearing",
+          "Note authoring stages paged source selection, retains off-page identity, and restores focus on cancel"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.note_create_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/notes/noteCreateRecovery.test.tsx",
+        "titles": [
+          "Note atomic recovery accepts a late original receipt monotonically while an exact replay is running",
+          "Note atomic recovery guards same-frame submissions before source preparation and freezes all four source routes",
+          "Note atomic recovery keeps malformed success receipts uncertain and refuses replay without verified edit authority",
+          "Note atomic recovery keeps replay rejections uncertain because they cannot disprove an earlier commit",
+          "Note atomic recovery preserves editable rejection input and allocates a new ID for a deliberate corrected action",
+          "Note atomic recovery prevents stale authority callbacks from dispatching after account replacement",
+          "Note atomic recovery replays exact bytes after response loss without fresh source checks and blocks draft mutation",
+          "Note atomic recovery requires deliberate renewed review after closure reopening and role restoration",
+          "Note atomic recovery requires explicit review after source version changes and blocks deleted sources and prior conflicts",
+          "Note atomic recovery retains acceptance before failed effects and recovers refresh using reads only",
+          "Note atomic recovery retains concealed late acceptance during suspension and ignores retired lifetime callbacks",
+          "Note atomic recovery retains socket observations without fabricating receipts or regressing newer source removal evidence",
+          "Note atomic recovery sends linked replay as POST with exact body and validates a complete HTTP receipt",
+          "Note atomic recovery uses ordinary atomic creation only after explicit source clearing without losing authored fields"
         ]
       },
       "evidence_class": "unit",

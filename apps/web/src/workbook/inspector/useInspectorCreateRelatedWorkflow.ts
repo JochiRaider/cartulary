@@ -4,6 +4,7 @@ import {
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useContextualCreateAttachment } from "../features/coordination/useContextualCreateAttachment";
+import { useNoteCreateAttachment } from "../features/notes/useNoteCreateAttachment";
 import { genericCreateMinimumMessage } from "../models/genericWorkbookModel";
 import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
 import {
@@ -35,6 +36,7 @@ export function useInspectorCreateRelatedWorkflow({
   readonly onFeedback: (feedback: WorkbookInspectorFeedback | null) => void;
   readonly selectedSubject: WorkbookInspectorLiveRowBinding | null;
 }) {
+  const note = useNoteCreateAttachment(selectedSubject);
   const {
     workflow: contextualWorkflow,
     begin: contextualBegin,
@@ -71,6 +73,7 @@ export function useInspectorCreateRelatedWorkflow({
 
   const begin = useCallback(
     (featureGroup: InspectorFeatureGroup): boolean => {
+      if (note.begin(featureGroup)) return true;
       if (contextualBegin(featureGroup)) return true;
       if (
         featureGroup.routeBinding.kind !== "view_row_create" ||
@@ -124,6 +127,7 @@ export function useInspectorCreateRelatedWorkflow({
       return true;
     },
     [
+      note.begin,
       contextualBegin,
       currentUserId,
       dispatchWorkflow,
@@ -134,6 +138,10 @@ export function useInspectorCreateRelatedWorkflow({
 
   const updateDraft = useCallback(
     (fieldKey: string, value: string) => {
+      if (note.workflow) {
+        note.update(fieldKey, value);
+        return;
+      }
       if (contextualWorkflow) {
         contextualUpdate(fieldKey, value);
         return;
@@ -147,15 +155,22 @@ export function useInspectorCreateRelatedWorkflow({
         workflowId: active.workflowId,
       });
     },
-    [contextualWorkflow, contextualUpdate, dispatchWorkflow],
+    [
+      note.workflow,
+      note.update,
+      contextualWorkflow,
+      contextualUpdate,
+      dispatchWorkflow,
+    ],
   );
 
   const cancel = useCallback(() => {
+    note.detach();
     contextualDetach();
     const active = workflowRef.current;
     if (active === null) return;
     dispatchWorkflow({ type: "cancel", workflowId: active.workflowId });
-  }, [contextualDetach, dispatchWorkflow]);
+  }, [note.detach, contextualDetach, dispatchWorkflow]);
 
   const submit = useCallback(async () => {
     const active = workflowRef.current;
@@ -211,6 +226,6 @@ export function useInspectorCreateRelatedWorkflow({
 
   return {
     commands: { begin, cancel, submit, updateDraft },
-    snapshot: { workflow: contextualWorkflow ?? workflow },
+    snapshot: { workflow: note.workflow ?? contextualWorkflow ?? workflow },
   };
 }

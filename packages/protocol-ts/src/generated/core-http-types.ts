@@ -147,6 +147,16 @@ export type IncidentMembershipCreateRequest =
     };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LinkedNoteMutationData".
+ */
+export type LinkedNoteMutationData = ViewMutationDataFields & {
+  link_type: "references_artifact";
+  source_record_id: string;
+  view_schema_id?: "cartulary.view.notes.v1";
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "RecordPatchChange".
  */
 export type RecordPatchChange = {
@@ -1842,6 +1852,14 @@ export interface LinkedNoteCreateRequest {
   "note.body"?: string;
   "note.tags"?: CollectionActionsV1;
   "note.title"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LinkedNoteMutationEnvelope".
+ */
+export interface LinkedNoteMutationEnvelope {
+  data: LinkedNoteMutationData;
+  meta: EnvelopeMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -5005,6 +5023,7 @@ export interface InspectorRouteBindingV1 {
     | "current_row_projection"
     | "view_query_route"
     | "view_row_create_route"
+    | "record_linked_note_create_route"
     | "record_patch_route"
     | "record_mark_reviewed_route"
     | "record_supersede_route"

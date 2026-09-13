@@ -110,6 +110,7 @@ export function GenericWorkbookInspector({
           ),
         );
         return;
+      case "note_create":
       case "create_related":
         indicator?.select(null);
         related.begin(capability.featureGroup);

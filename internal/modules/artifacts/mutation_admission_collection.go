@@ -13,7 +13,7 @@ import (
 
 var riskReferenceCaseFolder = cases.Fold()
 
-func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage) (collectionActionPayload, *AdmissionError) {
+func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage, noteCreate bool) (collectionActionPayload, *AdmissionError) {
 	var object map[string]json.RawMessage
 	if json.Unmarshal(raw, &object) != nil || !artifactObjectHasOnlyFields(object, "kind", "actions") {
 		return collectionActionPayload{}, newAdmissionError(fieldKey, admissionInvalidValue)
@@ -39,7 +39,7 @@ func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage)
 	}
 	payload := collectionActionPayload{Actions: make([]collectionAction, 0, len(rawActions))}
 	for _, rawAction := range rawActions {
-		action, admissionErr := decodeArtifactCollectionAction(fieldKey, rawAction)
+		action, admissionErr := decodeArtifactCollectionAction(fieldKey, rawAction, noteCreate)
 		if admissionErr != nil {
 			return collectionActionPayload{}, admissionErr
 		}
@@ -48,7 +48,7 @@ func decodeArtifactCollectionActionPayload(fieldKey string, raw json.RawMessage)
 	return payload, nil
 }
 
-func decodeArtifactCollectionAction(fieldKey string, raw json.RawMessage) (collectionAction, *AdmissionError) {
+func decodeArtifactCollectionAction(fieldKey string, raw json.RawMessage, noteCreate bool) (collectionAction, *AdmissionError) {
 	var object map[string]json.RawMessage
 	if json.Unmarshal(raw, &object) != nil {
 		return collectionAction{}, newAdmissionError(fieldKey, admissionInvalidValue)
@@ -75,6 +75,11 @@ func decodeArtifactCollectionAction(fieldKey string, raw json.RawMessage) (colle
 		}
 		text, ok := artifactStringActionField(object, "tag_name")
 		label, normalized, valid := fieldnorm.NormalizeTagLabel(text)
+		if noteCreate && fieldKey == "note.tags" {
+			label, valid = normalizeCreatedNoteText(text, false, 64)
+			valid = valid && label != ""
+			normalized = riskReferenceCaseFolder.String(label)
+		}
 		if !ok || !valid {
 			return collectionAction{}, newAdmissionError(fieldKey, admissionInvalidValue)
 		}

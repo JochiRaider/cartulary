@@ -68,8 +68,10 @@ describe("useTimelineInspectorFeatureController", () => {
           capability,
         ): capability is Extract<
           InspectorContextualCapability,
-          { readonly kind: "create_related" }
-        > => capability.kind === "create_related",
+          { readonly kind: "create_related" | "note_create" }
+        > =>
+          capability.kind === "create_related" ||
+          capability.kind === "note_create",
       );
     for (const capability of createRelatedCapabilities) {
       act(() => result.current.commands.handleFeatureAction(capability));

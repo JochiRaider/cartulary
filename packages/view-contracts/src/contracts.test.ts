@@ -25,6 +25,32 @@ describe("view contracts", () => {
       expect(requireViewContract(contract.viewSchemaId)).toBe(contract);
       expect(contract.inspectorConfig.viewSchemaId).toBe(contract.viewSchemaId);
     }
+    const noteActions = listViewContracts().flatMap((contract) =>
+      contract.inspectorConfig.featureGroups
+        .filter((feature) => feature.featureGroupKey === "create_related.note")
+        .map((feature) => ({ view: contract.viewSchemaId, feature })),
+    );
+    expect(noteActions.map(({ view }) => view).sort()).toEqual([
+      "cartulary.view.evidence.v1",
+      "cartulary.view.hosts.v1",
+      "cartulary.view.identities.v1",
+      "cartulary.view.timeline.v2",
+    ]);
+    for (const { feature } of noteActions) {
+      expect(feature.routeBinding).toEqual({
+        kind: "record_action",
+        owner: "record_linked_note_create_route",
+        actionKey: "create_related.note",
+      });
+      expect(feature.seedBindings).toEqual([]);
+      expect(feature.disabledWhen).toEqual([
+        "no_row_selected",
+        "incident_closed",
+        "authorization_lost",
+        "row_version_changed",
+        "record_deleted",
+      ]);
+    }
     expect(() => requireViewContract("cartulary.view.missing.v1")).toThrow(
       "Unknown view schema contract: cartulary.view.missing.v1",
     );

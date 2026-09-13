@@ -107,7 +107,6 @@ export interface GenericMutationCommandPort {
   createRecord(input: {
     readonly contract: ViewContract;
     readonly draft: Readonly<Record<string, string>>;
-    readonly linkedNoteSourceRecordId: string;
   }): Promise<GenericMutationOutcome>;
   patchRecord(input: {
     readonly baseRowVersion: number;
