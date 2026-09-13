@@ -146,10 +146,12 @@ func (admission ConflictResolveAdmission) patchAdmission() PatchAdmission {
 
 func cloneCreateRequest(request createRequest) createRequest {
 	return createRequest{
-		ViewSchemaID: request.ViewSchemaID,
-		ClientTxnID:  request.ClientTxnID,
-		Values:       cloneArtifactValues(request.Values),
-		Collections:  cloneArtifactCollections(request.Collections),
+		CoordinationSourcePresent:  request.CoordinationSourcePresent,
+		CoordinationSourceRecordID: cloneUUIDPointer(request.CoordinationSourceRecordID),
+		ViewSchemaID:               request.ViewSchemaID,
+		ClientTxnID:                request.ClientTxnID,
+		Values:                     cloneArtifactValues(request.Values),
+		Collections:                cloneArtifactCollections(request.Collections),
 	}
 }
 

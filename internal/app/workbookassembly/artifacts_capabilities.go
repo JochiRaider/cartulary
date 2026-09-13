@@ -151,25 +151,32 @@ func decodeArtifactStoredResult(
 		ViewSchemaID: viewSchemaID, IncidentID: incidentID, RecordID: recordID,
 		RowVersion: rowVersion, ChangeSetID: &changeSetID, Row: row,
 	}
-	switch kind {
-	case artifacts.StoredMutationCreate:
-		return artifacts.NewStoredCreateResult(stored), nil
-	case artifacts.StoredMutationPatch:
-		return artifacts.NewStoredPatchResult(stored), nil
-	case artifacts.StoredMutationLinkedNote:
+	if _, linked := payload["source_record_id"]; linked {
 		sourceRecordID, err := artifactPayloadUUID(payload, "source_record_id")
 		if err != nil {
 			return artifacts.StoredMutationResult{}, err
 		}
 		linkType, ok := payload["link_type"].(string)
 		if !ok || linkType != "references_artifact" {
-			return artifacts.StoredMutationResult{}, fmt.Errorf("link_type is invalid")
+			return artifacts.StoredMutationResult{}, artifacts.ErrStoredMutationKindMismatch
 		}
 		stored.ContextualLink = &artifacts.ContextualLink{SourceRecordID: sourceRecordID, LinkType: linkType}
-		return artifacts.NewStoredLinkedNoteResult(stored), nil
+	}
+	var result artifacts.StoredMutationResult
+	switch kind {
+	case artifacts.StoredMutationCreate:
+		result = artifacts.NewStoredCreateResult(stored)
+	case artifacts.StoredMutationPatch:
+		result = artifacts.NewStoredPatchResult(stored)
+	case artifacts.StoredMutationLinkedNote:
+		result = artifacts.NewStoredLinkedNoteResult(stored)
 	default:
 		return artifacts.StoredMutationResult{}, artifacts.ErrStoredMutationKindMismatch
 	}
+	if _, ok := result.Payload(); !ok {
+		return artifacts.StoredMutationResult{}, artifacts.ErrStoredMutationKindMismatch
+	}
+	return result, nil
 }
 
 func artifactStoredRecordID(data []byte) (uuid.UUID, error) {
@@ -193,7 +200,7 @@ func encodeArtifactStoredResult(result artifacts.StoredMutationResult) (map[stri
 		"change_set_id":  stored.ChangeSetID.String(),
 		"row":            stored.Row,
 	}
-	if result.Kind() == artifacts.StoredMutationLinkedNote {
+	if result.Kind() == artifacts.StoredMutationLinkedNote || (result.Kind() == artifacts.StoredMutationCreate && stored.ContextualLink != nil) {
 		if stored.ContextualLink == nil || stored.ContextualLink.SourceRecordID == uuid.Nil ||
 			stored.ContextualLink.LinkType != "references_artifact" {
 			return nil, artifacts.ErrStoredMutationKindMismatch
@@ -210,7 +217,8 @@ func artifactStoredPayloadKeysMatch(kind artifacts.StoredMutationKind, payload m
 	expected := map[string]struct{}{
 		"view_schema_id": {}, "change_set_id": {}, "row": {},
 	}
-	if kind == artifacts.StoredMutationLinkedNote {
+	_, hasSource := payload["source_record_id"]
+	if kind == artifacts.StoredMutationLinkedNote || (kind == artifacts.StoredMutationCreate && hasSource) {
 		expected["source_record_id"] = struct{}{}
 		expected["link_type"] = struct{}{}
 	}

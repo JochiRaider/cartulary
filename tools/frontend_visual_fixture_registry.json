@@ -1667,6 +1667,111 @@
           "surface_kind": "workbook_shell"
         }
       }
+    },
+    {
+      "fixture_id": "visual.fixture.contextual_coordination_creation",
+      "fixture_title": "Contextual coordination target authoring and recovery",
+      "status": "current",
+      "playwright_scenario_title": "Capture contextual coordination target authoring source selection and retained recovery",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-handoff-authoring-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-lesson-authoring-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png",
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png"
+      ],
+      "seed_id": "visual.seed.contextual_coordination_creation",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "coordination-editor"
+      },
+      "capture_scope": {
+        "kind": "full_viewport"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Declared by the owning Playwright scenario before screenshot capture."
+      },
+      "dynamic_masks": [
+        "incident identifiers",
+        "generated record identifiers",
+        "clock-derived labels when visible"
+      ],
+      "no_dynamic_regions": false,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "module.workbook.visual.coordination_create_authoring_recovery"
+      ],
+      "capture_profiles": {
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-handoff-authoring-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-lesson-authoring-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png": {
+          "viewport_css_px": "768x640",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png": {
+          "viewport_css_px": "390x480",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        },
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png": {
+          "viewport_css_px": "1280x720",
+          "device_scale_factor": 1,
+          "browser_zoom_percent": 100,
+          "theme_id": "dark_graphite",
+          "density_id": "compact",
+          "surface_kind": "workbook_shell"
+        }
+      }
     }
   ]
 }

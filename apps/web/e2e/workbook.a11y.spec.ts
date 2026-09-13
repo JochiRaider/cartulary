@@ -261,6 +261,11 @@ import {
 } from "./support/workbook/collections";
 import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
 import {
+  fillCoordinationMinimum,
+  openCoordinationFixture,
+  retainCoordinationUncertainResult,
+} from "./support/workbook/coordinationCreate";
+import {
   expectDecisionControlReachable,
   openDecisionReviewFixture,
 } from "./support/workbook/decisionSupersession";
@@ -8190,4 +8195,102 @@ test("a11y.linked-note authoring source selection and uncertain recovery remain 
   await recover.press("Escape");
   await expect(summary).toBeFocused();
   await expect(recovery).not.toBeVisible();
+});
+
+test("a11y.coordination all target fields source review and uncertain recovery support keyboard and narrow layouts", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const variant of ["comm_log", "handoff", "status_review", "lesson"]) {
+    const f = await openCoordinationFixture(page, variant);
+    const submit = f.form.getByTestId(
+      genericCreateSubmitTestId(f.target.viewSchemaId),
+    );
+    await submit.focus();
+    await submit.press("Enter");
+    await expect(f.form.getByRole("alert").first()).toBeVisible();
+    await fillCoordinationMinimum(f);
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 390, height: 480 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const field of f.target.fields.filter(
+        (field) => field.createWritable,
+      )) {
+        const control =
+          (field.readKind === "collection" &&
+            field.fieldKey !== "handoff.open_risk_refs") ||
+          field.directReferenceContractId
+            ? f.form.getByRole("button", {
+                name: `Choose ${field.label.toLowerCase()}`,
+                exact: true,
+              })
+            : f.form.getByTestId(genericCreateFieldTestId(field.fieldKey));
+        await expectDecisionControlReachable(page, control);
+        await expectVisibleFocus(control);
+      }
+      await expectDecisionControlReachable(page, submit);
+      await expectVisibleFocus(submit);
+      await testInfo.attach(`coordination-${variant}-${viewport.width}`, {
+        body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+        contentType: "image/png",
+      });
+    }
+    const choose = f.form.getByRole("button", {
+      name: "Choose source",
+      exact: true,
+    });
+    await choose.focus();
+    await choose.press("Enter");
+    const picker = f.form.getByRole("region", {
+      name: "Choose source",
+      exact: true,
+    });
+    await expect(
+      picker.getByRole("button", { name: "Apply references", exact: true }),
+    ).toBeEnabled();
+    await picker
+      .getByRole("combobox", { name: "Source", exact: true })
+      .press("Escape");
+    await expect(choose).toBeFocused();
+    await expectAllInteractiveControlsNamed(page);
+    if (variant === "lesson") {
+      const { recovery, summary } = await retainCoordinationUncertainResult(
+        page,
+        f,
+      );
+      const recover = recovery.getByRole("button", {
+        name: "Recover submission",
+        exact: true,
+      });
+      await expectDecisionControlReachable(page, recover);
+      await expectVisibleFocus(recover);
+      await testInfo.attach("coordination-recovery-tree", {
+        body: await recovery.ariaSnapshot(),
+        contentType: "text/plain",
+      });
+      await recover.press("Escape");
+      await expect(summary).toBeFocused();
+      await expect(recovery).not.toBeVisible();
+      const systemViews = page.getByRole("button", {
+        name: "System views",
+        exact: true,
+      });
+      const account = page.getByRole("button", {
+        name: "Account and application navigation",
+        exact: true,
+      });
+      await expectDecisionControlReachable(page, systemViews);
+      await expectVisibleFocus(systemViews);
+      await expectDecisionControlReachable(page, account);
+      await expectVisibleFocus(account);
+      await account.press("Enter");
+      await expect(
+        page.getByRole("menuitem", { name: "Incidents", exact: true }),
+      ).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(account).toBeFocused();
+    }
+  }
 });

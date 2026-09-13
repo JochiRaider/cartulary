@@ -2,6 +2,7 @@ package artifacts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -15,21 +16,25 @@ func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	return f.create(ctx, command, nil)
 }
 
-func (f *MutationFacade) create(ctx context.Context, command CreateCommand, contextualSourceRecordID *uuid.UUID) (MutationResult, error) {
+func (f *MutationFacade) create(ctx context.Context, command CreateCommand, linkedNoteSourceRecordID *uuid.UUID) (MutationResult, error) {
 	if !command.Admission.valid() {
 		return MutationResult{}, &ValidationError{Field: "payload", ReasonCode: "invalid_value"}
 	}
 	request := command.Admission.requestValue()
 	requestHash := command.Admission.requestHash()
+	sourceRecordID := request.CoordinationSourceRecordID
+	if linkedNoteSourceRecordID != nil {
+		sourceRecordID = linkedNoteSourceRecordID
+	}
 	operationID := OperationCreate
 	wantKind := StoredMutationCreate
-	if contextualSourceRecordID != nil {
+	if linkedNoteSourceRecordID != nil {
 		operationID = OperationLinkedNoteCreate
 		wantKind = StoredMutationLinkedNote
 	}
 	scopeKey := command.IncidentID.String() + ":" + request.ViewSchemaID
-	if contextualSourceRecordID != nil {
-		scopeKey = contextualSourceRecordID.String()
+	if linkedNoteSourceRecordID != nil {
+		scopeKey = linkedNoteSourceRecordID.String()
 	}
 	idempotencyKey := IdempotencyKey{
 		OperationID: operationID,
@@ -38,7 +43,7 @@ func (f *MutationFacade) create(ctx context.Context, command CreateCommand, cont
 		ClientTxnID: request.ClientTxnID,
 	}
 	replayedStored, replayed, err := f.replayStoredMutation(ctx, idempotencyKey, requestHash, "create", storedMutationExpectation{
-		kind: wantKind, viewSchemaID: request.ViewSchemaID,
+		kind: wantKind, viewSchemaID: request.ViewSchemaID, sourceRecordID: sourceRecordID,
 	})
 	if err != nil {
 		return MutationResult{}, err
@@ -63,22 +68,32 @@ func (f *MutationFacade) create(ctx context.Context, command CreateCommand, cont
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	mutation, err := f.executeCreateTx(ctx, tx, command, contextualSourceRecordID)
+	mutation, err := f.executeCreateTx(ctx, tx, command, linkedNoteSourceRecordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
 	stored := StoredMutationPayload{
 		ViewSchemaID: request.ViewSchemaID, IncidentID: mutation.incidentID, RecordID: mutation.recordID,
 		RowVersion: 1, ChangeSetID: uuidPointer(mutation.changeSetID), Row: mutation.row,
+		ContextualLink: contextualLinkFacts(sourceRecordID),
 	}
 	var storedResult StoredMutationResult
-	if contextualSourceRecordID == nil {
+	if linkedNoteSourceRecordID == nil {
 		storedResult = NewStoredCreateResult(stored)
 	} else {
-		stored.ContextualLink = contextualLinkFacts(contextualSourceRecordID)
 		storedResult = NewStoredLinkedNoteResult(stored)
 	}
 	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, requestHash, storedResult); err != nil {
+		if request.CoordinationSourcePresent && errors.Is(err, ErrClientTxnConflict) {
+			_ = tx.Rollback(ctx)
+			stored, found, replayErr := f.replayStoredMutation(ctx, idempotencyKey, requestHash, "create", storedMutationExpectation{kind: wantKind, viewSchemaID: request.ViewSchemaID, sourceRecordID: sourceRecordID})
+			if replayErr != nil {
+				return MutationResult{}, replayErr
+			}
+			if found {
+				return MutationResult{Row: stored.Row, Outcome: MutationOutcomeReplayed, IncidentID: stored.IncidentID, RecordID: stored.RecordID, ChangeSetID: cloneUUIDPointer(stored.ChangeSetID), ViewSchemaID: stored.ViewSchemaID, ClientTxnID: request.ClientTxnID, RowVersion: stored.RowVersion, ContextualLink: cloneContextualLink(stored.ContextualLink)}, nil
+			}
+		}
 		return MutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -94,7 +109,7 @@ func (f *MutationFacade) create(ctx context.Context, command CreateCommand, cont
 		RowVersion:       1,
 		ViewSchemaID:     request.ViewSchemaID,
 		ChangedFieldKeys: changedFieldKeys(nil, mutation.row),
-		ContextualLink:   contextualLinkFacts(contextualSourceRecordID),
+		ContextualLink:   contextualLinkFacts(sourceRecordID),
 	}, nil
 }
 
@@ -114,19 +129,26 @@ func (f *MutationFacade) executeCreateTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	command CreateCommand,
-	contextualSourceRecordID *uuid.UUID,
+	linkedNoteSourceRecordID *uuid.UUID,
 ) (artifactCreateTxResult, error) {
 	request := command.Admission.requestValue()
 	incidentID := command.IncidentID
 	var err error
-	if contextualSourceRecordID != nil {
-		incidentID, err = f.contextIncidentTx(ctx, tx, *contextualSourceRecordID)
+	if linkedNoteSourceRecordID != nil {
+		incidentID, err = f.contextIncidentTx(ctx, tx, *linkedNoteSourceRecordID)
 		if err != nil {
 			return artifactCreateTxResult{}, err
 		}
 	}
 	if err := f.incidentAccess.RequireOpenTx(ctx, tx, incidentID); err != nil {
 		return artifactCreateTxResult{}, err
+	}
+	sourceRecordID := linkedNoteSourceRecordID
+	if sourceRecordID == nil && request.CoordinationSourceRecordID != nil {
+		sourceRecordID = request.CoordinationSourceRecordID
+		if err := f.validateCoordinationSourceTx(ctx, tx, incidentID, *sourceRecordID, request.ViewSchemaID); err != nil {
+			return artifactCreateTxResult{}, err
+		}
 	}
 	if err := validateArtifactReferencesTx(
 		ctx,
@@ -166,10 +188,10 @@ func (f *MutationFacade) executeCreateTx(
 		return artifactCreateTxResult{}, err
 	}
 	var contextLinkMutation *links.Mutation
-	if contextualSourceRecordID != nil {
+	if sourceRecordID != nil {
 		contextLink, err := f.linkStore.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
 			IncidentID:  incidentID,
-			SrcRecordID: *contextualSourceRecordID,
+			SrcRecordID: *sourceRecordID,
 			DstRecordID: recordID,
 			LinkType:    links.LinkTypeReferencesArtifact,
 			Provenance:  links.LinkProvenanceManual,
@@ -193,7 +215,7 @@ func (f *MutationFacade) executeCreateTx(
 		revisions.AppendChangeSetParams{
 			IncidentID:  incidentID,
 			ActorUserID: command.ActorUserID,
-			Source:      string(artifactCreateOperation(contextualSourceRecordID)),
+			Source:      string(artifactCreateOperation(linkedNoteSourceRecordID)),
 			ClientTxnID: &request.ClientTxnID,
 			RequestID:   &command.RequestID,
 			CreatedAt:   now,

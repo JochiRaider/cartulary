@@ -329,11 +329,35 @@
           },
           "source": {
             "$ref": "#/components/schemas/InspectorSeedSourceV1"
+          },
+          "target_input_key": {
+            "type": "string"
           }
         },
         "required": [
-          "target_field_key",
           "source"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "target_field_key"
+            ],
+            "not": {
+              "required": [
+                "target_input_key"
+              ]
+            }
+          },
+          {
+            "required": [
+              "target_input_key"
+            ],
+            "not": {
+              "required": [
+                "target_field_key"
+              ]
+            }
+          }
         ]
       },
       "InspectorFeatureGroupV1": {

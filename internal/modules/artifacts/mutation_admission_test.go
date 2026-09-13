@@ -12,6 +12,49 @@ import (
 )
 
 func TestArtifactMutationAdmissionAndReplayHashing(t *testing.T) {
+	t.Run("coordination source input preserves omission hashes and distinguishes clear and identities", func(t *testing.T) {
+		source := uuid.MustParse("11111111-2222-4333-8444-555555555555")
+		base := `{"client_txn_id":"txn","lesson.summary":"Lesson"`
+		omitted, err := AdmitCreate(LessonViewSchemaID, strings.NewReader(base+`}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := hashArtifactMutationPayload(map[string]any{"view_schema_id": LessonViewSchemaID, "values": map[string]any{"lesson.summary": "Lesson"}, "collection_ops": map[string]any{}, "create_inputs": map[string]any{}})
+		if !bytes.Equal(omitted.requestHash(), want[:]) {
+			t.Fatal("omitted-input historical hash changed")
+		}
+		hashes := map[string]bool{hex.EncodeToString(omitted.requestHash()): true}
+		for _, input := range []string{`null`, `"` + source.String() + `"`, `"11111111-2222-4333-8444-555555555556"`} {
+			got, err := AdmitCreate(LessonViewSchemaID, strings.NewReader(base+`,"coordination.source_record_id":`+input+`}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !got.requestValue().CoordinationSourcePresent {
+				t.Fatal("source presence lost")
+			}
+			hash := hex.EncodeToString(got.requestHash())
+			if hashes[hash] {
+				t.Fatal("distinct source inputs compare equal")
+			}
+			hashes[hash] = true
+			request := got.requestValue()
+			if request.CoordinationSourceRecordID != nil {
+				*request.CoordinationSourceRecordID = uuid.Nil
+				if *got.requestValue().CoordinationSourceRecordID == uuid.Nil {
+					t.Fatal("mutable source escaped admission")
+				}
+			}
+		}
+		for _, input := range []string{`""`, `123`, `[]`, `{}`, `" ` + source.String() + `"`, `"urn:uuid:` + source.String() + `"`} {
+			if _, err := AdmitCreate(LessonViewSchemaID, strings.NewReader(base+`,"coordination.source_record_id":`+input+`}`)); err == nil || err.field != coordinationSourceInput {
+				t.Fatalf("invalid source accepted: %s, %v", input, err)
+			}
+		}
+		if _, err := AdmitCreate(NotesViewSchemaID, strings.NewReader(`{"client_txn_id":"txn","note.title":"Note","coordination.source_record_id":null}`)); err == nil {
+			t.Fatal("source input widened Notes admission")
+		}
+	})
+
 	t.Run("Note create optional clearing and Unicode stay within declared contracts", func(t *testing.T) {
 		for _, title := range []string{``, `,"note.title":""`, `,"note.title":null`} {
 			admitted, err := AdmitContextualNote(strings.NewReader(`{"client_txn_id":"note-clear","note.body":"Body"` + title + `}`))

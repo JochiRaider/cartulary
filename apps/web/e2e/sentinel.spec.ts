@@ -66,6 +66,7 @@ import {
   lessonViewSchemaId,
   notesViewSchemaId,
   partiesViewSchemaId,
+  requireViewContract,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
@@ -3590,7 +3591,31 @@ async function createFromTimelineWorkflow(
     page.getByTestId(genericCreateSubmitTestId(options.targetViewSchemaId)),
   ).toBeVisible();
   for (const [fieldKey, value] of options.fields) {
-    await setGenericCreateField(page, fieldKey, value);
+    const field = requireViewContract(options.targetViewSchemaId).fieldMap[
+      fieldKey
+    ];
+    const coordinationReference =
+      [
+        commLogViewSchemaId,
+        handoffViewSchemaId,
+        statusReviewViewSchemaId,
+        lessonViewSchemaId,
+      ].some((view) => view === options.targetViewSchemaId) &&
+      field?.directReferenceContractId;
+    if (coordinationReference) {
+      await page
+        .getByRole("button", {
+          name: `Choose ${field.label.toLowerCase()}`,
+          exact: true,
+        })
+        .click();
+      await page
+        .getByTestId(genericCreateFieldTestId(fieldKey))
+        .selectOption(value);
+      await page
+        .getByRole("button", { name: "Apply references", exact: true })
+        .click();
+    } else await setGenericCreateField(page, fieldKey, value);
   }
   await page
     .getByTestId(genericCreateSubmitTestId(options.targetViewSchemaId))

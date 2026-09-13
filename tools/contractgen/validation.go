@@ -70,7 +70,7 @@ var (
 	inspectorPanelKeys        = stringSet("panel_id", "label")
 	inspectorFeatureKeys      = stringSet("feature_group_key", "panel_id", "label", "minimum_incident_role", "mutates", "requires_confirmation", "route_binding", "seed_bindings", "disabled_when", "success_result_behavior", "failure_result_behavior")
 	inspectorRouteBindingKeys = stringSet("kind", "owner", "target_view_schema_id", "action_key")
-	inspectorSeedBindingKeys  = stringSet("target_field_key", "source")
+	inspectorSeedBindingKeys  = stringSet("target_field_key", "target_input_key", "source")
 	inspectorSeedSourceKeys   = stringSet("kind", "source_field_key", "value")
 	errorRegistryKeys         = stringSet("$schema", "registry_id", "note", "errors", "reason_registries")
 	errorEntryKeys            = stringSet("code", "http_status", "summary")
@@ -781,12 +781,21 @@ func validateInspectorSeedBindings(value any, label string) error {
 		if err := requireAllowedKeys(binding, inspectorSeedBindingKeys, bindingLabel); err != nil {
 			return err
 		}
-		targetFieldKey, err := requiredString(binding, "target_field_key", bindingLabel)
+		_, field := binding["target_field_key"]
+		_, input := binding["target_input_key"]
+		if field == input {
+			return fmt.Errorf("%s must name exactly one field or input target", bindingLabel)
+		}
+		key := "target_field_key"
+		if input {
+			key = "target_input_key"
+		}
+		targetKey, err := requiredString(binding, key, bindingLabel)
 		if err != nil {
 			return err
 		}
-		if !isStableFieldKey(targetFieldKey) {
-			return fmt.Errorf("%s.target_field_key must be a stable field_key", bindingLabel)
+		if !isStableFieldKey(targetKey) {
+			return fmt.Errorf("%s.%s must be a stable key", bindingLabel, key)
 		}
 		source, err := asObject(binding["source"], bindingLabel+".source")
 		if err != nil {

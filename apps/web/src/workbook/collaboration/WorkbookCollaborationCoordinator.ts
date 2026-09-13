@@ -283,6 +283,9 @@ class WorkbookCollaborationCoordinatorRuntime {
         this.authorizationRecoveryMachine.authorizationConfirmed
       ) {
         this.options.mutationRuntime.noteCreate.observeSocket(event.message);
+        this.options.mutationRuntime.coordinationCreate.observeSocket(
+          event.message,
+        );
         this.options.mutationRuntime.contextualCreate.observeSocket(
           event.message,
         );

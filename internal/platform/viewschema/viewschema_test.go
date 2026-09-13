@@ -35,6 +35,11 @@ func TestViewSchemaDiscovery_Unit(t *testing.T) {
 			if !reflect.DeepEqual(resource.CreateInputs, want) {
 				t.Fatalf("Evidence create_inputs = %#v, want %#v", resource.CreateInputs, want)
 			}
+		} else if slices.Contains([]string{"cartulary.view.comm_log.v1", "cartulary.view.handoff.v1", "cartulary.view.status_review.v1", "cartulary.view.lesson.v1"}, resource.ViewSchemaID) {
+			want := []CreateInputDescriptor{{InputKey: "coordination.source_record_id", ValueContractID: "same_incident_record_ref_v1", Nullable: true}}
+			if !reflect.DeepEqual(resource.CreateInputs, want) {
+				t.Fatalf("%s create inputs = %#v, want %#v", resource.ViewSchemaID, resource.CreateInputs, want)
+			}
 		} else if len(resource.CreateInputs) != 0 {
 			t.Fatalf("%s create_inputs = %#v, want []", resource.ViewSchemaID, resource.CreateInputs)
 		}

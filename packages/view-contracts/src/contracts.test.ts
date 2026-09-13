@@ -51,6 +51,62 @@ describe("view contracts", () => {
         "record_deleted",
       ]);
     }
+    const coordination = listViewContracts().flatMap((contract) =>
+      contract.inspectorConfig.featureGroups
+        .filter((f) =>
+          ["comm_log", "handoff", "status_review", "lesson"].some(
+            (t) => f.featureGroupKey === `create_related.${t}`,
+          ),
+        )
+        .map((feature) => ({ source: contract.viewSchemaId, feature })),
+    );
+    expect(
+      coordination
+        .map(({ source, feature }) => `${source}:${feature.featureGroupKey}`)
+        .sort(),
+    ).toEqual(
+      [
+        "comm_log.v1:status_review",
+        "decisions.v1:comm_log",
+        "decisions.v1:status_review",
+        "handoff.v1:status_review",
+        "status_review.v1:comm_log",
+        "task_requests.v1:comm_log",
+        "task_requests.v1:lesson",
+        "task_requests.v1:status_review",
+        "timeline.v2:comm_log",
+        "timeline.v2:handoff",
+        "timeline.v2:lesson",
+        "timeline.v2:status_review",
+      ]
+        .map((entry) => {
+          const [source, target] = entry.split(":");
+          return `cartulary.view.${source}:create_related.${target}`;
+        })
+        .sort(),
+    );
+    for (const { feature } of coordination) {
+      expect(feature.seedBindings).toEqual([
+        {
+          targetInputKey: "coordination.source_record_id",
+          source: { kind: "selected_record_id" },
+        },
+      ]);
+      const target = requireViewContract(
+        feature.routeBinding.targetViewSchemaId ?? "",
+      );
+      expect(target.fieldMap["coordination.source_record_id"]).toBeUndefined();
+      expect(target.createInputs).toEqual([
+        {
+          inputKey: "coordination.source_record_id",
+          valueContractId: "same_incident_record_ref_v1",
+          required: false,
+          nullable: true,
+        },
+      ]);
+      expect(feature.disabledWhen).toContain("record_deleted");
+      expect(feature.disabledWhen).toContain("row_version_changed");
+    }
     expect(() => requireViewContract("cartulary.view.missing.v1")).toThrow(
       "Unknown view schema contract: cartulary.view.missing.v1",
     );

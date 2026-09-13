@@ -42,6 +42,7 @@ func TestWorkbookOpenAPIRecordMutationContracts(t *testing.T) {
 
 	assertWorkbookQueryContract(t, document, schemas)
 	assertViewRowCreateContract(t, document)
+	assertCoordinationCreateContract(t, schemas)
 	assertAssessmentCreateSupportContract(t, schemas)
 
 	patch := workbookObjectAt(t, document, "paths", "/api/v1/records/{record_id}", "patch")
@@ -187,9 +188,61 @@ func assertViewRowCreateContract(t *testing.T, document map[string]any) {
 
 	for _, status := range []string{"200", "201"} {
 		responseSchema := workbookObjectAt(t, post, "responses", status, "content", "application/json", "schema")
-		if got := workbookStringAt(t, responseSchema, "$ref"); got != "#/components/schemas/ViewMutationEnvelope" {
-			t.Fatalf("row-create response %s should use ViewMutationEnvelope, got %q", status, got)
+		if got := workbookStringAt(t, responseSchema, "$ref"); got != "#/components/schemas/CoordinationCreateMutationEnvelope" {
+			t.Fatalf("row-create response %s should admit ordinary and source-linked receipts, got %q", status, got)
 		}
+	}
+}
+
+func assertCoordinationCreateContract(t *testing.T, schemas map[string]any) {
+	t.Helper()
+
+	for _, name := range []string{"CommLogCreateRequest", "HandoffCreateRequest", "StatusReviewCreateRequest", "LessonCreateRequest"} {
+		request := workbookSchema(t, schemas, name)
+		source := workbookObjectAt(t, request, "properties", "coordination.source_record_id")
+		if got := workbookStringArrayAt(t, source, "type"); !slices.Equal(got, []string{"string", "null"}) {
+			t.Fatalf("%s source input must retain explicit null: %v", name, got)
+		}
+		if workbookStringAt(t, source, "format") != "uuid" || slices.Contains(workbookStringArrayAt(t, request, "required"), "coordination.source_record_id") {
+			t.Fatalf("%s source must be an optional exact record identifier", name)
+		}
+	}
+	for _, name := range []string{"TimelineCreateRequest", "TaskRequestCreateRequest", "DecisionCreateRequest", "NoteCreateRequest", "LinkedNoteCreateRequest"} {
+		if _, exists := workbookObjectAt(t, workbookSchema(t, schemas, name), "properties")["coordination.source_record_id"]; exists {
+			t.Fatalf("coordination source leaked into %s", name)
+		}
+	}
+
+	envelope := workbookSchema(t, schemas, "CoordinationCreateMutationEnvelope")
+	if got := workbookRefsFromOneOf(t, workbookObjectAt(t, envelope, "properties", "data")); !slices.Equal(got, []string{"#/components/schemas/ViewMutationData", "#/components/schemas/CoordinationLinkedMutationData"}) {
+		t.Fatalf("create receipts must retain ordinary data and the source-linked variant: %v", got)
+	}
+	if workbookStringAt(t, workbookObjectAt(t, envelope, "properties", "meta"), "$ref") != "#/components/schemas/EnvelopeMeta" || !slices.Equal(workbookStringArrayAt(t, envelope, "required"), []string{"data", "meta"}) {
+		t.Fatal("create receipts must require full data and correlated request metadata")
+	}
+	linked := workbookSchema(t, schemas, "CoordinationLinkedMutationData")
+	bases, ok := linked["allOf"].([]any)
+	if !ok || len(bases) != 1 {
+		t.Fatal("linked receipt must extend the complete ordinary mutation data")
+	}
+	base, ok := bases[0].(map[string]any)
+	if !ok || workbookStringAt(t, base, "$ref") != "#/components/schemas/ViewMutationDataFields" {
+		t.Fatal("linked receipt lost ordinary mutation fields")
+	}
+	if got := workbookStringArrayAt(t, workbookSchema(t, schemas, "ViewMutationDataFields"), "required"); !slices.Equal(got, []string{"view_schema_id", "change_set_id", "row"}) {
+		t.Fatalf("ordinary mutation fields must remain required: %v", got)
+	}
+	if got := workbookStringArrayAt(t, linked, "required"); !slices.Equal(got, []string{"source_record_id", "link_type"}) {
+		t.Fatalf("linked receipt must require both association facts: %v", got)
+	}
+	if closed, ok := linked["unevaluatedProperties"].(bool); !ok || closed {
+		t.Fatal("linked receipt must reject unknown association properties")
+	}
+	if workbookStringAt(t, workbookObjectAt(t, linked, "properties", "source_record_id"), "format") != "uuid" || workbookStringAt(t, workbookObjectAt(t, linked, "properties", "link_type"), "const") != "references_artifact" {
+		t.Fatal("linked receipt must identify the exact source and references_artifact relationship")
+	}
+	if got := workbookStringArrayAt(t, workbookObjectAt(t, linked, "properties", "view_schema_id"), "enum"); !slices.Equal(got, []string{"cartulary.view.comm_log.v1", "cartulary.view.handoff.v1", "cartulary.view.status_review.v1", "cartulary.view.lesson.v1"}) {
+		t.Fatalf("linked ordinary receipt must be restricted to the four coordination targets: %v", got)
 	}
 }
 

@@ -29,10 +29,12 @@ type MutationFacade struct {
 }
 
 type createRequest struct {
-	ViewSchemaID string
-	ClientTxnID  string
-	Values       map[string]fieldValue
-	Collections  map[string]collectionActionPayload
+	CoordinationSourcePresent  bool
+	CoordinationSourceRecordID *uuid.UUID
+	ViewSchemaID               string
+	ClientTxnID                string
+	Values                     map[string]fieldValue
+	Collections                map[string]collectionActionPayload
 }
 
 type patchRequest struct {

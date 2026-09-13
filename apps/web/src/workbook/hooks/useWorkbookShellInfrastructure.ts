@@ -3,6 +3,7 @@ import type { ExtensionAvailabilityController } from "../../extensions/extension
 import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
 import { createContextualCreateReader } from "../adapters/createContextualCreateReader";
 import { createContextualCreateTransport } from "../adapters/createContextualCreateTransport";
+import { createCoordinationCreateTransport } from "../adapters/createCoordinationCreateTransport";
 import { createIndicatorCreateTransport } from "../adapters/createIndicatorCreateTransport";
 import { createIndicatorLifecycleAdapter } from "../adapters/createIndicatorLifecycleAdapter";
 import { createNoteCreateReader } from "../adapters/createNoteCreateReader";
@@ -246,6 +247,7 @@ export function useWorkbookShellInfrastructure({
         if (result.kind === "access_lost" || result.kind === "session_lost") {
           mutationRuntime.assessmentAuthoring.suspend();
           mutationRuntime.noteCreate.suspend();
+          mutationRuntime.coordinationCreate.suspend();
           mutationRuntime.contextualCreate.suspend();
           mutationRuntime.timelineRelatedEvidence.suspend();
           mutationRuntime.partyLinks.suspend();
@@ -286,6 +288,27 @@ export function useWorkbookShellInfrastructure({
         }),
         currentAuthorityReader,
         createNoteCreateTransport(apiBase),
+      ),
+    [
+      apiBase,
+      incidentId,
+      mutationRuntime,
+      currentAuthorityReader,
+      recheckMentionAuthority,
+    ],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.coordinationCreate.configure(
+        createWorkbookAuthoringReader({
+          apiBase,
+          incidentId,
+          recheckAuthority: () => {
+            void recheckMentionAuthority();
+          },
+        }),
+        currentAuthorityReader,
+        createCoordinationCreateTransport(apiBase),
       ),
     [
       apiBase,

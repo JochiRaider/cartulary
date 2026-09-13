@@ -3,6 +3,7 @@ import {
   getViewContract,
   requireViewContract,
 } from "@cartulary/view-contracts";
+import { genericInspectorRowLabel } from "../models/genericWorkbookModel";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { buildQueryRequest } from "../models/workbookQuery";
 import type {
@@ -73,7 +74,8 @@ export function createWorkbookAuthoringReader(options: {
           draft.target.permitsZeroFieldCreate ||
         JSON.stringify(
           feature.seed_bindings.map((binding) => [
-            binding.target_field_key,
+            binding.target_field_key ?? null,
+            binding.target_input_key ?? null,
             binding.source.kind,
             binding.source.source_field_key ?? null,
             binding.source.value ?? null,
@@ -81,7 +83,8 @@ export function createWorkbookAuthoringReader(options: {
         ) !==
           JSON.stringify(
             draft.feature.seedBindings.map((binding) => [
-              binding.targetFieldKey,
+              binding.targetFieldKey ?? null,
+              binding.targetInputKey ?? null,
               binding.source.kind,
               binding.source.sourceFieldKey ?? null,
               binding.source.value ?? null,
@@ -182,19 +185,9 @@ export function createWorkbookAuthoringReader(options: {
             result.value.data.rows,
             "Contextual references",
           ).map((row) => {
-            const labelField = contract.fields.find(
-              (field) =>
-                field.readKind === "text" &&
-                !contract.technicalFields.includes(field.fieldKey) &&
-                typeof row.cells[field.fieldKey]?.value === "string",
-            );
-            const label = labelField
-              ? row.cells[labelField.fieldKey]?.value
-              : null;
             return {
               recordId: row.record_id,
-              displayText:
-                typeof label === "string" && label ? label : row.record_id,
+              displayText: genericInspectorRowLabel(contract, row),
               viewSchemaId: contract.viewSchemaId,
               row,
             };

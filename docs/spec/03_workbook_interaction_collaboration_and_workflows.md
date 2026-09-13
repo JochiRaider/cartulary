@@ -2624,6 +2624,18 @@ Profiles: base
 Verified by: AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231
 
 **REQ-03-258**
+The 12 contextual coordination actions in Core 01 §7.4.1A MUST retain one editable
+coordination draft per account/incident browser runtime independently of presentation
+attachment. Original origin, editable source, raw target values, readiness and
+dispatched attempts are distinct. Replacement authoring requires explicit discard.
+Source editing and clearing follow that owner contract without changing target
+values. Navigation or source changes invalidate stale readiness, not retained work.
+Attempts capture exact operation, route, request bytes, client transaction ID, actor,
+incident and reviewed source before dispatch; only unchanged uncertain attempts may
+replay. Acceptance survives detachment and refresh-only recovery MUST issue no
+creation write. Existing account/incident suspension, concealment and retirement
+rules apply; no persistent browser storage or cross-account draft archive is added.
+
 Communications logs, handoffs, status reviews, and lesson artifacts MUST remain explicit workbook-native actions. The implementation MAY assist creation from the inspector or a coordination view, but it MUST NOT require creation of those artifacts during ordinary row capture or ordinary grid editing, and it MUST NOT interrupt ordinary grid editing to solicit them.
 Profiles: base
 Verified by: AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231

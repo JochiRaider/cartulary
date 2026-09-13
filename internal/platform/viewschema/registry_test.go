@@ -582,7 +582,7 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 			t.Fatalf("%s inspector seed binding bound: %#v", resource.ViewSchemaID, group)
 		}
 		for _, binding := range group.SeedBindings {
-			if binding.TargetFieldKey == "" {
+			if (binding.TargetFieldKey == "") == (binding.TargetInputKey == "") {
 				t.Fatalf("%s inspector seed binding missing target field: %#v", resource.ViewSchemaID, binding)
 			}
 			switch binding.Source.Kind {

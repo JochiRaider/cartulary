@@ -69,7 +69,14 @@
     "status_review.next_report_day"
   ],
   "create_capable": true,
-  "create_inputs": [],
+  "create_inputs": [
+    {
+      "input_key": "coordination.source_record_id",
+      "value_contract_id": "same_incident_record_ref_v1",
+      "required": false,
+      "nullable": true
+    }
+  ],
   "inline_create": {
     "minimum_create_field_sets": [
       [
@@ -389,11 +396,20 @@
           "target_view_schema_id": "cartulary.view.comm_log.v1",
           "action_key": "create_related.comm_log"
         },
-        "seed_bindings": [],
+        "seed_bindings": [
+          {
+            "target_input_key": "coordination.source_record_id",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
-          "authorization_lost"
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
@@ -552,7 +568,7 @@
       "string_contract_id": "multiline_body_v1",
       "direct_scalar_contract_id": null,
       "direct_reference_contract_id": null,
-      "clearable": false,
+      "clearable": true,
       "enum_values": null,
       "writable": true,
       "read_model": "active_risks_summary",

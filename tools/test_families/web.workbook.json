@@ -453,6 +453,79 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.coordination_create_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/coordinationCreateAuthoring.test.tsx",
+        "titles": [
+          "Coordination authoring conceals on scoped suspension and retires on account replacement",
+          "Coordination authoring covers all twelve actions with independent source context and target minima",
+          "Coordination authoring distinguishes failed discovery empty results and unavailable surfaces",
+          "Coordination authoring fences obsolete presentation callbacks through attachment replacement and authority recovery",
+          "Coordination authoring normalizes only prepared values and rejects controls overflow invalid references and timestamps",
+          "Coordination authoring prepares every optional field and keeps defaults nulls risks and record references distinct",
+          "Coordination authoring retains raw authoring through versions navigation detach replacement and clearing",
+          "Coordination authoring reviews source changes and off-page references without treating page absence as deletion",
+          "Coordination authoring shows field-local errors and restores focus while retaining a closed draft",
+          "Coordination authoring stages paged target references with retained selection and keyboard cancel"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.coordination_create_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/coordinationCreateRecovery.test.tsx",
+        "titles": [
+          "Coordination atomic recovery allocates a new identity for corrected fresh requests and validates explicit unlinked receipts",
+          "Coordination atomic recovery blocks source conflicts and stale review without saving unrelated authoring",
+          "Coordination atomic recovery blocks uncertain authority and late preparation across closure reopen and role loss",
+          "Coordination atomic recovery correlates socket and HTTP acceptance in either order and refreshes late affected views",
+          "Coordination atomic recovery fences account replacement and conceals late acceptance through incident-scoped suspension",
+          "Coordination atomic recovery freezes all twelve routes and guards same-frame activation before preparation",
+          "Coordination atomic recovery keeps malformed or mismatched association receipts uncertain and replay rejection cannot disprove commit",
+          "Coordination atomic recovery replays the unchanged attempt after response loss despite closure deletion and transport reconfiguration",
+          "Coordination atomic recovery retains deletion observations against stale reads until explicit source clear or recovered review",
+          "Coordination atomic recovery retains late acceptance after detachment and ignores an obsolete replay rejection",
+          "Coordination atomic recovery separates accepted receipts from refresh debt and preserves a newer draft during read-only recovery"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.decision_supersession_canonical_composition",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2985,30 +3058,6 @@
         "file": "apps/web/src/workbook/timeline/useTimelineCreateRelatedWorkflow.test.tsx",
         "titles": [
           "useTimelineCreateRelatedWorkflow retains accepted Evidence after navigation and refuses to replace its original unsent draft"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.workbook.regression.timeline_feature_policy_closed_semantic_routing_bbd0ade7b2",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts",
-        "titles": [
-          "timelineWorkbookFeaturePolicy owns the contracts for Timeline create-related targets outside retained authoring"
         ]
       },
       "evidence_class": "unit",

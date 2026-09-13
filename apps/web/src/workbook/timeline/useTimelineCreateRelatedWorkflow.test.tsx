@@ -14,7 +14,6 @@ import {
   evidenceViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
 import { useTimelineCreateRelatedWorkflow } from "./hooks/useTimelineCreateRelatedWorkflow";
 import type { WorkbookRow } from "./models/timelineRowModel";
 
@@ -78,23 +77,13 @@ describe("useTimelineCreateRelatedWorkflow", () => {
       async () => authority,
       transport,
     );
-    const mutationCommands: TimelineRelatedRecordPort = {
-      createRelatedRecord: vi.fn(),
-    };
     const setInspectorMessage = vi.fn();
     const { result, rerender } = renderHook(
       ({ selectedRow }) =>
         useTimelineCreateRelatedWorkflow({
-          actionContext: {
-            authorized: true,
-            surfaceKey: "view_schema:cartulary.view.timeline.v2",
-          },
-          currentUserId: null,
-          mutationCommands,
           selectedRow,
           selectedSubject: subject(selectedRow),
           setInspectorMessage,
-          targetContracts: new Map([[evidence.viewSchemaId, evidence]]),
         }),
       {
         initialProps: { selectedRow: originalRow },
@@ -158,7 +147,6 @@ describe("useTimelineCreateRelatedWorkflow", () => {
       owner.getSnapshot().checkpoints[0]?.create.receipt?.data.row.record_id,
     ).toBe("evidence-1");
     expect(owner.getSnapshot().checkpoints[0]?.links).toEqual([]);
-    expect(mutationCommands.createRelatedRecord).not.toHaveBeenCalled();
     expect(result.current.workflow).toBeNull();
   });
 });

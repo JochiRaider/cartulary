@@ -619,14 +619,21 @@ type MutationOutcome struct {
 type mutationResultKind string
 
 const (
-	mutationResultRow        mutationResultKind = "row"
-	mutationResultBatch      mutationResultKind = "batch"
-	mutationResultLinkedNote mutationResultKind = "linked_note"
-	mutationResultSupersede  mutationResultKind = "supersede"
+	mutationResultRow             mutationResultKind = "row"
+	mutationResultSourceLinkedRow mutationResultKind = "source_linked_row"
+	mutationResultBatch           mutationResultKind = "batch"
+	mutationResultLinkedNote      mutationResultKind = "linked_note"
+	mutationResultSupersede       mutationResultKind = "supersede"
 )
 
 func SuccessfulRowMutation(result MutationResult) MutationOutcome {
 	return successfulMutation(result, mutationResultRow)
+}
+
+// SuccessfulSourceLinkedRowMutation preserves the complete source-association
+// receipt from an atomic contextual create on an ordinary view-row route.
+func SuccessfulSourceLinkedRowMutation(result MutationResult) MutationOutcome {
+	return successfulMutation(result, mutationResultSourceLinkedRow)
 }
 
 func SuccessfulBatchMutation(result MutationResult) MutationOutcome {
@@ -678,6 +685,9 @@ func validateMutationResultShape(kind mutationResultKind, payload map[string]any
 	case mutationResultRow:
 		allowed = resultKeys("view_schema_id", "change_set_id", "row")
 		requiredAlternatives = [][]string{{"row"}}
+	case mutationResultSourceLinkedRow:
+		allowed = resultKeys("view_schema_id", "change_set_id", "row", "source_record_id", "link_type")
+		requiredAlternatives = [][]string{{"view_schema_id", "change_set_id", "row", "source_record_id", "link_type"}}
 	case mutationResultBatch:
 		allowed = resultKeys("view_schema_id", "change_set_id", "rows", "conflicts")
 		requiredAlternatives = [][]string{{"view_schema_id", "rows"}}

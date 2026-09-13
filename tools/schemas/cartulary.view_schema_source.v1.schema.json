@@ -293,9 +293,14 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["target_field_key", "source"],
+            "required": ["source"],
+            "oneOf": [
+              { "required": ["target_field_key"], "not": { "required": ["target_input_key"] } },
+              { "required": ["target_input_key"], "not": { "required": ["target_field_key"] } }
+            ],
             "properties": {
               "target_field_key": { "$ref": "#/$defs/stableKey" },
+              "target_input_key": { "$ref": "#/$defs/stableKey" },
               "source": {
                 "type": "object",
                 "additionalProperties": false,

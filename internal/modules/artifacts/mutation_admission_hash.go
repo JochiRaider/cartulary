@@ -10,11 +10,18 @@ import (
 )
 
 func createAdmissionHash(request createRequest) [sha256.Size]byte {
+	inputs := map[string]any{}
+	if request.CoordinationSourcePresent {
+		inputs[coordinationSourceInput] = nil
+		if request.CoordinationSourceRecordID != nil {
+			inputs[coordinationSourceInput] = request.CoordinationSourceRecordID.String()
+		}
+	}
 	return hashArtifactMutationPayload(map[string]any{
 		"view_schema_id": request.ViewSchemaID,
 		"values":         canonicalArtifactValues(request.Values),
 		"collection_ops": canonicalArtifactCollections(request.Collections),
-		"create_inputs":  map[string]any{},
+		"create_inputs":  inputs,
 	})
 }
 

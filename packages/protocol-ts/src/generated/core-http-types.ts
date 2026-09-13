@@ -52,6 +52,25 @@ export type JobScope = {
 };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewMutationData".
+ */
+export type ViewMutationData = ViewMutationDataFields;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CoordinationLinkedMutationData".
+ */
+export type CoordinationLinkedMutationData = ViewMutationDataFields & {
+  link_type: "references_artifact";
+  source_record_id: string;
+  view_schema_id?:
+    | "cartulary.view.comm_log.v1"
+    | "cartulary.view.handoff.v1"
+    | "cartulary.view.status_review.v1"
+    | "cartulary.view.lesson.v1";
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "CreateViewRowRequestBody".
  */
 export type CreateViewRowRequestBody =
@@ -180,11 +199,6 @@ export type RecordRollbackTarget =
 export type ResolveRecordSameFieldConflictResponseBody = ViewMutationEnvelope | RecordConflictClearEnvelope;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ViewMutationData".
- */
-export type ViewMutationData = ViewMutationDataFields;
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "SavedViewCreateLayoutJSON".
  */
 export type SavedViewCreateLayoutJSON = {} | SavedViewLayoutJSON;
@@ -198,6 +212,18 @@ export type SavedViewScope = "private" | "shared" | "system";
  * via the `definition` "SupersedeRecordResponseBody".
  */
 export type SupersedeRecordResponseBody = TimelineActionEnvelope | DecisionSupersedeEnvelope;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "InspectorSeedBindingV1".
+ */
+export type InspectorSeedBindingV1 = {
+  source: InspectorSeedSourceV1;
+  target_field_key?: string;
+  target_input_key?: string;
+} & InspectorSeedBindingV11;
+export type InspectorSeedBindingV11 = {
+  [k: string]: unknown;
+};
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "WorkbookClipboardPasteTarget".
@@ -430,6 +456,64 @@ export interface AdministrativeAuditChange {
   before: unknown;
   field_path: string;
   value_state: "redacted" | "visible";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CoordinationCreateMutationEnvelope".
+ */
+export interface CoordinationCreateMutationEnvelope {
+  data: ViewMutationData | CoordinationLinkedMutationData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewMutationDataFields".
+ */
+export interface ViewMutationDataFields {
+  change_set_id: string;
+  row: ViewRow;
+  view_schema_id:
+    | "cartulary.view.timeline.v2"
+    | "cartulary.view.hosts.v1"
+    | "cartulary.view.identities.v1"
+    | "cartulary.view.indicators.v1"
+    | "cartulary.view.assessments.v1"
+    | "cartulary.view.evidence.v1"
+    | "cartulary.view.notes.v1"
+    | "cartulary.view.task_requests.v1"
+    | "cartulary.view.decisions.v1"
+    | "cartulary.view.parties.v1"
+    | "cartulary.view.comm_log.v1"
+    | "cartulary.view.handoff.v1"
+    | "cartulary.view.status_review.v1"
+    | "cartulary.view.lesson.v1"
+    | "cartulary.view.findings.v1"
+    | "cartulary.view.investigative_queries.v1"
+    | "cartulary.view.forensic_keywords.v1";
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewRow".
+ */
+export interface ViewRow {
+  cells: {
+    [k: string]: ViewCell;
+  };
+  group_values?: {
+    [k: string]: unknown;
+  };
+  record_id: string;
+  row_version: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewCell".
+ */
+export interface ViewCell {
+  value: unknown;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -800,9 +884,10 @@ export interface CommLogCreateRequest {
   "comm_log.comm_type"?: "meeting" | "notification" | "approval" | "briefing" | "handoff";
   "comm_log.decision_ids"?: CollectionActionsV1;
   "comm_log.next_report_at"?: string | null;
-  "comm_log.privilege_tag"?: string;
+  "comm_log.privilege_tag"?: string | null;
   "comm_log.summary"?: string;
   "comm_log.timestamp_utc"?: string;
+  "coordination.source_record_id"?: string | null;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -810,10 +895,11 @@ export interface CommLogCreateRequest {
  */
 export interface HandoffCreateRequest {
   client_txn_id: string;
+  "coordination.source_record_id"?: string | null;
   "handoff.acknowledged_at"?: string | null;
   "handoff.current_state_summary"?: string;
   "handoff.incoming_owner_user_id"?: string;
-  "handoff.next_checks"?: string;
+  "handoff.next_checks"?: string | null;
   "handoff.open_decision_ids"?: CollectionActionsV1;
   "handoff.open_risk_refs"?: CollectionActionsV1;
   "handoff.open_task_ids"?: CollectionActionsV1;
@@ -826,7 +912,8 @@ export interface HandoffCreateRequest {
  */
 export interface StatusReviewCreateRequest {
   client_txn_id: string;
-  "status_review.active_risks_summary"?: string;
+  "coordination.source_record_id"?: string | null;
+  "status_review.active_risks_summary"?: string | null;
   "status_review.blocked_task_ids"?: CollectionActionsV1;
   "status_review.current_state_summary"?: string;
   "status_review.next_report_at"?: string | null;
@@ -841,6 +928,7 @@ export interface StatusReviewCreateRequest {
  */
 export interface LessonCreateRequest {
   client_txn_id: string;
+  "coordination.source_record_id"?: string | null;
   "lesson.closure_state"?: "open" | "closed";
   "lesson.evidence_refs"?: CollectionActionsV1;
   "lesson.follow_up_task_ids"?: CollectionActionsV1;
@@ -1097,56 +1185,6 @@ export interface ErrorObject {
 export interface EvidenceAttachBlobEnvelope {
   data: EvidenceAttachBlobData;
   meta: EnvelopeMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ViewMutationDataFields".
- */
-export interface ViewMutationDataFields {
-  change_set_id: string;
-  row: ViewRow;
-  view_schema_id:
-    | "cartulary.view.timeline.v2"
-    | "cartulary.view.hosts.v1"
-    | "cartulary.view.identities.v1"
-    | "cartulary.view.indicators.v1"
-    | "cartulary.view.assessments.v1"
-    | "cartulary.view.evidence.v1"
-    | "cartulary.view.notes.v1"
-    | "cartulary.view.task_requests.v1"
-    | "cartulary.view.decisions.v1"
-    | "cartulary.view.parties.v1"
-    | "cartulary.view.comm_log.v1"
-    | "cartulary.view.handoff.v1"
-    | "cartulary.view.status_review.v1"
-    | "cartulary.view.lesson.v1"
-    | "cartulary.view.findings.v1"
-    | "cartulary.view.investigative_queries.v1"
-    | "cartulary.view.forensic_keywords.v1";
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ViewRow".
- */
-export interface ViewRow {
-  cells: {
-    [k: string]: ViewCell;
-  };
-  group_values?: {
-    [k: string]: unknown;
-  };
-  record_id: string;
-  row_version: number;
-  [k: string]: unknown;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ViewCell".
- */
-export interface ViewCell {
-  value: unknown;
-  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -5039,14 +5077,6 @@ export interface InspectorRouteBindingV1 {
     | "evidence_preview_handle_route"
     | "evidence_download_handle_route";
   target_view_schema_id?: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "InspectorSeedBindingV1".
- */
-export interface InspectorSeedBindingV1 {
-  source: InspectorSeedSourceV1;
-  target_field_key: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

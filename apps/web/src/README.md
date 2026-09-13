@@ -787,12 +787,8 @@ by visual coordinates.
 | `workbook/timeline/models/timelineMutationModels.test.ts` | Pure intent, deduplication, acceptance, discard, version-ledger, and discriminated-collection evidence. |
 | `workbook/timeline/models/timelineMutationQueueAdmission.ts` | Pure scalar/collection no-op, conflict, duplicate, and exact queue-admission decisions. |
 | `workbook/timeline/models/timelinePendingSaves.ts` | Timeline-local pending signature, replay-order, and serial-save references. |
-| `workbook/timeline/models/timelineRelatedRecordWorkflow.test.ts` | Covers current subject/surface/capability/version admission and stale workflow settlement. |
-| `workbook/timeline/models/timelineRelatedRecordWorkflow.ts` | Pure subject-keyed Timeline related-record submission and completion admission. |
 | `workbook/timeline/models/timelineRowModel.ts` | Timeline row envelope decoding, normalization, materialization, and sparse-patch application. |
 | `workbook/timeline/models/timelineRowsModel.ts` | Timeline row collection helpers and row-state utilities. |
-| `workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts` | Characterizes canonical related-row/Indicator feature tuples and fail-closed rejection of altered or unsupported tuples. |
-| `workbook/timeline/models/timelineWorkbookFeaturePolicy.ts` | Defines canonical Timeline inspector feature tuples and fail-closed semantic routing. |
 | `workbook/timeline/models/timelineWorkbookSurfaceRuntime.ts` | Required shell-owned Timeline composition contract for incident, query, entity, layout, and access-loss services. |
 | `workbook/timeline/models/timelineViewportContinuityModel.ts` | Timeline viewport continuity and entity-refresh barrier helpers. |
 | `workbook/timeline/models/workbookMentionChips.ts` | Mention chip state, relationship-field keys, and mention display helpers. |

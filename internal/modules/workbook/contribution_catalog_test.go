@@ -635,6 +635,24 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 		}).Validate(); err == nil {
 			t.Fatal("mutation outcome accepted an arbitrary outer response field")
 		}
+		linked := MutationResult{StatusCode: 201, Payload: map[string]any{
+			"view_schema_id": "cartulary.view.lesson.v1", "change_set_id": "change",
+			"row": map[string]any{}, "source_record_id": "source", "link_type": "references_artifact",
+		}}
+		if err := SuccessfulSourceLinkedRowMutation(linked).Validate(); err != nil {
+			t.Fatalf("complete source-linked row receipt rejected: %v", err)
+		}
+		if err := SuccessfulRowMutation(linked).Validate(); err == nil {
+			t.Fatal("ordinary row outcome accepted undeclared association fields")
+		}
+		for key := range linked.Payload {
+			value := linked.Payload[key]
+			delete(linked.Payload, key)
+			if err := SuccessfulSourceLinkedRowMutation(linked).Validate(); err == nil {
+				t.Fatalf("source-linked receipt accepted without %s", key)
+			}
+			linked.Payload[key] = value
+		}
 		guards := []string{"first"}
 		failure := IllegalTransitionFailure("open", "closed", "guard_failed", guards)
 		guards[0] = "mutated"

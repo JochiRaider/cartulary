@@ -243,7 +243,14 @@ export function WorkbookShellTopBar({
           ) : null}
         </div>
       )}
-      <div style={systemViewSlotStyle}>
+      <div
+        style={{
+          ...systemViewSlotStyle,
+          ...(layout.chromeMode === "below_supported_minimum"
+            ? { minWidth: "min-content" }
+            : {}),
+        }}
+      >
         {importRecovery}
         {networkAnalysisAvailable ? (
           <button

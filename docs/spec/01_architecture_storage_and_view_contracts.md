@@ -4944,7 +4944,7 @@ The closed `route_binding.owner` vocabulary is:
 
 These route families already exist in the public route inventory and record mutation tables, including row create, record patch, lifecycle actions, soft delete, restore, history, rollback, merge, mention resolve, evidence attach, and evidence handle issuance.
 
-`seed_bindings[]` entries MUST bind target fields by stable `target_field_key` and MUST use only semantic sources: selected record id, selected field value, or literal value. A selected-field source MUST name a stable `source_field_key`; a literal source MUST carry the literal value. Seed bindings MUST NOT expose storage columns, internal write targets, or route-helper names.
+`seed_bindings[]` entries MUST name exactly one of stable `target_field_key` for a declared target field or stable `target_input_key` for a declared target create-only input. An input binding MUST target a `create_inputs[]` descriptor on the route target schema and MUST NOT be interpreted as a field binding. Existing field bindings retain their shape. Bindings MUST use only semantic sources: selected record id, selected field value, or literal value. A selected-field source MUST name a stable `source_field_key`; a literal source MUST carry the literal value. Seed bindings MUST NOT expose storage columns, internal write targets, or route-helper names.
 
 `disabled_when[]` MUST use only these current-profile condition tokens: `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted`, `record_merged`, `evidence_preview_unavailable`, `merge_target_unavailable`, `record_not_deleted`, `rollback_target_unavailable`, `party_text_unavailable`, and `pivot_target_unavailable`. These tokens are presentation hints only and MUST NOT authorize or deny a server action. Server routes must re-derive authorization and validate target state.
 
@@ -5274,10 +5274,10 @@ A standardized optional surface that is not implemented must be omitted from `GE
 | `create_related.decision` | Seed selected `record_id` into the target surface's support or affected-record context when declared. Seeded links do not satisfy target create minima. |
 | `create_related.note` | Copy selected `record_id` into editable source context for the specialized linked-note record action below; it is not a Note field seed and does not satisfy create minima. |
 | `create_related.evidence` | Seed selected `record_id` as evidence-related context; evidence title or other minimum create signal remains required unless the Evidence surface owner explicitly permits otherwise. |
-| `create_related.comm_log` | Seed selected `record_id` as related context; communication summary remains required. |
-| `create_related.handoff` | Seed selected `record_id` as related context; handoff minimum create signal remains required. |
-| `create_related.status_review` | Seed selected `record_id` as related context; status-review minimum create signal remains required. |
-| `create_related.lesson` | Seed selected `record_id` as related context; lesson summary remains required. |
+| `create_related.comm_log` | Seed selected `record_id` into editable create-only input `coordination.source_record_id` under the coordination source-context contract below; communication summary remains required. |
+| `create_related.handoff` | Seed selected `record_id` into editable create-only input `coordination.source_record_id` under the coordination source-context contract below; handoff minimum create signal remains required. |
+| `create_related.status_review` | Seed selected `record_id` into editable create-only input `coordination.source_record_id` under the coordination source-context contract below; status-review minimum create signal remains required. |
+| `create_related.lesson` | Seed selected `record_id` into editable create-only input `coordination.source_record_id` under the coordination source-context contract below; lesson summary remains required. |
 | `create_related.assessment` | Available only from `cartulary.view.assessments.v1`; seed the selected row's `assessment.subject_ref` and `assessment.subject_type` into the same fields of a fresh `cartulary.view.assessments.v1` draft. No other assessment field or relationship is seeded. |
 | `party.*.link` | Seed party text from the source-preserving text field that owns the party pair; the linked `party_id` does not clear source text implicitly. |
 | `surface_pivot.*` | Seed target query filters using stable target `field_key` values only. Visible labels, storage names, and row indexes are invalid seed sources. |
@@ -5301,6 +5301,80 @@ create-only field registry below. Implementations MUST NOT emit aliases for
 either removed feature.
 
 This preserves the Core 03 rule that preseeded links remain editable context and do not satisfy minimum create signals.
+
+### Coordination source context for contextual creation
+
+**REQ-01-674**
+
+For the four coordination targets, the existing
+`POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` route MUST
+admit optional, nullable create-only input `coordination.source_record_id`, with
+`value_contract_id='same_incident_record_ref_v1'`. This input MUST NOT become a
+schema field, artifact scalar, patch target, or generic context storage model.
+Omission supplies no source; explicit JSON null records an explicitly cleared
+source input and creates no relationship. A non-null value MUST be one exact
+stable record identifier, without trimming, label resolution or target creation.
+
+The exhaustive source/target action matrix is:
+
+| Source view | Target artifact types |
+| --- | --- |
+| `cartulary.view.timeline.v2` | `comm_log`, `handoff`, `status_review`, `lesson` |
+| `cartulary.view.task_requests.v1` | `comm_log`, `status_review`, `lesson` |
+| `cartulary.view.decisions.v1` | `comm_log`, `status_review` |
+| `cartulary.view.comm_log.v1` | `status_review` |
+| `cartulary.view.handoff.v1` | `status_review` |
+| `cartulary.view.status_review.v1` | `comm_log` |
+
+Each of these 12 inspector features MUST retain the ordinary view-row create
+binding and MUST declare exactly one seed binding: `target_input_key` equal to
+`coordination.source_record_id` and `source.kind='selected_record_id'`. Its disabled
+conditions MUST be `no_row_selected`, `incident_closed`, `authorization_lost`,
+`row_version_changed`, and `record_deleted`. A saved view over one of these source
+schemas follows the same matrix. No semantic target field is automatically seeded.
+
+The analyst MAY explicitly replace the source with another active, authorized
+same-incident record from the matrix's source surfaces for the chosen target, or
+clear it. These edits MUST preserve all raw target values. Omission of source
+editing preserves the originally seeded source. Selection, source-version changes,
+inspector closure and sheet navigation MUST NOT silently replace or discard source
+or target authoring. Changed source state withdraws fresh submission readiness
+until reviewed. Deleted or inaccessible source context remains retained but blocks
+fresh submission until recovered, explicitly replaced, or explicitly cleared.
+Source context MUST NOT imply blocked Tasks, open Decisions, follow-up work, risks,
+or acknowledgement; those declared fields remain independently authored.
+
+For fresh creation, the source MUST be validated as active, visible, in the route
+incident, and within this matrix inside the enclosing creation transaction. The
+server MUST NOT switch incidents based on the source. Invalid, foreign, deleted,
+or unsupported source references MUST fail with `400 invalid_mutation_payload`
+identifying `coordination.source_record_id` without disclosing foreign protected
+content; ordinary incident authorization/concealment checks precede this validation.
+
+A non-null source MUST create exactly one source-to-created-artifact
+`references_artifact` relationship with `field_key=null`, `provenance='manual'`
+and `confidence=null` in the same transaction as the artifact, target collections,
+revision history, projection, collaboration publication intent and replay result.
+The client MUST NOT issue a second association write. No artifact or association
+may survive a rejected transaction. Source association alone MUST NOT alter source
+scalar authoring or manufacture lifecycle changes.
+
+Linked creation and replay MUST return the full ordinary mutation receipt plus
+`source_record_id` equal to the dispatched source and `link_type='references_artifact'`.
+Unlinked creation retains the ordinary receipt shape. The client MUST validate and
+retain the full row, view identity, change set, request metadata and association
+before presentation or refresh effects. Acceptance survives presentation detachment;
+a failed post-acceptance refresh remains read-only reconciliation work.
+
+The ordinary create operation and incident/view/actor transaction scope remain
+unchanged. Request comparison MUST include the supplied source input, distinguishing
+omission, explicit null and identifiers; requests omitting it retain their previous
+hashes. Exact committed replay follows current authorization but precedes fresh
+source/lifecycle validation, including when a source was subsequently deleted or an
+incident closed. Changed input under the same identity MUST fail with
+`client_txn_conflict`. Existing linked-Note requests and replay receipts are unchanged.
+Profiles: base
+Verified by: AC-569
 
 **REQ-01-309**
 Each schema subsection below, together with the addenda in §19, is an exhaustive per-field registry for its `view_schema_id`, not an illustrative example. In particular, §7.4.2 through §7.4.4 close the base-profile interface contract for the built-in Hosts, Identities, and Evidence sheets, and §19 closes the Parties, coordination-artifact, and standardized optional artifact-backed surface contracts. Core 02 §10.4.4A MAY inventory the closed tagged-variant family for artifact-backed notes, coordination artifacts, and structured findings, but that registry is not a second owner for exhaustive field membership, create-time behavior, omitted-versus-`null` behavior, defaults, write targets or actions, or discovery metadata. These sections are also the sole authoritative source for populating public field and query members of `view_schema_resource_v2`, `view_field_entry_v2`, and `synthetic_filter_predicates[]` discovery output; REQ-01-615 and REQ-01-616 own the `inspector_config_v1` member and per-surface inspector matrix. Implementations MUST NOT invent alternate base-profile or standardized optional writable `field_key` strings, write targets or actions, `conflict_resolution_class` assignments, `entity_binding_mode` values, inspector feature keys, route-binding kinds, or discovery metadata that conflicts with this registry. Surface `title` and field `label` values remain non-authoritative display hints only and MAY change without changing `view_schema_id` when field semantics do not change.
@@ -5368,6 +5442,7 @@ Base-profile relationship mutations surfaced by these view contracts or their ad
   - `timeline.identity_refs` -> `observed_as_identity`, with the Timeline record as `src_record_id` and the resolved identity record as `dst_record_id`,
   - supported same-surface canonical-indicator linking actions on Timeline, Notes, other artifacts, or Evidence -> `references_indicator`, with the invoking source record as `src_record_id` and the canonical indicator record as `dst_record_id`; source-bound occurrences still use `indicator_observations`,
   - contextual evidence-association actions from a non-evidence record -> `attached_evidence`, with the invoking non-evidence record as `src_record_id` and the evidence record as `dst_record_id`,
+  - contextual coordination creation with non-null `coordination.source_record_id` -> `references_artifact`, with that explicitly chosen source as `src_record_id`, the created coordination artifact as `dst_record_id`, and `field_key=null`; this input does not own a collection field,
   - contextual `add linked note` or equivalent artifact-association actions -> `references_artifact`, with the invoking record as `src_record_id` and the created or selected artifact record as `dst_record_id`; for Note creation the invoking record is the explicitly retained or replaced authoring source at dispatch, and explicitly cleared source context creates no relationship,
   - `assessment.support_refs` -> `supported_by`, with the assessment record as `src_record_id` and the supporting record as `dst_record_id`,
   - `task.linked_record_ids` and the authoritative association represented by `task.decision_record_id` -> `references_record`, with the task-request record as `src_record_id` and the referenced record as `dst_record_id`,
@@ -10571,6 +10646,7 @@ Verified by: AC-118, AC-231, AC-278, AC-279, AC-318
 ### Additional coordination and optional artifact-backed surface addenda
 
 **REQ-01-503**
+- create-only inputs: optional nullable `coordination.source_record_id` under the coordination source-context contract in §7.4.1A
 - surface: required workbook-native coordination surface with canonical public identity `cartulary.view.comm_log.v1`; any saved view over this same `view_schema_id` is a distinct saved-view object rather than the required base surface
 - source record types: `artifact` filtered to `artifact_type='comm_log'`
 - base projection: `artifact_grid_projection` filtered to `artifact_type='comm_log'`
@@ -10632,6 +10708,7 @@ Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-231, AC-281, AC-300, AC-301, AC-302, AC-303
 
 **REQ-01-504**
+- create-only inputs: optional nullable `coordination.source_record_id` under the coordination source-context contract in §7.4.1A
 - surface: required workbook-native coordination surface with canonical public identity `cartulary.view.handoff.v1`; any saved view over this same `view_schema_id` is a distinct saved-view object rather than the required base surface
 - source record types: `artifact` filtered to `artifact_type='handoff'`
 - base projection: `artifact_grid_projection` filtered to `artifact_type='handoff'`
@@ -10692,6 +10769,7 @@ Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-231, AC-282, AC-300, AC-301, AC-302, AC-303
 
 **REQ-01-505**
+- create-only inputs: optional nullable `coordination.source_record_id` under the coordination source-context contract in §7.4.1A
 - surface: required workbook-native coordination surface with canonical public identity `cartulary.view.status_review.v1`; any saved view over this same `view_schema_id` is a distinct saved-view object rather than the required base surface
 - source record types: `artifact` filtered to `artifact_type='status_review'`
 - base projection: `artifact_grid_projection` filtered to `artifact_type='status_review'`
@@ -10723,6 +10801,7 @@ Profiles: base
 Verified by: AC-116, AC-117, AC-118, AC-231, AC-283, AC-300, AC-301, AC-302, AC-303
 
 **REQ-01-506**
+- create-only inputs: optional nullable `coordination.source_record_id` under the coordination source-context contract in §7.4.1A
 - surface: required workbook-native coordination surface with canonical public identity `cartulary.view.lesson.v1`; any saved view over this same `view_schema_id` is a distinct saved-view object rather than the required base surface
 - source record types: `artifact` filtered to `artifact_type='lesson'`
 - base projection: `artifact_grid_projection` filtered to `artifact_type='lesson'`

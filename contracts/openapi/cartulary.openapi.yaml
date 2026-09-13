@@ -4399,7 +4399,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/CoordinationCreateMutationEnvelope"
                 }
               }
             },
@@ -4409,7 +4409,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/CoordinationCreateMutationEnvelope"
                 }
               }
             },
@@ -10109,7 +10109,10 @@
             ]
           },
           "comm_log.privilege_tag": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "comm_log.summary": {
             "type": "string"
@@ -10117,6 +10120,13 @@
           "comm_log.timestamp_utc": {
             "format": "date-time",
             "type": "string"
+          },
+          "coordination.source_record_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -10576,6 +10586,61 @@
       "CompositionVersion": {
         "pattern": "^v[1-9][0-9]*$",
         "type": "string"
+      },
+      "CoordinationCreateMutationEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ViewMutationData"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinationLinkedMutationData"
+              }
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object"
+      },
+      "CoordinationLinkedMutationData": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ViewMutationDataFields"
+          }
+        ],
+        "properties": {
+          "link_type": {
+            "const": "references_artifact",
+            "type": "string"
+          },
+          "source_record_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "view_schema_id": {
+            "enum": [
+              "cartulary.view.comm_log.v1",
+              "cartulary.view.handoff.v1",
+              "cartulary.view.status_review.v1",
+              "cartulary.view.lesson.v1"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_record_id",
+          "link_type"
+        ],
+        "type": "object",
+        "unevaluatedProperties": false
       },
       "CreateInputDescriptor": {
         "additionalProperties": false,
@@ -11879,6 +11944,13 @@
           "client_txn_id": {
             "type": "string"
           },
+          "coordination.source_record_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "handoff.acknowledged_at": {
             "format": "date-time",
             "type": [
@@ -11894,7 +11966,10 @@
             "type": "string"
           },
           "handoff.next_checks": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "handoff.open_decision_ids": {
             "$ref": "#/components/schemas/CollectionActionsV1"
@@ -14222,16 +14297,40 @@
       },
       "InspectorSeedBindingV1": {
         "additionalProperties": false,
+        "oneOf": [
+          {
+            "not": {
+              "required": [
+                "target_input_key"
+              ]
+            },
+            "required": [
+              "target_field_key"
+            ]
+          },
+          {
+            "not": {
+              "required": [
+                "target_field_key"
+              ]
+            },
+            "required": [
+              "target_input_key"
+            ]
+          }
+        ],
         "properties": {
           "source": {
             "$ref": "#/components/schemas/InspectorSeedSourceV1"
           },
           "target_field_key": {
             "type": "string"
+          },
+          "target_input_key": {
+            "type": "string"
           }
         },
         "required": [
-          "target_field_key",
           "source"
         ],
         "type": "object"
@@ -14562,6 +14661,13 @@
         "properties": {
           "client_txn_id": {
             "type": "string"
+          },
+          "coordination.source_record_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "lesson.closure_state": {
             "enum": [
@@ -18017,8 +18123,18 @@
           "client_txn_id": {
             "type": "string"
           },
+          "coordination.source_record_id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status_review.active_risks_summary": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status_review.blocked_task_ids": {
             "$ref": "#/components/schemas/CollectionActionsV1"

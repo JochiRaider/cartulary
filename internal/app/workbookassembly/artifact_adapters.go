@@ -85,6 +85,9 @@ func newArtifactCreateProvider(viewSchemaID string, owner *artifacts.MutationFac
 			if err != nil {
 				return workbook.MutationOutcome{}, err
 			}
+			if result.ContextualLink != nil {
+				return workbook.SuccessfulSourceLinkedRowMutation(artifactMutationResult(result)), nil
+			}
 			return workbook.SuccessfulRowMutation(artifactMutationResult(result)), nil
 		},
 	)

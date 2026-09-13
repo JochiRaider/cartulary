@@ -255,6 +255,34 @@
       "sha256": "e015b181f65b8c99777aa585871cd7fd9913463b367f2e8cc93f7a446d615678"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-comm-log-authoring-linux.png",
+      "sha256": "8dbc15f2e9258afb09a1ea90ee4c3896aa02e20ea3e70ecac1a8700cfda245f4"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-handoff-authoring-linux.png",
+      "sha256": "c3699f04ab006f43f65a2fa191e91808bd0da29a405d816fe6cf6b9cf8ec0c9d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-lesson-authoring-linux.png",
+      "sha256": "587dcba6b0af1c3eb8ea6c053fb9ca64a266a3167baa4f45ef54dd7e7c4f2415"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-linux.png",
+      "sha256": "788803149153a36acb3beb44c5505863d38e7b82eeabe7db7eb5f9f3fa7bd190"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-recovery-narrow-linux.png",
+      "sha256": "49b5247a483bd0ea8acf4c9dcc32044f082525293e0a3672985bc5fdf2bf801a"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-source-narrow-linux.png",
+      "sha256": "aa9746cceb249bf26d376ebc03da0c865c8baa2ba6f4831fa0714afeed92936d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/coordination-status-review-authoring-linux.png",
+      "sha256": "b85b39d026da6b26261d5ce7d1c1da3f134131cba2df53630be1c6616309720a"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/decision-supersession-accepted-linux.png",
       "sha256": "b37d1c7c893007ba74d89e19524e41c450e569eaad8c85623b7caaf31bf41734"
     },
@@ -480,7 +508,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-narrow-linux.png",
-      "sha256": "ef22caac03ceb05d4d2536eda4c93670c6797f8de4b30bb7750cb05081b6ef0e"
+      "sha256": "7e011fd87a963c5f02c002aa146e5b6a8f3b9961e80ab1f882b1c954f7a85371"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/lifecycle-review-spacing-linux.png",
@@ -536,7 +564,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-narrow-linux.png",
-      "sha256": "e4eaa23c189ea80b39396d76a4d804a8bcc146c27f47847077b52ae2268f926e"
+      "sha256": "4a37138b32db00ad0259436e7fd91c600ca2448e2029fd5c2a84daeddbe92c76"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-audit-inspected-spacing-linux.png",
@@ -576,7 +604,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-narrow-linux.png",
-      "sha256": "270a6e5909ca16827f3bcc55ca708f3ea1acf722b96635188ac36e235ae84f82"
+      "sha256": "5c5159b72ae54c4c1de0daeed25c4d81392687db29fc57d31fb32d3005780f5d"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/membership-management-removal-spacing-linux.png",
@@ -624,7 +652,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-narrow-linux.png",
-      "sha256": "98341266540971cfb483c3d9065e9c044c3a7b788faae56de7c5b21844d2c69c"
+      "sha256": "59198ab1057b3e90d5c6e99bd7c3fd83ec3263b8df4fc4bb159ba71421915fb6"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/metadata-review-spacing-linux.png",
@@ -876,7 +904,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-uncertain-narrow-linux.png",
-      "sha256": "02fc64acb4e581a1a9830ceb9094665d4aed26099cfd4f2433f679cb6d1ac921"
+      "sha256": "f544fef865dab83bdb9fb15f2b37e0dba114b21983724c8a426c29bb6ecae9af"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-preferences-unset-linux.png",
@@ -964,7 +992,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-view-bar-zoom-200-linux.png",
-      "sha256": "58c83c36931e8b9fa233d17697dc414023a74906c3153da3f869efcffae10d37"
+      "sha256": "d5c6886efaa2be32302e0cad8bd6e122d39fa2ceeff1146dfc8c17d55d875aeb"
     }
   ]
 }

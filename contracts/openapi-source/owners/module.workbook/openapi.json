@@ -529,7 +529,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/CoordinationCreateMutationEnvelope"
                 }
               }
             }
@@ -539,7 +539,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                  "$ref": "#/components/schemas/CoordinationCreateMutationEnvelope"
                 }
               }
             }
@@ -1930,7 +1930,10 @@
             "format": "date-time"
           },
           "comm_log.privilege_tag": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "comm_log.decision_ids": {
             "$ref": "#/components/schemas/CollectionActionsV1"
@@ -1943,6 +1946,13 @@
           },
           "comm_log.attendee_party_ids": {
             "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "coordination.source_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         },
         "required": [
@@ -1981,7 +1991,10 @@
             "$ref": "#/components/schemas/CollectionActionsV1"
           },
           "handoff.next_checks": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "handoff.acknowledged_at": {
             "type": [
@@ -1989,6 +2002,13 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "coordination.source_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         },
         "required": [
@@ -2023,7 +2043,10 @@
             "$ref": "#/components/schemas/CollectionActionsV1"
           },
           "status_review.active_risks_summary": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status_review.next_report_at": {
             "type": [
@@ -2031,6 +2054,13 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "coordination.source_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         },
         "required": [
@@ -2067,6 +2097,13 @@
           },
           "lesson.evidence_refs": {
             "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "coordination.source_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         },
         "required": [
@@ -2915,6 +2952,61 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/LinkedNoteMutationData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CoordinationLinkedMutationData": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ViewMutationDataFields"
+          }
+        ],
+        "properties": {
+          "view_schema_id": {
+            "type": "string",
+            "enum": [
+              "cartulary.view.comm_log.v1",
+              "cartulary.view.handoff.v1",
+              "cartulary.view.status_review.v1",
+              "cartulary.view.lesson.v1"
+            ]
+          },
+          "source_record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link_type": {
+            "type": "string",
+            "const": "references_artifact"
+          }
+        },
+        "required": [
+          "source_record_id",
+          "link_type"
+        ],
+        "unevaluatedProperties": false
+      },
+      "CoordinationCreateMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ViewMutationData"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinationLinkedMutationData"
+              }
+            ]
           },
           "meta": {
             "$ref": "#/components/schemas/EnvelopeMeta"

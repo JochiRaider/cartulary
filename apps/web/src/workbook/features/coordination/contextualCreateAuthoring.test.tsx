@@ -98,7 +98,9 @@ describe("contextual Task and Decision authoring", () => {
           feature.routeBinding.targetViewSchemaId,
         );
         expect(
-          draft.values[required(feature.seedBindings[0]).targetFieldKey],
+          draft.values[
+            required(required(feature.seedBindings[0]).targetFieldKey)
+          ],
         ).toBe(sourceId);
         expect(contextualCreateRequest(draft, "txn")).toBeNull();
         count++;

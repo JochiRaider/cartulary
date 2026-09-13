@@ -44,6 +44,7 @@ func TestArtifactStoredIdempotencyPayloadCompatibility(t *testing.T) {
 		additional map[string]any
 	}{
 		{name: "create", operation: artifacts.OperationCreate, kind: artifacts.StoredMutationCreate},
+		{name: "coordination linked create", operation: artifacts.OperationCreate, kind: artifacts.StoredMutationCreate, additional: map[string]any{"view_schema_id": artifacts.LessonViewSchemaID, "source_record_id": sourceRecordID.String(), "link_type": "references_artifact"}},
 		{name: "patch", operation: artifacts.OperationPatch, kind: artifacts.StoredMutationPatch},
 		{name: "conflict patch", operation: artifacts.OperationConflictResolve, kind: artifacts.StoredMutationPatch},
 		{name: "linked note", operation: artifacts.OperationLinkedNoteCreate, kind: artifacts.StoredMutationLinkedNote, additional: map[string]any{

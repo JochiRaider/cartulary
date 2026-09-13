@@ -913,7 +913,8 @@ type InspectorSeedSource struct {
 	Value any ` + "`json:\"value,omitempty\"`" + `
 }
 type InspectorSeedBinding struct {
-	TargetFieldKey string ` + "`json:\"target_field_key\"`" + `
+	TargetFieldKey string ` + "`json:\"target_field_key,omitempty\"`" + `
+	TargetInputKey string ` + "`json:\"target_input_key,omitempty\"`" + `
 	Source InspectorSeedSource ` + "`json:\"source\"`" + `
 }
 type InspectorFeatureGroup struct {

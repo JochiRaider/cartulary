@@ -6,7 +6,10 @@ import { type CSSProperties, useContext, useSyncExternalStore } from "react";
 import { GenericMutationControl } from "../components/GenericMutationControl";
 import { ContextualCreateContext } from "../features/coordination/ContextualCreateContext";
 import { ContextualCreateForm } from "../features/coordination/ContextualCreateForm";
+import { CoordinationCreateContext } from "../features/coordination/CoordinationCreateContext";
+import { CoordinationCreateForm } from "../features/coordination/CoordinationCreateForm";
 import { isContextualCreateFeature } from "../features/coordination/contextualCreateModel";
+import { coordinationVariant } from "../features/coordination/coordinationCreateModel";
 import { TimelineRelatedEvidenceContext } from "../features/evidence/TimelineRelatedEvidenceContext";
 import { TimelineRelatedEvidenceForm } from "../features/evidence/TimelineRelatedEvidenceForm";
 import { relatedEvidenceFeature } from "../features/evidence/timelineRelatedEvidenceModel";
@@ -32,8 +35,17 @@ export function InspectorCreateRelatedWorkflow({
   readonly onUpdateDraft: (fieldKey: string, value: string) => void;
 }) {
   const note = useContext(NoteCreateContext);
+  const coordination = useContext(CoordinationCreateContext);
   const context = useContext(ContextualCreateContext);
   const evidence = useContext(TimelineRelatedEvidenceContext);
+  if (coordinationVariant(state.featureGroup.featureGroupKey))
+    return coordination ? (
+      <CoordinationCreateForm
+        owner={coordination.owner}
+        attachment={state.workflowId}
+        onSubmit={() => void coordination.owner.submit(state.workflowId)}
+      />
+    ) : null;
   if (state.featureGroup.featureGroupKey === noteCreateFeature)
     return note ? (
       <NoteCreateForm

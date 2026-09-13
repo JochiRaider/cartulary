@@ -298,6 +298,38 @@
       ]
     },
     {
+      "row_id": "module.artifacts.source_mutations.coordination_source_atomic_creation",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.source_mutations",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.source_mutations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestCoordinationSourceAtomicCreation"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.artifacts.surface.iteration3_exported_surface_reachability",
       "owner_id": "module.artifacts",
       "family_id": "module.artifacts.surface",

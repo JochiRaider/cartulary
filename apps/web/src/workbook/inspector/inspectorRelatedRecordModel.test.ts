@@ -13,6 +13,49 @@ const canonicalFeature = timeline.inspectorConfig.featureGroups.find(
 );
 
 describe("inspector related-record model", () => {
+  it("characterizes legacy coordination draft loss while projecting an input seed", () => {
+    for (const target of ["comm_log", "handoff", "status_review", "lesson"]) {
+      const feature = timeline.inspectorConfig.featureGroups.find(
+        (f) => f.featureGroupKey === `create_related.${target}`,
+      );
+      if (!feature) throw new Error("Missing coordination feature");
+      const contract = requireViewContract(`cartulary.view.${target}.v1`);
+      const subject = timelineSubject("source-record", 4);
+      const result = buildInspectorRelatedRecordDraft({
+        currentUserId: null,
+        featureGroup: feature,
+        subject: { cells: {}, subject },
+        targetContract: contract,
+      });
+      expect(result.kind).toBe("ready");
+      if (result.kind !== "ready") throw new Error("Invalid target");
+      expect(result.draft["coordination.source_record_id"]).toBe(
+        subject.recordId,
+      );
+      const workflowId = Symbol("legacy-coordination");
+      const draft = inspectorRelatedRecordWorkflowReducer(null, {
+        type: "begin",
+        workflowId,
+        subject,
+        featureGroup: feature,
+        targetContract: contract,
+        draft: {
+          ...result.draft,
+          [target === "comm_log" || target === "lesson"
+            ? `${target}.summary`
+            : `${target}.current_state_summary`]: "  unfinished raw text  ",
+        },
+      });
+      expect(
+        inspectorRelatedRecordWorkflowReducer(draft, {
+          type: "retarget",
+          workflowId,
+          subject: { ...subject, rowVersion: 5 },
+        }),
+      ).toBeNull();
+    }
+  });
+
   it("builds selected-record, selected-field, and literal seeds", () => {
     expect(canonicalFeature).toBeDefined();
     if (canonicalFeature === undefined) return;

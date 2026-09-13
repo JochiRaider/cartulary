@@ -240,6 +240,11 @@ import {
   showTimelineCollectionColumns,
 } from "./support/workbook/collections";
 import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
+import {
+  fillCoordinationMinimum,
+  openCoordinationFixture,
+  retainCoordinationUncertainResult,
+} from "./support/workbook/coordinationCreate";
 import { openDecisionReviewFixture } from "./support/workbook/decisionSupersession";
 import { fetchRecordHistory } from "./support/workbook/history";
 import {
@@ -343,6 +348,7 @@ const expectedFrontendVisualFixtureIds = [
   "visual.fixture.tree_group_row",
   "visual.fixture.indicator_lifecycle_authoring",
   "visual.fixture.indicator_observations_authoring",
+  "visual.fixture.contextual_coordination_creation",
 ] as const;
 
 const expectedDesignContractIds = Array.from(
@@ -8933,4 +8939,69 @@ test("Capture linked Note authoring source selection and retained atomic recover
     body: await recovery.ariaSnapshot(),
     contentType: "text/plain",
   });
+});
+
+test("Capture contextual coordination target authoring source selection and retained recovery", async ({
+  page,
+}) => {
+  const capture = async (
+    name: string,
+    options: { anchor?: VisualAnchor } = {},
+  ) => {
+    await assertViewportVisualRegression(page, name, {
+      ...options,
+      ready: () =>
+        normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+          scroll: { top: 0, left: "left" },
+        }),
+    });
+    await test.info().attach(`${name}-review`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  };
+  for (const variant of ["comm_log", "handoff", "status_review", "lesson"]) {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const f = await openCoordinationFixture(
+      page,
+      variant,
+      timelineViewSchemaId,
+      (url) => navigateVisualApplication(page, url),
+    );
+    await fillCoordinationMinimum(f);
+    const anchor: VisualAnchor = {
+      locator: f.form,
+      align: "start",
+      scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+    };
+    await capture(`coordination-${variant}-authoring`, { anchor });
+    if (variant === "lesson") {
+      await page.setViewportSize({ width: 768, height: 640 });
+      await f.form
+        .getByRole("button", { name: "Choose source", exact: true })
+        .click();
+      const picker = f.form.getByRole("region", {
+        name: "Choose source",
+        exact: true,
+      });
+      await expect(
+        picker.getByRole("button", { name: "Apply references", exact: true }),
+      ).toBeEnabled();
+      await capture("coordination-source-narrow", {
+        anchor: { ...anchor, locator: picker },
+      });
+      await picker
+        .getByRole("button", { name: "Cancel references", exact: true })
+        .click();
+      const { recovery } = await retainCoordinationUncertainResult(page, f);
+      await page.setViewportSize({ width: 390, height: 480 });
+      await capture("coordination-recovery-narrow");
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await capture("coordination-recovery");
+      await test.info().attach("coordination-recovery-tree", {
+        body: await recovery.ariaSnapshot(),
+        contentType: "text/plain",
+      });
+    }
+  }
 });

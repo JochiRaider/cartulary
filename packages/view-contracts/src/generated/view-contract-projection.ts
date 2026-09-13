@@ -1111,7 +1111,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.comm_log",
@@ -1126,14 +1128,23 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.comm_log.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         },
         {
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.handoff",
@@ -1148,14 +1159,23 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.handoff.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         },
         {
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.status_review",
@@ -1170,14 +1190,23 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.status_review.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         },
         {
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.lesson",
@@ -1192,7 +1221,14 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.lesson.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         }
       ],
@@ -6393,7 +6429,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.comm_log",
@@ -6408,14 +6446,23 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.comm_log.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         },
         {
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.status_review",
@@ -6430,14 +6477,23 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.status_review.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         },
         {
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.lesson",
@@ -6452,7 +6508,14 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.lesson.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         }
       ],
@@ -7110,7 +7173,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.comm_log",
@@ -7125,14 +7190,23 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.comm_log.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         },
         {
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.status_review",
@@ -7147,7 +7221,14 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.status_review.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         }
       ],
@@ -7792,7 +7873,14 @@ const value = [
   },
   {
     "createCapable": true,
-    "createInputs": [],
+    "createInputs": [
+      {
+        "inputKey": "coordination.source_record_id",
+        "nullable": true,
+        "required": false,
+        "valueContractId": "same_incident_record_ref_v1"
+      }
+    ],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -7967,7 +8055,7 @@ const value = [
         "writeKind": "direct_value"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "atomic_replace",
         "createWritable": true,
         "defaultHidden": true,
@@ -8445,7 +8533,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.status_review",
@@ -8460,7 +8550,14 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.status_review.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         }
       ],
@@ -8532,7 +8629,14 @@ const value = [
   },
   {
     "createCapable": true,
-    "createInputs": [],
+    "createInputs": [
+      {
+        "inputKey": "coordination.source_record_id",
+        "nullable": true,
+        "required": false,
+        "valueContractId": "same_incident_record_ref_v1"
+      }
+    ],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -8717,7 +8821,7 @@ const value = [
         "writeKind": "action_payload"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": true,
         "defaultHidden": false,
@@ -9123,7 +9227,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.status_review",
@@ -9138,7 +9244,14 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.status_review.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         }
       ],
@@ -9203,7 +9316,14 @@ const value = [
   },
   {
     "createCapable": true,
-    "createInputs": [],
+    "createInputs": [
+      {
+        "inputKey": "coordination.source_record_id",
+        "nullable": true,
+        "required": false,
+        "valueContractId": "same_incident_record_ref_v1"
+      }
+    ],
     "defaultHiddenFields": [
       "record_id",
       "row_version",
@@ -9363,7 +9483,7 @@ const value = [
         "writeKind": "action_payload"
       },
       {
-        "clearable": false,
+        "clearable": true,
         "conflictResolutionClass": "text_compare_merge",
         "createWritable": true,
         "defaultHidden": false,
@@ -9778,7 +9898,9 @@ const value = [
           "disabledWhen": [
             "no_row_selected",
             "incident_closed",
-            "authorization_lost"
+            "authorization_lost",
+            "row_version_changed",
+            "record_deleted"
           ],
           "failureResultBehavior": "show_same_shell_error_invalidate_pending_action",
           "featureGroupKey": "create_related.comm_log",
@@ -9793,7 +9915,14 @@ const value = [
             "owner": "view_row_create_route",
             "targetViewSchemaId": "cartulary.view.comm_log.v1"
           },
-          "seedBindings": [],
+          "seedBindings": [
+            {
+              "source": {
+                "kind": "selected_record_id"
+              },
+              "targetInputKey": "coordination.source_record_id"
+            }
+          ],
           "successResultBehavior": "preserve_selected_row"
         }
       ],
@@ -9860,7 +9989,14 @@ const value = [
   },
   {
     "createCapable": true,
-    "createInputs": [],
+    "createInputs": [
+      {
+        "inputKey": "coordination.source_record_id",
+        "nullable": true,
+        "required": false,
+        "valueContractId": "same_incident_record_ref_v1"
+      }
+    ],
     "defaultHiddenFields": [
       "record_id",
       "row_version",

@@ -137,7 +137,8 @@ export function buildInspectorRelatedRecordDraft({
   const draft = initialGenericCreateDraft(targetContract, currentUserId);
   for (const binding of featureGroup.seedBindings) {
     const value = inspectorRelatedRecordSeedValue(binding.source, subject);
-    if (value !== null) draft[binding.targetFieldKey] = value;
+    if (value !== null)
+      draft[binding.targetFieldKey ?? binding.targetInputKey] = value;
   }
   return { kind: "ready", draft };
 }

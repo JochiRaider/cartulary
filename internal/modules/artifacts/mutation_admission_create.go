@@ -22,6 +22,9 @@ func AdmitCreate(viewSchemaID string, reader io.Reader) (CreateAdmission, *Admis
 		return CreateAdmission{}, newAdmissionError("", admissionRequestNotObject)
 	}
 	allowed := map[string]struct{}{"client_txn_id": {}}
+	if isCoordinationView(viewSchemaID) {
+		allowed[coordinationSourceInput] = struct{}{}
+	}
 	for fieldKey, field := range schema.Fields() {
 		if field.Writable || field.CreateWritable {
 			allowed[fieldKey] = struct{}{}
@@ -41,6 +44,16 @@ func AdmitCreate(viewSchemaID string, reader io.Reader) (CreateAdmission, *Admis
 		return CreateAdmission{}, newAdmissionError("client_txn_id", admissionMissingRequiredField)
 	} else if json.Unmarshal(value, &request.ClientTxnID) != nil || strings.TrimSpace(request.ClientTxnID) == "" {
 		return CreateAdmission{}, newAdmissionError("client_txn_id", admissionMissingRequiredField)
+	}
+	if value, present := raw[coordinationSourceInput]; present {
+		request.CoordinationSourcePresent = true
+		if string(value) != "null" {
+			source, ok := artifactUUIDActionField(raw, coordinationSourceInput)
+			if !ok {
+				return CreateAdmission{}, newAdmissionError(coordinationSourceInput, admissionInvalidValue)
+			}
+			request.CoordinationSourceRecordID = &source
+		}
 	}
 	for fieldKey, field := range schema.Fields() {
 		value, present := raw[fieldKey]

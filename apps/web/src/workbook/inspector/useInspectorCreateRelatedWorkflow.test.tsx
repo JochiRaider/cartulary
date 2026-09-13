@@ -6,10 +6,10 @@ import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCom
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import { useInspectorCreateRelatedWorkflow } from "./useInspectorCreateRelatedWorkflow";
 
-const timeline = requireViewContract("cartulary.view.timeline.v2");
-const commLog = requireViewContract("cartulary.view.comm_log.v1");
+const timeline = requireViewContract("cartulary.view.assessments.v1");
+const commLog = requireViewContract("cartulary.view.assessments.v1");
 const createCommLog = timeline.inspectorConfig.featureGroups.find(
-  (feature) => feature.featureGroupKey === "create_related.comm_log",
+  (feature) => feature.featureGroupKey === "create_related.assessment",
 );
 const initialSubject = {
   cells: { "timeline.activity_synopsis_text": { value: "Investigate" } },

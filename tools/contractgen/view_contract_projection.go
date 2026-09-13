@@ -457,10 +457,14 @@ func normalizeProjectionInspectorSeeds(value any, label string) ([]any, error) {
 		if constant, ok := source["value"]; ok {
 			normalizedSource["value"] = constant
 		}
-		result = append(result, map[string]any{
-			"source":         normalizedSource,
-			"targetFieldKey": seed["target_field_key"],
-		})
+		binding := map[string]any{"source": normalizedSource}
+		if key, ok := seed["target_field_key"]; ok {
+			binding["targetFieldKey"] = key
+		}
+		if key, ok := seed["target_input_key"]; ok {
+			binding["targetInputKey"] = key
+		}
+		result = append(result, binding)
 	}
 	return result, nil
 }

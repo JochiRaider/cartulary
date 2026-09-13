@@ -156,7 +156,6 @@ export function useTimelineWorkbookComposition({
       publishViewingPresence: mutation.commands.presence.publishViewingPresence,
       waitForCommittedRecordIdle: mutation.ports.waitForCommittedRecordIdle,
     },
-    mutationCommands: runtime.mutationCommands,
     onIncidentAccessLost: runtime.onIncidentAccessLost,
   });
   const interaction = useTimelineInteractionComposition({
@@ -244,6 +243,13 @@ export function useTimelineWorkbookComposition({
   });
   useTimelineSourceWriteCoordination({
     owner: runtime.mutationRuntime.noteCreate,
+    rows: foundation.refs.rows,
+    drafts: foundation.refs.editorDraftRegistry,
+    available: !foundation.snapshot.lifecycle.loadAccessLost,
+    waitForIdle: mutation.ports.waitForCommittedRecordIdle,
+  });
+  useTimelineSourceWriteCoordination({
+    owner: runtime.mutationRuntime.coordinationCreate,
     rows: foundation.refs.rows,
     drafts: foundation.refs.editorDraftRegistry,
     available: !foundation.snapshot.lifecycle.loadAccessLost,

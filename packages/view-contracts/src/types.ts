@@ -64,10 +64,10 @@ export type InspectorSeedSource = {
   readonly value?: unknown;
 };
 
-export type InspectorSeedBinding = {
-  readonly targetFieldKey: string;
-  readonly source: InspectorSeedSource;
-};
+export type InspectorSeedBinding = { readonly source: InspectorSeedSource } & (
+  | { readonly targetFieldKey: string; readonly targetInputKey?: never }
+  | { readonly targetFieldKey?: never; readonly targetInputKey: string }
+);
 
 export type InspectorFeatureGroup = {
   readonly featureGroupKey: string;

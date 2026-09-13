@@ -1634,6 +1634,90 @@
       "classification": "breaking",
       "owner_id": "module.workbook",
       "rationale": "Project the existing atomic linked-note success receipt, including source_record_id and server-derived references_artifact link_type, under the Notes-specific Core 01 routing clarification; the runtime response is unchanged and ordinary mutation envelopes remain closed."
+    },
+    {
+      "fingerprint": "aef34e9098efdd494f54577850da3ca2f4ffddb395825085f94597f95fd2151b",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "03b224567fcb0e1599e43e6bd9f9760a1ffd2cd40a1e8ed60ce2b06f9719e054",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "3a973d250aafac79742a347de205c8f3b100d781f48dadc2cba995e60da3b43f",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "07c5bbce699a67cde386638c6d254abd363323a34c77e202ca8538938f1a2e07",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "9f9658d0d408d346f493ec5eb2742f9963bab2df84095ebffc8d9e3d4023a21e",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "fcc6caea89d0920b6714e60c8f5601ddcad03413b9d0268abfe1570ea3073cdc",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "674e501e4270da82872793f921faa05cbfb6ec2bcaa22e323bdf3afac1bf2c3b",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "cdc4ad5ce5243afa41a61b77e167e72e67baad6fff1bffee5b6b8691f1809b1e",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "052b687b15f744fa95e9bea95ff1c081838fc62d01f4f9988c5a2f693331a04f",
+      "classification": "breaking",
+      "owner_id": "platform.viewschema",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "78ac4507d2fb5cc68426327609fb71b698dd012c46d586588a3900ef7ce1894f",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "71f1e647ba729bdab84ad5fb53bfa32825b8ad2834d30444c883ad78a2672e83",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "5faa1c96b8b22499735fc61fc916ff475e85017d62d40d14b185def9a780013d",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "8257cad34f37c149a7b58dee6b2645579f9bbf08fca35eb4d92ddc81493ebd73",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
+    },
+    {
+      "fingerprint": "7d05b3088efe93c14aeb6fdd040a261f6f75062905fb67fbb07da931dda4e7ee",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Adopt the approved contextual coordination source input, exclusive input seed binding, complete atomic association receipt, and owner-declared nullable optional create fields while retaining existing routes and ordinary requests."
     }
   ]
 }

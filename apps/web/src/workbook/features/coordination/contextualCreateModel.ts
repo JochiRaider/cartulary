@@ -77,7 +77,9 @@ export function contextualCreateDraft(
     JSON.stringify(declared) !== JSON.stringify(feature) ||
     !workbookCreationAvailable(target) ||
     feature.seedBindings.some(
-      (binding) => !target.fieldMap[binding.targetFieldKey]?.createWritable,
+      (binding) =>
+        !binding.targetFieldKey ||
+        !target.fieldMap[binding.targetFieldKey]?.createWritable,
     )
   )
     return null;
@@ -111,10 +113,16 @@ export function contextualCreateDraft(
     feature: declared,
     target,
     seeds: Object.fromEntries(
-      declared.seedBindings.map((binding) => [
-        binding.targetFieldKey,
-        result.draft[binding.targetFieldKey] ?? "",
-      ]),
+      declared.seedBindings.flatMap((binding) =>
+        binding.targetFieldKey
+          ? [
+              [
+                binding.targetFieldKey,
+                result.draft[binding.targetFieldKey] ?? "",
+              ],
+            ]
+          : [],
+      ),
     ),
     values,
     labels: { [subject.subject.recordId]: subject.subject.label },

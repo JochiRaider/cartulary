@@ -411,11 +411,20 @@
           "target_view_schema_id": "cartulary.view.comm_log.v1",
           "action_key": "create_related.comm_log"
         },
-        "seed_bindings": [],
+        "seed_bindings": [
+          {
+            "target_input_key": "coordination.source_record_id",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
-          "authorization_lost"
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
@@ -433,11 +442,20 @@
           "target_view_schema_id": "cartulary.view.status_review.v1",
           "action_key": "create_related.status_review"
         },
-        "seed_bindings": [],
+        "seed_bindings": [
+          {
+            "target_input_key": "coordination.source_record_id",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
-          "authorization_lost"
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
@@ -455,11 +473,20 @@
           "target_view_schema_id": "cartulary.view.lesson.v1",
           "action_key": "create_related.lesson"
         },
-        "seed_bindings": [],
+        "seed_bindings": [
+          {
+            "target_input_key": "coordination.source_record_id",
+            "source": {
+              "kind": "selected_record_id"
+            }
+          }
+        ],
         "disabled_when": [
           "no_row_selected",
           "incident_closed",
-          "authorization_lost"
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"

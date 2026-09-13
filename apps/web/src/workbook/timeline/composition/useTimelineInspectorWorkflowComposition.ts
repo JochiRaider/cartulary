@@ -21,7 +21,6 @@ import {
   useTimelineInspectorRowInteractions,
 } from "../hooks/useTimelineInspectorSelection";
 import { useTimelineMentionActions } from "../hooks/useTimelineMentionActions";
-import { timelineCreateRelatedTargetContracts } from "../models/timelineWorkbookFeaturePolicy";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 
 type CreateRelatedInput = Parameters<
@@ -97,7 +96,6 @@ type TimelineInspectorWorkflowCompositionInput = {
     readonly loadRows: HistoryInput["loadRows"];
     readonly publishViewingPresence: InspectorRowInteractionsInput["publishViewingPresence"];
   };
-  readonly mutationCommands: TimelineWorkbookSurfaceRuntime["mutationCommands"];
   readonly onIncidentAccessLost: TimelineWorkbookSurfaceRuntime["onIncidentAccessLost"];
   readonly activeSheetRef: TimelineWorkbookSurfaceRuntime["incident"]["sheetRef"];
 };
@@ -112,7 +110,6 @@ export function useTimelineInspectorWorkflowComposition({
   incident,
   inspector,
   mutation,
-  mutationCommands,
   onIncidentAccessLost,
 }: TimelineInspectorWorkflowCompositionInput) {
   const actionContext = {
@@ -131,13 +128,9 @@ export function useTimelineInspectorWorkflowComposition({
     workflow: createRelatedWorkflow,
   } = useTimelineCreateRelatedWorkflow({
     isInspectorOpen: inspector.lifecycle.phase !== "closed",
-    actionContext,
-    currentUserId: incident.currentUserId,
-    mutationCommands: mutationCommands.related,
     selectedRow: inspector.selection.selectedRow,
     selectedSubject: inspector.selection.selectedRowWorkflowSubject,
     setInspectorMessage: inspector.publishFeedback,
-    targetContracts: timelineCreateRelatedTargetContracts,
   });
   const features = useTimelineInspectorFeatureController({
     beginCreateRelatedWorkflow: beginWorkflow,

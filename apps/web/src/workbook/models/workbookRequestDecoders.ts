@@ -178,7 +178,13 @@ function isCreateViewRowRequest(
     const createInput = contract.createInputs.find(
       (input) => input.inputKey === key,
     );
-    if (createInput === undefined || typeof fieldValue !== "string") {
+    if (
+      createInput === undefined ||
+      !(
+        typeof fieldValue === "string" ||
+        (fieldValue === null && createInput.nullable)
+      )
+    ) {
       return false;
     }
   }

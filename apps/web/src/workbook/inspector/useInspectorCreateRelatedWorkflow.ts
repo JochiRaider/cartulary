@@ -4,6 +4,7 @@ import {
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useContextualCreateAttachment } from "../features/coordination/useContextualCreateAttachment";
+import { useCoordinationCreateAttachment } from "../features/coordination/useCoordinationCreateAttachment";
 import { useNoteCreateAttachment } from "../features/notes/useNoteCreateAttachment";
 import { genericCreateMinimumMessage } from "../models/genericWorkbookModel";
 import type { TimelineRelatedRecordPort } from "../mutations/workbookMutationCommandPorts";
@@ -37,6 +38,7 @@ export function useInspectorCreateRelatedWorkflow({
   readonly selectedSubject: WorkbookInspectorLiveRowBinding | null;
 }) {
   const note = useNoteCreateAttachment(selectedSubject);
+  const coordination = useCoordinationCreateAttachment(selectedSubject);
   const {
     workflow: contextualWorkflow,
     begin: contextualBegin,
@@ -73,6 +75,7 @@ export function useInspectorCreateRelatedWorkflow({
 
   const begin = useCallback(
     (featureGroup: InspectorFeatureGroup): boolean => {
+      if (coordination.begin(featureGroup)) return true;
       if (note.begin(featureGroup)) return true;
       if (contextualBegin(featureGroup)) return true;
       if (
@@ -127,6 +130,7 @@ export function useInspectorCreateRelatedWorkflow({
       return true;
     },
     [
+      coordination.begin,
       note.begin,
       contextualBegin,
       currentUserId,
@@ -138,6 +142,10 @@ export function useInspectorCreateRelatedWorkflow({
 
   const updateDraft = useCallback(
     (fieldKey: string, value: string) => {
+      if (coordination.workflow) {
+        coordination.update(fieldKey, value);
+        return;
+      }
       if (note.workflow) {
         note.update(fieldKey, value);
         return;
@@ -156,6 +164,8 @@ export function useInspectorCreateRelatedWorkflow({
       });
     },
     [
+      coordination.workflow,
+      coordination.update,
       note.workflow,
       note.update,
       contextualWorkflow,
@@ -166,11 +176,12 @@ export function useInspectorCreateRelatedWorkflow({
 
   const cancel = useCallback(() => {
     note.detach();
+    coordination.detach();
     contextualDetach();
     const active = workflowRef.current;
     if (active === null) return;
     dispatchWorkflow({ type: "cancel", workflowId: active.workflowId });
-  }, [note.detach, contextualDetach, dispatchWorkflow]);
+  }, [note.detach, coordination.detach, contextualDetach, dispatchWorkflow]);
 
   const submit = useCallback(async () => {
     const active = workflowRef.current;
@@ -226,6 +237,12 @@ export function useInspectorCreateRelatedWorkflow({
 
   return {
     commands: { begin, cancel, submit, updateDraft },
-    snapshot: { workflow: note.workflow ?? contextualWorkflow ?? workflow },
+    snapshot: {
+      workflow:
+        coordination.workflow ??
+        note.workflow ??
+        contextualWorkflow ??
+        workflow,
+    },
   };
 }

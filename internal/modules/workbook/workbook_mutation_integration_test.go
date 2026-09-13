@@ -409,6 +409,52 @@ func TestCoordinationDefaults_Integration(t *testing.T) {
 	requireCellValue(t, lessonRow, "lesson.closure_state", "open")
 	requireCollectionItemCount(t, lessonRow, "lesson.follow_up_task_ids", 0)
 	requireCollectionItemCount(t, lessonRow, "lesson.evidence_refs", 0)
+	t.Run("contextual public create preserves complete linked receipt and replay", func(t *testing.T) {
+		source := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
+			"client_txn_id": "txn-coordination-source", "timeline.activity_synopsis_text": "Reviewed source",
+		})
+		sourceID := source["row"].(map[string]any)["record_id"]
+		for _, tc := range []struct {
+			view string
+			body map[string]any
+		}{
+			{"cartulary.view.comm_log.v1", map[string]any{"comm_log.comm_type": "briefing", "comm_log.audience": "Operations", "comm_log.channel_or_meeting": "Bridge", "comm_log.summary": "Reviewed communication"}},
+			{"cartulary.view.handoff.v1", map[string]any{"handoff.incoming_owner_user_id": adminUserID.String(), "handoff.current_state_summary": "Reviewed handoff"}},
+			{"cartulary.view.status_review.v1", map[string]any{"status_review.current_state_summary": "Reviewed status"}},
+			{"cartulary.view.lesson.v1", map[string]any{"lesson.summary": "Reviewed lesson"}},
+		} {
+			t.Run(tc.view, func(t *testing.T) {
+				tc.body["client_txn_id"] = "txn-source-linked-" + tc.view
+				tc.body["coordination.source_record_id"] = sourceID
+				var accepted map[string]any
+				before := countIncidentRecords(t, harness, incidentID)
+				for _, status := range []int{http.StatusCreated, http.StatusOK} {
+					response := doWorkbookJSON(t, harness, adminLogin, http.MethodPost, incidentID, tc.view, uuid.Nil, tc.body)
+					requestID := response.Header.Get("X-Request-ID")
+					envelope := httptestx.RequireSuccessEnvelope(t, response, status)
+					if requestID == "" || envelope["meta"].(map[string]any)["request_id"] != requestID {
+						t.Fatal("linked success lost request metadata")
+					}
+					data := envelope["data"].(map[string]any)
+					if data["view_schema_id"] != tc.view || data["source_record_id"] != sourceID || data["link_type"] != "references_artifact" || data["change_set_id"] == nil {
+						t.Fatalf("incomplete contextual receipt: %#v", data)
+					}
+					row := data["row"].(map[string]any)
+					if row["record_id"] == nil || row["row_version"] != float64(1) || row["cells"] == nil {
+						t.Fatalf("incomplete accepted row: %#v", row)
+					}
+					if accepted != nil && !reflect.DeepEqual(accepted, data) {
+						t.Fatal("replay changed accepted data")
+					}
+					accepted = data
+				}
+				if countIncidentRecords(t, harness, incidentID) != before+1 {
+					t.Fatal("public replay duplicated artifact")
+				}
+			})
+		}
+	})
+
 }
 
 func TestGenericCollectionPatch_Integration(t *testing.T) {

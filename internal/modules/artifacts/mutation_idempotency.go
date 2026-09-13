@@ -74,7 +74,7 @@ func (r StoredMutationResult) Kind() StoredMutationKind { return r.kind }
 func (r StoredMutationResult) Payload() (StoredMutationPayload, bool) {
 	switch r.kind {
 	case StoredMutationCreate, StoredMutationPatch, StoredMutationLinkedNote:
-		return cloneStoredMutationPayload(r.workbook), true
+		return cloneStoredMutationPayload(r.workbook), validStoredMutationPayload(r.kind, r.workbook)
 	default:
 		return StoredMutationPayload{}, false
 	}
@@ -86,9 +86,10 @@ type IdempotencyCapability interface {
 }
 
 type storedMutationExpectation struct {
-	kind         StoredMutationKind
-	viewSchemaID string
-	recordID     *uuid.UUID
+	sourceRecordID *uuid.UUID
+	kind           StoredMutationKind
+	viewSchemaID   string
+	recordID       *uuid.UUID
 }
 
 func (f *MutationFacade) replayStoredMutation(
@@ -110,7 +111,8 @@ func (f *MutationFacade) replayStoredMutation(
 	}
 	stored, ok := existing.Payload()
 	if !ok || !validStoredMutationPayload(existing.Kind(), stored) || stored.ViewSchemaID != expectation.viewSchemaID ||
-		(expectation.recordID != nil && stored.RecordID != *expectation.recordID) {
+		(expectation.recordID != nil && stored.RecordID != *expectation.recordID) ||
+		(expectation.kind != StoredMutationPatch && !sameContextualSource(stored.ContextualLink, expectation.sourceRecordID)) {
 		return StoredMutationPayload{}, false, ErrStoredMutationKindMismatch
 	}
 	return stored, true, nil
@@ -122,7 +124,9 @@ func validStoredMutationPayload(kind StoredMutationKind, stored StoredMutationPa
 		return false
 	}
 	switch kind {
-	case StoredMutationCreate, StoredMutationPatch:
+	case StoredMutationCreate:
+		return stored.ContextualLink == nil || (isCoordinationView(stored.ViewSchemaID) && stored.ContextualLink.SourceRecordID != uuid.Nil && stored.ContextualLink.LinkType == "references_artifact")
+	case StoredMutationPatch:
 		return stored.ContextualLink == nil
 	case StoredMutationLinkedNote:
 		return stored.ContextualLink != nil && stored.ContextualLink.SourceRecordID != uuid.Nil &&
@@ -139,4 +143,11 @@ func cloneStoredMutationPayload(stored StoredMutationPayload) StoredMutationPayl
 		stored.Row = cloneMap(stored.Row)
 	}
 	return stored
+}
+
+func sameContextualSource(link *ContextualLink, source *uuid.UUID) bool {
+	if source == nil {
+		return link == nil
+	}
+	return link != nil && link.SourceRecordID == *source && link.LinkType == "references_artifact"
 }
