@@ -312,10 +312,24 @@ export class WorkbookRecordHistoryOwner {
     );
   }
 
-  async load(
+  load(
     recordId: string,
     signal?: AbortSignal,
     request: HistoryPageRequest = {},
+  ): Promise<WorkbookOperationOutcome<HistoryPage>> {
+    return this.read(recordId, signal, request, true);
+  }
+  /** Related projections may disappear without invalidating incident-wide history access. */
+  loadProjection(
+    recordId: string,
+  ): Promise<WorkbookOperationOutcome<HistoryPage>> {
+    return this.read(recordId, undefined, {}, false);
+  }
+  private async read(
+    recordId: string,
+    signal: AbortSignal | undefined,
+    request: HistoryPageRequest,
+    suspendMissingRecord: boolean,
   ): Promise<WorkbookOperationOutcome<HistoryPage>> {
     const authority = this.authority;
     const epoch = this.epoch;
@@ -352,7 +366,8 @@ export class WorkbookRecordHistoryOwner {
       result.value.kind === "rejected" &&
       (result.value.failure.kind === "authentication_required" ||
         result.value.failure.kind === "authorization_lost" ||
-        result.value.failure.publicCode === "record_not_found" ||
+        (suspendMissingRecord &&
+          result.value.failure.publicCode === "record_not_found") ||
         result.value.failure.publicCode === "incident_not_found")
     )
       this.suspend();

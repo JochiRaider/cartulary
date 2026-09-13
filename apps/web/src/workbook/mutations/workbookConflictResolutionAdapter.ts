@@ -1,10 +1,14 @@
 import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
-import type { WorkbookProtocolResolveConflictRequest } from "../adapters/workbookProtocolTypes";
+import type {
+  WorkbookProtocolConflictResolutionReceipt,
+  WorkbookProtocolResolveConflictRequest,
+} from "../adapters/workbookProtocolTypes";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 export type WorkbookResolvedMutation = {
   readonly row: unknown;
   readonly viewSchemaId: string;
+  readonly receipt?: WorkbookProtocolConflictResolutionReceipt;
 };
 
 export async function executeWorkbookConflictResolution(input: {
@@ -30,6 +34,7 @@ export async function executeWorkbookConflictResolution(input: {
       value: {
         row: outcome.value.data.row,
         viewSchemaId: outcome.value.data.view_schema_id,
+        receipt: outcome.value,
       },
     };
   } catch {

@@ -266,6 +266,10 @@ import {
   setSavedViewDraftName,
 } from "./support/workbook/savedViews";
 import { openTimelineSupersessionFixture } from "./support/workbook/timelineCaptureActions";
+import {
+  openTimelineEvidenceFixture,
+  retainTimelineEvidencePartialResult,
+} from "./support/workbook/timelineRelatedEvidence";
 
 type FrontendVisualFixture = {
   capture_profiles: Record<
@@ -8812,4 +8816,56 @@ test("Capture contextual Task and Decision authoring references and retained rec
     await page.setViewportSize({ width: 1280, height: 720 });
     await capture(page, `contextual-${target}-recovery`);
   }
+});
+
+test("Capture Timeline Evidence metadata Party selection and retained partial success", async ({
+  page,
+}) => {
+  const capture = async (
+    page: Page,
+    name: string,
+    options: { anchor?: VisualAnchor } = {},
+  ) => {
+    await assertViewportVisualRegression(page, name, options);
+    await test.info().attach(`${name}-review`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  };
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const { form } = await openTimelineEvidenceFixture(page, (url) =>
+    navigateVisualApplication(page, url),
+  );
+  const anchor: VisualAnchor = {
+    locator: form,
+    align: "start",
+    scrollportSelector: `aside[data-view-schema-id="${timelineViewSchemaId}"]`,
+  };
+  await capture(page, "timeline-related-evidence-authoring", { anchor });
+  await page.setViewportSize({ width: 768, height: 640 });
+  await capture(page, "timeline-related-evidence-authoring-narrow", { anchor });
+  await form
+    .getByRole("button", { name: "Choose Collector Party", exact: true })
+    .click();
+  const picker = form.getByRole("region", {
+    name: "Choose Collector Party",
+    exact: true,
+  });
+  await expect(
+    picker.getByRole("button", { name: "Apply Party", exact: true }),
+  ).toBeEnabled();
+  await capture(page, "timeline-related-evidence-party-narrow", {
+    anchor: { ...anchor, locator: picker },
+  });
+  await picker
+    .getByRole("button", { name: "Cancel Party selection", exact: true })
+    .click();
+  const { recovery } = await retainTimelineEvidencePartialResult(page);
+  await capture(page, "timeline-related-evidence-partial-narrow");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await capture(page, "timeline-related-evidence-partial");
+  await test.info().attach("timeline-related-evidence-recovery-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
 });

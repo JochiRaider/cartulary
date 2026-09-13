@@ -42,7 +42,6 @@ describe("Timeline related-record workflow", () => {
     );
     const base = {
       context: { authorized: true, surfaceKey: "view_schema:timeline" },
-      evidenceViewSchemaId: "cartulary.view.evidence.v1",
       identity,
       selectedRow: row,
       selectedSubject: subject,

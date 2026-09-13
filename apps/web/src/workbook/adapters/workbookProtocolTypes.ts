@@ -11,6 +11,7 @@ import type {
   QueryWorkbookViewRequest,
   ResolveEntityMentionResponse,
   ResolveRecordSameFieldConflictRequest,
+  ResolveRecordSameFieldConflictResponse,
 } from "@cartulary/protocol-ts/http";
 
 /**
@@ -37,3 +38,5 @@ export type WorkbookProtocolMergeReceipt = MergeEntityRecordResponse["data"];
 export type WorkbookProtocolMentionReceipt =
   ResolveEntityMentionResponse["data"];
 export type WorkbookProtocolCreateViewRowReceipt = CreateViewRowResponse;
+export type WorkbookProtocolConflictResolutionReceipt =
+  ResolveRecordSameFieldConflictResponse;

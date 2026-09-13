@@ -12,6 +12,7 @@ import { WorkbookContextualTaskDecisionCreateOwner } from "../features/coordinat
 import { WorkbookDecisionSupersessionOwner } from "../features/coordination/WorkbookDecisionSupersessionOwner";
 import type { EntityMergeReview } from "../features/entities/entityMergeReview";
 import { WorkbookEntityMergeOwner } from "../features/entities/WorkbookEntityMergeOwner";
+import { WorkbookTimelineRelatedEvidenceOwner } from "../features/evidence/WorkbookTimelineRelatedEvidenceOwner";
 import {
   indicatorLifecycleViewId,
   type LifecycleDraft,
@@ -127,6 +128,7 @@ export class WorkbookMutationRuntime {
   private timelineMentionOperations: WorkbookTimelineActionRuntimePort | null =
     null;
   readonly contextualCreate: WorkbookContextualTaskDecisionCreateOwner;
+  readonly timelineRelatedEvidence: WorkbookTimelineRelatedEvidenceOwner;
   readonly assessmentAuthoring: WorkbookAssessmentAuthoringOwner;
   readonly partyLinks: WorkbookPartyLinkOperationOwner;
   readonly explicitPatches: WorkbookExplicitPatchOwner;
@@ -234,6 +236,50 @@ export class WorkbookMutationRuntime {
     dependencies: WorkbookRuntimeDependencies = browserWorkbookRuntimeDependencies,
   ) {
     this.scope = { ...scope };
+    this.timelineRelatedEvidence = new WorkbookTimelineRelatedEvidenceOwner(
+      scope.incidentId,
+      transactionIds,
+      {
+        coordinate: (recordId, signal) =>
+          this.coordinateExplicitPatch(
+            recordId,
+            signal,
+            "cartulary.view.timeline.v2",
+          ),
+        accepted: (receipt, id) => {
+          this.rememberClientTransaction(id);
+          this.history.acceptVersion(
+            receipt.data.row.record_id,
+            receipt.data.row.row_version,
+          );
+        },
+        refresh: async (views, recordIds) => {
+          await Promise.all([
+            ...views.map((view) => this.surfaces.refreshIfMounted(view)),
+            ...recordIds.map(async (recordId) => {
+              const history = await this.history.loadProjection(recordId);
+              if (history.kind !== "accepted")
+                throw new Error("Record history refresh is incomplete.");
+              this.timelineRelatedEvidence.observe(
+                recordId,
+                history.value.row_version,
+              );
+            }),
+          ]);
+        },
+        conflict: (checkpoint, conflict) => {
+          const draft = checkpoint.create.attempt.review.draft;
+          this.registerConflict({
+            conflict,
+            focusOrigin: "inspector",
+            sheetRef: draft.presentation.sheetRef,
+            rowLabel: "Original Timeline record",
+            surfaceLabel: "Timeline",
+            viewSchemaId: draft.source.viewSchemaId,
+          });
+        },
+      },
+    );
     this.contextualCreate = new WorkbookContextualTaskDecisionCreateOwner(
       scope.incidentId,
       transactionIds,
@@ -393,6 +439,7 @@ export class WorkbookMutationRuntime {
         !this.indicatorLifecycle.blocksRecord(recordId) &&
         !this.explicitPatches.blocksRecord(recordId) &&
         !this.partyLinks.blocksRecord(recordId) &&
+        !this.timelineRelatedEvidence.blocksRecord(recordId) &&
         !this.timelineActions?.blocksRecord(recordId) &&
         !this.timelineMentionOperations?.blocksRecord(recordId),
     );
@@ -432,11 +479,17 @@ export class WorkbookMutationRuntime {
     this.partyLinks.subscribe(() => this.emit());
     this.assessmentAuthoring.subscribe(() => this.emit());
     this.contextualCreate.subscribe(() => this.emit());
+    this.timelineRelatedEvidence.subscribe(() => this.emit());
     this.history.subscribe(() => {
       for (const entry of this.history.getSnapshot()) {
         const receipt = entry.receipt;
         if (receipt)
           this.contextualCreate.observe(receipt.recordId, receipt.rowVersion);
+        if (receipt)
+          this.timelineRelatedEvidence.observe(
+            receipt.recordId,
+            receipt.rowVersion,
+          );
         if (
           receipt &&
           entityViewSchemas.has(entry.attempt.subject.viewSchemaId)
@@ -519,6 +572,7 @@ export class WorkbookMutationRuntime {
 
   observeTimelineVersion(recordId: string, rowVersion: number): void {
     this.contextualCreate.observe(recordId, rowVersion);
+    this.timelineRelatedEvidence.observe(recordId, rowVersion);
     this.history.acceptVersion(recordId, rowVersion);
     this.timelineActions?.acceptVersion(recordId, rowVersion);
     this.timelineMentionOperations?.acceptVersion(recordId, rowVersion);
@@ -526,6 +580,7 @@ export class WorkbookMutationRuntime {
 
   timelineActionBlocksRecord(recordId: string): boolean {
     return (
+      this.timelineRelatedEvidence.blocksRecord(recordId) ||
       (this.timelineActions?.blocksRecord(recordId) ?? false) ||
       (this.timelineMentionOperations?.blocksRecord(recordId) ?? false)
     );
@@ -632,6 +687,7 @@ export class WorkbookMutationRuntime {
     while (!signal.aborted && !this.lifecycle.disposed) {
       const queue = this.pendingRuntime.model.snapshot();
       if (
+        this.timelineActionBlocksRecord(recordId) ||
         queue.authPaused ||
         queue.halted ||
         queue.overflow ||
@@ -790,6 +846,7 @@ export class WorkbookMutationRuntime {
         this.indicatorCreate.pendingCount +
         this.assessmentAuthoring.pendingCount +
         this.contextualCreate.pendingCount +
+        this.timelineRelatedEvidence.pendingCount +
         this.explicitPatches.pendingCount +
         this.partyLinks.pendingCount +
         (this.timelineActions?.pendingCount ?? 0) +
@@ -803,6 +860,7 @@ export class WorkbookMutationRuntime {
         this.indicatorCreate.blockedCount > 0 ||
         this.assessmentAuthoring.blockedCount > 0 ||
         this.contextualCreate.uncertainCount > 0 ||
+        this.timelineRelatedEvidence.blockedCount > 0 ||
         this.explicitPatches.blockedCount > 0 ||
         this.partyLinks.blockedCount > 0 ||
         (this.timelineActions?.blockedCount ?? 0) > 0 ||
@@ -841,6 +899,11 @@ export class WorkbookMutationRuntime {
   ): ReturnType<WorkbookPendingMutationPort["execute"]> {
     this.ledger.remember(input.unit.clientTxnId);
     return this.pendingMutationPort.execute(input).then((outcome) => {
+      if (outcome.kind === "accepted")
+        this.timelineRelatedEvidence.observe(
+          outcome.value.row.record_id,
+          outcome.value.row.row_version,
+        );
       if (outcome.kind === "accepted")
         this.contextualCreate.observe(
           outcome.value.row.record_id,
@@ -940,7 +1003,8 @@ export class WorkbookMutationRuntime {
       };
     if (
       this.explicitPatches.blocksRecord(request.recordId) ||
-      this.partyLinks.blocksRecord(request.recordId)
+      this.partyLinks.blocksRecord(request.recordId) ||
+      this.timelineRelatedEvidence.blocksRecord(request.recordId)
     )
       return {
         kind: "rejected_mutation",
@@ -1118,6 +1182,10 @@ export class WorkbookMutationRuntime {
       });
       if (outcome.kind === "rejected") {
         if (outcome.failure.kind === "same_field_conflict") {
+          this.timelineRelatedEvidence.conflictChanged(
+            entry.conflict.conflict_token,
+            outcome.failure.conflict,
+          );
           const refreshedEntry = workbookConflictEntry({
             conflict: outcome.failure.conflict,
             focusKey: entry.focusKey,
@@ -1144,6 +1212,15 @@ export class WorkbookMutationRuntime {
         return outcome.failure.message;
       }
       const resolvedRow = outcome.value.row;
+      if (
+        entry.conflict.field_key === "timeline.attached_evidence_ids" &&
+        outcome.value.receipt
+      )
+        this.timelineRelatedEvidence.conflictResolved(
+          entry.conflict.conflict_token,
+          resolutionKind,
+          outcome.value.receipt,
+        );
       if (
         entityViewSchemas.has(outcome.value.viewSchemaId) &&
         resolvedRow !== null &&
@@ -1218,6 +1295,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.suspend();
       this.assessmentAuthoring.suspend();
       this.contextualCreate.suspend();
+      this.timelineRelatedEvidence.suspend();
       this.timelineActions?.suspend();
       this.timelineMentionOperations?.suspend();
       this.explicitPatches.suspend();
@@ -1257,6 +1335,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.retire();
       this.assessmentAuthoring.retire();
       this.contextualCreate.retire();
+      this.timelineRelatedEvidence.retire();
       this.timelineActions?.retire();
       this.timelineMentionOperations?.retire();
       this.decisionWrites.clear();
@@ -1283,6 +1362,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.closeIncident();
       this.assessmentAuthoring.closeIncident();
       this.contextualCreate.closeIncident();
+      this.timelineRelatedEvidence.closeIncident();
       this.timelineActions?.closeIncident();
       this.timelineMentionOperations?.closeIncident();
       this.pendingRuntime.model.pauseForIncidentClosure();
@@ -1302,6 +1382,7 @@ export class WorkbookMutationRuntime {
       this.indicatorCreate.retire();
       this.assessmentAuthoring.retire();
       this.contextualCreate.retire();
+      this.timelineRelatedEvidence.retire();
       this.timelineActions?.retire();
       this.timelineMentionOperations?.retire();
       this.decisionWrites.clear();
@@ -1316,6 +1397,7 @@ export class WorkbookMutationRuntime {
     this.indicatorCreate.suspend();
     this.assessmentAuthoring.suspend();
     this.contextualCreate.suspend();
+    this.timelineRelatedEvidence.suspend();
     this.timelineActions?.suspend();
     this.timelineMentionOperations?.suspend();
     this.explicitPatches.suspend();

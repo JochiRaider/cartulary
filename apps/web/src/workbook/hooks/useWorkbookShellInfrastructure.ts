@@ -9,6 +9,8 @@ import { createObservationReader } from "../adapters/createObservationReader";
 import { createObservationTransport } from "../adapters/createObservationTransport";
 import { createPartyCreationTransport } from "../adapters/createPartyCreationTransport";
 import { createPartyLinkReader } from "../adapters/createPartyLinkReader";
+import { createTimelineRelatedEvidenceTransport } from "../adapters/createTimelineRelatedEvidenceTransport";
+import { createWorkbookAuthoringReader } from "../adapters/createWorkbookAuthoringReader";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
 import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
 import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
@@ -242,6 +244,7 @@ export function useWorkbookShellInfrastructure({
         if (result.kind === "access_lost" || result.kind === "session_lost") {
           mutationRuntime.assessmentAuthoring.suspend();
           mutationRuntime.contextualCreate.suspend();
+          mutationRuntime.timelineRelatedEvidence.suspend();
           mutationRuntime.partyLinks.suspend();
           mutationRuntime.explicitPatches.suspend();
           void recheckMentionAuthority();
@@ -280,6 +283,21 @@ export function useWorkbookShellInfrastructure({
         }),
         currentAuthorityReader,
         createContextualCreateTransport(apiBase),
+      ),
+    [apiBase, incidentId, mutationRuntime, currentAuthorityReader],
+  );
+  useMemo(
+    () =>
+      mutationRuntime.timelineRelatedEvidence.configure(
+        createWorkbookAuthoringReader({
+          apiBase,
+          incidentId,
+          recheckAuthority: () => {
+            void mutationRuntime.timelineRelatedEvidence.recheckAuthority();
+          },
+        }),
+        currentAuthorityReader,
+        createTimelineRelatedEvidenceTransport(apiBase),
       ),
     [apiBase, incidentId, mutationRuntime, currentAuthorityReader],
   );

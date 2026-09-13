@@ -12,6 +12,7 @@ const createRelatedTargetContracts = new Map<string, ViewContract>();
 for (const featureGroup of timelineContract.inspectorConfig.featureGroups) {
   if (
     isContextualCreateFeature(featureGroup.featureGroupKey) ||
+    featureGroup.featureGroupKey === "create_related.evidence" ||
     featureGroup.routeBinding.kind !== "view_row_create" ||
     featureGroup.routeBinding.owner !== "view_row_create_route" ||
     featureGroup.routeBinding.targetViewSchemaId === undefined

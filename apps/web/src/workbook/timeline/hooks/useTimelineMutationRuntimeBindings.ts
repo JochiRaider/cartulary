@@ -58,7 +58,7 @@ export function useTimelineMutationRuntimeBindings({
     () =>
       mutationRuntime.registerSurface(
         timelineViewSchemaId,
-        () => loadRows({ showLoading: false }),
+        () => loadRows({ showLoading: false, requireAcceptance: true }),
         async (mutation, conflict) => {
           const recordId = conflict.conflict.record_id;
           const binding = timelineScalarBindingForField(

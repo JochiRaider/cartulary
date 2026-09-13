@@ -3,7 +3,6 @@ import type {
   TimelineCreateRequest,
 } from "@cartulary/protocol-ts/http";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { WorkbookRow } from "../models/timelineRowModel";
 
 export function buildAttachedEvidenceCreateRequest(
   evidenceRecordId: string,
@@ -24,7 +23,7 @@ export function buildAttachedEvidenceCreateRequest(
 }
 
 export function buildAttachedEvidencePatchRequest(
-  row: WorkbookRow,
+  row: { readonly rowVersion: number | null },
   evidenceRecordId: string,
   clientTxnId: string,
 ): PatchRecordRequest | null {

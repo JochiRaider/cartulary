@@ -54,8 +54,11 @@ import {
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
 import { createContextualCreateTransport } from "./adapters/createContextualCreateTransport";
+import { createTimelineRelatedEvidenceTransport } from "./adapters/createTimelineRelatedEvidenceTransport";
 import { ContextualCreateContext } from "./features/coordination/ContextualCreateContext";
 import { WorkbookContextualTaskDecisionCreateOwner } from "./features/coordination/WorkbookContextualTaskDecisionCreateOwner";
+import { TimelineRelatedEvidenceContext } from "./features/evidence/TimelineRelatedEvidenceContext";
+import { WorkbookTimelineRelatedEvidenceOwner } from "./features/evidence/WorkbookTimelineRelatedEvidenceOwner";
 import type { RecordHistoryItem } from "./inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
@@ -883,6 +886,66 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
   it("creates related Evidence from the Timeline inspector and links it back through the Timeline patch route", async () => {
     const evidenceViewSchemaId = "cartulary.view.evidence.v1";
+    const authority: WorkbookMutationAuthority = {
+      actorId: "40000000-0000-4000-8000-000000000401",
+      incidentId: "10000000-0000-4000-8000-000000000001",
+      role: "editor",
+      closed: false,
+      sessionIdentity: "session",
+    };
+    const sourceRow = timelineRow({
+      recordId: "20000000-0000-4000-8000-000000000001",
+      rowVersion: 5,
+      summary: "Create evidence source",
+      captureState: "rough",
+    });
+    const targetRow = fullWorkbookViewRow(
+      requireViewContract(evidenceViewSchemaId),
+      "20000000-0000-4000-8000-000000000402",
+      1,
+      {},
+    );
+    const owner = new WorkbookTimelineRelatedEvidenceOwner(
+      authority.incidentId,
+      createBrowserSecureTransactionIdPort(),
+      {
+        coordinate: async () => true,
+        accepted: () => {},
+        refresh: async () => {},
+        conflict: () => {},
+      },
+    );
+    owner.setAuthority(authority);
+    owner.configure(
+      {
+        availableViews: async () => [
+          timelineViewSchemaId,
+          evidenceViewSchemaId,
+        ],
+        verify: async () => {},
+        page: async ({ viewSchemaId }) => {
+          const row =
+            viewSchemaId === timelineViewSchemaId ? sourceRow : targetRow;
+          return {
+            kind: "accepted",
+            value: {
+              candidates: [
+                {
+                  recordId: row.record_id,
+                  viewSchemaId,
+                  displayText: "Record",
+                  row,
+                },
+              ],
+              hasMore: false,
+              nextCursor: null,
+            },
+          };
+        },
+      },
+      async () => authority,
+      createTimelineRelatedEvidenceTransport(undefined),
+    );
     fetchMock
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
@@ -898,11 +961,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         successEnvelope({
           view_schema_id: evidenceViewSchemaId,
           change_set_id: "30000000-0000-4000-8000-000000000001",
-          row: {
-            record_id: "20000000-0000-4000-8000-000000000402",
-            row_version: 1,
-            cells: {},
-          },
+          row: targetRow,
         }),
       )
       .mockResolvedValueOnce(
@@ -932,10 +991,18 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture
-        currentIncidentRole="editor"
-        incidentId="10000000-0000-4000-8000-000000000001"
-      />,
+      <TimelineRelatedEvidenceContext.Provider
+        value={{
+          owner,
+          sheetRef: { kind: "view_schema", id: timelineViewSchemaId },
+        }}
+      >
+        <TimelineWorkbookRuntimeFixture
+          currentIncidentRole="editor"
+          currentUserId={authority.actorId}
+          incidentId={authority.incidentId}
+        />
+      </TimelineRelatedEvidenceContext.Provider>,
     );
     await waitForVisibleGridRowRecordIds(container, [
       "20000000-0000-4000-8000-000000000001",
@@ -972,13 +1039,15 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       screen.getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId)),
     );
 
-    await waitFor(() => {
-      expect(
-        screen.getByTestId(timelineInspectorTestId()).textContent,
-      ).toContain(
-        "Created and linked evidence 20000000-0000-4000-8000-000000000402.",
-      );
-    });
+    await waitFor(() =>
+      expect(owner.getSnapshot().checkpoints[0]?.links[0]?.phase).toBe(
+        "accepted",
+      ),
+    );
+    expect(
+      owner.getSnapshot().checkpoints[0]?.create.receipt?.data.row.record_id,
+    ).toBe("20000000-0000-4000-8000-000000000402");
+    expect(screen.getByTestId(timelineInspectorTestId())).toBeTruthy();
     const createCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith(
         `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${evidenceViewSchemaId}/rows`,

@@ -284,6 +284,10 @@ import {
 } from "./support/workbook/rowMutations";
 import { observeSaveEvents, saveEvents } from "./support/workbook/saveStatus";
 import { openTimelineSupersessionFixture } from "./support/workbook/timelineCaptureActions";
+import {
+  openTimelineEvidenceFixture,
+  retainTimelineEvidencePartialResult,
+} from "./support/workbook/timelineRelatedEvidence";
 
 type IncidentMembershipRecord = {
   membership_version: number;
@@ -7971,4 +7975,119 @@ test("a11y.contextual-create target fields reference cancellation and retained r
     await expect(summary).toBeFocused();
     await expect(recovery).not.toBeVisible();
   }
+});
+
+test("a11y.timeline-related-evidence metadata references and retained partial success remain keyboard accessible", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const { form, party } = await openTimelineEvidenceFixture(page);
+  const collector = form.getByTestId(
+    genericCreateFieldTestId("evidence.collector_party_text"),
+  );
+  const timestamp = form.getByTestId(
+    genericCreateFieldTestId("evidence.received_at"),
+  );
+  const lifecycle = form.getByTestId(
+    genericCreateFieldTestId("evidence.lifecycle_state"),
+  );
+  const submit = form.getByTestId(
+    genericCreateSubmitTestId(evidenceViewSchemaId),
+  );
+  await expect(lifecycle).toHaveValue("");
+  await expect(lifecycle.locator("option:checked")).toHaveText(
+    "Use server default (Requested)",
+  );
+  await timestamp.fill("unfinished timestamp");
+  await submit.focus();
+  await submit.press("Enter");
+  await expect(timestamp).toHaveAttribute("aria-invalid", "true");
+  await expect(timestamp).toHaveAccessibleDescription(
+    /timestamp|RFC3339|date/i,
+  );
+  await timestamp.fill("");
+  const choose = form.getByRole("button", {
+    name: "Choose Collector Party",
+    exact: true,
+  });
+  await choose.focus();
+  await choose.press("Enter");
+  const picker = form.getByRole("region", {
+    name: "Choose Collector Party",
+    exact: true,
+  });
+  const candidates = picker.getByRole("combobox", {
+    name: "Collector Party",
+    exact: true,
+  });
+  await expect(
+    picker.getByRole("button", { name: "Apply Party", exact: true }),
+  ).toBeEnabled();
+  await candidates.selectOption(party.record_id);
+  await candidates.press("Escape");
+  await expect(choose).toBeFocused();
+  await choose.press("Enter");
+  await expect(candidates).toHaveValue("");
+  await candidates.press("Escape");
+  await expect(collector).toHaveValue("Response team collection log");
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 768, height: 640 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const control of [collector, timestamp, lifecycle, choose, submit]) {
+      await expectDecisionControlReachable(page, control);
+      await expectVisibleFocus(control);
+    }
+    await testInfo.attach(`timeline-evidence-${viewport.width}`, {
+      body: await page.screenshot({ animations: "disabled", caret: "hide" }),
+      contentType: "image/png",
+    });
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "200%";
+  });
+  await expectDecisionControlReachable(page, submit);
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+  const spacing = await page.addStyleTag({
+    content:
+      "* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } p { margin-bottom: 2em !important; }",
+  });
+  await expectDecisionControlReachable(page, choose);
+  await spacing.evaluate((element) => element.parentNode?.removeChild(element));
+  const { recovery, summary } = await retainTimelineEvidencePartialResult(page);
+  const review = recovery.getByRole("button", {
+    name: "Review original Timeline link",
+    exact: true,
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 390, height: 480 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectDecisionControlReachable(page, review);
+    await expectVisibleFocus(review);
+  }
+  await review.press("Enter");
+  await expect(review).toBeFocused();
+  const link = recovery.getByRole("button", {
+    name: "Link created Evidence",
+    exact: true,
+  });
+  await expectDecisionControlReachable(page, link);
+  await expectAllInteractiveControlsNamed(page);
+  await testInfo.attach("timeline-evidence-recovery-tree", {
+    body: await recovery.ariaSnapshot(),
+    contentType: "text/plain",
+  });
+  await link.press("Escape");
+  await expect(summary).toBeFocused();
+  await expect(recovery).not.toBeVisible();
+  await expect(
+    page.getByTestId(gridShellTestId(timelineViewSchemaId)),
+  ).toBeVisible();
 });

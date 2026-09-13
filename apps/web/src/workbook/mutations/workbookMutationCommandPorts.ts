@@ -4,10 +4,6 @@ import type { WorkbookProtocolPatchRecordRequest } from "../adapters/workbookPro
 import type { AssessmentAppendTransport } from "../features/assessments/assessmentOperation";
 import type { WorkbookRecordHistoryPort } from "../history/workbookHistoryOperation";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
-import type {
-  TimelineApiRow,
-  WorkbookRow,
-} from "../timeline/models/timelineRowModel";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 export type GenericViewMutationAccepted = {
@@ -89,22 +85,12 @@ export type TimelineRelatedRecordCreated = {
   readonly viewSchemaId: string;
 };
 
-export type TimelineRelatedEvidenceLinked = {
-  readonly changeSetId: string;
-  readonly row: TimelineApiRow;
-  readonly viewSchemaId: string;
-};
-
 export interface TimelineRelatedRecordPort {
   createRelatedRecord(input: {
     readonly contract: ViewContract;
     readonly draft: Readonly<Record<string, string>>;
     readonly featureGroupKey: string;
   }): Promise<WorkbookOperationOutcome<TimelineRelatedRecordCreated>>;
-  linkCreatedEvidence(input: {
-    readonly sourceRow: WorkbookRow;
-    readonly createdRecordId: string;
-  }): Promise<WorkbookOperationOutcome<TimelineRelatedEvidenceLinked>>;
 }
 
 export type TimelineMutationCommandPorts = {

@@ -775,6 +775,26 @@
       "sha256": "0c64f1ead353554d216c6ee91eac51d1216b1187d83bf223904cec41ed171070"
     },
     {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-linux.png",
+      "sha256": "7144ee1b2ae94e562b5861a381cd7ea5303e906c547b92c82cf2d51fb230b5bd"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-authoring-narrow-linux.png",
+      "sha256": "18caaf07880bb93d2e2c4ac004fe446a17d3d2720e8f558d8cf887d85796602d"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-linux.png",
+      "sha256": "1af2fcefe1c2edb85d88c27ce78e0392fdb3b3f05cbc7bb2b8cb3f30d9a6734b"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-partial-narrow-linux.png",
+      "sha256": "6e36b712c65969456ad77079197363c4e36d20dba33eb8aee7a5ef18fe187b98"
+    },
+    {
+      "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-related-evidence-party-narrow-linux.png",
+      "sha256": "2936921b4ed77f675281ee6cb905c472f09c5b22a2dfb602a482704d0d20ed2e"
+    },
+    {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/timeline-supersession-accepted-linux.png",
       "sha256": "08baef590ad22130f529f4713268d1e4fa7d171c1512eb940b7794eb89984992"
     },

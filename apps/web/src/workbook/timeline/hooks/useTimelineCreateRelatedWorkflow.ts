@@ -4,6 +4,7 @@ import type {
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { useContextualCreateAttachment } from "../../features/coordination/useContextualCreateAttachment";
+import { useTimelineRelatedEvidenceAttachment } from "../../features/evidence/useTimelineRelatedEvidenceAttachment";
 import {
   buildInspectorRelatedRecordDraft,
   type InspectorRelatedRecordWorkflowAction,
@@ -17,16 +18,11 @@ import {
   workbookInspectorMessageFeedback,
 } from "../../inspector/workbookInspectorErrorModel";
 import {
-  updateWorkbookInspectorSubject,
   type WorkbookInspectorLiveSubject,
   workbookInspectorSubjectsEqual,
 } from "../../inspector/workbookInspectorSubject";
 import { genericCreateMinimumMessage } from "../../models/genericWorkbookModel";
-import { evidenceViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type {
-  TimelineRelatedEvidenceLinked,
-  TimelineRelatedRecordPort,
-} from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineRelatedRecordPort } from "../../mutations/workbookMutationCommandPorts";
 import {
   planTimelineRelatedSubmission,
   type TimelineRelatedActionContext,
@@ -38,15 +34,9 @@ import {
 import type { WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineCreateRelatedWorkflowInput = {
+  readonly isInspectorOpen?: boolean;
   readonly actionContext: TimelineRelatedActionContext;
-  readonly applyAcceptedRowMutation: (
-    rowKey: string,
-    accepted: Pick<TimelineRelatedEvidenceLinked, "row" | "viewSchemaId">,
-  ) => unknown;
   readonly currentUserId: string | null;
-  readonly loadRows: (options: {
-    readonly showLoading: boolean;
-  }) => Promise<void>;
   readonly mutationCommands: TimelineRelatedRecordPort;
   readonly selectedRow: WorkbookRow | null;
   readonly selectedSubject: WorkbookInspectorLiveSubject | null;
@@ -73,6 +63,15 @@ type TimelineRelatedWorkflowRuntime = {
 export function useTimelineCreateRelatedWorkflow(
   input: TimelineCreateRelatedWorkflowInput,
 ) {
+  const evidence = useTimelineRelatedEvidenceAttachment(
+    input.selectedSubject && input.selectedRow
+      ? {
+          subject: input.selectedSubject,
+          cells: input.selectedRow.rawRow?.cells ?? {},
+        }
+      : null,
+    input.isInspectorOpen ?? true,
+  );
   const {
     workflow: contextualWorkflow,
     begin: contextualBegin,
@@ -144,6 +143,7 @@ export function useTimelineCreateRelatedWorkflow(
   const cancelWorkflow = useCallback(
     (reason: "owner_action" | "lifecycle" = "owner_action") => {
       contextualDetach();
+      if (reason === "owner_action") evidence.detach();
       if (reason === "lifecycle" && capturedOwnerSequenceRef.current) return;
       capturedOwnerSequenceRef.current = false;
       currentWorkflowIdentityRef.current = null;
@@ -152,15 +152,37 @@ export function useTimelineCreateRelatedWorkflow(
         dispatchWorkflow({ type: "cancel", workflowId: active.workflowId });
       }
     },
-    [contextualDetach, dispatchWorkflow],
+    [contextualDetach, evidence.detach, dispatchWorkflow],
   );
 
   const beginWorkflow = useCallback(
     (featureGroup: InspectorFeatureGroup) => {
-      if (!contextualBegin(featureGroup))
-        beginTimelineRelatedWorkflow(runtime, featureGroup);
+      const activeFeature =
+        evidence.workflow?.featureGroup.featureGroupKey ??
+        contextualWorkflow?.featureGroup.featureGroupKey ??
+        workflowRef.current?.featureGroup.featureGroupKey;
+      if (activeFeature && activeFeature !== featureGroup.featureGroupKey)
+        cancelWorkflow();
+      if (contextualBegin(featureGroup)) return;
+      if (evidence.begin(featureGroup)) {
+        const message = evidence.notice();
+        if (message)
+          inputRef.current.setInspectorMessage(
+            workbookInspectorMessageFeedback(message, "none"),
+          );
+        return;
+      }
+      beginTimelineRelatedWorkflow(runtime, featureGroup);
     },
-    [contextualBegin, runtime],
+    [
+      contextualBegin,
+      contextualWorkflow?.featureGroup.featureGroupKey,
+      evidence.begin,
+      evidence.notice,
+      evidence.workflow?.featureGroup.featureGroupKey,
+      cancelWorkflow,
+      runtime,
+    ],
   );
   const updateWorkflowDraft = useCallback(
     (featureGroupKey: string, fieldKey: string, value: string) => {
@@ -189,7 +211,6 @@ export function useTimelineCreateRelatedWorkflow(
     const current = inputRef.current;
     const plan = planTimelineRelatedSubmission({
       context: current.actionContext,
-      evidenceViewSchemaId,
       identity,
       selectedRow: current.selectedRow,
       selectedSubject: current.selectedSubject,
@@ -213,7 +234,7 @@ export function useTimelineCreateRelatedWorkflow(
     cancelWorkflow,
     submitWorkflow,
     updateWorkflowDraft,
-    workflow: contextualWorkflow ?? workflow,
+    workflow: evidence.workflow ?? contextualWorkflow ?? workflow,
   };
 }
 
@@ -296,28 +317,7 @@ async function executeTimelineRelatedSubmission(
     rejectTimelineRelatedOperation(runtime, plan, created.failure);
     return;
   }
-  if (!plan.evidenceLinkRequired) {
-    completeRelatedRecord(runtime, plan, created.value.recordId);
-    return;
-  }
-  const sourceRow = currentRelatedSourceRow(runtime, plan.identity);
-  if (sourceRow === null) return;
-  const linked =
-    await runtime.inputRef.current.mutationCommands.linkCreatedEvidence({
-      createdRecordId: created.value.recordId,
-      sourceRow,
-    });
-  if (linked.kind === "rejected") {
-    rejectTimelineRelatedOperation(runtime, plan, linked.failure);
-    return;
-  }
-  await completeRelatedEvidence(
-    runtime,
-    plan,
-    sourceRow,
-    created.value.recordId,
-    linked.value,
-  );
+  completeRelatedRecord(runtime, plan, created.value.recordId);
 }
 
 function currentRelatedSourceRow(
@@ -353,55 +353,6 @@ function completeRelatedRecord(
     ),
   );
   runtime.currentWorkflowIdentityRef.current = null;
-}
-
-async function completeRelatedEvidence(
-  runtime: TimelineRelatedWorkflowRuntime,
-  plan: Extract<TimelineRelatedSubmissionPlan, { kind: "dispatch" }>,
-  sourceRow: WorkbookRow,
-  createdRecordId: string,
-  linked: TimelineRelatedEvidenceLinked,
-): Promise<void> {
-  if (currentRelatedSourceRow(runtime, plan.identity) === null) return;
-  runtime.dispatchWorkflow({
-    type: "complete",
-    workflowId: plan.identity.workflowId,
-  });
-  const acceptedSubject = updateWorkbookInspectorSubject(
-    plan.identity.subject,
-    {
-      kind: "live",
-      recordId: linked.row.record_id,
-      rowVersion: linked.row.row_version,
-    },
-  );
-  runtime.currentWorkflowIdentityRef.current =
-    acceptedSubject?.kind === "live"
-      ? { ...plan.identity, subject: acceptedSubject }
-      : null;
-  runtime.capturedOwnerSequenceRef.current = true;
-  const input = runtime.inputRef.current;
-  input.applyAcceptedRowMutation(sourceRow.key, linked);
-  try {
-    await input.loadRows({ showLoading: false });
-    const currentIdentity = runtime.currentWorkflowIdentityRef.current;
-    const currentInput = runtime.inputRef.current;
-    if (
-      currentIdentity?.workflowId === plan.identity.workflowId &&
-      currentIdentity.surfaceKey === currentInput.actionContext.surfaceKey &&
-      currentInput.actionContext.authorized
-    ) {
-      currentInput.setInspectorMessage(
-        workbookInspectorMessageFeedback(
-          `Created and linked evidence ${createdRecordId}.`,
-          "none",
-        ),
-      );
-      runtime.currentWorkflowIdentityRef.current = null;
-    }
-  } finally {
-    runtime.capturedOwnerSequenceRef.current = false;
-  }
 }
 
 function rejectTimelineRelatedOperation(

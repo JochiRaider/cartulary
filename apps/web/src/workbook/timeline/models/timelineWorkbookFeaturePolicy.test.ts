@@ -8,15 +8,17 @@ const timelineFeatures =
 const createRelatedFeatures = timelineFeatures.filter(
   (feature) =>
     feature.routeBinding.kind === "view_row_create" &&
-    !["create_related.task_request", "create_related.decision"].includes(
-      feature.featureGroupKey,
-    ),
+    ![
+      "create_related.task_request",
+      "create_related.decision",
+      "create_related.evidence",
+    ].includes(feature.featureGroupKey),
 );
 
 describe("timelineWorkbookFeaturePolicy", () => {
-  it("owns the contracts for Timeline create-related targets outside retained Task and Decision authoring", () => {
-    expect(createRelatedFeatures).toHaveLength(6);
-    expect(timelineCreateRelatedTargetContracts.size).toBe(6);
+  it("owns the contracts for Timeline create-related targets outside retained authoring", () => {
+    expect(createRelatedFeatures).toHaveLength(5);
+    expect(timelineCreateRelatedTargetContracts.size).toBe(5);
     for (const featureGroup of createRelatedFeatures) {
       if (featureGroup.routeBinding.kind !== "view_row_create") {
         throw new Error("Expected a create-related route binding");

@@ -1438,9 +1438,19 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
       },
     ],
   });
-  await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
-    `Created and linked evidence ${evidence.record_id}.`,
+  const evidenceRecovery = page
+    .locator("summary")
+    .filter({ hasText: /^Timeline Evidence creation/ });
+  await evidenceRecovery.click();
+  await expect(
+    page.getByRole("region", {
+      name: "Retained Timeline Evidence creation",
+      exact: true,
+    }),
+  ).toContainText(
+    "Evidence created and linked to the original Timeline record.",
   );
+  await evidenceRecovery.click();
 
   const comm = await createFromTimelineWorkflow(page, incidentId, {
     actionKey: "create_related.comm_log",

@@ -1542,6 +1542,7 @@
           "Workbook history operation owner fences timed-out reconciliation effects when refresh is retried",
           "Workbook history operation owner invalidates confirmed versions and selectors instead of rebasing",
           "Workbook history operation owner invalidates peer changes to advertised eligibility for every rollback selector",
+          "Workbook history operation owner keeps history authority for an unavailable related projection and still suspends genuine session loss",
           "Workbook history operation owner keeps multi-record acknowledgement when a related source projection fails",
           "Workbook history operation owner keeps uncertainty local to its record and fails locally without secure identity",
           "Workbook history operation owner reauthorizes after sequencing and never resumes automatically after reopening",
@@ -2910,7 +2911,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/useTimelineCreateRelatedWorkflow.test.tsx",
         "titles": [
-          "useTimelineCreateRelatedWorkflow discards a stale Evidence continuation without overwriting a reopened workflow"
+          "useTimelineCreateRelatedWorkflow retains accepted Evidence after navigation and refuses to replace its original unsent draft"
         ]
       },
       "evidence_class": "unit",
@@ -2934,7 +2935,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts",
         "titles": [
-          "timelineWorkbookFeaturePolicy owns the contracts for Timeline create-related targets outside retained Task and Decision authoring"
+          "timelineWorkbookFeaturePolicy owns the contracts for Timeline create-related targets outside retained authoring"
         ]
       },
       "evidence_class": "unit",
@@ -3301,6 +3302,77 @@
           "useTimelinePresenceController clears the local draft on surface or authorization lifecycle reset without publishing",
           "useTimelinePresenceController derives row and editing-cell markers only from stable record and field identities",
           "useTimelinePresenceController publishes coherent viewing and editing transitions and keeps selection from overriding an edit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_related_evidence_authoring",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceAuthoring.test.tsx",
+        "titles": [
+          "Timeline related Evidence authoring discovers Parties with staged paging cancellation off-page selection and independent text",
+          "Timeline related Evidence authoring exposes loading empty and failed discovery and rejects unavailable references on renewed review",
+          "Timeline related Evidence authoring rejects blank default-only and Party-only input while accepting every non-title minimum with exact omission",
+          "Timeline related Evidence authoring retains original identity and exact input until explicit discard across presentation and authority changes",
+          "Timeline related Evidence authoring validates initial lifecycle timestamps strings and exact Party IDs without erasing invalid input"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_related_evidence_recovery",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceRecovery.test.tsx",
+        "titles": [
+          "Timeline related Evidence recovery accepts late creation during suspension and retires protected state on account replacement",
+          "Timeline related Evidence recovery correlates socket and HTTP ordering and rereads newer source and equal-version derived Evidence counts",
+          "Timeline related Evidence recovery detaches presentation on row sheet and inspector changes without rebinding the draft",
+          "Timeline related Evidence recovery distinguishes definitive field rejection and explicit new-ID recovery from uncertainty",
+          "Timeline related Evidence recovery keeps accepted receipts through projection failure and recovers with reads only",
+          "Timeline related Evidence recovery pauses after navigation or remote changes between stages and cancels only undispatched preparation",
+          "Timeline related Evidence recovery reads the original source through authorized pages and never treats failed paging as absence",
+          "Timeline related Evidence recovery recovers uncertain creation with the original key and body then requires review of the original source",
+          "Timeline related Evidence recovery replays uncertain linking unchanged after source version changes without repeating Evidence creation",
+          "Timeline related Evidence recovery reserves duplicate activation and captures two immutable exact requests with independent full receipts",
+          "Timeline related Evidence recovery retains committed creation after link rejection and retries only a newly reviewed link",
+          "Timeline related Evidence recovery retains timeout uncertainty across replay rejection and accepts a late receipt monotonically",
+          "Timeline related Evidence recovery routes collection conflicts and preserves the created checkpoint when the saved collection is kept",
+          "Timeline related Evidence recovery validates lost malformed and uncorrelated responses for each exact stage transport"
         ]
       },
       "evidence_class": "unit",

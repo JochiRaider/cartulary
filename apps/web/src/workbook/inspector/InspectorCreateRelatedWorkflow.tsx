@@ -7,6 +7,9 @@ import { GenericMutationControl } from "../components/GenericMutationControl";
 import { ContextualCreateContext } from "../features/coordination/ContextualCreateContext";
 import { ContextualCreateForm } from "../features/coordination/ContextualCreateForm";
 import { isContextualCreateFeature } from "../features/coordination/contextualCreateModel";
+import { TimelineRelatedEvidenceContext } from "../features/evidence/TimelineRelatedEvidenceContext";
+import { TimelineRelatedEvidenceForm } from "../features/evidence/TimelineRelatedEvidenceForm";
+import { relatedEvidenceFeature } from "../features/evidence/timelineRelatedEvidenceModel";
 import type { GenericReferenceOptions } from "../models/workbookReferenceOptions";
 import type { InspectorRelatedRecordWorkflowState } from "./inspectorRelatedRecordModel";
 import { WorkbookInspectorActionButton } from "./presentation/WorkbookInspectorActions";
@@ -26,6 +29,16 @@ export function InspectorCreateRelatedWorkflow({
   readonly onUpdateDraft: (fieldKey: string, value: string) => void;
 }) {
   const context = useContext(ContextualCreateContext);
+  const evidence = useContext(TimelineRelatedEvidenceContext);
+  if (state.featureGroup.featureGroupKey === relatedEvidenceFeature)
+    return evidence ? (
+      <TimelineRelatedEvidenceForm
+        owner={evidence.owner}
+        attachment={state.workflowId}
+        onSubmit={() => void evidence.owner.submit(state.workflowId)}
+        onReview={() => void evidence.owner.review()}
+      />
+    ) : null;
   if (isContextualCreateFeature(state.featureGroup.featureGroupKey))
     return context ? (
       <RetainedContextualForm

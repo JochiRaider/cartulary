@@ -3,11 +3,17 @@ import type {
   WorkbookProtocolCreateViewRowRequest,
 } from "../../adapters/workbookProtocolTypes";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
-import type { WorkbookQueryState } from "../../models/workbookQuery";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
-import type { WorkbookPortResult } from "../../ports/WorkbookPortResult";
-import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+
+export type {
+  WorkbookAuthoringAuthorityReader as ContextualAuthorityReader,
+  WorkbookAuthoringCandidate as ContextualCandidate,
+  WorkbookAuthoringPage as ContextualCandidatePage,
+  WorkbookAuthoringQuery as ContextualCandidateQuery,
+  WorkbookAuthoringReadPort as ContextualCreateReader,
+} from "../../ports/WorkbookAuthoringReadPort";
+
 import type { ContextualCreateDraft } from "./contextualCreateModel";
 
 export type ContextualCreateReview = Readonly<{
@@ -47,31 +53,3 @@ export type ContextualCreateEntry = Readonly<{
   refresh: "none" | "required" | "refreshing" | "complete";
   message: string | null;
 }>;
-export type ContextualAuthorityReader = (
-  baseline: WorkbookMutationAuthority,
-  signal: AbortSignal,
-) => Promise<WorkbookMutationAuthority>;
-export type ContextualCandidate = Readonly<{
-  recordId: string;
-  displayText: string;
-  viewSchemaId: string;
-  row?: WorkbookQueryRow;
-}>;
-export type ContextualCandidatePage = Readonly<{
-  candidates: readonly ContextualCandidate[];
-  hasMore: boolean;
-  nextCursor: string | null;
-}>;
-export type ContextualCandidateQuery = Readonly<{
-  viewSchemaId: string;
-  cursor: string | null;
-  queryState: WorkbookQueryState;
-  signal: AbortSignal;
-}>;
-export interface ContextualCreateReader {
-  page(
-    input: ContextualCandidateQuery,
-  ): Promise<WorkbookPortResult<ContextualCandidatePage>>;
-  availableViews(signal: AbortSignal): Promise<readonly string[]>;
-  verify(draft: ContextualCreateDraft, signal: AbortSignal): Promise<void>;
-}

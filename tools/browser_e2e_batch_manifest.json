@@ -902,6 +902,34 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-timeline-related-evidence",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.evidence.browser.timeline_related_creation_replay",
+            "module.evidence.browser.timeline_related_partial_creation",
+            "module.evidence.browser.timeline_related_role_loss",
+            "module.timeline.browser.related_evidence_link_replay",
+            "module.timeline.browser.related_evidence_original_source",
+            "module.timeline.browser.related_evidence_projection_recovery",
+            "module.timeline.browser.related_evidence_unavailable"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-related-evidence.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-timeline-workbook",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2000,6 +2028,34 @@
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
+          "name": "functional-default-timeline-related-evidence",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.evidence.browser.timeline_related_creation_replay",
+            "module.evidence.browser.timeline_related_partial_creation",
+            "module.evidence.browser.timeline_related_role_loss",
+            "module.timeline.browser.related_evidence_link_replay",
+            "module.timeline.browser.related_evidence_original_source",
+            "module.timeline.browser.related_evidence_projection_recovery",
+            "module.timeline.browser.related_evidence_unavailable"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-related-evidence.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
           "name": "functional-default-timeline-workbook",
           "target": "browser-e2e-functional",
           "kind": "duration_balanced_specs",
@@ -2946,6 +3002,7 @@
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
+            "module.workbook.accessibility.timeline_related_evidence",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
             "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
             "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
@@ -3070,6 +3127,7 @@
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
+            "module.workbook.visual.timeline_related_evidence",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
@@ -3347,6 +3405,7 @@
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
+            "module.workbook.visual.timeline_related_evidence",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
@@ -3952,6 +4011,7 @@
             "module.workbook.accessibility.indicator_observations_authoring_recovery",
             "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.timeline_capture_actions",
+            "module.workbook.accessibility.timeline_related_evidence",
             "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
             "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
             "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
@@ -4064,6 +4124,7 @@
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
+            "module.workbook.visual.timeline_related_evidence",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",

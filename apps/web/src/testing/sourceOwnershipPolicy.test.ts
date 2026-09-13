@@ -195,8 +195,12 @@ describe("frontend source ownership policy", () => {
       "apps/web/src/workbook/features/coordination/contextualCreateAuthoring.test.tsx",
       "apps/web/src/workbook/features/coordination/contextualCreateModel.ts",
       "apps/web/src/workbook/features/coordination/contextualCreateRecovery.test.tsx",
+      "apps/web/src/workbook/features/evidence/WorkbookTimelineRelatedEvidenceOwner.ts",
       "apps/web/src/workbook/features/evidence/createEvidenceAttachmentPort.ts",
       "apps/web/src/workbook/features/evidence/createUploadedEvidenceBlob.ts",
+      "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceAuthoring.test.tsx",
+      "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceModel.ts",
+      "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceRecovery.test.tsx",
       "apps/web/src/workbook/features/generic/genericCreateRequestBuilder.ts",
     ]);
   });

@@ -171,10 +171,6 @@ function relatedPort(
 ): TimelineRelatedRecordPort {
   return {
     createRelatedRecord,
-    linkCreatedEvidence: vi.fn(async () => ({
-      kind: "rejected" as const,
-      failure: retryableFailure("Unexpected Evidence link"),
-    })),
   };
 }
 

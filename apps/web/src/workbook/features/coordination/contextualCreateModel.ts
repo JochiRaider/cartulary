@@ -17,6 +17,9 @@ import {
 } from "../../models/genericWorkbookModel";
 import { decodeCreateViewRowRequest } from "../../models/workbookRequestDecoders";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
+import { freezeWorkbookValue as freezeContextualCreate } from "../../utils/freezeWorkbookValue";
+
+export { freezeWorkbookValue as freezeContextualCreate } from "../../utils/freezeWorkbookValue";
 
 export type ContextualCreateFeature =
   | "create_related.task_request"
@@ -54,15 +57,6 @@ export type ContextualCreateDraft = Readonly<{
   values: Readonly<Record<string, string>>;
   labels: Readonly<Record<string, string>>;
 }>;
-
-/** No request or receipt shares mutable aliases with an editor. */
-export function freezeContextualCreate<T>(value: T): T {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const child of Object.values(value)) freezeContextualCreate(child);
-  }
-  return value;
-}
 
 export function contextualCreateDraft(
   id: number,

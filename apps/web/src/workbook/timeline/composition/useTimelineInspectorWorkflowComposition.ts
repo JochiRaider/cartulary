@@ -130,10 +130,9 @@ export function useTimelineInspectorWorkflowComposition({
     updateWorkflowDraft,
     workflow: createRelatedWorkflow,
   } = useTimelineCreateRelatedWorkflow({
+    isInspectorOpen: inspector.lifecycle.phase !== "closed",
     actionContext,
-    applyAcceptedRowMutation: mutation.applyAcceptedRowMutation,
     currentUserId: incident.currentUserId,
-    loadRows: mutation.loadRows,
     mutationCommands: mutationCommands.related,
     selectedRow: inspector.selection.selectedRow,
     selectedSubject: inspector.selection.selectedRowWorkflowSubject,

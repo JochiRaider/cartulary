@@ -479,7 +479,6 @@ describe("contextual create recovery", () => {
     owner.discard();
     const legacy: TimelineRelatedRecordPort = {
       createRelatedRecord: vi.fn(),
-      linkCreatedEvidence: vi.fn(),
     };
     const { result, rerender, unmount } = renderHook(
       ({ selected }) =>

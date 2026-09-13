@@ -50,7 +50,10 @@ it("useTimelineMutationRuntimeBindings registers concrete commands and cleans up
   expect(registerSurface).toHaveBeenCalledTimes(1);
   const firstRegistration = registerSurface.mock.calls[0];
   await firstRegistration?.[1]();
-  expect(firstLoadRows).toHaveBeenCalledWith({ showLoading: false });
+  expect(firstLoadRows).toHaveBeenCalledWith({
+    showLoading: false,
+    requireAcceptance: true,
+  });
   expect(registerTimelineRefresh).toHaveBeenCalledTimes(1);
   await registerTimelineRefresh.mock.calls[0]?.[0]();
   expect(firstLoadRows).toHaveBeenLastCalledWith({

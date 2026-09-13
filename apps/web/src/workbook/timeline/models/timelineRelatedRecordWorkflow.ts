@@ -23,7 +23,6 @@ export type TimelineRelatedSubmissionPlan =
       readonly kind: "dispatch";
       readonly contract: ViewContract;
       readonly draft: Readonly<Record<string, string>>;
-      readonly evidenceLinkRequired: boolean;
       readonly featureGroupKey: string;
       readonly identity: TimelineRelatedWorkflowIdentity;
       readonly sourceRow: WorkbookRow;
@@ -52,7 +51,6 @@ export function timelineRelatedWorkflowIdentity(
 
 export function planTimelineRelatedSubmission(options: {
   readonly context: TimelineRelatedActionContext;
-  readonly evidenceViewSchemaId: string;
   readonly identity: TimelineRelatedWorkflowIdentity;
   readonly selectedRow: WorkbookRow | null;
   readonly selectedSubject: WorkbookInspectorLiveSubject | null;
@@ -108,8 +106,6 @@ export function planTimelineRelatedSubmission(options: {
   return {
     contract,
     draft: workflow.draft,
-    evidenceLinkRequired:
-      contract.viewSchemaId === options.evidenceViewSchemaId,
     featureGroupKey: workflow.featureGroup.featureGroupKey,
     identity: options.identity,
     kind: "dispatch",
