@@ -12,7 +12,8 @@
     "docs/handoffs/workbook-assessment-authoring-refactor-handoff.md",
     "docs/research/**/*.md",
     "docs/user_guides/**/*.md",
-    "apps/web/public/assets/fonts/*.md"
+    "apps/web/public/assets/fonts/*.md",
+    "apps/web/src/**/README.md"
   ],
   "ignores": [
     "docs/archive/**",
