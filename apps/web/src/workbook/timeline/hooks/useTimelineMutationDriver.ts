@@ -36,8 +36,9 @@ import {
   type TimelinePendingReplayAdmission,
   type TimelineReplayAdmissionPlan,
 } from "../models/timelineMutationDriverPlans";
+import { buildFollowOnCapturePatch } from "../models/timelineMutationIntents";
 import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
-import type { WorkbookRow } from "../models/timelineRowModel";
+import { rowFromApi, type WorkbookRow } from "../models/timelineRowModel";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -237,10 +238,6 @@ export function useTimelineMutationDriver({
       onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
     ) => {
       const pending = pendingSavesRefs.pendingQueueRef.current;
-      const snapshotBeforeAdmission = pending.model.snapshot();
-      const admissionIsBacklogged =
-        snapshotBeforeAdmission.inFlightCount > 0 ||
-        snapshotBeforeAdmission.queuedCount > 0;
       const {
         focusField,
         focusKey,
@@ -290,13 +287,12 @@ export function useTimelineMutationDriver({
         return;
       }
 
-      if (onSettled !== undefined && !admissionIsBacklogged) {
+      if (onSettled !== undefined) {
         const callbacks =
           completionCallbacksRef.current.get(admission.unit.id) ?? [];
         callbacks.push(onSettled);
         completionCallbacksRef.current.set(admission.unit.id, callbacks);
       }
-      if (admissionIsBacklogged) onSettled?.({ kind: "accepted" });
 
       contextByUnitId.set(admission.unit.id, meta);
       mutationRuntime.claimMutationUnit(admission.unit.id, {
@@ -609,7 +605,6 @@ export function useTimelineMutationDriver({
       }
       if (plan.kind === "retry") {
         publishPendingQueueState();
-        settleCompletionCallbacks(unit.id, { kind: "accepted" });
         schedulePendingReplayRetry();
         return;
       }
@@ -724,16 +719,53 @@ export function useTimelineMutationDriver({
         rowVersion: appliedRow.row_version,
         staleResponseProtected: plan.preserveKnownCommittedRow,
       });
+      const followOnCreatePatches: Record<
+        string,
+        Record<string, unknown> | null
+      > = {};
+      if (unit.kind === "create") {
+        const committed = rowFromApi(accepted.row);
+        for (const queued of pending.model.snapshot().units) {
+          if (
+            queued.id === unit.id ||
+            queued.rowKey !== unit.rowKey ||
+            queued.kind !== "create"
+          )
+            continue;
+          const context = contextByUnitId.get(queued.id);
+          if (context === undefined) continue;
+          const payload = buildFollowOnCapturePatch(
+            committed,
+            meta.rowSnapshot,
+            context.rowSnapshot,
+            queued.clientTxnId,
+          );
+          followOnCreatePatches[queued.id] = payload;
+          contextByUnitId.set(queued.id, {
+            ...context,
+            rowSnapshot: { ...committed, values: context.rowSnapshot.values },
+            continueOnFreshDraft: false,
+          });
+        }
+      }
       const settlement = pending.model.settleDispatched({
         ok: true,
         row: appliedRow,
         change_set_id: accepted.changeSetId,
+        followOnCreatePatches,
       });
       if (settlement.outcome === "success") {
-        contextByUnitId.delete(settlement.unit.id);
-        mutationRuntime.releaseMutationUnit(settlement.unit.id);
-        clearPendingSignatureForUnit(settlement.unit);
-        settleCompletionCallbacks(settlement.unit.id, { kind: "accepted" });
+        if (unit.kind === "create")
+          pendingSavesRefs.pendingSignaturesRef.current.delete(unit.rowKey);
+        for (const completed of [
+          settlement.unit,
+          ...(settlement.acknowledgedFollowOnUnits ?? []),
+        ]) {
+          contextByUnitId.delete(completed.id);
+          mutationRuntime.releaseMutationUnit(completed.id);
+          clearPendingSignatureForUnit(completed);
+          settleCompletionCallbacks(completed.id, { kind: "accepted" });
+        }
       }
       publishPendingQueueState();
       requestPendingReplay("unit_completed");
@@ -746,6 +778,7 @@ export function useTimelineMutationDriver({
       contextByUnitId,
       mutationRuntime,
       postMutationQueryRefreshRequired,
+      pendingSavesRefs,
       publishPendingQueueState,
       recordWorkbookTiming,
       requestPendingReplay,
@@ -791,7 +824,8 @@ export function useTimelineMutationDriver({
           },
         });
         publishPendingQueueState();
-        settleCompletionCallbacks(dispatch.unit.id, { kind: "accepted" });
+        // Uncertain delivery is still pending. Only an authoritative acknowledgement
+        // may close the editor or perform its queued navigation.
         schedulePendingReplayRetry();
         return;
       }
@@ -814,7 +848,6 @@ export function useTimelineMutationDriver({
       publishPendingQueueState,
       recordWorkbookTiming,
       schedulePendingReplayRetry,
-      settleCompletionCallbacks,
     ],
   );
 

@@ -122,6 +122,8 @@
 
 .cartulary-grid .rdg-cell-drag-handle {
   background-color: var(--ct-colors-accent);
+  /* The handle must remain hit-testable above selected and frozen cells. */
+  z-index: 3;
 }
 
 .cartulary-grid-live-region {

@@ -43,6 +43,36 @@ describe("Timeline editor draft registry", () => {
       "invalid local text",
     );
     expect(refreshed.values.activitySynopsisText).toBe("authoritative value");
+    registry.beginCapture("draft-1");
+    registry.setDraft(
+      { field: "activitySynopsisText", rowKey: "draft-1", surface: "grid" },
+      "typing after submission",
+    );
+    registry.acceptCapture("draft-1", refreshed);
+    expect(registry.resolveRowKey("draft-1")).toBe(recordId);
+    const input = document.createElement("textarea");
+    document.body.append(input);
+    registry.registerInput(
+      { field: "activitySynopsisText", rowKey: recordId, surface: "grid" },
+      input,
+    );
+    expect(
+      registry.inputElementForFocusKey("draft-1:activitySynopsisText:grid"),
+    ).toBe(input);
+    input.remove();
+    expect(
+      registry.inputElementForFocusKey("draft-1:activitySynopsisText:grid"),
+    ).toBeNull();
+    registry.retainRows(new Set([recordId]));
+    expect(registry.materializeRow(refreshed).values.activitySynopsisText).toBe(
+      "typing after submission",
+    );
+    registry.clearSubmittedRow("draft-1", refreshed.values);
+    expect(registry.materializeRow(refreshed).values.activitySynopsisText).toBe(
+      "typing after submission",
+    );
+    registry.clearAll();
+    expect(registry.resolveRowKey("draft-1")).toBe("draft-1");
   });
 
   it("prefers an explicit commit value over a stale registered draft", () => {

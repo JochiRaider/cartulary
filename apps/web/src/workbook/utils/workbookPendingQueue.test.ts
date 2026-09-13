@@ -448,6 +448,112 @@ describe("pending queue unit model", () => {
   });
 
   it("coalesces only same-draft creates and contiguous same-record patches", () => {
+    const pendingCreate = createQueue();
+    expectAccepted(
+      pendingCreate.admit(
+        createUnit({ clientTxnId: "first", rowKey: "draft", order: 1 }),
+      ),
+    );
+    expect(
+      pendingCreate.admit(
+        createUnit({ clientTxnId: "duplicate", rowKey: "draft", order: 2 }),
+      ),
+    ).toMatchObject({
+      status: "duplicate",
+      unit: { id: "unit-first", clientTxnId: "first" },
+    });
+    pendingCreate.dispatchNext();
+    const followOn = expectAccepted(
+      pendingCreate.admit(
+        createUnit({
+          clientTxnId: "continued",
+          rowKey: "draft",
+          order: 2,
+          payloadIntent: {
+            "timeline.activity_synopsis_text": "continued text",
+          },
+        }),
+      ),
+    );
+    const other = expectAccepted(
+      pendingCreate.admit(
+        createUnit({ clientTxnId: "unrelated", rowKey: "other", order: 3 }),
+      ),
+    );
+    const patch = {
+      view_schema_id: viewSchemaId,
+      changes: [
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value: "continued text",
+        },
+      ],
+    };
+    pendingCreate.settleDispatched({
+      ok: true,
+      row: { record_id: "created", row_version: 1 },
+      followOnCreatePatches: { [followOn.id]: patch, [other.id]: patch },
+    });
+    expect(
+      pendingCreate
+        .snapshot()
+        .units.map((unit) => [unit.id, unit.kind, unit.recordId]),
+    ).toEqual([
+      [followOn.id, "patch", "created"],
+      [other.id, "create", null],
+    ]);
+    expect(pendingCreate.snapshot().units[0]?.identity).toMatchObject({
+      kind: "patch",
+      route_scope: { record_id: "created" },
+      changes: patch.changes,
+    });
+    pendingCreate.dispatchNext();
+    expect(
+      pendingCreate.admit(
+        patchUnit({
+          clientTxnId: "tab-after-create",
+          recordId: "created",
+          rowKey: "created",
+          value: "continued text",
+          order: 4,
+          baseRowVersion: 2,
+        }),
+      ),
+    ).toMatchObject({ status: "duplicate", unit: { id: followOn.id } });
+
+    const revertedCapture = createQueue();
+    expectAccepted(
+      revertedCapture.admit(
+        createUnit({ clientTxnId: "initial", rowKey: "draft", order: 1 }),
+      ),
+    );
+    revertedCapture.dispatchNext();
+    const continuedCapture = expectAccepted(
+      revertedCapture.admit(
+        createUnit({
+          clientTxnId: "different",
+          rowKey: "draft",
+          order: 2,
+          payloadIntent: { "timeline.activity_synopsis_text": "different" },
+        }),
+      ),
+    );
+    expect(
+      revertedCapture.admit(
+        createUnit({ clientTxnId: "reverted", rowKey: "draft", order: 3 }),
+      ),
+    ).toMatchObject({ status: "coalesced", unit: { id: continuedCapture.id } });
+    expect(
+      revertedCapture.settleDispatched({
+        ok: true,
+        row: { record_id: "created", row_version: 1 },
+        followOnCreatePatches: { [continuedCapture.id]: null },
+      }),
+    ).toMatchObject({
+      outcome: "success",
+      acknowledgedFollowOnUnits: [{ id: continuedCapture.id }],
+      snapshot: { units: [] },
+    });
     const createQueueModel = createQueue();
     const createFirst = expectAccepted(
       createQueueModel.admit(
@@ -628,7 +734,19 @@ describe("pending queue unit model", () => {
     expect(retryResult.outcome).toBe("retryable_failure");
     expect(retryQueue.snapshot().queuedCount).toBe(1);
     expect(retryQueue.snapshot().primarySaveStateInput).toBe("Syncing");
-    expect(retryQueue.dispatchNext()?.unit.clientTxnId).toBe("txn-retry");
+    const following = retryQueue.admit(
+      patchUnit({
+        clientTxnId: "txn-after-loss",
+        recordId: "record-retry",
+        order: 2,
+        value: "Later input",
+      }),
+    );
+    expect(following.status).toBe("accepted");
+    expect(retryQueue.snapshot().queuedCount).toBe(2);
+    expect(retryQueue.dispatchNext()?.payloadIntent).toEqual(
+      firstDispatch?.payloadIntent,
+    );
 
     const unknownRetryableQueue = createQueue();
     const parsedUnknownRetryable = parsePendingReplayPublicError({

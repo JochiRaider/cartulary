@@ -126,6 +126,7 @@ export const TimelineWorkbookGrid = forwardRef<
       testId={gridShellTestId(timelineViewSchemaId)}
     >
       <SemanticDataGrid
+        keyboardNavigation="spreadsheet"
         ref={ref}
         activeRowIdentity={
           activeRecordId === null

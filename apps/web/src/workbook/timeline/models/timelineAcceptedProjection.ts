@@ -23,15 +23,16 @@ export function projectAcceptedTimelineRow({
     currentRows.find((candidate) => candidate.key === rowKey) ??
     currentRows.find((candidate) => candidate.recordId === committed.recordId);
   let replaced = false;
-  let nextRows = currentRows.map((row) => {
+  let nextRows = currentRows.flatMap((row) => {
     if (
       row.key !== rowKey &&
       (committed.recordId === null || row.recordId !== committed.recordId)
     ) {
-      return row;
+      return [row];
     }
+    if (replaced) return [];
     replaced = true;
-    return committed;
+    return [committed];
   });
   if (!replaced) {
     const draftIndex = nextRows.findIndex((row) => row.recordId === null);

@@ -79,7 +79,7 @@
           },
           "view_schema_id": { "const": "cartulary.view.timeline.v2" },
           "field_key": { "const": "timeline.activity_synopsis_text" },
-          "initiating_key": { "enum": ["ArrowDown", "Enter", "x"] },
+          "initiating_key": { "enum": ["ArrowDown", "PointerPrimary", "Input", "x"] },
           "start_mark": { "type": "string", "pattern": "^cartulary\\.workbook\\.[a-z0-9_]+$" },
           "stop_mark": { "type": "string", "pattern": "^cartulary\\.workbook\\.[a-z0-9_]+$" },
           "threshold_ms": { "enum": [100, 150] },
@@ -99,7 +99,7 @@
           {
             "properties": {
               "predicate_id": { "const": "perf.timeline_summary_focus_edit.v1" },
-              "initiating_key": { "const": "Enter" },
+              "initiating_key": { "const": "PointerPrimary" },
               "start_mark": { "const": "cartulary.workbook.focus_edit_accepted" },
               "stop_mark": { "const": "cartulary.workbook.focus_edit_visible_paint" },
               "threshold_ms": { "const": 100 }
@@ -117,7 +117,7 @@
           {
             "properties": {
               "predicate_id": { "const": "perf.timeline_blank_row_create.v1" },
-              "initiating_key": { "const": "Enter" },
+              "initiating_key": { "const": "Input" },
               "start_mark": { "const": "cartulary.workbook.blank_row_commit_accepted" },
               "stop_mark": { "const": "cartulary.workbook.blank_row_create_visible_paint" },
               "threshold_ms": { "const": 150 }

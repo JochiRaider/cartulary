@@ -17,7 +17,7 @@ export function createTimelineRowMutationEditorAdapter({
   readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
 }): TimelineRowMutationEditorPort {
   return {
-    activateEdit: ({ fieldKey, recordId, value }) => {
+    activateEdit: ({ fieldKey, recordId, value, selectionRange }) => {
       gridHandleRef.current?.activateEdit(
         {
           fieldKey,
@@ -27,7 +27,7 @@ export function createTimelineRowMutationEditorAdapter({
             viewSchemaId: timelineViewSchemaId,
           },
         },
-        { value },
+        { value, selectionRange },
       );
     },
     cancelEdit: ({ fieldKey, recordId }) => {

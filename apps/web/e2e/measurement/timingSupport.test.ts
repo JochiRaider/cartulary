@@ -281,5 +281,21 @@ describe("AC-043 paint qualification", () => {
     });
 
     expect(unstableBlankRowFrameCount()).toBeGreaterThanOrEqual(3);
+    document.body.replaceChildren();
+    const editing = blankRowFixture();
+    const createdEditor = document.createElement("textarea");
+    createdEditor.dataset.testid =
+      "row-record-a-timeline.activity_synopsis_text-grid-editor";
+    createdEditor.value = "created";
+    createdEditor.getBoundingClientRect = () => inViewport;
+    editing.summary.replaceWith(createdEditor);
+    const frames = installFrameClock(() => {});
+    await observeBlankRowPaintInBrowser({
+      expectedSummary: "created",
+      startMark: "accepted",
+      stopMark: "visible",
+      timeoutMs: 1_000,
+    });
+    expect(frames()).toBeGreaterThanOrEqual(2);
   });
 });

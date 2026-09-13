@@ -182,6 +182,8 @@ export function useTimelineWorkbookComposition({
         grid.commands.viewportContinuity.clearViewportContinuity,
       currentTimelineAnchorFor: grid.commands.anchors.currentTimelineAnchorFor,
       focusDraftRow: grid.commands.focusDraftRow,
+      navigateTimelineDraftFocus:
+        grid.commands.anchors.navigateTimelineDraftFocus,
       navigateTimelineFocusAnchor:
         grid.commands.anchors.navigateTimelineFocusAnchor,
       resolveTimelinePasteTargetResolution:
@@ -205,6 +207,7 @@ export function useTimelineWorkbookComposition({
     interactionMode: runtime.layout.snapshot.interactionMode,
     loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
     mutation: {
+      activateConflict: mutation.commands.save.activateConflict,
       applyClipboardResponseRows:
         mutation.commands.save.applyClipboardResponseRows,
       beginSave: mutation.commands.save.beginSave,

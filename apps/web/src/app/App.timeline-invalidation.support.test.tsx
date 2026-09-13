@@ -81,8 +81,8 @@ describe("Timeline workbook", () => {
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     summaryInput.focus();
-    fireEvent.change(summaryInput, { target: { value: "Alpha enter" } });
-    fireEvent.keyDown(summaryInput, { key: "Enter" });
+    fireEvent.change(summaryInput, { target: { value: "Alpha tab" } });
+    fireEvent.keyDown(summaryInput, { key: "Tab" });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -109,7 +109,7 @@ describe("Timeline workbook", () => {
         row: timelineRow({
           recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
-          summary: "Alpha enter",
+          summary: "Alpha tab",
           captureState: "enriched",
         }),
       }),

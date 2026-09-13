@@ -2186,6 +2186,15 @@ Verified by: AC-485
 
 **REQ-03-218**
 Enter MUST commit and move vertically. Tab MUST commit and move horizontally.
+On Timeline, `Enter` and `Shift+Enter` in grid navigation mode MUST move to the
+next and previous visible row respectively, preserving the field. `Tab` and
+`Shift+Tab` MUST move between visible data fields and wrap across rows. At the
+outer Tab boundary, focus MUST leave for the adjacent shell region. The trailing
+creation draft participates when creation is authorized; navigation alone MUST
+NOT create an empty record. In edit mode, these keys MUST commit once and perform
+the same movement only after acceptance. Rejection MUST retain the exact draft
+and original focusable editor. Arrow keys in an editor retain caret ownership.
+This Timeline decision does not change another surface's navigation policy.
 Profiles: base
 Verified by: AC-005, AC-043, AC-231
 

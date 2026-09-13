@@ -69,20 +69,37 @@ export function useTimelineViewportContinuityController({
   const activeViewportContinuityRequestRef =
     useRef<TimelineViewportContinuityRequest | null>(viewportContinuityRequest);
   const userInteractionVersionRef = useRef(0);
+  const scrollRestoreSequenceRef = useRef(0);
 
   useEffect(() => {
     const recordUserInteraction = () => {
       userInteractionVersionRef.current += 1;
     };
+    const recordFocusChange = (event: FocusEvent) => {
+      const target =
+        activeViewportContinuityRequestRef.current?.lifecycle
+          .semanticFocusTarget;
+      if (
+        target?.kind === "input" &&
+        event.target !==
+          editorDraftRegistry.inputElementForFocusKey(target.focusKey)
+      ) {
+        recordUserInteraction();
+      }
+    };
     document.addEventListener("keydown", recordUserInteraction, true);
+    document.addEventListener("input", recordUserInteraction, true);
     document.addEventListener("pointerdown", recordUserInteraction, true);
     document.addEventListener("wheel", recordUserInteraction, true);
+    document.addEventListener("focusin", recordFocusChange, true);
     return () => {
       document.removeEventListener("keydown", recordUserInteraction, true);
+      document.removeEventListener("input", recordUserInteraction, true);
       document.removeEventListener("pointerdown", recordUserInteraction, true);
       document.removeEventListener("wheel", recordUserInteraction, true);
+      document.removeEventListener("focusin", recordFocusChange, true);
     };
-  }, []);
+  }, [editorDraftRegistry]);
 
   const currentGridScrollElement = useCallback(
     () => gridHandleRef.current?.getScrollElement() ?? null,
@@ -156,7 +173,14 @@ export function useTimelineViewportContinuityController({
       }
       scrollElement.scrollTop = preservedScroll.top;
       scrollElement.scrollLeft = preservedScroll.left;
+      const sequence = ++scrollRestoreSequenceRef.current;
+      const interaction = userInteractionVersionRef.current;
       window.requestAnimationFrame(() => {
+        if (
+          sequence !== scrollRestoreSequenceRef.current ||
+          interaction !== userInteractionVersionRef.current
+        )
+          return;
         const currentScrollElement = currentGridScrollElement();
         if (currentScrollElement === null) return;
         currentScrollElement.scrollTop = preservedScroll.top;
@@ -186,7 +210,11 @@ export function useTimelineViewportContinuityController({
       const preservedScroll = currentViewport.scroll;
       window.focus();
       const focusedNow = focusTarget();
-      restoreGridScroll(preservedScroll);
+      // Compute vertical restoration from the current target geometry. Resetting
+      // to the old scroll first unmounts the newly acknowledged row needlessly.
+      const scrollElement = currentGridScrollElement();
+      if (scrollElement !== null && preservedScroll !== null)
+        scrollElement.scrollLeft = preservedScroll.left;
       const restoreViewportGeometryNow = () => {
         const scrollElement = currentGridScrollElement();
         const currentRect = resolveRect();
@@ -433,7 +461,11 @@ export function useTimelineViewportContinuityController({
           "timeline.activity_synopsis_text",
         );
       } else if (target.kind === "input") {
-        const [rowKey, fieldKey] = target.focusKey.split(":");
+        const [localRowKey, fieldKey] = target.focusKey.split(":");
+        const rowKey =
+          localRowKey === undefined
+            ? undefined
+            : editorDraftRegistry.resolveRowKey(localRowKey);
         const scalarBinding = timelineScalarBindings.find(
           (binding) => binding.key === fieldKey,
         );
@@ -456,7 +488,7 @@ export function useTimelineViewportContinuityController({
         ? false
         : (gridHandleRef.current?.scrollToAnchor(anchor) ?? false);
     },
-    [gridHandleRef],
+    [editorDraftRegistry, gridHandleRef],
   );
 
   const focusViewportContinuityTarget = useCallback(

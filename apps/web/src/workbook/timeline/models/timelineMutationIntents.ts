@@ -79,3 +79,46 @@ export function buildCreatePayload(
     ? null
     : payload;
 }
+
+// A dispatched create is immutable. Later capture input belongs to that same
+// logical row and becomes a patch after its record identity is acknowledged.
+export function buildFollowOnCapturePatch(
+  committed: WorkbookRow,
+  submitted: WorkbookRow,
+  following: WorkbookRow,
+  clientTxnId: string,
+) {
+  const changes: Record<string, unknown>[] = [
+    ...(buildScalarPatchIntent(
+      { ...committed, values: following.values },
+      clientTxnId,
+    )?.changes ?? []),
+  ];
+  for (const binding of timelineCollectionBindings) {
+    const acceptedTokens =
+      submitted.collectionDrafts[binding.draftKey].split(/\r?\n/u);
+    const remaining = following.collectionDrafts[binding.draftKey]
+      .split(/\r?\n/u)
+      .filter((token) => {
+        const index = acceptedTokens.indexOf(token);
+        if (index < 0) return true;
+        acceptedTokens.splice(index, 1);
+        return false;
+      })
+      .join("\n");
+    const actionPayload = buildCollectionActions(binding.fieldKey, remaining);
+    if (actionPayload !== null)
+      changes.push({
+        field_key: binding.fieldKey,
+        action_payload: actionPayload,
+      });
+  }
+  // The create acknowledgement already satisfies identical later input.
+  // A second write would be rejected as no_effective_change.
+  if (changes.length === 0) return null;
+  return {
+    view_schema_id: timelineViewSchemaId,
+    client_txn_id: clientTxnId,
+    changes,
+  };
+}

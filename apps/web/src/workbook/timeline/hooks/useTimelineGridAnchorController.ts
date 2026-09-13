@@ -12,6 +12,7 @@ import type {
   WorkbookContinuityPort,
 } from "../../continuity/workbookContinuityPort";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/timelineRowModel";
 
@@ -106,6 +107,7 @@ function savedTimelinePasteResolution({
 
 export function useTimelineGridAnchorController({
   continuityPort,
+  editorDraftRegistry,
   gridHandleRef,
   rowsRef,
   timelineAnchorColumnsRef,
@@ -113,6 +115,7 @@ export function useTimelineGridAnchorController({
   updateWorkbookFocusAnchor,
 }: {
   readonly continuityPort: WorkbookContinuityPort;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly gridHandleRef: TimelineReadonlyRef<GridHandle | null>;
   readonly rowsRef: TimelineReadonlyRef<readonly WorkbookRow[]>;
   readonly timelineAnchorColumnsRef: TimelineReadonlyRef<
@@ -146,7 +149,10 @@ export function useTimelineGridAnchorController({
 
   const currentTimelineAnchorFor = useCallback(
     (rowKey: string, fieldKey: string): GridCellAnchor | null => {
-      const row = rowsRef.current.find((candidate) => candidate.key === rowKey);
+      const row = rowsRef.current.find(
+        (candidate) =>
+          candidate.key === editorDraftRegistry.resolveRowKey(rowKey),
+      );
       if (row?.recordId === null || row?.recordId === undefined) {
         updateWorkbookFocusAnchor(null);
         return null;
@@ -165,7 +171,12 @@ export function useTimelineGridAnchorController({
       );
       return anchor;
     },
-    [rowsRef, updateTimelineSurfaceFocusAnchor, updateWorkbookFocusAnchor],
+    [
+      rowsRef,
+      editorDraftRegistry,
+      updateTimelineSurfaceFocusAnchor,
+      updateWorkbookFocusAnchor,
+    ],
   );
 
   const resolveTimelinePasteTargetResolution = useCallback(
@@ -239,7 +250,61 @@ export function useTimelineGridAnchorController({
     ],
   );
 
+  const navigateTimelineDraftFocus = useCallback(
+    (rowKey: string, fieldKey: string, intent: GridNavigationIntent) => {
+      const committed = currentTimelineAnchorFor(rowKey, fieldKey);
+      if (committed !== null) {
+        gridHandleRef.current?.moveFocus(committed, intent);
+        return;
+      }
+      const fields = timelineAnchorColumnsRef.current
+        .filter(
+          (column) =>
+            column.renderDraftCell !== undefined && column.contractWritable,
+        )
+        .map((column) => column.fieldKey);
+      const index = fields.indexOf(fieldKey);
+      const previous = rowsRef.current
+        .filter((row) => row.recordId !== null)
+        .at(-1);
+      if (intent.key === "Tab") {
+        const next = fields[index + (intent.shiftKey ? -1 : 1)];
+        if (next !== undefined) {
+          gridHandleRef.current?.focusDraftCell(next);
+          return;
+        }
+        if (!intent.shiftKey || previous === undefined) {
+          gridHandleRef.current?.focusAdjacentRegion?.(
+            intent.shiftKey === true,
+          );
+          return;
+        }
+      }
+      if (intent.shiftKey && previous?.recordId) {
+        const targetField =
+          intent.key === "Tab"
+            ? timelineAnchorColumnsRef.current.at(-1)?.fieldKey
+            : fieldKey;
+        if (targetField !== undefined)
+          gridHandleRef.current?.focusAnchor({
+            surface: {
+              kind: "view_schema",
+              viewSchemaId: timelineViewSchemaId,
+            },
+            rowIdentity: { kind: "core_record", recordId: previous.recordId },
+            fieldKey: targetField,
+          });
+      }
+    },
+    [
+      currentTimelineAnchorFor,
+      gridHandleRef,
+      rowsRef,
+      timelineAnchorColumnsRef,
+    ],
+  );
   return {
+    navigateTimelineDraftFocus,
     currentTimelineAnchorFor,
     navigateTimelineFocusAnchor,
     resolveTimelinePasteTargetResolution,

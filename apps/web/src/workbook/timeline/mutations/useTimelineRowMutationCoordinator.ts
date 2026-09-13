@@ -287,6 +287,10 @@ export function useTimelineRowMutationCoordinator({
       // The FIFO owns settlement after navigation. A detached projection has
       // no React commit or viewport/focus effects to apply.
       if (!mountedRef.current) return committed;
+      const captureEditor = editorDraftRegistry.acceptCapture(
+        rowKey,
+        committed,
+      );
       let projection: TimelineAcceptedProjection | undefined;
       commitTimelineProjection(() => {
         updateRows((current) => {
@@ -331,6 +335,18 @@ export function useTimelineRowMutationCoordinator({
           scopeKey: createdRowPresentationScopeKey,
         };
       }
+      if (
+        captureEditor !== null &&
+        committed.recordId !== null &&
+        options.continueOnFreshDraft !== true
+      ) {
+        const recordId = committed.recordId;
+        // Finish the identity handoff before a waiting Enter/Tab completion
+        // applies newer navigation, so a late editor mount cannot steal focus.
+        commitTimelineProjection(() => {
+          editorPort.activateEdit({ ...captureEditor, recordId });
+        }, true);
+      }
       completeAcceptedContinuity({
         advanceViewportContinuity,
         clearViewportContinuity,
@@ -347,6 +363,7 @@ export function useTimelineRowMutationCoordinator({
       clearViewportContinuity,
       createdRowPresentationScopeKey,
       editorPort,
+      editorDraftRegistry,
       nextDraftIndex,
       pruneAutoResolutionNoticesForRows,
       rowsRef,
@@ -462,8 +479,8 @@ export function useTimelineRowMutationCoordinator({
   );
 
   const activateConflict = useCallback(
-    (key: string) => {
-      mutationRuntime.activateConflict();
+    (key: string | null) => {
+      if (key !== null) mutationRuntime.activateConflict();
       setActiveConflictKey(key);
     },
     [mutationRuntime, setActiveConflictKey],

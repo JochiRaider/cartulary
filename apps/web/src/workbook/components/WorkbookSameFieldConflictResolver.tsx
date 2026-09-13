@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type {
   WorkbookMutationRuntime,
   WorkbookMutationSnapshot,
@@ -114,6 +115,9 @@ export function WorkbookSameFieldConflictResolver({
     setMessage(null);
     if (snapshot.conflictPanelOpen && conflict !== null) {
       if (resolverRef.current?.contains(document.activeElement)) return;
+      // Timeline correction retains grid focus even during an editor remount.
+      // Explicit recovery activation owns focus through useWorkbookRecoveryFocus.
+      if (conflict.origin.viewSchemaId === timelineViewSchemaId) return;
       focusSummary();
     }
   }, [conflict, focusSummary, snapshot.conflictPanelOpen]);

@@ -49,6 +49,8 @@ export function createTimelineEditorDraftRegistry() {
   const inputElements = new Map<string, TimelineEditorElement>();
   const focusKeysByRow = new Map<string, Set<string>>();
   const rowListeners = new Map<string, Set<() => void>>();
+  const acceptedDraftRows = new Map<string, string>();
+  const captureRows = new Set<string>();
   const publishRow = (rowKey: string) => {
     for (const listener of rowListeners.get(rowKey) ?? []) listener();
   };
@@ -80,6 +82,57 @@ export function createTimelineEditorDraftRegistry() {
   const draftValueForFocusKey = (focusKey: string) => draftValues.get(focusKey);
 
   return {
+    resolveRowKey(rowKey: string) {
+      return acceptedDraftRows.get(rowKey) ?? rowKey;
+    },
+    beginCapture(rowKey: string) {
+      const firstInput = !captureRows.has(rowKey);
+      captureRows.add(rowKey);
+      return firstInput;
+    },
+    acceptCapture(rowKey: string, committed: WorkbookRow) {
+      if (!captureRows.delete(rowKey)) return null;
+      acceptedDraftRows.set(rowKey, committed.key);
+      let active: {
+        fieldKey: string;
+        value: string;
+        selectionRange: { start: number; end: number };
+      } | null = null;
+      for (const binding of [
+        ...timelineScalarBindings,
+        ...timelineCollectionBindings,
+      ]) {
+        const field = "key" in binding ? binding.key : binding.draftKey;
+        for (const surface of timelineScalarEditorSurfaces) {
+          const oldKey = inputFocusKey(rowKey, field, surface);
+          const nextKey = inputFocusKey(committed.key, field, surface);
+          const value = draftValues.get(oldKey);
+          if (value !== undefined) {
+            draftValues.set(nextKey, value);
+            rememberFocusKey(committed.key, nextKey);
+            draftValues.delete(oldKey);
+          }
+          const element = inputElements.get(oldKey);
+          if (
+            surface === "grid" &&
+            element !== undefined &&
+            element === document.activeElement &&
+            "key" in binding
+          ) {
+            active = {
+              fieldKey: binding.fieldKey,
+              value: element.value,
+              selectionRange: {
+                start: element.selectionStart ?? element.value.length,
+                end: element.selectionEnd ?? element.value.length,
+              },
+            };
+          }
+        }
+      }
+      publishRow(committed.key);
+      return active;
+    },
     subscribeRow(rowKey: string, listener: () => void) {
       const listeners = rowListeners.get(rowKey) ?? new Set<() => void>();
       listeners.add(listener);
@@ -98,6 +151,8 @@ export function createTimelineEditorDraftRegistry() {
       );
     },
     clearAll() {
+      acceptedDraftRows.clear();
+      captureRows.clear();
       draftValues.clear();
       inputElements.clear();
       focusKeysByRow.clear();
@@ -132,6 +187,7 @@ export function createTimelineEditorDraftRegistry() {
       submittedValues: RowValues,
       submittedCollections?: Partial<WorkbookRow["collectionDrafts"]>,
     ) {
+      rowKey = acceptedDraftRows.get(rowKey) ?? rowKey;
       for (const binding of timelineCollectionBindings) {
         const focusKey = inputFocusKey(rowKey, binding.draftKey, "grid");
         if (
@@ -178,6 +234,12 @@ export function createTimelineEditorDraftRegistry() {
     },
     draftValueForFocusKey,
     inputElementForFocusKey(focusKey: string) {
+      const separator = focusKey.indexOf(":");
+      const acceptedRowKey = acceptedDraftRows.get(
+        focusKey.slice(0, separator),
+      );
+      if (separator >= 0 && acceptedRowKey !== undefined)
+        focusKey = acceptedRowKey + focusKey.slice(separator);
       const element = inputElements.get(focusKey);
       if (isUsableEditorElement(element)) return element;
       if (element !== undefined) inputElements.delete(focusKey);

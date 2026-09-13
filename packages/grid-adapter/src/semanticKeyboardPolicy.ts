@@ -6,7 +6,7 @@ import type {
   GridEditorActivation,
   GridNavigationKey,
 } from "./core";
-import { isGridColumnEditable } from "./core";
+import { gridRowIdentitiesEqual, isGridColumnEditable } from "./core";
 import type { PendingEditorSeed } from "./editorSessionPolicy";
 import {
   coreRowVersion,
@@ -23,6 +23,7 @@ export type NormalizedGridKey = {
 
 export type SemanticGridDecision =
   | { readonly kind: "ignore" }
+  | { readonly kind: "focus_draft"; readonly fieldKey: string }
   | { readonly announcement: string; readonly kind: "reject" }
   | { readonly backwards: boolean; readonly kind: "exit_grid" }
   | {
@@ -60,6 +61,8 @@ export function decideSemanticGridKey<Row>({
   column,
   editable,
   input,
+  keyboardNavigation = "region",
+  draftFieldKeys = [],
   model,
   pageSize,
   range,
@@ -70,6 +73,8 @@ export function decideSemanticGridKey<Row>({
   readonly column: GridColumn<Row> | undefined;
   readonly editable: boolean;
   readonly input: NormalizedGridKey;
+  readonly keyboardNavigation?: "region" | "spreadsheet" | undefined;
+  readonly draftFieldKeys?: readonly string[] | undefined;
   readonly model: GridSemanticPresentationModel<Row>;
   readonly pageSize: number;
   readonly range: GridCellRange | null;
@@ -78,6 +83,14 @@ export function decideSemanticGridKey<Row>({
 }): SemanticGridDecision {
   if (input.ctrlOrMetaKey && input.key.toLowerCase() === "d") {
     return { kind: "fill", range };
+  }
+  if (
+    keyboardNavigation === "spreadsheet" &&
+    !input.altKey &&
+    !input.ctrlOrMetaKey &&
+    (input.key === "Enter" || input.key === "Tab")
+  ) {
+    return decideSpreadsheetNavigation(model, anchor, input, draftFieldKeys);
   }
   if (input.key === "Tab") {
     return { backwards: input.shiftKey, kind: "exit_grid" };
@@ -141,6 +154,54 @@ export function decideSemanticGridKey<Row>({
       !input.ctrlOrMetaKey &&
       isTimelineSummary(anchor),
   };
+}
+
+export function decideSpreadsheetNavigation<Row>(
+  model: GridSemanticPresentationModel<Row>,
+  anchor: GridCellAnchor,
+  input: Pick<NormalizedGridKey, "key" | "shiftKey">,
+  draftFieldKeys: readonly string[] = [],
+): SemanticGridDecision {
+  const backwards = input.shiftKey;
+  const rowIndex = model.rowIdentities.findIndex((identity) =>
+    gridRowIdentitiesEqual(identity, anchor.rowIdentity),
+  );
+  const columnIndex = model.fieldKeys.indexOf(anchor.fieldKey);
+  if (rowIndex < 0 || columnIndex < 0) return { kind: "ignore" };
+  let nextRow = rowIndex;
+  let nextColumn = columnIndex;
+  if (input.key === "Enter") nextRow += backwards ? -1 : 1;
+  else {
+    nextColumn += backwards ? -1 : 1;
+    if (nextColumn < 0) {
+      nextRow -= 1;
+      nextColumn = model.fieldKeys.length - 1;
+    } else if (nextColumn === model.fieldKeys.length) {
+      nextRow += 1;
+      nextColumn = 0;
+    }
+  }
+  const fieldKey = model.fieldKeys[nextColumn];
+  const rowIdentity = model.rowIdentities[nextRow];
+  if (fieldKey !== undefined && rowIdentity !== undefined) {
+    return {
+      kind: "navigate",
+      range: null,
+      target: { ...anchor, fieldKey, rowIdentity },
+      timelineMeasurement: false,
+    };
+  }
+  if (nextRow === model.rowIdentities.length && draftFieldKeys.length > 0) {
+    const draftField =
+      input.key === "Enter" && draftFieldKeys.includes(anchor.fieldKey)
+        ? anchor.fieldKey
+        : draftFieldKeys[0];
+    if (draftField !== undefined)
+      return { kind: "focus_draft", fieldKey: draftField };
+  }
+  return input.key === "Tab"
+    ? { kind: "exit_grid", backwards }
+    : { kind: "ignore" };
 }
 
 function editDecision<Row>({

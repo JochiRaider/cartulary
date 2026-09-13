@@ -26,6 +26,7 @@ export function TimelineScalarEditor({
   multiline,
   onBlurCommit,
   onDraftChange,
+  onCaptureInput,
   onEditModeChange,
   onCloseGridEditor,
   onFocusAnchor,
@@ -63,6 +64,7 @@ export function TimelineScalarEditor({
     surface: TimelineScalarEditorSurface,
     value: string,
   ) => void;
+  readonly onCaptureInput?: ((value: string) => void) | undefined;
   readonly onEditModeChange: (
     recordId: string | null,
     fieldKey: string,
@@ -126,6 +128,7 @@ export function TimelineScalarEditor({
     if (readOnly) return;
     setEditorValue(value);
     onDraftChange(rowKey, field, surface, value);
+    onCaptureInput?.(value);
   };
   const markTypingAcknowledgement = (
     event: ReactChangeEvent<HTMLInputElement | HTMLTextAreaElement>,

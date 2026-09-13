@@ -1,11 +1,13 @@
 import type {
   GridCellAnchor,
+  GridEditCommitOutcome,
   GridNavigationIntent,
 } from "@cartulary/grid-adapter";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
@@ -37,6 +39,7 @@ type QueueScalarSave = (
   focusField: keyof RowValues,
   options: TimelineScalarSaveOptions,
   currentValue?: string,
+  onSettled?: (outcome: GridEditCommitOutcome) => void,
 ) => void;
 
 type QueueCollectionSave = (
@@ -46,6 +49,7 @@ type QueueCollectionSave = (
   currentValue?: string,
   source?: "keyboard" | "blur",
   surface?: TimelineScalarEditorSurface,
+  onSettled?: (outcome: GridEditCommitOutcome) => void,
 ) => void;
 
 function executeScalarEditorIntent({
@@ -158,6 +162,7 @@ function executeScalarSaveIntent({
 }
 
 export function useTimelineKeyboardController({
+  navigateTimelineDraftFocus,
   clearRowHistory,
   currentTimelineAnchorFor,
   elementRegistry,
@@ -177,6 +182,9 @@ export function useTimelineKeyboardController({
   timelineRowForEventTarget,
   workbookFocusAnchorRef,
 }: {
+  readonly navigateTimelineDraftFocus?:
+    | ((rowKey: string, fieldKey: string, intent: GridNavigationIntent) => void)
+    | undefined;
   readonly clearRowHistory: () => void;
   readonly currentTimelineAnchorFor: (
     rowKey: string,
@@ -216,6 +224,18 @@ export function useTimelineKeyboardController({
     readonly current: WorkbookContinuityAnchor | null;
   };
 }) {
+  const interactionSequence = useRef(0);
+  useLayoutEffect(() => {
+    const advance = () => {
+      interactionSequence.current += 1;
+    };
+    document.addEventListener("keydown", advance, true);
+    document.addEventListener("pointerdown", advance, true);
+    return () => {
+      document.removeEventListener("keydown", advance, true);
+      document.removeEventListener("pointerdown", advance, true);
+    };
+  }, []);
   const [pendingInspectorFocus, setPendingInspectorFocus] = useState<{
     readonly identity: {
       readonly recordId: string;
@@ -250,11 +270,48 @@ export function useTimelineKeyboardController({
       focusField: keyof RowValues,
       surface: TimelineScalarEditorSurface,
     ) => {
+      if (
+        event.nativeEvent.isComposing ||
+        event.key.startsWith("Arrow") ||
+        event.key === "Home" ||
+        event.key === "End"
+      ) {
+        event.stopPropagation();
+        return;
+      }
       const priorGridAnchor = workbookFocusAnchorRef.current;
       const binding = timelineScalarBindings.find(
         (candidate) => candidate.key === focusField,
       );
       const fieldKey = binding?.fieldKey ?? focusField;
+      if (
+        surface === "grid" &&
+        navigateTimelineDraftFocus !== undefined &&
+        (event.key === "Enter" || event.key === "Tab")
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        const navigation: GridNavigationIntent = {
+          key: event.key,
+          shiftKey: event.shiftKey,
+        };
+        const original = event.currentTarget;
+        const sequence = interactionSequence.current;
+        queueScalarSave(
+          rowKey,
+          focusField,
+          { continueOnFreshDraft: false, preserveInputFocus: false, surface },
+          original.value,
+          (outcome) => {
+            if (sequence !== interactionSequence.current) return;
+            if (outcome.kind === "accepted")
+              navigateTimelineDraftFocus(rowKey, fieldKey, navigation);
+            else if (original.isConnected)
+              original.focus({ preventScroll: true });
+          },
+        );
+        return;
+      }
       const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
       const intent = mapTimelineScalarEditorIntent({
         event,
@@ -290,6 +347,7 @@ export function useTimelineKeyboardController({
       closeInspectorFromEditor,
       currentTimelineAnchorFor,
       navigateTimelineFocusAnchor,
+      navigateTimelineDraftFocus,
       queueScalarSave,
       recordTiming,
       restoreTimelineFocusAnchor,
@@ -309,10 +367,43 @@ export function useTimelineKeyboardController({
       surface: TimelineScalarEditorSurface = "grid",
     ) => {
       if (
-        surface === "inspector" &&
-        (event.key === "Tab" || event.key.startsWith("Arrow"))
+        event.nativeEvent.isComposing ||
+        event.key.startsWith("Arrow") ||
+        event.key === "Home" ||
+        event.key === "End" ||
+        (surface === "inspector" && event.key === "Tab")
       ) {
         event.stopPropagation();
+        return;
+      }
+      if (
+        surface === "grid" &&
+        navigateTimelineDraftFocus !== undefined &&
+        (event.key === "Enter" || event.key === "Tab")
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        const original = event.currentTarget;
+        const sequence = interactionSequence.current;
+        const navigation: GridNavigationIntent = {
+          key: event.key,
+          shiftKey: event.shiftKey,
+        };
+        queueCollectionSave(
+          rowKey,
+          fieldKey,
+          draftKey,
+          original.value,
+          "keyboard",
+          surface,
+          (outcome) => {
+            if (sequence !== interactionSequence.current) return;
+            if (outcome.kind === "accepted")
+              navigateTimelineDraftFocus(rowKey, fieldKey, navigation);
+            else if (original.isConnected)
+              original.focus({ preventScroll: true });
+          },
+        );
         return;
       }
       const anchor = currentTimelineAnchorFor(rowKey, fieldKey);
@@ -355,6 +446,7 @@ export function useTimelineKeyboardController({
       closeInspectorFromEditor,
       currentTimelineAnchorFor,
       navigateTimelineFocusAnchor,
+      navigateTimelineDraftFocus,
       queueCollectionSave,
       rowHistory.phase,
       rowHistory.subject,

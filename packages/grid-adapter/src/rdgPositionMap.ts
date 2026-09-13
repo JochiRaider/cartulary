@@ -14,6 +14,7 @@ export type GridRdgPosition = {
 };
 
 export type GridRdgPositionMap = {
+  readonly columnKeys: readonly string[];
   readonly positions: ReadonlyMap<string, GridRdgPosition>;
   readonly surface: GridSurfaceIdentity;
 };
@@ -26,6 +27,7 @@ export function emptyRdgPresentationModel<Row>(
 ): GridRdgPresentationModel<Row> {
   return {
     ...emptySemanticPresentationModel<Row>(surface),
+    columnKeys: [],
     positions: new Map(),
   };
 }
@@ -54,6 +56,7 @@ export function buildRdgPresentationModel<Row>({
   });
   return {
     ...model,
+    columnKeys,
     positions: buildRdgPositions({
       columnKeys,
       dataRows,

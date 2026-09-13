@@ -7,6 +7,7 @@ import type {
   GridDataState,
   SemanticDataGridProps,
 } from "./core";
+import { editorSeedForTarget } from "./editorSessionPolicy";
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
 import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
 import {
@@ -208,10 +209,81 @@ describe("shared semantic grid kernel", () => {
       readOnlyLabel: "Workbook locked",
       row: firstRow,
     };
+    const spreadsheet = { ...base, keyboardNavigation: "spreadsheet" as const };
+    expect(
+      decideSemanticGridKey({ ...spreadsheet, input: key("Enter") }),
+    ).toMatchObject({ kind: "navigate", target: anchor("record-2", "label") });
+    expect(
+      decideSemanticGridKey({
+        ...spreadsheet,
+        anchor: anchor("record-2", "label"),
+        input: key("Enter", { shiftKey: true }),
+      }),
+    ).toMatchObject({ kind: "navigate", target: start });
+    expect(
+      decideSemanticGridKey({
+        ...spreadsheet,
+        anchor: anchor("record-1", "state"),
+        input: key("Tab"),
+      }),
+    ).toMatchObject({ kind: "navigate", target: anchor("record-2", "label") });
+    expect(
+      decideSemanticGridKey({
+        ...spreadsheet,
+        anchor: anchor("record-2", "label"),
+        input: key("Tab", { shiftKey: true }),
+      }),
+    ).toMatchObject({ kind: "navigate", target: anchor("record-1", "state") });
+    expect(
+      decideSemanticGridKey({
+        ...spreadsheet,
+        anchor: anchor("record-3", "state"),
+        input: key("Tab"),
+      }),
+    ).toEqual({ kind: "exit_grid", backwards: false });
+    expect(
+      decideSemanticGridKey({
+        ...spreadsheet,
+        input: key("Tab", { shiftKey: true }),
+      }),
+    ).toEqual({ kind: "exit_grid", backwards: true });
+    expect(
+      decideSemanticGridKey({
+        ...spreadsheet,
+        anchor: anchor("record-3", "label"),
+        input: key("Enter"),
+        draftFieldKeys: ["label"],
+      }),
+    ).toEqual({ kind: "focus_draft", fieldKey: "label" });
     expect(decideSemanticGridKey({ ...base, input: key("x") })).toMatchObject({
       kind: "begin_edit",
       seed: { hasValue: true, value: "x" },
     });
+    const entry = decideSemanticGridKey({ ...base, input: key("x") });
+    if (entry.kind !== "begin_edit") throw new Error("Expected an editor seed");
+    const refreshedTarget = {
+      ...start,
+      mutationIdentity: {
+        kind: "core_row_version" as const,
+        baseRowVersion: 9,
+      },
+    };
+    expect(editorSeedForTarget(entry.seed, refreshedTarget)).toBeNull();
+    expect(
+      editorSeedForTarget(
+        { ...entry.seed, retained: true, value: "full draft" },
+        refreshedTarget,
+      ),
+    ).toMatchObject({ value: "full draft" });
+    expect(
+      editorSeedForTarget(
+        { ...entry.seed, retained: true },
+        {
+          ...refreshedTarget,
+          fieldKey: "state",
+        },
+      ),
+    ).toBeNull();
     expect(
       decideSemanticGridKey({ ...base, editable: false, input: key("Enter") }),
     ).toEqual({ announcement: "Workbook locked", kind: "reject" });

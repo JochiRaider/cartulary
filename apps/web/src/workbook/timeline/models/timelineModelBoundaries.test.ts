@@ -15,6 +15,7 @@ import {
 } from "./timelineLayoutPolicy";
 import {
   buildCollectionPatchIntent,
+  buildFollowOnCapturePatch,
   buildScalarPatchIntent,
 } from "./timelineMutationIntents";
 import {
@@ -297,6 +298,50 @@ describe("workbookTimelineModel", () => {
         },
       ],
     });
+    const submitted = {
+      ...row,
+      collectionDrafts: {
+        ...row.collectionDrafts,
+        hostRefs: "host-a",
+        tags: "tag-a",
+      },
+    };
+    const following = {
+      ...submitted,
+      collectionDrafts: {
+        ...submitted.collectionDrafts,
+        hostRefs: "host-a\nhost-b",
+        tags: "tag-a\ntag-b",
+      },
+    };
+    const patch = buildFollowOnCapturePatch(
+      row,
+      submitted,
+      following,
+      "following-capture",
+    );
+    expect(patch?.changes).toContainEqual({
+      field_key: "timeline.host_refs",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_token", raw_text: "host-b" }],
+      },
+    });
+    expect(patch?.changes).toContainEqual({
+      field_key: "timeline.tags",
+      action_payload: {
+        kind: "collection_actions_v1",
+        actions: [{ op: "add_tag", tag_name: "tag-b" }],
+      },
+    });
+    expect(
+      buildFollowOnCapturePatch(
+        { ...row, committedValues: row.values },
+        submitted,
+        submitted,
+        "unchanged-capture",
+      ),
+    ).toBeNull();
     expect(createDraftRowForKey("draft-22")).toMatchObject({ key: "draft-22" });
     expect(createDraftRowForKey("timeline-1")).toBeNull();
   });

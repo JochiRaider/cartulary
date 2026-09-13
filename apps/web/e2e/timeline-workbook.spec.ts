@@ -82,7 +82,7 @@ test("creates a Timeline row in-grid and continues editing on the draft row", as
   });
   const draftSummary = page.getByTestId(draftSummaryTestId);
   await draftSummary.fill("First browser fact");
-  await draftSummary.press("Enter");
+  await page.keyboard.press("Enter");
 
   const committedRow = await waitForCommittedRowSummary(page, {
     expectedSummary: "First browser fact",

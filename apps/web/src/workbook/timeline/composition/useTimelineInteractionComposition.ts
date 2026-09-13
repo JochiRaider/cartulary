@@ -47,6 +47,7 @@ type TimelineInteractionCompositionInput = {
     readonly clearViewportContinuity: ClipboardInput["clearViewportContinuity"];
     readonly currentTimelineAnchorFor: KeyboardInput["currentTimelineAnchorFor"];
     readonly focusDraftRow: () => void;
+    readonly navigateTimelineDraftFocus?: KeyboardInput["navigateTimelineDraftFocus"];
     readonly navigateTimelineFocusAnchor: KeyboardInput["navigateTimelineFocusAnchor"];
     readonly resolveTimelinePasteTargetResolution: ClipboardInput["resolveTimelinePasteTargetResolution"];
     readonly restoreTimelineFocusAnchor: (
@@ -73,6 +74,7 @@ type TimelineInteractionCompositionInput = {
   readonly interactionMode: WorkbookSurfaceLayoutOwner["snapshot"]["interactionMode"];
   readonly loadAccessLost: boolean;
   readonly mutation: {
+    readonly activateConflict: (key: string | null) => void;
     readonly applyClipboardResponseRows: ClipboardInput["applyResponseRows"];
     readonly beginSave: ClipboardInput["beginSave"];
     readonly commitScalarGridEdit: MutationCommandOutput["commitScalarGridEdit"];
@@ -158,6 +160,7 @@ export function useTimelineInteractionComposition({
     [mutation.queueScalarSave],
   );
   const { commands: keyboard } = useTimelineKeyboardController({
+    navigateTimelineDraftFocus: grid.navigateTimelineDraftFocus,
     clearRowHistory: inspector.clearRowHistory,
     currentTimelineAnchorFor: grid.currentTimelineAnchorFor,
     elementRegistry: inspector.elementRegistry,
@@ -273,7 +276,7 @@ export function useTimelineInteractionComposition({
     commands: {
       bulk: bulk.commands,
       editor: {
-        activateConflictCell: mutation.setActiveConflictKey,
+        activateConflictCell: mutation.activateConflict,
         activateCollectionInput: foundation.activateCollectionInput,
         commitScalarGridEdit: mutation.commitScalarGridEdit,
         deactivateCollectionInput: foundation.deactivateCollectionInput,

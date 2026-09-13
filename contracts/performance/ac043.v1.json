@@ -34,7 +34,7 @@
       "predicate_id": "perf.timeline_summary_focus_edit.v1",
       "view_schema_id": "cartulary.view.timeline.v2",
       "field_key": "timeline.activity_synopsis_text",
-      "initiating_key": "Enter",
+      "initiating_key": "PointerPrimary",
       "start_mark": "cartulary.workbook.focus_edit_accepted",
       "stop_mark": "cartulary.workbook.focus_edit_visible_paint",
       "threshold_ms": 100,
@@ -56,11 +56,11 @@
       "predicate_id": "perf.timeline_blank_row_create.v1",
       "view_schema_id": "cartulary.view.timeline.v2",
       "field_key": "timeline.activity_synopsis_text",
-      "initiating_key": "Enter",
+      "initiating_key": "Input",
       "start_mark": "cartulary.workbook.blank_row_commit_accepted",
       "stop_mark": "cartulary.workbook.blank_row_create_visible_paint",
       "threshold_ms": 150,
-      "start_state": "The default Timeline view has a visible blank row containing exactly one qualifying non-empty summary value.",
+      "start_state": "The default Timeline view has a visible blank row; input supplies the first qualifying non-empty summary value.",
       "stop_state": "The committed row intersects the visible grid viewport with a stable record ID, positive integer row version, and the entered value rendered."
     }
   ]

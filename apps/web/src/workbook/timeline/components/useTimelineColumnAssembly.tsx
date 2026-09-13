@@ -186,6 +186,12 @@ export function useTimelineColumnAssembly({
                       rowKey: row.key,
                       surface: "grid",
                     }) ?? readTimelineCellValue(row.rawRow, binding.fieldKey),
+                  discardDraft: (row) =>
+                    editorDraftRegistry.deleteDraft({
+                      field: binding.key,
+                      rowKey: row.key,
+                      surface: "grid",
+                    }),
                   renderEditor: (context) =>
                     renderTimelineGridEditor(
                       context.row,

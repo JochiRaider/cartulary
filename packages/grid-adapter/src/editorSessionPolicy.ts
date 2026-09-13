@@ -9,12 +9,13 @@ export type PendingEditorSeed = {
   readonly activation: GridEditorActivation;
   readonly anchor: GridCellAnchor;
   readonly baseRowVersion: number;
+  readonly retained?: boolean;
   readonly hasValue: boolean;
   readonly value: unknown;
 };
 
 export type ActiveEditorSession = {
-  readonly cancel: () => void;
+  readonly cancel: (shouldFocusCell?: boolean) => void;
   readonly focus: () => void;
   readonly requestCommit: () => Promise<boolean>;
   readonly target: PendingEditorSeed["anchor"];
@@ -26,7 +27,8 @@ export function editorSeedForTarget(
 ) {
   if (
     pending === null ||
-    pending.baseRowVersion !== target.mutationIdentity.baseRowVersion ||
+    (!pending.retained &&
+      pending.baseRowVersion !== target.mutationIdentity.baseRowVersion) ||
     !sameGridCellAnchor(pending.anchor, target)
   ) {
     return null;

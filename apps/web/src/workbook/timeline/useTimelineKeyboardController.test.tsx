@@ -54,6 +54,7 @@ function keyboardEvent<ElementType extends HTMLElement>({
     ctrlKey,
     currentTarget,
     defaultPrevented: false,
+    nativeEvent: new KeyboardEvent("keydown", { key }),
     key,
     metaKey,
     preventDefault: vi.fn(() => {
@@ -187,7 +188,7 @@ describe("useTimelineKeyboardController", () => {
         "grid",
       ),
     );
-    expect(range.preventDefault).toHaveBeenCalledOnce();
+    expect(range.preventDefault).not.toHaveBeenCalled();
     expect(range.stopPropagation).toHaveBeenCalledOnce();
     expect(calls).toEqual([]);
 

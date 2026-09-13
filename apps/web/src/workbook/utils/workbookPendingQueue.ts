@@ -126,6 +126,9 @@ type PendingReplayPublicResult =
         row_version: number;
       };
       change_set_id?: string;
+      followOnCreatePatches?: Readonly<
+        Record<string, PendingReplayPayloadIntent | null>
+      >;
     }
   | {
       ok: false;
@@ -300,6 +303,7 @@ export type PendingReplaySettlement =
   | {
       outcome: "success";
       unit: PendingReplayUnitState;
+      acknowledgedFollowOnUnits?: readonly PendingReplayUnitState[];
       row: {
         record_id: string;
         row_version: number;
@@ -1085,6 +1089,7 @@ class WorkbookPendingQueueState {
   readonly scope: PendingReplayScope;
 
   private units: PendingReplayUnitState[] = [];
+  private readonly dispatchedUnits = new WeakSet<PendingReplayUnitState>();
   private halted: PendingReplayHalt | null = null;
   private authPaused = false;
   private terminalReplayPaused = false;
@@ -1167,17 +1172,19 @@ class WorkbookPendingQueueState {
       };
     }
 
-    const duplicate = this.units.some(
-      (candidate) =>
-        candidate.rowKey === unit.rowKey &&
-        candidate.mutationSignature === unit.mutationSignature,
-    );
+    const latestForRow = [...this.units]
+      .reverse()
+      .find((candidate) => candidate.rowKey === unit.rowKey);
+    const duplicate =
+      latestForRow?.mutationSignature === unit.mutationSignature
+        ? latestForRow
+        : undefined;
     if (duplicate) {
       return {
         accepted: false,
         status: "duplicate",
         refusedReason: "duplicate",
-        unit: cloneUnit(unit),
+        unit: cloneUnit(duplicate),
         snapshot: this.snapshot(),
       };
     }
@@ -1185,6 +1192,7 @@ class WorkbookPendingQueueState {
     const lastUnit = this.units[this.units.length - 1];
     if (
       lastUnit !== undefined &&
+      !this.dispatchedUnits.has(lastUnit) &&
       canCoalescePendingReplayUnits(lastUnit, unit)
     ) {
       lastUnit.payloadIntent = mergePendingReplayPayload(
@@ -1264,6 +1272,7 @@ class WorkbookPendingQueueState {
     if (unit === undefined || unit.id !== unitId) {
       return null;
     }
+    this.dispatchedUnits.add(unit);
     unit.status = "in_flight";
     return {
       unit: cloneUnit(unit),
@@ -1291,13 +1300,49 @@ class WorkbookPendingQueueState {
 
     if (result.ok) {
       const completedUnit = cloneUnit(unit);
+      const acknowledgedFollowOnUnits: PendingReplayUnitState[] = [];
       this.units = this.units.filter((candidate) => candidate !== unit);
+      if (
+        unit.kind === "create" &&
+        result.followOnCreatePatches !== undefined
+      ) {
+        this.units = this.units.flatMap((candidate) => {
+          const payloadIntent = result.followOnCreatePatches?.[candidate.id];
+          if (
+            payloadIntent === undefined ||
+            candidate.kind !== "create" ||
+            candidate.status !== "queued" ||
+            this.dispatchedUnits.has(candidate) ||
+            candidate.rowKey !== unit.rowKey ||
+            candidate.viewSchemaId !== unit.viewSchemaId
+          )
+            return [candidate];
+          if (payloadIntent === null) {
+            acknowledgedFollowOnUnits.push(cloneUnit(candidate));
+            return [];
+          }
+          return [
+            normalizeUnit({
+              ...candidate,
+              kind: "patch",
+              recordId: result.row.record_id,
+              rowKey: result.row.record_id,
+              coalesceKey: `record:${result.row.record_id}`,
+              payloadIntent,
+              mutationSignature: buildStableMutationSignature(payloadIntent),
+            }),
+          ];
+        });
+      }
       this.authPaused = false;
       this.halted = null;
       this.describeIncidentClosureWork();
       return {
         outcome: "success",
         unit: completedUnit,
+        ...(acknowledgedFollowOnUnits.length === 0
+          ? {}
+          : { acknowledgedFollowOnUnits }),
         row: {
           record_id: result.row.record_id,
           row_version: result.row.row_version,

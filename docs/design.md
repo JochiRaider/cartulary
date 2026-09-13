@@ -1071,7 +1071,7 @@ Design contract. Keyboard behavior MUST use the matrix below. `Tab` order MUST e
 | `System views` switcher | `Tab` to button | Arrow keys by group and item | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Saved-view selector | `Tab` to selector | Arrow keys in menu | `Enter` or `Space` selects | Selection commits immediately | `Esc` closes menu | Close menu | Invoking control | Active surface selector |
 | Filter chips | `Tab` to chip group | Arrow keys between chips | `Enter` opens editor; `Delete` removes focused chip | Apply control commits | `Esc` closes editor | Close chip editor | Focused chip or chip group | Filter control |
-| Grid navigation mode | `Tab` to grid or one primary click on a committed cell | §8.6 key-command table | One primary click, `Enter`, or printable key enters edit when writable | Not applicable | `Esc` no-op | No-op | Active cell | Grid container |
+| Grid navigation mode | `Tab` to grid or one primary click on a committed cell | §8.6 key-command table | One primary click or printable key enters edit when writable; non-Timeline surfaces also use `Enter` | Not applicable | `Esc` no-op | No-op | Active cell | Grid container |
 | Grid edit mode | From active writable cell | §8.6 key-command table | Editor-specific | `Enter`, blur by explicit commit, or declared commit shortcut | `Esc` discards uncommitted editor value | Exit edit mode | Edited cell | Grid container |
 | Relationship chip | `Tab` or arrow within cell | Arrow keys within chip list | `Enter` opens inspect/action menu | Action commits through owner route | `Esc` closes menu | Close menu | Invoking chip | Owning cell |
 | Inspector tab/section | `Tab` to inspector | Arrow keys for tabs; headings tabbable only when interactive | `Enter` or `Space` opens control | Control-specific | `Esc` closes overlay inspector only | Close overlay inspector in responsive bands | Invoking row/control | Active grid container |
@@ -1110,7 +1110,7 @@ Design contract. Grid keyboard behavior MUST use the modes below.
 | Mode | Entered by | Exited by | Focus target | Mutation permitted |
 | --- | --- | --- | --- | --- |
 | `grid_navigation` | `Tab` into grid, committed edit, canceled edit, restored focus | Enter edit, leave grid, overlay opens | Active cell | No direct text mutation. |
-| `grid_edit` | One primary click, `Enter`, printable key on writable cell, explicit edit command | Commit, cancel, declared blur commit | Declared primary editor control | Yes. |
+| `grid_edit` | One primary click, printable key on writable cell, explicit edit command; non-Timeline `Enter` | Commit, cancel, declared blur commit | Declared primary editor control | Yes. |
 | `grid_range_selection` | `Shift+Arrow*` in navigation mode | Modifier release, explicit collapse, edit entry | Active range | No direct mutation. |
 | `grid_disabled_or_read_only` | Active cell is non-writable | Move focus, leave grid, overlay opens | Active cell or containing row | No mutation. |
 
@@ -1129,13 +1129,16 @@ Design contract. The key-command table is exhaustive for grid-owned key chords i
 | `End` | `grid_navigation` | Current row has visible navigation cell. | Move to last visible navigation cell in current row. | None. | Yes. |
 | `Ctrl/Cmd+Home` | `grid_navigation` | Query result has visible rows. | Move to first visible row and first visible navigation cell. | None. | Yes. |
 | `Ctrl/Cmd+End` | `grid_navigation` | Query result has visible rows. | Move to last visible row and last visible navigation cell. | None. | Yes. |
-| `Enter` | `grid_navigation` | Active cell writable. | Enter `grid_edit`; seed editor with existing cell value. | None. | Yes. |
-| `Enter` | `grid_edit` | Editor value valid for local commit. | Commit editor value and return to `grid_navigation`. | Commit. | Yes. |
-| `Shift+Enter` | `grid_navigation` | Active cell writable. | Enter `grid_edit`; seed editor with existing cell value and place caret at end. | None. | Yes. |
-| `Tab` | `grid_navigation` | No editor open. | Leave grid to next major shell region. | None. | No after focus transfer. |
-| `Shift+Tab` | `grid_navigation` | No editor open. | Leave grid to previous major shell region. | None. | No after focus transfer. |
-| `Tab` | `grid_edit` | Editor value valid for local commit. | Commit editor value and move to next major shell region. | Commit. | Yes. |
-| `Shift+Tab` | `grid_edit` | Editor value valid for local commit. | Commit editor value and move to previous major shell region. | Commit. | Yes. |
+| `Enter` / `Shift+Enter` | Timeline `grid_navigation` | Visible target row or authorized trailing draft exists. | Move vertically in the same field, down / up respectively. | None. | Yes. |
+| `Tab` / `Shift+Tab` | Timeline `grid_navigation` | Visible data fields exist. | Move horizontally and wrap across rows; leave for the adjacent shell region only at the outer Tab boundary. | None. | Yes when consumed. |
+| `Enter` / `Shift+Enter` / `Tab` / `Shift+Tab` | Timeline `grid_edit` | Editor value accepted. | Commit once, then perform the corresponding Timeline navigation; rejection keeps the draft and original editor accessible. | Commit. | Yes. |
+| `Enter` | non-Timeline `grid_navigation` | Active cell writable. | Enter non-Timeline `grid_edit`; seed editor with existing cell value. | None. | Yes. |
+| `Enter` | non-Timeline `grid_edit` | Editor value valid for local commit. | Commit editor value and return to non-Timeline `grid_navigation`. | Commit. | Yes. |
+| `Shift+Enter` | non-Timeline `grid_navigation` | Active cell writable. | Enter non-Timeline `grid_edit`; seed editor with existing cell value and place caret at end. | None. | Yes. |
+| `Tab` | non-Timeline `grid_navigation` | No editor open. | Leave grid to next major shell region. | None. | No after focus transfer. |
+| `Shift+Tab` | non-Timeline `grid_navigation` | No editor open. | Leave grid to previous major shell region. | None. | No after focus transfer. |
+| `Tab` | non-Timeline `grid_edit` | Editor value valid for local commit. | Commit editor value and move to next major shell region. | Commit. | Yes. |
+| `Shift+Tab` | non-Timeline `grid_edit` | Editor value valid for local commit. | Commit editor value and move to previous major shell region. | Commit. | Yes. |
 | `Escape` | `grid_edit` | Editor open. | Discard uncommitted editor value and return to `grid_navigation`. | Cancel. | Yes. |
 | `Escape` | `grid_navigation` | No higher-priority dismissible layer. | No-op. | None. | No. |
 | Printable character | `grid_navigation` | Active cell writable. | Enter `grid_edit`; seed editor with printed character. | None. | Yes. |

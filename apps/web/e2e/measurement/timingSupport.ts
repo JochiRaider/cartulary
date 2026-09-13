@@ -100,7 +100,7 @@ export async function measureFocusEdit(
     testId: editorTestId,
     timeoutMs: 5_000,
   });
-  await page.getByTestId(triggerTestId).press(predicate.initiatingKey);
+  await page.getByTestId(triggerTestId).click();
   return sampleFromCompletion(await completion, driverDispatchAt);
 }
 
@@ -136,7 +136,7 @@ export async function measureBlankRowCreate(
 ): Promise<MeasurementSample & { status: number }> {
   const predicate = performancePredicate("perf.timeline_blank_row_create.v1");
   const draftSummary = page.getByTestId(draftCellTestId(predicate.fieldKey));
-  await draftSummary.focus();
+  await draftSummary.focus({ timeout: 5_000 });
   await resetWorkbookClientTiming(page);
   const driverDispatchAt = await page.evaluate(() => performance.now());
   const completion = waitForBlankRowPaint(page, {
@@ -145,7 +145,7 @@ export async function measureBlankRowCreate(
     stopMark: predicate.stopMark,
     timeoutMs: 10_000,
   });
-  await draftSummary.press(predicate.initiatingKey);
+  await draftSummary.fill(expectedSummary, { timeout: 5_000 });
   const visible = await completion;
   const events = await readWorkbookClientTiming(page);
   const statusEvent = events.find(
@@ -469,14 +469,9 @@ export function observeBlankRowPaintInBrowser(options: {
     };
     const tick = () => {
       const start = performance.getEntriesByName(startMark, "mark").at(-1);
-      const grid =
-        Array.from(
-          document.querySelectorAll<HTMLElement>("[data-testid]"),
-        ).find(
-          (element) =>
-            element.getAttribute("data-testid") ===
-            "cartulary.view.timeline.v2-grid-shell",
-        ) ?? null;
+      const grid = document.querySelector<HTMLElement>(
+        '[data-testid="cartulary.view.timeline.v2-grid-shell"]',
+      );
       let match: { recordId: string; rowVersion: number } | null = null;
       let summaryMatch = false;
       let versionedSummaryMatch = false;
@@ -492,40 +487,28 @@ export function observeBlankRowPaintInBrowser(options: {
           ).find(
             (element) =>
               element.getAttribute("data-testid") ===
-              `row-${recordId}-timeline.activity_synopsis_text`,
+                `row-${recordId}-timeline.activity_synopsis_text` ||
+              element.getAttribute("data-testid") ===
+                `row-${recordId}-timeline.activity_synopsis_text-grid-editor`,
           );
           const value =
             summary instanceof HTMLInputElement ||
             summary instanceof HTMLTextAreaElement
               ? summary.value
               : summary?.textContent?.trim();
+          if (value !== expectedSummary || summary === undefined) continue;
+          summaryMatch = true;
+          // Qualify only the matching row. Repeated whole-document scans for
+          // every mounted row otherwise become part of the measured latency.
+          const versionSelector = `[data-testid=${JSON.stringify(`row-${recordId}-row_version`)}]`;
           const versionNode =
-            Array.from(row.querySelectorAll<HTMLElement>("[data-testid]")).find(
-              (element) =>
-                element.getAttribute("data-testid") ===
-                `row-${recordId}-row_version`,
-            ) ??
-            Array.from(
-              document.querySelectorAll<HTMLElement>("[data-testid]"),
-            ).find(
-              (element) =>
-                element.getAttribute("data-testid") ===
-                `row-${recordId}-row_version`,
-            );
+            row.querySelector<HTMLElement>(versionSelector) ??
+            document.querySelector<HTMLElement>(versionSelector);
           const rowVersion = Number.parseInt(
             versionNode?.textContent ?? "",
             10,
           );
-          if (value === expectedSummary && summary !== undefined) {
-            summaryMatch = true;
-          }
-          if (
-            value !== expectedSummary ||
-            !Number.isInteger(rowVersion) ||
-            rowVersion < 1 ||
-            summary === undefined
-          )
-            continue;
+          if (!Number.isInteger(rowVersion) || rowVersion < 1) continue;
           versionedSummaryMatch = true;
           const targetRect = summary.getBoundingClientRect();
           const gridRect = grid.getBoundingClientRect();

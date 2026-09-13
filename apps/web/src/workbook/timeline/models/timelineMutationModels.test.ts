@@ -136,6 +136,17 @@ describe("Timeline mutation models", () => {
       "draft-2",
     ]);
     expect(projection.createdFromDraft).toBe(true);
+    const refreshedBeforeAcknowledgement = projectAcceptedTimelineRow({
+      committed,
+      currentRows: [committed, draft],
+      nextDraftIndex: () => 2,
+      rowKey: draft.key,
+    });
+    expect(refreshedBeforeAcknowledgement.rows.map((row) => row.key)).toEqual([
+      "timeline-1",
+      "draft-2",
+    ]);
+    expect(refreshedBeforeAcknowledgement.createdFromDraft).toBe(true);
     expect(
       planTimelineAcceptedMutationEffects({
         committed,

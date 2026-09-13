@@ -1775,6 +1775,7 @@ describe("grid-adapter", () => {
   });
 
   it("retains semantic editor drafts for validation outcomes and closes only after acceptance", async () => {
+    const handle = createRef<GridHandle>();
     const commit = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1784,6 +1785,8 @@ describe("grid-adapter", () => {
       .mockResolvedValueOnce({ kind: "accepted" });
     render(
       <SemanticDataGrid
+        ref={handle}
+        keyboardNavigation="spreadsheet"
         columns={[
           {
             contractWritable: true,
@@ -1809,7 +1812,15 @@ describe("grid-adapter", () => {
             fieldKey: "label",
             label: "Label",
             renderCell: ({ row }) => (
-              <span data-testid="semantic-edit-cell">{row.label}</span>
+              <span
+                data-testid={
+                  row.label === "Alpha"
+                    ? "semantic-edit-cell"
+                    : "second-semantic-edit-cell"
+                }
+              >
+                {row.label}
+              </span>
             ),
           },
         ]}
@@ -1819,6 +1830,12 @@ describe("grid-adapter", () => {
             kind: "data",
             mutationIdentity: { kind: "core_row_version", baseRowVersion: 7 },
             rowIdentity: { kind: "core_record", recordId: "record-1" },
+          },
+          {
+            data: { label: "Beta", state: "open" },
+            kind: "data",
+            mutationIdentity: { kind: "core_row_version", baseRowVersion: 1 },
+            rowIdentity: { kind: "core_record", recordId: "record-2" },
           },
         ]}
         surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
@@ -1861,6 +1878,36 @@ describe("grid-adapter", () => {
         surface: testSurface,
       },
     });
+    let acknowledge!: (outcome: { kind: "accepted" }) => void;
+    commit.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          acknowledge = resolve;
+        }),
+    );
+    act(() => handle.current?.activateEdit(gridAnchor("record-1", "label")));
+    const oldEditor = await screen.findByRole("textbox", {
+      name: "Retained semantic draft",
+    });
+    fireEvent.blur(oldEditor);
+    act(() => handle.current?.activateEdit(gridAnchor("record-2", "label")));
+    const nextEditor = await screen.findByRole("textbox", {
+      name: "Retained semantic draft",
+    });
+    expect((nextEditor as HTMLInputElement).value).toBe("Beta");
+    await act(async () => acknowledge({ kind: "accepted" }));
+    expect(document.activeElement).toBe(nextEditor);
+    expect(nextEditor.isConnected).toBe(true);
+    act(() =>
+      handle.current?.moveFocus(gridAnchor("record-2", "label"), {
+        key: "Tab",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("textbox", { name: "Retained semantic draft" }),
+      ).toBeNull(),
+    );
   });
 
   it("keeps a rejected inter-cell transition on its semantic draft and opens the destination only after acceptance", async () => {
@@ -2670,6 +2717,7 @@ describe("grid-adapter", () => {
   });
 
   it("keeps RDG row identity stable across reorder, sort, rerender, and editable cells", async () => {
+    const handle = createRef<GridHandle>();
     type EditableHarnessRow = HarnessRow & {
       readonly recordId: string;
     };
@@ -2691,6 +2739,21 @@ describe("grid-adapter", () => {
             fieldKey: "label",
             headerTestId: "reorder-label-header",
             label: "Label",
+            contractWritable: true,
+            editor: {
+              initialDraftValue: (row) => row.label,
+              commit: async () => ({ kind: "accepted" }),
+              renderEditor: (context) => (
+                <input
+                  aria-label="Reordered semantic editor"
+                  ref={context.focusTargetRef}
+                  value={String(context.draftValue)}
+                  onChange={(event) =>
+                    context.setDraftValue(event.currentTarget.value)
+                  }
+                />
+              ),
+            },
             renderCell: ({ row }) => (
               <input
                 data-testid={`editable-label-${row.recordId}`}
@@ -2750,7 +2813,18 @@ describe("grid-adapter", () => {
           >
             Render {renderMarker}
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              setRows((current) =>
+                current.filter((row) => row.recordId === "record-1"),
+              )
+            }
+          >
+            Shrink query page
+          </button>
           <SemanticDataGrid
+            ref={handle}
             surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
             columns={editableColumns}
             onSortChange={(nextSort) => {
@@ -2787,6 +2861,60 @@ describe("grid-adapter", () => {
     expect(
       (screen.getByTestId("editable-label-record-1") as HTMLInputElement).value,
     ).toBe("Alpha edited");
+    act(() => handle.current?.activateEdit(gridAnchor("record-1", "label")));
+    const editor = await screen.findByRole("textbox", {
+      name: "Reordered semantic editor",
+    });
+    fireEvent.change(editor, {
+      target: { value: "Uncommitted through reorder" },
+    });
+    (editor as HTMLInputElement).setSelectionRange(4, 4);
+    fireEvent.select(editor);
+    fireEvent.click(screen.getByTestId("reverse-rows"));
+    const restored = await waitFor(() => {
+      const current = screen.getByRole("textbox", {
+        name: "Reordered semantic editor",
+      });
+      expect(
+        current
+          .closest("[data-grid-record-id]")
+          ?.getAttribute("data-grid-record-id"),
+      ).toBe("record-1");
+      return current;
+    });
+    expect(document.activeElement).toBe(restored);
+    expect((restored as HTMLInputElement).value).toBe(
+      "Uncommitted through reorder",
+    );
+    expect((restored as HTMLInputElement).selectionStart).toBe(4);
+    expect(
+      restored
+        .closest("[data-grid-record-id]")
+        ?.getAttribute("data-grid-record-id"),
+    ).toBe("record-1");
+    fireEvent.click(screen.getByTestId("reverse-rows"));
+    await waitFor(() =>
+      expect(
+        document.activeElement
+          ?.closest("[data-grid-record-id]")
+          ?.getAttribute("data-grid-record-id"),
+      ).toBe("record-1"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Shrink query page" }));
+    const afterShrink = await screen.findByRole("textbox", {
+      name: "Reordered semantic editor",
+    });
+    expect(document.activeElement).toBe(afterShrink);
+    expect((afterShrink as HTMLInputElement).value).toBe(
+      "Uncommitted through reorder",
+    );
+    expect((afterShrink as HTMLInputElement).selectionStart).toBe(4);
+    fireEvent.keyDown(afterShrink, { key: "Escape" });
+    expect(
+      document.activeElement
+        ?.closest("[data-grid-record-id]")
+        ?.getAttribute("data-grid-record-id"),
+    ).toBe("record-1");
   });
 
   it("keeps grouped editable draft cells stable across repeated local edits", async () => {

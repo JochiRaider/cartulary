@@ -37,12 +37,6 @@ type ViewportContinuityRequest =
   | { readonly kind: "row-inspect"; readonly recordId: string }
   | { readonly kind: "scroll-only" };
 
-function isCollectionDraftKey(
-  field: FocusFieldKey,
-): field is CollectionDraftKey {
-  return field === "hostRefs" || field === "identityRefs" || field === "tags";
-}
-
 function resolveScalarSaveSnapshot({
   currentValue,
   editorDraftRegistry,
@@ -59,8 +53,10 @@ function resolveScalarSaveSnapshot({
   readonly surface: TimelineScalarEditorSurface;
 }) {
   const row =
-    rows.find((candidate) => candidate.key === rowKey) ??
-    createDraftRowForKey(rowKey);
+    rows.find(
+      (candidate) =>
+        candidate.key === editorDraftRegistry.resolveRowKey(rowKey),
+    ) ?? createDraftRowForKey(rowKey);
   if (row === null) return null;
   const focusKey = inputFocusKey(row.key, focusField, surface);
   return {
@@ -188,25 +184,6 @@ export function useTimelineMutationCommands({
           ? {
               ...row,
               pendingSignature: mutationSignature,
-              rawRow:
-                visibleEdit === undefined || row.rawRow === null
-                  ? row.rawRow
-                  : {
-                      ...row.rawRow,
-                      cells: {
-                        ...row.rawRow.cells,
-                        [visibleEdit.fieldKey]: {
-                          ...row.rawRow.cells[visibleEdit.fieldKey],
-                          value: visibleEdit.value,
-                        },
-                      },
-                    },
-              values: isCollectionDraftKey(focusField)
-                ? row.values
-                : {
-                    ...row.values,
-                    [focusField]: rowSnapshot.values[focusField],
-                  },
             }
           : row,
       );
@@ -286,7 +263,7 @@ export function useTimelineMutationCommands({
       const effectiveRowKey = snapshot.key;
       const binding = timelineScalarBindingForValueKey(focusField);
       const clientTxnId = nextClientTxnId();
-      const admission = planTimelineScalarMutation({
+      let admission = planTimelineScalarMutation({
         allowZeroFieldCreate: options.allowZeroFieldCreate === true,
         clientTxnId,
         focusField,
@@ -299,6 +276,16 @@ export function useTimelineMutationCommands({
           pendingSavesRefs.pendingSignaturesRef.current.get(effectiveRowKey),
         row: snapshot,
       });
+      if (admission.kind === "accepted_duplicate" && onSettled !== undefined) {
+        admission = planTimelineScalarMutation({
+          allowZeroFieldCreate: options.allowZeroFieldCreate === true,
+          clientTxnId,
+          focusField,
+          hasConflict: false,
+          pendingSignature: undefined,
+          row: snapshot,
+        });
+      }
       if (admission.kind !== "admit") {
         settleUnadmittedScalarMutation({
           admission,
@@ -309,7 +296,10 @@ export function useTimelineMutationCommands({
         return;
       }
       const viewportContinuityToken = beginViewportContinuity(
-        options.preserveInputFocus
+        options.preserveInputFocus ||
+          (snapshot.recordId === null &&
+            editorDraftRegistry.inputElementForFocusKey(focusKey) ===
+              document.activeElement)
           ? {
               kind: "input",
               focusKey: inputFocusKey(
@@ -366,13 +356,19 @@ export function useTimelineMutationCommands({
       draftValueOverride?: string,
       source: "keyboard" | "blur" = "blur",
       surface: TimelineScalarEditorSurface = "grid",
+      onSettled?: (outcome: GridEditCommitOutcome) => void,
     ) => {
       const focusKey = inputFocusKey(rowKey, focusField, surface);
       const commitKey = inputFocusKey(rowKey, focusField, "grid");
       const rowSnapshot = rowsRef.current.find(
-        (candidate) => candidate.key === rowKey,
+        (candidate) =>
+          candidate.key === editorDraftRegistry.resolveRowKey(rowKey),
       );
       if (!rowSnapshot) {
+        onSettled?.({
+          kind: "stale_target",
+          message: "The timeline row is no longer available.",
+        });
         return;
       }
       const draftValue =
@@ -410,7 +406,7 @@ export function useTimelineMutationCommands({
       const effectiveSnapshot =
         editorDraftRegistry.materializeRow(collectionSnapshot);
       const clientTxnId = nextClientTxnId();
-      const admission = planTimelineCollectionMutation({
+      let admission = planTimelineCollectionMutation({
         clientTxnId,
         draftValue,
         effectiveRow: effectiveSnapshot,
@@ -418,7 +414,20 @@ export function useTimelineMutationCommands({
         pendingSignature:
           pendingSavesRefs.pendingSignaturesRef.current.get(rowKey),
       });
-      if (admission.kind !== "admit") return;
+      if (admission.kind === "accepted_duplicate" && onSettled !== undefined) {
+        admission = planTimelineCollectionMutation({
+          clientTxnId,
+          draftValue,
+          effectiveRow: effectiveSnapshot,
+          fieldKey,
+          pendingSignature: undefined,
+        });
+      }
+      if (admission.kind !== "admit") {
+        if (admission.kind === "accepted_no_change")
+          onSettled?.({ kind: "accepted" });
+        return;
+      }
       const viewportContinuityToken = beginViewportContinuity(
         snapshot.recordId === null
           ? {
@@ -431,14 +440,17 @@ export function useTimelineMutationCommands({
       );
       enqueueAutosaveReplayForPendingMutation({
         clientTxnId,
-        continueOnFreshDraft: snapshot.recordId === null,
+        continueOnFreshDraft:
+          onSettled === undefined && snapshot.recordId === null,
         detectAutoResolution: true,
         focusField,
         focusKey,
         mutationSignature: admission.mutationSignature,
         payloadIntent: admission.payloadIntent,
-        promoteToCommittedRowInspect: snapshot.recordId === null,
-        rowKey,
+        promoteToCommittedRowInspect:
+          surface === "inspector" && snapshot.recordId === null,
+        rowKey: effectiveSnapshot.key,
+        onSettled,
         surface,
         rowSnapshot: effectiveSnapshot,
         viewportContinuityToken,

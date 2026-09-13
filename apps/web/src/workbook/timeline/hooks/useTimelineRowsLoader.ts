@@ -28,6 +28,7 @@ import {
   type TimelineLoadState,
   type TimelineLoadSubject,
   timelineFreshnessRetryLimit,
+  timelineLoadIdentitiesEqual,
   transitionTimelineLoad,
 } from "../models/timelineLoadMachine";
 import {
@@ -306,6 +307,10 @@ export function useTimelineRowsLoader(input: TimelineRowsLoaderInput) {
   );
 
   useEffect(() => {
+    // Callback identity may change while a live row update is accepted. Only
+    // a different query subject cancels the active refresh or its retry.
+    if (timelineLoadIdentitiesEqual(machineRef.current.identity, loadIdentity))
+      return;
     abortLatestQuery(queryRuntimeRef);
     const effects = dispatchLoadEvent({
       hasLoadedRows: hasLoadedRows(),

@@ -183,6 +183,7 @@ export type GridViewportProps = PropsWithChildren<{
 }>;
 
 type SemanticDataGridBaseProps<Row> = {
+  readonly keyboardNavigation?: "region" | "spreadsheet" | undefined;
   readonly accessibleLabel?: string | undefined;
   readonly allowPasteCreateRows?: boolean | undefined;
   readonly activeRowIdentity?: GridRowIdentity | null | undefined;
@@ -312,6 +313,9 @@ export type GridEditCommitOutcome =
   | { readonly kind: "rejected_mutation"; readonly message: string };
 
 export type GridEditorActivation = {
+  readonly selectionRange?:
+    | { readonly start: number; readonly end: number }
+    | undefined;
   readonly source:
     | "clear"
     | "enter"
@@ -341,6 +345,7 @@ export type GridEditorRenderContext<Row> = {
 };
 
 export type GridEditorAdapter<Row> = {
+  readonly discardDraft?: ((row: Row) => void) | undefined;
   /** Draft value used by Backspace/Delete entry when this field permits clear. */
   readonly clearDraftValue?: unknown;
   readonly commit: (
@@ -369,11 +374,17 @@ export type GridGroupingDescriptor<Row> = {
 export type GridHandle = {
   readonly activateEdit: (
     anchor: GridCellAnchor,
-    seed?: { readonly value: unknown } | undefined,
+    seed?:
+      | {
+          readonly value: unknown;
+          readonly selectionRange?: GridEditorActivation["selectionRange"];
+        }
+      | undefined,
   ) => boolean;
   readonly cancelEdit: (anchor: GridCellAnchor) => boolean;
   readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
   readonly focusDraftCell: (fieldKey: string) => boolean;
+  readonly focusAdjacentRegion?: (backwards: boolean) => boolean;
   readonly focusRoot: () => boolean;
   readonly getAnchorRect: (anchor: GridCellAnchor) => DOMRectReadOnly | null;
   readonly getScrollElement: () => HTMLDivElement | null;

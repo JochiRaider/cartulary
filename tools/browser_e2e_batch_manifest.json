@@ -931,6 +931,35 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-timeline-grid-entry",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.spreadsheet_bulk",
+            "module.timeline.browser.spreadsheet_creation",
+            "module.timeline.browser.spreadsheet_keyboard",
+            "module.timeline.browser.spreadsheet_pointer",
+            "module.timeline.browser.spreadsheet_refresh",
+            "module.timeline.browser.spreadsheet_rejection",
+            "module.timeline.browser.spreadsheet_uncertain_create",
+            "module.timeline.browser.spreadsheet_virtualization"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-grid-entry.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-timeline-query",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -2098,6 +2127,35 @@
           ],
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-functional-default"
+        },
+        {
+          "name": "functional-default-timeline-grid-entry",
+          "target": "browser-e2e-functional",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.timeline.browser.spreadsheet_bulk",
+            "module.timeline.browser.spreadsheet_creation",
+            "module.timeline.browser.spreadsheet_keyboard",
+            "module.timeline.browser.spreadsheet_pointer",
+            "module.timeline.browser.spreadsheet_refresh",
+            "module.timeline.browser.spreadsheet_rejection",
+            "module.timeline.browser.spreadsheet_uncertain_create",
+            "module.timeline.browser.spreadsheet_virtualization"
+          ],
+          "specs": [
+            "apps/web/e2e/timeline-grid-entry.spec.ts"
           ],
           "resource_profile_id": "browser_functional",
           "service_requirement": "test-services",

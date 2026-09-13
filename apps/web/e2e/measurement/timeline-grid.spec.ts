@@ -1,7 +1,6 @@
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   cartularyAc043PerformanceContract,
-  draftCellTestId,
   gridSortHeaderTestId,
   rowCellTestId,
   saveStateTestId,
@@ -204,7 +203,7 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
   }
 });
 
-test("measures paint-qualified Timeline summary Enter focus within AC-043", async ({
+test("measures paint-qualified Timeline summary pointer focus within AC-043", async ({
   browser,
   page,
   sessionTracker,
@@ -319,7 +318,7 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
       timeoutMs: 10_000,
     });
     await activateSemanticGridCell(content);
-    await content.press("Enter");
+    await content.click();
     for (
       let sampleIndex = 0;
       sampleIndex < interactiveMeasurementSamplePolicy.totalSamples;
@@ -378,16 +377,12 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
           prepared.snapshot.runtime.backgroundAccounts,
           "perf.timeline_blank_row_create.v1",
         ));
-    const draft = page.getByTestId(
-      draftCellTestId("timeline.activity_synopsis_text"),
-    );
     for (
       let sampleIndex = 0;
       sampleIndex < interactiveMeasurementSamplePolicy.totalSamples;
       sampleIndex += 1
     ) {
       const summary = `AC-043 blank sample ${sampleIndex} ${uniqueTxn("blank-row")}`;
-      await draft.fill(summary);
       const sample = await measureBlankRowCreate(page, summary);
       expect(sample.status).toBe(201);
       samples.push({ stagesMs: sample.stagesMs, totalMs: sample.totalMs });

@@ -67,6 +67,7 @@ export function useTimelineGridEnvironment({
     [interactions.commands],
   );
   const anchors = useTimelineGridAnchorController({
+    editorDraftRegistry,
     continuityPort: interactions.continuityPort,
     gridHandleRef: timelineGridHandleRef,
     rowsRef,

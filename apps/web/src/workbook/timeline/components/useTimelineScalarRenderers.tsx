@@ -148,6 +148,20 @@ export function useTimelineScalarRenderers({
             focusTargetRef={focusTargetRef}
             multiline={binding.multiline}
             onBlurCommit={handleBlur}
+            onCaptureInput={
+              row.recordId === null && !readOnly
+                ? (value) => {
+                    if (value.trim() === "") return;
+                    if (editorDraftRegistry.beginCapture(row.key)) {
+                      performance.mark(
+                        "cartulary.workbook.blank_row_commit_accepted",
+                        { detail: { field: binding.fieldKey, surface } },
+                      );
+                    }
+                    handleBlur(row.key, binding.key, surface, value);
+                  }
+                : undefined
+            }
             onCloseGridEditor={closeGridEditor}
             onDraftChange={(rowKey, field, editorSurface, value) => {
               setScalarEditorDraftValue(rowKey, field, editorSurface, value);
@@ -165,8 +179,9 @@ export function useTimelineScalarRenderers({
             rowRecordId={row.recordId}
             surface={surface}
           />
-          {localConflict && surface === "inspector" ? (
+          {localConflict ? (
             <button
+              data-grid-editor-external-action="true"
               data-testid={conflictMarkerTestId(
                 row.recordId ?? "draft",
                 binding.fieldKey,

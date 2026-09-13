@@ -8,6 +8,7 @@ import {
 import {
   type ClipboardEvent,
   type CSSProperties,
+  createContext,
   type FocusEvent,
   type ForwardedRef,
   forwardRef,
@@ -17,6 +18,7 @@ import {
   type ReactNode,
   type RefAttributes,
   useCallback,
+  useContext,
   useImperativeHandle,
   useLayoutEffect,
   useRef,
@@ -50,6 +52,7 @@ import {
   gridUnassignedGroupLabel,
   type SemanticDataGridProps,
 } from "./core";
+import { focusAdjacentOutsideGrid } from "./domInteraction";
 import { GridOperationalStatePlane } from "./GridOperationalStatePlane";
 import { decideSemanticActiveCellTransition } from "./semanticActiveCellPolicy";
 import { resolveSemanticGridCapabilities } from "./semanticCapabilities";
@@ -65,6 +68,7 @@ import {
 } from "./semanticDataState";
 import {
   decideSemanticGridKey,
+  decideSpreadsheetNavigation,
   normalizeGridKey,
   type SemanticGridDecision,
 } from "./semanticKeyboardPolicy";
@@ -100,6 +104,7 @@ function coreRecordId<Row>(row: GridDataRow<Row>): string | null {
 }
 
 type TestActiveEditor = {
+  readonly seed?: unknown;
   readonly fieldKey: string;
   readonly rowIdentity: GridRowIdentity;
 };
@@ -197,6 +202,7 @@ function useTestSupportRange(
 }
 
 function useTestSupportGridHandle<Row>({
+  keyboardNavigation,
   activeEditor,
   cellElements,
   columns,
@@ -210,6 +216,7 @@ function useTestSupportGridHandle<Row>({
   setActiveEditor,
   surface,
 }: {
+  readonly keyboardNavigation: "region" | "spreadsheet";
   readonly activeEditor: TestActiveEditor | null;
   readonly cellElements: MutableRefObject<Map<string, HTMLTableCellElement>>;
   readonly columns: readonly GridColumn<Row>[];
@@ -228,7 +235,7 @@ function useTestSupportGridHandle<Row>({
   useImperativeHandle(
     ref,
     () => ({
-      activateEdit: (anchor) => {
+      activateEdit: (anchor, seed) => {
         const row = dataRows.find((candidate) =>
           gridRowIdentitiesEqual(candidate.rowIdentity, anchor.rowIdentity),
         );
@@ -242,6 +249,7 @@ function useTestSupportGridHandle<Row>({
         setActiveEditor({
           fieldKey: anchor.fieldKey,
           rowIdentity: anchor.rowIdentity,
+          seed: seed?.value,
         });
         return true;
       },
@@ -253,6 +261,8 @@ function useTestSupportGridHandle<Row>({
       focusAnchor: focusSemanticAnchor,
       focusDraftCell: (fieldKey) =>
         focusTestDraftCell(draftFocusTargets.current, fieldKey),
+      focusAdjacentRegion: (backwards) =>
+        focusAdjacentOutsideGrid(scrollElement.current, backwards),
       focusRoot: () => focusTestRoot(scrollElement.current),
       getScrollElement: () => scrollElement.current,
       getAnchorRect: (anchor) =>
@@ -260,6 +270,31 @@ function useTestSupportGridHandle<Row>({
       isAnchorRendered: (anchor) =>
         semanticPresentationContainsAnchor(presentation, anchor),
       moveFocus: (current, intent) => {
+        if (
+          keyboardNavigation === "spreadsheet" &&
+          (intent.key === "Enter" || intent.key === "Tab")
+        ) {
+          if (activeEditor !== null) {
+            if (!activeEditorsEqual(activeEditor, current, surface))
+              return null;
+            setActiveEditor(null);
+          }
+          const decision = decideSpreadsheetNavigation(
+            presentation,
+            current,
+            { key: intent.key, shiftKey: intent.shiftKey === true },
+            [...draftFocusTargets.current.keys()],
+          );
+          if (decision.kind === "navigate") {
+            focusSemanticAnchor(decision.target);
+            return decision.target;
+          }
+          if (decision.kind === "focus_draft")
+            focusTestDraftCell(draftFocusTargets.current, decision.fieldKey);
+          if (decision.kind === "exit_grid")
+            focusAdjacentOutsideGrid(scrollElement.current, decision.backwards);
+          return null;
+        }
         const next = navigateSemanticPresentation(
           presentation,
           current,
@@ -274,6 +309,7 @@ function useTestSupportGridHandle<Row>({
     }),
     [
       activeEditor,
+      keyboardNavigation,
       cellElements,
       columns,
       dataRows,
@@ -880,6 +916,7 @@ function TestGridDataCell<Row>({
   readonly surface: SemanticDataGridProps<Row>["surface"];
   readonly updateRange: (range: GridCellRange | null) => void;
 }) {
+  const keyboardPolicy = useContext(TestKeyboardPolicyContext);
   const anchor = {
     fieldKey: column.fieldKey,
     rowIdentity: gridRow.rowIdentity,
@@ -936,6 +973,7 @@ function TestGridDataCell<Row>({
       }}
       onKeyDown={(event) =>
         handleTestCellKeyDown({
+          keyboardPolicy,
           anchor,
           cell: event.currentTarget,
           column,
@@ -982,6 +1020,22 @@ function TestGridDataCell<Row>({
       gridRow.mutationIdentity !== undefined &&
       column.editor !== undefined ? (
         <TestGridEditor
+          onNavigate={(key, shiftKey) => {
+            const decision = decideSpreadsheetNavigation(
+              presentation,
+              anchor,
+              { key, shiftKey },
+              keyboardPolicy.draftFieldKeys(),
+            );
+            if (decision.kind === "navigate")
+              focusSemanticAnchor(decision.target);
+            else if (decision.kind === "focus_draft")
+              keyboardPolicy.focusDraftCell(decision.fieldKey);
+            else if (decision.kind === "exit_grid")
+              keyboardPolicy.focusAdjacentRegion(decision.backwards);
+          }}
+          seed={activeEditor?.seed}
+          keyboardNavigation={keyboardPolicy.mode}
           adapter={column.editor}
           row={gridRow.data}
           target={{
@@ -990,7 +1044,10 @@ function TestGridDataCell<Row>({
             rowIdentity: gridRow.rowIdentity,
             surface,
           }}
-          onClose={() => setActiveEditor(null)}
+          onClose={() => {
+            setActiveEditor(null);
+            queueMicrotask(() => focusSemanticAnchor(anchor));
+          }}
         />
       ) : (
         column.renderCell({ anchor, row: gridRow.data })
@@ -1104,6 +1161,7 @@ function canBeginTestEdit<Row>({
 }
 
 function handleTestCellKeyDown<Row>({
+  keyboardPolicy,
   anchor,
   cell,
   column,
@@ -1121,6 +1179,7 @@ function handleTestCellKeyDown<Row>({
   surface,
   updateRange,
 }: {
+  readonly keyboardPolicy: TestKeyboardPolicy;
   readonly anchor: GridCellAnchor;
   readonly cell: HTMLTableCellElement;
   readonly column: GridColumn<Row>;
@@ -1152,6 +1211,8 @@ function handleTestCellKeyDown<Row>({
     column,
     editable,
     input: normalizeGridKey(event),
+    keyboardNavigation: keyboardPolicy.mode,
+    draftFieldKeys: keyboardPolicy.draftFieldKeys(),
     model: presentation,
     pageSize: 10,
     range: rangeRef.current,
@@ -1161,6 +1222,11 @@ function handleTestCellKeyDown<Row>({
         : "This workbook is read-only.",
     row: gridRow,
   });
+  if (decision.kind === "focus_draft") {
+    event.preventDefault();
+    keyboardPolicy.focusDraftCell(decision.fieldKey);
+    return;
+  }
   if (
     executeTestSemanticKeyDecision({
       cell,
@@ -1272,6 +1338,7 @@ function useSemanticDataGridTestSupport<Row>(
     getCellState,
     getRowState,
     grouping = null,
+    keyboardNavigation = "region",
     interactionMode,
     clipboardPaste,
     onActiveCellChange,
@@ -1333,6 +1400,7 @@ function useSemanticDataGridTestSupport<Row>(
     onActiveCellChange,
   );
   useTestSupportGridHandle({
+    keyboardNavigation,
     activeEditor,
     cellElements,
     columns,
@@ -1367,127 +1435,138 @@ function useSemanticDataGridTestSupport<Row>(
     (actionsColumn === undefined ? 0 : 1);
 
   return (
-    <div
-      className="cartulary-grid-state-frame"
-      style={
-        {
-          "--cartulary-grid-state-row-height": `${workbookGridRowHeightPx(density)}px`,
-          "--cartulary-grid-state-draft-inset":
-            editable && effectiveDraftRow !== undefined
-              ? `${workbookGridRowHeightPx(density)}px`
-              : "0px",
-        } as CSSProperties
-      }
+    <TestKeyboardPolicyContext.Provider
+      value={{
+        mode: keyboardNavigation,
+        draftFieldKeys: () => [...draftFocusTargets.current.keys()],
+        focusAdjacentRegion: (backwards) =>
+          focusAdjacentOutsideGrid(scrollElement.current, backwards),
+        focusDraftCell: (fieldKey) =>
+          focusTestDraftCell(draftFocusTargets.current, fieldKey),
+      }}
     >
       <div
-        className="cartulary-grid-binding-content"
-        inert={gridDataStateBlocksInteraction(dataState) ? true : undefined}
+        className="cartulary-grid-state-frame"
+        style={
+          {
+            "--cartulary-grid-state-row-height": `${workbookGridRowHeightPx(density)}px`,
+            "--cartulary-grid-state-draft-inset":
+              editable && effectiveDraftRow !== undefined
+                ? `${workbookGridRowHeightPx(density)}px`
+                : "0px",
+          } as CSSProperties
+        }
       >
         <div
-          className={gridScrollportClassName()}
-          ref={scrollElement}
-          style={
-            fillViewportInline ? { minWidth: 0, width: "100%" } : undefined
-          }
-          tabIndex={-1}
+          className="cartulary-grid-binding-content"
+          inert={gridDataStateBlocksInteraction(dataState) ? true : undefined}
         >
-          <table
-            aria-label={accessibleLabel}
-            aria-busy={
-              dataState.kind === "initial_loading" ||
-              dataState.kind === "refreshing"
-            }
-            aria-readonly={!editable}
-            role="grid"
+          <div
+            className={gridScrollportClassName()}
+            ref={scrollElement}
             style={
               fillViewportInline ? { minWidth: 0, width: "100%" } : undefined
             }
+            tabIndex={-1}
           >
-            <TestGridHeader
-              actionsColumn={actionsColumn}
-              bulkSelection={effectiveBulkSelection}
-              bulkSelectionState={bulkSelectionState}
-              columns={columns}
-              onSelectAll={() => {
-                selectionAnchorRecordId.current = null;
-                if (
-                  effectiveBulkSelection !== undefined &&
-                  bulkSelectionState !== null
-                ) {
-                  effectiveBulkSelection.onSelectedRecordIdsChange(
-                    toggleAllSemanticRecords(bulkSelectionState),
-                  );
-                }
-              }}
-              onSortChange={onSortChange}
-              rowGutter={rowGutter}
-              sort={sort}
-            />
-            <TestGridBody
-              actionsColumn={actionsColumn}
-              activeEditor={activeEditor}
-              bulkSelection={effectiveBulkSelection}
-              bulkSelectionState={bulkSelectionState}
-              cellElements={cellElements}
-              cellStateFor={cellStateFor}
-              clipboardPaste={clipboardPaste}
-              columns={columns}
-              draftFocusTargets={draftFocusTargets}
-              draftRow={effectiveDraftRow}
-              editable={editable}
-              focusSemanticAnchor={focusSemanticAnchor}
-              interactionMode={effectiveInteractionMode}
-              onCopyCell={onCopyCell}
-              onFillCells={onFillCells}
-              onSelectRecord={(gridRow, shiftKey) => {
-                const recordId = coreRecordId(gridRow);
-                if (
-                  recordId === null ||
-                  effectiveBulkSelection === undefined ||
-                  bulkSelectionState === null
-                ) {
-                  return;
-                }
-                const next = toggleSemanticRecordRange({
-                  anchorRecordId: selectionAnchorRecordId.current,
-                  recordId,
-                  selectableRows: bulkSelectionState.selectableRows,
-                  selectedRecordIds: effectiveBulkSelection.selectedRecordIds,
-                  shiftKey,
-                });
-                selectionAnchorRecordId.current = recordId;
-                effectiveBulkSelection.onSelectedRecordIdsChange(next);
-              }}
-              onSelectRow={onSelectRow}
-              pendingRangeEnd={pendingRangeEnd}
-              presentation={semanticPresentation}
-              publishActiveCell={publishActiveCell}
-              rangeRef={rangeRef}
-              renderedRows={renderedRows}
-              rowGutter={rowGutter}
-              rowStateFor={rowStateFor}
-              setActiveEditor={setActiveEditor}
-              setKeyboardAnnouncement={setKeyboardAnnouncement}
-              surface={surface}
-              totalColumnCount={totalColumnCount}
-              updateRange={updateRange}
-            />
-          </table>
+            <table
+              aria-label={accessibleLabel}
+              aria-busy={
+                dataState.kind === "initial_loading" ||
+                dataState.kind === "refreshing"
+              }
+              aria-readonly={!editable}
+              role="grid"
+              style={
+                fillViewportInline ? { minWidth: 0, width: "100%" } : undefined
+              }
+            >
+              <TestGridHeader
+                actionsColumn={actionsColumn}
+                bulkSelection={effectiveBulkSelection}
+                bulkSelectionState={bulkSelectionState}
+                columns={columns}
+                onSelectAll={() => {
+                  selectionAnchorRecordId.current = null;
+                  if (
+                    effectiveBulkSelection !== undefined &&
+                    bulkSelectionState !== null
+                  ) {
+                    effectiveBulkSelection.onSelectedRecordIdsChange(
+                      toggleAllSemanticRecords(bulkSelectionState),
+                    );
+                  }
+                }}
+                onSortChange={onSortChange}
+                rowGutter={rowGutter}
+                sort={sort}
+              />
+              <TestGridBody
+                actionsColumn={actionsColumn}
+                activeEditor={activeEditor}
+                bulkSelection={effectiveBulkSelection}
+                bulkSelectionState={bulkSelectionState}
+                cellElements={cellElements}
+                cellStateFor={cellStateFor}
+                clipboardPaste={clipboardPaste}
+                columns={columns}
+                draftFocusTargets={draftFocusTargets}
+                draftRow={effectiveDraftRow}
+                editable={editable}
+                focusSemanticAnchor={focusSemanticAnchor}
+                interactionMode={effectiveInteractionMode}
+                onCopyCell={onCopyCell}
+                onFillCells={onFillCells}
+                onSelectRecord={(gridRow, shiftKey) => {
+                  const recordId = coreRecordId(gridRow);
+                  if (
+                    recordId === null ||
+                    effectiveBulkSelection === undefined ||
+                    bulkSelectionState === null
+                  ) {
+                    return;
+                  }
+                  const next = toggleSemanticRecordRange({
+                    anchorRecordId: selectionAnchorRecordId.current,
+                    recordId,
+                    selectableRows: bulkSelectionState.selectableRows,
+                    selectedRecordIds: effectiveBulkSelection.selectedRecordIds,
+                    shiftKey,
+                  });
+                  selectionAnchorRecordId.current = recordId;
+                  effectiveBulkSelection.onSelectedRecordIdsChange(next);
+                }}
+                onSelectRow={onSelectRow}
+                pendingRangeEnd={pendingRangeEnd}
+                presentation={semanticPresentation}
+                publishActiveCell={publishActiveCell}
+                rangeRef={rangeRef}
+                renderedRows={renderedRows}
+                rowGutter={rowGutter}
+                rowStateFor={rowStateFor}
+                setActiveEditor={setActiveEditor}
+                setKeyboardAnnouncement={setKeyboardAnnouncement}
+                surface={surface}
+                totalColumnCount={totalColumnCount}
+                updateRange={updateRange}
+              />
+            </table>
+          </div>
         </div>
+        <GridOperationalStatePlane
+          accessibleLabel={accessibleLabel}
+          dataState={dataState}
+          focusRoot={() => focusTestRoot(scrollElement.current)}
+          interactionMode={effectiveInteractionMode}
+          surface={surface}
+        />
+        {keyboardAnnouncement === "" ? null : (
+          <span aria-live="assertive" role="alert">
+            {keyboardAnnouncement}
+          </span>
+        )}
       </div>
-      <GridOperationalStatePlane
-        accessibleLabel={accessibleLabel}
-        dataState={dataState}
-        focusRoot={() => focusTestRoot(scrollElement.current)}
-        interactionMode={effectiveInteractionMode}
-        surface={surface}
-      />
-      {keyboardAnnouncement === "" ? null : (
-        <span aria-live="assertive" role="alert">
-          {keyboardAnnouncement}
-        </span>
-      )}
-    </div>
+    </TestKeyboardPolicyContext.Provider>
   );
 }
 
@@ -1509,15 +1588,13 @@ function executeTestSemanticKeyDecision<Row>({
   readonly onFillCells: SemanticDataGridProps<Row>["onFillCells"];
   readonly pendingRangeEnd: MutableRefObject<GridCellAnchor | null>;
   readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
-  readonly setActiveEditor: (value: {
-    readonly fieldKey: string;
-    readonly rowIdentity: GridRowIdentity;
-  }) => void;
+  readonly setActiveEditor: (value: TestActiveEditor) => void;
   readonly setKeyboardAnnouncement: (value: string) => void;
   readonly surface: SemanticDataGridProps<Row>["surface"];
   readonly updateRange: (range: GridCellRange | null) => void;
 }): boolean {
   switch (decision.kind) {
+    case "focus_draft":
     case "ignore":
     case "copy":
     case "paste":
@@ -1526,10 +1603,14 @@ function executeTestSemanticKeyDecision<Row>({
       setKeyboardAnnouncement(decision.announcement);
       return true;
     case "exit_grid":
-      cell.blur();
+      focusAdjacentOutsideGrid(
+        cell.closest(".cartulary-grid") as HTMLDivElement | null,
+        decision.backwards,
+      );
       return true;
     case "begin_edit":
       setActiveEditor({
+        seed: decision.seed.hasValue ? decision.seed.value : undefined,
         fieldKey: decision.seed.anchor.fieldKey,
         rowIdentity: decision.seed.anchor.rowIdentity,
       });
@@ -1664,19 +1745,37 @@ export const SemanticDataGrid = forwardRef(SemanticDataGridInner) as <Row>(
 ) => ReactElement;
 
 function TestGridEditor<Row>({
+  seed,
+  keyboardNavigation,
+  onNavigate,
   adapter,
   row,
   target,
   onClose,
 }: {
+  readonly seed?: unknown;
+  readonly keyboardNavigation: "region" | "spreadsheet";
+  readonly onNavigate: (key: "Enter" | "Tab", shiftKey: boolean) => void;
   readonly adapter: GridEditorAdapter<Row>;
   readonly row: Row;
   readonly target: Parameters<GridEditorAdapter<Row>["commit"]>[0]["target"];
   readonly onClose: () => void;
 }) {
   const [draftValue, setDraftValue] = useState(() =>
-    adapter.initialDraftValue(row),
+    seed === undefined ? adapter.initialDraftValue(row) : seed,
   );
+  const closed = useRef(false);
+  const revision = useRef(0);
+  const latestDraft = useRef(draftValue);
+  const updateDraftValue = (value: unknown) => {
+    if (
+      testGridEditorDraftKey(latestDraft.current) !==
+      testGridEditorDraftKey(value)
+    )
+      revision.current += 1;
+    latestDraft.current = value;
+    setDraftValue(value);
+  };
   const [outcome, setOutcome] = useState<GridEditCommitOutcome | null>(null);
   const [pending, setPending] = useState(false);
   const focusTarget = useRef<GridEditorFocusTarget | null>(null);
@@ -1684,6 +1783,8 @@ function TestGridEditor<Row>({
     new Map<string, Promise<GridEditCommitOutcome>>(),
   );
   const latestCommitSequence = useRef(0);
+  const cancelled = useRef(false);
+  const navigationSequence = useRef(0);
   const focusTargetRef = useCallback(
     (element: GridEditorFocusTarget | null) => {
       focusTarget.current = element;
@@ -1704,6 +1805,7 @@ function TestGridEditor<Row>({
   }, []);
   const commit = useCallback(
     (draftValueOverride?: unknown) => {
+      const submittedRevision = revision.current;
       const requestedDraft =
         draftValueOverride === undefined ? draftValue : draftValueOverride;
       const draftKey = testGridEditorDraftKey(requestedDraft);
@@ -1727,8 +1829,11 @@ function TestGridEditor<Row>({
           if (
             next.kind === "accepted" &&
             isLatest &&
+            !closed.current &&
+            revision.current === submittedRevision &&
             commitPromises.current.size === 0
           ) {
+            closed.current = true;
             onClose();
           }
           return next;
@@ -1739,7 +1844,10 @@ function TestGridEditor<Row>({
     [adapter, draftValue, onClose, row, target],
   );
   const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+    if (
+      closed.current ||
+      event.currentTarget.contains(event.relatedTarget as Node | null)
+    ) {
       return;
     }
     void commit();
@@ -1748,8 +1856,33 @@ function TestGridEditor<Row>({
     <div
       onBlurCapture={handleBlur}
       onKeyDownCapture={(event) => {
+        if (event.nativeEvent.isComposing) return;
+        if (
+          keyboardNavigation === "spreadsheet" &&
+          (event.key === "Enter" || event.key === "Tab")
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          const key = event.key;
+          const shiftKey = event.shiftKey;
+          const sequence = ++navigationSequence.current;
+          const submittedRevision = revision.current;
+          void commit().then((result) => {
+            if (
+              result.kind === "accepted" &&
+              !cancelled.current &&
+              sequence === navigationSequence.current &&
+              submittedRevision === revision.current
+            )
+              queueMicrotask(() => onNavigate(key, shiftKey));
+          });
+          return;
+        }
         if (event.key === "Escape") {
           event.preventDefault();
+          cancelled.current = true;
+          closed.current = true;
+          adapter.discardDraft?.(row);
           onClose();
         }
       }}
@@ -1757,7 +1890,12 @@ function TestGridEditor<Row>({
       {
         adapter.renderEditor({
           activation: { initialSelection: "end", source: "pointer" },
-          cancel: onClose,
+          cancel: () => {
+            cancelled.current = true;
+            closed.current = true;
+            adapter.discardDraft?.(row);
+            onClose();
+          },
           commit: async (draftValueOverride) => {
             await commit(draftValueOverride);
           },
@@ -1766,7 +1904,7 @@ function TestGridEditor<Row>({
           outcome,
           pending,
           row,
-          setDraftValue,
+          setDraftValue: updateDraftValue,
           target,
         }) as ReactNode
       }
@@ -1813,3 +1951,16 @@ function testSemanticAttributes(
     "data-grid-semantic-states": state.stateIds.join(" "),
   } as const;
 }
+
+type TestKeyboardPolicy = {
+  readonly mode: "region" | "spreadsheet";
+  readonly focusAdjacentRegion: (backwards: boolean) => boolean;
+  readonly draftFieldKeys: () => readonly string[];
+  readonly focusDraftCell: (fieldKey: string) => boolean;
+};
+const TestKeyboardPolicyContext = createContext<TestKeyboardPolicy>({
+  mode: "region",
+  focusAdjacentRegion: () => false,
+  draftFieldKeys: () => [],
+  focusDraftCell: () => false,
+});

@@ -47,6 +47,9 @@ export type TimelineRowMutationEditorPort = {
     readonly fieldKey: string;
     readonly recordId: string;
     readonly value: unknown;
+    readonly selectionRange?:
+      | { readonly start: number; readonly end: number }
+      | undefined;
   }) => void;
   readonly cancelEdit: (input: {
     readonly fieldKey: string;
